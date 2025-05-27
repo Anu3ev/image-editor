@@ -64,7 +64,10 @@ export default class TransformManager {
     const { canvas, minZoom, maxZoom } = this.editor
 
     const currentZoom = canvas.getZoom()
-    const { x: pointX, y: pointY } = canvas.getCenterPoint()
+    const {
+      x: pointX = options.pointX,
+      y: pointY = options.pointY
+    } = canvas.getCenterPoint()
 
     let zoom = Number((currentZoom + Number(scale)).toFixed(2))
 
