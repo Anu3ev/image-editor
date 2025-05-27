@@ -64,8 +64,7 @@ export default class TransformManager {
     const { canvas, minZoom, maxZoom } = this.editor
 
     const currentZoom = canvas.getZoom()
-    const pointX = options.pointX ?? canvas.getWidth() / 2
-    const pointY = options.pointY ?? canvas.getHeight() / 2
+    const { x: pointX, y: pointY } = canvas.getCenterPoint()
 
     let zoom = Number((currentZoom + Number(scale)).toFixed(2))
 
@@ -92,8 +91,7 @@ export default class TransformManager {
   setZoom(zoom = this.defaultZoom) {
     const { canvas, minZoom, maxZoom } = this.editor
 
-    const pointX = canvas.getWidth() / 2
-    const pointY = canvas.getHeight() / 2
+    const { x: pointX, y: pointY } = canvas.getCenterPoint()
 
     let newZoom = zoom
 
@@ -116,9 +114,7 @@ export default class TransformManager {
    */
   resetZoom() {
     const { canvas, defaultZoom } = this.editor
-
-    const pointX = canvas.getWidth() / 2
-    const pointY = canvas.getHeight() / 2
+    const { x: pointX, y: pointY } = canvas.getCenterPoint()
 
     canvas.zoomToPoint({ x: Number(pointX), y: Number(pointY) }, defaultZoom)
 
