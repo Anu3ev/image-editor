@@ -74,8 +74,6 @@ export default class TransformManager {
     if (zoom > maxZoom) zoom = maxZoom
     if (zoom < minZoom) zoom = minZoom
 
-    console.log('currentZoom', currentZoom)
-
     canvas.zoomToPoint({ x: Number(pointX), y: Number(pointY) }, zoom)
 
     canvas.fire('editor:zoom-changed', {
