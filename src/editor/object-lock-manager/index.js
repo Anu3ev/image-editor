@@ -19,7 +19,7 @@ export default class ObjectLockManager {
     const { canvas, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
-    if (!activeObject) return
+    if (!activeObject || activeObject.locked) return
 
     const lockOptions = {
       lockMovementX: true,

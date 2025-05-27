@@ -14,19 +14,25 @@ export default class SelectionManager {
    * @fires editor:all-objects-selected
    */
   selectAll() {
-    const { canvas, canvasManager } = this.editor
+    const { canvas, canvasManager, objectLockManager } = this.editor
 
     canvas.discardActiveObject()
 
     const activeObjects = canvasManager.getObjects()
+    const hasLockedObjects = activeObjects.some((obj) => obj.locked)
 
-    const sel = activeObjects.length > 1
+    const object = activeObjects.length > 1
       ? new ActiveSelection(canvasManager.getObjects(), { canvas })
       : activeObjects[0]
 
-    canvas.setActiveObject(sel)
+    // Если есть заблокированные объекты, то блокируем выделенный объект
+    if (hasLockedObjects) {
+      objectLockManager.lockObject({ object, withoutSave: true })
+    }
+
+    canvas.setActiveObject(object)
     canvas.requestRenderAll()
 
-    canvas.fire('editor:all-objects-selected', { selected: sel })
+    canvas.fire('editor:all-objects-selected', { selected: object })
   }
 }
