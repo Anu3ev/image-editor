@@ -1,5 +1,6 @@
 // TODO: Почистить консоль логи когда всё будет готово.
 import { create as diffPatchCreate } from 'jsondiffpatch'
+
 export default class HistoryManager {
   /**
    * @param {object} options
@@ -89,9 +90,22 @@ export default class HistoryManager {
 
     console.time('saveState')
 
-    // Получаем текущее состояние канваса как объект
+    // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
     const currentStateObj = this.canvas.toDatalessObject([
-      'selectable', 'evented', 'id', 'format', 'width', 'height', 'locked'
+      'selectable',
+      'evented',
+      'id',
+      'format',
+      'width',
+      'height',
+      'locked',
+      'lockMovementX',
+      'lockMovementY',
+      'lockRotation',
+      'lockScalingX',
+      'lockScalingY',
+      'lockSkewingX',
+      'lockSkewingY'
     ])
 
     console.timeEnd('saveState')

@@ -17,10 +17,11 @@ export default class DeletionManager {
   deleteSelectedObjects({ objects, withoutSave } = {}) {
     const { canvas, historyManager } = this.editor
 
-    historyManager.suspendHistory()
-
-    const activeObjects = objects || canvas.getActiveObjects()
+    // Отбираем только те объекты, которые не заблокированы
+    const activeObjects = (objects || canvas.getActiveObjects()).filter((obj) => !obj.locked)
     if (!activeObjects?.length) return
+
+    historyManager.suspendHistory()
 
     activeObjects.forEach((obj) => {
       if (obj.type === 'group' && obj.format !== 'svg') {
