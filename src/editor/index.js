@@ -1,4 +1,4 @@
-import { Canvas } from 'fabric'
+import { Canvas, Pattern } from 'fabric'
 
 import { nanoid } from 'nanoid'
 import Listeners from './listeners'
@@ -23,10 +23,6 @@ import {
   MIN_ZOOM,
   MAX_ZOOM
 } from './constants'
-
-import {
-  createMosaicPattern
-} from './helpers'
 
 // TODO: Режим рисования
 // TODO: Добавление текста
@@ -146,7 +142,7 @@ export class ImageEditor {
     this.montageArea = this.shapeManager.addRectangle({
       width: montageAreaWidth,
       height: montageAreaHeight,
-      fill: createMosaicPattern(),
+      fill: ImageEditor._createMosaicPattern(),
       stroke: null,
       strokeWidth: 0,
       selectable: false,
@@ -197,5 +193,26 @@ export class ImageEditor {
     this.canvas.dispose()
     this.workerManager.worker.terminate()
     this.imageManager.revokeBlobUrls()
+  }
+
+  /**
+   * Создает паттерн мозаики.
+   * @returns {object} паттерн мозаики
+   */
+  static _createMosaicPattern() {
+    const patternSourceCanvas = document.createElement('canvas')
+    patternSourceCanvas.width = 20
+    patternSourceCanvas.height = 20
+    const pCtx = patternSourceCanvas.getContext('2d')
+    pCtx.fillStyle = '#ddd'
+    pCtx.fillRect(0, 0, 40, 40)
+    pCtx.fillStyle = '#ccc'
+    pCtx.fillRect(0, 0, 10, 10)
+    pCtx.fillRect(10, 10, 10, 10)
+
+    return new Pattern({
+      source: patternSourceCanvas,
+      repeat: 'repeat'
+    })
   }
 }
