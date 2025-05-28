@@ -31,6 +31,9 @@ export default {
   editorContainerWidth: 'fit-content',
   editorContainerHeight: '100%',
 
+  // Максимальная длина истории действий
+  maxHistoryLength: 50,
+
   // Дефолтный тип скейлинга для объектов (cotain/cover)
   scaleType: 'contain',
 

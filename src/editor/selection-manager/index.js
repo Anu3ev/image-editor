@@ -27,7 +27,7 @@ export default class SelectionManager {
 
     // Если есть заблокированные объекты, то блокируем выделенный объект
     if (hasLockedObjects) {
-      objectLockManager.lockObject({ object, withoutSave: true })
+      objectLockManager.lockObject({ object, skipInnerObjects: true, withoutSave: true })
     }
 
     canvas.setActiveObject(object)

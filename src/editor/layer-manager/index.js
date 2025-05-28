@@ -171,22 +171,39 @@ export default class LayerManager {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 
-    for (let i = selectedObjects.length - 1; i >= 0; i -= 1) {
-      const obj = selectedObjects[i]
-      const currentIndex = canvasObjects.indexOf(obj)
-      let nextIndex = currentIndex + 1
+    // Получаем индексы всех выделенных объектов
+    const selectedIndices = selectedObjects.map((obj) => canvasObjects.indexOf(obj))
 
-      // Ищем ближайший индекс сверху, не входящий в выделение
-      while (
-        nextIndex < canvasObjects.length
-      && selectedObjects.includes(canvasObjects[nextIndex])
-      ) {
-        nextIndex += 1
-      }
+    // Ищем ближайший объект выше ЛЮБОГО из выделенных (не только самого верхнего)
+    let targetObjectIndex = -1
 
-      if (nextIndex < canvasObjects.length) {
-        canvas.moveObjectTo(obj, nextIndex)
+    for (let i = 0; i < canvasObjects.length; i++) {
+      const obj = canvasObjects[i]
+
+      // Если объект не входит в выделение И находится выше хотя бы одного выделенного
+      if (!selectedObjects.includes(obj) && selectedIndices.some((selectedIdx) => i > selectedIdx)) {
+        targetObjectIndex = i
+        break
       }
+    }
+
+    // Если нашли объект для обмена местами
+    if (targetObjectIndex !== -1) {
+    // Сортируем выделенные объекты по их текущим индексам (сверху вниз)
+      const sortedSelected = selectedObjects
+        .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
+        .sort((a, b) => b.index - a.index)
+
+      // Перемещаем каждый выделенный объект на одну позицию выше найденного объекта
+      // Начинаем с самого верхнего, чтобы не нарушить порядок
+      sortedSelected.forEach((item) => {
+        const currentIndex = canvasObjects.indexOf(item.obj)
+        if (currentIndex < targetObjectIndex) {
+          canvas.moveObjectTo(item.obj, targetObjectIndex)
+          // Обновляем targetObjectIndex, так как объект сдвинулся
+          targetObjectIndex = currentIndex
+        }
+      })
     }
   }
 
