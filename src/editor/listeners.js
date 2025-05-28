@@ -214,6 +214,10 @@ class Listeners {
 
     // Центрируем монтажную область
     this.editor.canvasManager.centerMontageArea()
+
+    // Вписываем объекты в монтажную область
+    this.editor.selectionManager.selectAll()
+    this.editor.transformManager.fitObject({ fitAsOneObject: true, withoutSave: true })
   }
 
   /**
