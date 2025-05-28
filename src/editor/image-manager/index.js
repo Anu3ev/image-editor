@@ -1,6 +1,5 @@
 import { loadSVGFromURL, FabricImage, util } from 'fabric'
 import { nanoid } from 'nanoid'
-import { calculateScaleFactor } from '../helpers'
 import {
   CANVAS_MAX_WIDTH,
   CANVAS_MAX_HEIGHT
@@ -92,7 +91,7 @@ export default class ImageManager {
       } else {
         const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
 
-        const scaleFactor = calculateScaleFactor({ montageArea, imageObject: img, scaleType: scale })
+        const scaleFactor = ImageManager.calculateScaleFactor({ montageArea, imageObject: img, scaleType: scale })
 
         if (scale === 'image-contain' && scaleFactor < 1) {
           transformManager.fitObject({ object: img, type: 'contain', withoutSave: true })
@@ -482,5 +481,29 @@ export default class ImageManager {
   static getFormatFromContentType(contentType = '') {
     const match = contentType.match(/^[^/]+\/([^+;]+)/)
     return match ? match[1] : ''
+  }
+
+  /**
+   * Рассчитывает коэффициент масштабирования изображения.
+   * @param {Canvas} canvas - объект канваса
+   * @param {object} imageObject - объект изображения
+   * @param {string} type - тип масштабирования ('contain' или 'cover')
+   * @returns {number} коэффициент масштабирования
+   */
+  static calculateScaleFactor({ montageArea, imageObject, scaleType = 'contain' }) {
+    if (!montageArea || !imageObject) return 1
+
+    const canvasWidth = montageArea.width
+    const canvasHeight = montageArea.height
+
+    const { width: imageWidth, height: imageHeight } = imageObject
+
+    if (scaleType === 'contain' || scaleType === 'image-contain') {
+      return Math.min(canvasWidth / imageWidth, canvasHeight / imageHeight)
+    } if (scaleType === 'cover' || scaleType === 'image-cover') {
+      return Math.max(canvasWidth / imageWidth, canvasHeight / imageHeight)
+    }
+
+    return 1
   }
 }

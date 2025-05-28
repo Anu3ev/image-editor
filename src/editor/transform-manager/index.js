@@ -5,8 +5,6 @@ import {
   DEFAULT_ROTATE_RATIO
 } from '../constants'
 
-import { calculateScaleFactor } from '../helpers'
-
 export default class TransformManager {
   /**
    * @param {object} options
@@ -229,7 +227,7 @@ export default class TransformManager {
    * @fires editor:image-fitted
    */
   fitObject({ object, type = this.options.scaleType, withoutSave, fitAsOneObject } = {}) {
-    const { canvas, montageArea, historyManager } = this.editor
+    const { canvas, montageArea, imageManager, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
 
@@ -241,7 +239,7 @@ export default class TransformManager {
       canvas.discardActiveObject()
 
       selectedItems.forEach((obj) => {
-        const objScale = calculateScaleFactor({ montageArea, imageObject: obj, scaleType: type })
+        const objScale = imageManager.calculateScaleFactor({ montageArea, imageObject: obj, scaleType: type })
 
         obj.scale(objScale)
         canvas.centerObject(obj)
@@ -251,7 +249,7 @@ export default class TransformManager {
 
       canvas.setActiveObject(sel)
     } else {
-      const scaleFactor = calculateScaleFactor({
+      const scaleFactor = imageManager.calculateScaleFactor({
         montageArea,
         imageObject: activeObject,
         scaleType: type
@@ -290,6 +288,7 @@ export default class TransformManager {
     const {
       canvas,
       montageArea,
+      imageManager,
       historyManager,
       options: { scaleType }
     } = this.editor
@@ -319,7 +318,7 @@ export default class TransformManager {
       const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
       const { width: imageWidth, height: imageHeight } = currentObject
 
-      const scaleFactor = calculateScaleFactor({
+      const scaleFactor = imageManager.calculateScaleFactor({
         montageArea,
         imageObject: currentObject,
         scaleType
