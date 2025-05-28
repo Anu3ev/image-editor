@@ -177,7 +177,7 @@ export default class LayerManager {
     // Ищем ближайший объект выше ЛЮБОГО из выделенных (не только самого верхнего)
     let targetObjectIndex = -1
 
-    for (let i = 0; i < canvasObjects.length; i++) {
+    for (let i = 0; i < canvasObjects.length; i += 1) {
       const obj = canvasObjects[i]
 
       // Если объект не входит в выделение И находится выше хотя бы одного выделенного
