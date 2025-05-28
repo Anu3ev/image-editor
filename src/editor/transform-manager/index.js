@@ -239,7 +239,7 @@ export default class TransformManager {
       canvas.discardActiveObject()
 
       selectedItems.forEach((obj) => {
-        const objScale = imageManager.calculateScaleFactor({ montageArea, imageObject: obj, scaleType: type })
+        const objScale = imageManager.calculateScaleFactor({ imageObject: obj, scaleType: type })
 
         obj.scale(objScale)
         canvas.centerObject(obj)
@@ -250,7 +250,6 @@ export default class TransformManager {
       canvas.setActiveObject(sel)
     } else {
       const scaleFactor = imageManager.calculateScaleFactor({
-        montageArea,
         imageObject: activeObject,
         scaleType: type
       })
@@ -319,7 +318,6 @@ export default class TransformManager {
       const { width: imageWidth, height: imageHeight } = currentObject
 
       const scaleFactor = imageManager.calculateScaleFactor({
-        montageArea,
         imageObject: currentObject,
         scaleType
       })
