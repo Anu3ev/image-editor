@@ -214,9 +214,6 @@ class Listeners {
 
     // Центрируем монтажную область
     this.editor.canvasManager.centerMontageArea()
-
-    // Сбрасываем все трансформации объектов
-    this.editor.transformManager.resetObjects()
   }
 
   /**
