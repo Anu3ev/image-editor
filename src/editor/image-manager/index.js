@@ -91,7 +91,7 @@ export default class ImageManager {
       } else {
         const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
 
-        const scaleFactor = ImageManager.calculateScaleFactor({ montageArea, imageObject: img, scaleType: scale })
+        const scaleFactor = this.calculateScaleFactor({ imageObject: img, scaleType: scale })
 
         if (scale === 'image-contain' && scaleFactor < 1) {
           transformManager.fitObject({ object: img, type: 'contain', withoutSave: true })
@@ -485,12 +485,13 @@ export default class ImageManager {
 
   /**
    * Рассчитывает коэффициент масштабирования изображения.
-   * @param {Canvas} canvas - объект канваса
    * @param {object} imageObject - объект изображения
-   * @param {string} type - тип масштабирования ('contain' или 'cover')
+   * @param {string} scaleType - тип масштабирования ('contain' или 'cover')
    * @returns {number} коэффициент масштабирования
    */
-  static calculateScaleFactor({ montageArea, imageObject, scaleType = 'contain' }) {
+  calculateScaleFactor({ imageObject, scaleType = 'contain' }) {
+    const { montageArea } = this.editor
+
     if (!montageArea || !imageObject) return 1
 
     const canvasWidth = montageArea.width
