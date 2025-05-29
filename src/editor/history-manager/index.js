@@ -15,6 +15,11 @@ export default class HistoryManager {
     this.currentIndex = 0
     this.maxHistoryLength = editor.options.maxHistoryLength
 
+    // Общее количество сделанных изменений
+    this.totalChangesCount = 0
+    // Количество изменений, которые "свёрнуты" в базовое состояние
+    this.baseStateChangesCount = 0
+
     this._createDiffPatcher()
   }
 
@@ -62,6 +67,22 @@ export default class HistoryManager {
   /** Уменьшить счётчик приостановки истории */
   resumeHistory() {
     this._historySuspendCount = Math.max(0, this._historySuspendCount - 1)
+  }
+
+  /**
+   * Проверяет, есть ли в редакторе несохранённые изменения
+   * @returns {boolean}
+   */
+  hasUnsavedChanges() {
+    return this.totalChangesCount > 0
+  }
+
+  /**
+   * Получает текущую позицию в общей истории изменений
+   * @returns {number}
+   */
+  getCurrentChangePosition() {
+    return this.baseStateChangesCount + this.currentIndex
   }
 
   /**
@@ -140,6 +161,8 @@ export default class HistoryManager {
 
     console.log('diff', diff)
 
+    this.totalChangesCount += 1
+
     // Сохраняем дифф
     this.patches.push(diff)
     this.currentIndex += 1
@@ -151,6 +174,9 @@ export default class HistoryManager {
       this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0])
       this.patches.shift() // Удаляем первый дифф
       this.currentIndex -= 1 // Корректируем индекс
+
+      // Увеличиваем счётчик изменений, "свёрнутых" в базовое состояние
+      this.baseStateChangesCount += 1
     }
 
     console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
@@ -202,6 +228,8 @@ export default class HistoryManager {
 
     try {
       this.currentIndex -= 1
+      this.totalChangesCount -= 1
+
       const fullState = this.getFullState()
 
       await this.loadStateFromFullState(fullState)
@@ -233,6 +261,8 @@ export default class HistoryManager {
 
     try {
       this.currentIndex += 1
+      this.totalChangesCount += 1
+
       const fullState = this.getFullState()
       console.log('fullState', fullState)
 
