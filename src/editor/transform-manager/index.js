@@ -227,7 +227,7 @@ export default class TransformManager {
    * @fires editor:image-fitted
    */
   fitObject({ object, type = this.options.scaleType, withoutSave, fitAsOneObject } = {}) {
-    const { canvas, montageArea, imageManager, historyManager } = this.editor
+    const { canvas, imageManager, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
 
