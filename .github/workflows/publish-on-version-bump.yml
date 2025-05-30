@@ -3,7 +3,7 @@ name: Publish to npm on version bump
 on:
   push:
     branches:
-      - main
+      - master
     # реагируем только на изменение package.json
     paths:
       - 'package.json'
@@ -23,8 +23,8 @@ jobs:
 
       - run: |
           # убедимся, что версия действительно изменилась
-          git fetch origin main
-          if git diff origin/main HEAD -- package.json | grep -q '"version":'; then
+          git fetch origin master
+          if git diff origin/master HEAD -- package.json | grep -q '"version":'; then
             npm publish
           else
             echo "Версия не изменилась — пропускаем publish"
