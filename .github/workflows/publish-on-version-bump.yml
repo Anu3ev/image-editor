@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - master
-    # реагируем только на изменение package.json
     paths:
       - 'package.json'
 
@@ -12,22 +11,34 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0      # подтягиваем весь history, чтобы origin/master был доступен
 
-      - uses: actions/setup-node@v3
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
           node-version: '18'
           registry-url: 'https://registry.npmjs.org'
 
-      - run: npm ci
+      - name: Install deps
+        run: npm ci
 
-      - run: |
-          # убедимся, что версия действительно изменилась
-          git fetch origin master
-          if git diff origin/master HEAD -- package.json | grep -q '"version":'; then
+      - name: Check version bump and publish
+        run: |
+          # если package.json не менялся в последнем коммите — выходим
+          git diff --quiet HEAD^ HEAD -- package.json && {
+            echo "package.json не менялся — пропускаем"
+            exit 0
+          }
+
+          # если в изменениях есть bump version — публикуем
+          if git diff HEAD^ HEAD -- package.json | grep -q '"version":'; then
+            echo "Обнаружен bump версии — публикуем"
             npm publish
           else
-            echo "Версия не изменилась — пропускаем publish"
+            echo "package.json менялся, но версия не тронута — пропускаем"
           fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
