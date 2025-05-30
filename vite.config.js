@@ -29,7 +29,6 @@ export default defineConfig({
   },
 
   plugins: [
-    babel(),
     babel({
       babelConfig: {
         presets: [
