@@ -31,6 +31,8 @@ export default defineConfig({
   plugins: [
     babel({
       babelConfig: {
+        babelrc: false,
+        configFile: false,
         presets: [
           ['@babel/preset-env', {
             modules: false,
