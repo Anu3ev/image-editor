@@ -36,6 +36,7 @@ jobs:
           # если в изменениях есть bump version — публикуем
           if git diff HEAD^ HEAD -- package.json | grep -q '"version":'; then
             echo "Обнаружен bump версии — публикуем"
+            npm run build
             npm publish
           else
             echo "package.json менялся, но версия не тронута — пропускаем"
