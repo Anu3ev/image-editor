@@ -22,7 +22,7 @@ export default class ClipboardManager {
     if (!activeObject) return
 
     try {
-      const clonedObject = await activeObject.clone()
+      const clonedObject = await activeObject.clone(['format'])
       this.clipboard = clonedObject
 
       // Сохраняем объект в буфере обмена, если он доступен
@@ -72,7 +72,7 @@ export default class ClipboardManager {
     if (!this.clipboard) return
 
     // клонируем объект, чтобы не менять его положение в буфере обмена
-    const clonedObj = await this.clipboard.clone()
+    const clonedObj = await this.clipboard.clone(['format'])
 
     canvas.discardActiveObject()
     clonedObj.set({

@@ -32,10 +32,21 @@ export default class ImageManager {
   async importImage({
     source,
     scale = `image-${this.options.scaleType}`,
-    withoutSave = false,
-    contentType = 'image/png'
+    withoutSave = false
   }) {
     if (!source) return
+
+    const contentType = await this.getContentType(source)
+
+    if (!this.isAllowedContentType(contentType)) {
+      // eslint-disable-next-line max-len
+      const message = `Неверный contentType для изображения: ${contentType}. Ожидается один из: ${this.options.acceptContentTypes.join(', ')}.`
+
+      console.error(`ImageManager. ${message}`)
+      this.editor.canvas.fire('editor:error', { message })
+
+      return
+    }
 
     const { canvas, montageArea, transformManager, historyManager } = this.editor
 
@@ -481,6 +492,99 @@ export default class ImageManager {
   static getFormatFromContentType(contentType = '') {
     const match = contentType.match(/^[^/]+\/([^+;]+)/)
     return match ? match[1] : ''
+  }
+
+  /**
+   * Проверяет, является ли contentType допустимым типом изображения.
+   * @param {string} contentType - тип контента
+   * @returns {boolean} true, если contentType допустим, иначе false
+   */
+  isAllowedContentType(contentType = '') {
+    const { acceptContentTypes } = this.editor.options
+    return acceptContentTypes.includes(contentType)
+  }
+
+  /**
+   * Проверяет, является ли формат допустимым.
+   * @param {string} format - формат изображения, например 'png', 'jpeg', 'svg'
+   * @returns {boolean} true, если формат допустим, иначе false
+   */
+  isAllowedFormat(format = '') {
+    const { acceptContentTypes } = this.editor.options
+    const contentType = `image/${format}`
+
+    return acceptContentTypes.includes(contentType)
+  }
+
+  /**
+   * Получает contentType изображения из источника
+   * @param {File|string} source - URL изображения или объект File
+   * @returns {Promise<string>|string} - MIME-тип изображения
+   * @public
+   */
+  async getContentType(source) {
+    if (typeof source === 'string') {
+      return this.getContentTypeFromUrl(source)
+    }
+
+    return source.type || 'application/octet-stream'
+  }
+
+  /**
+   * Получает contentType изображения через HTTP HEAD запрос или анализ URL
+   * @param {string} src - URL изображения
+   * @returns {Promise<string>} - MIME-тип изображения
+   * @public
+   */
+  async getContentTypeFromUrl(src) {
+    // Если это data URL, извлекаем MIME-тип напрямую
+    if (src.startsWith('data:')) {
+      const match = src.match(/^data:([^;]+)/)
+      return match ? match[1] : 'application/octet-stream'
+    }
+
+    // Для обычных URL пытаемся сделать HEAD запрос
+    try {
+      const response = await fetch(src, { method: 'HEAD' })
+      const contentType = response.headers.get('content-type')
+
+      if (contentType && contentType.startsWith('image/')) {
+        return contentType.split(';')[0] // убираем дополнительные параметры
+      }
+    } catch (error) {
+      console.warn('HEAD запрос неудачен, определяем тип по расширению:', error)
+    }
+
+    // Если HEAD запрос не сработал, определяем по расширению
+    return this.getContentTypeFromExtension(src)
+  }
+
+  /**
+   * Определяет contentType по расширению файла в URL
+   * @param {string} url - URL файла
+   * @returns {string} - MIME-тип
+   * @public
+   */
+  getContentTypeFromExtension(url) {
+    try {
+      const { acceptContentTypes } = this.editor.options
+      const urlObj = new URL(url)
+      const extension = urlObj.pathname.split('.').pop()?.toLowerCase()
+
+      // Создаем mimeMap из acceptContentTypes
+      const mimeMap = {}
+      acceptContentTypes.forEach((contentType) => {
+        const format = ImageManager.getFormatFromContentType(contentType)
+        if (format) {
+          mimeMap[format] = contentType
+        }
+      })
+
+      return mimeMap[extension] || 'application/octet-stream'
+    } catch (error) {
+      console.warn('Не удалось определить расширение из URL:', url, error)
+      return 'application/octet-stream'
+    }
   }
 
   /**

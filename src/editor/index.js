@@ -104,11 +104,10 @@ export class ImageEditor {
       const {
         source,
         scale = `image-${scaleType}`,
-        withoutSave = true,
-        contentType
+        withoutSave = true
       } = initialImage
 
-      await this.imageManager.importImage({ source, scale, withoutSave, contentType })
+      await this.imageManager.importImage({ source, scale, withoutSave })
     } else {
       this.canvasManager.setDefaultScale({ withoutSave: true })
     }

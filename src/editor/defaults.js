@@ -37,6 +37,17 @@ export default {
   // Дефолтный тип скейлинга для объектов (cotain/cover)
   scaleType: 'contain',
 
+  /**
+   * Массив допустимых форматов изображений для загрузки в редактор.
+   */
+  acceptContentTypes: [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/svg+xml',
+    'image/webp'
+  ],
+
   // Показывать панель инструментов для выделенного объекта
   showToolbar: true,
 

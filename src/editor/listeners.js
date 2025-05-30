@@ -241,10 +241,13 @@ class Listeners {
    * @param {Object} event — объект события
    * @param {Object} event.clipboardData — данные из буфера обмена
    * @param {Array} event.clipboardData.items — элементы буфера обмена
+   *
+   * TODO: Попробовать вынести методы в классы-менеджеры.
    */
   handlePasteEvent({ clipboardData }) {
     if (!clipboardData?.items?.length) return
 
+    const { imageManager } = this.editor
     const { items } = clipboardData
     const lastItem = items[items.length - 1]
 
@@ -271,7 +274,7 @@ class Listeners {
       const img = doc.querySelector('img')
 
       if (img?.src) {
-        this.editor.imageManager.importImage({ source: img.src })
+        imageManager.importImage({ source: img.src })
         return
       }
     }

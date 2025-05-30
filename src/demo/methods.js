@@ -31,7 +31,7 @@ function importImage(e, editorInstance) {
 
   for (let i = 0; i < files.length; i += 1) {
     (function(file) {
-      editorInstance.imageManager.importImage({ source: file, contentType: file.type })
+      editorInstance.imageManager.importImage({ source: file })
     }(files[i]))
   }
 }
