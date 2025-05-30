@@ -3,4 +3,4 @@ export const presets = [
     modules: false, // НЕ преобразовывать ES модули в CommonJS
     targets: { esmodules: true }
   }]
-];
+]
