@@ -1,0 +1,33 @@
+name: Publish to npm on version bump
+
+on:
+  push:
+    branches:
+      - main
+    # реагируем только на изменение package.json
+    paths:
+      - 'package.json'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      - run: |
+          # убедимся, что версия действительно изменилась
+          git fetch origin main
+          if git diff origin/main HEAD -- package.json | grep -q '"version":'; then
+            npm publish
+          else
+            echo "Версия не изменилась — пропускаем publish"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
