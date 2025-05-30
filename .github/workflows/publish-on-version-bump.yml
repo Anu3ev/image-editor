@@ -25,6 +25,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Build
+        run: npm run build
+
       - name: Check version bump and publish
         run: |
           # если package.json не менялся в последнем коммите — выходим
@@ -36,8 +39,7 @@ jobs:
           # если в изменениях есть bump version — публикуем
           if git diff HEAD^ HEAD -- package.json | grep -q '"version":'; then
             echo "Обнаружен bump версии — публикуем"
-            npm run build
-            npm publish
+            npm publish --access public
           else
             echo "package.json менялся, но версия не тронута — пропускаем"
           fi
