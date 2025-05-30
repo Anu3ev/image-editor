@@ -30,6 +30,16 @@ export default defineConfig({
 
   plugins: [
     babel(),
+    babel({
+      babelConfig: {
+        presets: [
+          ['@babel/preset-env', {
+            modules: false,
+            targets: { esmodules: true }
+          }]
+        ]
+      }
+    }),
     analyzer({
       filename: 'stats.html',
       open: true,
