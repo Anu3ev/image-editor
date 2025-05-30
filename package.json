@@ -42,5 +42,8 @@
     "type": "git",
     "url": "git+https://github.com/Anu3ev/image-editor.git"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "license": "MIT"
 }
