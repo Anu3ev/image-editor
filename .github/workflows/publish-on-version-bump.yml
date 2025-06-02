@@ -27,7 +27,7 @@ jobs:
           registry-url: https://registry.npmjs.org
           scope: '@anu3ev'
           always-auth: true
-          auth-token: ${{ secrets.NPM_TOKEN }}
+          token: ${{ secrets.NPM_TOKEN }}
 
       - name: Install deps
         run: npm ci
