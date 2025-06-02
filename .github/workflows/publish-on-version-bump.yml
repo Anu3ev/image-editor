@@ -76,15 +76,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (softprops)
         if: steps.check_bump.outputs.should_publish == 'true'
-        uses: actions/create-release@v1
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.publish_npm.outputs.RELEASE_TAG }}
-          release_name: "Release ${{ steps.publish_npm.outputs.RELEASE_TAG }}"
-          body: |
-            Автоматический релиз версии `${{ steps.publish_npm.outputs.RELEASE_TAG }}`
-            — здесь можно подставить changelog или другие заметки.
+          name: "Release ${{ steps.publish_npm.outputs.RELEASE_TAG }}"
+          generate_release_notes: true
           draft: false
           prerelease: false
         env:
