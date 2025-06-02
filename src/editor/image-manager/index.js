@@ -16,6 +16,9 @@ export default class ImageManager {
     this.editor = editor
     this.options = editor.options
     this._createdBlobUrls = []
+
+    this.acceptContentTypes = this.editor.options.acceptContentTypes
+    this.acceptFormats = this.getAllowedFormatsFromContentTypes()
   }
 
   /**
@@ -36,19 +39,26 @@ export default class ImageManager {
   }) {
     if (!source) return
 
+    const { canvas, montageArea, transformManager, historyManager, errorManager } = this.editor
+
     const contentType = await this.getContentType(source)
+
+    const { acceptContentTypes, acceptFormats } = this
 
     if (!this.isAllowedContentType(contentType)) {
       // eslint-disable-next-line max-len
-      const message = `Неверный contentType для изображения: ${contentType}. Ожидается один из: ${this.options.acceptContentTypes.join(', ')}.`
+      const message = `Неверный contentType для изображения: ${contentType}. Ожидается один из: ${this.acceptContentTypes.join(', ')}.`
 
-      console.error(`ImageManager. ${message}`)
-      this.editor.canvas.fire('editor:error', { message })
+      errorManager.emitError({
+        origin: 'ImageManager',
+        method: 'importImage',
+        code: 'INVALID_CONTENT_TYPE',
+        message,
+        data: { contentType, source, acceptContentTypes, acceptFormats }
+      })
 
       return
     }
-
-    const { canvas, montageArea, transformManager, historyManager } = this.editor
 
     historyManager.suspendHistory()
 
@@ -64,7 +74,15 @@ export default class ImageManager {
 
         dataUrl = URL.createObjectURL(blob)
       } else {
-        throw new Error('ImportImage. Неверный тип источника изображения. Ожидается URL или объект File.')
+        errorManager.emitError({
+          origin: 'ImageManager',
+          method: 'importImage',
+          code: 'INVALID_SOURCE_TYPE',
+          message: 'Неверный тип источника изображения. Ожидается URL или объект File.',
+          data: { source, contentType, acceptContentTypes, acceptFormats }
+        })
+
+        return
       }
 
       // Создаем blobURL и добавляем его в массив для последующего удаления (destroy)
@@ -126,10 +144,12 @@ export default class ImageManager {
         historyManager.saveState()
       }
     } catch (error) {
-      console.error('importImage. Ошибка импорта изображения: ', error)
-
-      canvas.fire('editor:error', {
-        message: `Ошибка импорта изображения: ${error.message}`
+      errorManager.emitError({
+        origin: 'ImageManager',
+        method: 'importImage',
+        code: 'IMPORT_FAILED',
+        message: `Ошибка импорта изображения: ${error.message}`,
+        data: { source, contentType, scale, withoutSave }
       })
 
       historyManager.resumeHistory()
@@ -147,10 +167,13 @@ export default class ImageManager {
   async resizeImageToBoundaries(dataURL, size = 'max') {
     // eslint-disable-next-line max-len
     const message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров: ${CANVAS_MAX_WIDTH}x${CANVAS_MAX_HEIGHT}`
-    console.warn(`importImage. ${message}`)
 
-    this.editor.canvas.fire('editor:warning', {
-      message
+    this.editor.errorManager.emitWarning({
+      origin: 'ImageManager',
+      method: 'resizeImageToBoundaries',
+      code: 'IMAGE_RESIZE_WARNING',
+      message,
+      data: { dataURL, size }
     })
 
     const newDataURL = await this.editor.workerManager.post('resizeImage', {
@@ -182,112 +205,128 @@ export default class ImageManager {
   } = {}) {
     const { canvas, montageArea, workerManager } = this.editor
 
-    const isPDF = contentType === 'application/pdf'
-    // Если это PDF, то дальше нам нужен будет .jpg
-    const adjustedContentType = isPDF ? 'image/jpg' : contentType
+    try {
+      const isPDF = contentType === 'application/pdf'
+      // Если это PDF, то дальше нам нужен будет .jpg
+      const adjustedContentType = isPDF ? 'image/jpg' : contentType
 
-    const format = ImageManager.getFormatFromContentType(adjustedContentType)
+      const format = ImageManager.getFormatFromContentType(adjustedContentType)
 
-    // Пересчитываем координаты монтажной области:
-    montageArea.setCoords()
+      // Пересчитываем координаты монтажной области:
+      montageArea.setCoords()
 
-    // Получаем координаты монтажной области.
-    const { left, top, width, height } = montageArea.getBoundingRect()
+      // Получаем координаты монтажной области.
+      const { left, top, width, height } = montageArea.getBoundingRect()
 
-    // Создаем клон канваса
-    const tmpCanvas = await canvas.clone(['id', 'format', 'locked'])
+      // Создаем клон канваса
+      const tmpCanvas = await canvas.clone(['id', 'format', 'locked'])
 
-    // Задаём белый фон если это JPG
-    if (['image/jpg', 'image/jpeg'].includes(adjustedContentType)) {
-      tmpCanvas.backgroundColor = '#ffffff'
-    }
+      // Задаём белый фон если это JPG
+      if (['image/jpg', 'image/jpeg'].includes(adjustedContentType)) {
+        tmpCanvas.backgroundColor = '#ffffff'
+      }
 
-    // Находим монтажную область в клонированном канвасе и скрываем её
-    const tmpCanvasMontageArea = tmpCanvas.getObjects().find((obj) => obj.id === montageArea.id)
-    tmpCanvasMontageArea.visible = false
+      // Находим монтажную область в клонированном канвасе и скрываем её
+      const tmpCanvasMontageArea = tmpCanvas.getObjects().find((obj) => obj.id === montageArea.id)
+      tmpCanvasMontageArea.visible = false
 
-    // Сдвигаем клонированную сцену
-    tmpCanvas.viewportTransform = [1, 0, 0, 1, -left, -top]
-    tmpCanvas.setDimensions({ width, height }, { backstoreOnly: true })
-    tmpCanvas.renderAll()
+      // Сдвигаем клонированную сцену
+      tmpCanvas.viewportTransform = [1, 0, 0, 1, -left, -top]
+      tmpCanvas.setDimensions({ width, height }, { backstoreOnly: true })
+      tmpCanvas.renderAll()
 
-    const allCanvasItemsAreSVG = tmpCanvas.getObjects()
-      .filter((object) => object.format)
-      .every((object) => object.format === 'svg')
+      const allCanvasItemsAreSVG = tmpCanvas.getObjects()
+        .filter((object) => object.format)
+        .every((object) => object.format === 'svg')
 
-    // Если это SVG, то обрезаем через viewportTransform и backstore
-    if (format === 'svg' && allCanvasItemsAreSVG) {
+      // Если это SVG, то обрезаем через viewportTransform и backstore
+      if (format === 'svg' && allCanvasItemsAreSVG) {
       // получаем SVG строку
-      const svgString = tmpCanvas.toSVG()
+        const svgString = tmpCanvas.toSVG()
 
-      // Утилизируем клон
-      tmpCanvas.dispose()
+        // Утилизируем клон
+        tmpCanvas.dispose()
 
-      const svg = ImageManager._exportSVGStringAsFile(svgString, {
-        exportAsBase64,
-        exportAsBlob,
-        fileName
-      })
-
-      const data = {
-        image: svg,
-        format: 'svg',
-        contentType: 'image/svg+xml',
-        fileName: fileName.replace(/\.[^/.]+$/, '.svg')
-      }
-
-      canvas.fire('editor:canvas-exported', data)
-      return data
-    }
-
-    // Получаем blob из клонированного канваса
-    const blob = await new Promise((resolve) => { tmpCanvas.getElement().toBlob(resolve) })
-
-    // Уничтожаем клон
-    tmpCanvas.dispose()
-
-    if (exportAsBlob) {
-      const data = {
-        image: blob,
-        format,
-        contentType: adjustedContentType,
-        fileName
-      }
-
-      canvas.fire('editor:canvas-exported', data)
-
-      return data
-    }
-
-    // Создаём bitmap из blob, отправляем в воркер и получаем dataURL
-    const bitmap = await createImageBitmap(blob)
-    const dataUrl = await workerManager.post(
-      'toDataURL',
-      { format, quality: 1, bitmap },
-      [bitmap]
-    )
-
-    if (isPDF) {
-      const pxToMm = 0.264583 // коэффициент перевода пикселей в миллиметры (при 96 DPI)
-      const pdfWidth = width * pxToMm
-      const pdfHeight = height * pxToMm
-
-      const JsPDF = (await this.editor.moduleLoader.loadModule('jspdf')).jsPDF
-
-      const pdf = new JsPDF({
-        orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
-        unit: 'mm',
-        format: [pdfWidth, pdfHeight]
-      })
-
-      // Добавляем изображение в PDF. Используем формат PNG для изображения
-      pdf.addImage(dataUrl, 'JPG', 0, 0, pdfWidth, pdfHeight)
-
-      if (exportAsBase64) {
-        const pdfBase64 = pdf.output('datauristring')
+        const svg = ImageManager._exportSVGStringAsFile(svgString, {
+          exportAsBase64,
+          exportAsBlob,
+          fileName
+        })
 
         const data = {
-          image: pdfBase64,
+          image: svg,
+          format: 'svg',
+          contentType: 'image/svg+xml',
+          fileName: fileName.replace(/\.[^/.]+$/, '.svg')
+        }
+
+        canvas.fire('editor:canvas-exported', data)
+        return data
+      }
+
+      // Получаем blob из клонированного канваса
+      const blob = await new Promise((resolve) => { tmpCanvas.getElement().toBlob(resolve) })
+
+      // Уничтожаем клон
+      tmpCanvas.dispose()
+
+      if (exportAsBlob) {
+        const data = {
+          image: blob,
+          format,
+          contentType: adjustedContentType,
+          fileName
+        }
+
+        canvas.fire('editor:canvas-exported', data)
+
+        return data
+      }
+
+      // Создаём bitmap из blob, отправляем в воркер и получаем dataURL
+      const bitmap = await createImageBitmap(blob)
+      const dataUrl = await workerManager.post(
+        'toDataURL',
+        { format, quality: 1, bitmap },
+        [bitmap]
+      )
+
+      if (isPDF) {
+        const pxToMm = 0.264583 // коэффициент перевода пикселей в миллиметры (при 96 DPI)
+        const pdfWidth = width * pxToMm
+        const pdfHeight = height * pxToMm
+
+        const JsPDF = (await this.editor.moduleLoader.loadModule('jspdf')).jsPDF
+
+        const pdf = new JsPDF({
+          orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
+          unit: 'mm',
+          format: [pdfWidth, pdfHeight]
+        })
+
+        // Добавляем изображение в PDF. Используем формат PNG для изображения
+        pdf.addImage(dataUrl, 'JPG', 0, 0, pdfWidth, pdfHeight)
+
+        if (exportAsBase64) {
+          const pdfBase64 = pdf.output('datauristring')
+
+          const data = {
+            image: pdfBase64,
+            format: 'pdf',
+            contentType: 'application/pdf',
+            fileName
+          }
+
+          canvas.fire('editor:canvas-exported', data)
+          return data
+        }
+
+        // Получаем Blob из PDF и создаем File
+        const pdfBlob = pdf.output('blob')
+        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
+
+        const data = {
+          image: pdfFile,
           format: 'pdf',
           contentType: 'application/pdf',
           fileName
@@ -297,50 +336,46 @@ export default class ImageManager {
         return data
       }
 
-      // Получаем Blob из PDF и создаем File
-      const pdfBlob = pdf.output('blob')
-      const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' })
+      if (exportAsBase64) {
+        const data = {
+          image: dataUrl,
+          format,
+          contentType: adjustedContentType,
+          fileName
+        }
 
-      const data = {
-        image: pdfFile,
-        format: 'pdf',
-        contentType: 'application/pdf',
-        fileName
+        canvas.fire('editor:canvas-exported', data)
+        return data
       }
 
-      canvas.fire('editor:canvas-exported', data)
-      return data
-    }
+      // Если запрашивали SVG, но не все элементы SVG, то меняем расширение на PNG
+      const adjustedFileName = format === 'svg' && !allCanvasItemsAreSVG
+        ? fileName.replace(/\.[^/.]+$/, '.png')
+        : fileName
 
-    if (exportAsBase64) {
+      // Преобразуем Blob в File
+      const file = new File([blob], adjustedFileName, { type: adjustedContentType })
+
       const data = {
-        image: dataUrl,
+        image: file,
         format,
         contentType: adjustedContentType,
-        fileName
+        fileName: adjustedFileName
       }
 
       canvas.fire('editor:canvas-exported', data)
       return data
+    } catch (error) {
+      this.editor.errorManager.emitError({
+        origin: 'ImageManager',
+        method: 'exportCanvasAsImageFile',
+        code: 'IMAGE_EXPORT_FAILED',
+        message: `Ошибка экспорта изображения: ${error.message}`,
+        data: { contentType, fileName, exportAsBase64, exportAsBlob }
+      })
+
+      return ''
     }
-
-    // Если запрашивали SVG, но не все элементы SVG, то меняем расширение на PNG
-    const adjustedFileName = format === 'svg' && !allCanvasItemsAreSVG
-      ? fileName.replace(/\.[^/.]+$/, '.png')
-      : fileName
-
-    // Преобразуем Blob в File
-    const file = new File([blob], adjustedFileName, { type: adjustedContentType })
-
-    const data = {
-      image: file,
-      format,
-      contentType: adjustedContentType,
-      fileName: adjustedFileName
-    }
-
-    canvas.fire('editor:canvas-exported', data)
-    return data
   }
 
   /**
@@ -366,88 +401,102 @@ export default class ImageManager {
     const activeObject = object || canvas.getActiveObject()
 
     if (!activeObject) {
-      console.error('exportObjectAsDataURL. Не выбран объект')
-
-      canvas.fire('editor:error', {
-        message: 'Не выбран объект для экспорта'
+      this.editor.errorManager.emitError({
+        origin: 'ImageManager',
+        method: 'exportObjectAsImageFile',
+        code: 'NO_OBJECT_SELECTED',
+        message: 'Не выбран объект для экспорта',
+        data: { contentType, fileName, exportAsBase64, exportAsBlob }
       })
 
       return ''
     }
 
-    const format = ImageManager.getFormatFromContentType(contentType)
+    try {
+      const format = ImageManager.getFormatFromContentType(contentType)
 
-    if (format === 'svg') {
+      if (format === 'svg') {
       // Конвертируем fabric.Object в SVG-строку
-      const svgString = activeObject.toSVG()
+        const svgString = activeObject.toSVG()
 
-      const svg = this._exportSVGStringAsFile(svgString, {
-        exportAsBase64,
-        exportAsBlob,
+        const svg = this._exportSVGStringAsFile(svgString, {
+          exportAsBase64,
+          exportAsBlob,
+          fileName
+        })
+
+        const data = {
+          image: svg,
+          format,
+          contentType: 'image/svg+xml',
+          fileName: fileName.replace(/\.[^/.]+$/, '.svg')
+        }
+
+        canvas.fire('editor:object-exported', data)
+        return data
+      }
+
+      if (exportAsBase64) {
+        const bitmap = await createImageBitmap(activeObject._element)
+        const dataUrl = await workerManager.post(
+          'toDataURL',
+          {
+            format,
+            quality: 1,
+            bitmap
+          },
+          [bitmap]
+        )
+
+        const data = {
+          image: dataUrl,
+          format,
+          contentType,
+          fileName
+        }
+
+        canvas.fire('editor:object-exported', data)
+        return data
+      }
+
+      const activeObjectCanvas = activeObject.toCanvasElement()
+      const activeObjectBlob = await new Promise((resolve) => { activeObjectCanvas.toBlob(resolve) })
+
+      if (exportAsBlob) {
+        const data = {
+          image: activeObjectBlob,
+          format,
+          contentType,
+          fileName
+        }
+
+        canvas.fire('editor:object-exported', data)
+        return data
+      }
+
+      // Преобразуем Blob в File
+      const file = new File([activeObjectBlob], fileName, { type: contentType })
+
+      const data = {
+        image: file,
+        format,
+        contentType,
         fileName
+      }
+
+      canvas.fire('editor:object-exported', data)
+      return data
+    } catch (error) {
+      this.editor.errorManager.emitError({
+        origin: 'ImageManager',
+        method: 'exportObjectAsImageFile',
+        code: 'IMAGE_EXPORT_FAILED',
+        message: `Ошибка экспорта объекта: ${error.message}`,
+        data: { contentType, fileName, exportAsBase64, exportAsBlob }
       })
 
-      const data = {
-        image: svg,
-        format,
-        contentType: 'image/svg+xml',
-        fileName: fileName.replace(/\.[^/.]+$/, '.svg')
-      }
-
-      canvas.fire('editor:object-exported', data)
-      return data
+      return ''
     }
-
-    if (exportAsBase64) {
-      const bitmap = await createImageBitmap(activeObject._element)
-      const dataUrl = await workerManager.post(
-        'toDataURL',
-        {
-          format,
-          quality: 1,
-          bitmap
-        },
-        [bitmap]
-      )
-
-      const data = {
-        image: dataUrl,
-        format,
-        contentType,
-        fileName
-      }
-
-      canvas.fire('editor:object-exported', data)
-      return data
-    }
-
-    const activeObjectCanvas = activeObject.toCanvasElement()
-    const activeObjectBlob = await new Promise((resolve) => { activeObjectCanvas.toBlob(resolve) })
-
-    if (exportAsBlob) {
-      const data = {
-        image: activeObjectBlob,
-        format,
-        contentType,
-        fileName
-      }
-
-      canvas.fire('editor:object-exported', data)
-      return data
-    }
-
-    // Преобразуем Blob в File
-    const file = new File([activeObjectBlob], fileName, { type: contentType })
-
-    const data = {
-      image: file,
-      format,
-      contentType,
-      fileName
-    }
-
-    canvas.fire('editor:object-exported', data)
-    return data
   }
 
   /**
@@ -483,6 +532,16 @@ export default class ImageManager {
   }
 
   /**
+   * Получает список допустимых форматов изображений
+   * @returns {string[]} - массив допустимых форматов изображений
+   */
+  getAllowedFormatsFromContentTypes() {
+    return this.acceptContentTypes
+      .map((contentType) => ImageManager.getFormatFromContentType(contentType))
+      .filter((format) => format)
+  }
+
+  /**
    * Извлекает чистый формат (subtype) из contentType,
    * отбросив любую часть после «+» или «;»
    * @param {string} contentType
@@ -500,20 +559,7 @@ export default class ImageManager {
    * @returns {boolean} true, если contentType допустим, иначе false
    */
   isAllowedContentType(contentType = '') {
-    const { acceptContentTypes } = this.editor.options
-    return acceptContentTypes.includes(contentType)
-  }
-
-  /**
-   * Проверяет, является ли формат допустимым.
-   * @param {string} format - формат изображения, например 'png', 'jpeg', 'svg'
-   * @returns {boolean} true, если формат допустим, иначе false
-   */
-  isAllowedFormat(format = '') {
-    const { acceptContentTypes } = this.editor.options
-    const contentType = `image/${format}`
-
-    return acceptContentTypes.includes(contentType)
+    return this.acceptContentTypes.includes(contentType)
   }
 
   /**
@@ -567,13 +613,12 @@ export default class ImageManager {
    */
   getContentTypeFromExtension(url) {
     try {
-      const { acceptContentTypes } = this.editor.options
       const urlObj = new URL(url)
       const extension = urlObj.pathname.split('.').pop()?.toLowerCase()
 
       // Создаем mimeMap из acceptContentTypes
       const mimeMap = {}
-      acceptContentTypes.forEach((contentType) => {
+      this.acceptContentTypes.forEach((contentType) => {
         const format = ImageManager.getFormatFromContentType(contentType)
         if (format) {
           mimeMap[format] = contentType
