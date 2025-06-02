@@ -18,6 +18,7 @@ import ObjectLockManager from './object-lock-manager'
 import GroupingManager from './grouping-manager'
 import SelectionManager from './selection-manager'
 import DeletionManager from './deletion-manager'
+import ErrorManager from './error-manager'
 
 import {
   MIN_ZOOM,
@@ -74,6 +75,7 @@ export class ImageEditor {
     this.canvas = new Canvas(this.containerId, this.options)
     this.moduleLoader = new ModuleLoader()
     this.workerManager = new WorkerManager()
+    this.errorManager = new ErrorManager({ editor: this })
     this.historyManager = new HistoryManager({ editor: this })
     this.toolbar = new ToolbarManager({ editor: this })
     this.transformManager = new TransformManager({ editor: this })
