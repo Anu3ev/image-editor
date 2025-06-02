@@ -8,20 +8,18 @@ on:
       - 'package.json'
 
 permissions:
-  contents: write   # нужно, чтобы workflow мог создавать тэги и релизы
+  contents: write
 
 jobs:
   publish-and-release:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Проверяем, что workflow умеет пушить тэги
       - name: Checkout repo
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0    # подтягиваем весь history, чтобы git мог работать с тэгами
+          fetch-depth: 0
 
-      # 2. Устанавливаем Node.js и npm-токен (для публикации в npm)
       - name: Setup Node.js and auth
         uses: actions/setup-node@v3
         with:
@@ -31,26 +29,20 @@ jobs:
           always-auth: true
           auth-token: ${{ secrets.NPM_TOKEN }}
 
-      # 3. Устанавливаем зависимости
       - name: Install deps
         run: npm ci
 
-      # 4. Собираем проект (vite build → наполняет dist/)
       - name: Build
         run: npm run build
 
-      # 5. Проверяем, изменился ли version в последнем коммите
       - name: Check package.json version bump
         id: check_bump
         run: |
-          # Если package.json не менялся — выходим без ошибок (exit 0)
           git diff --quiet HEAD^ HEAD -- package.json && {
-            echo "package.json не менялся — пропускаем всё";
+            echo "package.json не менялся — пропускаем всё"
             echo "should_publish=false" >> $GITHUB_OUTPUT
             exit 0
           }
-
-          # Если package.json менялся, но в нём нет "version": — тоже пропускаем
           if git diff HEAD^ HEAD -- package.json | grep -q '"version":'; then
             echo "Обнаружен bump версии в package.json"
             echo "should_publish=true" >> $GITHUB_OUTPUT
@@ -59,44 +51,40 @@ jobs:
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
 
-      # 6. Публикуем в npm и создаём релиз только если version действительно bumped
-      - name: Publish to npm and create GitHub Release
+      - name: Publish to npm and create Git tag
+        id: publish_npm
         if: steps.check_bump.outputs.should_publish == 'true'
         run: |
-          # 6.1. Читаем версию из package.json
           VERSION=$(node -p "require('./package.json').version")
           TAG="v${VERSION}"
 
-          # 6.2. Публикуем в npm (с публичным доступом)
           echo "► Публикация пакета в npm (version=${VERSION})"
           npm publish --access public
 
-          # 6.3. Проверяем, есть ли уже такой тэг в репозитории
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Тэг $TAG уже существует → пропускаем его создание"
           else
-            echo "Создаём новый тэг $TAG и пушим в репо"
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag "$TAG"
             git push origin "$TAG"
           fi
 
-          # 6.4. Помечаем версию для передачи в следующий шаг (release)
+          # Передаём внешний параметр, чтобы следующий шаг видел, какой тег создать в релизе
           echo "RELEASE_TAG=$TAG" >> $GITHUB_OUTPUT
+
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      # 7. Создаём сам GitHub Release (Draft: false → сразу публичный релиз)
       - name: Create GitHub Release
         if: steps.check_bump.outputs.should_publish == 'true'
         uses: actions/create-release@v1
         with:
-          tag_name: ${{ steps.publish-and-release.outputs.RELEASE_TAG }}
-          release_name: "Release ${{ steps.publish-and-release.outputs.RELEASE_TAG }}"
+          tag_name: ${{ steps.publish_npm.outputs.RELEASE_TAG }}
+          release_name: "Release ${{ steps.publish_npm.outputs.RELEASE_TAG }}"
           body: |
-            🎉 Автоматическая сборка и релиз для версии `${{ steps.publish-and-release.outputs.RELEASE_TAG }}`
-            - Содержимое changelog или примечания можно тут подставить вручную или через чтение файла
+            Автоматический релиз версии `${{ steps.publish_npm.outputs.RELEASE_TAG }}`
+            — здесь можно подставить changelog или другие заметки.
           draft: false
           prerelease: false
         env:
