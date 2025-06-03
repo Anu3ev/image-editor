@@ -42,6 +42,7 @@ export default class ImageManager {
     const { canvas, montageArea, transformManager, historyManager, errorManager } = this.editor
 
     const contentType = await this.getContentType(source)
+    const format = ImageManager.getFormatFromContentType(contentType)
 
     const { acceptContentTypes, acceptFormats } = this
 
@@ -54,7 +55,7 @@ export default class ImageManager {
         method: 'importImage',
         code: 'INVALID_CONTENT_TYPE',
         message,
-        data: { contentType, source, acceptContentTypes, acceptFormats }
+        data: { source, format, contentType, acceptContentTypes, acceptFormats }
       })
 
       return
@@ -79,7 +80,7 @@ export default class ImageManager {
           method: 'importImage',
           code: 'INVALID_SOURCE_TYPE',
           message: 'Неверный тип источника изображения. Ожидается URL или объект File.',
-          data: { source, contentType, acceptContentTypes, acceptFormats }
+          data: { source, format, contentType, acceptContentTypes, acceptFormats }
         })
 
         return
@@ -87,8 +88,6 @@ export default class ImageManager {
 
       // Создаем blobURL и добавляем его в массив для последующего удаления (destroy)
       this._createdBlobUrls.push(dataUrl)
-
-      const format = ImageManager.getFormatFromContentType(contentType)
 
       // SVG: парсим через loadSVGFromURL и группируем в один объект
       if (format === 'svg') {
@@ -143,13 +142,22 @@ export default class ImageManager {
       if (!withoutSave) {
         historyManager.saveState()
       }
+
+      canvas.fire('editor:image-imported', {
+        image: img,
+        format,
+        contentType,
+        scale,
+        withoutSave,
+        source
+      })
     } catch (error) {
       errorManager.emitError({
         origin: 'ImageManager',
         method: 'importImage',
         code: 'IMPORT_FAILED',
         message: `Ошибка импорта изображения: ${error.message}`,
-        data: { source, contentType, scale, withoutSave }
+        data: { source, format, contentType, scale, withoutSave }
       })
 
       historyManager.resumeHistory()
