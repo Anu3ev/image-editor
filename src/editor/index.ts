@@ -1,4 +1,7 @@
-import { Canvas, Pattern } from 'fabric'
+import { Canvas, Pattern, Rect } from 'fabric'
+
+import { IEditorOptions } from './defaults'
+import { IImageEditor } from './interfaces/image-editor.interface'
 
 import { nanoid } from 'nanoid'
 import Listeners from './listeners'
@@ -38,8 +41,13 @@ import {
  *
  * @fires {object} editor:render-complete - событие, которое срабатывает после завершения рендеринга редактора
  */
-export class ImageEditor {
-  constructor(canvasId, options = {}) {
+export class ImageEditor implements IImageEditor {
+  /**
+   * Конструктор класса ImageEditor.
+   * @param {string} canvasId - идентификатор канваса, в котором будет создан редактор
+   * @param {IEditorOptions} options - опции и настройки редактора
+   */
+  constructor(canvasId: string, options: IEditorOptions) {
     this.options = options
 
     const { defaultScale, minZoom, maxZoom } = options
@@ -55,6 +63,33 @@ export class ImageEditor {
 
     this.init()
   }
+
+  options: IEditorOptions
+  containerId: string
+  editorId: string
+  clipboard: ClipboardItem | null
+  defaultZoom: number
+  minZoom: number
+  maxZoom: number
+  canvas!: Canvas
+  montageArea!: Rect
+  moduleLoader!: ModuleLoader
+  workerManager!: WorkerManager
+  historyManager!: HistoryManager
+  toolbar!: ToolbarManager
+  transformManager!: TransformManager
+  canvasManager!: CanvasManager
+  imageManager!: ImageManager
+  layerManager!: LayerManager
+  shapeManager!: ShapeManager
+  interactionBlocker!: InteractionBlocker
+  clipboardManager!: ClipboardManager
+  objectLockManager!: ObjectLockManager
+  groupingManager!: GroupingManager
+  selectionManager!: SelectionManager
+  deletionManager!: DeletionManager
+  listeners!: Listeners
+
 
   async init() {
     const {
@@ -129,11 +164,6 @@ export class ImageEditor {
     }
   }
 
-  /**
-   * Создаёт монтажную область
-   * @private
-   * @returns {void}
-   */
   _createMonageArea() {
     const {
       montageAreaWidth,
@@ -158,11 +188,6 @@ export class ImageEditor {
     }, { withoutSelection: true })
   }
 
-  /**
-   * Создаёт область клиппинга
-   * @private
-   * @returns {void}
-   */
   _createClippingArea() {
     const {
       montageAreaWidth,
@@ -174,7 +199,6 @@ export class ImageEditor {
       width: montageAreaWidth,
       height: montageAreaHeight,
       stroke: null,
-      fill: null,
       strokeWidth: 0,
       hasBorders: false,
       hasControls: false,
@@ -185,9 +209,7 @@ export class ImageEditor {
     }, { withoutSelection: true, withoutAdding: true })
   }
 
-  /**
-   * Метод для удаления редактора и всех слушателей.
-   */
+
   destroy() {
     this.listeners.destroy()
     this.toolbar.destroy()
@@ -198,9 +220,9 @@ export class ImageEditor {
 
   /**
    * Создает паттерн мозаики.
-   * @returns {object} паттерн мозаики
+   * @returns {Pattern} паттерн мозаики
    */
-  static _createMosaicPattern() {
+  static _createMosaicPattern(): Pattern {
     const patternSourceCanvas = document.createElement('canvas')
     patternSourceCanvas.width = 20
     patternSourceCanvas.height = 20

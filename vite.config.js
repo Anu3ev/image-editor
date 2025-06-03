@@ -12,11 +12,11 @@ export default defineConfig({
 
     lib: {
       entry: {
-        main: path.resolve(__dirname, 'src/main.js')
+        main: path.resolve(__dirname, 'src/main.ts')
       },
       name: 'ImageEditor',
       formats: ['es'],
-      fileName: (format, entryName) => `${entryName}.js`
+      fileName: (format, entryName) => `${entryName}`
     },
 
     rollupOptions: {
