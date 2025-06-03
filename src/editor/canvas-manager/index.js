@@ -227,6 +227,33 @@ export default class CanvasManager {
   }
 
   /**
+   * Заготовка.
+   * Обновляет CSS-размеры канваса в зависимости от текущего зума, чтобы можно было скроллить вниз-вверх, влево-вправо.
+   *
+   * TODO: Сейчас изображение обрезается при зуме.
+   * Нужно сделать зум по курсору мыши внутри монтажной области, и возможность перетаскивать канвас с зажатым пробелом.
+   *
+   * Метод нужно вызывать после zoomToPoint.
+   *
+   * @param {Number} zoom — текущее значение zoom (например, 1, 1.2, 2 и т.д.)
+   */
+  updateCssDimensionsForZoom(zoom) {
+    const { canvas, montageArea } = this.editor
+
+    const zoomedWidth = montageArea.width * zoom
+    const zoomedHeight = montageArea.height * zoom
+    const scrollContainer = canvas.wrapperEl.parentNode
+
+    const cssWidth = zoomedWidth <= scrollContainer.clientWidth ? '100%' : zoomedWidth
+    const cssHeight = zoomedHeight <= scrollContainer.clientHeight ? '100%' : zoomedHeight
+
+    canvas.setDimensions(
+      { width: cssWidth, height: cssHeight },
+      { cssOnly: true }
+    )
+  }
+
+  /**
    * Устанавливаем CSS ширину канваса для отображения
    * @param {string|number} width
    * @fires editor:display-canvas-width-changed

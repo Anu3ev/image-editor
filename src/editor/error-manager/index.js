@@ -14,6 +14,7 @@ export default class ErrorManager {
    * Эмитит событие ошибки через fabricjs
    * @param {object} options
    * @param {string} [origin='ImageEditor'] — источник ошибки (по умолчанию 'ImageEditor')
+   * @param {string} [method='Unknown Method'] — метод, вызвавший ошибку (по умолчанию 'Unknown Method')
    * @param {string} code — код ошибки (из errorCodes)
    * @param {object} [data] — доп. данные (опционально)
    * @param {string} [message] — текст ошибки (опционально, если не передан, то используется код ошибки)
@@ -44,6 +45,7 @@ export default class ErrorManager {
    * Эмитит предупреждение через fabricjs
    * @param {object} options
    * @param {string} [origin='ImageEditor'] — источник предупреждения (по умолчанию 'ImageEditor')
+   * @param {string} [method='Unknown Method'] — метод, вызвавший предупреждение (по умолчанию 'Unknown Method')
    * @param {string} code — код предупреждения (из errorCodes)
    * @param {object} [data] — доп. данные (опционально)
    * @param {string} [message] — текст предупреждения (опционально, если не передан, то используется код предупреждения)
