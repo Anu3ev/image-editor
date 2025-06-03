@@ -1,7 +1,7 @@
 import { Canvas, Pattern, Rect } from 'fabric'
 
-import { IEditorOptions } from './defaults'
-import { IImageEditor } from './interfaces/image-editor.interface'
+import { IEditorOptions } from './types/fabric-extensions'
+import { IImageEditor } from './types/image-editor.interface'
 
 import { nanoid } from 'nanoid'
 import Listeners from './listeners'
@@ -42,6 +42,33 @@ import {
  * @fires {object} editor:render-complete - событие, которое срабатывает после завершения рендеринга редактора
  */
 export class ImageEditor implements IImageEditor {
+  options: IEditorOptions
+  containerId: string
+  editorId: string
+  clipboard: ClipboardItem | null
+  defaultZoom: number
+  minZoom: number
+  maxZoom: number
+  canvas!: Canvas
+  montageArea!: Rect
+  moduleLoader!: ModuleLoader
+  workerManager!: WorkerManager
+  errorManager!: ErrorManager
+  historyManager!: HistoryManager
+  toolbar!: ToolbarManager
+  transformManager!: TransformManager
+  canvasManager!: CanvasManager
+  imageManager!: ImageManager
+  layerManager!: LayerManager
+  shapeManager!: ShapeManager
+  interactionBlocker!: InteractionBlocker
+  clipboardManager!: ClipboardManager
+  objectLockManager!: ObjectLockManager
+  groupingManager!: GroupingManager
+  selectionManager!: SelectionManager
+  deletionManager!: DeletionManager
+  listeners!: Listeners
+
   /**
    * Конструктор класса ImageEditor.
    * @param {string} canvasId - идентификатор канваса, в котором будет создан редактор
@@ -63,33 +90,6 @@ export class ImageEditor implements IImageEditor {
 
     this.init()
   }
-
-  options: IEditorOptions
-  containerId: string
-  editorId: string
-  clipboard: ClipboardItem | null
-  defaultZoom: number
-  minZoom: number
-  maxZoom: number
-  canvas!: Canvas
-  montageArea!: Rect
-  moduleLoader!: ModuleLoader
-  workerManager!: WorkerManager
-  historyManager!: HistoryManager
-  toolbar!: ToolbarManager
-  transformManager!: TransformManager
-  canvasManager!: CanvasManager
-  imageManager!: ImageManager
-  layerManager!: LayerManager
-  shapeManager!: ShapeManager
-  interactionBlocker!: InteractionBlocker
-  clipboardManager!: ClipboardManager
-  objectLockManager!: ObjectLockManager
-  groupingManager!: GroupingManager
-  selectionManager!: SelectionManager
-  deletionManager!: DeletionManager
-  listeners!: Listeners
-
 
   async init() {
     const {
@@ -226,7 +226,7 @@ export class ImageEditor implements IImageEditor {
     const patternSourceCanvas = document.createElement('canvas')
     patternSourceCanvas.width = 20
     patternSourceCanvas.height = 20
-    const pCtx = patternSourceCanvas.getContext('2d')
+    const pCtx = patternSourceCanvas.getContext('2d')!
     pCtx.fillStyle = '#ddd'
     pCtx.fillRect(0, 0, 40, 40)
     pCtx.fillStyle = '#ccc'
