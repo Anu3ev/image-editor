@@ -127,7 +127,7 @@ export default {
   // Зум по колесику мыши
   mouseWheelZooming: true,
   // Перемещение канваса при зажатой кнопке ALT
-  canvasDragging: false,
+  canvasDragging: true,
   // Копирование объектов (Ctrl + C, Ctrl + V)
   copyObjectsByHotkey: true,
   // Вставка изображения из буфера обмена
