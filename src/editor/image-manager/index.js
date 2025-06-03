@@ -31,13 +31,14 @@ export default class ImageManager {
    * 'scale-montage' - Обновляет backstore-резолюцию монтажной области (масштабирует
    * экспортный размер канваса под размер изображения)
    * @param {Boolean} [options.withoutSave] - Не сохранять в историю изменений
+   * @returns {Promise<Object|null>} - возвращает Promise с объектом изображения или null в случае ошибки
    */
   async importImage({
     source,
     scale = `image-${this.options.scaleType}`,
     withoutSave = false
   }) {
-    if (!source) return
+    if (!source) return null
 
     const { canvas, montageArea, transformManager, historyManager, errorManager } = this.editor
 
@@ -58,7 +59,7 @@ export default class ImageManager {
         data: { source, format, contentType, acceptContentTypes, acceptFormats }
       })
 
-      return
+      return null
     }
 
     historyManager.suspendHistory()
@@ -83,7 +84,7 @@ export default class ImageManager {
           data: { source, format, contentType, acceptContentTypes, acceptFormats }
         })
 
-        return
+        return null
       }
 
       // Создаем blobURL и добавляем его в массив для последующего удаления (destroy)
@@ -143,14 +144,18 @@ export default class ImageManager {
         historyManager.saveState()
       }
 
-      canvas.fire('editor:image-imported', {
+      const result = {
         image: img,
         format,
         contentType,
         scale,
         withoutSave,
         source
-      })
+      }
+
+      canvas.fire('editor:image-imported', result)
+
+      return result
     } catch (error) {
       errorManager.emitError({
         origin: 'ImageManager',
@@ -161,6 +166,7 @@ export default class ImageManager {
       })
 
       historyManager.resumeHistory()
+      return null
     }
   }
 
