@@ -17,10 +17,11 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем внутреннюю ширину канваса (для экспорта)
-   * @param {String} width
-   * @param {Object} options
-   * @param {Boolean} options.preserveProportional - Сохранить пропорции
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param {String|Number} width
+   * @param {Object} [options={}]
+   * @param {Boolean} [options.preserveProportional] - Сохранить пропорции
+   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
+   * @param {Boolean} [options.adaptCanvasToContainer] - Адаптировать канвас к контейнеру
    * @fires editor:resolution-width-changed
    */
   setResolutionWidth(width, { preserveProportional, withoutSave, adaptCanvasToContainer } = {}) {
@@ -74,10 +75,11 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем внутреннюю высоту канваса (для экспорта)
-   * @param {String} height
-   * @param {Object} options
-   * @param {Boolean} options.preserveProportional - Сохранить пропорции
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param {String|Number} height
+   * @param {Object} [options={}]
+   * @param {Boolean} [options.preserveProportional] - Сохранить пропорции
+   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
+   * @param {Boolean} [options.adaptCanvasToContainer] - Адаптировать канвас к контейнеру
    * @fires editor:resolution-height-changed
    */
   setResolutionHeight(height, { preserveProportional, withoutSave, adaptCanvasToContainer } = {}) {

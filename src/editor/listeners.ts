@@ -1,6 +1,100 @@
-import { ActiveSelection } from 'fabric'
+import { ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent } from 'fabric'
+
+import { ImageEditor } from '.'
+import { IEditorOptions, ExtendedFabricObject } from './types/fabric-extensions'
 
 class Listeners {
+  /**
+   * Ссылка на редактор, содержащий canvas.
+   * @type {ImageEditor}
+   */
+  editor: ImageEditor
+  /**
+   * Ссылка на Fabric Canvas.
+   * @type {Canvas}
+   */
+  canvas: Canvas
+  /**
+   * Параметры (опции) для слушателей.
+   * @type {Partial<IEditorOptions>}
+   */
+  options: Partial<IEditorOptions>
+  /**
+   * Флаг, что перетаскивание канваса активно.
+   * @type {boolean}
+   * @default false
+   */
+  private isDragging: boolean = false
+  /**
+   * Координаты последнего положения мыши по оси X при перетаскивании канваса.
+   * Используется для расчёта смещения по горизонтали при перетаскивании.
+   * @type {number}
+   * @default 0
+   */
+  private lastMouseX: number = 0
+  /**
+   * Координаты последнего положения мыши по оси Y при перетаскивании канваса.
+   * Используется для расчёта смещения по вертикали при перетаскивании.
+   * @type {number}
+   * @default 0
+   */
+  private lastMouseY: number = 0
+  /**
+   * Флаг, что сочетание Ctrl+Z/Ctrl+Y удерживается.
+   * Используется для предотвращения множественных вызовов при удерживании клавиш.
+   * @type {boolean}
+   * @default false
+   */
+  isUndoRedoKeyPressed: boolean = false
+  /**
+   * Флаг, что пробел удерживается.
+   * Используется для активации режима перетаскивания канваса.
+   * @type {boolean}
+   * @default false
+   */
+  isSpacePressed: boolean = false
+
+  /**
+   * Привязанные обработчики событий.
+   * Используются для удаления слушателей при уничтожении экземпляра.
+   */
+  handleAdaptCanvasToContainerBound: (e: Event) => void
+  handleCopyEventBound: (e: KeyboardEvent) => void
+  handlePasteEventBound: (e: ClipboardEvent) => void
+  handleUndoRedoEventBound: (e: KeyboardEvent) => void
+  handleUndoRedoKeyUpBound: (e: KeyboardEvent) => void
+  handleSelectAllEventBound: (e: KeyboardEvent) => void
+  handleDeleteObjectsEventBound: (e: KeyboardEvent) => void
+  handleSpaceKeyDownBound: (e: KeyboardEvent) => void
+  handleSpaceKeyUpBound: (e: KeyboardEvent) => void
+  handleObjectModifiedHistoryBound: () => void
+  handleObjectRotatingHistoryBound: () => void
+  handleObjectAddedHistoryBound: () => void
+  handleObjectRemovedHistoryBound: () => void
+  handleOverlayUpdateBound: () => void
+  handleCanvasDragStartBound: (options: TPointerEventInfo<TPointerEvent>) => void
+  handleCanvasDraggingBound: (options: TPointerEventInfo<TPointerEvent>) => void
+  handleCanvasDragEndBound: () => void
+  handleMouseWheelZoomBound: (options: TPointerEventInfo<WheelEvent>) => void
+  handleBringToFrontBound: ({ selected }: { selected: FabricObject[] }) => void
+  handleResetObjectFitBound: (options: TPointerEventInfo<TPointerEvent>) => void
+  handleLockedSelectionBound: (options: { selected: FabricObject[], deselected?: FabricObject[], e?: TPointerEvent }) => void
+
+  /**
+   * Опции редактора, которые могут быть изменены пользователем.
+   * @type {Partial<IEditorOptions>}
+   */
+  canvasDragging: boolean = false
+  mouseWheelZooming: boolean = false
+  bringToFrontOnSelection: boolean = false
+  resetObjectFitByDoubleClick: boolean = false
+  copyObjectsByHotkey: boolean = false
+  pasteImageFromClipboard: boolean = false
+  undoRedoByHotKeys: boolean = false
+  selectAllByHotkey: boolean = false
+  deleteObjectsByHotkey: boolean = false
+  adaptCanvasToContainer: boolean = false
+
   /**
    * Конструктор принимает редактор и опции.
    * @param {Object} params
@@ -16,13 +110,10 @@ class Listeners {
    * @param {Boolean} [params.options.deleteObjectsByHotkey] — удаление объектов по Delete
    * @param {Boolean} [params.options.resetObjectFitByDoubleClick] — сброс фита объекта по двойному клику
    */
-  constructor({ editor, options = {} }) {
+  constructor({ editor, options = {} }: { editor: ImageEditor; options?: Partial<IEditorOptions> }) {
     this.editor = editor
     this.canvas = editor.canvas
     this.options = options
-
-    this.isUndoRedoKeyPressed = false
-    this.isSpacePressed = false
 
     // Создаем и сохраняем привязанные обработчики, чтобы потом можно было их снять.
     // Глобальные (DOM) события:
@@ -135,8 +226,11 @@ class Listeners {
 
   /**
    * При массовом выделении объектов удаляем из него залоченные.
+   * @param {{ selected: FabricObject[], e?: TPointerEvent }} params - параметры события
+   * @param {FabricObject[]} params.selected - массив выделенных объектов
+   * @param {TPointerEvent} [params.e] - событие указателя (опционально)
    */
-  _filterLockedSelection({ selected, e }) {
+  _filterLockedSelection({ selected, e }: { selected: ExtendedFabricObject[], e?: TPointerEvent }) {
     // Если это не событие мыши или если нет выделенных объектов, то ничего не делаем
     if (!selected?.length || !(e instanceof MouseEvent)) return
 
@@ -228,12 +322,12 @@ class Listeners {
 
   /**
    * Обработчик для Ctrl+C (копирование).
-   * @param {Object} event — объект события
+   * @param {KeyboardEvent} event — объект события
    * @param {Boolean} event.ctrlKey — зажата ли клавиша Ctrl
    * @param {Boolean} event.metaKey — зажата ли клавиша Cmd (для Mac)
    * @param {String} event.code — код клавиши
    */
-  handleCopyEvent(event) {
+  handleCopyEvent(event: KeyboardEvent) {
     const { ctrlKey, metaKey, code } = event
 
     if ((!ctrlKey && !metaKey) || code !== 'KeyC') return
@@ -250,7 +344,7 @@ class Listeners {
    *
    * TODO: Попробовать вынести методы в классы-менеджеры.
    */
-  handlePasteEvent({ clipboardData }) {
+  handlePasteEvent({ clipboardData }:ClipboardEvent) {
     if (!clipboardData?.items?.length) return
 
     const { imageManager } = this.editor
@@ -264,7 +358,9 @@ class Listeners {
 
       const reader = new FileReader()
       reader.onload = (f) => {
-        this.editor.imageManager.importImage({ source: f.target.result })
+        if (!f.target) return
+
+        this.editor.imageManager.importImage({ source: f.target.result as string })
       }
 
       reader.readAsDataURL(blob)
@@ -295,7 +391,7 @@ class Listeners {
    * @param {Boolean} event.metaKey — зажата ли клавиша Cmd (для Mac)
    * @param {String} event.code — код клавиши
    */
-  async handleUndoRedoEvent(event) {
+  async handleUndoRedoEvent(event:KeyboardEvent) {
     const { ctrlKey, metaKey, code, repeat } = event
 
     if ((!ctrlKey && !metaKey) || repeat) return
@@ -318,7 +414,7 @@ class Listeners {
    * @param {Object} event — объект события
    * @param {String} event.code — код клавиши
    */
-  handleUndoRedoKeyUp({ code }) {
+  handleUndoRedoKeyUp({ code }:KeyboardEvent) {
     if (code === 'KeyZ' || code === 'KeyY') {
       this.isUndoRedoKeyPressed = false
     }
@@ -331,7 +427,7 @@ class Listeners {
    * @param {Boolean} event.metaKey — зажата ли клавиша Cmd (для Mac)
    * @param {String} event.code — код клавиши
    */
-  handleSelectAllEvent(event) {
+  handleSelectAllEvent(event:KeyboardEvent) {
     const { ctrlKey, metaKey, code } = event
     if ((!ctrlKey && !metaKey) || code !== 'KeyA') return
     event.preventDefault()
@@ -343,7 +439,7 @@ class Listeners {
    * @param {Object} event — объект события
    * @param {String} event.code — код клавиши
    */
-  handleDeleteObjectsEvent(event) {
+  handleDeleteObjectsEvent(event:KeyboardEvent) {
     if (event.code !== 'Delete') return
     event.preventDefault()
     this.editor.deletionManager.deleteSelectedObjects()
@@ -355,7 +451,7 @@ class Listeners {
    * @param {Object} event — объект события
    * @param {String} event.code — код клавиши
    */
-  handleSpaceKeyDown(event) {
+  handleSpaceKeyDown(event:KeyboardEvent) {
     if (event.code !== 'Space') return
 
     const { canvas, editor, isSpacePressed, isDragging } = this
@@ -386,12 +482,12 @@ class Listeners {
    * @param {Object} event — объект события
    * @param {String} event.code — код клавиши
    */
-  handleSpaceKeyUp(event) {
+  handleSpaceKeyUp(event:KeyboardEvent) {
     if (event.code !== 'Space') return
 
     this.isSpacePressed = false
     // Завершаем перетаскивание при отпускании пробела
-    if (this.canvas.isDragging) {
+    if (this.isDragging) {
       this.handleCanvasDragEnd()
     }
 
@@ -414,38 +510,36 @@ class Listeners {
 
   /**
    * Начало перетаскивания канваса (срабатывает при mouse:down и зажатом пробеле).
-   * @param {Object} options
-   * @param {Object} options.e — объект события
+   * @param {TPointerEventInfo<TPointerEvent>} options - событие указателя
+   * @param {TPointerEvent} options.e — объект события (MouseEvent или TouchEvent)
    */
-  handleCanvasDragStart({ e: event }) {
-    if (!this.isSpacePressed) return
+  handleCanvasDragStart({ e: event }:TPointerEventInfo<TPointerEvent>) {
+    if (!this.isSpacePressed || !(event instanceof MouseEvent)) return
 
-    this.canvas.set({
-      isDragging: true,
-      defaultCursor: 'grabbing'
-    })
+    this.isDragging = true
+    this.lastMouseX = event.clientX
+    this.lastMouseY = event.clientY
+
     this.canvas.setCursor('grabbing')
-
-    this.canvas.lastPosX = event.clientX
-    this.canvas.lastPosY = event.clientY
   }
 
   /**
    * Перетаскивание канваса (mouse:move).
-   * @param {Object} options
-   * @param {Object} options.e — объект события
+   * @param {TPointerEventInfo<TPointerEvent>} options
+   * @param {MouseEvent} options.e — объект события
    *
    * TODO: Надо как-то ограничить область перетаскивания, чтобы канвас не уходил сильно далеко за пределы экрана
    */
-  handleCanvasDragging({ e: event }) {
-    if (!this.canvas.isDragging || !this.isSpacePressed) return
+  handleCanvasDragging({ e: event }:TPointerEventInfo<TPointerEvent>) {
+    if (!this.isDragging || !this.isSpacePressed || !(event instanceof MouseEvent)) return
 
     const vpt = this.canvas.viewportTransform
-    vpt[4] += event.clientX - this.canvas.lastPosX
-    vpt[5] += event.clientY - this.canvas.lastPosY
+    vpt[4] += event.clientX - this.lastMouseX
+    vpt[5] += event.clientY - this.lastMouseY
     this.canvas.requestRenderAll()
-    this.canvas.lastPosX = event.clientX
-    this.canvas.lastPosY = event.clientY
+
+    this.lastMouseX = event.clientX
+    this.lastMouseY = event.clientY
   }
 
   /**
@@ -453,10 +547,10 @@ class Listeners {
    * Сохраняет новое положение канваса.
    */
   handleCanvasDragEnd() {
-    if (!this.canvas.isDragging) return
+    if (!this.isDragging) return
 
     this.canvas.setViewportTransform(this.canvas.viewportTransform)
-    this.canvas.set('isDragging', false)
+    this.isDragging = false
 
     if (this.isSpacePressed) {
       this.canvas.set('defaultCursor', 'grab')
@@ -466,10 +560,10 @@ class Listeners {
 
   /**
    * Обработчик зума колесиком мыши. Работает при зажатом Ctrl или Cmd.
-   * @param {Object} options
-   * @param {Object} options.e — объект события
+   * @param {TPointerEventInfo<WheelEvent>} options - правильно!
+   * @param {WheelEvent} options.e — объект события
    */
-  handleMouseWheelZoom({ e: event }) {
+  handleMouseWheelZoom({ e: event }:TPointerEventInfo<WheelEvent>) {
     if (!event.ctrlKey && !event.metaKey) return
 
     const conversionFactor = 0.001
@@ -483,10 +577,10 @@ class Listeners {
 
   /**
    * Обработчик, поднимающий выделенные объекты на передний план.
-   * @param {Object} event - объект события Fabric
-   * @param {Array} event.selected - массив выбранных объектов
+   * @param {{ selected: FabricObject[] }} event - объект события выделения
+   * @param {FabricObject[]} event.selected - массив выбранных объектов
    */
-  handleBringToFront({ selected }) {
+  handleBringToFront({ selected }: { selected: FabricObject[] }) {
     if (!selected?.length) return
     selected.forEach((obj) => {
       this.editor.layerManager.bringToFront(obj)
@@ -495,8 +589,10 @@ class Listeners {
 
   /**
    * Обработчик сброса объекта по двойному клику.
+   * @param {TPointerEventInfo<TPointerEvent>} options - объект события fabric
    */
-  handleResetObjectFit({ target }) {
+  handleResetObjectFit(options: TPointerEventInfo<TPointerEvent>) {
+    const target = options?.target
     if (!target) return
     this.editor.transformManager.resetObject(target)
   }
@@ -546,13 +642,25 @@ class Listeners {
     this.canvas.off('selection:updated', this.handleLockedSelectionBound.bind(this))
   }
 
-  // Дебаунс для снижения частоты сохранения состояния
-  static debounce(fn, delay) {
-    let timer = null
+  /**
+   * Дебаунс для снижения частоты вызова функции.
+   * @param fn — функция-обработчик
+   * @param delay — задержка в миллисекундах
+   * @returns новую обёртку-обработчик
+   */
+  static debounce<T extends (...args: any[]) => any>(
+    fn: T,
+    delay: number
+  ): (...args: Parameters<T>) => void {
+    let timer: number | null = null
 
-    return function(...args) {
+    return function(this: any, ...args: Parameters<T>): void {
       const context = this
-      clearTimeout(timer)
+
+      if (timer) {
+        clearTimeout(timer)
+      }
+
       timer = setTimeout(() => {
         fn.apply(context, args)
       }, delay)
