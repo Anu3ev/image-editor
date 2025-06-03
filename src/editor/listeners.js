@@ -22,6 +22,7 @@ class Listeners {
     this.options = options
 
     this.isUndoRedoKeyPressed = false
+    this.isSpacePressed = false
 
     // Создаем и сохраняем привязанные обработчики, чтобы потом можно было их снять.
     // Глобальные (DOM) события:
@@ -32,6 +33,8 @@ class Listeners {
     this.handleUndoRedoKeyUpBound = this.handleUndoRedoKeyUp.bind(this)
     this.handleSelectAllEventBound = this.handleSelectAllEvent.bind(this)
     this.handleDeleteObjectsEventBound = this.handleDeleteObjectsEvent.bind(this)
+    this.handleSpaceKeyDownBound = this.handleSpaceKeyDown.bind(this)
+    this.handleSpaceKeyUpBound = this.handleSpaceKeyUp.bind(this)
 
     // Canvas (Fabric) события:
     this.handleObjectModifiedHistoryBound = Listeners.debounce(this.handleObjectModifiedHistory.bind(this), 300)
@@ -71,6 +74,9 @@ class Listeners {
       this.canvas.on('mouse:down', this.handleCanvasDragStartBound)
       this.canvas.on('mouse:move', this.handleCanvasDraggingBound)
       this.canvas.on('mouse:up', this.handleCanvasDragEndBound)
+
+      document.addEventListener('keydown', this.handleSpaceKeyDownBound, { capture: true })
+      document.addEventListener('keyup', this.handleSpaceKeyUpBound, { capture: true })
     }
 
     if (mouseWheelZooming) {
@@ -343,18 +349,83 @@ class Listeners {
     this.editor.deletionManager.deleteSelectedObjects()
   }
 
+  /**
+   * Обработчик для нажатия пробела.
+   * Отключает выделение объектов и делает курсор "grab" для перетаскивания канваса.
+   * @param {Object} event — объект события
+   * @param {String} event.code — код клавиши
+   */
+  handleSpaceKeyDown(event) {
+    if (event.code !== 'Space') return
+
+    const { canvas, editor, isSpacePressed, isDragging } = this
+
+    if (isSpacePressed || isDragging) return
+
+    this.isSpacePressed = true
+    event.preventDefault()
+
+    canvas.set({
+      selection: false,
+      defaultCursor: 'grab'
+    })
+    canvas.setCursor('grab')
+
+    editor.canvasManager.getObjects().forEach((obj) => {
+      obj.set({
+        selectable: false,
+        evented: false
+      })
+    })
+  }
+
+  /**
+   * Обработчик для отпускания пробела.
+   * Завершает перетаскивание канваса, если оно активно.
+   * Включает выделение объектов и возвращает курсор в состояние "default".
+   * @param {Object} event — объект события
+   * @param {String} event.code — код клавиши
+   */
+  handleSpaceKeyUp(event) {
+    if (event.code !== 'Space') return
+
+    this.isSpacePressed = false
+    // Завершаем перетаскивание при отпускании пробела
+    if (this.canvas.isDragging) {
+      this.handleCanvasDragEnd()
+    }
+
+    this.canvas.set({
+      defaultCursor: 'default',
+      selection: true
+    })
+
+    this.canvas.setCursor('default')
+
+    this.editor.canvasManager.getObjects().forEach((obj) => {
+      obj.set({
+        selectable: true,
+        evented: true
+      })
+    })
+  }
+
   // --- Обработчики для событий canvas (Fabric) ---
 
   /**
-   * Начало перетаскивания канваса (срабатывает при mouse:down).
+   * Начало перетаскивания канваса (срабатывает при mouse:down и зажатом пробеле).
    * @param {Object} options
    * @param {Object} options.e — объект события
    */
   handleCanvasDragStart({ e: event }) {
-    // перетаскивание происходит только при зажатом Alt
-    if (!event.altKey) return
-    this.canvas.isDragging = true
-    this.canvas.selection = false
+    if (!this.isSpacePressed) return
+
+    this.canvas.set({
+      isDragging: true,
+      defaultCursor: 'grabbing'
+    })
+    this.canvas.setCursor('grabbing')
+
     this.canvas.lastPosX = event.clientX
     this.canvas.lastPosY = event.clientY
   }
@@ -367,7 +438,8 @@ class Listeners {
    * TODO: Надо как-то ограничить область перетаскивания, чтобы канвас не уходил сильно далеко за пределы экрана
    */
   handleCanvasDragging({ e: event }) {
-    if (!this.canvas.isDragging) return
+    if (!this.canvas.isDragging || !this.isSpacePressed) return
+
     const vpt = this.canvas.viewportTransform
     vpt[4] += event.clientX - this.canvas.lastPosX
     vpt[5] += event.clientY - this.canvas.lastPosY
@@ -381,17 +453,25 @@ class Listeners {
    * Сохраняет новое положение канваса.
    */
   handleCanvasDragEnd() {
+    if (!this.canvas.isDragging) return
+
     this.canvas.setViewportTransform(this.canvas.viewportTransform)
-    this.canvas.isDragging = false
-    this.canvas.selection = true
+    this.canvas.set('isDragging', false)
+
+    if (this.isSpacePressed) {
+      this.canvas.set('defaultCursor', 'grab')
+      this.canvas.setCursor('grab')
+    }
   }
 
   /**
-   * Обработчик зума колесиком мыши.
+   * Обработчик зума колесиком мыши. Работает при зажатом Ctrl или Cmd.
    * @param {Object} options
    * @param {Object} options.e — объект события
    */
   handleMouseWheelZoom({ e: event }) {
+    if (!event.ctrlKey && !event.metaKey) return
+
     const conversionFactor = 0.001
     const scaleAdjustment = -event.deltaY * conversionFactor
 
@@ -439,6 +519,9 @@ class Listeners {
       this.canvas.off('mouse:down', this.handleCanvasDragStartBound)
       this.canvas.off('mouse:move', this.handleCanvasDraggingBound)
       this.canvas.off('mouse:up', this.handleCanvasDragEndBound)
+
+      document.removeEventListener('keydown', this.handleSpaceKeyDownBound, { capture: true })
+      document.removeEventListener('keyup', this.handleSpaceKeyUpBound, { capture: true })
     }
     if (this.options.mouseWheelZooming) {
       this.canvas.off('mouse:wheel', this.handleMouseWheelZoomBound)
