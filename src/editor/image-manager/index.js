@@ -2,7 +2,9 @@ import { loadSVGFromURL, FabricImage, util } from 'fabric'
 import { nanoid } from 'nanoid'
 import {
   CANVAS_MAX_WIDTH,
-  CANVAS_MAX_HEIGHT
+  CANVAS_MAX_HEIGHT,
+  CANVAS_MIN_HEIGHT,
+  CANVAS_MIN_WIDTH
 } from '../constants'
 
 export default class ImageManager {
@@ -109,6 +111,14 @@ export default class ImageManager {
 
         // Создаем новый объект FabricImage из уменьшенного dataURL
         img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
+      } else if (imageHeight < CANVAS_MIN_HEIGHT || imageWidth < CANVAS_MIN_WIDTH) {
+        // Если изображение меньше минимальных размеров, то апскейлим его
+        const resizedBlob = await this.resizeImageToBoundaries(img._element.src, 'min')
+        const resizedBlobURL = URL.createObjectURL(resizedBlob)
+        this._createdBlobUrls.push(resizedBlobURL)
+
+        // Создаем новый объект FabricImage из увеличенного dataURL
+        img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
       }
 
       img.set('id', `${img.type}-${nanoid()}`)
@@ -180,24 +190,31 @@ export default class ImageManager {
    */
   async resizeImageToBoundaries(dataURL, size = 'max') {
     // eslint-disable-next-line max-len
-    const message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров: ${CANVAS_MAX_WIDTH}x${CANVAS_MAX_HEIGHT}`
+    let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${CANVAS_MAX_WIDTH}x${CANVAS_MAX_HEIGHT}`
+
+    if (size === 'min') {
+      // eslint-disable-next-line max-len
+      message = `Размер изображения меньше минимального размера канваса, поэтому оно будет увеличено до минимальных размеров c сохранением пропорций: ${CANVAS_MIN_WIDTH}x${CANVAS_MIN_HEIGHT}`
+    }
+
+    const data = {
+      dataURL,
+      sizeType: size,
+      maxWidth: CANVAS_MAX_WIDTH,
+      maxHeight: CANVAS_MAX_HEIGHT,
+      minWidth: CANVAS_MIN_WIDTH,
+      minHeight: CANVAS_MIN_HEIGHT
+    }
 
     this.editor.errorManager.emitWarning({
       origin: 'ImageManager',
       method: 'resizeImageToBoundaries',
       code: 'IMAGE_RESIZE_WARNING',
       message,
-      data: { dataURL, size }
+      data
     })
 
-    const newDataURL = await this.editor.workerManager.post('resizeImage', {
-      dataURL,
-      maxWidth: CANVAS_MAX_WIDTH,
-      maxHeight: CANVAS_MAX_HEIGHT,
-      sizeType: size
-    })
-
-    return newDataURL
+    return this.editor.workerManager.post('resizeImage', data)
   }
 
   /**

@@ -412,17 +412,6 @@ export default class CanvasManager {
 
     const { width: imageWidth, height: imageHeight } = image
 
-    if (imageWidth < CANVAS_MIN_WIDTH || imageHeight < CANVAS_MIN_HEIGHT) {
-      // eslint-disable-next-line max-len
-      const message = `Размер изображения меньше минимального размера канваса, поэтому оно будет растянуто до минимальных размеров: ${CANVAS_MIN_WIDTH}x${CANVAS_MIN_HEIGHT}`
-
-      console.warn(`scaleMontageAreaToImage. ${message}`)
-
-      canvas.fire('editor:warning', {
-        message
-      })
-    }
-
     let newCanvasWidth = Math.min(imageWidth, CANVAS_MAX_WIDTH)
     let newCanvasHeight = Math.min(imageHeight, CANVAS_MAX_HEIGHT)
 
