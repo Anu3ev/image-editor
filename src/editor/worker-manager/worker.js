@@ -6,7 +6,7 @@ self.onmessage = async(e) => {
   try {
     switch (action) {
     case 'resizeImage': {
-      const { dataURL, maxWidth, maxHeight, sizeType } = payload
+      const { dataURL, maxWidth, maxHeight, minWidth, minHeight, sizeType } = payload
       const imgBitmap = await createImageBitmap(await (await fetch(dataURL)).blob())
 
       // вычисляем новый размер
@@ -14,7 +14,7 @@ self.onmessage = async(e) => {
       let ratio = Math.min(maxWidth / width, maxHeight / height)
 
       if (sizeType === 'min') {
-        ratio = Math.max(maxWidth / width, maxHeight / height)
+        ratio = Math.max(minWidth / width, minHeight / height)
       }
 
       width = Math.floor(width * ratio)
