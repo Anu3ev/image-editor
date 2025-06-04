@@ -1,7 +1,7 @@
 import { ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent } from 'fabric'
 
 import { ImageEditor } from '.'
-import { IEditorOptions, ExtendedFabricObject } from './types/fabric-extensions'
+import { IEditorOptions, ExtendedFabricObject } from './types'
 
 class Listeners {
   /**

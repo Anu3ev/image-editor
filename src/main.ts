@@ -1,6 +1,6 @@
 import { ImageEditor } from './editor'
-import { IEditorOptions } from './editor/types/fabric-extensions'
-import defaults from './editor/defaults'
+import { IEditorOptions } from './editor/types'
+import { defaults } from './editor/defaults'
 
 /**
  * Инициализирует редактор, создавая канвас внутри контейнера.

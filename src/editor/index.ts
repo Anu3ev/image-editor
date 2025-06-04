@@ -1,7 +1,6 @@
 import { Canvas, Pattern, Rect } from 'fabric'
 
-import { IEditorOptions } from './types/fabric-extensions'
-import { IImageEditor } from './types/image-editor.interface'
+import { IImageEditor, IEditorOptions } from './types'
 
 import { nanoid } from 'nanoid'
 import Listeners from './listeners'

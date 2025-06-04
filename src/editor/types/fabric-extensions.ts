@@ -1,52 +1,250 @@
-import { FabricObject, CanvasOptions } from 'fabric';
+import {
+  FabricObject,
+  CanvasOptions,
+  RectProps,
+  CircleProps,
 
+} from 'fabric';
+
+/**
+ * Интерфейс опций редактора изображений.
+ * @interface IEditorOptions
+ * @extends {Partial<CanvasOptions>}
+ */
 export interface IEditorOptions extends Partial<CanvasOptions> {
+  /**
+   * Ширина рабочей области редактора.
+   */
   montageAreaWidth: number
+  /**
+   * Высота рабочей области редактора.
+   */
   montageAreaHeight: number
+  /**
+   * Backstore ширина канваса.
+   * Может быть задана в пикселях или как 'auto' для автоматической подстройки.
+   */
   canvasBackstoreWidth: string | number
+  /**
+   * Backstore высота канваса.
+   * Может быть задана в пикселях или как 'auto' для автоматической подстройки.
+   */
   canvasBackstoreHeight: string | number
+  /**
+   * CSS ширина канваса.
+   * Может быть задана в пикселях или как '100%' для растягивания на всю ширину контейнера.
+   */
   canvasCSSWidth: string
+  /**
+   * CSS высота канваса.
+   * Может быть задана в пикселях или как '100%' для растягивания на всю высоту контейнера.
+   */
   canvasCSSHeight: string
+  /**
+   * CSS ширина обертки канваса.
+   * Может быть задана в пикселях или как '100%' для растягивания на всю ширину контейнера.
+   */
   canvasWrapperWidth: string
+  /**
+   * CSS высота обертки канваса.
+   * Может быть задана в пикселях или как '100%' для растягивания на всю высоту контейнера.
+   */
   canvasWrapperHeight: string
+  /**
+   * Ширина контейнера редактора.
+   * Может быть задана в пикселях или как 'fit-content' для автоматической подстройки.
+   */
   editorContainerWidth: string
+  /**
+   * Высота контейнера редактора.
+   * Может быть задана в пикселях или как '100%' для растягивания на всю высоту родительского элемента.
+   */
   editorContainerHeight: string
+
+  /**
+   * Максимальная длина истории действий в редакторе.
+   * Используется для ограничения размера истории и предотвращения переполнения памяти.
+   * Если значение меньше 1, то история не будет сохраняться.
+   */
+  maxHistoryLength: number
+
+  /**
+   * Тип скейлинга для объектов.
+   * Может быть 'image-contain', 'image-cover' или 'scale-montage'.
+   * 'image-contain' - сохраняет пропорции изображения, масштабируя его так, чтобы оно полностью помещалось в рабочую область.
+   * 'image-cover' - сохраняет пропорции изображения, масштабируя его так, чтобы оно полностью заполняло рабочую область.
+   * 'scale-montage' - масштабирует изображение в зависимости от размера рабочей области.
+   */
   scaleType: string
+  /**
+   * Показывать панель инструментов для выделенного объекта.
+   */
   showToolbar: boolean
+  /**
+   * Настройки панели инструментов выделенного объекта.
+   * Можно передать массив с названиями действий или объект с настройками, кастомными иконками и обработчиками.
+   * Увидеть все настройки можно здесь: ui/toolbar-manager/default-config
+   */
   toolbar: {
     lockedActions: Array<{ name: string; handle: string }>
     actions: Array<{ name: string; handle: string }>
   },
+  /**
+   * JSON объект с начальными состоянием редактора.
+   */
   initialStateJSON: object | null
+  /**
+   * Объект изображения с которым редактор будет инициализирован.
+   * Может содержать:
+   *  - {String} source - URL изображения (обязательный)
+   *  - {String} scale - Тип скейлинга (image-contain/image-cover/scale-montage)
+   *  - {Boolean} withoutSave - Не сохранять состояние редактора (по умолчанию false)
+   *  - {String} contentType - Тип контента (например, 'image/png')
+   */
   initialImage: {
     source: string
     scale: string
     withoutSave: boolean,
     contentType: string
   } | null
+  /**
+   * Дефолтный масштаб для редактора.
+   * Используется при инициализации канваса.
+   */
   defaultScale: number
+  /**
+   * Минимальный масштаб для редактора.
+   * Используется для ограничения зума.
+   */
   minZoom: number
+  /**
+   * Максимальный масштаб для редактора.
+   * Используется для ограничения зума.
+   */
   maxZoom: number
+  /**
+   * Максимальная кратность зума относительно текущего defaultZoom.
+   * Используется для ограничения зума.
+   */
   maxZoomFactor: number
+  /**
+   * Шаг зума для увеличения/уменьшения масштаба.
+   * Используется при зуме по колесику мыши или по кнопкам.
+   */
   zoomRatio: number
+  /**
+   * Массив допустимых форматов изображений для загрузки в редактор.
+   */
+  acceptContentTypes: string[]
+  /**
+   * Цвет маски наложения при блокировке редактора.
+   * Используется для затемнения рабочей области при блокировке.
+   * Например, 'rgba(136, 136, 136, 0.6)'.
+   */
   overlayMaskColor: string
-  adaptCanvasToContainer: boolean
-  bringToFrontOnSelection: boolean
-  mouseWheelZooming: boolean
-  canvasDragging: boolean
-  copyObjectsByHotkey: boolean
-  pasteImageFromClipboard: boolean
-  undoRedoByHotKeys: boolean
-  selectAllByHotkey: boolean
-  deleteObjectsByHotkey: boolean
-  resetObjectFitByDoubleClick: boolean
 
+  /**
+   * Контейнер редактора, в котором будет создан канвас.
+   * Используется для адаптации размеров канваса к размерам контейнера.
+   */
   editorContainer?: HTMLElement
 
+  /**
+   * Коллбэк, который будет вызван при готовности редактора.
+   * Используется для выполнения действий после полной инициализации редактора.
+   */
   _onReadyCallback?: Function
+
+
+  /**
+   * Настройки слушателей событий.
+   */
+
+  /**
+   * Адаптировать канвас при изменении размеров контейнера (например, при изменении размеров окна браузера).
+   */
+  adaptCanvasToContainer: boolean
+  /**
+   * Поднимать объект на передний план по оси Z при выделении.
+   * Если true, то при выделении объекта он будет подниматься на передний план.
+   */
+  bringToFrontOnSelection: boolean
+  /**
+   * Зум по CTRL + колесико мыши.
+   */
+  mouseWheelZooming: boolean
+  /**
+   * Реэжим перемещения по канвасу при зажатой клавише пробел.
+   */
+  canvasDragging: boolean
+  /**
+   * Копирование объектов по сочетанию клавиш Ctrl + C.
+   */
+  copyObjectsByHotkey: boolean
+  /**
+   * Вставка изображения из буфера обмена при нажатии Ctrl + V.
+   */
+  pasteImageFromClipboard: boolean
+  /**
+   * Отмена/повтор действия по сочетанию клавиш Ctrl + Z / Ctrl + Y.
+   */
+  undoRedoByHotKeys: boolean
+  /**
+   * Выделение всех объектов по сочетанию клавиш Ctrl + A.
+   */
+  selectAllByHotkey: boolean
+  /**
+   * Удаление объектов по сочетанию клавиш Delete.
+   */
+  deleteObjectsByHotkey: boolean
+  /**
+   * Сброс параметров объекта по двойному клику.
+   * Если true, то при двойном клике по объекту будут сбрасываться его угол поворота, размеры, объект будет вписан в рабочую область.
+   */
+  resetObjectFitByDoubleClick: boolean
 }
 
+/**
+ * Расширенный интерфейс для объектов Fabric.js с дополнительными свойствами.
+ * @interface ExtendedFabricObject
+ * @extends {FabricObject}
+ * @property {string} [id] - Уникальный идентификатор объекта.
+ * @property {boolean} [locked] - Флаг блокировки объекта.
+ */
 export interface ExtendedFabricObject extends FabricObject {
+  /**
+   * Уникальный идентификатор объекта.
+   */
+  id?: string;
+  /**
+   * Флаг блокировки объекта.
+   * Если true, то объект не может быть изменен или удален.
+   */
   locked?: boolean;
 }
 
+/**
+ * Расширенные свойства для прямоугольника.
+ * @interface ExtendedRectProps
+ * @extends {RectProps}
+ * @property {string} [id] - Уникальный идентификатор.
+ */
+export interface ExtendedRectProps extends RectProps {
+  /**
+   * Уникальный идентификатор.
+   */
+  id?: string;
+}
+
+/**
+ * Расширенные свойства для круга.
+ * @interface ExtendedCircleProps
+ * @extends {CircleProps}
+ * @property {string} [id] - Уникальный идентификатор.
+ */
+export interface ExtendedCircleProps extends CircleProps {
+  /**
+   * Уникальный идентификатор.
+   */
+  id?: string;
+}
