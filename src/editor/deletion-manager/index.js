@@ -12,10 +12,10 @@ export default class DeletionManager {
    * @param {Object} options
    * @param {fabric.Object[]} options.objects - массив объектов для удаления
    * @param {Boolean} options.withoutSave - Не сохранять состояние
-   * @fires editor:object-deleted
+   * @fires editor:objects-deleted
    */
   deleteSelectedObjects({ objects, withoutSave } = {}) {
-    const { canvas, historyManager } = this.editor
+    const { canvas, historyManager, groupingManager } = this.editor
 
     // Отбираем только те объекты, которые не заблокированы
     const activeObjects = (objects || canvas.getActiveObjects()).filter((obj) => !obj.locked)
@@ -25,7 +25,7 @@ export default class DeletionManager {
 
     activeObjects.forEach((obj) => {
       if (obj.type === 'group' && obj.format !== 'svg') {
-        this.ungroup(obj)
+        groupingManager.ungroup(obj)
         this.deleteSelectedObjects()
 
         return

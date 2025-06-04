@@ -125,7 +125,7 @@ export class ImageEditor implements IImageEditor {
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
 
-    this._createMonageArea()
+    this._createMontageArea()
     this._createClippingArea()
 
     this.listeners = new Listeners({ editor: this, options: this.options })
@@ -164,7 +164,7 @@ export class ImageEditor implements IImageEditor {
     }
   }
 
-  _createMonageArea() {
+  _createMontageArea() {
     const {
       montageAreaWidth,
       montageAreaHeight
