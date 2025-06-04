@@ -1,7 +1,6 @@
 import { Canvas, Pattern, Rect } from 'fabric'
 
-import { IEditorOptions } from './types/fabric-extensions'
-import { IImageEditor } from './types/image-editor.interface'
+import { IImageEditor, IEditorOptions } from './types'
 
 import { nanoid } from 'nanoid'
 import Listeners from './listeners'
@@ -125,7 +124,7 @@ export class ImageEditor implements IImageEditor {
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
 
-    this._createMontageArea()
+    this._createMonageArea()
     this._createClippingArea()
 
     this.listeners = new Listeners({ editor: this, options: this.options })
@@ -164,7 +163,7 @@ export class ImageEditor implements IImageEditor {
     }
   }
 
-  _createMontageArea() {
+  _createMonageArea() {
     const {
       montageAreaWidth,
       montageAreaHeight

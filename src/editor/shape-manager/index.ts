@@ -1,34 +1,41 @@
-import {
-  Rect,
-  Circle,
-  Triangle
-} from 'fabric'
-
+import { ImageEditor } from '../index'
+import { Rect, Circle, Triangle } from 'fabric'
+import { ExtendedRectProps, ExtendedCircleProps, ExtendedFabricObject } from '../types'
 import { nanoid } from 'nanoid'
+
+type ShapeCreationFlags = {
+  withoutSelection?: boolean
+  withoutAdding?: boolean
+}
 
 export default class ShapeManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Ссылка на редактор, содержащий canvas.
+   * @type {ImageEditor}
    */
-  constructor({
-    editor
-  }) {
+  editor: ImageEditor
+
+  /**
+   * Менеджер фигур для редактора.
+   * @param {Object} options - Опции и настройки менеджера фигур.
+   * @param {ImageEditor} options.editor - Ссылка на экземпляр редактора.
+   */
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
   /**
    * Добавление прямоугольника
    * @param {Object} shapeOptions
+   * @param {String} shapeOptions.id - Уникальный идентификатор фигуры
    * @param {Number} shapeOptions.left - Координата X
    * @param {Number} shapeOptions.top - Координата Y
    * @param {Number} shapeOptions.width - Ширина
    * @param {Number} shapeOptions.height - Высота
    * @param {String} shapeOptions.fill - Цвет заливки
-   * @param {String} shapeOptions.originX - Ориентация по X
-   * @param {String} shapeOptions.originY - Ориентация по Y
    * @param {Rect} shapeOptions.rest - Остальные параметры
    *
+   * @param {Object} flags - Флаги для управления поведением
    * @param {Object} flags.withoutSelection - Не выделять объект
    * @param {Object} flags.withoutAdding - Не добавлять объект в canvas
    */
@@ -41,8 +48,8 @@ export default class ShapeManager {
       height = 100,
       fill = 'blue',
       ...rest
-    } = {},
-    { withoutSelection, withoutAdding } = {}
+    }:Partial<ExtendedRectProps> = {},
+    { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
   ) {
     const { canvas } = this.editor
 
@@ -75,6 +82,7 @@ export default class ShapeManager {
   /**
    * Добавление круга
    * @param {Object} shapeOptions
+   * @param {String} shapeOptions.id - Уникальный идентификатор фигуры
    * @param {Number} shapeOptions.left - Координата X
    * @param {Number} shapeOptions.top - Координата Y
    * @param {Number} shapeOptions.radius - Радиус
@@ -83,6 +91,7 @@ export default class ShapeManager {
    * @param {String} shapeOptions.originY - Ориентация по Y
    * @param {Circle} shapeOptions.rest - Остальные параметры
    *
+   * @param {Object} flags - Флаги для управления поведением
    * @param {Object} flags.withoutSelection - Не выделять объект
    * @param {Object} flags.withoutAdding - Не добавлять объект в canvas
    */
@@ -94,8 +103,8 @@ export default class ShapeManager {
       radius = 50,
       fill = 'green',
       ...rest
-    } = {},
-    { withoutSelection, withoutAdding } = {}
+    }:Partial<ExtendedCircleProps> = {},
+    { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
   ) {
     const { canvas } = this.editor
 
@@ -126,6 +135,7 @@ export default class ShapeManager {
   /**
    * Добавление треугольника
    * @param {Object} shapeOptions
+   * @param {String} shapeOptions.id - Уникальный идентификатор фигуры
    * @param {Number} shapeOptions.left - Координата X
    * @param {Number} shapeOptions.top - Координата Y
    * @param {Number} shapeOptions.width - Ширина
@@ -135,6 +145,7 @@ export default class ShapeManager {
    * @param {String} shapeOptions.fill - Цвет заливки
    * @param {Triangle} shapeOptions.rest - Остальные параметры
    *
+   * @param {Object} flags - Флаги для управления поведением
    * @param {Object} flags.withoutSelection - Не выделять объект
    * @param {Object} flags.withoutAdding - Не добавлять объект в canvas
    */
@@ -147,8 +158,8 @@ export default class ShapeManager {
       height = 100,
       fill = 'yellow',
       ...rest
-    } = {},
-    { withoutSelection, withoutAdding } = {}
+    }:Partial<ExtendedFabricObject> = {},
+    { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
   ) {
     const { canvas } = this.editor
 

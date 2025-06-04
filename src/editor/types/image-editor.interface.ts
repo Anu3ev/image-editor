@@ -1,7 +1,7 @@
 // src/editor/index.ts
 
-import { Canvas, Rect } from 'fabric'
-import { IEditorOptions } from '../defaults'
+import { Canvas, Rect, Pattern } from 'fabric'
+import { IEditorOptions } from '../types'
 import Listeners from '../listeners'
 import ModuleLoader from '../module-loader'
 import WorkerManager from '../worker-manager'
