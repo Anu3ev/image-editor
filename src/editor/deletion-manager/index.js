@@ -15,7 +15,7 @@ export default class DeletionManager {
    * @fires editor:objects-deleted
    */
   deleteSelectedObjects({ objects, withoutSave } = {}) {
-    const { canvas, historyManager, groupManager } = this.editor
+    const { canvas, historyManager, groupingManager } = this.editor
 
     // Отбираем только те объекты, которые не заблокированы
     const activeObjects = (objects || canvas.getActiveObjects()).filter((obj) => !obj.locked)
@@ -25,7 +25,7 @@ export default class DeletionManager {
 
     activeObjects.forEach((obj) => {
       if (obj.type === 'group' && obj.format !== 'svg') {
-        groupManager.ungroup(obj)
+        groupingManager.ungroup(obj)
         this.deleteSelectedObjects()
 
         return
