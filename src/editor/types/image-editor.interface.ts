@@ -202,7 +202,7 @@ export interface IImageEditor {
    * @private
    * @returns {void}
    */
-  _createMonageArea(): void
+  _createMontageArea(): void
 
   /**
    * Создаёт область клиппинга

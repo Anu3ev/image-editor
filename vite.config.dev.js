@@ -1,14 +1,16 @@
 import { defineConfig } from 'vite'
 import path from 'path'
 import babel from 'vite-plugin-babel'
-import { analyzer } from 'vite-bundle-analyzer'
 
 export default defineConfig({
-  base: './', // делаем ссылки относительными
+  base: './',
+  mode: 'development',
 
   build: {
     target: 'es2015',
-    sourcemap: false,
+    sourcemap: true,
+    minify: false,
+    watch: {},
 
     lib: {
       entry: {
@@ -16,15 +18,16 @@ export default defineConfig({
       },
       name: 'ImageEditor',
       formats: ['es'],
-      fileName: (format, entryName) => `${entryName}`
+      fileName: (format, entryName) => `${entryName}.js`
     },
 
     rollupOptions: {
-      // внешние зависимости – не бандлить их
       external: ['fabric', 'jspdf', 'jsondiffpatch']
     },
 
-    outDir: 'dist',
+    // Папка проекта, куда будет собираться код
+    outDir: path.resolve(__dirname, 'dev-build'),
+
     emptyOutDir: true
   },
 
@@ -40,12 +43,6 @@ export default defineConfig({
           }]
         ]
       }
-    }),
-    analyzer({
-      filename: 'stats.html',
-      open: true,
-      gzipSize: true,
-      brotliSize: true
     })
   ]
 })

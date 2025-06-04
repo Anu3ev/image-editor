@@ -29,7 +29,7 @@ export interface IEditorOptions extends Partial<CanvasOptions> {
   maxZoom: number
   maxZoomFactor: number
   zoomRatio: number
-  disabledOverlayColor: string
+  overlayMaskColor: string
   adaptCanvasToContainer: boolean
   bringToFrontOnSelection: boolean
   mouseWheelZooming: boolean

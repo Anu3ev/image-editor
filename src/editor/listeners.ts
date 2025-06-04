@@ -220,8 +220,8 @@ class Listeners {
     this.canvas.on('object:added', this.handleOverlayUpdateBound)
     this.canvas.on('selection:created', this.handleOverlayUpdateBound)
 
-    this.canvas.on('selection:created', this.handleLockedSelectionBound.bind(this))
-    this.canvas.on('selection:updated', this.handleLockedSelectionBound.bind(this))
+    this.canvas.on('selection:created', this.handleLockedSelectionBound)
+    this.canvas.on('selection:updated', this.handleLockedSelectionBound)
   }
 
   /**
@@ -638,8 +638,8 @@ class Listeners {
     this.canvas.off('object:added', this.handleOverlayUpdateBound)
     this.canvas.off('selection:created', this.handleOverlayUpdateBound)
 
-    this.canvas.off('selection:created', this.handleLockedSelectionBound.bind(this))
-    this.canvas.off('selection:updated', this.handleLockedSelectionBound.bind(this))
+    this.canvas.off('selection:created', this.handleLockedSelectionBound)
+    this.canvas.off('selection:updated', this.handleLockedSelectionBound)
   }
 
   /**
