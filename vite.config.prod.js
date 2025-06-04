@@ -45,7 +45,8 @@ export default defineConfig({
       filename: 'stats.html',
       open: true,
       gzipSize: true,
-      brotliSize: true
+      brotliSize: true,
+      defaultSizes: 'parsed'
     })
   ]
 })
