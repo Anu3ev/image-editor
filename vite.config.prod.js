@@ -42,7 +42,6 @@ export default defineConfig({
       }
     }),
     analyzer({
-      filename: 'stats.html',
       open: true,
       gzipSize: true,
       brotliSize: true,
