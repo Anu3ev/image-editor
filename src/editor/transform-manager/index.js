@@ -230,8 +230,10 @@ export default class TransformManager {
     const { canvas, imageManager, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
-
     if (!activeObject) return
+
+    // Сбрасываем угол поворота
+    activeObject.set('angle', 0)
 
     if (['activeselection'].includes(activeObject.type) && !fitAsOneObject) {
       const selectedItems = activeObject.getObjects()
