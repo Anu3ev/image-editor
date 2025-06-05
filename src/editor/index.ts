@@ -215,6 +215,7 @@ export class ImageEditor implements IImageEditor {
     this.canvas.dispose()
     this.workerManager.worker.terminate()
     this.imageManager.revokeBlobUrls()
+    this.errorManager.cleanBuffer()
   }
 
   /**
