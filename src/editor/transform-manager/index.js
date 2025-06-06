@@ -281,7 +281,9 @@ export default class TransformManager {
   /**
    * Сброс масштаба объекта до дефолтного
    * @param {fabric.Object} object
-   * @param {Boolean} [fitOnlyBigImage] - растягивать только большие изображения
+   * @param {Object} options
+   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
+   * @param {Boolean} [options.alwaysFitObject] - вписывать объект в рабочую область даже если он меньше рабочей области
    * @returns
    * @fires editor:object-reset
    */
@@ -300,7 +302,9 @@ export default class TransformManager {
 
     historyManager.suspendHistory()
 
-    if (currentObject.type !== 'image' && currentObject.format !== 'svg') {
+    const isImage = currentObject.type === 'image' || currentObject.format === 'svg'
+
+    if (!isImage) {
       currentObject.set({
         scaleX: 1,
         scaleY: 1,
@@ -308,13 +312,10 @@ export default class TransformManager {
         flipY: false,
         angle: 0
       })
-
-      canvas.centerObject(currentObject)
-      canvas.renderAll()
     }
 
     if (alwaysFitObject) {
-      this.fitObject({ object: currentObject, withoutSave: true })
+      this.fitObject({ object: currentObject, withoutSave: true, fitAsOneObject: true })
     } else {
       const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
       const { width: imageWidth, height: imageHeight } = currentObject
@@ -324,34 +325,23 @@ export default class TransformManager {
         scaleType
       })
 
+      const needFit = (scaleType === 'contain' && scaleFactor < 1)
+        || (scaleType === 'cover' && (imageWidth > montageAreaWidth || imageHeight > montageAreaHeight))
+
       // Делаем contain и cover только если размеры изображения больше размеров канваса, иначе просто сбрасываем
-      if (
-        (scaleType === 'contain' && scaleFactor < 1)
-        || (
-          scaleType === 'cover'
-          && (imageWidth > montageAreaWidth || imageHeight > montageAreaHeight)
-        )
-      ) {
-        this.fitObject({ object: currentObject, withoutSave: true })
+      if (needFit) {
+        this.fitObject({ object: currentObject, withoutSave: true, fitAsOneObject: true })
       } else {
         currentObject.set({ scaleX: 1, scaleY: 1 })
       }
     }
 
-    currentObject.set({
-      flipX: false,
-      flipY: false,
-      angle: 0
-    })
-
+    currentObject.set({ flipX: false, flipY: false, angle: 0 })
     canvas.centerObject(currentObject)
     canvas.renderAll()
 
     historyManager.resumeHistory()
-
-    if (!withoutSave) {
-      historyManager.saveState()
-    }
+    if (!withoutSave) historyManager.saveState()
 
     canvas.fire('editor:object-reset')
   }
