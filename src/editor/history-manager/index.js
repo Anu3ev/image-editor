@@ -1,5 +1,6 @@
 // TODO: Почистить консоль логи когда всё будет готово.
 import { create as diffPatchCreate } from 'jsondiffpatch'
+import { nanoid } from 'nanoid'
 
 export default class HistoryManager {
   /**
@@ -26,6 +27,10 @@ export default class HistoryManager {
   /** Проверка, нужно ли пропускать сохранение истории */
   get skipHistory() {
     return this._historySuspendCount > 0
+  }
+
+  get lastPatch() {
+    return this.patches[this.currentIndex - 1] || null
   }
 
   _createDiffPatcher() {
@@ -95,7 +100,7 @@ export default class HistoryManager {
     let state = JSON.parse(JSON.stringify(baseState))
     // Применяем все диффы до текущего индекса
     for (let i = 0; i < currentIndex; i += 1) {
-      state = this.diffPatcher.patch(state, patches[i])
+      state = this.diffPatcher.patch(state, patches[i].diff)
     }
 
     console.log('getFullState state', state)
@@ -164,14 +169,14 @@ export default class HistoryManager {
     this.totalChangesCount += 1
 
     // Сохраняем дифф
-    this.patches.push(diff)
+    this.patches.push({ id: nanoid(), diff })
     this.currentIndex += 1
 
     // Если история стала слишком длинной, сбрасываем её: делаем новое базовое состояние
     if (this.patches.length > this.maxHistoryLength) {
       // Обновляем базовое состояние, применяя самый старый дифф
       // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
-      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0])
+      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff)
       this.patches.shift() // Удаляем первый дифф
       this.currentIndex -= 1 // Корректируем индекс
 
