@@ -7,7 +7,6 @@ export const defaults: IEditorOptions = {
    */
   preserveObjectStacking: true,
   controlsAboveOverlay: true,
-  centeredScaling: true,
   centeredRotation: true,
 
   /*
