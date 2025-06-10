@@ -194,7 +194,10 @@ export default class HistoryManager {
    */
   async loadStateFromFullState(fullState) {
     if (!fullState) return
+
     console.log('loadStateFromFullState fullState', fullState)
+
+    const { width: oldStateWidth, height: oldStateHeight } = this.canvas
 
     // Load and render
     await this.canvas.loadFromJSON(fullState)
@@ -203,6 +206,22 @@ export default class HistoryManager {
     const loadedMontage = this.canvas.getObjects().find((obj) => obj.id === 'montage-area')
     if (loadedMontage) {
       this.editor.montageArea = loadedMontage
+
+      // Если размеры канваса изменились (был ресайз), адаптируем монтажную область и все объекты в ней
+      if (oldStateWidth !== fullState.width || oldStateHeight !== fullState.height) {
+        const { width, height } = this.editor.montageArea
+
+        // Заново адаптируем канвас к контейнеру
+        this.editor.canvasManager.setResolutionWidth(width, { adaptCanvasToContainer: true, withoutSave: true })
+        this.editor.canvasManager.setResolutionHeight(height, { adaptCanvasToContainer: true, withoutSave: true })
+
+        // Центрируем монтажную область
+        this.editor.canvasManager.centerMontageArea()
+
+        // Вписываем объекты в монтажную область
+        this.editor.selectionManager.selectAll()
+        this.editor.transformManager.fitObject({ fitAsOneObject: true, withoutSave: true })
+      }
     }
 
     const loadedOverlayMask = this.canvas.getObjects().find((obj) => obj.id === 'overlay-mask')
