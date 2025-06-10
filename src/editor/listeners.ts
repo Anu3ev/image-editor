@@ -327,50 +327,10 @@ class Listeners {
 
   /**
    * Обработчик вставки объекта или изображения из буфера обмена.
-   * @param {Object} event — объект события
-   * @param {Object} event.clipboardData — данные из буфера обмена
-   * @param {Array} event.clipboardData.items — элементы буфера обмена
-   *
-   * TODO: Попробовать вынести методы в классы-менеджеры.
+   * @param {ClipboardEvent} event — объект события
    */
-  handlePasteEvent({ clipboardData }:ClipboardEvent) {
-    if (!clipboardData?.items?.length) return
-
-    const { imageManager } = this.editor
-    const { items } = clipboardData
-    const lastItem = items[items.length - 1]
-
-    // Если в буфере обмена есть изображение, то получаем и вставляем его
-    if (lastItem.type.indexOf('image') !== -1) {
-      const blob = lastItem.getAsFile()
-      if (!blob) return
-
-      const reader = new FileReader()
-      reader.onload = (f) => {
-        if (!f.target) return
-
-        this.editor.imageManager.importImage({ source: f.target.result as string })
-      }
-
-      reader.readAsDataURL(blob)
-      return
-    }
-
-    // Если в буфере text/html c тегом img, то получаем и вставляем его
-    const htmlData = clipboardData.getData('text/html')
-
-    if (htmlData) {
-      const parser = new DOMParser()
-      const doc = parser.parseFromString(htmlData, 'text/html')
-      const img = doc.querySelector('img')
-
-      if (img?.src) {
-        imageManager.importImage({ source: img.src })
-        return
-      }
-    }
-
-    this.editor.clipboardManager.paste()
+  handlePasteEvent(event: ClipboardEvent) {
+    this.editor.clipboardManager.handlePasteEvent(event)
   }
 
   /**
