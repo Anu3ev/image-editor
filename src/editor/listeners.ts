@@ -58,7 +58,7 @@ class Listeners {
    * Привязанные обработчики событий.
    * Используются для удаления слушателей при уничтожении экземпляра.
    */
-  handleAdaptCanvasToContainerBound: (e: Event) => void
+  handleContainerResizeBound: (e: Event) => void
   handleCopyEventBound: (e: KeyboardEvent) => void
   handlePasteEventBound: (e: ClipboardEvent) => void
   handleUndoRedoEventBound: (e: KeyboardEvent) => void
@@ -93,7 +93,7 @@ class Listeners {
   undoRedoByHotKeys: boolean = false
   selectAllByHotkey: boolean = false
   deleteObjectsByHotkey: boolean = false
-  adaptCanvasToContainer: boolean = false
+  adaptCanvasToContainerOnResize: boolean = false
 
   /**
    * Конструктор принимает редактор и опции.
@@ -117,7 +117,7 @@ class Listeners {
 
     // Создаем и сохраняем привязанные обработчики, чтобы потом можно было их снять.
     // Глобальные (DOM) события:
-    this.handleAdaptCanvasToContainerBound = Listeners.debounce(this.handleAdaptCanvasToContainer.bind(this), 500)
+    this.handleContainerResizeBound = Listeners.debounce(this.handleContainerResize.bind(this), 500)
     this.handleCopyEventBound = this.handleCopyEvent.bind(this)
     this.handlePasteEventBound = this.handlePasteEvent.bind(this)
     this.handleUndoRedoEventBound = this.handleUndoRedoEvent.bind(this)
@@ -149,7 +149,7 @@ class Listeners {
    */
   init() {
     const {
-      adaptCanvasToContainer,
+      adaptCanvasToContainerOnResize,
       canvasDragging,
       mouseWheelZooming,
       bringToFrontOnSelection,
@@ -184,8 +184,8 @@ class Listeners {
     }
 
     // Подключаем глобальные DOM-события:
-    if (adaptCanvasToContainer) {
-      window.addEventListener('resize', this.handleAdaptCanvasToContainerBound, { capture: true })
+    if (adaptCanvasToContainerOnResize) {
+      window.addEventListener('resize', this.handleContainerResizeBound, { capture: true })
     }
 
     if (copyObjectsByHotkey) {
@@ -305,19 +305,8 @@ class Listeners {
    * Обработчик изменения размеров окна браузера.
    * Адаптирует канвас к размерам контейнера.
    */
-  handleAdaptCanvasToContainer() {
-    const { width, height } = this.editor.montageArea
-
-    // Заново адаптируем канвас к контейнеру
-    this.editor.canvasManager.setResolutionWidth(width, { adaptCanvasToContainer: true, withoutSave: true })
-    this.editor.canvasManager.setResolutionHeight(height, { adaptCanvasToContainer: true, withoutSave: true })
-
-    // Центрируем монтажную область
-    this.editor.canvasManager.centerMontageArea()
-
-    // Вписываем объекты в монтажную область
-    this.editor.selectionManager.selectAll()
-    this.editor.transformManager.fitObject({ fitAsOneObject: true, withoutSave: true })
+  handleContainerResize() {
+    this.editor.canvasManager.updateCanvasAndFitObjects()
   }
 
   /**
@@ -602,7 +591,7 @@ class Listeners {
    */
   destroy() {
     // Глобальные DOM-обработчики
-    window.removeEventListener('resize', this.handleAdaptCanvasToContainerBound, { capture: true })
+    window.removeEventListener('resize', this.handleContainerResizeBound, { capture: true })
     document.removeEventListener('keydown', this.handleCopyEventBound, { capture: true })
     document.removeEventListener('paste', this.handlePasteEventBound, { capture: true })
     document.removeEventListener('keydown', this.handleUndoRedoEventBound, { capture: true })

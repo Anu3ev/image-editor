@@ -197,43 +197,32 @@ export default class HistoryManager {
 
     console.log('loadStateFromFullState fullState', fullState)
 
-    const { width: oldStateWidth, height: oldStateHeight } = this.canvas
+    const { canvas, canvasManager, interactionBlocker } = this.editor
+    const { width: oldCanvasStateWidth, height: oldCanvasStateHeight } = canvas
 
     // Load and render
-    await this.canvas.loadFromJSON(fullState)
+    await canvas.loadFromJSON(fullState)
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
-    const loadedMontage = this.canvas.getObjects().find((obj) => obj.id === 'montage-area')
+    const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area')
     if (loadedMontage) {
       this.editor.montageArea = loadedMontage
 
-      // Если размеры канваса изменились (был ресайз), адаптируем монтажную область и все объекты в ней
-      if (oldStateWidth !== fullState.width || oldStateHeight !== fullState.height) {
-        const { width, height } = this.editor.montageArea
-
-        // Заново адаптируем канвас к контейнеру
-        this.editor.canvasManager.setResolutionWidth(width, { adaptCanvasToContainer: true, withoutSave: true })
-        this.editor.canvasManager.setResolutionHeight(height, { adaptCanvasToContainer: true, withoutSave: true })
-
-        // Центрируем монтажную область
-        this.editor.canvasManager.centerMontageArea()
-
-        // Вписываем объекты в монтажную область
-        this.editor.selectionManager.selectAll()
-        this.editor.transformManager.fitObject({ fitAsOneObject: true, withoutSave: true })
+      // Если размеры канваса изменились (был ресайз), адаптируем рабочую область, и сбрасываем все объекты в ней
+      if (oldCanvasStateWidth !== fullState.width || oldCanvasStateHeight !== fullState.height) {
+        canvasManager.updateCanvasAndFitObjects()
       }
     }
 
-    const loadedOverlayMask = this.canvas.getObjects().find((obj) => obj.id === 'overlay-mask')
+    const loadedOverlayMask = canvas.getObjects().find((obj) => obj.id === 'overlay-mask')
 
     if (loadedOverlayMask) {
-      this.editor.interactionBlocker.overlayMask = loadedOverlayMask
-      this.editor.interactionBlocker.overlayMask.visible = false
+      interactionBlocker.overlayMask = loadedOverlayMask
+      interactionBlocker.overlayMask.visible = false
     }
 
-    this.canvas.renderAll()
-
-    this.canvas.fire('editor:history-state-loaded')
+    canvas.renderAll()
+    canvas.fire('editor:history-state-loaded')
   }
 
   /**

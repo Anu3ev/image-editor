@@ -80,7 +80,7 @@ export const defaults: IEditorOptions = {
   /*
    * Настройки слушателей событий
    */
-  adaptCanvasToContainer: true,
+  adaptCanvasToContainerOnResize: true,
   bringToFrontOnSelection: false,
   mouseWheelZooming: true,
   canvasDragging: true,
