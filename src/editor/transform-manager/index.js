@@ -219,7 +219,7 @@ export default class TransformManager {
   }
 
   /**
-   * Масштабирование изображения
+   * Масштабирование объекта
    * @param {Object} options
    * @param {fabric.Object} [options.object] - Объект с изображением, которое нужно масштабировать
    * @param {String} [options.type] - Тип масштабирования
@@ -269,7 +269,12 @@ export default class TransformManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:image-fitted', { type })
+    canvas.fire('editor:object-fitted', {
+      object: activeObject,
+      type,
+      withoutSave,
+      fitAsOneObject
+    })
   }
 
   /**

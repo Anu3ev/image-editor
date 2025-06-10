@@ -222,7 +222,14 @@ export default class HistoryManager {
     }
 
     canvas.renderAll()
-    canvas.fire('editor:history-state-loaded')
+    canvas.fire('editor:history-state-loaded', {
+      fullState,
+      currentIndex: this.currentIndex,
+      totalChangesCount: this.totalChangesCount,
+      baseStateChangesCount: this.baseStateChangesCount,
+      patchesCount: this.patches.length,
+      patches: this.patches
+    })
   }
 
   /**

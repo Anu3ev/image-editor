@@ -44,7 +44,11 @@ export default class GroupingManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:objects-grouped')
+    canvas.fire('editor:objects-grouped', {
+      object: activeObject,
+      group,
+      withoutSave
+    })
   }
 
   /**
@@ -82,6 +86,10 @@ export default class GroupingManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:objects-ungrouped')
+    canvas.fire('editor:objects-ungrouped', {
+      object: group,
+      selection: sel,
+      withoutSave
+    })
   }
 }

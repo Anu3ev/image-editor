@@ -42,6 +42,9 @@ export default class DeletionManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:objects-deleted')
+    canvas.fire('editor:objects-deleted', {
+      objects: activeObjects,
+      withoutSave
+    })
   }
 }
