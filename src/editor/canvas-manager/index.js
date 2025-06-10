@@ -229,6 +229,39 @@ export default class CanvasManager {
   }
 
   /**
+   * Обновляет размеры канваса и вписывает объекты в монтажную область.
+   * Вызывается при изменении размеров контейнера редактора.
+   * @fires editor:canvas-updated
+   */
+  updateCanvasAndFitObjects() {
+    const {
+      canvas,
+      selectionManager,
+      transformManager,
+      montageArea: {
+        width: montageAreaWidth,
+        height: montageAreaHeight
+      }
+    } = this.editor
+
+    // Заново адаптируем канвас к контейнеру
+    this.setResolutionWidth(montageAreaWidth, { adaptCanvasToContainer: true, withoutSave: true })
+    this.setResolutionHeight(montageAreaHeight, { adaptCanvasToContainer: true, withoutSave: true })
+
+    // Центрируем монтажную область
+    this.centerMontageArea()
+
+    // Вписываем объекты в монтажную область
+    selectionManager.selectAll()
+    transformManager.fitObject({ fitAsOneObject: true, withoutSave: true })
+
+    canvas.fire('editor:canvas-updated', {
+      width: montageAreaWidth,
+      height: montageAreaHeight
+    })
+  }
+
+  /**
    * Заготовка.
    * Обновляет CSS-размеры канваса в зависимости от текущего зума, чтобы можно было скроллить вниз-вверх, влево-вправо.
    *
@@ -435,14 +468,7 @@ export default class CanvasManager {
 
     // Если изображение больше монтажной области, то устанавливаем зум по умолчанию
     if (imageWidth > initialMontageAreaWidth || imageHeight > initialMontageAreaHeight) {
-      const container = canvas.editorContainer
-      const containerWidth = container.clientWidth
-      const containerHeight = container.clientHeight * 0.5
-
-      const targetHeight = Math.min(initialMontageAreaWidth, containerHeight)
-      const targetWidth = Math.min(initialMontageAreaHeight, containerWidth)
-
-      transformManager.calculateAndApplyDefaultZoom(targetHeight, targetWidth)
+      transformManager.calculateAndApplyDefaultZoom()
     }
 
     transformManager.resetObject(image, { withoutSave: true })

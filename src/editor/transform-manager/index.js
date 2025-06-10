@@ -16,20 +16,23 @@ export default class TransformManager {
   }
 
   /**
-   * Метод рассчитывает дефолтный, максимальный, и минимальный зум таким образом,
-   * чтобы монтажная область визуально занимала переданные размеры.
-   * Если размеры не переданы, то используются дефолтные размеры монтажной области переданные в options.
-   * @param {number} [targetWidth]  — желаемая видимая ширина (px)
-   * @param {number} [targetHeight] — желаемая видимая высота (px)
+   * Метод рассчитывает и применяет зум по умолчанию для монтажной области редактора.
+   * Зум рассчитывается исходя из размеров контейнера редактора и текущих размеров монтажной области.
+   * Расчёт происходит таким образом, чтобы монтажная область визуально целиком помещалась в контейнер редактора.
+   * Если scale не передан, то используется значение из options.defaultScale.
+   * @param {Number} [scale] - Желаемый масштаб относительно размеров контейнера редактора.
    */
-  calculateAndApplyDefaultZoom(
-    targetWidth = this.options.montageAreaWidth,
-    targetHeight = this.options.montageAreaHeight
-  ) {
+  calculateAndApplyDefaultZoom(scale = this.options.defaultScale) {
+    const { canvas } = this.editor
+
+    const container = canvas.editorContainer
+    const containerWidth = container.clientWidth
+    const containerHeight = container.clientHeight
+
     const { width: montageWidth, height: montageHeight } = this.editor.montageArea
 
-    const scaleX = targetWidth / montageWidth
-    const scaleY = targetHeight / montageHeight
+    const scaleX = (containerWidth / montageWidth) * scale
+    const scaleY = (containerHeight / montageHeight) * scale
 
     // выбираем меньший зум, чтобы монтажная область целиком помещалась
     const defaultZoom = Math.min(scaleX, scaleY)

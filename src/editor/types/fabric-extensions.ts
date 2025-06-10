@@ -165,7 +165,7 @@ export interface IEditorOptions extends Partial<CanvasOptions> {
   /**
    * Адаптировать канвас при изменении размеров контейнера (например, при изменении размеров окна браузера).
    */
-  adaptCanvasToContainer: boolean
+  adaptCanvasToContainerOnResize: boolean
   /**
    * Поднимать объект на передний план по оси Z при выделении.
    * Если true, то при выделении объекта он будет подниматься на передний план.
@@ -294,6 +294,11 @@ export interface CustomEvents {
      * Срабатывает, когда масштабируется монтажная область (канвас) под размеры изображения.
      */
     'editor:canvas-scaled',
+
+    /*
+     * Срабатывает при ресайзе и последующем обновлении канваса.
+     */
+    'editor:canvas-updated',
 
     /*
      * Срабатывает после экспорта канваса в файл или base64.

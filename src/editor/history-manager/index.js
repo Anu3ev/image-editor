@@ -194,27 +194,35 @@ export default class HistoryManager {
    */
   async loadStateFromFullState(fullState) {
     if (!fullState) return
+
     console.log('loadStateFromFullState fullState', fullState)
 
+    const { canvas, canvasManager, interactionBlocker } = this.editor
+    const { width: oldCanvasStateWidth, height: oldCanvasStateHeight } = canvas
+
     // Load and render
-    await this.canvas.loadFromJSON(fullState)
+    await canvas.loadFromJSON(fullState)
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
-    const loadedMontage = this.canvas.getObjects().find((obj) => obj.id === 'montage-area')
+    const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area')
     if (loadedMontage) {
       this.editor.montageArea = loadedMontage
+
+      // Если размеры канваса изменились (был ресайз), адаптируем рабочую область, и сбрасываем все объекты в ней
+      if (oldCanvasStateWidth !== fullState.width || oldCanvasStateHeight !== fullState.height) {
+        canvasManager.updateCanvasAndFitObjects()
+      }
     }
 
-    const loadedOverlayMask = this.canvas.getObjects().find((obj) => obj.id === 'overlay-mask')
+    const loadedOverlayMask = canvas.getObjects().find((obj) => obj.id === 'overlay-mask')
 
     if (loadedOverlayMask) {
-      this.editor.interactionBlocker.overlayMask = loadedOverlayMask
-      this.editor.interactionBlocker.overlayMask.visible = false
+      interactionBlocker.overlayMask = loadedOverlayMask
+      interactionBlocker.overlayMask.visible = false
     }
 
-    this.canvas.renderAll()
-
-    this.canvas.fire('editor:history-state-loaded')
+    canvas.renderAll()
+    canvas.fire('editor:history-state-loaded')
   }
 
   /**

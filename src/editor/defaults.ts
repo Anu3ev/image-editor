@@ -70,7 +70,7 @@ export const defaults: IEditorOptions = {
   },
   initialStateJSON: null,
   initialImage: null,
-  defaultScale: 1,
+  defaultScale: 0.5,
   minZoom: 0.1,
   maxZoom: 2,
   maxZoomFactor: 2,
@@ -80,7 +80,7 @@ export const defaults: IEditorOptions = {
   /*
    * Настройки слушателей событий
    */
-  adaptCanvasToContainer: true,
+  adaptCanvasToContainerOnResize: true,
   bringToFrontOnSelection: false,
   mouseWheelZooming: true,
   canvasDragging: true,
