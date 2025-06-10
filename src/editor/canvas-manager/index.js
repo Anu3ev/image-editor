@@ -435,14 +435,7 @@ export default class CanvasManager {
 
     // Если изображение больше монтажной области, то устанавливаем зум по умолчанию
     if (imageWidth > initialMontageAreaWidth || imageHeight > initialMontageAreaHeight) {
-      const container = canvas.editorContainer
-      const containerWidth = container.clientWidth
-      const containerHeight = container.clientHeight * 0.5
-
-      const targetHeight = Math.min(initialMontageAreaWidth, containerHeight)
-      const targetWidth = Math.min(initialMontageAreaHeight, containerWidth)
-
-      transformManager.calculateAndApplyDefaultZoom(targetHeight, targetWidth)
+      transformManager.calculateAndApplyDefaultZoom()
     }
 
     transformManager.resetObject(image, { withoutSave: true })

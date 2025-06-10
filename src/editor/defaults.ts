@@ -70,7 +70,7 @@ export const defaults: IEditorOptions = {
   },
   initialStateJSON: null,
   initialImage: null,
-  defaultScale: 1,
+  defaultScale: 0.5,
   minZoom: 0.1,
   maxZoom: 2,
   maxZoomFactor: 2,
