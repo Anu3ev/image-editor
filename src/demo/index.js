@@ -4,10 +4,10 @@ import initEditor from '../main'
 document.addEventListener('DOMContentLoaded', async() => {
   // Инициализация редактора
   const editorInstance = await initEditor('editor', {
-    width: 800,
-    height: 600,
-    displayWidth: '800px',
-    displayHeight: '600px'
+    montageAreaWidth: 512,
+    montageAreaHeight: 512,
+    editorContainerWidth: '100%',
+    editorContainerHeight: '100vh'
   })
 
   initListeners(editorInstance)

@@ -426,7 +426,7 @@ export default class CanvasManager {
    * @param {fabric.Object} [options.object] - Объект с изображением, которое нужно масштабировать
    * @param {Boolean} [options.withoutSave] - Не сохранять состояние
    * @param {Boolean} [options.preserveAspectRatio] - Сохранять изначальные пропорции монтажной области
-   * @fires editor:canvas-scaled
+   * @fires editor:montage-area-scaled-to-image
    */
   scaleMontageAreaToImage({ object, preserveAspectRatio, withoutSave } = {}) {
     const {
@@ -479,7 +479,13 @@ export default class CanvasManager {
       this.editor.historyManager.saveState()
     }
 
-    canvas.fire('editor:canvas-scaled', { width: newCanvasWidth, height: newCanvasHeight })
+    canvas.fire('editor:montage-area-scaled-to-image', {
+      object: image,
+      width: newCanvasWidth,
+      height: newCanvasHeight,
+      preserveAspectRatio,
+      withoutSave
+    })
   }
 
   /**

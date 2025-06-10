@@ -1,13 +1,6 @@
 import { errorCodes } from './error-codes.js'
 import { ImageEditor } from '../index'
-
-type ErrorItem = {
-  code: string
-  origin?: string
-  method?: string
-  message?: string
-  data?: object
-}
+import { ErrorItem } from '../types/events'
 
 interface errorBufferItem extends ErrorItem {
   type: 'editor:error' | 'editor:warning'
