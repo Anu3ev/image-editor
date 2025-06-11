@@ -345,7 +345,9 @@ class Listeners {
 
     if ((!ctrlKey && !metaKey) || repeat) return
 
-    if (this.isUndoRedoKeyPressed) return
+    // Если это Mac, то не смотрим на флаг isUndoRedoKeyPressed, потому что macos не даёт эмитить keyup события при удерживании Meta.
+    const isMac = /Mac/i.test(navigator.userAgent)
+    if (!isMac && this.isUndoRedoKeyPressed) return
 
     if (code === 'KeyZ') {
       event.preventDefault()
@@ -364,9 +366,9 @@ class Listeners {
    * @param {String} event.code — код клавиши
    */
   handleUndoRedoKeyUp({ code }:KeyboardEvent) {
-    if (code === 'KeyZ' || code === 'KeyY') {
-      this.isUndoRedoKeyPressed = false
-    }
+    if (!['KeyZ', 'KeyY'].includes(code)) return
+
+    this.isUndoRedoKeyPressed = false
   }
 
   /**

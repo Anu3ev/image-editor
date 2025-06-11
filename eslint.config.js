@@ -16,328 +16,332 @@ const compat = new FlatCompat({
 })
 
 /** @type {import('eslint').Linter.Config[]} */
-export default [{
-  ignores: []
-}, ...compat.extends(
-  'eslint:recommended',
-  'plugin:vue/essential',
-  'plugin:vue/strongly-recommended',
-  'plugin:vue/recommended',
-  'airbnb-base'
-), {
-  plugins: {
-    vue,
-    'sort-keys-fix': sortKeysFix
+export default [
+  {
+    ignores: []
   },
-
-  languageOptions: {
-    globals: {
-      ...globals.browser,
-      ...globals.commonjs,
-      ...globals.jquery,
-      ...globals.amd,
-      ...globals.jest,
-      Atomics: 'readonly',
-      SharedArrayBuffer: 'readonly',
-      I18n: 'readonly',
-      $: 'writable',
-      CodeMirror: 'readonly',
-      self: 'writable',
-      insYmaps: 'readonly',
-      process: 'readonly'
+  ...compat.extends(
+    'eslint:recommended',
+    'plugin:vue/essential',
+    'plugin:vue/strongly-recommended',
+    'plugin:vue/recommended',
+    'airbnb-base'
+  ),
+  {
+    plugins: {
+      vue,
+      'sort-keys-fix': sortKeysFix
     },
 
-    parser,
-    ecmaVersion: 2022,
-    sourceType: 'module'
-  },
-
-  rules: {
-    'no-prototype-builtins': 'warn',
-
-    indent: ['error', 2, {
-      FunctionDeclaration: {
-        parameters: 'first'
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.commonjs,
+        ...globals.jquery,
+        ...globals.amd,
+        ...globals.jest,
+        Atomics: 'readonly',
+        SharedArrayBuffer: 'readonly',
+        I18n: 'readonly',
+        $: 'writable',
+        CodeMirror: 'readonly',
+        self: 'writable',
+        insYmaps: 'readonly',
+        process: 'readonly'
       },
 
-      FunctionExpression: {
-        parameters: 'first'
-      },
+      parser,
+      ecmaVersion: 2022,
+      sourceType: 'module'
+    },
 
-      CallExpression: {
-        arguments: 'first'
-      },
+    rules: {
+      'no-prototype-builtins': 'warn',
 
-      ObjectExpression: 1,
-      ArrayExpression: 'first'
-    }],
+      indent: ['error', 2, {
+        FunctionDeclaration: {
+          parameters: 'first'
+        },
 
-    'linebreak-style': ['error', 'unix'],
-    'no-console': 'off',
-    'no-debugger': 'warn',
+        FunctionExpression: {
+          parameters: 'first'
+        },
 
-    'no-unused-vars': ['warn', {
-      argsIgnorePattern: '^_'
-    }],
+        CallExpression: {
+          arguments: 'first'
+        },
 
-    camelcase: ['warn', {
-      properties: 'never',
-      ignoreDestructuring: true
-    }],
+        ObjectExpression: 1,
+        ArrayExpression: 'first'
+      }],
 
-    'max-len': ['warn', {
-      code: 120
-    }],
+      'linebreak-style': ['error', 'unix'],
+      'no-console': 'off',
+      'no-debugger': 'warn',
 
-    'keyword-spacing': 'warn',
-    'space-infix-ops': 'warn',
-    'space-before-function-paren': ['warn', 'never'],
-    'comma-spacing': 'warn',
+      'no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_'
+      }],
 
-    'brace-style': ['warn', '1tbs', {
-      allowSingleLine: true
-    }],
+      camelcase: ['warn', {
+        properties: 'never',
+        ignoreDestructuring: true
+      }],
 
-    curly: ['warn', 'multi-line', 'consistent'],
+      'max-len': ['warn', {
+        code: 120
+      }],
 
-    'no-else-return': ['warn', {
-      allowElseIf: false
-    }],
+      'keyword-spacing': 'warn',
+      'space-infix-ops': 'warn',
+      'space-before-function-paren': ['warn', 'never'],
+      'comma-spacing': 'warn',
 
-    'operator-linebreak': 'warn',
-    'block-spacing': 'warn',
-    'comma-style': 'error',
-    'dot-location': ['warn', 'property'],
-    'func-call-spacing': 'error',
-    'key-spacing': 'warn',
-    'new-cap': 'warn',
-    'new-parens': 'warn',
-    'no-extra-parens': 'warn',
-    'no-floating-decimal': 'warn',
-    'no-lone-blocks': 'error',
-    'no-multi-spaces': 'warn',
-    'no-sequences': 'error',
-    'no-template-curly-in-string': 'warn',
-    'no-trailing-spaces': 'warn',
-    'no-unneeded-ternary': 'error',
+      'brace-style': ['warn', '1tbs', {
+        allowSingleLine: true
+      }],
 
-    'object-curly-newline': ['warn', {
-      consistent: true
-    }],
+      curly: ['warn', 'multi-line', 'consistent'],
 
-    'rest-spread-spacing': 'error',
-    'space-before-blocks': 'warn',
-    'template-curly-spacing': 'error',
+      'no-else-return': ['warn', {
+        allowElseIf: false
+      }],
 
-    'vue/valid-v-slot': ['error', {
-      allowModifiers: true
-    }],
+      'operator-linebreak': 'warn',
+      'block-spacing': 'warn',
+      'comma-style': 'error',
+      'dot-location': ['warn', 'property'],
+      'func-call-spacing': 'error',
+      'key-spacing': 'warn',
+      'new-cap': 'warn',
+      'new-parens': 'warn',
+      'no-extra-parens': 'warn',
+      'no-floating-decimal': 'warn',
+      'no-lone-blocks': 'error',
+      'no-multi-spaces': 'warn',
+      'no-sequences': 'error',
+      'no-template-curly-in-string': 'warn',
+      'no-trailing-spaces': 'warn',
+      'no-unneeded-ternary': 'error',
 
-    'vue/component-name-in-template-casing': ['warn', 'kebab-case', {
-      registeredComponentsOnly: false
-    }],
+      'object-curly-newline': ['warn', {
+        consistent: true
+      }],
 
-    'vue/html-indent': ['warn', 2, {
-      baseIndent: 0
-    }],
+      'rest-spread-spacing': 'error',
+      'space-before-blocks': 'warn',
+      'template-curly-spacing': 'error',
 
-    'vue/max-attributes-per-line': ['warn', {
-      singleline: 100,
-      multiline: 1
-    }],
+      'vue/valid-v-slot': ['error', {
+        allowModifiers: true
+      }],
 
-    'vue/no-static-inline-styles': 'warn',
-    'vue/no-v-html': 'off',
-    'vue/require-default-prop': 'off',
-    'vue/singleline-html-element-content-newline': 'off',
-    'vue/multi-word-component-names': 'warn',
-    'vue/no-v-text-v-html-on-component': 'off',
-    'vue/v-on-function-call': ['error', 'never'],
+      'vue/component-name-in-template-casing': ['warn', 'kebab-case', {
+        registeredComponentsOnly: false
+      }],
 
-    'vue/eqeqeq': ['warn', 'always', {
-      null: 'ignore'
-    }],
+      'vue/html-indent': ['warn', 2, {
+        baseIndent: 0
+      }],
 
-    'vue/object-curly-spacing': ['error', 'always'],
-    'vue/prefer-separate-static-class': 1,
-    'vue/require-prop-types': 2,
-    'vue/no-restricted-html-elements': ['warn', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
+      'vue/max-attributes-per-line': ['warn', {
+        singleline: 100,
+        multiline: 1
+      }],
 
-    'vue/no-restricted-syntax': ['warn', {
-      selector: '[name=$parent]'
-    }, {
-      selector: '[name=$root]'
-    }, {
-      selector: "VElement[name='ui-text-field'] VDirectiveKey > VIdentifier[name=rules]",
-      message: 'Не используем frontend валидацию'
-    }],
+      'vue/no-static-inline-styles': 'warn',
+      'vue/no-v-html': 'off',
+      'vue/require-default-prop': 'off',
+      'vue/singleline-html-element-content-newline': 'off',
+      'vue/multi-word-component-names': 'warn',
+      'vue/no-v-text-v-html-on-component': 'off',
+      'vue/v-on-function-call': ['error', 'never'],
 
-    'vue/attributes-order': ['warn', {
-      order: [
-        'DEFINITION',
-        'LIST_RENDERING',
-        'CONDITIONALS',
-        'RENDER_MODIFIERS',
-        'GLOBAL',
-        ['UNIQUE', 'SLOT'],
-        'TWO_WAY_BINDING',
-        'OTHER_DIRECTIVES',
-        'ATTR_SHORTHAND_BOOL',
-        'ATTR_DYNAMIC',
-        'ATTR_STATIC',
-        'CONTENT',
-        'EVENTS'
-      ],
+      'vue/eqeqeq': ['warn', 'always', {
+        null: 'ignore'
+      }],
 
-      alphabetical: false
-    }],
+      'vue/object-curly-spacing': ['error', 'always'],
+      'vue/prefer-separate-static-class': 1,
+      'vue/require-prop-types': 2,
+      'vue/no-restricted-html-elements': ['warn', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'],
 
-    'vue/order-in-components': ['warn', {
-      order: [
-        'el',
-        'name',
-        'key',
-        'parent',
-        'functional',
-        ['delimiters', 'comments'],
-        ['components', 'directives', 'filters'],
-        'extends',
-        'mixins',
-        ['provide', 'inject'],
-        'vueT',
-        'ROUTER_GUARDS',
-        'layout',
-        'middleware',
-        'validate',
-        'scrollToTop',
-        'transition',
-        'loading',
-        'inheritAttrs',
-        'constants',
-        'model',
-        ['props', 'propsData'],
-        'emits',
-        'setup',
-        'asyncData',
-        'data',
-        'fetch',
-        'head',
-        'computed',
-        'watch',
-        'watchQuery',
-        'LIFECYCLE_HOOKS',
-        'methods',
-        ['template', 'render'],
-        'renderError'
-      ]
-    }],
+      'vue/no-restricted-syntax': ['warn', {
+        selector: '[name=$parent]'
+      }, {
+        selector: '[name=$root]'
+      }, {
+        selector: "VElement[name='ui-text-field'] VDirectiveKey > VIdentifier[name=rules]",
+        message: 'Не используем frontend валидацию'
+      }],
 
-    'vue/require-explicit-emits': 'warn',
+      'vue/attributes-order': ['warn', {
+        order: [
+          'DEFINITION',
+          'LIST_RENDERING',
+          'CONDITIONALS',
+          'RENDER_MODIFIERS',
+          'GLOBAL',
+          ['UNIQUE', 'SLOT'],
+          'TWO_WAY_BINDING',
+          'OTHER_DIRECTIVES',
+          'ATTR_SHORTHAND_BOOL',
+          'ATTR_DYNAMIC',
+          'ATTR_STATIC',
+          'CONTENT',
+          'EVENTS'
+        ],
 
-    'vue/no-unused-properties': ['warn', {
-      groups: ['props', 'data', 'computed', 'methods'],
-      deepData: true,
-      ignorePublicMembers: true
-    }],
+        alphabetical: false
+      }],
 
-    'vue/padding-line-between-blocks': ['warn', 'always'],
-    'vue/require-name-property': 'warn',
-    'vue/no-dupe-keys': 'error',
-    'vue/no-deprecated-filter': 'warn',
+      'vue/order-in-components': ['warn', {
+        order: [
+          'el',
+          'name',
+          'key',
+          'parent',
+          'functional',
+          ['delimiters', 'comments'],
+          ['components', 'directives', 'filters'],
+          'extends',
+          'mixins',
+          ['provide', 'inject'],
+          'vueT',
+          'ROUTER_GUARDS',
+          'layout',
+          'middleware',
+          'validate',
+          'scrollToTop',
+          'transition',
+          'loading',
+          'inheritAttrs',
+          'constants',
+          'model',
+          ['props', 'propsData'],
+          'emits',
+          'setup',
+          'asyncData',
+          'data',
+          'fetch',
+          'head',
+          'computed',
+          'watch',
+          'watchQuery',
+          'LIFECYCLE_HOOKS',
+          'methods',
+          ['template', 'render'],
+          'renderError'
+        ]
+      }],
 
-    'vue/custom-event-name-casing': ['warn', 'kebab-case', {
-      ignores: ['/^[a-z]+(?:-[a-z]+)*:[a-z]+(?:-[a-z]+)*$/u']
-    }],
+      'vue/require-explicit-emits': 'warn',
 
-    'vue/prefer-template': 'warn',
+      'vue/no-unused-properties': ['warn', {
+        groups: ['props', 'data', 'computed', 'methods'],
+        deepData: true,
+        ignorePublicMembers: true
+      }],
 
-    'no-restricted-syntax': ['warn', {
-      selector: '[name=$parent]'
-    }, {
-      selector: '[name=$root]'
-    }, {
-      selector: ":matches(CallExpression[callee.property.name='then'], FunctionExpression[async='true']) CallExpression > MemberExpression[object.name='window'][property.name='open']",
-      message: 'window.open на safari не доступен в асинхронных функциях,вместо этого используем this.$windowOpen'
-    }, {
-      selector: "IfStatement[test.loc.end.column<40] > BlockStatement[body] > :first-child[type='ReturnStatement'][loc.end.column<35][argument.type!='ObjectExpression'][argument.type!='ConditionalExpression'][argument.type!='ArrayExpression'][argument.type!='CallExpression']",
-      message: 'Условие выхода из функции без side-эффектов должно быть без { }'
-    }, {
-      selector: "FunctionExpression > BlockStatement[body] > :last-child[type='IfStatement'][alternate.type='BlockStatement']",
-      message: 'Используй return, вместо else'
-    }, {
-      selector: "UnaryExpression[operator='+']",
-      message: 'Запрещено использовать + для приведения к Number - используем Number(), parseInt() или иные явные способы'
-    }, {
-      selector: "UnaryExpression[operator='!'] > UnaryExpression[operator='!']",
-      message: 'Запрещено использовать !! для приведения к Boolean - используем Boolean(something)'
-    }, {
-      selector: ":matches(IfStatement > MemberExpression[object.name='array'][property.name='length'], IfStatement > LogicalExpression > MemberExpression[object.name='array'][property.name='length'],IfStatement > MemberExpression[object.name='string'][property.name='length'], IfStatement > LogicalExpression > MemberExpression[object.name='string'][property.name='length'])",
-      message: "Запрещено использовать if (something.length) для проверки длины массива или строки на '> 0' - используем if (something.length > 0)"
-    }, {
-      selector: "IfStatement[alternate.type!='BlockStatement'][alternate!='null'][alternate.consequent.type!='BlockStatement']",
-      message: 'Запрещено использовать однострочные конструкции с else или else if'
-    }],
+      'vue/padding-line-between-blocks': ['warn', 'always'],
+      'vue/require-name-property': 'warn',
+      'vue/no-dupe-keys': 'error',
+      'vue/no-deprecated-filter': 'warn',
 
-    semi: ['error', 'never'],
-    'comma-dangle': ['error', 'never'],
-    radix: ['error', 'as-needed'],
-    'import/no-unresolved': 'off',
-    'import/extensions': 'off',
-    'import/prefer-default-export': 'off',
+      'vue/custom-event-name-casing': ['warn', 'kebab-case', {
+        ignores: ['/^[a-z]+(?:-[a-z]+)*:[a-z]+(?:-[a-z]+)*$/u']
+      }],
 
-    'no-restricted-imports': ['warn', {
-      paths: ['lodash']
-    }],
+      'vue/prefer-template': 'warn',
 
-    'no-param-reassign': ['warn', {
-      props: false
-    }],
+      'no-restricted-syntax': ['warn', {
+        selector: '[name=$parent]'
+      }, {
+        selector: '[name=$root]'
+      }, {
+        selector: ":matches(CallExpression[callee.property.name='then'], FunctionExpression[async='true']) CallExpression > MemberExpression[object.name='window'][property.name='open']",
+        message: 'window.open на safari не доступен в асинхронных функциях,вместо этого используем this.$windowOpen'
+      }, {
+        selector: "IfStatement[test.loc.end.column<40] > BlockStatement[body] > :first-child[type='ReturnStatement'][loc.end.column<35][argument.type!='ObjectExpression'][argument.type!='ConditionalExpression'][argument.type!='ArrayExpression'][argument.type!='CallExpression']",
+        message: 'Условие выхода из функции без side-эффектов должно быть без { }'
+      }, {
+        selector: "FunctionExpression > BlockStatement[body] > :last-child[type='IfStatement'][alternate.type='BlockStatement']",
+        message: 'Используй return, вместо else'
+      }, {
+        selector: "UnaryExpression[operator='+']",
+        message: 'Запрещено использовать + для приведения к Number - используем Number(), parseInt() или иные явные способы'
+      }, {
+        selector: "UnaryExpression[operator='!'] > UnaryExpression[operator='!']",
+        message: 'Запрещено использовать !! для приведения к Boolean - используем Boolean(something)'
+      }, {
+        selector: ":matches(IfStatement > MemberExpression[object.name='array'][property.name='length'], IfStatement > LogicalExpression > MemberExpression[object.name='array'][property.name='length'],IfStatement > MemberExpression[object.name='string'][property.name='length'], IfStatement > LogicalExpression > MemberExpression[object.name='string'][property.name='length'])",
+        message: "Запрещено использовать if (something.length) для проверки длины массива или строки на '> 0' - используем if (something.length > 0)"
+      }, {
+        selector: "IfStatement[alternate.type!='BlockStatement'][alternate!='null'][alternate.consequent.type!='BlockStatement']",
+        message: 'Запрещено использовать однострочные конструкции с else или else if'
+      }],
 
-    'no-underscore-dangle': 'off',
+      semi: ['error', 'never'],
+      'comma-dangle': ['error', 'never'],
+      radix: ['error', 'as-needed'],
+      'import/no-unresolved': 'off',
+      'import/extensions': 'off',
+      'import/prefer-default-export': 'off',
 
-    'global-require': 1,
-    'arrow-parens': 1,
-    eqeqeq: 1,
-    'no-restricted-globals': 1,
-    'no-mixed-operators': 1,
-    'no-use-before-define': 1,
-    'consistent-return': 1,
+      'no-restricted-imports': ['warn', {
+        paths: ['lodash']
+      }],
 
-    'no-shadow': ['warn', {
-      allow: ['state']
-    }],
+      'no-param-reassign': ['warn', {
+        props: false
+      }],
 
-    'prefer-destructuring': 1,
-    'no-bitwise': 1,
-    'no-nested-ternary': 1,
-    'no-loop-func': 1,
-    'prefer-regex-literals': 1,
-    'prefer-const': 1,
-    'no-multi-str': 1,
-    'default-case': 1,
-    'no-unused-expressions': 1,
-    'no-plusplus': 1,
-    'no-multi-assign': 1,
-    'prefer-spread': 1,
-    'no-continue': 0,
-    'guard-for-in': 1,
-    'no-lonely-if': 1,
-    'vars-on-top': 1,
-    'no-var': 1,
-    'import/no-cycle': 1,
-    'no-new': 1,
-    'class-methods-use-this': 1,
-    'max-classes-per-file': 1,
-    'no-void': 1,
-    'block-scoped-var': 1,
-    'import/no-webpack-loader-syntax': 1,
-    'no-return-assign': 1,
-    'no-await-in-loop': 1,
-    'import/no-extraneous-dependencies': 1,
-    'default-param-last': 1,
-    'no-eval': 1,
-    'import/no-mutable-exports': 1,
-    'no-promise-executor-return': 1,
-    'func-names': 0
+      'no-underscore-dangle': 'off',
+
+      'global-require': 1,
+      'arrow-parens': 1,
+      eqeqeq: 1,
+      'no-restricted-globals': 1,
+      'no-mixed-operators': 1,
+      'no-use-before-define': 1,
+      'consistent-return': 1,
+
+      'no-shadow': ['warn', {
+        allow: ['state']
+      }],
+
+      'prefer-destructuring': 1,
+      'no-bitwise': 1,
+      'no-nested-ternary': 1,
+      'no-loop-func': 1,
+      'prefer-regex-literals': 1,
+      'prefer-const': 1,
+      'no-multi-str': 1,
+      'default-case': 1,
+      'no-unused-expressions': 1,
+      'no-plusplus': 1,
+      'no-multi-assign': 1,
+      'prefer-spread': 1,
+      'no-continue': 0,
+      'guard-for-in': 1,
+      'no-lonely-if': 1,
+      'vars-on-top': 1,
+      'no-var': 1,
+      'import/no-cycle': 1,
+      'no-new': 1,
+      'class-methods-use-this': 1,
+      'max-classes-per-file': 1,
+      'no-void': 1,
+      'block-scoped-var': 1,
+      'import/no-webpack-loader-syntax': 1,
+      'no-return-assign': 1,
+      'no-await-in-loop': 1,
+      'import/no-extraneous-dependencies': 1,
+      'default-param-last': 1,
+      'no-eval': 1,
+      'import/no-mutable-exports': 1,
+      'no-promise-executor-return': 1,
+      'func-names': 0
+    }
   }
-}]
+]
