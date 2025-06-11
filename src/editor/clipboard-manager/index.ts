@@ -1,4 +1,4 @@
-import { ActiveSelection } from 'fabric'
+import { ActiveSelection, Canvas, FabricObject, FabricObjectProps, ObjectEvents, SerializedObjectProps } from 'fabric'
 import { nanoid } from 'nanoid'
 
 import { ImageEditor } from '../index'
@@ -30,58 +30,89 @@ export default class ClipboardManager {
    * Копирование объекта
    * @fires editor:object-copied
    */
-  async copy() {
-    const { canvas } = this.editor
-
+  copy() {
+    const { canvas, errorManager } = this.editor
     const activeObject = canvas.getActiveObject()
     if (!activeObject) return
 
-    try {
-      const clonedObject = await activeObject.clone(['format'])
-      this.clipboard = clonedObject
-
-      // Сохраняем объект в буфере обмена, если он доступен
-      if (typeof ClipboardItem === 'undefined' || !navigator.clipboard) {
-        console.warn(
-          // eslint-disable-next-line max-len
-          'ClipboardManager. navigator.clipboard не поддерживается в этом браузере или отсутствует соединение по HTTPS-протоколу.'
-        )
-
-        canvas.fire('editor:object-copied', { object: clonedObject })
-        return
-      }
-
-      if (this.clipboard.type !== 'image') {
-        await navigator.clipboard.writeText(`application/image-editor:${JSON.stringify(clonedObject)}`)
-
-        canvas.fire('editor:object-copied', { object: clonedObject })
-        return
-      }
-
-      const clonedObjectCanvas = clonedObject.toCanvasElement()
-      const clonedObjectBlob = await new Promise<Blob | null>((resolve) => { clonedObjectCanvas.toBlob(resolve) })
-
-      if (!clonedObjectBlob) return
-
-      const clipboardItem = new ClipboardItem({ [clonedObjectBlob.type]: clonedObjectBlob })
-
-      await navigator.clipboard.write([clipboardItem])
-
-      canvas.fire('editor:object-copied', { object: clonedObject })
-    } catch (error) {
-      if (!(error instanceof Error)) return
-
-      const errorMessagePrefix = 'ClipboardManager. Ошибка записи в системный буфер обмена:'
-
-      console.error(errorMessagePrefix, error)
-
-      canvas.fire('editor:error', {
-        message: `${errorMessagePrefix} ${error.message}`
+    // фикс: сразу пишем в системный буфер, чтобы сохранить контекст жеста
+    if (typeof ClipboardItem === 'undefined' || !navigator.clipboard) {
+      errorManager.emitWarning({
+        origin: 'ClipboardManager',
+        method: 'copy',
+        code: 'CLIPBOARD_NOT_SUPPORTED',
+        message: 'ClipboardManager. navigator.clipboard не поддерживается в этом браузере или отсутствует соединение по HTTPS-протоколу.'
       })
+      return this._cloneAndFire(canvas, activeObject)
     }
+
+    // обычный объект копируем как текст
+    if (activeObject.type !== 'image') {
+      const text = `application/image-editor:${JSON.stringify(activeObject.toObject(['format']))}`
+      navigator.clipboard.writeText(text)
+        .catch(err => {
+          errorManager.emitWarning({
+            origin: 'ClipboardManager',
+            method: 'copy',
+            code: 'CLIPBOARD_WRITE_TEXT_FAILED',
+            message: `Ошибка записи текстового объекта в буфер обмена: ${err.message}`,
+            data: err
+          })
+        })
+      return this._cloneAndFire(canvas, activeObject)
+    }
+
+    // картинку — преобразуем в Blob синхронно из dataURL и сразу отдаем в ClipboardItem
+    const el = activeObject.toCanvasElement()
+    const dataUrl = el.toDataURL()
+    const mime = dataUrl.slice(5).split(';')[0]
+    const base64 = dataUrl.split(',')[1]
+    const binary = atob(base64)
+    const buffer = new Uint8Array(binary.length)
+
+    for (let i = 0; i < binary.length; i++) {
+      buffer[i] = binary.charCodeAt(i)
+    }
+
+    const blob = new Blob([buffer.buffer], { type: mime })
+    const clipboardItem = new ClipboardItem({ [mime]: blob })
+
+    navigator.clipboard.write([clipboardItem])
+      .catch(err => {
+        errorManager.emitWarning({
+          origin: 'ClipboardManager',
+          method: 'copy',
+          code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
+          message: `Ошибка записи изображения в буфер обмена: ${err.message}`
+        })
+      })
+
+    this._cloneAndFire(canvas, activeObject)
   }
 
-    /**
+  /**
+   * Клонирует объект и вызывает событие 'editor:object-copied'.
+   * @param canvas - экземпляр canvas
+   * @param object - активный объект
+   */
+  private _cloneAndFire(canvas: Canvas, object: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>) {
+    object.clone(['format'])
+      .then(clonedObject => {
+        this.clipboard = clonedObject
+        canvas.fire('editor:object-copied', { object: clonedObject })
+      })
+      .catch(error => {
+        this.editor.errorManager.emitError({
+          origin: 'ClipboardManager',
+          method: '_cloneAndFire',
+          code: 'CLONE_FAILED',
+          message: 'ClipboardManager. Ошибка клонирования объекта',
+          data: error
+        })
+      })
+  }
+
+  /**
    * Обработчик вставки объекта или изображения из буфера обмена.
    * @param {Object} event — объект события
    * @param {Object} event.clipboardData — данные из буфера обмена
@@ -93,9 +124,6 @@ export default class ClipboardManager {
     const { imageManager } = this.editor
     const { items } = clipboardData
     const lastItem = items[items.length - 1]
-
-    console.log('handlePasteEvent clipboardData', clipboardData)
-    console.log('handlePasteEvent lastItem', lastItem)
 
     // Если в буфере обмена есть изображение, то получаем и вставляем его
     if (lastItem.type !== 'text/html') {

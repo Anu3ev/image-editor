@@ -27,5 +27,30 @@ export const errorCodes = {
      * Ошибка при экспорте изображения
      */
     IMAGE_EXPORT_FAILED: 'IMAGE_EXPORT_FAILED'
+  },
+
+  /**
+   * Коды ошибок и предупреждений для ClipboardManager.
+   */
+  CLIPBOARD_CODES: {
+    /**
+     * Буфер обмена не поддерживается в браузере или отсутствует HTTPS-соединение.
+     */
+    CLIPBOARD_NOT_SUPPORTED: 'CLIPBOARD_NOT_SUPPORTED',
+
+    /**
+     * Ошибка записи текстового объекта в буфер обмена.
+     */
+    CLIPBOARD_WRITE_TEXT_FAILED: 'CLIPBOARD_WRITE_TEXT_FAILED',
+
+    /**
+     * Ошибка записи изображения в буфер обмена.
+     */
+    CLIPBOARD_WRITE_IMAGE_FAILED: 'CLIPBOARD_WRITE_IMAGE_FAILED',
+
+    /**
+     * Ошибка клонирования объекта.
+     */
+    CLONE_FAILED: 'CLONE_FAILED'
   }
 }
