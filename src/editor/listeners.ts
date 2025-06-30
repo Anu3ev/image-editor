@@ -1,7 +1,6 @@
-import { ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent } from 'fabric'
+import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent } from 'fabric'
 
 import { ImageEditor } from '.'
-import { IEditorOptions, ExtendedFabricObject } from './types'
 
 class Listeners {
   /**
@@ -16,9 +15,9 @@ class Listeners {
   canvas: Canvas
   /**
    * Параметры (опции) для слушателей.
-   * @type {Partial<IEditorOptions>}
+   * @type {Partial<CanvasOptions>}
    */
-  options: Partial<IEditorOptions>
+  options: Partial<CanvasOptions>
   /**
    * Флаг, что перетаскивание канваса активно.
    * @type {boolean}
@@ -82,7 +81,7 @@ class Listeners {
 
   /**
    * Опции редактора, которые могут быть изменены пользователем.
-   * @type {Partial<IEditorOptions>}
+   * @type {Partial<CanvasOptions>}
    */
   canvasDragging: boolean = false
   mouseWheelZooming: boolean = false
@@ -110,7 +109,7 @@ class Listeners {
    * @param {Boolean} [params.options.deleteObjectsByHotkey] — удаление объектов по Delete
    * @param {Boolean} [params.options.resetObjectFitByDoubleClick] — сброс фита объекта по двойному клику
    */
-  constructor({ editor, options = {} }: { editor: ImageEditor; options?: Partial<IEditorOptions> }) {
+  constructor({ editor, options = {} }: { editor: ImageEditor; options?: Partial<CanvasOptions> }) {
     this.editor = editor
     this.canvas = editor.canvas
     this.options = options
@@ -230,7 +229,7 @@ class Listeners {
    * @param {FabricObject[]} params.selected - массив выделенных объектов
    * @param {TPointerEvent} [params.e] - событие указателя (опционально)
    */
-  _filterLockedSelection({ selected, e }: { selected: ExtendedFabricObject[], e?: TPointerEvent }) {
+  _filterLockedSelection({ selected, e }: { selected: FabricObject[], e?: TPointerEvent }) {
     // Если это не событие мыши или если нет выделенных объектов, то ничего не делаем
     if (!selected?.length || !(e instanceof MouseEvent)) return
 

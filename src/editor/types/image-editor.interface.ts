@@ -1,7 +1,6 @@
 // src/editor/index.ts
 
-import { Canvas, Rect } from 'fabric'
-import { IEditorOptions } from '../types'
+import { CanvasOptions, Canvas, Rect } from 'fabric'
 import Listeners from '../listeners'
 import ModuleLoader from '../module-loader'
 import WorkerManager from '../worker-manager'
@@ -31,9 +30,9 @@ import ErrorManager from '../error-manager'
 export interface IImageEditor {
   /**
    * Опции и настройки редактора
-   * @type {IEditorOptions}
+   * @type {CanvasOptions}
    */
-  readonly options: IEditorOptions
+  readonly options: CanvasOptions
 
   /**
    * Идентификатор HTML-контейнера.

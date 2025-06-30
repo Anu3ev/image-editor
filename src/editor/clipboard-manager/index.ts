@@ -1,8 +1,11 @@
+<<<<<<< HEAD
 import { ActiveSelection, Canvas, FabricObject, FabricObjectProps, ObjectEvents, SerializedObjectProps } from 'fabric'
+=======
+import { ActiveSelection, FabricObject } from 'fabric'
+>>>>>>> 0d8f94a (1. Прокидываем данные в ивенты. 2. Правильно расширяем типы fabricjs своими свойствами. 3. Избавляемся от излишних интерфейсов.)
 import { nanoid } from 'nanoid'
 
 import { ImageEditor } from '../index'
-import { ExtendedFabricObject } from '../types'
 
 export default class ClipboardManager {
   /**
@@ -12,9 +15,9 @@ export default class ClipboardManager {
   editor: ImageEditor
   /**
    * Содержит объект, скопированный в буфер обмена.
-   * @type {ActiveSelection | ExtendedFabricObject | null}
+   * @type {ActiveSelection | FabricObject | null}
    */
-  clipboard: ActiveSelection | ExtendedFabricObject | null
+  clipboard: ActiveSelection | FabricObject | null
 
 
   /**

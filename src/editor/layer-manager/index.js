@@ -40,7 +40,10 @@ export default class LayerManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-bring-to-front')
+    canvas.fire('editor:object-bring-to-front', {
+      object: activeObject,
+      withoutSave
+    })
   }
 
   /**
@@ -71,7 +74,10 @@ export default class LayerManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-bring-forward')
+    canvas.fire('editor:object-bring-forward', {
+      object: activeObject,
+      withoutSave
+    })
   }
 
   /**
@@ -117,7 +123,10 @@ export default class LayerManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-send-to-back')
+    canvas.fire('editor:object-send-to-back', {
+      object: activeObject,
+      withoutSave
+    })
   }
 
   /**
@@ -157,7 +166,10 @@ export default class LayerManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-send-backwards')
+    canvas.fire('editor:object-send-backwards', {
+      object: activeObject,
+      withoutSave
+    })
   }
 
   /**
