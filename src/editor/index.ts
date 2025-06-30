@@ -1,4 +1,4 @@
-import { Canvas, Image, Pattern, Rect, CanvasOptions } from 'fabric'
+import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
 
 import { IImageEditor } from './types'
 
