@@ -77,6 +77,13 @@ export default class TransformManager {
 
     canvas.zoomToPoint({ x: Number(pointX), y: Number(pointY) }, zoom)
 
+    console.log({
+      currentZoom,
+      zoom,
+      pointX,
+      pointY,
+    })
+
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
       zoom,
@@ -120,7 +127,11 @@ export default class TransformManager {
 
     canvas.zoomToPoint({ x: Number(pointX), y: Number(pointY) }, defaultZoom)
 
-    this.editor.canvas.fire('editor:zoom-changed', { currentZoom: canvas.getZoom() })
+    this.editor.canvas.fire('editor:zoom-changed', {
+      currentZoom: canvas.getZoom(),
+      pointX,
+      pointY
+    })
   }
 
   /**
@@ -145,7 +156,11 @@ export default class TransformManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-rotated', { angle: newAngle })
+    canvas.fire('editor:object-rotated', {
+      object: obj,
+      withoutSave,
+      angle: newAngle
+    })
   }
 
   /**
@@ -166,7 +181,10 @@ export default class TransformManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-flipped-x')
+    canvas.fire('editor:object-flipped-x', {
+      object: obj,
+      withoutSave
+    })
   }
 
   /**
@@ -187,7 +205,10 @@ export default class TransformManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-flipped-y')
+    canvas.fire('editor:object-flipped-y', {
+      object: obj,
+      withoutSave
+    })
   }
 
   /**
@@ -215,7 +236,11 @@ export default class TransformManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-opacity-changed', opacity)
+    canvas.fire('editor:object-opacity-changed', {
+      object: activeObject,
+      opacity,
+      withoutSave
+    })
   }
 
   /**
@@ -351,6 +376,10 @@ export default class TransformManager {
     historyManager.resumeHistory()
     if (!withoutSave) historyManager.saveState()
 
-    canvas.fire('editor:object-reset')
+    canvas.fire('editor:object-reset', {
+      object: currentObject,
+      withoutSave,
+      alwaysFitObject
+    })
   }
 }

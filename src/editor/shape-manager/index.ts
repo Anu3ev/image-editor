@@ -1,6 +1,5 @@
 import { ImageEditor } from '../index'
-import { Rect, Circle, Triangle } from 'fabric'
-import { ExtendedRectProps, ExtendedCircleProps, ExtendedFabricObject } from '../types'
+import { Rect, Circle, Triangle, FabricObject, RectProps, CircleProps } from 'fabric'
 import { nanoid } from 'nanoid'
 
 type ShapeCreationFlags = {
@@ -48,7 +47,7 @@ export default class ShapeManager {
       height = 100,
       fill = 'blue',
       ...rest
-    }:Partial<ExtendedRectProps> = {},
+    }:Partial<RectProps> = {},
     { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
   ) {
     const { canvas } = this.editor
@@ -103,7 +102,7 @@ export default class ShapeManager {
       radius = 50,
       fill = 'green',
       ...rest
-    }:Partial<ExtendedCircleProps> = {},
+    }:Partial<CircleProps> = {},
     { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
   ) {
     const { canvas } = this.editor
@@ -158,7 +157,7 @@ export default class ShapeManager {
       height = 100,
       fill = 'yellow',
       ...rest
-    }:Partial<ExtendedFabricObject> = {},
+    }:Partial<FabricObject> = {},
     { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
   ) {
     const { canvas } = this.editor

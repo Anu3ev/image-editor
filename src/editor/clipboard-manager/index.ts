@@ -2,7 +2,6 @@ import { ActiveSelection, Canvas, FabricObject, FabricObjectProps, ObjectEvents,
 import { nanoid } from 'nanoid'
 
 import { ImageEditor } from '../index'
-import { ExtendedFabricObject } from '../types'
 
 export default class ClipboardManager {
   /**
@@ -12,9 +11,9 @@ export default class ClipboardManager {
   editor: ImageEditor
   /**
    * Содержит объект, скопированный в буфер обмена.
-   * @type {ActiveSelection | ExtendedFabricObject | null}
+   * @type {ActiveSelection | FabricObject | null}
    */
-  clipboard: ActiveSelection | ExtendedFabricObject | null
+  clipboard: ActiveSelection | FabricObject | null
 
 
   /**

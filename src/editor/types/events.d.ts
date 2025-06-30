@@ -1,6 +1,5 @@
-import { ActiveSelection, FabricImage, Group } from 'fabric';
+import { ActiveSelection, FabricImage, Group, FabricObject } from 'fabric';
 import { ImageEditor } from '../index';
-import { ExtendedFabricObject } from './fabric-extensions';
 
 /**
  * Параметры события editor:canvas-exported
@@ -16,7 +15,7 @@ export type CanvasExportedPayload = {
  * Параметры события editor:object-exported
  */
 export type CanvasObjectExportedPayload = {
-  object: ExtendedFabricObject
+  object: FabricObject
   image: File | Blob | Base64URLString
   format: string
   contentType: string
@@ -62,7 +61,7 @@ export type DisplayDimensionsChangedPayload = {
  * Параметры события editor:object-fitted
  */
 export type ObjectFittedPayload = {
-  object?: ExtendedFabricObject
+  object?: FabricObject
   type?: 'contain' | 'cover'
   withoutSave?: boolean
   fitAsOneObject?: boolean
@@ -72,7 +71,7 @@ export type ObjectFittedPayload = {
  * Параметры события editor:montage-area-scaled-to-image
  */
 export type MontageAreaScaledToImagePayload = {
-  object: ExtendedFabricObject
+  object: FabricObject
   width: number
   height: number
   preserveAspectRatio?: boolean
@@ -91,7 +90,7 @@ export type CanvasUpdatedPayload = {
  * Параметры события editor:objects-grouped
  */
 export type ObjectsGroupedPayload = {
-  object: ExtendedFabricObject
+  object: FabricObject
   group: Group
   withoutSave: boolean
 }
@@ -109,7 +108,7 @@ export type ObjectsUngroupedPayload = {
  * Параметры события editor:objects-deleted
  */
 export type ObjectsDeletedPayload = {
-  objects: ExtendedFabricObject[]
+  objects: FabricObject[]
   withoutSave: boolean
 }
 
@@ -246,291 +245,116 @@ declare module 'fabric' {
     /**
      * Срабатывает после успешного выполнения операции отмены (undo).
      */
-    'editor:undo': {
-      state: HistoryManager['state']
-      previousState: HistoryManager['state'] | null
-      nextState: HistoryManager['state'] | null
-    }
+    'editor:undo': HistoryStateLoadedPayload
 
     /**
      * Срабатывает после успешного выполнения операции повтора (redo).
      */
-    'editor:redo': {
-      state: HistoryManager['state']
-      previousState: HistoryManager['state'] | null
-      nextState: HistoryManager['state'] | null
-    }
+    'editor:redo': HistoryStateLoadedPayload
 
     /**
      * Срабатывает после полного очищения канваса.
      */
-    'editor:cleared': {
-      clearedObjects: ExtendedFabricObject[]
-      clearedShapes: ExtendedFabricObject[]
-      clearedLayers: ExtendedFabricObject[]
-    }
+    'editor:cleared',
 
     /**
      * Срабатывает, когда все объекты на канвасе выделены.
      */
-    'editor:all-objects-selected': ExtendedFabricObject[]
+    'editor:all-objects-selected': { selected: FabricObject }
+
     /**
      * Срабатывает после копирования объекта.
      */
-    'editor:object-copied': ExtendedFabricObject
+    'editor:object-copied': { object: FabricObject }
+
     /**
      * Срабатывает после вставки объекта.
      */
-    'editor:object-pasted': ExtendedFabricObject
+    'editor:object-pasted': { object: FabricObject }
+
     /**
      * Срабатывает после поворота объекта.
      */
-    'editor:object-rotated': ExtendedFabricObject
+    'editor:object-rotated': { object: FabricObject, angle: number, withoutSave?: boolean }
+
     /**
      * Срабатывает после горизонтального отражения объекта.
      */
-    'editor:object-flipped-x': ExtendedFabricObject
+    'editor:object-flipped-x': { object: FabricObject, withoutSave?: boolean }
+
     /**
      * Срабатывает после вертикального отражения объекта.
      */
-    'editor:object-flipped-y': ExtendedFabricObject
+    'editor:object-flipped-y': { object: FabricObject, withoutSave?: boolean }
+
     /**
      * Срабатывает после поднятия объекта на передний план.
      */
-    'editor:object-bring-to-front': ExtendedFabricObject
+    'editor:object-bring-to-front': { object: FabricObject, withoutSave?: boolean }
+
     /**
      * Срабатывает после перемещения объекта на один уровень вперёд.
      */
-    'editor:object-bring-forward': ExtendedFabricObject
+    'editor:object-bring-forward': { object: FabricObject, withoutSave?: boolean }
+
     /**
      * Срабатывает после отправки объекта на задний план.
      */
-    'editor:object-send-to-back': ExtendedFabricObject
+    'editor:object-send-to-back': { object: FabricObject, withoutSave?: boolean }
+
     /**
      * Срабатывает после перемещения объекта на один уровень назад.
      */
-    'editor:object-send-backwards': ExtendedFabricObject
+    'editor:object-send-backwards': { object: FabricObject, withoutSave?: boolean }
+
     /**
      * Срабатывает при изменении зума канваса.
      */
     'editor:zoom-changed': {
-      zoom: number
-      scale: number
+      currentZoom: number,
+      zoom?: number,
+      pointX: number,
+      pointY: number
     }
+
     /**
      * Срабатывает при изменении прозрачности объекта.
      */
     'editor:object-opacity-changed': {
-      object: ExtendedFabricObject
-      opacity: number
+      object: FabricObject
+      opacity: number,
+      withoutSave?: boolean
     }
+
     /**
      * Срабатывает после установки дефолтного масштаба и зума канваса.
      */
-    'editor:default-scale-set': {
-      defaultScale: number
-      defaultZoom: number
-    }
+    'editor:default-scale-set',
+
     /**
      * Блокировка объекта
      */
-    'editor:object-locked': ExtendedFabricObject
+    'editor:object-locked': {
+      object: FabricObject
+      skipInnerObjects?: boolean
+      withoutSave?: boolean
+    }
+
     /**
      * Разблокировка объекта
      */
-    'editor:object-unlocked': ExtendedFabricObject
+    'editor:object-unlocked': {
+      object: FabricObject
+      withoutSave?: boolean
+    }
+
     /**
      * Сброс объекта к исходному состоянию
      */
-    'editor:object-reset': ExtendedFabricObject
-    /**
-     * Срабатывает после успешного импорта изображения в редактор.
-     */
-    'editor:image-imported': File | Blob | string
+    'editor:object-reset': {
+      object: FabricObject,
+      alwaysFitObject?: boolean,
+      withoutSave?: boolean
+    }
   }
 }
-
-
-// export interface CustomEvents {
-//   customEvents: [
-//     /*
-//      * Срабатывает после изменения внутренней ширины канваса (для экспорта).
-//      */
-//     'editor:resolution-width-changed',
-
-//     /*
-//      * Срабатывает после изменения внутренней высоты канваса (для экспорта).
-//      */
-//     'editor:resolution-height-changed',
-
-//     /*
-//      * Срабатывает, когда изменяется CSS ширина самого канваса (upper и lower canvas).
-//      */
-//     'editor:display-canvas-width-changed',
-
-//     /*
-//      * Срабатывает, когда изменяется CSS высота самого канваса (upper и lower canvas).
-//      */
-//     'editor:display-canvas-height-changed',
-
-//     /*
-//      * Срабатывает, когда изменяется CSS ширина обертки канваса.
-//      */
-//     'editor:display-wrapper-width-changed',
-
-//     /*
-//      * Срабатывает, когда изменяется CSS высота обертки канваса.
-//      */
-//     'editor:display-wrapper-height-changed',
-
-//     /*
-//      * Срабатывает, когда изменяется CSS ширина контейнера редактора.
-//      */
-//     'editor:display-container-width-changed',
-
-//     /*
-//      * Срабатывает, когда изменяется CSS высота контейнера редактора.
-//      */
-//     'editor:display-container-height-changed',
-
-//     /*
-//      * Срабатывает при масштабировании изображения (подгонка под монтажную область) в режиме 'contain' или 'cover'.
-//      */
-//     'editor:image-fitted',
-
-//     /*
-//      * Срабатывает, когда масштабируется монтажная область (канвас) под размеры изображения.
-//      */
-//     'editor:canvas-scaled',
-
-//     /*
-//      * Срабатывает при ресайзе и последующем обновлении канваса.
-//      */
-//     'editor:canvas-updated',
-
-//     /*
-//      * Срабатывает после экспорта отдельного объекта в файл или base64.
-//      */
-//     'editor:object-exported',
-
-//     /*
-//      * Срабатывает при группировке выбранных объектов.
-//      */
-//     'editor:objects-grouped',
-
-//     /*
-//      * Срабатывает при разгруппировке объектов.
-//      */
-//     'editor:objects-ungrouped',
-
-//     /*
-//      * Срабатывает при удалении выбранных объектов с канваса.
-//      */
-//     'editor:objects-deleted',
-
-//     /*
-//      * Срабатывает после загрузки состояния канваса (из JSON истории).
-//      */
-//     'editor:history-state-loaded',
-
-//     /*
-//      * Срабатывает после успешного выполнения операции отмены (undo).
-//      */
-//     'editor:undo',
-
-//     /*
-//      * Срабатывает после успешного выполнения операции повтора (redo).
-//      */
-//     'editor:redo',
-
-//     /*
-//      * Срабатывает после полного очищения канваса.
-//      */
-//     'editor:cleared',
-
-//     /*
-//      * Срабатывает, когда все объекты на канвасе выделены.
-//      */
-//     'editor:all-objects-selected',
-
-//     /*
-//      * Срабатывает после копирования объекта.
-//      */
-//     'editor:object-copied',
-
-//     /*
-//      * Срабатывает после вставки объекта.
-//      */
-//     'editor:object-pasted',
-
-//     /*
-//      * Срабатывает после поворота объекта.
-//      */
-//     'editor:object-rotated',
-
-//     /*
-//      * Срабатывает после горизонтального отражения объекта.
-//      */
-//     'editor:object-flipped-x',
-
-//     /*
-//      * Срабатывает после вертикального отражения объекта.
-//      */
-//     'editor:object-flipped-y',
-
-//     /*
-//      * Срабатывает после поднятия объекта на передний план.
-//      */
-//     'editor:object-bring-to-front',
-
-//     /*
-//      * Срабатывает после перемещения объекта на один уровень вперёд.
-//      */
-//     'editor:object-bring-forward',
-
-//     /*
-//      * Срабатывает после отправки объекта на задний план.
-//      */
-//     'editor:object-send-to-back',
-
-//     /*
-//      * Срабатывает после перемещения объекта на один уровень назад.
-//      */
-//     'editor:object-send-backwards',
-
-//     /*
-//      * Срабатывает при изменении зума канваса.
-//      */
-//     'editor:zoom-changed',
-
-//     /*
-//      * Срабатывает при изменении прозрачности объекта.
-//      */
-//     'editor:object-opacity-changed',
-
-//     /*
-//      * Срабатывает после установки дефолтного масштаба и зума канваса.
-//      */
-//     'editor:default-scale-set',
-
-//     /**
-//      * Блокировка объекта
-//      */
-//     'editor:object-locked',
-
-//     /**
-//      * Разблокировка объекта
-//      */
-//     'editor:object-unlocked',
-
-//     /**
-//      * Сброс объекта к исходному состоянию
-//      */
-//     'editor:object-reset',
-
-//     /**
-//      * Срабатывает после успешного импорта изображения в редактор.
-//      */
-//     'editor:image-imported'
-//   ]
-// }

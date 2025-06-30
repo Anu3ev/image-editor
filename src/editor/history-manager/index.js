@@ -256,7 +256,14 @@ export default class HistoryManager {
 
       console.log('Undo выполнен. Текущий индекс истории:', this.currentIndex)
 
-      this.canvas.fire('editor:undo')
+      this.canvas.fire('editor:undo', {
+        fullState,
+        currentIndex: this.currentIndex,
+        totalChangesCount: this.totalChangesCount,
+        baseStateChangesCount: this.baseStateChangesCount,
+        patchesCount: this.patches.length,
+        patches: this.patches
+      })
     } catch (error) {
       console.error('undo. Ошибка отмены действия: ', error)
       this.canvas.fire('editor:error', { message: `Ошибка отмены действия: ${error.message}` })
@@ -290,7 +297,14 @@ export default class HistoryManager {
 
       console.log('Redo выполнен. Текущий индекс истории:', this.currentIndex)
 
-      this.canvas.fire('editor:redo')
+      this.canvas.fire('editor:redo', {
+        fullState,
+        currentIndex: this.currentIndex,
+        totalChangesCount: this.totalChangesCount,
+        baseStateChangesCount: this.baseStateChangesCount,
+        patchesCount: this.patches.length,
+        patches: this.patches
+      })
     } catch (error) {
       console.error('redo. Ошибка повтора действия: ', error)
       this.canvas.fire('editor:error', { message: `Ошибка повтора действия: ${error.message}` })

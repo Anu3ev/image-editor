@@ -1,7 +1,7 @@
-import type { IEditorOptions } from './types'
+import { CanvasOptions } from 'fabric'
 
-/** @type {IEditorOptions} */
-export const defaults: IEditorOptions = {
+/** @type {CanvasOptions} */
+export const defaults: Partial<CanvasOptions> = {
   /**
    * Опции редактора
    */

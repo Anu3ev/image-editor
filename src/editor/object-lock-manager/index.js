@@ -48,7 +48,11 @@ export default class ObjectLockManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-locked', { object: activeObject })
+    canvas.fire('editor:object-locked', {
+      object: activeObject,
+      skipInnerObjects,
+      withoutSave
+    })
   }
 
   /**
@@ -90,6 +94,9 @@ export default class ObjectLockManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:object-unlocked', { object: activeObject })
+    canvas.fire('editor:object-unlocked', {
+      object: activeObject,
+      withoutSave
+    })
   }
 }

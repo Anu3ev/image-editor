@@ -1,6 +1,6 @@
-import { Canvas, Image, Pattern, Rect } from 'fabric'
+import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
 
-import { IImageEditor, IEditorOptions } from './types'
+import { IImageEditor } from './types'
 
 import { nanoid } from 'nanoid'
 import Listeners from './listeners'
@@ -41,7 +41,7 @@ import {
  * @fires {object} editor:render-complete - событие, которое срабатывает после завершения рендеринга редактора
  */
 export class ImageEditor implements IImageEditor {
-  options: IEditorOptions
+  options: CanvasOptions
   containerId: string
   editorId: string
   clipboard: ClipboardItem | null
@@ -71,9 +71,9 @@ export class ImageEditor implements IImageEditor {
   /**
    * Конструктор класса ImageEditor.
    * @param {string} canvasId - идентификатор канваса, в котором будет создан редактор
-   * @param {IEditorOptions} options - опции и настройки редактора
+   * @param {CanvasOptions} options - опции и настройки редактора
    */
-  constructor(canvasId: string, options: IEditorOptions) {
+  constructor(canvasId: string, options: CanvasOptions) {
     this.options = options
 
     const { defaultScale, minZoom, maxZoom } = options
