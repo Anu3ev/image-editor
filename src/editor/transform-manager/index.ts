@@ -1,18 +1,52 @@
-import { ActiveSelection } from 'fabric'
+import { ActiveSelection, CanvasOptions, FabricObject, Point } from 'fabric'
+import { ImageEditor } from '../index'
 
 import {
   DEFAULT_ZOOM_RATIO,
-  DEFAULT_ROTATE_RATIO
+  DEFAULT_ROTATE_RATIO,
+  MIN_ZOOM,
+  MAX_ZOOM
 } from '../constants'
 
 export default class TransformManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Инстанс редактора с доступом к canvas
+   * @type {ImageEditor}
    */
-  constructor({ editor }) {
+  editor: ImageEditor
+  /**
+   * Параметры (опции) для слушателей.
+   * @type {CanvasOptions}
+   */
+  options: CanvasOptions
+  /**
+   * Минимальный зум
+   * @type {Number}
+   */
+  minZoom: number
+  /**
+   * Максимальный зум
+   * @type {Number}
+   */
+  maxZoom: number
+  /**
+   * Дефолтный зум, который будет применён при инициализации редактора
+   * @type {Number}
+   */
+  defaultZoom: number
+  /**
+   * Максимальный коэффициент зума
+   * @type {Number}
+   */
+  maxZoomFactor: number
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.options = editor.options
+    this.minZoom = this.options.minZoom || MIN_ZOOM
+    this.maxZoom = this.options.maxZoom || MAX_ZOOM
+    this.defaultZoom = this.options.defaultScale
+    this.maxZoomFactor = this.options.maxZoomFactor
   }
 
   /**
@@ -35,19 +69,16 @@ export default class TransformManager {
     const scaleY = (containerHeight / montageHeight) * scale
 
     // выбираем меньший зум, чтобы монтажная область целиком помещалась
-    const defaultZoom = Math.min(scaleX, scaleY)
+    this.defaultZoom = Math.min(scaleX, scaleY)
 
-    const { minZoom, maxZoom, maxZoomFactor } = this.options
+    const { defaultZoom, maxZoomFactor, minZoom, maxZoom } = this
 
     // устанавливаем допустимые пределы зума
     this.minZoom = Math.min(defaultZoom / maxZoomFactor, minZoom)
     this.maxZoom = Math.max(defaultZoom * maxZoomFactor, maxZoom)
 
-    // запоминаем дефолтный зум
-    this.defaultZoom = defaultZoom
-
     // применяем дефолтный зум
-    this.setZoom(defaultZoom)
+    this.setZoom()
   }
 
   /**
@@ -59,36 +90,34 @@ export default class TransformManager {
    * @fires editor:zoom-changed
    * Если передавать координаты курсора, то нужно быть аккуратнее, так как юзер может выйти за пределы рабочей области
    */
-  zoom(scale = DEFAULT_ZOOM_RATIO, options = {}) {
+  zoom(scale = DEFAULT_ZOOM_RATIO, options: { pointX?: number, pointY?: number } = {}) {
     if (!scale) return
 
-    const { canvas, minZoom, maxZoom } = this.editor
+    const { minZoom, maxZoom } = this
+    const { canvas } = this.editor
 
     const currentZoom = canvas.getZoom()
-    const {
-      x: pointX = options.pointX,
-      y: pointY = options.pointY
-    } = canvas.getCenterPoint()
+    const center = canvas.getCenterPoint()
+    const pointX = options.pointX ?? center.x
+    const pointY = options.pointY ?? center.y
+    const point = new Point(pointX, pointY)
 
     let zoom = Number((currentZoom + Number(scale)).toFixed(2))
-
     if (zoom > maxZoom) zoom = maxZoom
     if (zoom < minZoom) zoom = minZoom
 
-    canvas.zoomToPoint({ x: Number(pointX), y: Number(pointY) }, zoom)
+    canvas.zoomToPoint(point, zoom)
 
     console.log({
       currentZoom,
       zoom,
-      pointX,
-      pointY,
+      point
     })
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
       zoom,
-      pointX,
-      pointY
+      point
     })
   }
 
@@ -98,22 +127,21 @@ export default class TransformManager {
    * @fires editor:zoom-changed
    */
   setZoom(zoom = this.defaultZoom) {
-    const { canvas, minZoom, maxZoom } = this.editor
-
-    const { x: pointX, y: pointY } = canvas.getCenterPoint()
+    const { minZoom, maxZoom } = this
+    const { canvas } = this.editor
+    const centerPoint = new Point(canvas.getCenterPoint())
 
     let newZoom = zoom
 
     if (zoom > maxZoom) newZoom = maxZoom
     if (zoom < minZoom) newZoom = minZoom
 
-    canvas.zoomToPoint({ x: Number(pointX), y: Number(pointY) }, newZoom)
+    canvas.zoomToPoint(centerPoint, newZoom)
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
       zoom: newZoom,
-      pointX,
-      pointY
+      point: centerPoint
     })
   }
 
@@ -122,15 +150,14 @@ export default class TransformManager {
    * @fires editor:zoom-changed
    */
   resetZoom() {
-    const { canvas, defaultZoom } = this.editor
-    const { x: pointX, y: pointY } = canvas.getCenterPoint()
+    const { canvas } = this.editor
+    const centerPoint = new Point(canvas.getCenterPoint())
 
-    canvas.zoomToPoint({ x: Number(pointX), y: Number(pointY) }, defaultZoom)
+    canvas.zoomToPoint(centerPoint, this.defaultZoom)
 
     this.editor.canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
-      pointX,
-      pointY
+      point: centerPoint
     })
   }
 
@@ -141,7 +168,7 @@ export default class TransformManager {
    * @param {Boolean} options.withoutSave - Не сохранять состояние
    * @fires editor:object-rotated
    */
-  rotate(angle = DEFAULT_ROTATE_RATIO, { withoutSave } = {}) {
+  rotate(angle = DEFAULT_ROTATE_RATIO, { withoutSave }: { withoutSave?: boolean } = {}) {
     const { canvas, historyManager } = this.editor
 
     const obj = canvas.getActiveObject()
@@ -169,7 +196,7 @@ export default class TransformManager {
    * @param {Boolean} options.withoutSave - Не сохранять состояние
    * @fires editor:object-flipped-x
    */
-  flipX({ withoutSave } = {}) {
+  flipX({ withoutSave }: { withoutSave?: boolean } = {}) {
     const { canvas, historyManager } = this.editor
 
     const obj = canvas.getActiveObject()
@@ -193,7 +220,7 @@ export default class TransformManager {
    * @param {Boolean} options.withoutSave - Не сохранять состояние
    * @fires editor:object-flipped-y
    */
-  flipY({ withoutSave } = {}) {
+  flipY({ withoutSave }: { withoutSave?: boolean } = {}) {
     const { canvas, historyManager } = this.editor
 
     const obj = canvas.getActiveObject()
@@ -216,14 +243,18 @@ export default class TransformManager {
    * @param {Number} opacity - Прозрачность от 0 до 1
    * @fires editor:object-opacity-changed
    */
-  setActiveObjectOpacity({ object, opacity = 1, withoutSave } = {}) {
+  setActiveObjectOpacity({
+    object,
+    opacity = 1,
+    withoutSave
+  }: { object?: FabricObject; opacity?: number; withoutSave?: boolean } = {}) {
     const { canvas, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
     if (!activeObject) return
 
     if (activeObject.type === 'activeselection') {
-      activeObject.getObjects().forEach((obj) => {
+      activeObject.getObjects().forEach((obj:FabricObject) => {
         obj.set('opacity', opacity)
       })
     } else {
@@ -254,7 +285,17 @@ export default class TransformManager {
    * @param {Boolean} [options.fitAsOneObject] - Масштабировать все объекты в активной группе как один объект
    * @fires editor:image-fitted
    */
-  fitObject({ object, type = this.options.scaleType, withoutSave, fitAsOneObject } = {}) {
+  fitObject({
+    object,
+    type = this.options.scaleType,
+    withoutSave,
+    fitAsOneObject
+  }: {
+    object?: FabricObject,
+    type?: 'contain' | 'cover',
+    withoutSave?: boolean,
+    fitAsOneObject?: boolean
+  } = {}) {
     const { canvas, imageManager, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -268,7 +309,7 @@ export default class TransformManager {
 
       canvas.discardActiveObject()
 
-      selectedItems.forEach((obj) => {
+      selectedItems.forEach((obj:FabricObject) => {
         const objScale = imageManager.calculateScaleFactor({ imageObject: obj, scaleType: type })
 
         obj.scale(objScale)
@@ -320,7 +361,7 @@ export default class TransformManager {
    * @returns
    * @fires editor:object-reset
    */
-  resetObject(object, { alwaysFitObject = false, withoutSave = false } = {}) {
+  resetObject(object:FabricObject, { alwaysFitObject = false, withoutSave = false } = {}) {
     const {
       canvas,
       montageArea,

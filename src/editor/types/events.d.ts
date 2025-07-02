@@ -1,4 +1,4 @@
-import { ActiveSelection, FabricImage, Group, FabricObject } from 'fabric';
+import 'fabric';
 import { ImageEditor } from '../index';
 
 /**
@@ -313,8 +313,7 @@ declare module 'fabric' {
     'editor:zoom-changed': {
       currentZoom: number,
       zoom?: number,
-      pointX: number,
-      pointY: number
+      point: Point
     }
 
     /**

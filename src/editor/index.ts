@@ -1,5 +1,4 @@
 import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
-
 import { IImageEditor } from './types'
 
 import { nanoid } from 'nanoid'
@@ -22,15 +21,23 @@ import SelectionManager from './selection-manager'
 import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
 
-import {
-  MIN_ZOOM,
-  MAX_ZOOM
-} from './constants'
-
 // TODO: Режим рисования
 // TODO: Добавление текста
 // TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
+// TODO: Переписать selectionManager на ts
+// TODO: Переписать canvasManager на ts
+// TODO: Переписать imageManager на ts
+// TODO: Переписать layerManager на ts
+// TODO: Переписать deletionManager на ts
+// TODO: Переписать objectLockManager на ts
+// TODO: Переписать groupingManager на ts
+// TODO: Переписать customizedControls на ts
+// TODO: Переписать toolbarManager на ts
+// TODO: Переписать interactionBlocker на ts
+// TODO: Переписать moduleLoader на ts
+// TODO: Переписать workerManager на ts
+// TODO: Переписать historyManager на ts
 
 /**
  * Класс редактора изображений.
@@ -45,9 +52,6 @@ export class ImageEditor implements IImageEditor {
   containerId: string
   editorId: string
   clipboard: ClipboardItem | null
-  defaultZoom: number
-  minZoom: number
-  maxZoom: number
   canvas!: Canvas
   montageArea!: Rect
   moduleLoader!: ModuleLoader
@@ -75,17 +79,9 @@ export class ImageEditor implements IImageEditor {
    */
   constructor(canvasId: string, options: CanvasOptions) {
     this.options = options
-
-    const { defaultScale, minZoom, maxZoom } = options
-
     this.containerId = canvasId
     this.editorId = `${canvasId}-${nanoid()}`
     this.clipboard = null
-
-    this.defaultZoom = defaultScale
-
-    this.minZoom = minZoom || MIN_ZOOM
-    this.maxZoom = maxZoom || MAX_ZOOM
 
     this.init()
   }
