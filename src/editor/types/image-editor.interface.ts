@@ -53,24 +53,6 @@ export interface IImageEditor {
   clipboard: ClipboardItem | null
 
   /**
-   * Масштаб по умолчанию для редактора.
-   * @type {number}
-   */
-  defaultZoom: number
-
-  /**
-   * Минимальный масштаб для редактора.
-   * @type {number}
-   */
-  readonly minZoom: number
-
-  /**
-   * Максимальный масштаб для редактора.
-   * @type {number}
-   */
-  readonly maxZoom: number
-
-  /**
    * Канвас редактора.
    * @type {Canvas | undefined}
    */
