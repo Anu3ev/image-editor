@@ -247,7 +247,7 @@ export default class TransformManager {
     object,
     opacity = 1,
     withoutSave
-  }: { object?: any; opacity?: number; withoutSave?: boolean } = {}) {
+  }: { object?: FabricObject; opacity?: number; withoutSave?: boolean } = {}) {
     const { canvas, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -291,7 +291,7 @@ export default class TransformManager {
     withoutSave,
     fitAsOneObject
   }: {
-    object?: any,
+    object?: FabricObject,
     type?: 'contain' | 'cover',
     withoutSave?: boolean,
     fitAsOneObject?: boolean
