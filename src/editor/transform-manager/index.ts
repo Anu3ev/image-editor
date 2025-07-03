@@ -253,7 +253,7 @@ export default class TransformManager {
     const activeObject = object || canvas.getActiveObject()
     if (!activeObject) return
 
-    if (activeObject.type === 'activeselection') {
+    if (activeObject instanceof ActiveSelection) {
       activeObject.getObjects().forEach((obj:FabricObject) => {
         obj.set('opacity', opacity)
       })
@@ -304,7 +304,7 @@ export default class TransformManager {
     // Сбрасываем угол поворота
     activeObject.set('angle', 0)
 
-    if (['activeselection'].includes(activeObject.type) && !fitAsOneObject) {
+    if (activeObject instanceof ActiveSelection && !fitAsOneObject) {
       const selectedItems = activeObject.getObjects()
 
       canvas.discardActiveObject()

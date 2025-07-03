@@ -26,7 +26,6 @@ import ErrorManager from './error-manager'
 // TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
 // TODO: Переписать selectionManager на ts
-// TODO: Переписать canvasManager на ts
 // TODO: Переписать imageManager на ts
 // TODO: Переписать layerManager на ts
 // TODO: Переписать deletionManager на ts
