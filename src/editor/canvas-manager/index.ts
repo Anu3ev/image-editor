@@ -166,9 +166,7 @@ export default class CanvasManager {
       this.editor.historyManager.saveState()
     }
 
-    canvas?.fire('editor:resolution-height-changed', { height })
-
-        canvas.fire('editor:resolution-height-changed', {
+    canvas.fire('editor:resolution-height-changed', {
       height: adjustedHeight,
       preserveProportional,
       withoutSave,
