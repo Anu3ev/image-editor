@@ -336,10 +336,12 @@ export default class CanvasManager {
 
     const zoomedWidth = montageArea.width * zoom
     const zoomedHeight = montageArea.height * zoom
-    const scrollContainer = canvas.wrapperEl.parentNode as HTMLElement
+    const scrollContainer = canvas.wrapperEl.parentNode
 
-    const cssWidth = zoomedWidth <= scrollContainer?.clientWidth ? '100%' : zoomedWidth
-    const cssHeight = zoomedHeight <= scrollContainer?.clientHeight ? '100%' : zoomedHeight
+    if (!(scrollContainer instanceof HTMLElement)) return;
+
+    const cssWidth = zoomedWidth <= scrollContainer.clientWidth ? '100%' : zoomedWidth
+    const cssHeight = zoomedHeight <= scrollContainer.clientHeight ? '100%' : zoomedHeight
 
     canvas.setDimensions(
       { width: cssWidth, height: cssHeight },
