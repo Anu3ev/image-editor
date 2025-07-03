@@ -1,4 +1,4 @@
-import { errorCodes } from './error-codes.js'
+import { errorCodes } from './error-codes'
 import { ImageEditor } from '../index'
 import { ErrorItem } from '../types/events'
 

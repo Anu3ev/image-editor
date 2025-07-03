@@ -125,6 +125,20 @@ export type HistoryStateLoadedPayload = {
   patches: object[]
 }
 
+export type ResolutionWidthChangedPayload = {
+  width: string | number,
+  preserveProportional?: boolean,
+  withoutSave?: boolean,
+  adaptCanvasToContainer?: boolean
+}
+
+export type ResolutionHeightChangedPayload = {
+  height: string | number,
+  preserveProportional?: boolean,
+  withoutSave?: boolean,
+  adaptCanvasToContainer?: boolean
+}
+
 declare module 'fabric' {
   interface CanvasEvents {
     /**
@@ -165,12 +179,12 @@ declare module 'fabric' {
     /**
      * Срабатывает после изменения внутренней ширины канваса (для экспорта).
      */
-    'editor:resolution-width-changed': string | number
+    'editor:resolution-width-changed': ResolutionWidthChangedPayload
 
     /**
      * Срабатывает после изменения внутренней высоты канваса (для экспорта).
      */
-    'editor:resolution-height-changed': string | number
+    'editor:resolution-height-changed': ResolutionHeightChangedPayload
 
     /**
      * Срабатывает, когда изменяется CSS ширина самого канваса (upper и lower canvas).

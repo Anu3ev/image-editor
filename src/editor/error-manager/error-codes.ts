@@ -32,7 +32,7 @@ export const errorCodes = {
   /**
    * Коды ошибок и предупреждений для ClipboardManager.
    */
-  CLIPBOARD_CODES: {
+  CLIPBOARD_MANAGER: {
     /**
      * Буфер обмена не поддерживается в браузере или отсутствует HTTPS-соединение.
      */
@@ -52,5 +52,15 @@ export const errorCodes = {
      * Ошибка клонирования объекта.
      */
     CLONE_FAILED: 'CLONE_FAILED'
+  },
+
+  /**
+   * Коды ошибок и предупреждений для CanvasManager.
+   */
+  CANVAS_MANAGER: {
+    /**
+     * Ошибка при получении активного объекта.
+     */
+    NO_ACTIVE_OBJECT: 'NO_ACTIVE_OBJECT',
   }
 }
