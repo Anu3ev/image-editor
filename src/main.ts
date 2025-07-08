@@ -28,7 +28,7 @@ export default function initEditor(containerId:string, options:Partial<CanvasOpt
   return new Promise((resolve) => {
     adjustedOptions._onReadyCallback = resolve
 
-    const editorInstance = new ImageEditor(editorCanvas.id, adjustedOptions);
+    const editorInstance = new ImageEditor(editorCanvas.id, adjustedOptions)
     window[containerId] = editorInstance
   })
 }

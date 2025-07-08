@@ -14,26 +14,31 @@ export default class TransformManager {
    * @type {ImageEditor}
    */
   editor: ImageEditor
+
   /**
    * Параметры (опции) для слушателей.
    * @type {CanvasOptions}
    */
   options: CanvasOptions
+
   /**
    * Минимальный зум
    * @type {Number}
    */
   minZoom: number
+
   /**
    * Максимальный зум
    * @type {Number}
    */
   maxZoom: number
+
   /**
    * Дефолтный зум, который будет применён при инициализации редактора
    * @type {Number}
    */
   defaultZoom: number
+
   /**
    * Максимальный коэффициент зума
    * @type {Number}

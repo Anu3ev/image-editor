@@ -1,5 +1,5 @@
-import { IImageEditor } from "./image-editor.interface";
+import { IImageEditor } from './image-editor.interface'
 
 export type {
-  IImageEditor,
-};
+  IImageEditor
+}
