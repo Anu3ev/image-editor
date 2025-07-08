@@ -1,6 +1,6 @@
-import { ImageEditor } from '../index'
 import { Rect, Circle, Triangle, FabricObject, RectProps, CircleProps } from 'fabric'
 import { nanoid } from 'nanoid'
+import { ImageEditor } from '../index'
 
 type ShapeCreationFlags = {
   withoutSelection?: boolean

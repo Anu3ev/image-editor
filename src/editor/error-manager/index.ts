@@ -18,6 +18,7 @@ export default class ErrorManager {
    * @private
    */
   private _buffer: errorBufferItem[] = []
+
   public editor:ImageEditor
 
   constructor({ editor }: { editor: ImageEditor }) {
@@ -110,6 +111,6 @@ export default class ErrorManager {
     if (!code) return false
 
     return Object.values(errorCodes)
-      .some(category => Object.values(category).includes(code))
+      .some((category) => Object.values(category).includes(code))
   }
 }

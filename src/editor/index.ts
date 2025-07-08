@@ -1,7 +1,7 @@
 import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
+import { nanoid } from 'nanoid'
 import { IImageEditor } from './types'
 
-import { nanoid } from 'nanoid'
 import Listeners from './listeners'
 import ModuleLoader from './module-loader'
 import WorkerManager from './worker-manager'
@@ -48,27 +48,49 @@ import ErrorManager from './error-manager'
  */
 export class ImageEditor implements IImageEditor {
   options: CanvasOptions
+
   containerId: string
+
   editorId: string
+
   clipboard: ClipboardItem | null
+
   canvas!: Canvas
+
   montageArea!: Rect
+
   moduleLoader!: ModuleLoader
+
   workerManager!: WorkerManager
+
   errorManager!: ErrorManager
+
   historyManager!: HistoryManager
+
   toolbar!: ToolbarManager
+
   transformManager!: TransformManager
+
   canvasManager!: CanvasManager
+
   imageManager!: ImageManager
+
   layerManager!: LayerManager
+
   shapeManager!: ShapeManager
+
   interactionBlocker!: InteractionBlocker
+
   clipboardManager!: ClipboardManager
+
   objectLockManager!: ObjectLockManager
+
   groupingManager!: GroupingManager
+
   selectionManager!: SelectionManager
+
   deletionManager!: DeletionManager
+
   listeners!: Listeners
 
   /**
@@ -202,7 +224,6 @@ export class ImageEditor implements IImageEditor {
       originY: 'center'
     }, { withoutSelection: true, withoutAdding: true })
   }
-
 
   destroy() {
     this.listeners.destroy()

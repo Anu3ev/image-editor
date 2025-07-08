@@ -1,5 +1,5 @@
-import { ImageEditor } from './editor'
 import { CanvasOptions } from 'fabric'
+import { ImageEditor } from './editor'
 import { defaults } from './editor/defaults'
 
 /**
@@ -9,7 +9,7 @@ import { defaults } from './editor/defaults'
  * @param {Object} options — опции и настройки.
  */
 export default function initEditor(containerId:string, options:Partial<CanvasOptions> = {}): Promise<ImageEditor> {
-  const adjustedOptions:CanvasOptions = { ...defaults, ...options }
+  const adjustedOptions:CanvasOptions = { ...defaults, ...options } as CanvasOptions
 
   // Находим контейнер по ID.
   const container = document.getElementById(containerId)
@@ -28,7 +28,7 @@ export default function initEditor(containerId:string, options:Partial<CanvasOpt
   return new Promise((resolve) => {
     adjustedOptions._onReadyCallback = resolve
 
-    const editorInstance = new ImageEditor(editorCanvas.id, adjustedOptions);
-    (window as any)[containerId] = editorInstance
+    const editorInstance = new ImageEditor(editorCanvas.id, adjustedOptions)
+    window[containerId] = editorInstance
   })
 }
