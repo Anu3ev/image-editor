@@ -9,12 +9,12 @@ export default class ClipboardManager {
    * @type {ImageEditor}
    */
   editor: ImageEditor
+
   /**
    * Содержит объект, скопированный в буфер обмена.
    * @type {ActiveSelection | FabricObject | null}
    */
   clipboard: ActiveSelection | FabricObject | null
-
 
   /**
    * @param {object} options
@@ -40,16 +40,19 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: 'copy',
         code: 'CLIPBOARD_NOT_SUPPORTED',
+        // eslint-disable-next-line max-len
         message: 'ClipboardManager. navigator.clipboard не поддерживается в этом браузере или отсутствует соединение по HTTPS-протоколу.'
       })
-      return this._cloneAndFire(canvas, activeObject)
+
+      this._cloneAndFire(canvas, activeObject)
+      return
     }
 
     // обычный объект копируем как текст
     if (activeObject.type !== 'image') {
       const text = `application/image-editor:${JSON.stringify(activeObject.toObject(['format']))}`
       navigator.clipboard.writeText(text)
-        .catch(err => {
+        .catch((err) => {
           errorManager.emitWarning({
             origin: 'ClipboardManager',
             method: 'copy',
@@ -58,7 +61,9 @@ export default class ClipboardManager {
             data: err
           })
         })
-      return this._cloneAndFire(canvas, activeObject)
+
+      this._cloneAndFire(canvas, activeObject)
+      return
     }
 
     // картинку — преобразуем в Blob синхронно из dataURL и сразу отдаем в ClipboardItem
@@ -69,7 +74,7 @@ export default class ClipboardManager {
     const binary = atob(base64)
     const buffer = new Uint8Array(binary.length)
 
-    for (let i = 0; i < binary.length; i++) {
+    for (let i = 0; i < binary.length; i += 1) {
       buffer[i] = binary.charCodeAt(i)
     }
 
@@ -77,7 +82,7 @@ export default class ClipboardManager {
     const clipboardItem = new ClipboardItem({ [mime]: blob })
 
     navigator.clipboard.write([clipboardItem])
-      .catch(err => {
+      .catch((err) => {
         errorManager.emitWarning({
           origin: 'ClipboardManager',
           method: 'copy',
@@ -94,13 +99,16 @@ export default class ClipboardManager {
    * @param canvas - экземпляр canvas
    * @param object - активный объект
    */
-  private _cloneAndFire(canvas: Canvas, object: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>) {
+  private _cloneAndFire(
+    canvas: Canvas,
+    object: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>
+  ) {
     object.clone(['format'])
-      .then(clonedObject => {
+      .then((clonedObject) => {
         this.clipboard = clonedObject
         canvas.fire('editor:object-copied', { object: clonedObject })
       })
-      .catch(error => {
+      .catch((error) => {
         this.editor.errorManager.emitError({
           origin: 'ClipboardManager',
           method: '_cloneAndFire',

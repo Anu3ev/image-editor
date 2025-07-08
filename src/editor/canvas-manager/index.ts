@@ -33,7 +33,6 @@ export default class CanvasManager {
    */
   editor: ImageEditor
 
-
   /**
    * @param {object} options
    * @param {ImageEditor} options.editor – экземпляр редактора
@@ -225,7 +224,7 @@ export default class CanvasManager {
         origin: 'CanvasManager',
         method: 'getObjectDefaultCoords',
         code: 'NO_ACTIVE_OBJECT',
-        message: 'Не выбран объект для получения координат',
+        message: 'Не выбран объект для получения координат'
       })
 
       return { left: 0, top: 0 }
@@ -336,7 +335,7 @@ export default class CanvasManager {
     const zoomedHeight = montageArea.height * zoom
     const scrollContainer = canvas.wrapperEl.parentNode
 
-    if (!(scrollContainer instanceof HTMLElement)) return;
+    if (!(scrollContainer instanceof HTMLElement)) return
 
     const cssWidth = zoomedWidth <= scrollContainer.clientWidth ? '100%' : zoomedWidth
     const cssHeight = zoomedHeight <= scrollContainer.clientHeight ? '100%' : zoomedHeight

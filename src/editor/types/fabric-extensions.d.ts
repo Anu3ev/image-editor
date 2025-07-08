@@ -1,4 +1,5 @@
-import 'fabric';
+import 'fabric'
+import { ImageEditor } from '..'
 
 declare module 'fabric' {
   interface Canvas {
@@ -159,8 +160,7 @@ declare module 'fabric' {
      * Коллбэк, который будет вызван при готовности редактора.
      * Используется для выполнения действий после полной инициализации редактора.
      */
-    _onReadyCallback?: Function
-
+    _onReadyCallback?: (editor: ImageEditor) => void
 
     /**
      * Настройки слушателей событий.
@@ -208,6 +208,12 @@ declare module 'fabric' {
      * Если true, то при двойном клике по объекту будут сбрасываться его угол поворота, размеры, объект будет вписан в рабочую область.
      */
     resetObjectFitByDoubleClick: boolean
+
+    /**
+     * CSS класс для контейнера редактора.
+     * Используется для стилизации контейнера редактора.
+     */
+    containerClass?: string
   }
 
   interface FabricObject {

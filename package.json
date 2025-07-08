@@ -13,12 +13,14 @@
     "prebuild": "npm install",
     "build": "vite build --config vite.config.prod.js",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint \"src/**/*.{js,ts}\""
   },
   "devDependencies": {
     "@babel/core": "^7.26.7",
     "@babel/preset-env": "^7.26.7",
     "@eslint/js": "^9.16.0",
+    "@typescript-eslint/eslint-plugin": "^8.36.0",
+    "@typescript-eslint/parser": "^8.36.0",
     "eslint": "^8.57.1",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-standard": "^17.1.0",

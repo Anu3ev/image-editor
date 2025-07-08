@@ -1,3 +1,5 @@
+/* eslint-disable max-len */
+/* eslint-disable import/no-extraneous-dependencies */
 import globals from 'globals'
 import js from '@eslint/js'
 import vue from 'eslint-plugin-vue'
@@ -6,6 +8,9 @@ import parser from 'vue-eslint-parser'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { FlatCompat } from '@eslint/eslintrc'
+
+import tsParser from '@typescript-eslint/parser'
+import tsPlugin from '@typescript-eslint/eslint-plugin'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -89,7 +94,8 @@ export default [
       }],
 
       'max-len': ['warn', {
-        code: 120
+        code: 120,
+        ignoreComments: true
       }],
 
       'keyword-spacing': 'warn',
@@ -342,6 +348,33 @@ export default [
       'import/no-mutable-exports': 1,
       'no-promise-executor-return': 1,
       'func-names': 0
+    }
+  },
+  {
+  // применить только к .ts (и .vue, если у вас там <script lang="ts">)
+    files: ['**/*.ts', '**/*.vue'],
+
+    // уровень «каким парсером обрабатывать»
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
+        ecmaVersion: 2022,
+        sourceType: 'module'
+      }
+    },
+
+    // плагины – на верхнем уровне
+    plugins: {
+      '@typescript-eslint': tsPlugin
+    },
+
+    rules: {
+    // подтягиваем рекомендуемые правила
+      ...tsPlugin.configs.recommended.rules,
+      // пример своего правила
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
     }
   }
 ]

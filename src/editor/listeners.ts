@@ -8,22 +8,26 @@ class Listeners {
    * @type {ImageEditor}
    */
   editor: ImageEditor
+
   /**
    * Ссылка на Fabric Canvas.
    * @type {Canvas}
    */
   canvas: Canvas
+
   /**
    * Параметры (опции) для слушателей.
    * @type {Partial<CanvasOptions>}
    */
   options: Partial<CanvasOptions>
+
   /**
    * Флаг, что перетаскивание канваса активно.
    * @type {boolean}
    * @default false
    */
   private isDragging: boolean = false
+
   /**
    * Координаты последнего положения мыши по оси X при перетаскивании канваса.
    * Используется для расчёта смещения по горизонтали при перетаскивании.
@@ -31,6 +35,7 @@ class Listeners {
    * @default 0
    */
   private lastMouseX: number = 0
+
   /**
    * Координаты последнего положения мыши по оси Y при перетаскивании канваса.
    * Используется для расчёта смещения по вертикали при перетаскивании.
@@ -38,6 +43,7 @@ class Listeners {
    * @default 0
    */
   private lastMouseY: number = 0
+
   /**
    * Флаг, что сочетание Ctrl+Z/Ctrl+Y удерживается.
    * Используется для предотвращения множественных вызовов при удерживании клавиш.
@@ -45,6 +51,7 @@ class Listeners {
    * @default false
    */
   isUndoRedoKeyPressed: boolean = false
+
   /**
    * Флаг, что пробел удерживается.
    * Используется для активации режима перетаскивания канваса.
@@ -58,40 +65,73 @@ class Listeners {
    * Используются для удаления слушателей при уничтожении экземпляра.
    */
   handleContainerResizeBound: (e: Event) => void
+
   handleCopyEventBound: (e: KeyboardEvent) => void
+
   handlePasteEventBound: (e: ClipboardEvent) => void
+
   handleUndoRedoEventBound: (e: KeyboardEvent) => void
+
   handleUndoRedoKeyUpBound: (e: KeyboardEvent) => void
+
   handleSelectAllEventBound: (e: KeyboardEvent) => void
+
   handleDeleteObjectsEventBound: (e: KeyboardEvent) => void
+
   handleSpaceKeyDownBound: (e: KeyboardEvent) => void
+
   handleSpaceKeyUpBound: (e: KeyboardEvent) => void
+
   handleObjectModifiedHistoryBound: () => void
+
   handleObjectRotatingHistoryBound: () => void
+
   handleObjectAddedHistoryBound: () => void
+
   handleObjectRemovedHistoryBound: () => void
+
   handleOverlayUpdateBound: () => void
+
   handleCanvasDragStartBound: (options: TPointerEventInfo<TPointerEvent>) => void
+
   handleCanvasDraggingBound: (options: TPointerEventInfo<TPointerEvent>) => void
+
   handleCanvasDragEndBound: () => void
+
   handleMouseWheelZoomBound: (options: TPointerEventInfo<WheelEvent>) => void
+
   handleBringToFrontBound: ({ selected }: { selected: FabricObject[] }) => void
+
   handleResetObjectFitBound: (options: TPointerEventInfo<TPointerEvent>) => void
-  handleLockedSelectionBound: (options: { selected: FabricObject[], deselected?: FabricObject[], e?: TPointerEvent }) => void
+
+  handleLockedSelectionBound: (options: {
+    selected: FabricObject[],
+    deselected?: FabricObject[],
+    e?: TPointerEvent
+  }) => void
 
   /**
    * Опции редактора, которые могут быть изменены пользователем.
    * @type {Partial<CanvasOptions>}
    */
   canvasDragging: boolean = false
+
   mouseWheelZooming: boolean = false
+
   bringToFrontOnSelection: boolean = false
+
   resetObjectFitByDoubleClick: boolean = false
+
   copyObjectsByHotkey: boolean = false
+
   pasteImageFromClipboard: boolean = false
+
   undoRedoByHotKeys: boolean = false
+
   selectAllByHotkey: boolean = false
+
   deleteObjectsByHotkey: boolean = false
+
   adaptCanvasToContainerOnResize: boolean = false
 
   /**
@@ -598,21 +638,15 @@ class Listeners {
    * @param delay — задержка в миллисекундах
    * @returns новую обёртку-обработчик
    */
-  static debounce<T extends (...args: any[]) => any>(
-    fn: T,
-    delay: number
-  ): (...args: Parameters<T>) => void {
-    let timer: number | null = null
+  static debounce<T extends(...args: unknown[]) => unknown>(fn: T, delay: number): (...args: Parameters<T>) => void {
+    let timer: ReturnType<typeof setTimeout> | null = null
 
-    return function(this: any, ...args: Parameters<T>): void {
-      const context = this
-
-      if (timer) {
+    return function(this: ThisParameterType<T>, ...args: Parameters<T>): void {
+      if (timer !== null) {
         clearTimeout(timer)
       }
-
       timer = setTimeout(() => {
-        fn.apply(context, args)
+        fn.apply(this, args)
       }, delay)
     }
   }
