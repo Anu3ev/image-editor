@@ -1,3 +1,4 @@
+import type { Control } from 'fabric'
 import { renderSquare, renderVerticalRect, renderHorizontalRect, renderRotationControl } from './renderers'
 
 import {
@@ -9,7 +10,9 @@ import {
   ROTATE_DIAMETER
 } from './constants'
 
-export const DEFAULT_CONTROLS = {
+type ControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb' | 'mtr';
+
+export const DEFAULT_CONTROLS: Record<ControlKey, Partial<Control>> = {
   // Угловые точки
   tl: {
     render: renderSquare,
