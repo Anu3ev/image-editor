@@ -5,8 +5,10 @@ export default class ControlsCustomizer {
   static apply() {
     const ctrls = controlsUtils.createObjectDefaultControls()
 
+    type ControlKey = keyof typeof ctrls;
     Object.entries(DEFAULT_CONTROLS).forEach(([key, cfg]) => {
-      Object.assign(ctrls[key], {
+      const ctrlKey = key as ControlKey
+      Object.assign(ctrls[ctrlKey], {
         render: cfg.render,
         sizeX: cfg.sizeX,
         sizeY: cfg.sizeY,
@@ -18,10 +20,10 @@ export default class ControlsCustomizer {
 
       // Для кнопки вращения ставим курсор grab
       ctrls[key].cursorStyle = 'grab'
-      ctrls[key].mouseDownHandler = (eventData, transform, x, y) => {
+      ctrls[key].mouseDownHandler = (eventData, transform, _x, _y) => {
         const obj = transform.target
         // Во время вращения ставим курсор grabbing
-        obj.canvas.setCursor('grabbing')
+        obj.canvas?.setCursor('grabbing')
       }
     })
 
