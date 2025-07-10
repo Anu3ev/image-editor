@@ -243,7 +243,7 @@ export default class HistoryManager {
     if (this.patches.length > this.maxHistoryLength) {
       // Обновляем базовое состояние, применяя самый старый дифф
       // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
-      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as object
+      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as Partial<Canvas>
       this.patches.shift() // Удаляем первый дифф
       this.currentIndex -= 1 // Корректируем индекс
 
