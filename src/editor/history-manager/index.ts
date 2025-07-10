@@ -1,13 +1,77 @@
 // TODO: Почистить консоль логи когда всё будет готово.
+import { Canvas, FabricObject, Rect } from 'fabric'
 import { create as diffPatchCreate } from 'jsondiffpatch'
+import type { DiffPatcher, Delta } from 'jsondiffpatch'
 import { nanoid } from 'nanoid'
+import DiffMatchPatch from 'diff-match-patch'
+import { ImageEditor } from '../index'
 
 export default class HistoryManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Инстанс редактора с доступом к canvas
+   * @type {ImageEditor}
    */
-  constructor({ editor }) {
+  editor: ImageEditor
+
+  /**
+   * Объект, представляющий текущее состояние канваса, от которого будут считаться диффы
+   */
+  canvas: Canvas
+  /**
+   * Счётчик приостановки истории. Если он больше 0, то сохранение истории (saveHistory) пропускается.
+   */
+
+  _historySuspendCount: number
+
+  /**
+   * Базовое состояние канваса, от которого будут считаться диффы.
+   * Это состояние сохраняется при первом вызове saveState и используется для создания диффов между текущим состоянием канваса и базовым состоянием.
+   */
+  baseState: object | null
+
+  /**
+   * Массив диффов, представляющих изменения от базового состояния.
+   */
+  patches: { id: string; diff: Delta }[]
+
+  /**
+   * Текущее положение в истории изменений.
+   * Это индекс в массиве patches, указывающий на последнее сохранённое состояние.
+   * Если currentIndex = 0, то это базовое состояние.
+   * Если currentIndex = patches.length, то это последнее сохранённое состояние.
+   */
+  currentIndex: number
+
+  /**
+   * Максимальная длина истории изменений.
+   * Когда количество сохранённых изменений превышает это значение, старые изменения удаляются, и базовое состояние обновляется.
+   * Это позволяет ограничить размер истории и избежать переполнения памяти.
+   */
+  maxHistoryLength: number
+
+  /**
+   * Общее количество сделанных изменений в редакторе.
+   * Это значение увеличивается при каждом вызове saveState и используется для отслеживания количества изменений.
+   * Счётчик увеличивается при каждом сохранении состояния, даже если количество изменений больше чем maxHistoryLength. При откате до нулевого значения currentIndex с помощью undo это позволяет понять, были ли изменения в состоянии редактора.
+   */
+  totalChangesCount: number
+
+  /**
+   * Количество изменений, которые были "свёрнуты" в базовое состояние.
+   * Это значение увеличивается, когда история изменений становится слишком длинной и базовое состояние обновляется.
+   * Оно позволяет отслеживать, сколько изменений было сделано с момента последнего обновления базового состояния.
+   * Например, если maxHistoryLength = 10 и в истории было 15 изменений, то baseStateChangesCount будет равно 5.
+   */
+  baseStateChangesCount: number
+
+  /**
+   * DiffPatcher – библиотека для создания и применения диффов между объектами.
+   * Она используется для вычисления изменений между текущим состоянием канваса и базовым состоянием.
+   * DiffPatcher позволяет эффективно сохранять и восстанавливать изменения, а также управлять историей изменений в редакторе.
+   */
+  diffPatcher!: DiffPatcher
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
     this._historySuspendCount = 0
@@ -35,21 +99,23 @@ export default class HistoryManager {
 
   _createDiffPatcher() {
     this.diffPatcher = diffPatchCreate({
-      objectHash(obj) {
+      objectHash(obj: object) {
+        const fabricObj = obj as FabricObject
+
         return [
-          obj.id,
-          obj.format,
-          obj.locked,
-          obj.left,
-          obj.top,
-          obj.width,
-          obj.height,
-          obj.flipX,
-          obj.flipY,
-          obj.scaleX,
-          obj.scaleY,
-          obj.angle,
-          obj.opacity
+          fabricObj.id,
+          fabricObj.format,
+          fabricObj.locked,
+          fabricObj.left,
+          fabricObj.top,
+          fabricObj.width,
+          fabricObj.height,
+          fabricObj.flipX,
+          fabricObj.flipY,
+          fabricObj.scaleX,
+          fabricObj.scaleY,
+          fabricObj.angle,
+          fabricObj.opacity
         ].join('-')
       },
 
@@ -59,6 +125,7 @@ export default class HistoryManager {
       },
 
       textDiff: {
+        diffMatchPatch: DiffMatchPatch,
         minLength: 60
       }
     })
@@ -176,7 +243,7 @@ export default class HistoryManager {
     if (this.patches.length > this.maxHistoryLength) {
       // Обновляем базовое состояние, применяя самый старый дифф
       // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
-      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff)
+      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as object
       this.patches.shift() // Удаляем первый дифф
       this.currentIndex -= 1 // Корректируем индекс
 
@@ -189,10 +256,10 @@ export default class HistoryManager {
 
   /**
    * Функция загрузки состояния в канвас.
-   * @param {object} fullState - полное состояние канваса
+   * @param {Partial<Canvas>} fullState - полное состояние канваса
    * @fires editor:history-state-loaded
    */
-  async loadStateFromFullState(fullState) {
+  async loadStateFromFullState(fullState: Partial<Canvas>) {
     if (!fullState) return
 
     console.log('loadStateFromFullState fullState', fullState)
@@ -204,7 +271,7 @@ export default class HistoryManager {
     await canvas.loadFromJSON(fullState)
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
-    const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area')
+    const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area') as Rect | undefined
     if (loadedMontage) {
       this.editor.montageArea = loadedMontage
 
@@ -265,8 +332,13 @@ export default class HistoryManager {
         patches: this.patches
       })
     } catch (error) {
-      console.error('undo. Ошибка отмены действия: ', error)
-      this.canvas.fire('editor:error', { message: `Ошибка отмены действия: ${error.message}` })
+      this.editor.errorManager.emitError({
+        origin: 'HistoryManager',
+        method: 'undo',
+        code: 'UNDO_ERROR',
+        message: 'Ошибка отмены действия',
+        data: error as Error
+      })
     } finally {
       this.resumeHistory()
     }
@@ -306,8 +378,13 @@ export default class HistoryManager {
         patches: this.patches
       })
     } catch (error) {
-      console.error('redo. Ошибка повтора действия: ', error)
-      this.canvas.fire('editor:error', { message: `Ошибка повтора действия: ${error.message}` })
+      this.editor.errorManager.emitError({
+        origin: 'HistoryManager',
+        method: 'redo',
+        code: 'REDO_ERROR',
+        message: 'Ошибка повтора действия',
+        data: error as Error
+      })
     } finally {
       this.resumeHistory()
     }
