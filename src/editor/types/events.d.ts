@@ -1,5 +1,5 @@
-import 'fabric';
-import { ImageEditor } from '../index';
+import { FabricObject, FabricImage, Group, ActiveSelection, Point } from 'fabric'
+import { ImageEditor } from '../index'
 
 /**
  * Параметры события editor:canvas-exported
@@ -22,14 +22,13 @@ export type CanvasObjectExportedPayload = {
   fileName: string
 }
 
-
 export type CanvasImportedImagePayload = {
   image: FabricImage
   format: string
   contentType: string
   scale: number
   withoutSave?: boolean
-  source?: File | String
+  source?: File | string
 }
 
 /**
@@ -92,7 +91,7 @@ export type CanvasUpdatedPayload = {
 export type ObjectsGroupedPayload = {
   object: FabricObject
   group: Group
-  withoutSave: boolean
+  withoutSave?: boolean
 }
 
 /**
@@ -101,7 +100,7 @@ export type ObjectsGroupedPayload = {
 export type ObjectsUngroupedPayload = {
   object: Group,
   selection: ActiveSelection,
-  withoutSave: booelean
+  withoutSave?: boolean
 }
 
 /**
@@ -109,7 +108,7 @@ export type ObjectsUngroupedPayload = {
  */
 export type ObjectsDeletedPayload = {
   objects: FabricObject[]
-  withoutSave: boolean
+  withoutSave?: boolean
 }
 
 /**

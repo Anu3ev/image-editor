@@ -62,5 +62,10 @@ export const errorCodes = {
      * Ошибка при получении активного объекта.
      */
     NO_ACTIVE_OBJECT: 'NO_ACTIVE_OBJECT'
+  },
+
+  HISTORY_MANAGER: {
+    UNDO_ERROR: 'UNDO_ERROR',
+    REDO_ERROR: 'REDO_ERROR'
   }
 }

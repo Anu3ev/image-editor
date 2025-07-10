@@ -113,7 +113,7 @@ export default class ClipboardManager {
           origin: 'ClipboardManager',
           method: '_cloneAndFire',
           code: 'CLONE_FAILED',
-          message: 'ClipboardManager. Ошибка клонирования объекта',
+          message: 'Ошибка клонирования объекта',
           data: error
         })
       })

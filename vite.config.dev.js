@@ -22,7 +22,7 @@ export default defineConfig({
     },
 
     rollupOptions: {
-      external: ['fabric', 'jspdf', 'jsondiffpatch']
+      external: ['fabric', 'jspdf', 'jsondiffpatch', 'diff-match-patch']
     },
 
     // Папка проекта, куда будет собираться код

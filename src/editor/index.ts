@@ -31,7 +31,6 @@ import ErrorManager from './error-manager'
 // TODO: Переписать deletionManager на ts
 // TODO: Переписать objectLockManager на ts
 // TODO: Переписать groupingManager на ts
-// TODO: Переписать customizedControls на ts
 // TODO: Переписать toolbarManager на ts
 // TODO: Переписать interactionBlocker на ts
 // TODO: Переписать moduleLoader на ts

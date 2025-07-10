@@ -1,13 +1,16 @@
 // src/editor/grouping-manager/index.js
-import { Group, ActiveSelection } from 'fabric'
+import { Group, ActiveSelection, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
+import { ImageEditor } from '../index'
 
 export default class GroupingManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Инстанс редактора с доступом к canvas
+   * @type {ImageEditor}
    */
-  constructor({ editor }) {
+  editor: ImageEditor
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
@@ -18,14 +21,20 @@ export default class GroupingManager {
    * @param {fabric.Object} options.object - массив объектов для группировки
    * @fires editor:objects-grouped
    */
-  group({ object, withoutSave } = {}) {
+  group({
+    object,
+    withoutSave
+  }: {
+    object?: FabricObject,
+    withoutSave?: boolean
+  } = {}) {
     const { canvas, historyManager } = this.editor
 
     historyManager.suspendHistory()
     const activeObject = object || canvas.getActiveObject()
     if (!activeObject) return
 
-    if (activeObject.type !== 'activeselection') return
+    if (!(activeObject instanceof ActiveSelection)) return
 
     // Получаем все объекты внутри activeselection, группируем их и удаляем из канваса
     const objectsToGroup = activeObject.getObjects()
@@ -58,13 +67,19 @@ export default class GroupingManager {
    * @param {Boolean} options.withoutSave - Не сохранять состояние
    * @fires editor:objects-ungrouped
    */
-  ungroup({ object, withoutSave } = {}) {
+  ungroup({
+    object,
+    withoutSave
+  }: {
+    object?: FabricObject,
+    withoutSave?: boolean
+  } = {}) {
     const { canvas, historyManager } = this.editor
 
     historyManager.suspendHistory()
     const group = object || canvas.getActiveObject()
 
-    if (!group || group.type !== 'group') return
+    if (!(group instanceof Group)) return
 
     // Получаем все объекты внутри группы, удаляем группу и добавляем объекты обратно на канвас
     const grouppedObjects = group.removeAll()

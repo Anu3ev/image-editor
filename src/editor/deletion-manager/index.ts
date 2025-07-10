@@ -1,20 +1,31 @@
+import { FabricObject } from 'fabric'
+import { ImageEditor } from '../index'
+
 export default class DeletionManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Инстанс редактора с доступом к canvas
+   * @type {ImageEditor}
    */
-  constructor({ editor }) {
+  editor: ImageEditor
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
   /**
    * Удалить выбранные объекты
    * @param {Object} options
-   * @param {fabric.Object[]} options.objects - массив объектов для удаления
+   * @param {FabricObject[]} options.objects - массив объектов для удаления
    * @param {Boolean} options.withoutSave - Не сохранять состояние
    * @fires editor:objects-deleted
    */
-  deleteSelectedObjects({ objects, withoutSave } = {}) {
+  deleteSelectedObjects({
+    objects,
+    withoutSave
+  }: {
+    objects?: FabricObject[],
+    withoutSave?: boolean
+  } = {}) {
     const { canvas, historyManager, groupingManager } = this.editor
 
     // Отбираем только те объекты, которые не заблокированы
@@ -25,7 +36,7 @@ export default class DeletionManager {
 
     activeObjects.forEach((obj) => {
       if (obj.type === 'group' && obj.format !== 'svg') {
-        groupingManager.ungroup(obj)
+        groupingManager.ungroup({ object: obj, withoutSave })
         this.deleteSelectedObjects()
 
         return
