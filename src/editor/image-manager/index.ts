@@ -1,4 +1,4 @@
-import { loadSVGFromURL, FabricImage, util } from 'fabric'
+import { CanvasOptions, FabricObject, loadSVGFromURL, FabricImage, util } from 'fabric'
 import { nanoid } from 'nanoid'
 import {
   CANVAS_MAX_WIDTH,
@@ -7,14 +7,54 @@ import {
   CANVAS_MIN_WIDTH
 } from '../constants'
 
+import { ImageEditor } from '../index'
+
+interface SuccessulImageImportResult {
+  image: FabricImage | FabricObject
+  format: string
+  contentType: string
+  scale: string
+  withoutSave: boolean
+  source?: File | string
+}
+
+interface SuccessfulExportResult {
+  image: File | Blob | Base64URLString
+  format: string
+  contentType: string
+  fileName: string
+}
+
 export default class ImageManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Ссылка на редактор, содержащий canvas.
+   * @type {ImageEditor}
    */
-  constructor({
-    editor
-  }) {
+  editor: ImageEditor
+
+  /**
+   * Настройки редактора
+   * @type {CanvasOptions}
+   */
+  options: CanvasOptions
+
+  /**
+   * Массив blobURL, созданных в процессе работы менеджера.
+   * Используется для того чтобы при необходимости можно было удалить их (revoke) и освободить память.
+   */
+  _createdBlobUrls: string[]
+
+  /**
+   * Массив допустимых contentType, которые можно импортировать. По умолчанию берётся из CanvasOptions.acceptContentTypes.
+   */
+  acceptContentTypes: string[]
+
+  /**
+   * Массив допустимых форматов изображений, которые можно импортировать. Массив получается из настроек редактора.
+   */
+  acceptFormats: string[]
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.options = editor.options
     this._createdBlobUrls = []
@@ -25,21 +65,25 @@ export default class ImageManager {
 
   /**
    * Импорт изображения
-   * @param {Object} options
-   * @param {File|string} [options.source] - URL изображения или объект File
-   * @param {String} [options.scale] - Если изображение не вписывается в допустимые размеры, то как масштабировать:
+   * @param options
+   * @param options.source - URL изображения или объект File
+   * @param options.scale - Если изображение не вписывается в допустимые размеры, то как масштабировать:
    * 'image-contain' - скейлит картинку, чтобы она вписалась в монтажную область
    * 'image-cover' - скейлит картинку, чтобы она вписалась в монтажную область
    * 'scale-montage' - Обновляет backstore-резолюцию монтажной области (масштабирует
    * экспортный размер канваса под размер изображения)
-   * @param {Boolean} [options.withoutSave] - Не сохранять в историю изменений
-   * @returns {Promise<Object|null>} - возвращает Promise с объектом изображения или null в случае ошибки
+   * @param options.withoutSave - Не сохранять в историю изменений
+   * @returns возвращает Promise с объектом изображения или null в случае ошибки
    */
   async importImage({
     source,
     scale = `image-${this.options.scaleType}`,
     withoutSave = false
-  }) {
+  }: {
+    source: File | string,
+    scale?: 'image-contain' | 'image-cover' | 'scale-montage',
+    withoutSave?: boolean
+  }): Promise<SuccessulImageImportResult | null> {
     if (!source) return null
 
     const { canvas, montageArea, transformManager, historyManager, errorManager } = this.editor
@@ -74,7 +118,7 @@ export default class ImageManager {
         dataUrl = URL.createObjectURL(source)
       } else if (typeof source === 'string') {
         const resp = await fetch(source, { mode: 'cors' })
-        const blob = await resp.blob({ type: contentType, quality: 1 })
+        const blob = await resp.blob()
 
         dataUrl = URL.createObjectURL(blob)
       } else {
@@ -95,7 +139,8 @@ export default class ImageManager {
       // SVG: парсим через loadSVGFromURL и группируем в один объект
       if (format === 'svg') {
         const svgData = await loadSVGFromURL(dataUrl)
-        img = util.groupSVGElements(svgData.objects, svgData.options)
+
+        img = util.groupSVGElements(svgData.objects as FabricObject[], svgData.options)
       } else {
         // Создаем объект FabricImage из blobURL
         img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
@@ -103,22 +148,34 @@ export default class ImageManager {
 
       const { width: imageWidth, height: imageHeight } = img
 
-      // Если изображение больше максимальных размеров, то даунскейлим его
-      if (imageHeight > CANVAS_MAX_HEIGHT || imageWidth > CANVAS_MAX_WIDTH) {
-        const resizedBlob = await this.resizeImageToBoundaries(img._element.src, 'max')
-        const resizedBlobURL = URL.createObjectURL(resizedBlob)
-        this._createdBlobUrls.push(resizedBlobURL)
+      if (img instanceof FabricImage) {
+        const imageElement = img.getElement()
 
-        // Создаем новый объект FabricImage из уменьшенного dataURL
-        img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
-      } else if (imageHeight < CANVAS_MIN_HEIGHT || imageWidth < CANVAS_MIN_WIDTH) {
-        // Если изображение меньше минимальных размеров, то апскейлим его
-        const resizedBlob = await this.resizeImageToBoundaries(img._element.src, 'min')
-        const resizedBlobURL = URL.createObjectURL(resizedBlob)
-        this._createdBlobUrls.push(resizedBlobURL)
+        let imageSrc: string = ''
 
-        // Создаем новый объект FabricImage из увеличенного dataURL
-        img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
+        if (imageElement instanceof HTMLImageElement) {
+          imageSrc = imageElement.src
+        } else if (imageElement instanceof HTMLCanvasElement) {
+          imageSrc = imageElement.toDataURL()
+        }
+
+        // Если изображение больше максимальных размеров, то даунскейлим его
+        if (imageHeight > CANVAS_MAX_HEIGHT || imageWidth > CANVAS_MAX_WIDTH) {
+          const resizedBlob = await this.resizeImageToBoundaries(imageSrc, 'max')
+          const resizedBlobURL = URL.createObjectURL(resizedBlob)
+          this._createdBlobUrls.push(resizedBlobURL)
+
+          // Создаем новый объект FabricImage из уменьшенного dataURL
+          img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
+        } else if (imageHeight < CANVAS_MIN_HEIGHT || imageWidth < CANVAS_MIN_WIDTH) {
+          // Если изображение меньше минимальных размеров, то апскейлим его
+          const resizedBlob = await this.resizeImageToBoundaries(imageSrc, 'min')
+          const resizedBlobURL = URL.createObjectURL(resizedBlob)
+          this._createdBlobUrls.push(resizedBlobURL)
+
+          // Создаем новый объект FabricImage из увеличенного dataURL
+          img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
+        }
       }
 
       img.set('id', `${img.type}-${nanoid()}`)
@@ -171,7 +228,7 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'importImage',
         code: 'IMPORT_FAILED',
-        message: `Ошибка импорта изображения: ${error.message}`,
+        message: `Ошибка импорта изображения: ${(error as Error).message}`,
         data: { source, format, contentType, scale, withoutSave }
       })
 
@@ -184,11 +241,11 @@ export default class ImageManager {
    * Функция для ресайза изображения до максимальных размеров,
    * если оно их превышает. Сохраняет пропорции.
    *
-   * @param {HTMLImageElement} imageEl - HTML элемент изображения
+   * @param {string} dataURL - dataURL изображения
    * @param {string} [size='max | min'] - максимальный или минимальный размер
-   * @returns {Promise<string>} - возвращает Promise с новым dataURL
+   * @returns {Promise<Blob>} - возвращает Promise с Blob-объектом уменьшенного изображения
    */
-  async resizeImageToBoundaries(dataURL, size = 'max') {
+  async resizeImageToBoundaries(dataURL: string, size = 'max'): Promise<Blob> {
     // eslint-disable-next-line max-len
     let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${CANVAS_MAX_WIDTH}x${CANVAS_MAX_HEIGHT}`
 
@@ -220,12 +277,12 @@ export default class ImageManager {
   /**
    * Экспорт изображения в файл – экспортируется содержимое монтажной области.
    * Независимо от текущего зума, экспортируется монтажная область в исходном масштабе. Можно экспортировать как base64.
-   * @param {Object} options - опции
-   * @param {string} options.fileName - имя файла
-   * @param {string} options.contentType - тип контента
-   * @param {Boolean} options.exportAsBase64 - экспортировать как base64
-   * @param {Boolean} options.exportAsBlob - экспортировать как blob
-   * @returns {Promise<File> | String} - файл или base64
+   * @param options - опции
+   * @param options.fileName - имя файла
+   * @param options.contentType - тип контента
+   * @param options.exportAsBase64 - экспортировать как base64
+   * @param options.exportAsBlob - экспортировать как blob
+   * @returns возвращает Promise с объектом файла или null в случае ошибки
    * @fires editor:canvas-exported
    */
   async exportCanvasAsImageFile({
@@ -233,7 +290,7 @@ export default class ImageManager {
     contentType = 'image/png',
     exportAsBase64 = false,
     exportAsBlob = false
-  } = {}) {
+  } = {}): Promise<SuccessfulExportResult | null> {
     const { canvas, montageArea, workerManager } = this.editor
 
     try {
@@ -259,7 +316,10 @@ export default class ImageManager {
 
       // Находим монтажную область в клонированном канвасе и скрываем её
       const tmpCanvasMontageArea = tmpCanvas.getObjects().find((obj) => obj.id === montageArea.id)
-      tmpCanvasMontageArea.visible = false
+
+      if (tmpCanvasMontageArea) {
+        tmpCanvasMontageArea.visible = false
+      }
 
       // Сдвигаем клонированную сцену
       tmpCanvas.viewportTransform = [1, 0, 0, 1, -left, -top]
@@ -296,7 +356,15 @@ export default class ImageManager {
       }
 
       // Получаем blob из клонированного канваса
-      const blob = await new Promise((resolve) => { tmpCanvas.getElement().toBlob(resolve) })
+      const blob: Blob = await new Promise((resolve, reject) => {
+        tmpCanvas.getElement().toBlob((canvasBlob) => {
+          if (canvasBlob) {
+            resolve(canvasBlob)
+          } else {
+            reject(new Error('Failed to create Blob from canvas'))
+          }
+        })
+      })
 
       // Уничтожаем клон
       tmpCanvas.dispose()
@@ -401,23 +469,23 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportCanvasAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
-        message: `Ошибка экспорта изображения: ${error.message}`,
+        message: `Ошибка экспорта изображения: ${(error as Error).message}`,
         data: { contentType, fileName, exportAsBase64, exportAsBlob }
       })
 
-      return ''
+      return null
     }
   }
 
   /**
    * Экспорт выбранного объекта в виде изображения или base64
-   * @param {Object} options - опции
-   * @param {fabric.Object} options.object - объект для экспорта
-   * @param {String} options.fileName - имя файла
-   * @param {String} options.contentType - тип контента
-   * @param {Boolean} options.exportAsBase64 - экспортировать как base64
-   * @param {Boolean} options.exportAsBlob - экспортировать как blob
-   * @returns {String} base64
+   * @param options - опции
+   * @param options.object - объект для экспорта
+   * @param options.fileName - имя файла
+   * @param options.contentType - тип контента
+   * @param options.exportAsBase64 - экспортировать как base64
+   * @param options.exportAsBlob - экспортировать как blob
+   * @returns - возвращает Promise с объектом файла или null в случае ошибки
    * @fires editor:object-exported
    */
   async exportObjectAsImageFile({
@@ -426,7 +494,13 @@ export default class ImageManager {
     contentType = 'image/png',
     exportAsBase64 = false,
     exportAsBlob = false
-  } = {}) {
+  }: {
+    object?: FabricObject,
+    fileName?: string,
+    contentType?: string,
+    exportAsBase64?: boolean,
+    exportAsBlob?: boolean
+  } = {}): Promise<SuccessfulExportResult | null> {
     const { canvas, workerManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -440,7 +514,7 @@ export default class ImageManager {
         data: { contentType, fileName, exportAsBase64, exportAsBlob }
       })
 
-      return ''
+      return null
     }
 
     try {
@@ -450,13 +524,14 @@ export default class ImageManager {
       // Конвертируем fabric.Object в SVG-строку
         const svgString = activeObject.toSVG()
 
-        const svg = this._exportSVGStringAsFile(svgString, {
+        const svg = ImageManager._exportSVGStringAsFile(svgString, {
           exportAsBase64,
           exportAsBlob,
           fileName
         })
 
         const data = {
+          object: activeObject,
           image: svg,
           format,
           contentType: 'image/svg+xml',
@@ -467,8 +542,8 @@ export default class ImageManager {
         return data
       }
 
-      if (exportAsBase64) {
-        const bitmap = await createImageBitmap(activeObject._element)
+      if (exportAsBase64 && activeObject instanceof FabricImage) {
+        const bitmap = await createImageBitmap(activeObject.getElement())
         const dataUrl = await workerManager.post(
           'toDataURL',
           {
@@ -480,6 +555,7 @@ export default class ImageManager {
         )
 
         const data = {
+          object: activeObject,
           image: dataUrl,
           format,
           contentType,
@@ -491,10 +567,19 @@ export default class ImageManager {
       }
 
       const activeObjectCanvas = activeObject.toCanvasElement()
-      const activeObjectBlob = await new Promise((resolve) => { activeObjectCanvas.toBlob(resolve) })
+      const activeObjectBlob: Blob = await new Promise((resolve, reject) => {
+        activeObjectCanvas.toBlob((blob) => {
+          if (blob) {
+            resolve(blob)
+          } else {
+            reject(new Error('Failed to create Blob from canvas'))
+          }
+        })
+      })
 
       if (exportAsBlob) {
         const data = {
+          object: activeObject,
           image: activeObjectBlob,
           format,
           contentType,
@@ -509,6 +594,7 @@ export default class ImageManager {
       const file = new File([activeObjectBlob], fileName, { type: contentType })
 
       const data = {
+        object: activeObject,
         image: file,
         format,
         contentType,
@@ -522,84 +608,47 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportObjectAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
-        message: `Ошибка экспорта объекта: ${error.message}`,
+        message: `Ошибка экспорта объекта: ${(error as Error).message}`,
         data: { contentType, fileName, exportAsBase64, exportAsBlob }
       })
 
-      return ''
+      return null
     }
   }
 
   /**
    * Удаляет все созданные blobURL
-   * @returns {void}
    */
-  revokeBlobUrls() {
+  revokeBlobUrls(): void {
     this._createdBlobUrls.forEach(URL.revokeObjectURL)
     this._createdBlobUrls = []
   }
 
   /**
-   * Преобразует SVG-строку в Blob, файл, или base64
-   * @param {string} svgString - SVG-строка
-   * @param {Object} options - опции
-   * @param {Boolean} options.exportAsBase64 - экспортировать как base64
-   * @param {Boolean} options.exportAsBlob - экспортировать как blob
-   * @param {String} options.fileName - имя файла
-   * @returns {Blob|String|File} - Blob, base64 или файл
-   * @private
-   * @static
-   */
-  static _exportSVGStringAsFile(svgString, { exportAsBase64, exportAsBlob, fileName } = {}) {
-    if (exportAsBlob) {
-      return new Blob([svgString], { type: 'image/svg+xml' })
-    }
-
-    if (exportAsBase64) {
-      return `data:image/svg+xml;base64,${btoa(svgString)}`
-    }
-
-    return new File([svgString], fileName.replace(/\.[^/.]+$/, '.svg'), { type: 'image/svg+xml' })
-  }
-
-  /**
    * Получает список допустимых форматов изображений
-   * @returns {string[]} - массив допустимых форматов изображений
+   * @returns массив допустимых форматов изображений
    */
-  getAllowedFormatsFromContentTypes() {
+  getAllowedFormatsFromContentTypes(): string[] {
     return this.acceptContentTypes
       .map((contentType) => ImageManager.getFormatFromContentType(contentType))
       .filter((format) => format)
   }
 
   /**
-   * Извлекает чистый формат (subtype) из contentType,
-   * отбросив любую часть после «+» или «;»
-   * @param {string} contentType
-   * @returns {string} формат, например 'png', 'jpeg', 'svg'
-   * @static
-   */
-  static getFormatFromContentType(contentType = '') {
-    const match = contentType.match(/^[^/]+\/([^+;]+)/)
-    return match ? match[1] : ''
-  }
-
-  /**
    * Проверяет, является ли contentType допустимым типом изображения.
-   * @param {string} contentType - тип контента
-   * @returns {boolean} true, если contentType допустим, иначе false
+   * @returns true, если contentType допустим, иначе false
    */
-  isAllowedContentType(contentType = '') {
+  isAllowedContentType(contentType = ''): boolean {
     return this.acceptContentTypes.includes(contentType)
   }
 
   /**
    * Получает contentType изображения из источника
-   * @param {File|string} source - URL изображения или объект File
-   * @returns {Promise<string>|string} - MIME-тип изображения
+   * @param source - URL изображения или объект File
+   * @returns MIME-тип изображения
    * @public
    */
-  async getContentType(source) {
+  async getContentType(source: File | string): Promise<string> {
     if (typeof source === 'string') {
       return this.getContentTypeFromUrl(source)
     }
@@ -609,11 +658,11 @@ export default class ImageManager {
 
   /**
    * Получает contentType изображения через HTTP HEAD запрос или анализ URL
-   * @param {string} src - URL изображения
-   * @returns {Promise<string>} - MIME-тип изображения
+   * @param src - URL изображения
+   * @returns MIME-тип изображения
    * @public
    */
-  async getContentTypeFromUrl(src) {
+  async getContentTypeFromUrl(src: string): Promise<string> {
     // Если это data URL, извлекаем MIME-тип напрямую
     if (src.startsWith('data:')) {
       const match = src.match(/^data:([^;]+)/)
@@ -638,17 +687,17 @@ export default class ImageManager {
 
   /**
    * Определяет contentType по расширению файла в URL
-   * @param {string} url - URL файла
-   * @returns {string} - MIME-тип
+   * @param url - URL файла
+   * @returns - MIME-тип
    * @public
    */
-  getContentTypeFromExtension(url) {
+  getContentTypeFromExtension(url: string): string {
     try {
       const urlObj = new URL(url)
       const extension = urlObj.pathname.split('.').pop()?.toLowerCase()
 
       // Создаем mimeMap из acceptContentTypes
-      const mimeMap = {}
+      const mimeMap: { [key: string]: string } = {}
       this.acceptContentTypes.forEach((contentType) => {
         const format = ImageManager.getFormatFromContentType(contentType)
         if (format) {
@@ -656,7 +705,7 @@ export default class ImageManager {
         }
       })
 
-      return mimeMap[extension] || 'application/octet-stream'
+      return extension ? mimeMap[extension] || 'application/octet-stream' : 'application/octet-stream'
     } catch (error) {
       console.warn('Не удалось определить расширение из URL:', url, error)
       return 'application/octet-stream'
@@ -665,11 +714,18 @@ export default class ImageManager {
 
   /**
    * Рассчитывает коэффициент масштабирования изображения.
-   * @param {object} imageObject - объект изображения
-   * @param {string} scaleType - тип масштабирования ('contain' или 'cover')
-   * @returns {number} коэффициент масштабирования
+   * @param options - опции
+   * @param options.imageObject - объект изображения
+   * @param options.scaleType - тип масштабирования ('contain' или 'cover')
+   * @returns коэффициент масштабирования
    */
-  calculateScaleFactor({ imageObject, scaleType = 'contain' }) {
+  calculateScaleFactor({
+    imageObject,
+    scaleType = 'contain'
+  }: {
+    imageObject: FabricImage | FabricObject,
+    scaleType?: 'contain' | 'cover' | 'image-contain' | 'image-cover'
+  }): number {
     const { montageArea } = this.editor
 
     if (!montageArea || !imageObject) return 1
@@ -686,5 +742,48 @@ export default class ImageManager {
     }
 
     return 1
+  }
+
+  /**
+   * Преобразует SVG-строку в Blob, файл, или base64
+   * @param svgString - SVG-строка
+   * @param options - опции
+   * @param options.exportAsBase64 - экспортировать как base64
+   * @param options.exportAsBlob - экспортировать как blob
+   * @param options.fileName - имя файла
+   * @returns Blob, base64 или файл
+   * @private
+   * @static
+   */
+  private static _exportSVGStringAsFile(svgString: string, {
+    exportAsBase64,
+    exportAsBlob,
+    fileName = 'image.svg'
+  }: {
+    exportAsBase64?: boolean,
+    exportAsBlob?: boolean,
+    fileName?: string
+  } = {}): Blob | Base64URLString | File {
+    if (exportAsBlob) {
+      return new Blob([svgString], { type: 'image/svg+xml' })
+    }
+
+    if (exportAsBase64) {
+      return `data:image/svg+xml;base64,${window.btoa(encodeURIComponent(svgString))}`
+    }
+
+    return new File([svgString], fileName.replace(/\.[^/.]+$/, '.svg'), { type: 'image/svg+xml' })
+  }
+
+  /**
+   * Извлекает чистый формат (subtype) из contentType,
+   * отбросив любую часть после «+» или «;»
+   * @param contentType
+   * @returns формат, например 'png', 'jpeg', 'svg'
+   * @static
+   */
+  static getFormatFromContentType(contentType = ''): string {
+    const match = contentType.match(/^[^/]+\/([^+;]+)/)
+    return match ? match[1] : ''
   }
 }
