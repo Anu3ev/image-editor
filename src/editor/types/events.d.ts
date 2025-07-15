@@ -23,10 +23,10 @@ export type CanvasObjectExportedPayload = {
 }
 
 export type CanvasImportedImagePayload = {
-  image: FabricImage
+  image: FabricObject | FabricImage
   format: string
   contentType: string
-  scale: number
+  scale: string
   withoutSave?: boolean
   source?: File | string
 }
