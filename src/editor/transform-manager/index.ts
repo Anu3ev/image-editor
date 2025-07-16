@@ -191,8 +191,8 @@ export default class TransformManager {
 
   /**
    * Отразить по горизонтали
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:object-flipped-x
    */
   flipX({ withoutSave }: { withoutSave?: boolean } = {}): void {
@@ -215,8 +215,8 @@ export default class TransformManager {
 
   /**
    * Отразить по вертикали
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:object-flipped-y
    */
   flipY({ withoutSave }: { withoutSave?: boolean } = {}): void {

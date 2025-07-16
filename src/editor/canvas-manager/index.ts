@@ -251,7 +251,7 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем высоту канваса в backstore (для экспорта)
-   * @param {Number} height
+   * @param height
    */
   setCanvasBackstoreHeight(height: number): void {
     if (!height || typeof height !== 'number') return
@@ -324,7 +324,7 @@ export default class CanvasManager {
    *
    * Метод нужно вызывать после zoomToPoint.
    *
-   * @param {Number} zoom — текущее значение zoom (например, 1, 1.2, 2 и т.д.)
+   * @param zoom — текущее значение zoom (например, 1, 1.2, 2 и т.д.)
    */
   updateCssDimensionsForZoom(zoom: number): void {
     const { canvas, montageArea } = this.editor

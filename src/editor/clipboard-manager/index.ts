@@ -119,9 +119,9 @@ export default class ClipboardManager {
 
   /**
    * Обработчик вставки объекта или изображения из буфера обмена.
-   * @param {Object} event — объект события
-   * @param {Object} event.clipboardData — данные из буфера обмена
-   * @param {Array} event.clipboardData.items — элементы буфера обмена
+   * @param event — объект события
+   * @param event.clipboardData — данные из буфера обмена
+   * @param event.clipboardData.items — элементы буфера обмена
    */
   handlePasteEvent({ clipboardData }:ClipboardEvent): void {
     if (!clipboardData?.items?.length) return

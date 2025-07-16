@@ -493,9 +493,9 @@ class Listeners {
   /**
    * Начало перетаскивания канваса (срабатывает при mouse:down и зажатом пробеле).
    * @param options - событие указателя
-   * @param {TPointerEvent} options.e — объект события (MouseEvent или TouchEvent)
+   * @param options.e — объект события (MouseEvent или TouchEvent)
    */
-  handleCanvasDragStart({ e: event }:TPointerEventInfo<TPointerEvent>) {
+  handleCanvasDragStart({ e: event }:TPointerEventInfo<TPointerEvent>): void {
     if (!this.isSpacePressed || !(event instanceof MouseEvent)) return
 
     this.isDragging = true
