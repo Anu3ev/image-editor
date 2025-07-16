@@ -9,7 +9,7 @@ import {
 
 import { ImageEditor } from '../index'
 
-interface SuccessulImageImportResult {
+type SuccessulImageImportResult = {
   image: FabricImage | FabricObject
   format: string
   contentType: string
@@ -18,23 +18,42 @@ interface SuccessulImageImportResult {
   source?: File | string
 }
 
-interface SuccessfulExportResult {
+type SuccessfulExportResult = {
   image: File | Blob | Base64URLString
   format: string
   contentType: string
   fileName: string
 }
 
+type ImportImageOptions = {
+  source: File | string,
+  scale?: 'image-contain' | 'image-cover' | 'scale-montage',
+  withoutSave?: boolean
+}
+
+type ExportObjectAsImageFileParameters = {
+  object?: FabricObject,
+  fileName?: string,
+  contentType?: string,
+  exportAsBase64?: boolean,
+  exportAsBlob?: boolean
+}
+
+type exportCanvasAsImageFileOptions = {
+  fileName?: string,
+  contentType?: string,
+  exportAsBase64?: boolean,
+  exportAsBlob?: boolean
+}
+
 export default class ImageManager {
   /**
    * Ссылка на редактор, содержащий canvas.
-   * @type {ImageEditor}
    */
   editor: ImageEditor
 
   /**
    * Настройки редактора
-   * @type {CanvasOptions}
    */
   options: CanvasOptions
 
@@ -75,15 +94,13 @@ export default class ImageManager {
    * @param options.withoutSave - Не сохранять в историю изменений
    * @returns возвращает Promise с объектом изображения или null в случае ошибки
    */
-  async importImage({
-    source,
-    scale = `image-${this.options.scaleType}`,
-    withoutSave = false
-  }: {
-    source: File | string,
-    scale?: 'image-contain' | 'image-cover' | 'scale-montage',
-    withoutSave?: boolean
-  }): Promise<SuccessulImageImportResult | null> {
+  async importImage(options: ImportImageOptions): Promise<SuccessulImageImportResult | null> {
+    const {
+      source,
+      scale = `image-${this.options.scaleType}`,
+      withoutSave = false
+    } = options
+
     if (!source) return null
 
     const { canvas, montageArea, transformManager, historyManager, errorManager } = this.editor
@@ -241,9 +258,9 @@ export default class ImageManager {
    * Функция для ресайза изображения до максимальных размеров,
    * если оно их превышает. Сохраняет пропорции.
    *
-   * @param {string} dataURL - dataURL изображения
-   * @param {string} [size='max | min'] - максимальный или минимальный размер
-   * @returns {Promise<Blob>} - возвращает Promise с Blob-объектом уменьшенного изображения
+   * @param dataURL - dataURL изображения
+   * @param size ('max | min') - максимальный или минимальный размер
+   * @returns возвращает Promise с Blob-объектом уменьшенного изображения
    */
   async resizeImageToBoundaries(dataURL: string, size = 'max'): Promise<Blob> {
     // eslint-disable-next-line max-len
@@ -285,12 +302,16 @@ export default class ImageManager {
    * @returns возвращает Promise с объектом файла или null в случае ошибки
    * @fires editor:canvas-exported
    */
-  async exportCanvasAsImageFile({
-    fileName = 'image.png',
-    contentType = 'image/png',
-    exportAsBase64 = false,
-    exportAsBlob = false
-  } = {}): Promise<SuccessfulExportResult | null> {
+  async exportCanvasAsImageFile(
+    options: exportCanvasAsImageFileOptions = {}
+  ): Promise<SuccessfulExportResult | null> {
+    const {
+      fileName = 'image.png',
+      contentType = 'image/png',
+      exportAsBase64 = false,
+      exportAsBlob = false
+    } = options
+
     const { canvas, montageArea, workerManager } = this.editor
 
     try {
@@ -488,19 +509,17 @@ export default class ImageManager {
    * @returns - возвращает Promise с объектом файла или null в случае ошибки
    * @fires editor:object-exported
    */
-  async exportObjectAsImageFile({
-    object,
-    fileName = 'image.png',
-    contentType = 'image/png',
-    exportAsBase64 = false,
-    exportAsBlob = false
-  }: {
-    object?: FabricObject,
-    fileName?: string,
-    contentType?: string,
-    exportAsBase64?: boolean,
-    exportAsBlob?: boolean
-  } = {}): Promise<SuccessfulExportResult | null> {
+  async exportObjectAsImageFile(
+    options: ExportObjectAsImageFileParameters = {}
+  ): Promise<SuccessfulExportResult | null> {
+    const {
+      object,
+      fileName = 'image.png',
+      contentType = 'image/png',
+      exportAsBase64 = false,
+      exportAsBlob = false
+    } = options
+
     const { canvas, workerManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -688,7 +707,7 @@ export default class ImageManager {
   /**
    * Определяет contentType по расширению файла в URL
    * @param url - URL файла
-   * @returns - MIME-тип
+   * @returns MIME-тип
    * @public
    */
   getContentTypeFromExtension(url: string): string {
