@@ -8,46 +8,52 @@ interface errorBufferItem extends ErrorItem {
 
 /**
  * Менеджер ошибок и предупреждений редактора
- * @param {object} options
- * @param {ImageEditor} options.editor — экземпляр редактора с доступом к canvas
  */
 export default class ErrorManager {
   /**
    * Буфер для хранения ошибок и предупреждений
-   * @type {errorBufferItem[]}
-   * @private
    */
   private _buffer: errorBufferItem[] = []
 
+  /**
+   * Инстанс редактора с доступом к canvas
+   */
   public editor:ImageEditor
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
-  get buffer() {
+  /**
+   * Возвращает буфер с ошибками и предупреждениями
+   */
+  get buffer(): errorBufferItem[] {
     return this._buffer
   }
 
-  public cleanBuffer() {
+  /**
+   * Очищает буфер ошибок и предупреждений
+   */
+  public cleanBuffer(): void {
     this._buffer.length = 0
   }
 
   /**
    * Эмитит событие ошибки через fabricjs
-   * @param {object} options
-   * @param {string} [options.origin='ImageEditor'] — источник ошибки (по умолчанию 'ImageEditor')
-   * @param {string} [options.method='Unknown Method'] — метод, вызвавший ошибку (по умолчанию 'Unknown Method')
-   * @param {string} options.code — код ошибки (из errorCodes)
-   * @param {object} [options.data] — доп. данные (опционально)
-   * @param {string} [options.message] — текст ошибки (опционально, если не передан, то используется код ошибки)
+   * @param options
+   * @param options.origin — источник ошибки (по умолчанию 'ImageEditor')
+   * @param options.method — метод, вызвавший ошибку (по умолчанию 'Unknown Method')
+   * @param options.code — код ошибки (из errorCodes)
+   * @param options.data — доп. данные (опционально)
+   * @param options.message — текст ошибки (опционально, если не передан, то используется код ошибки)
    * @fires editor:error
    */
-  public emitError({ origin = 'ImageEditor', method = 'Unknown Method', code, data, message }:ErrorItem) {
+  public emitError({ origin = 'ImageEditor', method = 'Unknown Method', code, data, message }: ErrorItem): void {
     if (!ErrorManager.isValidErrorCode(code)) {
       console.warn('Неизвестный код ошибки: ', { code, origin, method })
       return
     }
+
     if (!code) return
 
     const msg = message || code
@@ -73,15 +79,15 @@ export default class ErrorManager {
 
   /**
    * Эмитит предупреждение через fabricjs
-   * @param {object} options
-   * @param {string} [options.origin='ImageEditor'] — источник предупреждения (по умолчанию 'ImageEditor')
-   * @param {string} [options.method='Unknown Method'] — метод, вызвавший предупреждение (по умолчанию 'Unknown Method')
-   * @param {string} options.code — код предупреждения (из errorCodes)
-   * @param {object} [options.data] — доп. данные (опционально)
-   * @param {string} [options.message] — текст предупреждения (опционально, если не передан, то используется код предупреждения)
+   * @param options
+   * @param options.origin — источник предупреждения (по умолчанию 'ImageEditor')
+   * @param options.method — метод, вызвавший предупреждение (по умолчанию 'Unknown Method')
+   * @param ptions.code — код предупреждения (из errorCodes)
+   * @param options.data — доп. данные (опционально)
+   * @param options.message — текст предупреждения (опционально, если не передан, то используется код предупреждения)
    * @fires editor:warning
    */
-  public emitWarning({ origin = 'ImageEditor', method = 'Unknown Method', code, message, data }:ErrorItem) {
+  public emitWarning({ origin = 'ImageEditor', method = 'Unknown Method', code, message, data }:ErrorItem): void {
     if (!ErrorManager.isValidErrorCode(code)) {
       console.warn('Неизвестный код предупреждения: ', { code, origin, method })
       return
@@ -107,7 +113,12 @@ export default class ErrorManager {
     this.editor.canvas.fire('editor:warning', warningData)
   }
 
-  static isValidErrorCode(code: string) {
+  /**
+   * Проверяет, является ли код ошибки или предупреждения допустимым
+   * @param code - код ошибки или предупреждения
+   * @returns true, если код допустим, иначе false
+   */
+  static isValidErrorCode(code: string): boolean {
     if (!code) return false
 
     return Object.values(errorCodes)

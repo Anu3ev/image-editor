@@ -9,7 +9,6 @@ import { ImageEditor } from '../index'
 export default class HistoryManager {
   /**
    * Инстанс редактора с доступом к canvas
-   * @type {ImageEditor}
    */
   editor: ImageEditor
 
@@ -143,17 +142,15 @@ export default class HistoryManager {
 
   /**
    * Проверяет, есть ли в редакторе несохранённые изменения
-   * @returns {boolean}
    */
-  hasUnsavedChanges() {
+  hasUnsavedChanges(): boolean {
     return this.totalChangesCount > 0
   }
 
   /**
    * Получает текущую позицию в общей истории изменений
-   * @returns {number}
    */
-  getCurrentChangePosition() {
+  getCurrentChangePosition(): number {
     return this.baseStateChangesCount + this.currentIndex
   }
 
@@ -256,10 +253,10 @@ export default class HistoryManager {
 
   /**
    * Функция загрузки состояния в канвас.
-   * @param {Partial<Canvas>} fullState - полное состояние канваса
+   * @param fullState - полное состояние канваса
    * @fires editor:history-state-loaded
    */
-  async loadStateFromFullState(fullState: Partial<Canvas>) {
+  async loadStateFromFullState(fullState: Partial<Canvas>): Promise<void> {
     if (!fullState) return
 
     console.log('loadStateFromFullState fullState', fullState)

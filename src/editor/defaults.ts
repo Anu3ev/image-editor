@@ -1,6 +1,5 @@
 import { CanvasOptions } from 'fabric'
 
-/** @type {CanvasOptions} */
 export const defaults: Partial<CanvasOptions> = {
   /**
    * Опции редактора

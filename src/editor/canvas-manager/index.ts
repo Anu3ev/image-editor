@@ -29,13 +29,12 @@ export interface ScaleMontageAreaToImageOptions {
 export default class CanvasManager {
   /**
    * Инстанс редактора с доступом к canvas
-   * @type {ImageEditor}
    */
   editor: ImageEditor
 
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor – экземпляр редактора
+   * @param options
+   * @param options.editor – экземпляр редактора
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -43,17 +42,17 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем внутреннюю ширину канваса (для экспорта)
-   * @param {String|Number} width
-   * @param {Object} [options={}]
-   * @param {Boolean} [options.preserveProportional] - Сохранить пропорции
-   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
-   * @param {Boolean} [options.adaptCanvasToContainer] - Адаптировать канвас к контейнеру
+   * @param width - ширина канваса
+   * @param options
+   * @param options.preserveProportional - Сохранить пропорции
+   * @param options.withoutSave - Не сохранять состояние
+   * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
    * @fires editor:resolution-width-changed
    */
   setResolutionWidth(
     width: string | number,
     { preserveProportional, withoutSave, adaptCanvasToContainer }: SetResolutionOptions = {}
-  ) {
+  ): void {
     if (!width) return
 
     const {
@@ -109,17 +108,17 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем внутреннюю высоту канваса (для экспорта)
-   * @param {String|Number} height
-   * @param {Object} [options={}]
-   * @param {Boolean} [options.preserveProportional] - Сохранить пропорции
-   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
-   * @param {Boolean} [options.adaptCanvasToContainer] - Адаптировать канвас к контейнеру
+   * @param height - высота канваса
+   * @param options
+   * @param options.preserveProportional - Сохранить пропорции
+   * @param options.withoutSave - Не сохранять состояние
+   * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
    * @fires editor:resolution-height-changed
    */
   setResolutionHeight(
     height: string | number,
     { preserveProportional, withoutSave, adaptCanvasToContainer }: SetResolutionOptions = {}
-  ) {
+  ): void {
     if (!height) return
 
     const {
@@ -177,7 +176,7 @@ export default class CanvasManager {
    * Центрирует монтажную область и ClipPath точно по центру канваса
    * и устанавливает правильный viewportTransform.
    */
-  centerMontageArea() {
+  centerMontageArea(): void {
     const { canvas, montageArea } = this.editor
 
     const canvasWidth = canvas.getWidth()
@@ -211,8 +210,8 @@ export default class CanvasManager {
 
   /**
    * Метод для получения координат объекта с учетом текущего зума
-   * @param {fabric.Object} object - объект, координаты которого нужно получить
-   * @returns {Object} координаты объекта
+   * @param object - объект, координаты которого нужно получить
+   * @returns координаты объекта
    */
   getObjectDefaultCoords(object: FabricObject): { left: number, top: number } {
     const { canvas } = this.editor
@@ -241,9 +240,8 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем ширину канваса в backstore (для экспорта)
-   * @param {Number} width
    */
-  setCanvasBackstoreWidth(width: number) {
+  setCanvasBackstoreWidth(width: number): void {
     if (!width || typeof width !== 'number') return
 
     const adjustedWidth = Math.max(Math.min(width, CANVAS_MAX_WIDTH), CANVAS_MIN_WIDTH)
@@ -255,7 +253,7 @@ export default class CanvasManager {
    * Устанавливаем высоту канваса в backstore (для экспорта)
    * @param {Number} height
    */
-  setCanvasBackstoreHeight(height: number) {
+  setCanvasBackstoreHeight(height: number): void {
     if (!height || typeof height !== 'number') return
 
     const adjustedHeight = Math.max(Math.min(height, CANVAS_MAX_HEIGHT), CANVAS_MIN_HEIGHT)
@@ -268,7 +266,7 @@ export default class CanvasManager {
    * Устанавливает ширину и высоту канваса в зависимости от размеров контейнера
    * с учётом минимальных и максимальных значений.
    */
-  adaptCanvasToContainer() {
+  adaptCanvasToContainer(): void {
     const { canvas } = this.editor
 
     const container = canvas.editorContainer
@@ -289,7 +287,7 @@ export default class CanvasManager {
    * Вызывается при изменении размеров контейнера редактора.
    * @fires editor:canvas-updated
    */
-  updateCanvasAndFitObjects() {
+  updateCanvasAndFitObjects(): void {
     const {
       canvas,
       selectionManager,
@@ -328,7 +326,7 @@ export default class CanvasManager {
    *
    * @param {Number} zoom — текущее значение zoom (например, 1, 1.2, 2 и т.д.)
    */
-  updateCssDimensionsForZoom(zoom: number) {
+  updateCssDimensionsForZoom(zoom: number): void {
     const { canvas, montageArea } = this.editor
 
     const zoomedWidth = montageArea.width * zoom
@@ -348,10 +346,10 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем CSS ширину канваса для отображения
-   * @param {string|number} width
+   * @param width
    * @fires editor:display-canvas-width-changed
    */
-  setCanvasCSSWidth(value: string | number) {
+  setCanvasCSSWidth(value: string | number): void {
     this.setDisplayDimension({
       element: 'canvas',
       dimension: 'width',
@@ -361,10 +359,10 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем CSS высоту канваса для отображения
-   * @param {string|number} height
+   * @param height
    * @fires editor:display-canvas-height-changed
    */
-  setCanvasCSSHeight(value: string | number) {
+  setCanvasCSSHeight(value: string | number): void {
     this.setDisplayDimension({
       element: 'canvas',
       dimension: 'height',
@@ -374,10 +372,10 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем CSS ширину обертки канваса для отображения
-   * @param {string|number} width
+   * @param width
    * @fires editor:display-wrapper-width-changed
    */
-  setCanvasWrapperWidth(value: string | number) {
+  setCanvasWrapperWidth(value: string | number): void {
     this.setDisplayDimension({
       element: 'wrapper',
       dimension: 'width',
@@ -387,10 +385,10 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем CSS высоту обертки канваса для отображения
-   * @param {string|number} height
+   * @param height
    * @fires editor:display-wrapper-height-changed
    */
-  setCanvasWrapperHeight(value: string | number) {
+  setCanvasWrapperHeight(value: string | number): void {
     this.setDisplayDimension({
       element: 'wrapper',
       dimension: 'height',
@@ -400,10 +398,10 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем CSS ширину контейнера редактора для отображения
-   * @param {string|number} width
+   * @param width
    * @fires editor:display-container-width-changed
    */
-  setEditorContainerWidth(value: string | number) {
+  setEditorContainerWidth(value: string | number): void {
     this.setDisplayDimension({
       element: 'container',
       dimension: 'width',
@@ -413,10 +411,10 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем CSS высоту контейнера редактора для отображения
-   * @param {string|number} height
+   * @param height
    * @fires editor:display-container-height-changed
    */
-  setEditorContainerHeight(value: string | number) {
+  setEditorContainerHeight(value: string | number): void {
     this.setDisplayDimension({
       element: 'container',
       dimension: 'height',
@@ -426,14 +424,14 @@ export default class CanvasManager {
 
   /**
    * Устанавливаем CSS ширину или высоту канваса для отображения
-   * @param {Object} options
-   * @param {String} [options.element] - элемент, для которого устанавливаем размеры:
+   * @param options
+   * @param options.element - элемент, для которого устанавливаем размеры:
    * canvas (upper & lower), wrapper, container
-   * @param {('width'|'height')} [options.dimension]
-   * @param {string|number} [options.value]
+   * @param options.dimension - размер, который нужно установить: width или height
+   * @param options.value - значение размера (строка или число)
    * @fires editor:display-{element}-{dimension}-changed
    */
-  setDisplayDimension({ element = 'canvas', dimension, value }: setDisplayDimensionOptions = {}) {
+  setDisplayDimension({ element = 'canvas', dimension, value }: setDisplayDimensionOptions = {}): void {
     if (!value) return
 
     const { canvas, options: { editorContainer } } = this.editor
@@ -477,13 +475,13 @@ export default class CanvasManager {
 
   /**
    * Если изображение вписывается в допустимые значения, то масштабируем под него канвас
-   * @param {Object} options
-   * @param {fabric.Object} [options.object] - Объект с изображением, которое нужно масштабировать
-   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
-   * @param {Boolean} [options.preserveAspectRatio] - Сохранять изначальные пропорции монтажной области
+   * @param options
+   * @param options.object - Объект с изображением, которое нужно масштабировать
+   * @param options.withoutSave - Не сохранять состояние
+   * @param options.preserveAspectRatio - Сохранять изначальные пропорции монтажной области
    * @fires editor:montage-area-scaled-to-image
    */
-  scaleMontageAreaToImage({ object, preserveAspectRatio, withoutSave }: ScaleMontageAreaToImageOptions = {}) {
+  scaleMontageAreaToImage({ object, preserveAspectRatio, withoutSave }: ScaleMontageAreaToImageOptions = {}): void {
     const {
       canvas,
       montageArea,
@@ -568,8 +566,8 @@ export default class CanvasManager {
 
   /**
    * Установка зума и масштаба для канваса и сброс трансформации всех объектов
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:default-scale-set
    */
   setDefaultScale({ withoutSave }: { withoutSave?: boolean } = {}) {
@@ -600,9 +598,9 @@ export default class CanvasManager {
 
   /**
    * Получение всех объектов внутри монтажной области редактора
-   * @returns {Array} массив объектов
+   * @returns массив объектов
    */
-  getObjects() {
+  getObjects(): FabricObject[] {
     const { canvas, montageArea, interactionBlocker: { overlayMask } } = this.editor
 
     const canvasObjects = canvas.getObjects()
