@@ -5,8 +5,8 @@ import { defaults } from './editor/defaults'
 /**
  * Инициализирует редактор, создавая канвас внутри контейнера.
  *
- * @param {string} containerId — ID контейнера, в котором будут созданы оба канваса.
- * @param {Object} options — опции и настройки.
+ * @param containerId — ID контейнера, в котором будут созданы оба канваса.
+ * @param options — опции и настройки.
  */
 export default function initEditor(containerId:string, options:Partial<CanvasOptions> = {}): Promise<ImageEditor> {
   const adjustedOptions:CanvasOptions = { ...defaults, ...options } as CanvasOptions

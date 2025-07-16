@@ -4,7 +4,6 @@ import { ImageEditor } from '../index'
 export default class DeletionManager {
   /**
    * Инстанс редактора с доступом к canvas
-   * @type {ImageEditor}
    */
   editor: ImageEditor
 
@@ -14,9 +13,9 @@ export default class DeletionManager {
 
   /**
    * Удалить выбранные объекты
-   * @param {Object} options
-   * @param {FabricObject[]} options.objects - массив объектов для удаления
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param options
+   * @param options.objects - массив объектов для удаления
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:objects-deleted
    */
   deleteSelectedObjects({
@@ -25,7 +24,7 @@ export default class DeletionManager {
   }: {
     objects?: FabricObject[],
     withoutSave?: boolean
-  } = {}) {
+  } = {}): void {
     const { canvas, historyManager, groupingManager } = this.editor
 
     // Отбираем только те объекты, которые не заблокированы

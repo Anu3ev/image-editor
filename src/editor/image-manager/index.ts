@@ -9,7 +9,7 @@ import {
 
 import { ImageEditor } from '../index'
 
-type SuccessulImageImportResult = {
+export type SuccessulImageImportResult = {
   image: FabricImage | FabricObject
   format: string
   contentType: string
@@ -18,20 +18,20 @@ type SuccessulImageImportResult = {
   source?: File | string
 }
 
-type SuccessfulExportResult = {
+export type SuccessfulExportResult = {
   image: File | Blob | Base64URLString
   format: string
   contentType: string
   fileName: string
 }
 
-type ImportImageOptions = {
+export type ImportImageOptions = {
   source: File | string,
   scale?: 'image-contain' | 'image-cover' | 'scale-montage',
   withoutSave?: boolean
 }
 
-type ExportObjectAsImageFileParameters = {
+export type ExportObjectAsImageFileParameters = {
   object?: FabricObject,
   fileName?: string,
   contentType?: string,
@@ -39,7 +39,7 @@ type ExportObjectAsImageFileParameters = {
   exportAsBlob?: boolean
 }
 
-type exportCanvasAsImageFileOptions = {
+export type exportCanvasAsImageFileOptions = {
   fileName?: string,
   contentType?: string,
   exportAsBase64?: boolean,

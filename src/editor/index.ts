@@ -1,6 +1,5 @@
 import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
 import { nanoid } from 'nanoid'
-import { IImageEditor } from './types'
 
 import Listeners from './listeners'
 import ModuleLoader from './module-loader'
@@ -21,14 +20,14 @@ import SelectionManager from './selection-manager'
 import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
 
+import type { ImportImageOptions } from './image-manager'
+
 // TODO: Режим рисования
 // TODO: Добавление текста
 // TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
 // TODO: Переписать selectionManager на ts
-// TODO: Переписать imageManager на ts
 // TODO: Переписать layerManager на ts
-// TODO: Переписать deletionManager на ts
 // TODO: Переписать objectLockManager на ts
 // TODO: Переписать groupingManager на ts
 // TODO: Переписать toolbarManager на ts
@@ -40,62 +39,150 @@ import ErrorManager from './error-manager'
 /**
  * Класс редактора изображений.
  * @class
- * @param {string} canvasId - идентификатор канваса
- * @param {object} options - опции и настройки
- *
- * @fires {object} editor:render-complete - событие, которое срабатывает после завершения рендеринга редактора
  */
-export class ImageEditor implements IImageEditor {
-  options: CanvasOptions
+export class ImageEditor {
+  /**
+   * Опции и настройки редактора
+   * @type {CanvasOptions}
+   */
+  readonly options: CanvasOptions
 
-  containerId: string
+  /**
+   * Идентификатор HTML-контейнера.
+   * @type {string}
+   */
+  readonly containerId: string
 
-  editorId: string
+  /**
+   * Уникальный идентификатор редактора.
+   * @type {string}
+   */
+  readonly editorId: string
 
+  /**
+   * Буфер обмена для хранения объектов.
+   * @type {ClipboardItem | null}
+   */
   clipboard: ClipboardItem | null
 
+  /**
+   * Канвас редактора.
+   * @type {Canvas | undefined}
+   */
   canvas!: Canvas
 
+  /**
+   * Рабочая область, в которой будут размещаться изображения.
+   * @type {Rect | undefined}
+   */
   montageArea!: Rect
 
+  /**
+   * Класс для динамического импорта модулей.
+   * @type {ModuleLoader | undefined}
+   */
   moduleLoader!: ModuleLoader
 
+  /**
+   * Менеджер воркеров для выполнения фоновых задач.
+   * @type {WorkerManager | undefined}
+   */
   workerManager!: WorkerManager
 
+  /**
+   * Менеджер ошибок редактора.
+   * @type {ErrorManager | undefined}
+   */
   errorManager!: ErrorManager
 
+  /**
+   * Менеджер истории операций
+   * @type {HistoryManager | undefined}
+   */
   historyManager!: HistoryManager
 
+  /**
+   * Менеджер панели инструментов
+   * @type {ToolbarManager | undefined}
+   */
   toolbar!: ToolbarManager
 
+  /**
+   * Менеджер трансформаций объектов
+   * @type {TransformManager | undefined}
+   */
   transformManager!: TransformManager
 
+  /**
+   * Менеджер канваса
+   * @type {CanvasManager | undefined}
+   */
   canvasManager!: CanvasManager
 
+  /**
+   * Менеджер изображений
+   * @type {ImageManager | undefined}
+   */
   imageManager!: ImageManager
 
+  /**
+   * Менеджер слоёв
+   * @type {LayerManager | undefined}
+   */
   layerManager!: LayerManager
 
+  /**
+   * Менеджер фигур
+   * @type {ShapeManager | undefined}
+   */
   shapeManager!: ShapeManager
 
+  /**
+   * Блокировщик взаимодействия с канвасом
+   * @type {InteractionBlocker | undefined}
+   */
   interactionBlocker!: InteractionBlocker
 
+  /**
+   * Менеджер буфера обмена
+   * @type {ClipboardManager | undefined}
+   */
   clipboardManager!: ClipboardManager
 
+  /**
+   * Менеджер блокировки объектов
+   * @type {ObjectLockManager | undefined}
+   */
   objectLockManager!: ObjectLockManager
 
+  /**
+   * Менеджер группировки объектов
+   * @type {GroupingManager | undefined}
+   */
   groupingManager!: GroupingManager
 
+  /**
+   * Менеджер выделения объектов
+   * @type {SelectionManager | undefined}
+   */
   selectionManager!: SelectionManager
 
+  /**
+   * Менеджер удаления объектов
+   * @type {DeletionManager | undefined}
+   */
   deletionManager!: DeletionManager
 
+  /**
+   * Слушатели событий редактора
+   * @type {Listeners | undefined}
+   */
   listeners!: Listeners
 
   /**
    * Конструктор класса ImageEditor.
-   * @param {string} canvasId - идентификатор канваса, в котором будет создан редактор
-   * @param {CanvasOptions} options - опции и настройки редактора
+   * @param canvasId - идентификатор канваса, в котором будет создан редактор
+   * @param options - опции и настройки редактора
    */
   constructor(canvasId: string, options: CanvasOptions) {
     this.options = options
@@ -106,7 +193,12 @@ export class ImageEditor implements IImageEditor {
     this.init()
   }
 
-  async init() {
+  /**
+   * Инициализация редактора.
+   * Создаёт все необходимые менеджеры и загружает начальное состояние.
+   * @fires editor:ready
+   */
+  async init(): Promise<void> {
     const {
       editorContainerWidth,
       editorContainerHeight,
@@ -157,7 +249,7 @@ export class ImageEditor implements IImageEditor {
         source,
         scale = `image-${scaleType}`,
         withoutSave = true
-      } = initialImage
+      } = initialImage as ImportImageOptions
 
       await this.imageManager.importImage({ source, scale, withoutSave })
     } else {
@@ -179,7 +271,10 @@ export class ImageEditor implements IImageEditor {
     }
   }
 
-  _createMontageArea() {
+  /**
+   * Создаёт монтажную область
+   */
+  private _createMontageArea(): void {
     const {
       montageAreaWidth,
       montageAreaHeight
@@ -203,7 +298,10 @@ export class ImageEditor implements IImageEditor {
     }, { withoutSelection: true })
   }
 
-  _createClippingArea() {
+  /**
+   * Создаёт область клиппинга
+   */
+  private _createClippingArea(): void {
     const {
       montageAreaWidth,
       montageAreaHeight
@@ -224,7 +322,10 @@ export class ImageEditor implements IImageEditor {
     }, { withoutSelection: true, withoutAdding: true })
   }
 
-  destroy() {
+  /**
+   * Метод для удаления редактора и всех слушателей.
+   */
+  destroy(): void {
     this.listeners.destroy()
     this.toolbar.destroy()
     this.canvas.dispose()
@@ -235,9 +336,9 @@ export class ImageEditor implements IImageEditor {
 
   /**
    * Создает паттерн мозаики.
-   * @returns {Pattern} паттерн мозаики
+   * @returns паттерн мозаики
    */
-  static _createMosaicPattern(): Pattern {
+  private static _createMosaicPattern(): Pattern {
     const patternSourceCanvas = document.createElement('canvas')
     patternSourceCanvas.width = 20
     patternSourceCanvas.height = 20

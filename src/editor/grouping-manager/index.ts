@@ -6,7 +6,6 @@ import { ImageEditor } from '../index'
 export default class GroupingManager {
   /**
    * Инстанс редактора с доступом к canvas
-   * @type {ImageEditor}
    */
   editor: ImageEditor
 
@@ -16,9 +15,9 @@ export default class GroupingManager {
 
   /**
    * Группировка объектов
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
-   * @param {fabric.Object} options.object - массив объектов для группировки
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
+   * @param options.object - массив объектов для группировки
    * @fires editor:objects-grouped
    */
   group({
@@ -62,9 +61,9 @@ export default class GroupingManager {
 
   /**
    * Разгруппировка объектов
-   * @param {Object} options
-   * @param {fabric.Group} options.object - объект для разгруппировки
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param options
+   * @param options.object - объект для разгруппировки
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:objects-ungrouped
    */
   ungroup({

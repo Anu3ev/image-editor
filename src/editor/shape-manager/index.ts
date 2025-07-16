@@ -10,14 +10,13 @@ type ShapeCreationFlags = {
 export default class ShapeManager {
   /**
    * Ссылка на редактор, содержащий canvas.
-   * @type {ImageEditor}
    */
   editor: ImageEditor
 
   /**
    * Менеджер фигур для редактора.
-   * @param {Object} options - Опции и настройки менеджера фигур.
-   * @param {ImageEditor} options.editor - Ссылка на экземпляр редактора.
+   * @param options - Опции и настройки менеджера фигур.
+   * @param options.editor - Ссылка на экземпляр редактора.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -25,18 +24,18 @@ export default class ShapeManager {
 
   /**
    * Добавление прямоугольника
-   * @param {Object} shapeOptions
-   * @param {String} shapeOptions.id - Уникальный идентификатор фигуры
-   * @param {Number} shapeOptions.left - Координата X
-   * @param {Number} shapeOptions.top - Координата Y
-   * @param {Number} shapeOptions.width - Ширина
-   * @param {Number} shapeOptions.height - Высота
-   * @param {String} shapeOptions.fill - Цвет заливки
-   * @param {Rect} shapeOptions.rest - Остальные параметры
+   * @param shapeOptions
+   * @param shapeOptions.id - Уникальный идентификатор фигуры
+   * @param shapeOptions.left - Координата X
+   * @param shapeOptions.top - Координата Y
+   * @param shapeOptions.width - Ширина
+   * @param shapeOptions.height - Высота
+   * @param shapeOptions.fill - Цвет заливки
+   * @param shapeOptions.rest - Остальные параметры
    *
-   * @param {Object} flags - Флаги для управления поведением
-   * @param {Object} flags.withoutSelection - Не выделять объект
-   * @param {Object} flags.withoutAdding - Не добавлять объект в canvas
+   * @param flags - Флаги для управления поведением
+   * @param flags.withoutSelection - Не выделять объект
+   * @param flags.withoutAdding - Не добавлять объект в canvas
    */
   addRectangle(
     {
@@ -49,7 +48,7 @@ export default class ShapeManager {
       ...rest
     }:Partial<RectProps> = {},
     { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
-  ) {
+  ): Rect {
     const { canvas } = this.editor
 
     const rect = new Rect({
@@ -80,19 +79,19 @@ export default class ShapeManager {
 
   /**
    * Добавление круга
-   * @param {Object} shapeOptions
-   * @param {String} shapeOptions.id - Уникальный идентификатор фигуры
-   * @param {Number} shapeOptions.left - Координата X
-   * @param {Number} shapeOptions.top - Координата Y
-   * @param {Number} shapeOptions.radius - Радиус
-   * @param {string} shapeOptions.fill - Цвет заливки
-   * @param {String} shapeOptions.originX - Ориентация по X
-   * @param {String} shapeOptions.originY - Ориентация по Y
-   * @param {Circle} shapeOptions.rest - Остальные параметры
+   * @param shapeOptions
+   * @param shapeOptions.id - Уникальный идентификатор фигуры
+   * @param shapeOptions.left - Координата X
+   * @param shapeOptions.top - Координата Y
+   * @param shapeOptions.radius - Радиус
+   * @param shapeOptions.fill - Цвет заливки
+   * @param shapeOptions.originX - Ориентация по X
+   * @param shapeOptions.originY - Ориентация по Y
+   * @param shapeOptions.rest - Остальные параметры
    *
-   * @param {Object} flags - Флаги для управления поведением
-   * @param {Object} flags.withoutSelection - Не выделять объект
-   * @param {Object} flags.withoutAdding - Не добавлять объект в canvas
+   * @param flags - Флаги для управления поведением
+   * @param flags.withoutSelection - Не выделять объект
+   * @param flags.withoutAdding - Не добавлять объект в canvas
    */
   addCircle(
     {
@@ -104,7 +103,7 @@ export default class ShapeManager {
       ...rest
     }:Partial<CircleProps> = {},
     { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
-  ) {
+  ): Circle {
     const { canvas } = this.editor
 
     const circle = new Circle({
@@ -133,20 +132,20 @@ export default class ShapeManager {
 
   /**
    * Добавление треугольника
-   * @param {Object} shapeOptions
-   * @param {String} shapeOptions.id - Уникальный идентификатор фигуры
-   * @param {Number} shapeOptions.left - Координата X
-   * @param {Number} shapeOptions.top - Координата Y
-   * @param {Number} shapeOptions.width - Ширина
-   * @param {Number} shapeOptions.height - Высота
-   * @param {String} shapeOptions.originX - Ориентация по X
-   * @param {String} shapeOptions.originY - Ориентация по Y
-   * @param {String} shapeOptions.fill - Цвет заливки
-   * @param {Triangle} shapeOptions.rest - Остальные параметры
+   * @param shapeOptions
+   * @param shapeOptions.id - Уникальный идентификатор фигуры
+   * @param shapeOptions.left - Координата X
+   * @param shapeOptions.top - Координата Y
+   * @param shapeOptions.width - Ширина
+   * @param shapeOptions.height - Высота
+   * @param shapeOptions.originX - Ориентация по X
+   * @param shapeOptions.originY - Ориентация по Y
+   * @param shapeOptions.fill - Цвет заливки
+   * @param shapeOptions.rest - Остальные параметры
    *
-   * @param {Object} flags - Флаги для управления поведением
-   * @param {Object} flags.withoutSelection - Не выделять объект
-   * @param {Object} flags.withoutAdding - Не добавлять объект в canvas
+   * @param flags - Флаги для управления поведением
+   * @param flags.withoutSelection - Не выделять объект
+   * @param flags.withoutAdding - Не добавлять объект в canvas
    */
   addTriangle(
     {
@@ -159,7 +158,7 @@ export default class ShapeManager {
       ...rest
     }:Partial<FabricObject> = {},
     { withoutSelection, withoutAdding }:ShapeCreationFlags = {}
-  ) {
+  ): Triangle {
     const { canvas } = this.editor
 
     const triangle = new Triangle({

@@ -11,37 +11,31 @@ import {
 export default class TransformManager {
   /**
    * Инстанс редактора с доступом к canvas
-   * @type {ImageEditor}
    */
   editor: ImageEditor
 
   /**
    * Параметры (опции) для слушателей.
-   * @type {CanvasOptions}
    */
   options: CanvasOptions
 
   /**
    * Минимальный зум
-   * @type {Number}
    */
   minZoom: number
 
   /**
    * Максимальный зум
-   * @type {Number}
    */
   maxZoom: number
 
   /**
    * Дефолтный зум, который будет применён при инициализации редактора
-   * @type {Number}
    */
   defaultZoom: number
 
   /**
    * Максимальный коэффициент зума
-   * @type {Number}
    */
   maxZoomFactor: number
 
@@ -59,9 +53,9 @@ export default class TransformManager {
    * Зум рассчитывается исходя из размеров контейнера редактора и текущих размеров монтажной области.
    * Расчёт происходит таким образом, чтобы монтажная область визуально целиком помещалась в контейнер редактора.
    * Если scale не передан, то используется значение из options.defaultScale.
-   * @param {Number} [scale] - Желаемый масштаб относительно размеров контейнера редактора.
+   * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
    */
-  calculateAndApplyDefaultZoom(scale = this.options.defaultScale) {
+  calculateAndApplyDefaultZoom(scale: number = this.options.defaultScale): void {
     const { canvas } = this.editor
 
     const container = canvas.editorContainer
@@ -88,14 +82,14 @@ export default class TransformManager {
 
   /**
    * Увеличение/уменьшение масштаба
-   * @param {Number} scale - Шаг зума
-   * @param {Object} options - Координаты зума (по умолчанию центр канваса)
-   * @param {Number} options.pointX - Координата X точки зума
-   * @param {Number} options.pointY - Координата Y точки зума
+   * @param scale - Шаг зума
+   * @param options - Координаты зума (по умолчанию центр канваса)
+   * @param options.pointX - Координата X точки зума
+   * @param options.pointY - Координата Y точки зума
    * @fires editor:zoom-changed
    * Если передавать координаты курсора, то нужно быть аккуратнее, так как юзер может выйти за пределы рабочей области
    */
-  zoom(scale = DEFAULT_ZOOM_RATIO, options: { pointX?: number, pointY?: number } = {}) {
+  zoom(scale: number = DEFAULT_ZOOM_RATIO, options: { pointX?: number, pointY?: number } = {}): void {
     if (!scale) return
 
     const { minZoom, maxZoom } = this
@@ -128,10 +122,10 @@ export default class TransformManager {
 
   /**
    * Установка зума
-   * @param {Number} zoom - Зум
+   * @param zoom - Зум
    * @fires editor:zoom-changed
    */
-  setZoom(zoom = this.defaultZoom) {
+  setZoom(zoom: number = this.defaultZoom): void {
     const { minZoom, maxZoom } = this
     const { canvas } = this.editor
     const centerPoint = new Point(canvas.getCenterPoint())
@@ -154,7 +148,7 @@ export default class TransformManager {
    * Сброс зума
    * @fires editor:zoom-changed
    */
-  resetZoom() {
+  resetZoom(): void {
     const { canvas } = this.editor
     const centerPoint = new Point(canvas.getCenterPoint())
 
@@ -168,12 +162,12 @@ export default class TransformManager {
 
   /**
    * Поворот объекта на заданный угол
-   * @param {number} angle
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param angle
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:object-rotated
    */
-  rotate(angle = DEFAULT_ROTATE_RATIO, { withoutSave }: { withoutSave?: boolean } = {}) {
+  rotate(angle: number = DEFAULT_ROTATE_RATIO, { withoutSave }: { withoutSave?: boolean } = {}): void {
     const { canvas, historyManager } = this.editor
 
     const obj = canvas.getActiveObject()
@@ -197,11 +191,11 @@ export default class TransformManager {
 
   /**
    * Отразить по горизонтали
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:object-flipped-x
    */
-  flipX({ withoutSave }: { withoutSave?: boolean } = {}) {
+  flipX({ withoutSave }: { withoutSave?: boolean } = {}): void {
     const { canvas, historyManager } = this.editor
 
     const obj = canvas.getActiveObject()
@@ -221,11 +215,11 @@ export default class TransformManager {
 
   /**
    * Отразить по вертикали
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
    * @fires editor:object-flipped-y
    */
-  flipY({ withoutSave }: { withoutSave?: boolean } = {}) {
+  flipY({ withoutSave }: { withoutSave?: boolean } = {}): void {
     const { canvas, historyManager } = this.editor
 
     const obj = canvas.getActiveObject()
@@ -245,14 +239,17 @@ export default class TransformManager {
 
   /**
    * Установка прозрачности объекта
-   * @param {Number} opacity - Прозрачность от 0 до 1
+   * @param options
+   * @param options.object - Объект, для которого нужно установить прозрачность
+   * @param options.withoutSave - Не сохранять состояние
+   * @param options.opacity - Прозрачность от 0 до 1
    * @fires editor:object-opacity-changed
    */
   setActiveObjectOpacity({
     object,
     opacity = 1,
     withoutSave
-  }: { object?: FabricObject; opacity?: number; withoutSave?: boolean } = {}) {
+  }: { object?: FabricObject; opacity?: number; withoutSave?: boolean } = {}): void {
     const { canvas, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -281,13 +278,13 @@ export default class TransformManager {
 
   /**
    * Масштабирование объекта
-   * @param {Object} options
-   * @param {fabric.Object} [options.object] - Объект с изображением, которое нужно масштабировать
-   * @param {String} [options.type] - Тип масштабирования
+   * @param options
+   * @param options.object - Объект с изображением, которое нужно масштабировать
+   * @param options.type - Тип масштабирования
    * 'contain' - скейлит картинку, чтобы она вмещалась
    * 'cover' - скейлит картинку, чтобы она вписалась в размер канвас
-   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
-   * @param {Boolean} [options.fitAsOneObject] - Масштабировать все объекты в активной группе как один объект
+   * @param options.withoutSave - Не сохранять состояние
+   * @param options.fitAsOneObject - Масштабировать все объекты в активной группе как один объект
    * @fires editor:image-fitted
    */
   fitObject({
@@ -300,7 +297,7 @@ export default class TransformManager {
     type?: 'contain' | 'cover',
     withoutSave?: boolean,
     fitAsOneObject?: boolean
-  } = {}) {
+  } = {}): void {
     const { canvas, imageManager, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -351,7 +348,7 @@ export default class TransformManager {
   /**
    * Установка дефолтного масштаба для всех объектов внутри монтажной области редактора
    */
-  resetObjects() {
+  resetObjects(): void {
     this.editor.canvasManager.getObjects().forEach((obj) => {
       this.resetObject(obj)
     })
@@ -359,14 +356,13 @@ export default class TransformManager {
 
   /**
    * Сброс масштаба объекта до дефолтного
-   * @param {fabric.Object} object
-   * @param {Object} options
-   * @param {Boolean} [options.withoutSave] - Не сохранять состояние
-   * @param {Boolean} [options.alwaysFitObject] - вписывать объект в рабочую область даже если он меньше рабочей области
-   * @returns
+   * @param object
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
+   * @param options.alwaysFitObject - вписывать объект в рабочую область даже если он меньше рабочей области
    * @fires editor:object-reset
    */
-  resetObject(object:FabricObject, { alwaysFitObject = false, withoutSave = false } = {}) {
+  resetObject(object:FabricObject, { alwaysFitObject = false, withoutSave = false } = {}): void {
     const {
       canvas,
       montageArea,
