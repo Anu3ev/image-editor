@@ -11,7 +11,7 @@ export default class ShapeManager {
   /**
    * Ссылка на редактор, содержащий canvas.
    */
-  editor: ImageEditor
+  public editor: ImageEditor
 
   /**
    * Менеджер фигур для редактора.
@@ -37,7 +37,7 @@ export default class ShapeManager {
    * @param flags.withoutSelection - Не выделять объект
    * @param flags.withoutAdding - Не добавлять объект в canvas
    */
-  addRectangle(
+  public addRectangle(
     {
       id = `rect-${nanoid()}`,
       left,
@@ -93,7 +93,7 @@ export default class ShapeManager {
    * @param flags.withoutSelection - Не выделять объект
    * @param flags.withoutAdding - Не добавлять объект в canvas
    */
-  addCircle(
+  public addCircle(
     {
       id = `circle-${nanoid()}`,
       left,
@@ -147,7 +147,7 @@ export default class ShapeManager {
    * @param flags.withoutSelection - Не выделять объект
    * @param flags.withoutAdding - Не добавлять объект в canvas
    */
-  addTriangle(
+  public addTriangle(
     {
       id = `triangle-${nanoid()}`,
       left,

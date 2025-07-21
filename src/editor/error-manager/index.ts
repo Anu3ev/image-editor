@@ -27,7 +27,7 @@ export default class ErrorManager {
   /**
    * Возвращает буфер с ошибками и предупреждениями
    */
-  get buffer(): errorBufferItem[] {
+  public get buffer(): errorBufferItem[] {
     return this._buffer
   }
 

@@ -26,15 +26,8 @@ import type { ImportImageOptions } from './image-manager'
 // TODO: Добавление текста
 // TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
-// TODO: Переписать selectionManager на ts
-// TODO: Переписать layerManager на ts
-// TODO: Переписать objectLockManager на ts
-// TODO: Переписать groupingManager на ts
 // TODO: Переписать toolbarManager на ts
-// TODO: Переписать interactionBlocker на ts
-// TODO: Переписать moduleLoader на ts
 // TODO: Переписать workerManager на ts
-// TODO: Переписать historyManager на ts
 
 /**
  * Класс редактора изображений.

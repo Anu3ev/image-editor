@@ -1,21 +1,38 @@
+import { FabricObject, ActiveSelection, Group } from 'fabric'
+import { ImageEditor } from '../index'
+
+type lockObjectOptions = {
+  object?: FabricObject
+  skipInnerObjects?: boolean
+  withoutSave?: boolean
+}
+
+type unlockObjectOptions = {
+  object?: FabricObject
+  withoutSave?: boolean
+}
+
 export default class ObjectLockManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Ссылка на редактор, содержащий canvas.
    */
-  constructor({ editor }) {
+  editor: ImageEditor
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
   /**
    * Блокирует объект (или группу объектов) на канвасе
-   * @param {Object} options
-   * @param {fabric.Object} [options.object] - объект, который нужно заблокировать
-   * @param {Boolean} [options.withoutSave] - не сохранять состояние
-   * @returns
+   * @param options
+   * @param options.object - объект, который нужно заблокировать
+   * @param options.skipInnerObjects - не блокировать внутренние объекты
+   * @param options.withoutSave - не сохранять состояние
    * @fires editor:object-locked
    */
-  lockObject({ object, skipInnerObjects, withoutSave } = {}) {
+  lockObject(
+    { object, skipInnerObjects, withoutSave }: lockObjectOptions = {}
+  ): void {
     const { canvas, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -34,10 +51,10 @@ export default class ObjectLockManager {
 
     activeObject.set(lockOptions)
 
-    const shouldLockInnerObjects = !skipInnerObjects && ['activeselection', 'group'].includes(activeObject.type)
+    const shouldLockInnerObjects = !skipInnerObjects && ObjectLockManager._isGroupOrSelection(activeObject)
 
     if (shouldLockInnerObjects) {
-      activeObject.getObjects().forEach((obj) => {
+      (activeObject as Group | ActiveSelection).getObjects().forEach((obj) => {
         obj.set(lockOptions)
       })
     }
@@ -57,13 +74,12 @@ export default class ObjectLockManager {
 
   /**
    * Разблокирует объект (или группу объектов) на канвасе
-   * @param {Object} options
-   * @param {fabric.Object} [options.object] - объект, который нужно разблокировать
-   * @param {Boolean} [options.withoutSave] - не сохранять состояние
-   * @returns
+   * @param options
+   * @param options.object - объект, который нужно разблокировать
+   * @param options.withoutSave - не сохранять состояние в истории изменений
    * @fires editor:object-unlocked
    */
-  unlockObject({ object, withoutSave } = {}) {
+  unlockObject({ object, withoutSave }: unlockObjectOptions = {}): void {
     const { canvas, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -82,8 +98,8 @@ export default class ObjectLockManager {
 
     activeObject.set(unlockOptions)
 
-    if (['activeselection', 'group'].includes(activeObject.type)) {
-      activeObject.getObjects().forEach((obj) => {
+    if (ObjectLockManager._isGroupOrSelection(activeObject)) {
+      (activeObject as Group | ActiveSelection).getObjects().forEach((obj) => {
         obj.set(unlockOptions)
       })
     }
@@ -98,5 +114,9 @@ export default class ObjectLockManager {
       object: activeObject,
       withoutSave
     })
+  }
+
+  private static _isGroupOrSelection(object: FabricObject): boolean {
+    return object instanceof ActiveSelection || object instanceof Group
   }
 }

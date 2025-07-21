@@ -30,7 +30,7 @@ export default class CanvasManager {
   /**
    * Инстанс редактора с доступом к canvas
    */
-  editor: ImageEditor
+  public editor: ImageEditor
 
   /**
    * @param options
@@ -49,7 +49,7 @@ export default class CanvasManager {
    * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
    * @fires editor:resolution-width-changed
    */
-  setResolutionWidth(
+  public setResolutionWidth(
     width: string | number,
     { preserveProportional, withoutSave, adaptCanvasToContainer }: SetResolutionOptions = {}
   ): void {
@@ -115,7 +115,7 @@ export default class CanvasManager {
    * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
    * @fires editor:resolution-height-changed
    */
-  setResolutionHeight(
+  public setResolutionHeight(
     height: string | number,
     { preserveProportional, withoutSave, adaptCanvasToContainer }: SetResolutionOptions = {}
   ): void {
@@ -176,7 +176,7 @@ export default class CanvasManager {
    * Центрирует монтажную область и ClipPath точно по центру канваса
    * и устанавливает правильный viewportTransform.
    */
-  centerMontageArea(): void {
+  public centerMontageArea(): void {
     const { canvas, montageArea } = this.editor
 
     const canvasWidth = canvas.getWidth()
@@ -213,7 +213,7 @@ export default class CanvasManager {
    * @param object - объект, координаты которого нужно получить
    * @returns координаты объекта
    */
-  getObjectDefaultCoords(object: FabricObject): { left: number, top: number } {
+  public getObjectDefaultCoords(object: FabricObject): { left: number, top: number } {
     const { canvas } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
@@ -241,7 +241,7 @@ export default class CanvasManager {
   /**
    * Устанавливаем ширину канваса в backstore (для экспорта)
    */
-  setCanvasBackstoreWidth(width: number): void {
+  public setCanvasBackstoreWidth(width: number): void {
     if (!width || typeof width !== 'number') return
 
     const adjustedWidth = Math.max(Math.min(width, CANVAS_MAX_WIDTH), CANVAS_MIN_WIDTH)
@@ -253,7 +253,7 @@ export default class CanvasManager {
    * Устанавливаем высоту канваса в backstore (для экспорта)
    * @param height
    */
-  setCanvasBackstoreHeight(height: number): void {
+  public setCanvasBackstoreHeight(height: number): void {
     if (!height || typeof height !== 'number') return
 
     const adjustedHeight = Math.max(Math.min(height, CANVAS_MAX_HEIGHT), CANVAS_MIN_HEIGHT)
@@ -266,7 +266,7 @@ export default class CanvasManager {
    * Устанавливает ширину и высоту канваса в зависимости от размеров контейнера
    * с учётом минимальных и максимальных значений.
    */
-  adaptCanvasToContainer(): void {
+  public adaptCanvasToContainer(): void {
     const { canvas } = this.editor
 
     const container = canvas.editorContainer
@@ -287,7 +287,7 @@ export default class CanvasManager {
    * Вызывается при изменении размеров контейнера редактора.
    * @fires editor:canvas-updated
    */
-  updateCanvasAndFitObjects(): void {
+  public updateCanvasAndFitObjects(): void {
     const {
       canvas,
       selectionManager,
@@ -326,7 +326,7 @@ export default class CanvasManager {
    *
    * @param zoom — текущее значение zoom (например, 1, 1.2, 2 и т.д.)
    */
-  updateCssDimensionsForZoom(zoom: number): void {
+  public updateCssDimensionsForZoom(zoom: number): void {
     const { canvas, montageArea } = this.editor
 
     const zoomedWidth = montageArea.width * zoom
@@ -349,7 +349,7 @@ export default class CanvasManager {
    * @param width
    * @fires editor:display-canvas-width-changed
    */
-  setCanvasCSSWidth(value: string | number): void {
+  public setCanvasCSSWidth(value: string | number): void {
     this.setDisplayDimension({
       element: 'canvas',
       dimension: 'width',
@@ -362,7 +362,7 @@ export default class CanvasManager {
    * @param height
    * @fires editor:display-canvas-height-changed
    */
-  setCanvasCSSHeight(value: string | number): void {
+  public setCanvasCSSHeight(value: string | number): void {
     this.setDisplayDimension({
       element: 'canvas',
       dimension: 'height',
@@ -375,7 +375,7 @@ export default class CanvasManager {
    * @param width
    * @fires editor:display-wrapper-width-changed
    */
-  setCanvasWrapperWidth(value: string | number): void {
+  public setCanvasWrapperWidth(value: string | number): void {
     this.setDisplayDimension({
       element: 'wrapper',
       dimension: 'width',
@@ -388,7 +388,7 @@ export default class CanvasManager {
    * @param height
    * @fires editor:display-wrapper-height-changed
    */
-  setCanvasWrapperHeight(value: string | number): void {
+  public setCanvasWrapperHeight(value: string | number): void {
     this.setDisplayDimension({
       element: 'wrapper',
       dimension: 'height',
@@ -401,7 +401,7 @@ export default class CanvasManager {
    * @param width
    * @fires editor:display-container-width-changed
    */
-  setEditorContainerWidth(value: string | number): void {
+  public setEditorContainerWidth(value: string | number): void {
     this.setDisplayDimension({
       element: 'container',
       dimension: 'width',
@@ -414,7 +414,7 @@ export default class CanvasManager {
    * @param height
    * @fires editor:display-container-height-changed
    */
-  setEditorContainerHeight(value: string | number): void {
+  public setEditorContainerHeight(value: string | number): void {
     this.setDisplayDimension({
       element: 'container',
       dimension: 'height',
@@ -431,7 +431,7 @@ export default class CanvasManager {
    * @param options.value - значение размера (строка или число)
    * @fires editor:display-{element}-{dimension}-changed
    */
-  setDisplayDimension({ element = 'canvas', dimension, value }: setDisplayDimensionOptions = {}): void {
+  public setDisplayDimension({ element = 'canvas', dimension, value }: setDisplayDimensionOptions = {}): void {
     if (!value) return
 
     const { canvas, options: { editorContainer } } = this.editor
@@ -481,7 +481,9 @@ export default class CanvasManager {
    * @param options.preserveAspectRatio - Сохранять изначальные пропорции монтажной области
    * @fires editor:montage-area-scaled-to-image
    */
-  scaleMontageAreaToImage({ object, preserveAspectRatio, withoutSave }: ScaleMontageAreaToImageOptions = {}): void {
+  public scaleMontageAreaToImage(
+    { object, preserveAspectRatio, withoutSave }: ScaleMontageAreaToImageOptions = {}
+  ): void {
     const {
       canvas,
       montageArea,
@@ -545,7 +547,7 @@ export default class CanvasManager {
    * Очистка холста
    * @fires editor:cleared
    */
-  clearCanvas() {
+  public clearCanvas() {
     const { canvas, montageArea, historyManager } = this.editor
 
     historyManager.suspendHistory()
@@ -570,7 +572,7 @@ export default class CanvasManager {
    * @param options.withoutSave - Не сохранять состояние
    * @fires editor:default-scale-set
    */
-  setDefaultScale({ withoutSave }: { withoutSave?: boolean } = {}) {
+  public setDefaultScale({ withoutSave }: { withoutSave?: boolean } = {}) {
     const {
       canvas,
       transformManager,
@@ -600,11 +602,11 @@ export default class CanvasManager {
    * Получение всех объектов внутри монтажной области редактора
    * @returns массив объектов
    */
-  getObjects(): FabricObject[] {
+  public getObjects(): FabricObject[] {
     const { canvas, montageArea, interactionBlocker: { overlayMask } } = this.editor
 
     const canvasObjects = canvas.getObjects()
 
-    return canvasObjects.filter((obj) => obj.id !== montageArea.id && obj.id !== overlayMask.id)
+    return canvasObjects.filter((obj) => obj.id !== montageArea.id && obj.id !== overlayMask?.id)
   }
 }

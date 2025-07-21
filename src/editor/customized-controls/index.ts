@@ -5,7 +5,7 @@ import { DEFAULT_CONTROLS } from './default-controls'
  * Класс для настройки пользовательских контролов в редакторе
  */
 export default class ControlsCustomizer {
-  static apply(): void {
+  public static apply(): void {
     const ctrls = controlsUtils.createObjectDefaultControls()
 
     type ControlKey = keyof typeof ctrls;
