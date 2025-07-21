@@ -1,9 +1,23 @@
+import { Rect } from 'fabric'
+import { ImageEditor } from '../index'
+
 export default class InteractionBlocker {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor – экземпляр редактора
+   * Ссылка на редактор, содержащий canvas.
    */
-  constructor({ editor }) {
+  public editor: ImageEditor
+
+  /**
+   * Флаг, указывающий, заблокирован ли редактор.
+   */
+  public isBlocked: boolean
+
+  /**
+   * Ссылка на маску, блокирующую взаимодействие с монтажной областью.
+   */
+  public overlayMask: Rect | null
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.isBlocked = false
     this.overlayMask = null
@@ -13,10 +27,8 @@ export default class InteractionBlocker {
 
   /**
    * Создаёт overlay для блокировки монтажной области
-   * @private
-   * @returns {void}
    */
-  _createOverlay() {
+  private _createOverlay(): void {
     const {
       historyManager,
       options: { overlayMaskColor = 'rgba(0,0,0,0.5)' }
@@ -40,9 +52,8 @@ export default class InteractionBlocker {
 
   /**
    * Обновляет размеры и позицию overlay, выносит его на передний план
-   * @returns {void}
    */
-  refresh() {
+  public refresh(): void {
     const { canvas, montageArea, historyManager } = this.editor
 
     if (!montageArea || !this.overlayMask) return
@@ -66,10 +77,9 @@ export default class InteractionBlocker {
    * - убирает все селекты, события мыши, скейл/драг–н–дроп
    * - делает все объекты не‑evented и не‑selectable
    * - делает видимым overlayMask поверх всех объектов в монтажной области
-   * @returns {void}
    */
-  block() {
-    if (this.isBlocked) return
+  public block(): void {
+    if (this.isBlocked || !this.overlayMask) return
 
     const { canvas, canvasManager, historyManager } = this.editor
 
@@ -100,10 +110,9 @@ export default class InteractionBlocker {
 
   /**
    * Включает редактор
-   * @returns {void}
    */
-  unblock() {
-    if (!this.isBlocked) return
+  public unblock(): void {
+    if (!this.isBlocked || !this.overlayMask) return
 
     const { canvas, canvasManager, historyManager } = this.editor
 

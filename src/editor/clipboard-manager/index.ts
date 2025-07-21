@@ -7,12 +7,12 @@ export default class ClipboardManager {
   /**
    * Ссылка на редактор, содержащий canvas.
    */
-  editor: ImageEditor
+  public editor: ImageEditor
 
   /**
    * Содержит объект, скопированный в буфер обмена.
    */
-  clipboard: ActiveSelection | FabricObject | null
+  public clipboard: ActiveSelection | FabricObject | null
 
   /**
    * @param options
@@ -27,7 +27,7 @@ export default class ClipboardManager {
    * Копирование объекта
    * @fires editor:object-copied
    */
-  copy(): void {
+  public copy(): void {
     const { canvas, errorManager } = this.editor
     const activeObject = canvas.getActiveObject()
     if (!activeObject) return
@@ -123,7 +123,7 @@ export default class ClipboardManager {
    * @param event.clipboardData — данные из буфера обмена
    * @param event.clipboardData.items — элементы буфера обмена
    */
-  handlePasteEvent({ clipboardData }:ClipboardEvent): void {
+  public handlePasteEvent({ clipboardData }: ClipboardEvent): void {
     if (!clipboardData?.items?.length) return
 
     const { imageManager } = this.editor
@@ -167,7 +167,7 @@ export default class ClipboardManager {
    * Вставка объекта
    * @fires editor:object-pasted
    */
-  async paste(): Promise<void> {
+  public async paste(): Promise<void> {
     const { canvas } = this.editor
 
     if (!this.clipboard) return

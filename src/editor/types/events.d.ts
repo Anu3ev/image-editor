@@ -368,5 +368,15 @@ declare module 'fabric' {
       alwaysFitObject?: boolean,
       withoutSave?: boolean
     }
+
+    /**
+     * Блокировка взаимодействия с монтажной областью
+     */
+    'editor:disabled': void
+
+    /**
+     * Разблокировка взаимодействия с монтажной областью
+     */
+    'editor:enabled': void
   }
 }

@@ -10,28 +10,23 @@ export default class HistoryManager {
   /**
    * Инстанс редактора с доступом к canvas
    */
-  editor: ImageEditor
+  public editor: ImageEditor
 
   /**
    * Объект, представляющий текущее состояние канваса, от которого будут считаться диффы
    */
-  canvas: Canvas
-  /**
-   * Счётчик приостановки истории. Если он больше 0, то сохранение истории (saveHistory) пропускается.
-   */
-
-  _historySuspendCount: number
+  public canvas: Canvas
 
   /**
    * Базовое состояние канваса, от которого будут считаться диффы.
    * Это состояние сохраняется при первом вызове saveState и используется для создания диффов между текущим состоянием канваса и базовым состоянием.
    */
-  baseState: object | null
+  public baseState: object | null
 
   /**
    * Массив диффов, представляющих изменения от базового состояния.
    */
-  patches: { id: string; diff: Delta }[]
+  public patches: { id: string; diff: Delta }[]
 
   /**
    * Текущее положение в истории изменений.
@@ -39,21 +34,21 @@ export default class HistoryManager {
    * Если currentIndex = 0, то это базовое состояние.
    * Если currentIndex = patches.length, то это последнее сохранённое состояние.
    */
-  currentIndex: number
+  public currentIndex: number
 
   /**
    * Максимальная длина истории изменений.
    * Когда количество сохранённых изменений превышает это значение, старые изменения удаляются, и базовое состояние обновляется.
    * Это позволяет ограничить размер истории и избежать переполнения памяти.
    */
-  maxHistoryLength: number
+  public maxHistoryLength: number
 
   /**
    * Общее количество сделанных изменений в редакторе.
    * Это значение увеличивается при каждом вызове saveState и используется для отслеживания количества изменений.
    * Счётчик увеличивается при каждом сохранении состояния, даже если количество изменений больше чем maxHistoryLength. При откате до нулевого значения currentIndex с помощью undo это позволяет понять, были ли изменения в состоянии редактора.
    */
-  totalChangesCount: number
+  public totalChangesCount: number
 
   /**
    * Количество изменений, которые были "свёрнуты" в базовое состояние.
@@ -61,14 +56,19 @@ export default class HistoryManager {
    * Оно позволяет отслеживать, сколько изменений было сделано с момента последнего обновления базового состояния.
    * Например, если maxHistoryLength = 10 и в истории было 15 изменений, то baseStateChangesCount будет равно 5.
    */
-  baseStateChangesCount: number
+  public baseStateChangesCount: number
 
   /**
    * DiffPatcher – библиотека для создания и применения диффов между объектами.
    * Она используется для вычисления изменений между текущим состоянием канваса и базовым состоянием.
    * DiffPatcher позволяет эффективно сохранять и восстанавливать изменения, а также управлять историей изменений в редакторе.
    */
-  diffPatcher!: DiffPatcher
+  public diffPatcher!: DiffPatcher
+
+  /**
+   * Счётчик приостановки истории. Если он больше 0, то сохранение истории (saveHistory) пропускается.
+   */
+  private _historySuspendCount: number
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -88,15 +88,15 @@ export default class HistoryManager {
   }
 
   /** Проверка, нужно ли пропускать сохранение истории */
-  get skipHistory() {
+  public get skipHistory(): boolean {
     return this._historySuspendCount > 0
   }
 
-  get lastPatch() {
+  public get lastPatch(): { id: string; diff: Delta } | null {
     return this.patches[this.currentIndex - 1] || null
   }
 
-  _createDiffPatcher() {
+  private _createDiffPatcher(): void {
     this.diffPatcher = diffPatchCreate({
       objectHash(obj: object) {
         const fabricObj = obj as FabricObject
@@ -131,33 +131,33 @@ export default class HistoryManager {
   }
 
   /** Увеличить счётчик приостановки истории */
-  suspendHistory() {
+  public suspendHistory(): void {
     this._historySuspendCount += 1
   }
 
   /** Уменьшить счётчик приостановки истории */
-  resumeHistory() {
+  public resumeHistory(): void {
     this._historySuspendCount = Math.max(0, this._historySuspendCount - 1)
   }
 
   /**
    * Проверяет, есть ли в редакторе несохранённые изменения
    */
-  hasUnsavedChanges(): boolean {
+  public hasUnsavedChanges(): boolean {
     return this.totalChangesCount > 0
   }
 
   /**
    * Получает текущую позицию в общей истории изменений
    */
-  getCurrentChangePosition(): number {
+  public getCurrentChangePosition(): number {
     return this.baseStateChangesCount + this.currentIndex
   }
 
   /**
    * Получаем полное состояние, применяя все диффы к базовому состоянию.
    */
-  getFullState() {
+  public getFullState(): Partial<Canvas> {
     const { baseState, currentIndex, patches } = this
 
     // Глубокая копия базового состояния
@@ -174,7 +174,7 @@ export default class HistoryManager {
   /**
    * Сохраняем текущее состояние в виде диффа от последнего сохранённого полного состояния.
    */
-  saveState() {
+  public saveState(): void {
     console.log('saveState')
     if (this.skipHistory) return
 
@@ -256,7 +256,7 @@ export default class HistoryManager {
    * @param fullState - полное состояние канваса
    * @fires editor:history-state-loaded
    */
-  async loadStateFromFullState(fullState: Partial<Canvas>): Promise<void> {
+  public async loadStateFromFullState(fullState: Partial<Canvas>): Promise<void> {
     if (!fullState) return
 
     console.log('loadStateFromFullState fullState', fullState)
@@ -281,7 +281,7 @@ export default class HistoryManager {
     const loadedOverlayMask = canvas.getObjects().find((obj) => obj.id === 'overlay-mask')
 
     if (loadedOverlayMask) {
-      interactionBlocker.overlayMask = loadedOverlayMask
+      interactionBlocker.overlayMask = loadedOverlayMask as Rect
       interactionBlocker.overlayMask.visible = false
     }
 
@@ -300,7 +300,7 @@ export default class HistoryManager {
    * Undo – отмена последнего действия, восстанавливая состояние по накопленным диффам.
    * @fires editor:undo
    */
-  async undo() {
+  public async undo(): Promise<void> {
     if (this.skipHistory) return
 
     if (this.currentIndex <= 0) {
@@ -345,7 +345,7 @@ export default class HistoryManager {
    * Redo – повтор ранее отменённого действия.
    * @fires editor:redo
    */
-  async redo() {
+  public async redo(): Promise<void> {
     if (this.skipHistory) return
 
     if (this.currentIndex >= this.patches.length) {

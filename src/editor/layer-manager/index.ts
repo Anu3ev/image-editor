@@ -1,22 +1,27 @@
+import { FabricObject, ActiveSelection, Canvas } from 'fabric'
+import { ImageEditor } from '../index'
+
 export default class LayerManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Ссылка на редактор, содержащий canvas.
    */
-  constructor({
-    editor
-  }) {
+  public editor: ImageEditor
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
   /**
    * Поднять объект навверх по оси Z
-   * @param {fabric.Object} object
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param object
+   * @param options
+   * @param options.withoutSave - Не сохранять действие в истории изменений
    * @fires editor:object-bring-to-front
    */
-  bringToFront(object, { withoutSave } = {}) {
+  public bringToFront(
+    object: FabricObject,
+    { withoutSave }: { withoutSave?: boolean } = {}
+  ): void {
     const { canvas, historyManager } = this.editor
 
     historyManager.suspendHistory()
@@ -25,7 +30,7 @@ export default class LayerManager {
 
     if (!activeObject) return
 
-    if (activeObject.type === 'activeselection') {
+    if (activeObject instanceof ActiveSelection) {
       activeObject.getObjects().forEach((obj) => {
         canvas.bringObjectToFront(obj)
       })
@@ -48,12 +53,15 @@ export default class LayerManager {
 
   /**
    * Поднять объект на один уровень вверх по оси Z
-   * @param {fabric.Object} object
-   * @param {Object} options
-   * @param {Boolean} options.withoutSave - Не сохранять состояние
+   * @param object
+   * @param options
+   * @param options.withoutSave - Не сохранять действие в истории изменений
    * @fires editor:object-bring-forward
    */
-  bringForward(object, { withoutSave } = {}) {
+  public bringForward(
+    object: FabricObject,
+    { withoutSave }: { withoutSave?: boolean } = {}
+  ): void {
     const { canvas, historyManager } = this.editor
 
     historyManager.suspendHistory()
@@ -61,7 +69,7 @@ export default class LayerManager {
     const activeObject = object || canvas.getActiveObject()
     if (!activeObject) return
 
-    if (activeObject.type === 'activeselection') {
+    if (activeObject instanceof ActiveSelection) {
       LayerManager._moveSelectionForward(canvas, activeObject)
     } else {
       canvas.bringObjectForward(activeObject)
@@ -81,13 +89,16 @@ export default class LayerManager {
   }
 
   /**
- * Отправить объект на задний план по оси Z
- * @param {fabric.Object} object
- * @param {Object} options
- * @param {Boolean} options.withoutSave - Не сохранять состояние
- * @fires editor:object-send-to-back
- */
-  sendToBack(object, { withoutSave } = {}) {
+   * Отправить объект на задний план по оси Z
+   * @param object
+   * @param options
+   * @param options.withoutSave - Не сохранять действие в истории изменений
+   * @fires editor:object-send-to-back
+   */
+  public sendToBack(
+    object: FabricObject,
+    { withoutSave }: { withoutSave?: boolean } = {}
+  ): void {
     const {
       canvas,
       montageArea,
@@ -101,7 +112,7 @@ export default class LayerManager {
 
     if (!activeObject) return
 
-    if (activeObject.type === 'activeselection') {
+    if (activeObject instanceof ActiveSelection) {
       const selectedObjects = activeObject.getObjects()
 
       // Отправляем объекты на нижний слой, начиная с нижнего объекта выделения
@@ -114,7 +125,10 @@ export default class LayerManager {
 
     // Служебные элементы отправляем вниз
     canvas.sendObjectToBack(montageArea)
-    canvas.sendObjectToBack(overlayMask)
+
+    if (overlayMask) {
+      canvas.sendObjectToBack(overlayMask)
+    }
 
     canvas.renderAll()
     historyManager.resumeHistory()
@@ -131,11 +145,14 @@ export default class LayerManager {
 
   /**
   * Отправить объект на один уровень ниже по оси Z
-  * @param {fabric.Object} object
-  * @param {Object} options
-  * @param {Boolean} options.withoutSave - Не сохранять состояние
+  * @param object
+  * @param options
+  * @param options.withoutSave - Не сохранять действие в истории изменений
   */
-  sendBackwards(object, { withoutSave } = {}) {
+  public sendBackwards(
+    object: FabricObject,
+    { withoutSave }: { withoutSave?: boolean } = {}
+  ): void {
     const {
       canvas,
       montageArea,
@@ -149,7 +166,7 @@ export default class LayerManager {
     if (!activeObject) return
 
     // Обработка активного выделения
-    if (activeObject.type === 'activeselection') {
+    if (activeObject instanceof ActiveSelection) {
       LayerManager._moveSelectionBackwards(canvas, activeObject)
     } else {
       canvas.sendObjectBackwards(activeObject)
@@ -157,7 +174,10 @@ export default class LayerManager {
 
     // Служебные элементы отправляем вниз
     canvas.sendObjectToBack(montageArea)
-    canvas.sendObjectToBack(overlayMask)
+
+    if (overlayMask) {
+      canvas.sendObjectToBack(overlayMask)
+    }
 
     canvas.renderAll()
     historyManager.resumeHistory()
@@ -174,12 +194,10 @@ export default class LayerManager {
 
   /**
    * Сдвигает выделенные объекты на один уровень вверх относительно ближайшего верхнего объекта
-   * @param {fabric.Canvas} canvas - экземпляр холста
-   * @param {fabric.ActiveSelection} activeSelection - активное выделение
-   * @returns {void}
-   * @private
+   * @param canvas - экземпляр холста
+   * @param activeSelection - активное выделение
    */
-  static _moveSelectionForward(canvas, activeSelection) {
+  private static _moveSelectionForward(canvas: Canvas, activeSelection: ActiveSelection): void {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 
@@ -221,12 +239,10 @@ export default class LayerManager {
 
   /**
    * Сдвигает выделенные объекты на один уровень вниз относительно ближайшего нижнего объекта
-   * @param {fabric.Canvas} canvas - экземпляр холста
-   * @param {fabric.ActiveSelection} activeSelection - активное выделение
-   * @returns {void}
-   * @private
+   * @param canvas - экземпляр холста
+   * @param activeSelection - активное выделение
    */
-  static _moveSelectionBackwards(canvas, activeSelection) {
+  private static _moveSelectionBackwards(canvas: Canvas, activeSelection: ActiveSelection): void {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 

@@ -3,11 +3,16 @@ import { Group, ActiveSelection, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 
+export type GroupActionOptions = {
+  object?: FabricObject,
+  withoutSave?: boolean
+}
+
 export default class GroupingManager {
   /**
    * Инстанс редактора с доступом к canvas
    */
-  editor: ImageEditor
+  public editor: ImageEditor
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -20,13 +25,10 @@ export default class GroupingManager {
    * @param options.object - массив объектов для группировки
    * @fires editor:objects-grouped
    */
-  group({
+  public group({
     object,
     withoutSave
-  }: {
-    object?: FabricObject,
-    withoutSave?: boolean
-  } = {}) {
+  }: GroupActionOptions = {}): void {
     const { canvas, historyManager } = this.editor
 
     historyManager.suspendHistory()
@@ -66,13 +68,10 @@ export default class GroupingManager {
    * @param options.withoutSave - Не сохранять состояние
    * @fires editor:objects-ungrouped
    */
-  ungroup({
+  public ungroup({
     object,
     withoutSave
-  }: {
-    object?: FabricObject,
-    withoutSave?: boolean
-  } = {}) {
+  }: GroupActionOptions = {}): void {
     const { canvas, historyManager } = this.editor
 
     historyManager.suspendHistory()

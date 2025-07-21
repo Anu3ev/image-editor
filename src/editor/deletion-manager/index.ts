@@ -1,11 +1,16 @@
 import { FabricObject } from 'fabric'
 import { ImageEditor } from '../index'
 
+export type DeleteSelectedObjectsParams = {
+  objects?: FabricObject[],
+  withoutSave?: boolean
+}
+
 export default class DeletionManager {
   /**
    * Инстанс редактора с доступом к canvas
    */
-  editor: ImageEditor
+  public editor: ImageEditor
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -18,13 +23,10 @@ export default class DeletionManager {
    * @param options.withoutSave - Не сохранять состояние
    * @fires editor:objects-deleted
    */
-  deleteSelectedObjects({
+  public deleteSelectedObjects({
     objects,
     withoutSave
-  }: {
-    objects?: FabricObject[],
-    withoutSave?: boolean
-  } = {}): void {
+  }: DeleteSelectedObjectsParams = {}): void {
     const { canvas, historyManager, groupingManager } = this.editor
 
     // Отбираем только те объекты, которые не заблокированы

@@ -1,11 +1,13 @@
 import { ActiveSelection } from 'fabric'
+import { ImageEditor } from '../index'
 
 export default class SelectionManager {
   /**
-   * @param {object} options
-   * @param {ImageEditor} options.editor - экземпляр редактора с доступом к canvas
+   * Ссылка на редактор, содержащий canvas.
    */
-  constructor({ editor }) {
+  public editor: ImageEditor
+
+  constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
@@ -13,7 +15,7 @@ export default class SelectionManager {
    * Выделить все объекты
    * @fires editor:all-objects-selected
    */
-  selectAll() {
+  public selectAll(): void {
     const { canvas, canvasManager, objectLockManager } = this.editor
 
     canvas.discardActiveObject()

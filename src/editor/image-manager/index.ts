@@ -1,5 +1,6 @@
 import { CanvasOptions, FabricObject, loadSVGFromURL, FabricImage, util } from 'fabric'
 import { nanoid } from 'nanoid'
+import type { jsPDF } from 'jspdf'
 import {
   CANVAS_MAX_WIDTH,
   CANVAS_MAX_HEIGHT,
@@ -46,11 +47,15 @@ export type exportCanvasAsImageFileOptions = {
   exportAsBlob?: boolean
 }
 
+type JsPDFModule = {
+  jsPDF: typeof jsPDF
+}
+
 export default class ImageManager {
   /**
    * Ссылка на редактор, содержащий canvas.
    */
-  editor: ImageEditor
+  public editor: ImageEditor
 
   /**
    * Настройки редактора
@@ -61,17 +66,17 @@ export default class ImageManager {
    * Массив blobURL, созданных в процессе работы менеджера.
    * Используется для того чтобы при необходимости можно было удалить их (revoke) и освободить память.
    */
-  _createdBlobUrls: string[]
+  private _createdBlobUrls: string[]
 
   /**
    * Массив допустимых contentType, которые можно импортировать. По умолчанию берётся из CanvasOptions.acceptContentTypes.
    */
-  acceptContentTypes: string[]
+  public acceptContentTypes: string[]
 
   /**
    * Массив допустимых форматов изображений, которые можно импортировать. Массив получается из настроек редактора.
    */
-  acceptFormats: string[]
+  public acceptFormats: string[]
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -94,7 +99,7 @@ export default class ImageManager {
    * @param options.withoutSave - Не сохранять в историю изменений
    * @returns возвращает Promise с объектом изображения или null в случае ошибки
    */
-  async importImage(options: ImportImageOptions): Promise<SuccessulImageImportResult | null> {
+  public async importImage(options: ImportImageOptions): Promise<SuccessulImageImportResult | null> {
     const {
       source,
       scale = `image-${this.options.scaleType}`,
@@ -262,7 +267,7 @@ export default class ImageManager {
    * @param size ('max | min') - максимальный или минимальный размер
    * @returns возвращает Promise с Blob-объектом уменьшенного изображения
    */
-  async resizeImageToBoundaries(dataURL: string, size = 'max'): Promise<Blob> {
+  public async resizeImageToBoundaries(dataURL: string, size = 'max'): Promise<Blob> {
     // eslint-disable-next-line max-len
     let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${CANVAS_MAX_WIDTH}x${CANVAS_MAX_HEIGHT}`
 
@@ -416,7 +421,7 @@ export default class ImageManager {
         const pdfWidth = width * pxToMm
         const pdfHeight = height * pxToMm
 
-        const JsPDF = (await this.editor.moduleLoader.loadModule('jspdf')).jsPDF
+        const JsPDF = (await this.editor.moduleLoader.loadModule<JsPDFModule>('jspdf')).jsPDF
 
         const pdf = new JsPDF({
           orientation: pdfWidth > pdfHeight ? 'landscape' : 'portrait',
@@ -509,7 +514,7 @@ export default class ImageManager {
    * @returns - возвращает Promise с объектом файла или null в случае ошибки
    * @fires editor:object-exported
    */
-  async exportObjectAsImageFile(
+  public async exportObjectAsImageFile(
     options: ExportObjectAsImageFileParameters = {}
   ): Promise<SuccessfulExportResult | null> {
     const {
@@ -638,7 +643,7 @@ export default class ImageManager {
   /**
    * Удаляет все созданные blobURL
    */
-  revokeBlobUrls(): void {
+  public revokeBlobUrls(): void {
     this._createdBlobUrls.forEach(URL.revokeObjectURL)
     this._createdBlobUrls = []
   }
@@ -647,7 +652,7 @@ export default class ImageManager {
    * Получает список допустимых форматов изображений
    * @returns массив допустимых форматов изображений
    */
-  getAllowedFormatsFromContentTypes(): string[] {
+  public getAllowedFormatsFromContentTypes(): string[] {
     return this.acceptContentTypes
       .map((contentType) => ImageManager.getFormatFromContentType(contentType))
       .filter((format) => format)
@@ -657,7 +662,7 @@ export default class ImageManager {
    * Проверяет, является ли contentType допустимым типом изображения.
    * @returns true, если contentType допустим, иначе false
    */
-  isAllowedContentType(contentType = ''): boolean {
+  public isAllowedContentType(contentType = ''): boolean {
     return this.acceptContentTypes.includes(contentType)
   }
 
@@ -667,7 +672,7 @@ export default class ImageManager {
    * @returns MIME-тип изображения
    * @public
    */
-  async getContentType(source: File | string): Promise<string> {
+  public async getContentType(source: File | string): Promise<string> {
     if (typeof source === 'string') {
       return this.getContentTypeFromUrl(source)
     }
@@ -681,7 +686,7 @@ export default class ImageManager {
    * @returns MIME-тип изображения
    * @public
    */
-  async getContentTypeFromUrl(src: string): Promise<string> {
+  public async getContentTypeFromUrl(src: string): Promise<string> {
     // Если это data URL, извлекаем MIME-тип напрямую
     if (src.startsWith('data:')) {
       const match = src.match(/^data:([^;]+)/)
@@ -710,7 +715,7 @@ export default class ImageManager {
    * @returns MIME-тип
    * @public
    */
-  getContentTypeFromExtension(url: string): string {
+  public getContentTypeFromExtension(url: string): string {
     try {
       const urlObj = new URL(url)
       const extension = urlObj.pathname.split('.').pop()?.toLowerCase()
@@ -738,7 +743,7 @@ export default class ImageManager {
    * @param options.scaleType - тип масштабирования ('contain' или 'cover')
    * @returns коэффициент масштабирования
    */
-  calculateScaleFactor({
+  public calculateScaleFactor({
     imageObject,
     scaleType = 'contain'
   }: {
