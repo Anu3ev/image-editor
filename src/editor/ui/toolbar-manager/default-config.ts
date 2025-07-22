@@ -1,3 +1,4 @@
+import { ImageEditor } from '../..'
 import {
   copyPasteIcon,
   lockIcon,
@@ -94,36 +95,36 @@ export default {
   },
 
   handlers: {
-    copyPaste: async(editor) => {
+    copyPaste: async(editor: ImageEditor) => {
       await editor.clipboardManager.copy()
       await editor.clipboardManager.paste()
     },
 
-    delete: (editor) => {
+    delete: (editor: ImageEditor) => {
       editor.deletionManager.deleteSelectedObjects()
     },
 
-    lock: (editor) => {
+    lock: (editor: ImageEditor) => {
       editor.objectLockManager.lockObject()
     },
 
-    unlock: (editor) => {
+    unlock: (editor: ImageEditor) => {
       editor.objectLockManager.unlockObject()
     },
 
-    bringForward: (editor) => {
+    bringForward: (editor: ImageEditor) => {
       editor.layerManager.bringForward()
     },
 
-    bringToFront: (editor) => {
+    bringToFront: (editor: ImageEditor) => {
       editor.layerManager.bringToFront()
     },
 
-    sendToBack: (editor) => {
+    sendToBack: (editor: ImageEditor) => {
       editor.layerManager.sendToBack()
     },
 
-    sendBackwards: (editor) => {
+    sendBackwards: (editor: ImageEditor) => {
       editor.layerManager.sendBackwards()
     }
   }

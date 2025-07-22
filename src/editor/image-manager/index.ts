@@ -293,7 +293,7 @@ export default class ImageManager {
       data
     })
 
-    return this.editor.workerManager.post('resizeImage', data)
+    return this.editor.workerManager.post('resizeImage', data) as Promise<Blob>
   }
 
   /**
@@ -430,7 +430,7 @@ export default class ImageManager {
         })
 
         // Добавляем изображение в PDF. Используем формат PNG для изображения
-        pdf.addImage(dataUrl, 'JPG', 0, 0, pdfWidth, pdfHeight)
+        pdf.addImage(String(dataUrl), 'JPG', 0, 0, pdfWidth, pdfHeight)
 
         if (exportAsBase64) {
           const pdfBase64 = pdf.output('datauristring')

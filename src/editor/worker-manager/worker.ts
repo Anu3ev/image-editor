@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-globals */
 
-self.onmessage = async(e) => {
+self.onmessage = async(e: MessageEvent): Promise<void> => {
   const { action, payload, requestId } = e.data
 
   try {
@@ -23,9 +23,14 @@ self.onmessage = async(e) => {
       // рисуем изображение в offscreen
       const offscreen = new OffscreenCanvas(width, height)
       const ctx = offscreen.getContext('2d')
+
+      if (!ctx) {
+        throw new Error('Failed to get 2D context from OffscreenCanvas')
+      }
+
       ctx.drawImage(imgBitmap, 0, 0, width, height)
 
-      // конвертим обратно в dataURL
+      // конвертим в blob
       const resizedBlob = await offscreen.convertToBlob()
 
       self.postMessage({ requestId, action, success: true, data: resizedBlob })
@@ -39,6 +44,11 @@ self.onmessage = async(e) => {
       // рисуем изображение в offscreen
       const off = new OffscreenCanvas(bitmap.width, bitmap.height)
       const ctx = off.getContext('2d')
+
+      if (!ctx) {
+        throw new Error('Failed to get 2D context from OffscreenCanvas')
+      }
+
       ctx.drawImage(bitmap, 0, 0, width, height)
 
       // конвертируем в blob, а затем в dataURL
@@ -63,6 +73,6 @@ self.onmessage = async(e) => {
       throw new Error(`Unknown action ${action}`)
     }
   } catch (err) {
-    self.postMessage({ requestId, action, success: false, error: err.message })
+    self.postMessage({ requestId, action, success: false, error: (err as Error).message })
   }
 }

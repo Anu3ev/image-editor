@@ -22,12 +22,11 @@ import ErrorManager from './error-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
+// TODO: Сделать более симпатичное демо
 // TODO: Режим рисования
 // TODO: Добавление текста
 // TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
-// TODO: Переписать toolbarManager на ts
-// TODO: Переписать workerManager на ts
 
 /**
  * Класс редактора изображений.
