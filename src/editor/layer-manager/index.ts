@@ -19,7 +19,7 @@ export default class LayerManager {
    * @fires editor:object-bring-to-front
    */
   public bringToFront(
-    object: FabricObject,
+    object?: FabricObject,
     { withoutSave }: { withoutSave?: boolean } = {}
   ): void {
     const { canvas, historyManager } = this.editor
@@ -59,7 +59,7 @@ export default class LayerManager {
    * @fires editor:object-bring-forward
    */
   public bringForward(
-    object: FabricObject,
+    object?: FabricObject,
     { withoutSave }: { withoutSave?: boolean } = {}
   ): void {
     const { canvas, historyManager } = this.editor
@@ -96,7 +96,7 @@ export default class LayerManager {
    * @fires editor:object-send-to-back
    */
   public sendToBack(
-    object: FabricObject,
+    object?: FabricObject,
     { withoutSave }: { withoutSave?: boolean } = {}
   ): void {
     const {
@@ -150,7 +150,7 @@ export default class LayerManager {
   * @param options.withoutSave - Не сохранять действие в истории изменений
   */
   public sendBackwards(
-    object: FabricObject,
+    object?: FabricObject,
     { withoutSave }: { withoutSave?: boolean } = {}
   ): void {
     const {
