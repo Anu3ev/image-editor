@@ -46,7 +46,10 @@ export default class WorkerManager {
   private _handleMessage({ data }: { data: handleMessageParams }): void {
     const { requestId, success, data: payload, error } = data
     const cb = this._callbacks.get(requestId)
-    if (!cb) return
+    if (!cb) {
+      console.warn(`No callback found for requestId: ${requestId}`)
+      return
+    }
 
     if (success) {
       cb.resolve(payload)

@@ -30,7 +30,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
 
       ctx.drawImage(imgBitmap, 0, 0, width, height)
 
-      // конвертим обратно в dataURL
+      // конвертим в blob
       const resizedBlob = await offscreen.convertToBlob()
 
       self.postMessage({ requestId, action, success: true, data: resizedBlob })
