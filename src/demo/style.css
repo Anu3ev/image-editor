@@ -1,36 +1,21 @@
 body {
   margin: 0 auto;
-  padding: 1rem;
-
-  #canvas-container {
-    display: flex;
-    align-items: start;
-    justify-content: center;
-    gap: 16px;
-  }
 
   #editor {
-    border: 1px solid #ccc;
     overflow: hidden;
   }
 
   .controls {
-    border: 1px solid #ccc;
     padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 8px;
-
-    .layer-controls {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    max-height: calc(100vh - 66px);
+    overflow-y: auto;
   }
 
   .canvas-state {
     padding: 1rem;
-    border: 1px solid #ccc;
     display: flex;
     flex-direction: column;
     width: 300px;
