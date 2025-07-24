@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     montageAreaWidth: 512,
     montageAreaHeight: 512,
     editorContainerWidth: '100%',
-    editorContainerHeight: '100vh'
+    editorContainerHeight: 'calc(100vh - 4rem)'
   })
 
   initListeners(editorInstance)

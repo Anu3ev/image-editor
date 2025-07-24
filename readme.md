@@ -1,24 +1,25 @@
 # Fabric Image Editor
 
-A browser image editor built on top of [FabricJS](https://fabricjs.com/). The project exposes a library `@anu3ev/fabric-image-editor` that can be embedded in any web page and comes with a small demo application.
+Fabric Image Editor is a browser-based image editor powered by [FabricJS](https://fabricjs.com/). It is published as the library `@anu3ev/fabric-image-editor` and can be embedded into any web page. The repository also contains a small demo application that showcases the library's capabilities.
 
 ## Features
 
-- Built-in montage area and clipping region
-- Layer, history and selection management
-- Object transformation (zoom, rotation, flip, fit, etc.)
-- Clipboard and grouping helpers
-- Offloads heavy tasks to a Web Worker
+- Montage area and clipping region for easy cropping
+- Layer, history and selection managers
+- Object transformation helpers (zoom, rotate, flip, fit)
+- Copy/paste and grouping tools
+- Heavy operations are executed in a Web Worker to keep the UI responsive
+- Configurable toolbar with actions for selected objects
 
 ## Installation
 
-```
+```bash
 npm install @anu3ev/fabric-image-editor
-```
+````
 
-## Usage
+## Quick Start
 
-Create a canvas container in your HTML and initialise the editor:
+Create a container in your HTML and initialize the editor:
 
 ```html
 <div id="editor"></div>
@@ -29,49 +30,49 @@ import initEditor from '@anu3ev/fabric-image-editor'
 
 document.addEventListener('DOMContentLoaded', async () => {
   const editor = await initEditor('editor', {
-    width: 800,
-    height: 600,
-    displayWidth: '800px',
-    displayHeight: '600px'
+    montageAreaWidth: 512,
+    montageAreaHeight: 512,
+    editorContainerWidth: '100%',
+    editorContainerHeight: '100vh'
   })
 
-  // use the `editor` instance...
+  // work with the `editor` instance...
 })
 ```
 
-## Running the demo
+## Running the Demo
 
-Clone this repository and install the dependencies:
+Clone this repository and install dependencies:
 
-```
+```bash
 npm install
 npm run dev
 ```
 
-This starts a Vite dev server and opens the demo from `index.html`.
+A Vite dev server will start and open the demo page from `index.html`.
 
-## Building the library
+## Building the Library
 
-Run `npm run build` to produce the library build in the `dist/` folder. The output is an ES module that can be published or used directly in your projects.
+Use `npm run build` to create the library build in the `dist/` directory. The output is an ES module that can be published to npm or used directly in other projects.
 
-## Repository structure
+## Project Structure
 
 ```
 src/
-  main.ts        - library entry exporting `initEditor`
-  demo/          - demo scripts and styles
-  editor/        - ImageEditor class and feature managers
-index.html       - demo page
-vite.config.js   - Vite configuration
+  main.ts        – entry point exporting `initEditor`
+  demo/          – demo scripts and styles
+  editor/        – ImageEditor class and feature managers
+index.html       – demo page
+vite.config.js   – Vite configuration
 ```
 
-The `editor` directory contains managers responsible for canvas manipulation, image handling, history, layers, shapes, clipboard and more.
+The `editor` directory is divided into managers for canvas manipulation, image handling, history, layers, shapes, clipboard and more. Look inside these files to understand how each feature works.
 
-## Further reading
+## Further Reading
 
-- Explore the manager classes in `src/editor` for details on how each feature works.
-- Look at TODO comments throughout the codebase for areas that could be extended.
-- Familiarise yourself with FabricJS to customise the editor's behaviour.
+* Explore the manager classes under `src/editor` for implementation details
+* Check TODO comments in the code for planned features and improvements
+* Familiarize yourself with FabricJS to extend the editor
 
 ## License
 
