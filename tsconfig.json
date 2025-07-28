@@ -110,6 +110,6 @@
     "skipLibCheck": true,                                 /* Skip type checking all .d.ts files. */
     "moduleResolution": "node"                     /* Specify how TypeScript looks up a file from a given module specifier. */
   },
-  "include": ["src/**/*"],                     // Папки/файлы, включаемые в компиляцию
+  "include": ["src/**/*", "docs/demo"],                     // Папки/файлы, включаемые в компиляцию
   "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }
