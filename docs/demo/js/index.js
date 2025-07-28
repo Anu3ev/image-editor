@@ -1,5 +1,5 @@
 import initListeners from './listeners'
-import initEditor from '../main'
+import initEditor from '../../../src/main'
 
 document.addEventListener('DOMContentLoaded', async() => {
   // Инициализация редактора
