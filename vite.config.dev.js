@@ -4,7 +4,7 @@ import babel from 'vite-plugin-babel'
 
 export default defineConfig({
   base: './',
-  root: path.resolve(__dirname, 'docs/demo'),
+  root: path.resolve(__dirname, 'docs'),
   mode: 'development',
 
   build: {
