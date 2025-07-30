@@ -1,47 +1,53 @@
 name: Deploy Demo to GitHub Pages
 
-# Триггерим на пуш в мастер (или на правки только в папке demo)
 on:
   push:
     branches:
       - master
     paths:
       - 'demo/**'
-      - 'package.json'    # если скрипт build:docs в нём
+      - 'package.json'
       - 'vite.config.docs.js'
 
 permissions:
-  pages: write         # чтобы workflow мог пушить в Pages
+  pages: write
   contents: read
+  id-token: write
 
 jobs:
-  build-and-deploy:
+  deploy-demo:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+          cache: 'npm'
 
-      - name: Install dependencies
+      - name: Install deps
         run: npm ci
 
-      - name: Build demo for Pages
+      - name: Build demo
         run: npm run build:docs
-          # предполагает, что в package.json есть скрипт "build:docs"
-          # собирающий всё в папку docs/
+        # Скрипт должен собирать файлы в папку docs/
 
-      - name: Upload artifact for Pages
-        uses: actions/upload-pages-artifact@v1
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: docs
 
       - name: Deploy to GitHub Pages
-        uses: actions/deploy-pages@v1
-        # автоматически возьмёт ранее созданный артефакт и опубликует его
+        id: deployment
+        uses: actions/deploy-pages@v4
