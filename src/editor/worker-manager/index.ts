@@ -1,4 +1,5 @@
 import { nanoid } from 'nanoid'
+import DefaultWorker from './worker?worker'
 
 export type handleMessageParams = {
   action: string
@@ -25,10 +26,14 @@ export default class WorkerManager {
 
   /**
    * @param scriptUrl — URL скрипта воркера.
-   * По-умолчанию использует файл рядом с этим модулем
+   * По-умолчанию использует DefaultWorker из соседнего файла
    */
-  constructor(scriptUrl: URL = new URL('./worker.js?no-inline', import.meta.url)) {
-    this.worker = new Worker(scriptUrl, { type: 'module' })
+  constructor(scriptUrl?: URL) {
+    if (scriptUrl) {
+      this.worker = new Worker(scriptUrl, { type: 'module' })
+    } else {
+      this.worker = new DefaultWorker()
+    }
     this._callbacks = new Map()
     this.worker.onmessage = this._handleMessage.bind(this)
   }
