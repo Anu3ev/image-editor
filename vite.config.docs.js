@@ -1,16 +1,14 @@
 import { defineConfig } from 'vite'
 import path from 'path'
 import babel from 'vite-plugin-babel'
+import { analyzer } from 'vite-bundle-analyzer'
 
 export default defineConfig({
-  base: './',
-  mode: 'development',
+  base: './', // делаем ссылки относительными
 
   build: {
     target: 'es2015',
-    sourcemap: true,
-    minify: false,
-    watch: {},
+    sourcemap: false,
 
     lib: {
       entry: {
@@ -21,13 +19,7 @@ export default defineConfig({
       fileName: (format, entryName) => `${entryName}.js`
     },
 
-    rollupOptions: {
-      external: ['fabric', 'jspdf', 'jsondiffpatch', 'diff-match-patch']
-    },
-
-    // Папка проекта, куда будет собираться код
-    outDir: path.resolve(__dirname, 'dev-build'),
-
+    outDir: 'docs/demo/js/image-editor',
     emptyOutDir: true
   },
 
@@ -43,6 +35,12 @@ export default defineConfig({
           }]
         ]
       }
+    }),
+    analyzer({
+      open: true,
+      gzipSize: true,
+      brotliSize: true,
+      defaultSizes: 'parsed'
     })
   ]
 })

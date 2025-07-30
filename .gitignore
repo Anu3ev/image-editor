@@ -8,6 +8,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+
+# Build directories
+docs/demo/js/image-editor
 dist
 dist-ssr
 dev-build
