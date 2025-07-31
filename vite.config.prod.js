@@ -3,8 +3,12 @@ import path from 'path'
 import babel from 'vite-plugin-babel'
 import { analyzer } from 'vite-bundle-analyzer'
 
+/**
+ * Конфигурация для сборки библиотеки в продакшн.
+ * Сборка библиотеки выполняется в dist.
+ */
 export default defineConfig({
-  base: './', // делаем ссылки относительными
+  base: './',
 
   build: {
     target: 'es2015',
