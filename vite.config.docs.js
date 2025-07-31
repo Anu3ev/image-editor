@@ -18,7 +18,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        dir: 'docs/demo/js/image-editor', // Специально для библиотеки
+        dir: 'docs/js/image-editor', // Специально для библиотеки
         entryFileNames: 'main.js'
       }
     }
@@ -37,10 +37,10 @@ export default defineConfig({
       targets: [
         // Копируем из src/demo в выходную папку
         { src: 'src/demo/index.html', dest: '.' },
-        { src: 'src/demo/style.css', dest: './demo' },
+        { src: 'src/demo/style.css', dest: '.' },
         {
           src: 'src/demo/js/*.js',
-          dest: './demo/js',
+          dest: './js',
           transform: (content, filePath) => {
             if (filePath.endsWith(path.join('js', 'index.js'))) {
               return content
