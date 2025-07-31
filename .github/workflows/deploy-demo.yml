@@ -42,6 +42,12 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs
+      - name: List build contents
+        run: |
+          echo "Contents of docs/demo:"
+          ls -la docs/demo/
+          echo "Contents of docs/demo/js:"
+          ls -la docs/demo/js/ || echo "js folder not found"
 
   deploy:
     runs-on: ubuntu-latest
