@@ -28,7 +28,6 @@ export default defineConfig({
         ]
       }
     }),
-    analyzer({ open: true, gzipSize: true, brotliSize: true, defaultSizes: 'parsed' }),
     viteStaticCopy({
       targets: [
         // Копируем из src/demo в выходную папку
