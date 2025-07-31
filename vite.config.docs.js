@@ -2,7 +2,6 @@ import { defineConfig } from 'vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import path from 'path'
 import babel from 'vite-plugin-babel'
-import { analyzer } from 'vite-bundle-analyzer'
 
 export default defineConfig({
   base: './',
@@ -15,7 +14,7 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'js/image-editor/main.js'
     },
-    outDir: 'docs/demo', // Путь относительно корня проекта
+    outDir: 'docs',
     emptyOutDir: true
   },
   plugins: [
