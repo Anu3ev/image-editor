@@ -4,13 +4,8 @@ import path from 'path'
 import babel from 'vite-plugin-babel'
 import { analyzer } from 'vite-bundle-analyzer'
 
-/**
- * Конфигурация для сборки демо редактора для GitHub Pages.
- * Сборка выполняется в docs/demo, откуда и будет загружаться на GitHub Pages
- */
 export default defineConfig({
   base: './',
-  root: 'src/demo',
   build: {
     target: 'es2015',
     sourcemap: false,
@@ -20,7 +15,7 @@ export default defineConfig({
       formats: ['es'],
       fileName: () => 'js/image-editor/main.js'
     },
-    outDir: '../../docs/demo',
+    outDir: 'docs/demo', // Путь относительно корня проекта
     emptyOutDir: true
   },
   plugins: [
@@ -36,15 +31,13 @@ export default defineConfig({
     analyzer({ open: true, gzipSize: true, brotliSize: true, defaultSizes: 'parsed' }),
     viteStaticCopy({
       targets: [
-        // копируем HTML и CSS для демо
-        { src: 'index.html', dest: '.' },
-        { src: 'style.css',      dest: '.' },
-        // копируем все демо-скрипты и подменяем import в index.js
+        // Копируем из src/demo в выходную папку
+        { src: 'src/demo/index.html', dest: '.' },
+        { src: 'src/demo/style.css', dest: '.' },
         {
-          src: 'js/*.js',
+          src: 'src/demo/js/*.js',
           dest: 'js',
           transform: (content, filePath) => {
-            // для src/demo/js/index.js поправим импорт initEditor
             if (filePath.endsWith(path.join('js', 'index.js'))) {
               return content
                 .toString()

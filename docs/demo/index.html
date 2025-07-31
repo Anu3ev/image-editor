@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Простой редактор на Fabric.js</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+
+  <script type="module" src="./js/index.js"></script>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body class="bg-light p-3">
+  <div class="container-fluid py-3">
+    <div id="canvas-container" class="d-flex row justify-content-center">
+      <div class="col-md-3">
+        <div class="card h-100">
+          <div class="w-100 card-body canvas-state">
+            <div class="h5">Canvas State</div>
+            <hr>
+
+            <div class="h5">
+              Canvas Backstore Resolution
+            </div>
+            <div id="canvas-resolution"></div>
+
+            <div class="h5">
+              Montage Area Resolution
+            </div>
+            <div id="montage-area-resolution"></div>
+
+            <div class="h5">
+              Canvas Display Size
+            </div>
+            <div id="canvas-display-size"></div>
+
+            <div class="h5">
+              Current Canvas Zoom
+            </div>
+            <div id="canvas-zoom"></div>
+
+            <div class="h5">
+              Current Object Data
+            </div>
+            <div id="current-object-data"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-flex col-md-6 justify-content-center">
+        <div id="editor" class="border rounded bg-white"></div>
+      </div>
+
+      <div class="col-md-3">
+        <div class="card">
+          <div class="card-body controls">
+            <div class="main-controls">
+              <div class="h6">Controls</div>
+
+              <div class="d-flex gap-2">
+                <input type="file" id="file-input" multiple accept="image/*" style="display:none;" />
+                <button class="btn btn-outline-primary btn-sm w-100" id="choose-images-btn">Import Image</button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="save-canvas">Save result</button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="clear-btn">Clear Canvas</button>
+              </div>
+            </div>
+
+            <div class="state-controls">
+              <div class="h6">State</div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="undo-btn">
+                  Undo
+                </button>
+
+                <button class="btn btn-outline-primary btn-sm w-100" id="redo-btn">
+                  Redo
+                </button>
+              </div>
+            </div>
+
+            <div class="selection-controls">
+              <div class="h6">Selection</div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="group-btn">
+                  Group
+                </button>
+
+                <button class="btn btn-outline-primary btn-sm w-100" id="ungroup-btn">
+                  Ungroup
+                </button>
+
+                <button class="btn btn-outline-primary btn-sm w-100" id="select-all-btn">
+                  Select All
+                </button>
+
+                <button class="btn btn-outline-primary btn-sm w-100" id="delete-selected-btn">
+                  Delete Selected
+                </button>
+              </div>
+            </div>
+
+            <div class="layer-controls">
+              <div class="h6">Layers</div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="bring-to-front-btn">
+                  Bring to Front
+                </button>
+
+                <button class="btn btn-outline-primary btn-sm w-100" id="bring-object-forward">
+                  Bring Object Forward
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="send-to-back-btn">
+                  Send to Back
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="send-object-backwards">
+                  Send Object Backwards
+                </button>
+              </div>
+            </div>
+            <div class="copy-paste-controls">
+              <div class="h6">
+                Copy/Paste
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="copy-btn">
+                  Copy
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="paste-btn">
+                  Paste
+                </button>
+              </div>
+            </div>
+
+            <div class="image-fit-controls">
+              <div class="h6">
+                Image Fit
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="fit-contain-btn">
+                  Fit Contain
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="fit-cover-btn">
+                  Fit Cover
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="reset-fit-btn">
+                  Reset Object Fit
+                </button>
+              </div>
+            </div>
+
+            <button class="btn btn-outline-primary btn-sm w-100" id="scale-canvas-btn">
+              Scale Canvas
+            </button>
+
+            <div class="text-controls">
+              <div class="h6">
+                Text
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="add-text-btn">
+                  Add Text
+                </button>
+              </div>
+            </div>
+
+            <div class="rotate-controls">
+              <div class="h6">
+                Rotate
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="rotate-minus-90-btn">
+                  Rotate -90
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="rotate-plus-90-btn">
+                  Rotate +90
+                </button>
+              </div>
+            </div>
+
+            <div class="flip-controls">
+              <div class="h6">
+                Flip
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="flip-x-btn">
+                  Flip X
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="flip-y-btn">
+                  Flip Y
+                </button>
+              </div>
+            </div>
+
+            <div class="zoom-controls">
+              <div class="h6">
+                Resize
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="zoom-in-btn">
+                  Zoom In
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="zoom-out-btn">
+                  Zoom Out
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="reset-zoom-btn">
+                  Reset Zoom
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="set-default-scale-btn">
+                  Set Default Scale
+                </button>
+              </div>
+            </div>
+
+            <div class="filter-controls">
+              <div class="h6">
+                Filters
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="apply-brightness-btn">
+                  Brightness
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="remove-filters-btn">
+                  Remove Filters
+                </button>
+              </div>
+            </div>
+
+            <div class="figures-controls">
+              <div class="h6">
+                Figures
+              </div>
+
+              <div class="d-flex gap-2">
+                <button class="btn btn-outline-primary btn-sm w-100" id="add-rect-btn">
+                  Add Rectangle
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="add-circle-btn">
+                  Add Circle
+                </button>
+                <button class="btn btn-outline-primary btn-sm w-100" id="add-triangle-btn">
+                  Add Triangle
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+
+</html>
