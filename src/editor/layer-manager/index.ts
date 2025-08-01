@@ -246,12 +246,39 @@ export default class LayerManager {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 
-    // Находим минимальный индекс среди выделенных объектов
-    const minSelectedIndex = Math.min(...selectedObjects.map((obj) => canvasObjects.indexOf(obj)))
+    // Получаем индексы всех выделенных объектов
+    const selectedIndices = selectedObjects.map((obj) => canvasObjects.indexOf(obj))
 
-    // Перемещаем выделенные объекты вниз относительно ближайшего нижнего объекта, начиная с нижнего
-    for (let i = selectedObjects.length - 1; i >= 0; i -= 1) {
-      canvas.moveObjectTo(selectedObjects[i], minSelectedIndex - 1)
+    // Ищем ближайший объект ниже ЛЮБОГО из выделенных
+    let targetObjectIndex = -1
+
+    for (let i = canvasObjects.length - 1; i >= 0; i -= 1) {
+      const obj = canvasObjects[i]
+
+      // Если объект не входит в выделение И находится ниже хотя бы одного выделенного
+      if (!selectedObjects.includes(obj) && selectedIndices.some((selectedIdx) => i < selectedIdx)) {
+        targetObjectIndex = i
+        break
+      }
+    }
+
+    // Если нашли объект для обмена местами
+    if (targetObjectIndex !== -1) {
+      // Сортируем выделенные объекты по их текущим индексам (снизу вверх)
+      const sortedSelected = selectedObjects
+        .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
+        .sort((a, b) => a.index - b.index)
+
+      // Перемещаем каждый выделенный объект на одну позицию ниже найденного объекта
+      // Начинаем с самого нижнего, чтобы не нарушить порядок
+      sortedSelected.forEach((item) => {
+        const currentIndex = canvasObjects.indexOf(item.obj)
+        if (currentIndex > targetObjectIndex) {
+          canvas.moveObjectTo(item.obj, targetObjectIndex)
+          // Обновляем targetObjectIndex, так как объект сдвинулся
+          targetObjectIndex = currentIndex
+        }
+      })
     }
   }
 }
