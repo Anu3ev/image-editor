@@ -298,37 +298,24 @@ export default class TransformManager {
     withoutSave?: boolean,
     fitAsOneObject?: boolean
   } = {}): void {
-    const { canvas, imageManager, historyManager } = this.editor
+    const { canvas, historyManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
     if (!activeObject) return
-
-    // Сбрасываем угол поворота
-    activeObject.set('angle', 0)
 
     if (activeObject instanceof ActiveSelection && !fitAsOneObject) {
       const selectedItems = activeObject.getObjects()
 
       canvas.discardActiveObject()
 
-      selectedItems.forEach((obj:FabricObject) => {
-        const objScale = imageManager.calculateScaleFactor({ imageObject: obj, scaleType: type })
-
-        obj.scale(objScale)
-        canvas.centerObject(obj)
+      selectedItems.forEach((obj: FabricObject) => {
+        this._fitSingleObject(obj, type)
       })
 
       const sel = new ActiveSelection(selectedItems, { canvas })
-
       canvas.setActiveObject(sel)
     } else {
-      const scaleFactor = imageManager.calculateScaleFactor({
-        imageObject: activeObject,
-        scaleType: type
-      })
-
-      activeObject.scale(scaleFactor)
-      canvas.centerObject(activeObject)
+      this._fitSingleObject(activeObject, type)
     }
 
     canvas.renderAll()
@@ -343,6 +330,50 @@ export default class TransformManager {
       withoutSave,
       fitAsOneObject
     })
+  }
+
+  /**
+   * Масштабирует отдельный объект с учетом его угла поворота
+   * @param obj - объект для масштабирования
+   * @param type - тип масштабирования
+   * @private
+   */
+  private _fitSingleObject(obj: FabricObject, type: 'contain' | 'cover'): void {
+    const { canvas, montageArea } = this.editor
+
+    const { width, height, scaleX = 1, scaleY = 1, angle = 0 } = obj
+
+    // Рассчитываем текущие масштабированные размеры
+    const scaledWidth = width * Math.abs(scaleX)
+    const scaledHeight = height * Math.abs(scaleY)
+
+    // Рассчитываем размеры с учетом поворота
+    const radians = (angle * Math.PI) / 180
+    const cos = Math.abs(Math.cos(radians))
+    const sin = Math.abs(Math.sin(radians))
+
+    const rotatedWidth = scaledWidth * cos + scaledHeight * sin
+    const rotatedHeight = scaledWidth * sin + scaledHeight * cos
+
+    // Рассчитываем коэффициент масштабирования
+    const canvasWidth = montageArea.width
+    const canvasHeight = montageArea.height
+
+    let scaleFactor: number
+
+    if (type === 'contain') {
+      scaleFactor = Math.min(canvasWidth / rotatedWidth, canvasHeight / rotatedHeight)
+    } else {
+      scaleFactor = Math.max(canvasWidth / rotatedWidth, canvasHeight / rotatedHeight)
+    }
+
+    // Применяем масштабирование к текущим значениям scaleX и scaleY
+    obj.set({
+      scaleX: scaleX * scaleFactor,
+      scaleY: scaleY * scaleFactor
+    })
+
+    canvas.centerObject(obj)
   }
 
   /**
