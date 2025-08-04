@@ -1,4 +1,4 @@
-import { FabricObject, Point } from 'fabric'
+import { FabricObject, Point, ActiveSelection } from 'fabric'
 import { ImageEditor } from '../index'
 
 import {
@@ -283,20 +283,23 @@ export default class CanvasManager {
   }
 
   /**
-   * Обновляет размеры канваса и вписывает объекты в монтажную область.
-   * Вызывается при изменении размеров контейнера редактора.
+   * Обновляет размеры канваса без изменения позиций объектов.
+   * Используется при resize окна браузера для сохранения расположения объектов.
    * @fires editor:canvas-updated
    */
-  public updateCanvasAndFitObjects(): void {
+  public updateCanvas(): void {
     const {
       canvas,
-      selectionManager,
-      transformManager,
+      montageArea,
       montageArea: {
         width: montageAreaWidth,
         height: montageAreaHeight
       }
     } = this.editor
+
+    // Сохраняем старую позицию монтажной области
+    const oldMontageLeft = montageArea.left
+    const oldMontageTop = montageArea.top
 
     // Заново адаптируем канвас к контейнеру
     this.setResolutionWidth(montageAreaWidth, { adaptCanvasToContainer: true, withoutSave: true })
@@ -305,9 +308,47 @@ export default class CanvasManager {
     // Центрируем монтажную область
     this.centerMontageArea()
 
-    // Вписываем объекты в монтажную область
-    selectionManager.selectAll()
-    transformManager.fitObject({ fitAsOneObject: true, withoutSave: true })
+    // Рассчитываем смещение монтажной области
+    const deltaX = montageArea.left - oldMontageLeft
+    const deltaY = montageArea.top - oldMontageTop
+
+    // Смещаем все объекты на ту же дельту, что и монтажная область
+    if (deltaX !== 0 || deltaY !== 0) {
+      const activeObject = canvas.getActiveObject()
+      const selectedObjects: FabricObject[] = []
+
+      // Если есть активное выделение, сохраняем список выделенных объектов
+      if (activeObject?.type === 'activeselection') {
+        const activeSelection = activeObject as ActiveSelection
+        selectedObjects.push(...activeSelection.getObjects())
+        canvas.discardActiveObject() // Снимаем выделение перед перемещением
+      }
+
+      canvas.getObjects().forEach((obj) => {
+        // Пропускаем служебные объекты
+        if (obj.id === 'montage-area' || obj.id === 'overlay-mask') return
+
+        obj.set({
+          left: obj.left + deltaX,
+          top: obj.top + deltaY
+        })
+        obj.setCoords()
+      })
+
+      // Восстанавливаем выделение если оно было
+      if (selectedObjects.length > 0) {
+        if (selectedObjects.length === 1) {
+          canvas.setActiveObject(selectedObjects[0])
+        } else {
+          const newSelection = new ActiveSelection(selectedObjects, {
+            canvas
+          })
+          canvas.setActiveObject(newSelection)
+        }
+      }
+    }
+
+    canvas.renderAll()
 
     canvas.fire('editor:canvas-updated', {
       width: montageAreaWidth,

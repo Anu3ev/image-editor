@@ -334,7 +334,7 @@ class Listeners {
 
   /**
    * Обработчик изменения размеров окна браузера.
-   * Адаптирует канвас к размерам контейнера.
+   * Адаптирует канвас к размерам контейнера, сохраняя позиции объектов.
    */
   handleContainerResize(): void {
     this.editor.canvasManager.updateCanvasAndFitObjects()
