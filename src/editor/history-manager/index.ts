@@ -272,9 +272,9 @@ export default class HistoryManager {
     if (loadedMontage) {
       this.editor.montageArea = loadedMontage
 
-      // Если размеры канваса изменились (был ресайз), адаптируем рабочую область, и сбрасываем все объекты в ней
-      if (oldCanvasStateWidth !== fullState.width || oldCanvasStateHeight !== fullState.height) {
-        canvasManager.updateCanvasAndFitObjects()
+      // Если размеры канваса изменились (был ресайз), адаптируем только канвас, а не объекты
+      if (oldCanvasStateWidth !== canvas.getWidth() || oldCanvasStateHeight !== canvas.getHeight()) {
+        canvasManager.updateCanvas()
       }
     }
 
