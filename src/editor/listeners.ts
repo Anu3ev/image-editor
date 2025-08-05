@@ -337,7 +337,7 @@ class Listeners {
    * Адаптирует канвас к размерам контейнера, сохраняя позиции объектов.
    */
   handleContainerResize(): void {
-    this.editor.canvasManager.updateCanvasAndFitObjects()
+    this.editor.canvasManager.updateCanvas()
   }
 
   /**
