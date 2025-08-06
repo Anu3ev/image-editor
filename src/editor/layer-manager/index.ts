@@ -193,7 +193,8 @@ export default class LayerManager {
   }
 
   /**
-   * Сдвигает выделенные объекты на один уровень вверх относительно ближайшего верхнего объекта
+   * Сдвигает выделенные объекты на один уровень вверх - каждый объект поднимается
+   * на одну позицию выше относительно своей текущей позиции
    * @param canvas - экземпляр холста
    * @param activeSelection - активное выделение
    */
@@ -201,44 +202,36 @@ export default class LayerManager {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 
-    // Получаем индексы всех выделенных объектов
-    const selectedIndices = selectedObjects.map((obj) => canvasObjects.indexOf(obj))
+    // Проверяем граничный случай: все ли объекты выделения находятся выше всех остальных
+    const canAnyObjectMove = selectedObjects.some((obj) => {
+      const currentIndex = canvasObjects.indexOf(obj)
 
-    // Ищем ближайший объект выше ЛЮБОГО из выделенных (не только самого верхнего)
-    let targetObjectIndex = -1
-
-    for (let i = 0; i < canvasObjects.length; i += 1) {
-      const obj = canvasObjects[i]
-
-      // Если объект не входит в выделение И находится выше хотя бы одного выделенного
-      if (!selectedObjects.includes(obj) && selectedIndices.some((selectedIdx) => i > selectedIdx)) {
-        targetObjectIndex = i
-        break
-      }
-    }
-
-    // Если нашли объект для обмена местами
-    if (targetObjectIndex !== -1) {
-    // Сортируем выделенные объекты по их текущим индексам (сверху вниз)
-      const sortedSelected = selectedObjects
-        .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
-        .sort((a, b) => b.index - a.index)
-
-      // Перемещаем каждый выделенный объект на одну позицию выше найденного объекта
-      // Начинаем с самого верхнего, чтобы не нарушить порядок
-      sortedSelected.forEach((item) => {
-        const currentIndex = canvasObjects.indexOf(item.obj)
-        if (currentIndex < targetObjectIndex) {
-          canvas.moveObjectTo(item.obj, targetObjectIndex)
-          // Обновляем targetObjectIndex, так как объект сдвинулся
-          targetObjectIndex = currentIndex
+      // Ищем объект выше текущего, не входящий в выделение
+      for (let i = currentIndex + 1; i < canvasObjects.length; i += 1) {
+        if (!selectedObjects.includes(canvasObjects[i])) {
+          return true // Нашли объект, значит можем подняться
         }
-      })
-    }
+      }
+      return false // Не нашли объектов выше
+    })
+
+    if (!canAnyObjectMove) return // Ни один объект не может подняться
+
+    // Сортируем объекты по их текущим позициям (сверху вниз)
+    // чтобы обрабатывать их от самого верхнего к самому нижнему
+    const sortedSelectedObjects = selectedObjects
+      .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
+      .sort((a, b) => b.index - a.index)
+
+    // Перемещаем каждый объект индивидуально на одну позицию вверх
+    sortedSelectedObjects.forEach((item) => {
+      canvas.bringObjectForward(item.obj)
+    })
   }
 
   /**
-   * Сдвигает выделенные объекты на один уровень вниз относительно ближайшего нижнего объекта
+   * Сдвигает выделенные объекты на один уровень вниз - каждый объект опускается
+   * на одну позицию ниже относительно своей текущей позиции
    * @param canvas - экземпляр холста
    * @param activeSelection - активное выделение
    */
@@ -246,39 +239,30 @@ export default class LayerManager {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 
-    // Получаем индексы всех выделенных объектов
-    const selectedIndices = selectedObjects.map((obj) => canvasObjects.indexOf(obj))
+    // Проверяем граничный случай: все ли объекты выделения находятся ниже всех остальных
+    const canAnyObjectMove = selectedObjects.some((obj) => {
+      const currentIndex = canvasObjects.indexOf(obj)
 
-    // Ищем ближайший объект ниже ЛЮБОГО из выделенных
-    let targetObjectIndex = -1
-
-    for (let i = canvasObjects.length - 1; i >= 0; i -= 1) {
-      const obj = canvasObjects[i]
-
-      // Если объект не входит в выделение И находится ниже хотя бы одного выделенного
-      if (!selectedObjects.includes(obj) && selectedIndices.some((selectedIdx) => i < selectedIdx)) {
-        targetObjectIndex = i
-        break
-      }
-    }
-
-    // Если нашли объект для обмена местами
-    if (targetObjectIndex !== -1) {
-      // Сортируем выделенные объекты по их текущим индексам (снизу вверх)
-      const sortedSelected = selectedObjects
-        .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
-        .sort((a, b) => a.index - b.index)
-
-      // Перемещаем каждый выделенный объект на одну позицию ниже найденного объекта
-      // Начинаем с самого нижнего, чтобы не нарушить порядок
-      sortedSelected.forEach((item) => {
-        const currentIndex = canvasObjects.indexOf(item.obj)
-        if (currentIndex > targetObjectIndex) {
-          canvas.moveObjectTo(item.obj, targetObjectIndex)
-          // Обновляем targetObjectIndex, так как объект сдвинулся
-          targetObjectIndex = currentIndex
+      // Ищем объект ниже текущего, не входящий в выделение
+      for (let i = currentIndex - 1; i >= 0; i -= 1) {
+        if (!selectedObjects.includes(canvasObjects[i])) {
+          return true // Нашли объект, значит можем опуститься
         }
-      })
-    }
+      }
+      return false // Не нашли объектов ниже
+    })
+
+    if (!canAnyObjectMove) return // Ни один объект не может опуститься
+
+    // Сортируем объекты по их текущим позициям (снизу вверх)
+    // чтобы обрабатывать их от самого нижнего к самому верхнему
+    const sortedSelectedObjects = selectedObjects
+      .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
+      .sort((a, b) => a.index - b.index)
+
+    // Перемещаем каждый объект индивидуально на одну позицию вниз
+    sortedSelectedObjects.forEach((item) => {
+      canvas.sendObjectBackwards(item.obj)
+    })
   }
 }
