@@ -22,6 +22,7 @@ import ErrorManager from './error-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
+// TODO: Обложиться тестами с помощью jest
 // TODO: Сделать более симпатичное демо
 // TODO: Режим рисования
 // TODO: Добавление текста

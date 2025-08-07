@@ -23,7 +23,7 @@ const compat = new FlatCompat({
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: []
+    ignores: ['jest.config.ts', 'vite.config.*.js', 'specs/**/*']
   },
   ...compat.extends(
     'eslint:recommended',
