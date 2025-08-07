@@ -14,6 +14,7 @@ docs
 dist
 dist-ssr
 dev-build
+coverage
 *.local
 
 # Editor directories and files
