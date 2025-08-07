@@ -110,9 +110,9 @@ declare module 'fabric' {
      */
     initialImage: {
       source: string
-      scale: string
-      withoutSave: boolean,
-      contentType: string
+      scale?: string
+      withoutSave?: boolean,
+      contentType?: string
     } | null
     /**
      * Дефолтный масштаб для редактора.

@@ -286,6 +286,11 @@ declare module 'fabric' {
     'editor:object-pasted': { object: FabricObject }
 
     /**
+     * Срабатывает после нажатия на кнопку "Создать копию" в тулбаре выделенного объекта.
+     */
+    'editor:object-duplicated': { object: FabricObject }
+
+    /**
      * Срабатывает после поворота объекта.
      */
     'editor:object-rotated': { object: FabricObject, angle: number, withoutSave?: boolean }

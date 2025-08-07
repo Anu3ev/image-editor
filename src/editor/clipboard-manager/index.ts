@@ -1,4 +1,4 @@
-import { ActiveSelection, Canvas, FabricObject, FabricObjectProps, ObjectEvents, SerializedObjectProps } from 'fabric'
+import { ActiveSelection, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
 
 import { ImageEditor } from '../index'
@@ -27,10 +27,26 @@ export default class ClipboardManager {
    * Копирование объекта
    * @fires editor:object-copied
    */
-  public copy(): void {
+  public async copy(): Promise<void> {
     const { canvas, errorManager } = this.editor
     const activeObject = canvas.getActiveObject()
     if (!activeObject) return
+
+    // Сначала клонируем объект для внутреннего буфера
+    try {
+      const clonedObject = await activeObject.clone(['format'])
+      this.clipboard = clonedObject
+      canvas.fire('editor:object-copied', { object: clonedObject })
+    } catch (error) {
+      errorManager.emitError({
+        origin: 'ClipboardManager',
+        method: 'copy',
+        code: 'CLONE_FAILED',
+        message: 'Ошибка клонирования объекта',
+        data: error as object
+      })
+      return
+    }
 
     // фикс: сразу пишем в системный буфер, чтобы сохранить контекст жеста
     if (typeof ClipboardItem === 'undefined' || !navigator.clipboard) {
@@ -41,8 +57,6 @@ export default class ClipboardManager {
         // eslint-disable-next-line max-len
         message: 'ClipboardManager. navigator.clipboard не поддерживается в этом браузере или отсутствует соединение по HTTPS-протоколу.'
       })
-
-      this._cloneAndFire(canvas, activeObject)
       return
     }
 
@@ -59,8 +73,6 @@ export default class ClipboardManager {
             data: err
           })
         })
-
-      this._cloneAndFire(canvas, activeObject)
       return
     }
 
@@ -86,33 +98,6 @@ export default class ClipboardManager {
           method: 'copy',
           code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
           message: `Ошибка записи изображения в буфер обмена: ${err.message}`
-        })
-      })
-
-    this._cloneAndFire(canvas, activeObject)
-  }
-
-  /**
-   * Клонирует объект и вызывает событие 'editor:object-copied'.
-   * @param canvas - экземпляр canvas
-   * @param object - активный объект
-   */
-  private _cloneAndFire(
-    canvas: Canvas,
-    object: FabricObject<Partial<FabricObjectProps>, SerializedObjectProps, ObjectEvents>
-  ): void {
-    object.clone(['format'])
-      .then((clonedObject) => {
-        this.clipboard = clonedObject
-        canvas.fire('editor:object-copied', { object: clonedObject })
-      })
-      .catch((error) => {
-        this.editor.errorManager.emitError({
-          origin: 'ClipboardManager',
-          method: '_cloneAndFire',
-          code: 'CLONE_FAILED',
-          message: 'Ошибка клонирования объекта',
-          data: error
         })
       })
   }
