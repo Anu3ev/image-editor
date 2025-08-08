@@ -417,12 +417,12 @@ class Listeners {
   }
 
   /**
-   * Обработчик для удаления объектов (Delete).
+   * Обработчик для удаления объектов (Delete или Backspace).
    * @param event — объект события
    * @param event.code — код клавиши
    */
   handleDeleteObjectsEvent(event:KeyboardEvent): void {
-    if (event.code !== 'Delete') return
+    if (event.code !== 'Delete' && event.code !== 'Backspace') return
     event.preventDefault()
     this.editor.deletionManager.deleteSelectedObjects()
   }
