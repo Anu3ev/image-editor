@@ -350,6 +350,7 @@ class Listeners {
   handleCopyEvent(event: KeyboardEvent): void {
     const { ctrlKey, metaKey, code } = event
 
+    if (this._shouldIgnoreKeyboardEvent(event)) return
     if ((!ctrlKey && !metaKey) || code !== 'KeyC') return
 
     event.preventDefault()
@@ -374,6 +375,7 @@ class Listeners {
   async handleUndoRedoEvent(event:KeyboardEvent): Promise<void> {
     const { ctrlKey, metaKey, code, repeat } = event
 
+    if (this._shouldIgnoreKeyboardEvent(event)) return
     if ((!ctrlKey && !metaKey) || repeat) return
 
     // Если это Mac, то не смотрим на флаг isUndoRedoKeyPressed, потому что macos не даёт эмитить keyup события при удерживании Meta.
@@ -396,8 +398,9 @@ class Listeners {
    * @param event — объект события
    * @param event.code — код клавиши
    */
-  handleUndoRedoKeyUp({ code }:KeyboardEvent): void {
-    if (!['KeyZ', 'KeyY'].includes(code)) return
+  handleUndoRedoKeyUp(event: KeyboardEvent): void {
+    if (this._shouldIgnoreKeyboardEvent(event)) return
+    if (!['KeyZ', 'KeyY'].includes(event.code)) return
 
     this.isUndoRedoKeyPressed = false
   }
@@ -410,6 +413,8 @@ class Listeners {
    * @param event.code — код клавиши
    */
   handleSelectAllEvent(event:KeyboardEvent): void {
+    if (this._shouldIgnoreKeyboardEvent(event)) return
+
     const { ctrlKey, metaKey, code } = event
     if ((!ctrlKey && !metaKey) || code !== 'KeyA') return
     event.preventDefault()
@@ -422,6 +427,7 @@ class Listeners {
    * @param event.code — код клавиши
    */
   handleDeleteObjectsEvent(event:KeyboardEvent): void {
+    if (this._shouldIgnoreKeyboardEvent(event)) return
     if (event.code !== 'Delete' && event.code !== 'Backspace') return
     event.preventDefault()
     this.editor.deletionManager.deleteSelectedObjects()
@@ -434,7 +440,7 @@ class Listeners {
    * @param event.code — код клавиши
    */
   handleSpaceKeyDown(event:KeyboardEvent): void {
-    if (event.code !== 'Space') return
+    if (event.code !== 'Space' || this._shouldIgnoreKeyboardEvent(event)) return
 
     const { canvas, editor, isSpacePressed, isDragging } = this
 
@@ -465,7 +471,7 @@ class Listeners {
    * @param event.code — код клавиши
    */
   handleSpaceKeyUp(event:KeyboardEvent): void {
-    if (event.code !== 'Space') return
+    if (event.code !== 'Space' || this._shouldIgnoreKeyboardEvent(event)) return
 
     this.isSpacePressed = false
     // Завершаем перетаскивание при отпускании пробела
@@ -577,6 +583,56 @@ class Listeners {
     const target = options?.target
     if (!target) return
     this.editor.transformManager.resetObject(target)
+  }
+
+  /**
+   * Проверяет, должно ли событие клавиатуры быть проигнорировано
+   * Возвращает true если фокус находится в поле ввода или элементе из списка игнорируемых селекторов
+   * @param event - Событие клавиатуры
+   * @returns true если событие должно быть проигнорировано
+   */
+  _shouldIgnoreKeyboardEvent(event: KeyboardEvent): boolean {
+    const target = event.target as HTMLElement
+    if (!target) return false
+
+    // Проверяем базовые элементы ввода
+    const inputTypes = ['input', 'textarea', 'select']
+    const tagName = target.tagName.toLowerCase()
+
+    if (inputTypes.includes(tagName)) return true
+
+    // Проверяем contenteditable элементы
+    if (target.contentEditable === 'true') return true
+
+    const { keyboardIgnoreSelectors } = this.options
+
+    // Проверяем кастомные селекторы из опций
+    if (keyboardIgnoreSelectors?.length) {
+      for (const selector of keyboardIgnoreSelectors) {
+        try {
+          // Проверяем, соответствует ли сам элемент селектору
+          if (target.matches && target.matches(selector)) {
+            return true
+          }
+
+          // Проверяем, находится ли элемент внутри элемента с данным селектором
+          if (target.closest && target.closest(selector)) {
+            return true
+          }
+        } catch (error) {
+          this.editor.errorManager.emitWarning({
+            origin: 'Listeners',
+            method: '_shouldIgnoreKeyboardEvent',
+            code: 'INVALID_SELECTOR',
+            // eslint-disable-next-line max-len
+            message: `Invalid keyboard ignore selector: "${selector}". Error: ${(error as Error).message}`,
+            data: (error as Error)
+          })
+        }
+      }
+    }
+
+    return false
   }
 
   /**

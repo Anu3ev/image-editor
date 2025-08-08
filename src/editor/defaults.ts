@@ -88,5 +88,6 @@ export const defaults: Partial<CanvasOptions> = {
   undoRedoByHotKeys: true,
   selectAllByHotkey: true,
   deleteObjectsByHotkey: true,
-  resetObjectFitByDoubleClick: true
+  resetObjectFitByDoubleClick: true,
+  keyboardIgnoreSelectors: []
 }
