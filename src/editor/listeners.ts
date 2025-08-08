@@ -624,7 +624,6 @@ class Listeners {
             origin: 'Listeners',
             method: '_shouldIgnoreKeyboardEvent',
             code: 'INVALID_SELECTOR',
-            // eslint-disable-next-line max-len
             message: `Invalid keyboard ignore selector: "${selector}". Error: ${(error as Error).message}`,
             data: (error as Error)
           })
