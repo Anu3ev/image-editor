@@ -56,7 +56,6 @@ export default defineConfig(({ command }) => {
       },
 
       outDir: path.resolve(__dirname, 'dev-build'),
-      // outDir: '/home/alexander_anufriev/Documents/Repositories/insales/app/javascript/back_office2/components/shared/fabric-image-editor/dev-build',
       emptyOutDir: true
     }
   }
