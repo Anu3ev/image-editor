@@ -214,6 +214,11 @@ declare module 'fabric' {
      * Используется для стилизации контейнера редактора.
      */
     containerClass?: string
+
+    /**
+     * Селекторы элементов, для которых нужно игнорировать события клавиатуры
+     */
+    keyboardIgnoreSelectors: string[]
   }
 
   interface FabricObject {
