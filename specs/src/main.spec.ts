@@ -37,7 +37,7 @@ describe('initEditor', () => {
     mockGetElementById.mockReturnValue(null)
 
     const containerId = 'non-existent-container'
-    
+
     await expect(initEditor(containerId)).rejects.toThrow(
       'Контейнер с ID "non-existent-container" не найден.'
     )
@@ -47,7 +47,7 @@ describe('initEditor', () => {
     // Мокаем getElementById для возврата элемента
     const mockGetElementById = document.getElementById as jest.MockedFunction<typeof document.getElementById>
     mockGetElementById.mockReturnValue(mockElement as any)
-    
+
     // Мокаем createElement для создания canvas
     const mockCanvas = { id: '', style: {} }
     const mockCreateElement = document.createElement as jest.MockedFunction<typeof document.createElement>
@@ -55,13 +55,13 @@ describe('initEditor', () => {
 
     const containerId = 'test-container'
     const result = initEditor(containerId)
-    
+
     // Проверяем, что возвращается Promise
     expect(result).toBeInstanceOf(Promise)
-    
+
     // Проверяем, что getElementById был вызван с правильным ID
     expect(document.getElementById).toHaveBeenCalledWith(containerId)
-    
+
     // Проверяем, что createElement был вызван для создания canvas
     expect(document.createElement).toHaveBeenCalledWith('canvas')
   })

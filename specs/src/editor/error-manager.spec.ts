@@ -18,10 +18,10 @@ describe('ErrorManager', () => {
   beforeEach(() => {
     // Создаем новый экземпляр перед каждым тестом
     errorManager = new ErrorManager({ editor: mockEditor })
-    
+
     // Очищаем все моки
     jest.clearAllMocks()
-    
+
     // Мокаем console.error чтобы не засорять вывод тестов
     jest.spyOn(console, 'error').mockImplementation(() => {})
     jest.spyOn(console, 'warn').mockImplementation(() => {})
@@ -62,9 +62,9 @@ describe('ErrorManager', () => {
       })
 
       expect(errorManager.buffer).toHaveLength(1)
-      
+
       errorManager.cleanBuffer()
-      
+
       expect(errorManager.buffer).toHaveLength(0)
     })
   })
@@ -122,7 +122,7 @@ describe('ErrorManager', () => {
 
     test('должен передать дополнительные данные', () => {
       const additionalData = { userId: 123, action: 'upload' }
-      
+
       errorManager.emitError({
         code: 'IMAGE_EXPORT_FAILED', // Используем реальный код ошибки
         data: additionalData
