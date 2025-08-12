@@ -24,7 +24,7 @@ describe('Основы тестирования', () => {
       age: 30,
       email: 'john@example.com'
     }
-    
+
     expect(user).toHaveProperty('name')
     expect(user.age).toBeGreaterThan(18)
     expect(user.email).toMatch(/@/)
@@ -32,7 +32,7 @@ describe('Основы тестирования', () => {
 
   test('проверка функций', () => {
     const multiply = (a: number, b: number) => a * b
-    
+
     expect(multiply(3, 4)).toBe(12)
     expect(multiply(0, 5)).toBe(0)
     expect(multiply(-2, 3)).toBe(-6)
@@ -40,7 +40,7 @@ describe('Основы тестирования', () => {
 
   test('асинхронные тесты с Promise', async () => {
     const asyncFunction = () => Promise.resolve('Success!')
-    
+
     await expect(asyncFunction()).resolves.toBe('Success!')
   })
 
@@ -48,7 +48,7 @@ describe('Основы тестирования', () => {
     const throwError = () => {
       throw new Error('Something went wrong')
     }
-    
+
     expect(throwError).toThrow('Something went wrong')
   })
 })
