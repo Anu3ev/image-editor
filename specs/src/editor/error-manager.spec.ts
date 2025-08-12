@@ -69,93 +69,132 @@ describe('ErrorManager', () => {
     })
   })
 
-  describe('emitError', () => {
-    test('должен добавить ошибку в буфер и эмитить событие', () => {
-      const errorData = {
-        code: 'INVALID_CONTENT_TYPE', // Используем реальный код ошибки
+  describe('emitError и emitWarning', () => {
+    // Параметризованные тесты для обоих методов
+    test.each([
+      {
+        methodName: 'emitError',
+        eventType: 'editor:error',
+        consoleMethod: 'error'
+      },
+      {
+        methodName: 'emitWarning',
+        eventType: 'editor:warning',
+        consoleMethod: 'warn'
+      }
+    ])('$methodName должен добавить сообщение в буфер и эмитить событие', ({
+      methodName,
+      eventType,
+      consoleMethod
+    }) => {
+      const messageData = {
+        code: 'INVALID_CONTENT_TYPE',
         origin: 'ImageManager',
         method: 'importImage',
         message: 'Invalid image content type'
       }
 
-      errorManager.emitError(errorData)
+      // Вызываем метод динамически
+      errorManager[methodName](messageData)
 
-      // Проверяем, что ошибка добавлена в буфер
+      // Проверяем, что сообщение добавлено в буфер
       expect(errorManager.buffer).toHaveLength(1)
       expect(errorManager.buffer[0]).toMatchObject({
-        type: 'editor:error',
-        ...errorData
+        type: eventType,
+        ...messageData
       })
 
       // Проверяем, что событие было эмитировано
-      expect(mockEditor.canvas.fire).toHaveBeenCalledWith('editor:error', {
-        ...errorData
-      })
+      expect(mockEditor.canvas.fire).toHaveBeenCalledWith(eventType, messageData)
 
-      // Проверяем, что ошибка была залогирована
-      expect(console.error).toHaveBeenCalledWith(
+      // Проверяем, что сообщение было залогировано
+      expect(console[consoleMethod]).toHaveBeenCalledWith(
         'ImageManager. importImage. INVALID_CONTENT_TYPE. Invalid image content type',
         undefined
       )
     })
 
-    test('должен использовать значения по умолчанию', () => {
-      errorManager.emitError({
-        code: 'IMPORT_FAILED' // Используем реальный код ошибки
-      })
+    test.each([
+      { methodName: 'emitError', eventType: 'editor:error' },
+      { methodName: 'emitWarning', eventType: 'editor:warning' }
+    ])('$methodName должен использовать значения по умолчанию', ({
+      methodName,
+      eventType
+    }) => {
+      errorManager[methodName]({ code: 'IMPORT_FAILED' })
 
-      const error = errorManager.buffer[0]
-      expect(error.origin).toBe('ImageEditor')
-      expect(error.method).toBe('Unknown Method')
-      expect(error.message).toBe('IMPORT_FAILED')
+      const message = errorManager.buffer[0]
+      expect(message.type).toBe(eventType)
+      expect(message.origin).toBe('ImageEditor')
+      expect(message.method).toBe('Unknown Method')
+      expect(message.message).toBe('IMPORT_FAILED')
     })
 
-    test('должен использовать код как сообщение, если сообщение не передано', () => {
-      errorManager.emitError({
-        code: 'CLIPBOARD_NOT_SUPPORTED', // Используем реальный код ошибки
+    test.each([
+      { methodName: 'emitError' },
+      { methodName: 'emitWarning' }
+    ])('$methodName должен использовать код как сообщение, если сообщение не передано', ({
+      methodName
+    }) => {
+      errorManager[methodName]({
+        code: 'CLIPBOARD_NOT_SUPPORTED',
         origin: 'ClipboardManager'
       })
 
-      const error = errorManager.buffer[0]
-      expect(error.message).toBe('CLIPBOARD_NOT_SUPPORTED')
+      const message = errorManager.buffer[0]
+      expect(message.message).toBe('CLIPBOARD_NOT_SUPPORTED')
     })
 
-    test('должен передать дополнительные данные', () => {
+    test.each([
+      { methodName: 'emitError' },
+      { methodName: 'emitWarning' }
+    ])('$methodName должен передать дополнительные данные', ({
+      methodName
+    }) => {
       const additionalData = { userId: 123, action: 'upload' }
 
-      errorManager.emitError({
-        code: 'IMAGE_EXPORT_FAILED', // Используем реальный код ошибки
+      errorManager[methodName]({
+        code: 'IMAGE_EXPORT_FAILED',
         data: additionalData
       })
 
-      const error = errorManager.buffer[0]
-      expect(error.data).toEqual(additionalData)
-
-      // Проверяем, что данные переданы в console.error
-      expect(console.error).toHaveBeenCalledWith(
-        expect.any(String),
-        additionalData
-      )
+      const message = errorManager.buffer[0]
+      expect(message.data).toEqual(additionalData)
     })
 
-    test('не должен добавлять ошибку с невалидным кодом', () => {
-      errorManager.emitError({
-        code: 'INVALID_ERROR_CODE', // Невалидный код
-        message: 'Error with invalid code'
+    test.each([
+      { methodName: 'emitError', consoleMethod: 'warn' },
+      { methodName: 'emitWarning', consoleMethod: 'warn' }
+    ])('$methodName не должен добавлять сообщение с невалидным кодом', ({
+      methodName,
+      consoleMethod
+    }) => {
+      const warningMessage = methodName === 'emitError'
+        ? 'Неизвестный код ошибки: '
+        : 'Неизвестный код предупреждения: '
+
+      errorManager[methodName]({
+        code: 'INVALID_ERROR_CODE',
+        message: 'Message with invalid code'
       })
 
       expect(errorManager.buffer).toHaveLength(0)
       expect(mockEditor.canvas.fire).not.toHaveBeenCalled()
-      expect(console.warn).toHaveBeenCalledWith(
-        'Неизвестный код ошибки: ',
+      expect(console[consoleMethod]).toHaveBeenCalledWith(
+        warningMessage,
         { code: 'INVALID_ERROR_CODE', origin: 'ImageEditor', method: 'Unknown Method' }
       )
     })
 
-    test('не должен добавлять ошибку без кода', () => {
-      errorManager.emitError({
+    test.each([
+      { methodName: 'emitError' },
+      { methodName: 'emitWarning' }
+    ])('$methodName не должен добавлять сообщение без кода', ({
+      methodName
+    }) => {
+      errorManager[methodName]({
         code: '',
-        message: 'Error without code'
+        message: 'Message without code'
       })
 
       expect(errorManager.buffer).toHaveLength(0)
@@ -163,23 +202,64 @@ describe('ErrorManager', () => {
     })
   })
 
-  describe('интеграционные тесты', () => {
-    test('должен корректно работать с несколькими ошибками', () => {
-      // Добавляем несколько ошибок с реальными кодами
-      errorManager.emitError({ code: 'IMPORT_FAILED' })
-      errorManager.emitError({ code: 'INVALID_CONTENT_TYPE' })
-      errorManager.emitError({ code: 'CLIPBOARD_NOT_SUPPORTED' })
+  describe('isValidErrorCode', () => {
+    test('должен вернуть true для валидных кодов ошибок', () => {
+      expect(ErrorManager.isValidErrorCode('IMPORT_FAILED')).toBe(true)
+      expect(ErrorManager.isValidErrorCode('IMAGE_RESIZE_WARNING')).toBe(true)
+      expect(ErrorManager.isValidErrorCode('INVALID_CONTENT_TYPE')).toBe(true)
+    })
 
-      expect(errorManager.buffer).toHaveLength(3)
-      expect(mockEditor.canvas.fire).toHaveBeenCalledTimes(3)
+    test('должен вернуть false для невалидных кодов ошибок', () => {
+      expect(ErrorManager.isValidErrorCode('UNKNOWN_ERROR')).toBe(false)
+      expect(ErrorManager.isValidErrorCode('')).toBe(false)
+    })
+  })
+
+  describe('интеграционные тесты', () => {
+    test('должен корректно работать с несколькими ошибками и предупреждениями', () => {
+      // Добавляем несколько ошибок и предупреждений с реальными кодами
+      errorManager.emitError({ code: 'IMPORT_FAILED' })
+      errorManager.emitWarning({ code: 'IMAGE_RESIZE_WARNING' })
+      errorManager.emitError({ code: 'INVALID_CONTENT_TYPE' })
+      errorManager.emitWarning({ code: 'CLIPBOARD_NOT_SUPPORTED' })
+
+      expect(errorManager.buffer).toHaveLength(4)
+      expect(mockEditor.canvas.fire).toHaveBeenCalledTimes(4)
+
+      // Проверяем, что типы сообщений корректны
+      expect(errorManager.buffer[0].type).toBe('editor:error')
+      expect(errorManager.buffer[1].type).toBe('editor:warning')
+      expect(errorManager.buffer[2].type).toBe('editor:error')
+      expect(errorManager.buffer[3].type).toBe('editor:warning')
 
       // Очищаем буфер
       errorManager.cleanBuffer()
       expect(errorManager.buffer).toHaveLength(0)
 
-      // Добавляем новую ошибку
-      errorManager.emitError({ code: 'IMAGE_EXPORT_FAILED' })
+      // Добавляем новое сообщение
+      errorManager.emitWarning({ code: 'IMAGE_EXPORT_FAILED' })
       expect(errorManager.buffer).toHaveLength(1)
+      expect(errorManager.buffer[0].type).toBe('editor:warning')
+    })
+
+    test('должен корректно различать ошибки и предупреждения в событиях', () => {
+      errorManager.emitError({ code: 'IMPORT_FAILED', message: 'Import error' })
+      errorManager.emitWarning({ code: 'IMAGE_RESIZE_WARNING', message: 'Resize warning' })
+
+      // Проверяем, что правильные события были эмитированы
+      expect(mockEditor.canvas.fire).toHaveBeenNthCalledWith(1, 'editor:error', {
+        code: 'IMPORT_FAILED',
+        origin: 'ImageEditor',
+        method: 'Unknown Method',
+        message: 'Import error'
+      })
+
+      expect(mockEditor.canvas.fire).toHaveBeenNthCalledWith(2, 'editor:warning', {
+        code: 'IMAGE_RESIZE_WARNING',
+        origin: 'ImageEditor',
+        method: 'Unknown Method',
+        message: 'Resize warning'
+      })
     })
   })
 })
