@@ -97,26 +97,47 @@ jobs:
 
                   comment += '## 📊 Покрытие кода тестами\n\n';
                   comment += '> 💡 **Что это означает?** Покрытие показывает, какая часть вашего кода проверена тестами.\n\n';
-                  
+
                   comment += `| Метрика | Значение | Что проверяется |\n`;
                   comment += `|---------|----------|------------------|\n`;
                   comment += `| 📝 **Строки кода** | **${total.lines.pct}%** | Сколько строк кода было выполнено во время тестов |\n`;
                   comment += `| ⚡ **Функции** | **${total.functions.pct}%** | Сколько функций было вызвано и протестировано |\n`;
                   comment += `| 🌿 **Ветвления** | **${total.branches.pct}%** | Сколько условий if/else/switch было проверено |\n`;
                   comment += `| ✨ **Утверждения** | **${total.statements.pct}%** | Сколько отдельных команд было выполнено |\n\n`;
-                  
+
                   // Детализация по файлам
                   comment += '### 📁 Покрытие по файлам:\n\n';
                   Object.keys(coverage).forEach(filePath => {
                     if (filePath !== 'total') {
                       const fileStats = coverage[filePath];
-                      const fileName = filePath.split('/').pop();
-                      comment += `- **${fileName}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
+
+                      // Создаём понятное отображение пути
+                      let displayPath;
+                      const pathParts = filePath.split('/');
+                      const fileName = pathParts.pop();
+
+                      if (fileName === 'index.ts' && pathParts.length > 0) {
+                        // Для index.ts показываем папку + имя файла
+                        const parentFolder = pathParts[pathParts.length - 1];
+                        displayPath = `${parentFolder}/index.ts`;
+                      } else if (pathParts.length > 2) {
+                        // Для глубоких путей показываем последние 2 папки
+                        const lastTwoParts = pathParts.slice(-2);
+                        displayPath = `${lastTwoParts.join('/')}/${fileName}`;
+                      } else if (pathParts.length > 0) {
+                        // Для коротких путей показываем всё
+                        displayPath = `${pathParts.join('/')}/${fileName}`;
+                      } else {
+                        // Файл в корне
+                        displayPath = fileName;
+                      }
+
+                      comment += `- **${displayPath}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
                     }
                   });
-                  
+
                   comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
-                  
+
                   // Рекомендации
                   if (total.lines.pct < 80) {
                     comment += '⚠️ **Рекомендация**: Покрытие ниже 80%. Добавьте больше тестов для критичных участков кода.\n\n';
@@ -130,12 +151,12 @@ jobs:
             } else {
               comment += '💥 **Некоторые тесты упали!**\n\n';
               comment += '⚠️ **Внимание**: Мерж заблокирован до исправления тестов.\n\n';
-              
+
               // Пытаемся извлечь информацию об ошибках из лога
               try {
                 if (fs.existsSync('test-output.log')) {
                   const testOutput = fs.readFileSync('test-output.log', 'utf8');
-                  
+
                   // Ищем упавшие тесты
                   const failedTests = testOutput.match(/FAIL\s+(.+\.spec\.ts)/g);
                   if (failedTests) {
@@ -147,14 +168,14 @@ jobs:
                     });
                     comment += '\n';
                   }
-                  
+
                   // Ищем конкретные ошибки
-                  const errorLines = testOutput.split('\n').filter(line => 
-                    line.includes('Expected:') || 
+                  const errorLines = testOutput.split('\n').filter(line =>
+                    line.includes('Expected:') ||
                     line.includes('Received:') ||
                     line.includes('at Object.<anonymous>')
                   );
-                  
+
                   if (errorLines.length > 0) {
                     comment += '## 📋 Детали ошибок:\n\n';
                     comment += '```\n';
@@ -165,7 +186,7 @@ jobs:
               } catch (e) {
                 console.log('⚠️ Could not parse test output:', e.message);
               }
-              
+
               comment += `🔗 [Посмотреть полные логи ошибок](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
             }
 
