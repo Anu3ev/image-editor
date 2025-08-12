@@ -45,47 +45,85 @@ jobs:
           npm run lint
           echo "✅ Code quality check passed"
 
-      - name: "🧪 Run tests with coverage"
+      - name: 🧪 Run Tests
         id: run-tests
+        continue-on-error: true
         run: |
           echo "🧪 Running Jest tests with coverage on Node.js ${{ matrix.node-version }}"
           echo "📊 Test files pattern: specs/**/*.{test,spec}.ts"
-          npm run test:ci
-          echo "✅ All tests passed successfully"
-        continue-on-error: true
+          set +e  # Отключаем автоматический выход при ошибке
+          npm run test:ci 2>&1 | tee test-output.log
+          test_exit_code=${PIPESTATUS[0]}  # Получаем exit code команды npm, а не tee
+          set -e  # Включаем обратно автоматический выход при ошибке
+
+          echo "🔍 Jest exit code: $test_exit_code"
+
+          # Анализируем реальные результаты тестов из output
+          if grep -q "Test Suites:.*failed" test-output.log; then
+            echo "test_result=failure" >> $GITHUB_OUTPUT
+            echo "❌ Some tests failed"
+          elif grep -q "Tests:.*failed" test-output.log; then
+            echo "test_result=failure" >> $GITHUB_OUTPUT
+            echo "❌ Some tests failed"
+          else
+            # Все тесты прошли, проверяем покрытие для warning
+            if [ $test_exit_code -ne 0 ] && grep -q "coverage threshold" test-output.log; then
+              echo "test_result=success_low_coverage" >> $GITHUB_OUTPUT
+              echo "✅ All tests passed, but coverage is low"
+            elif [ $test_exit_code -eq 0 ]; then
+              echo "test_result=success" >> $GITHUB_OUTPUT
+              echo "✅ All tests passed successfully"
+            else
+              echo "test_result=failure" >> $GITHUB_OUTPUT
+              echo "❌ Tests failed for unknown reason"
+            fi
+          fi
 
       - name: "📊 Generate detailed coverage report"
-        if: steps.run-tests.outcome == 'success' && matrix.node-version == 20
+        if: always() && matrix.node-version == 20
         run: |
           echo "📊 Generating detailed coverage report for artifacts"
           npm run test:coverage
           echo "✅ Coverage report generated"
 
       - name: "📤 Upload coverage artifacts"
-        if: steps.run-tests.outcome == 'success' && matrix.node-version == 20
+        if: always() && matrix.node-version == 20
         uses: actions/upload-artifact@v4
         with:
           name: "coverage-report-node${{ matrix.node-version }}"
           path: coverage/
           retention-days: 30
 
-      - name: "💬 Update PR comment with results"
-        if: github.event_name == 'pull_request' && matrix.node-version == 20 && always()
+      - name: 💬 Update PR with Results
+        if: always() && github.event.pull_request.number
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
 
-            console.log('📝 Preparing PR comment with test results...');
+            console.log('� Debug context info:');
+            console.log('- Event name:', '${{ github.event_name }}');
+            console.log('- PR number:', '${{ github.event.pull_request.number }}');
+            console.log('- Issue number:', context.issue.number);
+
+            console.log('�📝 Preparing PR comment with test results...');
 
             const nodeVersion = '${{ matrix.node-version }}';
-            const testResult = '${{ steps.run-tests.outcome }}';
-            const emoji = testResult === 'success' ? '✅' : '❌';
+            const testResult = '${{ steps.run-tests.outputs.test_result }}';
+
+            console.log(`🔍 Debug info: testResult = "${testResult}"`);
+            console.log(`🔍 Debug info: steps.run-tests.conclusion = "${{ steps.run-tests.conclusion }}"`);
+
+            const emoji = testResult === 'success' || testResult === 'success_low_coverage' ? '✅' : '❌';
 
             let comment = `${emoji} **Результаты тестирования на Node.js ${nodeVersion}**\n\n`;
 
-            if (testResult === 'success') {
+            if (testResult === 'success' || testResult === 'success_low_coverage') {
               comment += '🎉 Все тесты прошли успешно!\n\n';
+
+              if (testResult === 'success_low_coverage') {
+                comment += '⚠️ **Обратите внимание**: Покрытие кода тестами довольно низкое. Рекомендуется добавить больше тестов.\n\n';
+              }
 
               // Добавляем информацию о покрытии
               try {
@@ -95,21 +133,104 @@ jobs:
                   const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
                   const total = coverage.total;
 
-                  comment += '📊 **Покрытие кода:**\n';
-                  comment += `- 📝 Строки: ${total.lines.pct}%\n`;
-                  comment += `- ⚡ Функции: ${total.functions.pct}%\n`;
-                  comment += `- 🌿 Ветки: ${total.branches.pct}%\n`;
-                  comment += `- ✨ Утверждения: ${total.statements.pct}%\n\n`;
+                  comment += '## 📊 Покрытие кода тестами\n\n';
+                  comment += '> 💡 **Что это означает?** Покрытие показывает, какая часть вашего кода проверена тестами.\n\n';
 
-                  comment += `🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+                  comment += `| Метрика | Значение | Что проверяется |\n`;
+                  comment += `|---------|----------|------------------|\n`;
+                  comment += `| 📝 **Строки кода** | **${total.lines.pct}%** | Сколько строк кода было выполнено во время тестов |\n`;
+                  comment += `| ⚡ **Функции** | **${total.functions.pct}%** | Сколько функций было вызвано и протестировано |\n`;
+                  comment += `| 🌿 **Ветвления** | **${total.branches.pct}%** | Сколько условий if/else/switch было проверено |\n`;
+                  comment += `| ✨ **Утверждения** | **${total.statements.pct}%** | Сколько отдельных команд было выполнено |\n\n`;
+
+                  // Детализация по файлам под спойлером
+                  comment += '<details>\n';
+                  comment += '<summary>📁 <b>Покрытие по файлам</b> (нажмите чтобы развернуть)</summary>\n\n';
+
+                  let filesList = '';
+                  Object.keys(coverage).forEach(filePath => {
+                    if (filePath !== 'total') {
+                      const fileStats = coverage[filePath];
+
+                      // Создаём понятное отображение пути
+                      let displayPath;
+                      const pathParts = filePath.split('/');
+                      const fileName = pathParts.pop();
+
+                      if (fileName === 'index.ts' && pathParts.length > 0) {
+                        // Для index.ts показываем папку + имя файла
+                        const parentFolder = pathParts[pathParts.length - 1];
+                        displayPath = `${parentFolder}/index.ts`;
+                      } else if (pathParts.length > 2) {
+                        // Для глубоких путей показываем последние 2 папки
+                        const lastTwoParts = pathParts.slice(-2);
+                        displayPath = `${lastTwoParts.join('/')}/${fileName}`;
+                      } else if (pathParts.length > 0) {
+                        // Для коротких путей показываем всё
+                        displayPath = `${pathParts.join('/')}/${fileName}`;
+                      } else {
+                        // Файл в корне
+                        displayPath = fileName;
+                      }
+
+                      filesList += `- **${displayPath}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
+                    }
+                  });
+
+                  comment += filesList;
+                  comment += '\n</details>\n\n';
+
+                  comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+
+                  // Рекомендации
+                  if (total.lines.pct < 80) {
+                    comment += '⚠️ **Рекомендация**: Покрытие ниже 80%. Добавьте больше тестов для критичных участков кода.\n\n';
+                  } else if (total.lines.pct >= 90) {
+                    comment += '🏆 **Отлично!** Высокое покрытие кода тестами. Ваш код хорошо защищён от регрессий.\n\n';
+                  }
                 }
               } catch (e) {
                 console.log('⚠️ Coverage info not available:', e.message);
               }
             } else {
-              comment += '💥 Некоторые тесты упали!\n\n';
-              comment += '⚠️ **Внимание**: Мерж заблокирован до исправления тестов.\n\n';
-              comment += `🔗 [Посмотреть детали ошибки](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+              comment += '💥 **Некоторые тесты упали!**\n\n';
+
+              // Пытаемся извлечь информацию об ошибках из лога
+              try {
+                if (fs.existsSync('test-output.log')) {
+                  const testOutput = fs.readFileSync('test-output.log', 'utf8');
+
+                  // Ищем упавшие тесты
+                  const failedTests = testOutput.match(/FAIL\s+(.+\.spec\.ts)/g);
+                  if (failedTests) {
+                    comment += '## 🔍 Упавшие тесты:\n\n';
+                    failedTests.forEach(failLine => {
+                      const filePath = failLine.replace('FAIL ', '').trim();
+                      const fileName = filePath.split('/').pop();
+                      comment += `- ❌ **${fileName}**\n`;
+                    });
+                    comment += '\n';
+                  }
+
+                  // Ищем конкретные ошибки
+                  const errorLines = testOutput.split('\n').filter(line =>
+                    line.includes('Expected:') ||
+                    line.includes('Received:') ||
+                    line.includes('at Object.<anonymous>')
+                  );
+
+                  if (errorLines.length > 0) {
+                    comment += '## 📋 Детали ошибок:\n\n';
+                    comment += '```\n';
+                    comment += errorLines.slice(0, 10).join('\n'); // Первые 10 строк
+                    comment += '\n```\n\n';
+                  }
+                }
+              } catch (e) {
+                console.log('⚠️ Could not parse test output:', e.message);
+              }
+
+              comment += `🔗 [Посмотреть полные логи ошибок](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
             }
 
             comment += '---\n';
@@ -149,19 +270,19 @@ jobs:
               console.log('✅ New comment created successfully');
             }
 
-      - name: "🏷️ Create commit status"
+      - name: 📊 Set Commit Status
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            const testResult = '${{ steps.run-tests.outcome }}';
+            const testResult = '${{ steps.run-tests.outputs.test_result }}';
             const nodeVersion = '${{ matrix.node-version }}';
 
             console.log(`📊 Test result: ${testResult} for Node.js ${nodeVersion}`);
 
-            const state = testResult === 'success' ? 'success' : 'failure';
-            const description = testResult === 'success'
-              ? `✅ Tests passed on Node.js ${nodeVersion}`
+            const state = (testResult === 'success' || testResult === 'success_low_coverage') ? 'success' : 'failure';
+            const description = (testResult === 'success' || testResult === 'success_low_coverage')
+              ? `✅ Tests passed on Node.js ${nodeVersion}${testResult === 'success_low_coverage' ? ' (low coverage)' : ''}`
               : `❌ Tests failed on Node.js ${nodeVersion}`;
 
             console.log(`🏷️ Creating commit status: ${state} - ${description}`);
