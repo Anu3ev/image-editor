@@ -1,0 +1,49 @@
+name: Setup Branch Protection
+
+on:
+  workflow_dispatch: # Запуск вручную
+  
+jobs:
+  setup-protection:
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'Anu3ev' # Только для вашего репозитория
+    
+    steps:
+      - name: Setup branch protection
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const branch = 'refactor'; // Защищаем текущую ветку
+            
+            try {
+              await github.rest.repos.updateBranchProtection({
+                owner,
+                repo,
+                branch,
+                required_status_checks: {
+                  strict: true,
+                  contexts: [
+                    'test (18)',
+                    'test (20)'
+                  ]
+                },
+                enforce_admins: false,
+                required_pull_request_reviews: {
+                  required_approving_review_count: 0, // Убираем обязательный ревью для начала
+                  dismiss_stale_reviews: true,
+                  require_code_owner_reviews: false
+                },
+                restrictions: null,
+                allow_force_pushes: false,
+                allow_deletions: false
+              });
+              
+              console.log('✅ Branch protection rules updated successfully!');
+            } catch (error) {
+              console.error('❌ Failed to update branch protection:', error);
+              // Не падаем, если нет прав
+              console.log('ℹ️ This might be due to insufficient permissions. Branch protection should be set up manually.');
+            }
