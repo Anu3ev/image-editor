@@ -3,9 +3,9 @@ name: 🧪 Tests & Quality Checks
 # Workflow для запуска тестов на разных версиях Node.js
 on:
   pull_request:
-    branches: [ master, main, refactor ]
+    branches: [ master, main ]  # Тестируем только PR в основные ветки
   push:
-    branches: [ master, main, refactor ]
+    branches: [ master, main ]  # Проверяем качество только основных веток после мержа
 
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18, 20]
+        node-version: [20]  # Только актуальная LTS версия
       fail-fast: false  # Не останавливаем другие версии при падении одной
 
     steps:

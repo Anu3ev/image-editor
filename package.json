@@ -7,6 +7,10 @@
     "dist"
   ],
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=9.0.0"
+  },
   "scripts": {
     "dev": "vite --config vite.config.dev.js",
     "dev:build": "vite build --watch --mode development --config vite.config.dev.js",
