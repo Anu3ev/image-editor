@@ -80,6 +80,10 @@ jobs:
 
             const nodeVersion = '${{ matrix.node-version }}';
             const testResult = '${{ steps.run-tests.outcome }}';
+            
+            console.log(`🔍 Debug info: testResult = "${testResult}"`);
+            console.log(`🔍 Debug info: steps.run-tests.conclusion = "${{ steps.run-tests.conclusion }}"`);
+            
             const emoji = testResult === 'success' ? '✅' : '❌';
 
             let comment = `${emoji} **Результаты тестирования на Node.js ${nodeVersion}**\n\n`;
@@ -105,8 +109,11 @@ jobs:
                   comment += `| 🌿 **Ветвления** | **${total.branches.pct}%** | Сколько условий if/else/switch было проверено |\n`;
                   comment += `| ✨ **Утверждения** | **${total.statements.pct}%** | Сколько отдельных команд было выполнено |\n\n`;
 
-                  // Детализация по файлам
-                  comment += '### 📁 Покрытие по файлам:\n\n';
+                  // Детализация по файлам под спойлером
+                  comment += '<details>\n';
+                  comment += '<summary>📁 <b>Покрытие по файлам</b> (нажмите чтобы развернуть)</summary>\n\n';
+                  
+                  let filesList = '';
                   Object.keys(coverage).forEach(filePath => {
                     if (filePath !== 'total') {
                       const fileStats = coverage[filePath];
@@ -131,12 +138,13 @@ jobs:
                         // Файл в корне
                         displayPath = fileName;
                       }
-
-                      comment += `- **${displayPath}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
+                      
+                      filesList += `- **${displayPath}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
                     }
                   });
-
-                  comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+                  
+                  comment += filesList;
+                  comment += '\n</details>\n\n';                  comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
 
                   // Рекомендации
                   if (total.lines.pct < 80) {
