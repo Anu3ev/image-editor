@@ -50,7 +50,7 @@ jobs:
         run: |
           echo "🧪 Running Jest tests with coverage on Node.js ${{ matrix.node-version }}"
           echo "📊 Test files pattern: specs/**/*.{test,spec}.ts"
-          npm run test:ci
+          npm run test:ci 2>&1 | tee test-output.log
           echo "✅ All tests passed successfully"
         continue-on-error: true
 
@@ -95,20 +95,78 @@ jobs:
                   const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
                   const total = coverage.total;
 
-                  comment += '📊 **Покрытие кода:**\n';
-                  comment += `- 📝 Строки: ${total.lines.pct}%\n`;
-                  comment += `- ⚡ Функции: ${total.functions.pct}%\n`;
-                  comment += `- 🌿 Ветки: ${total.branches.pct}%\n`;
-                  comment += `- ✨ Утверждения: ${total.statements.pct}%\n\n`;
-
-                  comment += `🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+                  comment += '## 📊 Покрытие кода тестами\n\n';
+                  comment += '> 💡 **Что это означает?** Покрытие показывает, какая часть вашего кода проверена тестами.\n\n';
+                  
+                  comment += `| Метрика | Значение | Что проверяется |\n`;
+                  comment += `|---------|----------|------------------|\n`;
+                  comment += `| 📝 **Строки кода** | **${total.lines.pct}%** | Сколько строк кода было выполнено во время тестов |\n`;
+                  comment += `| ⚡ **Функции** | **${total.functions.pct}%** | Сколько функций было вызвано и протестировано |\n`;
+                  comment += `| 🌿 **Ветвления** | **${total.branches.pct}%** | Сколько условий if/else/switch было проверено |\n`;
+                  comment += `| ✨ **Утверждения** | **${total.statements.pct}%** | Сколько отдельных команд было выполнено |\n\n`;
+                  
+                  // Детализация по файлам
+                  comment += '### 📁 Покрытие по файлам:\n\n';
+                  Object.keys(coverage).forEach(filePath => {
+                    if (filePath !== 'total') {
+                      const fileStats = coverage[filePath];
+                      const fileName = filePath.split('/').pop();
+                      comment += `- **${fileName}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
+                    }
+                  });
+                  
+                  comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+                  
+                  // Рекомендации
+                  if (total.lines.pct < 80) {
+                    comment += '⚠️ **Рекомендация**: Покрытие ниже 80%. Добавьте больше тестов для критичных участков кода.\n\n';
+                  } else if (total.lines.pct >= 90) {
+                    comment += '🏆 **Отлично!** Высокое покрытие кода тестами. Ваш код хорошо защищён от регрессий.\n\n';
+                  }
                 }
               } catch (e) {
                 console.log('⚠️ Coverage info not available:', e.message);
               }
             } else {
-              comment += '💥 Некоторые тесты упали!\n\n';
-              comment += `🔗 [Посмотреть детали ошибки](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+              comment += '💥 **Некоторые тесты упали!**\n\n';
+              comment += '⚠️ **Внимание**: Мерж заблокирован до исправления тестов.\n\n';
+              
+              // Пытаемся извлечь информацию об ошибках из лога
+              try {
+                if (fs.existsSync('test-output.log')) {
+                  const testOutput = fs.readFileSync('test-output.log', 'utf8');
+                  
+                  // Ищем упавшие тесты
+                  const failedTests = testOutput.match(/FAIL\s+(.+\.spec\.ts)/g);
+                  if (failedTests) {
+                    comment += '## 🔍 Упавшие тесты:\n\n';
+                    failedTests.forEach(failLine => {
+                      const filePath = failLine.replace('FAIL ', '').trim();
+                      const fileName = filePath.split('/').pop();
+                      comment += `- ❌ **${fileName}**\n`;
+                    });
+                    comment += '\n';
+                  }
+                  
+                  // Ищем конкретные ошибки
+                  const errorLines = testOutput.split('\n').filter(line => 
+                    line.includes('Expected:') || 
+                    line.includes('Received:') ||
+                    line.includes('at Object.<anonymous>')
+                  );
+                  
+                  if (errorLines.length > 0) {
+                    comment += '## 📋 Детали ошибок:\n\n';
+                    comment += '```\n';
+                    comment += errorLines.slice(0, 10).join('\n'); // Первые 10 строк
+                    comment += '\n```\n\n';
+                  }
+                }
+              } catch (e) {
+                console.log('⚠️ Could not parse test output:', e.message);
+              }
+              
+              comment += `🔗 [Посмотреть полные логи ошибок](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
             }
 
             comment += '---\n';
