@@ -51,7 +51,14 @@ jobs:
         run: |
           echo "🧪 Running Jest tests with coverage on Node.js ${{ matrix.node-version }}"
           echo "📊 Test files pattern: specs/**/*.{test,spec}.ts"
-          if npm run test:ci 2>&1 | tee test-output.log; then
+          set +e  # Отключаем автоматический выход при ошибке
+          npm run test:ci 2>&1 | tee test-output.log
+          test_exit_code=${PIPESTATUS[0]}  # Получаем exit code команды npm, а не tee
+          set -e  # Включаем обратно автоматический выход при ошибке
+
+          echo "🔍 Jest exit code: $test_exit_code"
+
+          if [ $test_exit_code -eq 0 ]; then
             echo "test_result=success" >> $GITHUB_OUTPUT
             echo "✅ All tests passed successfully"
           else
