@@ -1,5 +1,7 @@
 # Fabric Image Editor
 
+111
+
 [![Tests](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml/badge.svg?branch=refactor)](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
 [![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](https://github.com/Anu3ev/image-editor/actions)
 
