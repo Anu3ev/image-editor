@@ -45,32 +45,37 @@ jobs:
           npm run lint
           echo "✅ Code quality check passed"
 
-      - name: "🧪 Run tests with coverage"
+      - name: 🧪 Run Tests
         id: run-tests
+        continue-on-error: true
         run: |
           echo "🧪 Running Jest tests with coverage on Node.js ${{ matrix.node-version }}"
           echo "📊 Test files pattern: specs/**/*.{test,spec}.ts"
-          npm run test:ci 2>&1 | tee test-output.log
-          echo "✅ All tests passed successfully"
-        continue-on-error: true
+          if npm run test:ci 2>&1 | tee test-output.log; then
+            echo "test_result=success" >> $GITHUB_OUTPUT
+            echo "✅ All tests passed successfully"
+          else
+            echo "test_result=failure" >> $GITHUB_OUTPUT
+            echo "❌ Some tests failed"
+          fi
 
       - name: "📊 Generate detailed coverage report"
-        if: steps.run-tests.outcome == 'success' && matrix.node-version == 20
+        if: always() && matrix.node-version == 20
         run: |
           echo "📊 Generating detailed coverage report for artifacts"
           npm run test:coverage
           echo "✅ Coverage report generated"
 
       - name: "📤 Upload coverage artifacts"
-        if: steps.run-tests.outcome == 'success' && matrix.node-version == 20
+        if: always() && matrix.node-version == 20
         uses: actions/upload-artifact@v4
         with:
           name: "coverage-report-node${{ matrix.node-version }}"
           path: coverage/
           retention-days: 30
 
-      - name: "💬 Update PR comment with results"
-        if: github.event_name == 'pull_request' && matrix.node-version == 20 && always()
+      - name: 💬 Update PR with Results
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -79,11 +84,11 @@ jobs:
             console.log('📝 Preparing PR comment with test results...');
 
             const nodeVersion = '${{ matrix.node-version }}';
-            const testResult = '${{ steps.run-tests.outcome }}';
-            
+            const testResult = '${{ steps.run-tests.outputs.test_result }}';
+
             console.log(`🔍 Debug info: testResult = "${testResult}"`);
             console.log(`🔍 Debug info: steps.run-tests.conclusion = "${{ steps.run-tests.conclusion }}"`);
-            
+
             const emoji = testResult === 'success' ? '✅' : '❌';
 
             let comment = `${emoji} **Результаты тестирования на Node.js ${nodeVersion}**\n\n`;
@@ -112,7 +117,7 @@ jobs:
                   // Детализация по файлам под спойлером
                   comment += '<details>\n';
                   comment += '<summary>📁 <b>Покрытие по файлам</b> (нажмите чтобы развернуть)</summary>\n\n';
-                  
+
                   let filesList = '';
                   Object.keys(coverage).forEach(filePath => {
                     if (filePath !== 'total') {
@@ -138,13 +143,15 @@ jobs:
                         // Файл в корне
                         displayPath = fileName;
                       }
-                      
+
                       filesList += `- **${displayPath}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
                     }
                   });
-                  
+
                   comment += filesList;
-                  comment += '\n</details>\n\n';                  comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
+                  comment += '\n</details>\n\n';
+
+                  comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
 
                   // Рекомендации
                   if (total.lines.pct < 80) {
@@ -235,12 +242,12 @@ jobs:
               console.log('✅ New comment created successfully');
             }
 
-      - name: "🏷️ Create commit status"
+      - name: 📊 Set Commit Status
         if: always()
         uses: actions/github-script@v7
         with:
           script: |
-            const testResult = '${{ steps.run-tests.outcome }}';
+            const testResult = '${{ steps.run-tests.outputs.test_result }}';
             const nodeVersion = '${{ matrix.node-version }}';
 
             console.log(`📊 Test result: ${testResult} for Node.js ${nodeVersion}`);
