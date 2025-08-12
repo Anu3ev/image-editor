@@ -204,7 +204,7 @@ describe('ErrorManager', () => {
 
   describe('isValidErrorCode', () => {
     test('должен вернуть true для валидных кодов ошибок', () => {
-      expect(ErrorManager.isValidErrorCode('IMPORT_FAILED')).toBe(true)
+      expect(ErrorManager.isValidErrorCode('IMPORT_FAILED1')).toBe(true)
       expect(ErrorManager.isValidErrorCode('IMAGE_RESIZE_WARNING')).toBe(true)
       expect(ErrorManager.isValidErrorCode('INVALID_CONTENT_TYPE')).toBe(true)
     })
