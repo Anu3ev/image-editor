@@ -17,12 +17,9 @@ const config: Config.InitialOptions = {
     'json'
   ],
   transform: {
-    '\\.ts$': 'ts-jest'
-  },
-  globals: {
-    'ts-jest': {
+    '\\.ts$': ['ts-jest', {
       diagnostics: false
-    }
+    }]
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1'
