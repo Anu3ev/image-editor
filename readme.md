@@ -1,5 +1,8 @@
 # Fabric Image Editor
 
+[![Tests](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml/badge.svg?branch=refactor)](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
+[![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)](https://github.com/Anu3ev/image-editor/actions)
+
 Fabric Image Editor is a browser-based image editor powered by [FabricJS](https://fabricjs.com/). It is published as the library `@anu3ev/fabric-image-editor` and can be embedded into any web page. The repository also contains a small demo application that showcases the library's capabilities.
 
 ## Features
