@@ -26,7 +26,23 @@ const config: Config.InitialOptions = {
   },
   transformIgnorePatterns: [
     'node_modules/(?!(nanoid)/)'
-  ]
+  ],
+  // Настройка сбора покрытия для всех файлов проекта
+  collectCoverageFrom: [
+    'src/**/*.{ts,js}',
+    '!src/**/*.d.ts',
+    '!src/**/*.test.ts',
+    '!src/**/*.spec.ts'
+  ],
+  // Пороги покрытия (опционально)
+  coverageThreshold: {
+    global: {
+      branches: 50,
+      functions: 50,
+      lines: 50,
+      statements: 50
+    }
+  }
 }
 
 export default config
