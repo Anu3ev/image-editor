@@ -82,13 +82,18 @@ jobs:
           retention-days: 30
 
       - name: 💬 Update PR with Results
-        if: github.event_name == 'pull_request'
+        if: always() && github.event.pull_request.number
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
 
-            console.log('📝 Preparing PR comment with test results...');
+            console.log('� Debug context info:');
+            console.log('- Event name:', '${{ github.event_name }}');
+            console.log('- PR number:', '${{ github.event.pull_request.number }}');
+            console.log('- Issue number:', context.issue.number);
+
+            console.log('�📝 Preparing PR comment with test results...');
 
             const nodeVersion = '${{ matrix.node-version }}';
             const testResult = '${{ steps.run-tests.outputs.test_result }}';
