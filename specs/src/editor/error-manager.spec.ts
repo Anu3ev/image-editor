@@ -218,7 +218,7 @@ describe('ErrorManager', () => {
   describe('интеграционные тесты', () => {
     test('должен корректно работать с несколькими ошибками и предупреждениями', () => {
       // Добавляем несколько ошибок и предупреждений с реальными кодами
-      errorManager.emitError({ code: 'IMPORT_FAILED1' })
+      errorManager.emitError({ code: 'IMPORT_FAILED' })
       errorManager.emitWarning({ code: 'IMAGE_RESIZE_WARNING' })
       errorManager.emitError({ code: 'INVALID_CONTENT_TYPE' })
       errorManager.emitWarning({ code: 'CLIPBOARD_NOT_SUPPORTED' })
