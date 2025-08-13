@@ -3,6 +3,14 @@
  */
 
 import initEditor from '../../src/main'
+// Мокаем класс редактора, чтобы не тянуть fabric и сложную инициализацию
+jest.mock('../../src/editor', () => ({
+  ImageEditor: jest.fn().mockImplementation((_canvasId: string, options: any) => {
+    // сразу резолвим промис, который возвращает initEditor
+    options?._onReadyCallback?.({} as any)
+    return { destroy: jest.fn() }
+  })
+}))
 
 // Простой мок для DOM элементов
 const mockElement = {
@@ -10,7 +18,10 @@ const mockElement = {
   appendChild: jest.fn(),
   style: {},
   offsetWidth: 800,
-  offsetHeight: 600
+  offsetHeight: 600,
+  // для некоторых менеджеров могут понадобиться clientWidth/Height
+  clientWidth: 800,
+  clientHeight: 600
 }
 
 // Мокаем document.getElementById
@@ -58,6 +69,9 @@ describe('initEditor', () => {
 
     // Проверяем, что возвращается Promise
     expect(result).toBeInstanceOf(Promise)
+
+    // И что промис резолвится (моком ImageEditor вызываем _onReadyCallback)
+    expect(result).resolves.toBeDefined()
 
     // Проверяем, что getElementById был вызван с правильным ID
     expect(document.getElementById).toHaveBeenCalledWith(containerId)

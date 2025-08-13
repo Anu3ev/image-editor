@@ -22,10 +22,15 @@ const config: Config.InitialOptions = {
     }]
   },
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^nanoid$': '<rootDir>/specs/__mocks__/nanoid.ts',
+    '^fabric$': '<rootDir>/specs/__mocks__/fabric.ts',
+    '^jsondiffpatch$': '<rootDir>/specs/__mocks__/jsondiffpatch.ts',
+    '^diff-match-patch$': '<rootDir>/specs/__mocks__/diff-match-patch.ts',
+    '\\?worker$': '<rootDir>/specs/__mocks__/worker.ts'
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(nanoid)/)'
+    'node_modules/(?!(nanoid|fabric|jsondiffpatch|diff-match-patch)/)'
   ],
   // Настройка сбора покрытия для всех файлов проекта
   collectCoverageFrom: [
