@@ -70,13 +70,13 @@ describe('initEditor', () => {
     // Проверяем, что возвращается Promise
     expect(result).toBeInstanceOf(Promise)
 
-    // И что промис резолвится (моком ImageEditor вызываем _onReadyCallback)
-    expect(result).resolves.toBeDefined()
-
     // Проверяем, что getElementById был вызван с правильным ID
     expect(document.getElementById).toHaveBeenCalledWith(containerId)
 
     // Проверяем, что createElement был вызван для создания canvas
     expect(document.createElement).toHaveBeenCalledWith('canvas')
+
+    // И что промис резолвится (моком ImageEditor вызываем _onReadyCallback)
+    return expect(result).resolves.toBeDefined()
   })
 })
