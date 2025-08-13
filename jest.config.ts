@@ -9,7 +9,7 @@ const config: Config.InitialOptions = {
   ],
   // Временно исключаем проблемный тест
   testPathIgnorePatterns: [
-    '<rootDir>/specs/src/main.spec.ts'
+    // '<rootDir>/specs/src/main.spec.ts'
   ],
   moduleFileExtensions: [
     'ts',
