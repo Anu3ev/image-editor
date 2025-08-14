@@ -168,7 +168,7 @@ export class ImageEditor {
    * Создаёт все необходимые менеджеры и загружает начальное состояние.
    * @fires editor:ready
    */
-  async init(): Promise<void> {
+  public async init(): Promise<void> {
     const {
       editorContainerWidth,
       editorContainerHeight,
@@ -295,7 +295,7 @@ export class ImageEditor {
   /**
    * Метод для удаления редактора и всех слушателей.
    */
-  destroy(): void {
+  public destroy(): void {
     this.listeners.destroy()
     this.toolbar.destroy()
     this.canvas.dispose()
