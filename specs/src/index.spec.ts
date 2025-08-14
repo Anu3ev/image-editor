@@ -89,6 +89,17 @@ describe('ImageEditor', () => {
   })
 
   describe('constructor', () => {
+    let initSpy: jest.SpiedFunction<ImageEditor['init']>
+
+    beforeEach(() => {
+      // Изолируем тесты конструктора от побочных эффектов init()
+      initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockResolvedValue()
+    })
+
+    afterEach(() => {
+      initSpy.mockRestore()
+    })
+
     it('должен правильно инициализировать базовые свойства', () => {
       const canvasId = 'test-canvas'
       const options = createFullOptions()
@@ -122,7 +133,7 @@ describe('ImageEditor', () => {
           fillRect: jest.fn()
         })
       }
-      jest.spyOn(document, 'createElement').mockImplementation(() => mockCanvas as any)
+      const createElSpy = jest.spyOn(document, 'createElement').mockImplementation(() => mockCanvas as any)
 
       // Вызываем приватный статический метод через рефлексию
       const pattern = (ImageEditor as any)._createMosaicPattern()
@@ -131,6 +142,8 @@ describe('ImageEditor', () => {
       expect(mockCanvas.width).toBe(20)
       expect(mockCanvas.height).toBe(20)
       expect(pattern).toBeInstanceOf(Pattern)
+
+      createElSpy.mockRestore()
     })
 
     it('должен правильно рисовать мозаичный паттерн', () => {
@@ -143,7 +156,7 @@ describe('ImageEditor', () => {
         height: 0,
         getContext: jest.fn().mockReturnValue(mockContext)
       }
-      jest.spyOn(document, 'createElement').mockImplementation(() => mockCanvas as any)
+      const createElSpy = jest.spyOn(document, 'createElement').mockImplementation(() => mockCanvas as any)
 
       ;(ImageEditor as any)._createMosaicPattern()
 
@@ -151,10 +164,21 @@ describe('ImageEditor', () => {
       expect(mockContext.fillRect).toHaveBeenNthCalledWith(1, 0, 0, 40, 40)
       expect(mockContext.fillRect).toHaveBeenNthCalledWith(2, 0, 0, 10, 10)
       expect(mockContext.fillRect).toHaveBeenNthCalledWith(3, 10, 10, 10, 10)
+
+      createElSpy.mockRestore()
     })
   })
 
   describe('init', () => {
+    beforeEach(() => {
+      // Добавляем реальный canvas в jsdom, чтобы fabric.Canvas корректно инициализировался
+      document.body.innerHTML = '<canvas id="test-canvas"></canvas>'
+    })
+
+    afterEach(() => {
+      document.body.innerHTML = ''
+    })
+
     it('должен инициализировать компоненты и вызвать приватные методы', async () => {
       const editor = createEditorWithMocks()
       const spyMontage = jest.spyOn(editor as any, '_createMontageArea')
@@ -227,11 +251,13 @@ describe('ImageEditor', () => {
     })
 
     it('должен испускать событие editor:ready', async () => {
-      const editor = createEditorWithMocks()
+  const editor = createEditorWithMocks()
+  const fireSpy = jest.spyOn(Canvas.prototype as any, 'fire')
 
-      await editor.init()
+  await editor.init()
 
-      expect((editor.canvas as any).fire).toHaveBeenCalledWith('editor:ready', editor)
+  expect(fireSpy).toHaveBeenCalledWith('editor:ready', editor)
+  fireSpy.mockRestore()
     })
 
     it('должен сохранить состояние в историю', async () => {

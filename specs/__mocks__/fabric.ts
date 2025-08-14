@@ -3,10 +3,14 @@
 
 export class Canvas {
   public clipPath: any = null
-  public fire = jest.fn()
   public dispose = jest.fn()
 
   constructor(public el: any, public options: any) {}
+
+  // Define as prototype method to allow spying via jest.spyOn(Canvas.prototype, 'fire')
+  public fire(_event: any, _payload?: any) {
+    // no-op in mock; jest will spy on prototype
+  }
 }
 
 export class Pattern {
