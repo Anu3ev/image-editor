@@ -156,9 +156,9 @@ describe('ImageEditor', () => {
         height: 0,
         getContext: jest.fn().mockReturnValue(mockContext)
       }
-      const createElSpy = jest.spyOn(document, 'createElement').mockImplementation(() => mockCanvas as any)
+      const createElSpy = jest.spyOn(document, 'createElement').mockImplementation(() => mockCanvas as any);
 
-      ;(ImageEditor as any)._createMosaicPattern()
+      (ImageEditor as any)._createMosaicPattern()
 
       expect(mockContext.fillRect).toHaveBeenCalledTimes(3)
       expect(mockContext.fillRect).toHaveBeenNthCalledWith(1, 0, 0, 40, 40)
