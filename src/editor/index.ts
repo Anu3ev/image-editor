@@ -36,141 +36,118 @@ import type { ImportImageOptions } from './image-manager'
 export class ImageEditor {
   /**
    * Опции и настройки редактора
-   * @type {CanvasOptions}
    */
   readonly options: CanvasOptions
 
   /**
    * Идентификатор HTML-контейнера.
-   * @type {string}
    */
   readonly containerId: string
 
   /**
    * Уникальный идентификатор редактора.
-   * @type {string}
    */
   readonly editorId: string
 
   /**
    * Буфер обмена для хранения объектов.
-   * @type {ClipboardItem | null}
    */
-  clipboard: ClipboardItem | null
+  public clipboard: ClipboardItem | null
 
   /**
    * Канвас редактора.
-   * @type {Canvas | undefined}
    */
-  canvas!: Canvas
+  public canvas!: Canvas
 
   /**
    * Рабочая область, в которой будут размещаться изображения.
-   * @type {Rect | undefined}
    */
-  montageArea!: Rect
+  public montageArea!: Rect
 
   /**
    * Класс для динамического импорта модулей.
-   * @type {ModuleLoader | undefined}
    */
-  moduleLoader!: ModuleLoader
+  public moduleLoader!: ModuleLoader
 
   /**
    * Менеджер воркеров для выполнения фоновых задач.
-   * @type {WorkerManager | undefined}
    */
-  workerManager!: WorkerManager
+  public workerManager!: WorkerManager
 
   /**
    * Менеджер ошибок редактора.
-   * @type {ErrorManager | undefined}
    */
-  errorManager!: ErrorManager
+  public errorManager!: ErrorManager
 
   /**
    * Менеджер истории операций
-   * @type {HistoryManager | undefined}
    */
-  historyManager!: HistoryManager
+  public historyManager!: HistoryManager
 
   /**
    * Менеджер панели инструментов
-   * @type {ToolbarManager | undefined}
    */
-  toolbar!: ToolbarManager
+  public toolbar!: ToolbarManager
 
   /**
    * Менеджер трансформаций объектов
-   * @type {TransformManager | undefined}
    */
-  transformManager!: TransformManager
+  public transformManager!: TransformManager
 
   /**
    * Менеджер канваса
-   * @type {CanvasManager | undefined}
    */
-  canvasManager!: CanvasManager
+  public canvasManager!: CanvasManager
 
   /**
    * Менеджер изображений
-   * @type {ImageManager | undefined}
    */
-  imageManager!: ImageManager
+  public imageManager!: ImageManager
 
   /**
    * Менеджер слоёв
-   * @type {LayerManager | undefined}
    */
-  layerManager!: LayerManager
+  public layerManager!: LayerManager
 
   /**
    * Менеджер фигур
-   * @type {ShapeManager | undefined}
    */
-  shapeManager!: ShapeManager
+  public shapeManager!: ShapeManager
 
   /**
    * Блокировщик взаимодействия с канвасом
-   * @type {InteractionBlocker | undefined}
    */
-  interactionBlocker!: InteractionBlocker
+  public interactionBlocker!: InteractionBlocker
 
   /**
    * Менеджер буфера обмена
-   * @type {ClipboardManager | undefined}
    */
-  clipboardManager!: ClipboardManager
+  public clipboardManager!: ClipboardManager
 
   /**
    * Менеджер блокировки объектов
-   * @type {ObjectLockManager | undefined}
    */
-  objectLockManager!: ObjectLockManager
+  public objectLockManager!: ObjectLockManager
 
   /**
    * Менеджер группировки объектов
-   * @type {GroupingManager | undefined}
    */
-  groupingManager!: GroupingManager
+  public groupingManager!: GroupingManager
 
   /**
    * Менеджер выделения объектов
-   * @type {SelectionManager | undefined}
    */
-  selectionManager!: SelectionManager
+  public selectionManager!: SelectionManager
 
   /**
    * Менеджер удаления объектов
-   * @type {DeletionManager | undefined}
    */
-  deletionManager!: DeletionManager
+  public deletionManager!: DeletionManager
 
   /**
    * Слушатели событий редактора
-   * @type {Listeners | undefined}
    */
-  listeners!: Listeners
+  public listeners!: Listeners
 
   /**
    * Конструктор класса ImageEditor.
@@ -191,7 +168,7 @@ export class ImageEditor {
    * Создаёт все необходимые менеджеры и загружает начальное состояние.
    * @fires editor:ready
    */
-  async init(): Promise<void> {
+  public async init(): Promise<void> {
     const {
       editorContainerWidth,
       editorContainerHeight,
@@ -318,7 +295,7 @@ export class ImageEditor {
   /**
    * Метод для удаления редактора и всех слушателей.
    */
-  destroy(): void {
+  public destroy(): void {
     this.listeners.destroy()
     this.toolbar.destroy()
     this.canvas.dispose()

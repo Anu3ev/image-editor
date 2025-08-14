@@ -32,6 +32,7 @@ const config: Config.InitialOptions = {
   transformIgnorePatterns: [
     'node_modules/(?!(nanoid|fabric|jsondiffpatch|diff-match-patch)/)'
   ],
+  setupFilesAfterEnv: ['<rootDir>/specs/setupTests.ts'],
   // Настройка сбора покрытия для всех файлов проекта
   collectCoverageFrom: [
     'src/**/*.{ts,js}',
