@@ -1,6 +1,6 @@
 import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
 import { nanoid } from 'nanoid'
-import { ImageEditor } from '../../src/editor'
+import { ImageEditor } from '../../../src/editor'
 
 // Мокируем сторонние зависимости редактора (не fabric)
 jest.mock('nanoid')
