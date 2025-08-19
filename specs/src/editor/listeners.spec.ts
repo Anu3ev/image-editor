@@ -1,63 +1,35 @@
 import Listeners from '../../../src/editor/listeners'
+import { createEditorStub } from '../../test-utils/editor-helpers'
 
-type AnyFn = (...args: any[]) => any
+// Shared event lists to avoid duplication in assertions
+const OPTIONAL_CANVAS_EVENTS = [
+  'mouse:down', 'mouse:move', 'mouse:up',
+  'mouse:wheel',
+  'selection:created', 'selection:updated',
+  'mouse:dblclick'
+]
 
-const createCanvasStub = () => {
-  const handlers: Record<string, AnyFn[]> = {}
-  const canvas = {
-    on: jest.fn((evt: string, fn: AnyFn) => {
-      handlers[evt] = handlers[evt] || []
-      handlers[evt].push(fn)
-    }),
-    off: jest.fn((evt: string, fn: AnyFn) => {
-      if (!handlers[evt]) return
-      handlers[evt] = handlers[evt].filter(h => h !== fn)
-    }),
-    set: jest.fn(),
-    setCursor: jest.fn(),
-    requestRenderAll: jest.fn(),
-    setViewportTransform: jest.fn(),
-    discardActiveObject: jest.fn(),
-    setActiveObject: jest.fn(),
-    viewportTransform: [1, 0, 0, 1, 0, 0] as any,
-    __handlers: handlers
-  }
-  return canvas as any
-}
+const ALWAYS_HISTORY_EVENTS = [
+  'object:modified', 'object:rotating', 'object:added', 'object:removed'
+]
 
-const createEditorStub = () => {
-  const canvas = createCanvasStub()
-  return {
-    canvas,
-    historyManager: {
-      skipHistory: false,
-      saveState: jest.fn(),
-      undo: jest.fn().mockResolvedValue(undefined),
-      redo: jest.fn().mockResolvedValue(undefined)
-    },
-    interactionBlocker: {
-      isBlocked: false,
-      overlayMask: null as any,
-      refresh: jest.fn()
-    },
-    canvasManager: {
-      updateCanvas: jest.fn(),
-      getObjects: jest.fn().mockReturnValue([
-        { set: jest.fn() },
-        { set: jest.fn() }
-      ])
-    },
-    transformManager: {
-      zoom: jest.fn(),
-      resetObject: jest.fn()
-    },
-    layerManager: { bringToFront: jest.fn() },
-    selectionManager: { selectAll: jest.fn() },
-    deletionManager: { deleteSelectedObjects: jest.fn() },
-    clipboardManager: { copy: jest.fn(), handlePasteEvent: jest.fn() },
-    errorManager: { emitWarning: jest.fn() }
-  } as any
-}
+const ALWAYS_REQUIRED_EVENTS = [
+  ...ALWAYS_HISTORY_EVENTS,
+  // overlay/locked-selection use selection:created всегда
+  'selection:created'
+]
+
+const ALL_EXPECTED_CANVAS_EVENTS = [
+  ...OPTIONAL_CANVAS_EVENTS,
+  ...ALWAYS_HISTORY_EVENTS
+]
+
+const DISABLED_OPTIONAL_CANVAS_EVENTS = [
+  'mouse:wheel', 'mouse:dblclick', 'mouse:down', 'mouse:move', 'mouse:up'
+]
+
+const getOnEvents = (editor: ReturnType<typeof createEditorStub>) =>
+  (editor.canvas.on as jest.Mock).mock.calls.map(c => c[0])
 
 describe('Listeners', () => {
   beforeEach(() => {
@@ -87,14 +59,8 @@ describe('Listeners', () => {
       })
 
       // canvas .on bindings
-      const onCalls = (editor.canvas.on as jest.Mock).mock.calls.map(c => c[0])
-      expect(onCalls).toEqual(expect.arrayContaining([
-        'mouse:down', 'mouse:move', 'mouse:up',
-        'mouse:wheel',
-        'selection:created', 'selection:updated',
-        'mouse:dblclick',
-        'object:modified', 'object:rotating', 'object:added', 'object:removed'
-      ]))
+      const onCalls = getOnEvents(editor)
+      expect(onCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
 
       // DOM bindings
       expect(addWin).toHaveBeenCalledWith('resize', listeners.handleContainerResizeBound, { capture: true })
@@ -110,11 +76,33 @@ describe('Listeners', () => {
       const editor = createEditorStub()
       // Без опций — только обязательные подписки
       new Listeners({ editor, options: {} })
-      const onCalls = (editor.canvas.on as jest.Mock).mock.calls.map(c => c[0])
-      expect(onCalls).toEqual(expect.arrayContaining([
-        'object:modified', 'object:rotating', 'object:added', 'object:removed',
-        'selection:created'
-      ]))
+  const onCalls = getOnEvents(editor)
+  expect(onCalls).toEqual(expect.arrayContaining(ALWAYS_REQUIRED_EVENTS))
+    })
+
+    it('не вешает DOM/canvas подписки при выключенных опциях', () => {
+      const editor = createEditorStub()
+      const addWin = jest.spyOn(window, 'addEventListener')
+      const addDoc = jest.spyOn(document, 'addEventListener')
+
+      const listeners = new Listeners({ editor, options: {} })
+
+      // canvas.on не должен содержать события, зависящие от опций
+      const onEvents = getOnEvents(editor)
+      for (const ev of DISABLED_OPTIONAL_CANVAS_EVENTS) {
+        expect(onEvents).not.toContain(ev)
+      }
+
+      // DOM addEventListener не должен быть вызван для опциональных обработчиков
+      expect(addWin).not.toHaveBeenCalledWith('resize', listeners.handleContainerResizeBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleCopyEventBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('paste', listeners.handlePasteEventBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleUndoRedoEventBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keyup', listeners.handleUndoRedoKeyUpBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleSelectAllEventBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleDeleteObjectsEventBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleSpaceKeyDownBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keyup', listeners.handleSpaceKeyUpBound, { capture: true })
     })
   })
 
@@ -214,6 +202,18 @@ describe('Listeners', () => {
       expect(stopPropagation).toHaveBeenCalled()
     })
 
+    it('mouse wheel не зумит без ctrl/meta', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
+      const preventDefault = jest.fn()
+      const stopPropagation = jest.fn()
+      const evt = { ctrlKey: false, metaKey: false, deltaY: -100, preventDefault, stopPropagation } as any
+      listeners.handleMouseWheelZoom({ e: evt } as any)
+      expect(editor.transformManager.zoom).not.toHaveBeenCalled()
+      expect(preventDefault).not.toHaveBeenCalled()
+      expect(stopPropagation).not.toHaveBeenCalled()
+    })
+
     it('overlay update refresh при заблокированном состоянии', () => {
       const editor = createEditorStub()
       editor.interactionBlocker.isBlocked = true
@@ -293,14 +293,8 @@ describe('Listeners', () => {
       listeners.destroy()
 
       // canvas .off for main groups
-      const offCalls = (editor.canvas.off as jest.Mock).mock.calls.map(c => c[0])
-      expect(offCalls).toEqual(expect.arrayContaining([
-        'mouse:down', 'mouse:move', 'mouse:up',
-        'mouse:wheel',
-        'selection:created', 'selection:updated',
-        'mouse:dblclick',
-        'object:modified', 'object:rotating', 'object:added', 'object:removed'
-      ]))
+  const offCalls = (editor.canvas.off as jest.Mock).mock.calls.map(c => c[0])
+  expect(offCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
 
       expect(remDoc).toHaveBeenCalled()
       expect(remWin).toHaveBeenCalled()

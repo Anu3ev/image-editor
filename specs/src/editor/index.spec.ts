@@ -1,87 +1,35 @@
 import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../../../src/editor'
+import { basicOptions, createFullOptions, createEditorWithMocks } from '../../test-utils/editor-helpers'
 
 // Мокируем сторонние зависимости редактора (не fabric)
 jest.mock('nanoid')
-jest.mock('../../src/editor/listeners')
-jest.mock('../../src/editor/module-loader')
-jest.mock('../../src/editor/worker-manager')
-jest.mock('../../src/editor/customized-controls')
-jest.mock('../../src/editor/ui/toolbar-manager')
-jest.mock('../../src/editor/history-manager')
-jest.mock('../../src/editor/image-manager')
-jest.mock('../../src/editor/canvas-manager')
-jest.mock('../../src/editor/transform-manager')
-jest.mock('../../src/editor/interaction-blocker')
-jest.mock('../../src/editor/layer-manager')
-jest.mock('../../src/editor/shape-manager')
-jest.mock('../../src/editor/clipboard-manager')
-jest.mock('../../src/editor/object-lock-manager')
-jest.mock('../../src/editor/grouping-manager')
-jest.mock('../../src/editor/selection-manager')
-jest.mock('../../src/editor/deletion-manager')
-jest.mock('../../src/editor/error-manager')
+jest.mock('../../../src/editor/listeners')
+jest.mock('../../../src/editor/module-loader')
+jest.mock('../../../src/editor/worker-manager')
+jest.mock('../../../src/editor/customized-controls')
+jest.mock('../../../src/editor/ui/toolbar-manager')
+jest.mock('../../../src/editor/history-manager')
+jest.mock('../../../src/editor/image-manager')
+jest.mock('../../../src/editor/canvas-manager')
+jest.mock('../../../src/editor/transform-manager')
+jest.mock('../../../src/editor/interaction-blocker')
+jest.mock('../../../src/editor/layer-manager')
+jest.mock('../../../src/editor/shape-manager')
+jest.mock('../../../src/editor/clipboard-manager')
+jest.mock('../../../src/editor/object-lock-manager')
+jest.mock('../../../src/editor/grouping-manager')
+jest.mock('../../../src/editor/selection-manager')
+jest.mock('../../../src/editor/deletion-manager')
+jest.mock('../../../src/editor/error-manager')
 
 describe('ImageEditor', () => {
   // Моки для зависимостей
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
   const mockRect = {}
 
-  // Базовые опции для тестов
-  const basicOptions: Partial<CanvasOptions> = {
-    editorContainerWidth: '800px',
-    editorContainerHeight: '600px',
-    canvasWrapperWidth: '700px',
-    canvasWrapperHeight: '500px',
-    canvasCSSWidth: '700px',
-    canvasCSSHeight: '500px',
-    montageAreaWidth: 400,
-    montageAreaHeight: 300,
-    scaleType: 'contain'
-  }
-
-  // Хелпер для создания полных опций
-  const createFullOptions = (partialOptions: Partial<CanvasOptions> = {}): CanvasOptions => ({
-    ...basicOptions,
-    ...partialOptions
-  } as CanvasOptions)
-
-  // Вспомогательная функция для создания редактора с настроенными моками
-  const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
-    const fullOptions = createFullOptions(options)
-
-    // Создаем редактор без вызова init (перехватываем init в конструкторе)
-    const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockImplementation()
-    const editor = new ImageEditor('test-canvas', fullOptions)
-    initSpy.mockRestore()
-
-    // Настраиваем моки для менеджеров
-    editor.canvasManager = {
-      setEditorContainerWidth: jest.fn(),
-      setEditorContainerHeight: jest.fn(),
-      setCanvasWrapperWidth: jest.fn(),
-      setCanvasWrapperHeight: jest.fn(),
-      setCanvasCSSWidth: jest.fn(),
-      setCanvasCSSHeight: jest.fn(),
-      setDefaultScale: jest.fn()
-    } as any
-
-    editor.imageManager = {
-      importImage: jest.fn().mockResolvedValue(undefined)
-    } as any
-
-    editor.historyManager = {
-      loadStateFromFullState: jest.fn(),
-      saveState: jest.fn()
-    } as any
-
-    // Мокируем приватные методы
-    editor['_createMontageArea'] = jest.fn()
-    editor['_createClippingArea'] = jest.fn()
-
-    return editor
-  }
+  // Базовые опции/хелперы теперь импортируются из test-utils/editor-helpers
 
   beforeEach(() => {
     jest.clearAllMocks()
