@@ -1,5 +1,6 @@
 import Listeners from '../../../src/editor/listeners'
 import { createEditorStub } from '../../test-utils/editor-helpers'
+import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../test-utils/events'
 
 // Shared event lists to avoid duplication in assertions
 const OPTIONAL_CANVAS_EVENTS = [
@@ -114,17 +115,22 @@ describe('Listeners', () => {
         options: { copyObjectsByHotkey: true, selectAllByHotkey: true, deleteObjectsByHotkey: true }
       })
 
-      const preventDefault = jest.fn()
-
-      listeners.handleCopyEvent({ ctrlKey: true, metaKey: false, code: 'KeyC', preventDefault } as any)
+  const preventDefault = jest.fn()
+  const eCopy = keyDown({ ctrlKey: true, metaKey: false, code: 'KeyC' })
+  Object.defineProperty(eCopy, 'preventDefault', { value: preventDefault })
+  listeners.handleCopyEvent(eCopy)
       expect(preventDefault).toHaveBeenCalled()
       expect(editor.clipboardManager.copy).toHaveBeenCalled()
 
-      listeners.handleSelectAllEvent({ ctrlKey: true, metaKey: false, code: 'KeyA', preventDefault } as any)
+  const eSelAll = keyDown({ ctrlKey: true, metaKey: false, code: 'KeyA' })
+  Object.defineProperty(eSelAll, 'preventDefault', { value: preventDefault })
+  listeners.handleSelectAllEvent(eSelAll)
       expect(preventDefault).toHaveBeenCalled()
       expect(editor.selectionManager.selectAll).toHaveBeenCalled()
 
-      listeners.handleDeleteObjectsEvent({ code: 'Delete', preventDefault } as any)
+  const eDelete = keyDown({ code: 'Delete' })
+  Object.defineProperty(eDelete, 'preventDefault', { value: preventDefault })
+  listeners.handleDeleteObjectsEvent(eDelete)
       expect(preventDefault).toHaveBeenCalled()
       expect(editor.deletionManager.deleteSelectedObjects).toHaveBeenCalled()
     })
@@ -132,19 +138,22 @@ describe('Listeners', () => {
     it('undo/redo и сброс флага на keyup', async () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { undoRedoByHotKeys: true } })
-      const preventDefault = jest.fn()
+  const preventDefault = jest.fn()
 
       Object.defineProperty(window.navigator, 'userAgent', { value: 'Windows', configurable: true })
-
-      await listeners.handleUndoRedoEvent({ ctrlKey: true, metaKey: false, code: 'KeyZ', repeat: false, preventDefault } as any)
+  const eUndo = keyDown({ ctrlKey: true, metaKey: false, code: 'KeyZ', repeat: false })
+  Object.defineProperty(eUndo, 'preventDefault', { value: preventDefault })
+  await listeners.handleUndoRedoEvent(eUndo)
       expect(preventDefault).toHaveBeenCalled()
       expect(listeners.isUndoRedoKeyPressed).toBe(true)
       expect(editor.historyManager.undo).toHaveBeenCalled()
 
-      listeners.handleUndoRedoKeyUp({ code: 'KeyZ' } as any)
+  listeners.handleUndoRedoKeyUp(keyUp({ code: 'KeyZ' }))
       expect(listeners.isUndoRedoKeyPressed).toBe(false)
 
-      await listeners.handleUndoRedoEvent({ ctrlKey: true, metaKey: false, code: 'KeyY', repeat: false, preventDefault } as any)
+  const eRedo = keyDown({ ctrlKey: true, metaKey: false, code: 'KeyY', repeat: false })
+  Object.defineProperty(eRedo, 'preventDefault', { value: preventDefault })
+  await listeners.handleUndoRedoEvent(eRedo)
       expect(editor.historyManager.redo).toHaveBeenCalled()
     })
   })
@@ -155,20 +164,22 @@ describe('Listeners', () => {
       const listeners = new Listeners({ editor, options: { canvasDragging: true } })
 
       // keydown Space
-      const preventDefault = jest.fn()
-      listeners.handleSpaceKeyDown({ code: 'Space', preventDefault } as any)
+  const preventDefault = jest.fn()
+  const eSpace = keyDown({ code: 'Space' })
+  Object.defineProperty(eSpace, 'preventDefault', { value: preventDefault })
+  listeners.handleSpaceKeyDown(eSpace)
       expect(preventDefault).toHaveBeenCalled()
       expect(editor.canvas.set).toHaveBeenCalledWith(expect.objectContaining({ selection: false, defaultCursor: 'grab' }))
       expect(editor.canvas.setCursor).toHaveBeenCalledWith('grab')
 
       // start drag
-      const md = new MouseEvent('mousedown', { clientX: 10, clientY: 20 })
-      listeners.handleCanvasDragStart({ e: md } as any)
+  const md = mouse('mousedown', { clientX: 10, clientY: 20 })
+  listeners.handleCanvasDragStart(ptr(md))
       expect((editor.canvas.setCursor as jest.Mock)).toHaveBeenCalledWith('grabbing')
 
       // move drag
-      const mm = new MouseEvent('mousemove', { clientX: 20, clientY: 30 })
-      listeners.handleCanvasDragging({ e: mm } as any)
+  const mm = mouse('mousemove', { clientX: 20, clientY: 30 })
+  listeners.handleCanvasDragging(ptr(mm))
       expect(editor.canvas.requestRenderAll).toHaveBeenCalled()
       expect(editor.canvas.viewportTransform[4]).toBe(10)
       expect(editor.canvas.viewportTransform[5]).toBe(10)
@@ -180,7 +191,7 @@ describe('Listeners', () => {
       expect(editor.canvas.setCursor).toHaveBeenCalledWith('grab')
 
       // keyup Space restores selection and flags
-      listeners.handleSpaceKeyUp({ code: 'Space' } as any)
+  listeners.handleSpaceKeyUp(keyUp({ code: 'Space' }))
       expect(editor.canvas.set).toHaveBeenCalledWith(expect.objectContaining({ selection: true, defaultCursor: 'default' }))
       expect(editor.canvas.setCursor).toHaveBeenCalledWith('default')
       const objs = (editor.canvasManager.getObjects as jest.Mock).mock.results[0].value
@@ -195,8 +206,10 @@ describe('Listeners', () => {
       const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
       const preventDefault = jest.fn()
       const stopPropagation = jest.fn()
-      const evt = { ctrlKey: true, metaKey: false, deltaY: -100, preventDefault, stopPropagation } as any
-      listeners.handleMouseWheelZoom({ e: evt } as any)
+      const evt = wheel({ ctrlKey: true, deltaY: -100 })
+      Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
+      Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
+      listeners.handleMouseWheelZoom(ptr(evt))
       expect(editor.transformManager.zoom).toHaveBeenCalledWith(0.1)
       expect(preventDefault).toHaveBeenCalled()
       expect(stopPropagation).toHaveBeenCalled()
@@ -207,8 +220,10 @@ describe('Listeners', () => {
       const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
       const preventDefault = jest.fn()
       const stopPropagation = jest.fn()
-      const evt = { ctrlKey: false, metaKey: false, deltaY: -100, preventDefault, stopPropagation } as any
-      listeners.handleMouseWheelZoom({ e: evt } as any)
+      const evt = wheel({ ctrlKey: false, deltaY: -100 })
+      Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
+      Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
+      listeners.handleMouseWheelZoom(ptr(evt))
       expect(editor.transformManager.zoom).not.toHaveBeenCalled()
       expect(preventDefault).not.toHaveBeenCalled()
       expect(stopPropagation).not.toHaveBeenCalled()
@@ -229,8 +244,8 @@ describe('Listeners', () => {
       listeners.handleBringToFront({ selected: [{}, {}] as any })
       expect(editor.layerManager.bringToFront).toHaveBeenCalledTimes(2)
 
-      const target = {}
-      listeners.handleResetObjectFit({ target } as any)
+  const target = {}
+  listeners.handleResetObjectFit(fabricPtrWithTarget(target))
       expect(editor.transformManager.resetObject).toHaveBeenCalledWith(target)
     })
 
@@ -253,23 +268,23 @@ describe('Listeners', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { keyboardIgnoreSelectors: ['.ignore-me'] } })
 
-      const input = document.createElement('input')
-      expect(listeners._shouldIgnoreKeyboardEvent({ target: input } as any)).toBe(true)
+  const input = document.createElement('input')
+  expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, input))).toBe(true)
 
-      const div = document.createElement('div')
-      div.contentEditable = 'true'
-      expect(listeners._shouldIgnoreKeyboardEvent({ target: div } as any)).toBe(true)
+  const div = document.createElement('div')
+  div.contentEditable = 'true'
+  expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, div))).toBe(true)
 
-      const wrap = document.createElement('div')
-      wrap.className = 'ignore-me'
-      const child = document.createElement('span')
-      wrap.appendChild(child)
-      expect(listeners._shouldIgnoreKeyboardEvent({ target: child } as any)).toBe(true)
+  const wrap = document.createElement('div')
+  wrap.className = 'ignore-me'
+  const child = document.createElement('span')
+  wrap.appendChild(child)
+  expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, child))).toBe(true)
 
       // invalid selector triggers warning
-      const listeners2 = new Listeners({ editor: createEditorStub(), options: { keyboardIgnoreSelectors: ['::invalid'] } })
-      const span = document.createElement('span')
-      expect(listeners2._shouldIgnoreKeyboardEvent({ target: span } as any)).toBe(false)
+  const listeners2 = new Listeners({ editor: createEditorStub(), options: { keyboardIgnoreSelectors: ['::invalid'] } })
+  const span = document.createElement('span')
+  expect(listeners2._shouldIgnoreKeyboardEvent(keyDown({}, span))).toBe(false)
       expect(listeners2.editor.errorManager.emitWarning).toHaveBeenCalled()
     })
   })
