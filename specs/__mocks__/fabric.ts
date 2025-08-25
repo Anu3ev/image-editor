@@ -27,9 +27,24 @@ export class Rect {
   }
 }
 
+export class ActiveSelection {
+  private objects: any[]
+  constructor(objects: any[], options: any) {
+    this.objects = objects || []
+  }
+
+  getObjects() {
+    return this.objects
+  }
+}
+
+export class FabricObject {
+  constructor(public options: any = {}) {}
+}
+
 export interface CanvasOptions {
   // Keep it open for tests; real types are not required here
   [key: string]: any
 }
 
-export default { Canvas, Pattern, Rect }
+export default { Canvas, Pattern, Rect, ActiveSelection, FabricObject }

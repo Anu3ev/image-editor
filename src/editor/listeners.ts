@@ -457,7 +457,7 @@ class Listeners {
     event.preventDefault()
 
     // Сохраняем текущее выделение
-    const activeObject = canvas.getActiveObject()
+    const activeObject = canvas.getActiveObject() || null
 
     if (activeObject instanceof ActiveSelection) {
       this.savedSelection = activeObject.getObjects().slice()
