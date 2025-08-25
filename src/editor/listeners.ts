@@ -53,6 +53,13 @@ class Listeners {
   isSpacePressed: boolean = false
 
   /**
+   * Сохраненное выделение перед началом режима перетаскивания канваса.
+   * Используется для восстановления выделения после отпускания пробела.
+   * @default []
+   */
+  private savedSelection: FabricObject[] = []
+
+  /**
    * Привязанные обработчики событий.
    * Используются для удаления слушателей при уничтожении экземпляра.
    */
@@ -435,7 +442,7 @@ class Listeners {
 
   /**
    * Обработчик для нажатия пробела.
-   * Отключает выделение объектов и делает курсор "grab" для перетаскивания канваса.
+   * Отключает взаимодействие с объектами и делает курсор "grab" для перетаскивания канваса.
    * @param event — объект события
    * @param event.code — код клавиши
    */
@@ -449,24 +456,40 @@ class Listeners {
     this.isSpacePressed = true
     event.preventDefault()
 
+    // Сохраняем текущее выделение
+    const activeObject = canvas.getActiveObject()
+
+    if (activeObject instanceof ActiveSelection) {
+      this.savedSelection = activeObject.getObjects().slice()
+    } else if (activeObject) {
+      this.savedSelection = [activeObject]
+    }
+
+    // Сбрасываем выделение сразу при нажатии пробела
+    canvas.discardActiveObject()
+
+    // Устанавливаем курсор grab для всего канваса
     canvas.set({
       selection: false,
       defaultCursor: 'grab'
     })
     canvas.setCursor('grab')
 
+    // Отключаем интерактивность объектов
     editor.canvasManager.getObjects().forEach((obj) => {
       obj.set({
         selectable: false,
         evented: false
       })
     })
+
+    canvas.requestRenderAll()
   }
 
   /**
    * Обработчик для отпускания пробела.
    * Завершает перетаскивание канваса, если оно активно.
-   * Включает выделение объектов и возвращает курсор в состояние "default".
+   * Восстанавливает нормальное взаимодействие с объектами.
    * @param event — объект события
    * @param event.code — код клавиши
    */
@@ -474,24 +497,56 @@ class Listeners {
     if (event.code !== 'Space' || this._shouldIgnoreKeyboardEvent(event)) return
 
     this.isSpacePressed = false
+
     // Завершаем перетаскивание при отпускании пробела
     if (this.isDragging) {
       this.handleCanvasDragEnd()
     }
 
+    // Восстанавливаем нормальное поведение канваса
     this.canvas.set({
       defaultCursor: 'default',
       selection: true
     })
-
     this.canvas.setCursor('default')
 
+    // Восстанавливаем интерактивность объектов и их курсоры
     this.editor.canvasManager.getObjects().forEach((obj) => {
       obj.set({
         selectable: true,
         evented: true
       })
     })
+
+    // Восстанавливаем сохраненное выделение
+    this._restoreSelection(this.savedSelection)
+    this.savedSelection = []
+
+    this.canvas.requestRenderAll()
+  }
+
+  /**
+   * Восстанавливает выделение с проверкой корректности объектов
+   * @param selection - объекты для восстановления выделения
+   */
+  private _restoreSelection(selection: FabricObject[]): void {
+    const { canvas, editor } = this
+
+    // Если нет валидных объектов, ничего не восстанавливаем
+    if (selection.length === 0) return
+
+    // Если остался только один объект, выделяем его напрямую
+    if (selection.length === 1) {
+      canvas.setActiveObject(selection[0])
+      return
+    }
+
+    // Фильтруем только те объекты, которые все еще существуют на канвасе
+    const validObjects = selection.filter((obj) => editor.canvasManager.getObjects().includes(obj))
+
+    // Создаем новый ActiveSelection с валидными объектами
+    const newSelection = new ActiveSelection(validObjects, { canvas })
+    canvas.setActiveObject(newSelection)
   }
 
   // --- Обработчики для событий canvas (Fabric) ---
