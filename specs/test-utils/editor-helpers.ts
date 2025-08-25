@@ -38,6 +38,7 @@ export const createCanvasStub = () => {
     requestRenderAll: jest.fn(),
     setViewportTransform: jest.fn(),
     discardActiveObject: jest.fn(),
+    getActiveObject: jest.fn(),
     setActiveObject: jest.fn(),
     viewportTransform: [1, 0, 0, 1, 0, 0] as any,
     __handlers: handlers
