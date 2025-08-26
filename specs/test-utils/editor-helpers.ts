@@ -41,6 +41,26 @@ export const createCanvasStub = () => {
     getActiveObject: jest.fn(),
     setActiveObject: jest.fn(),
     viewportTransform: [1, 0, 0, 1, 0, 0] as any,
+    getWidth: jest.fn().mockReturnValue(800),
+    getHeight: jest.fn().mockReturnValue(600),
+    getZoom: jest.fn().mockReturnValue(1),
+    setDimensions: jest.fn(),
+    fire: jest.fn(),
+    renderAll: jest.fn(),
+    centerObject: jest.fn(),
+    clear: jest.fn(),
+    add: jest.fn(),
+    getObjects: jest.fn().mockReturnValue([]),
+    clipPath: {
+      set: jest.fn()
+    },
+    editorContainer: null as HTMLElement | null,
+    wrapperEl: {
+      parentNode: null as HTMLElement | null,
+      style: {}
+    },
+    lowerCanvasEl: { style: {} },
+    upperCanvasEl: { style: {} },
     __handlers: handlers
   }
   return canvas as any
@@ -54,12 +74,14 @@ export const createEditorStub = () => {
     historyManager: {
       skipHistory: false,
       saveState: jest.fn(),
+      suspendHistory: jest.fn(),
+      resumeHistory: jest.fn(),
       undo: jest.fn().mockResolvedValue(undefined),
       redo: jest.fn().mockResolvedValue(undefined)
     },
     interactionBlocker: {
       isBlocked: false,
-      overlayMask: null as any,
+      overlayMask: { id: 'overlay-mask' } as any,
       refresh: jest.fn()
     },
     canvasManager: {
@@ -71,13 +93,34 @@ export const createEditorStub = () => {
     },
     transformManager: {
       zoom: jest.fn(),
-      resetObject: jest.fn()
+      resetObject: jest.fn(),
+      resetZoom: jest.fn(),
+      resetObjects: jest.fn(),
+      calculateAndApplyDefaultZoom: jest.fn()
     },
     layerManager: { bringToFront: jest.fn() },
     selectionManager: { selectAll: jest.fn() },
     deletionManager: { deleteSelectedObjects: jest.fn() },
     clipboardManager: { copy: jest.fn(), handlePasteEvent: jest.fn() },
-    errorManager: { emitWarning: jest.fn() }
+    errorManager: {
+      emitWarning: jest.fn(),
+      emitError: jest.fn()
+    },
+    montageArea: {
+      width: 400,
+      height: 300,
+      left: 100,
+      top: 50,
+      set: jest.fn(),
+      id: 'montage-area'
+    },
+    options: {
+      editorContainer: null as HTMLElement | null,
+      canvasBackstoreWidth: null,
+      canvasBackstoreHeight: null,
+      montageAreaWidth: 400,
+      montageAreaHeight: 300
+    }
   } as any
 }
 
@@ -115,4 +158,52 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   ;(editor as any)['_createClippingArea'] = jest.fn()
 
   return editor
+}
+
+// Хелпер для создания мокированного DOM контейнера
+export const createMockContainer = (width = 800, height = 600): HTMLElement => {
+  const container = document.createElement('div')
+  Object.defineProperty(container, 'clientWidth', { value: width, writable: true })
+  Object.defineProperty(container, 'clientHeight', { value: height, writable: true })
+  return container
+}
+
+// Хелпер для создания полного набора моков для тестов менеджеров
+export const createManagerTestMocks = (containerWidth = 800, containerHeight = 600) => {
+  const mockContainer = createMockContainer(containerWidth, containerHeight)
+
+  const mockMontageArea = {
+    width: 400,
+    height: 300,
+    left: 100,
+    top: 50,
+    set: jest.fn(),
+    id: 'montage-area'
+  }
+
+  const mockCanvas = {
+    ...createCanvasStub(),
+    editorContainer: mockContainer,
+    wrapperEl: {
+      parentNode: mockContainer,
+      style: {}
+    }
+  }
+
+  const mockEditor = {
+    ...createEditorStub(),
+    canvas: mockCanvas,
+    montageArea: mockMontageArea,
+    options: {
+      ...createEditorStub().options,
+      editorContainer: mockContainer
+    }
+  }
+
+  return {
+    mockContainer,
+    mockMontageArea,
+    mockCanvas,
+    mockEditor
+  }
 }
