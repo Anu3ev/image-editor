@@ -256,9 +256,9 @@ describe('Listeners', () => {
       listeners.handleObjectRotatingHistory()
       listeners.handleObjectAddedHistory()
       listeners.handleObjectRemovedHistory()
-      expect(editor.historyManager.saveState).toHaveBeenCalledTimes(4)
+      expect(editor.historyManager.saveState).toHaveBeenCalledTimes(4);
 
-        ; (editor.historyManager.saveState as jest.Mock).mockClear()
+      (editor.historyManager.saveState as jest.Mock).mockClear()
       editor.historyManager.skipHistory = true
       listeners.handleObjectModifiedHistory()
       expect(editor.historyManager.saveState).not.toHaveBeenCalled()

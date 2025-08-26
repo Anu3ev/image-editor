@@ -26,6 +26,17 @@ export interface ScaleMontageAreaToImageOptions {
   withoutSave?: boolean
 }
 
+// Вспомогательные функции для тестирования
+export const clampValue = (value: number, min: number, max: number): number => Math.max(Math.min(value, max), min)
+
+export const calculateProportionalDimension = (base: number, factor: number): number => base * factor
+
+export const calculateCanvasCenterPoint = (width: number, height: number): Point => new Point(width / 2, height / 2)
+
+export function isImageObject(object: FabricObject | null | undefined): boolean {
+  return object?.type === 'image' || object?.format === 'svg'
+}
+
 export default class CanvasManager {
   /**
    * Инстанс редактора с доступом к canvas
@@ -38,6 +49,14 @@ export default class CanvasManager {
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
+  }
+
+  /**
+   * Возвращает контейнер редактора
+   */
+  public getEditorContainer(): HTMLElement {
+    const { canvas, options: { editorContainer } } = this.editor
+    return (canvas.editorContainer || editorContainer) as HTMLElement
   }
 
   /**
@@ -63,7 +82,7 @@ export default class CanvasManager {
 
     const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
 
-    const adjustedWidth = Math.max(Math.min(Number(width), CANVAS_MAX_WIDTH), CANVAS_MIN_WIDTH)
+    const adjustedWidth = clampValue(Number(width), CANVAS_MIN_WIDTH, CANVAS_MAX_WIDTH)
 
     // Если ширина канваса не задана или равна 'auto', адаптируем канвас к контейнеру
     if (!canvasBackstoreWidth || canvasBackstoreWidth === 'auto' || adaptCanvasToContainer) {
@@ -81,7 +100,7 @@ export default class CanvasManager {
     // Если нужно сохранить пропорции, вычисляем новую высоту
     if (preserveProportional) {
       const factor = adjustedWidth / montageAreaWidth
-      const newHeight = montageAreaHeight * factor
+      const newHeight = calculateProportionalDimension(montageAreaHeight, factor)
       this.setResolutionHeight(newHeight)
 
       return
@@ -129,7 +148,7 @@ export default class CanvasManager {
 
     const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
 
-    const adjustedHeight = Math.max(Math.min(Number(height), CANVAS_MAX_HEIGHT), CANVAS_MIN_HEIGHT)
+    const adjustedHeight = clampValue(Number(height), CANVAS_MIN_HEIGHT, CANVAS_MAX_HEIGHT)
 
     if (!canvasBackstoreHeight || canvasBackstoreHeight === 'auto' || adaptCanvasToContainer) {
       this.adaptCanvasToContainer()
@@ -146,7 +165,7 @@ export default class CanvasManager {
     // Если нужно сохранить пропорции, вычисляем новую ширину
     if (preserveProportional) {
       const factor = adjustedHeight / montageAreaHeight
-      const newWidth = montageAreaWidth * factor
+      const newWidth = calculateProportionalDimension(montageAreaWidth, factor)
 
       this.setResolutionWidth(newWidth)
 
@@ -184,7 +203,7 @@ export default class CanvasManager {
 
     const currentZoom = canvas.getZoom()
 
-    const centerCanvasPoint = new Point(canvasWidth / 2, canvasHeight / 2)
+    const centerCanvasPoint = calculateCanvasCenterPoint(canvasWidth, canvasHeight)
 
     // Устанавливаем origin монтажной области в центр канваса без зума
     montageArea.set({
@@ -244,7 +263,7 @@ export default class CanvasManager {
   public setCanvasBackstoreWidth(width: number): void {
     if (!width || typeof width !== 'number') return
 
-    const adjustedWidth = Math.max(Math.min(width, CANVAS_MAX_WIDTH), CANVAS_MIN_WIDTH)
+    const adjustedWidth = clampValue(width, CANVAS_MIN_WIDTH, CANVAS_MAX_WIDTH)
 
     this.editor.canvas.setDimensions({ width: adjustedWidth }, { backstoreOnly: true })
   }
@@ -256,7 +275,7 @@ export default class CanvasManager {
   public setCanvasBackstoreHeight(height: number): void {
     if (!height || typeof height !== 'number') return
 
-    const adjustedHeight = Math.max(Math.min(height, CANVAS_MAX_HEIGHT), CANVAS_MIN_HEIGHT)
+    const adjustedHeight = clampValue(height, CANVAS_MIN_HEIGHT, CANVAS_MAX_HEIGHT)
 
     this.editor.canvas.setDimensions({ height: adjustedHeight }, { backstoreOnly: true })
   }
@@ -269,15 +288,12 @@ export default class CanvasManager {
   public adaptCanvasToContainer(): void {
     const { canvas } = this.editor
 
-    const container = canvas.editorContainer
+    const container = this.getEditorContainer()
     const cw = container.clientWidth
     const ch = container.clientHeight
 
-    const width = Math.max(Math.min(cw, CANVAS_MAX_WIDTH), CANVAS_MIN_WIDTH)
-    const height = Math.max(Math.min(ch, CANVAS_MAX_HEIGHT), CANVAS_MIN_HEIGHT)
-
-    console.log('adaptCanvasToContainer newWidth', width)
-    console.log('adaptCanvasToContainer newHeight', height)
+    const width = clampValue(cw, CANVAS_MIN_WIDTH, CANVAS_MAX_WIDTH)
+    const height = clampValue(ch, CANVAS_MIN_HEIGHT, CANVAS_MAX_HEIGHT)
 
     canvas.setDimensions({ width, height }, { backstoreOnly: true })
   }
@@ -367,23 +383,23 @@ export default class CanvasManager {
    *
    * @param zoom — текущее значение zoom (например, 1, 1.2, 2 и т.д.)
    */
-  public updateCssDimensionsForZoom(zoom: number): void {
-    const { canvas, montageArea } = this.editor
+  // public updateCssDimensionsForZoom(zoom: number): void {
+  //   const { canvas, montageArea } = this.editor
 
-    const zoomedWidth = montageArea.width * zoom
-    const zoomedHeight = montageArea.height * zoom
-    const scrollContainer = canvas.wrapperEl.parentNode
+  //   const zoomedWidth = montageArea.width * zoom
+  //   const zoomedHeight = montageArea.height * zoom
+  //   const scrollContainer = canvas.wrapperEl.parentNode
 
-    if (!(scrollContainer instanceof HTMLElement)) return
+  //   if (!(scrollContainer instanceof HTMLElement)) return
 
-    const cssWidth = zoomedWidth <= scrollContainer.clientWidth ? '100%' : zoomedWidth
-    const cssHeight = zoomedHeight <= scrollContainer.clientHeight ? '100%' : zoomedHeight
+  //   const cssWidth = zoomedWidth <= scrollContainer.clientWidth ? '100%' : zoomedWidth
+  //   const cssHeight = zoomedHeight <= scrollContainer.clientHeight ? '100%' : zoomedHeight
 
-    canvas.setDimensions(
-      { width: cssWidth, height: cssHeight },
-      { cssOnly: true }
-    )
-  }
+  //   canvas.setDimensions(
+  //     { width: cssWidth, height: cssHeight },
+  //     { cssOnly: true }
+  //   )
+  // }
 
   /**
    * Устанавливаем CSS ширину канваса для отображения
@@ -475,7 +491,7 @@ export default class CanvasManager {
   public setDisplayDimension({ element = 'canvas', dimension, value }: setDisplayDimensionOptions = {}): void {
     if (!value) return
 
-    const { canvas, options: { editorContainer } } = this.editor
+    const { canvas } = this.editor
 
     const canvasElements = []
 
@@ -487,7 +503,7 @@ export default class CanvasManager {
       canvasElements.push(canvas.wrapperEl)
       break
     case 'container':
-      canvasElements.push(editorContainer)
+      canvasElements.push(this.getEditorContainer())
       break
     default:
       canvasElements.push(canvas.lowerCanvasEl, canvas.upperCanvasEl)
@@ -537,9 +553,10 @@ export default class CanvasManager {
 
     const image = object || canvas.getActiveObject()
 
-    if (!image || (image.type !== 'image' && image.format !== 'svg')) return
+    if (!isImageObject(image)) return
 
-    const { width: imageWidth, height: imageHeight } = image
+    // TypeScript теперь знает, что image точно не null/undefined
+    const { width: imageWidth, height: imageHeight } = image!
 
     let newCanvasWidth = Math.min(imageWidth, CANVAS_MAX_WIDTH)
     let newCanvasHeight = Math.min(imageHeight, CANVAS_MAX_HEIGHT)
@@ -567,8 +584,8 @@ export default class CanvasManager {
       transformManager.calculateAndApplyDefaultZoom()
     }
 
-    transformManager.resetObject(image, { withoutSave: true })
-    canvas.centerObject(image)
+    transformManager.resetObject(image!, { withoutSave: true })
+    canvas.centerObject(image!)
     canvas.renderAll()
 
     if (!withoutSave) {
@@ -576,7 +593,7 @@ export default class CanvasManager {
     }
 
     canvas.fire('editor:montage-area-scaled-to-image', {
-      object: image,
+      object: image!,
       width: newCanvasWidth,
       height: newCanvasHeight,
       preserveAspectRatio,
