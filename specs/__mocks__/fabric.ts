@@ -17,6 +17,10 @@ export class Pattern {
   constructor(public options: any) {}
 }
 
+export class Point {
+  constructor(public x: number, public y: number) {}
+}
+
 export class Rect {
   private props: Record<string, any>
   constructor(options: Record<string, any>) {
