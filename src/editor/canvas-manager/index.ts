@@ -33,8 +33,12 @@ export const calculateProportionalDimension = (base: number, factor: number): nu
 
 export const calculateCanvasCenterPoint = (width: number, height: number): Point => new Point(width / 2, height / 2)
 
-export function isImageObject(object: FabricObject | null | undefined): boolean {
-  return object?.type === 'image' || object?.format === 'svg'
+export function isImageObject(
+  object: FabricObject | null | undefined
+): object is FabricObject & { width: number; height: number } {
+  return (object?.type === 'image' || object?.format === 'svg')
+    && typeof object?.width === 'number'
+    && typeof object?.height === 'number'
 }
 
 export default class CanvasManager {
@@ -555,8 +559,7 @@ export default class CanvasManager {
 
     if (!isImageObject(image)) return
 
-    // TypeScript теперь знает, что image точно не null/undefined
-    const { width: imageWidth, height: imageHeight } = image!
+    const { width: imageWidth, height: imageHeight } = image
 
     let newCanvasWidth = Math.min(imageWidth, CANVAS_MAX_WIDTH)
     let newCanvasHeight = Math.min(imageHeight, CANVAS_MAX_HEIGHT)
@@ -584,8 +587,8 @@ export default class CanvasManager {
       transformManager.calculateAndApplyDefaultZoom()
     }
 
-    transformManager.resetObject(image!, { withoutSave: true })
-    canvas.centerObject(image!)
+    transformManager.resetObject(image, { withoutSave: true })
+    canvas.centerObject(image)
     canvas.renderAll()
 
     if (!withoutSave) {
@@ -593,7 +596,7 @@ export default class CanvasManager {
     }
 
     canvas.fire('editor:montage-area-scaled-to-image', {
-      object: image!,
+      object: image,
       width: newCanvasWidth,
       height: newCanvasHeight,
       preserveAspectRatio,

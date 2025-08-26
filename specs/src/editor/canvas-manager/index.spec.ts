@@ -21,11 +21,11 @@ describe('CanvasManager', () => {
   let mockContainer: HTMLElement
 
   beforeEach(() => {
-    const { mockContainer: container, mockMontageArea: montageArea, mockCanvas: canvas, mockEditor: editor } = createManagerTestMocks()
-    mockContainer = container
-    mockMontageArea = montageArea
-    mockCanvas = canvas
-    mockEditor = editor
+    const mocks = createManagerTestMocks()
+    mockContainer = mocks.mockContainer
+    mockMontageArea = mocks.mockMontageArea
+    mockCanvas = mocks.mockCanvas
+    mockEditor = mocks.mockEditor
 
     canvasManager = new CanvasManager({ editor: mockEditor })
   })
