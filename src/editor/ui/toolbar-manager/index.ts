@@ -201,12 +201,6 @@ export default class ToolbarManager {
     }
     this.el.addEventListener('mouseover', this._onBtnOver)
     this.el.addEventListener('mouseout', this._onBtnOut)
-
-    // Предотвращаем drag-and-drop для контейнера тулбара
-    this.el.addEventListener('dragstart', (e) => {
-      e.preventDefault()
-      return false
-    })
   }
 
   /**
@@ -239,7 +233,6 @@ export default class ToolbarManager {
       // Отключаем drag'n'drop для кнопок
       btn.ondragstart = (e) => {
         e.preventDefault()
-        return false
       }
 
       this.el.appendChild(btn)
