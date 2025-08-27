@@ -563,6 +563,7 @@ class Listeners {
     this.lastMouseX = event.clientX
     this.lastMouseY = event.clientY
 
+    this.canvas.set('defaultCursor', 'grabbing')
     this.canvas.setCursor('grabbing')
   }
 
