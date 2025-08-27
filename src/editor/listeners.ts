@@ -276,7 +276,10 @@ class Listeners {
     if (selected.length === 1) return
 
     // Проверяем наличие заблокированных и незаблокированных объектов
-    const { lockedObjects, unlockedObjects } = selected.reduce(
+    const { lockedObjects, unlockedObjects } = selected.reduce<{
+      lockedObjects: FabricObject[];
+      unlockedObjects: FabricObject[]
+    }>(
       (acc, obj) => {
         if (obj.locked) {
           acc.lockedObjects.push(obj)
@@ -286,7 +289,7 @@ class Listeners {
         acc.unlockedObjects.push(obj)
         return acc
       },
-      { lockedObjects: [], unlockedObjects: [] } as { lockedObjects: FabricObject[]; unlockedObjects: FabricObject[] }
+      { lockedObjects: [], unlockedObjects: [] }
     )
 
     // Если нет заблокированных объектов, то ничего не делаем
