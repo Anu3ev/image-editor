@@ -276,8 +276,18 @@ class Listeners {
     if (selected.length === 1) return
 
     // Проверяем наличие заблокированных и незаблокированных объектов
-    const lockedObjects = selected.filter((obj) => obj.locked)
-    const unlockedObjects = selected.filter((obj) => !obj.locked)
+    const { lockedObjects, unlockedObjects } = selected.reduce(
+      (acc, obj) => {
+        if (obj.locked) {
+          acc.lockedObjects.push(obj)
+          return acc
+        }
+
+        acc.unlockedObjects.push(obj)
+        return acc
+      },
+      { lockedObjects: [], unlockedObjects: [] } as { lockedObjects: FabricObject[]; unlockedObjects: FabricObject[] }
+    )
 
     // Если нет заблокированных объектов, то ничего не делаем
     if (lockedObjects.length === 0) return
