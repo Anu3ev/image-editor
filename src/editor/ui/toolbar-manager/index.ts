@@ -231,9 +231,7 @@ export default class ToolbarManager {
       }
 
       // Отключаем drag'n'drop для кнопок
-      btn.ondragstart = (e) => {
-        e.preventDefault()
-      }
+      btn.ondragstart = (e) => e.preventDefault()
 
       this.el.appendChild(btn)
     }
