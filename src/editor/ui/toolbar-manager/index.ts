@@ -201,6 +201,12 @@ export default class ToolbarManager {
     }
     this.el.addEventListener('mouseover', this._onBtnOver)
     this.el.addEventListener('mouseout', this._onBtnOut)
+
+    // Предотвращаем drag-and-drop для контейнера тулбара
+    this.el.addEventListener('dragstart', (e) => {
+      e.preventDefault()
+      return false
+    })
   }
 
   /**
@@ -222,6 +228,20 @@ export default class ToolbarManager {
       Object.assign(btn.style, btnStyle)
 
       btn.onclick = () => handlers[handle]?.(this.editor)
+
+      // Предотвращаем всплытие событий мыши на кнопках тулбара
+      // чтобы избежать конфликта с drag'n'drop объектов на канвасе
+      btn.onmousedown = (e) => {
+        e.stopPropagation()
+        e.preventDefault()
+      }
+
+      // Отключаем drag'n'drop для кнопок
+      btn.ondragstart = (e) => {
+        e.preventDefault()
+        return false
+      }
+
       this.el.appendChild(btn)
     }
   }
