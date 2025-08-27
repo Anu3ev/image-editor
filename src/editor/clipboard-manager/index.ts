@@ -30,7 +30,7 @@ export default class ClipboardManager {
   public async copy(): Promise<void> {
     const { canvas, errorManager } = this.editor
     const activeObject = canvas.getActiveObject()
-    if (!activeObject) return
+    if (!activeObject || activeObject.locked) return
 
     // Сначала клонируем объект для внутреннего буфера
     try {
@@ -63,6 +63,7 @@ export default class ClipboardManager {
     // обычный объект копируем как текст
     if (activeObject.type !== 'image') {
       const text = `application/image-editor:${JSON.stringify(activeObject.toObject(['format']))}`
+
       navigator.clipboard.writeText(text)
         .catch((err) => {
           errorManager.emitWarning({
@@ -108,8 +109,16 @@ export default class ClipboardManager {
    * @param event.clipboardData — данные из буфера обмена
    * @param event.clipboardData.items — элементы буфера обмена
    */
-  public handlePasteEvent({ clipboardData }: ClipboardEvent): void {
+  public async handlePasteEvent({ clipboardData }: ClipboardEvent): Promise<void> {
     if (!clipboardData?.items?.length) return
+
+    // Сначала проверяем наличие текстовых данных с объектами редактора
+    const textData = clipboardData.getData('text/plain')
+    if (textData && textData.startsWith('application/image-editor:')) {
+      // Если в системном буфере есть данные редактора, используем внутренний буфер
+      this.paste()
+      return
+    }
 
     const { imageManager } = this.editor
     const { items } = clipboardData
