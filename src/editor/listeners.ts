@@ -275,30 +275,41 @@ class Listeners {
     //  Если объект один, то просто делаем его активным, не важно залочен он или нет
     if (selected.length === 1) return
 
-    // Если нет залоченных объектов, то ничего не делаем
-    const hasLocked = selected.some((obj) => obj.locked)
-    if (!hasLocked) return
+    // Проверяем наличие заблокированных и незаблокированных объектов
+    const lockedObjects = selected.filter((obj) => obj.locked)
+    const unlockedObjects = selected.filter((obj) => !obj.locked)
 
-    // Получаем только те объекты, которые не залочены
-    const allowed = selected.filter((obj) => !obj.locked)
+    // Если нет заблокированных объектов, то ничего не делаем
+    if (lockedObjects.length === 0) return
 
-    // Если ни одного разрешённого объекта, то снимаем выделение
-    if (allowed.length === 0) {
-      this.canvas.discardActiveObject()
+    // Если есть и заблокированные, и незаблокированные объекты
+    if (unlockedObjects.length > 0) {
+      // Убираем заблокированные объекты из выделения
+      if (unlockedObjects.length === 1) {
+        this.canvas.setActiveObject(unlockedObjects[0])
+      } else {
+        const newSel = new ActiveSelection(unlockedObjects, {
+          canvas: this.canvas
+        })
+        this.canvas.setActiveObject(newSel)
+      }
+      this.canvas.requestRenderAll()
       return
     }
 
-    // Если только один разрешённый объект, то делаем его активным
-    if (allowed.length === 1) {
-      this.canvas.setActiveObject(allowed[0])
-      return
-    }
-
-    // Если несколько разрешённых объектов, то создаём новый ActiveSelection и делаем его активным
-    const newSel = new ActiveSelection(allowed, {
+    // Если все объекты заблокированы, создаем ActiveSelection и блокируем его
+    const activeSelection = new ActiveSelection(selected, {
       canvas: this.canvas
     })
-    this.canvas.setActiveObject(newSel)
+
+    // Блокируем сам ActiveSelection, но не его внутренние объекты
+    this.editor.objectLockManager.lockObject({
+      object: activeSelection,
+      skipInnerObjects: true,
+      withoutSave: true
+    })
+
+    this.canvas.setActiveObject(activeSelection)
     this.canvas.requestRenderAll()
   }
 
