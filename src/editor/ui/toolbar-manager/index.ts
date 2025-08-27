@@ -222,6 +222,17 @@ export default class ToolbarManager {
       Object.assign(btn.style, btnStyle)
 
       btn.onclick = () => handlers[handle]?.(this.editor)
+
+      // Предотвращаем всплытие событий мыши на кнопках тулбара
+      // чтобы избежать конфликта с drag'n'drop объектов на канвасе
+      btn.onmousedown = (e) => {
+        e.stopPropagation()
+        e.preventDefault()
+      }
+
+      // Отключаем drag'n'drop для кнопок
+      btn.ondragstart = (e) => e.preventDefault()
+
       this.el.appendChild(btn)
     }
   }
