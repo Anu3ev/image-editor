@@ -70,12 +70,6 @@ export default class TransformManager {
     // выбираем меньший зум, чтобы монтажная область целиком помещалась
     this.defaultZoom = Math.min(scaleX, scaleY)
 
-    const { defaultZoom, maxZoomFactor, minZoom, maxZoom } = this
-
-    // устанавливаем допустимые пределы зума
-    this.minZoom = Math.min(defaultZoom / maxZoomFactor, minZoom)
-    this.maxZoom = Math.max(defaultZoom * maxZoomFactor, maxZoom)
-
     // применяем дефолтный зум
     this.setZoom()
   }
@@ -106,12 +100,6 @@ export default class TransformManager {
     if (zoom < minZoom) zoom = minZoom
 
     canvas.zoomToPoint(point, zoom)
-
-    console.log({
-      currentZoom,
-      zoom,
-      point
-    })
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
