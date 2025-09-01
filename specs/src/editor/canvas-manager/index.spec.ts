@@ -54,8 +54,10 @@ describe('CanvasManager', () => {
 
     describe('calculateCanvasCenterPoint', () => {
       it('вычисляет центральную точку канваса', () => {
-        const center = calculateCanvasCenterPoint(800, 600)
-        expect(center).toEqual(new Point(400, 300))
+        const testWidth = 800
+        const testHeight = 600
+        const center = calculateCanvasCenterPoint(testWidth, testHeight)
+        expect(center).toEqual(new Point(testWidth / 2, testHeight / 2))
       })
     })
 
@@ -133,8 +135,9 @@ describe('CanvasManager', () => {
 
       canvasManager.setResolutionWidth(800, { preserveProportional: true })
 
-      // Ожидаемая новая высота: (300 / 400) * 800 = 600
-      expect(setResolutionHeightSpy).toHaveBeenCalledWith(600)
+      // Ожидаемая новая высота: (mockMontageArea.height / mockMontageArea.width) * newWidth
+      const expectedHeight = (mockMontageArea.height / mockMontageArea.width) * 800
+      expect(setResolutionHeightSpy).toHaveBeenCalledWith(expectedHeight)
     })
 
     it('не сохраняет состояние при withoutSave: true', () => {
@@ -174,8 +177,9 @@ describe('CanvasManager', () => {
 
       canvasManager.setResolutionHeight(600, { preserveProportional: true })
 
-      // Ожидаемая новая ширина: (400 / 300) * 600 = 800
-      expect(setResolutionWidthSpy).toHaveBeenCalledWith(800)
+      // Ожидаемая новая ширина: (mockMontageArea.width / mockMontageArea.height) * newHeight
+      const expectedWidth = (mockMontageArea.width / mockMontageArea.height) * 600
+      expect(setResolutionWidthSpy).toHaveBeenCalledWith(expectedWidth)
     })
 
     it('ограничивает высоту минимальным значением', () => {
@@ -209,13 +213,19 @@ describe('CanvasManager', () => {
     it('центрирует монтажную область', () => {
       canvasManager.centerMontageArea()
 
+      // Получаем размеры из моков канваса
+      const canvasWidth = mockCanvas.getWidth()  // 800
+      const canvasHeight = mockCanvas.getHeight() // 600
+      const expectedLeft = canvasWidth / 2   // 400
+      const expectedTop = canvasHeight / 2   // 300
+
       expect(mockMontageArea.set).toHaveBeenCalledWith({
-        left: 400, // canvas width / 2
-        top: 300   // canvas height / 2
+        left: expectedLeft,
+        top: expectedTop
       })
       expect(mockCanvas.clipPath.set).toHaveBeenCalledWith({
-        left: 400,
-        top: 300
+        left: expectedLeft,
+        top: expectedTop
       })
       expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
       expect(mockCanvas.renderAll).toHaveBeenCalledTimes(2)
@@ -228,7 +238,8 @@ describe('CanvasManager', () => {
 
       const coords = canvasManager.getObjectDefaultCoords(mockObject as any)
 
-      expect(coords).toEqual({ left: 0, top: 0 }) // (100 - 100*1) / 2 = 0
+      // (100 - 100*1) / 2 = 0
+      expect(coords).toEqual({ left: 0, top: 0 })
     })
 
     it('возвращает координаты активного объекта если объект не передан', () => {
@@ -237,6 +248,7 @@ describe('CanvasManager', () => {
 
       const coords = canvasManager.getObjectDefaultCoords(undefined as any)
 
+      // (200 - 200*1) / 2 = 0
       expect(coords).toEqual({ left: 0, top: 0 })
     })
 
@@ -287,7 +299,7 @@ describe('CanvasManager', () => {
       canvasManager.adaptCanvasToContainer()
 
       expect(mockCanvas.setDimensions).toHaveBeenCalledWith(
-        { width: 800, height: 600 },
+        { width: mockContainer.clientWidth, height: mockContainer.clientHeight },
         { backstoreOnly: true }
       )
     })
@@ -325,14 +337,14 @@ describe('CanvasManager', () => {
 
       canvasManager.scaleMontageAreaToImage({})
 
-      expect(setResolutionWidthSpy).toHaveBeenCalledWith(600, { withoutSave: true })
-      expect(setResolutionHeightSpy).toHaveBeenCalledWith(400, { withoutSave: true })
+      expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockImage.width, { withoutSave: true })
+      expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockImage.height, { withoutSave: true })
       expect(mockEditor.transformManager.resetObject).toHaveBeenCalledWith(mockImage, { withoutSave: true })
       expect(mockCanvas.centerObject).toHaveBeenCalledWith(mockImage)
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:montage-area-scaled-to-image', expect.objectContaining({
         object: mockImage,
-        width: 600,
-        height: 400
+        width: mockImage.width,
+        height: mockImage.height
       }))
     })
 
@@ -347,9 +359,13 @@ describe('CanvasManager', () => {
         preserveAspectRatio: true
       })
 
-      // Ожидаем максимальный множитель: max(800/400, 600/300) = max(2, 2) = 2
-      expect(setResolutionWidthSpy).toHaveBeenCalledWith(800, { withoutSave: true }) // 400 * 2
-      expect(setResolutionHeightSpy).toHaveBeenCalledWith(600, { withoutSave: true }) // 300 * 2
+      // Ожидаем максимальный множитель: max(mockImage.width/mockMontageArea.width, mockImage.height/mockMontageArea.height)
+      const scaleX = mockImage.width / mockMontageArea.width
+      const scaleY = mockImage.height / mockMontageArea.height
+      const maxScale = Math.max(scaleX, scaleY)
+
+      expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockImage.width, { withoutSave: true })
+      expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockImage.height, { withoutSave: true })
     })
   })
 
@@ -374,8 +390,8 @@ describe('CanvasManager', () => {
       canvasManager.setDefaultScale({})
 
       expect(mockEditor.transformManager.resetZoom).toHaveBeenCalled()
-      expect(setResolutionWidthSpy).toHaveBeenCalledWith(400, { withoutSave: true })
-      expect(setResolutionHeightSpy).toHaveBeenCalledWith(300, { withoutSave: true })
+      expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockMontageArea.width, { withoutSave: true })
+      expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockMontageArea.height, { withoutSave: true })
       expect(mockEditor.transformManager.resetObjects).toHaveBeenCalled()
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:default-scale-set')
@@ -555,12 +571,12 @@ describe('CanvasManager', () => {
 
       canvasManager.updateCanvas()
 
-      expect(setResolutionWidthSpy).toHaveBeenCalledWith(400, { adaptCanvasToContainer: true, withoutSave: true })
-      expect(setResolutionHeightSpy).toHaveBeenCalledWith(300, { adaptCanvasToContainer: true, withoutSave: true })
+      expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockMontageArea.width, { adaptCanvasToContainer: true, withoutSave: true })
+      expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockMontageArea.height, { adaptCanvasToContainer: true, withoutSave: true })
       expect(centerMontageAreaSpy).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:canvas-updated', {
-        width: 400,
-        height: 300
+        width: mockMontageArea.width,
+        height: mockMontageArea.height
       })
     })
 
