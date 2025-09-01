@@ -359,11 +359,6 @@ describe('CanvasManager', () => {
         preserveAspectRatio: true
       })
 
-      // Ожидаем максимальный множитель: max(mockImage.width/mockMontageArea.width, mockImage.height/mockMontageArea.height)
-      const scaleX = mockImage.width / mockMontageArea.width
-      const scaleY = mockImage.height / mockMontageArea.height
-      const maxScale = Math.max(scaleX, scaleY)
-
       expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockImage.width, { withoutSave: true })
       expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockImage.height, { withoutSave: true })
     })
