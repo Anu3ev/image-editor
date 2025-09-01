@@ -176,6 +176,7 @@ describe('Listeners', () => {
       const md = mouse('mousedown', { clientX: 10, clientY: 20 })
       listeners.handleCanvasDragStart(ptr(md))
       expect((editor.canvas.setCursor as jest.Mock)).toHaveBeenCalledWith('grabbing')
+      expect(editor.canvas.set).toHaveBeenCalledWith('defaultCursor', 'grabbing')
 
       // move drag
       const mm = mouse('mousemove', { clientX: 20, clientY: 30 })
