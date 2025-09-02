@@ -1,4 +1,4 @@
-import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
+import { Canvas, Pattern } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../../../src/editor'
 import { basicOptions, createFullOptions, createEditorWithMocks } from '../../test-utils/editor-helpers'
@@ -127,7 +127,7 @@ describe('ImageEditor', () => {
       document.body.innerHTML = ''
     })
 
-    it('должен инициализировать компоненты и вызвать приватные методы', async () => {
+    it('должен инициализировать компоненты и вызвать приватные методы', async() => {
       const editor = createEditorWithMocks()
       const spyMontage = jest.spyOn(editor as any, '_createMontageArea')
       const spyClip = jest.spyOn(editor as any, '_createClippingArea')
@@ -138,7 +138,7 @@ describe('ImageEditor', () => {
       expect(spyClip).toHaveBeenCalled()
     })
 
-    it('должен настроить размеры канваса', async () => {
+    it('должен настроить размеры канваса', async() => {
       const editor = createEditorWithMocks()
 
       await editor.init()
@@ -151,7 +151,7 @@ describe('ImageEditor', () => {
       expect(editor.canvasManager.setCanvasCSSHeight).toHaveBeenCalledWith(basicOptions.canvasCSSHeight)
     })
 
-    it('должен импортировать начальное изображение если оно предоставлено', async () => {
+    it('должен импортировать начальное изображение если оно предоставлено', async() => {
       const editor = createEditorWithMocks({
         initialImage: {
           source: 'test-image.jpg',
@@ -169,7 +169,7 @@ describe('ImageEditor', () => {
       })
     })
 
-    it('должен установить масштаб по умолчанию если изображение не предоставлено', async () => {
+    it('должен установить масштаб по умолчанию если изображение не предоставлено', async() => {
       const editor = createEditorWithMocks()
 
       await editor.init()
@@ -177,7 +177,7 @@ describe('ImageEditor', () => {
       expect(editor.canvasManager.setDefaultScale).toHaveBeenCalledWith({ withoutSave: true })
     })
 
-    it('должен загрузить начальное состояние если оно предоставлено', async () => {
+    it('должен загрузить начальное состояние если оно предоставлено', async() => {
       const editor = createEditorWithMocks({
         initialStateJSON: { test: 'state' }
       })
@@ -187,7 +187,7 @@ describe('ImageEditor', () => {
       expect(editor.historyManager.loadStateFromFullState).toHaveBeenCalledWith({ test: 'state' })
     })
 
-    it('должен вызвать колбэк готовности если он предоставлен', async () => {
+    it('должен вызвать колбэк готовности если он предоставлен', async() => {
       const mockCallback = jest.fn()
       const editor = createEditorWithMocks({
         _onReadyCallback: mockCallback
@@ -198,17 +198,17 @@ describe('ImageEditor', () => {
       expect(mockCallback).toHaveBeenCalledWith(editor)
     })
 
-    it('должен испускать событие editor:ready', async () => {
-  const editor = createEditorWithMocks()
-  const fireSpy = jest.spyOn(Canvas.prototype as any, 'fire')
+    it('должен испускать событие editor:ready', async() => {
+      const editor = createEditorWithMocks()
+      const fireSpy = jest.spyOn(Canvas.prototype as any, 'fire')
 
-  await editor.init()
+      await editor.init()
 
-  expect(fireSpy).toHaveBeenCalledWith('editor:ready', editor)
-  fireSpy.mockRestore()
+      expect(fireSpy).toHaveBeenCalledWith('editor:ready', editor)
+      fireSpy.mockRestore()
     })
 
-    it('должен сохранить состояние в историю', async () => {
+    it('должен сохранить состояние в историю', async() => {
       const editor = createEditorWithMocks()
 
       await editor.init()
@@ -254,9 +254,8 @@ describe('ImageEditor', () => {
       const mockAddRectangle = jest.fn().mockReturnValue(mockRect)
       editor.shapeManager = {
         addRectangle: mockAddRectangle
-      } as any
-
-      ;(editor as any)._createMontageArea()
+      } as any;
+      (editor as any)._createMontageArea()
 
       expect(mockAddRectangle).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -282,18 +281,17 @@ describe('ImageEditor', () => {
 
   describe('_createClippingArea (приватный метод)', () => {
     it('создает clipPath через ShapeManager с ожидаемыми параметрами', () => {
-      const editor = new ImageEditor('test-canvas', createFullOptions())
+      const editor = new ImageEditor('test-canvas', createFullOptions());
 
       // Устанавливаем canvas
-      ;(editor as any).canvas = new Canvas('test-canvas', {}) as any
+      (editor as any).canvas = new Canvas('test-canvas', {}) as any
 
       // Мокируем только метод ShapeManager.addRectangle
       const mockAddRectangle = jest.fn().mockReturnValue(mockRect)
       editor.shapeManager = {
         addRectangle: mockAddRectangle
-      } as any
-
-      ;(editor as any)._createClippingArea()
+      } as any;
+      (editor as any)._createClippingArea()
 
       expect(mockAddRectangle).toHaveBeenCalledWith(
         expect.objectContaining({
