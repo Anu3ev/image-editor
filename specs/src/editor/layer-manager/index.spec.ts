@@ -35,7 +35,7 @@ describe('LayerManager', () => {
   })
 
   describe('bringToFront', () => {
-    it('должен поднять одиночный объект на передний план', () => {
+    it('должен поднять активный объект на передний план', () => {
       const mockObject = { id: 'test-object' } as any
       mockCanvas.getActiveObject.mockReturnValue(mockObject)
 
@@ -52,12 +52,16 @@ describe('LayerManager', () => {
       })
     })
 
-    it('должен поднять переданный объект на передний план', () => {
+    it('должен поднять переданный в качестве аргумента объект на передний план', () => {
       const mockObject = { id: 'test-object' } as any
 
       layerManager.bringToFront(mockObject)
 
+      expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.bringObjectToFront).toHaveBeenCalledWith(mockObject)
+      expect(mockCanvas.renderAll).toHaveBeenCalled()
+      expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
+      expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-bring-to-front', {
         object: mockObject,
         withoutSave: undefined
@@ -79,6 +83,10 @@ describe('LayerManager', () => {
 
       layerManager.bringToFront(undefined, { withoutSave: true })
 
+      expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
+      expect(mockCanvas.bringObjectToFront).toHaveBeenCalledWith(mockObject)
+      expect(mockCanvas.renderAll).toHaveBeenCalled()
+      expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-bring-to-front', {
         object: mockObject,
@@ -142,7 +150,7 @@ describe('LayerManager', () => {
       })
     })
 
-    it('не должен делать ничего если нет активного объекта', () => {
+    it('не должен делать ничего если объект не передан и нет активного объекта', () => {
       mockCanvas.getActiveObject.mockReturnValue(null)
 
       layerManager.bringForward()
