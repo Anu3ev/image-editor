@@ -2,7 +2,7 @@
  * Тесты для ErrorManager
  */
 
-import ErrorManager from '../../../src/editor/error-manager'
+import ErrorManager from '../../../../src/editor/error-manager'
 
 // Создаем мок для ImageEditor
 const mockEditor = {
