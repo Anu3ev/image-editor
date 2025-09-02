@@ -31,7 +31,7 @@ export const createCanvasStub = () => {
     }),
     off: jest.fn((evt: string, fn: AnyFn) => {
       if (!handlers[evt]) return
-      handlers[evt] = handlers[evt].filter(h => h !== fn)
+      handlers[evt] = handlers[evt].filter((h) => h !== fn)
     }),
     set: jest.fn(),
     setCursor: jest.fn(),
@@ -151,11 +151,11 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   editor.historyManager = {
     loadStateFromFullState: jest.fn(),
     saveState: jest.fn()
-  } as any
+  } as any;
 
   // Приватные методы, которые вызываются в init
-  ;(editor as any)['_createMontageArea'] = jest.fn()
-  ;(editor as any)['_createClippingArea'] = jest.fn()
+  (editor as any)['_createMontageArea'] = jest.fn();
+  (editor as any)['_createClippingArea'] = jest.fn()
 
   return editor
 }

@@ -11,7 +11,11 @@ export const keyDown = (init?: KeyboardEventInit, target?: EventTarget) => key('
 export const keyUp = (init?: KeyboardEventInit, target?: EventTarget) => key('keyup', init, target)
 
 // Mouse events
-export const mouse = (type: 'mousedown' | 'mousemove' | 'mouseup' | 'dblclick', init?: MouseEventInit, target?: EventTarget): MouseEvent => {
+export const mouse = (
+  type: 'mousedown' | 'mousemove' | 'mouseup' | 'dblclick',
+  init?: MouseEventInit,
+  target?: EventTarget
+): MouseEvent => {
   const e = new MouseEvent(type, init)
   if (target) Object.defineProperty(e, 'target', { value: target })
   return e
