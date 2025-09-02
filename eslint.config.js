@@ -23,7 +23,7 @@ const compat = new FlatCompat({
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   {
-    ignores: ['jest.config.ts', 'vite.config.*.js', 'specs/**/*']
+    ignores: ['jest.config.ts', 'vite.config.*.js']
   },
   ...compat.extends(
     'eslint:recommended',
@@ -375,6 +375,55 @@ export default [
       ...tsPlugin.configs.recommended.rules,
       // пример своего правила
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
+    }
+  },
+  {
+    // Специальная конфигурация для spec/test файлов
+    files: ['**/*.spec.ts', '**/*.test.ts', '**/specs/**/*.ts'],
+
+    languageOptions: {
+      parser: tsParser,
+      parserOptions: {
+        project: './tsconfig.json',
+        tsconfigRootDir: __dirname,
+        ecmaVersion: 2022,
+        sourceType: 'module'
+      },
+      globals: {
+        ...globals.jest
+      }
+    },
+
+    plugins: {
+      '@typescript-eslint': tsPlugin
+    },
+
+    rules: {
+      // Базовые TypeScript правила
+      ...tsPlugin.configs.recommended.rules,
+
+      // Разрешаем any в тестах для моков
+      '@typescript-eslint/no-explicit-any': 'off',
+
+      // Разрешаем доступ к приватным свойствам через bracket notation
+      'dot-notation': 'off',
+
+      // Более мягкие правила для тестов
+      'max-len': ['warn', { code: 140, ignoreComments: true }],
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+
+      // Разрешаем trailing comma в тестах
+      'comma-dangle': ['error', 'never'],
+
+      // Не требуем деструктуризацию в тестах - иногда прямое обращение понятнее
+      'prefer-destructuring': 'off',
+
+      // Разрешаем function expressions в тестах
+      'func-names': 'off',
+
+      // Более гибкие правила для объектов в тестах
+      'object-curly-newline': 'off'
     }
   }
 ]

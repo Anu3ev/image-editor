@@ -97,8 +97,6 @@ describe('CanvasManager', () => {
         expect(result).toBe(mockContainer)
       })
     })
-
-
   })
 
   describe('setResolutionWidth', () => {
@@ -214,10 +212,10 @@ describe('CanvasManager', () => {
       canvasManager.centerMontageArea()
 
       // Получаем размеры из моков канваса
-      const canvasWidth = mockCanvas.getWidth()  // 800
+      const canvasWidth = mockCanvas.getWidth() // 800
       const canvasHeight = mockCanvas.getHeight() // 600
-      const expectedLeft = canvasWidth / 2   // 400
-      const expectedTop = canvasHeight / 2   // 300
+      const expectedLeft = canvasWidth / 2 // 400
+      const expectedTop = canvasHeight / 2 // 300
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({
         left: expectedLeft,
@@ -594,19 +592,19 @@ describe('CanvasManager', () => {
 
       // Симулируем изменение позиции монтажной области после centerMontageArea
       jest.spyOn(canvasManager, 'centerMontageArea').mockImplementation(() => {
-        mockMontageArea.left = 400  // новая позиция
-        mockMontageArea.top = 300   // новая позиция
+        mockMontageArea.left = 400 // новая позиция
+        mockMontageArea.top = 300 // новая позиция
       })
 
       canvasManager.updateCanvas()
 
       // Проверяем, что объект сместился на дельту изменения монтажной области
       const deltaX = 400 - oldLeft // 300
-      const deltaY = 300 - oldTop  // 250
+      const deltaY = 300 - oldTop // 250
 
       expect(userObject.set).toHaveBeenCalledWith({
-        left: userObject.left + deltaX,  // 300 + 300 = 600
-        top: userObject.top + deltaY     // 250 + 250 = 500
+        left: userObject.left + deltaX, // 300 + 300 = 600
+        top: userObject.top + deltaY // 250 + 250 = 500
       })
       expect(userObject.setCoords).toHaveBeenCalled()
     })

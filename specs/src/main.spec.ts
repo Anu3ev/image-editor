@@ -42,7 +42,7 @@ describe('initEditor', () => {
     jest.clearAllMocks()
   })
 
-  test('должен отклонить Promise, если контейнер не найден', async () => {
+  test('должен отклонить Promise, если контейнер не найден', async() => {
     // Мокаем getElementById для возврата null
     const mockGetElementById = document.getElementById as jest.MockedFunction<typeof document.getElementById>
     mockGetElementById.mockReturnValue(null)

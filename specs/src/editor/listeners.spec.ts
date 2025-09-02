@@ -29,8 +29,7 @@ const DISABLED_OPTIONAL_CANVAS_EVENTS = [
   'mouse:wheel', 'mouse:dblclick', 'mouse:down', 'mouse:move', 'mouse:up'
 ]
 
-const getOnEvents = (editor: ReturnType<typeof createEditorStub>) =>
-  (editor.canvas.on as jest.Mock).mock.calls.map(c => c[0])
+const getOnEvents = (editor: ReturnType<typeof createEditorStub>) => (editor.canvas.on as jest.Mock).mock.calls.map((c) => c[0])
 
 describe('Listeners', () => {
   beforeEach(() => {
@@ -76,6 +75,7 @@ describe('Listeners', () => {
     it('всегда подписывается на историю и overlay события', () => {
       const editor = createEditorStub()
       // Без опций — только обязательные подписки
+      // eslint-disable-next-line no-new
       new Listeners({ editor, options: {} })
       const onCalls = getOnEvents(editor)
       expect(onCalls).toEqual(expect.arrayContaining(ALWAYS_REQUIRED_EVENTS))
@@ -135,7 +135,7 @@ describe('Listeners', () => {
       expect(editor.deletionManager.deleteSelectedObjects).toHaveBeenCalled()
     })
 
-    it('undo/redo и сброс флага на keyup', async () => {
+    it('undo/redo и сброс флага на keyup', async() => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { undoRedoByHotKeys: true } })
       const preventDefault = jest.fn()
@@ -309,7 +309,7 @@ describe('Listeners', () => {
       listeners.destroy()
 
       // canvas .off for main groups
-      const offCalls = (editor.canvas.off as jest.Mock).mock.calls.map(c => c[0])
+      const offCalls = (editor.canvas.off as jest.Mock).mock.calls.map((c) => c[0])
       expect(offCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
 
       expect(remDoc).toHaveBeenCalled()

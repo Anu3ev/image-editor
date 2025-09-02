@@ -3,23 +3,16 @@
  */
 
 // Давайте создадим и протестируем простую утилитарную функцию
-const createCanvasId = (containerId: string): string => {
-  return `${containerId}-canvas`
-}
+const createCanvasId = (containerId: string): string => `${containerId}-canvas`
 
-const validateContainerId = (containerId: string): boolean => {
-  return typeof containerId === 'string' && containerId.length > 0
-}
+const validateContainerId = (containerId: string): boolean => typeof containerId === 'string' && containerId.length > 0
 
-const parseImageDimensions = (width?: number, height?: number) => {
-  return {
-    width: width && width > 0 ? width : 800,
-    height: height && height > 0 ? height : 600
-  }
-}
+const parseImageDimensions = (width?: number, height?: number) => ({
+  width: width && width > 0 ? width : 800,
+  height: height && height > 0 ? height : 600
+})
 
 describe('Утилитарные функции редактора', () => {
-
   describe('createCanvasId', () => {
     test('должен создать правильный ID для canvas', () => {
       expect(createCanvasId('my-editor')).toBe('my-editor-canvas')
