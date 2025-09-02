@@ -168,8 +168,73 @@ export const createMockContainer = (width = 800, height = 600): HTMLElement => {
   return container
 }
 
+// Создание canvas мока с реалистичным поведением для тестов слоёв
+export const createLayerAwareCanvasMock = () => {
+  let objects: any[] = []
+
+  const canvas = {
+    ...createCanvasStub(),
+
+    // Реалистичное управление объектами
+    getObjects: jest.fn(() => [...objects]),
+    setObjects: (newObjects: any[]) => {
+      objects = [...newObjects]
+    },
+    add: jest.fn((obj: any) => {
+      objects.push(obj)
+    }),
+    remove: jest.fn((obj: any) => {
+      const index = objects.indexOf(obj)
+      if (index > -1) {
+        objects.splice(index, 1)
+      }
+    }),
+
+    // Реалистичные методы перемещения слоёв
+    bringObjectToFront: jest.fn((obj: any) => {
+      const index = objects.indexOf(obj)
+      if (index > -1) {
+        objects.splice(index, 1)
+        objects.push(obj)
+      }
+    }),
+
+    bringObjectForward: jest.fn((obj: any) => {
+      const index = objects.indexOf(obj)
+      if (index > -1 && index < objects.length - 1) {
+        objects.splice(index, 1)
+        objects.splice(index + 1, 0, obj)
+      }
+    }),
+
+    sendObjectToBack: jest.fn((obj: any) => {
+      const index = objects.indexOf(obj)
+      if (index > -1) {
+        objects.splice(index, 1)
+        objects.unshift(obj)
+      }
+    }),
+
+    sendObjectBackwards: jest.fn((obj: any) => {
+      const index = objects.indexOf(obj)
+      if (index > 0) {
+        objects.splice(index, 1)
+        objects.splice(index - 1, 0, obj)
+      }
+    })
+  }
+
+  return canvas as any
+}
+
+// Хелпер для создания тестовых объектов для layer-тестов
+export const createTestObjects = (ids: number[]) => ids.map((id) => ({ id: `obj${id}` })) as any[]
+
+// Хелпер для получения порядка объектов из canvas
+export const getObjectOrder = (objects: any[]) => objects.map((obj) => parseInt(obj.id.replace('obj', '')))
+
 // Хелпер для создания полного набора моков для тестов менеджеров
-export const createManagerTestMocks = (containerWidth = 800, containerHeight = 600) => {
+export const createManagerTestMocks = (containerWidth = 800, containerHeight = 600, options: { withLayerAwareCanvas?: boolean } = {}) => {
   const mockContainer = createMockContainer(containerWidth, containerHeight)
 
   const mockMontageArea = {
@@ -181,8 +246,13 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     id: 'montage-area'
   }
 
+  // Создаём обычный или layer-aware canvas в зависимости от опций
+  const baseCanvas = options.withLayerAwareCanvas
+    ? createLayerAwareCanvasMock()
+    : createCanvasStub()
+
   const mockCanvas = {
-    ...createCanvasStub(),
+    ...baseCanvas,
     editorContainer: mockContainer,
     wrapperEl: {
       parentNode: mockContainer,
