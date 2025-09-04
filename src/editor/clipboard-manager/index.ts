@@ -48,7 +48,6 @@ export default class ClipboardManager {
       return
     }
 
-    // фикс: сразу пишем в системный буфер, чтобы сохранить контекст жеста
     if (typeof ClipboardItem === 'undefined' || !navigator.clipboard) {
       errorManager.emitWarning({
         origin: 'ClipboardManager',
@@ -94,12 +93,20 @@ export default class ClipboardManager {
 
     navigator.clipboard.write([clipboardItem])
       .catch((err) => {
-        errorManager.emitWarning({
-          origin: 'ClipboardManager',
-          method: 'copy',
-          code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
-          message: `Ошибка записи изображения в буфер обмена: ${err.message}`
-        })
+        // Fallback: копируем изображение как текст
+        const fallbackText = `application/image-editor:${JSON.stringify(activeObject.toObject(['format']))}`
+
+        navigator.clipboard.writeText(fallbackText)
+          .catch((fallbackErr) => {
+            errorManager.emitError({
+              origin: 'ClipboardManager',
+              method: 'copy',
+              code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
+              // eslint-disable-next-line max-len
+              message: `Ошибка записи изображения в буфер обмена: ${err.message}. Fallback также не удался: ${fallbackErr.message}`,
+              data: { originalError: err, fallbackError: fallbackErr }
+            })
+          })
       })
   }
 
@@ -110,7 +117,10 @@ export default class ClipboardManager {
    * @param event.clipboardData.items — элементы буфера обмена
    */
   public async handlePasteEvent({ clipboardData }: ClipboardEvent): Promise<void> {
-    if (!clipboardData?.items?.length) return
+    if (!clipboardData?.items?.length) {
+      this.paste()
+      return
+    }
 
     // Сначала проверяем наличие текстовых данных с объектами редактора
     const textData = clipboardData.getData('text/plain')
@@ -123,12 +133,10 @@ export default class ClipboardManager {
     const { imageManager } = this.editor
     const { items } = clipboardData
     const lastItem = items[items.length - 1]
+    const blob = lastItem.getAsFile()
 
     // Если в буфере обмена есть изображение, то получаем и вставляем его
-    if (lastItem.type !== 'text/html') {
-      const blob = lastItem.getAsFile()
-      if (!blob) return
-
+    if (lastItem.type !== 'text/html' && blob) {
       const reader = new FileReader()
       reader.onload = (f) => {
         if (!f.target) return
