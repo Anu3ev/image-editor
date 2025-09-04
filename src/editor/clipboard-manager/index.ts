@@ -1,5 +1,6 @@
 import { ActiveSelection, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
+import { CLIPBOARD_DATA_PREFIX } from '../constants'
 
 import { ImageEditor } from '../index'
 
@@ -61,7 +62,7 @@ export default class ClipboardManager {
 
     // обычный объект копируем как текст
     if (activeObject.type !== 'image') {
-      const text = `application/image-editor:${JSON.stringify(activeObject.toObject(['format']))}`
+      const text = `${CLIPBOARD_DATA_PREFIX}${JSON.stringify(activeObject.toObject(['format']))}`
 
       navigator.clipboard.writeText(text)
         .catch((err) => {
@@ -94,7 +95,7 @@ export default class ClipboardManager {
     navigator.clipboard.write([clipboardItem])
       .catch((err) => {
         // Fallback: копируем изображение как текст
-        const fallbackText = `application/image-editor:${JSON.stringify(activeObject.toObject(['format']))}`
+        const fallbackText = `${CLIPBOARD_DATA_PREFIX}${JSON.stringify(activeObject.toObject(['format']))}`
 
         navigator.clipboard.writeText(fallbackText)
           .catch((fallbackErr) => {
@@ -124,7 +125,7 @@ export default class ClipboardManager {
 
     // Сначала проверяем наличие текстовых данных с объектами редактора
     const textData = clipboardData.getData('text/plain')
-    if (textData && textData.startsWith('application/image-editor:')) {
+    if (textData && textData.startsWith(CLIPBOARD_DATA_PREFIX)) {
       // Если в системном буфере есть данные редактора, используем внутренний буфер
       this.paste()
       return
