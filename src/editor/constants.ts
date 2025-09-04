@@ -13,3 +13,5 @@ export const CANVAS_MIN_WIDTH = 16
 export const CANVAS_MIN_HEIGHT = 16
 export const CANVAS_MAX_WIDTH = 4096
 export const CANVAS_MAX_HEIGHT = 4096
+
+export const CLIPBOARD_DATA_PREFIX = 'application/image-editor:'
