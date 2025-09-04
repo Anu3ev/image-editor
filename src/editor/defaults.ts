@@ -7,6 +7,7 @@ export const defaults: Partial<CanvasOptions> = {
   preserveObjectStacking: true,
   controlsAboveOverlay: true,
   centeredRotation: true,
+  enableRetinaScaling: false,
 
   /*
    * Кастомные опции

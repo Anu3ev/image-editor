@@ -335,6 +335,9 @@ export default class ImageManager {
       // Создаем клон канваса
       const tmpCanvas = await canvas.clone(['id', 'format', 'locked'])
 
+      // Отключаем retina scaling для консистентного экспорта размеров
+      tmpCanvas.enableRetinaScaling = false
+
       // Задаём белый фон если это JPG
       if (['image/jpg', 'image/jpeg'].includes(adjustedContentType)) {
         tmpCanvas.backgroundColor = '#ffffff'
@@ -590,7 +593,9 @@ export default class ImageManager {
         return data
       }
 
-      const activeObjectCanvas = activeObject.toCanvasElement()
+      const activeObjectCanvas = activeObject.toCanvasElement({
+        enableRetinaScaling: false
+      })
       const activeObjectBlob: Blob = await new Promise((resolve, reject) => {
         activeObjectCanvas.toBlob((blob) => {
           if (blob) {
