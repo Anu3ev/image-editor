@@ -78,7 +78,9 @@ export default class ClipboardManager {
     }
 
     // картинку — преобразуем в Blob синхронно из dataURL и сразу отдаем в ClipboardItem
-    const el = activeObject.toCanvasElement()
+    const el = activeObject.toCanvasElement({
+      enableRetinaScaling: false
+    })
     const dataUrl = el.toDataURL()
     const mime = dataUrl.slice(5).split(';')[0]
     const base64 = dataUrl.split(',')[1]
