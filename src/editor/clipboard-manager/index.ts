@@ -93,7 +93,6 @@ export default class ClipboardManager {
 
     const blob = new Blob([buffer.buffer], { type: mime })
     const clipboardItem = new ClipboardItem({ [mime]: blob })
-    console.log('clipboardItem', clipboardItem)
 
     navigator.clipboard.write([clipboardItem])
       .catch((err) => {
