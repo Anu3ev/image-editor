@@ -109,7 +109,7 @@ export default class ClipboardManager {
 
         navigator.clipboard.writeText(fallbackText)
           .catch((fallbackErr) => {
-            errorManager.emitError({
+            errorManager.emitWarning({
               origin: 'ClipboardManager',
               method: 'copy',
               code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
