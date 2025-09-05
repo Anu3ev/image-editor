@@ -66,6 +66,13 @@ export default class ClipboardManager {
 
       navigator.clipboard.writeText(text)
         .catch((err) => {
+          // В Safari или при отсутствии разрешений - тихо фоллбэчим
+          if (err.name === 'NotAllowedError') {
+            // Не показываем ошибку пользователю, просто логируем
+            console.info('Clipboard access denied, object copied to internal clipboard only')
+            return
+          }
+
           errorManager.emitWarning({
             origin: 'ClipboardManager',
             method: 'copy',
