@@ -93,9 +93,17 @@ export default class ClipboardManager {
 
     const blob = new Blob([buffer.buffer], { type: mime })
     const clipboardItem = new ClipboardItem({ [mime]: blob })
+    console.log('clipboardItem', clipboardItem)
 
     navigator.clipboard.write([clipboardItem])
       .catch((err) => {
+        // В Safari или при отсутствии разрешений - тихо фоллбэчим
+        if (err.name === 'NotAllowedError') {
+          // Не показываем ошибку пользователю, просто логируем
+          console.info('Clipboard access denied, object copied to internal clipboard only')
+          return
+        }
+
         // Fallback: копируем изображение как текст
         const fallbackText = `${CLIPBOARD_DATA_PREFIX}${JSON.stringify(activeObject.toObject(['format']))}`
 
