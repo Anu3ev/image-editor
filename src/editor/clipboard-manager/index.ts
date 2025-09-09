@@ -155,10 +155,17 @@ export default class ClipboardManager {
     // Если в буфере обмена есть изображение, то получаем и вставляем его
     if (lastItem.type !== 'text/html' && blob) {
       const reader = new FileReader()
-      reader.onload = (f) => {
+      reader.onload = async(f) => {
         if (!f.target) return
 
-        this.editor.imageManager.importImage({ source: f.target.result as string })
+        const { image } = await this.editor.imageManager.importImage({
+          source: f.target.result as string,
+          fromClipboard: true
+        }) ?? {}
+
+        if (image) {
+          this.editor.canvas.fire('editor:object-pasted', { object: image })
+        }
       }
 
       reader.readAsDataURL(blob)
@@ -174,7 +181,12 @@ export default class ClipboardManager {
       const img = doc.querySelector('img')
 
       if (img?.src) {
-        imageManager.importImage({ source: img.src })
+        const { image } = await imageManager.importImage({ source: img.src, fromClipboard: true }) ?? {}
+
+        if (image) {
+          this.editor.canvas.fire('editor:object-pasted', { object: image })
+        }
+
         return
       }
     }

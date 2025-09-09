@@ -29,7 +29,8 @@ export type SuccessfulExportResult = {
 export type ImportImageOptions = {
   source: File | string,
   scale?: 'image-contain' | 'image-cover' | 'scale-montage',
-  withoutSave?: boolean
+  withoutSave?: boolean,
+  fromClipboard?: boolean
 }
 
 export type ExportObjectAsImageFileParameters = {
@@ -103,7 +104,8 @@ export default class ImageManager {
     const {
       source,
       scale = `image-${this.options.scaleType}`,
-      withoutSave = false
+      withoutSave = false,
+      fromClipboard = false
     } = options
 
     if (!source) return null
@@ -124,7 +126,7 @@ export default class ImageManager {
         method: 'importImage',
         code: 'INVALID_CONTENT_TYPE',
         message,
-        data: { source, format, contentType, acceptContentTypes, acceptFormats }
+        data: { source, format, contentType, acceptContentTypes, acceptFormats, fromClipboard }
       })
 
       return null
@@ -149,7 +151,7 @@ export default class ImageManager {
           method: 'importImage',
           code: 'INVALID_SOURCE_TYPE',
           message: 'Неверный тип источника изображения. Ожидается URL или объект File.',
-          data: { source, format, contentType, acceptContentTypes, acceptFormats }
+          data: { source, format, contentType, acceptContentTypes, acceptFormats, fromClipboard }
         })
 
         return null
@@ -239,7 +241,8 @@ export default class ImageManager {
         contentType,
         scale,
         withoutSave,
-        source
+        source,
+        fromClipboard
       }
 
       canvas.fire('editor:image-imported', result)
@@ -251,7 +254,7 @@ export default class ImageManager {
         method: 'importImage',
         code: 'IMPORT_FAILED',
         message: `Ошибка импорта изображения: ${(error as Error).message}`,
-        data: { source, format, contentType, scale, withoutSave }
+        data: { source, format, contentType, scale, withoutSave, fromClipboard }
       })
 
       historyManager.resumeHistory()
