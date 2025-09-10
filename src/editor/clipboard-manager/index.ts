@@ -28,16 +28,16 @@ export default class ClipboardManager {
    * Синхронное копирование объекта в системный буфер обмена
    * @fires editor:object-copied
    */
-  public copy(): boolean {
+  public copy(): void {
     const { canvas } = this.editor
     const activeObject = canvas.getActiveObject()
-    if (!activeObject || activeObject.locked) return false
+    if (!activeObject || activeObject.locked) return
 
     // Асинхронно клонируем объект для внутреннего буфера (не блокирует систему)
     this.cloneToInternalClipboard(activeObject)
 
-    // Синхронно пытаемся скопировать в системный буфер обмена (для Safari)
-    return this.copyToSystemClipboard(activeObject)
+    // Копируем объект в системный буфер обмена
+    this.copyToSystemClipboard(activeObject)
   }
 
   /**
@@ -64,7 +64,7 @@ export default class ClipboardManager {
   /**
    * Копирование в системный буфер обмена
    */
-  private copyToSystemClipboard(activeObject: FabricObject): boolean {
+  private async copyToSystemClipboard(activeObject: FabricObject): Promise<boolean> {
     const { errorManager } = this.editor
 
     if (typeof ClipboardItem === 'undefined' || !navigator.clipboard) {
@@ -76,8 +76,6 @@ export default class ClipboardManager {
       })
       return false
     }
-
-    console.log('Copying to system clipboard')
 
     try {
       // Готовим данные для копирования
@@ -106,7 +104,7 @@ export default class ClipboardManager {
   /**
    * Копирование изображения в буфер обмена
    */
-  private copyImageToClipboard(imageObject: FabricObject, fallbackText: string): boolean {
+  private async copyImageToClipboard(imageObject: FabricObject, fallbackText: string): Promise<boolean> {
     try {
       // Создаем canvas элемент синхронно
       const el = imageObject.toCanvasElement({ enableRetinaScaling: false })
@@ -123,11 +121,21 @@ export default class ClipboardManager {
       const blob = new Blob([buffer.buffer], { type: mime })
       const clipboardItem = new ClipboardItem({ [mime]: blob })
 
-      // Синхронный вызов clipboard API
-      navigator.clipboard.write([clipboardItem])
+      await navigator.clipboard.write([clipboardItem])
+      console.info('Image copied to clipboard successfully')
       return true
-    } catch {
-      // Fallback к текстовому копированию
+    } catch (error) {
+      console.warn('Failed to copy image to clipboard:', error)
+
+      this.editor.errorManager.emitWarning({
+        origin: 'ClipboardManager',
+        method: 'copyImageToClipboard',
+        code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
+        message: `Ошибка записи изображения в буфер обмена, выполняется fallback к текстовому копированию: ${error}`,
+        data: error as object
+      })
+
+      // Fallback к текстовому копированию при ошибке
       return this.copyTextToClipboard(fallbackText)
     }
   }
@@ -135,10 +143,12 @@ export default class ClipboardManager {
   /**
    * Копирование текста в буфер обмена
    */
-  private copyTextToClipboard(jsonString: string): boolean {
+  private async copyTextToClipboard(jsonString: string): Promise<boolean> {
     try {
       const text = `${CLIPBOARD_DATA_PREFIX}${jsonString}`
-      navigator.clipboard.writeText(text)
+
+      await navigator.clipboard.writeText(text)
+      console.info('Text copied to clipboard successfully')
       return true
     } catch (error) {
       const { errorManager } = this.editor
