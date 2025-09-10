@@ -34,18 +34,12 @@ export default class TransformManager {
    */
   public defaultZoom: number
 
-  /**
-   * Максимальный коэффициент зума
-   */
-  public maxZoomFactor: number
-
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.options = editor.options
     this.minZoom = this.options.minZoom || MIN_ZOOM
     this.maxZoom = this.options.maxZoom || MAX_ZOOM
     this.defaultZoom = this.options.defaultScale
-    this.maxZoomFactor = this.options.maxZoomFactor
   }
 
   /**

@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import path from 'path'
 import babel from 'vite-plugin-babel'
-import fs from 'fs'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
 /**
@@ -42,9 +41,6 @@ export default defineConfig(({ command }) => {
     return {
       ...baseConfig,
       server: {
-        https: {
-          cert: fs.readFileSync(path.resolve(__dirname, 'certs/_cert.pem'))
-        },
         host: '0.0.0.0', // Разрешаем подключения с любых IP
         port: 5173,
         strictPort: true,
