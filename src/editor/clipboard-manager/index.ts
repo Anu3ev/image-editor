@@ -133,8 +133,6 @@ export default class ClipboardManager {
       console.info('Image copied to clipboard successfully')
       return true
     } catch (error) {
-      console.warn('Failed to copy image to clipboard:', error)
-
       this.editor.errorManager.emitWarning({
         origin: 'ClipboardManager',
         method: '_copyImageToClipboard',
