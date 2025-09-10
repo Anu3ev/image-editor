@@ -73,7 +73,6 @@ export const defaults: Partial<CanvasOptions> = {
   defaultScale: 0.5,
   minZoom: 0.1,
   maxZoom: 2,
-  maxZoomFactor: 2,
   zoomRatio: 0.1,
   overlayMaskColor: 'rgba(136, 136, 136, 0.6)',
 

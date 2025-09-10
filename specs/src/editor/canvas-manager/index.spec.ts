@@ -337,7 +337,7 @@ describe('CanvasManager', () => {
 
       expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockImage.width, { withoutSave: true })
       expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockImage.height, { withoutSave: true })
-      expect(mockEditor.transformManager.resetObject).toHaveBeenCalledWith(mockImage, { withoutSave: true })
+      expect(mockEditor.transformManager.resetObject).toHaveBeenCalledWith({ object: mockImage, withoutSave: true })
       expect(mockCanvas.centerObject).toHaveBeenCalledWith(mockImage)
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:montage-area-scaled-to-image', expect.objectContaining({
         object: mockImage,

@@ -662,7 +662,7 @@ class Listeners {
   handleResetObjectFit(options: TPointerEventInfo<TPointerEvent>): void {
     const target = options?.target
     if (!target) return
-    this.editor.transformManager.resetObject(target)
+    this.editor.transformManager.resetObject({ object: target })
   }
 
   /**

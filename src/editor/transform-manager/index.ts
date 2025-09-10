@@ -8,6 +8,12 @@ import {
   MAX_ZOOM
 } from '../constants'
 
+export type ResetObjectOptions = {
+  object?: FabricObject
+  alwaysFitObject?: boolean
+  withoutSave?: boolean
+}
+
 export default class TransformManager {
   /**
    * Инстанс редактора с доступом к canvas
@@ -34,18 +40,12 @@ export default class TransformManager {
    */
   public defaultZoom: number
 
-  /**
-   * Максимальный коэффициент зума
-   */
-  public maxZoomFactor: number
-
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.options = editor.options
     this.minZoom = this.options.minZoom || MIN_ZOOM
     this.maxZoom = this.options.maxZoom || MAX_ZOOM
     this.defaultZoom = this.options.defaultScale
-    this.maxZoomFactor = this.options.maxZoomFactor
   }
 
   /**
@@ -368,20 +368,20 @@ export default class TransformManager {
    * Установка дефолтного масштаба для всех объектов внутри монтажной области редактора
    */
   public resetObjects(): void {
-    this.editor.canvasManager.getObjects().forEach((obj) => {
-      this.resetObject(obj)
+    this.editor.canvasManager.getObjects().forEach((object) => {
+      this.resetObject({ object })
     })
   }
 
   /**
    * Сброс масштаба объекта до дефолтного
-   * @param object
    * @param options
+   * @param options.object - Объект, который нужно сбросить. Если не передан, то сбрасывается активный объект
    * @param options.withoutSave - Не сохранять состояние
    * @param options.alwaysFitObject - вписывать объект в рабочую область даже если он меньше рабочей области
    * @fires editor:object-reset
    */
-  public resetObject(object:FabricObject, { alwaysFitObject = false, withoutSave = false } = {}): void {
+  public resetObject({ object, alwaysFitObject = false, withoutSave = false }: ResetObjectOptions = {}): void {
     const {
       canvas,
       montageArea,

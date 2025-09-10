@@ -48,6 +48,8 @@ export const createCanvasStub = () => {
     fire: jest.fn(),
     renderAll: jest.fn(),
     centerObject: jest.fn(),
+    zoomToPoint: jest.fn(),
+    getCenterPoint: jest.fn().mockReturnValue({ x: 400, y: 300 }),
     clear: jest.fn(),
     add: jest.fn(),
     getObjects: jest.fn().mockReturnValue([]),
@@ -106,6 +108,9 @@ export const createEditorStub = () => {
       emitWarning: jest.fn(),
       emitError: jest.fn()
     },
+    imageManager: {
+      calculateScaleFactor: jest.fn().mockReturnValue(1)
+    },
     montageArea: {
       width: 400,
       height: 300,
@@ -119,7 +124,11 @@ export const createEditorStub = () => {
       canvasBackstoreWidth: null,
       canvasBackstoreHeight: null,
       montageAreaWidth: 400,
-      montageAreaHeight: 300
+      montageAreaHeight: 300,
+      defaultScale: 0.8,
+      minZoom: 0.1,
+      maxZoom: 2,
+      scaleType: 'contain'
     }
   } as any
 }
@@ -145,12 +154,15 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   } as any
 
   editor.imageManager = {
-    importImage: jest.fn().mockResolvedValue(undefined)
+    importImage: jest.fn().mockResolvedValue(undefined),
+    calculateScaleFactor: jest.fn().mockReturnValue(1)
   } as any
 
   editor.historyManager = {
     loadStateFromFullState: jest.fn(),
-    saveState: jest.fn()
+    saveState: jest.fn(),
+    suspendHistory: jest.fn(),
+    resumeHistory: jest.fn()
   } as any;
 
   // Приватные методы, которые вызываются в init
