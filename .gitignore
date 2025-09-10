@@ -15,6 +15,7 @@ dist
 dist-ssr
 dev-build
 coverage
+certs
 *.local
 
 # Editor directories and files

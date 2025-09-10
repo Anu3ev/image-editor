@@ -25,15 +25,27 @@ export default class ClipboardManager {
   }
 
   /**
-   * Копирование объекта
+   * Синхронное копирование объекта в системный буфер обмена
    * @fires editor:object-copied
    */
-  public async copy(): Promise<void> {
-    const { canvas, errorManager } = this.editor
+  public copy(): boolean {
+    const { canvas } = this.editor
     const activeObject = canvas.getActiveObject()
-    if (!activeObject || activeObject.locked) return
+    if (!activeObject || activeObject.locked) return false
 
-    // Сначала клонируем объект для внутреннего буфера
+    // Асинхронно клонируем объект для внутреннего буфера (не блокирует систему)
+    this.cloneToInternalClipboard(activeObject)
+
+    // Синхронно пытаемся скопировать в системный буфер обмена (для Safari)
+    return this.copyToSystemClipboard(activeObject)
+  }
+
+  /**
+   * Асинхронное клонирование для внутреннего буфера
+   */
+  private async cloneToInternalClipboard(activeObject: FabricObject): Promise<void> {
+    const { canvas, errorManager } = this.editor
+
     try {
       const clonedObject = await activeObject.clone(['format'])
       this.clipboard = clonedObject
@@ -41,90 +53,175 @@ export default class ClipboardManager {
     } catch (error) {
       errorManager.emitError({
         origin: 'ClipboardManager',
-        method: 'copy',
+        method: 'cloneToInternalClipboard',
         code: 'CLONE_FAILED',
-        message: 'Ошибка клонирования объекта',
+        message: 'Ошибка клонирования объекта для внутреннего буфера',
         data: error as object
       })
-      return
     }
+  }
+
+  /**
+   * Копирование в системный буфер обмена
+   */
+  private copyToSystemClipboard(activeObject: FabricObject): boolean {
+    const { errorManager } = this.editor
 
     if (typeof ClipboardItem === 'undefined' || !navigator.clipboard) {
       errorManager.emitWarning({
         origin: 'ClipboardManager',
-        method: 'copy',
+        method: 'copyToSystemClipboard',
         code: 'CLIPBOARD_NOT_SUPPORTED',
-        // eslint-disable-next-line max-len
-        message: 'ClipboardManager. navigator.clipboard не поддерживается в этом браузере или отсутствует соединение по HTTPS-протоколу.'
+        message: 'navigator.clipboard не поддерживается в этом браузере или отсутствует HTTPS-соединение.'
       })
-      return
+      return false
     }
 
-    // обычный объект копируем как текст
-    if (activeObject.type !== 'image') {
-      const text = `${CLIPBOARD_DATA_PREFIX}${JSON.stringify(activeObject.toObject(['format']))}`
+    console.log('Copying to system clipboard')
 
+    try {
+      // Готовим данные для копирования
+      const objectData = activeObject.toObject(['format'])
+      const jsonString = JSON.stringify(objectData)
+
+      // Для изображений пытаемся скопировать как изображение
+      if (activeObject.type === 'image') {
+        return this.copyImageToClipboard(activeObject, jsonString)
+      }
+
+      // Для других объектов копируем как текст
+      return this.copyTextToClipboard(jsonString)
+    } catch (error) {
+      errorManager.emitError({
+        origin: 'ClipboardManager',
+        method: 'copyToSystemClipboard',
+        code: 'COPY_FAILED',
+        message: 'Ошибка копирования объекта',
+        data: error as object
+      })
+      return false
+    }
+  }
+
+  /**
+   * Копирование изображения в буфер обмена
+   */
+  private copyImageToClipboard(imageObject: FabricObject, fallbackText: string): boolean {
+    try {
+      // Создаем canvas элемент синхронно
+      const el = imageObject.toCanvasElement({ enableRetinaScaling: false })
+      const dataUrl = el.toDataURL()
+      const mime = dataUrl.slice(5).split(';')[0]
+      const base64 = dataUrl.split(',')[1]
+      const binary = atob(base64)
+      const buffer = new Uint8Array(binary.length)
+
+      for (let i = 0; i < binary.length; i += 1) {
+        buffer[i] = binary.charCodeAt(i)
+      }
+
+      const blob = new Blob([buffer.buffer], { type: mime })
+      const clipboardItem = new ClipboardItem({ [mime]: blob })
+
+      // Синхронный вызов clipboard API
+      navigator.clipboard.write([clipboardItem])
+      return true
+    } catch {
+      // Fallback к текстовому копированию
+      return this.copyTextToClipboard(fallbackText)
+    }
+  }
+
+  /**
+   * Копирование текста в буфер обмена
+   */
+  private copyTextToClipboard(jsonString: string): boolean {
+    try {
+      const text = `${CLIPBOARD_DATA_PREFIX}${jsonString}`
       navigator.clipboard.writeText(text)
-        .catch((err) => {
-          // В Safari или при отсутствии разрешений - тихо фоллбэчим
-          if (err.name === 'NotAllowedError') {
-            // Не показываем ошибку пользователю, просто логируем
-            console.info('Clipboard access denied, object copied to internal clipboard only')
-            return
-          }
+      return true
+    } catch (error) {
+      const { errorManager } = this.editor
+      errorManager.emitWarning({
+        origin: 'ClipboardManager',
+        method: 'copyTextToClipboard',
+        code: 'CLIPBOARD_WRITE_TEXT_FAILED',
+        message: `Ошибка записи текста в буфер обмена: ${error}`,
+        data: error as object
+      })
+      return false
+    }
+  }
 
-          errorManager.emitWarning({
-            origin: 'ClipboardManager',
-            method: 'copy',
-            code: 'CLIPBOARD_WRITE_TEXT_FAILED',
-            message: `Ошибка записи текстового объекта в буфер обмена: ${err.message}`,
-            data: err
-          })
-        })
+  /**
+   * Добавляет клонированный объект на canvas с учетом типа объекта
+   * @param clonedObject - клонированный объект для добавления
+   */
+  private addClonedObjectToCanvas(clonedObject: FabricObject): void {
+    const { canvas, historyManager } = this.editor
+
+    canvas.discardActiveObject()
+
+    if (clonedObject instanceof ActiveSelection) {
+      historyManager.suspendHistory()
+      clonedObject.canvas = canvas
+      clonedObject.forEachObject((obj) => {
+        canvas.add(obj)
+      })
+
+      canvas.setActiveObject(clonedObject)
+      canvas.requestRenderAll()
+      historyManager.resumeHistory()
+      historyManager.saveState()
       return
     }
 
-    // картинку — преобразуем в Blob синхронно из dataURL и сразу отдаем в ClipboardItem
-    const el = activeObject.toCanvasElement({
-      enableRetinaScaling: false
-    })
-    const dataUrl = el.toDataURL()
-    const mime = dataUrl.slice(5).split(';')[0]
-    const base64 = dataUrl.split(',')[1]
-    const binary = atob(base64)
-    const buffer = new Uint8Array(binary.length)
+    canvas.add(clonedObject)
+    canvas.setActiveObject(clonedObject)
+    canvas.requestRenderAll()
+  }
 
-    for (let i = 0; i < binary.length; i += 1) {
-      buffer[i] = binary.charCodeAt(i)
-    }
+  /**
+   * Создать копию объекта - копирует и сразу вставляет
+   * @param objectToCopy - объект для копирования (если не указан, используется активный объект)
+   * @fires editor:object-copied
+   * @fires editor:object-pasted
+   */
+  public async copyPaste(objectToCopy?: FabricObject): Promise<boolean> {
+    const { canvas } = this.editor
+    const targetObject = objectToCopy || canvas.getActiveObject()
 
-    const blob = new Blob([buffer.buffer], { type: mime })
-    const clipboardItem = new ClipboardItem({ [mime]: blob })
+    if (!targetObject || targetObject.locked) return false
 
-    navigator.clipboard.write([clipboardItem])
-      .catch((err) => {
-        // В Safari или при отсутствии разрешений - тихо фоллбэчим
-        if (err.name === 'NotAllowedError') {
-          // Не показываем ошибку пользователю, просто логируем
-          console.info('Clipboard access denied, object copied to internal clipboard only')
-          return
-        }
+    try {
+      // Используем асинхронное клонирование для корректной работы с SVG и сложными объектами
+      const clonedObject = await targetObject.clone(['format'])
 
-        // Fallback: копируем изображение как текст
-        const fallbackText = `${CLIPBOARD_DATA_PREFIX}${JSON.stringify(activeObject.toObject(['format']))}`
-
-        navigator.clipboard.writeText(fallbackText)
-          .catch((fallbackErr) => {
-            errorManager.emitWarning({
-              origin: 'ClipboardManager',
-              method: 'copy',
-              code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
-              // eslint-disable-next-line max-len
-              message: `Ошибка записи изображения в буфер обмена: ${err.message}. Fallback также не удался: ${fallbackErr.message}`,
-              data: { originalError: err, fallbackError: fallbackErr }
-            })
-          })
+      // Устанавливаем новые координаты и ID
+      clonedObject.set({
+        id: `${clonedObject.type}-${nanoid()}`,
+        left: clonedObject.left + 10,
+        top: clonedObject.top + 10,
+        evented: true
       })
+
+      // Добавляем на canvas
+      this.addClonedObjectToCanvas(clonedObject)
+
+      canvas.fire('editor:object-duplicated', { object: clonedObject })
+
+      return true
+    } catch (error) {
+      const { errorManager } = this.editor
+      errorManager.emitError({
+        origin: 'ClipboardManager',
+        method: 'copyPaste',
+        code: 'COPY_PASTE_FAILED',
+        message: 'Ошибка создания копии объекта',
+        data: error as object
+      })
+      return false
+    }
   }
 
   /**
@@ -195,38 +292,41 @@ export default class ClipboardManager {
   }
 
   /**
-   * Вставка объекта
+   * Вставка объекта из внутреннего буфера
    * @fires editor:object-pasted
    */
-  public async paste(): Promise<void> {
+  public async paste(): Promise<boolean> {
     const { canvas } = this.editor
 
-    if (!this.clipboard) return
+    if (!this.clipboard) return false
 
-    // клонируем объект, чтобы не менять его положение в буфере обмена
-    const clonedObj = await this.clipboard.clone(['format'])
+    try {
+      // Клонируем объект асинхронно (правильно для всех типов объектов)
+      const clonedObj = await this.clipboard.clone(['format'])
 
-    canvas.discardActiveObject()
-    clonedObj.set({
-      id: `${clonedObj.type}-${nanoid()}`,
-      left: clonedObj.left + 10,
-      top: clonedObj.top + 10,
-      evented: true
-    })
-
-    // Если объект activeselection, то перебираем все его объекты и добавляем их в canvas
-    if (clonedObj instanceof ActiveSelection) {
-      clonedObj.canvas = canvas
-      clonedObj.forEachObject((obj) => {
-        canvas.add(obj)
+      canvas.discardActiveObject()
+      clonedObj.set({
+        id: `${clonedObj.type}-${nanoid()}`,
+        left: clonedObj.left + 10,
+        top: clonedObj.top + 10,
+        evented: true
       })
-    } else {
-      canvas.add(clonedObj)
+
+      // Добавляем клонированный объект на canvas
+      this.addClonedObjectToCanvas(clonedObj)
+
+      canvas.fire('editor:object-pasted', { object: clonedObj })
+      return true
+    } catch (error) {
+      const { errorManager } = this.editor
+      errorManager.emitError({
+        origin: 'ClipboardManager',
+        method: 'paste',
+        code: 'PASTE_FAILED',
+        message: 'Ошибка вставки объекта',
+        data: error as object
+      })
+      return false
     }
-
-    canvas.setActiveObject(clonedObj)
-    canvas.requestRenderAll()
-
-    canvas.fire('editor:object-pasted', { object: clonedObj })
   }
 }

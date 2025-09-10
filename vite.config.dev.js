@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import path from 'path'
 import babel from 'vite-plugin-babel'
+import fs from 'fs'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 
 /**
  * Конфигурация для разработки и сборки проекта.
@@ -26,12 +28,37 @@ export default defineConfig(({ command }) => {
             }]
           ]
         }
-      })
+      }),
+
+      basicSsl({
+        name: 'fabric-image-editor',
+        certDir: 'certs',
+      }),
     ]
   }
 
   // Если это dev-сервер (npm run dev)
-  if (command === 'serve') return baseConfig
+  if (command === 'serve') {
+    return {
+      ...baseConfig,
+      server: {
+        https: {
+          cert: fs.readFileSync(path.resolve(__dirname, 'certs/_cert.pem'))
+        },
+        host: '0.0.0.0', // Разрешаем подключения с любых IP
+        port: 5173,
+        strictPort: true,
+        allowedHosts: [
+          'localhost',
+          '127.0.0.1',
+          '0.0.0.0',
+          'www.localhost.com', // Для BrowserStack
+          '.browserstack.com', // Все поддомены BrowserStack
+          '.bs-local.com' // BrowserStack Local
+        ]
+      }
+    }
+  }
 
   // Если это сборка (npm run dev:build)
   return {
