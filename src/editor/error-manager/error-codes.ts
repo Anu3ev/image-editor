@@ -51,7 +51,27 @@ export const errorCodes = {
     /**
      * Ошибка клонирования объекта.
      */
-    CLONE_FAILED: 'CLONE_FAILED'
+    CLONE_FAILED: 'CLONE_FAILED',
+
+    /**
+     * Ошибка копирования объекта.
+     */
+    COPY_FAILED: 'COPY_FAILED',
+
+    /**
+     * Ошибка вставки изображения из буфера обмена.
+     */
+    PASTE_IMAGE_FAILED: 'PASTE_IMAGE_FAILED',
+
+    /**
+     * Ошибка вставки HTML-изображения из буфера обмена.
+     */
+    PASTE_HTML_IMAGE_FAILED: 'PASTE_HTML_IMAGE_FAILED',
+
+    /**
+     * Ошибка вставки объекта из буфера обмена.
+     */
+    PASTE_FAILED: 'PASTE_FAILED'
   },
 
   /**

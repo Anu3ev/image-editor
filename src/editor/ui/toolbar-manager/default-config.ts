@@ -96,14 +96,7 @@ export default {
 
   handlers: {
     copyPaste: async(editor: ImageEditor) => {
-      await editor.clipboardManager.copy()
-      await editor.clipboardManager.paste()
-
-      if (!editor.clipboardManager.clipboard) return
-
-      editor.canvas.fire('editor:object-duplicated', {
-        object: editor.clipboardManager.clipboard
-      })
+      editor.clipboardManager.copyPaste()
     },
 
     delete: (editor: ImageEditor) => {
