@@ -247,7 +247,7 @@ describe('Listeners', () => {
 
       const target = {}
       listeners.handleResetObjectFit(fabricPtrWithTarget(target))
-      expect(editor.transformManager.resetObject).toHaveBeenCalledWith(target)
+      expect(editor.transformManager.resetObject).toHaveBeenCalledWith({ object: target })
     })
 
     it('history save handlers учитывают skipHistory', () => {

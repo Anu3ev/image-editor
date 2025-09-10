@@ -410,7 +410,7 @@ describe('TransformManager', () => {
         set: jest.fn()
       } as any
 
-      transformManager.resetObject(mockObject)
+      transformManager.resetObject({ object: mockObject })
 
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockObject.set).toHaveBeenCalledWith({
@@ -431,7 +431,7 @@ describe('TransformManager', () => {
         set: jest.fn()
       } as any
 
-      transformManager.resetObject(mockObject)
+      transformManager.resetObject({ object: mockObject })
 
       expect(mockObject.set).not.toHaveBeenCalled()
       expect(mockCanvas.renderAll).not.toHaveBeenCalled()
@@ -447,7 +447,7 @@ describe('TransformManager', () => {
       } as any
       mockCanvas.getActiveObject.mockReturnValue(mockObject)
 
-      transformManager.resetObject(mockObject)
+      transformManager.resetObject()
 
       expect(mockObject.set).toHaveBeenCalled()
     })
@@ -463,7 +463,7 @@ describe('TransformManager', () => {
 
       const fitObjectSpy = jest.spyOn(transformManager, 'fitObject').mockImplementation()
 
-      transformManager.resetObject(mockObject, { alwaysFitObject: true })
+      transformManager.resetObject({ object: mockObject, alwaysFitObject: true })
 
       expect(fitObjectSpy).toHaveBeenCalledWith({
         object: mockObject,
@@ -483,8 +483,8 @@ describe('TransformManager', () => {
 
       transformManager.resetObjects()
 
-      expect(resetObjectSpy).toHaveBeenCalledWith(obj1)
-      expect(resetObjectSpy).toHaveBeenCalledWith(obj2)
+      expect(resetObjectSpy).toHaveBeenCalledWith({ object: obj1 })
+      expect(resetObjectSpy).toHaveBeenCalledWith({ object: obj2 })
     })
   })
 })

@@ -587,7 +587,7 @@ export default class CanvasManager {
       transformManager.calculateAndApplyDefaultZoom()
     }
 
-    transformManager.resetObject(image, { withoutSave: true })
+    transformManager.resetObject({ object: image, withoutSave: true })
     canvas.centerObject(image)
     canvas.renderAll()
 
