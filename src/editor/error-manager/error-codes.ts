@@ -51,7 +51,12 @@ export const errorCodes = {
     /**
      * Ошибка клонирования объекта.
      */
-    CLONE_FAILED: 'CLONE_FAILED'
+    CLONE_FAILED: 'CLONE_FAILED',
+
+    /**
+     * Ошибка копирования объекта.
+     */
+    COPY_FAILED: 'COPY_FAILED'
   },
 
   /**

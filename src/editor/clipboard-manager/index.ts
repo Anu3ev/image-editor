@@ -37,7 +37,15 @@ export default class ClipboardManager {
     this._cloneToInternalClipboard(activeObject)
 
     // Копируем объект в системный буфер обмена
-    this._copyToSystemClipboard(activeObject)
+    this._copyToSystemClipboard(activeObject).catch((error) => {
+      this.editor.errorManager.emitWarning({
+        origin: 'ClipboardManager',
+        method: 'copy',
+        code: 'COPY_FAILED',
+        message: 'Ошибка копирования объекта в системный буфер обмена',
+        data: error as object
+      })
+    })
   }
 
   /**
