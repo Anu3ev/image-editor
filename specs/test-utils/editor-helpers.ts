@@ -1,4 +1,4 @@
-import { CanvasOptions } from 'fabric'
+import { CanvasOptions, ActiveSelection } from 'fabric'
 import { ImageEditor } from '../../src/editor'
 
 export type AnyFn = (...args: any[]) => any
@@ -109,7 +109,8 @@ export const createEditorStub = () => {
       emitError: jest.fn()
     },
     imageManager: {
-      calculateScaleFactor: jest.fn().mockReturnValue(1)
+      calculateScaleFactor: jest.fn().mockReturnValue(1),
+      importImage: jest.fn()
     },
     montageArea: {
       width: 400,
@@ -289,3 +290,72 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     mockEditor
   }
 }
+
+// Функции для создания мок-объектов fabric для тестов
+export const createMockFabricObject = (props: any = {}) => {
+  const mockObject = {
+    type: 'object',
+    id: 'mock-object',
+    left: 0,
+    top: 0,
+    locked: false,
+    evented: true,
+    ...props,
+    clone: jest.fn().mockImplementation(async() => {
+      const cloned = { ...mockObject, ...props }
+      // Создаем новый мок для клонированного объекта
+      cloned.set = jest.fn().mockImplementation((newProps) => {
+        Object.assign(cloned, newProps)
+      })
+      cloned.toObject = jest.fn().mockReturnValue({ ...props })
+      cloned.toCanvasElement = jest.fn().mockReturnValue({
+        toDataURL: () => 'data:image/png;base64,mockData'
+      })
+      return cloned
+    }),
+    set: jest.fn().mockImplementation((newProps) => {
+      Object.assign(mockObject, newProps)
+    }),
+    toObject: jest.fn().mockReturnValue(props),
+    toCanvasElement: jest.fn().mockReturnValue({
+      toDataURL: () => 'data:image/png;base64,mockData'
+    })
+  }
+  return mockObject
+}
+
+export const createMockActiveSelection = (objects: any[], props: any = {}) => {
+  const mockSelection = new ActiveSelection(objects, props) as any
+
+  // Добавляем методы моков
+  mockSelection.clone = jest.fn().mockImplementation(async() => {
+    const cloned = new ActiveSelection(objects, props) as any
+    cloned.set = jest.fn().mockImplementation((newProps) => {
+      Object.assign(cloned, newProps)
+    })
+    return cloned
+  })
+
+  mockSelection.set = jest.fn().mockImplementation((newProps) => {
+    Object.assign(mockSelection, newProps)
+  })
+
+  mockSelection.toObject = jest.fn().mockReturnValue(props)
+  mockSelection.toCanvasElement = jest.fn().mockReturnValue({
+    toDataURL: () => 'data:image/png;base64,mockData'
+  })
+
+  mockSelection.forEachObject = jest.fn().mockImplementation((callback) => {
+    objects.forEach(callback)
+  })
+
+  return mockSelection
+}
+
+export const createMockClipboardEvent = (data: any = {}) => ({
+  clipboardData: {
+    items: data.items || [],
+    getData: data.getData || jest.fn().mockReturnValue(''),
+    ...data
+  }
+} as ClipboardEvent)
