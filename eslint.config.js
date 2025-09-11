@@ -423,7 +423,8 @@ export default [
       'func-names': 'off',
 
       // Более гибкие правила для объектов в тестах
-      'object-curly-newline': 'off'
+      'object-curly-newline': 'off',
+      'max-classes-per-file': null
     }
   }
 ]
