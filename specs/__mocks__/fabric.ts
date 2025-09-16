@@ -32,18 +32,56 @@ export class Rect {
 }
 
 export class ActiveSelection {
+  type = 'activeSelection'
+
+  canvas: any = null
+
   private objects: any[]
-  constructor(objects: any[], options: any) {
+
+  constructor(objects: any[], public options: any = {}) {
     this.objects = objects || []
+    Object.assign(this, options)
   }
 
   getObjects() {
     return this.objects
   }
+
+  forEachObject(callback: (obj: any) => void) {
+    this.objects.forEach(callback)
+  }
+
+  set(props: any) {
+    Object.assign(this, props)
+  }
+
+  async clone() {
+    // Глубокое копирование objects и options для избежания shared references
+    const clonedObjects = this.objects.map(obj => ({ ...obj }))
+    const clonedOptions = { ...this.options }
+
+    const cloned = new ActiveSelection(clonedObjects, clonedOptions)
+    cloned.set = jest.fn().mockImplementation((newProps) => {
+      Object.assign(cloned, newProps)
+    })
+    return cloned
+  }
+
+  toObject() {
+    return { ...this.options }
+  }
+
+  toCanvasElement() {
+    return {
+      toDataURL: () => `data:image/png;base64,mockData-${this.type}`
+    }
+  }
 }
 
 export class FabricObject {
-  constructor(public options: any = {}) {}
+  constructor(public options: any = {}) {
+    Object.assign(this, options)
+  }
 }
 
 export interface CanvasOptions {

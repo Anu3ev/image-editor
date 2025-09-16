@@ -1,4 +1,4 @@
-import { CanvasOptions } from 'fabric'
+import { CanvasOptions, ActiveSelection } from 'fabric'
 import { ImageEditor } from '../../src/editor'
 
 export type AnyFn = (...args: any[]) => any
@@ -109,7 +109,8 @@ export const createEditorStub = () => {
       emitError: jest.fn()
     },
     imageManager: {
-      calculateScaleFactor: jest.fn().mockReturnValue(1)
+      calculateScaleFactor: jest.fn().mockReturnValue(1),
+      importImage: jest.fn()
     },
     montageArea: {
       width: 400,
@@ -288,4 +289,166 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     mockCanvas,
     mockEditor
   }
+}
+
+// Функции для создания мок-объектов fabric для тестов
+export const createMockFabricObject = (props: any = {}) => {
+  const mockObject = {
+    type: 'object',
+    id: 'mock-object',
+    left: 0,
+    top: 0,
+    locked: false,
+    evented: true,
+    ...props,
+    clone: jest.fn().mockImplementation(async() => {
+      // Глубокое копирование для избежания shared references
+      const cloned = { ...mockObject, ...JSON.parse(JSON.stringify(props)) }
+      // Создаем новый мок для клонированного объекта
+      cloned.set = jest.fn().mockImplementation((newProps) => {
+        Object.assign(cloned, newProps)
+      })
+      cloned.toObject = jest.fn().mockReturnValue({ ...props })
+      cloned.toCanvasElement = jest.fn().mockReturnValue({
+        toDataURL: () => 'data:image/png;base64,mockData'
+      })
+      return cloned
+    }),
+    set: jest.fn().mockImplementation((newProps) => {
+      Object.assign(mockObject, newProps)
+    }),
+    toObject: jest.fn().mockReturnValue(props),
+    toCanvasElement: jest.fn().mockReturnValue({
+      toDataURL: () => 'data:image/png;base64,mockData'
+    })
+  }
+  return mockObject
+}
+
+export const createMockActiveSelection = (objects: any[], props: any = {}) => {
+  const mockSelection = new ActiveSelection(objects, props) as any
+
+  // Добавляем методы моков
+  mockSelection.clone = jest.fn().mockImplementation(async() => {
+    // Глубокое копирование для избежания shared references
+    const clonedObjects = objects.map(obj => ({ ...obj }))
+    const clonedProps = JSON.parse(JSON.stringify(props))
+    const cloned = new ActiveSelection(clonedObjects, clonedProps) as any
+    cloned.set = jest.fn().mockImplementation((newProps) => {
+      Object.assign(cloned, newProps)
+    })
+    return cloned
+  })
+
+  mockSelection.set = jest.fn().mockImplementation((newProps) => {
+    Object.assign(mockSelection, newProps)
+  })
+
+  mockSelection.toObject = jest.fn().mockReturnValue(props)
+  mockSelection.toCanvasElement = jest.fn().mockReturnValue({
+    toDataURL: () => 'data:image/png;base64,mockData'
+  })
+
+  mockSelection.forEachObject = jest.fn().mockImplementation((callback) => {
+    objects.forEach(callback)
+  })
+
+  return mockSelection
+}
+
+export const createMockClipboardEvent = (data: any = {}) => ({
+  clipboardData: {
+    items: data.items || [],
+    getData: data.getData || jest.fn().mockReturnValue(''),
+    ...data
+  }
+} as ClipboardEvent)
+
+// Хелперы для создания failing моков
+export const createFailingMockObject = (errorMessage = 'Mock clone failed') => {
+  const mockObject = createMockFabricObject({ type: 'rect', id: 'failing-object' })
+  mockObject.clone.mockRejectedValue(new Error(errorMessage))
+  return mockObject
+}
+
+export const createEmptyClipboardEvent = () => ({
+  clipboardData: null
+} as any as ClipboardEvent)
+
+// Глобальные моки браузерных API для тестов буфера обмена
+export const mockNavigatorClipboard = {
+  writeText: jest.fn(),
+  write: jest.fn(),
+  readText: jest.fn()
+}
+
+export const mockClipboardItem = jest.fn().mockImplementation((data) => ({
+  types: Object.keys(data),
+  getType: jest.fn()
+}))
+
+// Мок FileReader для тестов с файлами из буфера обмена
+export class MockFileReader {
+  result: string | null = null
+
+  onload: ((event: any) => void) | null = null
+
+  readAsDataURL(_blob: Blob): void {
+    setTimeout(() => {
+      this.result = 'data:image/png;base64,mockBase64Data'
+      if (this.onload) {
+        this.onload({ target: this })
+      }
+    }, 0)
+  }
+}
+
+// Мок DOMParser для HTML буфера обмена
+export const mockQuerySelector = jest.fn()
+export const mockDOMParser = {
+  parseFromString: jest.fn().mockReturnValue({
+    querySelector: mockQuerySelector
+  })
+}
+
+// Мок atob для декодирования base64
+export const mockAtob = jest.fn().mockImplementation((_base64: string) => 'mock-binary-data')
+
+// Мок Blob для создания файлов
+export const mockBlob = jest.fn().mockImplementation((data, options) => ({
+  type: options?.type || 'application/octet-stream',
+  size: 100
+}))
+
+// Функция для установки всех глобальных моков браузерных API
+export const setupBrowserMocks = () => {
+  Object.defineProperty(global, 'navigator', {
+    value: { clipboard: mockNavigatorClipboard },
+    writable: true
+  })
+
+  Object.defineProperty(global, 'ClipboardItem', {
+    value: mockClipboardItem,
+    writable: true
+  })
+
+  Object.defineProperty(global, 'FileReader', {
+    value: MockFileReader,
+    writable: true
+  })
+
+  Object.defineProperty(global, 'DOMParser', {
+    value: jest.fn().mockImplementation(() => mockDOMParser),
+    writable: true
+  })
+
+  Object.defineProperty(global, 'atob', {
+    value: mockAtob,
+    writable: true
+  })
+
+  Object.defineProperty(global, 'Blob', {
+    value: mockBlob,
+    writable: true
+  })
 }
