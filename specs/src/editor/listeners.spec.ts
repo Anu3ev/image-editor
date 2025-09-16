@@ -269,24 +269,41 @@ describe('Listeners', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { keyboardIgnoreSelectors: ['.ignore-me'] } })
 
+      // Тест для input - должен работать через event.target
       const input = document.createElement('input')
       expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, input))).toBe(true)
 
+      // Тест для contenteditable - должен работать через event.target
       const div = document.createElement('div')
       div.contentEditable = 'true'
       expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, div))).toBe(true)
 
+      // Селекторы теперь работают через Selection API - создаём выделение текста
       const wrap = document.createElement('div')
       wrap.className = 'ignore-me'
+      wrap.innerHTML = 'Test text content'
       const child = document.createElement('span')
+      child.innerHTML = 'Child text'
       wrap.appendChild(child)
-      expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, child))).toBe(true)
+      document.body.appendChild(wrap)
 
-      // invalid selector triggers warning
-      const listeners2 = new Listeners({ editor: createEditorStub(), options: { keyboardIgnoreSelectors: ['::invalid'] } })
+      // Имитируем выделение текста в элементе
+      const range = document.createRange()
+      range.selectNodeContents(child)
+      const selection = window.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+
+      expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, wrap))).toBe(true)
+
+      // Очищаем выделение и DOM
+      selection?.removeAllRanges()
+      document.body.removeChild(wrap)
+
+      // Тест без выделенного текста - селекторы не должны срабатывать
+      const listeners2 = new Listeners({ editor: createEditorStub(), options: { keyboardIgnoreSelectors: ['.ignore-me'] } })
       const span = document.createElement('span')
       expect(listeners2._shouldIgnoreKeyboardEvent(keyDown({}, span))).toBe(false)
-      expect(listeners2.editor.errorManager.emitWarning).toHaveBeenCalled()
     })
   })
 

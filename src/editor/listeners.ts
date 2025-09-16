@@ -393,6 +393,8 @@ class Listeners {
    * @param event — объект события
    */
   handlePasteEvent(event: ClipboardEvent): void {
+    if (this._shouldIgnoreKeyboardEvent(event)) return
+
     this.editor.clipboardManager.handlePasteEvent(event)
   }
 
@@ -671,42 +673,58 @@ class Listeners {
    * @param event - Событие клавиатуры
    * @returns true если событие должно быть проигнорировано
    */
-  _shouldIgnoreKeyboardEvent(event: KeyboardEvent): boolean {
-    const target = event.target as HTMLElement
-    if (!target) return false
+  _shouldIgnoreKeyboardEvent(event: KeyboardEvent | ClipboardEvent): boolean {
+    // Используем document.activeElement как основной способ определения текущего элемента
+    // так как event.target может указывать на корневой элемент диалога
+    const activeElement = document.activeElement as HTMLElement
+    const eventTarget = event.target as HTMLElement
 
-    // Проверяем базовые элементы ввода
+    // Проверяем базовые элементы ввода для обоих элементов
     const inputTypes = ['input', 'textarea', 'select']
-    const tagName = target.tagName.toLowerCase()
 
-    if (inputTypes.includes(tagName)) return true
+    // Проверяем eventTarget
+    if (eventTarget) {
+      const eventTagName = eventTarget.tagName.toLowerCase()
+      if (inputTypes.includes(eventTagName)) return true
+      if (eventTarget.contentEditable === 'true') return true
+    }
 
-    // Проверяем contenteditable элементы
-    if (target.contentEditable === 'true') return true
+    // Проверяем activeElement если он отличается от eventTarget
+    if (activeElement && activeElement !== eventTarget) {
+      const activeTagName = activeElement.tagName.toLowerCase()
+      if (inputTypes.includes(activeTagName)) return true
+      if (activeElement.contentEditable === 'true') return true
+    }
 
-    const { keyboardIgnoreSelectors } = this.options
+    // Проверяем выделение текста - если есть выделенный текст, проверяем его контекст
+    const selection = window.getSelection()
 
-    // Проверяем кастомные селекторы из опций
-    if (keyboardIgnoreSelectors?.length) {
-      for (const selector of keyboardIgnoreSelectors) {
-        try {
-          // Проверяем, соответствует ли сам элемент селектору
-          if (target.matches && target.matches(selector)) {
-            return true
+    if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      const commonAncestor = range.commonAncestorContainer
+
+      // Получаем элемент-контейнер выделенного текста
+      let selectionContainer: Node | null = commonAncestor
+      if (selectionContainer.nodeType === Node.TEXT_NODE) {
+        selectionContainer = selectionContainer.parentElement
+      }
+
+      // Проверяем, находится ли выделенный текст в игнорируемых селекторах
+      const { keyboardIgnoreSelectors } = this.options
+      if (keyboardIgnoreSelectors?.length && selectionContainer) {
+        for (const selector of keyboardIgnoreSelectors) {
+          try {
+            const element = selectionContainer as HTMLElement
+            if (element.matches && element.matches(selector)) {
+              return true
+            }
+
+            if (element.closest && element.closest(selector)) {
+              return true
+            }
+          } catch (error) {
+            console.warn(`Error checking selection container with selector "${selector}":`, error)
           }
-
-          // Проверяем, находится ли элемент внутри элемента с данным селектором
-          if (target.closest && target.closest(selector)) {
-            return true
-          }
-        } catch (error) {
-          this.editor.errorManager.emitWarning({
-            origin: 'Listeners',
-            method: '_shouldIgnoreKeyboardEvent',
-            code: 'INVALID_SELECTOR',
-            message: `Invalid keyboard ignore selector: "${selector}". Error: ${(error as Error).message}`,
-            data: (error as Error)
-          })
         }
       }
     }
