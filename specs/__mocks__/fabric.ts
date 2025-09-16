@@ -56,7 +56,11 @@ export class ActiveSelection {
   }
 
   async clone() {
-    const cloned = new ActiveSelection(this.objects, this.options)
+    // Глубокое копирование objects и options для избежания shared references
+    const clonedObjects = this.objects.map(obj => ({ ...obj }))
+    const clonedOptions = { ...this.options }
+
+    const cloned = new ActiveSelection(clonedObjects, clonedOptions)
     cloned.set = jest.fn().mockImplementation((newProps) => {
       Object.assign(cloned, newProps)
     })

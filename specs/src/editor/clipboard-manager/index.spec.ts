@@ -2,54 +2,11 @@ import {
   createManagerTestMocks,
   createMockFabricObject,
   createMockActiveSelection,
-  createMockClipboardEvent
+  createMockClipboardEvent,
+  setupBrowserMocks,
+  mockQuerySelector
 } from '../../../test-utils/editor-helpers'
 import ClipboardManager from '../../../../src/editor/clipboard-manager'
-
-// Мокаем глобальные API браузера
-const mockNavigatorClipboard = {
-  writeText: jest.fn(),
-  write: jest.fn(),
-  readText: jest.fn()
-}
-
-const mockClipboardItem = jest.fn().mockImplementation((data) => ({
-  types: Object.keys(data),
-  getType: jest.fn()
-}))
-
-// Мокаем FileReader
-class MockFileReader {
-  result: string | null = null
-
-  onload: ((event: any) => void) | null = null
-
-  readAsDataURL(_blob: Blob): void {
-    setTimeout(() => {
-      this.result = 'data:image/png;base64,mockBase64Data'
-      if (this.onload) {
-        this.onload({ target: this })
-      }
-    }, 0)
-  }
-}
-
-// Мокаем DOMParser и querySelector
-const mockQuerySelector = jest.fn()
-const mockDOMParser = {
-  parseFromString: jest.fn().mockReturnValue({
-    querySelector: mockQuerySelector
-  })
-}
-
-// Мокаем atob
-const mockAtob = jest.fn().mockImplementation((_base64: string) => 'mock-binary-data')
-
-// Мокаем Blob
-const mockBlob = jest.fn().mockImplementation((data, options) => ({
-  type: options?.type || 'application/octet-stream',
-  size: 100
-}))
 
 describe('ClipboardManager', () => {
   let mockEditor: any
@@ -57,36 +14,8 @@ describe('ClipboardManager', () => {
   let mockCanvas: any
 
   beforeEach(() => {
-    // Устанавливаем глобальные моки
-    Object.defineProperty(global, 'navigator', {
-      value: { clipboard: mockNavigatorClipboard },
-      writable: true
-    })
-
-    Object.defineProperty(global, 'ClipboardItem', {
-      value: mockClipboardItem,
-      writable: true
-    })
-
-    Object.defineProperty(global, 'FileReader', {
-      value: MockFileReader,
-      writable: true
-    })
-
-    Object.defineProperty(global, 'DOMParser', {
-      value: jest.fn().mockImplementation(() => mockDOMParser),
-      writable: true
-    })
-
-    Object.defineProperty(global, 'atob', {
-      value: mockAtob,
-      writable: true
-    })
-
-    Object.defineProperty(global, 'Blob', {
-      value: mockBlob,
-      writable: true
-    })
+    // Устанавливаем глобальные моки браузерных API
+    setupBrowserMocks()
 
     const mocks = createManagerTestMocks()
     mockEditor = mocks.mockEditor
