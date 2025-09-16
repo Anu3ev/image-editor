@@ -3,6 +3,8 @@ import {
   createMockFabricObject,
   createMockActiveSelection,
   createMockClipboardEvent,
+  createFailingMockObject,
+  createEmptyClipboardEvent,
   setupBrowserMocks,
   mockQuerySelector
 } from '../../../test-utils/editor-helpers'
@@ -10,6 +12,7 @@ import ClipboardManager from '../../../../src/editor/clipboard-manager'
 
 describe('ClipboardManager', () => {
   const ASYNC_DELAY = 10
+  const OBJECT_OFFSET = 10
   let mockEditor: any
   let clipboardManager: ClipboardManager
   let mockCanvas: any
@@ -73,11 +76,14 @@ describe('ClipboardManager', () => {
 
   describe('copyPaste', () => {
     it('должен создать копию обычного объекта', async() => {
+      const left = 100
+      const top = 50
+
       const mockObject = createMockFabricObject({
         type: 'rect',
         id: 'original-rect',
-        left: 100,
-        top: 50
+        left,
+        top
       })
       mockCanvas.getActiveObject.mockReturnValue(mockObject)
 
@@ -88,18 +94,22 @@ describe('ClipboardManager', () => {
       expect(mockCanvas.setActiveObject).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
         object: expect.objectContaining({
-          left: 110, // +10 смещение
-          top: 60 // +10 смещение
+          left: left + OBJECT_OFFSET,
+          top: top + OBJECT_OFFSET
         })
       })
     })
 
     it('должен создать копию SVG объекта', async() => {
+      const left = 50
+      const top = 25
+
       const mockSvgObject = createMockFabricObject({
-        type: 'path',
+        type: 'group',
+        format: 'svg',
         id: 'original-svg',
-        left: 50,
-        top: 25
+        left,
+        top
       })
       mockCanvas.getActiveObject.mockReturnValue(mockSvgObject)
 
@@ -109,8 +119,8 @@ describe('ClipboardManager', () => {
       expect(mockCanvas.add).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
         object: expect.objectContaining({
-          left: 60,
-          top: 35
+          left: left + OBJECT_OFFSET,
+          top: top + OBJECT_OFFSET
         })
       })
     })
@@ -134,7 +144,7 @@ describe('ClipboardManager', () => {
 
     it('должен создать копию группы объектов содержащих SVG', async() => {
       const mockObjects = [
-        createMockFabricObject({ type: 'path', id: 'svg-1' }),
+        createMockFabricObject({ type: 'group', format: 'svg', id: 'svg-1' }),
         createMockFabricObject({ type: 'rect', id: 'rect-1' })
       ]
       const mockGroup = createMockActiveSelection(mockObjects, { left: 150, top: 75 })
@@ -161,11 +171,14 @@ describe('ClipboardManager', () => {
 
   describe('paste', () => {
     it('должен вставить обычный объект из внутреннего буфера', async() => {
+      const left = 50
+      const top = 25
+
       const mockClipboardObject = createMockFabricObject({
         type: 'rect',
         id: 'clipboard-rect',
-        left: 50,
-        top: 25
+        left,
+        top
       })
       clipboardManager.clipboard = mockClipboardObject
 
@@ -177,18 +190,22 @@ describe('ClipboardManager', () => {
       expect(mockCanvas.setActiveObject).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
         object: expect.objectContaining({
-          left: 60,
-          top: 35
+          left: left + OBJECT_OFFSET,
+          top: top + OBJECT_OFFSET
         })
       })
     })
 
     it('должен вставить SVG объект из внутреннего буфера', async() => {
+      const left = 100
+      const top = 200
+
       const mockSvgObject = createMockFabricObject({
-        type: 'path',
+        type: 'group',
+        format: 'svg',
         id: 'clipboard-svg',
-        left: 100,
-        top: 200
+        left,
+        top
       })
       clipboardManager.clipboard = mockSvgObject
 
@@ -198,8 +215,8 @@ describe('ClipboardManager', () => {
       expect(mockCanvas.add).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
         object: expect.objectContaining({
-          left: 110,
-          top: 210
+          left: left + OBJECT_OFFSET,
+          top: top + OBJECT_OFFSET
         })
       })
     })
@@ -226,7 +243,7 @@ describe('ClipboardManager', () => {
 
     it('должен вставить группу объектов содержащих SVG из внутреннего буфера', async() => {
       const mockObjects = [
-        createMockFabricObject({ type: 'path', id: 'group-svg' }),
+        createMockFabricObject({ type: 'group', format: 'svg', id: 'group-svg' }),
         createMockFabricObject({ type: 'rect', id: 'group-rect' })
       ]
       const mockGroup = createMockActiveSelection(mockObjects, { left: 200, top: 150 })
@@ -417,6 +434,136 @@ describe('ClipboardManager', () => {
 
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
         object: expect.any(Object)
+      })
+    })
+
+    it('должен использовать внутренний буфер когда clipboardData пустой', async() => {
+      const mockObject = createMockFabricObject({ type: 'rect' })
+      clipboardManager.clipboard = mockObject
+
+      const emptyEvent = createEmptyClipboardEvent()
+      await clipboardManager.handlePasteEvent(emptyEvent)
+
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        object: expect.any(Object)
+      })
+    })
+
+    it('должен делать fallback к paste() когда HTML не содержит изображений', async() => {
+      const mockObject = createMockFabricObject({ type: 'rect' })
+      clipboardManager.clipboard = mockObject
+
+      const clipboardEvent = createMockClipboardEvent({
+        items: [{ type: 'text/html', getAsFile: () => null }],
+        getData: jest.fn().mockImplementation((type) => {
+          if (type === 'text/html') return '<p>Some text without images</p>'
+          return ''
+        })
+      })
+
+      mockQuerySelector.mockReturnValue(null) // Нет img элементов
+
+      await clipboardManager.handlePasteEvent(clipboardEvent)
+
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        object: expect.any(Object)
+      })
+    })
+  })
+
+  // Тесты обработки ошибок
+  describe('error handling', () => {
+    it('должен обработать ошибку клонирования при копировании', async() => {
+      const failingObject = createFailingMockObject('Clone error in copy')
+      mockCanvas.getActiveObject.mockReturnValue(failingObject)
+
+      clipboardManager.copy()
+      await new Promise(process.nextTick)
+
+      expect(clipboardManager.clipboard).toBeNull()
+      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
+        origin: 'ClipboardManager',
+        method: '_cloneToInternalClipboard',
+        code: 'CLONE_FAILED',
+        message: 'Ошибка клонирования объекта для внутреннего буфера',
+        data: expect.any(Error)
+      })
+    })
+
+    it('должен обработать ошибку клонирования при вставке', async() => {
+      const failingObject = createFailingMockObject('Clone error in paste')
+      clipboardManager.clipboard = failingObject
+
+      const result = await clipboardManager.paste()
+
+      expect(result).toBe(false)
+      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
+        origin: 'ClipboardManager',
+        method: 'paste',
+        code: 'PASTE_FAILED',
+        message: 'Ошибка вставки объекта',
+        data: expect.any(Error)
+      })
+    })
+
+    it('должен обработать ошибку клонирования в copyPaste', async() => {
+      const failingObject = createFailingMockObject('Clone error in copyPaste')
+      mockCanvas.getActiveObject.mockReturnValue(failingObject)
+
+      const result = await clipboardManager.copyPaste()
+
+      expect(result).toBe(false)
+      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
+        origin: 'ClipboardManager',
+        method: 'copyPaste',
+        code: 'COPY_PASTE_FAILED',
+        message: 'Ошибка создания копии объекта',
+        data: expect.any(Error)
+      })
+    })
+
+    it('должен обработать ошибку импорта изображения', async() => {
+      mockEditor.imageManager.importImage.mockRejectedValue(new Error('Import failed'))
+
+      const clipboardEvent = createMockClipboardEvent({
+        items: [{ type: 'image/png', getAsFile: () => new Blob() }]
+      })
+
+      await clipboardManager.handlePasteEvent(clipboardEvent)
+      await new Promise((resolve) => setTimeout(resolve, ASYNC_DELAY))
+
+      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
+        origin: 'ClipboardManager',
+        method: 'handlePasteEvent',
+        code: 'PASTE_IMAGE_FAILED',
+        message: 'Ошибка вставки изображения из буфера обмена',
+        data: expect.any(Error)
+      })
+    })
+
+    it('должен обработать ошибку импорта HTML изображения', async() => {
+      mockEditor.imageManager.importImage.mockRejectedValue(new Error('HTML import failed'))
+
+      const mockImg = { src: 'https://example.com/image.jpg' }
+      mockQuerySelector.mockReturnValue(mockImg)
+
+      const clipboardEvent = createMockClipboardEvent({
+        items: [{ type: 'text/html', getAsFile: () => null }],
+        getData: jest.fn().mockImplementation((type) => {
+          if (type === 'text/html') return '<img src="https://example.com/image.jpg" alt="test">'
+          return ''
+        })
+      })
+
+      await clipboardManager.handlePasteEvent(clipboardEvent)
+      await new Promise((resolve) => setTimeout(resolve, ASYNC_DELAY))
+
+      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
+        origin: 'ClipboardManager',
+        method: 'handlePasteEvent',
+        code: 'PASTE_HTML_IMAGE_FAILED',
+        message: 'Ошибка вставки изображения из HTML',
+        data: expect.any(Error)
       })
     })
   })

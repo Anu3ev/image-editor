@@ -364,6 +364,17 @@ export const createMockClipboardEvent = (data: any = {}) => ({
   }
 } as ClipboardEvent)
 
+// Хелперы для создания failing моков
+export const createFailingMockObject = (errorMessage = 'Mock clone failed') => {
+  const mockObject = createMockFabricObject({ type: 'rect', id: 'failing-object' })
+  mockObject.clone.mockRejectedValue(new Error(errorMessage))
+  return mockObject
+}
+
+export const createEmptyClipboardEvent = () => ({
+  clipboardData: null
+} as any as ClipboardEvent)
+
 // Глобальные моки браузерных API для тестов буфера обмена
 export const mockNavigatorClipboard = {
   writeText: jest.fn(),
