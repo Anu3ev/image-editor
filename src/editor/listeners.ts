@@ -679,18 +679,22 @@ class Listeners {
     const activeElement = document.activeElement as HTMLElement
     const eventTarget = event.target as HTMLElement
 
-    // Выбираем наиболее подходящий элемент для проверки
-    const target = activeElement || eventTarget
-    if (!target) return false
-
-    // Проверяем базовые элементы ввода
+    // Проверяем базовые элементы ввода для обоих элементов
     const inputTypes = ['input', 'textarea', 'select']
-    const tagName = target.tagName.toLowerCase()
 
-    if (inputTypes.includes(tagName)) return true
+    // Проверяем eventTarget
+    if (eventTarget) {
+      const eventTagName = eventTarget.tagName.toLowerCase()
+      if (inputTypes.includes(eventTagName)) return true
+      if (eventTarget.contentEditable === 'true') return true
+    }
 
-    // Проверяем contenteditable элементы
-    if (target.contentEditable === 'true') return true
+    // Проверяем activeElement если он отличается от eventTarget
+    if (activeElement && activeElement !== eventTarget) {
+      const activeTagName = activeElement.tagName.toLowerCase()
+      if (inputTypes.includes(activeTagName)) return true
+      if (activeElement.contentEditable === 'true') return true
+    }
 
     // Проверяем выделение текста - если есть выделенный текст, проверяем его контекст
     const selection = window.getSelection()
@@ -719,7 +723,7 @@ class Listeners {
               return true
             }
           } catch (error) {
-            console.warn('Error checking selection container:', error)
+            console.warn(`Error checking selection container with selector "${selector}":`, error)
           }
         }
       }
