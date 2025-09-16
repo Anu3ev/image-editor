@@ -9,6 +9,7 @@ import {
 import ClipboardManager from '../../../../src/editor/clipboard-manager'
 
 describe('ClipboardManager', () => {
+  const ASYNC_DELAY = 10
   let mockEditor: any
   let clipboardManager: ClipboardManager
   let mockCanvas: any
@@ -278,7 +279,7 @@ describe('ClipboardManager', () => {
       await clipboardManager.handlePasteEvent(clipboardEvent)
       // Даем время на FileReader
       await new Promise((resolve) => {
-        setTimeout(() => resolve(undefined), 10)
+        setTimeout(() => resolve(undefined), ASYNC_DELAY)
       })
 
       expect(mockEditor.imageManager.importImage).toHaveBeenCalledWith({
@@ -345,7 +346,7 @@ describe('ClipboardManager', () => {
       await clipboardManager.handlePasteEvent(clipboardEvent)
       // Даем время на выполнение FileReader
       await new Promise((resolve) => {
-        setTimeout(() => resolve(undefined), 10)
+        setTimeout(() => resolve(undefined), ASYNC_DELAY)
       })
 
       expect(mockEditor.imageManager.importImage).toHaveBeenCalledWith({
@@ -386,7 +387,7 @@ describe('ClipboardManager', () => {
 
       // Даем время на асинхронное выполнение _handleImageImport
       await new Promise((resolve) => {
-        setTimeout(() => resolve(undefined), 10)
+        setTimeout(() => resolve(undefined), ASYNC_DELAY)
       })
 
       expect(mockEditor.imageManager.importImage).toHaveBeenCalledWith({
