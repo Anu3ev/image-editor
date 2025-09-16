@@ -11,6 +11,7 @@ import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
 import TransformManager from './transform-manager'
 import InteractionBlocker from './interaction-blocker'
+import BackgroundManager from './background-manager'
 import LayerManager from './layer-manager'
 import ShapeManager from './shape-manager'
 import ClipboardManager from './clipboard-manager'
@@ -120,6 +121,11 @@ export class ImageEditor {
   public interactionBlocker!: InteractionBlocker
 
   /**
+   * Менеджер фона
+   */
+  public backgroundManager!: BackgroundManager
+
+  /**
    * Менеджер буфера обмена
    */
   public clipboardManager!: ClipboardManager
@@ -196,6 +202,7 @@ export class ImageEditor {
     this.layerManager = new LayerManager({ editor: this })
     this.shapeManager = new ShapeManager({ editor: this })
     this.interactionBlocker = new InteractionBlocker({ editor: this })
+    this.backgroundManager = new BackgroundManager({ editor: this })
     this.clipboardManager = new ClipboardManager({ editor: this })
     this.objectLockManager = new ObjectLockManager({ editor: this })
     this.groupingManager = new GroupingManager({ editor: this })
