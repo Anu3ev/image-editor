@@ -104,8 +104,10 @@ export default class LayerManager {
       montageArea,
       historyManager,
       interactionBlocker: { overlayMask },
-      backgroundManager: { backgroundObject }
+      backgroundManager
     } = this.editor
+
+    const backgroundObject = backgroundManager?.backgroundObject
 
     historyManager.suspendHistory()
 

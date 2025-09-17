@@ -118,8 +118,6 @@ export default class BackgroundManager {
     withoutSave = false
   }: SetGradientOptions): void {
     try {
-      console.log('Setting gradient background:', gradient)
-
       const { historyManager } = this.editor
       const { backgroundObject } = this
 
@@ -242,12 +240,9 @@ export default class BackgroundManager {
    * Обновляет размеры и позицию фона согласно монтажной области.
    */
   public refresh(): void {
-    console.log('test refesh bg call')
     const { canvas, montageArea, historyManager } = this.editor
 
     if (!montageArea || !this.backgroundObject) return
-
-    console.log('Refreshing background position and size', this.backgroundObject)
 
     historyManager.suspendHistory()
 
@@ -382,8 +377,6 @@ export default class BackgroundManager {
       endPosition = 100
     } = gradient
 
-    console.log('Creating gradient with params:', gradient)
-
     // Конвертируем угол в координаты для Fabric.js
     const angleRad = (angle * Math.PI) / 180
     const coords = BackgroundManager._angleToCoords(angleRad)
@@ -393,11 +386,6 @@ export default class BackgroundManager {
       { offset: startPosition / 100, color: startColor },
       { offset: endPosition / 100, color: endColor }
     ]
-
-    console.log('Gradient details:')
-    console.log('- angle:', angle, 'degrees,', angleRad, 'radians')
-    console.log('- coords:', coords)
-    console.log('- colorStops:', colorStops)
 
     return new Gradient({
       type: 'linear',
