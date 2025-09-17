@@ -167,7 +167,6 @@ export default class BackgroundManager {
    * @param options - Опции для установки фонового изображения
    * @param options.imageUrl - URL изображения
    * @param options.withoutSave - Если true, не сохранять состояние в историю
-   * TODO: Разобраться почему картинка не вписывается.
    */
   public async setImageBackground({
     imageUrl,
