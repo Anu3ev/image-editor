@@ -230,6 +230,16 @@ declare module 'fabric' {
      * Формат объекта, если он является изображением.
      */
     format?: string;
+
+    /**
+     * Тип фона
+     */
+    backgroundType?: 'color' | 'gradient' | 'image' | null;
+
+    /**
+     * Идентификатор фона
+     */
+    backgroundId?: string | null;
   }
 
   interface RectProps {
@@ -237,8 +247,17 @@ declare module 'fabric' {
      * Уникальный идентификатор.
      */
     id?: string;
-  }
 
+    /**
+     * Тип фона
+     */
+    backgroundType?: 'color' | 'gradient' | 'image' | null;
+
+    /**
+     * Идентификатор фона
+     */
+    backgroundId?: string | null;
+  }
   interface CircleProps {
     /**
      * Уникальный идентификатор.

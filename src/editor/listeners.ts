@@ -91,6 +91,8 @@ class Listeners {
 
   handleOverlayUpdateBound: () => void
 
+  handleBackgroundUpdateBound: () => void
+
   handleCanvasDragStartBound: (options: TPointerEventInfo<TPointerEvent>) => void
 
   handleCanvasDraggingBound: (options: TPointerEventInfo<TPointerEvent>) => void
@@ -171,6 +173,7 @@ class Listeners {
     this.handleObjectAddedHistoryBound = this.handleObjectAddedHistory.bind(this)
     this.handleObjectRemovedHistoryBound = this.handleObjectRemovedHistory.bind(this)
     this.handleOverlayUpdateBound = this.handleOverlayUpdate.bind(this)
+    this.handleBackgroundUpdateBound = this.handleBackgroundUpdate.bind(this)
     this.handleCanvasDragStartBound = this.handleCanvasDragStart.bind(this)
     this.handleCanvasDraggingBound = this.handleCanvasDragging.bind(this)
     this.handleCanvasDragEndBound = this.handleCanvasDragEnd.bind(this)
@@ -260,6 +263,10 @@ class Listeners {
 
     this.canvas.on('selection:created', this.handleLockedSelectionBound)
     this.canvas.on('selection:updated', this.handleLockedSelectionBound)
+
+    // Инициализация событий для background
+    this.canvas.on('object:added', this.handleBackgroundUpdateBound)
+    this.canvas.on('selection:created', this.handleBackgroundUpdateBound)
   }
 
   /**
@@ -361,6 +368,11 @@ class Listeners {
     this.editor.interactionBlocker.refresh()
   }
 
+  handleBackgroundUpdate(): void {
+    if (this.editor.historyManager.skipHistory) return
+    this.editor.backgroundManager.refresh()
+  }
+
   // --- Глобальные DOM-обработчики ---
 
   /**
@@ -369,6 +381,7 @@ class Listeners {
    */
   handleContainerResize(): void {
     this.editor.canvasManager.updateCanvas()
+    this.editor.backgroundManager.refresh()
   }
 
   /**
@@ -772,6 +785,9 @@ class Listeners {
 
     this.canvas.off('object:added', this.handleOverlayUpdateBound)
     this.canvas.off('selection:created', this.handleOverlayUpdateBound)
+
+    this.canvas.off('object:added', this.handleBackgroundUpdateBound)
+    this.canvas.off('selection:created', this.handleBackgroundUpdateBound)
 
     this.canvas.off('selection:created', this.handleLockedSelectionBound)
     this.canvas.off('selection:updated', this.handleLockedSelectionBound)

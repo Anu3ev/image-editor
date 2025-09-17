@@ -87,5 +87,27 @@ export const errorCodes = {
   HISTORY_MANAGER: {
     UNDO_ERROR: 'UNDO_ERROR',
     REDO_ERROR: 'REDO_ERROR'
+  },
+
+  /**
+   * Коды ошибок и предупреждений для BackgroundManager.
+   */
+  BACKGROUND_MANAGER: {
+    /**
+     * Ошибка создания фона.
+     */
+    BACKGROUND_CREATION_FAILED: 'BACKGROUND_CREATION_FAILED',
+    /**
+     * Ошибка удаления фона.
+     */
+    BACKGROUND_REMOVAL_FAILED: 'BACKGROUND_REMOVAL_FAILED',
+    /**
+     * Предупреждение об отсутствии фона для удаления.
+     */
+    NO_BACKGROUND_TO_REMOVE: 'NO_BACKGROUND_TO_REMOVE',
+    /**
+     * Ошибка парсинга градиента.
+     */
+    INVALID_GRADIENT_FORMAT: 'INVALID_GRADIENT_FORMAT'
   }
 }

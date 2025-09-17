@@ -138,6 +138,16 @@ export type ResolutionHeightChangedPayload = {
   adaptCanvasToContainer?: boolean
 }
 
+/**
+ * Параметры события background:changed
+ */
+export type BackgroundChangedPayload = {
+  type: 'color' | 'gradient' | 'image'
+  color?: string
+  gradientParams?: import('../background-manager').GradientBackground // новый формат градиента
+  imageUrl?: string
+}
+
 declare module 'fabric' {
   interface CanvasEvents {
     /**
@@ -383,5 +393,15 @@ declare module 'fabric' {
      * Разблокировка взаимодействия с монтажной областью
      */
     'editor:enabled': void
+
+    /**
+     * Срабатывает при изменении фона.
+     */
+    'background:changed': BackgroundChangedPayload
+
+    /**
+     * Срабатывает при удалении фона.
+     */
+    'background:removed': void
   }
 }

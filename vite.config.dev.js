@@ -79,6 +79,7 @@ export default defineConfig(({ command }) => {
       },
 
       outDir: path.resolve(__dirname, 'dev-build'),
+
       emptyOutDir: true
     }
   }

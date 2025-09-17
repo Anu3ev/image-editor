@@ -112,6 +112,10 @@ export const createEditorStub = () => {
       calculateScaleFactor: jest.fn().mockReturnValue(1),
       importImage: jest.fn()
     },
+    backgroundManager: {
+      backgroundObject: null,
+      refresh: jest.fn()
+    },
     montageArea: {
       width: 400,
       height: 300,
@@ -164,6 +168,11 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
     saveState: jest.fn(),
     suspendHistory: jest.fn(),
     resumeHistory: jest.fn()
+  } as any
+
+  editor.backgroundManager = {
+    backgroundObject: null,
+    refresh: jest.fn()
   } as any;
 
   // Приватные методы, которые вызываются в init

@@ -103,7 +103,8 @@ export default class LayerManager {
       canvas,
       montageArea,
       historyManager,
-      interactionBlocker: { overlayMask }
+      interactionBlocker: { overlayMask },
+      backgroundManager: { backgroundObject }
     } = this.editor
 
     historyManager.suspendHistory()
@@ -121,6 +122,10 @@ export default class LayerManager {
       }
     } else {
       canvas.sendObjectToBack(activeObject)
+    }
+
+    if (backgroundObject) {
+      canvas.sendObjectToBack(backgroundObject)
     }
 
     // Служебные элементы отправляем вниз
@@ -157,7 +162,8 @@ export default class LayerManager {
       canvas,
       montageArea,
       historyManager,
-      interactionBlocker: { overlayMask }
+      interactionBlocker: { overlayMask },
+      backgroundManager: { backgroundObject }
     } = this.editor
 
     historyManager.suspendHistory()
@@ -170,6 +176,10 @@ export default class LayerManager {
       LayerManager._moveSelectionBackwards(canvas, activeObject)
     } else {
       canvas.sendObjectBackwards(activeObject)
+    }
+
+    if (backgroundObject) {
+      canvas.sendObjectToBack(backgroundObject)
     }
 
     // Служебные элементы отправляем вниз

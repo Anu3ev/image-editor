@@ -1,5 +1,5 @@
 // TODO: Почистить консоль логи когда всё будет готово.
-import { Canvas, FabricObject, Rect } from 'fabric'
+import { Canvas, FabricObject, FabricImage, Rect } from 'fabric'
 import { create as diffPatchCreate } from 'jsondiffpatch'
 import type { DiffPatcher, Delta } from 'jsondiffpatch'
 import { nanoid } from 'nanoid'
@@ -103,6 +103,7 @@ export default class HistoryManager {
 
         return [
           fabricObj.id,
+          fabricObj.backgroundId,
           fabricObj.format,
           fabricObj.locked,
           fabricObj.left,
@@ -185,6 +186,8 @@ export default class HistoryManager {
       'selectable',
       'evented',
       'id',
+      'backgroundId',
+      'backgroundType',
       'format',
       'width',
       'height',
@@ -261,7 +264,7 @@ export default class HistoryManager {
 
     console.log('loadStateFromFullState fullState', fullState)
 
-    const { canvas, canvasManager, interactionBlocker } = this.editor
+    const { canvas, canvasManager, interactionBlocker, backgroundManager } = this.editor
     const { width: oldCanvasStateWidth, height: oldCanvasStateHeight } = canvas
 
     // Load and render
@@ -283,6 +286,14 @@ export default class HistoryManager {
     if (loadedOverlayMask) {
       interactionBlocker.overlayMask = loadedOverlayMask as Rect
       interactionBlocker.overlayMask.visible = false
+    }
+
+    const loadedBackgroundObject = canvas.getObjects().find((obj) => obj.id === 'background')
+
+    if (!loadedBackgroundObject) {
+      backgroundManager.removeBackground({ withoutSave: true })
+    } else {
+      backgroundManager.backgroundObject = loadedBackgroundObject as Rect | FabricImage
     }
 
     canvas.renderAll()

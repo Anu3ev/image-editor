@@ -346,7 +346,7 @@ export default class CanvasManager {
 
       canvas.getObjects().forEach((obj) => {
         // Пропускаем служебные объекты
-        if (obj.id === 'montage-area' || obj.id === 'overlay-mask') return
+        if (obj.id === 'montage-area' || obj.id === 'overlay-mask' || obj.id === 'background') return
 
         obj.set({
           left: obj.left + deltaX,
@@ -582,6 +582,11 @@ export default class CanvasManager {
     this.setResolutionWidth(newCanvasWidth, { withoutSave: true })
     this.setResolutionHeight(newCanvasHeight, { withoutSave: true })
 
+    // Обновляем позицию и размеры фона после изменения размеров монтажной области
+    if (this.editor.backgroundManager.backgroundObject) {
+      this.editor.backgroundManager.refresh()
+    }
+
     // Если изображение больше монтажной области, то устанавливаем зум по умолчанию
     if (imageWidth > initialMontageAreaWidth || imageHeight > initialMontageAreaHeight) {
       transformManager.calculateAndApplyDefaultZoom()
@@ -664,10 +669,19 @@ export default class CanvasManager {
    * @returns массив объектов
    */
   public getObjects(): FabricObject[] {
-    const { canvas, montageArea, interactionBlocker: { overlayMask } } = this.editor
+    const {
+      canvas,
+      montageArea,
+      interactionBlocker: { overlayMask },
+      backgroundManager: { backgroundObject }
+    } = this.editor
 
     const canvasObjects = canvas.getObjects()
 
-    return canvasObjects.filter((obj) => obj.id !== montageArea.id && obj.id !== overlayMask?.id)
+    return canvasObjects.filter(
+      (obj) => obj.id !== montageArea.id
+               && obj.id !== overlayMask?.id
+               && obj.id !== backgroundObject?.id
+    )
   }
 }
