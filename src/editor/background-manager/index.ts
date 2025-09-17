@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 
 // TODO: Добавить поддержку не только линейного градиента
+// TODO: Сделать чтобы картинка не обрезалась и вписывалась в монтажную область (cover)
 
 export type SetColorOptions = {
   color: string

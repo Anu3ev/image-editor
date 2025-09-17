@@ -39,6 +39,7 @@ export const createCanvasStub = () => {
     setViewportTransform: jest.fn(),
     discardActiveObject: jest.fn(),
     getActiveObject: jest.fn(),
+    getActiveObjects: jest.fn().mockReturnValue([]),
     setActiveObject: jest.fn(),
     viewportTransform: [1, 0, 0, 1, 0, 0] as any,
     getWidth: jest.fn().mockReturnValue(800),
@@ -52,6 +53,7 @@ export const createCanvasStub = () => {
     getCenterPoint: jest.fn().mockReturnValue({ x: 400, y: 300 }),
     clear: jest.fn(),
     add: jest.fn(),
+    remove: jest.fn(),
     getObjects: jest.fn().mockReturnValue([]),
     clipPath: {
       set: jest.fn()
@@ -116,6 +118,9 @@ export const createEditorStub = () => {
       backgroundObject: null,
       refresh: jest.fn()
     },
+    shapeManager: {
+      addRectangle: jest.fn()
+    },
     montageArea: {
       width: 400,
       height: 300,
@@ -173,6 +178,10 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   editor.backgroundManager = {
     backgroundObject: null,
     refresh: jest.fn()
+  } as any;
+
+  editor.shapeManager = {
+    addRectangle: jest.fn()
   } as any;
 
   // Приватные методы, которые вызываются в init
@@ -243,8 +252,34 @@ export const createLayerAwareCanvasMock = () => {
         objects.splice(index, 1)
         objects.splice(index - 1, 0, obj)
       }
-    })
+    }),
+
+    // Метод для перемещения объекта на конкретную позицию
+    moveObjectTo: jest.fn((obj: any, targetIndex: number) => {
+      const currentIndex = objects.indexOf(obj)
+      if (currentIndex > -1) {
+        objects.splice(currentIndex, 1)
+        objects.splice(targetIndex, 0, obj)
+      }
+    }),
+
+    // Метод для получения индекса объекта
+    indexOf: jest.fn((obj: any) => objects.indexOf(obj)),
+
+    // Дополнительные методы для BackgroundManager тестов
+    insertAt: jest.fn((obj: any, index: number) => {
+      objects.splice(index, 0, obj)
+    }),
+
+    // Методы для работы с активными объектами
+    getActiveObject: jest.fn(() => null), // По умолчанию нет активного объекта
+    getActiveObjects: jest.fn(() => []) // По умолчанию нет активных объектов
   }
+
+  // Добавляем метод для тестов чтобы напрямую очистить объекты
+  canvas.clear = jest.fn(() => {
+    objects = []
+  })
 
   return canvas as any
 }
@@ -265,6 +300,13 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     left: 100,
     top: 50,
     set: jest.fn(),
+    setCoords: jest.fn(),
+    getBoundingRect: jest.fn().mockReturnValue({
+      left: 100,
+      top: 50,
+      width: 400,
+      height: 300
+    }),
     id: 'montage-area'
   }
 
@@ -383,6 +425,44 @@ export const createFailingMockObject = (errorMessage = 'Mock clone failed') => {
 export const createEmptyClipboardEvent = () => ({
   clipboardData: null
 } as any as ClipboardEvent)
+
+// Хелперы для создания мок объектов фона
+export const createMockBackgroundRect = (props: any = {}) => ({
+  ...createMockFabricObject({
+    type: 'rect',
+    id: 'background',
+    backgroundType: 'color',
+    backgroundId: `background-${Math.random().toString(36).slice(2, 7)}`,
+    fill: '#ffffff',
+    selectable: false,
+    evented: false,
+    ...props
+  }),
+  getBoundingRect: jest.fn().mockReturnValue({
+    left: props.left || 100,
+    top: props.top || 50,
+    width: props.width || 400,
+    height: props.height || 300
+  })
+})
+
+export const createMockBackgroundImage = (props: any = {}) => ({
+  ...createMockFabricObject({
+    type: 'image',
+    id: 'background',
+    backgroundType: 'image',
+    backgroundId: `background-${Math.random().toString(36).slice(2, 7)}`,
+    selectable: false,
+    evented: false,
+    ...props
+  }),
+  getBoundingRect: jest.fn().mockReturnValue({
+    left: props.left || 100,
+    top: props.top || 50,
+    width: props.width || 400,
+    height: props.height || 300
+  })
+})
 
 // Глобальные моки браузерных API для тестов буфера обмена
 export const mockNavigatorClipboard = {
