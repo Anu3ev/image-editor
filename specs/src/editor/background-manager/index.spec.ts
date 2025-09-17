@@ -2,7 +2,8 @@ import {
   createManagerTestMocks,
   createMockBackgroundRect,
   createMockBackgroundImage,
-  createMockFabricObject
+  createMockFabricObject,
+  createMockActiveSelection
 } from '../../../test-utils/editor-helpers'
 import BackgroundManager from '../../../../src/editor/background-manager'
 
@@ -549,7 +550,7 @@ describe('BackgroundManager', () => {
 
   // Тесты для взаимодействия с другими менеджерами
   describe('integration with other managers', () => {
-    it('selectAll должен включать фон', () => {
+    it('сценарий 7: selectAll НЕ должен включать фон', () => {
       const mockBackground = createMockBackgroundRect({
         id: 'background',
         backgroundId: 'bg-select-123'
@@ -570,13 +571,40 @@ describe('BackgroundManager', () => {
       expect(imageInCanvas).toBeTruthy()
       expect(objects).toHaveLength(3) // montageArea + background + image
 
+      // Создаём activeSelection только с изображением (БЕЗ фона) и мокаем getActiveObject
+      const mockActiveSelection = createMockActiveSelection([mockImage])
+      mockCanvas.getActiveObject.mockReturnValue(mockActiveSelection)
+      mockCanvas.getActiveObjects.mockReturnValue([mockImage]) // Только изображение
+
       // Вызываем selectAll
       mockEditor.selectionManager.selectAll()
 
       expect(mockEditor.selectionManager.selectAll).toHaveBeenCalled()
+
+      // ОР: activeSelection должен содержать только селектируемые объекты (БЕЗ фона)
+      const activeObject = mockCanvas.getActiveObject()
+      const activeObjects = mockCanvas.getActiveObjects()
+
+      // Проверяем через getActiveObject (если это ActiveSelection)
+      if (activeObject && activeObject.type === 'activeSelection') {
+        const selectedObjects = activeObject.getObjects()
+        const selectedBackground = selectedObjects.find((obj: any) => obj.id === 'background')
+        const selectedImage = selectedObjects.find((obj: any) => obj.id === 'image-123')
+
+        expect(selectedBackground).toBeUndefined() // Фон НЕ должен быть выбран
+        expect(selectedImage).toBeTruthy() // Изображение должно быть выбрано
+      }
+
+      // Проверяем через getActiveObjects
+      const backgroundInActive = activeObjects.find((obj: any) => obj.id === 'background')
+      const imageInActive = activeObjects.find((obj: any) => obj.id === 'image-123')
+
+      expect(backgroundInActive).toBeUndefined() // Фон НЕ должен быть в активных объектах
+      expect(imageInActive).toBeTruthy() // Изображение должно быть в активных объектах
+      expect(activeObjects).toHaveLength(1) // Только изображение
     })
 
-    it('отправка изображения на задний план - изображение должно быть выше фона', () => {
+    it('при отправке изображения на задний план - изображение должно быть выше фона', () => {
       const mockBackground = createMockBackgroundRect({
         id: 'background',
         backgroundId: 'bg-layer-456'

@@ -39,6 +39,7 @@ export const createCanvasStub = () => {
     setViewportTransform: jest.fn(),
     discardActiveObject: jest.fn(),
     getActiveObject: jest.fn(),
+    getActiveObjects: jest.fn().mockReturnValue([]),
     setActiveObject: jest.fn(),
     viewportTransform: [1, 0, 0, 1, 0, 0] as any,
     getWidth: jest.fn().mockReturnValue(800),
@@ -268,7 +269,11 @@ export const createLayerAwareCanvasMock = () => {
     // Дополнительные методы для BackgroundManager тестов
     insertAt: jest.fn((obj: any, index: number) => {
       objects.splice(index, 0, obj)
-    })
+    }),
+
+    // Методы для работы с активными объектами
+    getActiveObject: jest.fn(() => null), // По умолчанию нет активного объекта
+    getActiveObjects: jest.fn(() => []) // По умолчанию нет активных объектов
   }
 
   // Добавляем метод для тестов чтобы напрямую очистить объекты
