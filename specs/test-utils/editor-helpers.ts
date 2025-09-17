@@ -277,9 +277,9 @@ export const createLayerAwareCanvasMock = () => {
   }
 
   // Добавляем метод для тестов чтобы напрямую очистить объекты
-  canvas._clearObjects = () => {
+  canvas.clear = jest.fn(() => {
     objects = []
-  }
+  })
 
   return canvas as any
 }
