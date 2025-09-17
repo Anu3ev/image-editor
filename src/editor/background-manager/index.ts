@@ -398,10 +398,8 @@ export default class BackgroundManager {
   /**
    * Конвертирует угол в координаты для линейного градиента.
    * @param angle - Угол в радианах
-   * @param _width - Ширина объекта (не используется для относительных координат)
-   * @param _height - Высота объекта (не используется для относительных координат)
    */
-  private static _angleToCoords(angle: number, _width: number = 1, _height: number = 1) {
+  private static _angleToCoords(angle: number) {
     const cos = Math.cos(angle)
     const sin = Math.sin(angle)
 
