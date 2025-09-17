@@ -84,9 +84,43 @@ export class FabricObject {
   }
 }
 
+export class Gradient {
+  type: string
+  gradientUnits: string
+  coords: any
+  colorStops: any[]
+
+  constructor(public options: any = {}) {
+    this.type = options.type || 'linear'
+    this.gradientUnits = options.gradientUnits || 'percentage'
+    this.coords = options.coords || {}
+    this.colorStops = options.colorStops || []
+    Object.assign(this, options)
+  }
+}
+
+export class FabricImage {
+  type = 'image'
+  constructor(public options: any = {}) {
+    Object.assign(this, options)
+  }
+
+  set(props: any) {
+    Object.assign(this, props)
+  }
+
+  static fromURL(url: string, options?: any): Promise<FabricImage> {
+    return Promise.resolve(new FabricImage({ 
+      src: url, 
+      type: 'image',
+      ...options 
+    }))
+  }
+}
+
 export interface CanvasOptions {
   // Keep it open for tests; real types are not required here
   [key: string]: any
 }
 
-export default { Canvas, Pattern, Rect, ActiveSelection, FabricObject }
+export default { Canvas, Pattern, Rect, ActiveSelection, FabricObject, FabricImage, Gradient }

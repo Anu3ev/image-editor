@@ -52,6 +52,7 @@ export const createCanvasStub = () => {
     getCenterPoint: jest.fn().mockReturnValue({ x: 400, y: 300 }),
     clear: jest.fn(),
     add: jest.fn(),
+    remove: jest.fn(),
     getObjects: jest.fn().mockReturnValue([]),
     clipPath: {
       set: jest.fn()
@@ -116,6 +117,9 @@ export const createEditorStub = () => {
       backgroundObject: null,
       refresh: jest.fn()
     },
+    shapeManager: {
+      addRectangle: jest.fn()
+    },
     montageArea: {
       width: 400,
       height: 300,
@@ -173,6 +177,10 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   editor.backgroundManager = {
     backgroundObject: null,
     refresh: jest.fn()
+  } as any;
+
+  editor.shapeManager = {
+    addRectangle: jest.fn()
   } as any;
 
   // Приватные методы, которые вызываются в init
@@ -265,6 +273,13 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     left: 100,
     top: 50,
     set: jest.fn(),
+    setCoords: jest.fn(),
+    getBoundingRect: jest.fn().mockReturnValue({
+      left: 100,
+      top: 50,
+      width: 400,
+      height: 300
+    }),
     id: 'montage-area'
   }
 
@@ -383,6 +398,44 @@ export const createFailingMockObject = (errorMessage = 'Mock clone failed') => {
 export const createEmptyClipboardEvent = () => ({
   clipboardData: null
 } as any as ClipboardEvent)
+
+// Хелперы для создания мок объектов фона
+export const createMockBackgroundRect = (props: any = {}) => ({
+  ...createMockFabricObject({
+    type: 'rect',
+    id: 'background',
+    backgroundType: 'color',
+    backgroundId: `background-${Math.random().toString(36).substr(2, 5)}`,
+    fill: '#ffffff',
+    selectable: false,
+    evented: false,
+    ...props
+  }),
+  getBoundingRect: jest.fn().mockReturnValue({
+    left: props.left || 100,
+    top: props.top || 50,
+    width: props.width || 400,
+    height: props.height || 300
+  })
+})
+
+export const createMockBackgroundImage = (props: any = {}) => ({
+  ...createMockFabricObject({
+    type: 'image',
+    id: 'background',
+    backgroundType: 'image',
+    backgroundId: `background-${Math.random().toString(36).substr(2, 5)}`,
+    selectable: false,
+    evented: false,
+    ...props
+  }),
+  getBoundingRect: jest.fn().mockReturnValue({
+    left: props.left || 100,
+    top: props.top || 50,
+    width: props.width || 400,
+    height: props.height || 300
+  })
+})
 
 // Глобальные моки браузерных API для тестов буфера обмена
 export const mockNavigatorClipboard = {
