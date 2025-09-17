@@ -2,6 +2,8 @@ import { Rect, FabricImage, Gradient } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 
+// TODO: Добавить поддержку не только линейного градиента
+
 export type SetColorOptions = {
   color: string
   withoutSave?: boolean
