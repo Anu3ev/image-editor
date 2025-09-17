@@ -1,7 +1,43 @@
 import { Rect, FabricImage, Gradient } from 'fabric'
+import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 
-export type BackgroundType = 'color' | 'gradient' | 'image' | null
+export type SetColorOptions = {
+  color: string
+  withoutSave?: boolean
+}
+
+export type GradientBackground = {
+  angle: number // угол в градусах (0-360)
+  startColor: string // HEX цвет начала градиента
+  endColor: string // HEX цвет конца градиента
+  startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
+  endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
+}
+
+export type SetGradientOptions = {
+  gradient: GradientBackground
+  withoutSave?: boolean
+}
+
+export type SetImageOptions = {
+  imageUrl: string
+  withoutSave?: boolean
+}
+
+interface GradientData {
+  type: string
+  coords: {
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+  }
+  colorStops: Array<{
+    color: string
+    offset: number
+  }>
+}
 
 export default class BackgroundManager {
   /**
@@ -14,30 +50,39 @@ export default class BackgroundManager {
    */
   public backgroundObject: Rect | FabricImage | null
 
-  /**
-   * Тип текущего фона.
-   */
-  public backgroundType: BackgroundType
-
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.backgroundObject = null
-    this.backgroundType = null
   }
 
   /**
    * Устанавливает фон сплошного цвета.
-   * @param color - Цвет фона в формате HEX (например, "#FF0000")
+   * @param options - Опции для установки цвета фона
+   * @param options.color - Цвет фона в формате HEX (например, "#FF0000")
+   * @param options.withoutSave - Если true, не сохранять состояние в историю
    */
-  public setColorBackground(color: string): void {
+  public setColorBackground({
+    color,
+    withoutSave = false
+  }: SetColorOptions): void {
     try {
       const { historyManager } = this.editor
+      const { backgroundObject } = this
 
       historyManager.suspendHistory()
 
-      if (this.backgroundObject && this.backgroundType === 'color') {
+      if (backgroundObject && backgroundObject.backgroundType === 'color') {
+        const currentFill = backgroundObject.fill
+
+        if (currentFill === color) {
+          // Если цвет не изменился, ничего не делаем
+          historyManager.resumeHistory()
+          return
+        }
+
         // Обновляем существующий цветовой фон
-        this.backgroundObject.set({ fill: color })
+        backgroundObject.set({ fill: color })
+        backgroundObject.set('backgroundId', `background-${nanoid()}`)
         this.editor.canvas.requestRenderAll()
       } else {
         // Создаем новый цветовой фон
@@ -45,9 +90,12 @@ export default class BackgroundManager {
         this._createColorBackground(color)
       }
 
-      this.backgroundType = 'color'
       this.editor.canvas.fire('background:changed', { type: 'color', color })
       historyManager.resumeHistory()
+
+      if (!withoutSave) {
+        historyManager.saveState()
+      }
     } catch (error) {
       this.editor.errorManager.emitError({
         code: 'BACKGROUND_CREATION_FAILED',
@@ -61,28 +109,50 @@ export default class BackgroundManager {
 
   /**
    * Устанавливает градиентный фон.
-   * @param gradientCSS - CSS градиент в формате linear-gradient(135deg, #79F1A4 0%, #0E5CAD 100%)
+   * @param options - Опции для установки градиентного фона
+   * @param options.gradient - Объект с параметрами градиента
+   * @param options.withoutSave - Если true, не сохранять состояние в историю
    */
-  public setGradientBackground(gradientCSS: string): void {
+  public setGradientBackground({
+    gradient,
+    withoutSave = false
+  }: SetGradientOptions): void {
     try {
+      console.log('Setting gradient background:', gradient)
+
       const { historyManager } = this.editor
+      const { backgroundObject } = this
 
       historyManager.suspendHistory()
 
-      if (this.backgroundObject && this.backgroundType === 'gradient') {
+      if (backgroundObject && backgroundObject.backgroundType === 'gradient') {
         // Обновляем существующий градиентный фон
-        const gradient = this._parseGradientCSS(gradientCSS)
-        this.backgroundObject.set({ fill: gradient })
+        const fabricGradient = BackgroundManager._createFabricGradient(gradient)
+
+        if (BackgroundManager._isGradientEqual(backgroundObject.fill as GradientData, fabricGradient)) {
+          // Если градиент не изменился, ничего не делаем
+          historyManager.resumeHistory()
+          return
+        }
+
+        backgroundObject.set({ fill: fabricGradient })
+        backgroundObject.set('backgroundId', `background-${nanoid()}`)
         this.editor.canvas.requestRenderAll()
       } else {
         // Создаем новый градиентный фон
         this._removeCurrentBackground()
-        this._createGradientBackground(gradientCSS)
+        this._createGradientBackground(gradient)
       }
 
-      this.backgroundType = 'gradient'
-      this.editor.canvas.fire('background:changed', { type: 'gradient', gradient: gradientCSS })
+      this.editor.canvas.fire('background:changed', {
+        type: 'gradient',
+        gradientParams: gradient
+      })
       historyManager.resumeHistory()
+
+      if (!withoutSave) {
+        historyManager.saveState()
+      }
     } catch (error) {
       this.editor.errorManager.emitError({
         code: 'BACKGROUND_CREATION_FAILED',
@@ -96,21 +166,29 @@ export default class BackgroundManager {
 
   /**
    * Устанавливает фон из изображения.
-   * @param imageUrl - URL изображения
+   * @param options - Опции для установки фонового изображения
+   * @param options.imageUrl - URL изображения
+   * @param options.withoutSave - Если true, не сохранять состояние в историю
+   * TODO: Разобраться почему картинка не вписывается.
    */
-  public async setImageBackground(imageUrl: string): Promise<void> {
+  public async setImageBackground({
+    imageUrl,
+    withoutSave = false
+  }: SetImageOptions): Promise<void> {
     try {
       const { historyManager } = this.editor
-
       historyManager.suspendHistory()
 
       // Для изображений всегда пересоздаем фон
       this._removeCurrentBackground()
       await this._createImageBackground(imageUrl)
 
-      this.backgroundType = 'image'
       this.editor.canvas.fire('background:changed', { type: 'image', imageUrl })
       historyManager.resumeHistory()
+
+      if (!withoutSave) {
+        historyManager.saveState()
+      }
     } catch (error) {
       this.editor.errorManager.emitError({
         code: 'BACKGROUND_CREATION_FAILED',
@@ -124,8 +202,10 @@ export default class BackgroundManager {
 
   /**
    * Удаляет текущий фон.
+   * @param options - Опции для удаления фона
+   * @param options.withoutSave - Если true, не сохранять состояние в историю
    */
-  public removeBackground(): void {
+  public removeBackground({ withoutSave = false }: { withoutSave?: boolean } = {}): void {
     try {
       const { historyManager } = this.editor
 
@@ -143,6 +223,10 @@ export default class BackgroundManager {
       this._removeCurrentBackground()
       this.editor.canvas.fire('background:removed')
       historyManager.resumeHistory()
+
+      if (!withoutSave) {
+        historyManager.saveState()
+      }
     } catch (error) {
       this.editor.errorManager.emitError({
         code: 'BACKGROUND_REMOVAL_FAILED',
@@ -158,9 +242,12 @@ export default class BackgroundManager {
    * Обновляет размеры и позицию фона согласно монтажной области.
    */
   public refresh(): void {
+    console.log('test refesh bg call')
     const { canvas, montageArea, historyManager } = this.editor
 
     if (!montageArea || !this.backgroundObject) return
+
+    console.log('Refreshing background position and size', this.backgroundObject)
 
     historyManager.suspendHistory()
 
@@ -171,8 +258,16 @@ export default class BackgroundManager {
     // Обновляем размеры и позицию фона
     this.backgroundObject.set({ left, top, width, height })
 
-    // Помещаем фон под все объекты
-    this.editor.layerManager.sendToBack(this.backgroundObject, { withoutSave: true })
+    // Проверяем, находится ли фон в правильной позиции (сразу после montageArea)
+    const objects = canvas.getObjects()
+    const montageIndex = objects.indexOf(montageArea)
+    const backgroundIndex = objects.indexOf(this.backgroundObject)
+
+    // Перемещаем фон только если он не на правильной позиции
+    if (this.backgroundObject && backgroundIndex !== montageIndex + 1) {
+      // Используем moveObjectTo для точного позиционирования без дублирования
+      canvas.moveObjectTo(this.backgroundObject, montageIndex + 1)
+    }
 
     canvas.requestRenderAll()
     historyManager.resumeHistory()
@@ -180,6 +275,7 @@ export default class BackgroundManager {
 
   /**
    * Создает цветовой фон.
+   * @param color - Цвет фона в формате HEX (например, "#FF0000")
    */
   private _createColorBackground(color: string): void {
     this.backgroundObject = this.editor.shapeManager.addRectangle({
@@ -188,7 +284,9 @@ export default class BackgroundManager {
       evented: false,
       hasBorders: false,
       hasControls: false,
-      id: 'background'
+      id: 'background',
+      backgroundType: 'color',
+      backgroundId: `background-${nanoid()}`
     }, { withoutSelection: true })
 
     this._setupBackgroundPosition()
@@ -196,24 +294,32 @@ export default class BackgroundManager {
 
   /**
    * Создает градиентный фон.
+   * @param gradient - Объект с параметрами градиента
    */
-  private _createGradientBackground(gradientCSS: string): void {
-    const gradient = this._parseGradientCSS(gradientCSS)
-
+  private _createGradientBackground(gradient: GradientBackground): void {
+    // Сначала создаем прямоугольник без градиента
     this.backgroundObject = this.editor.shapeManager.addRectangle({
-      fill: gradient,
+      fill: '#ffffff', // временный цвет
       selectable: false,
       evented: false,
       hasBorders: false,
       hasControls: false,
-      id: 'background'
+      id: 'background',
+      backgroundType: 'gradient',
+      backgroundId: `background-${nanoid()}`
     }, { withoutSelection: true })
 
     this._setupBackgroundPosition()
+
+    // После установки позиции создаем градиент
+    const fabricGradient = BackgroundManager._createFabricGradient(gradient)
+    this.backgroundObject.set('fill', fabricGradient)
+    this.editor.canvas.requestRenderAll()
   }
 
   /**
    * Создает фон из изображения.
+   * @param imageUrl - URL изображения
    */
   private async _createImageBackground(imageUrl: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -230,7 +336,9 @@ export default class BackgroundManager {
           evented: false,
           hasBorders: false,
           hasControls: false,
-          id: 'background'
+          id: 'background',
+          backgroundType: 'image',
+          backgroundId: `background-${nanoid()}`
         })
 
         this.editor.canvas.add(img)
@@ -257,62 +365,55 @@ export default class BackgroundManager {
     if (this.backgroundObject) {
       this.editor.canvas.remove(this.backgroundObject)
       this.backgroundObject = null
-      this.backgroundType = null
-      this.editor.canvas.requestRenderAll()
+      this.editor.canvas.renderAll()
     }
   }
 
   /**
-   * Парсит CSS градиент и возвращает Fabric.js градиент.
+   * Создает Fabric.js градиент из параметров.
+   * @param gradient - Объект с параметрами градиента
    */
-  private _parseGradientCSS(gradientCSS: string) {
-    // Парсим строку вида: linear-gradient(135deg, #79F1A4 0%, #0E5CAD 100%)
-    const match = gradientCSS.match(/linear-gradient\(([^,]+),\s*(.+)\)/)
+  private static _createFabricGradient(gradient: GradientBackground): Gradient<'linear'> {
+    const {
+      angle,
+      startColor,
+      endColor,
+      startPosition = 0,
+      endPosition = 100
+    } = gradient
 
-    if (!match) {
-      this.editor.errorManager.emitError({
-        code: 'INVALID_GRADIENT_FORMAT',
-        origin: 'BackgroundManager',
-        method: '_parseGradientCSS',
-        message: 'Неверный формат градиента'
-      })
-      throw new Error('Неверный формат градиента')
-    }
-
-    const angle = parseInt(match[1].replace('deg', ''))
-    const stops = match[2].split(',').map((stop) => {
-      const stopMatch = stop.trim().match(/([#\w]+)\s+(\d+)%/)
-      if (!stopMatch) {
-        this.editor.errorManager.emitError({
-          code: 'INVALID_GRADIENT_FORMAT',
-          origin: 'BackgroundManager',
-          method: '_parseGradientCSS',
-          message: 'Неверный формат остановки градиента'
-        })
-        throw new Error('Неверный формат остановки градиента')
-      }
-
-      return {
-        offset: parseInt(stopMatch[2]) / 100,
-        color: stopMatch[1]
-      }
-    })
+    console.log('Creating gradient with params:', gradient)
 
     // Конвертируем угол в координаты для Fabric.js
     const angleRad = (angle * Math.PI) / 180
     const coords = BackgroundManager._angleToCoords(angleRad)
 
+    // Создаем цветовые остановки
+    const colorStops = [
+      { offset: startPosition / 100, color: startColor },
+      { offset: endPosition / 100, color: endColor }
+    ]
+
+    console.log('Gradient details:')
+    console.log('- angle:', angle, 'degrees,', angleRad, 'radians')
+    console.log('- coords:', coords)
+    console.log('- colorStops:', colorStops)
+
     return new Gradient({
       type: 'linear',
+      gradientUnits: 'percentage',
       coords,
-      colorStops: stops
+      colorStops
     })
   }
 
   /**
    * Конвертирует угол в координаты для линейного градиента.
+   * @param angle - Угол в радианах
+   * @param _width - Ширина объекта (не используется для относительных координат)
+   * @param _height - Высота объекта (не используется для относительных координат)
    */
-  private static _angleToCoords(angle: number) {
+  private static _angleToCoords(angle: number, _width: number = 1, _height: number = 1) {
     const cos = Math.cos(angle)
     const sin = Math.sin(angle)
 
@@ -322,5 +423,37 @@ export default class BackgroundManager {
       x2: 0.5 + cos * 0.5,
       y2: 0.5 + sin * 0.5
     }
+  }
+
+  /**
+   * Сравнивает два градиента на равенство
+   * @param gradient1 - Первый градиент
+   * @param gradient2 - Второй градиент
+   * @returns true если градиенты одинаковые
+   */
+  private static _isGradientEqual(g1: GradientData, g2: GradientData): boolean {
+    // Проверяем, что оба объекта являются градиентами
+    if (!g1 || !g2) return false
+    if (g1.type !== 'linear' || g2.type !== 'linear') return false
+
+    // Сравниваем координаты с небольшой погрешностью для чисел с плавающей точкой
+    const coordsEqual = Math.abs(g1.coords.x1 - g2.coords.x1) < 0.0001
+      && Math.abs(g1.coords.y1 - g2.coords.y1) < 0.0001
+      && Math.abs(g1.coords.x2 - g2.coords.x2) < 0.0001
+      && Math.abs(g1.coords.y2 - g2.coords.y2) < 0.0001
+
+    if (!coordsEqual) return false
+
+    // Сравниваем цвета
+    const stops1 = g1.colorStops || []
+    const stops2 = g2.colorStops || []
+
+    if (stops1.length !== stops2.length) return false
+
+    return stops1.every((stop1: { color: string; offset: number }, index: number) => {
+      const stop2 = stops2[index]
+      return stop1.color === stop2.color
+        && Math.abs(stop1.offset - stop2.offset) < 0.0001
+    })
   }
 }

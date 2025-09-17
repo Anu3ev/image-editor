@@ -53,11 +53,43 @@ async function saveResult(editorInstance) {
   URL.revokeObjectURL(url)
 }
 
+// Установка цветового фона
+function setColorBackground(editorInstance, color) {
+  editorInstance.backgroundManager.setColorBackground({ color })
+}
+
+// Установка градиентного фона
+function setGradientBackground(editorInstance, startColor, endColor, angle) {
+  const gradient = {
+    angle: parseInt(angle),
+    startColor,
+    endColor,
+    startPosition: 0,
+    endPosition: 100
+  }
+  editorInstance.backgroundManager.setGradientBackground({ gradient })
+}
+
+// Установка фона из изображения
+async function setImageBackground(editorInstance, file) {
+  const imageUrl = URL.createObjectURL(file)
+  await editorInstance.backgroundManager.setImageBackground({ imageUrl })
+}
+
+// Удаление фона
+function removeBackground(editorInstance) {
+  editorInstance.backgroundManager.removeBackground()
+}
+
 export {
   getCanvasResolution,
   getMontageAreaResolution,
   getCanvasDisplaySize,
   getCurrentObjectData,
   importImage,
-  saveResult
+  saveResult,
+  setColorBackground,
+  setGradientBackground,
+  setImageBackground,
+  removeBackground
 }

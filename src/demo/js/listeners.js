@@ -57,7 +57,22 @@ import {
   addTriangleBtn,
   // Undo/Redo
   undoBtn,
-  redoBtn
+  redoBtn,
+  // Background controls
+  backgroundTypeSelect,
+  colorBackgroundControls,
+  gradientBackgroundControls,
+  imageBackgroundControls,
+  backgroundColorInput,
+  setColorBackgroundBtn,
+  gradientStartColorInput,
+  gradientEndColorInput,
+  gradientAngleInput,
+  gradientAngleValue,
+  setGradientBackgroundBtn,
+  backgroundImageInput,
+  setImageBackgroundBtn,
+  removeBackgroundBtn
 } from './elements.js'
 
 import {
@@ -66,7 +81,11 @@ import {
   getCanvasDisplaySize,
   getCurrentObjectData,
   importImage,
-  saveResult
+  saveResult,
+  setColorBackground,
+  setGradientBackground,
+  setImageBackground,
+  removeBackground
 } from './methods.js'
 
 export default (editorInstance) => {
@@ -257,5 +276,69 @@ export default (editorInstance) => {
 
   editorInstance.canvas.on('editor:zoom-changed', ({ currentZoom }) => {
     canvasZoomNode.textContent = currentZoom
+  })
+
+  // Background controls
+  backgroundTypeSelect.addEventListener('change', (e) => {
+    const selectedType = e.target.value
+
+    // Hide all background options
+    colorBackgroundControls.style.display = 'none'
+    gradientBackgroundControls.style.display = 'none'
+    imageBackgroundControls.style.display = 'none'
+
+    // Show selected option
+    if (selectedType === 'color') {
+      colorBackgroundControls.style.display = 'block'
+    } else if (selectedType === 'gradient') {
+      gradientBackgroundControls.style.display = 'block'
+    } else if (selectedType === 'image') {
+      imageBackgroundControls.style.display = 'block'
+    }
+  })
+
+  // Gradient angle slider
+  gradientAngleInput.addEventListener('input', (e) => {
+    gradientAngleValue.textContent = e.target.value
+  })
+
+  // Color background
+  setColorBackgroundBtn.addEventListener('click', () => {
+    const color = backgroundColorInput.value
+    setColorBackground(editorInstance, color)
+  })
+
+  // Gradient background
+  setGradientBackgroundBtn.addEventListener('click', () => {
+    const startColor = gradientStartColorInput.value
+    const endColor = gradientEndColorInput.value
+    const angle = gradientAngleInput.value
+    setGradientBackground(editorInstance, startColor, endColor, angle)
+  })
+
+  // Image background
+  setImageBackgroundBtn.addEventListener('click', () => {
+    const file = backgroundImageInput.files[0]
+    if (file) {
+      setImageBackground(editorInstance, file)
+    }
+  })
+
+  // Remove background
+  removeBackgroundBtn.addEventListener('click', () => {
+    removeBackground(editorInstance)
+  })
+
+  // Background events
+  editorInstance.canvas.on('background:changed', (event) => {
+    console.log('Background changed:', event)
+  })
+
+  editorInstance.canvas.on('background:removed', () => {
+    console.log('Background removed')
+    backgroundTypeSelect.value = ''
+    colorBackgroundControls.style.display = 'none'
+    gradientBackgroundControls.style.display = 'none'
+    imageBackgroundControls.style.display = 'none'
   })
 }

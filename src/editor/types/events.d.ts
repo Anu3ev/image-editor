@@ -144,7 +144,7 @@ export type ResolutionHeightChangedPayload = {
 export type BackgroundChangedPayload = {
   type: 'color' | 'gradient' | 'image'
   color?: string
-  gradient?: string
+  gradientParams?: import('../background-manager').GradientBackground // новый формат градиента
   imageUrl?: string
 }
 

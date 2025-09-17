@@ -254,6 +254,67 @@
                 </button>
               </div>
             </div>
+
+            <div class="background-controls">
+              <div class="h6">
+                Background
+              </div>
+
+              <div class="mb-2">
+                <label for="background-type" class="form-label">Type:</label>
+                <select class="form-select form-select-sm" id="background-type">
+                  <option value="">No Background</option>
+                  <option value="color">Color</option>
+                  <option value="gradient">Gradient</option>
+                  <option value="image">Image</option>
+                </select>
+              </div>
+
+              <!-- Color Background -->
+              <div id="color-background-controls" class="background-option" style="display: none;">
+                <div class="mb-2">
+                  <label for="background-color" class="form-label">Color:</label>
+                  <input type="color" class="form-control form-control-color" id="background-color" value="#ffffff">
+                </div>
+                <button class="btn btn-primary btn-sm w-100" id="set-color-background-btn">
+                  Set Color Background
+                </button>
+              </div>
+
+              <!-- Gradient Background -->
+              <div id="gradient-background-controls" class="background-option" style="display: none;">
+                <div class="mb-2">
+                  <label for="gradient-start-color" class="form-label">Start Color:</label>
+                  <input type="color" class="form-control form-control-color" id="gradient-start-color" value="#79F1A4">
+                </div>
+                <div class="mb-2">
+                  <label for="gradient-end-color" class="form-label">End Color:</label>
+                  <input type="color" class="form-control form-control-color" id="gradient-end-color" value="#0E5CAD">
+                </div>
+                <div class="mb-2">
+                  <label for="gradient-angle" class="form-label">Angle:</label>
+                  <input type="range" class="form-range" id="gradient-angle" min="0" max="360" value="135">
+                  <small class="text-muted"><span id="gradient-angle-value">135</span>°</small>
+                </div>
+                <button class="btn btn-primary btn-sm w-100" id="set-gradient-background-btn">
+                  Set Gradient Background
+                </button>
+              </div>
+
+              <!-- Image Background -->
+              <div id="image-background-controls" class="background-option" style="display: none;">
+                <div class="mb-2">
+                  <input type="file" id="background-image-input" accept="image/*" class="form-control form-control-sm">
+                </div>
+                <button class="btn btn-primary btn-sm w-100" id="set-image-background-btn">
+                  Set Image Background
+                </button>
+              </div>
+
+              <button class="btn btn-outline-danger btn-sm w-100 mt-2" id="remove-background-btn">
+                Remove Background
+              </button>
+            </div>
           </div>
         </div>
       </div>
