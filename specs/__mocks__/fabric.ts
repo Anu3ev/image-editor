@@ -110,10 +110,10 @@ export class FabricImage {
   }
 
   static fromURL(url: string, options?: any): Promise<FabricImage> {
-    return Promise.resolve(new FabricImage({ 
-      src: url, 
+    return Promise.resolve(new FabricImage({
+      src: url,
       type: 'image',
-      ...options 
+      ...options
     }))
   }
 }

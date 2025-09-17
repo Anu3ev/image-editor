@@ -24,7 +24,7 @@ describe('BackgroundManager', () => {
     // Настройка дополнительных моков
     mockCanvas.moveObjectTo = jest.fn()
     mockCanvas.indexOf = jest.fn()
-    
+
     backgroundManager = new BackgroundManager({ editor: mockEditor })
 
     // Добавляем метод который может отсутствовать в некоторых версиях
@@ -65,9 +65,9 @@ describe('BackgroundManager', () => {
     })
 
     it('не должен изменять фон если цвет тот же', () => {
-      const mockBackground = createMockBackgroundRect({ 
+      const mockBackground = createMockBackgroundRect({
         fill: '#ff0000',
-        backgroundType: 'color' 
+        backgroundType: 'color'
       })
       backgroundManager.backgroundObject = mockBackground
 
@@ -79,9 +79,9 @@ describe('BackgroundManager', () => {
     })
 
     it('должен обновить существующий цветовой фон при смене цвета', () => {
-      const mockBackground = createMockBackgroundRect({ 
+      const mockBackground = createMockBackgroundRect({
         fill: '#ff0000',
-        backgroundType: 'color' 
+        backgroundType: 'color'
       })
       backgroundManager.backgroundObject = mockBackground
 
@@ -106,7 +106,7 @@ describe('BackgroundManager', () => {
   describe('setImageBackground', () => {
     it('должен создать новый фон из изображения', async () => {
       const imageUrl = 'https://example.com/image.jpg'
-      
+
       await backgroundManager.setImageBackground({ imageUrl })
 
       await new Promise(resolve => setTimeout(resolve, ASYNC_DELAY))
@@ -118,7 +118,7 @@ describe('BackgroundManager', () => {
 
     it('не должен сохранять в историю при withoutSave: true', async () => {
       const imageUrl = 'https://example.com/image.jpg'
-      
+
       await backgroundManager.setImageBackground({ imageUrl, withoutSave: true })
 
       await new Promise(resolve => setTimeout(resolve, ASYNC_DELAY))
@@ -228,28 +228,28 @@ describe('BackgroundManager', () => {
       // Устанавливаем фон
       const mockBackground = createMockBackgroundRect({ fill: '#ff0000' })
       mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
-      
+
       backgroundManager.setColorBackground({ color: '#ff0000' })
-      
+
       // Проверяем что canvas.getObjects не содержит фон до его реального добавления
       expect(mockCanvas.getObjects().filter((obj: any) => obj.id === 'background')).toHaveLength(0)
-      
+
       // Имитируем undo - должен быть вызван removeBackground
       const removeBackgroundSpy = jest.spyOn(backgroundManager, 'removeBackground')
-      
+
       // Сначала устанавливаем backgroundObject чтобы было что удалять
       backgroundManager.backgroundObject = mockBackground
-      
+
       // Симулируем вызов от historyManager при undo когда фон должен быть удален
       backgroundManager.removeBackground({ withoutSave: true })
-      
+
       expect(removeBackgroundSpy).toHaveBeenCalledWith({ withoutSave: true })
       expect(backgroundManager.backgroundObject).toBeNull()
     })
 
     it('сценарий 2: установка фона > установка другого фона > undo', () => {
       // Первый фон
-      const firstBackground = createMockBackgroundRect({ 
+      const firstBackground = createMockBackgroundRect({
         fill: '#ff0000',
         backgroundId: 'background-first'
       })
@@ -257,7 +257,7 @@ describe('BackgroundManager', () => {
       backgroundManager.setColorBackground({ color: '#ff0000' })
 
       // Второй фон
-      const secondBackground = createMockBackgroundRect({ 
+      const secondBackground = createMockBackgroundRect({
         fill: '#00ff00',
         backgroundId: 'background-second'
       })
@@ -266,7 +266,7 @@ describe('BackgroundManager', () => {
 
       // Симулируем undo - должен восстановиться первый фон
       backgroundManager.backgroundObject = firstBackground
-      
+
       expect(backgroundManager.backgroundObject).toBe(firstBackground)
       expect(backgroundManager.backgroundObject!.backgroundType).toBe('color')
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-first')
@@ -274,14 +274,14 @@ describe('BackgroundManager', () => {
 
     it('сценарий 4: установка изображения > установка цвета > undo', () => {
       // Первый фон (изображение)
-      const imageBackground = createMockBackgroundImage({ 
+      const imageBackground = createMockBackgroundImage({
         backgroundType: 'image',
         backgroundId: 'background-image'
       })
       backgroundManager.backgroundObject = imageBackground
 
       // Второй фон (цвет)
-      const colorBackground = createMockBackgroundRect({ 
+      const colorBackground = createMockBackgroundRect({
         fill: '#ff0000',
         backgroundType: 'color',
         backgroundId: 'background-color'
@@ -291,7 +291,7 @@ describe('BackgroundManager', () => {
 
       // Симулируем undo - должен восстановиться фон-изображение
       backgroundManager.backgroundObject = imageBackground
-      
+
       expect(backgroundManager.backgroundObject).toBe(imageBackground)
       expect(backgroundManager.backgroundObject!.backgroundType).toBe('image')
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-image')
@@ -301,7 +301,7 @@ describe('BackgroundManager', () => {
   // Дополнительные тесты для градиентов и edge cases
   describe('gradient background', () => {
     it('должен создать градиентный фон', () => {
-      const mockBackground = createMockBackgroundRect({ 
+      const mockBackground = createMockBackgroundRect({
         backgroundType: 'gradient',
         fill: { type: 'linear', coords: {}, colorStops: [] }
       })
@@ -331,25 +331,25 @@ describe('BackgroundManager', () => {
       // Мокаем статический метод для сравнения градиентов
       const isGradientEqualSpy = jest.spyOn(BackgroundManager as any, '_isGradientEqual')
         .mockReturnValue(true) // Симулируем что градиенты одинаковые
-      
+
       const gradient = {
         angle: 45,
         startColor: '#ff0000',
         endColor: '#0000ff'
       }
 
-      const mockBackground = createMockBackgroundRect({ 
+      const mockBackground = createMockBackgroundRect({
         backgroundType: 'gradient',
         fill: { type: 'linear', coords: {}, colorStops: [] }
       })
-      
+
       backgroundManager.backgroundObject = mockBackground
 
       backgroundManager.setGradientBackground({ gradient })
 
       expect(mockEditor.shapeManager.addRectangle).not.toHaveBeenCalled()
       expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
-      
+
       isGradientEqualSpy.mockRestore()
     })
   })
@@ -357,9 +357,9 @@ describe('BackgroundManager', () => {
   // Сценарий 12: одинаковый цвет
   describe('color background edge cases', () => {
     it('сценарий 12: установка того же цвета не должна записывать в историю', () => {
-      const mockBackground = createMockBackgroundRect({ 
+      const mockBackground = createMockBackgroundRect({
         fill: '#ff0000',
-        backgroundType: 'color' 
+        backgroundType: 'color'
       })
       backgroundManager.backgroundObject = mockBackground
 
@@ -373,35 +373,35 @@ describe('BackgroundManager', () => {
   describe('complex undo/redo scenarios', () => {
     it('сценарий 3: установка > установка > undo > undo > redo > redo', () => {
       // Первый фон
-      const firstBackground = createMockBackgroundRect({ 
+      const firstBackground = createMockBackgroundRect({
         fill: '#ff0000',
         backgroundId: 'background-first'
       })
-      
-      // Второй фон  
-      const secondBackground = createMockBackgroundRect({ 
+
+      // Второй фон
+      const secondBackground = createMockBackgroundRect({
         fill: '#00ff00',
         backgroundId: 'background-second'
       })
 
       // Установка первого фона
       backgroundManager.backgroundObject = firstBackground
-      
+
       // Установка второго фона
       backgroundManager.backgroundObject = secondBackground
-      
+
       // Первый undo - возврат к первому фону
       backgroundManager.backgroundObject = firstBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-first')
-      
+
       // Второй undo - удаление фона
       backgroundManager.backgroundObject = null
       expect(backgroundManager.backgroundObject).toBeNull()
-      
+
       // Первый redo - возврат первого фона
       backgroundManager.backgroundObject = firstBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-first')
-      
+
       // Второй redo - возврат второго фона
       backgroundManager.backgroundObject = secondBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-second')
@@ -413,7 +413,7 @@ describe('BackgroundManager', () => {
       backgroundManager.backgroundObject = mockBackground
 
       // Загружаем изображение
-      const mockImage = createMockFabricObject({ 
+      const mockImage = createMockFabricObject({
         type: 'image',
         id: 'image-12345'
       })
@@ -431,7 +431,7 @@ describe('BackgroundManager', () => {
       // Устанавливаем фон дважды
       const firstBackground = createMockBackgroundRect({ backgroundId: 'background-1' })
       const secondBackground = createMockBackgroundRect({ backgroundId: 'background-2' })
-      
+
       backgroundManager.backgroundObject = secondBackground
 
       // Удаляем фон
@@ -442,7 +442,7 @@ describe('BackgroundManager', () => {
       backgroundManager.backgroundObject = secondBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-2')
 
-      // Второй undo - возврат первого фона  
+      // Второй undo - возврат первого фона
       backgroundManager.backgroundObject = firstBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-1')
 
@@ -461,33 +461,33 @@ describe('BackgroundManager', () => {
     it('сценарий 7: selectAll должен включать фон', () => {
       const mockBackground = createMockBackgroundRect()
       const mockImage = createMockFabricObject({ type: 'image', id: 'image-123' })
-      
+
       backgroundManager.backgroundObject = mockBackground
-      
+
       // Симулируем что canvas.getObjects возвращает фон и изображение
       mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground, mockImage])
-      
+
       // Вызываем selectAll
       mockEditor.selectionManager.selectAll()
-      
+
       expect(mockEditor.selectionManager.selectAll).toHaveBeenCalled()
     })
 
     it('сценарий 8: отправка изображения на задний план - изображение должно быть выше фона', () => {
       const mockBackground = createMockBackgroundRect()
       const mockImage = createMockFabricObject({ type: 'image', id: 'image-123' })
-      
+
       backgroundManager.backgroundObject = mockBackground
-      
+
       // Симулируем начальное состояние: изображение выше фона
       mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground, mockImage])
-      
+
       // Вызываем layerManager.sendToBack для изображения
       mockEditor.layerManager.bringToFront(mockImage)
-      
+
       // Проверяем что layerManager был вызван
       expect(mockEditor.layerManager.bringToFront).toHaveBeenCalledWith(mockImage)
-      
+
       // В реальном сценарии изображение должно остаться выше фона
       // (это поведение layer-manager'а)
     })
