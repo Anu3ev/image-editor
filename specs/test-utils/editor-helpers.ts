@@ -432,7 +432,7 @@ export const createMockBackgroundRect = (props: any = {}) => ({
     type: 'rect',
     id: 'background',
     backgroundType: 'color',
-    backgroundId: `background-${Math.random().toString(36).substr(2, 5)}`,
+    backgroundId: `background-${Math.random().toString(36).slice(2, 7)}`,
     fill: '#ffffff',
     selectable: false,
     evented: false,
@@ -451,7 +451,7 @@ export const createMockBackgroundImage = (props: any = {}) => ({
     type: 'image',
     id: 'background',
     backgroundType: 'image',
-    backgroundId: `background-${Math.random().toString(36).substr(2, 5)}`,
+    backgroundId: `background-${Math.random().toString(36).slice(2, 7)}`,
     selectable: false,
     evented: false,
     ...props
