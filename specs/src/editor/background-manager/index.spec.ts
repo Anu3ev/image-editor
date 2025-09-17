@@ -604,7 +604,7 @@ describe('BackgroundManager', () => {
       expect(activeObjects).toHaveLength(1) // Только изображение
     })
 
-    it('при отправке изображения на задний план - изображение должно быть выше фона', () => {
+    it('сценарий 8: отправка изображения на задний план - изображение должно остаться выше фона', () => {
       const mockBackground = createMockBackgroundRect({
         id: 'background',
         backgroundId: 'bg-layer-456'
@@ -621,19 +621,44 @@ describe('BackgroundManager', () => {
       let backgroundIndex = objects.findIndex((obj: any) => obj.id === 'background')
       let imageIndex = objects.findIndex((obj: any) => obj.id === 'image-789')
 
-      expect(backgroundIndex).toBeGreaterThan(-1)
-      expect(imageIndex).toBeGreaterThan(-1)
-      expect(imageIndex).toBeGreaterThan(backgroundIndex) // image должно быть выше background
-
-      // ОР: В реальной системе, даже после sendToBack для изображения,
-      // BackgroundManager должен обеспечить что фон остается самым нижним слоем
-      // Поэтому проверяем что изображение остается выше фона
-
-      // Даже после потенциального вызова sendToBack, фон должен остаться ниже всех объектов
-      // Это и есть суть проверки - BackgroundManager управляет порядком слоев для фона
+      expect(backgroundIndex).toBe(1) // montageArea(0), background(1), image(2)
+      expect(imageIndex).toBe(2)
       expect(imageIndex).toBeGreaterThan(backgroundIndex)
-      expect(mockCanvas.getObjects()).toContain(mockBackground)
-      expect(mockCanvas.getObjects()).toContain(mockImage)
+
+      // Отправляем изображение на задний план
+      mockCanvas.sendObjectToBack(mockImage)
+
+      // После sendToBack изображение переместится в начало массива
+      objects = mockCanvas.getObjects()
+      backgroundIndex = objects.findIndex((obj: any) => obj.id === 'background')
+      imageIndex = objects.findIndex((obj: any) => obj.id === 'image-789')
+
+      // Теперь порядок: image(0), montageArea(1), background(2) - фон НЕ на правильной позиции!
+      expect(imageIndex).toBe(0)
+      expect(backgroundIndex).toBe(2)
+
+      // Настраиваем indexOf мок для refresh()
+      mockCanvas.indexOf.mockImplementation((obj: any) => {
+        const objects = mockCanvas.getObjects()
+        return objects.indexOf(obj)
+      })
+
+      // Сброс счетчика вызовов moveObjectTo перед refresh
+      mockCanvas.moveObjectTo.mockClear()
+
+      // Вызываем refresh - он должен обнаружить что фон не на правильной позиции
+      // montageArea индекс = 1, значит фон должен быть на позиции 2 (montageIndex + 1)
+      // но он на позиции 2, что не равно 1 + 1 = 2... стоп, это правильная позиция!
+      // Нужно сделать так чтобы фон был на неправильной позиции
+
+      // Меняем порядок: image(0), background(1), montageArea(2) - фон перед montageArea!
+      const wrongObjects = [mockImage, mockBackground, mockMontageArea]
+      mockCanvas.getObjects.mockReturnValue(wrongObjects)
+
+      backgroundManager.refresh()
+
+      // refresh() должен переместить фон на позицию после montageArea (индекс 3)
+      expect(mockCanvas.moveObjectTo).toHaveBeenCalledWith(mockBackground, 3)
     })
 
     it('removeBackground должен удалить фон', () => {
