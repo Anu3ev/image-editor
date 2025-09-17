@@ -251,7 +251,29 @@ export const createLayerAwareCanvasMock = () => {
         objects.splice(index, 1)
         objects.splice(index - 1, 0, obj)
       }
+    }),
+
+    // Метод для перемещения объекта на конкретную позицию
+    moveObjectTo: jest.fn((obj: any, targetIndex: number) => {
+      const currentIndex = objects.indexOf(obj)
+      if (currentIndex > -1) {
+        objects.splice(currentIndex, 1)
+        objects.splice(targetIndex, 0, obj)
+      }
+    }),
+
+    // Метод для получения индекса объекта
+    indexOf: jest.fn((obj: any) => objects.indexOf(obj)),
+
+    // Дополнительные методы для BackgroundManager тестов
+    insertAt: jest.fn((obj: any, index: number) => {
+      objects.splice(index, 0, obj)
     })
+  }
+
+  // Добавляем метод для тестов чтобы напрямую очистить объекты
+  canvas._clearObjects = () => {
+    objects = []
   }
 
   return canvas as any
