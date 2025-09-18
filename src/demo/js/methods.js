@@ -72,8 +72,7 @@ function setGradientBackground(editorInstance, startColor, endColor, angle) {
 
 // Установка фона из изображения
 async function setImageBackground(editorInstance, file) {
-  const imageUrl = URL.createObjectURL(file)
-  await editorInstance.backgroundManager.setImageBackground({ imageUrl })
+  await editorInstance.backgroundManager.setImageBackground({ imageSource: file })
 }
 
 // Удаление фона

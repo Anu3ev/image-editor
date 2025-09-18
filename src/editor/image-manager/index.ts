@@ -30,7 +30,9 @@ export type ImportImageOptions = {
   source: File | string,
   scale?: 'image-contain' | 'image-cover' | 'scale-montage',
   withoutSave?: boolean,
-  fromClipboard?: boolean
+  fromClipboard?: boolean,
+  isBackground?: boolean,
+  withoutSelection?: boolean
 }
 
 export type ExportObjectAsImageFileParameters = {
@@ -105,7 +107,9 @@ export default class ImageManager {
       source,
       scale = `image-${this.options.scaleType}`,
       withoutSave = false,
-      fromClipboard = false
+      fromClipboard = false,
+      isBackground = false,
+      withoutSelection = false
     } = options
 
     if (!source) return null
@@ -126,7 +130,16 @@ export default class ImageManager {
         method: 'importImage',
         code: 'INVALID_CONTENT_TYPE',
         message,
-        data: { source, format, contentType, acceptContentTypes, acceptFormats, fromClipboard }
+        data: {
+          source,
+          format,
+          contentType,
+          acceptContentTypes,
+          acceptFormats,
+          fromClipboard,
+          isBackground,
+          withoutSelection
+        }
       })
 
       return null
@@ -151,7 +164,16 @@ export default class ImageManager {
           method: 'importImage',
           code: 'INVALID_SOURCE_TYPE',
           message: 'Неверный тип источника изображения. Ожидается URL или объект File.',
-          data: { source, format, contentType, acceptContentTypes, acceptFormats, fromClipboard }
+          data: {
+            source,
+            format,
+            contentType,
+            acceptContentTypes,
+            acceptFormats,
+            fromClipboard,
+            isBackground,
+            withoutSelection
+          }
         })
 
         return null
@@ -226,7 +248,11 @@ export default class ImageManager {
       // Добавляем изображение, центрируем его и перерисовываем канвас
       canvas.add(img)
       canvas.centerObject(img)
-      canvas.setActiveObject(img)
+
+      if (!withoutSelection) {
+        canvas.setActiveObject(img)
+      }
+
       canvas.renderAll()
 
       historyManager.resumeHistory()
@@ -242,7 +268,9 @@ export default class ImageManager {
         scale,
         withoutSave,
         source,
-        fromClipboard
+        fromClipboard,
+        isBackground,
+        withoutSelection
       }
 
       canvas.fire('editor:image-imported', result)
@@ -254,7 +282,16 @@ export default class ImageManager {
         method: 'importImage',
         code: 'IMPORT_FAILED',
         message: `Ошибка импорта изображения: ${(error as Error).message}`,
-        data: { source, format, contentType, scale, withoutSave, fromClipboard }
+        data: {
+          source,
+          format,
+          contentType,
+          scale,
+          withoutSave,
+          fromClipboard,
+          isBackground,
+          withoutSelection
+        }
       })
 
       historyManager.resumeHistory()

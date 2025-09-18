@@ -1,9 +1,8 @@
-import { Rect, FabricImage, Gradient } from 'fabric'
+import { Rect, FabricImage, Gradient, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 
 // TODO: Добавить поддержку не только линейного градиента
-// TODO: Сделать чтобы картинка не обрезалась и вписывалась в монтажную область (cover)
 
 export type SetColorOptions = {
   color: string
@@ -24,7 +23,7 @@ export type SetGradientOptions = {
 }
 
 export type SetImageOptions = {
-  imageUrl: string
+  imageSource: string | File
   withoutSave?: boolean
 }
 
@@ -51,7 +50,7 @@ export default class BackgroundManager {
   /**
    * Текущий объект фона.
    */
-  public backgroundObject: Rect | FabricImage | null
+  public backgroundObject: Rect | FabricImage | FabricObject | null
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -172,7 +171,7 @@ export default class BackgroundManager {
    * @param options.withoutSave - Если true, не сохранять состояние в историю
    */
   public async setImageBackground({
-    imageUrl,
+    imageSource,
     withoutSave = false
   }: SetImageOptions): Promise<void> {
     try {
@@ -181,9 +180,13 @@ export default class BackgroundManager {
 
       // Для изображений всегда пересоздаем фон
       this._removeCurrentBackground()
-      await this._createImageBackground(imageUrl)
+      await this._createImageBackground(imageSource)
 
-      this.editor.canvas.fire('background:changed', { type: 'image', imageUrl })
+      this.editor.canvas.fire('background:changed', {
+        type: 'image',
+        imageSource,
+        backgroundObject: this.backgroundObject
+      })
       historyManager.resumeHistory()
 
       if (!withoutSave) {
@@ -248,12 +251,8 @@ export default class BackgroundManager {
 
     historyManager.suspendHistory()
 
-    // Получаем размеры монтажной области
-    montageArea.setCoords()
-    const { left, top, width, height } = montageArea.getBoundingRect()
-
-    // Обновляем размеры и позицию фона
-    this.backgroundObject.set({ left, top, width, height })
+    // Вписываем фон в монтажную область
+    this.editor.transformManager.fitObject({ object: this.backgroundObject, withoutSave: true, type: 'cover' })
 
     // Проверяем, находится ли фон в правильной позиции (сразу после montageArea)
     const objects = canvas.getObjects()
@@ -316,34 +315,33 @@ export default class BackgroundManager {
 
   /**
    * Создает фон из изображения.
-   * @param imageUrl - URL изображения
+   * @param source - источник изображения (URL или File)
    */
-  private async _createImageBackground(imageUrl: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      FabricImage.fromURL(imageUrl, {
-        crossOrigin: 'anonymous'
-      }).then((img) => {
-        if (!img) {
-          reject(new Error('Не удалось загрузить изображение'))
-          return
-        }
+  private async _createImageBackground(source: string | File): Promise<void> {
+    const { image } = await this.editor.imageManager.importImage({
+      source,
+      withoutSave: true,
+      isBackground: true,
+      withoutSelection: true,
+      scale: 'image-cover'
+    }) ?? {}
 
-        img.set({
-          selectable: false,
-          evented: false,
-          hasBorders: false,
-          hasControls: false,
-          id: 'background',
-          backgroundType: 'image',
-          backgroundId: `background-${nanoid()}`
-        })
+    if (!image) {
+      throw new Error('Не удалось загрузить изображение')
+    }
 
-        this.editor.canvas.add(img)
-        this.backgroundObject = img
-        this._setupBackgroundPosition()
-        resolve()
-      }).catch(reject)
+    image.set({
+      selectable: false,
+      evented: false,
+      hasBorders: false,
+      hasControls: false,
+      id: 'background',
+      backgroundType: 'image',
+      backgroundId: `background-${nanoid()}`
     })
+
+    this.backgroundObject = image
+    this.refresh()
   }
 
   /**
