@@ -285,7 +285,7 @@ export default class BackgroundManager {
       backgroundId: `background-${nanoid()}`
     }, { withoutSelection: true })
 
-    this._setupBackgroundPosition()
+    this.refresh()
   }
 
   /**
@@ -305,7 +305,7 @@ export default class BackgroundManager {
       backgroundId: `background-${nanoid()}`
     }, { withoutSelection: true })
 
-    this._setupBackgroundPosition()
+    this.refresh()
 
     // После установки позиции создаем градиент
     const fabricGradient = BackgroundManager._createFabricGradient(gradient)
@@ -341,15 +341,6 @@ export default class BackgroundManager {
     })
 
     this.backgroundObject = image
-    this.refresh()
-  }
-
-  /**
-   * Настраивает позицию и размеры фона.
-   */
-  private _setupBackgroundPosition(): void {
-    if (!this.backgroundObject) return
-
     this.refresh()
   }
 
