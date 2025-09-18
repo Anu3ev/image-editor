@@ -100,7 +100,8 @@ export const createEditorStub = () => {
       resetObject: jest.fn(),
       resetZoom: jest.fn(),
       resetObjects: jest.fn(),
-      calculateAndApplyDefaultZoom: jest.fn()
+      calculateAndApplyDefaultZoom: jest.fn(),
+      fitObject: jest.fn()
     },
     layerManager: { bringToFront: jest.fn() },
     selectionManager: { selectAll: jest.fn() },
