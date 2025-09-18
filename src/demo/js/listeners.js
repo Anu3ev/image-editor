@@ -341,7 +341,8 @@ export default (editorInstance) => {
 
   gradientRadiusInput.addEventListener('input', (e) => {
     gradientRadiusValue.textContent = e.target.value
-  })  // Color background
+  })
+
   setColorBackgroundBtn.addEventListener('click', () => {
     const color = backgroundColorInput.value
     setColorBackground(editorInstance, color)
