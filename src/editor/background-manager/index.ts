@@ -2,20 +2,32 @@ import { Rect, FabricImage, Gradient, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 
-// TODO: Добавить поддержку не только линейного градиента
-
 export type SetColorOptions = {
   color: string
   withoutSave?: boolean
 }
 
-export type GradientBackground = {
+export type LinearGradientBackground = {
+  type: 'linear'
   angle: number // угол в градусах (0-360)
   startColor: string // HEX цвет начала градиента
   endColor: string // HEX цвет конца градиента
   startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
   endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
 }
+
+export type RadialGradientBackground = {
+  type: 'radial'
+  centerX?: number // позиция центра по X в процентах (0-100, по умолчанию 50)
+  centerY?: number // позиция центра по Y в процентах (0-100, по умолчанию 50)
+  radius?: number // радиус в процентах (0-100, по умолчанию 50)
+  startColor: string // HEX цвет центра градиента
+  endColor: string // HEX цвет края градиента
+  startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
+  endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
+}
+
+export type GradientBackground = LinearGradientBackground | RadialGradientBackground
 
 export type SetGradientOptions = {
   gradient: GradientBackground
@@ -27,8 +39,8 @@ export type SetImageOptions = {
   withoutSave?: boolean
 }
 
-interface GradientData {
-  type: string
+interface LinearGradientData {
+  type: 'linear'
   coords: {
     x1: number
     y1: number
@@ -40,6 +52,24 @@ interface GradientData {
     offset: number
   }>
 }
+
+interface RadialGradientData {
+  type: 'radial'
+  coords: {
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+    r1: number
+    r2: number
+  }
+  colorStops: Array<{
+    color: string
+    offset: number
+  }>
+}
+
+type GradientData = LinearGradientData | RadialGradientData
 
 export default class BackgroundManager {
   /**
@@ -162,6 +192,76 @@ export default class BackgroundManager {
         data: { error }
       })
     }
+  }
+
+  /**
+   * Устанавливает линейный градиентный фон.
+   * @param options - Опции для установки линейного градиента
+   */
+  public setLinearGradientBackground({
+    angle,
+    startColor,
+    endColor,
+    startPosition,
+    endPosition,
+    withoutSave = false
+  }: {
+    angle: number
+    startColor: string
+    endColor: string
+    startPosition?: number
+    endPosition?: number
+    withoutSave?: boolean
+  }): void {
+    this.setGradientBackground({
+      gradient: {
+        type: 'linear',
+        angle,
+        startColor,
+        endColor,
+        startPosition,
+        endPosition
+      },
+      withoutSave
+    })
+  }
+
+  /**
+   * Устанавливает радиальный градиентный фон.
+   * @param options - Опции для установки радиального градиента
+   */
+  public setRadialGradientBackground({
+    centerX,
+    centerY,
+    radius,
+    startColor,
+    endColor,
+    startPosition,
+    endPosition,
+    withoutSave = false
+  }: {
+    centerX?: number
+    centerY?: number
+    radius?: number
+    startColor: string
+    endColor: string
+    startPosition?: number
+    endPosition?: number
+    withoutSave?: boolean
+  }): void {
+    this.setGradientBackground({
+      gradient: {
+        type: 'radial',
+        centerX,
+        centerY,
+        radius,
+        startColor,
+        endColor,
+        startPosition,
+        endPosition
+      },
+      withoutSave
+    })
   }
 
   /**
@@ -359,18 +459,13 @@ export default class BackgroundManager {
    * Создает Fabric.js градиент из параметров.
    * @param gradient - Объект с параметрами градиента
    */
-  private static _createFabricGradient(gradient: GradientBackground): Gradient<'linear'> {
+  private static _createFabricGradient(gradient: GradientBackground): Gradient<'linear'> | Gradient<'radial'> {
     const {
-      angle,
       startColor,
       endColor,
       startPosition = 0,
       endPosition = 100
     } = gradient
-
-    // Конвертируем угол в координаты для Fabric.js
-    const angleRad = (angle * Math.PI) / 180
-    const coords = BackgroundManager._angleToCoords(angleRad)
 
     // Создаем цветовые остановки
     const colorStops = [
@@ -378,8 +473,37 @@ export default class BackgroundManager {
       { offset: endPosition / 100, color: endColor }
     ]
 
+    if (gradient.type === 'linear') {
+      // Конвертируем угол в координаты для Fabric.js
+      const angleRad = (gradient.angle * Math.PI) / 180
+      const coords = BackgroundManager._angleToCoords(angleRad)
+
+      return new Gradient({
+        type: 'linear',
+        gradientUnits: 'percentage',
+        coords,
+        colorStops
+      })
+    }
+
+    // Радиальный градиент
+    const {
+      centerX = 50,
+      centerY = 50,
+      radius = 50
+    } = gradient
+
+    const coords = {
+      x1: centerX / 100,
+      y1: centerY / 100,
+      x2: centerX / 100,
+      y2: centerY / 100,
+      r1: 0,
+      r2: radius / 100
+    }
+
     return new Gradient({
-      type: 'linear',
+      type: 'radial',
       gradientUnits: 'percentage',
       coords,
       colorStops
@@ -411,15 +535,7 @@ export default class BackgroundManager {
   private static _isGradientEqual(g1: GradientData, g2: GradientData): boolean {
     // Проверяем, что оба объекта являются градиентами
     if (!g1 || !g2) return false
-    if (g1.type !== 'linear' || g2.type !== 'linear') return false
-
-    // Сравниваем координаты с небольшой погрешностью для чисел с плавающей точкой
-    const coordsEqual = Math.abs(g1.coords.x1 - g2.coords.x1) < 0.0001
-      && Math.abs(g1.coords.y1 - g2.coords.y1) < 0.0001
-      && Math.abs(g1.coords.x2 - g2.coords.x2) < 0.0001
-      && Math.abs(g1.coords.y2 - g2.coords.y2) < 0.0001
-
-    if (!coordsEqual) return false
+    if (g1.type !== g2.type) return false
 
     // Сравниваем цвета
     const stops1 = g1.colorStops || []
@@ -427,10 +543,31 @@ export default class BackgroundManager {
 
     if (stops1.length !== stops2.length) return false
 
-    return stops1.every((stop1: { color: string; offset: number }, index: number) => {
+    const colorStopsEqual = stops1.every((stop1: { color: string; offset: number }, index: number) => {
       const stop2 = stops2[index]
       return stop1.color === stop2.color
         && Math.abs(stop1.offset - stop2.offset) < 0.0001
     })
+
+    if (!colorStopsEqual) return false
+
+    // Сравниваем координаты в зависимости от типа градиента
+    if (g1.type === 'linear' && g2.type === 'linear') {
+      return Math.abs(g1.coords.x1 - g2.coords.x1) < 0.0001
+        && Math.abs(g1.coords.y1 - g2.coords.y1) < 0.0001
+        && Math.abs(g1.coords.x2 - g2.coords.x2) < 0.0001
+        && Math.abs(g1.coords.y2 - g2.coords.y2) < 0.0001
+    }
+
+    if (g1.type === 'radial' && g2.type === 'radial') {
+      return Math.abs(g1.coords.x1 - g2.coords.x1) < 0.0001
+        && Math.abs(g1.coords.y1 - g2.coords.y1) < 0.0001
+        && Math.abs(g1.coords.x2 - g2.coords.x2) < 0.0001
+        && Math.abs(g1.coords.y2 - g2.coords.y2) < 0.0001
+        && Math.abs(g1.coords.r1 - g2.coords.r1) < 0.0001
+        && Math.abs(g1.coords.r2 - g2.coords.r2) < 0.0001
+    }
+
+    return false
   }
 }

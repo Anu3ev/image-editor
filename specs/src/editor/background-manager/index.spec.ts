@@ -391,6 +391,7 @@ describe('BackgroundManager', () => {
       mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
 
       const gradient = {
+        type: 'linear' as const,
         angle: 45,
         startColor: '#ff0000',
         endColor: '#0000ff'
@@ -416,6 +417,7 @@ describe('BackgroundManager', () => {
         .mockReturnValue(true) // Симулируем что градиенты одинаковые
 
       const gradient = {
+        type: 'linear' as const,
         angle: 45,
         startColor: '#ff0000',
         endColor: '#0000ff'
@@ -424,6 +426,112 @@ describe('BackgroundManager', () => {
       const mockBackground = createMockBackgroundRect({
         backgroundType: 'gradient',
         fill: { type: 'linear', coords: {}, colorStops: [] }
+      })
+
+      backgroundManager.backgroundObject = mockBackground
+
+      backgroundManager.setGradientBackground({ gradient })
+
+      expect(mockEditor.shapeManager.addRectangle).not.toHaveBeenCalled()
+      expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
+
+      isGradientEqualSpy.mockRestore()
+    })
+  })
+
+  // Тесты для радиальных градиентов
+  describe('radial gradient background', () => {
+    it('должен создать радиальный градиентный фон', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'radial', coords: {}, colorStops: [] }
+      })
+      mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
+
+      const gradient = {
+        type: 'radial' as const,
+        centerX: 50,
+        centerY: 50,
+        radius: 70,
+        startColor: '#ff0000',
+        endColor: '#0000ff'
+      }
+
+      backgroundManager.setGradientBackground({ gradient })
+
+      expect(mockEditor.shapeManager.addRectangle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundType: 'gradient'
+        }),
+        { withoutSelection: true }
+      )
+      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', {
+        type: 'gradient',
+        gradientParams: gradient
+      })
+    })
+
+    it('должен создать радиальный градиент с помощью метода setRadialGradientBackground', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'radial', coords: {}, colorStops: [] }
+      })
+      mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
+
+      backgroundManager.setRadialGradientBackground({
+        centerX: 30,
+        centerY: 70,
+        radius: 50,
+        startColor: '#00ff00',
+        endColor: '#ff00ff'
+      })
+
+      expect(mockEditor.shapeManager.addRectangle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundType: 'gradient'
+        }),
+        { withoutSelection: true }
+      )
+    })
+
+    it('должен создать линейный градиент с помощью метода setLinearGradientBackground', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'linear', coords: {}, colorStops: [] }
+      })
+      mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
+
+      backgroundManager.setLinearGradientBackground({
+        angle: 90,
+        startColor: '#ffff00',
+        endColor: '#00ffff'
+      })
+
+      expect(mockEditor.shapeManager.addRectangle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundType: 'gradient'
+        }),
+        { withoutSelection: true }
+      )
+    })
+
+    it('не должен изменять радиальный градиент если он тот же', () => {
+      // Мокаем статический метод для сравнения градиентов
+      const isGradientEqualSpy = jest.spyOn(BackgroundManager as any, '_isGradientEqual')
+        .mockReturnValue(true) // Симулируем что градиенты одинаковые
+
+      const gradient = {
+        type: 'radial' as const,
+        centerX: 50,
+        centerY: 50,
+        radius: 60,
+        startColor: '#ff0000',
+        endColor: '#0000ff'
+      }
+
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'radial', coords: {}, colorStops: [] }
       })
 
       backgroundManager.backgroundObject = mockBackground
