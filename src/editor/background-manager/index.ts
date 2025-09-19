@@ -122,7 +122,7 @@ export default class BackgroundManager {
         this._createColorBackground(color)
       }
 
-      this.editor.canvas.fire('background:changed', { type: 'color', color })
+      this.editor.canvas.fire('editor:background:changed', { type: 'color', color })
       historyManager.resumeHistory()
 
       if (!withoutSave) {
@@ -174,7 +174,7 @@ export default class BackgroundManager {
         this._createGradientBackground(gradient)
       }
 
-      this.editor.canvas.fire('background:changed', {
+      this.editor.canvas.fire('editor:background:changed', {
         type: 'gradient',
         gradientParams: gradient
       })
@@ -278,11 +278,9 @@ export default class BackgroundManager {
       const { historyManager } = this.editor
       historyManager.suspendHistory()
 
-      // Для изображений всегда пересоздаем фон
-      this._removeCurrentBackground()
       await this._createImageBackground(imageSource)
 
-      this.editor.canvas.fire('background:changed', {
+      this.editor.canvas.fire('editor:background:changed', {
         type: 'image',
         imageSource,
         backgroundObject: this.backgroundObject
@@ -312,19 +310,11 @@ export default class BackgroundManager {
     try {
       const { historyManager } = this.editor
 
-      if (!this.backgroundObject) {
-        this.editor.errorManager.emitWarning({
-          code: 'NO_BACKGROUND_TO_REMOVE',
-          origin: 'BackgroundManager',
-          method: 'removeBackground',
-          message: 'Нет фона для удаления'
-        })
-        return
-      }
+      if (!this.backgroundObject) return
 
       historyManager.suspendHistory()
       this._removeCurrentBackground()
-      this.editor.canvas.fire('background:removed')
+      this.editor.canvas.fire('editor:background:removed')
       historyManager.resumeHistory()
 
       if (!withoutSave) {
@@ -439,6 +429,9 @@ export default class BackgroundManager {
       backgroundType: 'image',
       backgroundId: `background-${nanoid()}`
     })
+
+    // Удаляем старый фон перед установкой нового
+    this._removeCurrentBackground()
 
     this.backgroundObject = image
     this.refresh()

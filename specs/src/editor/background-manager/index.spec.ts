@@ -64,7 +64,7 @@ describe('BackgroundManager', () => {
       }, { withoutSelection: true })
 
       expect(backgroundManager.backgroundObject).toBe(mockBackground)
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', { type: 'color', color: '#ff0000' })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', { type: 'color', color: '#ff0000' })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
@@ -93,7 +93,7 @@ describe('BackgroundManager', () => {
 
       expect(mockBackground.set).toHaveBeenCalledWith({ fill: '#00ff00' })
       expect(mockBackground.set).toHaveBeenCalledWith('backgroundId', expect.stringMatching(/^background-/))
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', { type: 'color', color: '#00ff00' })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', { type: 'color', color: '#00ff00' })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
@@ -126,7 +126,7 @@ describe('BackgroundManager', () => {
         withoutSelection: true,
         scale: 'image-cover'
       })
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', {
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'image',
         imageSource,
         backgroundObject: mockImage
@@ -157,22 +157,16 @@ describe('BackgroundManager', () => {
 
       expect(mockCanvas.remove).toHaveBeenCalledWith(mockBackground)
       expect(backgroundManager.backgroundObject).toBeNull()
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:removed')
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:removed')
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
-    it('должен показать предупреждение если нет фона для удаления', () => {
+    it('ничего не должен делать если нет фона для удаления', () => {
       backgroundManager.backgroundObject = null
 
       backgroundManager.removeBackground()
 
       expect(mockCanvas.remove).not.toHaveBeenCalled()
-      expect(mockEditor.errorManager.emitWarning).toHaveBeenCalledWith({
-        code: 'NO_BACKGROUND_TO_REMOVE',
-        origin: 'BackgroundManager',
-        method: 'removeBackground',
-        message: 'Нет фона для удаления'
-      })
       expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
     })
 
@@ -405,7 +399,7 @@ describe('BackgroundManager', () => {
         }),
         { withoutSelection: true }
       )
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', {
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'gradient',
         gradientParams: gradient
       })
@@ -465,7 +459,7 @@ describe('BackgroundManager', () => {
         }),
         { withoutSelection: true }
       )
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', {
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'gradient',
         gradientParams: gradient
       })
