@@ -398,11 +398,11 @@ declare module 'fabric' {
     /**
      * Срабатывает при изменении фона.
      */
-    'background:changed': BackgroundChangedPayload
+    'editor:background:changed': BackgroundChangedPayload
 
     /**
      * Срабатывает при удалении фона.
      */
-    'background:removed': void
+    'editor:background:removed': void
   }
 }
