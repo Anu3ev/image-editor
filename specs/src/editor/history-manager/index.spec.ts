@@ -1,10 +1,6 @@
 import { nanoid } from 'nanoid'
-import HistoryManager, { CanvasFullState } from '../../../../src/editor/history-manager'
+import type { CanvasFullState } from '../../../../src/editor/history-manager'
 import { createHistoryManagerTestSetup } from '../../../test-utils/editor-helpers'
-
-jest.mock('nanoid', () => ({
-  nanoid: jest.fn()
-}))
 
 const createState = (overrides: Partial<CanvasFullState> = {}): CanvasFullState => ({
   clipPath: null,
@@ -101,6 +97,35 @@ describe('HistoryManager', () => {
       expect(mockNanoid).toHaveBeenCalledTimes(1)
     })
 
+    it('не добавляет дифф если состояние не изменилось', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState({
+        objects: [{ id: 'object-1', left: 0 }] as any[]
+      })
+
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(baseState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      expect(historyManager.patches).toHaveLength(0)
+      expect(historyManager.totalChangesCount).toBe(0)
+      expect(historyManager.hasUnsavedChanges()).toBe(false)
+    })
+
+    it('не сохраняет состояние когда история приостановлена', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      historyManager.suspendHistory()
+
+      historyManager.saveState()
+
+      expect(mockCanvas.toDatalessObject).not.toHaveBeenCalled()
+      expect(historyManager.baseState).toBeNull()
+      historyManager.resumeHistory()
+    })
+
     it('удаляет redo-ветку после отката и сохранения нового состояния', async() => {
       const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
       const state1 = createState({
@@ -142,6 +167,8 @@ describe('HistoryManager', () => {
       expect(historyManager.patches.map((patch) => patch.id)).toEqual(['patch-1', 'patch-3'])
       expect(historyManager.currentIndex).toBe(2)
       expect(historyManager.totalChangesCount).toBe(2)
+      expect(historyManager.hasUnsavedChanges()).toBe(true)
+      expect(historyManager.lastPatch?.id).toBe('patch-3')
     })
 
     it('сдвигает базовое состояние при превышении лимита истории', () => {
@@ -172,6 +199,24 @@ describe('HistoryManager', () => {
       expect(historyManager.baseStateChangesCount).toBe(1)
       expect(historyManager.getFullState()).toEqual(state4)
       expect(historyManager.getCurrentChangePosition()).toBe(3)
+    })
+
+    it('lastPatch возвращает последний дифф', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState()
+      const nextState = createState({
+        objects: [{ id: 'object-1', left: 10 }] as any[]
+      })
+
+      mockNanoid.mockReturnValueOnce('patch-last')
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      expect(historyManager.lastPatch).toEqual(expect.objectContaining({ id: 'patch-last' }))
     })
   })
 
@@ -224,6 +269,17 @@ describe('HistoryManager', () => {
   })
 
   describe('undo/redo', () => {
+    it('ничего не делает если undo вызывается без истории', async() => {
+      const { historyManager, mockEditor } = createHistoryManagerTestSetup()
+      const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
+
+      await historyManager.undo()
+
+      expect(loadSpy).not.toHaveBeenCalled()
+      expect(mockEditor.canvas.fire).not.toHaveBeenCalledWith('editor:undo', expect.anything())
+      loadSpy.mockRestore()
+    })
+
     it('возвращает предыдущее состояние и генерирует события', async() => {
       const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
       const baseState = createState({
@@ -288,6 +344,45 @@ describe('HistoryManager', () => {
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:redo', expect.objectContaining({
         currentIndex: 1
       }))
+    })
+
+    it('ничего не делает если redo вызывается без доступных состояний', async() => {
+      const { historyManager, mockEditor } = createHistoryManagerTestSetup()
+      const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
+
+      await historyManager.redo()
+
+      expect(loadSpy).not.toHaveBeenCalled()
+      expect(mockEditor.canvas.fire).not.toHaveBeenCalledWith('editor:redo', expect.anything())
+      loadSpy.mockRestore()
+    })
+
+    it('пропускает undo/redo когда история приостановлена', async() => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState()
+      const nextState = createState({
+        objects: [{ id: 'object-1', left: 5 }] as any[]
+      })
+
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
+      historyManager.suspendHistory()
+
+      await historyManager.undo()
+      await historyManager.redo()
+
+      expect(loadSpy).not.toHaveBeenCalled()
+      expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:undo', expect.anything())
+      expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:redo', expect.anything())
+
+      historyManager.resumeHistory()
+      loadSpy.mockRestore()
     })
   })
 })
