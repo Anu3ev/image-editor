@@ -1,8 +1,8 @@
 # Fabric Image Editor
 
-A modern, powerful browser-based image editor built with [FabricJS](https://fabricjs.com/) and TypeScript. This library provides a complete image editing solution with professional features for web applications.
+A modern, powerful browser-based image editor built with <a href="https://fabricjs.com/" target="_blank">FabricJS</a> and TypeScript. This library provides a complete image editing solution with professional features for web applications.
 
-🚀 **[Live Demo](https://anu3ev.github.io/image-editor/)**
+🚀 **<a href="https://anu3ev.github.io/image-editor/" target="_blank">Live Demo</a>**
 
 ## ✨ Features
 
@@ -26,6 +26,7 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 - **Event System** - Rich event handling for integration
 - **Responsive Design** - Adapts to different screen sizes and containers
 - **Testing Infrastructure** - Jest test suite with 45%+ coverage
+- **Web Worker Support** - Background processing for heavy operations
 
 ## 📦 Installation
 
@@ -76,10 +77,10 @@ await editor.imageManager.importImage({
 // Export the canvas
 const result = await editor.imageManager.exportCanvasAsImageFile({
   fileName: 'edited-image.png',
-  contentType: 'image/png'
+  contentType: 'image/png' // Supports: 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
 })
 
-// Handle the exported file
+// Handle the exported file (result.image is File, Blob, or Base64 string)
 const url = URL.createObjectURL(result.image)
 // Use the URL for download or display
 ```
@@ -120,7 +121,7 @@ npm install
 npm run dev
 ```
 
-Visit the demo at: **https://anu3ev.github.io/image-editor/**
+Visit the demo at: **<a href="https://anu3ev.github.io/image-editor/" target="_blank">https://anu3ev.github.io/image-editor/</a>**
 
 ## 🏗️ Architecture
 
@@ -138,8 +139,11 @@ The editor follows a modular architecture with specialized managers:
 - **`SelectionManager`** - Object selection and multi-selection handling
 - **`ClipboardManager`** - Copy/paste with system clipboard integration
 - **`GroupingManager`** - Object grouping and ungrouping operations
-- **`ShapeManager`** - Shape creation (rectangles, circles, etc.)
+- **`DeletionManager`** - Object deletion with group handling
+- **`ShapeManager`** - Shape creation (rectangles, circles, triangles)
+- **`ObjectLockManager`** - Object locking and unlocking functionality
 - **`WorkerManager`** - Web Worker integration for heavy operations
+- **`ModuleLoader`** - Dynamic module loading (jsPDF, etc.)
 - **`ErrorManager`** - Error handling and user notifications
 
 ### UI Components
@@ -191,13 +195,13 @@ initEditor(containerId, options): Promise<ImageEditor>
 // Import image from file or URL
 await editor.imageManager.importImage({
   source: File | string,
-  scale: 'image-contain' // или 'image-cover', 'scale-montage'
+  scale: 'image-contain' // or 'image-cover', 'scale-montage'
 })
 
 // Export canvas as image
 await editor.imageManager.exportCanvasAsImageFile({
   fileName: 'export.png',
-  contentType: 'image/png'
+  contentType: 'image/png' // 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
 })
 ```
 
@@ -284,10 +288,10 @@ npm run dev
 # Development build to dev-build folder
 npm run dev:build
 
-# Production build
+# Production build (library to dist/)
 npm run build
 
-# Build documentation
+# Build for GitHub Pages (demo to docs/)
 npm run build:docs
 ```
 
@@ -320,17 +324,27 @@ src/
 │   ├── background-manager/    # Background functionality
 │   ├── canvas-manager/        # Canvas operations
 │   ├── clipboard-manager/     # Copy/paste operations
+│   ├── customized-controls/   # Custom FabricJS controls
+│   ├── deletion-manager/      # Object deletion
 │   ├── error-manager/         # Error handling
+│   ├── grouping-manager/      # Object grouping
 │   ├── history-manager/       # Undo/redo system
 │   ├── image-manager/         # Image import/export
+│   ├── interaction-blocker/   # UI blocking during operations
 │   ├── layer-manager/         # Layer management
+│   ├── module-loader/         # Dynamic module loading
+│   ├── object-lock-manager/   # Object locking
+│   ├── selection-manager/     # Selection handling
 │   ├── shape-manager/         # Shape creation
 │   ├── transform-manager/     # Object transformations
-│   ├── ui/                    # UI components
+│   ├── worker-manager/        # Web Worker management
+│   ├── ui/                    # UI components (toolbar)
 │   └── types/                 # TypeScript definitions
 ├── demo/                 # Demo application
 specs/                    # Test specifications
-docs/                     # Documentation build
+docs/                     # GitHub Pages build output
+dev-build/                # Development build output
+dist/                     # Production library build
 vite.config.*.js         # Vite configurations
 jest.config.ts           # Jest test configuration
 ```
@@ -340,10 +354,10 @@ jest.config.ts           # Jest test configuration
 The following features are planned for future releases:
 
 - **Drawing Mode** - Freehand drawing tools and brushes
-- **Text Support** - Text layers with formatting options
+- **Text Support** - Text layers with formatting options (IText, Textbox)
 - **Snap/Alignment** - Snap to edges, centers, and guides
 - **Filters & Effects** - Image filters and visual effects
-- **Shape Library** - Extended shape collection
+- **Extended Shape Library** - Additional shapes beyond current rectangles, circles, and triangles
 - **Multi-language** - Internationalization support
 
 ## 🤝 Contributing
@@ -376,17 +390,19 @@ All modern browsers with ES2016+ and Web Workers support.
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) file for details.
+MIT License - see <a href="LICENSE" target="_blank">LICENSE</a> file for details.
 
 ## 🙏 Acknowledgments
 
-- Built with [FabricJS](https://fabricjs.com/) - Powerful HTML5 canvas library
-- [Vite](https://vitejs.dev/) - Lightning fast build tool
-- [TypeScript](https://www.typescriptlang.org/) - Type safety and developer experience
-- [Jest](https://jestjs.io/) - Comprehensive testing framework
+- Built with <a href="https://fabricjs.com/" target="_blank">FabricJS</a> - Powerful HTML5 canvas library
+- <a href="https://vitejs.dev/" target="_blank">Vite</a> - Lightning fast build tool
+- <a href="https://www.typescriptlang.org/" target="_blank">TypeScript</a> - Type safety and developer experience
+- <a href="https://jestjs.io/" target="_blank">Jest</a> - Comprehensive testing framework
 
 ---
 
-**Repository:** [github.com/Anu3ev/image-editor](https://github.com/Anu3ev/image-editor)
-**NPM Package:** [@anu3ev/fabric-image-editor](https://www.npmjs.com/package/@anu3ev/fabric-image-editor)
-**Live Demo:** [anu3ev.github.io/image-editor](https://anu3ev.github.io/image-editor/)
+**Repository:** <a href="https://github.com/Anu3ev/image-editor" target="_blank">github.com/Anu3ev/image-editor</a>
+
+**NPM Package:** <a href="https://www.npmjs.com/package/@anu3ev/fabric-image-editor" target="_blank">@anu3ev/fabric-image-editor</a>
+
+**Live Demo:** <a href="https://anu3ev.github.io/image-editor/" target="_blank">anu3ev.github.io/image-editor</a>
