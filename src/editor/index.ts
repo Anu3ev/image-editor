@@ -6,7 +6,7 @@ import ModuleLoader from './module-loader'
 import WorkerManager from './worker-manager'
 import CustomizedControls from './customized-controls'
 import ToolbarManager from './ui/toolbar-manager'
-import HistoryManager from './history-manager'
+import HistoryManager, { CanvasFullState } from './history-manager'
 import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
 import TransformManager from './transform-manager'
@@ -234,7 +234,7 @@ export class ImageEditor {
     }
 
     if (initialStateJSON) {
-      this.historyManager.loadStateFromFullState(initialStateJSON)
+      this.historyManager.loadStateFromFullState(initialStateJSON as CanvasFullState)
     }
 
     this.historyManager.saveState()

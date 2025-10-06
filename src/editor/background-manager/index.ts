@@ -4,6 +4,7 @@ import { ImageEditor } from '../index'
 
 export type SetColorOptions = {
   color: string
+  customData?: object
   withoutSave?: boolean
 }
 
@@ -31,11 +32,13 @@ export type GradientBackground = LinearGradientBackground | RadialGradientBackgr
 
 export type SetGradientOptions = {
   gradient: GradientBackground
+  customData?: object
   withoutSave?: boolean
 }
 
 export type SetImageOptions = {
   imageSource: string | File
+  customData?: object
   withoutSave?: boolean
 }
 
@@ -95,6 +98,7 @@ export default class BackgroundManager {
    */
   public setColorBackground({
     color,
+    customData = {},
     withoutSave = false
   }: SetColorOptions): void {
     try {
@@ -113,14 +117,18 @@ export default class BackgroundManager {
         }
 
         // Обновляем существующий цветовой фон
-        backgroundObject.set({ fill: color })
-        backgroundObject.set('backgroundId', `background-${nanoid()}`)
+        backgroundObject.set({
+          fill: color,
+          backgroundId: `background-${nanoid()}`
+        })
         this.editor.canvas.requestRenderAll()
       } else {
         // Создаем новый цветовой фон
         this._removeCurrentBackground()
         this._createColorBackground(color)
       }
+
+      this.backgroundObject?.set({ customData })
 
       this.editor.canvas.fire('editor:background:changed', { type: 'color', color })
       historyManager.resumeHistory()
@@ -147,6 +155,7 @@ export default class BackgroundManager {
    */
   public setGradientBackground({
     gradient,
+    customData = {},
     withoutSave = false
   }: SetGradientOptions): void {
     try {
@@ -165,14 +174,18 @@ export default class BackgroundManager {
           return
         }
 
-        backgroundObject.set({ fill: fabricGradient })
-        backgroundObject.set('backgroundId', `background-${nanoid()}`)
+        backgroundObject.set({
+          fill: fabricGradient,
+          backgroundId: `background-${nanoid()}`
+        })
         this.editor.canvas.requestRenderAll()
       } else {
         // Создаем новый градиентный фон
         this._removeCurrentBackground()
         this._createGradientBackground(gradient)
       }
+
+      this.backgroundObject?.set({ customData })
 
       this.editor.canvas.fire('editor:background:changed', {
         type: 'gradient',
@@ -204,6 +217,7 @@ export default class BackgroundManager {
     endColor,
     startPosition,
     endPosition,
+    customData = {},
     withoutSave = false
   }: {
     angle: number
@@ -211,6 +225,7 @@ export default class BackgroundManager {
     endColor: string
     startPosition?: number
     endPosition?: number
+    customData?: object
     withoutSave?: boolean
   }): void {
     this.setGradientBackground({
@@ -222,6 +237,7 @@ export default class BackgroundManager {
         startPosition,
         endPosition
       },
+      customData,
       withoutSave
     })
   }
@@ -238,6 +254,7 @@ export default class BackgroundManager {
     endColor,
     startPosition,
     endPosition,
+    customData = {},
     withoutSave = false
   }: {
     centerX?: number
@@ -247,6 +264,7 @@ export default class BackgroundManager {
     endColor: string
     startPosition?: number
     endPosition?: number
+    customData?: object
     withoutSave?: boolean
   }): void {
     this.setGradientBackground({
@@ -260,6 +278,7 @@ export default class BackgroundManager {
         startPosition,
         endPosition
       },
+      customData,
       withoutSave
     })
   }
@@ -272,13 +291,14 @@ export default class BackgroundManager {
    */
   public async setImageBackground({
     imageSource,
+    customData = {},
     withoutSave = false
   }: SetImageOptions): Promise<void> {
     try {
       const { historyManager } = this.editor
       historyManager.suspendHistory()
 
-      await this._createImageBackground(imageSource)
+      await this._createImageBackground(imageSource, customData)
 
       this.editor.canvas.fire('editor:background:changed', {
         type: 'image',
@@ -407,7 +427,7 @@ export default class BackgroundManager {
    * Создает фон из изображения.
    * @param source - источник изображения (URL или File)
    */
-  private async _createImageBackground(source: string | File): Promise<void> {
+  private async _createImageBackground(source: string | File, customData: object): Promise<void> {
     const { image } = await this.editor.imageManager.importImage({
       source,
       withoutSave: true,
@@ -427,7 +447,8 @@ export default class BackgroundManager {
       hasControls: false,
       id: 'background',
       backgroundType: 'image',
-      backgroundId: `background-${nanoid()}`
+      backgroundId: `background-${nanoid()}`,
+      customData
     })
 
     // Удаляем старый фон перед установкой нового
