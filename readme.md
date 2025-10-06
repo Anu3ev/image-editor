@@ -25,7 +25,8 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 - **Modular Architecture** - Clean separation of concerns with manager classes
 - **Event System** - Rich event handling for integration
 - **Responsive Design** - Adapts to different screen sizes and containers
-- **Comprehensive Testing** - Jest test suite with 85%+ coverage
+- **Testing Infrastructure** - Jest test suite with 45%+ coverage
+- **Web Worker Support** - Background processing for heavy operations
 
 ## 📦 Installation
 
@@ -76,10 +77,10 @@ await editor.imageManager.importImage({
 // Export the canvas
 const result = await editor.imageManager.exportCanvasAsImageFile({
   fileName: 'edited-image.png',
-  contentType: 'image/png'
+  contentType: 'image/png' // Supports: 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
 })
 
-// Handle the exported file
+// Handle the exported file (result.image is File, Blob, or Base64 string)
 const url = URL.createObjectURL(result.image)
 // Use the URL for download or display
 ```
@@ -92,13 +93,24 @@ editor.backgroundManager.setColorBackground({ color: '#ff0000' })
 
 // Set a gradient background
 editor.backgroundManager.setGradientBackground({
-  startColor: '#ff0000',
-  endColor: '#0000ff',
-  angle: 45
+  gradient: {
+    // 'linear' or 'radial'
+    type: 'linear',
+    angle: 45,
+    startColor: '#ff0000',
+    endColor: '#0000ff'
+  },
+  customData: {
+    customProperty: 'value'
+  },
+  withoutSave: false
 })
 
 // Set an image background
-await editor.backgroundManager.setImageBackground({ source: 'bg-image.jpg' })
+await editor.backgroundManager.setImageBackground({ imageSource: 'bg-image.jpg' })
+
+// Remove background
+editor.backgroundManager.removeBackground()
 ```
 
 ## 🎮 Demo Application
@@ -130,8 +142,11 @@ The editor follows a modular architecture with specialized managers:
 - **`SelectionManager`** - Object selection and multi-selection handling
 - **`ClipboardManager`** - Copy/paste with system clipboard integration
 - **`GroupingManager`** - Object grouping and ungrouping operations
-- **`ShapeManager`** - Shape creation (rectangles, circles, etc.)
+- **`DeletionManager`** - Object deletion with group handling
+- **`ShapeManager`** - Shape creation (rectangles, circles, triangles)
+- **`ObjectLockManager`** - Object locking and unlocking functionality
 - **`WorkerManager`** - Web Worker integration for heavy operations
+- **`ModuleLoader`** - Dynamic module loading (jsPDF, etc.)
 - **`ErrorManager`** - Error handling and user notifications
 
 ### UI Components
@@ -183,38 +198,14 @@ initEditor(containerId, options): Promise<ImageEditor>
 // Import image from file or URL
 await editor.imageManager.importImage({
   source: File | string,
-  scale?: 'image-contain' | 'image-cover' | 'scale-montage',
-  withoutSave?: boolean
+  scale: 'image-contain' // or 'image-cover', 'scale-montage'
 })
 
 // Export canvas as image
 await editor.imageManager.exportCanvasAsImageFile({
-  fileName?: string,
-  contentType?: 'image/png' | 'image/jpeg' | 'image/svg+xml' | 'application/pdf',
-  exportAsBase64?: boolean,
-  exportAsBlob?: boolean
+  fileName: 'export.png',
+  contentType: 'image/png' // 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
 })
-```
-
-#### Background Management
-```javascript
-// Color background
-editor.backgroundManager.setColorBackground({ color: '#ff0000' })
-
-// Gradient background
-editor.backgroundManager.setGradientBackground({
-  startColor: '#ff0000',
-  endColor: '#0000ff',
-  angle: 45,
-  startPosition?: 0,
-  endPosition?: 100
-})
-
-// Image background
-await editor.backgroundManager.setImageBackground({ source: 'image.jpg' })
-
-// Remove background
-editor.backgroundManager.removeBackground()
 ```
 
 #### Canvas Control
@@ -234,25 +225,25 @@ editor.canvas.zoomToPoint(point, zoomLevel)
 ```javascript
 // Fit object to montage area
 editor.transformManager.fitObject({
-  type: 'contain' | 'cover',
-  fitAsOneObject?: boolean
+  type: 'contain',
+  fitAsOneObject: true
 })
 
 // Reset object transformations
 editor.transformManager.resetObject()
 
 // Flip operations
-editor.transformManager.flipObjectHorizontally()
-editor.transformManager.flipObjectVertically()
+editor.transformManager.flipX()
+editor.transformManager.flipY()
 ```
 
 #### Layer Management
 ```javascript
 // Layer operations
-editor.layerManager.sendObjectToBack(object)
-editor.layerManager.bringObjectToFront(object)
-editor.layerManager.moveLayerUp(object)
-editor.layerManager.moveLayerDown(object)
+editor.layerManager.sendToBack(object)
+editor.layerManager.bringToFront(object)
+editor.layerManager.sendBackwards(object)
+editor.layerManager.bringForward(object)
 ```
 
 #### History Control
@@ -279,10 +270,10 @@ npm run dev
 # Development build to dev-build folder
 npm run dev:build
 
-# Production build
+# Production build (library to dist/)
 npm run build
 
-# Build documentation
+# Build for GitHub Pages (demo to docs/)
 npm run build:docs
 ```
 
@@ -315,17 +306,27 @@ src/
 │   ├── background-manager/    # Background functionality
 │   ├── canvas-manager/        # Canvas operations
 │   ├── clipboard-manager/     # Copy/paste operations
+│   ├── customized-controls/   # Custom FabricJS controls
+│   ├── deletion-manager/      # Object deletion
 │   ├── error-manager/         # Error handling
+│   ├── grouping-manager/      # Object grouping
 │   ├── history-manager/       # Undo/redo system
 │   ├── image-manager/         # Image import/export
+│   ├── interaction-blocker/   # UI blocking during operations
 │   ├── layer-manager/         # Layer management
+│   ├── module-loader/         # Dynamic module loading
+│   ├── object-lock-manager/   # Object locking
+│   ├── selection-manager/     # Selection handling
 │   ├── shape-manager/         # Shape creation
 │   ├── transform-manager/     # Object transformations
-│   ├── ui/                    # UI components
+│   ├── worker-manager/        # Web Worker management
+│   ├── ui/                    # UI components (toolbar)
 │   └── types/                 # TypeScript definitions
 ├── demo/                 # Demo application
 specs/                    # Test specifications
-docs/                     # Documentation build
+docs/                     # GitHub Pages build output
+dev-build/                # Development build output
+dist/                     # Production library build
 vite.config.*.js         # Vite configurations
 jest.config.ts           # Jest test configuration
 ```
@@ -335,10 +336,10 @@ jest.config.ts           # Jest test configuration
 The following features are planned for future releases:
 
 - **Drawing Mode** - Freehand drawing tools and brushes
-- **Text Support** - Text layers with formatting options
+- **Text Support** - Text layers with formatting options (IText, Textbox)
 - **Snap/Alignment** - Snap to edges, centers, and guides
 - **Filters & Effects** - Image filters and visual effects
-- **Shape Library** - Extended shape collection
+- **Extended Shape Library** - Additional shapes beyond current rectangles, circles, and triangles
 - **Multi-language** - Internationalization support
 
 ## 🤝 Contributing
@@ -383,5 +384,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ---
 
 **Repository:** [github.com/Anu3ev/image-editor](https://github.com/Anu3ev/image-editor)
+
 **NPM Package:** [@anu3ev/fabric-image-editor](https://www.npmjs.com/package/@anu3ev/fabric-image-editor)
+
 **Live Demo:** [anu3ev.github.io/image-editor](https://anu3ev.github.io/image-editor/)

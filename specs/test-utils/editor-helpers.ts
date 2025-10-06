@@ -1,5 +1,6 @@
 import { CanvasOptions, ActiveSelection } from 'fabric'
 import { ImageEditor } from '../../src/editor'
+import HistoryManager from '../../src/editor/history-manager'
 
 export type AnyFn = (...args: any[]) => any
 
@@ -340,6 +341,129 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     mockMontageArea,
     mockCanvas,
     mockEditor
+  }
+}
+
+export type HistoryManagerTestSetupOptions = {
+  maxHistoryLength?: number
+  initialCanvasWidth?: number
+  initialCanvasHeight?: number
+}
+
+export const createHistoryManagerTestSetup = (
+  options: HistoryManagerTestSetupOptions = {}
+) => {
+  const {
+    maxHistoryLength = 5,
+    initialCanvasWidth = 800,
+    initialCanvasHeight = 600
+  } = options
+
+  let currentWidth = initialCanvasWidth
+  let currentHeight = initialCanvasHeight
+  let objects: any[] = []
+
+  const mockCanvas = {
+    toDatalessObject: jest.fn(),
+    loadFromJSON: jest.fn().mockImplementation(
+      async(state: any, reviver?: (serializedObj: any, fabricObject: any) => void) => {
+        const serializedObjects = state?.objects || []
+        objects = serializedObjects.map((serializedObj: any) => {
+          const fabricObject = { ...serializedObj }
+          if (reviver) {
+            reviver(serializedObj, fabricObject)
+          }
+          return fabricObject
+        })
+
+        if (typeof state?.width === 'number') {
+          currentWidth = state.width
+        }
+        if (typeof state?.height === 'number') {
+          currentHeight = state.height
+        }
+      }
+    ),
+    getObjects: jest.fn(() => objects),
+    getWidth: jest.fn(() => currentWidth),
+    getHeight: jest.fn(() => currentHeight),
+    fire: jest.fn(),
+    renderAll: jest.fn(),
+    requestRenderAll: jest.fn(),
+    enableRetinaScaling: false,
+    viewportTransform: [1, 0, 0, 1, 0, 0] as any
+  } as any
+
+  Object.defineProperty(mockCanvas, 'width', {
+    get: () => currentWidth,
+    configurable: true
+  })
+
+  Object.defineProperty(mockCanvas, 'height', {
+    get: () => currentHeight,
+    configurable: true
+  })
+
+  const mockEditor = {
+    canvas: mockCanvas,
+    canvasManager: {
+      updateCanvas: jest.fn()
+    },
+    interactionBlocker: {
+      overlayMask: { id: 'overlay-mask', visible: true } as any,
+      refresh: jest.fn()
+    },
+    backgroundManager: {
+      removeBackground: jest.fn(),
+      backgroundObject: null
+    },
+    montageArea: {
+      id: 'montage-area',
+      width: 400,
+      height: 300
+    } as any,
+    errorManager: {
+      emitError: jest.fn()
+    },
+    options: {
+      maxHistoryLength
+    }
+  } as any
+
+  const historyManager = new HistoryManager({ editor: mockEditor as any })
+  const simpleDiffPatcher = {
+    diff: jest.fn((prev: any, next: any) => {
+      const prevStr = JSON.stringify(prev)
+      const nextStr = JSON.stringify(next)
+      if (prevStr === nextStr) {
+        return null
+      }
+      return { next: JSON.parse(nextStr) }
+    }),
+    patch: jest.fn((state: any, diff: any) => {
+      if (!diff) {
+        return JSON.parse(JSON.stringify(state))
+      }
+      return JSON.parse(JSON.stringify(diff.next))
+    }),
+    clone: jest.fn(),
+    unpatch: jest.fn()
+  }
+
+  historyManager.diffPatcher = simpleDiffPatcher as any
+
+  return {
+    historyManager,
+    mockEditor,
+    mockCanvas,
+    getCanvasObjects: () => objects,
+    setCanvasObjects: (nextObjects: any[]) => {
+      objects = nextObjects
+    },
+    setCanvasSize: (width: number, height: number) => {
+      currentWidth = width
+      currentHeight = height
+    }
   }
 }
 
