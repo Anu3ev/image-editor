@@ -285,7 +285,10 @@ export default class HistoryManager {
    * @param serializedObj - сериализованный объект из JSON
    * @param fabricObject - объект Fabric, в который нужно записать customData
    */
-  private static _deserializeCustomData(serializedObj: Record<string, unknown>, fabricObject: FabricObject): void {
+  private static _deserializeCustomData(
+    serializedObj: Record<string, unknown>,
+    fabricObject: FabricObject | null
+  ): void {
     if (!serializedObj._serializedCustomData || !fabricObject) return
 
     try {

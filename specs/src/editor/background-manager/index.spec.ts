@@ -91,8 +91,11 @@ describe('BackgroundManager', () => {
 
       backgroundManager.setColorBackground({ color: '#00ff00' })
 
-      expect(mockBackground.set).toHaveBeenCalledWith({ fill: '#00ff00' })
-      expect(mockBackground.set).toHaveBeenCalledWith('backgroundId', expect.stringMatching(/^background-/))
+      expect(mockBackground.set).toHaveBeenCalledWith({
+        fill: '#00ff00',
+        backgroundId: expect.stringMatching(/^background-/)
+      })
+      expect(mockBackground.set).toHaveBeenCalledWith({ customData: {} })
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', { type: 'color', color: '#00ff00' })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
