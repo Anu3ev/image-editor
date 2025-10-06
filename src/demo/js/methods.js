@@ -59,21 +59,37 @@ function setColorBackground(editorInstance, color) {
 }
 
 // Установка градиентного фона
-function setGradientBackground(editorInstance, startColor, endColor, angle) {
-  const gradient = {
-    angle: parseInt(angle),
-    startColor,
-    endColor,
-    startPosition: 0,
-    endPosition: 100
+function setGradientBackground(editorInstance, startColor, endColor, gradientType, options = {}) {
+  let gradient
+
+  if (gradientType === 'radial') {
+    gradient = {
+      type: 'radial',
+      centerX: options.centerX ?? 50,
+      centerY: options.centerY ?? 50,
+      radius: options.radius || 1,
+      startColor,
+      endColor,
+      startPosition: 0,
+      endPosition: 100
+    }
+  } else {
+    gradient = {
+      type: 'linear',
+      angle: parseInt(options.angle ?? 0),
+      startColor,
+      endColor,
+      startPosition: 0,
+      endPosition: 100
+    }
   }
+
   editorInstance.backgroundManager.setGradientBackground({ gradient })
 }
 
 // Установка фона из изображения
 async function setImageBackground(editorInstance, file) {
-  const imageUrl = URL.createObjectURL(file)
-  await editorInstance.backgroundManager.setImageBackground({ imageUrl })
+  await editorInstance.backgroundManager.setImageBackground({ imageSource: file })
 }
 
 // Удаление фона

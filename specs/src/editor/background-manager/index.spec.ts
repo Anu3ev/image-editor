@@ -47,7 +47,10 @@ describe('BackgroundManager', () => {
       const mockBackground = createMockBackgroundRect({ fill: '#ff0000' })
       mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
 
-      backgroundManager.setColorBackground({ color: '#ff0000' })
+      // Проверяем, что метод выполняется без ошибок
+      expect(() => {
+        backgroundManager.setColorBackground({ color: '#ff0000' })
+      }).not.toThrow()
 
       expect(mockEditor.shapeManager.addRectangle).toHaveBeenCalledWith({
         fill: '#ff0000',
@@ -61,7 +64,7 @@ describe('BackgroundManager', () => {
       }, { withoutSelection: true })
 
       expect(backgroundManager.backgroundObject).toBe(mockBackground)
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', { type: 'color', color: '#ff0000' })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', { type: 'color', color: '#ff0000' })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
@@ -88,9 +91,12 @@ describe('BackgroundManager', () => {
 
       backgroundManager.setColorBackground({ color: '#00ff00' })
 
-      expect(mockBackground.set).toHaveBeenCalledWith({ fill: '#00ff00' })
-      expect(mockBackground.set).toHaveBeenCalledWith('backgroundId', expect.stringMatching(/^background-/))
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', { type: 'color', color: '#00ff00' })
+      expect(mockBackground.set).toHaveBeenCalledWith({
+        fill: '#00ff00',
+        backgroundId: expect.stringMatching(/^background-/)
+      })
+      expect(mockBackground.set).toHaveBeenCalledWith({ customData: {} })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', { type: 'color', color: '#00ff00' })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
@@ -106,23 +112,40 @@ describe('BackgroundManager', () => {
 
   describe('setImageBackground', () => {
     it('должен создать новый фон из изображения', async () => {
-      const imageUrl = 'https://example.com/image.jpg'
+      const imageSource = 'https://example.com/image.jpg'
+      const mockImage = createMockBackgroundImage({ id: 'background' })
 
-      await backgroundManager.setImageBackground({ imageUrl })
+      // Мокаем imageManager.importImage для возврата изображения
+      mockEditor.imageManager.importImage.mockResolvedValue({
+        image: mockImage
+      })
 
-      await new Promise(resolve => setTimeout(resolve, ASYNC_DELAY))
+      await backgroundManager.setImageBackground({ imageSource })
 
-      expect(mockCanvas.add).toHaveBeenCalled()
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', { type: 'image', imageUrl })
+      expect(mockEditor.imageManager.importImage).toHaveBeenCalledWith({
+        source: imageSource,
+        withoutSave: true,
+        isBackground: true,
+        withoutSelection: true,
+        scale: 'image-cover'
+      })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
+        type: 'image',
+        imageSource,
+        backgroundObject: mockImage
+      })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
     it('не должен сохранять в историю при withoutSave: true', async () => {
-      const imageUrl = 'https://example.com/image.jpg'
+      const imageSource = 'https://example.com/image.jpg'
+      const mockImage = createMockBackgroundImage({ id: 'background' })
 
-      await backgroundManager.setImageBackground({ imageUrl, withoutSave: true })
+      mockEditor.imageManager.importImage.mockResolvedValue({
+        image: mockImage
+      })
 
-      await new Promise(resolve => setTimeout(resolve, ASYNC_DELAY))
+      await backgroundManager.setImageBackground({ imageSource, withoutSave: true })
 
       expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
     })
@@ -137,22 +160,16 @@ describe('BackgroundManager', () => {
 
       expect(mockCanvas.remove).toHaveBeenCalledWith(mockBackground)
       expect(backgroundManager.backgroundObject).toBeNull()
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:removed')
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:removed')
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
-    it('должен показать предупреждение если нет фона для удаления', () => {
+    it('ничего не должен делать если нет фона для удаления', () => {
       backgroundManager.backgroundObject = null
 
       backgroundManager.removeBackground()
 
       expect(mockCanvas.remove).not.toHaveBeenCalled()
-      expect(mockEditor.errorManager.emitWarning).toHaveBeenCalledWith({
-        code: 'NO_BACKGROUND_TO_REMOVE',
-        origin: 'BackgroundManager',
-        method: 'removeBackground',
-        message: 'Нет фона для удаления'
-      })
       expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
     })
 
@@ -171,13 +188,6 @@ describe('BackgroundManager', () => {
       const mockBackground = createMockBackgroundRect()
       backgroundManager.backgroundObject = mockBackground
 
-      mockMontageArea.getBoundingRect.mockReturnValue({
-        left: 150,
-        top: 75,
-        width: 500,
-        height: 400
-      })
-
       mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground])
       mockCanvas.indexOf.mockImplementation((obj: any) => {
         if (obj === mockMontageArea) return 0
@@ -187,12 +197,11 @@ describe('BackgroundManager', () => {
 
       backgroundManager.refresh()
 
-      expect(mockMontageArea.setCoords).toHaveBeenCalled()
-      expect(mockBackground.set).toHaveBeenCalledWith({
-        left: 150,
-        top: 75,
-        width: 500,
-        height: 400
+      // Проверяем, что вызывается fitObject для фона
+      expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
+        object: mockBackground,
+        withoutSave: true,
+        type: 'cover'
       })
       expect(mockCanvas.requestRenderAll).toHaveBeenCalled()
     })
@@ -379,6 +388,7 @@ describe('BackgroundManager', () => {
       mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
 
       const gradient = {
+        type: 'linear' as const,
         angle: 45,
         startColor: '#ff0000',
         endColor: '#0000ff'
@@ -392,7 +402,7 @@ describe('BackgroundManager', () => {
         }),
         { withoutSelection: true }
       )
-      expect(mockCanvas.fire).toHaveBeenCalledWith('background:changed', {
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'gradient',
         gradientParams: gradient
       })
@@ -404,6 +414,7 @@ describe('BackgroundManager', () => {
         .mockReturnValue(true) // Симулируем что градиенты одинаковые
 
       const gradient = {
+        type: 'linear' as const,
         angle: 45,
         startColor: '#ff0000',
         endColor: '#0000ff'
@@ -412,6 +423,112 @@ describe('BackgroundManager', () => {
       const mockBackground = createMockBackgroundRect({
         backgroundType: 'gradient',
         fill: { type: 'linear', coords: {}, colorStops: [] }
+      })
+
+      backgroundManager.backgroundObject = mockBackground
+
+      backgroundManager.setGradientBackground({ gradient })
+
+      expect(mockEditor.shapeManager.addRectangle).not.toHaveBeenCalled()
+      expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
+
+      isGradientEqualSpy.mockRestore()
+    })
+  })
+
+  // Тесты для радиальных градиентов
+  describe('radial gradient background', () => {
+    it('должен создать радиальный градиентный фон', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'radial', coords: {}, colorStops: [] }
+      })
+      mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
+
+      const gradient = {
+        type: 'radial' as const,
+        centerX: 50,
+        centerY: 50,
+        radius: 70,
+        startColor: '#ff0000',
+        endColor: '#0000ff'
+      }
+
+      backgroundManager.setGradientBackground({ gradient })
+
+      expect(mockEditor.shapeManager.addRectangle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundType: 'gradient'
+        }),
+        { withoutSelection: true }
+      )
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
+        type: 'gradient',
+        gradientParams: gradient
+      })
+    })
+
+    it('должен создать радиальный градиент с помощью метода setRadialGradientBackground', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'radial', coords: {}, colorStops: [] }
+      })
+      mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
+
+      backgroundManager.setRadialGradientBackground({
+        centerX: 30,
+        centerY: 70,
+        radius: 50,
+        startColor: '#00ff00',
+        endColor: '#ff00ff'
+      })
+
+      expect(mockEditor.shapeManager.addRectangle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundType: 'gradient'
+        }),
+        { withoutSelection: true }
+      )
+    })
+
+    it('должен создать линейный градиент с помощью метода setLinearGradientBackground', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'linear', coords: {}, colorStops: [] }
+      })
+      mockEditor.shapeManager.addRectangle.mockReturnValue(mockBackground)
+
+      backgroundManager.setLinearGradientBackground({
+        angle: 90,
+        startColor: '#ffff00',
+        endColor: '#00ffff'
+      })
+
+      expect(mockEditor.shapeManager.addRectangle).toHaveBeenCalledWith(
+        expect.objectContaining({
+          backgroundType: 'gradient'
+        }),
+        { withoutSelection: true }
+      )
+    })
+
+    it('не должен изменять радиальный градиент если он тот же', () => {
+      // Мокаем статический метод для сравнения градиентов
+      const isGradientEqualSpy = jest.spyOn(BackgroundManager as any, '_isGradientEqual')
+        .mockReturnValue(true) // Симулируем что градиенты одинаковые
+
+      const gradient = {
+        type: 'radial' as const,
+        centerX: 50,
+        centerY: 50,
+        radius: 60,
+        startColor: '#ff0000',
+        endColor: '#0000ff'
+      }
+
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'radial', coords: {}, colorStops: [] }
       })
 
       backgroundManager.backgroundObject = mockBackground
@@ -718,18 +835,15 @@ describe('BackgroundManager', () => {
       // Вызываем refresh
       backgroundManager.refresh()
 
-      // ОР: При вызове canvas.getObjects фон должен иметь размеры монтажной области
-      objects = mockCanvas.getObjects()
-      backgroundObj = objects.find((obj: any) => obj.id === 'background')
-      expect(backgroundObj).toBeTruthy()
-
-      // Проверяем что фон получил новые размеры и позицию от монтажной области
-      expect(mockBackground.set).toHaveBeenCalledWith({
-        left: 200,
-        top: 100,
-        width: 600,
-        height: 450
+      // ОР: При вызове refresh должен быть вызван fitObject для фона
+      expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
+        object: mockBackground,
+        withoutSave: true,
+        type: 'cover'
       })
+
+      // Проверяем что canvas обновился
+      expect(mockCanvas.requestRenderAll).toHaveBeenCalled()
     })
   })
 })

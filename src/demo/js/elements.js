@@ -85,10 +85,26 @@ export const gradientBackgroundControls = document.getElementById('gradient-back
 export const imageBackgroundControls = document.getElementById('image-background-controls')
 export const backgroundColorInput = document.getElementById('background-color')
 export const setColorBackgroundBtn = document.getElementById('set-color-background-btn')
+
+// Gradient controls
+export const gradientTypeSelect = document.getElementById('gradient-type')
+export const linearGradientControls = document.getElementById('linear-gradient-controls')
+export const radialGradientControls = document.getElementById('radial-gradient-controls')
 export const gradientStartColorInput = document.getElementById('gradient-start-color')
 export const gradientEndColorInput = document.getElementById('gradient-end-color')
+
+// Linear gradient controls
 export const gradientAngleInput = document.getElementById('gradient-angle')
 export const gradientAngleValue = document.getElementById('gradient-angle-value')
+
+// Radial gradient controls
+export const gradientCenterXInput = document.getElementById('gradient-center-x')
+export const gradientCenterXValue = document.getElementById('gradient-center-x-value')
+export const gradientCenterYInput = document.getElementById('gradient-center-y')
+export const gradientCenterYValue = document.getElementById('gradient-center-y-value')
+export const gradientRadiusInput = document.getElementById('gradient-radius')
+export const gradientRadiusValue = document.getElementById('gradient-radius-value')
+
 export const setGradientBackgroundBtn = document.getElementById('set-gradient-background-btn')
 export const backgroundImageInput = document.getElementById('background-image-input')
 export const setImageBackgroundBtn = document.getElementById('set-image-background-btn')

@@ -240,6 +240,16 @@ declare module 'fabric' {
      * Идентификатор фона
      */
     backgroundId?: string | null;
+
+    /**
+     * Произвольные пользовательские данные, связанные с объектом.
+     */
+    customData?: object;
+
+    /**
+     * Сериализованные пользовательские данные в виде строки JSON.
+     */
+    _serializedCustomData?: string;
   }
 
   interface RectProps {

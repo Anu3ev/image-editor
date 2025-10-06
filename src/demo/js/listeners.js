@@ -65,10 +65,22 @@ import {
   imageBackgroundControls,
   backgroundColorInput,
   setColorBackgroundBtn,
+  // Gradient controls
+  gradientTypeSelect,
+  linearGradientControls,
+  radialGradientControls,
   gradientStartColorInput,
   gradientEndColorInput,
+  // Linear gradient controls
   gradientAngleInput,
   gradientAngleValue,
+  // Radial gradient controls
+  gradientCenterXInput,
+  gradientCenterXValue,
+  gradientCenterYInput,
+  gradientCenterYValue,
+  gradientRadiusInput,
+  gradientRadiusValue,
   setGradientBackgroundBtn,
   backgroundImageInput,
   setImageBackgroundBtn,
@@ -302,7 +314,35 @@ export default (editorInstance) => {
     gradientAngleValue.textContent = e.target.value
   })
 
-  // Color background
+  // Gradient type selector
+  gradientTypeSelect.addEventListener('change', (e) => {
+    const selectedType = e.target.value
+
+    // Hide all gradient controls
+    linearGradientControls.style.display = 'none'
+    radialGradientControls.style.display = 'none'
+
+    // Show selected gradient controls
+    if (selectedType === 'linear') {
+      linearGradientControls.style.display = 'block'
+    } else if (selectedType === 'radial') {
+      radialGradientControls.style.display = 'block'
+    }
+  })
+
+  // Radial gradient controls
+  gradientCenterXInput.addEventListener('input', (e) => {
+    gradientCenterXValue.textContent = e.target.value
+  })
+
+  gradientCenterYInput.addEventListener('input', (e) => {
+    gradientCenterYValue.textContent = e.target.value
+  })
+
+  gradientRadiusInput.addEventListener('input', (e) => {
+    gradientRadiusValue.textContent = e.target.value
+  })
+
   setColorBackgroundBtn.addEventListener('click', () => {
     const color = backgroundColorInput.value
     setColorBackground(editorInstance, color)
@@ -312,8 +352,24 @@ export default (editorInstance) => {
   setGradientBackgroundBtn.addEventListener('click', () => {
     const startColor = gradientStartColorInput.value
     const endColor = gradientEndColorInput.value
-    const angle = gradientAngleInput.value
-    setGradientBackground(editorInstance, startColor, endColor, angle)
+    const gradientType = gradientTypeSelect.value
+
+    if (gradientType === 'radial') {
+      const centerX = parseFloat(gradientCenterXInput.value)
+      const centerY = parseFloat(gradientCenterYInput.value)
+      const radius = parseFloat(gradientRadiusInput.value)
+
+      setGradientBackground(editorInstance, startColor, endColor, 'radial', {
+        centerX,
+        centerY,
+        radius
+      })
+    } else {
+      const angle = gradientAngleInput.value
+      setGradientBackground(editorInstance, startColor, endColor, 'linear', {
+        angle
+      })
+    }
   })
 
   // Image background

@@ -284,6 +284,13 @@
               <!-- Gradient Background -->
               <div id="gradient-background-controls" class="background-option" style="display: none;">
                 <div class="mb-2">
+                  <label for="gradient-type" class="form-label">Gradient Type:</label>
+                  <select class="form-select form-select-sm" id="gradient-type">
+                    <option value="linear" selected>Linear</option>
+                    <option value="radial">Radial</option>
+                  </select>
+                </div>
+                <div class="mb-2">
                   <label for="gradient-start-color" class="form-label">Start Color:</label>
                   <input type="color" class="form-control form-control-color" id="gradient-start-color" value="#79F1A4">
                 </div>
@@ -291,10 +298,31 @@
                   <label for="gradient-end-color" class="form-label">End Color:</label>
                   <input type="color" class="form-control form-control-color" id="gradient-end-color" value="#0E5CAD">
                 </div>
-                <div class="mb-2">
+                <div id="linear-gradient-controls" class="mb-2">
                   <label for="gradient-angle" class="form-label">Angle:</label>
                   <input type="range" class="form-range" id="gradient-angle" min="0" max="360" value="135">
                   <small class="text-muted"><span id="gradient-angle-value">135</span>°</small>
+                </div>
+                <div id="radial-gradient-controls" class="mb-2" style="display: none;">
+                  <div class="row">
+                    <div class="col-6">
+                      <label for="gradient-center-x" class="form-label">Center X:</label>
+                      <input type="range" class="form-range" id="gradient-center-x" min="0" max="100" value="50">
+                      <small class="text-muted"><span id="gradient-center-x-value">50</span>%</small>
+                    </div>
+                    <div class="col-6">
+                      <label for="gradient-center-y" class="form-label">Center Y:</label>
+                      <input type="range" class="form-range" id="gradient-center-y" min="0" max="100" value="50">
+                      <small class="text-muted"><span id="gradient-center-y-value">50</span>%</small>
+                    </div>
+                  </div>
+                  <div class="row">
+                    <div class="col-12">
+                      <label for="gradient-radius" class="form-label">Radius:</label>
+                      <input type="range" class="form-range" id="gradient-radius" min="1" max="100" value="50">
+                      <small class="text-muted"><span id="gradient-radius-value">50</span>%</small>
+                    </div>
+                  </div>
                 </div>
                 <button class="btn btn-primary btn-sm w-100" id="set-gradient-background-btn">
                   Set Gradient Background
