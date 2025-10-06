@@ -108,6 +108,9 @@ editor.backgroundManager.setGradientBackground({
 
 // Set an image background
 await editor.backgroundManager.setImageBackground({ imageSource: 'bg-image.jpg' })
+
+// Remove background
+editor.backgroundManager.removeBackground()
 ```
 
 ## 🎮 Demo Application
