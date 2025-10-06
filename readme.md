@@ -25,7 +25,7 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 - **Modular Architecture** - Clean separation of concerns with manager classes
 - **Event System** - Rich event handling for integration
 - **Responsive Design** - Adapts to different screen sizes and containers
-- **Comprehensive Testing** - Jest test suite with 85%+ coverage
+- **Testing Infrastructure** - Jest test suite with 45%+ coverage
 
 ## 📦 Installation
 
@@ -92,13 +92,21 @@ editor.backgroundManager.setColorBackground({ color: '#ff0000' })
 
 // Set a gradient background
 editor.backgroundManager.setGradientBackground({
-  startColor: '#ff0000',
-  endColor: '#0000ff',
-  angle: 45
+  gradient: {
+    // 'linear' or 'radial'
+    type: 'linear',
+    angle: 45,
+    startColor: '#ff0000',
+    endColor: '#0000ff'
+  },
+  customData: {
+    customProperty: 'value'
+  },
+  withoutSave: false
 })
 
 // Set an image background
-await editor.backgroundManager.setImageBackground({ source: 'bg-image.jpg' })
+await editor.backgroundManager.setImageBackground({ imageSource: 'bg-image.jpg' })
 ```
 
 ## 🎮 Demo Application
@@ -183,16 +191,13 @@ initEditor(containerId, options): Promise<ImageEditor>
 // Import image from file or URL
 await editor.imageManager.importImage({
   source: File | string,
-  scale?: 'image-contain' | 'image-cover' | 'scale-montage',
-  withoutSave?: boolean
+  scale: 'image-contain' // или 'image-cover', 'scale-montage'
 })
 
 // Export canvas as image
 await editor.imageManager.exportCanvasAsImageFile({
-  fileName?: string,
-  contentType?: 'image/png' | 'image/jpeg' | 'image/svg+xml' | 'application/pdf',
-  exportAsBase64?: boolean,
-  exportAsBlob?: boolean
+  fileName: 'export.png',
+  contentType: 'image/png'
 })
 ```
 
@@ -202,16 +207,16 @@ await editor.imageManager.exportCanvasAsImageFile({
 editor.backgroundManager.setColorBackground({ color: '#ff0000' })
 
 // Gradient background
-editor.backgroundManager.setGradientBackground({
+editor.backgroundManager.setLinearGradientBackground({
+  angle: 45,
   startColor: '#ff0000',
   endColor: '#0000ff',
-  angle: 45,
-  startPosition?: 0,
-  endPosition?: 100
+  startPosition: 0,
+  endPosition: 100
 })
 
 // Image background
-await editor.backgroundManager.setImageBackground({ source: 'image.jpg' })
+await editor.backgroundManager.setImageBackground({ imageSource: 'image.jpg' })
 
 // Remove background
 editor.backgroundManager.removeBackground()
@@ -234,25 +239,25 @@ editor.canvas.zoomToPoint(point, zoomLevel)
 ```javascript
 // Fit object to montage area
 editor.transformManager.fitObject({
-  type: 'contain' | 'cover',
-  fitAsOneObject?: boolean
+  type: 'contain',
+  fitAsOneObject: true
 })
 
 // Reset object transformations
 editor.transformManager.resetObject()
 
 // Flip operations
-editor.transformManager.flipObjectHorizontally()
-editor.transformManager.flipObjectVertically()
+editor.transformManager.flipX()
+editor.transformManager.flipY()
 ```
 
 #### Layer Management
 ```javascript
 // Layer operations
-editor.layerManager.sendObjectToBack(object)
-editor.layerManager.bringObjectToFront(object)
-editor.layerManager.moveLayerUp(object)
-editor.layerManager.moveLayerDown(object)
+editor.layerManager.sendToBack(object)
+editor.layerManager.bringToFront(object)
+editor.layerManager.sendBackwards(object)
+editor.layerManager.bringForward(object)
 ```
 
 #### History Control
