@@ -6,6 +6,14 @@ import { nanoid } from 'nanoid'
 import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
 
+export type CanvasFullState = {
+  clipPath: object | null
+  height: number
+  width: number
+  objects: FabricObject[]
+  version: string
+}
+
 export default class HistoryManager {
   /**
    * Инстанс редактора с доступом к canvas
@@ -104,6 +112,7 @@ export default class HistoryManager {
         return [
           fabricObj.id,
           fabricObj.backgroundId,
+          fabricObj.customData,
           fabricObj.format,
           fabricObj.locked,
           fabricObj.left,
@@ -158,7 +167,7 @@ export default class HistoryManager {
   /**
    * Получаем полное состояние, применяя все диффы к базовому состоянию.
    */
-  public getFullState(): Partial<Canvas> {
+  public getFullState(): CanvasFullState {
     const { baseState, currentIndex, patches } = this
 
     // Глубокая копия базового состояния
@@ -187,6 +196,7 @@ export default class HistoryManager {
       'evented',
       'id',
       'backgroundId',
+      'customData',
       'backgroundType',
       'format',
       'width',
@@ -243,7 +253,7 @@ export default class HistoryManager {
     if (this.patches.length > this.maxHistoryLength) {
       // Обновляем базовое состояние, применяя самый старый дифф
       // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
-      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as Partial<Canvas>
+      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as CanvasFullState
       this.patches.shift() // Удаляем первый дифф
       this.currentIndex -= 1 // Корректируем индекс
 
@@ -255,11 +265,45 @@ export default class HistoryManager {
   }
 
   /**
+   * Сериализует customData объектов в строку. Это необходимо чтобы при вызове loadFromJSON fabricjs не пытался обрабатывать свойства внутри customData, как свойства FabricObject, если их названия совпадают с зарезервированными.
+   *
+   * @param state - состояние канваса для сериализации
+   */
+  private static _serializeCustomData(state: CanvasFullState): void {
+    if (!state.objects) return
+
+    state.objects.forEach((obj) => {
+      if (obj.customData && typeof obj.customData === 'object') {
+        obj._serializedCustomData = JSON.stringify(obj.customData)
+        delete obj.customData
+      }
+    })
+  }
+
+  /**
+   * Десериализует customData из строки обратно в объект
+   * @param serializedObj - сериализованный объект из JSON
+   * @param fabricObject - объект Fabric, в который нужно записать customData
+   */
+  private static _deserializeCustomData(serializedObj: Record<string, unknown>, fabricObject: FabricObject): void {
+    if (!serializedObj._serializedCustomData || !fabricObject) return
+
+    try {
+      fabricObject.customData = JSON.parse(
+        serializedObj._serializedCustomData as string
+      )
+    } catch (error) {
+      console.warn('Не удалось десериализовать customData:', error)
+      fabricObject.customData = {}
+    }
+  }
+
+  /**
    * Функция загрузки состояния в канвас.
    * @param fullState - полное состояние канваса
    * @fires editor:history-state-loaded
    */
-  public async loadStateFromFullState(fullState: Partial<Canvas>): Promise<void> {
+  public async loadStateFromFullState(fullState: CanvasFullState): Promise<void> {
     if (!fullState) return
 
     console.log('loadStateFromFullState fullState', fullState)
@@ -267,8 +311,16 @@ export default class HistoryManager {
     const { canvas, canvasManager, interactionBlocker, backgroundManager } = this.editor
     const { width: oldCanvasStateWidth, height: oldCanvasStateHeight } = canvas
 
-    // Load and render
-    await canvas.loadFromJSON(fullState)
+    // Сбрасываем overlay, так как он может задваиваться при загрузке состояния
+    interactionBlocker.overlayMask = null
+
+    // Сериализуем customData в строку перед loadFromJSON
+    HistoryManager._serializeCustomData(fullState)
+
+    await canvas.loadFromJSON(fullState, (serializedObj, fabricObject) => {
+      // Десериализуем customData обратно в объект
+      HistoryManager._deserializeCustomData(serializedObj, fabricObject as FabricObject)
+    })
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
     const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area') as Rect | undefined
