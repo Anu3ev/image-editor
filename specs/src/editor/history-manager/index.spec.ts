@@ -440,7 +440,7 @@ describe('HistoryManager', () => {
         width: 800,
         height: 600,
         objects: [
-          { id: 'overlay-mask', type: 'rect' }
+          { id: 'montage-area', type: 'rect' }
         ] as any[]
       })
 
@@ -449,8 +449,48 @@ describe('HistoryManager', () => {
 
       await historyManager.loadStateFromFullState(state)
 
-      // updateCanvas не должен вызываться, т.к. нет montage-area
+      // updateCanvas не должен вызываться, т.к. размеры не изменились
       expect(mockEditor.canvasManager.updateCanvas).not.toHaveBeenCalled()
+    })
+
+    it('обновляет canvas если изменилась только ширина', async() => {
+      const { historyManager, mockEditor } = createHistoryManagerTestSetup({
+        initialCanvasWidth: 800,
+        initialCanvasHeight: 600
+      })
+      const state = createState({
+        width: 1024,
+        height: 600,
+        objects: [
+          { id: 'montage-area', type: 'rect' }
+        ] as any[]
+      })
+
+      jest.clearAllMocks()
+
+      await historyManager.loadStateFromFullState(state)
+
+      expect(mockEditor.canvasManager.updateCanvas).toHaveBeenCalled()
+    })
+
+    it('обновляет canvas если изменилась только высота', async() => {
+      const { historyManager, mockEditor } = createHistoryManagerTestSetup({
+        initialCanvasWidth: 800,
+        initialCanvasHeight: 600
+      })
+      const state = createState({
+        width: 800,
+        height: 768,
+        objects: [
+          { id: 'montage-area', type: 'rect' }
+        ] as any[]
+      })
+
+      jest.clearAllMocks()
+
+      await historyManager.loadStateFromFullState(state)
+
+      expect(mockEditor.canvasManager.updateCanvas).toHaveBeenCalled()
     })
   })
 
