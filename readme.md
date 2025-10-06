@@ -1,8 +1,8 @@
 # Fabric Image Editor
 
-A modern, powerful browser-based image editor built with <a href="https://fabricjs.com/" target="_blank">FabricJS</a> and TypeScript. This library provides a complete image editing solution with professional features for web applications.
+A modern, powerful browser-based image editor built with [FabricJS](https://fabricjs.com/) and TypeScript. This library provides a complete image editing solution with professional features for web applications.
 
-🚀 **<a href="https://anu3ev.github.io/image-editor/" target="_blank">Live Demo</a>**
+🚀 **[Live Demo](https://anu3ev.github.io/image-editor/)**
 
 ## ✨ Features
 
@@ -124,7 +124,7 @@ npm install
 npm run dev
 ```
 
-Visit the demo at: **<a href="https://anu3ev.github.io/image-editor/" target="_blank">https://anu3ev.github.io/image-editor/</a>**
+Visit the demo at: **https://anu3ev.github.io/image-editor/**
 
 ## 🏗️ Architecture
 
@@ -206,27 +206,6 @@ await editor.imageManager.exportCanvasAsImageFile({
   fileName: 'export.png',
   contentType: 'image/png' // 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
 })
-```
-
-#### Background Management
-```javascript
-// Color background
-editor.backgroundManager.setColorBackground({ color: '#ff0000' })
-
-// Gradient background
-editor.backgroundManager.setLinearGradientBackground({
-  angle: 45,
-  startColor: '#ff0000',
-  endColor: '#0000ff',
-  startPosition: 0,
-  endPosition: 100
-})
-
-// Image background
-await editor.backgroundManager.setImageBackground({ imageSource: 'image.jpg' })
-
-// Remove background
-editor.backgroundManager.removeBackground()
 ```
 
 #### Canvas Control
@@ -393,19 +372,19 @@ All modern browsers with ES2016+ and Web Workers support.
 
 ## 📄 License
 
-MIT License - see <a href="LICENSE" target="_blank">LICENSE</a> file for details.
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
-- Built with <a href="https://fabricjs.com/" target="_blank">FabricJS</a> - Powerful HTML5 canvas library
-- <a href="https://vitejs.dev/" target="_blank">Vite</a> - Lightning fast build tool
-- <a href="https://www.typescriptlang.org/" target="_blank">TypeScript</a> - Type safety and developer experience
-- <a href="https://jestjs.io/" target="_blank">Jest</a> - Comprehensive testing framework
+- Built with [FabricJS](https://fabricjs.com/) - Powerful HTML5 canvas library
+- [Vite](https://vitejs.dev/) - Lightning fast build tool
+- [TypeScript](https://www.typescriptlang.org/) - Type safety and developer experience
+- [Jest](https://jestjs.io/) - Comprehensive testing framework
 
 ---
 
-**Repository:** <a href="https://github.com/Anu3ev/image-editor" target="_blank">github.com/Anu3ev/image-editor</a>
+**Repository:** [github.com/Anu3ev/image-editor](https://github.com/Anu3ev/image-editor)
 
-**NPM Package:** <a href="https://www.npmjs.com/package/@anu3ev/fabric-image-editor" target="_blank">@anu3ev/fabric-image-editor</a>
+**NPM Package:** [@anu3ev/fabric-image-editor](https://www.npmjs.com/package/@anu3ev/fabric-image-editor)
 
-**Live Demo:** <a href="https://anu3ev.github.io/image-editor/" target="_blank">anu3ev.github.io/image-editor</a>
+**Live Demo:** [anu3ev.github.io/image-editor](https://anu3ev.github.io/image-editor/)
