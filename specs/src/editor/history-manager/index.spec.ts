@@ -2,6 +2,9 @@ import { nanoid } from 'nanoid'
 import type { CanvasFullState } from '../../../../src/editor/history-manager'
 import { createHistoryManagerTestSetup } from '../../../test-utils/editor-helpers'
 
+// Мокаем nanoid для предсказуемых ID в тестах
+jest.mock('nanoid')
+
 /**
  * Хелпер для создания состояния канваса
  */
