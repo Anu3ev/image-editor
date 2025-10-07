@@ -349,6 +349,7 @@ export default class HistoryManager {
       backgroundManager.removeBackground({ withoutSave: true })
     } else {
       backgroundManager.backgroundObject = loadedBackgroundObject as Rect | FabricImage
+      backgroundManager.refresh()
     }
 
     canvas.renderAll()

@@ -415,7 +415,8 @@ export const createHistoryManagerTestSetup = (
     },
     backgroundManager: {
       removeBackground: jest.fn(),
-      backgroundObject: null
+      backgroundObject: null,
+      refresh: jest.fn()
     },
     montageArea: {
       id: 'montage-area',
