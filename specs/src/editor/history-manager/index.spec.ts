@@ -19,20 +19,6 @@ const createState = (overrides: Partial<CanvasFullState> = {}): CanvasFullState 
 
 describe('HistoryManager', () => {
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
-  let consoleSpies: jest.SpyInstance[]
-
-  beforeAll(() => {
-    consoleSpies = [
-      jest.spyOn(console, 'log').mockImplementation(() => undefined),
-      jest.spyOn(console, 'warn').mockImplementation(() => undefined),
-      jest.spyOn(console, 'time').mockImplementation(() => undefined),
-      jest.spyOn(console, 'timeEnd').mockImplementation(() => undefined)
-    ]
-  })
-
-  afterAll(() => {
-    consoleSpies.forEach((spy) => spy.mockRestore())
-  })
 
   beforeEach(() => {
     jest.clearAllMocks()

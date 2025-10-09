@@ -98,8 +98,9 @@ export type ObjectsGroupedPayload = {
  * Параметры события editor:objects-ungrouped
  */
 export type ObjectsUngroupedPayload = {
-  object: Group,
-  selection: ActiveSelection,
+  object?: FabricObject,
+  selection?: ActiveSelection,
+  ungroupedObjects?: FabricObject[],
   withoutSave?: boolean
 }
 
@@ -107,7 +108,7 @@ export type ObjectsUngroupedPayload = {
  * Параметры события editor:objects-deleted
  */
 export type ObjectsDeletedPayload = {
-  objects: FabricObject[]
+  objects?: FabricObject[]
   withoutSave?: boolean
 }
 

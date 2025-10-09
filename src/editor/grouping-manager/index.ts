@@ -2,6 +2,7 @@
 import { Group, ActiveSelection, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import { ObjectsUngroupedPayload } from '../types/events'
 
 export type GroupActionOptions = {
   object?: FabricObject,
@@ -66,27 +67,28 @@ export default class GroupingManager {
    * @param options
    * @param options.object - объект для разгруппировки
    * @param options.withoutSave - Не сохранять состояние
+   * @returns данные о разгруппировке или null, если объект не является группой
    * @fires editor:objects-ungrouped
    */
   public ungroup({
     object,
     withoutSave
-  }: GroupActionOptions = {}): void {
+  }: GroupActionOptions = {}): ObjectsUngroupedPayload | null {
     const { canvas, historyManager } = this.editor
-
-    historyManager.suspendHistory()
     const group = object || canvas.getActiveObject()
 
-    if (!(group instanceof Group)) return
+    if (!(group instanceof Group)) return null
+
+    historyManager.suspendHistory()
 
     // Получаем все объекты внутри группы, удаляем группу и добавляем объекты обратно на канвас
-    const grouppedObjects = group.removeAll()
+    const ungroupedObjects = group.removeAll()
     canvas.remove(group)
 
-    grouppedObjects.forEach((grouppedObj) => canvas.add(grouppedObj))
+    ungroupedObjects.forEach((grouppedObj) => canvas.add(grouppedObj))
 
     // Выделяем все объекты, которые были в группе
-    const sel = new ActiveSelection(grouppedObjects, {
+    const sel = new ActiveSelection(ungroupedObjects, {
       canvas
     })
 
@@ -99,10 +101,14 @@ export default class GroupingManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:objects-ungrouped', {
+    const result = {
       object: group,
       selection: sel,
+      ungroupedObjects,
       withoutSave
-    })
+    }
+
+    canvas.fire('editor:objects-ungrouped', result)
+    return result
   }
 }
