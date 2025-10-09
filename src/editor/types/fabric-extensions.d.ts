@@ -110,7 +110,7 @@ declare module 'fabric' {
      */
     initialImage: {
       source: string
-      scale?: string
+      scale?: 'contain' | 'cover'
       withoutSave?: boolean,
       contentType?: string
     } | null
@@ -150,6 +150,11 @@ declare module 'fabric' {
      * Используется для адаптации размеров канваса к размерам контейнера.
      */
     editorContainer?: HTMLElement
+
+    /**
+     * Показывать угол поворота у выделенного объекта при вращении.
+     */
+    showRotateAngle: boolean
 
     /**
      * Коллбэк, который будет вызван при готовности редактора.
