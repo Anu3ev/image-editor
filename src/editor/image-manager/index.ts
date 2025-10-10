@@ -357,7 +357,7 @@ export default class ImageManager {
       exportAsBlob = false
     } = options
 
-    const { canvas, montageArea, workerManager } = this.editor
+    const { canvas, montageArea, workerManager, interactionBlocker } = this.editor
 
     try {
       const isPDF = contentType === 'application/pdf'
@@ -388,6 +388,15 @@ export default class ImageManager {
 
       if (tmpCanvasMontageArea) {
         tmpCanvasMontageArea.visible = false
+      }
+
+      // Если редактор в режиме блокировки взаимодействия, то скрываем слой-маску
+      if (interactionBlocker?.isBlocked) {
+        const tmpCanvasOverlayMask = tmpCanvas.getObjects().find((obj) => obj.id === interactionBlocker.overlayMask!.id)
+
+        if (tmpCanvasOverlayMask) {
+          tmpCanvasOverlayMask.visible = false
+        }
       }
 
       // Сдвигаем клонированную сцену
