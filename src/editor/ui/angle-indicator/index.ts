@@ -252,10 +252,12 @@ export default class AngleIndicatorManager {
    */
   public destroy(): void {
     // Отписываемся от событий
-    this.canvas.off('object:rotating', this._onObjectRotating)
-    this.canvas.off('mouse:up', this._onMouseUp)
-    this.canvas.off('object:modified', this._onObjectModified)
-    this.canvas.off('selection:cleared', this._onSelectionCleared)
+    if (this.canvas) {
+      this.canvas.off('object:rotating', this._onObjectRotating)
+      this.canvas.off('mouse:up', this._onMouseUp)
+      this.canvas.off('object:modified', this._onObjectModified)
+      this.canvas.off('selection:cleared', this._onSelectionCleared)
+    }
 
     // Удаляем DOM-элемент из дерева
     if (this.el?.parentNode) {
