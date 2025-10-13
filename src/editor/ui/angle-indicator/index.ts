@@ -2,6 +2,7 @@ import type {
   BasicTransformEvent,
   Canvas,
   CanvasOptions,
+  FabricObject,
   TPointerEvent,
   TPointerEventInfo
 } from 'fabric'
@@ -84,10 +85,9 @@ export default class AngleIndicatorManager {
     this.el = document.createElement('div')
     this.el.className = ANGLE_INDICATOR_CLASS
 
-    // Применяем стили
+    // Применяем стили через setProperty для типобезопасности
     Object.entries(ANGLE_INDICATOR_STYLES).forEach(([key, value]) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (this.el.style as any)[key] = value
+      this.el.style.setProperty(key, value)
     })
 
     // Добавляем в контейнер canvas
@@ -125,7 +125,8 @@ export default class AngleIndicatorManager {
     const angle = target.angle || 0
     this.currentAngle = AngleIndicatorManager._normalizeAngle(angle)
 
-    // Обновляем текст
+    // Обновляем текст с учетом знака
+    // Для отрицательных знак минус уже есть, для положительных не добавляем плюс (как в Canva)
     this.el.textContent = `${this.currentAngle}°`
 
     // Позиционируем индикатор
@@ -161,7 +162,7 @@ export default class AngleIndicatorManager {
   /**
    * Проверка, можно ли показывать индикатор для данного объекта
    */
-  private _shouldShowIndicator(target: unknown): boolean {
+  private _shouldShowIndicator(target: FabricObject | undefined): boolean {
     // Проверяем, включена ли опция
     if (!this.options.showRotateAngle) return false
 
@@ -169,10 +170,9 @@ export default class AngleIndicatorManager {
     if (!target) return false
 
     // Не показываем для области монтажа
-    if (target === this.editor.montageArea) return false
+    if (target.id === this.editor.montageArea.id) return false
 
     // Не показываем для заблокированных объектов
-    // @ts-expect-error - target может иметь эти свойства
     if (target.lockRotation || target.lockMovementX || target.lockMovementY) return false
 
     return true
@@ -226,13 +226,24 @@ export default class AngleIndicatorManager {
   }
 
   /**
-   * Нормализация угла в диапазон 0-360° и округление
+   * Нормализация угла в диапазон -180° до +180° и округление
+   * Положительные значения - поворот вправо (по часовой стрелке)
+   * Отрицательные значения - поворот влево (против часовой стрелки)
    */
   private static _normalizeAngle(angle: number): number {
+    // Нормализуем в диапазон -180 до +180
     let normalized = angle % 360
-    if (normalized < 0) {
+
+    // Если угол больше 180, вычитаем 360 (например, 270° становится -90°)
+    if (normalized > 180) {
+      normalized -= 360
+    }
+
+    // Если угол меньше -180, добавляем 360 (например, -270° становится 90°)
+    if (normalized < -180) {
       normalized += 360
     }
+
     return Math.round(normalized)
   }
 
@@ -246,13 +257,19 @@ export default class AngleIndicatorManager {
     this.canvas.off('object:modified', this._onObjectModified)
     this.canvas.off('selection:cleared', this._onSelectionCleared)
 
-    // Удаляем DOM-элемент
-    if (this.el && this.el.parentNode) {
+    // Удаляем DOM-элемент из дерева
+    if (this.el?.parentNode) {
       this.el.parentNode.removeChild(this.el)
     }
 
-    // Очищаем ссылки
-    // @ts-expect-error - очистка ссылок при уничтожении
+    // Очищаем ссылки для предотвращения утечек памяти
+    // @ts-expect-error - принудительная очистка при уничтожении
     this.el = null
+    // @ts-expect-error - разрываем циклическую ссылку
+    this.editor = null
+    // @ts-expect-error - освобождаем большой объект
+    this.canvas = null
+    // @ts-expect-error - очищаем ссылку на опции
+    this.options = null
   }
 }

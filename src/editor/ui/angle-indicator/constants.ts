@@ -1,5 +1,5 @@
 /**
- * Стили для индикатора угла поворота
+ * Стили для индикатора угла поворота (используем kebab-case для setProperty)
  */
 export const ANGLE_INDICATOR_STYLES = {
   position: 'absolute',
@@ -7,14 +7,14 @@ export const ANGLE_INDICATOR_STYLES = {
   background: '#2B2D33',
   color: '#fff',
   padding: '4px 8px',
-  borderRadius: '4px',
-  fontSize: '12px',
-  fontWeight: '500',
-  fontFamily: 'system-ui, -apple-system, sans-serif',
-  zIndex: '1000',
-  pointerEvents: 'none',
-  whiteSpace: 'nowrap',
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+  'border-radius': '4px',
+  'font-size': '12px',
+  'font-weight': '500',
+  'font-family': 'system-ui, -apple-system, sans-serif',
+  'z-index': '1000',
+  'pointer-events': 'none',
+  'white-space': 'nowrap',
+  'box-shadow': '0 2px 8px rgba(0, 0, 0, 0.2)'
 } as const
 
 /**
