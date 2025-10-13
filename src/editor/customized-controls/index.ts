@@ -31,5 +31,10 @@ export default class ControlsCustomizer {
     })
 
     InteractiveFabricObject.ownDefaults.controls = ctrls
+
+    // Устанавливаем snapAngle для всех объектов
+    // Это заставляет угол поворота изменяться только на целые градусы (минимум 1°)
+    // Решает проблему отображения 0° при минимальных поворотах
+    InteractiveFabricObject.ownDefaults.snapAngle = 1
   }
 }
