@@ -191,7 +191,7 @@ export class ImageEditor {
       initialImage,
       initialStateJSON,
       scaleType,
-      showRotateAngle,
+      showRotationAngle,
       _onReadyCallback
     } = this.options
 
@@ -217,7 +217,7 @@ export class ImageEditor {
     this.deletionManager = new DeletionManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
-    if (showRotateAngle) {
+    if (showRotationAngle) {
       this.angleIndicator = new AngleIndicatorManager({ editor: this })
     }
 

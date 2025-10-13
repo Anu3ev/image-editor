@@ -154,7 +154,7 @@ declare module 'fabric' {
     /**
      * Показывать угол поворота у выделенного объекта при вращении.
      */
-    showRotateAngle: boolean
+    showRotationAngle: boolean
 
     /**
      * Коллбэк, который будет вызван при готовности редактора.

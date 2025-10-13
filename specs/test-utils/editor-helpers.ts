@@ -15,7 +15,7 @@ export const basicOptions: Partial<CanvasOptions> = {
   montageAreaWidth: 400,
   montageAreaHeight: 300,
   scaleType: 'contain',
-  showRotateAngle: false
+  showRotationAngle: false
 }
 
 export const createFullOptions = (partialOptions: Partial<CanvasOptions> = {}): CanvasOptions => ({
