@@ -164,7 +164,7 @@ export default class AngleIndicatorManager {
    */
   private _shouldShowIndicator(target: FabricObject | undefined): boolean {
     // Проверяем, включена ли опция
-    if (!this.options.showRotateAngle) return false
+    if (!this.options.showRotationAngle) return false
 
     // Проверяем наличие объекта
     if (!target) return false

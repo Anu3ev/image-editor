@@ -14,8 +14,8 @@ describe('AngleIndicatorManager', () => {
     mockCanvas = mocks.mockCanvas
     mockEditor = mocks.mockEditor
 
-    // Убеждаемся что showRotateAngle включен
-    mockEditor.options.showRotateAngle = true
+    // Убеждаемся что showRotationAngle включен
+    mockEditor.options.showRotationAngle = true
 
     angleIndicatorManager = new AngleIndicatorManager({ editor: mockEditor })
   })
@@ -130,8 +130,8 @@ describe('AngleIndicatorManager', () => {
       expect(angleIndicatorManager.el.style.display).toBe('none')
     })
 
-    it('не показывает индикатор если showRotateAngle === false', () => {
-      mockEditor.options.showRotateAngle = false
+    it('не показывает индикатор если showRotationAngle === false', () => {
+      mockEditor.options.showRotationAngle = false
 
       const handlers = mockCanvas.__handlers['object:rotating']
       handlers[0](mockEvent)
@@ -373,7 +373,7 @@ describe('AngleIndicatorManager', () => {
     beforeEach(() => {
       // Создаем новый экземпляр для тестов destroy
       const mocks = createManagerTestMocks()
-      mocks.mockEditor.options.showRotateAngle = true
+      mocks.mockEditor.options.showRotationAngle = true
       freshManager = new AngleIndicatorManager({ editor: mocks.mockEditor })
     })
 

@@ -75,7 +75,7 @@ export const defaults: Partial<CanvasOptions> = {
   maxZoom: 2,
   zoomRatio: 0.1,
   overlayMaskColor: 'rgba(136, 136, 136, 0.6)',
-  showRotateAngle: true,
+  showRotationAngle: true,
 
   /*
    * Настройки слушателей событий
