@@ -229,6 +229,16 @@ export default class ClipboardManager {
       const clonedObject = await targetObject.clone(['format'])
 
       // Устанавливаем новые координаты и ID
+      if (clonedObject instanceof ActiveSelection) {
+        // Для ActiveSelection обновляем каждый объект внутри
+        clonedObject.forEachObject((obj) => {
+          obj.set({
+            id: `${obj.type}-${nanoid()}`,
+            evented: true
+          })
+        })
+      }
+
       clonedObject.set({
         id: `${clonedObject.type}-${nanoid()}`,
         left: clonedObject.left + 10,
@@ -340,6 +350,18 @@ export default class ClipboardManager {
       const clonedObj = await this.clipboard.clone(['format'])
 
       canvas.discardActiveObject()
+
+      // Устанавливаем новые координаты и ID
+      if (clonedObj instanceof ActiveSelection) {
+        // Для ActiveSelection обновляем каждый объект внутри
+        clonedObj.forEachObject((obj) => {
+          obj.set({
+            id: `${obj.type}-${nanoid()}`,
+            evented: true
+          })
+        })
+      }
+
       clonedObj.set({
         id: `${clonedObj.type}-${nanoid()}`,
         left: clonedObj.left + 10,
