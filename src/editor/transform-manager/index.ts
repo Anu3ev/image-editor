@@ -5,7 +5,8 @@ import {
   DEFAULT_ZOOM_RATIO,
   DEFAULT_ROTATE_RATIO,
   MIN_ZOOM,
-  MAX_ZOOM
+  MAX_ZOOM,
+  VIEWPORT_CENTERING_TRANSITION_FACTOR
 } from '../constants'
 
 export type ResetObjectOptions = {
@@ -49,6 +50,49 @@ export default class TransformManager {
   }
 
   /**
+   * Применяет плавное центрирование viewport при приближении к defaultZoom.
+   * При zoom <= defaultZoom монтажная область полностью центрируется.
+   * При zoom > defaultZoom применяется плавная интерполяция в пределах переходного диапазона.
+   * @param zoom - Текущий зум
+   * @private
+   */
+  private _applyViewportCentering(zoom: number): void {
+    const { canvas, montageArea } = this.editor
+    const { defaultZoom } = this
+
+    const vpt = canvas.viewportTransform
+    const canvasCenterX = canvas.getWidth() / 2
+    const canvasCenterY = canvas.getHeight() / 2
+    const montageCenterX = montageArea.left
+    const montageCenterY = montageArea.top
+
+    // Целевая позиция для центрированного viewport
+    const targetVptX = canvasCenterX - montageCenterX * zoom
+    const targetVptY = canvasCenterY - montageCenterY * zoom
+
+    if (zoom <= defaultZoom) {
+      // Полностью центрируем при zoom <= defaultZoom
+      vpt[4] = targetVptX
+      vpt[5] = targetVptY
+      canvas.setViewportTransform(vpt)
+      return
+    }
+
+    // Плавное центрирование при приближении к defaultZoom
+    const transitionRange = defaultZoom * VIEWPORT_CENTERING_TRANSITION_FACTOR
+    const distanceFromDefault = zoom - defaultZoom
+
+    if (distanceFromDefault <= transitionRange) {
+      // progress от 0 (на границе диапазона) до 1 (при zoom = defaultZoom)
+      const progress = 1 - (distanceFromDefault / transitionRange)
+
+      vpt[4] += (targetVptX - vpt[4]) * progress
+      vpt[5] += (targetVptY - vpt[5]) * progress
+      canvas.setViewportTransform(vpt)
+    }
+  }
+
+  /**
    * Метод рассчитывает и применяет зум по умолчанию для монтажной области редактора.
    * Зум рассчитывается исходя из размеров контейнера редактора и текущих размеров монтажной области.
    * Расчёт происходит таким образом, чтобы монтажная область визуально целиком помещалась в контейнер редактора.
@@ -72,6 +116,9 @@ export default class TransformManager {
 
     // применяем дефолтный зум
     this.setZoom()
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -101,11 +148,17 @@ export default class TransformManager {
 
     canvas.zoomToPoint(point, zoom)
 
+    // Применяем плавное центрирование viewport при приближении к defaultZoom
+    this._applyViewportCentering(zoom)
+
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
       zoom,
       point
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -130,6 +183,9 @@ export default class TransformManager {
       zoom: newZoom,
       point: centerPoint
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -146,6 +202,9 @@ export default class TransformManager {
       currentZoom: canvas.getZoom(),
       point: centerPoint
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**

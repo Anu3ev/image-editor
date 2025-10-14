@@ -610,15 +610,26 @@ class Listeners {
    * Перетаскивание канваса (mouse:move).
    * @param options
    * @param options.e — объект события
-   *
-   * TODO: Надо как-то ограничить область перетаскивания, чтобы канвас не уходил сильно далеко за пределы экрана
    */
   handleCanvasDragging({ e: event }:TPointerEventInfo<TPointerEvent>): void {
     if (!this.isDragging || !this.isSpacePressed || !(event instanceof MouseEvent)) return
 
+    const { panConstraintManager } = this.editor
+
+    // Проверяем, разрешено ли перетаскивание при текущем зуме
+    if (!panConstraintManager.isPanAllowed()) {
+      return
+    }
+
     const vpt = this.canvas.viewportTransform
-    vpt[4] += event.clientX - this.lastMouseX
-    vpt[5] += event.clientY - this.lastMouseY
+    const newVptX = vpt[4] + (event.clientX - this.lastMouseX)
+    const newVptY = vpt[5] + (event.clientY - this.lastMouseY)
+
+    // Применяем ограничения к координатам
+    const constrained = panConstraintManager.constrainPan(newVptX, newVptY)
+
+    vpt[4] = constrained.x
+    vpt[5] = constrained.y
     this.canvas.requestRenderAll()
 
     this.lastMouseX = event.clientX
