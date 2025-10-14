@@ -4,7 +4,12 @@ import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 
 export type GroupActionOptions = {
-  object?: FabricObject,
+  target?: ActiveSelection | FabricObject[],
+  withoutSave?: boolean
+}
+
+export type UngroupActionOptions = {
+  target?: Group,
   withoutSave?: boolean
 }
 
@@ -22,7 +27,6 @@ export type UngroupedObjectsData = {
  * Параметры события editor:objects-grouped
  */
 export type GroupedObjectsData = {
-  object: FabricObject
   group: Group
   withoutSave?: boolean
 }
@@ -38,25 +42,42 @@ export default class GroupingManager {
   }
 
   /**
+   * Получить объекты для группировки
+   * @private
+   */
+  private _getObjectsToGroup(target?: ActiveSelection | FabricObject[]): FabricObject[] | null {
+    if (Array.isArray(target)) {
+      return target.length > 0 ? target : null
+    }
+
+    const activeObject = target || this.editor.canvas.getActiveObject()
+
+    if (!activeObject || !(activeObject instanceof ActiveSelection)) {
+      return null
+    }
+
+    return activeObject.getObjects()
+  }
+
+  /**
  * Группировка объектов
  * @param options
+ * @param options.target - объект ActiveSelection или массив объектов для группировки
  * @param options.withoutSave - Не сохранять состояние
- * @param options.object - объект ActiveSelection для группировки
  * @fires editor:objects-grouped
  */
   public group({
-    object,
+    target,
     withoutSave = false
   }: GroupActionOptions = {}): GroupedObjectsData | null {
     const { canvas, historyManager } = this.editor
-    const activeObject = object || canvas.getActiveObject()
 
-    if (!activeObject || !(activeObject instanceof ActiveSelection)) return null
+    // Получаем объекты для группировки
+    const objectsToGroup = this._getObjectsToGroup(target)
+    if (!objectsToGroup) return null
 
     try {
       historyManager.suspendHistory()
-
-      const objectsToGroup = activeObject.getObjects()
 
       // Создаем группу с уникальным ID
       const group = new Group(objectsToGroup, {
@@ -72,7 +93,6 @@ export default class GroupingManager {
       canvas.requestRenderAll()
 
       const result: GroupedObjectsData = {
-        object: activeObject,
         group,
         withoutSave
       }
@@ -92,17 +112,17 @@ export default class GroupingManager {
   /**
  * Разгруппировка объектов
  * @param options
- * @param options.object - объект Group для разгруппировки
+ * @param options.target - объект Group для разгруппировки
  * @param options.withoutSave - Не сохранять состояние
  * @returns данные о разгруппировке или null, если объект не является группой
  * @fires editor:objects-ungrouped
  */
   public ungroup({
-    object,
+    target,
     withoutSave = false
-  }: GroupActionOptions = {}): UngroupedObjectsData | null {
+  }: UngroupActionOptions = {}): UngroupedObjectsData | null {
     const { canvas, historyManager } = this.editor
-    const group = object || canvas.getActiveObject()
+    const group = target || canvas.getActiveObject()
 
     if (!(group instanceof Group)) return null
 
