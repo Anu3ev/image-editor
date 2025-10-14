@@ -75,11 +75,18 @@ export default class GroupingManager {
 
     const activeObject = target || this.editor.canvas.getActiveObject()
 
-    if (!activeObject || !(activeObject instanceof Group)) {
-      return null
+    if (!activeObject) return null
+
+    // Если активный объект - это ActiveSelection (когда target не передан явно)
+    if (activeObject instanceof ActiveSelection) {
+      const groups = activeObject.getObjects().filter((obj) => obj instanceof Group) as Group[]
+      return groups.length > 0 ? groups : null
     }
 
-    return [activeObject]
+    // Если это одна группа
+    if (activeObject instanceof Group) return [activeObject]
+
+    return null
   }
 
   /**
