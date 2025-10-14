@@ -14,7 +14,8 @@ export const basicOptions: Partial<CanvasOptions> = {
   canvasCSSHeight: '500px',
   montageAreaWidth: 400,
   montageAreaHeight: 300,
-  scaleType: 'contain'
+  scaleType: 'contain',
+  showRotationAngle: false
 }
 
 export const createFullOptions = (partialOptions: Partial<CanvasOptions> = {}): CanvasOptions => ({
@@ -322,7 +323,14 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     editorContainer: mockContainer,
     wrapperEl: {
       parentNode: mockContainer,
-      style: {}
+      style: {},
+      appendChild: jest.fn(),
+      getBoundingClientRect: jest.fn().mockReturnValue({
+        left: 0,
+        top: 0,
+        width: containerWidth,
+        height: containerHeight
+      })
     }
   }
 

@@ -6,6 +6,7 @@ import ModuleLoader from './module-loader'
 import WorkerManager from './worker-manager'
 import CustomizedControls from './customized-controls'
 import ToolbarManager from './ui/toolbar-manager'
+import AngleIndicatorManager from './ui/angle-indicator'
 import HistoryManager, { CanvasFullState } from './history-manager'
 import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
@@ -151,6 +152,11 @@ export class ImageEditor {
   public deletionManager!: DeletionManager
 
   /**
+   * Менеджер индикатора угла поворота (опционально)
+   */
+  public angleIndicator?: AngleIndicatorManager
+
+  /**
    * Слушатели событий редактора
    */
   public listeners!: Listeners
@@ -185,6 +191,7 @@ export class ImageEditor {
       initialImage,
       initialStateJSON,
       scaleType,
+      showRotationAngle,
       _onReadyCallback
     } = this.options
 
@@ -209,6 +216,11 @@ export class ImageEditor {
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
 
+    // Инициализируем индикатор угла поворота, если включена опция
+    if (showRotationAngle) {
+      this.angleIndicator = new AngleIndicatorManager({ editor: this })
+    }
+
     this._createMontageArea()
     this._createClippingArea()
 
@@ -220,6 +232,8 @@ export class ImageEditor {
     this.canvasManager.setCanvasWrapperHeight(canvasWrapperHeight)
     this.canvasManager.setCanvasCSSWidth(canvasCSSWidth)
     this.canvasManager.setCanvasCSSHeight(canvasCSSHeight)
+    this.canvasManager.updateCanvas()
+    this.transformManager.calculateAndApplyDefaultZoom()
 
     if (initialImage?.source) {
       const {
@@ -229,8 +243,6 @@ export class ImageEditor {
       } = initialImage as ImportImageOptions
 
       await this.imageManager.importImage({ source, scale, withoutSave })
-    } else {
-      this.canvasManager.setDefaultScale({ withoutSave: true })
     }
 
     if (initialStateJSON) {
@@ -305,6 +317,7 @@ export class ImageEditor {
   public destroy(): void {
     this.listeners.destroy()
     this.toolbar.destroy()
+    this.angleIndicator?.destroy()
     this.canvas.dispose()
     this.workerManager.worker.terminate()
     this.imageManager.revokeBlobUrls()

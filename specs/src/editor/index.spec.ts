@@ -155,7 +155,7 @@ describe('ImageEditor', () => {
       const editor = createEditorWithMocks({
         initialImage: {
           source: 'test-image.jpg',
-          scale: 'image-fit',
+          scale: 'contain',
           withoutSave: true
         }
       })
@@ -164,17 +164,18 @@ describe('ImageEditor', () => {
 
       expect(editor.imageManager.importImage).toHaveBeenCalledWith({
         source: 'test-image.jpg',
-        scale: 'image-fit',
+        scale: 'contain',
         withoutSave: true
       })
     })
 
-    it('должен установить масштаб по умолчанию если изображение не предоставлено', async() => {
+    it('должен обновить канвас и установить масштаб по умолчанию', async() => {
       const editor = createEditorWithMocks()
 
       await editor.init()
 
-      expect(editor.canvasManager.setDefaultScale).toHaveBeenCalledWith({ withoutSave: true })
+      expect(editor.canvasManager.updateCanvas).toHaveBeenCalledWith()
+      expect(editor.transformManager.calculateAndApplyDefaultZoom).toHaveBeenCalled()
     })
 
     it('должен загрузить начальное состояние если оно предоставлено', async() => {
