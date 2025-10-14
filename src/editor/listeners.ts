@@ -663,7 +663,7 @@ class Listeners {
     const conversionFactor = 0.001
     const scaleAdjustment = -event.deltaY * conversionFactor
 
-    this.editor.transformManager.zoom(scaleAdjustment)
+    this.editor.transformManager.handleMouseWheelZoom(scaleAdjustment, event)
 
     event.preventDefault()
     event.stopPropagation()

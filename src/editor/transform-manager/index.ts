@@ -50,6 +50,30 @@ export default class TransformManager {
   }
 
   /**
+   * Применяет ограничения границ viewport после зума.
+   * Ограничения применяются только если НЕ активен режим центрирования.
+   * @param zoom - Текущий зум
+   * @private
+   */
+  private _applyViewportConstraints(zoom: number): void {
+    const { canvas, panConstraintManager } = this.editor
+
+    // обновляем границы перетаскивания
+    panConstraintManager.updateBounds()
+
+    // При zoom <= defaultZoom * (1 + VIEWPORT_CENTERING_TRANSITION_FACTOR) идёт центрирование
+    const centeringThreshold = this.defaultZoom * (1 + VIEWPORT_CENTERING_TRANSITION_FACTOR)
+
+    if (zoom > centeringThreshold) {
+      const vpt = canvas.viewportTransform
+      const constrained = panConstraintManager.constrainPan(vpt[4], vpt[5])
+      vpt[4] = constrained.x
+      vpt[5] = constrained.y
+      canvas.setViewportTransform(vpt)
+    }
+  }
+
+  /**
    * Применяет плавное центрирование viewport при приближении к defaultZoom.
    * При zoom <= defaultZoom монтажная область полностью центрируется.
    * При zoom > defaultZoom применяется плавная интерполяция в пределах переходного диапазона.
@@ -122,6 +146,61 @@ export default class TransformManager {
   }
 
   /**
+   * Обработчик зума колесом мыши с автоматическим определением точки зума.
+   * Логика выбора точки зума:
+   * - Если zoom < defaultZoom или монтажная область помещается во viewport - зум к центру монтажной области
+   * - Если монтажная область выходит за пределы viewport - зум к позиции курсора (ограниченной границами монтажной области)
+   * @param scale - Шаг зума
+   * @param event - Событие колеса мыши
+   * @fires editor:zoom-changed
+   */
+  public handleMouseWheelZoom(scale: number, event: WheelEvent): void {
+    const { canvas, montageArea } = this.editor
+    const currentZoom = canvas.getZoom()
+
+    // Проверяем, выходит ли монтажная область за пределы viewport
+    const scaledMontageWidth = montageArea.width * currentZoom
+    const scaledMontageHeight = montageArea.height * currentZoom
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+    const montageExceedsViewport = scaledMontageWidth > viewportWidth || scaledMontageHeight > viewportHeight
+
+    // Если текущий зум меньше defaultZoom или монтажная область не выходит за пределы viewport,
+    // зумим к центру монтажной области
+    if (currentZoom < this.defaultZoom || !montageExceedsViewport) {
+      this.zoom(scale, {
+        pointX: montageArea.left,
+        pointY: montageArea.top
+      })
+      return
+    }
+
+    // Монтажная область выходит за пределы viewport - зумим к курсору
+    // Получаем координаты курсора относительно viewport (в пикселях canvas элемента)
+    const viewportPoint = canvas.getViewportPoint(event)
+
+    // Преобразуем viewport координаты в scene координаты с учетом текущего zoom
+    const vpt = canvas.viewportTransform
+    const sceneX = (viewportPoint.x - vpt[4]) / currentZoom
+    const sceneY = (viewportPoint.y - vpt[5]) / currentZoom
+
+    // Ограничиваем точку зума границами монтажной области
+    const montageMinX = montageArea.left - montageArea.width / 2
+    const montageMaxX = montageArea.left + montageArea.width / 2
+    const montageMinY = montageArea.top - montageArea.height / 2
+    const montageMaxY = montageArea.top + montageArea.height / 2
+
+    // Если курсор за пределами монтажной области, находим ближайшую точку на её границе
+    const clampedX = Math.max(montageMinX, Math.min(montageMaxX, sceneX))
+    const clampedY = Math.max(montageMinY, Math.min(montageMaxY, sceneY))
+
+    this.zoom(scale, {
+      pointX: clampedX,
+      pointY: clampedY
+    })
+  }
+
+  /**
    * Увеличение/уменьшение масштаба
    * @param scale - Шаг зума
    * @param options - Координаты зума (по умолчанию центр канваса)
@@ -150,15 +229,14 @@ export default class TransformManager {
 
     // Применяем плавное центрирование viewport при приближении к defaultZoom
     this._applyViewportCentering(zoom)
+    // Применяем ограничения границ viewport
+    this._applyViewportConstraints(zoom)
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
       zoom,
       point
     })
-
-    // обновляем границы перетаскивания
-    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
