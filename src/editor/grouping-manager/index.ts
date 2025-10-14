@@ -2,10 +2,28 @@
 import { Group, ActiveSelection, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
-import { ObjectsUngroupedPayload } from '../types/events'
 
 export type GroupActionOptions = {
   object?: FabricObject,
+  withoutSave?: boolean
+}
+
+/**
+ * Параметры события editor:objects-ungrouped
+ */
+export type UngroupedObjectsData = {
+  object: FabricObject,
+  selection: ActiveSelection,
+  ungroupedObjects: FabricObject[],
+  withoutSave?: boolean
+}
+
+/**
+ * Параметры события editor:objects-grouped
+ */
+export type GroupedObjectsData = {
+  object: FabricObject
+  group: Group
   withoutSave?: boolean
 }
 
@@ -20,95 +38,107 @@ export default class GroupingManager {
   }
 
   /**
-   * Группировка объектов
-   * @param options
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.object - массив объектов для группировки
-   * @fires editor:objects-grouped
-   */
+ * Группировка объектов
+ * @param options
+ * @param options.withoutSave - Не сохранять состояние
+ * @param options.object - объект ActiveSelection для группировки
+ * @fires editor:objects-grouped
+ */
   public group({
     object,
-    withoutSave
-  }: GroupActionOptions = {}): void {
+    withoutSave = false
+  }: GroupActionOptions = {}): GroupedObjectsData | null {
     const { canvas, historyManager } = this.editor
-
-    historyManager.suspendHistory()
     const activeObject = object || canvas.getActiveObject()
-    if (!activeObject) return
 
-    if (!(activeObject instanceof ActiveSelection)) return
+    if (!activeObject || !(activeObject instanceof ActiveSelection)) return null
 
-    // Получаем все объекты внутри activeselection, группируем их и удаляем из канваса
-    const objectsToGroup = activeObject.getObjects()
+    try {
+      historyManager.suspendHistory()
 
-    const group = new Group(objectsToGroup)
-    objectsToGroup.forEach((obj) => canvas.remove(obj))
+      const objectsToGroup = activeObject.getObjects()
 
-    group.set('id', `${group.type}-${nanoid()}`)
-    canvas.add(group)
-    canvas.setActiveObject(group)
-    canvas.renderAll()
+      // Создаем группу с уникальным ID
+      const group = new Group(objectsToGroup, {
+        id: `group-${nanoid()}`
+      })
 
-    historyManager.resumeHistory()
+      // Удаляем объекты из canvas
+      objectsToGroup.forEach((obj) => canvas.remove(obj))
 
-    if (!withoutSave) {
-      historyManager.saveState()
+      // Добавляем группу и выделяем её
+      canvas.add(group)
+      canvas.setActiveObject(group)
+      canvas.requestRenderAll()
+
+      const result: GroupedObjectsData = {
+        object: activeObject,
+        group,
+        withoutSave
+      }
+
+      canvas.fire('editor:objects-grouped', result)
+
+      return result
+    } finally {
+      historyManager.resumeHistory()
+
+      if (!withoutSave) {
+        historyManager.saveState()
+      }
     }
-
-    canvas.fire('editor:objects-grouped', {
-      object: activeObject,
-      group,
-      withoutSave
-    })
   }
 
   /**
-   * Разгруппировка объектов
-   * @param options
-   * @param options.object - объект для разгруппировки
-   * @param options.withoutSave - Не сохранять состояние
-   * @returns данные о разгруппировке или null, если объект не является группой
-   * @fires editor:objects-ungrouped
-   */
+ * Разгруппировка объектов
+ * @param options
+ * @param options.object - объект Group для разгруппировки
+ * @param options.withoutSave - Не сохранять состояние
+ * @returns данные о разгруппировке или null, если объект не является группой
+ * @fires editor:objects-ungrouped
+ */
   public ungroup({
     object,
-    withoutSave
-  }: GroupActionOptions = {}): ObjectsUngroupedPayload | null {
+    withoutSave = false
+  }: GroupActionOptions = {}): UngroupedObjectsData | null {
     const { canvas, historyManager } = this.editor
     const group = object || canvas.getActiveObject()
 
     if (!(group instanceof Group)) return null
 
-    historyManager.suspendHistory()
+    try {
+      historyManager.suspendHistory()
 
-    // Получаем все объекты внутри группы, удаляем группу и добавляем объекты обратно на канвас
-    const ungroupedObjects = group.removeAll()
-    canvas.remove(group)
+      // Получаем все объекты внутри группы, удаляем группу и добавляем объекты обратно на канвас
+      const ungroupedObjects = group.removeAll()
+      canvas.remove(group)
 
-    ungroupedObjects.forEach((grouppedObj) => canvas.add(grouppedObj))
+      ungroupedObjects.forEach((groupedObj) => canvas.add(groupedObj))
 
-    // Выделяем все объекты, которые были в группе
-    const sel = new ActiveSelection(ungroupedObjects, {
-      canvas
-    })
+      // Выделяем все объекты, которые были в группе
+      const selection = new ActiveSelection(ungroupedObjects, {
+        canvas
+      })
 
-    canvas.setActiveObject(sel)
-    canvas.renderAll()
+      canvas.setActiveObject(selection)
+      canvas.requestRenderAll()
 
-    historyManager.resumeHistory()
+      const result: UngroupedObjectsData = {
+        object: group,
+        selection,
+        ungroupedObjects,
+        withoutSave
+      }
 
-    if (!withoutSave) {
-      historyManager.saveState()
+      canvas.fire('editor:objects-ungrouped', result)
+
+      return result
+    } finally {
+      historyManager.resumeHistory()
+
+      if (!withoutSave) {
+        historyManager.saveState()
+      }
     }
-
-    const result = {
-      object: group,
-      selection: sel,
-      ungroupedObjects,
-      withoutSave
-    }
-
-    canvas.fire('editor:objects-ungrouped', result)
-    return result
   }
 }

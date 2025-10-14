@@ -1,5 +1,6 @@
-import { FabricObject, FabricImage, Group, ActiveSelection, Point } from 'fabric'
+import { FabricObject, FabricImage, Point } from 'fabric'
 import { ImageEditor } from '../index'
+import { GroupedObjectsData, UngroupedObjectsData } from '../grouping-manager'
 
 /**
  * Параметры события editor:canvas-exported
@@ -83,25 +84,6 @@ export type MontageAreaScaledToImagePayload = {
 export type CanvasUpdatedPayload = {
   width: number
   height: number
-}
-
-/**
- * Параметры события editor:objects-grouped
- */
-export type ObjectsGroupedPayload = {
-  object: FabricObject
-  group: Group
-  withoutSave?: boolean
-}
-
-/**
- * Параметры события editor:objects-ungrouped
- */
-export type ObjectsUngroupedPayload = {
-  object: FabricObject,
-  selection: ActiveSelection,
-  ungroupedObjects: FabricObject[],
-  withoutSave?: boolean
 }
 
 /**
@@ -250,12 +232,12 @@ declare module 'fabric' {
     /**
      * Срабатывает при группировке выбранных объектов.
      */
-    'editor:objects-grouped': ObjectsGroupedPayload
+    'editor:objects-grouped': GroupedObjectsData
 
     /**
      * Срабатывает при разгруппировке объектов.
      */
-    'editor:objects-ungrouped': ObjectsUngroupedPayload
+    'editor:objects-ungrouped': UngroupedObjectsData
 
     /**
      * Срабатывает при удалении выбранных объектов с канваса.
