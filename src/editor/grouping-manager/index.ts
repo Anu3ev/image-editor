@@ -9,7 +9,7 @@ export type GroupActionOptions = {
 }
 
 export type UngroupActionOptions = {
-  target?: Group,
+  target?: Group | Group[] | ActiveSelection,
   withoutSave?: boolean
 }
 
@@ -17,7 +17,6 @@ export type UngroupActionOptions = {
  * Параметры события editor:objects-ungrouped
  */
 export type UngroupedObjectsData = {
-  object: FabricObject,
   selection: ActiveSelection,
   ungroupedObjects: FabricObject[],
   withoutSave?: boolean
@@ -57,6 +56,30 @@ export default class GroupingManager {
     }
 
     return activeObject.getObjects()
+  }
+
+  /**
+   * Получить группы для разгруппировки
+   * @private
+   */
+  private _getGroupsToUngroup(target?: Group | Group[] | ActiveSelection): Group[] | null {
+    if (Array.isArray(target)) {
+      const groups = target.filter((item) => item instanceof Group)
+      return groups.length > 0 ? groups : null
+    }
+
+    if (target instanceof ActiveSelection) {
+      const groups = target.getObjects().filter((obj) => obj instanceof Group) as Group[]
+      return groups.length > 0 ? groups : null
+    }
+
+    const activeObject = target || this.editor.canvas.getActiveObject()
+
+    if (!activeObject || !(activeObject instanceof Group)) {
+      return null
+    }
+
+    return [activeObject]
   }
 
   /**
@@ -112,9 +135,9 @@ export default class GroupingManager {
   /**
  * Разгруппировка объектов
  * @param options
- * @param options.target - объект Group для разгруппировки
+ * @param options.target - объект Group, массив групп или ActiveSelection с группами для разгруппировки
  * @param options.withoutSave - Не сохранять состояние
- * @returns данные о разгруппировке или null, если объект не является группой
+ * @returns данные о разгруппировке или null, если нет групп для разгруппировки
  * @fires editor:objects-ungrouped
  */
   public ungroup({
@@ -122,21 +145,28 @@ export default class GroupingManager {
     withoutSave = false
   }: UngroupActionOptions = {}): UngroupedObjectsData | null {
     const { canvas, historyManager } = this.editor
-    const group = target || canvas.getActiveObject()
 
-    if (!(group instanceof Group)) return null
+    // Получаем группы для разгруппировки
+    const groupsToUngroup = this._getGroupsToUngroup(target)
+    if (!groupsToUngroup) return null
 
     try {
       historyManager.suspendHistory()
 
-      // Получаем все объекты внутри группы, удаляем группу и добавляем объекты обратно на канвас
-      const ungroupedObjects = group.removeAll()
-      canvas.remove(group)
+      const allUngroupedObjects: FabricObject[] = []
 
-      ungroupedObjects.forEach((groupedObj) => canvas.add(groupedObj))
+      // Разгруппировываем все группы
+      groupsToUngroup.forEach((group) => {
+        const ungroupedObjects = group.removeAll()
+        canvas.remove(group)
+        ungroupedObjects.forEach((groupedObj) => {
+          canvas.add(groupedObj)
+          allUngroupedObjects.push(groupedObj)
+        })
+      })
 
-      // Выделяем все объекты, которые были в группе
-      const selection = new ActiveSelection(ungroupedObjects, {
+      // Выделяем все разгруппированные объекты
+      const selection = new ActiveSelection(allUngroupedObjects, {
         canvas
       })
 
@@ -144,9 +174,8 @@ export default class GroupingManager {
       canvas.requestRenderAll()
 
       const result: UngroupedObjectsData = {
-        object: group,
         selection,
-        ungroupedObjects,
+        ungroupedObjects: allUngroupedObjects,
         withoutSave
       }
 
