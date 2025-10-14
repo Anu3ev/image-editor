@@ -279,4 +279,11 @@ declare module 'fabric' {
      */
     id?: string;
   }
+
+  interface GroupProps {
+    /**
+     * Уникальный идентификатор группы.
+     */
+    id?: string;
+  }
 }

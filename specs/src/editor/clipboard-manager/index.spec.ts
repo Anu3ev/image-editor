@@ -1,3 +1,4 @@
+import { ActiveSelection } from 'fabric'
 import {
   createManagerTestMocks,
   createMockFabricObject,
@@ -257,6 +258,59 @@ describe('ClipboardManager', () => {
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
         object: expect.any(Object)
+      })
+    })
+
+    it('должен обработать вставку ActiveSelection и установить уникальные id', async() => {
+      const mockObjects = [
+        createMockFabricObject({ type: 'rect', id: 'original-rect', left: 50, top: 50 }),
+        createMockFabricObject({ type: 'circle', id: 'original-circle', left: 100, top: 100 }),
+        createMockFabricObject({ type: 'text', id: 'original-text', left: 150, top: 150 })
+      ]
+      const mockGroup = createMockActiveSelection(mockObjects, { left: 100, top: 100 })
+      clipboardManager.clipboard = mockGroup
+
+      const result = await clipboardManager.paste()
+
+      expect(result).toBe(true)
+
+      // Проверяем, что объекты были добавлены на canvas через специальную логику для ActiveSelection
+      expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
+      expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
+      expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
+
+      // Проверяем, что добавлено нужное количество объектов
+      expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
+
+      // Проверяем вызов события
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        object: expect.any(ActiveSelection)
+      })
+    })
+
+    it('должен обработать copyPaste для ActiveSelection и установить уникальные id', async() => {
+      const mockObjects = [
+        createMockFabricObject({ type: 'rect', id: 'original-rect', left: 75, top: 75 }),
+        createMockFabricObject({ type: 'circle', id: 'original-circle', left: 125, top: 125 })
+      ]
+      const mockGroup = createMockActiveSelection(mockObjects, { left: 150, top: 100 })
+      mockCanvas.getActiveObject.mockReturnValue(mockGroup)
+
+      const result = await clipboardManager.copyPaste()
+
+      expect(result).toBe(true)
+
+      // Проверяем, что были вызваны нужные методы для ActiveSelection
+      expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
+      expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
+      expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
+
+      // Проверяем, что добавлено нужное количество объектов
+      expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
+
+      // Проверяем вызов события
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
+        object: expect.any(ActiveSelection)
       })
     })
 
