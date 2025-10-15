@@ -99,11 +99,19 @@ export const createEditorStub = () => {
     },
     transformManager: {
       zoom: jest.fn(),
+      handleMouseWheelZoom: jest.fn(),
       resetObject: jest.fn(),
       resetZoom: jest.fn(),
       resetObjects: jest.fn(),
       calculateAndApplyDefaultZoom: jest.fn(),
       fitObject: jest.fn()
+    },
+    panConstraintManager: {
+      updateBounds: jest.fn(),
+      getPanBounds: jest.fn().mockReturnValue({ minX: 0, maxX: 0, minY: 0, maxY: 0, canPan: true }),
+      isPanAllowed: jest.fn().mockReturnValue(true),
+      constrainPan: jest.fn((x, y) => ({ x, y })),
+      getCurrentOffset: jest.fn().mockReturnValue({ x: 0, y: 0 })
     },
     layerManager: { bringToFront: jest.fn() },
     selectionManager: { selectAll: jest.fn() },
@@ -185,6 +193,14 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
 
   editor.shapeManager = {
     addRectangle: jest.fn()
+  } as any;
+
+  editor.panConstraintManager = {
+    updateBounds: jest.fn(),
+    getPanBounds: jest.fn().mockReturnValue({ minX: 0, maxX: 0, minY: 0, maxY: 0, canPan: true }),
+    isPanAllowed: jest.fn().mockReturnValue(true),
+    constrainPan: jest.fn((x, y) => ({ x, y })),
+    getCurrentOffset: jest.fn().mockReturnValue({ x: 0, y: 0 })
   } as any;
 
   // Приватные методы, которые вызываются в init
