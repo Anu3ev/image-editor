@@ -615,7 +615,7 @@ class Listeners {
   handleCanvasDragging({ e: event }:TPointerEventInfo<TPointerEvent>): void {
     if (!this.isDragging || !this.isSpacePressed || !(event instanceof MouseEvent)) return
 
-    const { panConstraintManager } = this.editor
+    const { panConstraintManager, montageArea } = this.editor
 
     // Проверяем, разрешено ли перетаскивание при текущем зуме
     if (!panConstraintManager.isPanAllowed()) {
@@ -631,6 +631,10 @@ class Listeners {
 
     vpt[4] = constrained.x
     vpt[5] = constrained.y
+
+    // Принудительно пересчитываем координаты монтажной области перед рендерингом
+    montageArea.setCoords()
+
     this.canvas.requestRenderAll()
 
     this.lastMouseX = event.clientX
