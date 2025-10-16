@@ -78,6 +78,45 @@ export class ActiveSelection {
   }
 }
 
+export class Group {
+  type = 'group'
+  id = ''
+  left = 0
+  top = 0
+  width = 100
+  height = 100
+  _objects: any[] = []
+
+  constructor(objects: any[] = [], public options: any = {}) {
+    this._objects = objects
+    Object.assign(this, options)
+  }
+
+  getObjects() {
+    return this._objects
+  }
+
+  removeAll() {
+    const objects = [...this._objects]
+    this._objects = []
+    return objects
+  }
+
+  set(props: any) {
+    Object.assign(this, props)
+  }
+
+  async clone() {
+    const clonedObjects = this._objects.map(obj => ({ ...obj }))
+    const clonedOptions = { ...this.options }
+    return new Group(clonedObjects, clonedOptions)
+  }
+
+  toObject() {
+    return { ...this.options }
+  }
+}
+
 export class FabricObject {
   constructor(public options: any = {}) {
     Object.assign(this, options)
@@ -123,4 +162,4 @@ export interface CanvasOptions {
   [key: string]: any
 }
 
-export default { Canvas, Pattern, Rect, ActiveSelection, FabricObject, FabricImage, Gradient }
+export default { Canvas, Pattern, Rect, ActiveSelection, Group, FabricObject, FabricImage, Gradient }

@@ -1,4 +1,4 @@
-import { CanvasOptions, ActiveSelection } from 'fabric'
+import { CanvasOptions, ActiveSelection, Group } from 'fabric'
 import { ImageEditor } from '../../src/editor'
 import HistoryManager from '../../src/editor/history-manager'
 
@@ -539,6 +539,20 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
   })
 
   return mockSelection
+}
+
+export const createMockGroup = (objects: any[] = [], props: any = {}) => {
+  // Используем реальный класс Group из мока
+  const mockGroup = new Group(objects, {
+    id: props.id || 'mock-group',
+    left: props.left || 0,
+    top: props.top || 0,
+    width: props.width || 100,
+    height: props.height || 100,
+    ...props
+  })
+
+  return mockGroup
 }
 
 export const createMockClipboardEvent = (data: any = {}) => ({
