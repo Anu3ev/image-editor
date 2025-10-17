@@ -17,8 +17,9 @@ export const CANVAS_MAX_HEIGHT = 4096
 export const CLIPBOARD_DATA_PREFIX = 'application/image-editor:'
 
 /**
- * Коэффициент для расчёта диапазона плавного центрирования viewport.
- * Определяет на каком расстоянии от defaultZoom начинается плавное центрирование.
- * Например, при 0.5: центрирование начинается при zoom = defaultZoom * 1.5
+ * Абсолютное значение диапазона зума для плавного центрирования viewport.
+ * Центрирование будет активно в диапазоне [defaultZoom, defaultZoom + CENTERING_RANGE]
+ * Например, при defaultZoom=0.118 и CENTERING_RANGE=0.25:
+ * - Центрирование работает при zoom от 0.118 до 0.368
 */
-export const VIEWPORT_CENTERING_TRANSITION_FACTOR = 0.5
+export const VIEWPORT_CENTERING_RANGE = 0.25
