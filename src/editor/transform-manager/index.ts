@@ -278,7 +278,8 @@ export default class TransformManager {
     const pointY = options.pointY ?? center.y
     const point = new Point(pointX, pointY)
 
-    let zoom = Number((currentZoom + Number(scale)).toFixed(2))
+    // Увеличиваем точность до 3 знаков для поддержки малых шагов зума на больших изображениях
+    let zoom = Number((currentZoom + Number(scale)).toFixed(3))
     if (zoom > maxZoom) zoom = maxZoom
     if (zoom < minZoom) zoom = minZoom
 

@@ -665,8 +665,25 @@ class Listeners {
   handleMouseWheelZoom({ e: event }:TPointerEventInfo<WheelEvent>): void {
     if (!event.ctrlKey && !event.metaKey) return
 
-    const conversionFactor = 0.001
+    // Адаптивный conversionFactor в зависимости от размера монтажной области
+    // Чем больше монтажная область, тем плавнее (меньше) шаг зума
+    const { montageArea } = this.editor
+    const maxSide = Math.max(montageArea.width, montageArea.height)
+
+    // Базовый размер 1024px соответствует conversionFactor = 0.001 (шаг ±0.1)
+    // Для 2048px → 0.0005 (шаг ±0.05)
+    // Для 4096px → 0.00025 (шаг ±0.025)
+    const baseFactor = 0.001
+    const baseSize = 1024
+    const sizeFactor = Math.max(0.25, baseSize / maxSide) // Минимум 0.25 чтобы шаг не был слишком маленьким
+    const conversionFactor = baseFactor * sizeFactor
+
     const scaleAdjustment = -event.deltaY * conversionFactor
+
+    console.log('=== Adaptive Zoom Step ===')
+    console.log('montageArea size:', montageArea.width, 'x', montageArea.height)
+    console.log('maxSide:', maxSide, 'sizeFactor:', sizeFactor.toFixed(3))
+    console.log('conversionFactor:', conversionFactor, 'scaleAdjustment:', scaleAdjustment.toFixed(3))
 
     this.editor.transformManager.handleMouseWheelZoom(scaleAdjustment, event)
 
