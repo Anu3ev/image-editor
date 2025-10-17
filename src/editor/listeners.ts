@@ -608,17 +608,33 @@ class Listeners {
 
   /**
    * Перетаскивание канваса (mouse:move).
+   * Проверяет, разрешено ли перетаскивание при текущем зуме и применяет ограничения на панорамирование с помощью panConstraintManager.
    * @param options
    * @param options.e — объект события
-   *
-   * TODO: Надо как-то ограничить область перетаскивания, чтобы канвас не уходил сильно далеко за пределы экрана
    */
   handleCanvasDragging({ e: event }:TPointerEventInfo<TPointerEvent>): void {
     if (!this.isDragging || !this.isSpacePressed || !(event instanceof MouseEvent)) return
 
+    const { panConstraintManager, montageArea } = this.editor
+
+    // Проверяем, разрешено ли перетаскивание при текущем зуме
+    if (!panConstraintManager.isPanAllowed()) {
+      return
+    }
+
     const vpt = this.canvas.viewportTransform
-    vpt[4] += event.clientX - this.lastMouseX
-    vpt[5] += event.clientY - this.lastMouseY
+    const newVptX = vpt[4] + (event.clientX - this.lastMouseX)
+    const newVptY = vpt[5] + (event.clientY - this.lastMouseY)
+
+    // Применяем ограничения к координатам
+    const constrained = panConstraintManager.constrainPan(newVptX, newVptY)
+
+    vpt[4] = constrained.x
+    vpt[5] = constrained.y
+
+    // Принудительно пересчитываем координаты монтажной области перед рендерингом
+    montageArea.setCoords()
+
     this.canvas.requestRenderAll()
 
     this.lastMouseX = event.clientX
@@ -649,10 +665,27 @@ class Listeners {
   handleMouseWheelZoom({ e: event }:TPointerEventInfo<WheelEvent>): void {
     if (!event.ctrlKey && !event.metaKey) return
 
-    const conversionFactor = 0.001
+    // Адаптивный conversionFactor в зависимости от размера монтажной области
+    // Чем больше монтажная область, тем плавнее (меньше) шаг зума
+    const { montageArea } = this.editor
+    const maxSide = Math.max(montageArea.width, montageArea.height)
+
+    // Базовый размер 1024px соответствует conversionFactor = 0.001 (шаг ±0.1)
+    // Для 2048px → 0.0005 (шаг ±0.05)
+    // Для 4096px → 0.00025 (шаг ±0.025)
+    const baseFactor = 0.001
+    const baseSize = 1024
+    const sizeFactor = Math.max(0.25, baseSize / maxSide) // Минимум 0.25 чтобы шаг не был слишком маленьким
+    const conversionFactor = baseFactor * sizeFactor
+
     const scaleAdjustment = -event.deltaY * conversionFactor
 
-    this.editor.transformManager.zoom(scaleAdjustment)
+    console.log('=== Adaptive Zoom Step ===')
+    console.log('montageArea size:', montageArea.width, 'x', montageArea.height)
+    console.log('maxSide:', maxSide, 'sizeFactor:', sizeFactor.toFixed(3))
+    console.log('conversionFactor:', conversionFactor, 'scaleAdjustment:', scaleAdjustment.toFixed(3))
+
+    this.editor.transformManager.handleMouseWheelZoom(scaleAdjustment, event)
 
     event.preventDefault()
     event.stopPropagation()

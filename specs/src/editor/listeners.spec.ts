@@ -202,7 +202,7 @@ describe('Listeners', () => {
   })
 
   describe('misc handlers', () => {
-    it('mouse wheel zoom вызывает transformManager.zoom', () => {
+    it('mouse wheel zoom вызывает transformManager.handleMouseWheelZoom', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
       const preventDefault = jest.fn()
@@ -211,7 +211,7 @@ describe('Listeners', () => {
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
       listeners.handleMouseWheelZoom(ptr(evt))
-      expect(editor.transformManager.zoom).toHaveBeenCalledWith(0.1)
+      expect(editor.transformManager.handleMouseWheelZoom).toHaveBeenCalledWith(0.1, evt)
       expect(preventDefault).toHaveBeenCalled()
       expect(stopPropagation).toHaveBeenCalled()
     })

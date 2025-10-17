@@ -21,6 +21,7 @@ import GroupingManager from './grouping-manager'
 import SelectionManager from './selection-manager'
 import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
+import PanConstraintManager from './pan-constraint-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
@@ -152,6 +153,11 @@ export class ImageEditor {
   public deletionManager!: DeletionManager
 
   /**
+   * Менеджер ограничения перетаскивания канваса
+   */
+  public panConstraintManager!: PanConstraintManager
+
+  /**
    * Менеджер индикатора угла поворота (опционально)
    */
   public angleIndicator?: AngleIndicatorManager
@@ -215,6 +221,7 @@ export class ImageEditor {
     this.groupingManager = new GroupingManager({ editor: this })
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
+    this.panConstraintManager = new PanConstraintManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
     if (showRotationAngle) {
