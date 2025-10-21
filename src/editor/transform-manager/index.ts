@@ -230,13 +230,8 @@ export default class TransformManager {
     }
 
     // Монтажная область выходит за пределы viewport - зумим к курсору
-    // Получаем координаты курсора относительно viewport (в пикселях canvas элемента)
-    const viewportPoint = canvas.getViewportPoint(event)
-
-    // Преобразуем viewport координаты в scene координаты с учетом текущего zoom
-    const vpt = canvas.viewportTransform
-    const sceneX = (viewportPoint.x - vpt[4]) / currentZoom
-    const sceneY = (viewportPoint.y - vpt[5]) / currentZoom
+    // Получаем абсолютные scene-координаты курсора с учетом текущего viewportTransform
+    const pointer = canvas.getPointer(event, true)
 
     // Ограничиваем точку зума границами монтажной области
     const montageMinX = montageArea.left - montageArea.width / 2
@@ -245,8 +240,8 @@ export default class TransformManager {
     const montageMaxY = montageArea.top + montageArea.height / 2
 
     // Если курсор за пределами монтажной области, находим ближайшую точку на её границе
-    const clampedX = Math.max(montageMinX, Math.min(montageMaxX, sceneX))
-    const clampedY = Math.max(montageMinY, Math.min(montageMaxY, sceneY))
+    const clampedX = Math.max(montageMinX, Math.min(montageMaxX, pointer.x))
+    const clampedY = Math.max(montageMinY, Math.min(montageMaxY, pointer.y))
 
     this.zoom(scale, {
       pointX: clampedX,
