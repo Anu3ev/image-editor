@@ -158,9 +158,9 @@ export default class TransformManager {
       const easedProgress = progress * progress
 
       console.log('→ Плавное центрирование, progress:', progress, 'eased:', easedProgress)
-      // Интерполяция к целевой позиции с усиленным эффектом
-      vpt[4] = targetVptX
-      vpt[5] = targetVptY
+      // Интерполяция от текущей позиции к целевой с учетом easedProgress
+      vpt[4] += (targetVptX - vpt[4]) * easedProgress
+      vpt[5] += (targetVptY - vpt[5]) * easedProgress
       canvas.setViewportTransform(vpt)
       console.log('vpt after:', vpt[4], vpt[5])
       return true
