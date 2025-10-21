@@ -59,9 +59,6 @@ export default class TransformManager {
   private _applyViewportConstraints(zoom: number): void {
     const { canvas, panConstraintManager } = this.editor
 
-    // обновляем границы перетаскивания
-    panConstraintManager.updateBounds()
-
     // Рассчитываем зоны для центрирования и ограничений на основе defaultZoom
     // Для очень больших монтажных областей defaultZoom может быть меньше minZoom
     // В этом случае используем minZoom как базу для расчётов
@@ -284,6 +281,9 @@ export default class TransformManager {
     if (zoom < minZoom) zoom = minZoom
 
     canvas.zoomToPoint(point, zoom)
+
+    // Всегда обновляем границы перетаскивания при изменении зума
+    this.editor.panConstraintManager.updateBounds()
 
     // Применяем плавное центрирование viewport при приближении к defaultZoom
     const centeringApplied = this._applyViewportCentering(zoom)
