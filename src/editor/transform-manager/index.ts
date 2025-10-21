@@ -167,28 +167,91 @@ export default class TransformManager {
       return true
     }
 
-    // При zoom-out применяем адаптивное центрирование даже за пределами основного диапазона
-    // Это обеспечивает постепенное движение к центру при любом уровне зума
+    // При zoom-out применяем центрирование только если видимая часть viewport выходит за границы монтажной области
+    // Это происходит когда появляется серое пространство (фон) вокруг изображения
     if (isZoomingOut) {
-      // Рассчитываем текущее расстояние от центра
-      const distanceX = Math.abs(vpt[4] - targetVptX)
-      const distanceY = Math.abs(vpt[5] - targetVptY)
-      const totalDistance = Math.sqrt(distanceX * distanceX + distanceY * distanceY)
+      const viewportWidth = canvas.getWidth()
+      const viewportHeight = canvas.getHeight()
 
-      // Адаптивный коэффициент: чем дальше от центра, тем сильнее притяжение
-      // Базовая формула: 0.08 + (расстояние / константа) * 0.12
-      // Это дает диапазон примерно от 0.08 до 0.20 в зависимости от расстояния
-      const baseStrength = 0.08
-      const adaptiveBoost = Math.min(0.12, totalDistance / 500)
-      const centeringStrength = baseStrength + adaptiveBoost
+      // Границы монтажной области в canvas coordinates
+      const montageMinX = (montageArea.left - montageArea.width / 2) * zoom
+      const montageMaxX = (montageArea.left + montageArea.width / 2) * zoom
+      const montageMinY = (montageArea.top - montageArea.height / 2) * zoom
+      const montageMaxY = (montageArea.top + montageArea.height / 2) * zoom
 
-      console.log('→ Адаптивное центрирование при zoom-out')
-      console.log('distance:', totalDistance.toFixed(2), 'strength:', centeringStrength.toFixed(3))
-      vpt[4] += (targetVptX - vpt[4]) * centeringStrength
-      vpt[5] += (targetVptY - vpt[5]) * centeringStrength
-      canvas.setViewportTransform(vpt)
-      console.log('vpt after:', vpt[4], vpt[5])
-      return true
+      // Границы видимой области viewport в scene coordinates (до трансформации)
+      const viewportMinX = -vpt[4]
+      const viewportMaxX = -vpt[4] + viewportWidth
+      const viewportMinY = -vpt[5]
+      const viewportMaxY = -vpt[5] + viewportHeight
+
+      // Проверяем, выходит ли viewport за границы монтажной области (видно серый фон)
+      const hasEmptySpaceLeft = viewportMinX < montageMinX
+      const hasEmptySpaceRight = viewportMaxX > montageMaxX
+      const hasEmptySpaceTop = viewportMinY < montageMinY
+      const hasEmptySpaceBottom = viewportMaxY > montageMaxY
+      const hasEmptySpace = hasEmptySpaceLeft || hasEmptySpaceRight || hasEmptySpaceTop || hasEmptySpaceBottom
+
+      console.log('=== Проверка пустого пространства ===')
+      console.log(
+        'viewport bounds:',
+        viewportMinX.toFixed(0),
+        viewportMaxX.toFixed(0),
+        viewportMinY.toFixed(0),
+        viewportMaxY.toFixed(0)
+      )
+      console.log(
+        'montage bounds:',
+        montageMinX.toFixed(0),
+        montageMaxX.toFixed(0),
+        montageMinY.toFixed(0),
+        montageMaxY.toFixed(0)
+      )
+      console.log(
+        'empty:',
+        'L:',
+        hasEmptySpaceLeft,
+        'R:',
+        hasEmptySpaceRight,
+        'T:',
+        hasEmptySpaceTop,
+        'B:',
+        hasEmptySpaceBottom
+      )
+
+      if (hasEmptySpace) {
+        // Рассчитываем, насколько глубоко viewport "зашёл" в пустое пространство
+        // Чем больше серого фона видно, тем сильнее должно быть центрирование
+        const emptySpaceLeft = Math.max(0, montageMinX - viewportMinX)
+        const emptySpaceRight = Math.max(0, viewportMaxX - montageMaxX)
+        const emptySpaceTop = Math.max(0, montageMinY - viewportMinY)
+        const emptySpaceBottom = Math.max(0, viewportMaxY - montageMaxY)
+
+        // Максимальное пустое пространство по каждой оси
+        const maxEmptyX = Math.max(emptySpaceLeft, emptySpaceRight)
+        const maxEmptyY = Math.max(emptySpaceTop, emptySpaceBottom)
+
+        // Нормализуем пустое пространство относительно размера viewport
+        // От 0 (только появилось) до ~1 (много пустого пространства)
+        const emptyRatioX = maxEmptyX / viewportWidth
+        const emptyRatioY = maxEmptyY / viewportHeight
+        const maxEmptyRatio = Math.max(emptyRatioX, emptyRatioY)
+
+        // Очень слабое центрирование, которое усиливается по мере роста пустого пространства
+        const baseStrength = 0.01
+        const maxStrength = 0.05
+        // Квадратичная функция для плавного нарастания силы
+        const centeringStrength = baseStrength + (maxStrength - baseStrength) * (maxEmptyRatio * maxEmptyRatio)
+
+        console.log('→ Адаптивное центрирование при zoom-out (видно серый фон)')
+        console.log('empty pixels:', maxEmptyX.toFixed(0), maxEmptyY.toFixed(0))
+        console.log('empty ratio:', maxEmptyRatio.toFixed(3), 'strength:', centeringStrength.toFixed(4))
+        vpt[4] += (targetVptX - vpt[4]) * centeringStrength
+        vpt[5] += (targetVptY - vpt[5]) * centeringStrength
+        canvas.setViewportTransform(vpt)
+        console.log('vpt after:', vpt[4], vpt[5])
+        return true
+      }
     }
 
     console.log('→ Центрирование не применяется')
@@ -255,14 +318,41 @@ export default class TransformManager {
       return
     }
 
-    // При zoom-out зумим к текущему центру viewport (который может быть смещен после pan)
-    // Это позволяет плавному центрированию в _applyViewportCentering работать корректно
+    // При zoom-out: проверяем, будут ли пустые пространства после зума
     if (scale < 0) {
-      const centerPoint = canvas.getCenterPoint()
-      this.zoom(scale, {
-        pointX: centerPoint.x,
-        pointY: centerPoint.y
-      })
+      // Рассчитываем будущий зум
+      const futureZoom = currentZoom + scale
+      const futureScaledWidth = montageArea.width * futureZoom
+      const futureScaledHeight = montageArea.height * futureZoom
+
+      // Проверяем, появятся ли пустые пространства (монтажная область поместится хотя бы по одной оси)
+      const willFitHorizontally = futureScaledWidth <= viewportWidth
+      const willFitVertically = futureScaledHeight <= viewportHeight
+      const willHaveEmptySpace = willFitHorizontally || willFitVertically
+
+      console.log('=== handleMouseWheelZoom (zoom-out) ===')
+      console.log('currentZoom:', currentZoom, 'futureZoom:', futureZoom)
+      console.log('futureScaled:', futureScaledWidth.toFixed(0), 'x', futureScaledHeight.toFixed(0))
+      console.log('viewport:', viewportWidth, 'x', viewportHeight)
+      console.log('willFitH:', willFitHorizontally, 'willFitV:', willFitVertically)
+      console.log('willHaveEmptySpace:', willHaveEmptySpace)
+
+      if (willHaveEmptySpace) {
+        // Будут пустые пространства - зумим к центру монтажной области для центрирования
+        console.log('→ Зумим к центру монтажной области (для центрирования)')
+        this.zoom(scale, {
+          pointX: montageArea.left,
+          pointY: montageArea.top
+        })
+      } else {
+        // Пустых пространств не будет - зумим к текущему центру viewport
+        console.log('→ Зумим к центру viewport (без центрирования)')
+        const centerPoint = canvas.getCenterPoint()
+        this.zoom(scale, {
+          pointX: centerPoint.x,
+          pointY: centerPoint.y
+        })
+      }
       return
     }
 
