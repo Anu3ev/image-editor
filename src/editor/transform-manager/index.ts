@@ -111,10 +111,11 @@ export default class TransformManager {
    * При zoom <= defaultZoom монтажная область полностью центрируется.
    * При zoom > defaultZoom применяется плавная интерполяция в пределах переходного диапазона.
    * @param zoom - Текущий зум
+   * @param isZoomingOut - Флаг, указывающий что происходит zoom-out (уменьшение масштаба)
    * @returns true если центрирование было применено
    * @private
    */
-  private _applyViewportCentering(zoom: number): boolean {
+  private _applyViewportCentering(zoom: number, isZoomingOut: boolean = false): boolean {
     const { canvas, montageArea } = this.editor
     const { defaultZoom } = this
 
@@ -129,7 +130,7 @@ export default class TransformManager {
     const targetVptY = canvasCenterY - montageCenterY * zoom
 
     console.log('=== _applyViewportCentering ===')
-    console.log('zoom:', zoom, 'defaultZoom:', defaultZoom)
+    console.log('zoom:', zoom, 'defaultZoom:', defaultZoom, 'isZoomingOut:', isZoomingOut)
     console.log('canvas:', canvasCenterX, canvasCenterY)
     console.log('montage:', montageCenterX, montageCenterY)
     console.log('vpt before:', vpt[4], vpt[5])
@@ -166,7 +167,31 @@ export default class TransformManager {
       return true
     }
 
-    console.log('→ Центрирование не применяется (zoom слишком большой)')
+    // При zoom-out применяем адаптивное центрирование даже за пределами основного диапазона
+    // Это обеспечивает постепенное движение к центру при любом уровне зума
+    if (isZoomingOut) {
+      // Рассчитываем текущее расстояние от центра
+      const distanceX = Math.abs(vpt[4] - targetVptX)
+      const distanceY = Math.abs(vpt[5] - targetVptY)
+      const totalDistance = Math.sqrt(distanceX * distanceX + distanceY * distanceY)
+
+      // Адаптивный коэффициент: чем дальше от центра, тем сильнее притяжение
+      // Базовая формула: 0.08 + (расстояние / константа) * 0.12
+      // Это дает диапазон примерно от 0.08 до 0.20 в зависимости от расстояния
+      const baseStrength = 0.08
+      const adaptiveBoost = Math.min(0.12, totalDistance / 500)
+      const centeringStrength = baseStrength + adaptiveBoost
+
+      console.log('→ Адаптивное центрирование при zoom-out')
+      console.log('distance:', totalDistance.toFixed(2), 'strength:', centeringStrength.toFixed(3))
+      vpt[4] += (targetVptX - vpt[4]) * centeringStrength
+      vpt[5] += (targetVptY - vpt[5]) * centeringStrength
+      canvas.setViewportTransform(vpt)
+      console.log('vpt after:', vpt[4], vpt[5])
+      return true
+    }
+
+    console.log('→ Центрирование не применяется')
     return false
   }
 
@@ -202,8 +227,9 @@ export default class TransformManager {
   /**
    * Обработчик зума колесом мыши с автоматическим определением точки зума.
    * Логика выбора точки зума:
+   * - При zoom-out (уменьшении): зум к текущему центру viewport для корректной работы плавного центрирования
+   * - При zoom-in (увеличении): зум к позиции курсора (ограниченной границами монтажной области)
    * - Если zoom < defaultZoom или монтажная область помещается во viewport - зум к центру монтажной области
-   * - Если монтажная область выходит за пределы viewport - зум к позиции курсора (ограниченной границами монтажной области)
    * @param scale - Шаг зума
    * @param event - Событие колеса мыши
    * @fires editor:zoom-changed
@@ -229,7 +255,18 @@ export default class TransformManager {
       return
     }
 
-    // Монтажная область выходит за пределы viewport - зумим к курсору
+    // При zoom-out зумим к текущему центру viewport (который может быть смещен после pan)
+    // Это позволяет плавному центрированию в _applyViewportCentering работать корректно
+    if (scale < 0) {
+      const centerPoint = canvas.getCenterPoint()
+      this.zoom(scale, {
+        pointX: centerPoint.x,
+        pointY: centerPoint.y
+      })
+      return
+    }
+
+    // При zoom-in: монтажная область выходит за пределы viewport - зумим к курсору
     // Получаем абсолютные scene-координаты курсора с учетом текущего viewportTransform
     const pointer = canvas.getPointer(event, true)
 
@@ -281,7 +318,8 @@ export default class TransformManager {
     this.editor.panConstraintManager.updateBounds()
 
     // Применяем плавное центрирование viewport при приближении к defaultZoom
-    const centeringApplied = this._applyViewportCentering(zoom)
+    const isZoomingOut = scale < 0
+    const centeringApplied = this._applyViewportCentering(zoom, isZoomingOut)
 
     // Применяем ограничения границ viewport только при zoom-in (приближении)
     // При zoom-out (отдалении, scale < 0) и при активном центрировании ограничения не применяются
