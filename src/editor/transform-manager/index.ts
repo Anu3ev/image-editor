@@ -173,17 +173,18 @@ export default class TransformManager {
       const viewportWidth = canvas.getWidth()
       const viewportHeight = canvas.getHeight()
 
-      // Границы монтажной области в canvas coordinates
-      const montageMinX = (montageArea.left - montageArea.width / 2) * zoom
-      const montageMaxX = (montageArea.left + montageArea.width / 2) * zoom
-      const montageMinY = (montageArea.top - montageArea.height / 2) * zoom
-      const montageMaxY = (montageArea.top + montageArea.height / 2) * zoom
+      // Границы монтажной области в scene coordinates (мировые координаты объектов)
+      const montageMinX = montageArea.left - montageArea.width / 2
+      const montageMaxX = montageArea.left + montageArea.width / 2
+      const montageMinY = montageArea.top - montageArea.height / 2
+      const montageMaxY = montageArea.top + montageArea.height / 2
 
-      // Границы видимой области viewport в scene coordinates (до трансформации)
-      const viewportMinX = -vpt[4]
-      const viewportMaxX = -vpt[4] + viewportWidth
-      const viewportMinY = -vpt[5]
-      const viewportMaxY = -vpt[5] + viewportHeight
+      // Границы видимой области viewport в scene coordinates
+      // Переводим из canvas coordinates в scene coordinates через обратную трансформацию
+      const viewportMinX = -vpt[4] / zoom
+      const viewportMaxX = (-vpt[4] + viewportWidth) / zoom
+      const viewportMinY = -vpt[5] / zoom
+      const viewportMaxY = (-vpt[5] + viewportHeight) / zoom
 
       // Проверяем, выходит ли viewport за границы монтажной области (видно серый фон)
       const hasEmptySpaceLeft = viewportMinX < montageMinX
@@ -238,7 +239,7 @@ export default class TransformManager {
         const maxEmptyRatio = Math.max(emptyRatioX, emptyRatioY)
 
         // Очень слабое центрирование, которое усиливается по мере роста пустого пространства
-        const baseStrength = 0.01
+        const baseStrength = 0.03
         const maxStrength = 0.05
         // Квадратичная функция для плавного нарастания силы
         const centeringStrength = baseStrength + (maxStrength - baseStrength) * (maxEmptyRatio * maxEmptyRatio)
