@@ -19,7 +19,7 @@ export const CLIPBOARD_DATA_PREFIX = 'application/image-editor:'
 /**
  * Абсолютное значение диапазона зума для плавного центрирования viewport.
  * Центрирование будет активно в диапазоне [defaultZoom, defaultZoom + CENTERING_RANGE]
- * Например, при defaultZoom=0.118 и CENTERING_RANGE=0.25:
- * - Центрирование работает при zoom от 0.118 до 0.368
+ * Например, при defaultZoom=0.118 и CENTERING_RANGE=0.20:
+ * - Центрирование работает при zoom от 0.118 до 0.318
 */
-export const VIEWPORT_CENTERING_RANGE = 0.15
+export const VIEWPORT_CENTERING_RANGE = 0.2
