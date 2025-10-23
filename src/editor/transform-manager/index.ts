@@ -6,7 +6,6 @@ import {
   DEFAULT_ROTATE_RATIO,
   MIN_ZOOM,
   MAX_ZOOM,
-  VIEWPORT_CENTERING_RANGE,
   ADAPTIVE_CENTERING_SPEED,
   ADAPTIVE_CENTERING_ACCELERATION
 } from '../constants'
@@ -73,29 +72,25 @@ export default class TransformManager {
    * @private
    */
   private _applyViewportConstraints(zoom: number): void {
-    const { canvas, panConstraintManager } = this.editor
+    const { canvas, panConstraintManager, montageArea } = this.editor
 
-    // Рассчитываем зоны для центрирования и ограничений на основе defaultZoom
-    const centeringThreshold = this.defaultZoom + VIEWPORT_CENTERING_RANGE
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+    const fitZoomX = viewportWidth / montageArea.width
+    const fitZoomY = viewportHeight / montageArea.height
+    const fitZoom = Math.max(fitZoomX, fitZoomY)
 
-    const constraintFadeThreshold = centeringThreshold + VIEWPORT_CENTERING_RANGE
-
-    // Если zoom меньше или равен centeringThreshold - ограничения не применяются вообще
-    if (zoom <= centeringThreshold) return
+    if (zoom <= fitZoom) return
 
     const { viewportTransform } = canvas
     const constrained = panConstraintManager.constrainPan(viewportTransform[4], viewportTransform[5])
 
-    // Если zoom в зоне плавного перехода - применяем ограничения с коэффициентом
-    if (zoom <= constraintFadeThreshold) {
-      // progress от 0 (на границе centeringThreshold) до 1 (на границе constraintFadeThreshold)
-      const progress = (zoom - centeringThreshold) / VIEWPORT_CENTERING_RANGE
+    if (zoom <= fitZoom) {
+      const progress = (zoom - fitZoom)
 
-      // Плавно применяем ограничения
       viewportTransform[4] += (constrained.x - viewportTransform[4]) * progress
       viewportTransform[5] += (constrained.y - viewportTransform[5]) * progress
     } else {
-      // Полностью применяем ограничения
       viewportTransform[4] = constrained.x
       viewportTransform[5] = constrained.y
     }
@@ -114,68 +109,49 @@ export default class TransformManager {
    */
   private _applyViewportCentering(zoom: number, isZoomingOut: boolean = false): boolean {
     const { canvas, montageArea } = this.editor
-    const { defaultZoom } = this
 
-    // Ранний выход: проверяем нужно ли вообще центрирование
-    const distanceFromDefault = zoom - defaultZoom
-    const isInCenteringRange = zoom <= defaultZoom || distanceFromDefault <= VIEWPORT_CENTERING_RANGE
+    const scaledDimensions = this._getScaledMontageDimensions(zoom)
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+    const montageExceedsViewport = scaledDimensions.width > viewportWidth || scaledDimensions.height > viewportHeight
+
+    const fitZoomX = viewportWidth / montageArea.width
+    const fitZoomY = viewportHeight / montageArea.height
+    const fitZoom = Math.max(fitZoomX, fitZoomY)
+    const distanceFromFit = zoom - fitZoom
+    const isInCenteringRange = !montageExceedsViewport || distanceFromFit
 
     if (!isInCenteringRange && !isZoomingOut) {
       return false
     }
 
     const vpt = canvas.viewportTransform
-    const canvasCenterX = canvas.getWidth() / 2
-    const canvasCenterY = canvas.getHeight() / 2
+    const canvasCenterX = viewportWidth / 2
+    const canvasCenterY = viewportHeight / 2
     const montageCenterX = montageArea.left
     const montageCenterY = montageArea.top
 
-    // Целевая позиция для центрированного viewport
     const targetVptX = canvasCenterX - montageCenterX * zoom
     const targetVptY = canvasCenterY - montageCenterY * zoom
 
-    if (zoom <= defaultZoom) {
-      // Полностью центрируем при zoom <= defaultZoom
+    if (!montageExceedsViewport) {
       vpt[4] = targetVptX
       vpt[5] = targetVptY
       canvas.setViewportTransform(vpt)
       return true
     }
 
-    // Плавное центрирование при приближении к defaultZoom при уменьшении масштаба
-    if (distanceFromDefault <= VIEWPORT_CENTERING_RANGE && isZoomingOut) {
-      // progress от 0 (на границе диапазона) до 1 (при zoom = defaultZoom)
-      const progress = 1 - (distanceFromDefault / VIEWPORT_CENTERING_RANGE)
-      // Используем квадратичную функцию для более агрессивного центрирования
-      const easedProgress = progress * progress
-
-      // Интерполяция от текущей позиции к целевой с учетом easedProgress
-      vpt[4] += (targetVptX - vpt[4]) * easedProgress
-      vpt[5] += (targetVptY - vpt[5]) * easedProgress
-      canvas.setViewportTransform(vpt)
-      return true
-    }
-
-    // При zoom-out применяем центрирование только если видимая часть viewport выходит за границы монтажной области
-    // Это происходит когда появляется серое пространство (фон) вокруг изображения
     if (isZoomingOut) {
-      const viewportWidth = canvas.getWidth()
-      const viewportHeight = canvas.getHeight()
-
-      // Границы монтажной области в scene coordinates (мировые координаты объектов)
       const montageMinX = montageArea.left - montageArea.width / 2
       const montageMaxX = montageArea.left + montageArea.width / 2
       const montageMinY = montageArea.top - montageArea.height / 2
       const montageMaxY = montageArea.top + montageArea.height / 2
 
-      // Границы видимой области viewport в scene coordinates
-      // Переводим из canvas coordinates в scene coordinates через обратную трансформацию
       const viewportMinX = -vpt[4] / zoom
       const viewportMaxX = (-vpt[4] + viewportWidth) / zoom
       const viewportMinY = -vpt[5] / zoom
       const viewportMaxY = (-vpt[5] + viewportHeight) / zoom
 
-      // Проверяем, выходит ли viewport за границы монтажной области (видно серый фон)
       const hasEmptySpaceLeft = viewportMinX < montageMinX
       const hasEmptySpaceRight = viewportMaxX > montageMaxX
       const hasEmptySpaceTop = viewportMinY < montageMinY
@@ -183,29 +159,20 @@ export default class TransformManager {
       const hasEmptySpace = hasEmptySpaceLeft || hasEmptySpaceRight || hasEmptySpaceTop || hasEmptySpaceBottom
 
       if (hasEmptySpace) {
-        // Рассчитываем, насколько глубоко viewport "зашёл" в пустое пространство
-        // Чем больше серого фона видно, тем сильнее должно быть центрирование
         const emptySpaceLeft = Math.max(0, montageMinX - viewportMinX)
         const emptySpaceRight = Math.max(0, viewportMaxX - montageMaxX)
         const emptySpaceTop = Math.max(0, montageMinY - viewportMinY)
         const emptySpaceBottom = Math.max(0, viewportMaxY - montageMaxY)
 
-        // Максимальное пустое пространство по каждой оси
         const maxEmptyX = Math.max(emptySpaceLeft, emptySpaceRight)
         const maxEmptyY = Math.max(emptySpaceTop, emptySpaceBottom)
 
-        // Нормализуем пустое пространство относительно размера viewport
-        // От 0 (только появилось) до ~1 (много пустого пространства)
         const emptyRatioX = maxEmptyX / viewportWidth
         const emptyRatioY = maxEmptyY / viewportHeight
         const maxEmptyRatio = Math.max(emptyRatioX, emptyRatioY)
 
-        // Рассчитываем силу центрирования на основе понятных процентных констант
-        // Базовая скорость в процентах (например, 3% = 0.03)
         const baseSpeed = ADAPTIVE_CENTERING_SPEED / 100
-        // Ускорение при увеличении пустого пространства (квадратичная функция для плавности)
         const accelerationFactor = 1 + (ADAPTIVE_CENTERING_ACCELERATION - 1) * (maxEmptyRatio * maxEmptyRatio)
-        // Итоговая сила центрирования
         const centeringStrength = baseSpeed * accelerationFactor
 
         vpt[4] += (targetVptX - vpt[4]) * centeringStrength
@@ -270,6 +237,7 @@ export default class TransformManager {
     // Если текущий зум меньше defaultZoom или монтажная область не выходит за пределы viewport,
     // зумим к центру монтажной области
     if (currentZoom < this.defaultZoom || !montageExceedsViewport) {
+      console.log('Zooming to montage center')
       this.zoom(scale, {
         pointX: montageArea.left,
         pointY: montageArea.top
@@ -362,7 +330,7 @@ export default class TransformManager {
     // Применяем ограничения границ viewport только при увеличении масштаба
     // При уменьшении масштаба(scale < 0) и при активном центрировании ограничения не применяются
     if (scale > 0 && !centeringApplied) {
-      this._applyViewportConstraints(zoom)
+      // this._applyViewportConstraints(zoom)
     }
 
     canvas.fire('editor:zoom-changed', {
