@@ -280,6 +280,9 @@ export default class TransformManager {
     const pointY = options.pointY ?? center.y
     const point = new Point(pointX, pointY)
 
+    this.editor.montageArea.setCoords()
+    this.editor.canvas.requestRenderAll()
+
     // Увеличиваем точность до 3 знаков для поддержки малых шагов зума на больших изображениях
     let zoom = Number((currentZoom + Number(scale)).toFixed(3))
     if (zoom > maxZoom) zoom = maxZoom
