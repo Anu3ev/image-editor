@@ -138,6 +138,7 @@ export const createEditorStub = () => {
       left: 100,
       top: 50,
       set: jest.fn(),
+      setCoords: jest.fn(),
       id: 'montage-area'
     },
     options: {

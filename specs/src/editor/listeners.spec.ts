@@ -1,4 +1,4 @@
-import Listeners from '../../../src/editor/listeners'
+import Listeners, { calculateAdaptiveZoomStep } from '../../../src/editor/listeners'
 import { createEditorStub } from '../../test-utils/editor-helpers'
 import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../test-utils/events'
 
@@ -210,8 +210,17 @@ describe('Listeners', () => {
       const evt = wheel({ ctrlKey: true, deltaY: -100 })
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
+
+      // Рассчитываем ожидаемое значение через ту же функцию, что и в коде
+      const expectedScale = calculateAdaptiveZoomStep(
+        editor.montageArea.width,  // 400
+        editor.montageArea.height, // 300
+        -100                       // deltaY
+      )
+
       listeners.handleMouseWheelZoom(ptr(evt))
-      expect(editor.transformManager.handleMouseWheelZoom).toHaveBeenCalledWith(0.1, evt)
+
+      expect(editor.transformManager.handleMouseWheelZoom).toHaveBeenCalledWith(expectedScale, evt)
       expect(preventDefault).toHaveBeenCalled()
       expect(stopPropagation).toHaveBeenCalled()
     })
