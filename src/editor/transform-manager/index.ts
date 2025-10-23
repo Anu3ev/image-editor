@@ -100,6 +100,155 @@ export default class TransformManager {
   }
 
   /**
+   * Вычисляет зум при котором монтажная область точно помещается в viewport
+   * @returns Минимальный зум для полного размещения монтажной области
+   * @private
+   */
+  private _calculateFitZoom(): number {
+    const { canvas, montageArea } = this.editor
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+
+    const fitZoomX = viewportWidth / montageArea.width
+    const fitZoomY = viewportHeight / montageArea.height
+
+    return Math.max(fitZoomX, fitZoomY)
+  }
+
+  /**
+   * Вычисляет целевую позицию viewport для центрирования монтажной области
+   * @param zoom - Текущий зум
+   * @returns Целевые координаты viewport transform
+   * @private
+   */
+  private _calculateTargetViewportPosition(zoom: number): { x: number; y: number } {
+    const { canvas, montageArea } = this.editor
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+
+    const canvasCenterX = viewportWidth / 2
+    const canvasCenterY = viewportHeight / 2
+    const montageCenterX = montageArea.left
+    const montageCenterY = montageArea.top
+
+    return {
+      x: canvasCenterX - montageCenterX * zoom,
+      y: canvasCenterY - montageCenterY * zoom
+    }
+  }
+
+  /**
+   * Проверяет наличие пустого пространства вокруг монтажной области
+   * @param zoom - Текущий зум
+   * @returns Максимальное соотношение пустого пространства к размеру viewport
+   * @private
+   */
+  private _calculateEmptySpaceRatio(zoom: number): number {
+    const { canvas, montageArea } = this.editor
+    const vpt = canvas.viewportTransform
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+
+    // Границы монтажной области в scene-координатах
+    const montageMinX = montageArea.left - montageArea.width / 2
+    const montageMaxX = montageArea.left + montageArea.width / 2
+    const montageMinY = montageArea.top - montageArea.height / 2
+    const montageMaxY = montageArea.top + montageArea.height / 2
+
+    // Границы viewport в scene-координатах
+    const viewportMinX = -vpt[4] / zoom
+    const viewportMaxX = (-vpt[4] + viewportWidth) / zoom
+    const viewportMinY = -vpt[5] / zoom
+    const viewportMaxY = (-vpt[5] + viewportHeight) / zoom
+
+    // Проверяем наличие пустого пространства с каждой стороны
+    const hasEmptySpaceLeft = viewportMinX < montageMinX
+    const hasEmptySpaceRight = viewportMaxX > montageMaxX
+    const hasEmptySpaceTop = viewportMinY < montageMinY
+    const hasEmptySpaceBottom = viewportMaxY > montageMaxY
+    const hasEmptySpace = hasEmptySpaceLeft || hasEmptySpaceRight || hasEmptySpaceTop || hasEmptySpaceBottom
+
+    if (!hasEmptySpace) return 0
+
+    // Вычисляем размер пустого пространства с каждой стороны
+    const emptySpaceLeft = Math.max(0, montageMinX - viewportMinX)
+    const emptySpaceRight = Math.max(0, viewportMaxX - montageMaxX)
+    const emptySpaceTop = Math.max(0, montageMinY - viewportMinY)
+    const emptySpaceBottom = Math.max(0, viewportMaxY - montageMaxY)
+
+    const maxEmptyX = Math.max(emptySpaceLeft, emptySpaceRight)
+    const maxEmptyY = Math.max(emptySpaceTop, emptySpaceBottom)
+
+    const emptyRatioX = maxEmptyX / viewportWidth
+    const emptyRatioY = maxEmptyY / viewportHeight
+
+    return Math.max(emptyRatioX, emptyRatioY)
+  }
+
+  /**
+   * Вычисляет плавный шаг перемещения viewport к центру с ускорением
+   * @param targetVpt - Целевая позиция viewport
+   * @param zoom - Текущий зум
+   * @param fitZoom - Зум при котором монтажная область помещается в viewport
+   * @param zoomStep - Шаг изменения зума
+   * @returns Вычисленный шаг перемещения viewport
+   * @private
+   */
+  private _calculateSmoothCenteringStep(
+    targetVpt: { x: number; y: number },
+    zoom: number,
+    fitZoom: number,
+    zoomStep: number
+  ): { x: number; y: number } {
+    const { canvas, montageArea } = this.editor
+    const vpt = canvas.viewportTransform
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+
+    const remainingDistanceX = targetVpt.x - vpt[4]
+    const remainingDistanceY = targetVpt.y - vpt[5]
+
+    const absoluteZoomStep = Math.abs(zoomStep)
+    const distanceFromFit = zoom - fitZoom
+    const numberOfStepsToFit = Math.abs(distanceFromFit) / absoluteZoomStep
+
+    // Если осталось мало шагов до fitZoom, переходим к целевой позиции
+    if (numberOfStepsToFit <= 0.1) {
+      return { x: remainingDistanceX, y: remainingDistanceY }
+    }
+
+    // Вычисляем базовый шаг перемещения viewport на один шаг зума
+    const canvasCenterX = viewportWidth / 2
+    const canvasCenterY = viewportHeight / 2
+    const montageCenterX = montageArea.left
+    const montageCenterY = montageArea.top
+
+    const currentVptAtFitX = canvasCenterX - montageCenterX * fitZoom
+    const currentVptAtFitY = canvasCenterY - montageCenterY * fitZoom
+    const vptChangePerZoomStepX = (currentVptAtFitX - vpt[4]) / (zoom - fitZoom)
+    const vptChangePerZoomStepY = (currentVptAtFitY - vpt[5]) / (zoom - fitZoom)
+    const baseStepX = vptChangePerZoomStepX * absoluteZoomStep
+    const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
+
+    console.log('maxEmptyRatio', maxEmptyRatio)
+    // Применяем ускорение на основе размера пустого пространства
+    const accelerationFactor = 0.5
+    console.log('accelerationFactor', accelerationFactor)
+    const adjustedStepX = baseStepX * accelerationFactor
+    const adjustedStepY = baseStepY * accelerationFactor
+
+    // Ограничиваем шаг оставшимся расстоянием
+    const clampedStepX = Math.abs(adjustedStepX) > Math.abs(remainingDistanceX)
+      ? remainingDistanceX
+      : adjustedStepX
+    const clampedStepY = Math.abs(adjustedStepY) > Math.abs(remainingDistanceY)
+      ? remainingDistanceY
+      : adjustedStepY
+
+    return { x: clampedStepX, y: clampedStepY }
+  }
+
+  /**
    * Применяет плавное центрирование viewport при приближении к defaultZoom.
    * При zoom <= defaultZoom монтажная область полностью центрируется.
    * При zoom > defaultZoom применяется плавная интерполяция в пределах переходного диапазона.
@@ -114,101 +263,43 @@ export default class TransformManager {
     isZoomingOut: boolean = false,
     zoomStep: number = DEFAULT_ZOOM_RATIO
   ): boolean {
-    const { canvas, montageArea } = this.editor
+    const { canvas } = this.editor
 
+    // Проверяем, выходит ли монтажная область за пределы viewport
     const scaledDimensions = this._getScaledMontageDimensions(zoom)
     const viewportWidth = canvas.getWidth()
     const viewportHeight = canvas.getHeight()
     const montageExceedsViewport = scaledDimensions.width > viewportWidth || scaledDimensions.height > viewportHeight
 
-    const fitZoomX = viewportWidth / montageArea.width
-    const fitZoomY = viewportHeight / montageArea.height
-    const fitZoom = Math.max(fitZoomX, fitZoomY)
+    const fitZoom = this._calculateFitZoom()
     const distanceFromFit = zoom - fitZoom
     const isInCenteringRange = !montageExceedsViewport || distanceFromFit
 
+    // Проверяем, нужно ли применять центрирование
     if (!isInCenteringRange && !isZoomingOut) {
       return false
     }
 
     const vpt = canvas.viewportTransform
-    const canvasCenterX = viewportWidth / 2
-    const canvasCenterY = viewportHeight / 2
-    const montageCenterX = montageArea.left
-    const montageCenterY = montageArea.top
+    const targetVpt = this._calculateTargetViewportPosition(zoom)
 
-    const targetVptX = canvasCenterX - montageCenterX * zoom
-    const targetVptY = canvasCenterY - montageCenterY * zoom
-
+    // Если монтажная область помещается в viewport, сразу центрируем
     if (!montageExceedsViewport) {
-      vpt[4] = targetVptX
-      vpt[5] = targetVptY
+      vpt[4] = targetVpt.x
+      vpt[5] = targetVpt.y
       canvas.setViewportTransform(vpt)
       return true
     }
 
+    // При zoom-out проверяем наличие пустого пространства и применяем плавное центрирование
     if (isZoomingOut) {
-      const montageMinX = montageArea.left - montageArea.width / 2
-      const montageMaxX = montageArea.left + montageArea.width / 2
-      const montageMinY = montageArea.top - montageArea.height / 2
-      const montageMaxY = montageArea.top + montageArea.height / 2
+      const maxEmptyRatio = this._calculateEmptySpaceRatio(zoom)
 
-      const viewportMinX = -vpt[4] / zoom
-      const viewportMaxX = (-vpt[4] + viewportWidth) / zoom
-      const viewportMinY = -vpt[5] / zoom
-      const viewportMaxY = (-vpt[5] + viewportHeight) / zoom
+      if (maxEmptyRatio > 0) {
+        const step = this._calculateSmoothCenteringStep(targetVpt, zoom, fitZoom, zoomStep)
 
-      const hasEmptySpaceLeft = viewportMinX < montageMinX
-      const hasEmptySpaceRight = viewportMaxX > montageMaxX
-      const hasEmptySpaceTop = viewportMinY < montageMinY
-      const hasEmptySpaceBottom = viewportMaxY > montageMaxY
-      const hasEmptySpace = hasEmptySpaceLeft || hasEmptySpaceRight || hasEmptySpaceTop || hasEmptySpaceBottom
-
-      if (hasEmptySpace) {
-        const emptySpaceLeft = Math.max(0, montageMinX - viewportMinX)
-        const emptySpaceRight = Math.max(0, viewportMaxX - montageMaxX)
-        const emptySpaceTop = Math.max(0, montageMinY - viewportMinY)
-        const emptySpaceBottom = Math.max(0, viewportMaxY - montageMaxY)
-
-        const maxEmptyX = Math.max(emptySpaceLeft, emptySpaceRight)
-        const maxEmptyY = Math.max(emptySpaceTop, emptySpaceBottom)
-
-        const emptyRatioX = maxEmptyX / viewportWidth
-        const emptyRatioY = maxEmptyY / viewportHeight
-        const maxEmptyRatio = Math.max(emptyRatioX, emptyRatioY)
-
-        const remainingDistanceX = targetVptX - vpt[4]
-        const remainingDistanceY = targetVptY - vpt[5]
-
-        const absoluteZoomStep = Math.abs(zoomStep)
-        const numberOfStepsToFit = Math.abs(distanceFromFit) / absoluteZoomStep
-
-        if (numberOfStepsToFit > 0.1) {
-          const currentVptAtFitX = canvasCenterX - montageCenterX * fitZoom
-          const currentVptAtFitY = canvasCenterY - montageCenterY * fitZoom
-          const vptChangePerZoomStepX = (currentVptAtFitX - vpt[4]) / (zoom - fitZoom)
-          const vptChangePerZoomStepY = (currentVptAtFitY - vpt[5]) / (zoom - fitZoom)
-          const baseStepX = vptChangePerZoomStepX * absoluteZoomStep
-          const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
-
-          const accelerationFactor = 1 + maxEmptyRatio * 2
-          const adjustedStepX = baseStepX * accelerationFactor
-          const adjustedStepY = baseStepY * accelerationFactor
-
-          const clampedStepX = Math.abs(adjustedStepX) > Math.abs(remainingDistanceX)
-            ? remainingDistanceX
-            : adjustedStepX
-          const clampedStepY = Math.abs(adjustedStepY) > Math.abs(remainingDistanceY)
-            ? remainingDistanceY
-            : adjustedStepY
-
-          vpt[4] += clampedStepX
-          vpt[5] += clampedStepY
-        } else {
-          vpt[4] = targetVptX
-          vpt[5] = targetVptY
-        }
-
+        vpt[4] += step.x
+        vpt[5] += step.y
         canvas.setViewportTransform(vpt)
         return true
       }
