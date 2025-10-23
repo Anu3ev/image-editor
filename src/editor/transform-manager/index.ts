@@ -7,8 +7,8 @@ import {
   MIN_ZOOM,
   MAX_ZOOM,
   VIEWPORT_CENTERING_RANGE,
-  ADAPTIVE_CENTERING_BASE_STRENGTH,
-  ADAPTIVE_CENTERING_MAX_STRENGTH,
+  ADAPTIVE_CENTERING_SPEED,
+  ADAPTIVE_CENTERING_ACCELERATION,
   CONSTRAINT_FADE_MULTIPLIER
 } from '../constants'
 
@@ -207,11 +207,13 @@ export default class TransformManager {
         const emptyRatioY = maxEmptyY / viewportHeight
         const maxEmptyRatio = Math.max(emptyRatioX, emptyRatioY)
 
-        // Очень слабое центрирование, которое усиливается по мере роста пустого пространства
-        const baseStrength = ADAPTIVE_CENTERING_BASE_STRENGTH
-        const maxStrength = ADAPTIVE_CENTERING_MAX_STRENGTH
-        // Квадратичная функция для плавного нарастания силы
-        const centeringStrength = baseStrength + (maxStrength - baseStrength) * (maxEmptyRatio * maxEmptyRatio)
+        // Рассчитываем силу центрирования на основе понятных процентных констант
+        // Базовая скорость в процентах (например, 3% = 0.03)
+        const baseSpeed = ADAPTIVE_CENTERING_SPEED / 100
+        // Ускорение при увеличении пустого пространства (квадратичная функция для плавности)
+        const accelerationFactor = 1 + (ADAPTIVE_CENTERING_ACCELERATION - 1) * (maxEmptyRatio * maxEmptyRatio)
+        // Итоговая сила центрирования
+        const centeringStrength = baseSpeed * accelerationFactor
 
         vpt[4] += (targetVptX - vpt[4]) * centeringStrength
         vpt[5] += (targetVptY - vpt[5]) * centeringStrength
