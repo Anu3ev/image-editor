@@ -127,6 +127,9 @@ export default class CanvasManager {
       withoutSave,
       adaptCanvasToContainer
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -193,6 +196,9 @@ export default class CanvasManager {
       withoutSave,
       adaptCanvasToContainer
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -374,6 +380,9 @@ export default class CanvasManager {
       width: montageAreaWidth,
       height: montageAreaHeight
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**

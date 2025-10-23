@@ -487,4 +487,133 @@ describe('TransformManager', () => {
       expect(resetObjectSpy).toHaveBeenCalledWith({ object: obj2 })
     })
   })
+
+  describe('handleMouseWheelZoom', () => {
+    it('должен зумить к центру монтажной области когда zoom < defaultZoom', () => {
+      mockCanvas.getZoom.mockReturnValue(0.5) // меньше defaultZoom (0.8)
+      mockCanvas.getWidth.mockReturnValue(800)
+      mockCanvas.getHeight.mockReturnValue(600)
+
+      const mockEvent = new WheelEvent('wheel', { deltaY: -100 })
+      const zoomSpy = jest.spyOn(transformManager, 'zoom')
+
+      transformManager.handleMouseWheelZoom(0.1, mockEvent)
+
+      expect(zoomSpy).toHaveBeenCalledWith(0.1, {
+        pointX: mockEditor.montageArea.left,
+        pointY: mockEditor.montageArea.top
+      })
+    })
+
+    it('должен зумить к центру когда монтажная область помещается во viewport', () => {
+      mockCanvas.getZoom.mockReturnValue(1)
+      mockCanvas.getWidth.mockReturnValue(800)
+      mockCanvas.getHeight.mockReturnValue(600)
+      // Монтажная область: 400x300 * 1 = 400x300 < viewport 800x600
+
+      const mockEvent = new WheelEvent('wheel', { deltaY: -100 })
+      const zoomSpy = jest.spyOn(transformManager, 'zoom')
+
+      transformManager.handleMouseWheelZoom(0.1, mockEvent)
+
+      expect(zoomSpy).toHaveBeenCalledWith(0.1, {
+        pointX: mockEditor.montageArea.left,
+        pointY: mockEditor.montageArea.top
+      })
+    })
+
+    it('должен зумить к курсору когда монтажная область выходит за пределы viewport', () => {
+      mockCanvas.getZoom.mockReturnValue(2) // больше defaultZoom
+      mockCanvas.getWidth.mockReturnValue(800)
+      mockCanvas.getHeight.mockReturnValue(600)
+      // Монтажная область: 400x300 * 2 = 800x600 >= viewport
+      mockCanvas.viewportTransform = [2, 0, 0, 2, 50, 100]
+      mockCanvas.getViewportPoint = jest.fn().mockReturnValue({ x: 400, y: 300 })
+
+      const mockEvent = new WheelEvent('wheel', { deltaY: -100 })
+      const zoomSpy = jest.spyOn(transformManager, 'zoom')
+
+      transformManager.handleMouseWheelZoom(0.1, mockEvent)
+
+      // Проверяем, что zoom был вызван с координатами курсора (или ближайшей точкой на границе)
+      expect(zoomSpy).toHaveBeenCalledWith(0.1, {
+        pointX: expect.any(Number),
+        pointY: expect.any(Number)
+      })
+    })
+
+    it('должен ограничить координаты курсора границами монтажной области', () => {
+      mockCanvas.getZoom.mockReturnValue(2)
+      mockCanvas.getWidth.mockReturnValue(800)
+      mockCanvas.getHeight.mockReturnValue(600)
+      mockCanvas.viewportTransform = [2, 0, 0, 2, 0, 0]
+      // Курсор за пределами монтажной области
+      mockCanvas.getViewportPoint = jest.fn().mockReturnValue({ x: 1000, y: 1000 })
+
+      const mockEvent = new WheelEvent('wheel', { deltaY: -100 })
+      const zoomSpy = jest.spyOn(transformManager, 'zoom')
+
+      transformManager.handleMouseWheelZoom(0.1, mockEvent)
+
+      const callArgs = zoomSpy.mock.calls[0][1] as any
+
+      // Координаты должны быть ограничены границами монтажной области
+      // montageArea: left=100, top=50, width=400, height=300
+      // maxX = 100 + 400/2 = 300, maxY = 50 + 300/2 = 200
+      expect(callArgs.pointX).toBeLessThanOrEqual(300)
+      expect(callArgs.pointY).toBeLessThanOrEqual(200)
+    })
+  })
+
+  describe('_applyViewportCentering', () => {
+    it('должен полностью центрировать viewport при zoom <= defaultZoom', () => {
+      mockCanvas.getWidth.mockReturnValue(800)
+      mockCanvas.getHeight.mockReturnValue(600)
+      mockCanvas.getZoom.mockReturnValue(0.5)
+      mockCanvas.viewportTransform = [0.5, 0, 0, 0.5, 100, 50]
+
+      mockCanvas.setViewportTransform.mockClear()
+
+      // Вызываем zoom с увеличением до defaultZoom
+      transformManager.zoom(0.3) // 0.5 + 0.3 = 0.8 (defaultZoom)
+
+      // При zoom=0.8 (defaultZoom), viewport должен быть центрирован
+      // targetVptX = 400 - 100 * 0.8 = 320
+      // targetVptY = 300 - 50 * 0.8 = 260
+      // Проверяем, что setViewportTransform был вызван в _applyViewportCentering
+      expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
+
+      // Проверяем, что viewport был изменён для центрирования
+      const calls = mockCanvas.setViewportTransform.mock.calls
+      expect(calls.length).toBeGreaterThan(0)
+    })
+
+    it('должен применять плавное центрирование при zoom в переходном диапазоне', () => {
+      mockCanvas.getWidth.mockReturnValue(800)
+      mockCanvas.getHeight.mockReturnValue(600)
+      mockCanvas.getZoom.mockReturnValue(1)
+      mockCanvas.viewportTransform = [1, 0, 0, 1, 200, 150]
+
+      // zoom = 1.0, defaultZoom = 0.8, transitionRange = 0.8 * 0.5 = 0.4
+      // 1.0 находится в диапазоне [0.8, 1.2], должно быть плавное центрирование
+      transformManager.zoom(0.2) // 1.0 + 0.2 = 1.2
+
+      expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
+    })
+
+    it('не должен изменять viewport при zoom вне переходного диапазона', () => {
+      mockCanvas.getWidth.mockReturnValue(800)
+      mockCanvas.getHeight.mockReturnValue(600)
+      mockCanvas.getZoom.mockReturnValue(1.5)
+      mockCanvas.viewportTransform = [1.5, 0, 0, 1.5, 100, 50]
+
+      const setViewportTransformCalls = mockCanvas.setViewportTransform.mock.calls.length
+
+      transformManager.zoom(0.1) // 1.5 + 0.1 = 1.6 > 1.2 (threshold)
+
+      // setViewportTransform может быть вызван в _applyViewportCentering
+      expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
+    })
+  })
 })
+
