@@ -76,10 +76,7 @@ export default class TransformManager {
     const { canvas, panConstraintManager } = this.editor
 
     // Рассчитываем зоны для центрирования и ограничений на основе defaultZoom
-    // Для очень больших монтажных областей defaultZoom может быть меньше minZoom
-    // В этом случае используем minZoom как базу для расчётов
-    const baseZoom = Math.max(this.defaultZoom, this.minZoom)
-    const centeringThreshold = baseZoom + VIEWPORT_CENTERING_RANGE
+    const centeringThreshold = this.defaultZoom + VIEWPORT_CENTERING_RANGE
 
     const constraintFadeThreshold = centeringThreshold + VIEWPORT_CENTERING_RANGE
 
@@ -145,8 +142,8 @@ export default class TransformManager {
       return true
     }
 
-    // Плавное центрирование при приближении к defaultZoom
-    if (distanceFromDefault <= VIEWPORT_CENTERING_RANGE) {
+    // Плавное центрирование при приближении к defaultZoom при уменьшении масштаба
+    if (distanceFromDefault <= VIEWPORT_CENTERING_RANGE && isZoomingOut) {
       // progress от 0 (на границе диапазона) до 1 (при zoom = defaultZoom)
       const progress = 1 - (distanceFromDefault / VIEWPORT_CENTERING_RANGE)
       // Используем квадратичную функцию для более агрессивного центрирования
