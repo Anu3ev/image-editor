@@ -5,9 +5,7 @@ import {
   DEFAULT_ZOOM_RATIO,
   DEFAULT_ROTATE_RATIO,
   MIN_ZOOM,
-  MAX_ZOOM,
-  ADAPTIVE_CENTERING_SPEED,
-  ADAPTIVE_CENTERING_ACCELERATION
+  MAX_ZOOM
 } from '../constants'
 
 export type ResetObjectOptions = {
@@ -171,12 +169,30 @@ export default class TransformManager {
         const emptyRatioY = maxEmptyY / viewportHeight
         const maxEmptyRatio = Math.max(emptyRatioX, emptyRatioY)
 
-        const baseSpeed = ADAPTIVE_CENTERING_SPEED / 100
-        const accelerationFactor = 1 + (ADAPTIVE_CENTERING_ACCELERATION - 1) * (maxEmptyRatio * maxEmptyRatio)
-        const centeringStrength = baseSpeed * accelerationFactor
+        const remainingDistanceX = targetVptX - vpt[4]
+        const remainingDistanceY = targetVptY - vpt[5]
 
-        vpt[4] += (targetVptX - vpt[4]) * centeringStrength
-        vpt[5] += (targetVptY - vpt[5]) * centeringStrength
+        const zoomStepSize = 0.1
+        const numberOfStepsToFit = Math.abs(distanceFromFit) / zoomStepSize
+
+        if (numberOfStepsToFit > 0) {
+          const stepX = Math.abs(remainingDistanceX) / numberOfStepsToFit
+          const stepY = Math.abs(remainingDistanceY) / numberOfStepsToFit
+
+          const accelerationFactor = 1 + maxEmptyRatio * 2
+          const adjustedStepX = Math.min(stepX * accelerationFactor, Math.abs(remainingDistanceX))
+          const adjustedStepY = Math.min(stepY * accelerationFactor, Math.abs(remainingDistanceY))
+
+          const directionX = remainingDistanceX > 0 ? 1 : -1
+          const directionY = remainingDistanceY > 0 ? 1 : -1
+
+          vpt[4] += adjustedStepX * directionX
+          vpt[5] += adjustedStepY * directionY
+        } else {
+          vpt[4] = targetVptX
+          vpt[5] = targetVptY
+        }
+
         canvas.setViewportTransform(vpt)
         return true
       }
