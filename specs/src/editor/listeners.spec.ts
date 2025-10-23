@@ -212,13 +212,7 @@ describe('Listeners', () => {
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
 
       // Рассчитываем ожидаемое значение через ту же функцию, что и в коде
-      const currentZoom = editor.canvas.getZoom()
-      const expectedScale = listeners._calculateAdaptiveZoomStep(
-        editor.montageArea.width,  // 400
-        editor.montageArea.height, // 300
-        -100,                      // deltaY
-        currentZoom                // текущий зум
-      )
+      const expectedScale = listeners._calculateAdaptiveZoomStep(-100)
 
       listeners.handleMouseWheelZoom(ptr(evt))
 
