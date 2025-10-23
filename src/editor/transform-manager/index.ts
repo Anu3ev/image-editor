@@ -72,6 +72,7 @@ export default class TransformManager {
     const { canvas, montageArea } = this.editor
 
     // Получаем координаты курсора с учетом текущего viewportTransform
+    // Передаем true, чтобы игнорировать viewportTransform и получить координаты в пространстве canvas.
     const canvasPointer = canvas.getPointer(event, true)
 
     // Вычисляем границы монтажной области в canvas-пространстве
