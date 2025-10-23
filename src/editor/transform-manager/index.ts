@@ -84,7 +84,7 @@ export default class TransformManager {
     const constrained = panConstraintManager.constrainPan(viewportTransform[4], viewportTransform[5])
 
     if (zoom <= fitZoom) {
-      const progress = (zoom - fitZoom)
+      const progress = zoom - fitZoom
 
       viewportTransform[4] += (constrained.x - viewportTransform[4]) * progress
       viewportTransform[5] += (constrained.y - viewportTransform[5]) * progress
@@ -102,10 +102,15 @@ export default class TransformManager {
    * При zoom > defaultZoom применяется плавная интерполяция в пределах переходного диапазона.
    * @param zoom - Текущий зум
    * @param isZoomingOut - Флаг, указывающий что происходит zoom-out (уменьшение масштаба)
+   * @param zoomStep - Шаг зума (адаптивно рассчитанный)
    * @returns true если центрирование было применено
    * @private
    */
-  private _applyViewportCentering(zoom: number, isZoomingOut: boolean = false): boolean {
+  private _applyViewportCentering(
+    zoom: number,
+    isZoomingOut: boolean = false,
+    zoomStep: number = DEFAULT_ZOOM_RATIO
+  ): boolean {
     const { canvas, montageArea } = this.editor
 
     const scaledDimensions = this._getScaledMontageDimensions(zoom)
@@ -172,22 +177,30 @@ export default class TransformManager {
         const remainingDistanceX = targetVptX - vpt[4]
         const remainingDistanceY = targetVptY - vpt[5]
 
-        const zoomStepSize = 0.1
-        const numberOfStepsToFit = Math.abs(distanceFromFit) / zoomStepSize
+        const absoluteZoomStep = Math.abs(zoomStep)
+        const numberOfStepsToFit = Math.abs(distanceFromFit) / absoluteZoomStep
 
-        if (numberOfStepsToFit > 0) {
-          const stepX = Math.abs(remainingDistanceX) / numberOfStepsToFit
-          const stepY = Math.abs(remainingDistanceY) / numberOfStepsToFit
+        if (numberOfStepsToFit > 0.1) {
+          const currentVptAtFitX = canvasCenterX - montageCenterX * fitZoom
+          const currentVptAtFitY = canvasCenterY - montageCenterY * fitZoom
+          const vptChangePerZoomStepX = (currentVptAtFitX - vpt[4]) / (zoom - fitZoom)
+          const vptChangePerZoomStepY = (currentVptAtFitY - vpt[5]) / (zoom - fitZoom)
+          const baseStepX = vptChangePerZoomStepX * absoluteZoomStep
+          const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
 
           const accelerationFactor = 1 + maxEmptyRatio * 2
-          const adjustedStepX = Math.min(stepX * accelerationFactor, Math.abs(remainingDistanceX))
-          const adjustedStepY = Math.min(stepY * accelerationFactor, Math.abs(remainingDistanceY))
+          const adjustedStepX = baseStepX * accelerationFactor
+          const adjustedStepY = baseStepY * accelerationFactor
 
-          const directionX = remainingDistanceX > 0 ? 1 : -1
-          const directionY = remainingDistanceY > 0 ? 1 : -1
+          const clampedStepX = Math.abs(adjustedStepX) > Math.abs(remainingDistanceX)
+            ? remainingDistanceX
+            : adjustedStepX
+          const clampedStepY = Math.abs(adjustedStepY) > Math.abs(remainingDistanceY)
+            ? remainingDistanceY
+            : adjustedStepY
 
-          vpt[4] += adjustedStepX * directionX
-          vpt[5] += adjustedStepY * directionY
+          vpt[4] += clampedStepX
+          vpt[5] += clampedStepY
         } else {
           vpt[4] = targetVptX
           vpt[5] = targetVptY
@@ -341,7 +354,7 @@ export default class TransformManager {
     this.editor.panConstraintManager.updateBounds()
 
     // Применяем плавное центрирование viewport при уменьшении масштаба, когда значение близко к defaultZoom
-    const centeringApplied = this._applyViewportCentering(zoom, isZoomingOut)
+    const centeringApplied = this._applyViewportCentering(zoom, isZoomingOut, scale)
 
     // Применяем ограничения границ viewport только при увеличении масштаба
     // При уменьшении масштаба(scale < 0) и при активном центрировании ограничения не применяются
