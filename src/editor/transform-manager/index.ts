@@ -231,10 +231,9 @@ export default class TransformManager {
     const baseStepX = vptChangePerZoomStepX * absoluteZoomStep
     const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
 
-    // Применяем ускорение на основе размера пустого пространства
-    const accelerationFactor = 0.5
-    const adjustedStepX = baseStepX * accelerationFactor
-    const adjustedStepY = baseStepY * accelerationFactor
+    // Плавный шаг перемещения
+    const adjustedStepX = baseStepX * 0.5
+    const adjustedStepY = baseStepY * 0.5
 
     // Ограничиваем шаг оставшимся расстоянием
     const clampedStepX = Math.abs(adjustedStepX) > Math.abs(remainingDistanceX)
