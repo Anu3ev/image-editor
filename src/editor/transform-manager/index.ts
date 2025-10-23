@@ -230,10 +230,8 @@ export default class TransformManager {
     const baseStepX = vptChangePerZoomStepX * absoluteZoomStep
     const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
 
-    console.log('maxEmptyRatio', maxEmptyRatio)
     // Применяем ускорение на основе размера пустого пространства
     const accelerationFactor = 0.5
-    console.log('accelerationFactor', accelerationFactor)
     const adjustedStepX = baseStepX * accelerationFactor
     const adjustedStepY = baseStepY * accelerationFactor
 

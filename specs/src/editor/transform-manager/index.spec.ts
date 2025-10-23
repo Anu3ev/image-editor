@@ -611,50 +611,9 @@ describe('TransformManager', () => {
 
       transformManager.zoom(0.1) // 1.5 + 0.1 = 1.6 > 1.2 (threshold)
 
-      // setViewportTransform может быть вызван в _applyViewportConstraints, но не в _applyViewportCentering
-      expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
-    })
-  })
-
-  describe('_applyViewportConstraints', () => {
-    it('должен применить ограничения границ при zoom > centeringThreshold', () => {
-      mockCanvas.getZoom.mockReturnValue(1.5)
-      mockCanvas.viewportTransform = [1.5, 0, 0, 1.5, 100, 50]
-
-      // centeringThreshold = 0.8 * (1 + 0.5) = 1.2
-      // zoom=1.5 > 1.2, должны применяться ограничения
-      transformManager.zoom(0.1) // вызовет _applyViewportConstraints
-
-      expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalled()
-      expect(mockEditor.panConstraintManager.constrainPan).toHaveBeenCalled()
-    })
-
-    it('не должен применять ограничения при zoom <= centeringThreshold', () => {
-      mockCanvas.getZoom.mockReturnValue(0.8)
-      mockCanvas.viewportTransform = [0.8, 0, 0, 0.8, 100, 50]
-
-      mockEditor.panConstraintManager.constrainPan.mockClear()
-
-      transformManager.zoom(0.1) // zoom=0.9 <= 1.2
-
-      expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalled()
-      // constrainPan не должен быть вызван, т.к. идёт центрирование
-      expect(mockEditor.panConstraintManager.constrainPan).not.toHaveBeenCalled()
-    })
-
-    it('должен обновить bounds и применить ограничения', () => {
-      mockCanvas.getZoom.mockReturnValue(1.8)
-      mockCanvas.viewportTransform = [1.8, 0, 0, 1.8, 500, 400]
-
-      mockEditor.panConstraintManager.constrainPan.mockReturnValue({ x: 450, y: 350 })
-
-      transformManager.zoom(0.1)
-
-      expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalled()
-      expect(mockEditor.panConstraintManager.constrainPan).toHaveBeenCalledWith(500, 400)
-      expect(mockCanvas.viewportTransform[4]).toBe(450)
-      expect(mockCanvas.viewportTransform[5]).toBe(350)
+      // setViewportTransform может быть вызван в _applyViewportCentering
       expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
     })
   })
 })
+

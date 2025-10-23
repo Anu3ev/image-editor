@@ -1,4 +1,4 @@
-import Listeners, { calculateAdaptiveZoomStep } from '../../../src/editor/listeners'
+import Listeners from '../../../src/editor/listeners'
 import { createEditorStub } from '../../test-utils/editor-helpers'
 import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../test-utils/events'
 
@@ -212,10 +212,12 @@ describe('Listeners', () => {
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
 
       // Рассчитываем ожидаемое значение через ту же функцию, что и в коде
-      const expectedScale = calculateAdaptiveZoomStep(
+      const currentZoom = editor.canvas.getZoom()
+      const expectedScale = listeners._calculateAdaptiveZoomStep(
         editor.montageArea.width,  // 400
         editor.montageArea.height, // 300
-        -100                       // deltaY
+        -100,                      // deltaY
+        currentZoom                // текущий зум
       )
 
       listeners.handleMouseWheelZoom(ptr(evt))
