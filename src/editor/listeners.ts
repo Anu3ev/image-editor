@@ -2,41 +2,6 @@ import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo
 
 import { ImageEditor } from '.'
 
-/**
- * Рассчитывает адаптивный шаг зума на основе размера монтажной области и deltaY события колеса мыши.
- *
- * Логика: чем больше монтажная область, тем меньше должен быть шаг зума для комфортной работы.
- *
- * @param montageWidth - Ширина монтажной области в пикселях
- * @param montageHeight - Высота монтажной области в пикселях
- * @param deltaY - Значение deltaY из WheelEvent (положительное = зум out, отрицательное = зум in)
- * @returns Рассчитанный шаг зума (положительное = зум in, отрицательное = зум out)
- *
- * @example
- * // Для монтажной области 400x300 и deltaY=-100 (зум in)
- * calculateAdaptiveZoomStep(400, 300, -100) // → 0.256
- *
- * // Для монтажной области 1920x1920 и deltaY=-100 (зум in)
- * calculateAdaptiveZoomStep(1920, 1920, -100) // → 0.053
- */
-export function calculateAdaptiveZoomStep(
-  montageWidth: number,
-  montageHeight: number,
-  deltaY: number
-): number {
-  const maxSide = Math.max(montageWidth, montageHeight)
-
-  // Базовый размер 1024px соответствует conversionFactor = 0.001 (шаг ±0.1)
-  // Для 2048px → 0.0005 (шаг ±0.05)
-  // Для 4096px → 0.00025 (шаг ±0.025)
-  const baseFactor = 0.001
-  const baseSize = 1024
-  const sizeFactor = Math.max(0.25, baseSize / maxSide) // Минимум 0.25 чтобы шаг не был слишком маленьким
-  const conversionFactor = baseFactor * sizeFactor
-
-  return -deltaY * conversionFactor
-}
-
 class Listeners {
   /**
    * Ссылка на редактор, содержащий canvas.
@@ -693,6 +658,31 @@ class Listeners {
   }
 
   /**
+   * Рассчитывает шаг зума на основе текущего масштаба канваса.
+   * Логика: один скролл изменяет зум на фиксированный процент от текущего значения.
+   *
+   * @param currentZoom - Текущий уровень зума канваса
+   * @param deltaY - Значение deltaY из WheelEvent
+   * @returns Шаг изменения зума
+   */
+  private _calculateAdaptiveZoomStep(deltaY: number): number {
+    const currentZoom = this.canvas.getZoom()
+
+    // Процент изменения зума за прокрутку колеса мыши (deltaY = 100)
+    const ZOOM_CHANGE_PERCENT = 0.05 // 5%
+
+    // Стандартное значение deltaY при одном скролле
+    const STANDARD_DELTA = 100
+
+    // Нормализуем deltaY и считаем шаг относительно текущего зума
+    const scrollSteps = deltaY / STANDARD_DELTA
+    const zoomDelta = currentZoom * ZOOM_CHANGE_PERCENT * scrollSteps
+
+    // Инвертируем: скролл вверх (отрицательный deltaY) = зум in (положительное изменение)
+    return -zoomDelta
+  }
+
+  /**
    * Обработчик зума колесиком мыши. Работает при зажатом Ctrl или Cmd.
    * @param options
    * @param options.e - объект события
@@ -702,20 +692,7 @@ class Listeners {
 
     // Адаптивный conversionFactor в зависимости от размера монтажной области
     // Чем больше монтажная область, тем плавнее (меньше) шаг зума
-    const { montageArea } = this.editor
-    const scaleAdjustment = calculateAdaptiveZoomStep(
-      montageArea.width,
-      montageArea.height,
-      event.deltaY
-    )
-
-    console.log('=== Adaptive Zoom Step ===')
-    console.log('montageArea size:', montageArea.width, 'x', montageArea.height)
-    const maxSide = Math.max(montageArea.width, montageArea.height)
-    const sizeFactor = 1024 / maxSide
-    const conversionFactor = 0.001 * Math.max(0.25, sizeFactor)
-    console.log('maxSide:', maxSide, 'sizeFactor:', sizeFactor.toFixed(3))
-    console.log('conversionFactor:', conversionFactor, 'scaleAdjustment:', scaleAdjustment.toFixed(3))
+    const scaleAdjustment = this._calculateAdaptiveZoomStep(event.deltaY)
 
     this.editor.transformManager.handleMouseWheelZoom(scaleAdjustment, event)
 

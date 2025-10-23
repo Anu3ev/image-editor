@@ -8,8 +8,7 @@ import {
   MAX_ZOOM,
   VIEWPORT_CENTERING_RANGE,
   ADAPTIVE_CENTERING_SPEED,
-  ADAPTIVE_CENTERING_ACCELERATION,
-  CONSTRAINT_FADE_MULTIPLIER
+  ADAPTIVE_CENTERING_ACCELERATION
 } from '../constants'
 
 export type ResetObjectOptions = {
@@ -82,10 +81,7 @@ export default class TransformManager {
     const baseZoom = Math.max(this.defaultZoom, this.minZoom)
     const centeringThreshold = baseZoom + VIEWPORT_CENTERING_RANGE
 
-    // Зона, в которой начинается плавное ослабление ограничений перед центрированием
-    // Увеличиваем эту зону в 2 раза для более плавного перехода
-    const constraintFadeZone = VIEWPORT_CENTERING_RANGE * CONSTRAINT_FADE_MULTIPLIER
-    const constraintFadeThreshold = centeringThreshold + constraintFadeZone
+    const constraintFadeThreshold = centeringThreshold + VIEWPORT_CENTERING_RANGE
 
     // Если zoom меньше или равен centeringThreshold - ограничения не применяются вообще
     if (zoom <= centeringThreshold) return
@@ -96,7 +92,7 @@ export default class TransformManager {
     // Если zoom в зоне плавного перехода - применяем ограничения с коэффициентом
     if (zoom <= constraintFadeThreshold) {
       // progress от 0 (на границе centeringThreshold) до 1 (на границе constraintFadeThreshold)
-      const progress = (zoom - centeringThreshold) / constraintFadeZone
+      const progress = (zoom - centeringThreshold) / VIEWPORT_CENTERING_RANGE
 
       // Плавно применяем ограничения
       viewportTransform[4] += (constrained.x - viewportTransform[4]) * progress
@@ -241,8 +237,8 @@ export default class TransformManager {
 
     const { width: montageWidth, height: montageHeight } = this.editor.montageArea
 
-    const scaleX = (containerWidth / montageWidth) * scale
-    const scaleY = (containerHeight / montageHeight) * scale
+    const scaleX = Math.max((containerWidth / montageWidth) * scale, MIN_ZOOM)
+    const scaleY = Math.max((containerHeight / montageHeight) * scale, MIN_ZOOM)
 
     // выбираем меньший зум, чтобы монтажная область целиком помещалась
     this.defaultZoom = Math.min(scaleX, scaleY)
@@ -339,13 +335,13 @@ export default class TransformManager {
    * @param options.pointX - Координата X точки зума
    * @param options.pointY - Координата Y точки зума
    * @fires editor:zoom-changed
-   * Если передавать координаты курсора, то нужно быть аккуратнее, так как юзер может выйти за пределы рабочей области
    */
   public zoom(scale: number = DEFAULT_ZOOM_RATIO, options: { pointX?: number, pointY?: number } = {}): void {
     if (!scale) return
 
     const { minZoom, maxZoom } = this
     const { canvas } = this.editor
+    const isZoomingOut = scale < 0
 
     const currentZoom = canvas.getZoom()
     const center = canvas.getCenterPoint()
@@ -364,7 +360,6 @@ export default class TransformManager {
     this.editor.panConstraintManager.updateBounds()
 
     // Применяем плавное центрирование viewport при уменьшении масштаба, когда значение близко к defaultZoom
-    const isZoomingOut = scale < 0
     const centeringApplied = this._applyViewportCentering(zoom, isZoomingOut)
 
     // Применяем ограничения границ viewport только при увеличении масштаба
