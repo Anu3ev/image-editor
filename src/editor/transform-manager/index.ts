@@ -63,40 +63,6 @@ export default class TransformManager {
   }
 
   /**
-   * Применяет ограничения границ viewport после зума.
-   * Ограничения применяются только если НЕ активен режим центрирования.
-   * При приближении к зоне центрирования ограничения плавно ослабляются.
-   * @param zoom - Текущий зум
-   * @private
-   */
-  private _applyViewportConstraints(zoom: number): void {
-    const { canvas, panConstraintManager, montageArea } = this.editor
-
-    const viewportWidth = canvas.getWidth()
-    const viewportHeight = canvas.getHeight()
-    const fitZoomX = viewportWidth / montageArea.width
-    const fitZoomY = viewportHeight / montageArea.height
-    const fitZoom = Math.max(fitZoomX, fitZoomY)
-
-    if (zoom <= fitZoom) return
-
-    const { viewportTransform } = canvas
-    const constrained = panConstraintManager.constrainPan(viewportTransform[4], viewportTransform[5])
-
-    if (zoom <= fitZoom) {
-      const progress = zoom - fitZoom
-
-      viewportTransform[4] += (constrained.x - viewportTransform[4]) * progress
-      viewportTransform[5] += (constrained.y - viewportTransform[5]) * progress
-    } else {
-      viewportTransform[4] = constrained.x
-      viewportTransform[5] = constrained.y
-    }
-
-    canvas.setViewportTransform(viewportTransform)
-  }
-
-  /**
    * Применяет плавное центрирование viewport при приближении к defaultZoom.
    * При zoom <= defaultZoom монтажная область полностью центрируется.
    * При zoom > defaultZoom применяется плавная интерполяция в пределах переходного диапазона.
@@ -265,8 +231,7 @@ export default class TransformManager {
 
     // Если текущий зум меньше defaultZoom или монтажная область не выходит за пределы viewport,
     // зумим к центру монтажной области
-    if (currentZoom < this.defaultZoom || !montageExceedsViewport) {
-      console.log('Zooming to montage center')
+    if (scale < 0 || !montageExceedsViewport) {
       this.zoom(scale, {
         pointX: montageArea.left,
         pointY: montageArea.top
@@ -274,35 +239,7 @@ export default class TransformManager {
       return
     }
 
-    // При zoom-out: проверяем, будут ли пустые пространства после зума
-    if (scale < 0) {
-      // Рассчитываем будущий зум
-      const futureZoom = currentZoom + scale
-      const futureScaledDimensions = this._getScaledMontageDimensions(futureZoom)
-
-      // Проверяем, появятся ли пустые пространства (монтажная область поместится хотя бы по одной оси)
-      const willFitHorizontally = futureScaledDimensions.width <= viewportWidth
-      const willFitVertically = futureScaledDimensions.height <= viewportHeight
-      const willHaveEmptySpace = willFitHorizontally || willFitVertically
-
-      if (willHaveEmptySpace) {
-        // Будут пустые пространства - зумим к центру монтажной области для центрирования
-        this.zoom(scale, {
-          pointX: montageArea.left,
-          pointY: montageArea.top
-        })
-      } else {
-        // Пустых пространств не будет - зумим к текущему центру viewport
-        const centerPoint = canvas.getCenterPoint()
-        this.zoom(scale, {
-          pointX: centerPoint.x,
-          pointY: centerPoint.y
-        })
-      }
-      return
-    }
-
-    // При zoom-in: монтажная область выходит за пределы viewport - зумим к курсору
+    // При zoom-in: если монтажная область выходит за пределы viewport - зумим к курсору
     // Получаем абсолютные scene-координаты курсора с учетом текущего viewportTransform
     const pointer = canvas.getPointer(event, true)
 
@@ -354,13 +291,7 @@ export default class TransformManager {
     this.editor.panConstraintManager.updateBounds()
 
     // Применяем плавное центрирование viewport при уменьшении масштаба, когда значение близко к defaultZoom
-    const centeringApplied = this._applyViewportCentering(zoom, isZoomingOut, scale)
-
-    // Применяем ограничения границ viewport только при увеличении масштаба
-    // При уменьшении масштаба(scale < 0) и при активном центрировании ограничения не применяются
-    if (scale > 0 && !centeringApplied) {
-      // this._applyViewportConstraints(zoom)
-    }
+    this._applyViewportCentering(zoom, isZoomingOut, scale)
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
