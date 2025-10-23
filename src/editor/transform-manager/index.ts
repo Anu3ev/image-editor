@@ -63,18 +63,21 @@ export default class TransformManager {
   }
 
   /**
-   * Ограничивает координаты курсора видимыми границами монтажной области.
-   * Преобразует canvas-координаты курсора в scene-координаты с учётом ограничений.
-   * @param canvasPointer - Координаты курсора в canvas-пространстве
-   * @returns Scene-координаты с ограничением по границам монтажной области
+   * Ограничивает координаты курсора видимыми границами монтажной области
+   * @param event - Событие колеса мыши
+   * @returns Ограниченные координаты в canvas-пространстве
    * @private
    */
-  private _clampPointerToMontageArea(canvasPointer: { x: number; y: number }): { x: number; y: number } {
+  private _getClampedPointerCoordinates(event: WheelEvent): { x: number; y: number } {
     const { canvas, montageArea } = this.editor
+
+    // Получаем координаты курсора с учетом текущего viewportTransform
+    const canvasPointer = canvas.getPointer(event, true)
+
+    // Вычисляем границы монтажной области в canvas-пространстве
     const vpt = canvas.viewportTransform
     const zoom = canvas.getZoom()
 
-    // Вычисляем границы монтажной области в scene-координатах
     const montageMinX = montageArea.left - montageArea.width / 2
     const montageMaxX = montageArea.left + montageArea.width / 2
     const montageMinY = montageArea.top - montageArea.height / 2
@@ -90,10 +93,9 @@ export default class TransformManager {
     const clampedCanvasX = Math.max(montageCanvasMinX, Math.min(montageCanvasMaxX, canvasPointer.x))
     const clampedCanvasY = Math.max(montageCanvasMinY, Math.min(montageCanvasMaxY, canvasPointer.y))
 
-    // Преобразуем обратно в scene-координаты
     return {
-      x: (clampedCanvasX - vpt[4]) / zoom,
-      y: (clampedCanvasY - vpt[5]) / zoom
+      x: clampedCanvasX,
+      y: clampedCanvasY
     }
   }
 
@@ -275,8 +277,7 @@ export default class TransformManager {
     }
 
     // При zoom-in: если монтажная область выходит за пределы viewport - зумим к курсору
-    const canvasPointer = canvas.getPointer(event, true)
-    const clampedPointer = this._clampPointerToMontageArea(canvasPointer)
+    const clampedPointer = this._getClampedPointerCoordinates(event)
 
     this.zoom(scale, {
       pointX: clampedPointer.x,
