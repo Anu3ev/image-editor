@@ -244,6 +244,7 @@ export default class ZoomManager {
   ): boolean {
     const { canvas } = this.editor
 
+    // Проверяем, выходит ли монтажная область за пределы viewport
     const scaledDimensions = this._getScaledMontageDimensions(zoom)
     const viewportWidth = canvas.getWidth()
     const viewportHeight = canvas.getHeight()
@@ -253,6 +254,7 @@ export default class ZoomManager {
     const distanceFromFit = zoom - fitZoom
     const isInCenteringRange = !montageExceedsViewport || distanceFromFit
 
+    // Проверяем, нужно ли применять центрирование
     if (!isInCenteringRange && !isZoomingOut) {
       return false
     }
@@ -260,6 +262,7 @@ export default class ZoomManager {
     const vpt = canvas.viewportTransform
     const targetVpt = this._calculateTargetViewportPosition(zoom)
 
+    // Если монтажная область помещается в viewport, сразу центрируем
     if (!montageExceedsViewport) {
       vpt[4] = targetVpt.x
       vpt[5] = targetVpt.y
@@ -267,7 +270,8 @@ export default class ZoomManager {
       return true
     }
 
-    if (isZoomingOut && montageExceedsViewport) {
+    // При zoom-out проверяем наличие пустого пространства и применяем плавное центрирование
+    if (isZoomingOut && !montageExceedsViewport) {
       const maxEmptyRatio = this._calculateEmptySpaceRatio(zoom)
 
       if (maxEmptyRatio > 0) {
