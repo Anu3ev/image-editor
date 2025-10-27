@@ -199,7 +199,8 @@ export default class TransformManager {
     targetVpt: { x: number; y: number },
     zoom: number,
     fitZoom: number,
-    zoomStep: number
+    zoomStep: number,
+    maxEmptyRatio: number
   ): { x: number; y: number } {
     const { canvas, montageArea } = this.editor
     const vpt = canvas.viewportTransform
@@ -232,8 +233,9 @@ export default class TransformManager {
     const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
 
     // Плавный шаг перемещения
-    const adjustedStepX = baseStepX * 0.5
-    const adjustedStepY = baseStepY * 0.5
+    const smoothingFactor = this._calculateViewportCenteringEase(zoom, fitZoom)
+    const adjustedStepX = baseStepX * maxEmptyRatio
+    const adjustedStepY = baseStepY * maxEmptyRatio
 
     // Ограничиваем шаг оставшимся расстоянием
     const clampedStepX = Math.abs(adjustedStepX) > Math.abs(remainingDistanceX)
@@ -244,6 +246,35 @@ export default class TransformManager {
       : adjustedStepY
 
     return { x: clampedStepX, y: clampedStepY }
+  }
+
+  private _calculateViewportCenteringEase(zoom: number, fitZoom: number): number {
+    if (!Number.isFinite(zoom) || zoom <= 0) {
+      return 1
+    }
+
+    const effectiveDefaultZoom = Math.max(this.defaultZoom, fitZoom)
+
+    if (!Number.isFinite(effectiveDefaultZoom) || effectiveDefaultZoom <= fitZoom) {
+      return 1
+    }
+
+    const zoomDeltaToFit = zoom - fitZoom
+    if (!Number.isFinite(zoomDeltaToFit) || zoomDeltaToFit <= 0) {
+      return 1
+    }
+
+    const transitionSpan = effectiveDefaultZoom - fitZoom
+    if (!Number.isFinite(transitionSpan) || transitionSpan <= 0) {
+      return 1
+    }
+
+    const ease = transitionSpan / zoomDeltaToFit
+    if (!Number.isFinite(ease)) {
+      return 1
+    }
+
+    return Math.min(1, Math.max(ease, Number.EPSILON))
   }
 
   /**
@@ -294,7 +325,7 @@ export default class TransformManager {
       const maxEmptyRatio = this._calculateEmptySpaceRatio(zoom)
 
       if (maxEmptyRatio > 0) {
-        const step = this._calculateSmoothCenteringStep(targetVpt, zoom, fitZoom, zoomStep)
+        const step = this._calculateSmoothCenteringStep(targetVpt, zoom, fitZoom, zoomStep, maxEmptyRatio)
 
         vpt[4] += step.x
         vpt[5] += step.y
