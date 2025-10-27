@@ -233,7 +233,6 @@ export default class TransformManager {
     const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
 
     // Плавный шаг перемещения
-    const smoothingFactor = this._calculateViewportCenteringEase(zoom, fitZoom)
     const adjustedStepX = baseStepX * maxEmptyRatio
     const adjustedStepY = baseStepY * maxEmptyRatio
 
@@ -246,35 +245,6 @@ export default class TransformManager {
       : adjustedStepY
 
     return { x: clampedStepX, y: clampedStepY }
-  }
-
-  private _calculateViewportCenteringEase(zoom: number, fitZoom: number): number {
-    if (!Number.isFinite(zoom) || zoom <= 0) {
-      return 1
-    }
-
-    const effectiveDefaultZoom = Math.max(this.defaultZoom, fitZoom)
-
-    if (!Number.isFinite(effectiveDefaultZoom) || effectiveDefaultZoom <= fitZoom) {
-      return 1
-    }
-
-    const zoomDeltaToFit = zoom - fitZoom
-    if (!Number.isFinite(zoomDeltaToFit) || zoomDeltaToFit <= 0) {
-      return 1
-    }
-
-    const transitionSpan = effectiveDefaultZoom - fitZoom
-    if (!Number.isFinite(transitionSpan) || transitionSpan <= 0) {
-      return 1
-    }
-
-    const ease = transitionSpan / zoomDeltaToFit
-    if (!Number.isFinite(ease)) {
-      return 1
-    }
-
-    return Math.min(1, Math.max(ease, Number.EPSILON))
   }
 
   /**
