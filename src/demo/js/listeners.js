@@ -143,7 +143,7 @@ export default (editorInstance) => {
 
   // Сброс масштаба
   resetZoomBtn.addEventListener('click', () => {
-    editorInstance.transformManager.resetZoom()
+    editorInstance.zoomManager.resetZoom()
   })
 
   // Установка дефолтного масштаба для всего
@@ -153,12 +153,12 @@ export default (editorInstance) => {
 
   // Увеличение масштаба
   zoomInBtn.addEventListener('click', () => {
-    editorInstance.transformManager.zoom(0.1)
+    editorInstance.zoomManager.zoom(0.1)
   })
 
   // Уменьшение масштаба
   zoomOutBtn.addEventListener('click', () => {
-    editorInstance.transformManager.zoom(-0.1)
+    editorInstance.zoomManager.zoom(-0.1)
   })
 
   // Группировка объектов

@@ -1,4 +1,4 @@
-import { ActiveSelection, Point } from 'fabric'
+import { ActiveSelection } from 'fabric'
 import TransformManager from '../../../../src/editor/transform-manager'
 import { createManagerTestMocks } from '../../../test-utils/editor-helpers'
 
@@ -12,13 +12,6 @@ describe('TransformManager', () => {
     mockEditor = mocks.mockEditor
     mockCanvas = mocks.mockCanvas
 
-    // Мокаем editorContainer с clientWidth/Height для calculateAndApplyDefaultZoom
-    const mockContainer = {
-      clientWidth: 800,
-      clientHeight: 600
-    }
-    mockCanvas.editorContainer = mockContainer
-
     transformManager = new TransformManager({ editor: mockEditor })
   })
 
@@ -26,162 +19,6 @@ describe('TransformManager', () => {
     it('должен инициализировать TransformManager с правильными параметрами', () => {
       expect(transformManager.editor).toBe(mockEditor)
       expect(transformManager.options).toBe(mockEditor.options)
-      expect(transformManager.minZoom).toBe(0.1)
-      expect(transformManager.maxZoom).toBe(2)
-      expect(transformManager.defaultZoom).toBe(0.8)
-    })
-
-    it('должен использовать значения по умолчанию из констант', () => {
-      // Создаем редактор без опций зума
-      const editorWithoutZoom = {
-        ...mockEditor,
-        options: {
-          ...mockEditor.options,
-          minZoom: undefined,
-          maxZoom: undefined
-        }
-      }
-
-      const tm = new TransformManager({ editor: editorWithoutZoom })
-      expect(tm.minZoom).toBe(0.1) // MIN_ZOOM
-      expect(tm.maxZoom).toBe(2) // MAX_ZOOM
-    })
-  })
-
-  describe('calculateAndApplyDefaultZoom', () => {
-    it('должен рассчитать и применить зум по размерам контейнера', () => {
-      const setZoomSpy = jest.spyOn(transformManager, 'setZoom').mockImplementation()
-
-      transformManager.calculateAndApplyDefaultZoom()
-
-      // containerWidth=800, containerHeight=600
-      // montageWidth=400, montageHeight=300
-      // scaleX = (800/400) * 0.8 = 1.6
-      // scaleY = (600/300) * 0.8 = 1.6
-      // defaultZoom = Math.min(1.6, 1.6) = 1.6
-      expect(transformManager.defaultZoom).toBe(1.6)
-      expect(setZoomSpy).toHaveBeenCalled()
-    })
-
-    it('должен использовать переданный scale параметр', () => {
-      const setZoomSpy = jest.spyOn(transformManager, 'setZoom').mockImplementation()
-
-      transformManager.calculateAndApplyDefaultZoom(0.5)
-
-      // scaleX = (800/400) * 0.5 = 1.0
-      // scaleY = (600/300) * 0.5 = 1.0
-      expect(transformManager.defaultZoom).toBe(1.0)
-      expect(setZoomSpy).toHaveBeenCalled()
-    })
-  })
-
-  describe('zoom', () => {
-    it('должен увеличить зум на заданное значение', () => {
-      mockCanvas.getZoom.mockReturnValue(1)
-
-      transformManager.zoom(0.1)
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        expect.any(Point),
-        1.1
-      )
-      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:zoom-changed', {
-        currentZoom: 1,
-        zoom: 1.1,
-        point: expect.any(Point)
-      })
-    })
-
-    it('должен ограничить зум максимальным значением', () => {
-      mockCanvas.getZoom.mockReturnValue(1.95)
-
-      transformManager.zoom(0.1)
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        expect.any(Point),
-        2 // maxZoom
-      )
-    })
-
-    it('должен ограничить зум минимальным значением', () => {
-      mockCanvas.getZoom.mockReturnValue(0.15)
-
-      transformManager.zoom(-0.1)
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        expect.any(Point),
-        0.1 // minZoom
-      )
-    })
-
-    it('должен использовать переданные координаты точки зума', () => {
-      mockCanvas.getZoom.mockReturnValue(1)
-
-      transformManager.zoom(0.1, { pointX: 100, pointY: 200 })
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        new Point(100, 200),
-        1.1
-      )
-    })
-
-    it('не должен делать ничего если scale равен 0', () => {
-      transformManager.zoom(0)
-
-      expect(mockCanvas.zoomToPoint).not.toHaveBeenCalled()
-      expect(mockCanvas.fire).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('setZoom', () => {
-    it('должен установить заданный зум', () => {
-      transformManager.setZoom(1.5)
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        expect.any(Point),
-        1.5
-      )
-      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:zoom-changed', {
-        currentZoom: 1,
-        zoom: 1.5,
-        point: expect.any(Point)
-      })
-    })
-
-    it('должен использовать defaultZoom если зум не передан', () => {
-      transformManager.setZoom()
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        expect.any(Point),
-        0.8 // defaultZoom из options
-      )
-    })
-
-    it('должен ограничить зум максимальным значением', () => {
-      transformManager.setZoom(5)
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        expect.any(Point),
-        2 // maxZoom
-      )
-    })
-  })
-
-  describe('resetZoom', () => {
-    it('должен сбросить зум к значению по умолчанию', () => {
-      // Мокаем getZoom чтобы он возвращал текущее значение после zoomToPoint
-      mockCanvas.getZoom.mockReturnValue(0.8)
-
-      transformManager.resetZoom()
-
-      expect(mockCanvas.zoomToPoint).toHaveBeenCalledWith(
-        expect.any(Point),
-        0.8 // defaultZoom
-      )
-      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:zoom-changed', {
-        currentZoom: 0.8, // теперь правильное значение
-        point: expect.any(Point)
-      })
     })
   })
 
@@ -487,4 +324,5 @@ describe('TransformManager', () => {
       expect(resetObjectSpy).toHaveBeenCalledWith({ object: obj2 })
     })
   })
+
 })

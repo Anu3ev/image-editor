@@ -127,6 +127,9 @@ export default class CanvasManager {
       withoutSave,
       adaptCanvasToContainer
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -193,6 +196,9 @@ export default class CanvasManager {
       withoutSave,
       adaptCanvasToContainer
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -374,6 +380,9 @@ export default class CanvasManager {
       width: montageAreaWidth,
       height: montageAreaHeight
     })
+
+    // обновляем границы перетаскивания
+    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -589,7 +598,7 @@ export default class CanvasManager {
 
     // Если изображение больше монтажной области, то устанавливаем зум по умолчанию
     if (imageWidth > initialMontageAreaWidth || imageHeight > initialMontageAreaHeight) {
-      transformManager.calculateAndApplyDefaultZoom()
+      this.editor.zoomManager.calculateAndApplyDefaultZoom()
     }
 
     transformManager.resetObject({ object: image, withoutSave: true })
@@ -649,7 +658,7 @@ export default class CanvasManager {
       }
     } = this.editor
 
-    transformManager.resetZoom()
+    this.editor.zoomManager.resetZoom()
 
     this.setResolutionWidth(initialMontageAreaWidth, { withoutSave: true })
     this.setResolutionHeight(initialMontageAreaHeight, { withoutSave: true })

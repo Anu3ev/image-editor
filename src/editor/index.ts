@@ -11,6 +11,7 @@ import HistoryManager, { CanvasFullState } from './history-manager'
 import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
 import TransformManager from './transform-manager'
+import ZoomManager from './zoom-manager'
 import InteractionBlocker from './interaction-blocker'
 import BackgroundManager from './background-manager'
 import LayerManager from './layer-manager'
@@ -21,6 +22,7 @@ import GroupingManager from './grouping-manager'
 import SelectionManager from './selection-manager'
 import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
+import PanConstraintManager from './pan-constraint-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
@@ -97,6 +99,11 @@ export class ImageEditor {
   public transformManager!: TransformManager
 
   /**
+   * Менеджер зума
+   */
+  public zoomManager!: ZoomManager
+
+  /**
    * Менеджер канваса
    */
   public canvasManager!: CanvasManager
@@ -152,6 +159,11 @@ export class ImageEditor {
   public deletionManager!: DeletionManager
 
   /**
+   * Менеджер ограничения перетаскивания канваса
+   */
+  public panConstraintManager!: PanConstraintManager
+
+  /**
    * Менеджер индикатора угла поворота (опционально)
    */
   public angleIndicator?: AngleIndicatorManager
@@ -204,6 +216,7 @@ export class ImageEditor {
     this.historyManager = new HistoryManager({ editor: this })
     this.toolbar = new ToolbarManager({ editor: this })
     this.transformManager = new TransformManager({ editor: this })
+    this.zoomManager = new ZoomManager({ editor: this })
     this.canvasManager = new CanvasManager({ editor: this })
     this.imageManager = new ImageManager({ editor: this })
     this.layerManager = new LayerManager({ editor: this })
@@ -215,6 +228,7 @@ export class ImageEditor {
     this.groupingManager = new GroupingManager({ editor: this })
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
+    this.panConstraintManager = new PanConstraintManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
     if (showRotationAngle) {
@@ -233,7 +247,7 @@ export class ImageEditor {
     this.canvasManager.setCanvasCSSWidth(canvasCSSWidth)
     this.canvasManager.setCanvasCSSHeight(canvasCSSHeight)
     this.canvasManager.updateCanvas()
-    this.transformManager.calculateAndApplyDefaultZoom()
+    this.zoomManager.calculateAndApplyDefaultZoom()
 
     if (initialImage?.source) {
       const {

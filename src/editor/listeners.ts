@@ -608,17 +608,33 @@ class Listeners {
 
   /**
    * Перетаскивание канваса (mouse:move).
+   * Проверяет, разрешено ли перетаскивание при текущем зуме и применяет ограничения на панорамирование с помощью panConstraintManager.
    * @param options
    * @param options.e — объект события
-   *
-   * TODO: Надо как-то ограничить область перетаскивания, чтобы канвас не уходил сильно далеко за пределы экрана
    */
   handleCanvasDragging({ e: event }:TPointerEventInfo<TPointerEvent>): void {
     if (!this.isDragging || !this.isSpacePressed || !(event instanceof MouseEvent)) return
 
+    const { panConstraintManager, montageArea } = this.editor
+
+    // Проверяем, разрешено ли перетаскивание при текущем зуме
+    if (!panConstraintManager.isPanAllowed()) {
+      return
+    }
+
     const vpt = this.canvas.viewportTransform
-    vpt[4] += event.clientX - this.lastMouseX
-    vpt[5] += event.clientY - this.lastMouseY
+    const newVptX = vpt[4] + (event.clientX - this.lastMouseX)
+    const newVptY = vpt[5] + (event.clientY - this.lastMouseY)
+
+    // Применяем ограничения к координатам
+    const constrained = panConstraintManager.constrainPan(newVptX, newVptY)
+
+    vpt[4] = constrained.x
+    vpt[5] = constrained.y
+
+    // Принудительно пересчитываем координаты монтажной области перед рендерингом
+    montageArea.setCoords()
+
     this.canvas.requestRenderAll()
 
     this.lastMouseX = event.clientX
@@ -642,6 +658,31 @@ class Listeners {
   }
 
   /**
+   * Рассчитывает шаг зума на основе текущего масштаба канваса.
+   * Логика: один скролл изменяет зум на фиксированный процент от текущего значения.
+   *
+   * @param currentZoom - Текущий уровень зума канваса
+   * @param deltaY - Значение deltaY из WheelEvent
+   * @returns Шаг изменения зума
+   */
+  private _calculateAdaptiveZoomStep(deltaY: number): number {
+    const currentZoom = this.canvas.getZoom()
+
+    // Процент изменения зума за прокрутку колеса мыши (deltaY = 100)
+    const ZOOM_CHANGE_PERCENT = 0.05 // 5%
+
+    // Стандартное значение deltaY при одном скролле
+    const STANDARD_DELTA = 100
+
+    // Нормализуем deltaY и считаем шаг относительно текущего зума
+    const scrollSteps = deltaY / STANDARD_DELTA
+    const zoomDelta = currentZoom * ZOOM_CHANGE_PERCENT * scrollSteps
+
+    // Инвертируем: скролл вверх (отрицательный deltaY) = зум in (положительное изменение)
+    return -zoomDelta
+  }
+
+  /**
    * Обработчик зума колесиком мыши. Работает при зажатом Ctrl или Cmd.
    * @param options
    * @param options.e - объект события
@@ -649,10 +690,11 @@ class Listeners {
   handleMouseWheelZoom({ e: event }:TPointerEventInfo<WheelEvent>): void {
     if (!event.ctrlKey && !event.metaKey) return
 
-    const conversionFactor = 0.001
-    const scaleAdjustment = -event.deltaY * conversionFactor
+    // Адаптивный conversionFactor в зависимости от размера монтажной области
+    // Чем больше монтажная область, тем плавнее (меньше) шаг зума
+    const scaleAdjustment = this._calculateAdaptiveZoomStep(event.deltaY)
 
-    this.editor.transformManager.zoom(scaleAdjustment)
+    this.editor.zoomManager.handleMouseWheelZoom(scaleAdjustment, event)
 
     event.preventDefault()
     event.stopPropagation()

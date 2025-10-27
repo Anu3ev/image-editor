@@ -53,6 +53,7 @@ export const createCanvasStub = () => {
     centerObject: jest.fn(),
     zoomToPoint: jest.fn(),
     getCenterPoint: jest.fn().mockReturnValue({ x: 400, y: 300 }),
+    getPointer: jest.fn().mockReturnValue({ x: 0, y: 0 }),
     clear: jest.fn(),
     add: jest.fn(),
     remove: jest.fn(),
@@ -98,12 +99,26 @@ export const createEditorStub = () => {
       ])
     },
     transformManager: {
-      zoom: jest.fn(),
       resetObject: jest.fn(),
-      resetZoom: jest.fn(),
       resetObjects: jest.fn(),
-      calculateAndApplyDefaultZoom: jest.fn(),
       fitObject: jest.fn()
+    },
+    zoomManager: {
+      zoom: jest.fn(),
+      setZoom: jest.fn(),
+      handleMouseWheelZoom: jest.fn(),
+      resetZoom: jest.fn(),
+      calculateAndApplyDefaultZoom: jest.fn(),
+      defaultZoom: 0.8,
+      minZoom: 0.1,
+      maxZoom: 2
+    },
+    panConstraintManager: {
+      updateBounds: jest.fn(),
+      getPanBounds: jest.fn().mockReturnValue({ minX: 0, maxX: 0, minY: 0, maxY: 0, canPan: true }),
+      isPanAllowed: jest.fn().mockReturnValue(true),
+      constrainPan: jest.fn((x, y) => ({ x, y })),
+      getCurrentOffset: jest.fn().mockReturnValue({ x: 0, y: 0 })
     },
     layerManager: { bringToFront: jest.fn() },
     selectionManager: { selectAll: jest.fn() },
@@ -130,6 +145,7 @@ export const createEditorStub = () => {
       left: 100,
       top: 50,
       set: jest.fn(),
+      setCoords: jest.fn(),
       id: 'montage-area'
     },
     options: {
@@ -185,6 +201,24 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
 
   editor.shapeManager = {
     addRectangle: jest.fn()
+  } as any;
+
+  editor.panConstraintManager = {
+    updateBounds: jest.fn(),
+    getPanBounds: jest.fn().mockReturnValue({ minX: 0, maxX: 0, minY: 0, maxY: 0, canPan: true }),
+    isPanAllowed: jest.fn().mockReturnValue(true),
+    constrainPan: jest.fn((x, y) => ({ x, y })),
+    getCurrentOffset: jest.fn().mockReturnValue({ x: 0, y: 0 })
+  } as any;
+
+  editor.zoomManager = {
+    calculateAndApplyDefaultZoom: jest.fn(),
+    resetZoom: jest.fn(),
+    setZoom: jest.fn(),
+    zoom: jest.fn(),
+    defaultZoom: 0.8,
+    minZoom: 0.1,
+    maxZoom: 2
   } as any;
 
   // Приватные методы, которые вызываются в init
