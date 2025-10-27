@@ -40,6 +40,11 @@ export default class TransformManager {
    */
   public defaultZoom: number
 
+  /**
+   * Последняя точка фокуса зума, чтобы сохранять её видимость при отдалении
+   */
+  private lastZoomFocusPoint: Point | null = null
+
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.options = editor.options
@@ -200,7 +205,8 @@ export default class TransformManager {
     zoom: number,
     fitZoom: number,
     zoomStep: number,
-    maxEmptyRatio: number
+    maxEmptyRatio: number,
+    focusPoint?: Point | null
   ): { x: number; y: number } {
     const { canvas, montageArea } = this.editor
     const vpt = canvas.viewportTransform
@@ -231,20 +237,60 @@ export default class TransformManager {
     const vptChangePerZoomStepY = (currentVptAtFitY - vpt[5]) / (zoom - fitZoom)
     const baseStepX = vptChangePerZoomStepX * absoluteZoomStep
     const baseStepY = vptChangePerZoomStepY * absoluteZoomStep
+    const smoothingFactor = Math.min(Math.max(maxEmptyRatio, 0), 1)
 
     // Плавный шаг перемещения
-    const adjustedStepX = baseStepX * maxEmptyRatio
-    const adjustedStepY = baseStepY * maxEmptyRatio
+    let stepX = baseStepX * smoothingFactor
+    let stepY = baseStepY * smoothingFactor
 
     // Ограничиваем шаг оставшимся расстоянием
-    const clampedStepX = Math.abs(adjustedStepX) > Math.abs(remainingDistanceX)
-      ? remainingDistanceX
-      : adjustedStepX
-    const clampedStepY = Math.abs(adjustedStepY) > Math.abs(remainingDistanceY)
-      ? remainingDistanceY
-      : adjustedStepY
+    stepX = Math.abs(stepX) > Math.abs(remainingDistanceX) ? remainingDistanceX : stepX
+    stepY = Math.abs(stepY) > Math.abs(remainingDistanceY) ? remainingDistanceY : stepY
 
-    return { x: clampedStepX, y: clampedStepY }
+    let step = { x: stepX, y: stepY }
+
+    if (focusPoint && this._isPointVisibleInViewport(focusPoint, zoom, vpt)) {
+      step = this._constrainStepToKeepPointVisible(step, focusPoint, zoom, vpt)
+    }
+
+    return step
+  }
+
+  private _isPointVisibleInViewport(point: Point, zoom: number, viewportTransform: number[]): boolean {
+    const { canvas } = this.editor
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+
+    if (!viewportWidth || !viewportHeight) return false
+
+    const projectedX = point.x * zoom + viewportTransform[4]
+    const projectedY = point.y * zoom + viewportTransform[5]
+
+    return projectedX >= 0 && projectedX <= viewportWidth && projectedY >= 0 && projectedY <= viewportHeight
+  }
+
+  private _constrainStepToKeepPointVisible(
+    step: { x: number; y: number },
+    point: Point,
+    zoom: number,
+    viewportTransform: number[]
+  ): { x: number; y: number } {
+    const { canvas } = this.editor
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
+
+    const currentX = point.x * zoom + viewportTransform[4]
+    const currentY = point.y * zoom + viewportTransform[5]
+
+    const minStepX = -currentX
+    const maxStepX = viewportWidth - currentX
+    const minStepY = -currentY
+    const maxStepY = viewportHeight - currentY
+
+    return {
+      x: Math.min(Math.max(step.x, minStepX), maxStepX),
+      y: Math.min(Math.max(step.y, minStepY), maxStepY)
+    }
   }
 
   /**
@@ -293,14 +339,24 @@ export default class TransformManager {
     // При zoom-out проверяем наличие пустого пространства и применяем плавное центрирование
     if (isZoomingOut) {
       const maxEmptyRatio = this._calculateEmptySpaceRatio(zoom)
+      const focusPoint = this.lastZoomFocusPoint
 
       if (maxEmptyRatio > 0) {
-        const step = this._calculateSmoothCenteringStep(targetVpt, zoom, fitZoom, zoomStep, maxEmptyRatio)
+        const step = this._calculateSmoothCenteringStep(
+          targetVpt,
+          zoom,
+          fitZoom,
+          zoomStep,
+          maxEmptyRatio,
+          focusPoint
+        )
 
-        vpt[4] += step.x
-        vpt[5] += step.y
-        canvas.setViewportTransform(vpt)
-        return true
+        if (Math.abs(step.x) > Number.EPSILON || Math.abs(step.y) > Number.EPSILON) {
+          vpt[4] += step.x
+          vpt[5] += step.y
+          canvas.setViewportTransform(vpt)
+          return true
+        }
       }
     }
 
@@ -396,6 +452,10 @@ export default class TransformManager {
     const pointY = options.pointY ?? center.y
     const point = new Point(pointX, pointY)
 
+    if (!isZoomingOut && options.pointX !== undefined && options.pointY !== undefined) {
+      this.lastZoomFocusPoint = new Point(point.x, point.y)
+    }
+
     this.editor.montageArea.setCoords()
     this.editor.canvas.requestRenderAll()
 
@@ -411,6 +471,10 @@ export default class TransformManager {
 
     // Применяем плавное центрирование viewport при уменьшении масштаба, когда значение близко к defaultZoom
     this._applyViewportCentering(zoom, isZoomingOut, scale)
+
+    if (zoom <= this.defaultZoom) {
+      this.lastZoomFocusPoint = null
+    }
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
@@ -442,6 +506,8 @@ export default class TransformManager {
       point: centerPoint
     })
 
+    this.lastZoomFocusPoint = null
+
     // обновляем границы перетаскивания
     this.editor.panConstraintManager.updateBounds()
   }
@@ -460,6 +526,8 @@ export default class TransformManager {
       currentZoom: canvas.getZoom(),
       point: centerPoint
     })
+
+    this.lastZoomFocusPoint = null
 
     // обновляем границы перетаскивания
     this.editor.panConstraintManager.updateBounds()
