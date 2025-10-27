@@ -294,25 +294,21 @@ export default class ZoomManager {
     const { canvas } = this.editor
 
     const container = canvas.editorContainer
-      ?? (canvas.wrapperEl as HTMLElement | null)
-      ?? (canvas.wrapperEl?.parentNode as HTMLElement | null)
-      ?? (this.options.editorContainer as HTMLElement | null)
-
-    if (!container) {
-      return
-    }
-
     const containerWidth = container.clientWidth || canvas.getWidth()
     const containerHeight = container.clientHeight || canvas.getHeight()
 
     const { width: montageWidth, height: montageHeight } = this.editor.montageArea
 
-    const scaleX = Math.max((containerWidth / montageWidth) * scale, MIN_ZOOM)
-    const scaleY = Math.max((containerHeight / montageHeight) * scale, MIN_ZOOM)
+    const scaleX = (containerWidth / montageWidth) * scale
+    const scaleY = (containerHeight / montageHeight) * scale
 
+    // выбираем меньший зум, чтобы монтажная область целиком помещалась
     this.defaultZoom = Math.min(scaleX, scaleY)
 
+    // применяем дефолтный зум
     this.setZoom()
+
+    // обновляем границы перетаскивания
     this.editor.panConstraintManager.updateBounds()
   }
 
