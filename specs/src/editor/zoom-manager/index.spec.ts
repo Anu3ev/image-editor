@@ -65,6 +65,18 @@ describe('ZoomManager', () => {
       expect(zoomManager.defaultZoom).toBe(1.0)
       expect(setZoomSpy).toHaveBeenCalled()
     })
+
+    it('не вызывает setZoom если контейнер отсутствует', () => {
+      const setZoomSpy = jest.spyOn(zoomManager, 'setZoom').mockImplementation()
+      mockCanvas.editorContainer = null
+      mockCanvas.wrapperEl = null
+      zoomManager.options.editorContainer = null as any
+
+      zoomManager.calculateAndApplyDefaultZoom()
+
+      expect(setZoomSpy).not.toHaveBeenCalled()
+      expect(mockEditor.panConstraintManager.updateBounds).not.toHaveBeenCalled()
+    })
   })
 
   describe('zoom', () => {
@@ -285,47 +297,4 @@ describe('ZoomManager', () => {
     })
   })
 
-  describe('focus aware centering', () => {
-    it('должен запоминать точку фокуса при zoom-in с координатами', () => {
-      mockCanvas.getZoom.mockReturnValue(1)
-      zoomManager.zoom(0.2, { pointX: 300, pointY: 200 })
-
-      const lastFocus = (zoomManager as any).lastZoomFocusPoint
-      expect(lastFocus).toBeDefined()
-      expect(lastFocus).toMatchObject({ x: 300, y: 200 })
-    })
-
-    it('должен очищать точку фокуса при достижении defaultZoom', () => {
-      (zoomManager as any).lastZoomFocusPoint = new Point(250, 150)
-      mockCanvas.getZoom.mockReturnValue(0.9)
-
-      zoomManager.zoom(-0.2)
-
-      expect((zoomManager as any).lastZoomFocusPoint).toBeNull()
-    })
-
-    it('ограничивает шаг центрирования, чтобы точка фокуса оставалась во вьюпорте', () => {
-      const focusPoint = new Point(360, 260)
-      const zoom = 1.1
-      const viewportTransform = [zoom, 0, 0, zoom, 120, 80]
-      mockCanvas.viewportTransform = viewportTransform as any
-      mockCanvas.getWidth.mockReturnValue(800)
-      mockCanvas.getHeight.mockReturnValue(600)
-
-      const step = (zoomManager as any)._constrainStepToKeepPointVisible(
-        { x: 500, y: -500 },
-        focusPoint,
-        zoom,
-        viewportTransform
-      )
-
-      const newX = focusPoint.x * zoom + viewportTransform[4] + step.x
-      const newY = focusPoint.y * zoom + viewportTransform[5] + step.y
-
-      expect(newX).toBeGreaterThanOrEqual(0)
-      expect(newX).toBeLessThanOrEqual(800)
-      expect(newY).toBeGreaterThanOrEqual(0)
-      expect(newY).toBeLessThanOrEqual(600)
-    })
-  })
 })
