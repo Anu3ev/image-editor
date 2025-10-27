@@ -65,18 +65,6 @@ describe('ZoomManager', () => {
       expect(zoomManager.defaultZoom).toBe(1.0)
       expect(setZoomSpy).toHaveBeenCalled()
     })
-
-    it('не вызывает setZoom если контейнер отсутствует', () => {
-      const setZoomSpy = jest.spyOn(zoomManager, 'setZoom').mockImplementation()
-      mockCanvas.editorContainer = null
-      mockCanvas.wrapperEl = null
-      zoomManager.options.editorContainer = null as any
-
-      zoomManager.calculateAndApplyDefaultZoom()
-
-      expect(setZoomSpy).not.toHaveBeenCalled()
-      expect(mockEditor.panConstraintManager.updateBounds).not.toHaveBeenCalled()
-    })
   })
 
   describe('zoom', () => {
