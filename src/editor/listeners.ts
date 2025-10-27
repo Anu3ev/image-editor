@@ -694,7 +694,7 @@ class Listeners {
     // Чем больше монтажная область, тем плавнее (меньше) шаг зума
     const scaleAdjustment = this._calculateAdaptiveZoomStep(event.deltaY)
 
-    this.editor.transformManager.handleMouseWheelZoom(scaleAdjustment, event)
+    this.editor.zoomManager.handleMouseWheelZoom(scaleAdjustment, event)
 
     event.preventDefault()
     event.stopPropagation()

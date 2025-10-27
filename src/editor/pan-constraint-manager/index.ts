@@ -36,8 +36,8 @@ export default class PanConstraintManager {
    * @returns Объект с границами перетаскивания
    */
   public calculatePanBounds(): PanBounds {
-    const { canvas, montageArea, transformManager } = this.editor
-    const { defaultZoom } = transformManager
+    const { canvas, montageArea, zoomManager } = this.editor
+    const { defaultZoom } = zoomManager
 
     const currentZoom = canvas.getZoom()
 

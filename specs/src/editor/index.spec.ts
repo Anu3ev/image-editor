@@ -23,6 +23,7 @@ jest.mock('../../../src/editor/grouping-manager')
 jest.mock('../../../src/editor/selection-manager')
 jest.mock('../../../src/editor/deletion-manager')
 jest.mock('../../../src/editor/error-manager')
+jest.mock('../../../src/editor/zoom-manager')
 
 describe('ImageEditor', () => {
   // Моки для зависимостей
@@ -175,7 +176,7 @@ describe('ImageEditor', () => {
       await editor.init()
 
       expect(editor.canvasManager.updateCanvas).toHaveBeenCalledWith()
-      expect(editor.transformManager.calculateAndApplyDefaultZoom).toHaveBeenCalled()
+      expect(editor.zoomManager.calculateAndApplyDefaultZoom).toHaveBeenCalled()
     })
 
     it('должен загрузить начальное состояние если оно предоставлено', async() => {

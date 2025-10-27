@@ -11,6 +11,7 @@ import HistoryManager, { CanvasFullState } from './history-manager'
 import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
 import TransformManager from './transform-manager'
+import ZoomManager from './zoom-manager'
 import InteractionBlocker from './interaction-blocker'
 import BackgroundManager from './background-manager'
 import LayerManager from './layer-manager'
@@ -96,6 +97,11 @@ export class ImageEditor {
    * Менеджер трансформаций объектов
    */
   public transformManager!: TransformManager
+
+  /**
+   * Менеджер зума
+   */
+  public zoomManager!: ZoomManager
 
   /**
    * Менеджер канваса
@@ -210,6 +216,7 @@ export class ImageEditor {
     this.historyManager = new HistoryManager({ editor: this })
     this.toolbar = new ToolbarManager({ editor: this })
     this.transformManager = new TransformManager({ editor: this })
+    this.zoomManager = new ZoomManager({ editor: this })
     this.canvasManager = new CanvasManager({ editor: this })
     this.imageManager = new ImageManager({ editor: this })
     this.layerManager = new LayerManager({ editor: this })
@@ -240,7 +247,7 @@ export class ImageEditor {
     this.canvasManager.setCanvasCSSWidth(canvasCSSWidth)
     this.canvasManager.setCanvasCSSHeight(canvasCSSHeight)
     this.canvasManager.updateCanvas()
-    this.transformManager.calculateAndApplyDefaultZoom()
+    this.zoomManager.calculateAndApplyDefaultZoom()
 
     if (initialImage?.source) {
       const {

@@ -53,6 +53,7 @@ export const createCanvasStub = () => {
     centerObject: jest.fn(),
     zoomToPoint: jest.fn(),
     getCenterPoint: jest.fn().mockReturnValue({ x: 400, y: 300 }),
+    getPointer: jest.fn().mockReturnValue({ x: 0, y: 0 }),
     clear: jest.fn(),
     add: jest.fn(),
     remove: jest.fn(),
@@ -98,13 +99,19 @@ export const createEditorStub = () => {
       ])
     },
     transformManager: {
-      zoom: jest.fn(),
-      handleMouseWheelZoom: jest.fn(),
       resetObject: jest.fn(),
-      resetZoom: jest.fn(),
       resetObjects: jest.fn(),
-      calculateAndApplyDefaultZoom: jest.fn(),
       fitObject: jest.fn()
+    },
+    zoomManager: {
+      zoom: jest.fn(),
+      setZoom: jest.fn(),
+      handleMouseWheelZoom: jest.fn(),
+      resetZoom: jest.fn(),
+      calculateAndApplyDefaultZoom: jest.fn(),
+      defaultZoom: 0.8,
+      minZoom: 0.1,
+      maxZoom: 2
     },
     panConstraintManager: {
       updateBounds: jest.fn(),
@@ -202,6 +209,16 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
     isPanAllowed: jest.fn().mockReturnValue(true),
     constrainPan: jest.fn((x, y) => ({ x, y })),
     getCurrentOffset: jest.fn().mockReturnValue({ x: 0, y: 0 })
+  } as any;
+
+  editor.zoomManager = {
+    calculateAndApplyDefaultZoom: jest.fn(),
+    resetZoom: jest.fn(),
+    setZoom: jest.fn(),
+    zoom: jest.fn(),
+    defaultZoom: 0.8,
+    minZoom: 0.1,
+    maxZoom: 2
   } as any;
 
   // Приватные методы, которые вызываются в init
