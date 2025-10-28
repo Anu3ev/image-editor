@@ -1,4 +1,5 @@
 import 'fabric'
+import type { EditorFontDefinition } from './font'
 import { ImageEditor } from '..'
 
 declare module 'fabric' {
@@ -219,6 +220,11 @@ declare module 'fabric' {
      * Селекторы элементов, для которых нужно игнорировать события клавиатуры
      */
     keyboardIgnoreSelectors: string[]
+
+    /**
+     * Список шрифтов, которые нужно предзагрузить и сделать доступными в редакторе.
+     */
+    fonts?: EditorFontDefinition[]
   }
 
   interface FabricObject {
@@ -285,5 +291,21 @@ declare module 'fabric' {
      * Уникальный идентификатор группы.
      */
     id?: string;
+  }
+
+  interface TextboxProps {
+    /**
+     * Положение обводки текста. Fabric поддерживает только вариант 'center',
+     * остальные значения используются для хранения выбранной опции интерфейса.
+     */
+    textStrokePlacement?: 'unset' | 'inset' | 'center';
+  }
+
+  interface Textbox {
+    /**
+     * Положение обводки текста. Fabric поддерживает только вариант 'center',
+     * остальные значения используются для хранения выбранной опции интерфейса.
+     */
+    textStrokePlacement?: 'unset' | 'inset' | 'center';
   }
 }

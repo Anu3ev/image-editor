@@ -90,5 +90,11 @@ export const defaults: Partial<CanvasOptions> = {
   selectAllByHotkey: true,
   deleteObjectsByHotkey: true,
   resetObjectFitByDoubleClick: true,
-  keyboardIgnoreSelectors: []
+  keyboardIgnoreSelectors: [],
+
+  /**
+   * Список шрифтов, которые будут доступны в редакторе по умолчанию.
+   * По умолчанию список пустой и используются системные шрифты.
+   */
+  fonts: []
 }
