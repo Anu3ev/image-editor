@@ -72,7 +72,6 @@ import {
   textStrokePalette,
   textStrokeWidthInput,
   textStrokeWidthValue,
-  textStrokePlacementSelect,
   textOpacityInput,
   textOpacityValue,
   // Undo/Redo
@@ -150,6 +149,24 @@ export default (editorInstance) => {
   let isSyncingControls = false
   let textColorButtons = []
   let textStrokeButtons = []
+  const getStrokeWidthFromInput = () => {
+    const rawWidth = Number(textStrokeWidthInput.value)
+    return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+  }
+
+  const setStrokeControlsEnabled = (enabled) => {
+    textStrokeColorInput.disabled = !enabled
+    textStrokeButtons.forEach((btn) => {
+      btn.disabled = !enabled
+    })
+  }
+
+  const setStrokeWidthUI = (width) => {
+    const normalized = Math.max(0, Math.round(width))
+    textStrokeWidthInput.value = normalized
+    textStrokeWidthValue.textContent = normalized > 0 ? `${normalized}px` : 'Off'
+    setStrokeControlsEnabled(normalized > 0)
+  }
 
   const renderPalette = (container, colors) => {
     container.innerHTML = ''
@@ -279,12 +296,10 @@ export default (editorInstance) => {
     setPaletteSelection(textStrokeButtons, strokeColor)
 
     const fallbackStrokeWidth = Number(textStrokeWidthInput.value) || 0
-    const strokeWidth = Math.max(0, Math.round(textbox.strokeWidth ?? fallbackStrokeWidth))
-    textStrokeWidthInput.value = strokeWidth
-    textStrokeWidthValue.textContent = `${strokeWidth}px`
-
-    const strokePlacement = textbox.textStrokePlacement ?? (strokeWidth > 0 ? 'center' : 'unset')
-    textStrokePlacementSelect.value = ['unset', 'center', 'inset'].includes(strokePlacement) ? strokePlacement : 'unset'
+    const currentStrokeWidth = Math.max(0, Math.round(textbox.strokeWidth ?? fallbackStrokeWidth))
+    const strokePlacement = textbox.textStrokePlacement ?? (currentStrokeWidth > 0 ? 'center' : 'unset')
+    const strokeWidth = strokePlacement === 'unset' ? 0 : currentStrokeWidth
+    setStrokeWidthUI(strokeWidth)
 
     const opacitySource = textbox.opacity ?? Number(textOpacityInput.value) / 100
     const opacity = Math.max(0, Math.min(100, Math.round(opacitySource * 100)))
@@ -338,7 +353,7 @@ export default (editorInstance) => {
     textContentInput.value = 'Новый текст'
   }
 
-  textStrokeWidthValue.textContent = `${textStrokeWidthInput.value}px`
+  setStrokeWidthUI(Number(textStrokeWidthInput.value) || 0)
   textOpacityValue.textContent = `${textOpacityInput.value}%`
 
   setPaletteSelection(textColorButtons, textColorInput.value)
@@ -365,8 +380,13 @@ export default (editorInstance) => {
       const color = normalizeColor(btn.dataset.color, textStrokeColorInput.value)
       textStrokeColorInput.value = color
       setPaletteSelection(textStrokeButtons, color)
-      if (getActiveText()) {
-        applyTextStyle({ strokeColor: color })
+      if (!getActiveText()) return
+      const width = getStrokeWidthFromInput()
+      const style = width > 0
+        ? { strokeColor: color }
+        : {}
+      if (Object.keys(style).length > 0) {
+        applyTextStyle(style)
       }
     })
   })
@@ -405,7 +425,7 @@ export default (editorInstance) => {
       color: textColorInput.value,
       strokeColor: textStrokeColorInput.value,
       strokeWidth,
-      strokePlacement: textStrokePlacementSelect.value,
+      strokePlacement: strokeWidth > 0 ? 'center' : 'unset',
       opacity
     })
 
@@ -486,40 +506,40 @@ export default (editorInstance) => {
     const color = normalizeColor(e.target.value, textStrokeColorInput.value)
     e.target.value = color
     setPaletteSelection(textStrokeButtons, color)
-    if (!getActiveText()) return
+    const width = getStrokeWidthFromInput()
+    if (!getActiveText() || width <= 0) return
     applyTextStyle({ strokeColor: color })
   })
 
   textStrokeWidthInput.addEventListener('input', (e) => {
     const rawWidth = Number(e.target.value)
     const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
-    e.target.value = width
-    textStrokeWidthValue.textContent = `${width}px`
+    setStrokeWidthUI(width)
     if (!getActiveText()) return
-    applyTextStyle({ strokeWidth: width }, { withoutSave: true })
+    if (width === 0) {
+      applyTextStyle({ strokeWidth: 0, strokePlacement: 'unset' }, { withoutSave: true })
+      return
+    }
+    applyTextStyle({
+      strokeWidth: width,
+      strokePlacement: 'center',
+      strokeColor: textStrokeColorInput.value
+    }, { withoutSave: true })
   })
 
   textStrokeWidthInput.addEventListener('change', (e) => {
     const rawWidth = Number(e.target.value)
     const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
-    e.target.value = width
-    textStrokeWidthValue.textContent = `${width}px`
+    setStrokeWidthUI(width)
     if (!getActiveText()) return
-    applyTextStyle({ strokeWidth: width })
-  })
-
-  textStrokePlacementSelect.addEventListener('change', (e) => {
-    const placement = e.target.value
-    if (placement === 'unset') {
-      textStrokeWidthInput.value = 0
-      textStrokeWidthValue.textContent = '0px'
+    if (width === 0) {
+      applyTextStyle({ strokeWidth: 0, strokePlacement: 'unset' })
+      return
     }
-    if (!getActiveText()) return
-    const rawWidth = Number(textStrokeWidthInput.value)
-    const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
     applyTextStyle({
-      strokePlacement: placement,
-      strokeWidth: width
+      strokeWidth: width,
+      strokePlacement: 'center',
+      strokeColor: textStrokeColorInput.value
     })
   })
 

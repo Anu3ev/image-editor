@@ -255,25 +255,23 @@ export default class TextManager {
       updates.fill = color
     }
 
-    let nextPlacement = textbox.textStrokePlacement
+    if (strokeColor !== undefined || strokeWidth !== undefined || strokePlacement !== undefined) {
+      const providedWidth = strokeWidth !== undefined ? strokeWidth : textbox.strokeWidth ?? 0
+      const providedPlacement = strokePlacement !== undefined
+        ? strokePlacement
+        : textbox.textStrokePlacement ?? (providedWidth > 0 ? 'center' : 'unset')
 
-    if (strokePlacement !== undefined) {
-      nextPlacement = strokePlacement
-    }
+      const normalizedPlacement = providedWidth > 0 && providedPlacement !== 'unset'
+        ? providedPlacement ?? 'center'
+        : 'unset'
 
-    if (strokeColor !== undefined || strokeWidth !== undefined || nextPlacement !== textbox.textStrokePlacement) {
-      textbox.textStrokePlacement = nextPlacement ?? textbox.textStrokePlacement
+      textbox.textStrokePlacement = normalizedPlacement
 
       const resolvedPlacement = textbox.textStrokePlacement ?? 'unset'
-      const resolvedStrokeWidth = TextManager._resolveStrokeWidth(
-        resolvedPlacement,
-        strokeWidth !== undefined ? strokeWidth : textbox.strokeWidth ?? 0
-      )
-      updates.stroke = TextManager._resolveStrokeColor(
-        resolvedPlacement,
-        strokeColor !== undefined ? strokeColor : textbox.stroke ?? undefined,
-        resolvedStrokeWidth
-      )
+      const widthSource = strokeWidth !== undefined ? strokeWidth : textbox.strokeWidth ?? 0
+      const resolvedStrokeWidth = TextManager._resolveStrokeWidth(resolvedPlacement, widthSource)
+      const colorSource = strokeColor !== undefined ? strokeColor : textbox.stroke ?? undefined
+      updates.stroke = TextManager._resolveStrokeColor(resolvedPlacement, colorSource, resolvedStrokeWidth)
       updates.strokeWidth = resolvedStrokeWidth
     }
 
@@ -331,24 +329,32 @@ export default class TextManager {
     const { target, transform } = event
     if (!TextManager._isTextbox(target)) return
 
-    const scaleX = transform?.scaleX ?? target.scaleX ?? 1
     const baseFontSize = this._ensureScalingState(target)
+    const scaleX = transform?.scaleX ?? target.scaleX ?? 1
+    const scaleY = transform?.scaleY ?? target.scaleY ?? 1
+    const maxScale = Math.max(Math.abs(scaleX), Math.abs(scaleY))
+    const scale = Number.isFinite(maxScale) && maxScale > 0 ? maxScale : 1
+    const nextFontSize = Math.max(1, baseFontSize * scale)
 
-    const nextFontSize = Math.max(1, baseFontSize * scaleX)
+    const updatedTextbox = this.updateText(target, { fontSize: nextFontSize }, {
+      withoutSave: true,
+      skipRender: true
+    })
 
-    this.updateText(target, { fontSize: nextFontSize }, { withoutSave: true, skipRender: false })
+    if (!updatedTextbox) return
 
-    target.set({
+    updatedTextbox.set({
       scaleX: 1,
       scaleY: 1
     })
-
-    const state = this.scalingState.get(target)
-    if (state) {
-      state.fontSize = target.fontSize ?? nextFontSize
+    if (transform) {
+      transform.scaleX = 1
+      transform.scaleY = 1
     }
 
-    target.setCoords()
+    this.scalingState.set(updatedTextbox, { fontSize: updatedTextbox.fontSize ?? nextFontSize })
+
+    updatedTextbox.setCoords()
     this.canvas.requestRenderAll()
   }
 

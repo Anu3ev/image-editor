@@ -91,7 +91,6 @@ export const textStrokeColorInput = document.getElementById('text-stroke-color')
 export const textStrokePalette = document.getElementById('text-stroke-palette')
 export const textStrokeWidthInput = document.getElementById('text-stroke-width')
 export const textStrokeWidthValue = document.getElementById('text-stroke-width-value')
-export const textStrokePlacementSelect = document.getElementById('text-stroke-placement')
 export const textOpacityInput = document.getElementById('text-opacity')
 export const textOpacityValue = document.getElementById('text-opacity-value')
 
