@@ -63,10 +63,18 @@ type UpdateOptions = {
 const DIMENSION_EPSILON = 0.01
 
 type ScalingState = {
+  initialWidth: number
+  initialFontSize: number
+  anchorLeft: number
+  anchorRight: number
+  anchorCenter: number
   baseWidth: number
   baseLeft: number
   baseFontSize: number
+  lastAppliedWidth: number
+  lastAppliedFontSize: number
   hasWidthChange: boolean
+  hasFontSizeChange: boolean
 }
 
 /**
@@ -351,7 +359,13 @@ export default class TextManager {
     if (!transform) return
 
     const state = this._ensureScalingState(target)
-    const { baseWidth, baseLeft, baseFontSize } = state
+    const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
+    const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
+    const { baseWidth, baseLeft, baseFontSize } = {
+      baseWidth: originalWidth ?? state.baseWidth,
+      baseLeft: originalLeft ?? state.baseLeft,
+      baseFontSize: state.baseFontSize
+    }
 
     const corner = transform.corner ?? ''
     const action = transform.action ?? ''
@@ -416,11 +430,24 @@ export default class TextManager {
 
     target.set({
       width: nextWidth,
-      left: nextLeft,
       fontSize: isCornerHandle || isVerticalHandle ? nextFontSize : baseFontSize,
       scaleX: 1,
       scaleY: 1
     })
+
+    const appliedWidth = target.width ?? nextWidth
+    const widthActuallyChanged = Math.abs(appliedWidth - currentWidth) > DIMENSION_EPSILON
+
+    let adjustedLeft = baseLeft
+    if (widthActuallyChanged && (isHorizontalHandle || isCornerHandle)) {
+      if (originX === 'right') {
+        adjustedLeft = rightEdge - appliedWidth
+      } else if (originX === 'center') {
+        adjustedLeft = centerX - (appliedWidth / 2)
+      }
+    }
+
+    target.set({ left: adjustedLeft })
 
     transform.scaleX = 1
     transform.scaleY = 1
@@ -429,22 +456,21 @@ export default class TextManager {
     if (original) {
       original.scaleX = 1
       original.scaleY = 1
-      original.width = nextWidth
+      original.width = appliedWidth
       original.height = target.height
-      original.left = nextLeft
+      original.left = adjustedLeft
     }
 
     target.setCoords()
     this.canvas.requestRenderAll()
 
-    state.baseWidth = nextWidth
-    state.baseLeft = nextLeft
-    state.baseFontSize = isCornerHandle || isVerticalHandle ? nextFontSize : baseFontSize
-    state.hasWidthChange = true
+    state.baseWidth = appliedWidth
+    state.baseFontSize = target.fontSize ?? nextFontSize
+    state.hasWidthChange = widthActuallyChanged || fontSizeChanged
 
     console.log('[TextManager] handleObjectScaling applied', {
-      width: target.width,
-      left: target.left,
+      width: appliedWidth,
+      left: adjustedLeft,
       fontSize: target.fontSize
     })
   }
@@ -487,11 +513,19 @@ export default class TextManager {
       const baseLeft = textbox.left ?? 0
       const baseFontSize = textbox.fontSize ?? 16
       state = {
+        initialWidth: baseWidth,
+        initialFontSize: baseFontSize,
+        anchorLeft: baseLeft,
+        anchorRight: baseLeft + baseWidth,
+        anchorCenter: baseLeft + (baseWidth / 2),
         baseWidth,
-        baseLeft,
         baseFontSize,
-        hasWidthChange: false
-      }
+        baseLeft,
+        lastAppliedWidth: baseWidth,
+        lastAppliedFontSize: baseFontSize,
+        hasWidthChange: false,
+        hasFontSizeChange: false
+      } as unknown as ScalingState
       this.scalingState.set(textbox, state)
     }
 
