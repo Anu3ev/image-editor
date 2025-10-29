@@ -81,9 +81,9 @@ export default class TextManager {
   private fonts: EditorFontDefinition[]
 
   /**
-   * Состояние шрифтов для объектов, которые пользователи растягивают.
+   * Данные о масштабе текста, которые собираются в процессе трансформации.
    */
-  private scalingState: WeakMap<Textbox, { fontSize: number }>
+  private scalingState: WeakMap<Textbox, { baseFontSize: number }>
 
   private handleObjectScalingBound: (event: IEvent<MouseEvent> & { transform?: Transform }) => void
 
@@ -326,54 +326,49 @@ export default class TextManager {
   }
 
   private handleObjectScaling(event: IEvent<MouseEvent> & { transform?: Transform }): void {
-    const { target, transform } = event
+    const { target } = event
     if (!TextManager._isTextbox(target)) return
-
-    const baseFontSize = this._ensureScalingState(target)
-    const scaleX = transform?.scaleX ?? target.scaleX ?? 1
-    const scaleY = transform?.scaleY ?? target.scaleY ?? 1
-    const maxScale = Math.max(Math.abs(scaleX), Math.abs(scaleY))
-    const scale = Number.isFinite(maxScale) && maxScale > 0 ? maxScale : 1
-    const nextFontSize = Math.max(1, baseFontSize * scale)
-
-    const updatedTextbox = this.updateText(target, { fontSize: nextFontSize }, {
-      withoutSave: true,
-      skipRender: true
-    })
-
-    if (!updatedTextbox) return
-
-    updatedTextbox.set({
-      scaleX: 1,
-      scaleY: 1
-    })
-    if (transform) {
-      transform.scaleX = 1
-      transform.scaleY = 1
-    }
-
-    this.scalingState.set(updatedTextbox, { fontSize: updatedTextbox.fontSize ?? nextFontSize })
-
-    updatedTextbox.setCoords()
-    this.canvas.requestRenderAll()
+    this._ensureScalingState(target)
   }
 
   private handleObjectModified(event: IEvent<MouseEvent>): void {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
+    const scaleX = target.scaleX ?? 1
+    const scaleY = target.scaleY ?? 1
+    const effectiveScale = Math.max(Math.abs(scaleX), Math.abs(scaleY))
+    const state = this.scalingState.get(target)
+    const baseFontSize = state?.baseFontSize ?? target.fontSize ?? 16
+
+    if (effectiveScale !== 1) {
+      const nextFontSize = Math.max(1, baseFontSize * effectiveScale)
+      const updatedTextbox = this.updateText(target, { fontSize: nextFontSize }, {
+        withoutSave: false,
+        skipRender: true
+      })
+
+      if (updatedTextbox) {
+        updatedTextbox.set({
+          scaleX: 1,
+          scaleY: 1
+        })
+        updatedTextbox.setCoords()
+        this.canvas.requestRenderAll()
+      }
+    }
 
     this.scalingState.delete(target)
   }
 
-  private _ensureScalingState(textbox: Textbox): number {
+  private _ensureScalingState(textbox: Textbox): { baseFontSize: number } {
     let state = this.scalingState.get(textbox)
 
     if (!state) {
-      state = { fontSize: textbox.fontSize ?? 16 }
+      state = { baseFontSize: textbox.fontSize ?? 16 }
       this.scalingState.set(textbox, state)
     }
 
-    return state.fontSize
+    return state
   }
 
   private static _resolveStrokeColor(
