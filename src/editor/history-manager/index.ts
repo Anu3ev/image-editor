@@ -1,10 +1,36 @@
 // TODO: Почистить консоль логи когда всё будет готово.
-import { Canvas, FabricObject, FabricImage, Rect } from 'fabric'
+import {
+  Canvas,
+  FabricObject,
+  FabricImage,
+  Rect,
+  Textbox
+} from 'fabric'
 import { create as diffPatchCreate } from 'jsondiffpatch'
 import type { DiffPatcher, Delta } from 'jsondiffpatch'
 import { nanoid } from 'nanoid'
 import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
+
+const OBJECT_SERIALIZATION_PROPS = [
+  'selectable',
+  'evented',
+  'id',
+  'backgroundId',
+  'customData',
+  'backgroundType',
+  'format',
+  'width',
+  'height',
+  'locked',
+  'lockMovementX',
+  'lockMovementY',
+  'lockRotation',
+  'lockScalingX',
+  'lockScalingY',
+  'lockSkewingX',
+  'lockSkewingY'
+] as const
 
 export type CanvasFullState = {
   clipPath: object | null
@@ -108,6 +134,7 @@ export default class HistoryManager {
     this.diffPatcher = diffPatchCreate({
       objectHash(obj: object) {
         const fabricObj = obj as FabricObject
+        const textbox = obj as Textbox
 
         return [
           fabricObj.id,
@@ -124,7 +151,16 @@ export default class HistoryManager {
           fabricObj.scaleX,
           fabricObj.scaleY,
           fabricObj.angle,
-          fabricObj.opacity
+          fabricObj.opacity,
+          textbox.textStrokePlacement,
+          textbox.textCaseRaw,
+          textbox.uppercase,
+          textbox.underline,
+          textbox.fontStyle,
+          textbox.linethrough,
+          textbox.textAlign,
+          textbox.fill,
+          textbox.stroke
         ].join('-')
       },
 
@@ -191,25 +227,7 @@ export default class HistoryManager {
     console.time('saveState')
 
     // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
-    const currentStateObj = this.canvas.toDatalessObject([
-      'selectable',
-      'evented',
-      'id',
-      'backgroundId',
-      'customData',
-      'backgroundType',
-      'format',
-      'width',
-      'height',
-      'locked',
-      'lockMovementX',
-      'lockMovementY',
-      'lockRotation',
-      'lockScalingX',
-      'lockScalingY',
-      'lockSkewingX',
-      'lockSkewingY'
-    ])
+    const currentStateObj = this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
 
     console.timeEnd('saveState')
 
