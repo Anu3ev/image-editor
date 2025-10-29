@@ -260,7 +260,10 @@ export default (editorInstance) => {
 
     isSyncingControls = true
 
-    const textValue = textbox.text ?? ''
+    const fallbackText = textbox.text ?? ''
+    const textValue = typeof textbox.textCaseRaw === 'string'
+      ? textbox.textCaseRaw
+      : fallbackText
     textContentInput.value = textValue
 
     const fontFamily = textbox.fontFamily ?? ''
@@ -277,7 +280,7 @@ export default (editorInstance) => {
     setToggleActive(textBoldBtn, boldActive)
     setToggleActive(textItalicBtn, textbox.fontStyle === 'italic')
     setToggleActive(textUnderlineBtn, Boolean(textbox.underline))
-    setToggleActive(textUppercaseBtn, textbox.textTransform === 'uppercase')
+    setToggleActive(textUppercaseBtn, Boolean(textbox.uppercase))
     setToggleActive(textStrikeBtn, Boolean(textbox.linethrough))
 
     const alignValue = textbox.textAlign ?? textAlignToggle.dataset.align ?? 'left'

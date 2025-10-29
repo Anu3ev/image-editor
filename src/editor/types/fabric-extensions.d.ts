@@ -299,6 +299,14 @@ declare module 'fabric' {
      * остальные значения используются для хранения выбранной опции интерфейса.
      */
     textStrokePlacement?: 'unset' | 'inset' | 'center';
+    /**
+     * Исходное значение текста без преобразования регистра.
+     */
+    textCaseRaw?: string;
+    /**
+     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     */
+    textCaseUppercase?: boolean;
   }
 
   interface Textbox {
@@ -307,5 +315,13 @@ declare module 'fabric' {
      * остальные значения используются для хранения выбранной опции интерфейса.
      */
     textStrokePlacement?: 'unset' | 'inset' | 'center';
+    /**
+     * Исходное значение текста без преобразования регистра.
+     */
+    textCaseRaw?: string;
+    /**
+     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     */
+    textCaseUppercase?: boolean;
   }
 }

@@ -168,7 +168,7 @@ export default class TextManager {
       fontWeight: bold ? 'bold' : 'normal',
       fontStyle: italic ? 'italic' : 'normal',
       underline,
-      textTransform: uppercase ? 'uppercase' : 'none',
+      uppercase,
       linethrough: strikethrough,
       textAlign: align,
       fill: color,
@@ -180,6 +180,14 @@ export default class TextManager {
     })
 
     textbox.textStrokePlacement = strokePlacement
+    textbox.textCaseRaw = textbox.text ?? ''
+
+    if (uppercase) {
+      const uppercased = TextManager._toUpperCase(textbox.textCaseRaw)
+      if (uppercased !== textbox.text) {
+        textbox.set({ text: uppercased })
+      }
+    }
 
     textbox.setControlsVisibility({
       mt: false,
@@ -242,10 +250,6 @@ export default class TextManager {
 
     const updates: Partial<TextboxProps> = { ...rest }
 
-    if (text !== undefined) {
-      updates.text = text
-    }
-
     if (fontFamily !== undefined) {
       updates.fontFamily = fontFamily
     }
@@ -267,7 +271,7 @@ export default class TextManager {
     }
 
     if (uppercase !== undefined) {
-      updates.textTransform = uppercase ? 'uppercase' : 'none'
+      // handled below
     }
 
     if (strikethrough !== undefined) {
@@ -305,6 +309,26 @@ export default class TextManager {
     if (opacity !== undefined) {
       updates.opacity = opacity
     }
+
+    const previousRaw = textbox.textCaseRaw ?? (textbox.text ?? '')
+    const previousUppercase = Boolean(textbox.uppercase)
+    const hasTextUpdate = text !== undefined
+    const targetRawText = hasTextUpdate ? text ?? '' : previousRaw
+    const nextUppercase = uppercase !== undefined ? uppercase : previousUppercase
+    const uppercaseChanged = nextUppercase !== previousUppercase
+
+    if (hasTextUpdate || uppercaseChanged) {
+      const normalizedRaw = targetRawText
+      const renderedText = nextUppercase
+        ? TextManager._toUpperCase(normalizedRaw)
+        : normalizedRaw
+      updates.text = renderedText
+      textbox.textCaseRaw = normalizedRaw
+    } else if (textbox.textCaseRaw === undefined) {
+      textbox.textCaseRaw = previousRaw
+    }
+
+    textbox.uppercase = nextUppercase
 
     textbox.set(updates)
     textbox.setCoords()
@@ -547,6 +571,10 @@ export default class TextManager {
 
     // Fabric поддерживает только центрированную обводку.
     return Math.max(0, width)
+  }
+
+  private static _toUpperCase(value: string): string {
+    return typeof value === 'string' ? value.toLocaleUpperCase() : ''
   }
 
   private _getDefaultFontFamily(): string {
