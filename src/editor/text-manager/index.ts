@@ -83,7 +83,7 @@ export default class TextManager {
   /**
    * Данные о масштабе текста, которые собираются в процессе трансформации.
    */
-  private scalingState: WeakMap<Textbox, { baseFontSize: number }>
+  private scalingState: WeakMap<Textbox, { baseFontSize: number; baseWidth: number }>
 
   private handleObjectScalingBound: (event: IEvent<MouseEvent> & { transform?: Transform }) => void
 
@@ -336,35 +336,44 @@ export default class TextManager {
     if (!TextManager._isTextbox(target)) return
     const scaleX = target.scaleX ?? 1
     const scaleY = target.scaleY ?? 1
-    const effectiveScale = Math.max(Math.abs(scaleX), Math.abs(scaleY))
+    const hasScaling = scaleX !== 1 || scaleY !== 1
     const state = this.scalingState.get(target)
     const baseFontSize = state?.baseFontSize ?? target.fontSize ?? 16
+    const baseWidth = state?.baseWidth ?? target.width ?? target.calcTextWidth()
 
-    if (effectiveScale !== 1) {
-      const nextFontSize = Math.max(1, baseFontSize * effectiveScale)
-      const updatedTextbox = this.updateText(target, { fontSize: nextFontSize }, {
+    let updatedTextbox = target
+    if (hasScaling) {
+      const nextFontSize = Math.max(1, baseFontSize * Math.abs(scaleY))
+      const nextWidth = Math.max(1, baseWidth * Math.abs(scaleX))
+      updatedTextbox = this.updateText(target, {
+        fontSize: nextFontSize,
+        width: nextWidth
+      }, {
         withoutSave: false,
         skipRender: true
-      })
+      }) ?? target
 
-      if (updatedTextbox) {
-        updatedTextbox.set({
-          scaleX: 1,
-          scaleY: 1
-        })
-        updatedTextbox.setCoords()
-        this.canvas.requestRenderAll()
-      }
+      updatedTextbox.initDimensions()
     }
 
-    this.scalingState.delete(target)
+    updatedTextbox.set({
+      scaleX: 1,
+      scaleY: 1
+    })
+    updatedTextbox.initDimensions()
+    updatedTextbox.setCoords()
+    this.canvas.requestRenderAll()
+
+    this.scalingState.delete(updatedTextbox)
   }
 
-  private _ensureScalingState(textbox: Textbox): { baseFontSize: number } {
+  private _ensureScalingState(textbox: Textbox): { baseFontSize: number; baseWidth: number } {
     let state = this.scalingState.get(textbox)
 
     if (!state) {
-      state = { baseFontSize: textbox.fontSize ?? 16 }
+      const baseFontSize = textbox.fontSize ?? 16
+      const baseWidth = textbox.width ?? textbox.calcTextWidth()
+      state = { baseFontSize, baseWidth }
       this.scalingState.set(textbox, state)
     }
 
