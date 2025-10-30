@@ -15,8 +15,6 @@ type TextCreationFlags = {
   withoutAdding?: boolean
 }
 
-export type TextStrokePlacement = 'unset' | 'inset' | 'center'
-
 export type TextStyleOptions = {
   id?: string
   text?: string
@@ -31,7 +29,6 @@ export type TextStyleOptions = {
   color?: string
   strokeColor?: string
   strokeWidth?: number
-  strokePlacement?: TextStrokePlacement
   opacity?: number
 } & Partial<
   Omit<
@@ -146,7 +143,6 @@ export default class TextManager {
       color = '#000000',
       strokeColor,
       strokeWidth = 0,
-      strokePlacement = strokeWidth > 0 ? 'center' : 'unset',
       opacity = 1,
       ...rest
     }: TextStyleOptions = {},
@@ -154,9 +150,8 @@ export default class TextManager {
   ): Textbox {
     const resolvedFontFamily = fontFamily ?? this._getDefaultFontFamily()
 
-    const resolvedStrokeWidth = TextManager._resolveStrokeWidth(strokePlacement, strokeWidth)
+    const resolvedStrokeWidth = TextManager._resolveStrokeWidth(strokeWidth)
     const resolvedStrokeColor = TextManager._resolveStrokeColor(
-      strokePlacement,
       strokeColor,
       resolvedStrokeWidth
     )
@@ -179,7 +174,6 @@ export default class TextManager {
       ...rest
     })
 
-    textbox.textStrokePlacement = strokePlacement
     textbox.textCaseRaw = textbox.text ?? ''
 
     if (uppercase) {
@@ -233,7 +227,6 @@ export default class TextManager {
       color,
       strokeColor,
       strokeWidth,
-      strokePlacement,
       opacity,
       ...rest
     } = style
@@ -276,23 +269,11 @@ export default class TextManager {
       updates.fill = color
     }
 
-    if (strokeColor !== undefined || strokeWidth !== undefined || strokePlacement !== undefined) {
-      const providedWidth = strokeWidth !== undefined ? strokeWidth : textbox.strokeWidth ?? 0
-      const providedPlacement = strokePlacement !== undefined
-        ? strokePlacement
-        : textbox.textStrokePlacement ?? (providedWidth > 0 ? 'center' : 'unset')
-
-      const normalizedPlacement = providedWidth > 0 && providedPlacement !== 'unset'
-        ? providedPlacement ?? 'center'
-        : 'unset'
-
-      textbox.textStrokePlacement = normalizedPlacement
-
-      const resolvedPlacement = textbox.textStrokePlacement ?? 'unset'
+    if (strokeColor !== undefined || strokeWidth !== undefined) {
       const widthSource = strokeWidth !== undefined ? strokeWidth : textbox.strokeWidth ?? 0
-      const resolvedStrokeWidth = TextManager._resolveStrokeWidth(resolvedPlacement, widthSource)
+      const resolvedStrokeWidth = TextManager._resolveStrokeWidth(widthSource)
       const colorSource = strokeColor !== undefined ? strokeColor : textbox.stroke ?? undefined
-      updates.stroke = TextManager._resolveStrokeColor(resolvedPlacement, colorSource, resolvedStrokeWidth)
+      updates.stroke = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
       updates.strokeWidth = resolvedStrokeWidth
     }
 
@@ -547,17 +528,16 @@ export default class TextManager {
   }
 
   private static _resolveStrokeColor(
-    placement: TextStrokePlacement,
     strokeColor: string | undefined,
     width: number
   ): string | undefined {
-    if (placement === 'unset' || width <= 0) return undefined
+    if (width <= 0) return undefined
 
     return strokeColor ?? '#000000'
   }
 
-  private static _resolveStrokeWidth(placement: TextStrokePlacement, width: number | undefined): number {
-    if (placement === 'unset' || !width || width <= 0) return 0
+  private static _resolveStrokeWidth(width: number | undefined): number {
+    if (!width || width <= 0) return 0
 
     // Fabric поддерживает только центрированную обводку.
     return Math.max(0, width)

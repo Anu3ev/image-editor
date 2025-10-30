@@ -160,7 +160,8 @@ export default class HistoryManager {
           textbox.linethrough,
           textbox.textAlign,
           textbox.fill,
-          textbox.stroke
+          textbox.stroke,
+          textbox.strokeWidth
         ].join('-')
       },
 
