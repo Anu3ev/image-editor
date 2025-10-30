@@ -448,7 +448,6 @@ export default class TextManager {
 
     if (!hasWidthChange) return
 
-
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
 
