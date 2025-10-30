@@ -152,7 +152,6 @@ export default class HistoryManager {
           fabricObj.scaleY,
           fabricObj.angle,
           fabricObj.opacity,
-          textbox.textStrokePlacement,
           textbox.textCaseRaw,
           textbox.uppercase,
           textbox.underline,

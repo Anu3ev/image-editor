@@ -295,11 +295,6 @@ declare module 'fabric' {
 
   interface TextboxProps {
     /**
-     * Положение обводки текста. Fabric поддерживает только вариант 'center',
-     * остальные значения используются для хранения выбранной опции интерфейса.
-     */
-    textStrokePlacement?: 'unset' | 'inset' | 'center';
-    /**
      * Исходное значение текста без преобразования регистра.
      */
     textCaseRaw?: string;
@@ -310,11 +305,6 @@ declare module 'fabric' {
   }
 
   interface Textbox {
-    /**
-     * Положение обводки текста. Fabric поддерживает только вариант 'center',
-     * остальные значения используются для хранения выбранной опции интерфейса.
-     */
-    textStrokePlacement?: 'unset' | 'inset' | 'center';
     /**
      * Исходное значение текста без преобразования регистра.
      */

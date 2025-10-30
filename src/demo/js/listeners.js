@@ -300,9 +300,7 @@ export default (editorInstance) => {
 
     const fallbackStrokeWidth = Number(textStrokeWidthInput.value) || 0
     const currentStrokeWidth = Math.max(0, Math.round(textbox.strokeWidth ?? fallbackStrokeWidth))
-    const strokePlacement = textbox.textStrokePlacement ?? (currentStrokeWidth > 0 ? 'center' : 'unset')
-    const strokeWidth = strokePlacement === 'unset' ? 0 : currentStrokeWidth
-    setStrokeWidthUI(strokeWidth)
+    setStrokeWidthUI(currentStrokeWidth)
 
     const opacitySource = textbox.opacity ?? Number(textOpacityInput.value) / 100
     const opacity = Math.max(0, Math.min(100, Math.round(opacitySource * 100)))
@@ -428,7 +426,6 @@ export default (editorInstance) => {
       color: textColorInput.value,
       strokeColor: textStrokeColorInput.value,
       strokeWidth,
-      strokePlacement: strokeWidth > 0 ? 'center' : 'unset',
       opacity
     })
 
@@ -520,12 +517,11 @@ export default (editorInstance) => {
     setStrokeWidthUI(width)
     if (!getActiveText()) return
     if (width === 0) {
-      applyTextStyle({ strokeWidth: 0, strokePlacement: 'unset' }, { withoutSave: true })
+      applyTextStyle({ strokeWidth: 0 }, { withoutSave: true })
       return
     }
     applyTextStyle({
       strokeWidth: width,
-      strokePlacement: 'center',
       strokeColor: textStrokeColorInput.value
     }, { withoutSave: true })
   })
@@ -536,12 +532,11 @@ export default (editorInstance) => {
     setStrokeWidthUI(width)
     if (!getActiveText()) return
     if (width === 0) {
-      applyTextStyle({ strokeWidth: 0, strokePlacement: 'unset' })
+      applyTextStyle({ strokeWidth: 0 })
       return
     }
     applyTextStyle({
       strokeWidth: width,
-      strokePlacement: 'center',
       strokeColor: textStrokeColorInput.value
     })
   })
