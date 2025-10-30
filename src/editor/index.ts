@@ -5,6 +5,7 @@ import Listeners from './listeners'
 import ModuleLoader from './module-loader'
 import WorkerManager from './worker-manager'
 import CustomizedControls from './customized-controls'
+import FontManager from './font-manager'
 import ToolbarManager from './ui/toolbar-manager'
 import AngleIndicatorManager from './ui/angle-indicator'
 import HistoryManager, { CanvasFullState } from './history-manager'
@@ -24,8 +25,6 @@ import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
 import PanConstraintManager from './pan-constraint-manager'
 import TextManager from './text-manager'
-
-import type { EditorFontDefinition } from './types/font'
 
 import type { ImportImageOptions } from './image-manager'
 
@@ -176,11 +175,14 @@ export class ImageEditor {
   public angleIndicator?: AngleIndicatorManager
 
   /**
+   * Менеджер шрифтов редактора
+   */
+  public fontManager!: FontManager
+
+  /**
    * Слушатели событий редактора
    */
   public listeners!: Listeners
-
-  private static registeredFontFamilies = new Set<string>()
 
   /**
    * Конструктор класса ImageEditor.
@@ -238,8 +240,9 @@ export class ImageEditor {
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
     this.panConstraintManager = new PanConstraintManager({ editor: this })
+    this.fontManager = new FontManager(this.options.fonts ?? [])
 
-    await this._loadFonts()
+    await this.fontManager.loadFonts()
     this.textManager = new TextManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
@@ -284,116 +287,6 @@ export class ImageEditor {
     if (typeof _onReadyCallback === 'function') {
       _onReadyCallback(this)
     }
-  }
-
-  /**
-   * Предзагружает пользовательские шрифты, переданные в настройки редактора.
-   */
-  private async _loadFonts(): Promise<void> {
-    const fonts = this.options.fonts ?? []
-    if (!fonts.length) return
-
-    if (typeof document === 'undefined') return
-
-    const loadTasks = fonts.map((font) => ImageEditor._loadFont(font))
-
-    await Promise.allSettled(loadTasks)
-  }
-
-  private static async _loadFont(font: EditorFontDefinition): Promise<void> {
-    const supportsFontFace = typeof FontFace !== 'undefined'
-    const family = font.family?.trim()
-    const source = font.source?.trim()
-
-    if (!family || !source) return
-    if (ImageEditor.registeredFontFamilies.has(family)) return
-
-    const familyForCheck = ImageEditor._formatFontFamilyForCheck(family)
-    if (document.fonts && typeof document.fonts.check === 'function' && document.fonts.check(`1em ${familyForCheck}`)) {
-      ImageEditor.registeredFontFamilies.add(family)
-      return
-    }
-
-    const normalizedSource = ImageEditor._normalizeFontSource(source)
-
-    if (supportsFontFace) {
-      try {
-        const fontFace = new FontFace(family, normalizedSource, font.descriptors)
-        const loadedFace = await fontFace.load()
-        document.fonts.add(loadedFace)
-        ImageEditor.registeredFontFamilies.add(family)
-        return
-      } catch (error) {
-        console.warn(`Не удалось загрузить шрифт "${family}" через FontFace API`, error)
-      }
-    }
-
-    ImageEditor._injectFontFace(font, normalizedSource)
-  }
-
-  private static _injectFontFace(font: EditorFontDefinition, normalizedSource: string): void {
-    const { family, descriptors } = font
-    if (!family || typeof document === 'undefined') return
-    if (ImageEditor.registeredFontFamilies.has(family)) return
-
-    const styleElement = document.createElement('style')
-    styleElement.setAttribute('data-editor-font', family)
-
-    const descriptorLines = ImageEditor._descriptorsToCss(descriptors)
-    const cssLines = [
-      '@font-face {',
-      `  font-family: ${ImageEditor._formatFontFamilyForCss(family)};`,
-      `  src: ${normalizedSource};`,
-      ...descriptorLines.map((line) => `  ${line}`),
-      '}'
-    ]
-
-    styleElement.textContent = cssLines.join('\n')
-    document.head.appendChild(styleElement)
-
-    ImageEditor.registeredFontFamilies.add(family)
-  }
-
-  private static _normalizeFontSource(source: string): string {
-    const trimmed = source.trim()
-    if (/^(url|local)\(/i.test(trimmed)) return trimmed
-
-    const escapedSource = trimmed.replace(/'/g, "\\'")
-    return `url('${escapedSource}')`
-  }
-
-  private static _formatFontFamilyForCss(family: string): string {
-    const escaped = family.replace(/'/g, "\\'")
-    return `'${escaped}'`
-  }
-
-  private static _formatFontFamilyForCheck(family: string): string {
-    const escaped = family.replace(/"/g, '\\"')
-    return /\s/.test(family) ? `"${escaped}"` : family
-  }
-
-  private static _descriptorsToCss(descriptors?: FontFaceDescriptors): string[] {
-    if (!descriptors) return []
-
-    const descriptorMap: Partial<Record<keyof FontFaceDescriptors, string>> = {
-      style: 'font-style',
-      weight: 'font-weight',
-      stretch: 'font-stretch',
-      unicodeRange: 'unicode-range',
-      variant: 'font-variant',
-      featureSettings: 'font-feature-settings',
-      display: 'font-display',
-      ascentOverride: 'ascent-override',
-      descentOverride: 'descent-override',
-      lineGapOverride: 'line-gap-override'
-    }
-
-    return Object.entries(descriptors)
-      .filter(([, value]) => value !== undefined && value !== null && `${value}`.length > 0)
-      .map(([key, value]) => {
-        const cssKey = descriptorMap[key as keyof FontFaceDescriptors] ?? key
-        return `${cssKey}: ${value};`
-      })
   }
 
   /**
