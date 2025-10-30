@@ -348,7 +348,6 @@ export default class TextManager {
   }
 
   private handleObjectScaling(event: IEvent<MouseEvent> & { transform?: Transform }): void {
-    console.log('[TextManager] handleObjectScaling triggered')
     const { target, transform } = event
     if (!TextManager._isTextbox(target)) return
     if (!transform) return
@@ -367,18 +366,6 @@ export default class TextManager {
     const isHorizontalHandle = ['ml', 'mr'].includes(corner) || action === 'scaleX'
     const isVerticalHandle = ['mt', 'mb'].includes(corner) || action === 'scaleY'
     const isCornerHandle = ['tl', 'tr', 'bl', 'br'].includes(corner) || action === 'scale'
-
-    console.log('[TextManager] handleObjectScaling info', {
-      corner,
-      action,
-      isHorizontalHandle,
-      isVerticalHandle,
-      isCornerHandle,
-      transformScaleX: transform.scaleX,
-      transformScaleY: transform.scaleY,
-      targetScaleX: target.scaleX,
-      targetScaleY: target.scaleY
-    })
 
     if (!isHorizontalHandle && !isVerticalHandle && !isCornerHandle) return
 
@@ -403,23 +390,10 @@ export default class TextManager {
     const widthChanged = Math.abs(nextWidth - currentWidth) > DIMENSION_EPSILON
     const fontSizeChanged = Math.abs(nextFontSize - (target.fontSize ?? baseFontSize)) > DIMENSION_EPSILON
 
-    console.log('[TextManager] handleObjectScaling computed', {
-      widthScale,
-      heightScale,
-      nextWidth,
-      nextLeft,
-      nextFontSize,
-      currentWidth,
-      widthChanged,
-      fontSizeChanged,
-      originX
-    })
-
     if (!widthChanged && !fontSizeChanged) {
       target.set({ scaleX: 1, scaleY: 1 })
       transform.scaleX = 1
       transform.scaleY = 1
-      console.log('[TextManager] handleObjectScaling skipped (no changes)')
       return
     }
 
@@ -462,12 +436,6 @@ export default class TextManager {
     state.baseWidth = appliedWidth
     state.baseFontSize = target.fontSize ?? nextFontSize
     state.hasWidthChange = widthActuallyChanged || fontSizeChanged
-
-    console.log('[TextManager] handleObjectScaling applied', {
-      width: appliedWidth,
-      left: adjustedLeft,
-      fontSize: target.fontSize
-    })
   }
 
   private handleObjectModified(event: IEvent<MouseEvent>): void {
@@ -478,18 +446,11 @@ export default class TextManager {
 
     this.scalingState.delete(target)
 
-    if (!hasWidthChange) {
-      console.log('[TextManager] handleObjectModified: no width change, skip update')
-      return
-    }
+    if (!hasWidthChange) return
+
 
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
-
-    console.log('[TextManager] handleObjectModified: apply final size', {
-      width,
-      fontSize
-    })
 
     this.updateText(target, {
       width,
@@ -537,7 +498,7 @@ export default class TextManager {
   }
 
   private static _resolveStrokeWidth(width: number | undefined): number {
-    if (!width || width <= 0) return 0
+    if (!width) return 0
 
     // Fabric поддерживает только центрированную обводку.
     return Math.max(0, width)
