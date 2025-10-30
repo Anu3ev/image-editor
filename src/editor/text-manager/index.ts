@@ -421,7 +421,6 @@ export default class TextManager {
 
     // После завершения трансформации фиксируем ширину и размер шрифта через updateText,
     // чтобы излишние scaleX/scaleY не попадали в историю.
-
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
 
