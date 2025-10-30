@@ -60,18 +60,10 @@ type UpdateOptions = {
 const DIMENSION_EPSILON = 0.01
 
 type ScalingState = {
-  initialWidth: number
-  initialFontSize: number
-  anchorLeft: number
-  anchorRight: number
-  anchorCenter: number
   baseWidth: number
   baseLeft: number
   baseFontSize: number
-  lastAppliedWidth: number
-  lastAppliedFontSize: number
   hasWidthChange: boolean
-  hasFontSizeChange: boolean
 }
 
 /**
@@ -99,18 +91,11 @@ export default class TextManager {
    */
   private scalingState: WeakMap<Textbox, ScalingState>
 
-  private handleObjectScalingBound: (event: IEvent<MouseEvent> & { transform?: Transform }) => void
-
-  private handleObjectModifiedBound: (event: IEvent<MouseEvent>) => void
-
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
     this.fonts = editor.options.fonts ?? []
     this.scalingState = new WeakMap()
-
-    this.handleObjectScalingBound = this.handleObjectScaling.bind(this)
-    this.handleObjectModifiedBound = this.handleObjectModified.bind(this)
 
     this._bindEvents()
   }
@@ -119,8 +104,8 @@ export default class TextManager {
    * Уничтожает менеджер и снимает слушатели.
    */
   public destroy(): void {
-    this.canvas.off('object:scaling', this.handleObjectScalingBound)
-    this.canvas.off('object:modified', this.handleObjectModifiedBound)
+    this.canvas.off('object:scaling', this.handleObjectScaling)
+    this.canvas.off('object:modified', this.handleObjectModified)
   }
 
   /**
@@ -174,6 +159,7 @@ export default class TextManager {
       ...rest
     })
 
+    // textCaseRaw хранит исходную строку без применения uppercase
     textbox.textCaseRaw = textbox.text ?? ''
 
     if (uppercase) {
@@ -183,7 +169,7 @@ export default class TextManager {
       }
     }
 
-    if (!rest.left && !rest.top) {
+    if (rest.left === undefined && rest.top === undefined) {
       this.canvas.centerObject(textbox)
     }
 
@@ -253,10 +239,6 @@ export default class TextManager {
       updates.underline = underline
     }
 
-    if (uppercase !== undefined) {
-      // handled below
-    }
-
     if (strikethrough !== undefined) {
       updates.linethrough = strikethrough
     }
@@ -270,9 +252,9 @@ export default class TextManager {
     }
 
     if (strokeColor !== undefined || strokeWidth !== undefined) {
-      const widthSource = strokeWidth !== undefined ? strokeWidth : textbox.strokeWidth ?? 0
+      const widthSource = strokeWidth ?? textbox.strokeWidth ?? 0
       const resolvedStrokeWidth = TextManager._resolveStrokeWidth(widthSource)
-      const colorSource = strokeColor !== undefined ? strokeColor : textbox.stroke ?? undefined
+      const colorSource = strokeColor ?? textbox.stroke ?? undefined
       updates.stroke = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
       updates.strokeWidth = resolvedStrokeWidth
     }
@@ -285,16 +267,17 @@ export default class TextManager {
     const previousUppercase = Boolean(textbox.uppercase)
     const hasTextUpdate = text !== undefined
     const targetRawText = hasTextUpdate ? text ?? '' : previousRaw
-    const nextUppercase = uppercase !== undefined ? uppercase : previousUppercase
+    const nextUppercase = uppercase ?? previousUppercase
     const uppercaseChanged = nextUppercase !== previousUppercase
 
+    // textCaseRaw хранит исходный текст без учёта uppercase,
+    // чтобы можно было переключать регистр без потери оригинальной строки.
     if (hasTextUpdate || uppercaseChanged) {
-      const normalizedRaw = targetRawText
       const renderedText = nextUppercase
-        ? TextManager._toUpperCase(normalizedRaw)
-        : normalizedRaw
+        ? TextManager._toUpperCase(targetRawText)
+        : targetRawText
       updates.text = renderedText
-      textbox.textCaseRaw = normalizedRaw
+      textbox.textCaseRaw = targetRawText
     } else if (textbox.textCaseRaw === undefined) {
       textbox.textCaseRaw = previousRaw
     }
@@ -321,16 +304,14 @@ export default class TextManager {
   private _resolveTextObject(reference: TextReference): Textbox | null {
     if (reference instanceof Textbox) return reference
 
-    const { canvas } = this.editor
-
     if (!reference) {
-      const activeObject = canvas.getActiveObject()
+      const activeObject = this.canvas.getActiveObject()
       return TextManager._isTextbox(activeObject) ? activeObject : null
     }
 
     if (typeof reference === 'string') {
-      const object = canvas.getObjects()
-        .find((item) => TextManager._isTextbox(item) && item.id === reference) as Textbox | undefined
+      const object = this.canvas.getObjects()
+        .find((item): item is Textbox => TextManager._isTextbox(item) && item.id === reference)
 
       return object ?? null
     }
@@ -343,23 +324,23 @@ export default class TextManager {
   }
 
   private _bindEvents(): void {
-    this.canvas.on('object:scaling', this.handleObjectScalingBound)
-    this.canvas.on('object:modified', this.handleObjectModifiedBound)
+    this.canvas.on('object:scaling', this.handleObjectScaling)
+    this.canvas.on('object:modified', this.handleObjectModified)
   }
 
-  private handleObjectScaling(event: IEvent<MouseEvent> & { transform?: Transform }): void {
+  private handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
+    // При масштабировании текстовых объектов пересчитываем ширину/кегль и сбрасываем scale,
+    // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
     const { target, transform } = event
     if (!TextManager._isTextbox(target)) return
     if (!transform) return
 
     const state = this._ensureScalingState(target)
+    const { baseWidth: stateBaseWidth, baseLeft: stateBaseLeft, baseFontSize } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
     const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
-    const { baseWidth, baseLeft, baseFontSize } = {
-      baseWidth: originalWidth ?? state.baseWidth,
-      baseLeft: originalLeft ?? state.baseLeft,
-      baseFontSize: state.baseFontSize
-    }
+    const baseWidth = originalWidth ?? stateBaseWidth
+    const baseLeft = originalLeft ?? stateBaseLeft
 
     const corner = transform.corner ?? ''
     const action = transform.action ?? ''
@@ -377,14 +358,6 @@ export default class TextManager {
     const originX = transform.originX ?? target.originX ?? 'left'
     const rightEdge = baseLeft + baseWidth
     const centerX = baseLeft + (baseWidth / 2)
-
-    let nextLeft = baseLeft
-
-    if (originX === 'right') {
-      nextLeft = rightEdge - nextWidth
-    } else if (originX === 'center') {
-      nextLeft = centerX - (nextWidth / 2)
-    }
 
     const currentWidth = target.width ?? baseWidth
     const widthChanged = Math.abs(nextWidth - currentWidth) > DIMENSION_EPSILON
@@ -417,6 +390,7 @@ export default class TextManager {
     }
 
     target.set({ left: adjustedLeft })
+    state.baseLeft = adjustedLeft
 
     transform.scaleX = 1
     transform.scaleY = 1
@@ -438,23 +412,20 @@ export default class TextManager {
     state.hasWidthChange = widthActuallyChanged || fontSizeChanged
   }
 
-  private handleObjectModified(event: IEvent<MouseEvent>): void {
+  private handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
     const state = this.scalingState.get(target)
-    const hasWidthChange = state?.hasWidthChange
-
     this.scalingState.delete(target)
+    if (!state?.hasWidthChange) return
 
-    if (!hasWidthChange) return
+    // После завершения трансформации фиксируем ширину и размер шрифта через updateText,
+    // чтобы излишние scaleX/scaleY не попадали в историю.
 
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
 
-    this.updateText(target, {
-      width,
-      fontSize
-    })
+    this.updateText(target, { width, fontSize })
 
     target.set({ scaleX: 1, scaleY: 1 })
     target.setCoords()
@@ -467,20 +438,13 @@ export default class TextManager {
       const baseWidth = textbox.width ?? textbox.calcTextWidth()
       const baseLeft = textbox.left ?? 0
       const baseFontSize = textbox.fontSize ?? 16
+      // Храним базовые размеры для одного цикла масштабирования.
       state = {
-        initialWidth: baseWidth,
-        initialFontSize: baseFontSize,
-        anchorLeft: baseLeft,
-        anchorRight: baseLeft + baseWidth,
-        anchorCenter: baseLeft + (baseWidth / 2),
         baseWidth,
         baseFontSize,
         baseLeft,
-        lastAppliedWidth: baseWidth,
-        lastAppliedFontSize: baseFontSize,
-        hasWidthChange: false,
-        hasFontSizeChange: false
-      } as unknown as ScalingState
+        hasWidthChange: false
+      }
       this.scalingState.set(textbox, state)
     }
 

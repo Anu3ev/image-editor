@@ -1,14 +1,15 @@
-import { InteractiveFabricObject, Textbox, controlsUtils } from 'fabric'
+import { Control, InteractiveFabricObject, Textbox, controlsUtils } from 'fabric'
 import { DEFAULT_CONTROLS } from './default-controls'
 
 /**
  * Класс для настройки пользовательских контролов в редакторе
  */
 export default class ControlsCustomizer {
-  private static applyControlOverrides<T extends Record<string, any>>(controls: T): void {
+  private static applyControlOverrides(
+    controls: Record<string, Control | undefined>
+  ): void {
     Object.entries(DEFAULT_CONTROLS).forEach(([key, cfg]) => {
-      const ctrlKey = key as keyof T
-      const control = controls[ctrlKey]
+      const control = controls[key]
       if (!control) return
 
       Object.assign(control, cfg)
