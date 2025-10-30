@@ -189,16 +189,6 @@ export default class TextManager {
       }
     }
 
-    textbox.setControlsVisibility({
-      mt: false,
-      mb: false
-    })
-
-    textbox.setControlsVisibility({
-      mt: false,
-      mb: false
-    })
-
     if (!rest.left && !rest.top) {
       this.canvas.centerObject(textbox)
     }
