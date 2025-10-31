@@ -23,16 +23,25 @@ type InjectFontFaceParams = {
  * Менеджер загрузки пользовательских шрифтов.
  */
 export default class FontManager {
+  /**
+   * Уникальное множество зарегистрированных шрифтов (семейство + источник + дескрипторы).
+   * Нужен, чтобы не инициировать повторную загрузку одного и того же файла.
+   */
   private static registeredFontKeys = new Set<string>()
 
+  /**
+   * Значения по умолчанию соответствуют спецификации CSS Fonts.
+   * Это позволяет сопоставлять дескрипторы, считанные из FontFaceSet,
+   * с нашими локальными настройками без ложных расхождений.
+   */
   private static readonly descriptorDefaults: DescriptorSnapshot = {
     style: 'normal',
-    weight: '400',
+    weight: 'normal',
     stretch: 'normal',
     unicodeRange: 'U+0-10FFFF',
     variant: 'normal',
     featureSettings: 'normal',
-    display: 'swap'
+    display: 'auto'
   }
 
   private fonts: EditorFontDefinition[]
@@ -171,17 +180,21 @@ export default class FontManager {
 
   private static areDescriptorSnapshotsEqual(a: DescriptorSnapshot, b: DescriptorSnapshot): boolean {
     return (
-      a.style === b.style &&
-      a.weight === b.weight &&
-      a.stretch === b.stretch &&
-      a.unicodeRange === b.unicodeRange &&
-      a.variant === b.variant &&
-      a.featureSettings === b.featureSettings &&
-      a.display === b.display
+      a.style === b.style
+      && a.weight === b.weight
+      && a.stretch === b.stretch
+      && a.unicodeRange === b.unicodeRange
+      && a.variant === b.variant
+      && a.featureSettings === b.featureSettings
+      && a.display === b.display
     )
   }
 
-  private static getFontRegistrationKey(family: string, normalizedSource: string, descriptors: DescriptorSnapshot): string {
+  private static getFontRegistrationKey(
+    family: string,
+    normalizedSource: string,
+    descriptors: DescriptorSnapshot
+  ): string {
     const normalizedFamily = FontManager.normalizeFamilyName(family)
 
     return [
