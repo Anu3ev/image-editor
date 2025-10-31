@@ -183,6 +183,33 @@ export default class TextManager {
 
     this.canvas.requestRenderAll()
 
+    const appliedOptions = {
+      id,
+      text,
+      fontFamily: resolvedFontFamily,
+      fontSize,
+      bold,
+      italic,
+      underline,
+      uppercase,
+      strikethrough,
+      align,
+      color,
+      strokeColor: resolvedStrokeColor,
+      strokeWidth: resolvedStrokeWidth,
+      opacity,
+      ...rest
+    }
+
+    this.canvas.fire('editor:text-added', {
+      textbox,
+      options: appliedOptions,
+      flags: {
+        withoutSelection: Boolean(withoutSelection),
+        withoutAdding: Boolean(withoutAdding)
+      }
+    })
+
     return textbox
   }
 
@@ -199,6 +226,31 @@ export default class TextManager {
   ): Textbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
+
+    const beforeState = {
+      id: textbox.id,
+      text: textbox.text ?? undefined,
+      textCaseRaw: textbox.textCaseRaw ?? undefined,
+      uppercase: Boolean(textbox.uppercase),
+      fontFamily: textbox.fontFamily ?? undefined,
+      fontSize: textbox.fontSize ?? undefined,
+      fontWeight: textbox.fontWeight ?? undefined,
+      fontStyle: textbox.fontStyle ?? undefined,
+      underline: textbox.underline ?? undefined,
+      linethrough: textbox.linethrough ?? undefined,
+      textAlign: textbox.textAlign,
+      fill: textbox.fill ?? undefined,
+      stroke: textbox.stroke ?? undefined,
+      strokeWidth: textbox.strokeWidth ?? undefined,
+      opacity: textbox.opacity ?? undefined,
+      left: textbox.left ?? undefined,
+      top: textbox.top ?? undefined,
+      width: textbox.width ?? undefined,
+      height: textbox.height ?? undefined,
+      angle: textbox.angle ?? undefined,
+      scaleX: textbox.scaleX ?? undefined,
+      scaleY: textbox.scaleY ?? undefined
+    }
 
     const {
       text,
@@ -294,6 +346,44 @@ export default class TextManager {
     if (!withoutSave) {
       this.editor.historyManager.saveState()
     }
+
+    const afterState = {
+      id: textbox.id,
+      text: textbox.text ?? undefined,
+      textCaseRaw: textbox.textCaseRaw ?? undefined,
+      uppercase: Boolean(textbox.uppercase),
+      fontFamily: textbox.fontFamily ?? undefined,
+      fontSize: textbox.fontSize ?? undefined,
+      fontWeight: textbox.fontWeight ?? undefined,
+      fontStyle: textbox.fontStyle ?? undefined,
+      underline: textbox.underline ?? undefined,
+      linethrough: textbox.linethrough ?? undefined,
+      textAlign: textbox.textAlign,
+      fill: textbox.fill ?? undefined,
+      stroke: textbox.stroke ?? undefined,
+      strokeWidth: textbox.strokeWidth ?? undefined,
+      opacity: textbox.opacity ?? undefined,
+      left: textbox.left ?? undefined,
+      top: textbox.top ?? undefined,
+      width: textbox.width ?? undefined,
+      height: textbox.height ?? undefined,
+      angle: textbox.angle ?? undefined,
+      scaleX: textbox.scaleX ?? undefined,
+      scaleY: textbox.scaleY ?? undefined
+    }
+
+    this.canvas.fire('editor:text-updated', {
+      textbox,
+      target,
+      style,
+      options: {
+        withoutSave: Boolean(withoutSave),
+        skipRender: Boolean(skipRender)
+      },
+      updates,
+      before: beforeState,
+      after: afterState
+    })
 
     return textbox
   }
