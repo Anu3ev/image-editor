@@ -4,6 +4,13 @@
 export class Canvas {
   public clipPath: any = null
   public dispose = jest.fn()
+  public on = jest.fn()
+  public off = jest.fn()
+  public add = jest.fn()
+  public centerObject = jest.fn()
+  public setActiveObject = jest.fn()
+  public getActiveObject = jest.fn().mockReturnValue(null)
+  public requestRenderAll = jest.fn()
 
   constructor(public el: any, public options: any) {}
 
@@ -123,6 +130,45 @@ export class FabricObject {
   }
 }
 
+export class InteractiveFabricObject extends FabricObject {}
+
+export class Textbox extends FabricObject {
+  public text?: string
+  public id?: string
+  public controls: Record<string, any> = {}
+  public uppercase?: boolean
+  public textCaseRaw?: string
+  public fontSize?: number
+  public width?: number
+  public left?: number
+
+  static ownDefaults: Record<string, any> = {}
+
+  constructor(text: string, options: Record<string, any> = {}) {
+    super(options)
+    this.text = text
+  }
+
+  set(props: Record<string, any>) {
+    Object.assign(this, props)
+  }
+
+  setCoords() {
+    // noop in mock
+  }
+
+  calcTextWidth() {
+    return this.width ?? 0
+  }
+
+  setControlsVisibility = jest.fn()
+}
+
+export const controlsUtils = {
+  createObjectDefaultControls: jest.fn(() => ({})),
+  createTextboxDefaultControls: jest.fn(() => ({}))
+}
+
 export class Gradient {
   type: string
   gradientUnits: string
@@ -162,4 +208,16 @@ export interface CanvasOptions {
   [key: string]: any
 }
 
-export default { Canvas, Pattern, Rect, ActiveSelection, Group, FabricObject, FabricImage, Gradient }
+export default {
+  Canvas,
+  Pattern,
+  Rect,
+  ActiveSelection,
+  Group,
+  FabricObject,
+  FabricImage,
+  Gradient,
+  Textbox,
+  InteractiveFabricObject,
+  controlsUtils
+}

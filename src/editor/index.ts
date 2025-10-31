@@ -5,6 +5,7 @@ import Listeners from './listeners'
 import ModuleLoader from './module-loader'
 import WorkerManager from './worker-manager'
 import CustomizedControls from './customized-controls'
+import FontManager from './font-manager'
 import ToolbarManager from './ui/toolbar-manager'
 import AngleIndicatorManager from './ui/angle-indicator'
 import HistoryManager, { CanvasFullState } from './history-manager'
@@ -23,13 +24,13 @@ import SelectionManager from './selection-manager'
 import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
 import PanConstraintManager from './pan-constraint-manager'
+import TextManager from './text-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
 // TODO: Обложиться тестами с помощью jest
 // TODO: Сделать более симпатичное демо
 // TODO: Режим рисования
-// TODO: Добавление текста
 // TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
 
@@ -164,9 +165,19 @@ export class ImageEditor {
   public panConstraintManager!: PanConstraintManager
 
   /**
+   * Менеджер работы с текстом
+   */
+  public textManager!: TextManager
+
+  /**
    * Менеджер индикатора угла поворота (опционально)
    */
   public angleIndicator?: AngleIndicatorManager
+
+  /**
+   * Менеджер шрифтов редактора
+   */
+  public fontManager!: FontManager
 
   /**
    * Слушатели событий редактора
@@ -229,6 +240,10 @@ export class ImageEditor {
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
     this.panConstraintManager = new PanConstraintManager({ editor: this })
+    this.fontManager = new FontManager(this.options.fonts ?? [])
+
+    await this.fontManager.loadFonts()
+    this.textManager = new TextManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
     if (showRotationAngle) {
@@ -332,6 +347,7 @@ export class ImageEditor {
     this.listeners.destroy()
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
+    this.textManager?.destroy()
     this.canvas.dispose()
     this.workerManager.worker.terminate()
     this.imageManager.revokeBlobUrls()

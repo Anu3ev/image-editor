@@ -1,8 +1,30 @@
-import { CanvasOptions, ActiveSelection, Group } from 'fabric'
+import { CanvasOptions, ActiveSelection, Group, Textbox } from 'fabric'
 import { ImageEditor } from '../../src/editor'
 import HistoryManager from '../../src/editor/history-manager'
+import TextManager from '../../src/editor/text-manager'
+import FontManager from '../../src/editor/font-manager'
+import type { EditorFontDefinition } from '../../src/editor/types/font'
 
 export type AnyFn = (...args: any[]) => any
+
+export const createSimpleDiffPatcher = () => ({
+  diff: jest.fn((prev: any, next: any) => {
+    const prevStr = JSON.stringify(prev)
+    const nextStr = JSON.stringify(next)
+    if (prevStr === nextStr) {
+      return null
+    }
+    return { next: JSON.parse(nextStr) }
+  }),
+  patch: jest.fn((state: any, diff: any) => {
+    if (!diff) {
+      return JSON.parse(JSON.stringify(state))
+    }
+    return JSON.parse(JSON.stringify(diff.next))
+  }),
+  clone: jest.fn(),
+  unpatch: jest.fn()
+})
 
 // Базовые опции и хелпер полной конфигурации
 export const basicOptions: Partial<CanvasOptions> = {
@@ -474,24 +496,7 @@ export const createHistoryManagerTestSetup = (
   } as any
 
   const historyManager = new HistoryManager({ editor: mockEditor as any })
-  const simpleDiffPatcher = {
-    diff: jest.fn((prev: any, next: any) => {
-      const prevStr = JSON.stringify(prev)
-      const nextStr = JSON.stringify(next)
-      if (prevStr === nextStr) {
-        return null
-      }
-      return { next: JSON.parse(nextStr) }
-    }),
-    patch: jest.fn((state: any, diff: any) => {
-      if (!diff) {
-        return JSON.parse(JSON.stringify(state))
-      }
-      return JSON.parse(JSON.stringify(diff.next))
-    }),
-    clone: jest.fn(),
-    unpatch: jest.fn()
-  }
+  const simpleDiffPatcher = createSimpleDiffPatcher()
 
   historyManager.diffPatcher = simpleDiffPatcher as any
 
@@ -508,6 +513,268 @@ export const createHistoryManagerTestSetup = (
       currentHeight = height
     }
   }
+}
+
+const serializeTextboxState = (textbox: Textbox) => ({
+  type: 'textbox',
+  id: textbox.id,
+  text: textbox.text,
+  textCaseRaw: textbox.textCaseRaw,
+  uppercase: textbox.uppercase,
+  fontFamily: textbox.fontFamily,
+  fontSize: textbox.fontSize,
+  fontWeight: textbox.fontWeight,
+  fontStyle: textbox.fontStyle,
+  underline: textbox.underline,
+  linethrough: textbox.linethrough,
+  textAlign: textbox.textAlign,
+  fill: textbox.fill,
+  stroke: textbox.stroke,
+  strokeWidth: textbox.strokeWidth,
+  opacity: textbox.opacity,
+  left: textbox.left,
+  top: textbox.top,
+  width: textbox.width,
+  height: textbox.height,
+  angle: textbox.angle,
+  scaleX: textbox.scaleX,
+  scaleY: textbox.scaleY,
+  originX: textbox.originX,
+  originY: textbox.originY
+})
+
+export type TextManagerTestSetupOptions = {
+  fonts?: EditorFontDefinition[]
+  maxHistoryLength?: number
+}
+
+export type TextManagerTestSetupResult = {
+  editor: any
+  canvas: any
+  historyManager: HistoryManager
+  textManager: TextManager
+  getObjects: () => Textbox[]
+}
+
+export const createTextManagerTestSetup = (
+  options: TextManagerTestSetupOptions = {}
+): TextManagerTestSetupResult => {
+  const {
+    fonts = [{
+      family: 'Roboto',
+      source: '/fonts/roboto.woff2'
+    }],
+    maxHistoryLength = 10
+  } = options
+
+  const handlers: Record<string, AnyFn[]> = {}
+  let objects: Textbox[] = []
+  let activeObject: Textbox | null = null
+
+  const dispatch = (event: string, payload: any) => {
+    const registered = handlers[event]
+    if (!registered) return
+    registered.forEach((handler) => handler(payload))
+  }
+
+  const fireMock = jest.fn((event: string, payload: any) => {
+    dispatch(event, payload)
+  })
+
+  const canvas = {
+    clipPath: null,
+    on: jest.fn((event: string, handler: AnyFn) => {
+      handlers[event] = handlers[event] || []
+      handlers[event]!.push(handler)
+    }),
+    off: jest.fn((event: string, handler: AnyFn) => {
+      const registered = handlers[event]
+      if (!registered) return
+      handlers[event] = registered.filter((item) => item !== handler)
+    }),
+    add: jest.fn((textbox: Textbox) => {
+      objects.push(textbox)
+      activeObject = textbox
+      dispatch('object:added', { target: textbox })
+    }),
+    remove: jest.fn((textbox: Textbox) => {
+      objects = objects.filter((item) => item !== textbox)
+      dispatch('object:removed', { target: textbox })
+    }),
+    centerObject: jest.fn((textbox: Textbox) => {
+      if (textbox.left === undefined) textbox.left = 400
+      if (textbox.top === undefined) textbox.top = 300
+    }),
+    setActiveObject: jest.fn((textbox: Textbox) => {
+      activeObject = textbox
+    }),
+    getActiveObject: jest.fn(() => activeObject),
+    requestRenderAll: jest.fn(),
+    fire: fireMock,
+    getObjects: jest.fn(() => [...objects]),
+    getWidth: jest.fn(() => 800),
+    getHeight: jest.fn(() => 600),
+    renderAll: jest.fn(),
+    setDimensions: jest.fn(),
+    setViewportTransform: jest.fn(),
+    toDatalessObject: jest.fn(() => ({
+      version: '5.0.0',
+      width: 800,
+      height: 600,
+      clipPath: null,
+      objects: objects.map((textbox) => serializeTextboxState(textbox))
+    })),
+    loadFromJSON: jest.fn(async(
+      state: any,
+      reviver?: (serializedObj: any, fabricObject: any) => void
+    ) => {
+      const serializedObjects = state?.objects ?? []
+      objects = serializedObjects.map((data: any) => {
+        const textbox = new Textbox(data.text ?? '', data)
+        if (typeof data.textCaseRaw !== 'undefined') {
+          textbox.textCaseRaw = data.textCaseRaw
+        }
+        if (typeof data.uppercase !== 'undefined') {
+          textbox.uppercase = data.uppercase
+        }
+        if (reviver) {
+          reviver(data, textbox as any)
+        }
+        return textbox
+      })
+      activeObject = objects[objects.length - 1] ?? null
+    })
+  } as any
+
+  const editor = {
+    canvas,
+    options: {
+      fonts,
+      maxHistoryLength
+    },
+    canvasManager: {
+      updateCanvas: jest.fn()
+    },
+    interactionBlocker: {
+      overlayMask: null,
+      refresh: jest.fn(),
+      isBlocked: false
+    },
+    backgroundManager: {
+      backgroundObject: null,
+      removeBackground: jest.fn(),
+      refresh: jest.fn()
+    },
+    montageArea: {
+      id: 'montage-area',
+      width: 400,
+      height: 300
+    },
+    errorManager: {
+      emitError: jest.fn()
+    }
+  } as any
+
+  const historyManager = new HistoryManager({ editor })
+  historyManager.diffPatcher = createSimpleDiffPatcher() as any
+  editor.historyManager = historyManager
+
+  const textManager = new TextManager({ editor })
+
+  return {
+    editor,
+    canvas,
+    historyManager,
+    textManager,
+    getObjects: () => [...objects]
+  }
+}
+
+export type FontManagerTestSetupOptions = {
+  fonts?: EditorFontDefinition[]
+  existingFontFaces?: Array<Record<string, any>>
+}
+
+export const createFontManagerTestSetup = (
+  options: FontManagerTestSetupOptions = {}
+) => {
+  const {
+    fonts = [],
+    existingFontFaces = []
+  } = options
+
+  const appendedNodes: Element[] = []
+  const originalAppendChild = document.head.appendChild.bind(document.head)
+  const appendChildSpy = jest
+    .spyOn(document.head, 'appendChild')
+    .mockImplementation((node: any) => {
+      appendedNodes.push(node as Element)
+      return originalAppendChild(node)
+    })
+
+  const fontSet = {
+    add: jest.fn(),
+    forEach: jest.fn((callback: (fontFace: any) => void) => {
+      existingFontFaces.forEach((fontFace) => callback(fontFace))
+    })
+  }
+
+  const originalFontSet = (document as any).fonts
+  Object.defineProperty(document, 'fonts', {
+    configurable: true,
+    value: fontSet
+  })
+
+  const fontManager = new FontManager(fonts)
+  const originalFontFace = (global as any).FontFace
+
+  const restore = () => {
+    appendChildSpy.mockRestore()
+    appendedNodes.forEach((node) => {
+      if (node.parentNode) {
+        node.parentNode.removeChild(node)
+      }
+    })
+    if (originalFontSet !== undefined) {
+      Object.defineProperty(document, 'fonts', {
+        configurable: true,
+        value: originalFontSet
+      })
+    } else {
+      delete (document as any).fonts
+    }
+    if (originalFontFace === undefined) {
+      delete (global as any).FontFace
+    } else {
+      (global as any).FontFace = originalFontFace
+    }
+  }
+
+  const setFontFaceMock = (implementation?: any) => {
+    if (implementation === undefined) {
+      delete (global as any).FontFace
+    } else {
+      (global as any).FontFace = implementation
+    }
+  }
+
+  return {
+    fontManager,
+    appendChildSpy,
+    fontSet,
+    styleElements: appendedNodes,
+    restore,
+    setFontFaceMock
+  }
+}
+
+export const resetFontManagerRegistry = () => {
+  const registry = (FontManager as any).registeredFontKeys as Set<string> | undefined
+  if (registry && typeof registry.clear === 'function') {
+    registry.clear()
+    return
+  }
+  (FontManager as any).registeredFontKeys = new Set<string>()
 }
 
 // Функции для создания мок-объектов fabric для тестов

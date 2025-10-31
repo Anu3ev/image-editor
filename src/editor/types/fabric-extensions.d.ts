@@ -1,4 +1,5 @@
 import 'fabric'
+import type { EditorFontDefinition } from './font'
 import { ImageEditor } from '..'
 
 declare module 'fabric' {
@@ -219,6 +220,11 @@ declare module 'fabric' {
      * Селекторы элементов, для которых нужно игнорировать события клавиатуры
      */
     keyboardIgnoreSelectors: string[]
+
+    /**
+     * Список шрифтов, которые нужно предзагрузить и сделать доступными в редакторе.
+     */
+    fonts?: EditorFontDefinition[]
   }
 
   interface FabricObject {
@@ -285,5 +291,27 @@ declare module 'fabric' {
      * Уникальный идентификатор группы.
      */
     id?: string;
+  }
+
+  interface TextboxProps {
+    /**
+     * Исходное значение текста без преобразования регистра.
+     */
+    textCaseRaw?: string;
+    /**
+     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     */
+    textCaseUppercase?: boolean;
+  }
+
+  interface Textbox {
+    /**
+     * Исходное значение текста без преобразования регистра.
+     */
+    textCaseRaw?: string;
+    /**
+     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     */
+    textCaseUppercase?: boolean;
   }
 }

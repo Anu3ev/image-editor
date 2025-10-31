@@ -164,10 +164,81 @@
                 Text
               </div>
 
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2 mb-2">
                 <button class="btn btn-outline-primary btn-sm w-100" id="add-text-btn">
                   Add Text
                 </button>
+              </div>
+
+              <div class="mb-2">
+                <label for="text-content" class="form-label">Content</label>
+                <textarea class="form-control form-control-sm" id="text-content" rows="2" placeholder="Введите текст"></textarea>
+              </div>
+
+              <div class="row g-2 align-items-end mb-2">
+                <div class="col-7">
+                  <label for="text-font-family" class="form-label">Font family</label>
+                  <select class="form-select form-select-sm" id="text-font-family"></select>
+                </div>
+                <div class="col-5">
+                  <label for="text-font-size" class="form-label">Font size</label>
+                  <input type="number" class="form-control form-control-sm" id="text-font-size" min="8" max="300" step="1" value="48" />
+                </div>
+              </div>
+
+              <div class="btn-toolbar mb-2">
+                <div class="btn-group btn-group-sm w-100 flex-wrap" role="group">
+                  <button type="button" class="btn btn-outline-secondary" id="text-bold-btn" title="Bold">
+                    <strong>B</strong>
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="text-italic-btn" title="Italic">
+                    <em>I</em>
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="text-underline-btn" title="Underline">
+                    <span class="text-underline">U</span>
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="text-uppercase-btn" title="Uppercase">
+                    Aa
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary" id="text-strike-btn" title="Strikethrough">
+                    <span class="text-strike">S</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label" for="text-align-toggle">Align</label>
+                <button type="button" class="btn btn-outline-secondary btn-sm w-100" id="text-align-toggle" data-align="left">
+                  Align: Left
+                </button>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label" for="text-color">Fill</label>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <input type="color" class="form-control form-control-color" id="text-color" value="#000000">
+                  <div class="d-flex gap-1 flex-wrap" id="text-color-palette"></div>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label" for="text-stroke-color">Stroke</label>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <input type="color" class="form-control form-control-color" id="text-stroke-color" value="#000000">
+                  <div class="d-flex gap-1 flex-wrap" id="text-stroke-palette"></div>
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                  <input type="range" class="form-range flex-grow-1" id="text-stroke-width" min="0" max="20" step="1" value="0">
+                  <span class="text-muted small" id="text-stroke-width-value">0px</span>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label" for="text-opacity">Opacity</label>
+                <div class="d-flex align-items-center gap-2">
+                  <input type="range" class="form-range flex-grow-1" id="text-opacity" min="0" max="100" step="1" value="100">
+                  <span class="text-muted small" id="text-opacity-value">100%</span>
+                </div>
               </div>
             </div>
 

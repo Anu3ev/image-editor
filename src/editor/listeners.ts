@@ -1,4 +1,4 @@
-import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent } from 'fabric'
+import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent, Textbox } from 'fabric'
 
 import { ImageEditor } from '.'
 
@@ -718,7 +718,7 @@ class Listeners {
    */
   handleResetObjectFit(options: TPointerEventInfo<TPointerEvent>): void {
     const target = options?.target
-    if (!target) return
+    if (!target || target instanceof Textbox) return
     this.editor.transformManager.resetObject({ object: target })
   }
 

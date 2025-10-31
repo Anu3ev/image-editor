@@ -32,6 +32,34 @@ body {
   }
 }
 
+.text-controls .palette-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.text-controls .palette-swatch.active {
+  outline: 2px solid #0d6efd;
+  outline-offset: 1px;
+}
+
+.text-controls .palette-swatch:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.text-underline {
+  text-decoration: underline;
+}
+
+.text-strike {
+  text-decoration: line-through;
+}
+
 /* HTML: <div class="loader"></div> */
 .loader {
   width: fit-content;
