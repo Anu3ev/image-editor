@@ -10,6 +10,7 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 - **Montage Area** - Dedicated workspace with clipping region for precise cropping
 - **Multi-layer Support** - Layer management with ordering, visibility, and locking
 - **History System** - Full undo/redo with state management
+- **Rich Text Editing** - Text manager with typography controls, uppercase transforms, and history-aware updates
 - **Object Transformations** - Zoom, rotate, flip, fit, and scale operations
 - **Professional Tools** - Copy/paste, grouping, selection, and alignment
 
@@ -17,6 +18,7 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 - **Background Management** - Color, gradient, and image backgrounds
 - **Image Import/Export** - Support for PNG, JPG, SVG, and PDF formats
 - **Web Worker Integration** - Heavy operations run in background threads
+- **Font Loader** - FontManager handles Google Fonts + custom sources with automatic `@font-face` registration
 - **Configurable Toolbar** - Dynamic toolbar with context-sensitive actions
 - **Clipboard Integration** - Native copy/paste support with system clipboard
 
@@ -113,6 +115,63 @@ await editor.backgroundManager.setImageBackground({ imageSource: 'bg-image.jpg' 
 editor.backgroundManager.removeBackground()
 ```
 
+### Working with Text
+
+```javascript
+// Add a text layer with custom style
+const textbox = editor.textManager.addText({
+  text: 'Привет, Fabric!',
+  fontFamily: 'Merriweather',
+  fontSize: 64,
+  bold: true,
+  align: 'center',
+  color: '#1f2933'
+})
+
+// Update existing text
+editor.textManager.updateText(textbox, {
+  text: 'HELLO FABRIC',
+  uppercase: true,
+  strokeColor: '#2563eb',
+  strokeWidth: 2
+})
+```
+
+### Configuring Fonts
+
+By default the editor ships with a curated Google Fonts collection (Latin + Cyrillic coverage).  
+If you want to use your own fonts, supply a `fonts` array – the provided list will replace the defaults.
+
+```typescript
+import initEditor from '@anu3ev/fabric-image-editor'
+
+await initEditor('editor', {
+  fonts: [
+    {
+      family: 'Alegreya Sans',
+      source: "url('https://fonts.gstatic.com/s/alegreyasans/v26/5aUz9_-1phKLFgshYDvh6Vwt7VptvQ.woff2') format('woff2')",
+      descriptors: {
+        style: 'normal',
+        weight: '400',
+        display: 'swap'
+      }
+    },
+    {
+      family: 'My Custom Font',
+      source: "url('https://example.com/fonts/my-font.woff2') format('woff2')",
+      descriptors: {
+        style: 'normal',
+        weight: '400',
+        display: 'swap',
+        unicodeRange: 'U+0000-00FF'
+      }
+    }
+  ]
+})
+```
+
+> ℹ️ Leave `fonts` undefined to rely on the built-in defaults. Passing the property replaces that set with the fonts you specify.
+
 ## 🎮 Demo Application
 
 The repository includes a comprehensive demo showcasing all features:
@@ -134,6 +193,7 @@ The editor follows a modular architecture with specialized managers:
 - **`ImageManager`** - Image import/export, format handling, PDF generation
 - **`CanvasManager`** - Canvas sizing, scaling, and viewport management
 - **`HistoryManager`** - Undo/redo functionality with state persistence
+- **`TextManager`** - Text object creation, styling, uppercase handling, and history integration
 - **`LayerManager`** - Object layering, z-index management, send to back/front
 - **`BackgroundManager`** - Background colors, gradients, and images
 - **`TransformManager`** - Object transformations, fitting, and scaling
@@ -146,6 +206,7 @@ The editor follows a modular architecture with specialized managers:
 - **`ShapeManager`** - Shape creation (rectangles, circles, triangles)
 - **`ObjectLockManager`** - Object locking and unlocking functionality
 - **`WorkerManager`** - Web Worker integration for heavy operations
+- **`FontManager`** - Font loading via FontFace API or fallback @font-face injection
 - **`ModuleLoader`** - Dynamic module loading (jsPDF, etc.)
 - **`ErrorManager`** - Error handling and user notifications
 
@@ -318,10 +379,13 @@ src/
 │   ├── object-lock-manager/   # Object locking
 │   ├── selection-manager/     # Selection handling
 │   ├── shape-manager/         # Shape creation
+│   ├── text-manager/          # Text objects and styling
+│   ├── font-manager/          # Font loading utilities
 │   ├── transform-manager/     # Object transformations
 │   ├── worker-manager/        # Web Worker management
 │   ├── ui/                    # UI components (toolbar)
 │   └── types/                 # TypeScript definitions
+├── editor/default-fonts.ts    # Built-in Google font presets
 ├── demo/                 # Demo application
 specs/                    # Test specifications
 docs/                     # GitHub Pages build output
@@ -336,7 +400,6 @@ jest.config.ts           # Jest test configuration
 The following features are planned for future releases:
 
 - **Drawing Mode** - Freehand drawing tools and brushes
-- **Text Support** - Text layers with formatting options (IText, Textbox)
 - **Snap/Alignment** - Snap to edges, centers, and guides
 - **Filters & Effects** - Image filters and visual effects
 - **Extended Shape Library** - Additional shapes beyond current rectangles, circles, and triangles
