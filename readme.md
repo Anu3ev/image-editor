@@ -137,6 +137,41 @@ editor.textManager.updateText(textbox, {
 })
 ```
 
+### Configuring Fonts
+
+By default the editor ships with a curated Google Fonts collection (Latin + Cyrillic coverage).  
+If you want to use your own fonts, supply a `fonts` array – the provided list will replace the defaults.
+
+```typescript
+import initEditor from '@anu3ev/fabric-image-editor'
+
+await initEditor('editor', {
+  fonts: [
+    {
+      family: 'Alegreya Sans',
+      source: "url('https://fonts.gstatic.com/s/alegreyasans/v26/5aUz9_-1phKLFgshYDvh6Vwt7VptvQ.woff2') format('woff2')",
+      descriptors: {
+        style: 'normal',
+        weight: '400',
+        display: 'swap'
+      }
+    },
+    {
+      family: 'My Custom Font',
+      source: "url('https://example.com/fonts/my-font.woff2') format('woff2')",
+      descriptors: {
+        style: 'normal',
+        weight: '400',
+        display: 'swap',
+        unicodeRange: 'U+0000-00FF'
+      }
+    }
+  ]
+})
+```
+
+> ℹ️ Leave `fonts` undefined to rely on the built-in defaults. Passing the property replaces that set with the fonts you specify.
+
 ## 🎮 Demo Application
 
 The repository includes a comprehensive demo showcasing all features:
