@@ -325,19 +325,8 @@ export default (editorInstance) => {
     const customFonts = (editorInstance.options.fonts ?? [])
       .map((font) => font.family)
       .filter((family) => typeof family === 'string' && family.trim().length > 0)
-    const fallbackFonts = [
-      'Arial',
-      'Helvetica',
-      'Times New Roman',
-      'Georgia',
-      'Courier New',
-      'Montserrat',
-      'Roboto'
-    ]
-    const uniqueFonts = Array.from(new Set([...customFonts, ...fallbackFonts]))
-
     textFontFamilySelect.innerHTML = ''
-    uniqueFonts.forEach((family) => ensureFontOption(family))
+    customFonts.forEach((family) => ensureFontOption(family))
 
     if (textFontFamilySelect.options.length > 0) {
       textFontFamilySelect.value = textFontFamilySelect.options[0].value

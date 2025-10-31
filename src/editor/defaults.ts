@@ -1,4 +1,5 @@
 import { CanvasOptions } from 'fabric'
+import defaultFonts from './default-fonts'
 
 export const defaults: Partial<CanvasOptions> = {
   /**
@@ -94,7 +95,6 @@ export const defaults: Partial<CanvasOptions> = {
 
   /**
    * Список шрифтов, которые будут доступны в редакторе по умолчанию.
-   * По умолчанию список пустой и используются системные шрифты.
    */
-  fonts: []
+  fonts: defaultFonts
 }
