@@ -2,6 +2,7 @@ import { CanvasOptions, ActiveSelection, Group, Textbox } from 'fabric'
 import { ImageEditor } from '../../src/editor'
 import HistoryManager from '../../src/editor/history-manager'
 import TextManager from '../../src/editor/text-manager'
+import FontManager from '../../src/editor/font-manager'
 import type { EditorFontDefinition } from '../../src/editor/types/font'
 
 export type AnyFn = (...args: any[]) => any
@@ -687,6 +688,93 @@ export const createTextManagerTestSetup = (
     textManager,
     getObjects: () => [...objects]
   }
+}
+
+export type FontManagerTestSetupOptions = {
+  fonts?: EditorFontDefinition[]
+  existingFontFaces?: Array<Record<string, any>>
+}
+
+export const createFontManagerTestSetup = (
+  options: FontManagerTestSetupOptions = {}
+) => {
+  const {
+    fonts = [],
+    existingFontFaces = []
+  } = options
+
+  const appendedNodes: Element[] = []
+  const originalAppendChild = document.head.appendChild.bind(document.head)
+  const appendChildSpy = jest
+    .spyOn(document.head, 'appendChild')
+    .mockImplementation((node: any) => {
+      appendedNodes.push(node as Element)
+      return originalAppendChild(node)
+    })
+
+  const fontSet = {
+    add: jest.fn(),
+    forEach: jest.fn((callback: (fontFace: any) => void) => {
+      existingFontFaces.forEach((fontFace) => callback(fontFace))
+    })
+  }
+
+  const originalFontSet = (document as any).fonts
+  Object.defineProperty(document, 'fonts', {
+    configurable: true,
+    value: fontSet
+  })
+
+  const fontManager = new FontManager(fonts)
+  const originalFontFace = (global as any).FontFace
+
+  const restore = () => {
+    appendChildSpy.mockRestore()
+    appendedNodes.forEach((node) => {
+      if (node.parentNode) {
+        node.parentNode.removeChild(node)
+      }
+    })
+    if (originalFontSet !== undefined) {
+      Object.defineProperty(document, 'fonts', {
+        configurable: true,
+        value: originalFontSet
+      })
+    } else {
+      delete (document as any).fonts
+    }
+    if (originalFontFace === undefined) {
+      delete (global as any).FontFace
+    } else {
+      (global as any).FontFace = originalFontFace
+    }
+  }
+
+  const setFontFaceMock = (implementation?: any) => {
+    if (implementation === undefined) {
+      delete (global as any).FontFace
+    } else {
+      (global as any).FontFace = implementation
+    }
+  }
+
+  return {
+    fontManager,
+    appendChildSpy,
+    fontSet,
+    styleElements: appendedNodes,
+    restore,
+    setFontFaceMock
+  }
+}
+
+export const resetFontManagerRegistry = () => {
+  const registry = (FontManager as any).registeredFontKeys as Set<string> | undefined
+  if (registry && typeof registry.clear === 'function') {
+    registry.clear()
+    return
+  }
+  (FontManager as any).registeredFontKeys = new Set<string>()
 }
 
 // Функции для создания мок-объектов fabric для тестов
