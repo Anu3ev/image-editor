@@ -116,6 +116,7 @@ export default class TextManager {
     this.canvas.off('object:modified', this.handleObjectModified)
     this.canvas.off('text:editing:exited', this.handleTextEditingExited)
     this.canvas.off('text:editing:entered', this.handleTextEditingEntered)
+    this.canvas.off('text:changed', this.handleTextChanged)
   }
 
   /**
@@ -442,10 +443,40 @@ export default class TextManager {
     this.canvas.on('object:modified', this.handleObjectModified)
     this.canvas.on('text:editing:entered', this.handleTextEditingEntered)
     this.canvas.on('text:editing:exited', this.handleTextEditingExited)
+    this.canvas.on('text:changed', this.handleTextChanged)
   }
 
   private handleTextEditingEntered = (): void => {
     this.isTextEditingActive = true
+  }
+
+  /**
+   * Обрабатывает изменение текста во время редактирования.
+   * Обновляет textCaseRaw в реальном времени для корректной работы uppercase.
+   */
+  private handleTextChanged = (event: IEvent): void => {
+    const { target } = event
+    if (!TextManager._isTextbox(target)) return
+
+    const currentText = target.text ?? ''
+    const isUppercase = Boolean(target.uppercase)
+
+    if (isUppercase) {
+      // Если uppercase включен, принудительно переводим весь текст в верхний регистр
+      const uppercased = TextManager._toUpperCase(currentText)
+      if (uppercased !== currentText) {
+        target.set({ text: uppercased })
+        this.canvas.requestRenderAll()
+        // Сохраняем версию в нижнем регистре в textCaseRaw
+        target.textCaseRaw = currentText.toLocaleLowerCase()
+      } else {
+        // Текст уже в верхнем регистре, сохраняем версию в нижнем
+        target.textCaseRaw = currentText.toLocaleLowerCase()
+      }
+    } else {
+      // Если uppercase выключен, сохраняем текст как есть
+      target.textCaseRaw = currentText
+    }
   }
 
   private handleTextEditingExited = (event: IEvent): void => {
