@@ -744,8 +744,24 @@ class Listeners {
     // Проверяем eventTarget
     if (eventTarget) {
       const eventTagName = eventTarget.tagName.toLowerCase()
-      if (inputTypes.includes(eventTagName)) return true
-      if (eventTarget.contentEditable === 'true') return true
+
+      // Для события paste: если eventTarget - это input/select/textarea,
+      // дополнительно проверяем activeElement
+      if (event.type === 'paste' && inputTypes.includes(eventTagName)) {
+        // Если activeElement - это тоже input/select/textarea, то игнорируем
+        // Если activeElement - это body/canvas, то НЕ игнорируем
+        const activeTagName = activeElement?.tagName.toLowerCase()
+        if (activeTagName && inputTypes.includes(activeTagName)) return true
+        return false
+      }
+
+      // Для других событий (не paste) проверяем как обычно
+      if (inputTypes.includes(eventTagName)) {
+        return true
+      }
+      if (eventTarget.contentEditable === 'true') {
+        return true
+      }
     }
 
     // Проверяем activeElement если он отличается от eventTarget
