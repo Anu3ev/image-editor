@@ -465,7 +465,7 @@ export default class TextManager {
     if (isUppercase) {
       // Если uppercase включен, принудительно переводим весь текст в верхний регистр
       const uppercased = TextManager._toUpperCase(currentText)
-      
+
       if (uppercased !== currentText) {
         // Текст содержит маленькие буквы, нужно их перевести в верхний регистр
         target.set({ text: uppercased })
