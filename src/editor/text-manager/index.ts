@@ -452,6 +452,20 @@ export default class TextManager {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
+    // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
+    const currentText = target.text ?? ''
+    const isUppercase = Boolean(target.uppercase)
+
+    if (isUppercase) {
+      // Если uppercase включен, пытаемся восстановить оригинальный регистр
+      // Используем предыдущий textCaseRaw если он есть, иначе переводим в нижний регистр
+      const previousRaw = target.textCaseRaw ?? currentText.toLocaleLowerCase()
+      target.textCaseRaw = previousRaw
+    } else {
+      // Если uppercase выключен, сохраняем текст как есть
+      target.textCaseRaw = currentText
+    }
+
     // Сбрасываем lock-свойства после выхода из режима редактирования
     if (!target.locked) {
       target.set({
