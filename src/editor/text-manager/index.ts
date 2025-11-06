@@ -460,21 +460,37 @@ export default class TextManager {
 
     const currentText = target.text ?? ''
     const isUppercase = Boolean(target.uppercase)
+    const previousRaw = target.textCaseRaw ?? ''
 
     if (isUppercase) {
       // Если uppercase включен, принудительно переводим весь текст в верхний регистр
       const uppercased = TextManager._toUpperCase(currentText)
+      
       if (uppercased !== currentText) {
+        // Текст содержит маленькие буквы, нужно их перевести в верхний регистр
         target.set({ text: uppercased })
         this.canvas.requestRenderAll()
-        // Сохраняем версию в нижнем регистре в textCaseRaw
-        target.textCaseRaw = currentText.toLocaleLowerCase()
+      }
+
+      // Восстанавливаем оригинальный регистр:
+      // Определяем, какие символы были добавлены/изменены
+      const rawLength = previousRaw.length
+      const currentLength = currentText.length
+
+      if (currentLength > rawLength) {
+        // Добавлены новые символы - сохраняем их в нижнем регистре
+        const addedText = currentText.slice(rawLength).toLocaleLowerCase()
+        target.textCaseRaw = previousRaw + addedText
+      } else if (currentLength < rawLength) {
+        // Символы удалены - обрезаем textCaseRaw
+        target.textCaseRaw = previousRaw.slice(0, currentLength)
       } else {
-        // Текст уже в верхнем регистре, сохраняем версию в нижнем
+        // Длина не изменилась, но текст мог измениться (замена символов)
+        // Сохраняем новые символы в нижнем регистре
         target.textCaseRaw = currentText.toLocaleLowerCase()
       }
     } else {
-      // Если uppercase выключен, сохраняем текст как есть
+      // Если uppercase выключен, сохраняем текст как есть (с оригинальным регистром)
       target.textCaseRaw = currentText
     }
   }
