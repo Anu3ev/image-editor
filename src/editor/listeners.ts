@@ -339,21 +339,25 @@ class Listeners {
    */
   handleObjectModifiedHistory(): void {
     if (this.editor.historyManager.skipHistory) return
+    if (this.editor.textManager.isTextEditingActive) return
     this.editor.historyManager.saveState()
   }
 
   handleObjectRotatingHistory(): void {
     if (this.editor.historyManager.skipHistory) return
+    if (this.editor.textManager.isTextEditingActive) return
     this.editor.historyManager.saveState()
   }
 
   handleObjectAddedHistory(): void {
     if (this.editor.historyManager.skipHistory) return
+    if (this.editor.textManager.isTextEditingActive) return
     this.editor.historyManager.saveState()
   }
 
   handleObjectRemovedHistory(): void {
     if (this.editor.historyManager.skipHistory) return
+    if (this.editor.textManager.isTextEditingActive) return
     this.editor.historyManager.saveState()
   }
 

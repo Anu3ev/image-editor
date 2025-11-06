@@ -29,7 +29,9 @@ const OBJECT_SERIALIZATION_PROPS = [
   'lockScalingX',
   'lockScalingY',
   'lockSkewingX',
-  'lockSkewingY'
+  'lockSkewingY',
+  'textCaseRaw',
+  'uppercase'
 ] as const
 
 export type CanvasFullState = {
@@ -152,6 +154,7 @@ export default class HistoryManager {
           fabricObj.scaleY,
           fabricObj.angle,
           fabricObj.opacity,
+          textbox.text,
           textbox.textCaseRaw,
           textbox.uppercase,
           textbox.underline,

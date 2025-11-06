@@ -12,6 +12,7 @@ import type { EditorFontDefinition } from '../types/font'
 
 type TextCreationFlags = {
   withoutSelection?: boolean
+  withoutSave?: boolean
   withoutAdding?: boolean
 }
 
@@ -84,18 +85,25 @@ export default class TextManager {
   /**
    * Список доступных шрифтов, переданных при инициализации редактора.
    */
-  private fonts: EditorFontDefinition[]
+  public fonts: EditorFontDefinition[]
 
   /**
    * Данные о масштабе текста, которые собираются в процессе трансформации.
    */
-  private scalingState: WeakMap<Textbox, ScalingState>
+  public scalingState: WeakMap<Textbox, ScalingState>
+
+  /**
+   * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
+   * Используется для предотвращения сохранения состояния с временными lock-свойствами.
+   */
+  public isTextEditingActive: boolean
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
     this.fonts = editor.options.fonts ?? []
     this.scalingState = new WeakMap()
+    this.isTextEditingActive = false
 
     this._bindEvents()
   }
@@ -106,6 +114,8 @@ export default class TextManager {
   public destroy(): void {
     this.canvas.off('object:scaling', this.handleObjectScaling)
     this.canvas.off('object:modified', this.handleObjectModified)
+    this.canvas.off('text:editing:exited', this.handleTextEditingExited)
+    this.canvas.off('text:editing:entered', this.handleTextEditingEntered)
   }
 
   /**
@@ -131,8 +141,11 @@ export default class TextManager {
       opacity = 1,
       ...rest
     }: TextStyleOptions = {},
-    { withoutSelection, withoutAdding }: TextCreationFlags = {}
+    { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
   ): Textbox {
+    const { historyManager } = this.editor
+    historyManager.suspendHistory()
+
     const resolvedFontFamily = fontFamily ?? this._getDefaultFontFamily()
 
     const resolvedStrokeWidth = TextManager._resolveStrokeWidth(strokeWidth)
@@ -183,6 +196,12 @@ export default class TextManager {
 
     this.canvas.requestRenderAll()
 
+    historyManager.resumeHistory()
+
+    if (!withoutSave) {
+      historyManager.saveState()
+    }
+
     const appliedOptions = {
       id,
       text,
@@ -206,6 +225,7 @@ export default class TextManager {
       options: appliedOptions,
       flags: {
         withoutSelection: Boolean(withoutSelection),
+        withoutSave: Boolean(withoutSave),
         withoutAdding: Boolean(withoutAdding)
       }
     })
@@ -226,6 +246,9 @@ export default class TextManager {
   ): Textbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
+
+    const { historyManager } = this.editor
+    historyManager.suspendHistory()
 
     const beforeState = {
       id: textbox.id,
@@ -343,8 +366,9 @@ export default class TextManager {
       this.canvas.requestRenderAll()
     }
 
+    historyManager.resumeHistory()
     if (!withoutSave) {
-      this.editor.historyManager.saveState()
+      historyManager.saveState()
     }
 
     const afterState = {
@@ -416,6 +440,31 @@ export default class TextManager {
   private _bindEvents(): void {
     this.canvas.on('object:scaling', this.handleObjectScaling)
     this.canvas.on('object:modified', this.handleObjectModified)
+    this.canvas.on('text:editing:entered', this.handleTextEditingEntered)
+    this.canvas.on('text:editing:exited', this.handleTextEditingExited)
+  }
+
+  private handleTextEditingEntered = (): void => {
+    this.isTextEditingActive = true
+  }
+
+  private handleTextEditingExited = (event: IEvent): void => {
+    const { target } = event
+    if (!TextManager._isTextbox(target)) return
+
+    // Сбрасываем lock-свойства после выхода из режима редактирования
+    if (!target.locked) {
+      target.set({
+        lockMovementX: false,
+        lockMovementY: false
+      })
+    }
+
+    // Сохраняем состояние с небольшой задержкой, чтобы Fabric успел завершить все внутренние операции
+    setTimeout(() => {
+      this.isTextEditingActive = false
+      this.editor.historyManager.saveState()
+    }, 50)
   }
 
   private handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
