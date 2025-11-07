@@ -345,4 +345,146 @@ describe('Listeners', () => {
       expect(remWin).toHaveBeenCalled()
     })
   })
+
+  describe('игнорирование событий paste с select элементом', () => {
+    let editor: ReturnType<typeof createEditorStub>
+    let listeners: Listeners
+
+    beforeEach(() => {
+      editor = createEditorStub()
+      listeners = new Listeners({ editor, options: {} })
+    })
+
+    const createPasteEvent = (eventTarget: HTMLElement, activeElement: HTMLElement = document.body) => {
+      const event = {
+        type: 'paste',
+        target: eventTarget,
+        preventDefault: jest.fn(),
+        stopPropagation: jest.fn(),
+        clipboardData: {
+          getData: jest.fn().mockReturnValue(''),
+          items: []
+        }
+      } as any
+
+      Object.defineProperty(document, 'activeElement', {
+        value: activeElement,
+        configurable: true
+      })
+
+      return event
+    }
+
+    describe('событие paste с event.target = select, activeElement = body', () => {
+      it('событие НЕ должно игнорироваться', () => {
+        const select = document.createElement('select')
+        const body = document.body
+
+        const event = createPasteEvent(select, body)
+        const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
+
+        expect(shouldIgnore).toBe(false)
+      })
+
+      it('clipboardManager.handlePasteEvent должен вызваться', () => {
+        const select = document.createElement('select')
+        const body = document.body
+
+        const event = createPasteEvent(select, body)
+        listeners.handlePasteEvent(event)
+
+        expect(editor.clipboardManager.handlePasteEvent).toHaveBeenCalledWith(event)
+      })
+    })
+
+    describe('событие paste с event.target = select, activeElement = select', () => {
+      it('событие ДОЛЖНО игнорироваться (пользователь работает с реальным select)', () => {
+        const select = document.createElement('select')
+
+        const event = createPasteEvent(select, select)
+        const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
+
+        expect(shouldIgnore).toBe(true)
+      })
+
+      it('clipboardManager.handlePasteEvent НЕ должен вызваться', () => {
+        const select = document.createElement('select')
+
+        const event = createPasteEvent(select, select)
+        listeners.handlePasteEvent(event)
+
+        expect(editor.clipboardManager.handlePasteEvent).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('событие paste с event.target = body, activeElement = body', () => {
+      it('событие НЕ должно игнорироваться', () => {
+        const body = document.body
+
+        const event = createPasteEvent(body, body)
+        const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
+
+        expect(shouldIgnore).toBe(false)
+      })
+
+      it('clipboardManager.handlePasteEvent должен вызваться', () => {
+        const body = document.body
+
+        const event = createPasteEvent(body, body)
+        listeners.handlePasteEvent(event)
+
+        expect(editor.clipboardManager.handlePasteEvent).toHaveBeenCalledWith(event)
+      })
+    })
+
+    describe('событие copy/keydown с button в фокусе', () => {
+      it('события НЕ должны игнорироваться', () => {
+        const button = document.createElement('button')
+
+        Object.defineProperty(document, 'activeElement', {
+          value: button,
+          configurable: true
+        })
+
+        const copyEvent = {
+          type: 'keydown',
+          key: 'c',
+          code: 'KeyC',
+          ctrlKey: true,
+          metaKey: false,
+          target: button,
+          preventDefault: jest.fn(),
+          stopPropagation: jest.fn()
+        } as any
+
+        const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(copyEvent)
+
+        expect(shouldIgnore).toBe(false)
+      })
+
+      it('шорткаты редактора должны работать при фокусе на button', () => {
+        const button = document.createElement('button')
+
+        Object.defineProperty(document, 'activeElement', {
+          value: button,
+          configurable: true
+        })
+
+        const copyEvent = {
+          type: 'keydown',
+          key: 'c',
+          code: 'KeyC',
+          ctrlKey: true,
+          metaKey: false,
+          target: button,
+          preventDefault: jest.fn(),
+          stopPropagation: jest.fn()
+        } as any
+
+        listeners.handleCopyEvent(copyEvent)
+
+        expect(editor.clipboardManager.copy).toHaveBeenCalled()
+      })
+    })
+  })
 })
