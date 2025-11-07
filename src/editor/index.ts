@@ -241,8 +241,6 @@ export class ImageEditor {
     this.deletionManager = new DeletionManager({ editor: this })
     this.panConstraintManager = new PanConstraintManager({ editor: this })
     this.fontManager = new FontManager(this.options.fonts ?? [])
-
-    await this.fontManager.loadFonts()
     this.textManager = new TextManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
@@ -263,6 +261,9 @@ export class ImageEditor {
     this.canvasManager.setCanvasCSSHeight(canvasCSSHeight)
     this.canvasManager.updateCanvas()
     this.zoomManager.calculateAndApplyDefaultZoom()
+
+    // Загружаем шрифты после того как редактор получил размеры
+    await this.fontManager.loadFonts()
 
     if (initialImage?.source) {
       const {

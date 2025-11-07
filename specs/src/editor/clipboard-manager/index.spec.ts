@@ -621,4 +621,122 @@ describe('ClipboardManager', () => {
       })
     })
   })
+
+  describe('копирование текстовых объектов с кастомными свойствами', () => {
+    describe('textCaseRaw и uppercase при копировании', () => {
+      it('textCaseRaw корректно копируется в клон', async () => {
+        const textbox = createMockFabricObject({
+          type: 'textbox',
+          id: 'text-1',
+          text: 'TEST',
+          textCaseRaw: 'test',
+          uppercase: true
+        })
+
+        mockCanvas.getActiveObject.mockReturnValue(textbox)
+
+        clipboardManager.copy()
+        await new Promise(process.nextTick)
+
+        expect(clipboardManager.clipboard).toBeTruthy()
+        expect(clipboardManager.clipboard?.textCaseRaw).toBe('test')
+      })
+
+      it('uppercase корректно копируется в клон', async () => {
+        const textbox = createMockFabricObject({
+          type: 'textbox',
+          id: 'text-2',
+          text: 'UPPERCASED',
+          textCaseRaw: 'uppercased',
+          uppercase: true
+        })
+
+        mockCanvas.getActiveObject.mockReturnValue(textbox)
+
+        clipboardManager.copy()
+        await new Promise(process.nextTick)
+
+        expect(clipboardManager.clipboard).toBeTruthy()
+        expect(clipboardManager.clipboard?.uppercase).toBe(true)
+      })
+
+      it('после редактирования текста копирование работает', async () => {
+        const textbox = createMockFabricObject({
+          type: 'textbox',
+          id: 'text-3',
+          text: 'Измененный текст',
+          textCaseRaw: 'измененный текст',
+          uppercase: false
+        })
+
+        mockCanvas.getActiveObject.mockReturnValue(textbox)
+
+        clipboardManager.copy()
+        await new Promise(process.nextTick)
+
+        expect(clipboardManager.clipboard).toBeTruthy()
+        expect(clipboardManager.clipboard?.text).toBe('Измененный текст')
+        expect(clipboardManager.clipboard?.textCaseRaw).toBe('измененный текст')
+      })
+    })
+
+    describe('полный workflow: создать → редактировать → скопировать → вставить', () => {
+      it('вставленный текст совпадает с отредактированным', async () => {
+        const editedText = 'Отредактированный текст'
+
+        const textbox = createMockFabricObject({
+          type: 'textbox',
+          id: 'text-4',
+          text: editedText,
+          textCaseRaw: editedText.toLowerCase(),
+          uppercase: false,
+          left: 100,
+          top: 100
+        })
+
+        mockCanvas.getActiveObject.mockReturnValue(textbox)
+
+        clipboardManager.copy()
+        await new Promise(process.nextTick)
+
+        expect(clipboardManager.clipboard?.text).toBe(editedText)
+        expect(clipboardManager.clipboard?.textCaseRaw).toBe(editedText.toLowerCase())
+
+        const result = await clipboardManager.paste()
+
+        expect(result).toBe(true)
+        expect(mockCanvas.add).toHaveBeenCalled()
+
+        const addedObject = mockCanvas.add.mock.calls[0][0]
+        expect(addedObject.text).toBe(editedText)
+        expect(addedObject.textCaseRaw).toBe(editedText.toLowerCase())
+      })
+
+      it('вставленный объект имеет те же кастомные свойства', async () => {
+        const textbox = createMockFabricObject({
+          type: 'textbox',
+          id: 'text-5',
+          text: 'UPPERCASE TEXT',
+          textCaseRaw: 'uppercase text',
+          uppercase: true,
+          left: 50,
+          top: 50
+        })
+
+        mockCanvas.getActiveObject.mockReturnValue(textbox)
+
+        clipboardManager.copy()
+        await new Promise(process.nextTick)
+
+        const result = await clipboardManager.paste()
+
+        expect(result).toBe(true)
+
+        const addedObject = mockCanvas.add.mock.calls[0][0]
+        expect(addedObject.uppercase).toBe(true)
+        expect(addedObject.textCaseRaw).toBe('uppercase text')
+        expect(addedObject.text).toBe('UPPERCASE TEXT')
+      })
+    })
+  })
 })

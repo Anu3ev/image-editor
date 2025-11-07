@@ -8,10 +8,12 @@ import {
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
 
 type TextCreationFlags = {
   withoutSelection?: boolean
+  withoutSave?: boolean
   withoutAdding?: boolean
 }
 
@@ -84,18 +86,25 @@ export default class TextManager {
   /**
    * Список доступных шрифтов, переданных при инициализации редактора.
    */
-  private fonts: EditorFontDefinition[]
+  public fonts: EditorFontDefinition[]
 
   /**
    * Данные о масштабе текста, которые собираются в процессе трансформации.
    */
   private scalingState: WeakMap<Textbox, ScalingState>
 
+  /**
+   * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
+   * Используется для предотвращения сохранения состояния с временными lock-свойствами.
+   */
+  public isTextEditingActive: boolean
+
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
     this.fonts = editor.options.fonts ?? []
     this.scalingState = new WeakMap()
+    this.isTextEditingActive = false
 
     this._bindEvents()
   }
@@ -106,6 +115,9 @@ export default class TextManager {
   public destroy(): void {
     this.canvas.off('object:scaling', this.handleObjectScaling)
     this.canvas.off('object:modified', this.handleObjectModified)
+    this.canvas.off('text:editing:exited', this.handleTextEditingExited)
+    this.canvas.off('text:editing:entered', this.handleTextEditingEntered)
+    this.canvas.off('text:changed', this.handleTextChanged)
   }
 
   /**
@@ -131,8 +143,11 @@ export default class TextManager {
       opacity = 1,
       ...rest
     }: TextStyleOptions = {},
-    { withoutSelection, withoutAdding }: TextCreationFlags = {}
+    { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
   ): Textbox {
+    const { historyManager } = this.editor
+    historyManager.suspendHistory()
+
     const resolvedFontFamily = fontFamily ?? this._getDefaultFontFamily()
 
     const resolvedStrokeWidth = TextManager._resolveStrokeWidth(strokeWidth)
@@ -183,6 +198,12 @@ export default class TextManager {
 
     this.canvas.requestRenderAll()
 
+    historyManager.resumeHistory()
+
+    if (!withoutSave) {
+      historyManager.saveState()
+    }
+
     const appliedOptions = {
       id,
       text,
@@ -206,6 +227,7 @@ export default class TextManager {
       options: appliedOptions,
       flags: {
         withoutSelection: Boolean(withoutSelection),
+        withoutSave: Boolean(withoutSave),
         withoutAdding: Boolean(withoutAdding)
       }
     })
@@ -226,6 +248,9 @@ export default class TextManager {
   ): Textbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
+
+    const { historyManager } = this.editor
+    historyManager.suspendHistory()
 
     const beforeState = {
       id: textbox.id,
@@ -343,8 +368,9 @@ export default class TextManager {
       this.canvas.requestRenderAll()
     }
 
+    historyManager.resumeHistory()
     if (!withoutSave) {
-      this.editor.historyManager.saveState()
+      historyManager.saveState()
     }
 
     const afterState = {
@@ -416,6 +442,91 @@ export default class TextManager {
   private _bindEvents(): void {
     this.canvas.on('object:scaling', this.handleObjectScaling)
     this.canvas.on('object:modified', this.handleObjectModified)
+    this.canvas.on('text:editing:entered', this.handleTextEditingEntered)
+    this.canvas.on('text:editing:exited', this.handleTextEditingExited)
+    this.canvas.on('text:changed', this.handleTextChanged)
+  }
+
+  private handleTextEditingEntered = (): void => {
+    this.isTextEditingActive = true
+  }
+
+  /**
+   * Обрабатывает изменение текста во время редактирования.
+   * Обновляет textCaseRaw в реальном времени для корректной работы uppercase.
+   */
+  private handleTextChanged = (event: IEvent): void => {
+    const { target } = event
+    if (!TextManager._isTextbox(target)) return
+
+    const currentText = target.text ?? ''
+    const isUppercase = Boolean(target.uppercase)
+    const previousRaw = target.textCaseRaw ?? ''
+
+    if (isUppercase) {
+      // Если uppercase включен, принудительно переводим весь текст в верхний регистр
+      const uppercased = TextManager._toUpperCase(currentText)
+
+      if (uppercased !== currentText) {
+        // Текст содержит маленькие буквы, нужно их перевести в верхний регистр
+        target.set({ text: uppercased })
+        this.canvas.requestRenderAll()
+      }
+
+      // Восстанавливаем оригинальный регистр:
+      // Определяем, какие символы были добавлены/изменены
+      const rawLength = previousRaw.length
+      const currentLength = currentText.length
+
+      if (currentLength > rawLength) {
+        // Добавлены новые символы - сохраняем их в нижнем регистре
+        const addedText = currentText.slice(rawLength).toLocaleLowerCase()
+        target.textCaseRaw = previousRaw + addedText
+      } else if (currentLength < rawLength) {
+        // Символы удалены - обрезаем textCaseRaw
+        target.textCaseRaw = previousRaw.slice(0, currentLength)
+      } else {
+        // Длина не изменилась, но текст мог измениться (замена символов)
+        // Сохраняем новые символы в нижнем регистре
+        target.textCaseRaw = currentText.toLocaleLowerCase()
+      }
+    } else {
+      // Если uppercase выключен, сохраняем текст как есть (с оригинальным регистром)
+      target.textCaseRaw = currentText
+    }
+  }
+
+  private handleTextEditingExited = (event: IEvent): void => {
+    const { target } = event
+    if (!TextManager._isTextbox(target)) return
+
+    // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
+    const currentText = target.text ?? ''
+    const isUppercase = Boolean(target.uppercase)
+
+    if (isUppercase) {
+      // Если uppercase включен, пытаемся восстановить оригинальный регистр
+      // Используем предыдущий textCaseRaw если он есть, иначе переводим в нижний регистр
+      const previousRaw = target.textCaseRaw ?? currentText.toLocaleLowerCase()
+      target.textCaseRaw = previousRaw
+    } else {
+      // Если uppercase выключен, сохраняем текст как есть
+      target.textCaseRaw = currentText
+    }
+
+    // Сбрасываем lock-свойства после выхода из режима редактирования
+    if (!target.locked) {
+      target.set({
+        lockMovementX: false,
+        lockMovementY: false
+      })
+    }
+
+    // Сохраняем состояние с небольшой задержкой, чтобы Fabric успел завершить все внутренние операции
+    setTimeout(() => {
+      this.isTextEditingActive = false
+      this.editor.historyManager.saveState()
+    }, TEXT_EDITING_DEBOUNCE_MS)
   }
 
   private handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
