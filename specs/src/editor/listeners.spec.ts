@@ -378,19 +378,25 @@ describe('Listeners', () => {
     describe('события paste с элементами ввода (input, textarea, select)', () => {
       const inputTypes = ['input', 'textarea', 'select'] as const
 
-      inputTypes.forEach((elementType) => {
-        describe(`event.target = ${elementType}, activeElement = body`, () => {
-          it('событие НЕ должно игнорироваться (баг браузера)', () => {
+      describe('event.target !== activeElement - событие редактора НЕ игнорируется', () => {
+        // Когда event.target и activeElement разные элементы,
+        // это означает баг браузера: событие приходит на элемент ввода,
+        // но фокус находится на body/canvas. В этом случае событие
+        // должно обработаться редактором.
+
+        inputTypes.forEach((elementType) => {
+          it(`${elementType} как event.target, но activeElement = body → редактор обрабатывает`, () => {
             const element = document.createElement(elementType)
             const body = document.body
 
             const event = createPasteEvent(element, body)
             const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
 
+            // События редактора НЕ игнорируются, так как элементы не совпадают
             expect(shouldIgnore).toBe(false)
           })
 
-          it('clipboardManager.handlePasteEvent должен вызваться', () => {
+          it(`${elementType}: clipboardManager.handlePasteEvent вызывается`, () => {
             const element = document.createElement(elementType)
             const body = document.body
 
@@ -400,18 +406,26 @@ describe('Listeners', () => {
             expect(editor.clipboardManager.handlePasteEvent).toHaveBeenCalledWith(event)
           })
         })
+      })
 
-        describe(`event.target = ${elementType}, activeElement = ${elementType}`, () => {
-          it('событие ДОЛЖНО игнорироваться (пользователь работает с полем)', () => {
+      describe('event.target === activeElement - событие редактора игнорируется', () => {
+        // Когда event.target и activeElement это один и тот же элемент,
+        // это означает что пользователь действительно работает с полем ввода.
+        // В этом случае событие должно игнорироваться редактором,
+        // чтобы не мешать нативному поведению браузера.
+
+        inputTypes.forEach((elementType) => {
+          it(`${elementType} как event.target И activeElement → редактор игнорирует`, () => {
             const element = document.createElement(elementType)
 
             const event = createPasteEvent(element, element)
             const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
 
+            // События редактора игнорируются, так как пользователь работает с полем
             expect(shouldIgnore).toBe(true)
           })
 
-          it('clipboardManager.handlePasteEvent НЕ должен вызваться', () => {
+          it(`${elementType}: clipboardManager.handlePasteEvent НЕ вызывается`, () => {
             const element = document.createElement(elementType)
 
             const event = createPasteEvent(element, element)
