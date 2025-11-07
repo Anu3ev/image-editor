@@ -146,6 +146,9 @@ export const createEditorStub = () => {
     selectionManager: { selectAll: jest.fn() },
     deletionManager: { deleteSelectedObjects: jest.fn() },
     clipboardManager: { copy: jest.fn(), handlePasteEvent: jest.fn() },
+    textManager: {
+      isTextEditingActive: false
+    },
     errorManager: {
       emitWarning: jest.fn(),
       emitError: jest.fn()

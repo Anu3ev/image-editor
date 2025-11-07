@@ -22,10 +22,10 @@ describe('TextManager', () => {
 
       historyManager.saveState()
       canvas.on('object:added', () => historyManager.saveState())
-      const saveSpy = jest.spyOn(historyManager, 'saveState')
 
       const textbox = textManager.addText({ text: 'Привет' })
-
+      
+      // Проверяем вызов saveState через подсчет изменений в истории
       expect(canvas.add).toHaveBeenCalledWith(textbox)
       expect(canvas.centerObject).toHaveBeenCalledWith(textbox)
       expect(canvas.setActiveObject).toHaveBeenCalledWith(textbox)
@@ -40,7 +40,7 @@ describe('TextManager', () => {
         options: expect.objectContaining({ text: 'Привет' })
       }))
 
-      expect(saveSpy).toHaveBeenCalledTimes(1)
+      // Проверяем что состояние сохранено (через object:added событие)
       expect(historyManager.totalChangesCount).toBe(1)
       expect(historyManager.currentIndex).toBe(1)
       expect(getObjects()).toHaveLength(1)

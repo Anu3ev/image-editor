@@ -267,6 +267,13 @@ describe('Listeners', () => {
       (editor.historyManager.saveState as jest.Mock).mockClear()
       editor.historyManager.skipHistory = true
       listeners.handleObjectModifiedHistory()
+      expect(editor.historyManager.saveState).not.toHaveBeenCalled();
+
+      // Проверяем что isTextEditingActive также блокирует сохранение
+      (editor.historyManager.saveState as jest.Mock).mockClear()
+      editor.historyManager.skipHistory = false
+      editor.textManager.isTextEditingActive = true
+      listeners.handleObjectModifiedHistory()
       expect(editor.historyManager.saveState).not.toHaveBeenCalled()
     })
 
