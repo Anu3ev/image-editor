@@ -144,7 +144,7 @@ export default (editorInstance) => {
     '#7c3aed',
     '#111827'
   ]
-  const ALIGN_SEQUENCE = ['left', 'center', 'right']
+  const ALIGN_SEQUENCE = ['left', 'center', 'right', 'justify']
 
   let isSyncingControls = false
   let textColorButtons = []
@@ -315,7 +315,7 @@ export default (editorInstance) => {
     const target = getActiveText()
     if (!target) return
 
-    const updated = editorInstance.textManager.updateText(target, style, options)
+    const updated = editorInstance.textManager.updateText({ target, style, ...options })
     if (updated) {
       syncTextControls(updated)
     }

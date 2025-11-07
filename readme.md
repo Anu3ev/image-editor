@@ -129,17 +129,20 @@ const textbox = editor.textManager.addText({
 })
 
 // Update existing text
-editor.textManager.updateText(textbox, {
-  text: 'HELLO FABRIC',
-  uppercase: true,
-  strokeColor: '#2563eb',
-  strokeWidth: 2
+editor.textManager.updateText({
+  target: textbox,
+  style: {
+    text: 'HELLO FABRIC',
+    uppercase: true,
+    strokeColor: '#2563eb',
+    strokeWidth: 2
+  }
 })
 ```
 
 ### Configuring Fonts
 
-By default the editor ships with a curated Google Fonts collection (Latin + Cyrillic coverage).  
+By default the editor ships with a curated Google Fonts collection (Latin + Cyrillic coverage).
 If you want to use your own fonts, supply a `fonts` array – the provided list will replace the defaults.
 
 ```typescript
