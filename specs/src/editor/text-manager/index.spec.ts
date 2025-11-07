@@ -69,20 +69,23 @@ describe('TextManager', () => {
       canvas.requestRenderAll.mockClear()
       canvas.fire.mockClear()
 
-      textManager.updateText(baseTextbox, {
-        text: 'после обновления',
-        fontFamily: 'Roboto',
-        fontSize: 72,
-        bold: true,
-        italic: true,
-        underline: true,
-        uppercase: true,
-        strikethrough: true,
-        align: 'center',
-        color: '#ff0000',
-        strokeColor: '#00ff00',
-        strokeWidth: 3,
-        opacity: 0.5
+      textManager.updateText({
+        target: baseTextbox,
+        style: {
+          text: 'после обновления',
+          fontFamily: 'Roboto',
+          fontSize: 72,
+          bold: true,
+          italic: true,
+          underline: true,
+          uppercase: true,
+          strikethrough: true,
+          align: 'center',
+          color: '#ff0000',
+          strokeColor: '#00ff00',
+          strokeWidth: 3,
+          opacity: 0.5
+        }
       })
 
       expect(saveSpy).toHaveBeenCalledTimes(1)
@@ -117,7 +120,9 @@ describe('TextManager', () => {
       saveSpy.mockClear()
       canvas.requestRenderAll.mockClear()
 
-      textManager.updateText(baseTextbox, { text: 'без истории' }, {
+      textManager.updateText({
+        target: baseTextbox,
+        style: { text: 'без истории' },
         withoutSave: true,
         skipRender: true
       })
@@ -145,7 +150,10 @@ describe('TextManager', () => {
       expect(getObjects()).toHaveLength(1)
       expect(getObjects()[0]?.text).toBe('версия 1')
 
-      textManager.updateText(textbox, { text: 'версия 2' })
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'версия 2' }
+      })
       expect(getObjects()[0]?.text).toBe('версия 2')
 
       await historyManager.undo()
@@ -175,7 +183,7 @@ describe('TextManager', () => {
         expect(textbox.uppercase).toBe(false)
         expect(textbox.textCaseRaw).toBe('Привет Мир')
 
-        textManager.updateText(textbox, { uppercase: true })
+        textManager.updateText({ target: textbox, style: { uppercase: true } })
 
         expect(textbox.text).toBe('ПРИВЕТ МИР')
         expect(textbox.uppercase).toBe(true)
@@ -189,7 +197,7 @@ describe('TextManager', () => {
         expect(textbox.text).toBe('ПРИВЕТ МИР')
         expect(textbox.textCaseRaw).toBe('Привет Мир')
 
-        textManager.updateText(textbox, { uppercase: false })
+        textManager.updateText({ target: textbox, style: { uppercase: false } })
 
         expect(textbox.text).toBe('Привет Мир')
         expect(textbox.uppercase).toBe(false)
@@ -300,7 +308,7 @@ describe('TextManager', () => {
         expect(textbox.textCaseRaw).toBe('Новый текст тест')
 
         // 3. Включить uppercase
-        textManager.updateText(textbox, { uppercase: true })
+        textManager.updateText({ target: textbox, style: { uppercase: true } })
         expect(textbox.text).toBe('НОВЫЙ ТЕКСТ ТЕСТ')
         expect(textbox.textCaseRaw).toBe('Новый текст тест')
 
@@ -311,7 +319,7 @@ describe('TextManager', () => {
         expect(textbox.textCaseRaw).toBe('Новый текст тест еще')
 
         // 5. Выключить uppercase
-        textManager.updateText(textbox, { uppercase: false })
+        textManager.updateText({ target: textbox, style: { uppercase: false } })
         expect(textbox.text).toBe('Новый текст тест еще')
       })
 
@@ -328,7 +336,7 @@ describe('TextManager', () => {
         canvas.fire('text:changed', { target: textbox })
 
         // Включаем uppercase
-        textManager.updateText(textbox, { uppercase: true })
+        textManager.updateText({ target: textbox, style: { uppercase: true } })
         expect(textbox.text).toBe('ПРИВЕТ МИР ТЕСТ')
 
         // Добавляем еще текста
@@ -336,7 +344,7 @@ describe('TextManager', () => {
         canvas.fire('text:changed', { target: textbox })
 
         // Выключаем uppercase - первая буква должна остаться заглавной
-        textManager.updateText(textbox, { uppercase: false })
+        textManager.updateText({ target: textbox, style: { uppercase: false } })
         expect(textbox.text).toBe('Привет мир тест код')
       })
     })

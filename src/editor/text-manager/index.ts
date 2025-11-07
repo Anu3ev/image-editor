@@ -27,7 +27,7 @@ export type TextStyleOptions = {
   underline?: boolean
   uppercase?: boolean
   strikethrough?: boolean
-  align?: 'left' | 'center' | 'right'
+  align?: 'left' | 'center' | 'right' | 'justify'
   color?: string
   strokeColor?: string
   strokeWidth?: number
@@ -55,6 +55,8 @@ export type TextStyleOptions = {
 type TextReference = string | Textbox | null | undefined
 
 type UpdateOptions = {
+  target?: TextReference,
+  style?: TextStyleOptions,
   withoutSave?: boolean
   skipRender?: boolean
 }
@@ -107,17 +109,6 @@ export default class TextManager {
     this.isTextEditingActive = false
 
     this._bindEvents()
-  }
-
-  /**
-   * Уничтожает менеджер и снимает слушатели.
-   */
-  public destroy(): void {
-    this.canvas.off('object:scaling', this.handleObjectScaling)
-    this.canvas.off('object:modified', this.handleObjectModified)
-    this.canvas.off('text:editing:exited', this.handleTextEditingExited)
-    this.canvas.off('text:editing:entered', this.handleTextEditingEntered)
-    this.canvas.off('text:changed', this.handleTextChanged)
   }
 
   /**
@@ -237,15 +228,13 @@ export default class TextManager {
 
   /**
    * Обновляет текстовый объект.
-   * @param target — объект, его id или активный объект (если не передан)
-   * @param style — стиль, который нужно применить
    * @param options — настройки обновления
+   * @param options.target — объект, его id или активный объект (если не передан)
+   * @param options.style — стиль, который нужно применить
+   * @param options.withoutSave — не сохранять состояние в историю
+   * @param options.skipRender — не вызывать перерисовку канваса
    */
-  public updateText(
-    target: TextReference,
-    style: TextStyleOptions = {},
-    { withoutSave, skipRender }: UpdateOptions = {}
-  ): Textbox | null {
+  public updateText({ target, style = {}, withoutSave, skipRender }: UpdateOptions = {}): Textbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
 
@@ -415,6 +404,17 @@ export default class TextManager {
   }
 
   /**
+   * Уничтожает менеджер и снимает слушатели.
+   */
+  public destroy(): void {
+    this.canvas.off('object:scaling', this._handleObjectScaling)
+    this.canvas.off('object:modified', this._handleObjectModified)
+    this.canvas.off('text:editing:exited', this._handleTextEditingExited)
+    this.canvas.off('text:editing:entered', this._handleTextEditingEntered)
+    this.canvas.off('text:changed', this._handleTextChanged)
+  }
+
+  /**
    * Возвращает активный текст или ищет по id.
    */
   private _resolveTextObject(reference: TextReference): Textbox | null {
@@ -440,14 +440,14 @@ export default class TextManager {
   }
 
   private _bindEvents(): void {
-    this.canvas.on('object:scaling', this.handleObjectScaling)
-    this.canvas.on('object:modified', this.handleObjectModified)
-    this.canvas.on('text:editing:entered', this.handleTextEditingEntered)
-    this.canvas.on('text:editing:exited', this.handleTextEditingExited)
-    this.canvas.on('text:changed', this.handleTextChanged)
+    this.canvas.on('object:scaling', this._handleObjectScaling)
+    this.canvas.on('object:modified', this._handleObjectModified)
+    this.canvas.on('text:editing:entered', this._handleTextEditingEntered)
+    this.canvas.on('text:editing:exited', this._handleTextEditingExited)
+    this.canvas.on('text:changed', this._handleTextChanged)
   }
 
-  private handleTextEditingEntered = (): void => {
+  private _handleTextEditingEntered = (): void => {
     this.isTextEditingActive = true
   }
 
@@ -455,7 +455,7 @@ export default class TextManager {
    * Обрабатывает изменение текста во время редактирования.
    * Обновляет textCaseRaw в реальном времени для корректной работы uppercase.
    */
-  private handleTextChanged = (event: IEvent): void => {
+  private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
@@ -496,7 +496,7 @@ export default class TextManager {
     }
   }
 
-  private handleTextEditingExited = (event: IEvent): void => {
+  private _handleTextEditingExited = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
@@ -529,7 +529,7 @@ export default class TextManager {
     }, TEXT_EDITING_DEBOUNCE_MS)
   }
 
-  private handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
+  private _handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
     // При масштабировании текстовых объектов пересчитываем ширину/кегль и сбрасываем scale,
     // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
     const { target, transform } = event
@@ -613,7 +613,7 @@ export default class TextManager {
     state.hasWidthChange = widthActuallyChanged || fontSizeChanged
   }
 
-  private handleObjectModified = (event: IEvent<MouseEvent>): void => {
+  private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
     const state = this.scalingState.get(target)
