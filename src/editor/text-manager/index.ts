@@ -625,7 +625,7 @@ export default class TextManager {
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
 
-    this.updateText(target, { width, fontSize })
+    this.updateText({ target, style: { width, fontSize } })
 
     target.set({ scaleX: 1, scaleY: 1 })
     target.setCoords()
