@@ -8,6 +8,7 @@ import {
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
 
 type TextCreationFlags = {
@@ -90,7 +91,7 @@ export default class TextManager {
   /**
    * Данные о масштабе текста, которые собираются в процессе трансформации.
    */
-  public scalingState: WeakMap<Textbox, ScalingState>
+  private scalingState: WeakMap<Textbox, ScalingState>
 
   /**
    * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
@@ -525,7 +526,7 @@ export default class TextManager {
     setTimeout(() => {
       this.isTextEditingActive = false
       this.editor.historyManager.saveState()
-    }, 50)
+    }, TEXT_EDITING_DEBOUNCE_MS)
   }
 
   private handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
