@@ -55,8 +55,8 @@ export type TextStyleOptions = {
 type TextReference = string | Textbox | null | undefined
 
 type UpdateOptions = {
-  target?: TextReference,
-  style?: TextStyleOptions,
+  target?: TextReference
+  style?: TextStyleOptions
   withoutSave?: boolean
   skipRender?: boolean
 }
