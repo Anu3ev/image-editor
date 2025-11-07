@@ -375,45 +375,51 @@ describe('Listeners', () => {
       return event
     }
 
-    describe('событие paste с event.target = select, activeElement = body', () => {
-      it('событие НЕ должно игнорироваться', () => {
-        const select = document.createElement('select')
-        const body = document.body
+    describe('события paste с элементами ввода (input, textarea, select)', () => {
+      const inputTypes = ['input', 'textarea', 'select'] as const
 
-        const event = createPasteEvent(select, body)
-        const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
+      inputTypes.forEach((elementType) => {
+        describe(`event.target = ${elementType}, activeElement = body`, () => {
+          it('событие НЕ должно игнорироваться (баг браузера)', () => {
+            const element = document.createElement(elementType)
+            const body = document.body
 
-        expect(shouldIgnore).toBe(false)
-      })
+            const event = createPasteEvent(element, body)
+            const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
 
-      it('clipboardManager.handlePasteEvent должен вызваться', () => {
-        const select = document.createElement('select')
-        const body = document.body
+            expect(shouldIgnore).toBe(false)
+          })
 
-        const event = createPasteEvent(select, body)
-        listeners.handlePasteEvent(event)
+          it('clipboardManager.handlePasteEvent должен вызваться', () => {
+            const element = document.createElement(elementType)
+            const body = document.body
 
-        expect(editor.clipboardManager.handlePasteEvent).toHaveBeenCalledWith(event)
-      })
-    })
+            const event = createPasteEvent(element, body)
+            listeners.handlePasteEvent(event)
 
-    describe('событие paste с event.target = select, activeElement = select', () => {
-      it('событие ДОЛЖНО игнорироваться (пользователь работает с реальным select)', () => {
-        const select = document.createElement('select')
+            expect(editor.clipboardManager.handlePasteEvent).toHaveBeenCalledWith(event)
+          })
+        })
 
-        const event = createPasteEvent(select, select)
-        const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
+        describe(`event.target = ${elementType}, activeElement = ${elementType}`, () => {
+          it('событие ДОЛЖНО игнорироваться (пользователь работает с полем)', () => {
+            const element = document.createElement(elementType)
 
-        expect(shouldIgnore).toBe(true)
-      })
+            const event = createPasteEvent(element, element)
+            const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
 
-      it('clipboardManager.handlePasteEvent НЕ должен вызваться', () => {
-        const select = document.createElement('select')
+            expect(shouldIgnore).toBe(true)
+          })
 
-        const event = createPasteEvent(select, select)
-        listeners.handlePasteEvent(event)
+          it('clipboardManager.handlePasteEvent НЕ должен вызваться', () => {
+            const element = document.createElement(elementType)
 
-        expect(editor.clipboardManager.handlePasteEvent).not.toHaveBeenCalled()
+            const event = createPasteEvent(element, element)
+            listeners.handlePasteEvent(event)
+
+            expect(editor.clipboardManager.handlePasteEvent).not.toHaveBeenCalled()
+          })
+        })
       })
     })
 
