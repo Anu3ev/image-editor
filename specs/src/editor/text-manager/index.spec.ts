@@ -24,7 +24,7 @@ describe('TextManager', () => {
       canvas.on('object:added', () => historyManager.saveState())
 
       const textbox = textManager.addText({ text: 'Привет' })
-      
+
       // Проверяем вызов saveState через подсчет изменений в истории
       expect(canvas.add).toHaveBeenCalledWith(textbox)
       expect(canvas.centerObject).toHaveBeenCalledWith(textbox)
