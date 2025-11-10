@@ -536,6 +536,8 @@ export default class TextManager {
     if (!TextManager._isTextbox(target)) return
     if (!transform) return
 
+    target.isScaling = true
+
     const state = this._ensureScalingState(target)
     const { baseWidth: stateBaseWidth, baseLeft: stateBaseLeft, baseFontSize } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
@@ -616,6 +618,9 @@ export default class TextManager {
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
+
+    target.isScaling = false
+
     const state = this.scalingState.get(target)
     this.scalingState.delete(target)
     if (!state?.hasWidthChange) return
