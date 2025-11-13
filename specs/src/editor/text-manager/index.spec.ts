@@ -132,6 +132,84 @@ describe('TextManager', () => {
       expect(baseTextbox.text).toBe('БЕЗ ИСТОРИИ')
       expect(historyManager.totalChangesCount).toBe(2)
     })
+
+    it('применяет стили только к выделенному тексту и сообщает информацию о выделении', () => {
+      const {
+        canvas,
+        historyManager,
+        textManager
+      } = createTextManagerTestSetup()
+
+      historyManager.saveState()
+      const textbox = textManager.addText({
+        text: 'selection check',
+        fontFamily: 'Arial',
+        fontSize: 32,
+        color: '#222222',
+        strokeColor: '#333333',
+        strokeWidth: 2
+      })
+
+      textbox.isEditing = true
+      textbox.selectionStart = 10
+      textbox.selectionEnd = 15
+
+      const saveSpy = jest.spyOn(historyManager, 'saveState')
+      canvas.fire.mockClear()
+      canvas.requestRenderAll.mockClear()
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          bold: true,
+          italic: true,
+          underline: true,
+          strikethrough: true,
+          color: '#ff0000',
+          fontFamily: 'Roboto',
+          fontSize: 64,
+          strokeColor: '#00ff00',
+          strokeWidth: 5
+        }
+      })
+
+      expect(saveSpy).not.toHaveBeenCalled()
+      expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
+      expect(textbox.dirty).toBe(true)
+
+      // Глобальные свойства не меняются при частичном выделении
+      expect(textbox.fontFamily).toBe('Arial')
+      expect(textbox.fontSize).toBe(32)
+      expect(textbox.fill).toBe('#222222')
+      expect(textbox.stroke).toBe('#333333')
+      expect(textbox.strokeWidth).toBe(2)
+
+      const selectionStyles = textbox.getSelectionStyles(10, 15)
+      expect(selectionStyles).toHaveLength(5)
+      selectionStyles.forEach((style) => {
+        expect(style).toMatchObject({
+          fontWeight: 'bold',
+          fontStyle: 'italic',
+          underline: true,
+          linethrough: true,
+          fill: '#ff0000',
+          fontFamily: 'Roboto',
+          fontSize: 64,
+          stroke: '#00ff00',
+          strokeWidth: 5
+        })
+      })
+
+      const [eventName, payload] = canvas.fire.mock.calls[0]
+      expect(eventName).toBe('editor:text-updated')
+      expect(payload.selectionRange).toEqual({ start: 10, end: 15 })
+      expect(payload.selectionStyles).toMatchObject({
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        fill: '#ff0000'
+      })
+    })
   })
 
   describe('HistoryManager интеграция', () => {
