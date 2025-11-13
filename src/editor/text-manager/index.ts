@@ -294,11 +294,21 @@ export default class TextManager {
     const wholeTextStyles: Partial<TextboxProps> = {}
 
     if (fontFamily !== undefined) {
-      updates.fontFamily = fontFamily
+      if (selectionRange) {
+        selectionStyles.fontFamily = fontFamily
+      } else {
+        updates.fontFamily = fontFamily
+        wholeTextStyles.fontFamily = fontFamily
+      }
     }
 
     if (fontSize !== undefined) {
-      updates.fontSize = fontSize
+      if (selectionRange) {
+        selectionStyles.fontSize = fontSize
+      } else {
+        updates.fontSize = fontSize
+        wholeTextStyles.fontSize = fontSize
+      }
     }
 
     if (bold !== undefined) {
@@ -353,11 +363,27 @@ export default class TextManager {
     }
 
     if (strokeColor !== undefined || strokeWidth !== undefined) {
-      const widthSource = strokeWidth ?? textbox.strokeWidth ?? 0
+      const selectionStrokeWidth = selectionRange
+        ? TextManager._getSelectionStyleValue<number>(textbox, selectionRange, 'strokeWidth')
+        : undefined
+      const selectionStrokeColor = selectionRange
+        ? TextManager._getSelectionStyleValue<string>(textbox, selectionRange, 'stroke')
+        : undefined
+
+      const widthSource = strokeWidth ?? selectionStrokeWidth ?? textbox.strokeWidth ?? 0
       const resolvedStrokeWidth = TextManager._resolveStrokeWidth(widthSource)
-      const colorSource = strokeColor ?? textbox.stroke ?? undefined
-      updates.stroke = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
-      updates.strokeWidth = resolvedStrokeWidth
+      const colorSource = strokeColor ?? selectionStrokeColor ?? textbox.stroke ?? undefined
+      const resolvedStrokeColor = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
+
+      if (selectionRange) {
+        selectionStyles.stroke = resolvedStrokeColor
+        selectionStyles.strokeWidth = resolvedStrokeWidth
+      } else {
+        updates.stroke = resolvedStrokeColor
+        updates.strokeWidth = resolvedStrokeWidth
+        wholeTextStyles.stroke = resolvedStrokeColor
+        wholeTextStyles.strokeWidth = resolvedStrokeWidth
+      }
     }
 
     if (opacity !== undefined) {
@@ -745,6 +771,23 @@ export default class TextManager {
 
     textbox.setSelectionStyles(styles, start, end)
     return true
+  }
+
+  private static _getSelectionStyleValue<T extends keyof TextboxProps>(
+    textbox: Textbox,
+    range: TextSelectionRange | null,
+    property: T
+  ): TextboxProps[T] | undefined {
+    if (!range) return undefined
+
+    const styles = textbox.getSelectionStyles(
+      range.start,
+      range.end,
+      true
+    ) as Array<Partial<TextboxProps>>
+
+    if (!styles.length) return undefined
+    return styles[0]?.[property]
   }
 
   private static _resolveStrokeColor(

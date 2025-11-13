@@ -211,6 +211,11 @@ export default (editorInstance) => {
     return fallback
   }
 
+  const normalizeColorOptional = (color) => {
+    const normalized = normalizeColor(color, null)
+    return typeof normalized === 'string' ? normalized : undefined
+  }
+
   const setPaletteSelection = (buttons, color) => {
     const normalized = normalizeColor(color ?? '', '')
     buttons.forEach((btn) => {
@@ -255,10 +260,46 @@ export default (editorInstance) => {
     return object
   }
 
+  const isBoldValue = (value) => {
+    if (value === 'bold') return true
+    if (typeof value === 'number') return value >= 600
+    const numeric = Number(value)
+    if (!Number.isNaN(numeric)) return numeric >= 600
+    return false
+  }
+
+  const getTextboxSelectionInfo = (textbox) => {
+    if (!textbox?.isEditing) return null
+    const selectionStart = textbox.selectionStart ?? 0
+    const selectionEnd = textbox.selectionEnd ?? selectionStart
+    if (selectionStart === selectionEnd) return null
+    const range = {
+      start: Math.min(selectionStart, selectionEnd),
+      end: Math.max(selectionStart, selectionEnd)
+    }
+    const styles = textbox.getSelectionStyles(range.start, range.end, true) ?? []
+    if (!styles.length) return null
+    return { range, styles }
+  }
+
+  const getSelectionUniformValue = (selectionInfo, extractor) => {
+    if (!selectionInfo || !selectionInfo.styles.length) return undefined
+    const firstValue = extractor(selectionInfo.styles[0])
+    if (typeof firstValue === 'undefined') return undefined
+    for (let i = 1; i < selectionInfo.styles.length; i += 1) {
+      const nextValue = extractor(selectionInfo.styles[i])
+      if (typeof nextValue === 'undefined' || nextValue !== firstValue) {
+        return undefined
+      }
+    }
+    return firstValue
+  }
+
   const syncTextControls = (textbox) => {
     if (!textbox) return
 
     isSyncingControls = true
+    const selectionInfo = getTextboxSelectionInfo(textbox)
 
     const fallbackText = textbox.text ?? ''
     const textValue = typeof textbox.textCaseRaw === 'string'
@@ -266,41 +307,73 @@ export default (editorInstance) => {
       : fallbackText
     textContentInput.value = textValue
 
-    const fontFamily = textbox.fontFamily ?? ''
-    ensureFontOption(fontFamily)
+    const selectionFontFamily = getSelectionUniformValue(selectionInfo, (style) => (
+      typeof style.fontFamily === 'string' ? style.fontFamily : undefined
+    ))
+    const fontFamily = selectionFontFamily ?? textbox.fontFamily ?? ''
     if (fontFamily) {
+      ensureFontOption(fontFamily)
       textFontFamilySelect.value = fontFamily
     }
 
+    const selectionFontSize = getSelectionUniformValue(selectionInfo, (style) => {
+      const size = typeof style.fontSize === 'number' ? style.fontSize : undefined
+      return typeof size === 'number' ? Math.max(1, Math.round(size)) : undefined
+    })
     const fallbackFontSize = Number(textFontSizeInput.value) || 48
-    const fontSize = Math.max(1, Math.round(textbox.fontSize ?? fallbackFontSize))
+    const baseFontSize = typeof textbox.fontSize === 'number'
+      ? Math.max(1, Math.round(textbox.fontSize))
+      : fallbackFontSize
+    const fontSize = selectionFontSize ?? baseFontSize
     textFontSizeInput.value = fontSize
 
-    const boldActive = textbox.fontWeight === 'bold' || Number(textbox.fontWeight) >= 600
+    const selectionBold = getSelectionUniformValue(selectionInfo, (style) => isBoldValue(style.fontWeight))
+    const boldActive = typeof selectionBold === 'boolean' ? selectionBold : isBoldValue(textbox.fontWeight)
     setToggleActive(textBoldBtn, boldActive)
-    setToggleActive(textItalicBtn, textbox.fontStyle === 'italic')
-    setToggleActive(textUnderlineBtn, Boolean(textbox.underline))
+    const selectionItalic = getSelectionUniformValue(selectionInfo, (style) => style.fontStyle === 'italic')
+    const italicActive = typeof selectionItalic === 'boolean' ? selectionItalic : textbox.fontStyle === 'italic'
+    setToggleActive(textItalicBtn, italicActive)
+    const selectionUnderline = getSelectionUniformValue(selectionInfo, (style) => Boolean(style.underline))
+    const underlineActive = typeof selectionUnderline === 'boolean' ? selectionUnderline : Boolean(textbox.underline)
+    setToggleActive(textUnderlineBtn, underlineActive)
     setToggleActive(textUppercaseBtn, Boolean(textbox.uppercase))
-    setToggleActive(textStrikeBtn, Boolean(textbox.linethrough))
+    const selectionStrike = getSelectionUniformValue(selectionInfo, (style) => Boolean(style.linethrough))
+    const strikeActive = typeof selectionStrike === 'boolean' ? selectionStrike : Boolean(textbox.linethrough)
+    setToggleActive(textStrikeBtn, strikeActive)
 
     const alignValue = textbox.textAlign ?? textAlignToggle.dataset.align ?? 'left'
     updateAlignButtonDisplay(alignValue)
 
-    const fillColor = typeof textbox.fill === 'string'
-      ? normalizeColor(textbox.fill, textColorInput.value)
-      : textColorInput.value
+    const selectionFillColor = getSelectionUniformValue(selectionInfo, (style) => normalizeColorOptional(style.fill))
+    let fillColor = selectionFillColor
+    if (!fillColor) {
+      fillColor = typeof textbox.fill === 'string'
+        ? normalizeColor(textbox.fill, textColorInput.value)
+        : textColorInput.value
+    }
     textColorInput.value = fillColor
     setPaletteSelection(textColorButtons, fillColor)
 
-    const strokeColor = typeof textbox.stroke === 'string'
-      ? normalizeColor(textbox.stroke, textStrokeColorInput.value)
-      : textStrokeColorInput.value
+    const selectionStrokeWidth = getSelectionUniformValue(selectionInfo, (style) => {
+      const width = typeof style.strokeWidth === 'number' ? style.strokeWidth : undefined
+      return typeof width === 'number' ? Math.max(0, Math.round(width)) : undefined
+    })
+    const selectionStrokeColor = getSelectionUniformValue(selectionInfo, (style) => normalizeColorOptional(style.stroke))
+    const fallbackStrokeWidth = Number(textStrokeWidthInput.value) || 0
+    const baseStrokeWidth = typeof textbox.strokeWidth === 'number'
+      ? Math.max(0, Math.round(textbox.strokeWidth))
+      : fallbackStrokeWidth
+    const strokeWidth = selectionStrokeWidth ?? baseStrokeWidth
+    setStrokeWidthUI(strokeWidth)
+
+    let strokeColor = selectionStrokeColor
+    if (!strokeColor) {
+      strokeColor = typeof textbox.stroke === 'string'
+        ? normalizeColor(textbox.stroke, textStrokeColorInput.value)
+        : textStrokeColorInput.value
+    }
     textStrokeColorInput.value = strokeColor
     setPaletteSelection(textStrokeButtons, strokeColor)
-
-    const fallbackStrokeWidth = Number(textStrokeWidthInput.value) || 0
-    const currentStrokeWidth = Math.max(0, Math.round(textbox.strokeWidth ?? fallbackStrokeWidth))
-    setStrokeWidthUI(currentStrokeWidth)
 
     const opacitySource = textbox.opacity ?? Number(textOpacityInput.value) / 100
     const opacity = Math.max(0, Math.min(100, Math.round(opacitySource * 100)))
@@ -381,8 +454,10 @@ export default (editorInstance) => {
     })
   })
 
-  const handleSelectionChange = () => {
-    const textObject = getActiveText()
+  const handleSelectionChange = (event) => {
+    const eventTarget = event?.target
+    const explicitTextbox = eventTarget && eventTarget.type === 'textbox' ? eventTarget : null
+    const textObject = explicitTextbox ?? getActiveText()
     if (textObject) {
       syncTextControls(textObject)
     }
@@ -551,6 +626,7 @@ export default (editorInstance) => {
   editorInstance.canvas.on('selection:created', handleSelectionChange)
   editorInstance.canvas.on('selection:updated', handleSelectionChange)
   editorInstance.canvas.on('selection:cleared', handleSelectionChange)
+  editorInstance.canvas.on('text:selection:changed', handleSelectionChange)
 
   editorInstance.canvas.on('text:changed', (event) => {
     if (event.target && event.target === getActiveText()) {
