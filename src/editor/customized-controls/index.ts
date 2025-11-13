@@ -5,6 +5,22 @@ import { DEFAULT_CONTROLS } from './default-controls'
  * Класс для настройки пользовательских контролов в редакторе
  */
 export default class ControlsCustomizer {
+  private static wrapWidthControl(
+    control: Control | undefined
+  ): void {
+    if (!control?.actionHandler) return
+
+    const originalHandler = control.actionHandler
+    control.actionHandler = (eventData, transform, x, y) => {
+      const target = transform?.target
+      if (!target || target.locked || target.lockScalingX) {
+        return false
+      }
+
+      return originalHandler(eventData, transform, x, y)
+    }
+  }
+
   private static applyControlOverrides(
     controls: Record<string, Control | undefined>
   ): void {
@@ -39,6 +55,8 @@ export default class ControlsCustomizer {
     if (textboxControls.mb) {
       textboxControls.mb.visible = false
     }
+    ControlsCustomizer.wrapWidthControl(textboxControls.ml)
+    ControlsCustomizer.wrapWidthControl(textboxControls.mr)
     Textbox.ownDefaults.controls = textboxControls
 
     // Устанавливаем snapAngle для всех объектов
