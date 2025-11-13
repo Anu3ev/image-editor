@@ -70,6 +70,11 @@ type ScalingState = {
   hasWidthChange: boolean
 }
 
+type TextSelectionRange = {
+  start: number
+  end: number
+}
+
 /**
  * Менеджер текста для редактора.
  * Управляет добавлением и обновлением текстовых объектов, а также синхронизацией размера шрифта при трансформациях.
@@ -284,6 +289,9 @@ export default class TextManager {
     } = style
 
     const updates: Partial<TextboxProps> = { ...rest }
+    const selectionRange = TextManager._getSelectionRange(textbox)
+    const selectionStyles: Partial<TextboxProps> = {}
+    const wholeTextStyles: Partial<TextboxProps> = {}
 
     if (fontFamily !== undefined) {
       updates.fontFamily = fontFamily
@@ -294,19 +302,41 @@ export default class TextManager {
     }
 
     if (bold !== undefined) {
-      updates.fontWeight = bold ? 'bold' : 'normal'
+      const fontWeight = bold ? 'bold' : 'normal'
+      if (selectionRange) {
+        selectionStyles.fontWeight = fontWeight
+      } else {
+        updates.fontWeight = fontWeight
+        wholeTextStyles.fontWeight = fontWeight
+      }
     }
 
     if (italic !== undefined) {
-      updates.fontStyle = italic ? 'italic' : 'normal'
+      const fontStyle = italic ? 'italic' : 'normal'
+      if (selectionRange) {
+        selectionStyles.fontStyle = fontStyle
+      } else {
+        updates.fontStyle = fontStyle
+        wholeTextStyles.fontStyle = fontStyle
+      }
     }
 
     if (underline !== undefined) {
-      updates.underline = underline
+      if (selectionRange) {
+        selectionStyles.underline = underline
+      } else {
+        updates.underline = underline
+        wholeTextStyles.underline = underline
+      }
     }
 
     if (strikethrough !== undefined) {
-      updates.linethrough = strikethrough
+      if (selectionRange) {
+        selectionStyles.linethrough = strikethrough
+      } else {
+        updates.linethrough = strikethrough
+        wholeTextStyles.linethrough = strikethrough
+      }
     }
 
     if (align !== undefined) {
@@ -314,7 +344,12 @@ export default class TextManager {
     }
 
     if (color !== undefined) {
-      updates.fill = color
+      if (selectionRange) {
+        selectionStyles.fill = color
+      } else {
+        updates.fill = color
+        wholeTextStyles.fill = color
+      }
     }
 
     if (strokeColor !== undefined || strokeWidth !== undefined) {
@@ -351,6 +386,21 @@ export default class TextManager {
     textbox.uppercase = nextUppercase
 
     textbox.set(updates)
+
+    let stylesApplied = false
+    if (selectionRange) {
+      stylesApplied = TextManager._applyStylesToRange(textbox, selectionStyles, selectionRange)
+    } else if (Object.keys(wholeTextStyles).length) {
+      const fullRange = TextManager._getFullTextRange(textbox)
+      if (fullRange) {
+        stylesApplied = TextManager._applyStylesToRange(textbox, wholeTextStyles, fullRange)
+      }
+    }
+
+    if (stylesApplied) {
+      textbox.dirty = true
+    }
+
     textbox.setCoords()
 
     if (!skipRender) {
@@ -397,7 +447,9 @@ export default class TextManager {
       },
       updates,
       before: beforeState,
-      after: afterState
+      after: afterState,
+      selectionRange: selectionRange ?? undefined,
+      selectionStyles: selectionRange && Object.keys(selectionStyles).length ? selectionStyles : undefined
     })
 
     return textbox
@@ -660,6 +712,39 @@ export default class TextManager {
     }
 
     return state
+  }
+
+  private static _getSelectionRange(textbox: Textbox): TextSelectionRange | null {
+    if (!textbox.isEditing) return null
+
+    const selectionStart = textbox.selectionStart ?? 0
+    const selectionEnd = textbox.selectionEnd ?? selectionStart
+    if (selectionStart === selectionEnd) return null
+
+    return {
+      start: Math.min(selectionStart, selectionEnd),
+      end: Math.max(selectionStart, selectionEnd)
+    }
+  }
+
+  private static _getFullTextRange(textbox: Textbox): TextSelectionRange | null {
+    const length = textbox.text?.length ?? 0
+    if (length <= 0) return null
+
+    return { start: 0, end: length }
+  }
+
+  private static _applyStylesToRange(
+    textbox: Textbox,
+    styles: Partial<TextboxProps>,
+    range: TextSelectionRange
+  ): boolean {
+    if (!styles || !Object.keys(styles).length) return false
+    const { start, end } = range
+    if (end <= start) return false
+
+    textbox.setSelectionStyles(styles, start, end)
+    return true
   }
 
   private static _resolveStrokeColor(
