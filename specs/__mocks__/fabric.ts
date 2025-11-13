@@ -141,6 +141,11 @@ export class Textbox extends FabricObject {
   public fontSize?: number
   public width?: number
   public left?: number
+  public dirty = false
+  public isEditing = false
+  public selectionStart = 0
+  public selectionEnd = 0
+  private charStyles: Record<number, Record<string, any>> = {}
 
   static ownDefaults: Record<string, any> = {}
 
@@ -162,6 +167,27 @@ export class Textbox extends FabricObject {
   }
 
   setControlsVisibility = jest.fn()
+
+  setSelectionStyles(styles: Record<string, any>, start: number, end?: number) {
+    const safeEnd = typeof end === 'number' ? end : start + 1
+    for (let i = start; i < safeEnd; i += 1) {
+      const existing = this.charStyles[i] ?? {}
+      this.charStyles[i] = { ...existing, ...styles }
+    }
+  }
+
+  getSelectionStyles(start: number, end?: number): Array<Record<string, any>> {
+    const safeEnd = typeof end === 'number' ? end : start + 1
+    const styles: Array<Record<string, any>> = []
+    for (let i = start; i < safeEnd; i += 1) {
+      styles.push({ ...(this.charStyles[i] ?? {}) })
+    }
+    return styles
+  }
+
+  __getCharStyles() {
+    return this.charStyles
+  }
 }
 
 export const controlsUtils = {

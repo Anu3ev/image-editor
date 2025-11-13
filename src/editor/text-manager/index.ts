@@ -70,6 +70,11 @@ type ScalingState = {
   hasWidthChange: boolean
 }
 
+type TextSelectionRange = {
+  start: number
+  end: number
+}
+
 /**
  * Менеджер текста для редактора.
  * Управляет добавлением и обновлением текстовых объектов, а также синхронизацией размера шрифта при трансформациях.
@@ -284,29 +289,64 @@ export default class TextManager {
     } = style
 
     const updates: Partial<TextboxProps> = { ...rest }
+    const selectionRange = TextManager._getSelectionRange(textbox)
+    const selectionStyles: Partial<TextboxProps> = {}
+    const wholeTextStyles: Partial<TextboxProps> = {}
 
     if (fontFamily !== undefined) {
-      updates.fontFamily = fontFamily
+      if (selectionRange) {
+        selectionStyles.fontFamily = fontFamily
+      } else {
+        updates.fontFamily = fontFamily
+        wholeTextStyles.fontFamily = fontFamily
+      }
     }
 
     if (fontSize !== undefined) {
-      updates.fontSize = fontSize
+      if (selectionRange) {
+        selectionStyles.fontSize = fontSize
+      } else {
+        updates.fontSize = fontSize
+        wholeTextStyles.fontSize = fontSize
+      }
     }
 
     if (bold !== undefined) {
-      updates.fontWeight = bold ? 'bold' : 'normal'
+      const fontWeight = bold ? 'bold' : 'normal'
+      if (selectionRange) {
+        selectionStyles.fontWeight = fontWeight
+      } else {
+        updates.fontWeight = fontWeight
+        wholeTextStyles.fontWeight = fontWeight
+      }
     }
 
     if (italic !== undefined) {
-      updates.fontStyle = italic ? 'italic' : 'normal'
+      const fontStyle = italic ? 'italic' : 'normal'
+      if (selectionRange) {
+        selectionStyles.fontStyle = fontStyle
+      } else {
+        updates.fontStyle = fontStyle
+        wholeTextStyles.fontStyle = fontStyle
+      }
     }
 
     if (underline !== undefined) {
-      updates.underline = underline
+      if (selectionRange) {
+        selectionStyles.underline = underline
+      } else {
+        updates.underline = underline
+        wholeTextStyles.underline = underline
+      }
     }
 
     if (strikethrough !== undefined) {
-      updates.linethrough = strikethrough
+      if (selectionRange) {
+        selectionStyles.linethrough = strikethrough
+      } else {
+        updates.linethrough = strikethrough
+        wholeTextStyles.linethrough = strikethrough
+      }
     }
 
     if (align !== undefined) {
@@ -314,15 +354,36 @@ export default class TextManager {
     }
 
     if (color !== undefined) {
-      updates.fill = color
+      if (selectionRange) {
+        selectionStyles.fill = color
+      } else {
+        updates.fill = color
+        wholeTextStyles.fill = color
+      }
     }
 
     if (strokeColor !== undefined || strokeWidth !== undefined) {
-      const widthSource = strokeWidth ?? textbox.strokeWidth ?? 0
+      const selectionStrokeWidth = selectionRange
+        ? TextManager._getSelectionStyleValue<number>(textbox, selectionRange, 'strokeWidth')
+        : undefined
+      const selectionStrokeColor = selectionRange
+        ? TextManager._getSelectionStyleValue<string>(textbox, selectionRange, 'stroke')
+        : undefined
+
+      const widthSource = strokeWidth ?? selectionStrokeWidth ?? textbox.strokeWidth ?? 0
       const resolvedStrokeWidth = TextManager._resolveStrokeWidth(widthSource)
-      const colorSource = strokeColor ?? textbox.stroke ?? undefined
-      updates.stroke = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
-      updates.strokeWidth = resolvedStrokeWidth
+      const colorSource = strokeColor ?? selectionStrokeColor ?? textbox.stroke ?? undefined
+      const resolvedStrokeColor = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
+
+      if (selectionRange) {
+        selectionStyles.stroke = resolvedStrokeColor
+        selectionStyles.strokeWidth = resolvedStrokeWidth
+      } else {
+        updates.stroke = resolvedStrokeColor
+        updates.strokeWidth = resolvedStrokeWidth
+        wholeTextStyles.stroke = resolvedStrokeColor
+        wholeTextStyles.strokeWidth = resolvedStrokeWidth
+      }
     }
 
     if (opacity !== undefined) {
@@ -351,6 +412,21 @@ export default class TextManager {
     textbox.uppercase = nextUppercase
 
     textbox.set(updates)
+
+    let stylesApplied = false
+    if (selectionRange) {
+      stylesApplied = TextManager._applyStylesToRange(textbox, selectionStyles, selectionRange)
+    } else if (Object.keys(wholeTextStyles).length) {
+      const fullRange = TextManager._getFullTextRange(textbox)
+      if (fullRange) {
+        stylesApplied = TextManager._applyStylesToRange(textbox, wholeTextStyles, fullRange)
+      }
+    }
+
+    if (stylesApplied) {
+      textbox.dirty = true
+    }
+
     textbox.setCoords()
 
     if (!skipRender) {
@@ -397,7 +473,9 @@ export default class TextManager {
       },
       updates,
       before: beforeState,
-      after: afterState
+      after: afterState,
+      selectionRange: selectionRange ?? undefined,
+      selectionStyles: selectionRange && Object.keys(selectionStyles).length ? selectionStyles : undefined
     })
 
     return textbox
@@ -654,6 +732,56 @@ export default class TextManager {
     }
 
     return state
+  }
+
+  private static _getSelectionRange(textbox: Textbox): TextSelectionRange | null {
+    if (!textbox.isEditing) return null
+
+    const selectionStart = textbox.selectionStart ?? 0
+    const selectionEnd = textbox.selectionEnd ?? selectionStart
+    if (selectionStart === selectionEnd) return null
+
+    return {
+      start: Math.min(selectionStart, selectionEnd),
+      end: Math.max(selectionStart, selectionEnd)
+    }
+  }
+
+  private static _getFullTextRange(textbox: Textbox): TextSelectionRange | null {
+    const length = textbox.text?.length ?? 0
+    if (length <= 0) return null
+
+    return { start: 0, end: length }
+  }
+
+  private static _applyStylesToRange(
+    textbox: Textbox,
+    styles: Partial<TextboxProps>,
+    range: TextSelectionRange
+  ): boolean {
+    if (!styles || !Object.keys(styles).length) return false
+    const { start, end } = range
+    if (end <= start) return false
+
+    textbox.setSelectionStyles(styles, start, end)
+    return true
+  }
+
+  private static _getSelectionStyleValue<T extends keyof TextboxProps>(
+    textbox: Textbox,
+    range: TextSelectionRange | null,
+    property: T
+  ): TextboxProps[T] | undefined {
+    if (!range) return undefined
+
+    const styles = textbox.getSelectionStyles(
+      range.start,
+      range.end,
+      true
+    ) as Array<Partial<TextboxProps>>
+
+    if (!styles.length) return undefined
+    return styles[0]?.[property]
   }
 
   private static _resolveStrokeColor(

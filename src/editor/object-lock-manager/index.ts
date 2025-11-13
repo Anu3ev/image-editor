@@ -46,6 +46,7 @@ export default class ObjectLockManager {
       lockScalingY: true,
       lockSkewingX: true,
       lockSkewingY: true,
+      editable: false,
       locked: true
     }
 
@@ -93,6 +94,7 @@ export default class ObjectLockManager {
       lockScalingY: false,
       lockSkewingX: false,
       lockSkewingY: false,
+      editable: true,
       locked: false
     }
 
