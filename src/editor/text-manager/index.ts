@@ -303,12 +303,7 @@ export default class TextManager {
     }
 
     if (fontSize !== undefined) {
-      if (selectionRange) {
-        selectionStyles.fontSize = fontSize
-      } else {
-        updates.fontSize = fontSize
-        wholeTextStyles.fontSize = fontSize
-      }
+      updates.fontSize = fontSize
     }
 
     if (bold !== undefined) {
