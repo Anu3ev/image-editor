@@ -178,9 +178,9 @@ describe('TextManager', () => {
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
       expect(textbox.dirty).toBe(true)
 
-      // Глобальные свойства не меняются при частичном выделении
+      // Глобальные свойства не меняются при частичном выделении (кроме fontSize)
       expect(textbox.fontFamily).toBe('Arial')
-      expect(textbox.fontSize).toBe(32)
+      expect(textbox.fontSize).toBe(64)
       expect(textbox.fill).toBe('#222222')
       expect(textbox.stroke).toBe('#333333')
       expect(textbox.strokeWidth).toBe(2)
@@ -195,7 +195,6 @@ describe('TextManager', () => {
           linethrough: true,
           fill: '#ff0000',
           fontFamily: 'Roboto',
-          fontSize: 64,
           stroke: '#00ff00',
           strokeWidth: 5
         })
