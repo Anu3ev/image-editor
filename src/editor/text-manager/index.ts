@@ -537,8 +537,6 @@ export default class TextManager {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
-    console.log('text changed', target.id)
-
     const currentText = target.text ?? ''
     const isUppercase = Boolean(target.uppercase)
     const previousRaw = target.textCaseRaw ?? ''
@@ -615,8 +613,6 @@ export default class TextManager {
     const { target, transform } = event
     if (!TextManager._isTextbox(target)) return
     if (!transform) return
-
-    console.log('scaling text object', target.id)
 
     target.isScaling = true
 
@@ -700,8 +696,6 @@ export default class TextManager {
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
-
-    console.log('object modified', target.id)
 
     target.isScaling = false
 
