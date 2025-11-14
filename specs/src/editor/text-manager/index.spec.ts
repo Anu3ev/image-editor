@@ -209,6 +209,160 @@ describe('TextManager', () => {
         fill: '#ff0000'
       })
     })
+
+    it('синхронизирует базовые стили объекта, если выделён весь текст', () => {
+      const {
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'полный текст',
+        color: '#111111',
+        strokeColor: '#222222',
+        strokeWidth: 1
+      })
+
+      const textLength = textbox.text?.length ?? 0
+      expect(textLength).toBeGreaterThan(0)
+
+      textbox.isEditing = true
+      textbox.selectionStart = 0
+      textbox.selectionEnd = textLength
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          color: '#ff0000',
+          strokeColor: '#00ff00',
+          strokeWidth: 4,
+          bold: true,
+          italic: true,
+          underline: true,
+          strikethrough: true,
+          fontFamily: 'Roboto'
+        }
+      })
+
+      expect(textbox.fill).toBe('#ff0000')
+      expect(textbox.stroke).toBe('#00ff00')
+      expect(textbox.strokeWidth).toBe(4)
+      expect(textbox.fontFamily).toBe('Roboto')
+      expect(textbox.fontWeight).toBe('bold')
+      expect(textbox.fontStyle).toBe('italic')
+      expect(textbox.underline).toBe(true)
+      expect(textbox.linethrough).toBe(true)
+
+      const selectionStyles = textbox.getSelectionStyles(0, textLength)
+      expect(selectionStyles).not.toHaveLength(0)
+      selectionStyles.forEach((style) => {
+        expect(style).toMatchObject({
+          fill: '#ff0000',
+          stroke: '#00ff00',
+          strokeWidth: 4,
+          fontWeight: 'bold',
+          fontStyle: 'italic',
+          underline: true,
+          linethrough: true,
+          fontFamily: 'Roboto'
+        })
+      })
+    })
+
+    it('не обновляет глобальный цвет, если стили применены частично', () => {
+      const {
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'color sync',
+        color: '#111111'
+      })
+
+      const textLength = textbox.text?.length ?? 0
+      expect(textLength).toBeGreaterThan(0)
+
+      textbox.isEditing = true
+
+      textbox.selectionStart = 0
+      textbox.selectionEnd = 5
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: { color: '#ff0000' }
+      })
+
+      expect(textbox.fill).toBe('#111111')
+
+      textbox.selectionStart = 5
+      textbox.selectionEnd = textLength
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: { color: '#ff0000' }
+      })
+
+      expect(textbox.fill).toBe('#111111')
+    })
+
+    it('не сохраняет временные lockMovement флаги из режима редактирования в историю', () => {
+      const {
+        textManager,
+        historyManager
+      } = createTextManagerTestSetup()
+
+      historyManager.saveState()
+      const textbox = textManager.addText({ text: 'lock state' })
+
+      textbox.isEditing = true
+      textbox.lockMovementX = true
+      textbox.lockMovementY = true
+      textbox.locked = false
+
+      textManager.updateText({
+        target: textbox,
+        style: { bold: true }
+      })
+
+      const state = historyManager.getFullState()
+      const savedTextbox = state.objects?.[0]
+
+      expect(textbox.lockMovementX).toBe(true)
+      expect(textbox.lockMovementY).toBe(true)
+      expect(savedTextbox?.lockMovementX).toBe(false)
+      expect(savedTextbox?.lockMovementY).toBe(false)
+    })
+
+    it('сохраняет форматирование выделенного текста в историю', async() => {
+      const {
+        textManager,
+        historyManager
+      } = createTextManagerTestSetup()
+
+      historyManager.saveState()
+      const textbox = textManager.addText({ text: 'selection styles' })
+
+      textbox.isEditing = true
+      textbox.selectionStart = 0
+      textbox.selectionEnd = 9
+
+      textManager.updateText({
+        target: textbox,
+        style: { bold: true }
+      })
+
+      const stateAfterUpdate = historyManager.getFullState()
+      const savedTextbox = stateAfterUpdate.objects?.[0]
+
+      expect(savedTextbox?.styles?.[0]?.fontWeight).toBe('bold')
+
+      await historyManager.undo()
+
+      const stateAfterUndo = historyManager.getFullState()
+      const restoredTextbox = stateAfterUndo.objects?.[0]
+
+      expect(restoredTextbox?.styles?.[0]).toBeUndefined()
+    })
   })
 
   describe('HistoryManager интеграция', () => {

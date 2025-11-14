@@ -292,13 +292,20 @@ export default class TextManager {
     const selectionRange = TextManager._getSelectionRange(textbox)
     const selectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
+    const isFullTextSelection = TextManager._isFullTextSelection(textbox, selectionRange)
+    const shouldUpdateWholeObject = !selectionRange || isFullTextSelection
+    const shouldApplyWholeTextStyles = !selectionRange
 
     if (fontFamily !== undefined) {
       if (selectionRange) {
         selectionStyles.fontFamily = fontFamily
-      } else {
+      }
+
+      if (shouldUpdateWholeObject) {
         updates.fontFamily = fontFamily
-        wholeTextStyles.fontFamily = fontFamily
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.fontFamily = fontFamily
+        }
       }
     }
 
@@ -310,9 +317,13 @@ export default class TextManager {
       const fontWeight = bold ? 'bold' : 'normal'
       if (selectionRange) {
         selectionStyles.fontWeight = fontWeight
-      } else {
+      }
+
+      if (shouldUpdateWholeObject) {
         updates.fontWeight = fontWeight
-        wholeTextStyles.fontWeight = fontWeight
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.fontWeight = fontWeight
+        }
       }
     }
 
@@ -320,27 +331,39 @@ export default class TextManager {
       const fontStyle = italic ? 'italic' : 'normal'
       if (selectionRange) {
         selectionStyles.fontStyle = fontStyle
-      } else {
+      }
+
+      if (shouldUpdateWholeObject) {
         updates.fontStyle = fontStyle
-        wholeTextStyles.fontStyle = fontStyle
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.fontStyle = fontStyle
+        }
       }
     }
 
     if (underline !== undefined) {
       if (selectionRange) {
         selectionStyles.underline = underline
-      } else {
+      }
+
+      if (shouldUpdateWholeObject) {
         updates.underline = underline
-        wholeTextStyles.underline = underline
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.underline = underline
+        }
       }
     }
 
     if (strikethrough !== undefined) {
       if (selectionRange) {
         selectionStyles.linethrough = strikethrough
-      } else {
+      }
+
+      if (shouldUpdateWholeObject) {
         updates.linethrough = strikethrough
-        wholeTextStyles.linethrough = strikethrough
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.linethrough = strikethrough
+        }
       }
     }
 
@@ -351,9 +374,13 @@ export default class TextManager {
     if (color !== undefined) {
       if (selectionRange) {
         selectionStyles.fill = color
-      } else {
+      }
+
+      if (shouldUpdateWholeObject) {
         updates.fill = color
-        wholeTextStyles.fill = color
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.fill = color
+        }
       }
     }
 
@@ -373,11 +400,15 @@ export default class TextManager {
       if (selectionRange) {
         selectionStyles.stroke = resolvedStrokeColor
         selectionStyles.strokeWidth = resolvedStrokeWidth
-      } else {
+      }
+
+      if (shouldUpdateWholeObject) {
         updates.stroke = resolvedStrokeColor
         updates.strokeWidth = resolvedStrokeWidth
-        wholeTextStyles.stroke = resolvedStrokeColor
-        wholeTextStyles.strokeWidth = resolvedStrokeWidth
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.stroke = resolvedStrokeColor
+          wholeTextStyles.strokeWidth = resolvedStrokeWidth
+        }
       }
     }
 
@@ -747,6 +778,18 @@ export default class TextManager {
     if (length <= 0) return null
 
     return { start: 0, end: length }
+  }
+
+  private static _isFullTextSelection(
+    textbox: Textbox,
+    range: TextSelectionRange | null
+  ): boolean {
+    if (!range) return false
+
+    const textLength = textbox.text?.length ?? 0
+    if (textLength <= 0) return false
+
+    return range.start <= 0 && range.end >= textLength
   }
 
   private static _applyStylesToRange(

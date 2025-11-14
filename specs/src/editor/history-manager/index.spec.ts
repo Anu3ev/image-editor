@@ -186,6 +186,75 @@ describe('HistoryManager', () => {
       historyManager.resumeHistory()
     })
 
+    it('сбрасывает временные lockMovement флаги у незаблокированных текстов перед сохранением', () => {
+      const {
+        historyManager,
+        mockCanvas,
+        setCanvasObjects
+      } = createHistoryManagerTestSetup()
+
+      const textbox = {
+        id: 'text-1',
+        type: 'textbox',
+        locked: false,
+        lockMovementX: true,
+        lockMovementY: true
+      }
+
+      setCanvasObjects([textbox])
+
+      mockCanvas.toDatalessObject.mockImplementation(() => createState({
+        objects: [{
+          id: 'text-1',
+          type: 'textbox',
+          lockMovementX: textbox.lockMovementX,
+          lockMovementY: textbox.lockMovementY
+        }] as any[]
+      }))
+
+      historyManager.saveState()
+
+      const savedTextbox = historyManager.baseState?.objects?.[0] as any
+      expect(savedTextbox.lockMovementX).toBe(false)
+      expect(savedTextbox.lockMovementY).toBe(false)
+
+      expect(textbox.lockMovementX).toBe(true)
+      expect(textbox.lockMovementY).toBe(true)
+    })
+
+    it('не изменяет lockMovement флаги у действительно заблокированных текстов', () => {
+      const {
+        historyManager,
+        mockCanvas,
+        setCanvasObjects
+      } = createHistoryManagerTestSetup()
+
+      const textbox = {
+        id: 'text-2',
+        type: 'textbox',
+        locked: true,
+        lockMovementX: true,
+        lockMovementY: true
+      }
+
+      setCanvasObjects([textbox])
+
+      mockCanvas.toDatalessObject.mockImplementation(() => createState({
+        objects: [{
+          id: 'text-2',
+          type: 'textbox',
+          lockMovementX: textbox.lockMovementX,
+          lockMovementY: textbox.lockMovementY
+        }] as any[]
+      }))
+
+      historyManager.saveState()
+
+      const savedTextbox = historyManager.baseState?.objects?.[0] as any
+      expect(savedTextbox.lockMovementX).toBe(true)
+      expect(savedTextbox.lockMovementY).toBe(true)
+    })
+
     it('удаляет redo-ветку после отката и сохранения нового состояния', async() => {
       const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
       const state1 = createState({
