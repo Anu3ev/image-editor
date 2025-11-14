@@ -499,6 +499,7 @@ export default class HistoryManager {
       }
       lockMovementX?: boolean
       lockMovementY?: boolean
+      selectable?: boolean
     }> = []
 
     const objects = this.canvas.getObjects?.() ?? []
