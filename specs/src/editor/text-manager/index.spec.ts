@@ -209,6 +209,65 @@ describe('TextManager', () => {
         fill: '#ff0000'
       })
     })
+
+    it('не сохраняет временные lockMovement флаги из режима редактирования в историю', () => {
+      const {
+        textManager,
+        historyManager
+      } = createTextManagerTestSetup()
+
+      historyManager.saveState()
+      const textbox = textManager.addText({ text: 'lock state' })
+
+      textbox.isEditing = true
+      textbox.lockMovementX = true
+      textbox.lockMovementY = true
+      textbox.locked = false
+
+      textManager.updateText({
+        target: textbox,
+        style: { bold: true }
+      })
+
+      const state = historyManager.getFullState()
+      const savedTextbox = state.objects?.[0]
+
+      expect(textbox.lockMovementX).toBe(true)
+      expect(textbox.lockMovementY).toBe(true)
+      expect(savedTextbox?.lockMovementX).toBe(false)
+      expect(savedTextbox?.lockMovementY).toBe(false)
+    })
+
+    it('сохраняет форматирование выделенного текста в историю', async() => {
+      const {
+        textManager,
+        historyManager
+      } = createTextManagerTestSetup()
+
+      historyManager.saveState()
+      const textbox = textManager.addText({ text: 'selection styles' })
+
+      textbox.isEditing = true
+      textbox.selectionStart = 0
+      textbox.selectionEnd = 9
+
+      textManager.updateText({
+        target: textbox,
+        style: { bold: true }
+      })
+
+      const stateAfterUpdate = historyManager.getFullState()
+      const savedTextbox = stateAfterUpdate.objects?.[0]
+
+      expect(savedTextbox?.styles?.[0]?.fontWeight).toBe('bold')
+
+      await historyManager.undo()
+
+      const stateAfterUndo = historyManager.getFullState()
+      const restoredTextbox = stateAfterUndo.objects?.[0]
+
+      expect(restoredTextbox?.styles?.[0]).toBeUndefined()
+    })
   })
 
   describe('HistoryManager интеграция', () => {

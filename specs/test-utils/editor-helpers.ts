@@ -521,6 +521,12 @@ export const createHistoryManagerTestSetup = (
 const serializeTextboxState = (textbox: Textbox) => ({
   type: 'textbox',
   id: textbox.id,
+  selectable: textbox.selectable,
+  evented: textbox.evented,
+  backgroundId: textbox.backgroundId,
+  customData: textbox.customData,
+  backgroundType: textbox.backgroundType,
+  format: textbox.format,
   text: textbox.text,
   textCaseRaw: textbox.textCaseRaw,
   uppercase: textbox.uppercase,
@@ -543,7 +549,21 @@ const serializeTextboxState = (textbox: Textbox) => ({
   scaleX: textbox.scaleX,
   scaleY: textbox.scaleY,
   originX: textbox.originX,
-  originY: textbox.originY
+  originY: textbox.originY,
+  locked: textbox.locked,
+  lockMovementX: textbox.lockMovementX,
+  lockMovementY: textbox.lockMovementY,
+  lockRotation: textbox.lockRotation,
+  lockScalingX: textbox.lockScalingX,
+  lockScalingY: textbox.lockScalingY,
+  lockSkewingX: textbox.lockSkewingX,
+  lockSkewingY: textbox.lockSkewingY,
+  styles: (() => {
+    if (typeof textbox.__getCharStyles !== 'function') return undefined
+    const charStyles = textbox.__getCharStyles()
+    if (!charStyles || typeof charStyles !== 'object') return undefined
+    return JSON.parse(JSON.stringify(charStyles))
+  })()
 })
 
 export type TextManagerTestSetupOptions = {
