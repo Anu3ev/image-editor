@@ -242,9 +242,9 @@ export default class HistoryManager {
     console.time('saveState')
 
     // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
-    const currentStateObj = this._withTemporaryUnlock(() => (
-      this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
-    ))
+    const currentStateObj = this._withTemporaryUnlock(
+      () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
+    )
 
     console.timeEnd('saveState')
 
