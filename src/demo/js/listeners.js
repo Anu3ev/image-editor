@@ -74,6 +74,9 @@ import {
   textStrokeWidthValue,
   textOpacityInput,
   textOpacityValue,
+  serializeTemplateBtn,
+  applyTemplateBtn,
+  templateJsonInput,
   // Undo/Redo
   undoBtn,
   redoBtn,
@@ -877,6 +880,40 @@ export default (editorInstance) => {
 
   gradientRadiusInput.addEventListener('input', (e) => {
     gradientRadiusValue.textContent = e.target.value
+  })
+
+  const setTemplateInputValue = (value = '') => {
+    if (!templateJsonInput) return
+    templateJsonInput.value = value
+  }
+
+  const getTemplateInputValue = () => templateJsonInput?.value ?? ''
+
+  serializeTemplateBtn?.addEventListener('click', () => {
+    try {
+      const template = editorInstance.templateManager.serializeSelection()
+      if (!template) return
+
+      setTemplateInputValue(JSON.stringify(template, null, 2))
+    } catch (error) {
+      console.error('Failed to serialize template selection', error)
+      setTemplateInputValue('')
+    }
+  })
+
+  applyTemplateBtn?.addEventListener('click', async() => {
+    const templateValue = getTemplateInputValue().trim()
+    if (!templateValue) {
+      console.warn('Template JSON is empty. Provide serialized data before applying.')
+      return
+    }
+
+    try {
+      const parsedTemplate = JSON.parse(templateValue)
+      await editorInstance.templateManager.applyTemplate(parsedTemplate)
+    } catch (error) {
+      console.error('Failed to apply template', error)
+    }
   })
 
   setColorBackgroundBtn.addEventListener('click', () => {
