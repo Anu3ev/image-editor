@@ -25,6 +25,7 @@ import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
 import PanConstraintManager from './pan-constraint-manager'
 import TextManager from './text-manager'
+import TemplateManager from './template-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
@@ -170,6 +171,11 @@ export class ImageEditor {
   public textManager!: TextManager
 
   /**
+   * Менеджер шаблонов
+   */
+  public templateManager!: TemplateManager
+
+  /**
    * Менеджер индикатора угла поворота (опционально)
    */
   public angleIndicator?: AngleIndicatorManager
@@ -242,6 +248,7 @@ export class ImageEditor {
     this.panConstraintManager = new PanConstraintManager({ editor: this })
     this.fontManager = new FontManager(this.options.fonts ?? [])
     this.textManager = new TextManager({ editor: this })
+    this.templateManager = new TemplateManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
     if (showRotationAngle) {

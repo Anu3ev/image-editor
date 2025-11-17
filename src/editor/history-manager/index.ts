@@ -12,7 +12,7 @@ import { nanoid } from 'nanoid'
 import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
 
-const OBJECT_SERIALIZATION_PROPS = [
+export const OBJECT_SERIALIZATION_PROPS = [
   'selectable',
   'evented',
   'id',
