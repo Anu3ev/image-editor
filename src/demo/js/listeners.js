@@ -910,7 +910,7 @@ export default (editorInstance) => {
 
     try {
       const parsedTemplate = JSON.parse(templateValue)
-      await editorInstance.templateManager.applyTemplate(parsedTemplate)
+      await editorInstance.templateManager.applyTemplate({ template: parsedTemplate })
     } catch (error) {
       console.error('Failed to apply template', error)
     }
