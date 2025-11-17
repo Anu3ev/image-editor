@@ -35,6 +35,11 @@ export type TemplateMeta = {
   [key: string]: unknown
 }
 
+type Dimensions = {
+  width: number
+  height: number
+}
+
 const TEMPLATE_CENTER_X_KEY = '_templateCenterX'
 const TEMPLATE_CENTER_Y_KEY = '_templateCenterY'
 
@@ -97,8 +102,9 @@ export default class TemplateManager {
     }
 
     const referenceBounds = TemplateManager._getBounds(montageArea)
-    const baseWidth = montageArea?.getScaledWidth() ?? referenceBounds?.width ?? montageArea?.width ?? 0
-    const baseHeight = montageArea?.getScaledHeight() ?? referenceBounds?.height ?? montageArea?.height ?? 0
+    const baseSize = TemplateManager._getMontageSize(montageArea, referenceBounds)
+    const baseWidth = baseSize.width
+    const baseHeight = baseSize.height
 
     const serializedObjects = objectsToSerialize
       .map((object) => TemplateManager._serializeObject({
@@ -165,8 +171,9 @@ export default class TemplateManager {
       return null
     }
 
-    const meta = TemplateManager._normalizeMeta(template.meta, montageBounds)
-    const scale = TemplateManager._calculateScale(meta, montageBounds)
+    const targetSize = TemplateManager._getMontageSize(montageArea, montageBounds)
+    const meta = TemplateManager._normalizeMeta(template.meta, targetSize)
+    const scale = TemplateManager._calculateScale(meta, targetSize)
     const useRelativePositions = Boolean(meta.positionsNormalized)
 
     let shouldSaveHistory = false
@@ -193,6 +200,7 @@ export default class TemplateManager {
           object,
           scale,
           bounds: montageBounds,
+          targetSize,
           baseWidth: meta.baseWidth,
           baseHeight: meta.baseHeight,
           montageArea,
@@ -292,6 +300,7 @@ export default class TemplateManager {
     object,
     scale,
     bounds,
+    targetSize,
     baseWidth,
     baseHeight,
     montageArea,
@@ -300,6 +309,7 @@ export default class TemplateManager {
     object: FabricObject
     scale: number
     bounds: Bounds
+    targetSize: Dimensions
     baseWidth: number
     baseHeight: number
     montageArea: FabricObject | null
@@ -318,6 +328,7 @@ export default class TemplateManager {
       normalizedX: normalizedCenter.x,
       normalizedY: normalizedCenter.y,
       bounds,
+      targetSize,
       montageArea,
       baseWidth,
       baseHeight
@@ -337,7 +348,7 @@ export default class TemplateManager {
   /**
    * Нормализует мета-данные шаблона.
    */
-  private static _normalizeMeta(meta: TemplateMeta | undefined, fallback: Bounds): TemplateMeta {
+  private static _normalizeMeta(meta: TemplateMeta | undefined, fallback: Dimensions): TemplateMeta {
     const safeMeta: TemplateMeta = meta ?? {
       baseWidth: fallback.width,
       baseHeight: fallback.height
@@ -353,7 +364,7 @@ export default class TemplateManager {
   /**
    * Возвращает коэффициент масштабирования.
    */
-  private static _calculateScale(meta: TemplateMeta, target: Bounds): number {
+  private static _calculateScale(meta: TemplateMeta, target: Dimensions): number {
     const widthRatio = target.width / (meta.baseWidth || target.width || 1)
     const heightRatio = target.height / (meta.baseHeight || target.height || 1)
 
@@ -514,6 +525,7 @@ export default class TemplateManager {
     normalizedX,
     normalizedY,
     bounds,
+    targetSize,
     montageArea,
     baseWidth,
     baseHeight
@@ -521,13 +533,14 @@ export default class TemplateManager {
     normalizedX: number
     normalizedY: number
     bounds: Bounds
+    targetSize: Dimensions
     montageArea: FabricObject | null
     baseWidth: number
     baseHeight: number
   }): Point {
     if (montageArea) {
-      const width = montageArea.getScaledWidth() || baseWidth || bounds.width || 1
-      const height = montageArea.getScaledHeight() || baseHeight || bounds.height || 1
+      const width = targetSize.width || montageArea.getScaledWidth() || baseWidth || bounds.width || 1
+      const height = targetSize.height || montageArea.getScaledHeight() || baseHeight || bounds.height || 1
       const localPoint = new Point(normalizedX * width, normalizedY * height)
       const transformMatrix = montageArea.calcTransformMatrix()
 
@@ -573,6 +586,20 @@ export default class TemplateManager {
       }
     } catch {
       return null
+    }
+  }
+
+  private static _getMontageSize(montageArea?: FabricObject | null, bounds?: Bounds | null): Dimensions {
+    if (montageArea) {
+      return {
+        width: montageArea.getScaledWidth?.() || montageArea.width || bounds?.width || 0,
+        height: montageArea.getScaledHeight?.() || montageArea.height || bounds?.height || 0
+      }
+    }
+
+    return {
+      width: bounds?.width || 0,
+      height: bounds?.height || 0
     }
   }
 
