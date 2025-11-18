@@ -161,6 +161,16 @@ export default class TemplateManager {
 
     const montageBounds = TemplateManager._getBounds(montageArea)
 
+    console.log('applyTemplate - монтажная область:', {
+      'montageArea.width': montageArea?.width,
+      'montageArea.height': montageArea?.height,
+      'montageArea.scaleX': montageArea?.scaleX,
+      'montageArea.scaleY': montageArea?.scaleY,
+      'montageArea.getScaledWidth()': montageArea?.getScaledWidth?.(),
+      'montageArea.getScaledHeight()': montageArea?.getScaledHeight?.(),
+      montageBounds
+    })
+
     if (!montageBounds) {
       errorManager.emitWarning({
         origin: 'TemplateManager',
@@ -273,6 +283,8 @@ export default class TemplateManager {
     if (!object) return null
 
     try {
+      // Принудительно пересчитываем координаты перед получением bounds
+      object.setCoords()
       const rect = object.getBoundingRect(false, true)
       return {
         left: rect.left,
@@ -334,12 +346,26 @@ export default class TemplateManager {
       baseHeight
     })
 
-    object.setPositionByOrigin(absoluteCenter, 'center', 'center')
+    const nextScaleX = scaleX * scale
+    const nextScaleY = scaleY * scale
+
     object.set({
-      scaleX: scaleX * scale,
-      scaleY: scaleY * scale
+      scaleX: nextScaleX,
+      scaleY: nextScaleY
     })
+
+    object.setPositionByOrigin(absoluteCenter, 'center', 'center')
     object.setCoords()
+
+    console.log('_transformObject AFTER:', {
+      'object.type': object.type,
+      'absoluteCenter.x': absoluteCenter.x,
+      'absoluteCenter.y': absoluteCenter.y,
+      'object.left': object.left,
+      'object.top': object.top,
+      'object.getCenterPoint().x': object.getCenterPoint().x,
+      'object.getCenterPoint().y': object.getCenterPoint().y
+    })
 
     delete (object as Record<string, unknown>)[TEMPLATE_CENTER_X_KEY]
     delete (object as Record<string, unknown>)[TEMPLATE_CENTER_Y_KEY]
@@ -526,9 +552,7 @@ export default class TemplateManager {
     normalizedY,
     bounds,
     targetSize,
-    montageArea,
-    baseWidth,
-    baseHeight
+    montageArea
   }: {
     normalizedX: number
     normalizedY: number
@@ -538,30 +562,40 @@ export default class TemplateManager {
     baseWidth: number
     baseHeight: number
   }): Point {
-    if (montageArea) {
-      const width = targetSize.width || montageArea.getScaledWidth() || baseWidth || bounds.width || 1
-      const height = targetSize.height || montageArea.getScaledHeight() || baseHeight || bounds.height || 1
-      const localPoint = new Point(normalizedX * width, normalizedY * height)
-      const transformMatrix = montageArea.calcTransformMatrix()
-
-      try {
-        return util.transformPoint(localPoint, transformMatrix)
-      } catch {
-        // fallback below
-      }
+    if (!montageArea) {
+      return new Point(
+        bounds.left + normalizedX * (targetSize.width || bounds.width),
+        bounds.top + normalizedY * (targetSize.height || bounds.height)
+      )
     }
 
-    return new Point(
-      bounds.left + (normalizedX * bounds.width),
-      bounds.top + (normalizedY * bounds.height)
-    )
+    // Используем масштабированный размер из bounds
+    const scaledWidth = bounds.width
+    const scaledHeight = bounds.height
+
+    // КЛЮЧ: денормализуем относительно левого верхнего угла bounds
+    const absoluteX = bounds.left + (normalizedX * scaledWidth)
+    const absoluteY = bounds.top + (normalizedY * scaledHeight)
+
+    console.log('_denormalizeCenter:', {
+      normalizedX,
+      normalizedY,
+      'bounds.left': bounds.left,
+      'bounds.top': bounds.top,
+      'bounds.width': bounds.width,
+      'bounds.height': bounds.height,
+      absoluteX,
+      absoluteY
+    })
+
+    return new Point(absoluteX, absoluteY)
   }
 
   private static _calculateNormalizedCenter({
     object,
     montageArea,
-    baseWidth,
-    baseHeight,
+    baseWidth: _baseWidth,
+    baseHeight: _baseHeight,
     bounds
   }: {
     object: FabricObject
@@ -570,19 +604,40 @@ export default class TemplateManager {
     baseHeight: number
     bounds: Bounds | null
   }): { x: number; y: number } | null {
-    if (!montageArea) return null
+    if (!montageArea || !bounds) return null
 
     try {
-      const matrix = montageArea.calcTransformMatrix()
-      const inverted = util.invertTransform(matrix)
       const centerPoint = object.getCenterPoint()
-      const localPoint = util.transformPoint(centerPoint, inverted)
-      const width = montageArea.getScaledWidth() || baseWidth || bounds?.width || 1
-      const height = montageArea.getScaledHeight() || baseHeight || bounds?.height || 1
+
+      // Используем масштабированный размер из bounds
+      const scaledWidth = bounds.width
+      const scaledHeight = bounds.height
+
+      // КЛЮЧ: нормализуем относительно левого верхнего угла bounds, а не центра
+      const offsetX = centerPoint.x - bounds.left
+      const offsetY = centerPoint.y - bounds.top
+
+      // Нормализуем в диапазон [0, 1]
+      const normalizedX = offsetX / scaledWidth
+      const normalizedY = offsetY / scaledHeight
+
+      console.log('_calculateNormalizedCenter:', {
+        'object.type': object.type,
+        'centerPoint.x': centerPoint.x,
+        'centerPoint.y': centerPoint.y,
+        'bounds.left': bounds.left,
+        'bounds.top': bounds.top,
+        'bounds.width': bounds.width,
+        'bounds.height': bounds.height,
+        offsetX,
+        offsetY,
+        normalizedX,
+        normalizedY
+      })
 
       return {
-        x: localPoint.x / width,
-        y: localPoint.y / height
+        x: normalizedX,
+        y: normalizedY
       }
     } catch {
       return null
