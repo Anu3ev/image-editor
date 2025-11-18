@@ -56,6 +56,23 @@
       <div class="col-md-3">
         <div class="card">
           <div class="card-body controls">
+            <div class="resolution-controls mb-3">
+              <div class="h6">Montage Area</div>
+              <div class="row g-2 align-items-end">
+                <div class="col-6">
+                  <label for="montage-width-input" class="form-label">Width</label>
+                  <input type="number" class="form-control form-control-sm" id="montage-width-input" min="16" max="8192" value="512" />
+                </div>
+                <div class="col-6">
+                  <label for="montage-height-input" class="form-label">Height</label>
+                  <input type="number" class="form-control form-control-sm" id="montage-height-input" min="16" max="8192" value="512" />
+                </div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm w-100 mt-2" id="apply-montage-resolution-btn">
+                Apply Montage Resolution
+              </button>
+            </div>
+
             <div class="main-controls">
               <div class="h6">Controls</div>
 

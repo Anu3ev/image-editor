@@ -74,6 +74,9 @@ import {
   textStrokeWidthValue,
   textOpacityInput,
   textOpacityValue,
+  montageWidthInput,
+  montageHeightInput,
+  applyMontageResolutionBtn,
   serializeTemplateBtn,
   applyTemplateBtn,
   templateJsonInput,
@@ -156,6 +159,35 @@ export default (editorInstance) => {
     const rawWidth = Number(textStrokeWidthInput.value)
     return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
   }
+
+  const updateMontageInputs = () => {
+    const { montageArea } = editorInstance
+    if (!montageArea) return
+
+    const width = Math.round(montageArea.getScaledWidth?.() || montageArea.width || 0)
+    const height = Math.round(montageArea.getScaledHeight?.() || montageArea.height || 0)
+
+    if (montageWidthInput) montageWidthInput.value = String(width)
+    if (montageHeightInput) montageHeightInput.value = String(height)
+  }
+
+  updateMontageInputs()
+
+  applyMontageResolutionBtn?.addEventListener('click', () => {
+    const width = Number(montageWidthInput?.value)
+    const height = Number(montageHeightInput?.value)
+
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      console.warn('Invalid montage size input')
+      return
+    }
+
+    editorInstance.canvasManager.setResolutionWidth(width)
+    editorInstance.canvasManager.setResolutionHeight(height)
+  })
+
+  editorInstance.canvas.on('editor:resolution-width-changed', updateMontageInputs)
+  editorInstance.canvas.on('editor:resolution-height-changed', updateMontageInputs)
 
   const setStrokeControlsEnabled = (enabled) => {
     textStrokeColorInput.disabled = !enabled
