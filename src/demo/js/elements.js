@@ -94,6 +94,16 @@ export const textStrokeWidthValue = document.getElementById('text-stroke-width-v
 export const textOpacityInput = document.getElementById('text-opacity')
 export const textOpacityValue = document.getElementById('text-opacity-value')
 
+// Montage resolution controls
+export const montageWidthInput = document.getElementById('montage-width-input')
+export const montageHeightInput = document.getElementById('montage-height-input')
+export const applyMontageResolutionBtn = document.getElementById('apply-montage-resolution-btn')
+
+// Template controls
+export const serializeTemplateBtn = document.getElementById('serialize-template-btn')
+export const applyTemplateBtn = document.getElementById('apply-template-btn')
+export const templateJsonInput = document.getElementById('template-json-input')
+
 // State controls
 export const undoBtn = document.getElementById('undo-btn')
 export const redoBtn = document.getElementById('redo-btn')

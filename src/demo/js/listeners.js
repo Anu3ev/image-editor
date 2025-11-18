@@ -74,6 +74,12 @@ import {
   textStrokeWidthValue,
   textOpacityInput,
   textOpacityValue,
+  montageWidthInput,
+  montageHeightInput,
+  applyMontageResolutionBtn,
+  serializeTemplateBtn,
+  applyTemplateBtn,
+  templateJsonInput,
   // Undo/Redo
   undoBtn,
   redoBtn,
@@ -153,6 +159,35 @@ export default (editorInstance) => {
     const rawWidth = Number(textStrokeWidthInput.value)
     return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
   }
+
+  const updateMontageInputs = () => {
+    const { montageArea } = editorInstance
+    if (!montageArea) return
+
+    const width = Math.round(montageArea.getScaledWidth?.() || montageArea.width || 0)
+    const height = Math.round(montageArea.getScaledHeight?.() || montageArea.height || 0)
+
+    if (montageWidthInput) montageWidthInput.value = String(width)
+    if (montageHeightInput) montageHeightInput.value = String(height)
+  }
+
+  updateMontageInputs()
+
+  applyMontageResolutionBtn?.addEventListener('click', () => {
+    const width = Number(montageWidthInput?.value)
+    const height = Number(montageHeightInput?.value)
+
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      console.warn('Invalid montage size input')
+      return
+    }
+
+    editorInstance.canvasManager.setResolutionWidth(width)
+    editorInstance.canvasManager.setResolutionHeight(height)
+  })
+
+  editorInstance.canvas.on('editor:resolution-width-changed', updateMontageInputs)
+  editorInstance.canvas.on('editor:resolution-height-changed', updateMontageInputs)
 
   const setStrokeControlsEnabled = (enabled) => {
     textStrokeColorInput.disabled = !enabled
@@ -877,6 +912,40 @@ export default (editorInstance) => {
 
   gradientRadiusInput.addEventListener('input', (e) => {
     gradientRadiusValue.textContent = e.target.value
+  })
+
+  const setTemplateInputValue = (value = '') => {
+    if (!templateJsonInput) return
+    templateJsonInput.value = value
+  }
+
+  const getTemplateInputValue = () => templateJsonInput?.value ?? ''
+
+  serializeTemplateBtn?.addEventListener('click', () => {
+    try {
+      const template = editorInstance.templateManager.serializeSelection()
+      if (!template) return
+
+      setTemplateInputValue(JSON.stringify(template, null, 2))
+    } catch (error) {
+      console.error('Failed to serialize template selection', error)
+      setTemplateInputValue('')
+    }
+  })
+
+  applyTemplateBtn?.addEventListener('click', async() => {
+    const templateValue = getTemplateInputValue().trim()
+    if (!templateValue) {
+      console.warn('Template JSON is empty. Provide serialized data before applying.')
+      return
+    }
+
+    try {
+      const parsedTemplate = JSON.parse(templateValue)
+      await editorInstance.templateManager.applyTemplate({ template: parsedTemplate })
+    } catch (error) {
+      console.error('Failed to apply template', error)
+    }
   })
 
   setColorBackgroundBtn.addEventListener('click', () => {
