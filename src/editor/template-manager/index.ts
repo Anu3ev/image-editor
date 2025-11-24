@@ -61,6 +61,7 @@ export type SerializeTemplateOptions = {
   templateId?: string
   previewId?: string
   meta?: Partial<Omit<TemplateMeta, 'baseWidth' | 'baseHeight'>>
+  withBackground?: boolean
 }
 
 export type ApplyTemplateOptions = {
@@ -85,13 +86,23 @@ export default class TemplateManager {
   public serializeSelection({
     templateId,
     previewId,
-    meta = {}
+    meta = {},
+    withBackground = false
   }: SerializeTemplateOptions = {}): TemplateDefinition | null {
-    const { canvas, montageArea, errorManager } = this.editor
+    const {
+      canvas,
+      montageArea,
+      errorManager,
+      backgroundManager
+    } = this.editor
     const activeObject = canvas.getActiveObject()
     const objectsToSerialize = TemplateManager._collectObjects(activeObject)
+    const backgroundObjects = withBackground && backgroundManager?.backgroundObject
+      ? [backgroundManager.backgroundObject]
+      : []
+    const serializableObjects = [...objectsToSerialize, ...backgroundObjects]
 
-    if (!objectsToSerialize.length) {
+    if (!serializableObjects.length) {
       errorManager.emitWarning({
         origin: 'TemplateManager',
         method: 'serializeSelection',
@@ -106,7 +117,7 @@ export default class TemplateManager {
     const baseWidth = baseSize.width
     const baseHeight = baseSize.height
 
-    const serializedObjects = objectsToSerialize
+    const serializedObjects = serializableObjects
       .map((object) => TemplateManager._serializeObject({
         object,
         bounds: referenceBounds,
