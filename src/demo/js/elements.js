@@ -103,6 +103,7 @@ export const applyMontageResolutionBtn = document.getElementById('apply-montage-
 export const serializeTemplateBtn = document.getElementById('serialize-template-btn')
 export const applyTemplateBtn = document.getElementById('apply-template-btn')
 export const templateJsonInput = document.getElementById('template-json-input')
+export const serializeTemplateWithBackgroundCheckbox = document.getElementById('serialize-with-background')
 
 // State controls
 export const undoBtn = document.getElementById('undo-btn')

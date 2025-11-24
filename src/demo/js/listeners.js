@@ -80,6 +80,7 @@ import {
   serializeTemplateBtn,
   applyTemplateBtn,
   templateJsonInput,
+  serializeTemplateWithBackgroundCheckbox,
   // Undo/Redo
   undoBtn,
   redoBtn,
@@ -921,9 +922,10 @@ export default (editorInstance) => {
 
   const getTemplateInputValue = () => templateJsonInput?.value ?? ''
 
-  serializeTemplateBtn?.addEventListener('click', () => {
+  serializeTemplateBtn?.addEventListener('click', async() => {
     try {
-      const template = editorInstance.templateManager.serializeSelection()
+      const withBackground = Boolean(serializeTemplateWithBackgroundCheckbox?.checked)
+      const template = await editorInstance.templateManager.serializeSelection({ withBackground })
       if (!template) return
 
       setTemplateInputValue(JSON.stringify(template, null, 2))
