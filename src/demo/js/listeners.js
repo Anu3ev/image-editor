@@ -185,6 +185,9 @@ export default (editorInstance) => {
 
     editorInstance.canvasManager.setResolutionWidth(width)
     editorInstance.canvasManager.setResolutionHeight(height)
+    editorInstance.backgroundManager.refresh()
+    editorInstance.canvasManager.updateCanvas()
+    editorInstance.zoomManager.calculateAndApplyDefaultZoom()
   })
 
   editorInstance.canvas.on('editor:resolution-width-changed', updateMontageInputs)

@@ -1,6 +1,7 @@
 import {
   ActiveSelection,
   Canvas,
+  FabricImage,
   FabricObject,
   Point,
   Textbox,
@@ -11,6 +12,7 @@ import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import { OBJECT_SERIALIZATION_PROPS } from '../history-manager'
+import type { GradientBackground } from '../background-manager'
 
 type Bounds = {
   left: number
@@ -157,7 +159,8 @@ export default class TemplateManager {
       canvas,
       montageArea,
       historyManager,
-      errorManager
+      errorManager,
+      backgroundManager
     } = this.editor
 
     if (!template?.objects?.length) {
@@ -198,6 +201,7 @@ export default class TemplateManager {
     const useRelativePositions = Boolean(meta.positionsNormalized)
 
     let shouldSaveHistory = false
+    let backgroundApplied = false
 
     historyManager.suspendHistory()
 
@@ -214,7 +218,17 @@ export default class TemplateManager {
         return null
       }
 
-      const insertedObjects = enlivenedObjects.map((object) => {
+      const { backgroundObject, contentObjects } = TemplateManager._extractBackgroundObject(enlivenedObjects)
+
+      if (backgroundObject) {
+        backgroundApplied = await TemplateManager._applyBackgroundFromObject({
+          backgroundObject,
+          backgroundManager,
+          errorManager
+        })
+      }
+
+      const insertedObjects = contentObjects.map((object) => {
         TemplateManager._applyTextOverrides(object, data)
 
         TemplateManager._transformObject({
@@ -238,11 +252,13 @@ export default class TemplateManager {
         return object
       })
 
-      if (!insertedObjects.length) return null
+      if (!insertedObjects.length && !backgroundApplied) return null
 
-      shouldSaveHistory = true
+      shouldSaveHistory = insertedObjects.length > 0 || backgroundApplied
 
-      TemplateManager._activateObjects(canvas, insertedObjects)
+      if (insertedObjects.length) {
+        TemplateManager._activateObjects(canvas, insertedObjects)
+      }
 
       canvas.requestRenderAll()
       canvas.fire('editor:template-applied', {
@@ -492,6 +508,82 @@ export default class TemplateManager {
     return serialized
   }
 
+  private static _extractBackgroundObject(objects: FabricObject[]): {
+    backgroundObject: FabricObject | null
+    contentObjects: FabricObject[]
+  } {
+    const index = objects.findIndex((object) => object.id === 'background')
+
+    if (index === -1) {
+      return { backgroundObject: null, contentObjects: objects }
+    }
+
+    const backgroundObject = objects[index]
+    const contentObjects = objects.filter((_, i) => i !== index)
+
+    return { backgroundObject, contentObjects }
+  }
+
+  private static async _applyBackgroundFromObject({
+    backgroundObject,
+    backgroundManager,
+    errorManager
+  }: {
+    backgroundObject: FabricObject
+    backgroundManager: ImageEditor['backgroundManager']
+    errorManager: ImageEditor['errorManager']
+  }): Promise<boolean> {
+    try {
+      const backgroundType = (backgroundObject as FabricObject & { backgroundType?: unknown }).backgroundType
+      const customData = TemplateManager._cloneCustomData(backgroundObject.customData)
+
+      if (backgroundType === 'color' && typeof backgroundObject.fill === 'string') {
+        backgroundManager.setColorBackground({
+          color: backgroundObject.fill,
+          customData,
+          withoutSave: true
+        })
+        return true
+      }
+
+      if (backgroundType === 'gradient') {
+        const gradient = TemplateManager._convertGradientToOptions(backgroundObject.fill)
+
+        if (gradient) {
+          backgroundManager.setGradientBackground({
+            gradient,
+            customData,
+            withoutSave: true
+          })
+          return true
+        }
+      }
+
+      if (backgroundType === 'image') {
+        const src = TemplateManager._getImageSource(backgroundObject)
+
+        if (src) {
+          await backgroundManager.setImageBackground({
+            imageSource: src,
+            customData,
+            withoutSave: true
+          })
+          return true
+        }
+      }
+    } catch (error) {
+      errorManager.emitWarning({
+        origin: 'TemplateManager',
+        method: 'applyTemplate',
+        code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
+        message: 'Не удалось применить фон из шаблона',
+        data: error as object
+      })
+    }
+
+    return false
+  }
+
   private static _normalizeStoredValue({
     value,
     dimension,
@@ -667,6 +759,104 @@ export default class TemplateManager {
       width: bounds?.width || 0,
       height: bounds?.height || 0
     }
+  }
+
+  private static _convertGradientToOptions(fill: unknown): GradientBackground | null {
+    if (!fill || typeof fill !== 'object') return null
+
+    const { type, coords, colorStops } = fill as {
+      type?: unknown
+      coords?: Record<string, unknown>
+      colorStops?: Array<{ offset?: unknown; color?: unknown }>
+    }
+
+    const stops = Array.isArray(colorStops) ? colorStops : []
+    const firstStop = stops[0]
+    const lastStop = stops[stops.length - 1]
+
+    const startColor = typeof firstStop?.color === 'string' ? firstStop.color : undefined
+    const endColor = typeof lastStop?.color === 'string' ? lastStop.color : startColor
+    const startPosition = typeof firstStop?.offset === 'number' ? firstStop.offset * 100 : undefined
+    const endPosition = typeof lastStop?.offset === 'number' ? lastStop.offset * 100 : undefined
+
+    if (!startColor || !endColor || !coords) return null
+
+    if (type === 'linear') {
+      const { x1, y1, x2, y2 } = coords
+
+      if (
+        typeof x1 === 'number'
+        && typeof y1 === 'number'
+        && typeof x2 === 'number'
+        && typeof y2 === 'number'
+      ) {
+        const angle = TemplateManager._coordsToAngle(x1, y1, x2, y2)
+
+        return {
+          type: 'linear' as const,
+          angle,
+          startColor,
+          endColor,
+          startPosition,
+          endPosition
+        }
+      }
+    }
+
+    if (type === 'radial') {
+      const { x1, y1, r2 } = coords
+
+      if (
+        typeof x1 === 'number'
+        && typeof y1 === 'number'
+        && typeof r2 === 'number'
+      ) {
+        return {
+          type: 'radial' as const,
+          centerX: x1 * 100,
+          centerY: y1 * 100,
+          radius: r2 * 100,
+          startColor,
+          endColor,
+          startPosition,
+          endPosition
+        }
+      }
+    }
+
+    return null
+  }
+
+  private static _coordsToAngle(x1: number, y1: number, x2: number, y2: number): number {
+    const angleRad = Math.atan2(y2 - y1, x2 - x1)
+    const angleDeg = (angleRad * 180) / Math.PI
+    return (angleDeg + 360) % 360
+  }
+
+  private static _cloneCustomData(customData: unknown): Record<string, unknown> | undefined {
+    if (!customData || typeof customData !== 'object') return undefined
+    return { ...(customData as Record<string, unknown>) }
+  }
+
+  private static _getImageSource(image: FabricObject): string | null {
+    if ('getSrc' in image && typeof (image as FabricImage).getSrc === 'function') {
+      const src = (image as FabricImage).getSrc()
+      if (src) return src
+    }
+
+    if ('getElement' in image && typeof (image as FabricImage).getElement === 'function') {
+      const element = (image as FabricImage).getElement()
+
+      if (element instanceof HTMLImageElement) {
+        return element.currentSrc || element.src || null
+      }
+    }
+
+    if (typeof (image as Record<string, unknown>).src === 'string') {
+      return (image as Record<string, string>).src
+    }
+
+    return null
   }
 
   private static _toNumber(value: unknown, fallback = 0): number {
