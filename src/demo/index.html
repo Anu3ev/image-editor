@@ -257,6 +257,68 @@
                   <span class="text-muted small" id="text-opacity-value">100%</span>
                 </div>
               </div>
+
+              <div class="form-check mb-2">
+                <input class="form-check-input" type="checkbox" id="text-background-enabled">
+                <label class="form-check-label" for="text-background-enabled">
+                  Background enabled
+                </label>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label" for="text-background-color">Background color</label>
+                <div class="d-flex gap-2 align-items-center flex-wrap">
+                  <input type="color" class="form-control form-control-color" id="text-background-color" value="#ffffff" disabled>
+                  <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <input type="range" class="form-range flex-grow-1" id="text-background-opacity" min="0" max="100" step="1" value="100" disabled>
+                    <span class="text-muted small" id="text-background-opacity-value">100%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label">Background padding (px)</label>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label for="text-padding-top" class="form-label small mb-1">Top</label>
+                    <input type="number" class="form-control form-control-sm" id="text-padding-top" min="0" max="300" value="0" disabled>
+                  </div>
+                  <div class="col-6">
+                    <label for="text-padding-right" class="form-label small mb-1">Right</label>
+                    <input type="number" class="form-control form-control-sm" id="text-padding-right" min="0" max="300" value="0" disabled>
+                  </div>
+                  <div class="col-6">
+                    <label for="text-padding-bottom" class="form-label small mb-1">Bottom</label>
+                    <input type="number" class="form-control form-control-sm" id="text-padding-bottom" min="0" max="300" value="0" disabled>
+                  </div>
+                  <div class="col-6">
+                    <label for="text-padding-left" class="form-label small mb-1">Left</label>
+                    <input type="number" class="form-control form-control-sm" id="text-padding-left" min="0" max="300" value="0" disabled>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label">Corner radius (px)</label>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <label for="text-radius-top-left" class="form-label small mb-1">Top Left</label>
+                    <input type="number" class="form-control form-control-sm" id="text-radius-top-left" min="0" max="500" value="0" disabled>
+                  </div>
+                  <div class="col-6">
+                    <label for="text-radius-top-right" class="form-label small mb-1">Top Right</label>
+                    <input type="number" class="form-control form-control-sm" id="text-radius-top-right" min="0" max="500" value="0" disabled>
+                  </div>
+                  <div class="col-6">
+                    <label for="text-radius-bottom-right" class="form-label small mb-1">Bottom Right</label>
+                    <input type="number" class="form-control form-control-sm" id="text-radius-bottom-right" min="0" max="500" value="0" disabled>
+                  </div>
+                  <div class="col-6">
+                    <label for="text-radius-bottom-left" class="form-label small mb-1">Bottom Left</label>
+                    <input type="number" class="form-control form-control-sm" id="text-radius-bottom-left" min="0" max="500" value="0" disabled>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="template-controls">

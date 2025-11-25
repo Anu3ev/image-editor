@@ -74,6 +74,18 @@ import {
   textStrokeWidthValue,
   textOpacityInput,
   textOpacityValue,
+  textBackgroundEnabledCheckbox,
+  textBackgroundColorInput,
+  textBackgroundOpacityInput,
+  textBackgroundOpacityValue,
+  textPaddingTopInput,
+  textPaddingRightInput,
+  textPaddingBottomInput,
+  textPaddingLeftInput,
+  textRadiusTopLeftInput,
+  textRadiusTopRightInput,
+  textRadiusBottomRightInput,
+  textRadiusBottomLeftInput,
   montageWidthInput,
   montageHeightInput,
   applyMontageResolutionBtn,
@@ -159,6 +171,32 @@ export default (editorInstance) => {
   const getStrokeWidthFromInput = () => {
     const rawWidth = Number(textStrokeWidthInput.value)
     return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+  }
+
+  const parseNumberInput = ({
+    input,
+    fallback = 0,
+    min = Number.MIN_SAFE_INTEGER,
+    max = Number.MAX_SAFE_INTEGER
+  }) => {
+    const raw = Number(input.value)
+    const safeValue = Number.isNaN(raw) ? fallback : raw
+    const clamped = Math.min(Math.max(safeValue, min), max)
+    input.value = clamped
+    return clamped
+  }
+
+  const setBackgroundControlsEnabled = (enabled) => {
+    textBackgroundColorInput.disabled = !enabled
+    textBackgroundOpacityInput.disabled = !enabled
+    textPaddingTopInput.disabled = !enabled
+    textPaddingRightInput.disabled = !enabled
+    textPaddingBottomInput.disabled = !enabled
+    textPaddingLeftInput.disabled = !enabled
+    textRadiusTopLeftInput.disabled = !enabled
+    textRadiusTopRightInput.disabled = !enabled
+    textRadiusBottomRightInput.disabled = !enabled
+    textRadiusBottomLeftInput.disabled = !enabled
   }
 
   const updateMontageInputs = () => {
@@ -293,9 +331,13 @@ export default (editorInstance) => {
     }
   }
 
+  const isTextboxObject = (object) => (
+    Boolean(object) && (object.type === 'textbox' || object.type === 'background-textbox')
+  )
+
   const getActiveText = () => {
     const object = editorInstance.canvas.getActiveObject()
-    if (!object || object.type !== 'textbox') return null
+    if (!isTextboxObject(object)) return null
     return object
   }
 
@@ -419,6 +461,70 @@ export default (editorInstance) => {
     textOpacityInput.value = opacity
     textOpacityValue.textContent = `${opacity}%`
 
+    const {
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft
+    } = textbox
+    const isBackgroundEnabled = Boolean(backgroundColor)
+    textBackgroundEnabledCheckbox.checked = isBackgroundEnabled
+    setBackgroundControlsEnabled(isBackgroundEnabled)
+
+    const resolvedBackgroundColor = typeof backgroundColor === 'string' && backgroundColor.length
+      ? backgroundColor
+      : textBackgroundColorInput.value
+    textBackgroundColorInput.value = resolvedBackgroundColor
+
+    const backgroundOpacityPercent = Math.max(
+      0,
+      Math.min(100, Math.round((backgroundOpacity ?? (Number(textBackgroundOpacityInput.value) / 100)) * 100))
+    )
+    textBackgroundOpacityInput.value = backgroundOpacityPercent
+    textBackgroundOpacityValue.textContent = `${backgroundOpacityPercent}%`
+
+    const paddingTopValue = typeof paddingTop === 'number'
+      ? Math.max(0, Math.round(paddingTop))
+      : Number(textPaddingTopInput.value) || 0
+    const paddingRightValue = typeof paddingRight === 'number'
+      ? Math.max(0, Math.round(paddingRight))
+      : Number(textPaddingRightInput.value) || 0
+    const paddingBottomValue = typeof paddingBottom === 'number'
+      ? Math.max(0, Math.round(paddingBottom))
+      : Number(textPaddingBottomInput.value) || 0
+    const paddingLeftValue = typeof paddingLeft === 'number'
+      ? Math.max(0, Math.round(paddingLeft))
+      : Number(textPaddingLeftInput.value) || 0
+
+    textPaddingTopInput.value = paddingTopValue
+    textPaddingRightInput.value = paddingRightValue
+    textPaddingBottomInput.value = paddingBottomValue
+    textPaddingLeftInput.value = paddingLeftValue
+
+    const radiusTopLeftValue = typeof radiusTopLeft === 'number'
+      ? Math.max(0, Math.round(radiusTopLeft))
+      : Number(textRadiusTopLeftInput.value) || 0
+    const radiusTopRightValue = typeof radiusTopRight === 'number'
+      ? Math.max(0, Math.round(radiusTopRight))
+      : Number(textRadiusTopRightInput.value) || 0
+    const radiusBottomRightValue = typeof radiusBottomRight === 'number'
+      ? Math.max(0, Math.round(radiusBottomRight))
+      : Number(textRadiusBottomRightInput.value) || 0
+    const radiusBottomLeftValue = typeof radiusBottomLeft === 'number'
+      ? Math.max(0, Math.round(radiusBottomLeft))
+      : Number(textRadiusBottomLeftInput.value) || 0
+
+    textRadiusTopLeftInput.value = radiusTopLeftValue
+    textRadiusTopRightInput.value = radiusTopRightValue
+    textRadiusBottomRightInput.value = radiusBottomRightValue
+    textRadiusBottomLeftInput.value = radiusBottomLeftValue
+
     isSyncingControls = false
   }
 
@@ -457,6 +563,8 @@ export default (editorInstance) => {
 
   setStrokeWidthUI(Number(textStrokeWidthInput.value) || 0)
   textOpacityValue.textContent = `${textOpacityInput.value}%`
+  textBackgroundOpacityValue.textContent = `${textBackgroundOpacityInput.value}%`
+  setBackgroundControlsEnabled(Boolean(textBackgroundEnabledCheckbox.checked))
 
   setPaletteSelection(textColorButtons, textColorInput.value)
   setPaletteSelection(textStrokeButtons, textStrokeColorInput.value)
@@ -495,7 +603,7 @@ export default (editorInstance) => {
 
   const handleSelectionChange = (event) => {
     const eventTarget = event?.target
-    const explicitTextbox = eventTarget && eventTarget.type === 'textbox' ? eventTarget : null
+    const explicitTextbox = eventTarget && isTextboxObject(eventTarget) ? eventTarget : null
     const textObject = explicitTextbox ?? getActiveText()
     if (textObject) {
       syncTextControls(textObject)
@@ -515,6 +623,23 @@ export default (editorInstance) => {
     const opacityInputValue = Number(textOpacityInput.value)
     const opacityPercent = Number.isNaN(opacityInputValue) ? 100 : opacityInputValue
     const opacity = Math.max(0, Math.min(1, opacityPercent / 100))
+    const backgroundEnabled = Boolean(textBackgroundEnabledCheckbox.checked)
+    const backgroundOpacityInputValue = Number(textBackgroundOpacityInput.value)
+    const backgroundOpacityPercent = Math.max(
+      0,
+      Math.min(100, Number.isNaN(backgroundOpacityInputValue) ? 100 : backgroundOpacityInputValue)
+    )
+    const backgroundOpacity = backgroundOpacityPercent / 100
+
+    const paddingTop = parseNumberInput({ input: textPaddingTopInput, min: 0, fallback: 0 })
+    const paddingRight = parseNumberInput({ input: textPaddingRightInput, min: 0, fallback: 0 })
+    const paddingBottom = parseNumberInput({ input: textPaddingBottomInput, min: 0, fallback: 0 })
+    const paddingLeft = parseNumberInput({ input: textPaddingLeftInput, min: 0, fallback: 0 })
+
+    const radiusTopLeft = parseNumberInput({ input: textRadiusTopLeftInput, min: 0, fallback: 0 })
+    const radiusTopRight = parseNumberInput({ input: textRadiusTopRightInput, min: 0, fallback: 0 })
+    const radiusBottomRight = parseNumberInput({ input: textRadiusBottomRightInput, min: 0, fallback: 0 })
+    const radiusBottomLeft = parseNumberInput({ input: textRadiusBottomLeftInput, min: 0, fallback: 0 })
 
     const textbox = editorInstance.textManager.addText({
       text: textValue,
@@ -529,7 +654,21 @@ export default (editorInstance) => {
       color: textColorInput.value,
       strokeColor: textStrokeColorInput.value,
       strokeWidth,
-      opacity
+      opacity,
+      ...(backgroundEnabled
+        ? {
+            backgroundColor: textBackgroundColorInput.value,
+            backgroundOpacity,
+            paddingTop,
+            paddingRight,
+            paddingBottom,
+            paddingLeft,
+            radiusTopLeft,
+            radiusTopRight,
+            radiusBottomRight,
+            radiusBottomLeft
+          }
+        : { backgroundColor: '' })
     })
 
     editorInstance.canvas.setActiveObject(textbox)
@@ -660,6 +799,119 @@ export default (editorInstance) => {
     textOpacityValue.textContent = `${opacityPercent}%`
     if (!getActiveText()) return
     applyTextStyle({ opacity: opacityPercent / 100 })
+  })
+
+  const getBackgroundStyleFromInputs = () => {
+    const backgroundOpacityPercent = parseNumberInput({
+      input: textBackgroundOpacityInput,
+      min: 0,
+      max: 100,
+      fallback: 100
+    })
+
+    const paddingTop = parseNumberInput({ input: textPaddingTopInput, min: 0, fallback: 0 })
+    const paddingRight = parseNumberInput({ input: textPaddingRightInput, min: 0, fallback: 0 })
+    const paddingBottom = parseNumberInput({ input: textPaddingBottomInput, min: 0, fallback: 0 })
+    const paddingLeft = parseNumberInput({ input: textPaddingLeftInput, min: 0, fallback: 0 })
+
+    const radiusTopLeft = parseNumberInput({ input: textRadiusTopLeftInput, min: 0, fallback: 0 })
+    const radiusTopRight = parseNumberInput({ input: textRadiusTopRightInput, min: 0, fallback: 0 })
+    const radiusBottomRight = parseNumberInput({ input: textRadiusBottomRightInput, min: 0, fallback: 0 })
+    const radiusBottomLeft = parseNumberInput({ input: textRadiusBottomLeftInput, min: 0, fallback: 0 })
+
+    return {
+      backgroundColor: normalizeColor(textBackgroundColorInput.value, textBackgroundColorInput.value),
+      backgroundOpacity: backgroundOpacityPercent / 100,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft
+    }
+  }
+
+  textBackgroundEnabledCheckbox.addEventListener('change', () => {
+    const enabled = Boolean(textBackgroundEnabledCheckbox.checked)
+    setBackgroundControlsEnabled(enabled)
+    if (!getActiveText()) return
+    if (!enabled) {
+      applyTextStyle({ backgroundColor: '' })
+      return
+    }
+    applyTextStyle(getBackgroundStyleFromInputs())
+  })
+
+  textBackgroundColorInput.addEventListener('input', (e) => {
+    const color = normalizeColor(e.target.value, textBackgroundColorInput.value)
+    e.target.value = color
+    if (!getActiveText()) return
+    if (!textBackgroundEnabledCheckbox.checked) return
+    applyTextStyle({ backgroundColor: color })
+  })
+
+  textBackgroundOpacityInput.addEventListener('input', (e) => {
+    const opacityPercent = parseNumberInput({ input: e.target, min: 0, max: 100, fallback: 100 })
+    textBackgroundOpacityValue.textContent = `${opacityPercent}%`
+    if (!getActiveText()) return
+    if (!textBackgroundEnabledCheckbox.checked) return
+    applyTextStyle({ backgroundOpacity: opacityPercent / 100 }, { withoutSave: true })
+  })
+
+  textBackgroundOpacityInput.addEventListener('change', (e) => {
+    const opacityPercent = parseNumberInput({ input: e.target, min: 0, max: 100, fallback: 100 })
+    textBackgroundOpacityValue.textContent = `${opacityPercent}%`
+    if (!getActiveText()) return
+    if (!textBackgroundEnabledCheckbox.checked) return
+    applyTextStyle({ backgroundOpacity: opacityPercent / 100 })
+  })
+
+  const paddingInputs = [
+    { input: textPaddingTopInput, key: 'paddingTop' },
+    { input: textPaddingRightInput, key: 'paddingRight' },
+    { input: textPaddingBottomInput, key: 'paddingBottom' },
+    { input: textPaddingLeftInput, key: 'paddingLeft' }
+  ]
+
+  paddingInputs.forEach(({ input, key }) => {
+    input.addEventListener('input', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value }, { withoutSave: true })
+    })
+
+    input.addEventListener('change', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value })
+    })
+  })
+
+  const radiusInputs = [
+    { input: textRadiusTopLeftInput, key: 'radiusTopLeft' },
+    { input: textRadiusTopRightInput, key: 'radiusTopRight' },
+    { input: textRadiusBottomRightInput, key: 'radiusBottomRight' },
+    { input: textRadiusBottomLeftInput, key: 'radiusBottomLeft' }
+  ]
+
+  radiusInputs.forEach(({ input, key }) => {
+    input.addEventListener('input', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value }, { withoutSave: true })
+    })
+
+    input.addEventListener('change', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value })
+    })
   })
 
   editorInstance.canvas.on('selection:created', handleSelectionChange)

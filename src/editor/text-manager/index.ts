@@ -10,6 +10,10 @@ import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
+import {
+  BackgroundTextbox,
+  type BackgroundTextboxProps
+} from './background-textbox'
 
 type TextCreationFlags = {
   withoutSelection?: boolean
@@ -32,9 +36,19 @@ export type TextStyleOptions = {
   strokeColor?: string
   strokeWidth?: number
   opacity?: number
+  backgroundColor?: string
+  backgroundOpacity?: number
+  paddingTop?: number
+  paddingRight?: number
+  paddingBottom?: number
+  paddingLeft?: number
+  radiusTopLeft?: number
+  radiusTopRight?: number
+  radiusBottomRight?: number
+  radiusBottomLeft?: number
 } & Partial<
   Omit<
-    TextboxProps,
+    BackgroundTextboxProps,
     | 'fontFamily'
     | 'fontSize'
     | 'fontWeight'
@@ -52,7 +66,9 @@ export type TextStyleOptions = {
   >
 >
 
-type TextReference = string | Textbox | null | undefined
+type EditorTextbox = Textbox & Partial<BackgroundTextboxProps>
+
+type TextReference = string | EditorTextbox | null | undefined
 
 type UpdateOptions = {
   target?: TextReference
@@ -98,7 +114,7 @@ export default class TextManager {
   /**
    * Данные о масштабе текста, которые собираются в процессе трансформации.
    */
-  private scalingState: WeakMap<Textbox, ScalingState>
+  private scalingState: WeakMap<EditorTextbox, ScalingState>
 
   /**
    * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
@@ -137,10 +153,20 @@ export default class TextManager {
       strokeColor,
       strokeWidth = 0,
       opacity = 1,
+      backgroundColor,
+      backgroundOpacity = 1,
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0,
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0,
       ...rest
     }: TextStyleOptions = {},
     { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
-  ): Textbox {
+  ): EditorTextbox {
     const { historyManager } = this.editor
     historyManager.suspendHistory()
 
@@ -152,7 +178,7 @@ export default class TextManager {
       resolvedStrokeWidth
     )
 
-    const textbox = new Textbox(text, {
+    const textbox = new BackgroundTextbox(text, {
       id,
       fontFamily: resolvedFontFamily,
       fontSize,
@@ -167,6 +193,16 @@ export default class TextManager {
       strokeWidth: resolvedStrokeWidth,
       strokeUniform: true,
       opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
       ...rest
     })
 
@@ -215,6 +251,16 @@ export default class TextManager {
       strokeColor: resolvedStrokeColor,
       strokeWidth: resolvedStrokeWidth,
       opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
       ...rest
     }
 
@@ -239,7 +285,7 @@ export default class TextManager {
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
    */
-  public updateText({ target, style = {}, withoutSave, skipRender }: UpdateOptions = {}): Textbox | null {
+  public updateText({ target, style = {}, withoutSave, skipRender }: UpdateOptions = {}): EditorTextbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
 
@@ -262,6 +308,16 @@ export default class TextManager {
       stroke: textbox.stroke ?? undefined,
       strokeWidth: textbox.strokeWidth ?? undefined,
       opacity: textbox.opacity ?? undefined,
+      backgroundColor: textbox.backgroundColor ?? undefined,
+      backgroundOpacity: textbox.backgroundOpacity ?? undefined,
+      paddingTop: textbox.paddingTop ?? undefined,
+      paddingRight: textbox.paddingRight ?? undefined,
+      paddingBottom: textbox.paddingBottom ?? undefined,
+      paddingLeft: textbox.paddingLeft ?? undefined,
+      radiusTopLeft: textbox.radiusTopLeft ?? undefined,
+      radiusTopRight: textbox.radiusTopRight ?? undefined,
+      radiusBottomRight: textbox.radiusBottomRight ?? undefined,
+      radiusBottomLeft: textbox.radiusBottomLeft ?? undefined,
       left: textbox.left ?? undefined,
       top: textbox.top ?? undefined,
       width: textbox.width ?? undefined,
@@ -285,10 +341,20 @@ export default class TextManager {
       strokeColor,
       strokeWidth,
       opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
       ...rest
     } = style
 
-    const updates: Partial<TextboxProps> = { ...rest }
+    const updates: Partial<BackgroundTextboxProps> = { ...rest }
     const selectionRange = TextManager._getSelectionRange(textbox)
     const selectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
@@ -416,6 +482,46 @@ export default class TextManager {
       updates.opacity = opacity
     }
 
+    if (backgroundColor !== undefined) {
+      updates.backgroundColor = backgroundColor
+    }
+
+    if (backgroundOpacity !== undefined) {
+      updates.backgroundOpacity = backgroundOpacity
+    }
+
+    if (paddingTop !== undefined) {
+      updates.paddingTop = paddingTop
+    }
+
+    if (paddingRight !== undefined) {
+      updates.paddingRight = paddingRight
+    }
+
+    if (paddingBottom !== undefined) {
+      updates.paddingBottom = paddingBottom
+    }
+
+    if (paddingLeft !== undefined) {
+      updates.paddingLeft = paddingLeft
+    }
+
+    if (radiusTopLeft !== undefined) {
+      updates.radiusTopLeft = radiusTopLeft
+    }
+
+    if (radiusTopRight !== undefined) {
+      updates.radiusTopRight = radiusTopRight
+    }
+
+    if (radiusBottomRight !== undefined) {
+      updates.radiusBottomRight = radiusBottomRight
+    }
+
+    if (radiusBottomLeft !== undefined) {
+      updates.radiusBottomLeft = radiusBottomLeft
+    }
+
     const previousRaw = textbox.textCaseRaw ?? (textbox.text ?? '')
     const previousUppercase = Boolean(textbox.uppercase)
     const hasTextUpdate = text !== undefined
@@ -452,6 +558,20 @@ export default class TextManager {
     if (stylesApplied) {
       textbox.dirty = true
     }
+    if (
+      backgroundColor !== undefined
+      || backgroundOpacity !== undefined
+      || paddingTop !== undefined
+      || paddingRight !== undefined
+      || paddingBottom !== undefined
+      || paddingLeft !== undefined
+      || radiusTopLeft !== undefined
+      || radiusTopRight !== undefined
+      || radiusBottomRight !== undefined
+      || radiusBottomLeft !== undefined
+    ) {
+      textbox.dirty = true
+    }
 
     textbox.setCoords()
 
@@ -480,6 +600,16 @@ export default class TextManager {
       stroke: textbox.stroke ?? undefined,
       strokeWidth: textbox.strokeWidth ?? undefined,
       opacity: textbox.opacity ?? undefined,
+      backgroundColor: textbox.backgroundColor ?? undefined,
+      backgroundOpacity: textbox.backgroundOpacity ?? undefined,
+      paddingTop: textbox.paddingTop ?? undefined,
+      paddingRight: textbox.paddingRight ?? undefined,
+      paddingBottom: textbox.paddingBottom ?? undefined,
+      paddingLeft: textbox.paddingLeft ?? undefined,
+      radiusTopLeft: textbox.radiusTopLeft ?? undefined,
+      radiusTopRight: textbox.radiusTopRight ?? undefined,
+      radiusBottomRight: textbox.radiusBottomRight ?? undefined,
+      radiusBottomLeft: textbox.radiusBottomLeft ?? undefined,
       left: textbox.left ?? undefined,
       top: textbox.top ?? undefined,
       width: textbox.width ?? undefined,
@@ -521,7 +651,7 @@ export default class TextManager {
   /**
    * Возвращает активный текст или ищет по id.
    */
-  private _resolveTextObject(reference: TextReference): Textbox | null {
+  private _resolveTextObject(reference: TextReference): EditorTextbox | null {
     if (reference instanceof Textbox) return reference
 
     if (!reference) {
@@ -531,7 +661,7 @@ export default class TextManager {
 
     if (typeof reference === 'string') {
       const object = this.canvas.getObjects()
-        .find((item): item is Textbox => TextManager._isTextbox(item) && item.id === reference)
+        .find((item): item is EditorTextbox => TextManager._isTextbox(item) && item.id === reference)
 
       return object ?? null
     }
@@ -539,7 +669,7 @@ export default class TextManager {
     return null
   }
 
-  private static _isTextbox(object?: FabricObject | null): object is Textbox {
+  private static _isTextbox(object?: FabricObject | null): object is EditorTextbox {
     return Boolean(object) && object instanceof Textbox
   }
 
@@ -740,7 +870,7 @@ export default class TextManager {
     target.setCoords()
   }
 
-  private _ensureScalingState(textbox: Textbox): ScalingState {
+  private _ensureScalingState(textbox: EditorTextbox): ScalingState {
     let state = this.scalingState.get(textbox)
 
     if (!state) {
@@ -760,7 +890,7 @@ export default class TextManager {
     return state
   }
 
-  private static _getSelectionRange(textbox: Textbox): TextSelectionRange | null {
+  private static _getSelectionRange(textbox: EditorTextbox): TextSelectionRange | null {
     if (!textbox.isEditing) return null
 
     const selectionStart = textbox.selectionStart ?? 0
@@ -773,7 +903,7 @@ export default class TextManager {
     }
   }
 
-  private static _getFullTextRange(textbox: Textbox): TextSelectionRange | null {
+  private static _getFullTextRange(textbox: EditorTextbox): TextSelectionRange | null {
     const length = textbox.text?.length ?? 0
     if (length <= 0) return null
 
@@ -781,7 +911,7 @@ export default class TextManager {
   }
 
   private static _isFullTextSelection(
-    textbox: Textbox,
+    textbox: EditorTextbox,
     range: TextSelectionRange | null
   ): boolean {
     if (!range) return false
@@ -793,7 +923,7 @@ export default class TextManager {
   }
 
   private static _applyStylesToRange(
-    textbox: Textbox,
+    textbox: EditorTextbox,
     styles: Partial<TextboxProps>,
     range: TextSelectionRange
   ): boolean {
@@ -806,7 +936,7 @@ export default class TextManager {
   }
 
   private static _getSelectionStyleValue<T extends keyof TextboxProps>(
-    textbox: Textbox,
+    textbox: EditorTextbox,
     range: TextSelectionRange | null,
     property: T
   ): TextboxProps[T] | undefined {

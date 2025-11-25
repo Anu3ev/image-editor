@@ -36,7 +36,17 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'linethrough',
   'underline',
   'fontStyle',
-  'fontWeight'
+  'fontWeight',
+  'backgroundColor',
+  'backgroundOpacity',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
 ] as const
 
 export type CanvasFullState = {
