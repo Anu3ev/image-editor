@@ -12,6 +12,7 @@ import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
 import {
   BackgroundTextbox,
+  registerBackgroundTextbox,
   type BackgroundTextboxProps
 } from './background-textbox'
 
@@ -146,6 +147,7 @@ export default class TextManager {
     this.isTextEditingActive = false
 
     this._bindEvents()
+    registerBackgroundTextbox()
   }
 
   /**

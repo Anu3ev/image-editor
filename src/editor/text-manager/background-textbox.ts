@@ -282,4 +282,11 @@ export class BackgroundTextbox extends Textbox {
   }
 }
 
-classRegistry.setClass(BackgroundTextbox, 'background-textbox')
+/**
+ * Регистрирует кастомный текстовый класс в реестре Fabric для корректной десериализации.
+ */
+export const registerBackgroundTextbox = (): void => {
+  if (classRegistry?.setClass) {
+    classRegistry.setClass(BackgroundTextbox, 'background-textbox')
+  }
+}
