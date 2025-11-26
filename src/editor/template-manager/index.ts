@@ -676,19 +676,15 @@ export default class TemplateManager {
     const { left, top, width, height } = bounds
 
     if (!montageArea) {
-      return new Point(
-        left + normalizedX * (targetSize.width || width),
-        top + normalizedY * (targetSize.height || height)
-      )
+      const x = left + normalizedX * (targetSize.width || width)
+      const y = top + normalizedY * (targetSize.height || height)
+
+      return new Point(x, y)
     }
 
-    // Используем масштабированный размер из bounds
-    const scaledWidth = width
-    const scaledHeight = height
-
     // КЛЮЧ: денормализуем относительно левого верхнего угла bounds
-    const absoluteX = left + (normalizedX * scaledWidth)
-    const absoluteY = top + (normalizedY * scaledHeight)
+    const absoluteX = left + (normalizedX * width)
+    const absoluteY = top + (normalizedY * height)
 
     return new Point(absoluteX, absoluteY)
   }
@@ -696,14 +692,10 @@ export default class TemplateManager {
   private static _calculateNormalizedCenter({
     object,
     montageArea,
-    baseWidth: _baseWidth,
-    baseHeight: _baseHeight,
     bounds
   }: {
     object: FabricObject
     montageArea: FabricObject | null
-    baseWidth: number
-    baseHeight: number
     bounds: Bounds | null
   }): { x: number; y: number } | null {
     if (!montageArea || !bounds) return null
