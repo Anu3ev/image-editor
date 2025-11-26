@@ -15,6 +15,16 @@ import {
   registerBackgroundTextbox,
   type BackgroundTextboxProps
 } from './background-textbox'
+import {
+  applyStylesToRange,
+  getFullTextRange,
+  getSelectionRange,
+  getSelectionStyleValue,
+  isFullTextSelection,
+  resolveStrokeColor,
+  resolveStrokeWidth,
+  toUpperCaseSafe
+} from '../utils/text'
 
 type TextCreationFlags = {
   withoutSelection?: boolean
@@ -103,11 +113,6 @@ type ScalingState = {
   hasWidthChange: boolean
 }
 
-type TextSelectionRange = {
-  start: number
-  end: number
-}
-
 type TextboxSnapshot = Record<string, unknown>
 
 /**
@@ -193,11 +198,11 @@ export default class TextManager {
 
     const resolvedFontFamily = fontFamily ?? this._getDefaultFontFamily()
 
-    const resolvedStrokeWidth = TextManager._resolveStrokeWidth(strokeWidth)
-    const resolvedStrokeColor = TextManager._resolveStrokeColor(
+    const resolvedStrokeWidth = resolveStrokeWidth({ width: strokeWidth })
+    const resolvedStrokeColor = resolveStrokeColor({
       strokeColor,
-      resolvedStrokeWidth
-    )
+      width: resolvedStrokeWidth
+    })
 
     const finalOptions = {
       id,
@@ -233,7 +238,7 @@ export default class TextManager {
     textbox.textCaseRaw = textbox.text ?? ''
 
     if (uppercase) {
-      const uppercased = TextManager._toUpperCase(textbox.textCaseRaw)
+      const uppercased = toUpperCaseSafe({ value: textbox.textCaseRaw })
       if (uppercased !== textbox.text) {
         textbox.set({ text: uppercased })
       }
@@ -328,11 +333,11 @@ export default class TextManager {
     } = style
 
     const updates: Partial<BackgroundTextboxProps> = { ...rest }
-    const selectionRange = TextManager._getSelectionRange(textbox)
+    const selectionRange = getSelectionRange({ textbox })
     const selectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
-    const isFullTextSelection = TextManager._isFullTextSelection(textbox, selectionRange)
-    const shouldUpdateWholeObject = !selectionRange || isFullTextSelection
+    const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
+    const shouldUpdateWholeObject = !selectionRange || isSelectionForWholeText
     const shouldApplyWholeTextStyles = !selectionRange
 
     if (fontFamily !== undefined) {
@@ -425,16 +430,19 @@ export default class TextManager {
 
     if (strokeColor !== undefined || strokeWidth !== undefined) {
       const selectionStrokeWidth = selectionRange
-        ? TextManager._getSelectionStyleValue<number>(textbox, selectionRange, 'strokeWidth')
+        ? getSelectionStyleValue<number>({ textbox, range: selectionRange, property: 'strokeWidth' })
         : undefined
       const selectionStrokeColor = selectionRange
-        ? TextManager._getSelectionStyleValue<string>(textbox, selectionRange, 'stroke')
+        ? getSelectionStyleValue<string>({ textbox, range: selectionRange, property: 'stroke' })
         : undefined
 
       const widthSource = strokeWidth ?? selectionStrokeWidth ?? textbox.strokeWidth ?? 0
-      const resolvedStrokeWidth = TextManager._resolveStrokeWidth(widthSource)
+      const resolvedStrokeWidth = resolveStrokeWidth({ width: widthSource })
       const colorSource = strokeColor ?? selectionStrokeColor ?? textbox.stroke ?? undefined
-      const resolvedStrokeColor = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
+      const resolvedStrokeColor = resolveStrokeColor({
+        strokeColor: colorSource,
+        width: resolvedStrokeWidth
+      })
 
       if (selectionRange) {
         selectionStyles.stroke = resolvedStrokeColor
@@ -506,7 +514,7 @@ export default class TextManager {
     // чтобы можно было переключать регистр без потери оригинальной строки.
     if (hasTextUpdate || uppercaseChanged) {
       const renderedText = nextUppercase
-        ? TextManager._toUpperCase(targetRawText)
+        ? toUpperCaseSafe({ value: targetRawText })
         : targetRawText
       updates.text = renderedText
       textbox.textCaseRaw = targetRawText
@@ -520,11 +528,11 @@ export default class TextManager {
 
     let stylesApplied = false
     if (selectionRange) {
-      stylesApplied = TextManager._applyStylesToRange(textbox, selectionStyles, selectionRange)
+      stylesApplied = applyStylesToRange({ textbox, styles: selectionStyles, range: selectionRange })
     } else if (Object.keys(wholeTextStyles).length) {
-      const fullRange = TextManager._getFullTextRange(textbox)
+      const fullRange = getFullTextRange({ textbox })
       if (fullRange) {
-        stylesApplied = TextManager._applyStylesToRange(textbox, wholeTextStyles, fullRange)
+        stylesApplied = applyStylesToRange({ textbox, styles: wholeTextStyles, range: fullRange })
       }
     }
 
@@ -612,6 +620,9 @@ export default class TextManager {
     return null
   }
 
+  /**
+   * Проверяет, является ли объект текстовым блоком редактора.
+   */
   private static _isTextbox(object?: FabricObject | null): object is EditorTextbox {
     return Boolean(object) && object instanceof Textbox
   }
@@ -636,10 +647,6 @@ export default class TextManager {
   }
 
   /**
-   * Обрабатывает изменение текста во время редактирования.
-   * Обновляет textCaseRaw в реальном времени для корректной работы uppercase.
-   */
-  /**
    * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
    */
   private _handleTextChanged = (event: IEvent): void => {
@@ -648,39 +655,20 @@ export default class TextManager {
 
     const currentText = target.text ?? ''
     const isUppercase = Boolean(target.uppercase)
-    const previousRaw = target.textCaseRaw ?? ''
+    const normalizedRaw = currentText.toLocaleLowerCase()
 
     if (isUppercase) {
-      // Если uppercase включен, принудительно переводим весь текст в верхний регистр
-      const uppercased = TextManager._toUpperCase(currentText)
+      const uppercased = toUpperCaseSafe({ value: normalizedRaw })
 
       if (uppercased !== currentText) {
-        // Текст содержит маленькие буквы, нужно их перевести в верхний регистр
         target.set({ text: uppercased })
-        this.canvas.requestRenderAll()
       }
 
-      // Восстанавливаем оригинальный регистр:
-      // Определяем, какие символы были добавлены/изменены
-      const rawLength = previousRaw.length
-      const currentLength = currentText.length
-
-      if (currentLength > rawLength) {
-        // Добавлены новые символы - сохраняем их в нижнем регистре
-        const addedText = currentText.slice(rawLength).toLocaleLowerCase()
-        target.textCaseRaw = previousRaw + addedText
-      } else if (currentLength < rawLength) {
-        // Символы удалены - обрезаем textCaseRaw
-        target.textCaseRaw = previousRaw.slice(0, currentLength)
-      } else {
-        // Длина не изменилась, но текст мог измениться (замена символов)
-        // Сохраняем новые символы в нижнем регистре
-        target.textCaseRaw = currentText.toLocaleLowerCase()
-      }
-    } else {
-      // Если uppercase выключен, сохраняем текст как есть (с оригинальным регистром)
-      target.textCaseRaw = currentText
+      target.textCaseRaw = normalizedRaw
+      return
     }
+
+    target.textCaseRaw = currentText
   }
 
   /**
@@ -968,6 +956,9 @@ export default class TextManager {
     return state
   }
 
+  /**
+   * Формирует снимок текущих свойств текстового объекта для истории и событий.
+   */
   private static _getSnapshot(textbox: EditorTextbox): TextboxSnapshot {
     const {
       id,
@@ -1040,88 +1031,9 @@ export default class TextManager {
     }
   }
 
-  private static _getSelectionRange(textbox: EditorTextbox): TextSelectionRange | null {
-    if (!textbox.isEditing) return null
-
-    const selectionStart = textbox.selectionStart ?? 0
-    const selectionEnd = textbox.selectionEnd ?? selectionStart
-    if (selectionStart === selectionEnd) return null
-
-    return {
-      start: Math.min(selectionStart, selectionEnd),
-      end: Math.max(selectionStart, selectionEnd)
-    }
-  }
-
-  private static _getFullTextRange(textbox: EditorTextbox): TextSelectionRange | null {
-    const length = textbox.text?.length ?? 0
-    if (length <= 0) return null
-
-    return { start: 0, end: length }
-  }
-
-  private static _isFullTextSelection(
-    textbox: EditorTextbox,
-    range: TextSelectionRange | null
-  ): boolean {
-    if (!range) return false
-
-    const textLength = textbox.text?.length ?? 0
-    if (textLength <= 0) return false
-
-    return range.start <= 0 && range.end >= textLength
-  }
-
-  private static _applyStylesToRange(
-    textbox: EditorTextbox,
-    styles: Partial<TextboxProps>,
-    range: TextSelectionRange
-  ): boolean {
-    if (!styles || !Object.keys(styles).length) return false
-    const { start, end } = range
-    if (end <= start) return false
-
-    textbox.setSelectionStyles(styles, start, end)
-    return true
-  }
-
-  private static _getSelectionStyleValue<T extends keyof TextboxProps>(
-    textbox: EditorTextbox,
-    range: TextSelectionRange | null,
-    property: T
-  ): TextboxProps[T] | undefined {
-    if (!range) return undefined
-
-    const styles = textbox.getSelectionStyles(
-      range.start,
-      range.end,
-      true
-    ) as Array<Partial<TextboxProps>>
-
-    if (!styles.length) return undefined
-    return styles[0]?.[property]
-  }
-
-  private static _resolveStrokeColor(
-    strokeColor: string | undefined,
-    width: number
-  ): string | undefined {
-    if (width <= 0) return undefined
-
-    return strokeColor ?? '#000000'
-  }
-
-  private static _resolveStrokeWidth(width: number | undefined): number {
-    if (!width) return 0
-
-    // Fabric поддерживает только центрированную обводку.
-    return Math.max(0, width)
-  }
-
-  private static _toUpperCase(value: string): string {
-    return typeof value === 'string' ? value.toLocaleUpperCase() : ''
-  }
-
+  /**
+   * Возвращает первый доступный шрифт или дефолтный Arial.
+   */
   private _getDefaultFontFamily(): string {
     return this.fonts[0]?.family ?? 'Arial'
   }
