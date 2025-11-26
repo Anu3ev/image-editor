@@ -188,6 +188,7 @@ export default class TextManager {
     { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
   ): EditorTextbox {
     const { historyManager } = this.editor
+    const { canvas } = this
     historyManager.suspendHistory()
 
     const resolvedFontFamily = fontFamily ?? this._getDefaultFontFamily()
@@ -239,18 +240,18 @@ export default class TextManager {
     }
 
     if (rest.left === undefined && rest.top === undefined) {
-      this.canvas.centerObject(textbox)
+      canvas.centerObject(textbox)
     }
 
     if (!withoutAdding) {
-      this.canvas.add(textbox)
+      canvas.add(textbox)
     }
 
     if (!withoutSelection) {
-      this.canvas.setActiveObject(textbox)
+      canvas.setActiveObject(textbox)
     }
 
-    this.canvas.requestRenderAll()
+    canvas.requestRenderAll()
 
     historyManager.resumeHistory()
 
@@ -258,10 +259,11 @@ export default class TextManager {
       historyManager.saveState()
     }
 
-    this.canvas.fire('editor:text-added', {
+    canvas.fire('editor:text-added', {
       textbox,
       options: {
         ...finalOptions,
+        text,
         bold,
         italic,
         strikethrough,
@@ -293,6 +295,7 @@ export default class TextManager {
     if (!textbox) return null
 
     const { historyManager } = this.editor
+    const { canvas } = this
     historyManager.suspendHistory()
 
     const beforeState = TextManager._getSnapshot(textbox)
@@ -546,7 +549,7 @@ export default class TextManager {
     textbox.setCoords()
 
     if (!skipRender) {
-      this.canvas.requestRenderAll()
+      canvas.requestRenderAll()
     }
 
     historyManager.resumeHistory()
@@ -556,7 +559,7 @@ export default class TextManager {
 
     const afterState = TextManager._getSnapshot(textbox)
 
-    this.canvas.fire('editor:text-updated', {
+    canvas.fire('editor:text-updated', {
       textbox,
       target,
       style,
@@ -578,11 +581,12 @@ export default class TextManager {
    * Уничтожает менеджер и снимает слушатели.
    */
   public destroy(): void {
-    this.canvas.off('object:scaling', this._handleObjectScaling)
-    this.canvas.off('object:modified', this._handleObjectModified)
-    this.canvas.off('text:editing:exited', this._handleTextEditingExited)
-    this.canvas.off('text:editing:entered', this._handleTextEditingEntered)
-    this.canvas.off('text:changed', this._handleTextChanged)
+    const { canvas } = this
+    canvas.off('object:scaling', this._handleObjectScaling)
+    canvas.off('object:modified', this._handleObjectModified)
+    canvas.off('text:editing:exited', this._handleTextEditingExited)
+    canvas.off('text:editing:entered', this._handleTextEditingEntered)
+    canvas.off('text:changed', this._handleTextChanged)
   }
 
   /**
@@ -591,13 +595,15 @@ export default class TextManager {
   private _resolveTextObject(reference: TextReference): EditorTextbox | null {
     if (reference instanceof Textbox) return reference
 
+    const { canvas } = this
+
     if (!reference) {
-      const activeObject = this.canvas.getActiveObject()
+      const activeObject = canvas.getActiveObject()
       return TextManager._isTextbox(activeObject) ? activeObject : null
     }
 
     if (typeof reference === 'string') {
-      const object = this.canvas.getObjects()
+      const object = canvas.getObjects()
         .find((item): item is EditorTextbox => TextManager._isTextbox(item) && item.id === reference)
 
       return object ?? null
@@ -610,14 +616,21 @@ export default class TextManager {
     return Boolean(object) && object instanceof Textbox
   }
 
+  /**
+   * Вешает обработчики событий Fabric для работы с текстом.
+   */
   private _bindEvents(): void {
-    this.canvas.on('object:scaling', this._handleObjectScaling)
-    this.canvas.on('object:modified', this._handleObjectModified)
-    this.canvas.on('text:editing:entered', this._handleTextEditingEntered)
-    this.canvas.on('text:editing:exited', this._handleTextEditingExited)
-    this.canvas.on('text:changed', this._handleTextChanged)
+    const { canvas } = this
+    canvas.on('object:scaling', this._handleObjectScaling)
+    canvas.on('object:modified', this._handleObjectModified)
+    canvas.on('text:editing:entered', this._handleTextEditingEntered)
+    canvas.on('text:editing:exited', this._handleTextEditingExited)
+    canvas.on('text:changed', this._handleTextChanged)
   }
 
+  /**
+   * Обработчик входа в режим редактирования текста.
+   */
   private _handleTextEditingEntered = (): void => {
     this.isTextEditingActive = true
   }
@@ -625,6 +638,9 @@ export default class TextManager {
   /**
    * Обрабатывает изменение текста во время редактирования.
    * Обновляет textCaseRaw в реальном времени для корректной работы uppercase.
+   */
+  /**
+   * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
    */
   private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
@@ -667,6 +683,9 @@ export default class TextManager {
     }
   }
 
+  /**
+   * Обработчик выхода из режима редактирования текста.
+   */
   private _handleTextEditingExited = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
@@ -700,6 +719,9 @@ export default class TextManager {
     }, TEXT_EDITING_DEBOUNCE_MS)
   }
 
+  /**
+   * Обрабатывает масштабирование текстового объекта: пересчитывает ширину, кегль и паддинги/радиусы.
+   */
   private _handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
     // При масштабировании текстовых объектов пересчитываем ширину/кегль и сбрасываем scale,
     // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
@@ -751,7 +773,7 @@ export default class TextManager {
     const shouldScaleRadii = isCornerHandle || isVerticalHandle
     const nextPadding: PaddingValues = shouldScalePadding
       ? {
-          top: Math.max(0, basePadding.top * heightScale),
+        top: Math.max(0, basePadding.top * heightScale),
         right: Math.max(0, basePadding.right * heightScale),
         bottom: Math.max(0, basePadding.bottom * heightScale),
         left: Math.max(0, basePadding.left * heightScale)
@@ -851,6 +873,9 @@ export default class TextManager {
     state.hasWidthChange = widthActuallyChanged || fontSizeChanged || paddingChanged || radiusChanged
   }
 
+  /**
+   * Завершает трансформацию текстового объекта и фиксирует обновлённые стили/размеры.
+   */
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
@@ -896,6 +921,9 @@ export default class TextManager {
     target.setCoords()
   }
 
+  /**
+   * Создаёт или возвращает сохранённое состояние для текущего цикла масштабирования текста.
+   */
   private _ensureScalingState(textbox: EditorTextbox): ScalingState {
     let state = this.scalingState.get(textbox)
 
