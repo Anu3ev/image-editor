@@ -115,7 +115,7 @@ export default class TemplateManager {
     }
 
     const referenceBounds = TemplateManager._getBounds(montageArea)
-    const baseSize = TemplateManager._getMontageSize(montageArea, referenceBounds)
+    const baseSize = TemplateManager._getMontageSize({ montageArea, bounds: referenceBounds })
     const baseWidth = baseSize.width
     const baseHeight = baseSize.height
 
@@ -185,9 +185,9 @@ export default class TemplateManager {
       return null
     }
 
-    const targetSize = TemplateManager._getMontageSize(montageArea, montageBounds)
-    const meta = TemplateManager._normalizeMeta(template.meta, targetSize)
-    const scale = TemplateManager._calculateScale(meta, targetSize)
+    const targetSize = TemplateManager._getMontageSize({ montageArea, bounds: montageBounds })
+    const meta = TemplateManager._normalizeMeta({ meta: template.meta, fallback: targetSize })
+    const scale = TemplateManager._calculateScale({ meta, target: targetSize })
     const useRelativePositions = Boolean(meta.positionsNormalized)
 
     let shouldSaveHistory = false
@@ -219,7 +219,7 @@ export default class TemplateManager {
       }
 
       const insertedObjects = contentObjects.map((object) => {
-        TemplateManager._applyTextOverrides(object, data)
+        TemplateManager._applyTextOverrides({ object, data })
 
         TemplateManager._transformObject({
           object,
@@ -247,7 +247,7 @@ export default class TemplateManager {
       shouldSaveHistory = insertedObjects.length > 0 || backgroundApplied
 
       if (insertedObjects.length) {
-        TemplateManager._activateObjects(canvas, insertedObjects)
+        TemplateManager._activateObjects({ canvas, objects: insertedObjects })
       }
 
       canvas.requestRenderAll()
@@ -350,8 +350,8 @@ export default class TemplateManager {
       baseHeight,
       useRelativePositions
     })
-    const scaleX = TemplateManager._toNumber(object.scaleX, 1)
-    const scaleY = TemplateManager._toNumber(object.scaleY, 1)
+    const scaleX = TemplateManager._toNumber({ value: object.scaleX, fallback: 1 })
+    const scaleY = TemplateManager._toNumber({ value: object.scaleY, fallback: 1 })
 
     const absoluteCenter = TemplateManager._denormalizeCenter({
       normalizedX: normalizedCenter.x,
@@ -381,7 +381,13 @@ export default class TemplateManager {
   /**
    * Нормализует мета-данные шаблона.
    */
-  private static _normalizeMeta(meta: TemplateMeta | undefined, fallback: Dimensions): TemplateMeta {
+  private static _normalizeMeta({
+    meta,
+    fallback
+  }: {
+    meta: TemplateMeta | undefined
+    fallback: Dimensions
+  }): TemplateMeta {
     const safeMeta: TemplateMeta = meta ?? {
       baseWidth: fallback.width,
       baseHeight: fallback.height
@@ -397,7 +403,13 @@ export default class TemplateManager {
   /**
    * Возвращает коэффициент масштабирования.
    */
-  private static _calculateScale(meta: TemplateMeta, target: Dimensions): number {
+  private static _calculateScale({
+    meta,
+    target
+  }: {
+    meta: TemplateMeta
+    target: Dimensions
+  }): number {
     const widthRatio = target.width / (meta.baseWidth || target.width || 1)
     const heightRatio = target.height / (meta.baseHeight || target.height || 1)
 
@@ -407,7 +419,13 @@ export default class TemplateManager {
   /**
    * Делает активным список объектов.
    */
-  private static _activateObjects(canvas: Canvas, objects: FabricObject[]): void {
+  private static _activateObjects({
+    canvas,
+    objects
+  }: {
+    canvas: Canvas
+    objects: FabricObject[]
+  }): void {
     if (!objects.length) return
 
     canvas.discardActiveObject()
@@ -424,10 +442,13 @@ export default class TemplateManager {
   /**
    * Применяет текстовые значения из customData или переданных данных.
    */
-  private static _applyTextOverrides(
-    object: FabricObject,
+  private static _applyTextOverrides({
+    object,
+    data
+  }: {
+    object: FabricObject
     data?: Record<string, string>
-  ): void {
+  }): void {
     if (!('text' in object)) return
 
     const customData = object.customData as Record<string, unknown> | undefined
@@ -461,6 +482,7 @@ export default class TemplateManager {
 
     if (!bounds) return serialized
 
+    const { left: boundsLeft, top: boundsTop } = bounds
     const rect = object.getBoundingRect(false, true)
     const safeWidth = baseWidth || bounds.width || 1
     const safeHeight = baseHeight || bounds.height || 1
@@ -478,12 +500,12 @@ export default class TemplateManager {
       serialized[TEMPLATE_CENTER_Y_KEY] = normalizedCenter.y
     } else {
       const centerPoint = object.getCenterPoint()
-      serialized[TEMPLATE_CENTER_X_KEY] = (centerPoint.x - bounds.left) / safeWidth
-      serialized[TEMPLATE_CENTER_Y_KEY] = (centerPoint.y - bounds.top) / safeHeight
+      serialized[TEMPLATE_CENTER_X_KEY] = (centerPoint.x - boundsLeft) / safeWidth
+      serialized[TEMPLATE_CENTER_Y_KEY] = (centerPoint.y - boundsTop) / safeHeight
     }
 
-    serialized.left = (rect.left - bounds.left) / safeWidth
-    serialized.top = (rect.top - bounds.top) / safeHeight
+    serialized.left = (rect.left - boundsLeft) / safeWidth
+    serialized.top = (rect.top - boundsTop) / safeHeight
 
     return serialized
   }
@@ -573,7 +595,7 @@ export default class TemplateManager {
     dimension: number
     useRelativePositions: boolean
   }): number {
-    const numericValue = TemplateManager._toNumber(value)
+    const numericValue = TemplateManager._toNumber({ value })
 
     if (useRelativePositions) return numericValue
 
@@ -621,8 +643,8 @@ export default class TemplateManager {
       dimension: baseHeight,
       useRelativePositions
     })
-    const normalizedWidth = TemplateManager._toNumber(object.width) / (baseWidth || 1)
-    const normalizedHeight = TemplateManager._toNumber(object.height) / (baseHeight || 1)
+    const normalizedWidth = TemplateManager._toNumber({ value: object.width }) / (baseWidth || 1)
+    const normalizedHeight = TemplateManager._toNumber({ value: object.height }) / (baseHeight || 1)
 
     return {
       x: normalizedLeft + (normalizedWidth / 2),
@@ -702,7 +724,13 @@ export default class TemplateManager {
     }
   }
 
-  private static _getMontageSize(montageArea?: FabricObject | null, bounds?: Bounds | null): Dimensions {
+  private static _getMontageSize({
+    montageArea,
+    bounds
+  }: {
+    montageArea?: FabricObject | null
+    bounds?: Bounds | null
+  }): Dimensions {
     if (montageArea) {
       return {
         width: montageArea.getScaledWidth?.() || montageArea.width || bounds?.width || 0,
@@ -745,7 +773,7 @@ export default class TemplateManager {
         && typeof x2 === 'number'
         && typeof y2 === 'number'
       ) {
-        const angle = TemplateManager._coordsToAngle(x1, y1, x2, y2)
+        const angle = TemplateManager._coordsToAngle({ x1, y1, x2, y2 })
 
         return {
           type: 'linear' as const,
@@ -782,7 +810,17 @@ export default class TemplateManager {
     return null
   }
 
-  private static _coordsToAngle(x1: number, y1: number, x2: number, y2: number): number {
+  private static _coordsToAngle({
+    x1,
+    y1,
+    x2,
+    y2
+  }: {
+    x1: number
+    y1: number
+    x2: number
+    y2: number
+  }): number {
     const angleRad = Math.atan2(y2 - y1, x2 - x1)
     const angleDeg = (angleRad * 180) / Math.PI
     return (angleDeg + 360) % 360
@@ -814,7 +852,13 @@ export default class TemplateManager {
     return null
   }
 
-  private static _toNumber(value: unknown, fallback = 0): number {
+  private static _toNumber({
+    value,
+    fallback = 0
+  }: {
+    value: unknown
+    fallback?: number
+  }): number {
     if (typeof value === 'number' && Number.isFinite(value)) {
       return value
     }
