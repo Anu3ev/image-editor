@@ -826,19 +826,19 @@ export default class TextManager {
     const shouldScaleRadii = isCornerHandle || isVerticalHandle
     const nextPadding: PaddingValues = shouldScalePadding
       ? {
-          top: Math.max(0, basePadding.top * heightScale),
-          right: Math.max(0, basePadding.right * heightScale),
-          bottom: Math.max(0, basePadding.bottom * heightScale),
-          left: Math.max(0, basePadding.left * heightScale)
-        }
+        top: Math.max(0, basePadding.top * heightScale),
+        right: Math.max(0, basePadding.right * heightScale),
+        bottom: Math.max(0, basePadding.bottom * heightScale),
+        left: Math.max(0, basePadding.left * heightScale)
+      }
       : basePadding
     const nextRadii: CornerRadiiValues = shouldScaleRadii
       ? {
-          topLeft: Math.max(0, baseRadii.topLeft * heightScale),
-          topRight: Math.max(0, baseRadii.topRight * heightScale),
-          bottomRight: Math.max(0, baseRadii.bottomRight * heightScale),
-          bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
-        }
+        topLeft: Math.max(0, baseRadii.topLeft * heightScale),
+        topRight: Math.max(0, baseRadii.topRight * heightScale),
+        bottomRight: Math.max(0, baseRadii.bottomRight * heightScale),
+        bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
+      }
       : baseRadii
 
     const originX = transform.originX ?? target.originX ?? 'left'
