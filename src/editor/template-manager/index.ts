@@ -163,7 +163,9 @@ export default class TemplateManager {
       backgroundManager
     } = this.editor
 
-    if (!template?.objects?.length) {
+    const { objects, meta: templateMeta, id: templateId } = template ?? {}
+
+    if (!objects?.length) {
       errorManager.emitWarning({
         origin: 'TemplateManager',
         method: 'applyTemplate',
@@ -186,7 +188,7 @@ export default class TemplateManager {
     }
 
     const targetSize = TemplateManager._getMontageSize({ montageArea, bounds: montageBounds })
-    const meta = TemplateManager._normalizeMeta({ meta: template.meta, fallback: targetSize })
+    const meta = TemplateManager._normalizeMeta({ meta: templateMeta, fallback: targetSize })
     const scale = TemplateManager._calculateScale({ meta, target: targetSize })
     const useRelativePositions = Boolean(meta.positionsNormalized)
 
@@ -196,7 +198,7 @@ export default class TemplateManager {
     historyManager.suspendHistory()
 
     try {
-      const enlivenedObjects = await TemplateManager._enlivenObjects(template.objects)
+      const enlivenedObjects = await TemplateManager._enlivenObjects(objects)
 
       if (!enlivenedObjects.length) {
         errorManager.emitWarning({
@@ -265,7 +267,7 @@ export default class TemplateManager {
         code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
         message: 'Ошибка применения шаблона',
         data: {
-          templateId: template?.id,
+          templateId,
           error
         }
       })
@@ -388,16 +390,12 @@ export default class TemplateManager {
     fallback: Dimensions
   }): TemplateMeta {
     const { width, height } = fallback
-
-    const safeMeta: TemplateMeta = meta ?? {
-      baseWidth: width,
-      baseHeight: height
-    }
+    const { baseWidth = width, baseHeight = height, ...rest } = meta || {}
 
     return {
-      ...safeMeta,
-      baseWidth: safeMeta.baseWidth ?? width,
-      baseHeight: safeMeta.baseHeight ?? height
+      baseWidth,
+      baseHeight,
+      ...rest
     }
   }
 
@@ -412,8 +410,10 @@ export default class TemplateManager {
     target: Dimensions
   }): number {
     const { width, height } = target
-    const widthRatio = width / (meta.baseWidth || width || 1)
-    const heightRatio = height / (meta.baseHeight || height || 1)
+    const { baseWidth, baseHeight } = meta
+
+    const widthRatio = width / (baseWidth || width || 1)
+    const heightRatio = height / (baseHeight || height || 1)
 
     return Math.min(widthRatio, heightRatio)
   }
@@ -454,8 +454,10 @@ export default class TemplateManager {
     if (!('text' in object)) return
 
     const customData = object.customData as Record<string, unknown> | undefined
-    const templateField = typeof customData?.templateField === 'string' ? customData.templateField : undefined
-    const fallbackText = typeof customData?.text === 'string' ? customData.text : undefined
+    const { templateField: rawTemplateField, text: rawText } = customData ?? {}
+
+    const templateField = typeof rawTemplateField === 'string' ? rawTemplateField : undefined
+    const fallbackText = typeof rawText === 'string' ? rawText : undefined
     const providedText = templateField && data ? data[templateField] : undefined
     const nextValue = providedText ?? fallbackText
 
@@ -674,8 +676,9 @@ export default class TemplateManager {
     const { left, top, width, height } = bounds
 
     if (!montageArea) {
-      const x = left + normalizedX * (targetSize.width || width)
-      const y = top + normalizedY * (targetSize.height || height)
+      const { width: targetWidth, height: targetHeight } = targetSize
+      const x = left + normalizedX * (targetWidth || width)
+      const y = top + normalizedY * (targetHeight || height)
 
       return new Point(x, y)
     }
