@@ -482,10 +482,15 @@ export default class TemplateManager {
 
     if (!bounds) return serialized
 
-    const { left: boundsLeft, top: boundsTop } = bounds
+    const {
+      left: boundsLeft,
+      top: boundsTop,
+      width: boundsWidth,
+      height: boundsHeight
+    } = bounds
     const rect = object.getBoundingRect(false, true)
-    const safeWidth = baseWidth || bounds.width || 1
-    const safeHeight = baseHeight || bounds.height || 1
+    const safeWidth = baseWidth || boundsWidth || 1
+    const safeHeight = baseHeight || boundsHeight || 1
 
     const normalizedCenter = TemplateManager._calculateNormalizedCenter({
       object,
@@ -536,12 +541,13 @@ export default class TemplateManager {
     errorManager: ImageEditor['errorManager']
   }): Promise<boolean> {
     try {
+      const { fill, customData: rawCustomData } = backgroundObject
       const { backgroundType } = (backgroundObject as FabricObject & { backgroundType?: unknown })
-      const customData = TemplateManager._cloneCustomData(backgroundObject.customData)
+      const customData = TemplateManager._cloneCustomData(rawCustomData)
 
-      if (backgroundType === 'color' && typeof backgroundObject.fill === 'string') {
+      if (backgroundType === 'color' && typeof fill === 'string') {
         backgroundManager.setColorBackground({
-          color: backgroundObject.fill,
+          color: fill,
           customData,
           withoutSave: true
         })
@@ -549,7 +555,7 @@ export default class TemplateManager {
       }
 
       if (backgroundType === 'gradient') {
-        const gradient = TemplateManager._convertGradientToOptions(backgroundObject.fill)
+        const gradient = TemplateManager._convertGradientToOptions(fill)
 
         if (gradient) {
           backgroundManager.setGradientBackground({
@@ -667,20 +673,22 @@ export default class TemplateManager {
     baseWidth: number
     baseHeight: number
   }): Point {
+    const { left, top, width, height } = bounds
+
     if (!montageArea) {
       return new Point(
-        bounds.left + normalizedX * (targetSize.width || bounds.width),
-        bounds.top + normalizedY * (targetSize.height || bounds.height)
+        left + normalizedX * (targetSize.width || width),
+        top + normalizedY * (targetSize.height || height)
       )
     }
 
     // Используем масштабированный размер из bounds
-    const scaledWidth = bounds.width
-    const scaledHeight = bounds.height
+    const scaledWidth = width
+    const scaledHeight = height
 
     // КЛЮЧ: денормализуем относительно левого верхнего угла bounds
-    const absoluteX = bounds.left + (normalizedX * scaledWidth)
-    const absoluteY = bounds.top + (normalizedY * scaledHeight)
+    const absoluteX = left + (normalizedX * scaledWidth)
+    const absoluteY = top + (normalizedY * scaledHeight)
 
     return new Point(absoluteX, absoluteY)
   }
@@ -704,12 +712,13 @@ export default class TemplateManager {
       const centerPoint = object.getCenterPoint()
 
       // Используем масштабированный размер из bounds
-      const scaledWidth = bounds.width
-      const scaledHeight = bounds.height
+      const { left, top, width, height } = bounds
+      const scaledWidth = width
+      const scaledHeight = height
 
       // КЛЮЧ: нормализуем относительно левого верхнего угла bounds, а не центра
-      const offsetX = centerPoint.x - bounds.left
-      const offsetY = centerPoint.y - bounds.top
+      const offsetX = centerPoint.x - left
+      const offsetY = centerPoint.y - top
 
       // Нормализуем в диапазон [0, 1]
       const normalizedX = offsetX / scaledWidth
