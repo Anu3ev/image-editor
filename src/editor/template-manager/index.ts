@@ -99,9 +99,8 @@ export default class TemplateManager {
     } = this.editor
     const activeObject = canvas.getActiveObject()
     const objectsToSerialize = TemplateManager._collectObjects(activeObject)
-    const backgroundObjects = withBackground && backgroundManager?.backgroundObject
-      ? [backgroundManager.backgroundObject]
-      : []
+    const { backgroundObject } = backgroundManager ?? {}
+    const backgroundObjects = withBackground && backgroundObject ? [backgroundObject] : []
     const serializableObjects = [...objectsToSerialize, ...backgroundObjects]
 
     if (!serializableObjects.length) {
@@ -352,8 +351,9 @@ export default class TemplateManager {
       baseHeight,
       useRelativePositions
     })
-    const scaleX = TemplateManager._toNumber({ value: object.scaleX, fallback: 1 })
-    const scaleY = TemplateManager._toNumber({ value: object.scaleY, fallback: 1 })
+    const { scaleX, scaleY } = object
+    const currentScaleX = TemplateManager._toNumber({ value: scaleX, fallback: 1 })
+    const currentScaleY = TemplateManager._toNumber({ value: scaleY, fallback: 1 })
 
     const absoluteCenter = TemplateManager._denormalizeCenter({
       normalizedX: normalizedCenter.x,
@@ -363,8 +363,8 @@ export default class TemplateManager {
       montageArea
     })
 
-    const nextScaleX = scaleX * scale
-    const nextScaleY = scaleY * scale
+    const nextScaleX = currentScaleX * scale
+    const nextScaleY = currentScaleY * scale
 
     object.set({
       scaleX: nextScaleX,
@@ -641,18 +641,20 @@ export default class TemplateManager {
       }
     }
 
+    const { left, top, width, height } = object
+
     const normalizedLeft = TemplateManager._normalizeStoredValue({
-      value: object.left,
+      value: left,
       dimension: baseWidth,
       useRelativePositions
     })
     const normalizedTop = TemplateManager._normalizeStoredValue({
-      value: object.top,
+      value: top,
       dimension: baseHeight,
       useRelativePositions
     })
-    const normalizedWidth = TemplateManager._toNumber({ value: object.width }) / (baseWidth || 1)
-    const normalizedHeight = TemplateManager._toNumber({ value: object.height }) / (baseHeight || 1)
+    const normalizedWidth = TemplateManager._toNumber({ value: width }) / (baseWidth || 1)
+    const normalizedHeight = TemplateManager._toNumber({ value: height }) / (baseHeight || 1)
 
     return {
       x: normalizedLeft + (normalizedWidth / 2),
