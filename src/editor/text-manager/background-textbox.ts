@@ -183,7 +183,7 @@ export class BackgroundTextbox extends Textbox {
       })
 
       ctx.save()
-      this._renderRoundedRect({
+      BackgroundTextbox._renderRoundedRect({
         ctx,
         height,
         left: startX,
@@ -247,7 +247,7 @@ export class BackgroundTextbox extends Textbox {
     return fabricColor.toRgba()
   }
 
-  private _renderRoundedRect({
+  private static _renderRoundedRect({
     ctx,
     height,
     left,
