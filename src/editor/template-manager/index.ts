@@ -352,7 +352,7 @@ export default class TemplateManager {
     montageArea: FabricObject | null
     useRelativePositions: boolean
   }): void {
-    const normalizedCenter = resolveNormalizedCenter({
+    const { x: normalizedX, y: normalizedY } = resolveNormalizedCenter({
       object,
       baseWidth,
       baseHeight,
@@ -367,8 +367,8 @@ export default class TemplateManager {
     const currentScaleY = toNumber({ value: scaleY, fallback: 1 })
 
     const absoluteCenter = denormalizeCenter({
-      normalizedX: normalizedCenter.x,
-      normalizedY: normalizedCenter.y,
+      normalizedX,
+      normalizedY,
       bounds,
       targetSize,
       montageArea
