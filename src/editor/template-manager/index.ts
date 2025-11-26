@@ -175,16 +175,6 @@ export default class TemplateManager {
 
     const montageBounds = TemplateManager._getBounds(montageArea)
 
-    console.log('applyTemplate - монтажная область:', {
-      'montageArea.width': montageArea?.width,
-      'montageArea.height': montageArea?.height,
-      'montageArea.scaleX': montageArea?.scaleX,
-      'montageArea.scaleY': montageArea?.scaleY,
-      'montageArea.getScaledWidth()': montageArea?.getScaledWidth?.(),
-      'montageArea.getScaledHeight()': montageArea?.getScaledHeight?.(),
-      montageBounds
-    })
-
     if (!montageBounds) {
       errorManager.emitWarning({
         origin: 'TemplateManager',
@@ -383,16 +373,6 @@ export default class TemplateManager {
 
     object.setPositionByOrigin(absoluteCenter, 'center', 'center')
     object.setCoords()
-
-    console.log('_transformObject AFTER:', {
-      'object.type': object.type,
-      'absoluteCenter.x': absoluteCenter.x,
-      'absoluteCenter.y': absoluteCenter.y,
-      'object.left': object.left,
-      'object.top': object.top,
-      'object.getCenterPoint().x': object.getCenterPoint().x,
-      'object.getCenterPoint().y': object.getCenterPoint().y
-    })
 
     delete (object as Record<string, unknown>)[TEMPLATE_CENTER_X_KEY]
     delete (object as Record<string, unknown>)[TEMPLATE_CENTER_Y_KEY]
@@ -680,17 +660,6 @@ export default class TemplateManager {
     const absoluteX = bounds.left + (normalizedX * scaledWidth)
     const absoluteY = bounds.top + (normalizedY * scaledHeight)
 
-    console.log('_denormalizeCenter:', {
-      normalizedX,
-      normalizedY,
-      'bounds.left': bounds.left,
-      'bounds.top': bounds.top,
-      'bounds.width': bounds.width,
-      'bounds.height': bounds.height,
-      absoluteX,
-      absoluteY
-    })
-
     return new Point(absoluteX, absoluteY)
   }
 
@@ -723,20 +692,6 @@ export default class TemplateManager {
       // Нормализуем в диапазон [0, 1]
       const normalizedX = offsetX / scaledWidth
       const normalizedY = offsetY / scaledHeight
-
-      console.log('_calculateNormalizedCenter:', {
-        'object.type': object.type,
-        'centerPoint.x': centerPoint.x,
-        'centerPoint.y': centerPoint.y,
-        'bounds.left': bounds.left,
-        'bounds.top': bounds.top,
-        'bounds.width': bounds.width,
-        'bounds.height': bounds.height,
-        offsetX,
-        offsetY,
-        normalizedX,
-        normalizedY
-      })
 
       return {
         x: normalizedX,

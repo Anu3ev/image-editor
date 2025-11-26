@@ -331,9 +331,7 @@ export default (editorInstance) => {
     }
   }
 
-  const isTextboxObject = (object) => (
-    Boolean(object) && (object.type === 'textbox' || object.type === 'background-textbox')
-  )
+  const isTextboxObject = (object) => Boolean(object) && (object.type === 'textbox' || object.type === 'background-textbox')
 
   const getActiveText = () => {
     const object = editorInstance.canvas.getActiveObject()
@@ -655,20 +653,20 @@ export default (editorInstance) => {
       strokeColor: textStrokeColorInput.value,
       strokeWidth,
       opacity,
-      ...(backgroundEnabled
+      ...backgroundEnabled
         ? {
-            backgroundColor: textBackgroundColorInput.value,
-            backgroundOpacity,
-            paddingTop,
-            paddingRight,
-            paddingBottom,
-            paddingLeft,
-            radiusTopLeft,
-            radiusTopRight,
-            radiusBottomRight,
-            radiusBottomLeft
-          }
-        : { backgroundColor: '' })
+          backgroundColor: textBackgroundColorInput.value,
+          backgroundOpacity,
+          paddingTop,
+          paddingRight,
+          paddingBottom,
+          paddingLeft,
+          radiusTopLeft,
+          radiusTopRight,
+          radiusBottomRight,
+          radiusBottomLeft
+        }
+        : { backgroundColor: '' }
     })
 
     editorInstance.canvas.setActiveObject(textbox)

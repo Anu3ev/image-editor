@@ -86,11 +86,19 @@ type PaddingValues = {
   top: number
 }
 
+type CornerRadiiValues = {
+  bottomLeft: number
+  bottomRight: number
+  topLeft: number
+  topRight: number
+}
+
 type ScalingState = {
   baseWidth: number
   baseLeft: number
   baseFontSize: number
   basePadding: PaddingValues
+  baseRadii: CornerRadiiValues
   hasWidthChange: boolean
 }
 
@@ -785,7 +793,8 @@ export default class TextManager {
       baseWidth: stateBaseWidth,
       baseLeft: stateBaseLeft,
       baseFontSize,
-      basePadding
+      basePadding,
+      baseRadii
     } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
     const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
@@ -805,15 +814,30 @@ export default class TextManager {
     const nextWidth = Math.max(1, baseWidth * widthScale)
     const nextFontSize = Math.max(1, baseFontSize * heightScale)
     const { paddingTop = 0, paddingRight = 0, paddingBottom = 0, paddingLeft = 0 } = target
+    const {
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0
+    } = target
     const shouldScalePadding = isCornerHandle || isVerticalHandle
+    const shouldScaleRadii = isCornerHandle || isVerticalHandle
     const nextPadding: PaddingValues = shouldScalePadding
       ? {
-        top: Math.max(0, basePadding.top * heightScale),
-        right: Math.max(0, basePadding.right * heightScale),
-        bottom: Math.max(0, basePadding.bottom * heightScale),
-        left: Math.max(0, basePadding.left * heightScale)
-      }
+          top: Math.max(0, basePadding.top * heightScale),
+          right: Math.max(0, basePadding.right * heightScale),
+          bottom: Math.max(0, basePadding.bottom * heightScale),
+          left: Math.max(0, basePadding.left * heightScale)
+        }
       : basePadding
+    const nextRadii: CornerRadiiValues = shouldScaleRadii
+      ? {
+          topLeft: Math.max(0, baseRadii.topLeft * heightScale),
+          topRight: Math.max(0, baseRadii.topRight * heightScale),
+          bottomRight: Math.max(0, baseRadii.bottomRight * heightScale),
+          bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
+        }
+      : baseRadii
 
     const originX = transform.originX ?? target.originX ?? 'left'
     const rightEdge = baseLeft + baseWidth
@@ -826,8 +850,12 @@ export default class TextManager {
       || Math.abs(nextPadding.right - paddingRight) > DIMENSION_EPSILON
       || Math.abs(nextPadding.bottom - paddingBottom) > DIMENSION_EPSILON
       || Math.abs(nextPadding.left - paddingLeft) > DIMENSION_EPSILON
+    const radiusChanged = Math.abs(nextRadii.topLeft - radiusTopLeft) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.topRight - radiusTopRight) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.bottomRight - radiusBottomRight) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.bottomLeft - radiusBottomLeft) > DIMENSION_EPSILON
 
-    if (!widthChanged && !fontSizeChanged) {
+    if (!widthChanged && !fontSizeChanged && !paddingChanged && !radiusChanged) {
       target.set({ scaleX: 1, scaleY: 1 })
       transform.scaleX = 1
       transform.scaleY = 1
@@ -841,6 +869,10 @@ export default class TextManager {
       paddingRight: nextPadding.right,
       paddingBottom: nextPadding.bottom,
       paddingLeft: nextPadding.left,
+      radiusTopLeft: nextRadii.topLeft,
+      radiusTopRight: nextRadii.topRight,
+      radiusBottomRight: nextRadii.bottomRight,
+      radiusBottomLeft: nextRadii.bottomLeft,
       scaleX: 1,
       scaleY: 1
     })
@@ -883,7 +915,13 @@ export default class TextManager {
       bottom: nextPadding.bottom,
       left: nextPadding.left
     }
-    state.hasWidthChange = widthActuallyChanged || fontSizeChanged || paddingChanged
+    state.baseRadii = {
+      topLeft: nextRadii.topLeft,
+      topRight: nextRadii.topRight,
+      bottomRight: nextRadii.bottomRight,
+      bottomLeft: nextRadii.bottomLeft
+    }
+    state.hasWidthChange = widthActuallyChanged || fontSizeChanged || paddingChanged || radiusChanged
   }
 
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
@@ -906,6 +944,12 @@ export default class TextManager {
       paddingBottom = 0,
       paddingLeft = 0
     } = target
+    const {
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0
+    } = target
 
     this.updateText({
       target,
@@ -915,7 +959,11 @@ export default class TextManager {
         paddingTop,
         paddingRight,
         paddingBottom,
-        paddingLeft
+        paddingLeft,
+        radiusTopLeft,
+        radiusTopRight,
+        radiusBottomRight,
+        radiusBottomLeft
       }
     })
 
@@ -936,6 +984,12 @@ export default class TextManager {
         paddingBottom = 0,
         paddingLeft = 0
       } = textbox
+      const {
+        radiusTopLeft = 0,
+        radiusTopRight = 0,
+        radiusBottomRight = 0,
+        radiusBottomLeft = 0
+      } = textbox
       // Храним базовые размеры для одного цикла масштабирования.
       state = {
         baseWidth,
@@ -946,6 +1000,12 @@ export default class TextManager {
           right: paddingRight,
           bottom: paddingBottom,
           left: paddingLeft
+        },
+        baseRadii: {
+          topLeft: radiusTopLeft,
+          topRight: radiusTopRight,
+          bottomRight: radiusBottomRight,
+          bottomLeft: radiusBottomLeft
         },
         hasWidthChange: false
       }
