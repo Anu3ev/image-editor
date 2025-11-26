@@ -3,7 +3,6 @@ import {
   Canvas,
   FabricImage,
   FabricObject,
-  Point,
   Textbox,
   util
 } from 'fabric'
@@ -12,7 +11,16 @@ import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import { OBJECT_SERIALIZATION_PROPS } from '../history-manager'
-import type { GradientBackground } from '../background-manager'
+import {
+  calculateNormalizedCenter,
+  denormalizeCenter,
+  resolveNormalizedCenter,
+  toNumber,
+  type Dimensions
+} from '../utils/geometry'
+import {
+  convertGradientToOptions
+} from '../utils/gradient'
 
 type Bounds = {
   left: number
@@ -35,11 +43,6 @@ export type TemplateMeta = {
   placeholders?: TemplatePlaceholder[]
   positionsNormalized?: boolean
   [key: string]: unknown
-}
-
-type Dimensions = {
-  width: number
-  height: number
 }
 
 const TEMPLATE_CENTER_X_KEY = '_templateCenterX'
@@ -349,17 +352,21 @@ export default class TemplateManager {
     montageArea: FabricObject | null
     useRelativePositions: boolean
   }): void {
-    const normalizedCenter = TemplateManager._resolveNormalizedCenter({
+    const normalizedCenter = resolveNormalizedCenter({
       object,
       baseWidth,
       baseHeight,
-      useRelativePositions
+      useRelativePositions,
+      centerKeys: {
+        x: TEMPLATE_CENTER_X_KEY,
+        y: TEMPLATE_CENTER_Y_KEY
+      }
     })
     const { scaleX, scaleY } = object
-    const currentScaleX = TemplateManager._toNumber({ value: scaleX, fallback: 1 })
-    const currentScaleY = TemplateManager._toNumber({ value: scaleY, fallback: 1 })
+    const currentScaleX = toNumber({ value: scaleX, fallback: 1 })
+    const currentScaleY = toNumber({ value: scaleY, fallback: 1 })
 
-    const absoluteCenter = TemplateManager._denormalizeCenter({
+    const absoluteCenter = denormalizeCenter({
       normalizedX: normalizedCenter.x,
       normalizedY: normalizedCenter.y,
       bounds,
@@ -503,7 +510,7 @@ export default class TemplateManager {
     const safeWidth = baseWidth || boundsWidth || 1
     const safeHeight = baseHeight || boundsHeight || 1
 
-    const normalizedCenter = TemplateManager._calculateNormalizedCenter({
+    const normalizedCenter = calculateNormalizedCenter({
       object,
       montageArea,
       bounds
@@ -570,7 +577,7 @@ export default class TemplateManager {
       }
 
       if (backgroundType === 'gradient') {
-        const gradient = TemplateManager._convertGradientToOptions(fill)
+        const gradient = convertGradientToOptions(fill)
 
         if (gradient) {
           backgroundManager.setGradientBackground({
@@ -608,150 +615,6 @@ export default class TemplateManager {
   }
 
   /**
-   * Преобразует абсолютное значение координаты/размера в относительную долю (0..1) от размеров монтажной области.
-   */
-  private static _normalizeStoredValue({
-    value,
-    dimension,
-    useRelativePositions
-  }: {
-    value: unknown
-    dimension: number
-    useRelativePositions: boolean
-  }): number {
-    const numericValue = TemplateManager._toNumber({ value })
-
-    if (useRelativePositions) return numericValue
-
-    const safeDimension = dimension || 1
-    return numericValue / safeDimension
-  }
-
-  /**
-   * Вычисляет центр объекта в нормализованных координатах (0..1), используя сохранённые или фактические позиции.
-   */
-  private static _resolveNormalizedCenter({
-    object,
-    baseWidth,
-    baseHeight,
-    useRelativePositions
-  }: {
-    object: FabricObject
-    baseWidth: number
-    baseHeight: number
-    useRelativePositions: boolean
-  }): { x: number; y: number } {
-    const objectRecord = object as Record<string, unknown>
-    const hasStoredCenter = typeof objectRecord[TEMPLATE_CENTER_X_KEY] === 'number'
-      && typeof objectRecord[TEMPLATE_CENTER_Y_KEY] === 'number'
-
-    if (hasStoredCenter) {
-      return {
-        x: TemplateManager._normalizeStoredValue({
-          value: objectRecord[TEMPLATE_CENTER_X_KEY],
-          dimension: baseWidth,
-          useRelativePositions
-        }),
-        y: TemplateManager._normalizeStoredValue({
-          value: objectRecord[TEMPLATE_CENTER_Y_KEY],
-          dimension: baseHeight,
-          useRelativePositions
-        })
-      }
-    }
-
-    const { left, top, width, height } = object
-
-    const normalizedLeft = TemplateManager._normalizeStoredValue({
-      value: left,
-      dimension: baseWidth,
-      useRelativePositions
-    })
-    const normalizedTop = TemplateManager._normalizeStoredValue({
-      value: top,
-      dimension: baseHeight,
-      useRelativePositions
-    })
-    const normalizedWidth = TemplateManager._toNumber({ value: width }) / (baseWidth || 1)
-    const normalizedHeight = TemplateManager._toNumber({ value: height }) / (baseHeight || 1)
-
-    return {
-      x: normalizedLeft + (normalizedWidth / 2),
-      y: normalizedTop + (normalizedHeight / 2)
-    }
-  }
-
-  /**
-   * Преобразует нормализованный центр (0..1) обратно в абсолютные координаты на полотне.
-   */
-  private static _denormalizeCenter({
-    normalizedX,
-    normalizedY,
-    bounds,
-    targetSize,
-    montageArea
-  }: {
-    normalizedX: number
-    normalizedY: number
-    bounds: Bounds
-    targetSize: Dimensions
-    montageArea: FabricObject | null
-  }): Point {
-    const { left, top, width, height } = bounds
-
-    if (!montageArea) {
-      const { width: targetWidth, height: targetHeight } = targetSize
-      const x = left + normalizedX * (targetWidth || width)
-      const y = top + normalizedY * (targetHeight || height)
-
-      return new Point(x, y)
-    }
-
-    // КЛЮЧ: денормализуем относительно левого верхнего угла bounds
-    const absoluteX = left + (normalizedX * width)
-    const absoluteY = top + (normalizedY * height)
-
-    return new Point(absoluteX, absoluteY)
-  }
-
-  /**
-   * Рассчитывает нормализованный центр объекта (0..1) относительно монтажной области.
-   */
-  private static _calculateNormalizedCenter({
-    object,
-    montageArea,
-    bounds
-  }: {
-    object: FabricObject
-    montageArea: FabricObject | null
-    bounds: Bounds | null
-  }): { x: number; y: number } | null {
-    if (!montageArea || !bounds) return null
-
-    try {
-      const centerPoint = object.getCenterPoint()
-
-      // Используем масштабированный размер из bounds
-      const { left, top, width, height } = bounds
-
-      // КЛЮЧ: нормализуем относительно левого верхнего угла bounds, а не центра
-      const offsetX = centerPoint.x - left
-      const offsetY = centerPoint.y - top
-
-      // Нормализуем в диапазон [0, 1]
-      const normalizedX = offsetX / width
-      const normalizedY = offsetY / height
-
-      return {
-        x: normalizedX,
-        y: normalizedY
-      }
-    } catch {
-      return null
-    }
-  }
-
-  /**
    * Возвращает размеры монтажной области с учётом размеров маркера и его bounds.
    */
   private static _getMontageSize({
@@ -775,94 +638,6 @@ export default class TemplateManager {
       width: boundsWidth,
       height: boundsHeight
     }
-  }
-
-  /**
-   * Преобразует fabric-градиент в структуру, понятную менеджеру фона.
-   */
-  private static _convertGradientToOptions(fill: unknown): GradientBackground | null {
-    if (!fill || typeof fill !== 'object') return null
-
-    const { type, coords, colorStops } = fill as {
-      type?: unknown
-      coords?: Record<string, unknown>
-      colorStops?: Array<{ offset?: unknown; color?: unknown }>
-    }
-
-    const stops = Array.isArray(colorStops) ? colorStops : []
-    const firstStop = stops[0]
-    const lastStop = stops[stops.length - 1]
-
-    const startColor = typeof firstStop?.color === 'string' ? firstStop.color : undefined
-    const endColor = typeof lastStop?.color === 'string' ? lastStop.color : startColor
-    const startPosition = typeof firstStop?.offset === 'number' ? firstStop.offset * 100 : undefined
-    const endPosition = typeof lastStop?.offset === 'number' ? lastStop.offset * 100 : undefined
-
-    if (!startColor || !endColor || !coords) return null
-
-    if (type === 'linear') {
-      const { x1, y1, x2, y2 } = coords
-
-      if (
-        typeof x1 === 'number'
-        && typeof y1 === 'number'
-        && typeof x2 === 'number'
-        && typeof y2 === 'number'
-      ) {
-        const angle = TemplateManager._coordsToAngle({ x1, y1, x2, y2 })
-
-        return {
-          type: 'linear' as const,
-          angle,
-          startColor,
-          endColor,
-          startPosition,
-          endPosition
-        }
-      }
-    }
-
-    if (type === 'radial') {
-      const { x1, y1, r2 } = coords
-
-      if (
-        typeof x1 === 'number'
-        && typeof y1 === 'number'
-        && typeof r2 === 'number'
-      ) {
-        return {
-          type: 'radial' as const,
-          centerX: x1 * 100,
-          centerY: y1 * 100,
-          radius: r2 * 100,
-          startColor,
-          endColor,
-          startPosition,
-          endPosition
-        }
-      }
-    }
-
-    return null
-  }
-
-  /**
-   * Переводит координаты градиента в угол в градусах.
-   */
-  private static _coordsToAngle({
-    x1,
-    y1,
-    x2,
-    y2
-  }: {
-    x1: number
-    y1: number
-    x2: number
-    y2: number
-  }): number {
-    const angleRad = Math.atan2(y2 - y1, x2 - x1)
-    const angleDeg = (angleRad * 180) / Math.PI
-    return (angleDeg + 360) % 360
   }
 
   /**
@@ -898,26 +673,5 @@ export default class TemplateManager {
     }
 
     return null
-  }
-
-  /**
-   * Возвращает числовое значение или fallback, если value некорректно.
-   */
-  private static _toNumber({
-    value,
-    fallback = 0
-  }: {
-    value: unknown
-    fallback?: number
-  }): number {
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value
-    }
-
-    if (typeof fallback === 'number' && Number.isFinite(fallback)) {
-      return fallback
-    }
-
-    return 0
   }
 }
