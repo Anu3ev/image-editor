@@ -514,7 +514,7 @@ export default class TemplateManager {
     errorManager: ImageEditor['errorManager']
   }): Promise<boolean> {
     try {
-      const backgroundType = (backgroundObject as FabricObject & { backgroundType?: unknown }).backgroundType
+      const { backgroundType } = (backgroundObject as FabricObject & { backgroundType?: unknown })
       const customData = TemplateManager._cloneCustomData(backgroundObject.customData)
 
       if (backgroundType === 'color' && typeof backgroundObject.fill === 'string') {
