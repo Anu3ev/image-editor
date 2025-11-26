@@ -79,10 +79,18 @@ type UpdateOptions = {
 
 const DIMENSION_EPSILON = 0.01
 
+type PaddingValues = {
+  bottom: number
+  left: number
+  right: number
+  top: number
+}
+
 type ScalingState = {
   baseWidth: number
   baseLeft: number
   baseFontSize: number
+  basePadding: PaddingValues
   hasWidthChange: boolean
 }
 
@@ -773,7 +781,12 @@ export default class TextManager {
     target.isScaling = true
 
     const state = this._ensureScalingState(target)
-    const { baseWidth: stateBaseWidth, baseLeft: stateBaseLeft, baseFontSize } = state
+    const {
+      baseWidth: stateBaseWidth,
+      baseLeft: stateBaseLeft,
+      baseFontSize,
+      basePadding
+    } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
     const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
     const baseWidth = originalWidth ?? stateBaseWidth
@@ -791,6 +804,16 @@ export default class TextManager {
     const heightScale = Math.abs(target.scaleY ?? transform.scaleY ?? 1) || 1
     const nextWidth = Math.max(1, baseWidth * widthScale)
     const nextFontSize = Math.max(1, baseFontSize * heightScale)
+    const { paddingTop = 0, paddingRight = 0, paddingBottom = 0, paddingLeft = 0 } = target
+    const shouldScalePadding = isCornerHandle || isVerticalHandle
+    const nextPadding: PaddingValues = shouldScalePadding
+      ? {
+        top: Math.max(0, basePadding.top * heightScale),
+        right: Math.max(0, basePadding.right * heightScale),
+        bottom: Math.max(0, basePadding.bottom * heightScale),
+        left: Math.max(0, basePadding.left * heightScale)
+      }
+      : basePadding
 
     const originX = transform.originX ?? target.originX ?? 'left'
     const rightEdge = baseLeft + baseWidth
@@ -799,6 +822,10 @@ export default class TextManager {
     const currentWidth = target.width ?? baseWidth
     const widthChanged = Math.abs(nextWidth - currentWidth) > DIMENSION_EPSILON
     const fontSizeChanged = Math.abs(nextFontSize - (target.fontSize ?? baseFontSize)) > DIMENSION_EPSILON
+    const paddingChanged = Math.abs(nextPadding.top - paddingTop) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.right - paddingRight) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.bottom - paddingBottom) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.left - paddingLeft) > DIMENSION_EPSILON
 
     if (!widthChanged && !fontSizeChanged) {
       target.set({ scaleX: 1, scaleY: 1 })
@@ -810,6 +837,10 @@ export default class TextManager {
     target.set({
       width: nextWidth,
       fontSize: isCornerHandle || isVerticalHandle ? nextFontSize : baseFontSize,
+      paddingTop: nextPadding.top,
+      paddingRight: nextPadding.right,
+      paddingBottom: nextPadding.bottom,
+      paddingLeft: nextPadding.left,
       scaleX: 1,
       scaleY: 1
     })
@@ -846,7 +877,13 @@ export default class TextManager {
 
     state.baseWidth = appliedWidth
     state.baseFontSize = target.fontSize ?? nextFontSize
-    state.hasWidthChange = widthActuallyChanged || fontSizeChanged
+    state.basePadding = {
+      top: nextPadding.top,
+      right: nextPadding.right,
+      bottom: nextPadding.bottom,
+      left: nextPadding.left
+    }
+    state.hasWidthChange = widthActuallyChanged || fontSizeChanged || paddingChanged
   }
 
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
@@ -859,12 +896,28 @@ export default class TextManager {
     this.scalingState.delete(target)
     if (!state?.hasWidthChange) return
 
-    // После завершения трансформации фиксируем ширину и размер шрифта через updateText,
+    // После завершения трансформации фиксируем ширину, отступы, и размер шрифта через updateText,
     // чтобы излишние scaleX/scaleY не попадали в историю.
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
+    const {
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0
+    } = target
 
-    this.updateText({ target, style: { width, fontSize } })
+    this.updateText({
+      target,
+      style: {
+        width,
+        fontSize,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft
+      }
+    })
 
     target.set({ scaleX: 1, scaleY: 1 })
     target.setCoords()
@@ -877,11 +930,23 @@ export default class TextManager {
       const baseWidth = textbox.width ?? textbox.calcTextWidth()
       const baseLeft = textbox.left ?? 0
       const baseFontSize = textbox.fontSize ?? 16
+      const {
+        paddingTop = 0,
+        paddingRight = 0,
+        paddingBottom = 0,
+        paddingLeft = 0
+      } = textbox
       // Храним базовые размеры для одного цикла масштабирования.
       state = {
         baseWidth,
         baseFontSize,
         baseLeft,
+        basePadding: {
+          top: paddingTop,
+          right: paddingRight,
+          bottom: paddingBottom,
+          left: paddingLeft
+        },
         hasWidthChange: false
       }
       this.scalingState.set(textbox, state)
