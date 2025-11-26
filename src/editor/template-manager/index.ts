@@ -186,6 +186,7 @@ export default class TemplateManager {
       return null
     }
 
+    // Нормализуем метаданные и вычисляем масштаб относительно текущей монтажной области
     const targetSize = TemplateManager._getMontageSize({ montageArea, bounds: montageBounds })
     const meta = TemplateManager._normalizeMeta({ meta: templateMeta, fallback: targetSize })
     const scale = TemplateManager._calculateScale({ meta, target: targetSize })
@@ -197,6 +198,7 @@ export default class TemplateManager {
     historyManager.suspendHistory()
 
     try {
+      // Восстанавливаем Fabric-объекты из сохранённых данных шаблона
       const enlivenedObjects = await TemplateManager._enlivenObjects(objects)
 
       if (!enlivenedObjects.length) {
@@ -209,6 +211,7 @@ export default class TemplateManager {
         return null
       }
 
+      // Отделяем фон от контента, фон применяем через менеджер фона
       const { backgroundObject, contentObjects } = TemplateManager._extractBackgroundObject(enlivenedObjects)
 
       if (backgroundObject) {
@@ -219,6 +222,7 @@ export default class TemplateManager {
         })
       }
 
+      // Применяем текстовые подстановки, трансформируем координаты и добавляем объекты на канвас
       const insertedObjects = contentObjects.map((object) => {
         TemplateManager._applyTextOverrides({ object, data })
 
@@ -371,6 +375,7 @@ export default class TemplateManager {
       scaleY: nextScaleY
     })
 
+    // Перемещаем объект в денормализованный центр и очищаем временные поля центра
     object.setPositionByOrigin(absoluteCenter, 'center', 'center')
     object.setCoords()
 
@@ -392,6 +397,7 @@ export default class TemplateManager {
     const { width, height } = fallback
     const { baseWidth = width, baseHeight = height, ...rest } = meta || {}
 
+    // Подставляем дефолтные размеры монтажной области, если в шаблоне они отсутствуют
     return {
       baseWidth,
       baseHeight,
@@ -412,6 +418,7 @@ export default class TemplateManager {
     const { width, height } = target
     const { baseWidth, baseHeight } = meta
 
+    // Масштаб определяется минимальным коэффициентом по ширине/высоте
     const widthRatio = width / (baseWidth || width || 1)
     const heightRatio = height / (baseHeight || height || 1)
 
@@ -517,6 +524,9 @@ export default class TemplateManager {
     return serialized
   }
 
+  /**
+   * Делит список объектов на фон и контент по id === 'background'.
+   */
   private static _extractBackgroundObject(objects: FabricObject[]): {
     backgroundObject: FabricObject | null
     contentObjects: FabricObject[]
@@ -533,6 +543,9 @@ export default class TemplateManager {
     return { backgroundObject, contentObjects }
   }
 
+  /**
+   * Применяет фоновый объект шаблона к текущему холсту через BackgroundManager.
+   */
   private static async _applyBackgroundFromObject({
     backgroundObject,
     backgroundManager,
@@ -594,6 +607,9 @@ export default class TemplateManager {
     return false
   }
 
+  /**
+   * Преобразует абсолютное значение координаты/размера в относительную долю (0..1) от размеров монтажной области.
+   */
   private static _normalizeStoredValue({
     value,
     dimension,
@@ -611,6 +627,9 @@ export default class TemplateManager {
     return numericValue / safeDimension
   }
 
+  /**
+   * Вычисляет центр объекта в нормализованных координатах (0..1), используя сохранённые или фактические позиции.
+   */
   private static _resolveNormalizedCenter({
     object,
     baseWidth,
@@ -662,6 +681,9 @@ export default class TemplateManager {
     }
   }
 
+  /**
+   * Преобразует нормализованный центр (0..1) обратно в абсолютные координаты на полотне.
+   */
   private static _denormalizeCenter({
     normalizedX,
     normalizedY,
@@ -692,6 +714,9 @@ export default class TemplateManager {
     return new Point(absoluteX, absoluteY)
   }
 
+  /**
+   * Рассчитывает нормализованный центр объекта (0..1) относительно монтажной области.
+   */
   private static _calculateNormalizedCenter({
     object,
     montageArea,
@@ -726,6 +751,9 @@ export default class TemplateManager {
     }
   }
 
+  /**
+   * Возвращает размеры монтажной области с учётом размеров маркера и его bounds.
+   */
   private static _getMontageSize({
     montageArea,
     bounds
@@ -749,6 +777,9 @@ export default class TemplateManager {
     }
   }
 
+  /**
+   * Преобразует fabric-градиент в структуру, понятную менеджеру фона.
+   */
   private static _convertGradientToOptions(fill: unknown): GradientBackground | null {
     if (!fill || typeof fill !== 'object') return null
 
@@ -815,6 +846,9 @@ export default class TemplateManager {
     return null
   }
 
+  /**
+   * Переводит координаты градиента в угол в градусах.
+   */
   private static _coordsToAngle({
     x1,
     y1,
@@ -831,11 +865,17 @@ export default class TemplateManager {
     return (angleDeg + 360) % 360
   }
 
+  /**
+   * Создаёт неглубокую копию customData или возвращает undefined.
+   */
   private static _cloneCustomData(customData: unknown): Record<string, unknown> | undefined {
     if (!customData || typeof customData !== 'object') return undefined
     return { ...(customData as Record<string, unknown>) }
   }
 
+  /**
+   * Извлекает src изображения из FabricImage или его исходного элемента.
+   */
   private static _getImageSource(image: FabricObject): string | null {
     const asImage = image as FabricImage
 
@@ -860,6 +900,9 @@ export default class TemplateManager {
     return null
   }
 
+  /**
+   * Возвращает числовое значение или fallback, если value некорректно.
+   */
   private static _toNumber({
     value,
     fallback = 0
