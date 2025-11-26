@@ -93,6 +93,29 @@ export const textStrokeWidthInput = document.getElementById('text-stroke-width')
 export const textStrokeWidthValue = document.getElementById('text-stroke-width-value')
 export const textOpacityInput = document.getElementById('text-opacity')
 export const textOpacityValue = document.getElementById('text-opacity-value')
+export const textBackgroundEnabledCheckbox = document.getElementById('text-background-enabled')
+export const textBackgroundColorInput = document.getElementById('text-background-color')
+export const textBackgroundOpacityInput = document.getElementById('text-background-opacity')
+export const textBackgroundOpacityValue = document.getElementById('text-background-opacity-value')
+export const textPaddingTopInput = document.getElementById('text-padding-top')
+export const textPaddingRightInput = document.getElementById('text-padding-right')
+export const textPaddingBottomInput = document.getElementById('text-padding-bottom')
+export const textPaddingLeftInput = document.getElementById('text-padding-left')
+export const textRadiusTopLeftInput = document.getElementById('text-radius-top-left')
+export const textRadiusTopRightInput = document.getElementById('text-radius-top-right')
+export const textRadiusBottomRightInput = document.getElementById('text-radius-bottom-right')
+export const textRadiusBottomLeftInput = document.getElementById('text-radius-bottom-left')
+
+// Montage resolution controls
+export const montageWidthInput = document.getElementById('montage-width-input')
+export const montageHeightInput = document.getElementById('montage-height-input')
+export const applyMontageResolutionBtn = document.getElementById('apply-montage-resolution-btn')
+
+// Template controls
+export const serializeTemplateBtn = document.getElementById('serialize-template-btn')
+export const applyTemplateBtn = document.getElementById('apply-template-btn')
+export const templateJsonInput = document.getElementById('template-json-input')
+export const serializeTemplateWithBackgroundCheckbox = document.getElementById('serialize-with-background')
 
 // State controls
 export const undoBtn = document.getElementById('undo-btn')

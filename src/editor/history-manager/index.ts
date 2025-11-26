@@ -12,7 +12,7 @@ import { nanoid } from 'nanoid'
 import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
 
-const OBJECT_SERIALIZATION_PROPS = [
+export const OBJECT_SERIALIZATION_PROPS = [
   'selectable',
   'evented',
   'id',
@@ -36,7 +36,17 @@ const OBJECT_SERIALIZATION_PROPS = [
   'linethrough',
   'underline',
   'fontStyle',
-  'fontWeight'
+  'fontWeight',
+  'backgroundColor',
+  'backgroundOpacity',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
 ] as const
 
 export type CanvasFullState = {
@@ -175,7 +185,17 @@ export default class HistoryManager {
           textbox.fill,
           textbox.stroke,
           textbox.strokeWidth,
-          stylesHash
+          stylesHash,
+          textbox.paddingTop,
+          textbox.paddingRight,
+          textbox.paddingBottom,
+          textbox.paddingLeft,
+          textbox.backgroundColor,
+          textbox.backgroundOpacity,
+          textbox.radiusTopLeft,
+          textbox.radiusTopRight,
+          textbox.radiusBottomRight,
+          textbox.radiusBottomLeft
         ].join('-')
       },
 

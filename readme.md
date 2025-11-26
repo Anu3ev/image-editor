@@ -138,6 +138,31 @@ editor.textManager.updateText({
     strokeWidth: 2
   }
 })
+
+// Background styling with padding and rounded corners
+const bgTextbox = editor.textManager.addText({
+  text: 'New text',
+  backgroundColor: '#ffffff',
+  backgroundOpacity: 0.85,
+  paddingTop: 24,
+  paddingRight: 32,
+  paddingBottom: 24,
+  paddingLeft: 32,
+  radiusTopLeft: 8,
+  radiusTopRight: 8,
+  radiusBottomRight: 8,
+  radiusBottomLeft: 8
+})
+
+editor.textManager.updateText({
+  target: bgTextbox,
+  style: {
+    paddingTop: 40,
+    paddingBottom: 40,
+    radiusTopLeft: 16,
+    radiusTopRight: 16
+  }
+})
 ```
 
 ### Configuring Fonts
@@ -212,6 +237,7 @@ The editor follows a modular architecture with specialized managers:
 - **`FontManager`** - Font loading via FontFace API or fallback @font-face injection
 - **`ModuleLoader`** - Dynamic module loading (jsPDF, etc.)
 - **`ErrorManager`** - Error handling and user notifications
+- **`TemplateManager`** (`src/editor/template-manager/index.ts`) - Serializes and reapplies object/group templates with optional background preservation
 
 ### UI Components
 - **`ToolbarManager`** - Dynamic toolbar with configurable actions
@@ -322,6 +348,23 @@ editor.historyManager.saveState()
 // Load from JSON
 editor.historyManager.loadStateFromFullState(jsonState)
 ```
+
+### Template Management
+
+```javascript
+// Serialize current selection to JSON template
+const templateJson = editor.templateManager.serializeSelection({
+  includeBackground: false
+})
+
+// Apply template to canvas
+await editor.templateManager.applyTemplate({
+  templateJson,
+  clearCanvas: false
+})
+```
+
+`TemplateManager` keeps layout fidelity by storing positions, styles, and (optionally) background data so you can rehydrate saved compositions.
 
 ## 🛠️ Development
 

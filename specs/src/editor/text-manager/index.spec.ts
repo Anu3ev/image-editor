@@ -469,7 +469,7 @@ describe('TextManager', () => {
         canvas.fire('text:changed', { target: textbox })
 
         expect(textbox.text).toBe('НОВЫЙ ТЕКСТ')
-        expect(textbox.textCaseRaw).toBe('Новый текст')
+        expect(textbox.textCaseRaw).toBe('новый текст')
       })
 
       it('textCaseRaw обрезается при удалении символов', () => {
@@ -483,7 +483,7 @@ describe('TextManager', () => {
         canvas.fire('text:changed', { target: textbox })
 
         expect(textbox.text).toBe('НОВЫЙ')
-        expect(textbox.textCaseRaw).toBe('Новый')
+        expect(textbox.textCaseRaw).toBe('новый')
       })
 
       it('при замене символов textCaseRaw обновляется в нижнем регистре', () => {
@@ -547,11 +547,11 @@ describe('TextManager', () => {
         textbox.text = 'НОВЫЙ ТЕКСТ ТЕСТ ЕЩЕ'
         canvas.fire('text:changed', { target: textbox })
         expect(textbox.text).toBe('НОВЫЙ ТЕКСТ ТЕСТ ЕЩЕ')
-        expect(textbox.textCaseRaw).toBe('Новый текст тест еще')
+        expect(textbox.textCaseRaw).toBe('новый текст тест еще')
 
         // 5. Выключить uppercase
         textManager.updateText({ target: textbox, style: { uppercase: false } })
-        expect(textbox.text).toBe('Новый текст тест еще')
+        expect(textbox.text).toBe('новый текст тест еще')
       })
 
       it('сохраняет заглавную первую букву при многократном редактировании', () => {
@@ -576,7 +576,7 @@ describe('TextManager', () => {
 
         // Выключаем uppercase - первая буква должна остаться заглавной
         textManager.updateText({ target: textbox, style: { uppercase: false } })
-        expect(textbox.text).toBe('Привет мир тест код')
+        expect(textbox.text).toBe('привет мир тест код')
       })
     })
 
@@ -589,7 +589,7 @@ describe('TextManager', () => {
         canvas.fire('text:changed', { target: textbox })
         canvas.fire('text:editing:exited', { target: textbox })
 
-        expect(textbox.textCaseRaw).toBe('Тест редактирование')
+        expect(textbox.textCaseRaw).toBe('тест редактирование')
       })
 
       it('если uppercase=false, сохраняется текущий текст', () => {

@@ -10,6 +10,21 @@ import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
+import {
+  BackgroundTextbox,
+  registerBackgroundTextbox,
+  type BackgroundTextboxProps
+} from './background-textbox'
+import {
+  applyStylesToRange,
+  getFullTextRange,
+  getSelectionRange,
+  getSelectionStyleValue,
+  isFullTextSelection,
+  resolveStrokeColor,
+  resolveStrokeWidth,
+  toUpperCaseSafe
+} from '../utils/text'
 
 type TextCreationFlags = {
   withoutSelection?: boolean
@@ -32,9 +47,19 @@ export type TextStyleOptions = {
   strokeColor?: string
   strokeWidth?: number
   opacity?: number
+  backgroundColor?: string
+  backgroundOpacity?: number
+  paddingTop?: number
+  paddingRight?: number
+  paddingBottom?: number
+  paddingLeft?: number
+  radiusTopLeft?: number
+  radiusTopRight?: number
+  radiusBottomRight?: number
+  radiusBottomLeft?: number
 } & Partial<
   Omit<
-    TextboxProps,
+    BackgroundTextboxProps,
     | 'fontFamily'
     | 'fontSize'
     | 'fontWeight'
@@ -52,7 +77,9 @@ export type TextStyleOptions = {
   >
 >
 
-type TextReference = string | Textbox | null | undefined
+type EditorTextbox = Textbox & Partial<BackgroundTextboxProps>
+
+type TextReference = string | EditorTextbox | null | undefined
 
 type UpdateOptions = {
   target?: TextReference
@@ -63,17 +90,30 @@ type UpdateOptions = {
 
 const DIMENSION_EPSILON = 0.01
 
+type PaddingValues = {
+  bottom: number
+  left: number
+  right: number
+  top: number
+}
+
+type CornerRadiiValues = {
+  bottomLeft: number
+  bottomRight: number
+  topLeft: number
+  topRight: number
+}
+
 type ScalingState = {
   baseWidth: number
   baseLeft: number
   baseFontSize: number
+  basePadding: PaddingValues
+  baseRadii: CornerRadiiValues
   hasWidthChange: boolean
 }
 
-type TextSelectionRange = {
-  start: number
-  end: number
-}
+type TextboxSnapshot = Record<string, unknown>
 
 /**
  * Менеджер текста для редактора.
@@ -98,7 +138,7 @@ export default class TextManager {
   /**
    * Данные о масштабе текста, которые собираются в процессе трансформации.
    */
-  private scalingState: WeakMap<Textbox, ScalingState>
+  private scalingState: WeakMap<EditorTextbox, ScalingState>
 
   /**
    * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
@@ -114,6 +154,7 @@ export default class TextManager {
     this.isTextEditingActive = false
 
     this._bindEvents()
+    registerBackgroundTextbox()
   }
 
   /**
@@ -137,22 +178,33 @@ export default class TextManager {
       strokeColor,
       strokeWidth = 0,
       opacity = 1,
+      backgroundColor,
+      backgroundOpacity = 1,
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0,
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0,
       ...rest
     }: TextStyleOptions = {},
     { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
-  ): Textbox {
+  ): EditorTextbox {
     const { historyManager } = this.editor
+    const { canvas } = this
     historyManager.suspendHistory()
 
     const resolvedFontFamily = fontFamily ?? this._getDefaultFontFamily()
 
-    const resolvedStrokeWidth = TextManager._resolveStrokeWidth(strokeWidth)
-    const resolvedStrokeColor = TextManager._resolveStrokeColor(
+    const resolvedStrokeWidth = resolveStrokeWidth({ width: strokeWidth })
+    const resolvedStrokeColor = resolveStrokeColor({
       strokeColor,
-      resolvedStrokeWidth
-    )
+      width: resolvedStrokeWidth
+    })
 
-    const textbox = new Textbox(text, {
+    const finalOptions = {
       id,
       fontFamily: resolvedFontFamily,
       fontSize,
@@ -167,32 +219,44 @@ export default class TextManager {
       strokeWidth: resolvedStrokeWidth,
       strokeUniform: true,
       opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
       ...rest
-    })
+    }
+
+    const textbox = new BackgroundTextbox(text, finalOptions)
 
     // textCaseRaw хранит исходную строку без применения uppercase
     textbox.textCaseRaw = textbox.text ?? ''
 
     if (uppercase) {
-      const uppercased = TextManager._toUpperCase(textbox.textCaseRaw)
+      const uppercased = toUpperCaseSafe({ value: textbox.textCaseRaw })
       if (uppercased !== textbox.text) {
         textbox.set({ text: uppercased })
       }
     }
 
     if (rest.left === undefined && rest.top === undefined) {
-      this.canvas.centerObject(textbox)
+      canvas.centerObject(textbox)
     }
 
     if (!withoutAdding) {
-      this.canvas.add(textbox)
+      canvas.add(textbox)
     }
 
     if (!withoutSelection) {
-      this.canvas.setActiveObject(textbox)
+      canvas.setActiveObject(textbox)
     }
 
-    this.canvas.requestRenderAll()
+    canvas.requestRenderAll()
 
     historyManager.resumeHistory()
 
@@ -200,27 +264,19 @@ export default class TextManager {
       historyManager.saveState()
     }
 
-    const appliedOptions = {
-      id,
-      text,
-      fontFamily: resolvedFontFamily,
-      fontSize,
-      bold,
-      italic,
-      underline,
-      uppercase,
-      strikethrough,
-      align,
-      color,
-      strokeColor: resolvedStrokeColor,
-      strokeWidth: resolvedStrokeWidth,
-      opacity,
-      ...rest
-    }
-
-    this.canvas.fire('editor:text-added', {
+    canvas.fire('editor:text-added', {
       textbox,
-      options: appliedOptions,
+      options: {
+        ...finalOptions,
+        text,
+        bold,
+        italic,
+        strikethrough,
+        align,
+        color,
+        strokeColor: resolvedStrokeColor,
+        strokeWidth: resolvedStrokeWidth
+      },
       flags: {
         withoutSelection: Boolean(withoutSelection),
         withoutSave: Boolean(withoutSave),
@@ -239,37 +295,15 @@ export default class TextManager {
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
    */
-  public updateText({ target, style = {}, withoutSave, skipRender }: UpdateOptions = {}): Textbox | null {
+  public updateText({ target, style = {}, withoutSave, skipRender }: UpdateOptions = {}): EditorTextbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
 
     const { historyManager } = this.editor
+    const { canvas } = this
     historyManager.suspendHistory()
 
-    const beforeState = {
-      id: textbox.id,
-      text: textbox.text ?? undefined,
-      textCaseRaw: textbox.textCaseRaw ?? undefined,
-      uppercase: Boolean(textbox.uppercase),
-      fontFamily: textbox.fontFamily ?? undefined,
-      fontSize: textbox.fontSize ?? undefined,
-      fontWeight: textbox.fontWeight ?? undefined,
-      fontStyle: textbox.fontStyle ?? undefined,
-      underline: textbox.underline ?? undefined,
-      linethrough: textbox.linethrough ?? undefined,
-      textAlign: textbox.textAlign,
-      fill: textbox.fill ?? undefined,
-      stroke: textbox.stroke ?? undefined,
-      strokeWidth: textbox.strokeWidth ?? undefined,
-      opacity: textbox.opacity ?? undefined,
-      left: textbox.left ?? undefined,
-      top: textbox.top ?? undefined,
-      width: textbox.width ?? undefined,
-      height: textbox.height ?? undefined,
-      angle: textbox.angle ?? undefined,
-      scaleX: textbox.scaleX ?? undefined,
-      scaleY: textbox.scaleY ?? undefined
-    }
+    const beforeState = TextManager._getSnapshot(textbox)
 
     const {
       text,
@@ -285,15 +319,25 @@ export default class TextManager {
       strokeColor,
       strokeWidth,
       opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
       ...rest
     } = style
 
-    const updates: Partial<TextboxProps> = { ...rest }
-    const selectionRange = TextManager._getSelectionRange(textbox)
+    const updates: Partial<BackgroundTextboxProps> = { ...rest }
+    const selectionRange = getSelectionRange({ textbox })
     const selectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
-    const isFullTextSelection = TextManager._isFullTextSelection(textbox, selectionRange)
-    const shouldUpdateWholeObject = !selectionRange || isFullTextSelection
+    const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
+    const shouldUpdateWholeObject = !selectionRange || isSelectionForWholeText
     const shouldApplyWholeTextStyles = !selectionRange
 
     if (fontFamily !== undefined) {
@@ -386,16 +430,19 @@ export default class TextManager {
 
     if (strokeColor !== undefined || strokeWidth !== undefined) {
       const selectionStrokeWidth = selectionRange
-        ? TextManager._getSelectionStyleValue<number>(textbox, selectionRange, 'strokeWidth')
+        ? getSelectionStyleValue<number>({ textbox, range: selectionRange, property: 'strokeWidth' })
         : undefined
       const selectionStrokeColor = selectionRange
-        ? TextManager._getSelectionStyleValue<string>(textbox, selectionRange, 'stroke')
+        ? getSelectionStyleValue<string>({ textbox, range: selectionRange, property: 'stroke' })
         : undefined
 
       const widthSource = strokeWidth ?? selectionStrokeWidth ?? textbox.strokeWidth ?? 0
-      const resolvedStrokeWidth = TextManager._resolveStrokeWidth(widthSource)
+      const resolvedStrokeWidth = resolveStrokeWidth({ width: widthSource })
       const colorSource = strokeColor ?? selectionStrokeColor ?? textbox.stroke ?? undefined
-      const resolvedStrokeColor = TextManager._resolveStrokeColor(colorSource, resolvedStrokeWidth)
+      const resolvedStrokeColor = resolveStrokeColor({
+        strokeColor: colorSource,
+        width: resolvedStrokeWidth
+      })
 
       if (selectionRange) {
         selectionStyles.stroke = resolvedStrokeColor
@@ -416,6 +463,46 @@ export default class TextManager {
       updates.opacity = opacity
     }
 
+    if (backgroundColor !== undefined) {
+      updates.backgroundColor = backgroundColor
+    }
+
+    if (backgroundOpacity !== undefined) {
+      updates.backgroundOpacity = backgroundOpacity
+    }
+
+    if (paddingTop !== undefined) {
+      updates.paddingTop = paddingTop
+    }
+
+    if (paddingRight !== undefined) {
+      updates.paddingRight = paddingRight
+    }
+
+    if (paddingBottom !== undefined) {
+      updates.paddingBottom = paddingBottom
+    }
+
+    if (paddingLeft !== undefined) {
+      updates.paddingLeft = paddingLeft
+    }
+
+    if (radiusTopLeft !== undefined) {
+      updates.radiusTopLeft = radiusTopLeft
+    }
+
+    if (radiusTopRight !== undefined) {
+      updates.radiusTopRight = radiusTopRight
+    }
+
+    if (radiusBottomRight !== undefined) {
+      updates.radiusBottomRight = radiusBottomRight
+    }
+
+    if (radiusBottomLeft !== undefined) {
+      updates.radiusBottomLeft = radiusBottomLeft
+    }
+
     const previousRaw = textbox.textCaseRaw ?? (textbox.text ?? '')
     const previousUppercase = Boolean(textbox.uppercase)
     const hasTextUpdate = text !== undefined
@@ -427,7 +514,7 @@ export default class TextManager {
     // чтобы можно было переключать регистр без потери оригинальной строки.
     if (hasTextUpdate || uppercaseChanged) {
       const renderedText = nextUppercase
-        ? TextManager._toUpperCase(targetRawText)
+        ? toUpperCaseSafe({ value: targetRawText })
         : targetRawText
       updates.text = renderedText
       textbox.textCaseRaw = targetRawText
@@ -441,22 +528,36 @@ export default class TextManager {
 
     let stylesApplied = false
     if (selectionRange) {
-      stylesApplied = TextManager._applyStylesToRange(textbox, selectionStyles, selectionRange)
+      stylesApplied = applyStylesToRange({ textbox, styles: selectionStyles, range: selectionRange })
     } else if (Object.keys(wholeTextStyles).length) {
-      const fullRange = TextManager._getFullTextRange(textbox)
+      const fullRange = getFullTextRange({ textbox })
       if (fullRange) {
-        stylesApplied = TextManager._applyStylesToRange(textbox, wholeTextStyles, fullRange)
+        stylesApplied = applyStylesToRange({ textbox, styles: wholeTextStyles, range: fullRange })
       }
     }
 
     if (stylesApplied) {
       textbox.dirty = true
     }
+    if (
+      backgroundColor !== undefined
+      || backgroundOpacity !== undefined
+      || paddingTop !== undefined
+      || paddingRight !== undefined
+      || paddingBottom !== undefined
+      || paddingLeft !== undefined
+      || radiusTopLeft !== undefined
+      || radiusTopRight !== undefined
+      || radiusBottomRight !== undefined
+      || radiusBottomLeft !== undefined
+    ) {
+      textbox.dirty = true
+    }
 
     textbox.setCoords()
 
     if (!skipRender) {
-      this.canvas.requestRenderAll()
+      canvas.requestRenderAll()
     }
 
     historyManager.resumeHistory()
@@ -464,32 +565,9 @@ export default class TextManager {
       historyManager.saveState()
     }
 
-    const afterState = {
-      id: textbox.id,
-      text: textbox.text ?? undefined,
-      textCaseRaw: textbox.textCaseRaw ?? undefined,
-      uppercase: Boolean(textbox.uppercase),
-      fontFamily: textbox.fontFamily ?? undefined,
-      fontSize: textbox.fontSize ?? undefined,
-      fontWeight: textbox.fontWeight ?? undefined,
-      fontStyle: textbox.fontStyle ?? undefined,
-      underline: textbox.underline ?? undefined,
-      linethrough: textbox.linethrough ?? undefined,
-      textAlign: textbox.textAlign,
-      fill: textbox.fill ?? undefined,
-      stroke: textbox.stroke ?? undefined,
-      strokeWidth: textbox.strokeWidth ?? undefined,
-      opacity: textbox.opacity ?? undefined,
-      left: textbox.left ?? undefined,
-      top: textbox.top ?? undefined,
-      width: textbox.width ?? undefined,
-      height: textbox.height ?? undefined,
-      angle: textbox.angle ?? undefined,
-      scaleX: textbox.scaleX ?? undefined,
-      scaleY: textbox.scaleY ?? undefined
-    }
+    const afterState = TextManager._getSnapshot(textbox)
 
-    this.canvas.fire('editor:text-updated', {
+    canvas.fire('editor:text-updated', {
       textbox,
       target,
       style,
@@ -511,27 +589,30 @@ export default class TextManager {
    * Уничтожает менеджер и снимает слушатели.
    */
   public destroy(): void {
-    this.canvas.off('object:scaling', this._handleObjectScaling)
-    this.canvas.off('object:modified', this._handleObjectModified)
-    this.canvas.off('text:editing:exited', this._handleTextEditingExited)
-    this.canvas.off('text:editing:entered', this._handleTextEditingEntered)
-    this.canvas.off('text:changed', this._handleTextChanged)
+    const { canvas } = this
+    canvas.off('object:scaling', this._handleObjectScaling)
+    canvas.off('object:modified', this._handleObjectModified)
+    canvas.off('text:editing:exited', this._handleTextEditingExited)
+    canvas.off('text:editing:entered', this._handleTextEditingEntered)
+    canvas.off('text:changed', this._handleTextChanged)
   }
 
   /**
    * Возвращает активный текст или ищет по id.
    */
-  private _resolveTextObject(reference: TextReference): Textbox | null {
+  private _resolveTextObject(reference: TextReference): EditorTextbox | null {
     if (reference instanceof Textbox) return reference
 
+    const { canvas } = this
+
     if (!reference) {
-      const activeObject = this.canvas.getActiveObject()
+      const activeObject = canvas.getActiveObject()
       return TextManager._isTextbox(activeObject) ? activeObject : null
     }
 
     if (typeof reference === 'string') {
-      const object = this.canvas.getObjects()
-        .find((item): item is Textbox => TextManager._isTextbox(item) && item.id === reference)
+      const object = canvas.getObjects()
+        .find((item): item is EditorTextbox => TextManager._isTextbox(item) && item.id === reference)
 
       return object ?? null
     }
@@ -539,25 +620,34 @@ export default class TextManager {
     return null
   }
 
-  private static _isTextbox(object?: FabricObject | null): object is Textbox {
+  /**
+   * Проверяет, является ли объект текстовым блоком редактора.
+   */
+  private static _isTextbox(object?: FabricObject | null): object is EditorTextbox {
     return Boolean(object) && object instanceof Textbox
   }
 
+  /**
+   * Вешает обработчики событий Fabric для работы с текстом.
+   */
   private _bindEvents(): void {
-    this.canvas.on('object:scaling', this._handleObjectScaling)
-    this.canvas.on('object:modified', this._handleObjectModified)
-    this.canvas.on('text:editing:entered', this._handleTextEditingEntered)
-    this.canvas.on('text:editing:exited', this._handleTextEditingExited)
-    this.canvas.on('text:changed', this._handleTextChanged)
+    const { canvas } = this
+    canvas.on('object:scaling', this._handleObjectScaling)
+    canvas.on('object:modified', this._handleObjectModified)
+    canvas.on('text:editing:entered', this._handleTextEditingEntered)
+    canvas.on('text:editing:exited', this._handleTextEditingExited)
+    canvas.on('text:changed', this._handleTextChanged)
   }
 
+  /**
+   * Обработчик входа в режим редактирования текста.
+   */
   private _handleTextEditingEntered = (): void => {
     this.isTextEditingActive = true
   }
 
   /**
-   * Обрабатывает изменение текста во время редактирования.
-   * Обновляет textCaseRaw в реальном времени для корректной работы uppercase.
+   * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
    */
   private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
@@ -565,41 +655,25 @@ export default class TextManager {
 
     const currentText = target.text ?? ''
     const isUppercase = Boolean(target.uppercase)
-    const previousRaw = target.textCaseRaw ?? ''
+    const normalizedRaw = currentText.toLocaleLowerCase()
 
     if (isUppercase) {
-      // Если uppercase включен, принудительно переводим весь текст в верхний регистр
-      const uppercased = TextManager._toUpperCase(currentText)
+      const uppercased = toUpperCaseSafe({ value: normalizedRaw })
 
       if (uppercased !== currentText) {
-        // Текст содержит маленькие буквы, нужно их перевести в верхний регистр
         target.set({ text: uppercased })
-        this.canvas.requestRenderAll()
       }
 
-      // Восстанавливаем оригинальный регистр:
-      // Определяем, какие символы были добавлены/изменены
-      const rawLength = previousRaw.length
-      const currentLength = currentText.length
-
-      if (currentLength > rawLength) {
-        // Добавлены новые символы - сохраняем их в нижнем регистре
-        const addedText = currentText.slice(rawLength).toLocaleLowerCase()
-        target.textCaseRaw = previousRaw + addedText
-      } else if (currentLength < rawLength) {
-        // Символы удалены - обрезаем textCaseRaw
-        target.textCaseRaw = previousRaw.slice(0, currentLength)
-      } else {
-        // Длина не изменилась, но текст мог измениться (замена символов)
-        // Сохраняем новые символы в нижнем регистре
-        target.textCaseRaw = currentText.toLocaleLowerCase()
-      }
-    } else {
-      // Если uppercase выключен, сохраняем текст как есть (с оригинальным регистром)
-      target.textCaseRaw = currentText
+      target.textCaseRaw = normalizedRaw
+      return
     }
+
+    target.textCaseRaw = currentText
   }
 
+  /**
+   * Обработчик выхода из режима редактирования текста.
+   */
   private _handleTextEditingExited = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
@@ -633,6 +707,9 @@ export default class TextManager {
     }, TEXT_EDITING_DEBOUNCE_MS)
   }
 
+  /**
+   * Обрабатывает масштабирование текстового объекта: пересчитывает ширину, кегль и паддинги/радиусы.
+   */
   private _handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
     // При масштабировании текстовых объектов пересчитываем ширину/кегль и сбрасываем scale,
     // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
@@ -643,7 +720,13 @@ export default class TextManager {
     target.isScaling = true
 
     const state = this._ensureScalingState(target)
-    const { baseWidth: stateBaseWidth, baseLeft: stateBaseLeft, baseFontSize } = state
+    const {
+      baseWidth: stateBaseWidth,
+      baseLeft: stateBaseLeft,
+      baseFontSize,
+      basePadding,
+      baseRadii
+    } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
     const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
     const baseWidth = originalWidth ?? stateBaseWidth
@@ -661,16 +744,55 @@ export default class TextManager {
     const heightScale = Math.abs(target.scaleY ?? transform.scaleY ?? 1) || 1
     const nextWidth = Math.max(1, baseWidth * widthScale)
     const nextFontSize = Math.max(1, baseFontSize * heightScale)
+    const {
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0,
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0,
+      fontSize: currentFontSize,
+      width: currentWidthProp,
+      originX: targetOriginX = 'left'
+    } = target
+    const shouldScalePadding = isCornerHandle || isVerticalHandle
+    const shouldScaleRadii = isCornerHandle || isVerticalHandle
+    const nextPadding: PaddingValues = shouldScalePadding
+      ? {
+        top: Math.max(0, basePadding.top * heightScale),
+        right: Math.max(0, basePadding.right * heightScale),
+        bottom: Math.max(0, basePadding.bottom * heightScale),
+        left: Math.max(0, basePadding.left * heightScale)
+      }
+      : basePadding
+    const nextRadii: CornerRadiiValues = shouldScaleRadii
+      ? {
+        topLeft: Math.max(0, baseRadii.topLeft * heightScale),
+        topRight: Math.max(0, baseRadii.topRight * heightScale),
+        bottomRight: Math.max(0, baseRadii.bottomRight * heightScale),
+        bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
+      }
+      : baseRadii
 
-    const originX = transform.originX ?? target.originX ?? 'left'
+    const originX = transform.originX ?? targetOriginX ?? 'left'
     const rightEdge = baseLeft + baseWidth
     const centerX = baseLeft + (baseWidth / 2)
 
-    const currentWidth = target.width ?? baseWidth
+    const currentWidth = currentWidthProp ?? baseWidth
     const widthChanged = Math.abs(nextWidth - currentWidth) > DIMENSION_EPSILON
-    const fontSizeChanged = Math.abs(nextFontSize - (target.fontSize ?? baseFontSize)) > DIMENSION_EPSILON
+    const fontSizeChanged = Math.abs(nextFontSize - (currentFontSize ?? baseFontSize)) > DIMENSION_EPSILON
+    const paddingChanged = Math.abs(nextPadding.top - paddingTop) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.right - paddingRight) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.bottom - paddingBottom) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.left - paddingLeft) > DIMENSION_EPSILON
+    const radiusChanged = Math.abs(nextRadii.topLeft - radiusTopLeft) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.topRight - radiusTopRight) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.bottomRight - radiusBottomRight) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.bottomLeft - radiusBottomLeft) > DIMENSION_EPSILON
 
-    if (!widthChanged && !fontSizeChanged) {
+    if (!widthChanged && !fontSizeChanged && !paddingChanged && !radiusChanged) {
       target.set({ scaleX: 1, scaleY: 1 })
       transform.scaleX = 1
       transform.scaleY = 1
@@ -680,6 +802,14 @@ export default class TextManager {
     target.set({
       width: nextWidth,
       fontSize: isCornerHandle || isVerticalHandle ? nextFontSize : baseFontSize,
+      paddingTop: nextPadding.top,
+      paddingRight: nextPadding.right,
+      paddingBottom: nextPadding.bottom,
+      paddingLeft: nextPadding.left,
+      radiusTopLeft: nextRadii.topLeft,
+      radiusTopRight: nextRadii.topRight,
+      radiusBottomRight: nextRadii.bottomRight,
+      radiusBottomLeft: nextRadii.bottomLeft,
       scaleX: 1,
       scaleY: 1
     })
@@ -716,9 +846,24 @@ export default class TextManager {
 
     state.baseWidth = appliedWidth
     state.baseFontSize = target.fontSize ?? nextFontSize
-    state.hasWidthChange = widthActuallyChanged || fontSizeChanged
+    state.basePadding = {
+      top: nextPadding.top,
+      right: nextPadding.right,
+      bottom: nextPadding.bottom,
+      left: nextPadding.left
+    }
+    state.baseRadii = {
+      topLeft: nextRadii.topLeft,
+      topRight: nextRadii.topRight,
+      bottomRight: nextRadii.bottomRight,
+      bottomLeft: nextRadii.bottomLeft
+    }
+    state.hasWidthChange = widthActuallyChanged || fontSizeChanged || paddingChanged || radiusChanged
   }
 
+  /**
+   * Завершает трансформацию текстового объекта и фиксирует обновлённые стили/размеры.
+   */
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
@@ -729,29 +874,80 @@ export default class TextManager {
     this.scalingState.delete(target)
     if (!state?.hasWidthChange) return
 
-    // После завершения трансформации фиксируем ширину и размер шрифта через updateText,
+    // После завершения трансформации фиксируем ширину, отступы, и размер шрифта через updateText,
     // чтобы излишние scaleX/scaleY не попадали в историю.
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
+    const {
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0,
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0
+    } = target
 
-    this.updateText({ target, style: { width, fontSize } })
+    this.updateText({
+      target,
+      style: {
+        width,
+        fontSize,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft,
+        radiusTopLeft,
+        radiusTopRight,
+        radiusBottomRight,
+        radiusBottomLeft
+      }
+    })
 
     target.set({ scaleX: 1, scaleY: 1 })
     target.setCoords()
   }
 
-  private _ensureScalingState(textbox: Textbox): ScalingState {
+  /**
+   * Создаёт или возвращает сохранённое состояние для текущего цикла масштабирования текста.
+   */
+  private _ensureScalingState(textbox: EditorTextbox): ScalingState {
     let state = this.scalingState.get(textbox)
 
     if (!state) {
       const baseWidth = textbox.width ?? textbox.calcTextWidth()
       const baseLeft = textbox.left ?? 0
       const baseFontSize = textbox.fontSize ?? 16
+      const {
+        paddingTop = 0,
+        paddingRight = 0,
+        paddingBottom = 0,
+        paddingLeft = 0
+      } = textbox
+      const {
+        radiusTopLeft = 0,
+        radiusTopRight = 0,
+        radiusBottomRight = 0,
+        radiusBottomLeft = 0
+      } = textbox
       // Храним базовые размеры для одного цикла масштабирования.
       state = {
         baseWidth,
         baseFontSize,
         baseLeft,
+        basePadding: {
+          top: paddingTop,
+          right: paddingRight,
+          bottom: paddingBottom,
+          left: paddingLeft
+        },
+        baseRadii: {
+          topLeft: radiusTopLeft,
+          topRight: radiusTopRight,
+          bottomRight: radiusBottomRight,
+          bottomLeft: radiusBottomLeft
+        },
         hasWidthChange: false
       }
       this.scalingState.set(textbox, state)
@@ -760,88 +956,108 @@ export default class TextManager {
     return state
   }
 
-  private static _getSelectionRange(textbox: Textbox): TextSelectionRange | null {
-    if (!textbox.isEditing) return null
-
-    const selectionStart = textbox.selectionStart ?? 0
-    const selectionEnd = textbox.selectionEnd ?? selectionStart
-    if (selectionStart === selectionEnd) return null
-
-    return {
-      start: Math.min(selectionStart, selectionEnd),
-      end: Math.max(selectionStart, selectionEnd)
+  /**
+   * Формирует снимок текущих свойств текстового объекта для истории и событий.
+   */
+  private static _getSnapshot(textbox: EditorTextbox): TextboxSnapshot {
+    const addIfPresent = (
+      {
+        snapshot,
+        entries
+      }: {
+        snapshot: TextboxSnapshot;
+        entries: Record<string, unknown>
+      }
+    ): void => {
+      Object.entries(entries).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          snapshot[key] = value
+        }
+      })
     }
+
+    const {
+      id,
+      text,
+      textCaseRaw,
+      uppercase,
+      fontFamily,
+      fontSize,
+      fontWeight,
+      fontStyle,
+      underline,
+      linethrough,
+      textAlign,
+      fill,
+      stroke,
+      strokeWidth,
+      opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
+      left,
+      top,
+      width,
+      height,
+      angle,
+      scaleX,
+      scaleY
+    } = textbox
+
+    const snapshot: TextboxSnapshot = {
+      id,
+      uppercase: Boolean(uppercase),
+      textAlign
+    }
+
+    addIfPresent({
+      snapshot,
+      entries: {
+        text,
+        textCaseRaw,
+        fontFamily,
+        fontSize,
+        fontWeight,
+        fontStyle,
+        underline,
+        linethrough,
+        fill,
+        stroke,
+        strokeWidth,
+        opacity,
+        backgroundColor,
+        backgroundOpacity,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft,
+        radiusTopLeft,
+        radiusTopRight,
+        radiusBottomRight,
+        radiusBottomLeft,
+        left,
+        top,
+        width,
+        height,
+        angle,
+        scaleX,
+        scaleY
+      }
+    })
+
+    return snapshot
   }
 
-  private static _getFullTextRange(textbox: Textbox): TextSelectionRange | null {
-    const length = textbox.text?.length ?? 0
-    if (length <= 0) return null
-
-    return { start: 0, end: length }
-  }
-
-  private static _isFullTextSelection(
-    textbox: Textbox,
-    range: TextSelectionRange | null
-  ): boolean {
-    if (!range) return false
-
-    const textLength = textbox.text?.length ?? 0
-    if (textLength <= 0) return false
-
-    return range.start <= 0 && range.end >= textLength
-  }
-
-  private static _applyStylesToRange(
-    textbox: Textbox,
-    styles: Partial<TextboxProps>,
-    range: TextSelectionRange
-  ): boolean {
-    if (!styles || !Object.keys(styles).length) return false
-    const { start, end } = range
-    if (end <= start) return false
-
-    textbox.setSelectionStyles(styles, start, end)
-    return true
-  }
-
-  private static _getSelectionStyleValue<T extends keyof TextboxProps>(
-    textbox: Textbox,
-    range: TextSelectionRange | null,
-    property: T
-  ): TextboxProps[T] | undefined {
-    if (!range) return undefined
-
-    const styles = textbox.getSelectionStyles(
-      range.start,
-      range.end,
-      true
-    ) as Array<Partial<TextboxProps>>
-
-    if (!styles.length) return undefined
-    return styles[0]?.[property]
-  }
-
-  private static _resolveStrokeColor(
-    strokeColor: string | undefined,
-    width: number
-  ): string | undefined {
-    if (width <= 0) return undefined
-
-    return strokeColor ?? '#000000'
-  }
-
-  private static _resolveStrokeWidth(width: number | undefined): number {
-    if (!width) return 0
-
-    // Fabric поддерживает только центрированную обводку.
-    return Math.max(0, width)
-  }
-
-  private static _toUpperCase(value: string): string {
-    return typeof value === 'string' ? value.toLocaleUpperCase() : ''
-  }
-
+  /**
+   * Возвращает первый доступный шрифт или дефолтный Arial.
+   */
   private _getDefaultFontFamily(): string {
     return this.fonts[0]?.family ?? 'Arial'
   }
