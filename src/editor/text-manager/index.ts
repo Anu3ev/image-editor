@@ -108,6 +108,8 @@ type TextSelectionRange = {
   end: number
 }
 
+type TextboxSnapshot = Record<string, unknown>
+
 /**
  * Менеджер текста для редактора.
  * Управляет добавлением и обновлением текстовых объектов, а также синхронизацией размера шрифта при трансформациях.
@@ -196,7 +198,7 @@ export default class TextManager {
       resolvedStrokeWidth
     )
 
-    const textbox = new BackgroundTextbox(text, {
+    const finalOptions = {
       id,
       fontFamily: resolvedFontFamily,
       fontSize,
@@ -222,7 +224,9 @@ export default class TextManager {
       radiusBottomRight,
       radiusBottomLeft,
       ...rest
-    })
+    }
+
+    const textbox = new BackgroundTextbox(text, finalOptions)
 
     // textCaseRaw хранит исходную строку без применения uppercase
     textbox.textCaseRaw = textbox.text ?? ''
@@ -254,37 +258,18 @@ export default class TextManager {
       historyManager.saveState()
     }
 
-    const appliedOptions = {
-      id,
-      text,
-      fontFamily: resolvedFontFamily,
-      fontSize,
-      bold,
-      italic,
-      underline,
-      uppercase,
-      strikethrough,
-      align,
-      color,
-      strokeColor: resolvedStrokeColor,
-      strokeWidth: resolvedStrokeWidth,
-      opacity,
-      backgroundColor,
-      backgroundOpacity,
-      paddingTop,
-      paddingRight,
-      paddingBottom,
-      paddingLeft,
-      radiusTopLeft,
-      radiusTopRight,
-      radiusBottomRight,
-      radiusBottomLeft,
-      ...rest
-    }
-
     this.canvas.fire('editor:text-added', {
       textbox,
-      options: appliedOptions,
+      options: {
+        ...finalOptions,
+        bold,
+        italic,
+        strikethrough,
+        align,
+        color,
+        strokeColor: resolvedStrokeColor,
+        strokeWidth: resolvedStrokeWidth
+      },
       flags: {
         withoutSelection: Boolean(withoutSelection),
         withoutSave: Boolean(withoutSave),
@@ -310,40 +295,7 @@ export default class TextManager {
     const { historyManager } = this.editor
     historyManager.suspendHistory()
 
-    const beforeState = {
-      id: textbox.id,
-      text: textbox.text ?? undefined,
-      textCaseRaw: textbox.textCaseRaw ?? undefined,
-      uppercase: Boolean(textbox.uppercase),
-      fontFamily: textbox.fontFamily ?? undefined,
-      fontSize: textbox.fontSize ?? undefined,
-      fontWeight: textbox.fontWeight ?? undefined,
-      fontStyle: textbox.fontStyle ?? undefined,
-      underline: textbox.underline ?? undefined,
-      linethrough: textbox.linethrough ?? undefined,
-      textAlign: textbox.textAlign,
-      fill: textbox.fill ?? undefined,
-      stroke: textbox.stroke ?? undefined,
-      strokeWidth: textbox.strokeWidth ?? undefined,
-      opacity: textbox.opacity ?? undefined,
-      backgroundColor: textbox.backgroundColor ?? undefined,
-      backgroundOpacity: textbox.backgroundOpacity ?? undefined,
-      paddingTop: textbox.paddingTop ?? undefined,
-      paddingRight: textbox.paddingRight ?? undefined,
-      paddingBottom: textbox.paddingBottom ?? undefined,
-      paddingLeft: textbox.paddingLeft ?? undefined,
-      radiusTopLeft: textbox.radiusTopLeft ?? undefined,
-      radiusTopRight: textbox.radiusTopRight ?? undefined,
-      radiusBottomRight: textbox.radiusBottomRight ?? undefined,
-      radiusBottomLeft: textbox.radiusBottomLeft ?? undefined,
-      left: textbox.left ?? undefined,
-      top: textbox.top ?? undefined,
-      width: textbox.width ?? undefined,
-      height: textbox.height ?? undefined,
-      angle: textbox.angle ?? undefined,
-      scaleX: textbox.scaleX ?? undefined,
-      scaleY: textbox.scaleY ?? undefined
-    }
+    const beforeState = TextManager._getSnapshot(textbox)
 
     const {
       text,
@@ -602,40 +554,7 @@ export default class TextManager {
       historyManager.saveState()
     }
 
-    const afterState = {
-      id: textbox.id,
-      text: textbox.text ?? undefined,
-      textCaseRaw: textbox.textCaseRaw ?? undefined,
-      uppercase: Boolean(textbox.uppercase),
-      fontFamily: textbox.fontFamily ?? undefined,
-      fontSize: textbox.fontSize ?? undefined,
-      fontWeight: textbox.fontWeight ?? undefined,
-      fontStyle: textbox.fontStyle ?? undefined,
-      underline: textbox.underline ?? undefined,
-      linethrough: textbox.linethrough ?? undefined,
-      textAlign: textbox.textAlign,
-      fill: textbox.fill ?? undefined,
-      stroke: textbox.stroke ?? undefined,
-      strokeWidth: textbox.strokeWidth ?? undefined,
-      opacity: textbox.opacity ?? undefined,
-      backgroundColor: textbox.backgroundColor ?? undefined,
-      backgroundOpacity: textbox.backgroundOpacity ?? undefined,
-      paddingTop: textbox.paddingTop ?? undefined,
-      paddingRight: textbox.paddingRight ?? undefined,
-      paddingBottom: textbox.paddingBottom ?? undefined,
-      paddingLeft: textbox.paddingLeft ?? undefined,
-      radiusTopLeft: textbox.radiusTopLeft ?? undefined,
-      radiusTopRight: textbox.radiusTopRight ?? undefined,
-      radiusBottomRight: textbox.radiusBottomRight ?? undefined,
-      radiusBottomLeft: textbox.radiusBottomLeft ?? undefined,
-      left: textbox.left ?? undefined,
-      top: textbox.top ?? undefined,
-      width: textbox.width ?? undefined,
-      height: textbox.height ?? undefined,
-      angle: textbox.angle ?? undefined,
-      scaleX: textbox.scaleX ?? undefined,
-      scaleY: textbox.scaleY ?? undefined
-    }
+    const afterState = TextManager._getSnapshot(textbox)
 
     this.canvas.fire('editor:text-updated', {
       textbox,
@@ -815,18 +734,24 @@ export default class TextManager {
     const heightScale = Math.abs(target.scaleY ?? transform.scaleY ?? 1) || 1
     const nextWidth = Math.max(1, baseWidth * widthScale)
     const nextFontSize = Math.max(1, baseFontSize * heightScale)
-    const { paddingTop = 0, paddingRight = 0, paddingBottom = 0, paddingLeft = 0 } = target
     const {
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0,
       radiusTopLeft = 0,
       radiusTopRight = 0,
       radiusBottomRight = 0,
-      radiusBottomLeft = 0
+      radiusBottomLeft = 0,
+      fontSize: currentFontSize,
+      width: currentWidthProp,
+      originX: targetOriginX = 'left'
     } = target
     const shouldScalePadding = isCornerHandle || isVerticalHandle
     const shouldScaleRadii = isCornerHandle || isVerticalHandle
     const nextPadding: PaddingValues = shouldScalePadding
       ? {
-        top: Math.max(0, basePadding.top * heightScale),
+          top: Math.max(0, basePadding.top * heightScale),
         right: Math.max(0, basePadding.right * heightScale),
         bottom: Math.max(0, basePadding.bottom * heightScale),
         left: Math.max(0, basePadding.left * heightScale)
@@ -841,13 +766,13 @@ export default class TextManager {
       }
       : baseRadii
 
-    const originX = transform.originX ?? target.originX ?? 'left'
+    const originX = transform.originX ?? targetOriginX ?? 'left'
     const rightEdge = baseLeft + baseWidth
     const centerX = baseLeft + (baseWidth / 2)
 
-    const currentWidth = target.width ?? baseWidth
+    const currentWidth = currentWidthProp ?? baseWidth
     const widthChanged = Math.abs(nextWidth - currentWidth) > DIMENSION_EPSILON
-    const fontSizeChanged = Math.abs(nextFontSize - (target.fontSize ?? baseFontSize)) > DIMENSION_EPSILON
+    const fontSizeChanged = Math.abs(nextFontSize - (currentFontSize ?? baseFontSize)) > DIMENSION_EPSILON
     const paddingChanged = Math.abs(nextPadding.top - paddingTop) > DIMENSION_EPSILON
       || Math.abs(nextPadding.right - paddingRight) > DIMENSION_EPSILON
       || Math.abs(nextPadding.bottom - paddingBottom) > DIMENSION_EPSILON
@@ -944,9 +869,7 @@ export default class TextManager {
       paddingTop = 0,
       paddingRight = 0,
       paddingBottom = 0,
-      paddingLeft = 0
-    } = target
-    const {
+      paddingLeft = 0,
       radiusTopLeft = 0,
       radiusTopRight = 0,
       radiusBottomRight = 0,
@@ -1015,6 +938,78 @@ export default class TextManager {
     }
 
     return state
+  }
+
+  private static _getSnapshot(textbox: EditorTextbox): TextboxSnapshot {
+    const {
+      id,
+      text,
+      textCaseRaw,
+      uppercase,
+      fontFamily,
+      fontSize,
+      fontWeight,
+      fontStyle,
+      underline,
+      linethrough,
+      textAlign,
+      fill,
+      stroke,
+      strokeWidth,
+      opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
+      left,
+      top,
+      width,
+      height,
+      angle,
+      scaleX,
+      scaleY
+    } = textbox
+
+    return {
+      id,
+      text: text ?? undefined,
+      textCaseRaw: textCaseRaw ?? undefined,
+      uppercase: Boolean(uppercase),
+      fontFamily: fontFamily ?? undefined,
+      fontSize: fontSize ?? undefined,
+      fontWeight: fontWeight ?? undefined,
+      fontStyle: fontStyle ?? undefined,
+      underline: underline ?? undefined,
+      linethrough: linethrough ?? undefined,
+      textAlign,
+      fill: fill ?? undefined,
+      stroke: stroke ?? undefined,
+      strokeWidth: strokeWidth ?? undefined,
+      opacity: opacity ?? undefined,
+      backgroundColor: backgroundColor ?? undefined,
+      backgroundOpacity: backgroundOpacity ?? undefined,
+      paddingTop: paddingTop ?? undefined,
+      paddingRight: paddingRight ?? undefined,
+      paddingBottom: paddingBottom ?? undefined,
+      paddingLeft: paddingLeft ?? undefined,
+      radiusTopLeft: radiusTopLeft ?? undefined,
+      radiusTopRight: radiusTopRight ?? undefined,
+      radiusBottomRight: radiusBottomRight ?? undefined,
+      radiusBottomLeft: radiusBottomLeft ?? undefined,
+      left: left ?? undefined,
+      top: top ?? undefined,
+      width: width ?? undefined,
+      height: height ?? undefined,
+      angle: angle ?? undefined,
+      scaleX: scaleX ?? undefined,
+      scaleY: scaleY ?? undefined
+    }
   }
 
   private static _getSelectionRange(textbox: EditorTextbox): TextSelectionRange | null {
