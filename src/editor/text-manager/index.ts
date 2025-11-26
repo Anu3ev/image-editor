@@ -960,6 +960,22 @@ export default class TextManager {
    * Формирует снимок текущих свойств текстового объекта для истории и событий.
    */
   private static _getSnapshot(textbox: EditorTextbox): TextboxSnapshot {
+    const addIfPresent = (
+      {
+        snapshot,
+        entries
+      }: {
+        snapshot: TextboxSnapshot;
+        entries: Record<string, unknown>
+      }
+    ): void => {
+      Object.entries(entries).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          snapshot[key] = value
+        }
+      })
+    }
+
     const {
       id,
       text,
@@ -995,40 +1011,48 @@ export default class TextManager {
       scaleY
     } = textbox
 
-    return {
+    const snapshot: TextboxSnapshot = {
       id,
-      text: text ?? undefined,
-      textCaseRaw: textCaseRaw ?? undefined,
       uppercase: Boolean(uppercase),
-      fontFamily: fontFamily ?? undefined,
-      fontSize: fontSize ?? undefined,
-      fontWeight: fontWeight ?? undefined,
-      fontStyle: fontStyle ?? undefined,
-      underline: underline ?? undefined,
-      linethrough: linethrough ?? undefined,
-      textAlign,
-      fill: fill ?? undefined,
-      stroke: stroke ?? undefined,
-      strokeWidth: strokeWidth ?? undefined,
-      opacity: opacity ?? undefined,
-      backgroundColor: backgroundColor ?? undefined,
-      backgroundOpacity: backgroundOpacity ?? undefined,
-      paddingTop: paddingTop ?? undefined,
-      paddingRight: paddingRight ?? undefined,
-      paddingBottom: paddingBottom ?? undefined,
-      paddingLeft: paddingLeft ?? undefined,
-      radiusTopLeft: radiusTopLeft ?? undefined,
-      radiusTopRight: radiusTopRight ?? undefined,
-      radiusBottomRight: radiusBottomRight ?? undefined,
-      radiusBottomLeft: radiusBottomLeft ?? undefined,
-      left: left ?? undefined,
-      top: top ?? undefined,
-      width: width ?? undefined,
-      height: height ?? undefined,
-      angle: angle ?? undefined,
-      scaleX: scaleX ?? undefined,
-      scaleY: scaleY ?? undefined
+      textAlign
     }
+
+    addIfPresent({
+      snapshot,
+      entries: {
+        text,
+        textCaseRaw,
+        fontFamily,
+        fontSize,
+        fontWeight,
+        fontStyle,
+        underline,
+        linethrough,
+        fill,
+        stroke,
+        strokeWidth,
+        opacity,
+        backgroundColor,
+        backgroundOpacity,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft,
+        radiusTopLeft,
+        radiusTopRight,
+        radiusBottomRight,
+        radiusBottomLeft,
+        left,
+        top,
+        width,
+        height,
+        angle,
+        scaleX,
+        scaleY
+      }
+    })
+
+    return snapshot
   }
 
   /**
