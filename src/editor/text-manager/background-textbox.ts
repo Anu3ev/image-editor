@@ -136,6 +136,15 @@ export class BackgroundTextbox extends Textbox {
     return new Point(width, height).scalarAdd(this.strokeWidth)
   }
 
+  protected override _getTransformedDimensions(options: { width?: number; height?: number } = {}): Point {
+    const { width, height } = this._getBackgroundDimensions()
+    return super._getTransformedDimensions({
+      ...options,
+      width,
+      height
+    })
+  }
+
   protected override _renderBackground(ctx: CanvasRenderingContext2D): void {
     const fill = this._getEffectiveBackgroundFill()
     if (!fill) {
