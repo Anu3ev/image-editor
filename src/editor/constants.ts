@@ -21,7 +21,15 @@ export const CLIPBOARD_DATA_PREFIX = 'application/image-editor:'
 /**
  * Ключи объекта, которые нужно сохранить при клонировании объекта для отправки в буфер обмена
  */
-export const CLIPBOARD_CLONE_OBJECT_KEYS = ['format', 'uppercase', 'textCaseRaw']
+export const CLIPBOARD_CLONE_OBJECT_KEYS = [
+  'format',
+  'uppercase',
+  'textCaseRaw',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft'
+]
 
 /**
  * Задержка перед сохранением в истории изменений текста в текстовом объекте
