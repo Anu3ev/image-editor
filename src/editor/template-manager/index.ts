@@ -387,15 +387,17 @@ export default class TemplateManager {
     meta: TemplateMeta | undefined
     fallback: Dimensions
   }): TemplateMeta {
+    const { width, height } = fallback
+
     const safeMeta: TemplateMeta = meta ?? {
-      baseWidth: fallback.width,
-      baseHeight: fallback.height
+      baseWidth: width,
+      baseHeight: height
     }
 
     return {
       ...safeMeta,
-      baseWidth: safeMeta.baseWidth ?? fallback.width,
-      baseHeight: safeMeta.baseHeight ?? fallback.height
+      baseWidth: safeMeta.baseWidth ?? width,
+      baseHeight: safeMeta.baseHeight ?? height
     }
   }
 
@@ -409,8 +411,9 @@ export default class TemplateManager {
     meta: TemplateMeta
     target: Dimensions
   }): number {
-    const widthRatio = target.width / (meta.baseWidth || target.width || 1)
-    const heightRatio = target.height / (meta.baseHeight || target.height || 1)
+    const { width, height } = target
+    const widthRatio = width / (meta.baseWidth || width || 1)
+    const heightRatio = height / (meta.baseHeight || height || 1)
 
     return Math.min(widthRatio, heightRatio)
   }
@@ -725,16 +728,19 @@ export default class TemplateManager {
     montageArea?: FabricObject | null
     bounds?: Bounds | null
   }): Dimensions {
+    const boundsWidth = bounds?.width || 0
+    const boundsHeight = bounds?.height || 0
+
     if (montageArea) {
       return {
-        width: montageArea.getScaledWidth?.() || montageArea.width || bounds?.width || 0,
-        height: montageArea.getScaledHeight?.() || montageArea.height || bounds?.height || 0
+        width: montageArea.getScaledWidth?.() || montageArea.width || boundsWidth,
+        height: montageArea.getScaledHeight?.() || montageArea.height || boundsHeight
       }
     }
 
     return {
-      width: bounds?.width || 0,
-      height: bounds?.height || 0
+      width: boundsWidth,
+      height: boundsHeight
     }
   }
 
@@ -826,21 +832,24 @@ export default class TemplateManager {
   }
 
   private static _getImageSource(image: FabricObject): string | null {
-    if ('getSrc' in image && typeof (image as FabricImage).getSrc === 'function') {
-      const src = (image as FabricImage).getSrc()
+    const asImage = image as FabricImage
+
+    if ('getSrc' in image && typeof asImage.getSrc === 'function') {
+      const src = asImage.getSrc()
       if (src) return src
     }
 
-    if ('getElement' in image && typeof (image as FabricImage).getElement === 'function') {
-      const element = (image as FabricImage).getElement()
+    if ('getElement' in image && typeof asImage.getElement === 'function') {
+      const element = asImage.getElement()
 
       if (element instanceof HTMLImageElement) {
         return element.currentSrc || element.src || null
       }
     }
 
-    if (typeof (image as Record<string, unknown>).src === 'string') {
-      return (image as Record<string, string>).src
+    const asRecord = image as Record<string, unknown>
+    if (typeof asRecord.src === 'string') {
+      return asRecord.src as string
     }
 
     return null
