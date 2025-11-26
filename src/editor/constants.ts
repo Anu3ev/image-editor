@@ -25,10 +25,16 @@ export const CLIPBOARD_CLONE_OBJECT_KEYS = [
   'format',
   'uppercase',
   'textCaseRaw',
+  'backgroundColor',
+  'backgroundOpacity',
   'paddingTop',
   'paddingRight',
   'paddingBottom',
-  'paddingLeft'
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
 ]
 
 /**

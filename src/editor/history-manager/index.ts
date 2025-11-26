@@ -185,7 +185,17 @@ export default class HistoryManager {
           textbox.fill,
           textbox.stroke,
           textbox.strokeWidth,
-          stylesHash
+          stylesHash,
+          textbox.paddingTop,
+          textbox.paddingRight,
+          textbox.paddingBottom,
+          textbox.paddingLeft,
+          textbox.backgroundColor,
+          textbox.backgroundOpacity,
+          textbox.radiusTopLeft,
+          textbox.radiusTopRight,
+          textbox.radiusBottomRight,
+          textbox.radiusBottomLeft
         ].join('-')
       },
 
