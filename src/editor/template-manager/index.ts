@@ -358,9 +358,7 @@ export default class TemplateManager {
       normalizedY: normalizedCenter.y,
       bounds,
       targetSize,
-      montageArea,
-      baseWidth,
-      baseHeight
+      montageArea
     })
 
     const nextScaleX = scaleX * scale
@@ -374,8 +372,9 @@ export default class TemplateManager {
     object.setPositionByOrigin(absoluteCenter, 'center', 'center')
     object.setCoords()
 
-    delete (object as Record<string, unknown>)[TEMPLATE_CENTER_X_KEY]
-    delete (object as Record<string, unknown>)[TEMPLATE_CENTER_Y_KEY]
+    const objectRecord = object as Record<string, unknown>
+    delete objectRecord[TEMPLATE_CENTER_X_KEY]
+    delete objectRecord[TEMPLATE_CENTER_Y_KEY]
   }
 
   /**
@@ -495,8 +494,6 @@ export default class TemplateManager {
     const normalizedCenter = TemplateManager._calculateNormalizedCenter({
       object,
       montageArea,
-      baseWidth: safeWidth,
-      baseHeight: safeHeight,
       bounds
     })
 
@@ -670,8 +667,6 @@ export default class TemplateManager {
     bounds: Bounds
     targetSize: Dimensions
     montageArea: FabricObject | null
-    baseWidth: number
-    baseHeight: number
   }): Point {
     const { left, top, width, height } = bounds
 
@@ -705,16 +700,14 @@ export default class TemplateManager {
 
       // Используем масштабированный размер из bounds
       const { left, top, width, height } = bounds
-      const scaledWidth = width
-      const scaledHeight = height
 
       // КЛЮЧ: нормализуем относительно левого верхнего угла bounds, а не центра
       const offsetX = centerPoint.x - left
       const offsetY = centerPoint.y - top
 
       // Нормализуем в диапазон [0, 1]
-      const normalizedX = offsetX / scaledWidth
-      const normalizedY = offsetY / scaledHeight
+      const normalizedX = offsetX / width
+      const normalizedY = offsetY / height
 
       return {
         x: normalizedX,
