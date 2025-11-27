@@ -1,11 +1,8 @@
-import { ActiveSelection, CanvasOptions, FabricObject, Point } from 'fabric'
+import { ActiveSelection, CanvasOptions, FabricObject } from 'fabric'
 import { ImageEditor } from '../index'
 
 import {
-  DEFAULT_ZOOM_RATIO,
-  DEFAULT_ROTATE_RATIO,
-  MIN_ZOOM,
-  MAX_ZOOM
+  DEFAULT_ROTATE_RATIO
 } from '../constants'
 
 export type ResetObjectOptions = {
@@ -25,127 +22,9 @@ export default class TransformManager {
    */
   public options: CanvasOptions
 
-  /**
-   * Минимальный зум
-   */
-  public minZoom: number
-
-  /**
-   * Максимальный зум
-   */
-  public maxZoom: number
-
-  /**
-   * Дефолтный зум, который будет применён при инициализации редактора
-   */
-  public defaultZoom: number
-
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.options = editor.options
-    this.minZoom = this.options.minZoom || MIN_ZOOM
-    this.maxZoom = this.options.maxZoom || MAX_ZOOM
-    this.defaultZoom = this.options.defaultScale
-  }
-
-  /**
-   * Метод рассчитывает и применяет зум по умолчанию для монтажной области редактора.
-   * Зум рассчитывается исходя из размеров контейнера редактора и текущих размеров монтажной области.
-   * Расчёт происходит таким образом, чтобы монтажная область визуально целиком помещалась в контейнер редактора.
-   * Если scale не передан, то используется значение из options.defaultScale.
-   * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
-   */
-  public calculateAndApplyDefaultZoom(scale: number = this.options.defaultScale): void {
-    const { canvas } = this.editor
-
-    const container = canvas.editorContainer
-    const containerWidth = container.clientWidth
-    const containerHeight = container.clientHeight
-
-    const { width: montageWidth, height: montageHeight } = this.editor.montageArea
-
-    const scaleX = (containerWidth / montageWidth) * scale
-    const scaleY = (containerHeight / montageHeight) * scale
-
-    // выбираем меньший зум, чтобы монтажная область целиком помещалась
-    this.defaultZoom = Math.min(scaleX, scaleY)
-
-    // применяем дефолтный зум
-    this.setZoom()
-  }
-
-  /**
-   * Увеличение/уменьшение масштаба
-   * @param scale - Шаг зума
-   * @param options - Координаты зума (по умолчанию центр канваса)
-   * @param options.pointX - Координата X точки зума
-   * @param options.pointY - Координата Y точки зума
-   * @fires editor:zoom-changed
-   * Если передавать координаты курсора, то нужно быть аккуратнее, так как юзер может выйти за пределы рабочей области
-   */
-  public zoom(scale: number = DEFAULT_ZOOM_RATIO, options: { pointX?: number, pointY?: number } = {}): void {
-    if (!scale) return
-
-    const { minZoom, maxZoom } = this
-    const { canvas } = this.editor
-
-    const currentZoom = canvas.getZoom()
-    const center = canvas.getCenterPoint()
-    const pointX = options.pointX ?? center.x
-    const pointY = options.pointY ?? center.y
-    const point = new Point(pointX, pointY)
-
-    let zoom = Number((currentZoom + Number(scale)).toFixed(2))
-    if (zoom > maxZoom) zoom = maxZoom
-    if (zoom < minZoom) zoom = minZoom
-
-    canvas.zoomToPoint(point, zoom)
-
-    canvas.fire('editor:zoom-changed', {
-      currentZoom: canvas.getZoom(),
-      zoom,
-      point
-    })
-  }
-
-  /**
-   * Установка зума
-   * @param zoom - Зум
-   * @fires editor:zoom-changed
-   */
-  public setZoom(zoom: number = this.defaultZoom): void {
-    const { minZoom, maxZoom } = this
-    const { canvas } = this.editor
-    const centerPoint = new Point(canvas.getCenterPoint())
-
-    let newZoom = zoom
-
-    if (zoom > maxZoom) newZoom = maxZoom
-    if (zoom < minZoom) newZoom = minZoom
-
-    canvas.zoomToPoint(centerPoint, newZoom)
-
-    canvas.fire('editor:zoom-changed', {
-      currentZoom: canvas.getZoom(),
-      zoom: newZoom,
-      point: centerPoint
-    })
-  }
-
-  /**
-   * Сброс зума
-   * @fires editor:zoom-changed
-   */
-  public resetZoom(): void {
-    const { canvas } = this.editor
-    const centerPoint = new Point(canvas.getCenterPoint())
-
-    canvas.zoomToPoint(centerPoint, this.defaultZoom)
-
-    this.editor.canvas.fire('editor:zoom-changed', {
-      currentZoom: canvas.getZoom(),
-      point: centerPoint
-    })
   }
 
   /**

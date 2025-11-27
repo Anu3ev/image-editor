@@ -1,10 +1,53 @@
 // TODO: Почистить консоль логи когда всё будет готово.
-import { Canvas, FabricObject, FabricImage, Rect } from 'fabric'
+import {
+  Canvas,
+  FabricObject,
+  FabricImage,
+  Rect,
+  Textbox
+} from 'fabric'
 import { create as diffPatchCreate } from 'jsondiffpatch'
 import type { DiffPatcher, Delta } from 'jsondiffpatch'
 import { nanoid } from 'nanoid'
 import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
+
+export const OBJECT_SERIALIZATION_PROPS = [
+  'selectable',
+  'evented',
+  'id',
+  'backgroundId',
+  'customData',
+  'backgroundType',
+  'format',
+  'width',
+  'height',
+  'locked',
+  'lockMovementX',
+  'lockMovementY',
+  'lockRotation',
+  'lockScalingX',
+  'lockScalingY',
+  'lockSkewingX',
+  'lockSkewingY',
+  'styles',
+  'textCaseRaw',
+  'uppercase',
+  'linethrough',
+  'underline',
+  'fontStyle',
+  'fontWeight',
+  'backgroundColor',
+  'backgroundOpacity',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
+] as const
 
 export type CanvasFullState = {
   clipPath: object | null
@@ -108,6 +151,10 @@ export default class HistoryManager {
     this.diffPatcher = diffPatchCreate({
       objectHash(obj: object) {
         const fabricObj = obj as FabricObject
+        const textbox = obj as Textbox
+
+        // Сериализуем styles в JSON строку для корректного сравнения
+        const stylesHash = textbox.styles ? JSON.stringify(textbox.styles) : ''
 
         return [
           fabricObj.id,
@@ -124,7 +171,31 @@ export default class HistoryManager {
           fabricObj.scaleX,
           fabricObj.scaleY,
           fabricObj.angle,
-          fabricObj.opacity
+          fabricObj.opacity,
+          textbox.text,
+          textbox.textCaseRaw,
+          textbox.uppercase,
+          textbox.fontFamily,
+          textbox.fontSize,
+          textbox.fontWeight,
+          textbox.fontStyle,
+          textbox.underline,
+          textbox.linethrough,
+          textbox.textAlign,
+          textbox.fill,
+          textbox.stroke,
+          textbox.strokeWidth,
+          stylesHash,
+          textbox.paddingTop,
+          textbox.paddingRight,
+          textbox.paddingBottom,
+          textbox.paddingLeft,
+          textbox.backgroundColor,
+          textbox.backgroundOpacity,
+          textbox.radiusTopLeft,
+          textbox.radiusTopRight,
+          textbox.radiusBottomRight,
+          textbox.radiusBottomLeft
         ].join('-')
       },
 
@@ -191,25 +262,9 @@ export default class HistoryManager {
     console.time('saveState')
 
     // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
-    const currentStateObj = this.canvas.toDatalessObject([
-      'selectable',
-      'evented',
-      'id',
-      'backgroundId',
-      'customData',
-      'backgroundType',
-      'format',
-      'width',
-      'height',
-      'locked',
-      'lockMovementX',
-      'lockMovementY',
-      'lockRotation',
-      'lockScalingX',
-      'lockScalingY',
-      'lockSkewingX',
-      'lockSkewingY'
-    ])
+    const currentStateObj = this._withTemporaryUnlock(
+      () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
+    )
 
     console.timeEnd('saveState')
 
@@ -451,6 +506,57 @@ export default class HistoryManager {
       })
     } finally {
       this.resumeHistory()
+    }
+  }
+
+  private _withTemporaryUnlock<T>(callback: () => T): T {
+    const modified: Array<{
+      object: FabricObject & {
+        locked?: boolean
+        lockMovementX?: boolean
+        lockMovementY?: boolean
+        type?: string
+      }
+      lockMovementX?: boolean
+      lockMovementY?: boolean
+      selectable?: boolean
+    }> = []
+
+    const objects = this.canvas.getObjects?.() ?? []
+
+    objects.forEach((object) => {
+      const type = typeof object.type === 'string' ? object.type.toLowerCase() : ''
+      const isTextObject = type === 'textbox'
+        || type === 'i-text'
+        || typeof (object as Textbox).isEditing === 'boolean'
+      if (!isTextObject) return
+
+      if (object.locked) return
+
+      const lockMovementX = Boolean(object.lockMovementX)
+      const lockMovementY = Boolean(object.lockMovementY)
+      if (!lockMovementX && !lockMovementY) return
+
+      modified.push({
+        object,
+        lockMovementX: object.lockMovementX,
+        lockMovementY: object.lockMovementY,
+        selectable: object.selectable
+      })
+
+      object.lockMovementX = false
+      object.lockMovementY = false
+      object.selectable = true
+    })
+
+    try {
+      return callback()
+    } finally {
+      modified.forEach(({ object, lockMovementX, lockMovementY, selectable }) => {
+        object.lockMovementX = lockMovementX
+        object.lockMovementY = lockMovementY
+        object.selectable = selectable
+      })
     }
   }
 }

@@ -382,7 +382,7 @@ describe('CanvasManager', () => {
 
       canvasManager.setDefaultScale({})
 
-      expect(mockEditor.transformManager.resetZoom).toHaveBeenCalled()
+      expect(mockEditor.zoomManager.resetZoom).toHaveBeenCalled()
       expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockMontageArea.width, { withoutSave: true })
       expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockMontageArea.height, { withoutSave: true })
       expect(mockEditor.transformManager.resetObjects).toHaveBeenCalled()

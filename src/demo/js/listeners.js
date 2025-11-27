@@ -55,6 +55,44 @@ import {
   addRectBtn,
   addCircleBtn,
   addTriangleBtn,
+  // Текстовые контролы
+  addTextBtn,
+  textContentInput,
+  textFontFamilySelect,
+  textFontSizeInput,
+  textBoldBtn,
+  textItalicBtn,
+  textUnderlineBtn,
+  textUppercaseBtn,
+  textStrikeBtn,
+  textAlignToggle,
+  textColorInput,
+  textColorPalette,
+  textStrokeColorInput,
+  textStrokePalette,
+  textStrokeWidthInput,
+  textStrokeWidthValue,
+  textOpacityInput,
+  textOpacityValue,
+  textBackgroundEnabledCheckbox,
+  textBackgroundColorInput,
+  textBackgroundOpacityInput,
+  textBackgroundOpacityValue,
+  textPaddingTopInput,
+  textPaddingRightInput,
+  textPaddingBottomInput,
+  textPaddingLeftInput,
+  textRadiusTopLeftInput,
+  textRadiusTopRightInput,
+  textRadiusBottomRightInput,
+  textRadiusBottomLeftInput,
+  montageWidthInput,
+  montageHeightInput,
+  applyMontageResolutionBtn,
+  serializeTemplateBtn,
+  applyTemplateBtn,
+  templateJsonInput,
+  serializeTemplateWithBackgroundCheckbox,
   // Undo/Redo
   undoBtn,
   redoBtn,
@@ -101,6 +139,790 @@ import {
 } from './methods.js'
 
 export default (editorInstance) => {
+  const TEXT_FILL_PALETTE = [
+    '#000000',
+    '#ffffff',
+    '#f87171',
+    '#fb923c',
+    '#facc15',
+    '#34d399',
+    '#38bdf8',
+    '#60a5fa',
+    '#a855f7',
+    '#f472b6'
+  ]
+  const TEXT_STROKE_PALETTE = [
+    '#000000',
+    '#ffffff',
+    '#ef4444',
+    '#f97316',
+    '#facc15',
+    '#10b981',
+    '#0ea5e9',
+    '#2563eb',
+    '#7c3aed',
+    '#111827'
+  ]
+  const ALIGN_SEQUENCE = ['left', 'center', 'right', 'justify']
+
+  let isSyncingControls = false
+  let textColorButtons = []
+  let textStrokeButtons = []
+  const getStrokeWidthFromInput = () => {
+    const rawWidth = Number(textStrokeWidthInput.value)
+    return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+  }
+
+  const parseNumberInput = ({
+    input,
+    fallback = 0,
+    min = Number.MIN_SAFE_INTEGER,
+    max = Number.MAX_SAFE_INTEGER
+  }) => {
+    const raw = Number(input.value)
+    const safeValue = Number.isNaN(raw) ? fallback : raw
+    const clamped = Math.min(Math.max(safeValue, min), max)
+    input.value = clamped
+    return clamped
+  }
+
+  const setBackgroundControlsEnabled = (enabled) => {
+    textBackgroundColorInput.disabled = !enabled
+    textBackgroundOpacityInput.disabled = !enabled
+    textPaddingTopInput.disabled = !enabled
+    textPaddingRightInput.disabled = !enabled
+    textPaddingBottomInput.disabled = !enabled
+    textPaddingLeftInput.disabled = !enabled
+    textRadiusTopLeftInput.disabled = !enabled
+    textRadiusTopRightInput.disabled = !enabled
+    textRadiusBottomRightInput.disabled = !enabled
+    textRadiusBottomLeftInput.disabled = !enabled
+  }
+
+  const updateMontageInputs = () => {
+    const { montageArea } = editorInstance
+    if (!montageArea) return
+
+    const width = Math.round(montageArea.getScaledWidth?.() || montageArea.width || 0)
+    const height = Math.round(montageArea.getScaledHeight?.() || montageArea.height || 0)
+
+    if (montageWidthInput) montageWidthInput.value = String(width)
+    if (montageHeightInput) montageHeightInput.value = String(height)
+  }
+
+  updateMontageInputs()
+
+  applyMontageResolutionBtn?.addEventListener('click', () => {
+    const width = Number(montageWidthInput?.value)
+    const height = Number(montageHeightInput?.value)
+
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+      console.warn('Invalid montage size input')
+      return
+    }
+
+    editorInstance.canvasManager.setResolutionWidth(width)
+    editorInstance.canvasManager.setResolutionHeight(height)
+    editorInstance.backgroundManager.refresh()
+    editorInstance.canvasManager.updateCanvas()
+    editorInstance.zoomManager.calculateAndApplyDefaultZoom()
+  })
+
+  editorInstance.canvas.on('editor:resolution-width-changed', updateMontageInputs)
+  editorInstance.canvas.on('editor:resolution-height-changed', updateMontageInputs)
+
+  const setStrokeControlsEnabled = (enabled) => {
+    textStrokeColorInput.disabled = !enabled
+    textStrokeButtons.forEach((btn) => {
+      btn.disabled = !enabled
+    })
+  }
+
+  const setStrokeWidthUI = (width) => {
+    const normalized = Math.max(0, Math.round(width))
+    textStrokeWidthInput.value = normalized
+    textStrokeWidthValue.textContent = normalized > 0 ? `${normalized}px` : 'Off'
+    setStrokeControlsEnabled(normalized > 0)
+  }
+
+  const renderPalette = (container, colors) => {
+    container.innerHTML = ''
+
+    return colors.map((color) => {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'palette-swatch'
+      btn.dataset.color = color
+      btn.style.backgroundColor = color
+      btn.title = color
+      container.appendChild(btn)
+
+      return btn
+    })
+  }
+
+  const normalizeColor = (color, fallback = '#000000') => {
+    if (!color || typeof color !== 'string') return fallback
+
+    const trimmed = color.trim()
+    if (trimmed.startsWith('#')) {
+      if (trimmed.length === 4) {
+        const r = trimmed[1]
+        const g = trimmed[2]
+        const b = trimmed[3]
+        return `#${r}${r}${g}${g}${b}${b}`.toUpperCase()
+      }
+      if (trimmed.length === 7) {
+        return trimmed.toUpperCase()
+      }
+      return fallback
+    }
+
+    const rgbMatch = trimmed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i)
+    if (rgbMatch) {
+      const [, r, g, b] = rgbMatch
+      const toHex = (value) => Number(value).toString(16).padStart(2, '0').toUpperCase()
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`
+    }
+
+    return fallback
+  }
+
+  const normalizeColorOptional = (color) => {
+    const normalized = normalizeColor(color, null)
+    return typeof normalized === 'string' ? normalized : undefined
+  }
+
+  const setPaletteSelection = (buttons, color) => {
+    const normalized = normalizeColor(color ?? '', '')
+    buttons.forEach((btn) => {
+      const btnColor = normalizeColor(btn.dataset.color, '')
+      btn.classList.toggle('active', normalized && btnColor.toLowerCase() === normalized.toLowerCase())
+    })
+  }
+
+  const setToggleActive = (button, isActive) => {
+    button.classList.toggle('active', isActive)
+    button.classList.toggle('btn-secondary', isActive)
+    button.classList.toggle('btn-outline-secondary', !isActive)
+    button.setAttribute('aria-pressed', isActive ? 'true' : 'false')
+  }
+
+  const isButtonActive = (button) => button.classList.contains('active')
+
+  const updateAlignButtonDisplay = (align) => {
+    const normalized = ALIGN_SEQUENCE.includes(align) ? align : 'left'
+    textAlignToggle.dataset.align = normalized
+    const label = `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`
+    textAlignToggle.textContent = `Align: ${label}`
+  }
+
+  const ensureFontOption = (family) => {
+    if (!family) return
+    const trimmed = family.trim()
+    if (!trimmed) return
+
+    const exists = Array.from(textFontFamilySelect.options).some((option) => option.value === trimmed)
+    if (!exists) {
+      const option = document.createElement('option')
+      option.value = trimmed
+      option.textContent = trimmed
+      textFontFamilySelect.appendChild(option)
+    }
+  }
+
+  const isTextboxObject = (object) => Boolean(object) && (object.type === 'textbox' || object.type === 'background-textbox')
+
+  const getActiveText = () => {
+    const object = editorInstance.canvas.getActiveObject()
+    if (!isTextboxObject(object)) return null
+    return object
+  }
+
+  const isBoldValue = (value) => {
+    if (value === 'bold') return true
+    if (typeof value === 'number') return value >= 600
+    const numeric = Number(value)
+    if (!Number.isNaN(numeric)) return numeric >= 600
+    return false
+  }
+
+  const getTextboxSelectionInfo = (textbox) => {
+    if (!textbox?.isEditing) return null
+    const selectionStart = textbox.selectionStart ?? 0
+    const selectionEnd = textbox.selectionEnd ?? selectionStart
+    if (selectionStart === selectionEnd) return null
+    const range = {
+      start: Math.min(selectionStart, selectionEnd),
+      end: Math.max(selectionStart, selectionEnd)
+    }
+    const styles = textbox.getSelectionStyles(range.start, range.end, true) ?? []
+    if (!styles.length) return null
+    return { range, styles }
+  }
+
+  const getSelectionUniformValue = (selectionInfo, extractor) => {
+    if (!selectionInfo || !selectionInfo.styles.length) return undefined
+    const firstValue = extractor(selectionInfo.styles[0])
+    if (typeof firstValue === 'undefined') return undefined
+    for (let i = 1; i < selectionInfo.styles.length; i += 1) {
+      const nextValue = extractor(selectionInfo.styles[i])
+      if (typeof nextValue === 'undefined' || nextValue !== firstValue) {
+        return undefined
+      }
+    }
+    return firstValue
+  }
+
+  const syncTextControls = (textbox) => {
+    if (!textbox) return
+
+    isSyncingControls = true
+    const selectionInfo = getTextboxSelectionInfo(textbox)
+
+    const fallbackText = textbox.text ?? ''
+    const textValue = typeof textbox.textCaseRaw === 'string'
+      ? textbox.textCaseRaw
+      : fallbackText
+    textContentInput.value = textValue
+
+    const selectionFontFamily = getSelectionUniformValue(selectionInfo, (style) => (
+      typeof style.fontFamily === 'string' ? style.fontFamily : undefined
+    ))
+    const fontFamily = selectionFontFamily ?? textbox.fontFamily ?? ''
+    if (fontFamily) {
+      ensureFontOption(fontFamily)
+      textFontFamilySelect.value = fontFamily
+    }
+
+    const selectionFontSize = getSelectionUniformValue(selectionInfo, (style) => {
+      const size = typeof style.fontSize === 'number' ? style.fontSize : undefined
+      return typeof size === 'number' ? Math.max(1, Math.round(size)) : undefined
+    })
+    const fallbackFontSize = Number(textFontSizeInput.value) || 48
+    const baseFontSize = typeof textbox.fontSize === 'number'
+      ? Math.max(1, Math.round(textbox.fontSize))
+      : fallbackFontSize
+    const fontSize = selectionFontSize ?? baseFontSize
+    textFontSizeInput.value = fontSize
+
+    const selectionBold = getSelectionUniformValue(selectionInfo, (style) => isBoldValue(style.fontWeight))
+    const boldActive = typeof selectionBold === 'boolean' ? selectionBold : isBoldValue(textbox.fontWeight)
+    setToggleActive(textBoldBtn, boldActive)
+    const selectionItalic = getSelectionUniformValue(selectionInfo, (style) => style.fontStyle === 'italic')
+    const italicActive = typeof selectionItalic === 'boolean' ? selectionItalic : textbox.fontStyle === 'italic'
+    setToggleActive(textItalicBtn, italicActive)
+    const selectionUnderline = getSelectionUniformValue(selectionInfo, (style) => Boolean(style.underline))
+    const underlineActive = typeof selectionUnderline === 'boolean' ? selectionUnderline : Boolean(textbox.underline)
+    setToggleActive(textUnderlineBtn, underlineActive)
+    setToggleActive(textUppercaseBtn, Boolean(textbox.uppercase))
+    const selectionStrike = getSelectionUniformValue(selectionInfo, (style) => Boolean(style.linethrough))
+    const strikeActive = typeof selectionStrike === 'boolean' ? selectionStrike : Boolean(textbox.linethrough)
+    setToggleActive(textStrikeBtn, strikeActive)
+
+    const alignValue = textbox.textAlign ?? textAlignToggle.dataset.align ?? 'left'
+    updateAlignButtonDisplay(alignValue)
+
+    const selectionFillColor = getSelectionUniformValue(selectionInfo, (style) => normalizeColorOptional(style.fill))
+    let fillColor = selectionFillColor
+    if (!fillColor) {
+      fillColor = typeof textbox.fill === 'string'
+        ? normalizeColor(textbox.fill, textColorInput.value)
+        : textColorInput.value
+    }
+    textColorInput.value = fillColor
+    setPaletteSelection(textColorButtons, fillColor)
+
+    const selectionStrokeWidth = getSelectionUniformValue(selectionInfo, (style) => {
+      const width = typeof style.strokeWidth === 'number' ? style.strokeWidth : undefined
+      return typeof width === 'number' ? Math.max(0, Math.round(width)) : undefined
+    })
+    const selectionStrokeColor = getSelectionUniformValue(selectionInfo, (style) => normalizeColorOptional(style.stroke))
+    const fallbackStrokeWidth = Number(textStrokeWidthInput.value) || 0
+    const baseStrokeWidth = typeof textbox.strokeWidth === 'number'
+      ? Math.max(0, Math.round(textbox.strokeWidth))
+      : fallbackStrokeWidth
+    const strokeWidth = selectionStrokeWidth ?? baseStrokeWidth
+    setStrokeWidthUI(strokeWidth)
+
+    let strokeColor = selectionStrokeColor
+    if (!strokeColor) {
+      strokeColor = typeof textbox.stroke === 'string'
+        ? normalizeColor(textbox.stroke, textStrokeColorInput.value)
+        : textStrokeColorInput.value
+    }
+    textStrokeColorInput.value = strokeColor
+    setPaletteSelection(textStrokeButtons, strokeColor)
+
+    const opacitySource = textbox.opacity ?? Number(textOpacityInput.value) / 100
+    const opacity = Math.max(0, Math.min(100, Math.round(opacitySource * 100)))
+    textOpacityInput.value = opacity
+    textOpacityValue.textContent = `${opacity}%`
+
+    const {
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft
+    } = textbox
+    const isBackgroundEnabled = Boolean(backgroundColor)
+    textBackgroundEnabledCheckbox.checked = isBackgroundEnabled
+    setBackgroundControlsEnabled(isBackgroundEnabled)
+
+    const resolvedBackgroundColor = typeof backgroundColor === 'string' && backgroundColor.length
+      ? backgroundColor
+      : textBackgroundColorInput.value
+    textBackgroundColorInput.value = resolvedBackgroundColor
+
+    const backgroundOpacityPercent = Math.max(
+      0,
+      Math.min(100, Math.round((backgroundOpacity ?? (Number(textBackgroundOpacityInput.value) / 100)) * 100))
+    )
+    textBackgroundOpacityInput.value = backgroundOpacityPercent
+    textBackgroundOpacityValue.textContent = `${backgroundOpacityPercent}%`
+
+    const paddingTopValue = typeof paddingTop === 'number'
+      ? Math.max(0, Math.round(paddingTop))
+      : Number(textPaddingTopInput.value) || 0
+    const paddingRightValue = typeof paddingRight === 'number'
+      ? Math.max(0, Math.round(paddingRight))
+      : Number(textPaddingRightInput.value) || 0
+    const paddingBottomValue = typeof paddingBottom === 'number'
+      ? Math.max(0, Math.round(paddingBottom))
+      : Number(textPaddingBottomInput.value) || 0
+    const paddingLeftValue = typeof paddingLeft === 'number'
+      ? Math.max(0, Math.round(paddingLeft))
+      : Number(textPaddingLeftInput.value) || 0
+
+    textPaddingTopInput.value = paddingTopValue
+    textPaddingRightInput.value = paddingRightValue
+    textPaddingBottomInput.value = paddingBottomValue
+    textPaddingLeftInput.value = paddingLeftValue
+
+    const radiusTopLeftValue = typeof radiusTopLeft === 'number'
+      ? Math.max(0, Math.round(radiusTopLeft))
+      : Number(textRadiusTopLeftInput.value) || 0
+    const radiusTopRightValue = typeof radiusTopRight === 'number'
+      ? Math.max(0, Math.round(radiusTopRight))
+      : Number(textRadiusTopRightInput.value) || 0
+    const radiusBottomRightValue = typeof radiusBottomRight === 'number'
+      ? Math.max(0, Math.round(radiusBottomRight))
+      : Number(textRadiusBottomRightInput.value) || 0
+    const radiusBottomLeftValue = typeof radiusBottomLeft === 'number'
+      ? Math.max(0, Math.round(radiusBottomLeft))
+      : Number(textRadiusBottomLeftInput.value) || 0
+
+    textRadiusTopLeftInput.value = radiusTopLeftValue
+    textRadiusTopRightInput.value = radiusTopRightValue
+    textRadiusBottomRightInput.value = radiusBottomRightValue
+    textRadiusBottomLeftInput.value = radiusBottomLeftValue
+
+    isSyncingControls = false
+  }
+
+  const applyTextStyle = (style, options = {}) => {
+    if (isSyncingControls) return
+    const target = getActiveText()
+    if (!target) return
+
+    const updated = editorInstance.textManager.updateText({ target, style, ...options })
+    if (updated) {
+      syncTextControls(updated)
+    }
+  }
+
+  const initFontOptions = () => {
+    const customFonts = (editorInstance.options.fonts ?? [])
+      .map((font) => font.family)
+      .filter((family) => typeof family === 'string' && family.trim().length > 0)
+    textFontFamilySelect.innerHTML = ''
+    customFonts.forEach((family) => ensureFontOption(family))
+
+    if (textFontFamilySelect.options.length > 0) {
+      textFontFamilySelect.value = textFontFamilySelect.options[0].value
+    }
+  }
+
+  textColorButtons = renderPalette(textColorPalette, TEXT_FILL_PALETTE)
+  textStrokeButtons = renderPalette(textStrokePalette, TEXT_STROKE_PALETTE)
+
+  initFontOptions()
+  updateAlignButtonDisplay(textAlignToggle.dataset.align ?? 'left')
+
+  if (!textContentInput.value) {
+    textContentInput.value = 'Новый текст'
+  }
+
+  setStrokeWidthUI(Number(textStrokeWidthInput.value) || 0)
+  textOpacityValue.textContent = `${textOpacityInput.value}%`
+  textBackgroundOpacityValue.textContent = `${textBackgroundOpacityInput.value}%`
+  setBackgroundControlsEnabled(Boolean(textBackgroundEnabledCheckbox.checked))
+
+  setPaletteSelection(textColorButtons, textColorInput.value)
+  setPaletteSelection(textStrokeButtons, textStrokeColorInput.value)
+
+  const toggleButtons = [textBoldBtn, textItalicBtn, textUnderlineBtn, textUppercaseBtn, textStrikeBtn]
+  toggleButtons.forEach((btn) => {
+    setToggleActive(btn, btn.classList.contains('active'))
+  })
+
+  textColorButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const color = normalizeColor(btn.dataset.color, textColorInput.value)
+      textColorInput.value = color
+      setPaletteSelection(textColorButtons, color)
+      if (getActiveText()) {
+        applyTextStyle({ color })
+      }
+    })
+  })
+
+  textStrokeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const color = normalizeColor(btn.dataset.color, textStrokeColorInput.value)
+      textStrokeColorInput.value = color
+      setPaletteSelection(textStrokeButtons, color)
+      if (!getActiveText()) return
+      const width = getStrokeWidthFromInput()
+      const style = width > 0
+        ? { strokeColor: color }
+        : {}
+      if (Object.keys(style).length > 0) {
+        applyTextStyle(style)
+      }
+    })
+  })
+
+  const handleSelectionChange = (event) => {
+    const eventTarget = event?.target
+    const explicitTextbox = eventTarget && isTextboxObject(eventTarget) ? eventTarget : null
+    const textObject = explicitTextbox ?? getActiveText()
+    if (textObject) {
+      syncTextControls(textObject)
+    }
+  }
+
+  addTextBtn.addEventListener('click', () => {
+    const textValue = textContentInput.value?.length ? textContentInput.value : 'Новый текст'
+    const fontFamily = textFontFamilySelect.value || undefined
+    const fontSizeInputValue = Number(textFontSizeInput.value)
+    const normalizedFontSize = Number.isNaN(fontSizeInputValue) || fontSizeInputValue <= 0
+      ? 48
+      : Math.round(fontSizeInputValue)
+    const fontSize = Math.max(1, normalizedFontSize)
+    const strokeWidthInputValue = Number(textStrokeWidthInput.value)
+    const strokeWidth = Math.max(0, Number.isNaN(strokeWidthInputValue) ? 0 : Math.round(strokeWidthInputValue))
+    const opacityInputValue = Number(textOpacityInput.value)
+    const opacityPercent = Number.isNaN(opacityInputValue) ? 100 : opacityInputValue
+    const opacity = Math.max(0, Math.min(1, opacityPercent / 100))
+    const backgroundEnabled = Boolean(textBackgroundEnabledCheckbox.checked)
+    const backgroundOpacityInputValue = Number(textBackgroundOpacityInput.value)
+    const backgroundOpacityPercent = Math.max(
+      0,
+      Math.min(100, Number.isNaN(backgroundOpacityInputValue) ? 100 : backgroundOpacityInputValue)
+    )
+    const backgroundOpacity = backgroundOpacityPercent / 100
+
+    const paddingTop = parseNumberInput({ input: textPaddingTopInput, min: 0, fallback: 0 })
+    const paddingRight = parseNumberInput({ input: textPaddingRightInput, min: 0, fallback: 0 })
+    const paddingBottom = parseNumberInput({ input: textPaddingBottomInput, min: 0, fallback: 0 })
+    const paddingLeft = parseNumberInput({ input: textPaddingLeftInput, min: 0, fallback: 0 })
+
+    const radiusTopLeft = parseNumberInput({ input: textRadiusTopLeftInput, min: 0, fallback: 0 })
+    const radiusTopRight = parseNumberInput({ input: textRadiusTopRightInput, min: 0, fallback: 0 })
+    const radiusBottomRight = parseNumberInput({ input: textRadiusBottomRightInput, min: 0, fallback: 0 })
+    const radiusBottomLeft = parseNumberInput({ input: textRadiusBottomLeftInput, min: 0, fallback: 0 })
+
+    const textbox = editorInstance.textManager.addText({
+      text: textValue,
+      fontFamily,
+      fontSize,
+      bold: isButtonActive(textBoldBtn),
+      italic: isButtonActive(textItalicBtn),
+      underline: isButtonActive(textUnderlineBtn),
+      uppercase: isButtonActive(textUppercaseBtn),
+      strikethrough: isButtonActive(textStrikeBtn),
+      align: textAlignToggle.dataset.align ?? 'left',
+      color: textColorInput.value,
+      strokeColor: textStrokeColorInput.value,
+      strokeWidth,
+      opacity,
+      ...backgroundEnabled
+        ? {
+          backgroundColor: textBackgroundColorInput.value,
+          backgroundOpacity,
+          paddingTop,
+          paddingRight,
+          paddingBottom,
+          paddingLeft,
+          radiusTopLeft,
+          radiusTopRight,
+          radiusBottomRight,
+          radiusBottomLeft
+        }
+        : { backgroundColor: '' }
+    })
+
+    editorInstance.canvas.setActiveObject(textbox)
+    editorInstance.canvas.requestRenderAll()
+    syncTextControls(textbox)
+  })
+
+  textContentInput.addEventListener('input', (e) => {
+    if (isSyncingControls) return
+    if (!getActiveText()) return
+    applyTextStyle({ text: e.target.value }, { withoutSave: true })
+  })
+
+  textContentInput.addEventListener('change', (e) => {
+    if (!getActiveText()) return
+    applyTextStyle({ text: e.target.value })
+  })
+
+  textFontFamilySelect.addEventListener('change', (e) => {
+    const family = e.target.value
+    ensureFontOption(family)
+    if (!getActiveText()) return
+    applyTextStyle({ fontFamily: family })
+  })
+
+  textFontSizeInput.addEventListener('input', (e) => {
+    const rawValue = Number(e.target.value)
+    const value = Math.max(1, Number.isNaN(rawValue) ? 1 : Math.round(rawValue))
+    e.target.value = value
+    if (!getActiveText()) return
+    applyTextStyle({ fontSize: value }, { withoutSave: true })
+  })
+
+  textFontSizeInput.addEventListener('change', (e) => {
+    const rawValue = Number(e.target.value)
+    const value = Math.max(1, Number.isNaN(rawValue) ? 1 : Math.round(rawValue))
+    e.target.value = value
+    if (!getActiveText()) return
+    applyTextStyle({ fontSize: value })
+  })
+
+  const toggleHandlers = [
+    [textBoldBtn, 'bold'],
+    [textItalicBtn, 'italic'],
+    [textUnderlineBtn, 'underline'],
+    [textUppercaseBtn, 'uppercase'],
+    [textStrikeBtn, 'strikethrough']
+  ]
+
+  toggleHandlers.forEach(([button, key]) => {
+    button.addEventListener('click', () => {
+      const nextState = !isButtonActive(button)
+      setToggleActive(button, nextState)
+      if (!getActiveText()) return
+      applyTextStyle({ [key]: nextState })
+    })
+  })
+
+  textAlignToggle.addEventListener('click', () => {
+    const currentAlign = textAlignToggle.dataset.align ?? 'left'
+    const currentIndex = ALIGN_SEQUENCE.indexOf(currentAlign)
+    const nextAlign = ALIGN_SEQUENCE[(currentIndex + 1) % ALIGN_SEQUENCE.length]
+    updateAlignButtonDisplay(nextAlign)
+    if (!getActiveText()) return
+    applyTextStyle({ align: nextAlign })
+  })
+
+  textColorInput.addEventListener('input', (e) => {
+    const color = normalizeColor(e.target.value, textColorInput.value)
+    e.target.value = color
+    setPaletteSelection(textColorButtons, color)
+    if (!getActiveText()) return
+    applyTextStyle({ color })
+  })
+
+  textStrokeColorInput.addEventListener('input', (e) => {
+    const color = normalizeColor(e.target.value, textStrokeColorInput.value)
+    e.target.value = color
+    setPaletteSelection(textStrokeButtons, color)
+    const width = getStrokeWidthFromInput()
+    if (!getActiveText() || width <= 0) return
+    applyTextStyle({ strokeColor: color })
+  })
+
+  textStrokeWidthInput.addEventListener('input', (e) => {
+    const rawWidth = Number(e.target.value)
+    const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+    setStrokeWidthUI(width)
+    if (!getActiveText()) return
+    if (width === 0) {
+      applyTextStyle({ strokeWidth: 0 }, { withoutSave: true })
+      return
+    }
+    applyTextStyle({
+      strokeWidth: width,
+      strokeColor: textStrokeColorInput.value
+    }, { withoutSave: true })
+  })
+
+  textStrokeWidthInput.addEventListener('change', (e) => {
+    const rawWidth = Number(e.target.value)
+    const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+    setStrokeWidthUI(width)
+    if (!getActiveText()) return
+    if (width === 0) {
+      applyTextStyle({ strokeWidth: 0 })
+      return
+    }
+    applyTextStyle({
+      strokeWidth: width,
+      strokeColor: textStrokeColorInput.value
+    })
+  })
+
+  textOpacityInput.addEventListener('input', (e) => {
+    const rawOpacity = Number(e.target.value)
+    const opacityPercent = Math.max(0, Math.min(100, Number.isNaN(rawOpacity) ? 0 : rawOpacity))
+    e.target.value = opacityPercent
+    textOpacityValue.textContent = `${opacityPercent}%`
+    if (!getActiveText()) return
+    applyTextStyle({ opacity: opacityPercent / 100 }, { withoutSave: true })
+  })
+
+  textOpacityInput.addEventListener('change', (e) => {
+    const rawOpacity = Number(e.target.value)
+    const opacityPercent = Math.max(0, Math.min(100, Number.isNaN(rawOpacity) ? 0 : rawOpacity))
+    e.target.value = opacityPercent
+    textOpacityValue.textContent = `${opacityPercent}%`
+    if (!getActiveText()) return
+    applyTextStyle({ opacity: opacityPercent / 100 })
+  })
+
+  const getBackgroundStyleFromInputs = () => {
+    const backgroundOpacityPercent = parseNumberInput({
+      input: textBackgroundOpacityInput,
+      min: 0,
+      max: 100,
+      fallback: 100
+    })
+
+    const paddingTop = parseNumberInput({ input: textPaddingTopInput, min: 0, fallback: 0 })
+    const paddingRight = parseNumberInput({ input: textPaddingRightInput, min: 0, fallback: 0 })
+    const paddingBottom = parseNumberInput({ input: textPaddingBottomInput, min: 0, fallback: 0 })
+    const paddingLeft = parseNumberInput({ input: textPaddingLeftInput, min: 0, fallback: 0 })
+
+    const radiusTopLeft = parseNumberInput({ input: textRadiusTopLeftInput, min: 0, fallback: 0 })
+    const radiusTopRight = parseNumberInput({ input: textRadiusTopRightInput, min: 0, fallback: 0 })
+    const radiusBottomRight = parseNumberInput({ input: textRadiusBottomRightInput, min: 0, fallback: 0 })
+    const radiusBottomLeft = parseNumberInput({ input: textRadiusBottomLeftInput, min: 0, fallback: 0 })
+
+    return {
+      backgroundColor: normalizeColor(textBackgroundColorInput.value, textBackgroundColorInput.value),
+      backgroundOpacity: backgroundOpacityPercent / 100,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft
+    }
+  }
+
+  textBackgroundEnabledCheckbox.addEventListener('change', () => {
+    const enabled = Boolean(textBackgroundEnabledCheckbox.checked)
+    setBackgroundControlsEnabled(enabled)
+    if (!getActiveText()) return
+    if (!enabled) {
+      applyTextStyle({ backgroundColor: '' })
+      return
+    }
+    applyTextStyle(getBackgroundStyleFromInputs())
+  })
+
+  textBackgroundColorInput.addEventListener('input', (e) => {
+    const color = normalizeColor(e.target.value, textBackgroundColorInput.value)
+    e.target.value = color
+    if (!getActiveText()) return
+    if (!textBackgroundEnabledCheckbox.checked) return
+    applyTextStyle({ backgroundColor: color })
+  })
+
+  textBackgroundOpacityInput.addEventListener('input', (e) => {
+    const opacityPercent = parseNumberInput({ input: e.target, min: 0, max: 100, fallback: 100 })
+    textBackgroundOpacityValue.textContent = `${opacityPercent}%`
+    if (!getActiveText()) return
+    if (!textBackgroundEnabledCheckbox.checked) return
+    applyTextStyle({ backgroundOpacity: opacityPercent / 100 }, { withoutSave: true })
+  })
+
+  textBackgroundOpacityInput.addEventListener('change', (e) => {
+    const opacityPercent = parseNumberInput({ input: e.target, min: 0, max: 100, fallback: 100 })
+    textBackgroundOpacityValue.textContent = `${opacityPercent}%`
+    if (!getActiveText()) return
+    if (!textBackgroundEnabledCheckbox.checked) return
+    applyTextStyle({ backgroundOpacity: opacityPercent / 100 })
+  })
+
+  const paddingInputs = [
+    { input: textPaddingTopInput, key: 'paddingTop' },
+    { input: textPaddingRightInput, key: 'paddingRight' },
+    { input: textPaddingBottomInput, key: 'paddingBottom' },
+    { input: textPaddingLeftInput, key: 'paddingLeft' }
+  ]
+
+  paddingInputs.forEach(({ input, key }) => {
+    input.addEventListener('input', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value }, { withoutSave: true })
+    })
+
+    input.addEventListener('change', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value })
+    })
+  })
+
+  const radiusInputs = [
+    { input: textRadiusTopLeftInput, key: 'radiusTopLeft' },
+    { input: textRadiusTopRightInput, key: 'radiusTopRight' },
+    { input: textRadiusBottomRightInput, key: 'radiusBottomRight' },
+    { input: textRadiusBottomLeftInput, key: 'radiusBottomLeft' }
+  ]
+
+  radiusInputs.forEach(({ input, key }) => {
+    input.addEventListener('input', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value }, { withoutSave: true })
+    })
+
+    input.addEventListener('change', () => {
+      const value = parseNumberInput({ input, min: 0, fallback: 0 })
+      if (!getActiveText()) return
+      if (!textBackgroundEnabledCheckbox.checked) return
+      applyTextStyle({ [key]: value })
+    })
+  })
+
+  editorInstance.canvas.on('selection:created', handleSelectionChange)
+  editorInstance.canvas.on('selection:updated', handleSelectionChange)
+  editorInstance.canvas.on('selection:cleared', handleSelectionChange)
+  editorInstance.canvas.on('text:selection:changed', handleSelectionChange)
+
+  editorInstance.canvas.on('text:changed', (event) => {
+    if (event.target && event.target === getActiveText()) {
+      syncTextControls(event.target)
+    }
+  })
+
   // Scale canvas
   scaleCanvasToImageBtn.addEventListener('click', () => {
     editorInstance.canvasManager.scaleMontageAreaToImage()
@@ -143,7 +965,7 @@ export default (editorInstance) => {
 
   // Сброс масштаба
   resetZoomBtn.addEventListener('click', () => {
-    editorInstance.transformManager.resetZoom()
+    editorInstance.zoomManager.resetZoom()
   })
 
   // Установка дефолтного масштаба для всего
@@ -153,12 +975,12 @@ export default (editorInstance) => {
 
   // Увеличение масштаба
   zoomInBtn.addEventListener('click', () => {
-    editorInstance.transformManager.zoom(0.1)
+    editorInstance.zoomManager.zoom(0.1)
   })
 
   // Уменьшение масштаба
   zoomOutBtn.addEventListener('click', () => {
-    editorInstance.transformManager.zoom(-0.1)
+    editorInstance.zoomManager.zoom(-0.1)
   })
 
   // Группировка объектов
@@ -270,8 +1092,11 @@ export default (editorInstance) => {
     currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
   })
 
-  editorInstance.canvas.on('object:modified', () => {
+  editorInstance.canvas.on('object:modified', (event) => {
     currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+    if (event?.target && event.target === getActiveText()) {
+      syncTextControls(event.target)
+    }
   })
 
   editorInstance.canvas.on('editor:display-width-changed', () => {
@@ -341,6 +1166,41 @@ export default (editorInstance) => {
 
   gradientRadiusInput.addEventListener('input', (e) => {
     gradientRadiusValue.textContent = e.target.value
+  })
+
+  const setTemplateInputValue = (value = '') => {
+    if (!templateJsonInput) return
+    templateJsonInput.value = value
+  }
+
+  const getTemplateInputValue = () => templateJsonInput?.value ?? ''
+
+  serializeTemplateBtn?.addEventListener('click', async() => {
+    try {
+      const withBackground = Boolean(serializeTemplateWithBackgroundCheckbox?.checked)
+      const template = await editorInstance.templateManager.serializeSelection({ withBackground })
+      if (!template) return
+
+      setTemplateInputValue(JSON.stringify(template, null, 2))
+    } catch (error) {
+      console.error('Failed to serialize template selection', error)
+      setTemplateInputValue('')
+    }
+  })
+
+  applyTemplateBtn?.addEventListener('click', async() => {
+    const templateValue = getTemplateInputValue().trim()
+    if (!templateValue) {
+      console.warn('Template JSON is empty. Provide serialized data before applying.')
+      return
+    }
+
+    try {
+      const parsedTemplate = JSON.parse(templateValue)
+      await editorInstance.templateManager.applyTemplate({ template: parsedTemplate })
+    } catch (error) {
+      console.error('Failed to apply template', error)
+    }
   })
 
   setColorBackgroundBtn.addEventListener('click', () => {

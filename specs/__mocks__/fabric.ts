@@ -4,6 +4,13 @@
 export class Canvas {
   public clipPath: any = null
   public dispose = jest.fn()
+  public on = jest.fn()
+  public off = jest.fn()
+  public add = jest.fn()
+  public centerObject = jest.fn()
+  public setActiveObject = jest.fn()
+  public getActiveObject = jest.fn().mockReturnValue(null)
+  public requestRenderAll = jest.fn()
 
   constructor(public el: any, public options: any) {}
 
@@ -19,6 +26,10 @@ export class Pattern {
 
 export class Point {
   constructor(public x: number, public y: number) {}
+
+  scalarAdd(value: number) {
+    return new Point(this.x + value, this.y + value)
+  }
 }
 
 export class Rect {
@@ -121,6 +132,83 @@ export class FabricObject {
   constructor(public options: any = {}) {
     Object.assign(this, options)
   }
+
+  _getTransformedDimensions(options: { width?: number; height?: number } = {}) {
+    const width = options.width ?? 0
+    const height = options.height ?? 0
+    const PointCtor = (this as any).Point || Point
+    return new PointCtor(width, height)
+  }
+}
+
+export class InteractiveFabricObject extends FabricObject {}
+
+export class Textbox extends FabricObject {
+  public text?: string
+  public id?: string
+  public controls: Record<string, any> = {}
+  public uppercase?: boolean
+  public textCaseRaw?: string
+  public fontSize?: number
+  public width?: number
+  public left?: number
+  public dirty = false
+  public isEditing = false
+  public selectionStart = 0
+  public selectionEnd = 0
+  private charStyles: Record<number, Record<string, any>> = {}
+
+  static ownDefaults: Record<string, any> = {}
+  static type = 'textbox'
+
+  constructor(text: string, options: Record<string, any> = {}) {
+    super(options)
+    this.text = text
+  }
+
+  set(props: Record<string, any>) {
+    Object.assign(this, props)
+  }
+
+  setCoords() {
+    // noop in mock
+  }
+
+  calcTextWidth() {
+    return this.width ?? 0
+  }
+
+  toObject() {
+    return { ...this, type: (this as any).constructor?.type ?? Textbox.type }
+  }
+
+  setControlsVisibility = jest.fn()
+
+  setSelectionStyles(styles: Record<string, any>, start: number, end?: number) {
+    const safeEnd = typeof end === 'number' ? end : start + 1
+    for (let i = start; i < safeEnd; i += 1) {
+      const existing = this.charStyles[i] ?? {}
+      this.charStyles[i] = { ...existing, ...styles }
+    }
+  }
+
+  getSelectionStyles(start: number, end?: number): Array<Record<string, any>> {
+    const safeEnd = typeof end === 'number' ? end : start + 1
+    const styles: Array<Record<string, any>> = []
+    for (let i = start; i < safeEnd; i += 1) {
+      styles.push({ ...(this.charStyles[i] ?? {}) })
+    }
+    return styles
+  }
+
+  __getCharStyles() {
+    return this.charStyles
+  }
+}
+
+export const controlsUtils = {
+  createObjectDefaultControls: jest.fn(() => ({})),
+  createTextboxDefaultControls: jest.fn(() => ({}))
 }
 
 export class Gradient {
@@ -162,4 +250,62 @@ export interface CanvasOptions {
   [key: string]: any
 }
 
-export default { Canvas, Pattern, Rect, ActiveSelection, Group, FabricObject, FabricImage, Gradient }
+export class Color {
+  private r: number
+  private g: number
+  private b: number
+  private a = 1
+
+  constructor(value: string) {
+    if (!/^#?[0-9a-f]{6}$/i.test(value)) {
+      throw new Error('Invalid color')
+    }
+    const hex = value.replace('#', '')
+    this.r = parseInt(hex.slice(0, 2), 16)
+    this.g = parseInt(hex.slice(2, 4), 16)
+    this.b = parseInt(hex.slice(4, 6), 16)
+  }
+
+  setAlpha(alpha: number) {
+    this.a = alpha
+  }
+
+  toRgba() {
+    return `rgba(${this.r},${this.g},${this.b},${this.a})`
+  }
+}
+
+const registry = new Map<string, any>()
+
+export const classRegistry = {
+  setClass(Cls: any, name?: string) {
+    registry.set(name ?? Cls?.type ?? Cls?.name, Cls)
+  },
+  getClass(name: string) {
+    return registry.get(name)
+  }
+}
+
+export const util = {
+  enlivenObjects: async (objects: any[]) => objects.map((obj) => {
+    const Cls = classRegistry.getClass(obj.type)
+    return Cls ? new Cls(obj.text ?? '', obj) : obj
+  })
+}
+
+export default {
+  Canvas,
+  Pattern,
+  Rect,
+  ActiveSelection,
+  Group,
+  FabricObject,
+  FabricImage,
+  Gradient,
+  Textbox,
+  InteractiveFabricObject,
+  controlsUtils,
+  Color,
+  classRegistry,
+  util
+}

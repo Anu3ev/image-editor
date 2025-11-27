@@ -1,6 +1,6 @@
 import { ActiveSelection, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
-import { CLIPBOARD_DATA_PREFIX } from '../constants'
+import { CLIPBOARD_DATA_PREFIX, CLIPBOARD_CLONE_OBJECT_KEYS } from '../constants'
 
 import { ImageEditor } from '../index'
 
@@ -55,7 +55,7 @@ export default class ClipboardManager {
     const { canvas, errorManager } = this.editor
 
     try {
-      const clonedObject = await activeObject.clone(['format'])
+      const clonedObject = await activeObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
       this.clipboard = clonedObject
       canvas.fire('editor:object-copied', { object: clonedObject })
     } catch (error) {
@@ -87,7 +87,7 @@ export default class ClipboardManager {
 
     try {
       // Готовим данные для копирования
-      const objectData = activeObject.toObject(['format'])
+      const objectData = activeObject.toObject(CLIPBOARD_CLONE_OBJECT_KEYS)
       const jsonString = JSON.stringify(objectData)
 
       // Для изображений пытаемся скопировать как изображение
@@ -226,7 +226,7 @@ export default class ClipboardManager {
 
     try {
       // Используем асинхронное клонирование для корректной работы с SVG и сложными объектами
-      const clonedObject = await targetObject.clone(['format'])
+      const clonedObject = await targetObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
 
       // Устанавливаем новые координаты и ID
       if (clonedObject instanceof ActiveSelection) {
@@ -347,7 +347,7 @@ export default class ClipboardManager {
 
     try {
       // Клонируем объект асинхронно (правильно для всех типов объектов)
-      const clonedObj = await this.clipboard.clone(['format'])
+      const clonedObj = await this.clipboard.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
 
       canvas.discardActiveObject()
 

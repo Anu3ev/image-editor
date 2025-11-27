@@ -5,12 +5,14 @@ import Listeners from './listeners'
 import ModuleLoader from './module-loader'
 import WorkerManager from './worker-manager'
 import CustomizedControls from './customized-controls'
+import FontManager from './font-manager'
 import ToolbarManager from './ui/toolbar-manager'
 import AngleIndicatorManager from './ui/angle-indicator'
 import HistoryManager, { CanvasFullState } from './history-manager'
 import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
 import TransformManager from './transform-manager'
+import ZoomManager from './zoom-manager'
 import InteractionBlocker from './interaction-blocker'
 import BackgroundManager from './background-manager'
 import LayerManager from './layer-manager'
@@ -21,13 +23,15 @@ import GroupingManager from './grouping-manager'
 import SelectionManager from './selection-manager'
 import DeletionManager from './deletion-manager'
 import ErrorManager from './error-manager'
+import PanConstraintManager from './pan-constraint-manager'
+import TextManager from './text-manager'
+import TemplateManager from './template-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
 // TODO: Обложиться тестами с помощью jest
 // TODO: Сделать более симпатичное демо
 // TODO: Режим рисования
-// TODO: Добавление текста
 // TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
 
@@ -97,6 +101,11 @@ export class ImageEditor {
   public transformManager!: TransformManager
 
   /**
+   * Менеджер зума
+   */
+  public zoomManager!: ZoomManager
+
+  /**
    * Менеджер канваса
    */
   public canvasManager!: CanvasManager
@@ -152,9 +161,29 @@ export class ImageEditor {
   public deletionManager!: DeletionManager
 
   /**
+   * Менеджер ограничения перетаскивания канваса
+   */
+  public panConstraintManager!: PanConstraintManager
+
+  /**
+   * Менеджер работы с текстом
+   */
+  public textManager!: TextManager
+
+  /**
+   * Менеджер шаблонов
+   */
+  public templateManager!: TemplateManager
+
+  /**
    * Менеджер индикатора угла поворота (опционально)
    */
   public angleIndicator?: AngleIndicatorManager
+
+  /**
+   * Менеджер шрифтов редактора
+   */
+  public fontManager!: FontManager
 
   /**
    * Слушатели событий редактора
@@ -204,6 +233,7 @@ export class ImageEditor {
     this.historyManager = new HistoryManager({ editor: this })
     this.toolbar = new ToolbarManager({ editor: this })
     this.transformManager = new TransformManager({ editor: this })
+    this.zoomManager = new ZoomManager({ editor: this })
     this.canvasManager = new CanvasManager({ editor: this })
     this.imageManager = new ImageManager({ editor: this })
     this.layerManager = new LayerManager({ editor: this })
@@ -215,6 +245,10 @@ export class ImageEditor {
     this.groupingManager = new GroupingManager({ editor: this })
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
+    this.panConstraintManager = new PanConstraintManager({ editor: this })
+    this.fontManager = new FontManager(this.options.fonts ?? [])
+    this.textManager = new TextManager({ editor: this })
+    this.templateManager = new TemplateManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
     if (showRotationAngle) {
@@ -233,7 +267,10 @@ export class ImageEditor {
     this.canvasManager.setCanvasCSSWidth(canvasCSSWidth)
     this.canvasManager.setCanvasCSSHeight(canvasCSSHeight)
     this.canvasManager.updateCanvas()
-    this.transformManager.calculateAndApplyDefaultZoom()
+    this.zoomManager.calculateAndApplyDefaultZoom()
+
+    // Загружаем шрифты после того как редактор получил размеры
+    await this.fontManager.loadFonts()
 
     if (initialImage?.source) {
       const {
@@ -318,6 +355,7 @@ export class ImageEditor {
     this.listeners.destroy()
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
+    this.textManager?.destroy()
     this.canvas.dispose()
     this.workerManager.worker.terminate()
     this.imageManager.revokeBlobUrls()
