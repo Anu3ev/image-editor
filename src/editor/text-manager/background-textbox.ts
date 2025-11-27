@@ -100,8 +100,6 @@ export class BackgroundTextbox extends Textbox {
   constructor(text: string, options: BackgroundTextboxProps = {}) {
     super(text, options)
 
-    // Отключаем кэш, чтобы отрисовка всегда шла через наш _renderBackground.
-    this.objectCaching = false
     this.backgroundOpacity = options.backgroundOpacity ?? 1
     this.paddingTop = options.paddingTop ?? 0
     this.paddingRight = options.paddingRight ?? 0
