@@ -5,6 +5,7 @@ import {
   type TextboxProps,
   classRegistry
 } from 'fabric'
+import ErrorManager from '../error-manager'
 
 export type BackgroundTextboxProps = TextboxProps & {
   backgroundColor?: string
@@ -101,13 +102,6 @@ export class BackgroundTextbox extends Textbox {
 
     // Отключаем кэш, чтобы отрисовка всегда шла через наш _renderBackground.
     this.objectCaching = false
-    // eslint-disable-next-line no-console
-    console.log('[BackgroundTextbox] created', {
-      id: this.id,
-      text,
-      options
-    })
-
     this.backgroundOpacity = options.backgroundOpacity ?? 1
     this.paddingTop = options.paddingTop ?? 0
     this.paddingRight = options.paddingRight ?? 0
@@ -147,15 +141,7 @@ export class BackgroundTextbox extends Textbox {
 
   protected override _renderBackground(ctx: CanvasRenderingContext2D): void {
     const fill = this._getEffectiveBackgroundFill()
-    if (!fill) {
-      // eslint-disable-next-line no-console
-      console.log('[BackgroundTextbox] skip background', {
-        id: this.id,
-        backgroundColor: this.backgroundColor,
-        backgroundOpacity: this.backgroundOpacity
-      })
-      return
-    }
+    if (!fill) return
 
     if (fill) {
       const padding = this._getPadding()
@@ -166,21 +152,6 @@ export class BackgroundTextbox extends Textbox {
       const radii = this._getCornerRadii({ width, height })
       const startX = this._getLeftOffset() - padding.left
       const startY = this._getTopOffset() - padding.top
-      // eslint-disable-next-line no-console
-      console.log('[BackgroundTextbox] draw background', {
-        id: this.id,
-        fill,
-        padding,
-        radii,
-        textWidth,
-        textHeight,
-        width,
-        height,
-        startX,
-        startY,
-        opacity: this.opacity,
-        backgroundOpacity: this.backgroundOpacity
-      })
 
       ctx.save()
       BackgroundTextbox._renderRoundedRect({
@@ -239,8 +210,14 @@ export class BackgroundTextbox extends Textbox {
     try {
       fabricColor = new Color(color)
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.log('[BackgroundTextbox] invalid color', { color, error })
+      ErrorManager.emitError({
+        origin: 'BackgroundTextbox',
+        method: '_getEffectiveBackgroundFill',
+        code: 'INVALID_COLOR_VALUE',
+        message: `Некорректное значение цвета фона: ${color}`,
+        data: { color, error }
+      })
+
       return null
     }
     fabricColor.setAlpha(opacity)
