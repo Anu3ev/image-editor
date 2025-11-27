@@ -26,6 +26,10 @@ export class Pattern {
 
 export class Point {
   constructor(public x: number, public y: number) {}
+
+  scalarAdd(value: number) {
+    return new Point(this.x + value, this.y + value)
+  }
 }
 
 export class Rect {
@@ -148,6 +152,7 @@ export class Textbox extends FabricObject {
   private charStyles: Record<number, Record<string, any>> = {}
 
   static ownDefaults: Record<string, any> = {}
+  static type = 'textbox'
 
   constructor(text: string, options: Record<string, any> = {}) {
     super(options)
@@ -164,6 +169,10 @@ export class Textbox extends FabricObject {
 
   calcTextWidth() {
     return this.width ?? 0
+  }
+
+  toObject() {
+    return { ...this, type: (this as any).constructor?.type ?? Textbox.type }
   }
 
   setControlsVisibility = jest.fn()
@@ -234,6 +243,49 @@ export interface CanvasOptions {
   [key: string]: any
 }
 
+export class Color {
+  private r: number
+  private g: number
+  private b: number
+  private a = 1
+
+  constructor(value: string) {
+    if (!/^#?[0-9a-f]{6}$/i.test(value)) {
+      throw new Error('Invalid color')
+    }
+    const hex = value.replace('#', '')
+    this.r = parseInt(hex.slice(0, 2), 16)
+    this.g = parseInt(hex.slice(2, 4), 16)
+    this.b = parseInt(hex.slice(4, 6), 16)
+  }
+
+  setAlpha(alpha: number) {
+    this.a = alpha
+  }
+
+  toRgba() {
+    return `rgba(${this.r},${this.g},${this.b},${this.a})`
+  }
+}
+
+const registry = new Map<string, any>()
+
+export const classRegistry = {
+  setClass(Cls: any, name?: string) {
+    registry.set(name ?? Cls?.type ?? Cls?.name, Cls)
+  },
+  getClass(name: string) {
+    return registry.get(name)
+  }
+}
+
+export const util = {
+  enlivenObjects: async (objects: any[]) => objects.map((obj) => {
+    const Cls = classRegistry.getClass(obj.type)
+    return Cls ? new Cls(obj.text ?? '', obj) : obj
+  })
+}
+
 export default {
   Canvas,
   Pattern,
@@ -245,5 +297,8 @@ export default {
   Gradient,
   Textbox,
   InteractiveFabricObject,
-  controlsUtils
+  controlsUtils,
+  Color,
+  classRegistry,
+  util
 }

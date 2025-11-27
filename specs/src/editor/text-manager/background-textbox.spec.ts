@@ -1,6 +1,6 @@
-import { util } from 'fabric'
-import { BackgroundTextbox, registerBackgroundTextbox } from '../../../src/editor/text-manager/background-textbox'
-import ErrorManager from '../../../src/editor/error-manager'
+import { BackgroundTextbox, registerBackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
+import ErrorManager from '../../../../src/editor/error-manager'
+import fabric from 'fabric'
 
 const createMockContext = () => {
   const ctx: any = {
@@ -25,8 +25,61 @@ const createMockContext = () => {
   return ctx as CanvasRenderingContext2D
 }
 
+const ensureFabricHelpers = () => {
+  const fabricMock = fabric as any
+
+  if (fabricMock.Point?.prototype) {
+    fabricMock.Point.prototype.scalarAdd = function addScalar(value: number) {
+      const PointCtor = fabricMock.Point
+      return new PointCtor(this.x + value, this.y + value)
+    }
+  }
+
+  if (fabricMock.Textbox?.prototype) {
+    fabricMock.Textbox.prototype.toObject = function toObject() {
+      const ctor = (this as any).constructor
+      return { ...this, type: ctor?.type ?? 'textbox' }
+    }
+  }
+
+  if (!fabricMock.Color) {
+    fabricMock.Color = class Color {
+      private r: number
+      private g: number
+      private b: number
+      private a = 1
+
+      constructor(value: string) {
+        if (!/^#?[0-9a-f]{6}$/i.test(value)) {
+          throw new Error('Invalid color')
+        }
+        const hex = value.replace('#', '')
+        this.r = parseInt(hex.slice(0, 2), 16)
+        this.g = parseInt(hex.slice(2, 4), 16)
+        this.b = parseInt(hex.slice(4, 6), 16)
+      }
+
+      setAlpha(alpha: number) {
+        this.a = alpha
+      }
+
+      toRgba() {
+        return `rgba(${this.r},${this.g},${this.b},${this.a})`
+      }
+    }
+  }
+}
+
+jest.mock('../../../../src/editor/error-manager', () => ({
+  __esModule: true,
+  default: {
+    emitError: jest.fn()
+  }
+}))
+
 describe('BackgroundTextbox', () => {
   beforeEach(() => {
+    ensureFabricHelpers()
     jest.clearAllMocks()
   })
 
@@ -34,7 +87,7 @@ describe('BackgroundTextbox', () => {
     it('создаётся с дефолтными значениями', () => {
       const textbox = new BackgroundTextbox('Test')
 
-      expect(textbox.type).toBe('background-textbox')
+      expect((textbox as any).constructor.type).toBe('background-textbox')
       expect(textbox.paddingTop).toBe(0)
       expect(textbox.paddingRight).toBe(0)
       expect(textbox.paddingBottom).toBe(0)
@@ -294,7 +347,7 @@ describe('BackgroundTextbox', () => {
       })
 
       registerBackgroundTextbox()
-      const [restored] = await util.enlivenObjects([obj], undefined, undefined, undefined) as any[]
+      const [restored] = await (fabric as any).util.enlivenObjects([obj])
 
       expect(restored).toBeInstanceOf(BackgroundTextbox)
       expect(restored).toMatchObject({
