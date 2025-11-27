@@ -195,6 +195,24 @@ describe('BackgroundTextbox', () => {
       expect(point.x).toBe(94)
       expect(point.y).toBe(54)
     })
+
+    it('_getTransformedDimensions включает фон', () => {
+      const textbox = new BackgroundTextbox('Test', {
+        width: 50,
+        height: 20,
+        paddingTop: 5,
+        paddingRight: 5,
+        paddingBottom: 5,
+        paddingLeft: 5
+      })
+
+      const dims = (textbox as any)._getTransformedDimensions({
+        width: 50,
+        height: 20
+      })
+      expect(dims.x).toBe(60)
+      expect(dims.y).toBe(30)
+    })
   })
 
   describe('rendering', () => {
@@ -280,6 +298,25 @@ describe('BackgroundTextbox', () => {
         topRight: 50,
         bottomRight: 50,
         bottomLeft: 50
+      })
+    })
+
+    it('клампит отрицательные радиусы в 0 и принимает граничные значения', () => {
+      const textbox = new BackgroundTextbox('Test', {
+        width: 80,
+        height: 60,
+        radiusTopLeft: -10,
+        radiusTopRight: 30,
+        radiusBottomRight: 100,
+        radiusBottomLeft: 0
+      })
+
+      const radii = (textbox as any)._getCornerRadii({ width: 80, height: 60 })
+      expect(radii).toEqual({
+        topLeft: 0,
+        topRight: 30, // height/2
+        bottomRight: 30, // min(width/2=40, height/2=30)
+        bottomLeft: 0
       })
     })
 

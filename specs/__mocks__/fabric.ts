@@ -132,6 +132,13 @@ export class FabricObject {
   constructor(public options: any = {}) {
     Object.assign(this, options)
   }
+
+  _getTransformedDimensions(options: { width?: number; height?: number } = {}) {
+    const width = options.width ?? 0
+    const height = options.height ?? 0
+    const PointCtor = (this as any).Point || Point
+    return new PointCtor(width, height)
+  }
 }
 
 export class InteractiveFabricObject extends FabricObject {}
