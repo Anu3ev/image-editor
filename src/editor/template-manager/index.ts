@@ -537,12 +537,9 @@ export default class TemplateManager {
     const scaledWidth = (baseWidth || bounds.width) * scale
     const scaledHeight = (baseHeight || bounds.height) * scale
 
-    const offsetX = bounds.left + ((bounds.width - scaledWidth) / 2)
-    const offsetY = bounds.top + ((bounds.height - scaledHeight) / 2)
-
     return {
-      left: offsetX,
-      top: offsetY,
+      left: bounds.left,
+      top: bounds.top,
       width: scaledWidth,
       height: scaledHeight
     }
