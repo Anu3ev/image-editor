@@ -4,6 +4,7 @@ import {
   FabricImage,
   FabricObject,
   Textbox,
+  loadSVGFromString,
   util
 } from 'fabric'
 import { nanoid } from 'nanoid'
@@ -53,6 +54,7 @@ export type TemplateObjectData = Record<string, unknown> & {
   top?: number
   scaleX?: number
   scaleY?: number
+  svgMarkup?: string
   customData?: Record<string, unknown>
 }
 
@@ -326,8 +328,100 @@ export default class TemplateManager {
    * Превращает plain-описание объектов в Fabric объекты.
    */
   private static async _enlivenObjects(objects: TemplateObjectData[]): Promise<FabricObject[]> {
-    const enlivened = await util.enlivenObjects<FabricObject>(objects)
-    return enlivened ?? []
+    const result: FabricObject[] = []
+
+    for (const serialized of objects) {
+      if (TemplateManager._hasSerializedSvgMarkup(serialized)) {
+        const revived = await TemplateManager._reviveSvgObject(serialized)
+        if (revived) {
+          result.push(revived)
+          continue
+        }
+      }
+
+      const enlivened = await util.enlivenObjects<FabricObject>([serialized])
+      if (enlivened?.[0]) {
+        result.push(enlivened[0])
+      }
+    }
+
+    return result
+  }
+
+  /**
+   * Проверяет, содержит ли сериализованный объект инлайн SVG.
+   */
+  private static _hasSerializedSvgMarkup(object: TemplateObjectData): object is TemplateObjectData & { svgMarkup: string } {
+    return typeof object.svgMarkup === 'string' && Boolean(object.svgMarkup.trim())
+  }
+
+  /**
+   * Восстанавливает SVG-объект из компактного описания.
+   */
+  private static async _reviveSvgObject(serialized: TemplateObjectData & { svgMarkup?: unknown }): Promise<FabricObject | null> {
+    const svgMarkup = typeof serialized.svgMarkup === 'string' ? serialized.svgMarkup : null
+
+    if (!svgMarkup) return null
+
+    try {
+      const svgData = await loadSVGFromString(svgMarkup)
+      const grouped = util.groupSVGElements(svgData.objects as FabricObject[], svgData.options)
+
+      const props = TemplateManager._prepareSerializableProps(serialized)
+      grouped.set(props as Record<string, unknown>)
+      grouped.setCoords()
+
+      return grouped
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Убирает технические поля сериализации, оставляя только применимые свойства.
+   */
+  private static _prepareSerializableProps(serialized: TemplateObjectData): Record<string, unknown> {
+    const {
+      svgMarkup,
+      objects,
+      path,
+      paths,
+      type,
+      version,
+      ...rest
+    } = serialized as Record<string, unknown>
+    return rest
+  }
+
+  /**
+   * Определяет, что объект представляет SVG.
+   */
+  private static _isSvgObject(object: FabricObject): boolean {
+    return (object as Record<string, unknown>).format === 'svg'
+  }
+
+  /**
+   * Превращает объект в компактную SVG-строку, добавляя корневой тег при необходимости.
+   */
+  private static _extractSvgMarkup(object: FabricObject): string | null {
+    const toSvg = (object as FabricObject & { toSVG?: () => string }).toSVG
+    if (typeof toSvg !== 'function') return null
+
+    try {
+      const svgContent = toSvg.call(object)
+      if (!svgContent) return null
+
+      const hasRoot = /<svg[\s>]/i.test(svgContent)
+      if (hasRoot) return svgContent
+
+      const { width, height } = object.getBoundingRect(false, true)
+      const safeWidth = width || object.width || 0
+      const safeHeight = height || object.height || 0
+
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}">${svgContent}</svg>`
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -497,6 +591,16 @@ export default class TemplateManager {
     montageArea: FabricObject | null
   }): TemplateObjectData {
     const serialized = object.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as TemplateObjectData
+
+    if (TemplateManager._isSvgObject(object)) {
+      const svgMarkup = TemplateManager._extractSvgMarkup(object)
+
+      if (svgMarkup) {
+        serialized.svgMarkup = svgMarkup
+        delete (serialized as Record<string, unknown>).objects
+        delete (serialized as Record<string, unknown>).path
+      }
+    }
 
     if (!bounds) return serialized
 
