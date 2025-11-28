@@ -368,10 +368,32 @@ export default class TemplateManager {
       const grouped = util.groupSVGElements(svgData.objects as FabricObject[], svgData.options)
 
       const props = TemplateManager._prepareSerializableProps(serialized)
+      const clipPath = await TemplateManager._reviveClipPath(props.clipPath)
+
+      if (clipPath) {
+        props.clipPath = clipPath
+      } else if ('clipPath' in props) {
+        delete (props as Record<string, unknown>).clipPath
+      }
+
       grouped.set(props as Record<string, unknown>)
       grouped.setCoords()
 
       return grouped
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Восстанавливает clipPath из сериализованного объекта в инстанс FabricObject.
+   */
+  private static async _reviveClipPath(clipPath: unknown): Promise<FabricObject | null> {
+    if (!clipPath || typeof clipPath !== 'object') return null
+
+    try {
+      const enlivened = await util.enlivenObjects<FabricObject>([clipPath as object])
+      return enlivened?.[0] ?? null
     } catch {
       return null
     }
