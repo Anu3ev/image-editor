@@ -482,10 +482,18 @@ export default class TemplateManager {
     const currentScaleX = toNumber({ value: scaleX, fallback: 1 })
     const currentScaleY = toNumber({ value: scaleY, fallback: 1 })
 
+    const positioningBounds = TemplateManager._getPositioningBounds({
+      bounds,
+      baseWidth,
+      baseHeight,
+      scale,
+      useRelativePositions
+    })
+
     const absoluteCenter = denormalizeCenter({
       normalizedX,
       normalizedY,
-      bounds,
+      bounds: positioningBounds,
       targetSize,
       montageArea
     })
@@ -505,6 +513,39 @@ export default class TemplateManager {
     const objectRecord = object as Record<string, unknown>
     delete objectRecord[TEMPLATE_CENTER_X_KEY]
     delete objectRecord[TEMPLATE_CENTER_Y_KEY]
+  }
+
+  /**
+   * Возвращает bounds, в которых должны позиционироваться нормализованные объекты.
+   * Для нормализованных позиций используем размеры сцены после масштабирования (letterbox/pillarbox).
+   */
+  private static _getPositioningBounds({
+    bounds,
+    baseWidth,
+    baseHeight,
+    scale,
+    useRelativePositions
+  }: {
+    bounds: Bounds
+    baseWidth: number
+    baseHeight: number
+    scale: number
+    useRelativePositions: boolean
+  }): Bounds {
+    if (!useRelativePositions) return bounds
+
+    const scaledWidth = (baseWidth || bounds.width) * scale
+    const scaledHeight = (baseHeight || bounds.height) * scale
+
+    const offsetX = bounds.left + ((bounds.width - scaledWidth) / 2)
+    const offsetY = bounds.top + ((bounds.height - scaledHeight) / 2)
+
+    return {
+      left: offsetX,
+      top: offsetY,
+      width: scaledWidth,
+      height: scaledHeight
+    }
   }
 
   /**
