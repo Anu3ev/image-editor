@@ -48,6 +48,10 @@ export type TemplateMeta = {
 
 const TEMPLATE_CENTER_X_KEY = '_templateCenterX'
 const TEMPLATE_CENTER_Y_KEY = '_templateCenterY'
+const TEMPLATE_ANCHOR_X_KEY = '_templateAnchorX'
+const TEMPLATE_ANCHOR_Y_KEY = '_templateAnchorY'
+
+type TemplateAnchor = 'start' | 'center' | 'end'
 
 export type TemplateObjectData = Record<string, unknown> & {
   left?: number
@@ -56,6 +60,8 @@ export type TemplateObjectData = Record<string, unknown> & {
   scaleY?: number
   svgMarkup?: string
   customData?: Record<string, unknown>
+  _templateAnchorX?: TemplateAnchor
+  _templateAnchorY?: TemplateAnchor
 }
 
 export type TemplateDefinition = {
@@ -468,6 +474,7 @@ export default class TemplateManager {
     montageArea: FabricObject | null
     useRelativePositions: boolean
   }): void {
+    const objectRecord = object as Record<string, unknown>
     const { x: normalizedX, y: normalizedY } = resolveNormalizedCenter({
       object,
       baseWidth,
@@ -487,7 +494,9 @@ export default class TemplateManager {
       baseWidth,
       baseHeight,
       scale,
-      useRelativePositions
+      useRelativePositions,
+      anchorX: TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_X_KEY),
+      anchorY: TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_Y_KEY)
     })
 
     const absoluteCenter = denormalizeCenter({
@@ -510,9 +519,10 @@ export default class TemplateManager {
     object.setPositionByOrigin(absoluteCenter, 'center', 'center')
     object.setCoords()
 
-    const objectRecord = object as Record<string, unknown>
     delete objectRecord[TEMPLATE_CENTER_X_KEY]
     delete objectRecord[TEMPLATE_CENTER_Y_KEY]
+    delete objectRecord[TEMPLATE_ANCHOR_X_KEY]
+    delete objectRecord[TEMPLATE_ANCHOR_Y_KEY]
   }
 
   /**
@@ -524,25 +534,76 @@ export default class TemplateManager {
     baseWidth,
     baseHeight,
     scale,
-    useRelativePositions
+    useRelativePositions,
+    anchorX,
+    anchorY
   }: {
     bounds: Bounds
     baseWidth: number
     baseHeight: number
     scale: number
     useRelativePositions: boolean
+    anchorX: TemplateAnchor
+    anchorY: TemplateAnchor
   }): Bounds {
     if (!useRelativePositions) return bounds
 
     const scaledWidth = (baseWidth || bounds.width) * scale
     const scaledHeight = (baseHeight || bounds.height) * scale
+    const leftoverX = bounds.width - scaledWidth
+    const leftoverY = bounds.height - scaledHeight
+
+    const offsetX = bounds.left + TemplateManager._calculateAnchorOffset(anchorX, leftoverX)
+    const offsetY = bounds.top + TemplateManager._calculateAnchorOffset(anchorY, leftoverY)
 
     return {
-      left: bounds.left,
-      top: bounds.top,
+      left: offsetX,
+      top: offsetY,
       width: scaledWidth,
       height: scaledHeight
     }
+  }
+
+  private static _calculateAnchorOffset(anchor: TemplateAnchor, leftover: number): number {
+    if (leftover <= 0) return 0
+    if (anchor === 'end') return leftover
+    if (anchor === 'center') return leftover / 2
+    return 0
+  }
+
+  private static _resolveAnchor(objectRecord: Record<string, unknown>, key: string): TemplateAnchor {
+    const value = objectRecord[key]
+    if (value === 'center' || value === 'end' || value === 'start') return value
+    return 'start'
+  }
+
+  private static _detectAnchor({
+    center,
+    start,
+    end
+  }: {
+    center: number
+    start: number
+    end: number
+  }): TemplateAnchor {
+    // Базовый сценарий: привязка к ближайшему краю, если объект касается/вылезает за него
+    const touchesStart = start <= 0.05
+    const touchesEnd = end >= 0.95
+    const exceedsStart = start < 0
+    const exceedsEnd = end > 1
+
+    if ((touchesStart && touchesEnd) || (exceedsStart && exceedsEnd)) return 'center'
+    if (touchesStart || exceedsStart) return 'start'
+    if (touchesEnd || exceedsEnd) return 'end'
+
+    // Иначе — выбираем ближайший край. Центр остаётся только если объект примерно по центру.
+    const distanceToStart = Math.max(0, start)
+    const distanceToEnd = Math.max(0, 1 - end)
+    const diff = distanceToStart - distanceToEnd
+    const nearCenter = Math.abs(diff) <= 0.1
+
+    if (nearCenter) return 'center'
+    return diff < 0 ? 'start' : 'end'
   }
 
   /**
@@ -680,17 +741,34 @@ export default class TemplateManager {
       bounds
     })
 
-    if (normalizedCenter) {
-      serialized[TEMPLATE_CENTER_X_KEY] = normalizedCenter.x
-      serialized[TEMPLATE_CENTER_Y_KEY] = normalizedCenter.y
-    } else {
+    const centerForAnchor = normalizedCenter ?? (() => {
       const centerPoint = object.getCenterPoint()
-      serialized[TEMPLATE_CENTER_X_KEY] = (centerPoint.x - boundsLeft) / safeWidth
-      serialized[TEMPLATE_CENTER_Y_KEY] = (centerPoint.y - boundsTop) / safeHeight
-    }
+      return {
+        x: (centerPoint.x - boundsLeft) / safeWidth,
+        y: (centerPoint.y - boundsTop) / safeHeight
+      }
+    })()
 
-    serialized.left = (rect.left - boundsLeft) / safeWidth
-    serialized.top = (rect.top - boundsTop) / safeHeight
+    const normalizedLeft = (rect.left - boundsLeft) / safeWidth
+    const normalizedTop = (rect.top - boundsTop) / safeHeight
+    const normalizedRight = normalizedLeft + (rect.width / safeWidth)
+    const normalizedBottom = normalizedTop + (rect.height / safeHeight)
+
+    serialized[TEMPLATE_CENTER_X_KEY] = centerForAnchor.x
+    serialized[TEMPLATE_CENTER_Y_KEY] = centerForAnchor.y
+    serialized[TEMPLATE_ANCHOR_X_KEY] = TemplateManager._detectAnchor({
+      center: centerForAnchor.x,
+      start: normalizedLeft,
+      end: normalizedRight
+    })
+    serialized[TEMPLATE_ANCHOR_Y_KEY] = TemplateManager._detectAnchor({
+      center: centerForAnchor.y,
+      start: normalizedTop,
+      end: normalizedBottom
+    })
+
+    serialized.left = normalizedLeft
+    serialized.top = normalizedTop
 
     return serialized
   }
