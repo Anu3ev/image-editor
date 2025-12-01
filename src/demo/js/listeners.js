@@ -331,7 +331,8 @@ export default (editorInstance) => {
     }
   }
 
-  const isTextboxObject = (object) => Boolean(object) && (object.type === 'textbox' || object.type === 'background-textbox')
+  const isTextboxObject = (object) => Boolean(object)
+    && (object.type === 'textbox' || object.type === 'background-textbox')
 
   const getActiveText = () => {
     const object = editorInstance.canvas.getActiveObject()
@@ -437,7 +438,10 @@ export default (editorInstance) => {
       const width = typeof style.strokeWidth === 'number' ? style.strokeWidth : undefined
       return typeof width === 'number' ? Math.max(0, Math.round(width)) : undefined
     })
-    const selectionStrokeColor = getSelectionUniformValue(selectionInfo, (style) => normalizeColorOptional(style.stroke))
+    const selectionStrokeColor = getSelectionUniformValue(
+      selectionInfo,
+      (style) => normalizeColorOptional(style.stroke)
+    )
     const fallbackStrokeWidth = Number(textStrokeWidthInput.value) || 0
     const baseStrokeWidth = typeof textbox.strokeWidth === 'number'
       ? Math.max(0, Math.round(textbox.strokeWidth))

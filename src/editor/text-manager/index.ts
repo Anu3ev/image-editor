@@ -636,7 +636,7 @@ export default class TextManager {
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
-    canvas.on('text:changed', this._handleTextChanged)
+    canvas.on('text:changed', TextManager._handleTextChanged)
   }
 
   /**
@@ -649,7 +649,7 @@ export default class TextManager {
   /**
    * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
    */
-  private _handleTextChanged = (event: IEvent): void => {
+  private static _handleTextChanged(event: IEvent): void {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 

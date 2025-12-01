@@ -331,41 +331,49 @@ export default class TemplateManager {
   }
 
   /**
-   * Превращает plain-описание объектов в Fabric объекты.
-   */
+    * Превращает plain-описание объектов в Fabric объекты.
+    */
   private static async _enlivenObjects(objects: TemplateObjectData[]): Promise<FabricObject[]> {
-    const result: FabricObject[] = []
-
-    for (const serialized of objects) {
+    const revivedList = await Promise.all(objects.map(async(serialized) => {
       if (TemplateManager._hasSerializedSvgMarkup(serialized)) {
         const revived = await TemplateManager._reviveSvgObject(serialized)
         if (revived) {
           TemplateManager._restoreImageScale({ revived, serialized })
-          result.push(revived)
-          continue
+          return revived
         }
       }
 
       const enlivened = await util.enlivenObjects<FabricObject>([serialized])
-      if (enlivened?.[0]) {
-        const revived = enlivened[0]
-        TemplateManager._restoreImageScale({ revived, serialized })
-        result.push(revived)
-      }
-    }
+      const revived = enlivened?.[0]
 
-    return result
+      if (revived) {
+        TemplateManager._restoreImageScale({ revived, serialized })
+        return revived
+      }
+
+      return null
+    }))
+
+    return revivedList.filter((object): object is FabricObject => Boolean(object))
   }
 
   /**
    * Восстанавливает масштаб изображения, если его фактический размер отличается от сериализованного.
    */
-  private static _restoreImageScale({ revived, serialized }: { revived: FabricObject; serialized: TemplateObjectData }): void {
+  private static _restoreImageScale({
+    revived,
+    serialized
+  }: { revived: FabricObject; serialized: TemplateObjectData }): void {
     const objectType = typeof revived.type === 'string' ? revived.type.toLowerCase() : ''
 
     if (objectType !== 'image') return
 
-    const { width: serializedWidth, height: serializedHeight, scaleX: serializedScaleX, scaleY: serializedScaleY } = serialized
+    const {
+      width: serializedWidth,
+      height: serializedHeight,
+      scaleX: serializedScaleX,
+      scaleY: serializedScaleY
+    } = serialized
     const image = revived as FabricImage
 
     const element = 'getElement' in image && typeof image.getElement === 'function'
@@ -377,15 +385,25 @@ export default class TemplateManager {
       naturalHeight = 0,
       width: elementWidth = 0,
       height: elementHeight = 0
-    } = element instanceof HTMLImageElement ? element : { naturalWidth: 0, naturalHeight: 0, width: 0, height: 0 }
+    } = element instanceof HTMLImageElement
+      ? element
+      : {
+        naturalWidth: 0,
+        naturalHeight: 0,
+        width: 0,
+        height: 0
+      }
 
     const intrinsicWidth = toNumber({ value: naturalWidth || elementWidth || image.width, fallback: 0 })
     const intrinsicHeight = toNumber({ value: naturalHeight || elementHeight || image.height, fallback: 0 })
 
-    const targetDisplayWidth = toNumber({ value: serializedWidth, fallback: intrinsicWidth })
-      * toNumber({ value: serializedScaleX, fallback: image.scaleX || 1 })
-    const targetDisplayHeight = toNumber({ value: serializedHeight, fallback: intrinsicHeight })
-      * toNumber({ value: serializedScaleY, fallback: image.scaleY || 1 })
+    const targetWidth = toNumber({ value: serializedWidth, fallback: intrinsicWidth })
+    const targetHeight = toNumber({ value: serializedHeight, fallback: intrinsicHeight })
+    const baseScaleX = toNumber({ value: serializedScaleX, fallback: image.scaleX || 1 })
+    const baseScaleY = toNumber({ value: serializedScaleY, fallback: image.scaleY || 1 })
+
+    const targetDisplayWidth = targetWidth * baseScaleX
+    const targetDisplayHeight = targetHeight * baseScaleY
 
     const nextScaleX = intrinsicWidth ? targetDisplayWidth / intrinsicWidth : null
     const nextScaleY = intrinsicHeight ? targetDisplayHeight / intrinsicHeight : null
@@ -414,14 +432,18 @@ export default class TemplateManager {
   /**
    * Проверяет, содержит ли сериализованный объект инлайн SVG.
    */
-  private static _hasSerializedSvgMarkup(object: TemplateObjectData): object is TemplateObjectData & { svgMarkup: string } {
+  private static _hasSerializedSvgMarkup(
+    object: TemplateObjectData
+  ): object is TemplateObjectData & { svgMarkup: string } {
     return typeof object.svgMarkup === 'string' && Boolean(object.svgMarkup.trim())
   }
 
   /**
    * Восстанавливает SVG-объект из компактного описания.
    */
-  private static async _reviveSvgObject(serialized: TemplateObjectData & { svgMarkup?: unknown }): Promise<FabricObject | null> {
+  private static async _reviveSvgObject(
+    serialized: TemplateObjectData & { svgMarkup?: unknown }
+  ): Promise<FabricObject | null> {
     const svgMarkup = typeof serialized.svgMarkup === 'string' ? serialized.svgMarkup : null
 
     if (!svgMarkup) return null
@@ -466,15 +488,15 @@ export default class TemplateManager {
    * Убирает технические поля сериализации, оставляя только применимые свойства.
    */
   private static _prepareSerializableProps(serialized: TemplateObjectData): Record<string, unknown> {
-    const {
-      svgMarkup,
-      objects,
-      path,
-      paths,
-      type,
-      version,
-      ...rest
-    } = serialized as Record<string, unknown>
+    const rest = { ...(serialized as Record<string, unknown>) }
+
+    delete rest.svgMarkup
+    delete rest.objects
+    delete rest.path
+    delete rest.paths
+    delete rest.type
+    delete rest.version
+
     return rest
   }
 
@@ -503,7 +525,15 @@ export default class TemplateManager {
       const safeWidth = width || object.width || 0
       const safeHeight = height || object.height || 0
 
-      return `<svg xmlns="http://www.w3.org/2000/svg" width="${safeWidth}" height="${safeHeight}" viewBox="0 0 ${safeWidth} ${safeHeight}">${svgContent}</svg>`
+      return `
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="${safeWidth}"
+          height="${safeHeight}"
+          viewBox="0 0 ${safeWidth} ${safeHeight}">
+            ${svgContent}
+        </svg>
+      `
     } catch {
       return null
     }
@@ -635,7 +665,6 @@ export default class TemplateManager {
   }
 
   private static _detectAnchor({
-    center,
     start,
     end
   }: {
