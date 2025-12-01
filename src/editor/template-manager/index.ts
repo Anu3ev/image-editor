@@ -340,6 +340,7 @@ export default class TemplateManager {
       if (TemplateManager._hasSerializedSvgMarkup(serialized)) {
         const revived = await TemplateManager._reviveSvgObject(serialized)
         if (revived) {
+          TemplateManager._restoreImageScale({ revived, serialized })
           result.push(revived)
           continue
         }
@@ -347,11 +348,67 @@ export default class TemplateManager {
 
       const enlivened = await util.enlivenObjects<FabricObject>([serialized])
       if (enlivened?.[0]) {
-        result.push(enlivened[0])
+        const revived = enlivened[0]
+        TemplateManager._restoreImageScale({ revived, serialized })
+        result.push(revived)
       }
     }
 
     return result
+  }
+
+  /**
+   * Восстанавливает масштаб изображения, если его фактический размер отличается от сериализованного.
+   */
+  private static _restoreImageScale({ revived, serialized }: { revived: FabricObject; serialized: TemplateObjectData }): void {
+    const objectType = typeof revived.type === 'string' ? revived.type.toLowerCase() : ''
+
+    if (objectType !== 'image') return
+
+    const { width: serializedWidth, height: serializedHeight, scaleX: serializedScaleX, scaleY: serializedScaleY } = serialized
+    const image = revived as FabricImage
+
+    const element = 'getElement' in image && typeof image.getElement === 'function'
+      ? image.getElement()
+      : null
+
+    const {
+      naturalWidth = 0,
+      naturalHeight = 0,
+      width: elementWidth = 0,
+      height: elementHeight = 0
+    } = element instanceof HTMLImageElement ? element : { naturalWidth: 0, naturalHeight: 0, width: 0, height: 0 }
+
+    const intrinsicWidth = toNumber({ value: naturalWidth || elementWidth || image.width, fallback: 0 })
+    const intrinsicHeight = toNumber({ value: naturalHeight || elementHeight || image.height, fallback: 0 })
+
+    const targetDisplayWidth = toNumber({ value: serializedWidth, fallback: intrinsicWidth })
+      * toNumber({ value: serializedScaleX, fallback: image.scaleX || 1 })
+    const targetDisplayHeight = toNumber({ value: serializedHeight, fallback: intrinsicHeight })
+      * toNumber({ value: serializedScaleY, fallback: image.scaleY || 1 })
+
+    const nextScaleX = intrinsicWidth ? targetDisplayWidth / intrinsicWidth : null
+    const nextScaleY = intrinsicHeight ? targetDisplayHeight / intrinsicHeight : null
+
+    const nextProps: Record<string, number> = {}
+
+    if (intrinsicWidth > 0) {
+      nextProps.width = intrinsicWidth
+    }
+
+    if (intrinsicHeight > 0) {
+      nextProps.height = intrinsicHeight
+    }
+
+    if (nextScaleX && nextScaleX > 0) {
+      nextProps.scaleX = nextScaleX
+    }
+
+    if (nextScaleY && nextScaleY > 0) {
+      nextProps.scaleY = nextScaleY
+    }
+
+    image.set(nextProps)
   }
 
   /**
@@ -591,15 +648,19 @@ export default class TemplateManager {
     const touchesEnd = end >= 0.95
     const exceedsStart = start < 0
     const exceedsEnd = end > 1
+    const span = end - start
+    const marginStart = Math.max(0, start)
+    const marginEnd = Math.max(0, 1 - end)
 
-    if ((touchesStart && touchesEnd) || (exceedsStart && exceedsEnd)) return 'center'
+    if ((touchesStart && touchesEnd) || (exceedsStart && exceedsEnd)) {
+      if (span >= 0.98) return 'center'
+      return marginStart <= marginEnd ? 'start' : 'end'
+    }
     if (touchesStart || exceedsStart) return 'start'
     if (touchesEnd || exceedsEnd) return 'end'
 
     // Иначе — выбираем ближайший край. Центр остаётся только если объект примерно по центру.
-    const distanceToStart = Math.max(0, start)
-    const distanceToEnd = Math.max(0, 1 - end)
-    const diff = distanceToStart - distanceToEnd
+    const diff = marginStart - marginEnd
     const nearCenter = Math.abs(diff) <= 0.1
 
     if (nearCenter) return 'center'
