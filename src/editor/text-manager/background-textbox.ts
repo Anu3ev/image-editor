@@ -44,15 +44,21 @@ type Padding = {
   top: number
 }
 
-const clampNumber = ({ value, min, max }: { max: number; min: number; value: number }): number => (
-  Math.min(Math.max(value, min), max)
-)
+const clampNumber = ({
+  value,
+  min,
+  max
+}: {
+  max: number
+  min: number
+  value: number
+}): number => Math.min(Math.max(value, min), max)
 
 export class BackgroundTextbox extends Textbox {
   static override type = 'background-textbox'
 
   static override cacheProperties = [
-    ...(Array.isArray(Textbox.cacheProperties) ? Textbox.cacheProperties : []),
+    ...Array.isArray(Textbox.cacheProperties) ? Textbox.cacheProperties : [],
     'backgroundColor',
     'backgroundOpacity',
     'paddingTop',
@@ -66,7 +72,7 @@ export class BackgroundTextbox extends Textbox {
   ]
 
   static override stateProperties = [
-    ...(Array.isArray(Textbox.stateProperties) ? Textbox.stateProperties : []),
+    ...Array.isArray(Textbox.stateProperties) ? Textbox.stateProperties : [],
     'backgroundColor',
     'backgroundOpacity',
     'paddingTop',
