@@ -78,8 +78,8 @@ export default defineConfig(({ command }) => {
         external: ['fabric', 'jspdf', 'jsondiffpatch', 'diff-match-patch']
       },
 
-      // outDir: path.resolve(__dirname, 'dev-build'),
-      outDir: '/home/alexander_anufriev/Documents/Repositories/insales/app/javascript/back_office2/components/shared/fabric-image-editor/dev-build',
+      outDir: path.resolve(__dirname, 'dev-build'),
+      // outDir: '/home/alexander_anufriev/Documents/Repositories/insales/app/javascript/back_office2/components/shared/fabric-image-editor/dev-build',
 
       emptyOutDir: true
     }
