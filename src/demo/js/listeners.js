@@ -93,6 +93,8 @@ import {
   applyTemplateBtn,
   templateJsonInput,
   serializeTemplateWithBackgroundCheckbox,
+  activeObjectJsonInput,
+  saveActiveObjectBtn,
   // Undo/Redo
   undoBtn,
   redoBtn,
@@ -243,6 +245,78 @@ export default (editorInstance) => {
     textStrokeWidthInput.value = normalized
     textStrokeWidthValue.textContent = normalized > 0 ? `${normalized}px` : 'Off'
     setStrokeControlsEnabled(normalized > 0)
+  }
+
+  const ACTIVE_OBJECT_JSON_SPACES = 2
+
+  /**
+   * Возвращает активный объект, если выделен один объект.
+   */
+  const getSingleActiveObject = () => {
+    const activeObject = editorInstance.canvas.getActiveObject()
+    if (!activeObject) return null
+
+    const { type } = activeObject
+    if (type === 'activeSelection') return null
+
+    return activeObject
+  }
+
+  /**
+   * Обновляет textarea с JSON активного объекта.
+   */
+  const syncActiveObjectJson = () => {
+    if (!activeObjectJsonInput) return
+
+    const activeObject = getSingleActiveObject()
+    if (!activeObject) {
+      activeObjectJsonInput.value = ''
+      return
+    }
+
+    try {
+      const serialized = typeof activeObject.toDatalessObject === 'function'
+        ? activeObject.toDatalessObject()
+        : activeObject.toObject?.()
+      const json = serialized ? JSON.stringify(serialized, null, ACTIVE_OBJECT_JSON_SPACES) : ''
+      activeObjectJsonInput.value = json
+    } catch (error) {
+      console.warn('Failed to serialize active object', error)
+      activeObjectJsonInput.value = ''
+    }
+  }
+
+  /**
+   * Применяет изменения из textarea к активному объекту.
+   */
+  const applyActiveObjectJson = () => {
+    if (!activeObjectJsonInput) return
+
+    const activeObject = getSingleActiveObject()
+    if (!activeObject) {
+      console.warn('No active object to update')
+      return
+    }
+
+    const rawValue = activeObjectJsonInput.value.trim()
+    if (!rawValue) {
+      console.warn('Active object JSON is empty')
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(rawValue)
+      if (parsed && typeof parsed === 'object') {
+        delete parsed.type
+      }
+      activeObject.set(parsed)
+      activeObject.setCoords()
+      editorInstance.canvas.requestRenderAll()
+      editorInstance.historyManager.saveState()
+      syncActiveObjectJson()
+    } catch (error) {
+      console.error('Failed to apply active object JSON', error)
+    }
   }
 
   const renderPalette = (container, colors) => {
@@ -1094,6 +1168,7 @@ export default (editorInstance) => {
     canvasResolutionNode.textContent = getCanvasResolution(editorInstance)
     montageAreaResolutionNode.textContent = getMontageAreaResolution(editorInstance)
     currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+    syncActiveObjectJson()
   })
 
   editorInstance.canvas.on('object:modified', (event) => {
@@ -1101,6 +1176,7 @@ export default (editorInstance) => {
     if (event?.target && event.target === getActiveText()) {
       syncTextControls(event.target)
     }
+    syncActiveObjectJson()
   })
 
   editorInstance.canvas.on('editor:display-width-changed', () => {
@@ -1110,6 +1186,10 @@ export default (editorInstance) => {
   editorInstance.canvas.on('editor:display-height-changed', () => {
     canvasDisplaySizeNode.textContent = getCanvasDisplaySize(editorInstance)
   })
+
+  editorInstance.canvas.on('selection:created', syncActiveObjectJson)
+  editorInstance.canvas.on('selection:updated', syncActiveObjectJson)
+  editorInstance.canvas.on('selection:cleared', syncActiveObjectJson)
 
   // Canvas Zoom Node
   const canvasZoomNode = document.getElementById('canvas-zoom')
@@ -1206,6 +1286,9 @@ export default (editorInstance) => {
       console.error('Failed to apply template', error)
     }
   })
+
+  saveActiveObjectBtn?.addEventListener('click', applyActiveObjectJson)
+  syncActiveObjectJson()
 
   setColorBackgroundBtn.addEventListener('click', () => {
     const color = backgroundColorInput.value

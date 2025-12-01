@@ -116,6 +116,8 @@ export const serializeTemplateBtn = document.getElementById('serialize-template-
 export const applyTemplateBtn = document.getElementById('apply-template-btn')
 export const templateJsonInput = document.getElementById('template-json-input')
 export const serializeTemplateWithBackgroundCheckbox = document.getElementById('serialize-with-background')
+export const activeObjectJsonInput = document.getElementById('active-object-json')
+export const saveActiveObjectBtn = document.getElementById('save-active-object-btn')
 
 // State controls
 export const undoBtn = document.getElementById('undo-btn')
