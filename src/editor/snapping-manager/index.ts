@@ -198,7 +198,7 @@ export default class SnappingManager {
       this._cacheAnchors({ activeObject: target })
     }
 
-    let activeBounds = this._getBounds({ object: target })
+    let activeBounds = SnappingManager._getBounds({ object: target })
     if (!activeBounds) {
       this._clearGuides()
       return
@@ -221,7 +221,7 @@ export default class SnappingManager {
         top: top + deltaY
       })
       target.setCoords()
-      activeBounds = this._getBounds({ object: target }) ?? activeBounds
+      activeBounds = SnappingManager._getBounds({ object: target }) ?? activeBounds
     }
 
     const spacingResult = this._calculateSpacingSnap({
@@ -237,7 +237,7 @@ export default class SnappingManager {
         top: top + spacingResult.deltaY
       })
       target.setCoords()
-      activeBounds = this._getBounds({ object: target }) ?? activeBounds
+      activeBounds = SnappingManager._getBounds({ object: target }) ?? activeBounds
     }
 
     this._applyGuides({
@@ -303,7 +303,7 @@ export default class SnappingManager {
     }
 
     for (const spacingGuide of this.activeSpacingGuides) {
-      this._drawSpacingGuide({
+      SnappingManager._drawSpacingGuide({
         context,
         guide: spacingGuide,
         zoom
@@ -359,16 +359,16 @@ export default class SnappingManager {
     const nextAnchors: AnchorBuckets = { vertical: [], horizontal: [] }
 
     for (const object of targets) {
-      const bounds = this._getBounds({ object })
+      const bounds = SnappingManager._getBounds({ object })
       if (!bounds) continue
-      this._pushBoundsToAnchors({ anchors: nextAnchors, bounds })
+      SnappingManager._pushBoundsToAnchors({ anchors: nextAnchors, bounds })
     }
 
     const { montageArea } = this.editor
-    const montageBounds = this._getBounds({ object: montageArea })
+    const montageBounds = SnappingManager._getBounds({ object: montageArea })
 
     if (montageBounds) {
-      this._pushBoundsToAnchors({ anchors: nextAnchors, bounds: montageBounds })
+      SnappingManager._pushBoundsToAnchors({ anchors: nextAnchors, bounds: montageBounds })
       const { left, right, top, bottom } = montageBounds
       this.guideBounds = {
         left,
@@ -387,11 +387,11 @@ export default class SnappingManager {
    * Собирает объекты, подходящие для прилипания, исключая активный объект и запрещённые id.
    */
   private _collectTargets({ activeObject }: { activeObject?: FabricObject | null }): FabricObject[] {
-    const excluded = this._collectExcludedObjects({ activeObject })
+    const excluded = SnappingManager._collectExcludedObjects({ activeObject })
     const targets: FabricObject[] = []
 
     this.canvas.forEachObject((object) => {
-      if (this._shouldIgnoreObject({ object, excluded })) return
+      if (SnappingManager._shouldIgnoreObject({ object, excluded })) return
       targets.push(object)
     })
 
@@ -401,7 +401,7 @@ export default class SnappingManager {
   /**
    * Возвращает множество объектов, которые нужно исключить из поиска опорных линий.
    */
-  private _collectExcludedObjects({ activeObject }: { activeObject?: FabricObject | null }): Set<FabricObject> {
+  private static _collectExcludedObjects({ activeObject }: { activeObject?: FabricObject | null }): Set<FabricObject> {
     const excluded = new Set<FabricObject>()
 
     if (!activeObject) return excluded
@@ -418,7 +418,13 @@ export default class SnappingManager {
   /**
    * Проверяет, нужно ли исключить объект из списка целей для прилипания.
    */
-  private _shouldIgnoreObject({ object, excluded }: { object: FabricObject; excluded: Set<FabricObject> }): boolean {
+  private static _shouldIgnoreObject({
+    object,
+    excluded
+  }: {
+    object: FabricObject
+    excluded: Set<FabricObject>
+  }): boolean {
     if (excluded.has(object)) return true
 
     const { visible = true } = object
@@ -433,7 +439,7 @@ export default class SnappingManager {
   /**
    * Переводит bounding box объекта в набор линий для прилипания.
    */
-  private _pushBoundsToAnchors({
+  private static _pushBoundsToAnchors({
     anchors,
     bounds
   }: {
@@ -456,7 +462,7 @@ export default class SnappingManager {
   /**
    * Вычисляет bounding box объекта, учитывая текущее положение и трансформации.
    */
-  private _getBounds({ object }: { object?: FabricObject | null }): Bounds | null {
+  private static _getBounds({ object }: { object?: FabricObject | null }): Bounds | null {
     if (!object) return null
 
     try {
@@ -499,12 +505,12 @@ export default class SnappingManager {
   }): { deltaX: number; deltaY: number; guides: GuideLine[] } {
     const { left, right, centerX, top, bottom, centerY } = activeBounds
 
-    const verticalSnap = this._findAxisSnap({
+    const verticalSnap = SnappingManager._findAxisSnap({
       anchors: this.anchors.vertical,
       positions: [left, centerX, right],
       threshold
     })
-    const horizontalSnap = this._findAxisSnap({
+    const horizontalSnap = SnappingManager._findAxisSnap({
       anchors: this.anchors.horizontal,
       positions: [top, centerY, bottom],
       threshold
@@ -546,15 +552,15 @@ export default class SnappingManager {
     threshold: number
   }): { deltaX: number; deltaY: number; guides: SpacingGuide[] } {
     const candidateBounds = this._collectTargets({ activeObject })
-      .map((object) => this._getBounds({ object }))
+      .map((object) => SnappingManager._getBounds({ object }))
       .filter((bounds): bounds is Bounds => Boolean(bounds))
 
-    const verticalResult = this._calculateVerticalSpacing({
+    const verticalResult = SnappingManager._calculateVerticalSpacing({
       activeBounds,
       candidates: candidateBounds,
       threshold
     })
-    const horizontalResult = this._calculateHorizontalSpacing({
+    const horizontalResult = SnappingManager._calculateHorizontalSpacing({
       activeBounds,
       candidates: candidateBounds,
       threshold
@@ -578,7 +584,7 @@ export default class SnappingManager {
   /**
    * Ищет подходящий вариант равноудалённого прилипания по вертикали.
    */
-  private _calculateVerticalSpacing({
+  private static _calculateVerticalSpacing({
     activeBounds,
     candidates,
     threshold
@@ -682,7 +688,6 @@ export default class SnappingManager {
 
         if (diff <= threshold) {
           const delta = desiredGap - gapTop
-          const adjustedTop = activeTop + delta
           const adjustedBottom = activeBottom + delta
           const guide: SpacingGuide = {
             type: 'vertical',
@@ -717,7 +722,7 @@ export default class SnappingManager {
   /**
    * Ищет подходящий вариант равноудалённого прилипания по горизонтали.
    */
-  private _calculateHorizontalSpacing({
+  private static _calculateHorizontalSpacing({
     activeBounds,
     candidates,
     threshold
@@ -855,7 +860,7 @@ export default class SnappingManager {
   /**
    * Ищет ближайшую линию привязки по одной оси.
    */
-  private _findAxisSnap({
+  private static _findAxisSnap({
     anchors,
     positions,
     threshold
@@ -889,7 +894,7 @@ export default class SnappingManager {
   /**
    * Отрисовывает линии и бейджи для равноудалённых интервалов.
    */
-  private _drawSpacingGuide({
+  private static _drawSpacingGuide({
     context,
     guide,
     zoom
@@ -923,7 +928,7 @@ export default class SnappingManager {
     }
     context.stroke()
 
-    this._drawSpacingBadge({
+    SnappingManager._drawSpacingBadge({
       context,
       type,
       axis,
@@ -932,7 +937,7 @@ export default class SnappingManager {
       text: distanceLabel,
       zoom
     })
-    this._drawSpacingBadge({
+    SnappingManager._drawSpacingBadge({
       context,
       type,
       axis,
@@ -946,7 +951,7 @@ export default class SnappingManager {
   /**
    * Рисует прямоугольный бейдж расстояния в центре указанного интервала.
    */
-  private _drawSpacingBadge({
+  private static _drawSpacingBadge({
     context,
     type,
     axis,
@@ -986,7 +991,7 @@ export default class SnappingManager {
     const rectY = y - (badgeHeight / 2)
 
     context.beginPath()
-    this._drawRoundedRectPath({
+    SnappingManager._drawRoundedRectPath({
       context,
       x: rectX,
       y: rectY,
@@ -1004,7 +1009,7 @@ export default class SnappingManager {
   /**
    * Строит путь скруглённого прямоугольника.
    */
-  private _drawRoundedRectPath({
+  private static _drawRoundedRectPath({
     context,
     x,
     y,
