@@ -110,19 +110,12 @@ const collectPatternSpacingOptions = ({
     top: activeTop,
     bottom: activeBottom,
     left: activeLeft,
-    right: activeRight,
-    centerX,
-    centerY
+    right: activeRight
   } = activeBounds
-
-  const axisValue = type === 'vertical' ? centerX : centerY
-  const filteredPatterns = patterns.filter((pattern) => Math.abs(pattern.axis - axisValue) <= threshold)
-
-  if (!filteredPatterns.length) return []
 
   const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
 
-  for (const pattern of filteredPatterns) {
+  for (const pattern of patterns) {
     for (const candidate of aligned) {
       if (type === 'vertical') {
         const gapAbove = activeTop - candidate.bottom
@@ -220,10 +213,15 @@ export const calculateVerticalSpacing = ({
   const {
     centerX,
     top: activeTop,
-    bottom: activeBottom
+    bottom: activeBottom,
+    left: activeLeft,
+    right: activeRight
   } = activeBounds
 
-  const aligned = candidates.filter((bounds) => Math.abs(bounds.centerX - centerX) <= threshold)
+  const aligned = candidates.filter((bounds) => {
+    const overlap = Math.min(bounds.right, activeRight) - Math.max(bounds.left, activeLeft)
+    return overlap >= -threshold
+  })
 
   if (!aligned.length) {
     return { delta: 0, guide: null }
@@ -369,10 +367,15 @@ export const calculateHorizontalSpacing = ({
   const {
     centerY,
     left: activeLeft,
-    right: activeRight
+    right: activeRight,
+    top: activeTop,
+    bottom: activeBottom
   } = activeBounds
 
-  const aligned = candidates.filter((bounds) => Math.abs(bounds.centerY - centerY) <= threshold)
+  const aligned = candidates.filter((bounds) => {
+    const overlap = Math.min(bounds.bottom, activeBottom) - Math.max(bounds.top, activeTop)
+    return overlap >= -threshold
+  })
 
   if (!aligned.length) {
     return { delta: 0, guide: null }

@@ -69,57 +69,59 @@ export const pushBoundsToAnchors = ({
 }
 
 /**
- * Группирует объекты по оси и собирает интервалы между соседними элементами.
+ * Группирует объекты по оси и собирает интервалы между ближайшими соседями с пересечением по перпендикулярной оси.
  */
 const buildAxisSpacingPatterns = ({
   bounds,
-  axis,
   type,
   primaryStart,
   primaryEnd
 }: {
   bounds: Bounds[]
-  axis: 'centerX' | 'centerY'
   type: SpacingPattern['type']
   primaryStart: 'top' | 'left'
   primaryEnd: 'bottom' | 'right'
 }): SpacingPattern[] => {
-  const groups = new Map<number, Bounds[]>()
-
-  for (const item of bounds) {
-    const axisValue = item[axis]
-    const key = Math.round(axisValue * 1000)
-    const group = groups.get(key) ?? []
-    group.push(item)
-    groups.set(key, group)
-  }
-
   const patterns: SpacingPattern[] = []
+  const perpendicularStart = primaryStart === 'top' ? 'left' : 'top'
+  const perpendicularEnd = primaryEnd === 'bottom' ? 'right' : 'bottom'
+  const sorted = [...bounds].sort((a, b) => a[primaryStart] - b[primaryStart])
 
-  groups.forEach((groupItems) => {
-    if (groupItems.length < 2) return
+  for (let index = 0; index < sorted.length; index += 1) {
+    const current = sorted[index]
+    let closest: Bounds | null = null
+    let minDistance = Number.POSITIVE_INFINITY
 
-    const sorted = [...groupItems].sort((a, b) => a[primaryStart] - b[primaryStart])
-    const axisValue = sorted.reduce((sum, item) => sum + item[axis], 0) / sorted.length
+    for (let nextIndex = index + 1; nextIndex < sorted.length; nextIndex += 1) {
+      const next = sorted[nextIndex]
+      const overlap = Math.min(current[perpendicularEnd], next[perpendicularEnd])
+        - Math.max(current[perpendicularStart], next[perpendicularStart])
 
-    for (let index = 0; index < sorted.length - 1; index += 1) {
-      const current = sorted[index]
-      const next = sorted[index + 1]
-      const start = current[primaryEnd]
-      const end = next[primaryStart]
-      const distance = end - start
+      if (overlap < 0) continue
 
+      const distance = next[primaryStart] - current[primaryEnd]
       if (distance < 0) continue
 
-      patterns.push({
-        type,
-        axis: axisValue,
-        start,
-        end,
-        distance
-      })
+      if (distance < minDistance) {
+        minDistance = distance
+        closest = next
+      }
     }
-  })
+
+    if (!closest || minDistance === Number.POSITIVE_INFINITY) continue
+
+    const overlapStart = Math.max(current[perpendicularStart], closest[perpendicularStart])
+    const overlapEnd = Math.min(current[perpendicularEnd], closest[perpendicularEnd])
+    const overlapAxis = (overlapStart + overlapEnd) / 2
+
+    patterns.push({
+      type,
+      axis: overlapAxis,
+      start: current[primaryEnd],
+      end: closest[primaryStart],
+      distance: closest[primaryStart] - current[primaryEnd]
+    })
+  }
 
   return patterns
 }
