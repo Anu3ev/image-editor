@@ -36,13 +36,6 @@ type GuideLine = {
   position: number
 }
 
-type Gap = {
-  size: number
-  start: number
-  end: number
-  axis: number
-}
-
 type SpacingGuide = {
   type: 'vertical' | 'horizontal'
   axis: number
@@ -90,11 +83,6 @@ export default class SnappingManager {
    * Текущие направляющие интервалов для отрисовки.
    */
   private activeSpacingGuides: SpacingGuide[] = []
-
-  /**
-   * Кеш существующих разрывов между объектами.
-   */
-  private cachedSpacingGaps: { vertical: Gap[]; horizontal: Gap[] } = { vertical: [], horizontal: [] }
 
   /**
    * Границы, в пределах которых рисуются направляющие.
@@ -187,12 +175,7 @@ export default class SnappingManager {
       return
     }
 
-    const threshold = SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
     this._cacheAnchors({ activeObject: target })
-    this._cacheSpacingGaps({
-      activeObject: target,
-      threshold
-    })
   }
 
   /**
@@ -211,17 +194,8 @@ export default class SnappingManager {
       return
     }
 
-    const zoom = this.canvas.getZoom() || 1
-    const threshold = SNAP_THRESHOLD / zoom
-
     if (!this.anchors.vertical.length && !this.anchors.horizontal.length) {
       this._cacheAnchors({ activeObject: target })
-    }
-    if (!this.cachedSpacingGaps.vertical.length && !this.cachedSpacingGaps.horizontal.length) {
-      this._cacheSpacingGaps({
-        activeObject: target,
-        threshold
-      })
     }
 
     let activeBounds = this._getBounds({ object: target })
@@ -231,6 +205,8 @@ export default class SnappingManager {
     }
 
     const { canvas } = this
+    const zoom = canvas.getZoom() || 1
+    const threshold = SNAP_THRESHOLD / zoom
     const snapResult = this._calculateSnap({
       activeBounds,
       threshold
@@ -373,7 +349,6 @@ export default class SnappingManager {
    */
   private _clearAnchors(): void {
     this.anchors = { vertical: [], horizontal: [] }
-    this.cachedSpacingGaps = { vertical: [], horizontal: [] }
   }
 
   /**
@@ -409,27 +384,6 @@ export default class SnappingManager {
   }
 
   /**
-   * Кеширует все существующие интервалы между объектами на канвасе.
-   */
-  private _cacheSpacingGaps({
-    activeObject,
-    threshold
-  }: {
-    activeObject?: FabricObject | null
-    threshold: number
-  }): void {
-    const targets = this._collectTargets({ activeObject })
-    const bounds = targets
-      .map((object) => this._getBounds({ object }))
-      .filter((item): item is Bounds => Boolean(item))
-
-    this.cachedSpacingGaps = {
-      vertical: this._collectVerticalGaps({ items: bounds, threshold }),
-      horizontal: this._collectHorizontalGaps({ items: bounds, threshold })
-    }
-  }
-
-  /**
    * Собирает объекты, подходящие для прилипания, исключая активный объект и запрещённые id.
    */
   private _collectTargets({ activeObject }: { activeObject?: FabricObject | null }): FabricObject[] {
@@ -437,14 +391,6 @@ export default class SnappingManager {
     const targets: FabricObject[] = []
 
     this.canvas.forEachObject((object) => {
-      if (object instanceof ActiveSelection) {
-        object.getObjects().forEach((child) => {
-          if (this._shouldIgnoreObject({ object: child, excluded })) return
-          targets.push(child)
-        })
-        return
-      }
-
       if (this._shouldIgnoreObject({ object, excluded })) return
       targets.push(object)
     })
@@ -603,24 +549,15 @@ export default class SnappingManager {
       .map((object) => this._getBounds({ object }))
       .filter((bounds): bounds is Bounds => Boolean(bounds))
 
-    const referenceVerticalGaps = this.cachedSpacingGaps.vertical.length
-      ? this.cachedSpacingGaps.vertical
-      : this._collectVerticalGaps({ items: candidateBounds, threshold })
-    const referenceHorizontalGaps = this.cachedSpacingGaps.horizontal.length
-      ? this.cachedSpacingGaps.horizontal
-      : this._collectHorizontalGaps({ items: candidateBounds, threshold })
-
     const verticalResult = this._calculateVerticalSpacing({
       activeBounds,
       candidates: candidateBounds,
-      threshold,
-      referenceGaps: referenceVerticalGaps
+      threshold
     })
     const horizontalResult = this._calculateHorizontalSpacing({
       activeBounds,
       candidates: candidateBounds,
-      threshold,
-      referenceGaps: referenceHorizontalGaps
+      threshold
     })
 
     const guides: SpacingGuide[] = []
@@ -644,13 +581,11 @@ export default class SnappingManager {
   private _calculateVerticalSpacing({
     activeBounds,
     candidates,
-    threshold,
-    referenceGaps
+    threshold
   }: {
     activeBounds: Bounds
     candidates: Bounds[]
     threshold: number
-      referenceGaps: Gap[]
   }): { delta: number; guide: SpacingGuide | null } {
     const {
       centerX,
@@ -658,11 +593,7 @@ export default class SnappingManager {
       bottom: activeBottom
     } = activeBounds
 
-    const aligned = candidates.filter((bounds) => this._isVerticallyAligned({
-      activeBounds,
-      candidateBounds: bounds,
-      threshold
-    }))
+    const aligned = candidates.filter((bounds) => Math.abs(bounds.centerX - centerX) <= threshold)
 
     if (!aligned.length) {
       return { delta: 0, guide: null }
@@ -680,68 +611,58 @@ export default class SnappingManager {
       return { delta: 0, guide: null }
     }
 
-    const existingGaps = referenceGaps.length
-      ? referenceGaps
-      : this._collectVerticalGaps({
-        items: items.filter((item) => !item.isActive).map((item) => item.bounds),
-        threshold
-      })
     const prev = items[activeIndex - 1]
+    const prevPrev = items[activeIndex - 2]
     const next = items[activeIndex + 1]
+    const nextNext = items[activeIndex + 2]
     const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
     const height = activeBottom - activeTop
 
-    if (prev) {
+    if (prev && prevPrev) {
       const { bounds: prevBounds } = prev
+      const { bounds: prevPrevBounds } = prevPrev
+      const gapRef = prevBounds.top - prevPrevBounds.bottom
       const gapActive = activeTop - prevBounds.bottom
-      const reference = this._findMatchingGap({
-        gaps: existingGaps,
-        size: gapActive,
-        threshold,
-        axisCandidates: this._getVerticalAxes(activeBounds)
-      })
+      const diff = Math.abs(gapActive - gapRef)
 
-      if (reference && reference.size > 0) {
-        const delta = reference.size - gapActive
+      if (diff <= threshold) {
+        const delta = gapRef - gapActive
         const adjustedTop = activeTop + delta
         const guide: SpacingGuide = {
           type: 'vertical',
-          axis: reference.axis,
-          refStart: reference.start,
-          refEnd: reference.end,
+          axis: centerX,
+          refStart: prevPrevBounds.bottom,
+          refEnd: prevBounds.top,
           activeStart: prevBounds.bottom,
           activeEnd: adjustedTop,
-          distance: reference.size
+          distance: gapRef
         }
 
-        options.push({ delta, guide, diff: reference.diff })
+        options.push({ delta, guide, diff })
       }
     }
 
-    if (next) {
+    if (next && nextNext) {
       const { bounds: nextBounds } = next
+      const { bounds: nextNextBounds } = nextNext
+      const gapRef = nextNextBounds.top - nextBounds.bottom
       const gapActive = nextBounds.top - activeBottom
-      const reference = this._findMatchingGap({
-        gaps: existingGaps,
-        size: gapActive,
-        threshold,
-        axisCandidates: this._getVerticalAxes(activeBounds)
-      })
+      const diff = Math.abs(gapActive - gapRef)
 
-      if (reference && reference.size > 0) {
-        const delta = reference.size - gapActive
+      if (diff <= threshold) {
+        const delta = gapActive - gapRef
         const adjustedBottom = activeBottom + delta
         const guide: SpacingGuide = {
           type: 'vertical',
-          axis: reference.axis,
-          refStart: reference.start,
-          refEnd: reference.end,
+          axis: centerX,
+          refStart: nextBounds.bottom,
+          refEnd: nextNextBounds.top,
           activeStart: adjustedBottom,
           activeEnd: nextBounds.top,
-          distance: reference.size
+          distance: gapRef
         }
 
-        options.push({ delta, guide, diff: reference.diff })
+        options.push({ delta, guide, diff })
       }
     }
 
@@ -751,7 +672,7 @@ export default class SnappingManager {
       const totalGap = nextBounds.top - prevBounds.bottom
       const availableSpace = totalGap - height
 
-      if (availableSpace > 0) {
+      if (availableSpace >= 0) {
         const desiredGap = availableSpace / 2
         const gapTop = activeTop - prevBounds.bottom
         const gapBottom = nextBounds.top - activeBottom
@@ -763,15 +684,9 @@ export default class SnappingManager {
           const delta = desiredGap - gapTop
           const adjustedTop = activeTop + delta
           const adjustedBottom = activeBottom + delta
-          const axis = this._selectAxisForMiddleSpacing({
-            activeBounds,
-            prevBounds,
-            nextBounds,
-            orientation: 'vertical'
-          })
           const guide: SpacingGuide = {
             type: 'vertical',
-            axis,
+            axis: centerX,
             refStart: prevBounds.bottom,
             refEnd: prevBounds.bottom + desiredGap,
             activeStart: adjustedBottom,
@@ -805,13 +720,11 @@ export default class SnappingManager {
   private _calculateHorizontalSpacing({
     activeBounds,
     candidates,
-    threshold,
-    referenceGaps
+    threshold
   }: {
     activeBounds: Bounds
     candidates: Bounds[]
     threshold: number
-      referenceGaps: Gap[]
   }): { delta: number; guide: SpacingGuide | null } {
     const {
       centerY,
@@ -819,11 +732,7 @@ export default class SnappingManager {
       right: activeRight
     } = activeBounds
 
-    const aligned = candidates.filter((bounds) => this._isHorizontallyAligned({
-      activeBounds,
-      candidateBounds: bounds,
-      threshold
-    }))
+    const aligned = candidates.filter((bounds) => Math.abs(bounds.centerY - centerY) <= threshold)
 
     if (!aligned.length) {
       return { delta: 0, guide: null }
@@ -841,68 +750,58 @@ export default class SnappingManager {
       return { delta: 0, guide: null }
     }
 
-    const existingGaps = referenceGaps.length
-      ? referenceGaps
-      : this._collectHorizontalGaps({
-        items: items.filter((item) => !item.isActive).map((item) => item.bounds),
-        threshold
-      })
     const prev = items[activeIndex - 1]
+    const prevPrev = items[activeIndex - 2]
     const next = items[activeIndex + 1]
+    const nextNext = items[activeIndex + 2]
     const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
     const width = activeRight - activeLeft
 
-    if (prev) {
+    if (prev && prevPrev) {
       const { bounds: prevBounds } = prev
+      const { bounds: prevPrevBounds } = prevPrev
+      const gapRef = prevBounds.left - prevPrevBounds.right
       const gapActive = activeLeft - prevBounds.right
-      const reference = this._findMatchingGap({
-        gaps: existingGaps,
-        size: gapActive,
-        threshold,
-        axisCandidates: this._getHorizontalAxes(activeBounds)
-      })
+      const diff = Math.abs(gapActive - gapRef)
 
-      if (reference && reference.size > 0) {
-        const delta = reference.size - gapActive
+      if (diff <= threshold) {
+        const delta = gapRef - gapActive
         const adjustedLeft = activeLeft + delta
         const guide: SpacingGuide = {
           type: 'horizontal',
-          axis: reference.axis,
-          refStart: reference.start,
-          refEnd: reference.end,
+          axis: centerY,
+          refStart: prevPrevBounds.right,
+          refEnd: prevBounds.left,
           activeStart: prevBounds.right,
           activeEnd: adjustedLeft,
-          distance: reference.size
+          distance: gapRef
         }
 
-        options.push({ delta, guide, diff: reference.diff })
+        options.push({ delta, guide, diff })
       }
     }
 
-    if (next) {
+    if (next && nextNext) {
       const { bounds: nextBounds } = next
+      const { bounds: nextNextBounds } = nextNext
+      const gapRef = nextNextBounds.left - nextBounds.right
       const gapActive = nextBounds.left - activeRight
-      const reference = this._findMatchingGap({
-        gaps: existingGaps,
-        size: gapActive,
-        threshold,
-        axisCandidates: this._getHorizontalAxes(activeBounds)
-      })
+      const diff = Math.abs(gapActive - gapRef)
 
-      if (reference && reference.size > 0) {
-        const delta = reference.size - gapActive
+      if (diff <= threshold) {
+        const delta = gapActive - gapRef
         const adjustedRight = activeRight + delta
         const guide: SpacingGuide = {
           type: 'horizontal',
-          axis: reference.axis,
-          refStart: reference.start,
-          refEnd: reference.end,
+          axis: centerY,
+          refStart: nextBounds.right,
+          refEnd: nextNextBounds.left,
           activeStart: adjustedRight,
           activeEnd: nextBounds.left,
-          distance: reference.size
+          distance: gapRef
         }
 
-        options.push({ delta, guide, diff: reference.diff })
+        options.push({ delta, guide, diff })
       }
     }
 
@@ -912,7 +811,7 @@ export default class SnappingManager {
       const totalGap = nextBounds.left - prevBounds.right
       const availableSpace = totalGap - width
 
-      if (availableSpace > 0) {
+      if (availableSpace >= 0) {
         const desiredGap = availableSpace / 2
         const gapLeft = activeLeft - prevBounds.right
         const gapRight = nextBounds.left - activeRight
@@ -923,15 +822,9 @@ export default class SnappingManager {
         if (diff <= threshold) {
           const delta = desiredGap - gapLeft
           const adjustedRight = activeRight + delta
-          const axis = this._selectAxisForMiddleSpacing({
-            activeBounds,
-            prevBounds,
-            nextBounds,
-            orientation: 'horizontal'
-          })
           const guide: SpacingGuide = {
             type: 'horizontal',
-            axis,
+            axis: centerY,
             refStart: prevBounds.right,
             refEnd: prevBounds.right + desiredGap,
             activeStart: adjustedRight,
@@ -957,270 +850,6 @@ export default class SnappingManager {
       delta: bestOption.delta,
       guide: bestOption.guide
     }
-  }
-
-  /**
-   * Подбирает эталонный разрыв, подходящий по величине под текущий отступ.
-   */
-  private _findMatchingGap({
-    gaps,
-    size,
-    threshold,
-    axisCandidates
-  }: {
-    gaps: Gap[]
-    size: number
-    threshold: number
-    axisCandidates: number[]
-  }): ({ size: number; start: number; end: number; diff: number; axis: number; axisDiff: number }) | null {
-    let best: { size: number; start: number; end: number; diff: number; axis: number; axisDiff: number } | null = null
-
-    gaps.forEach((gap) => {
-      const axisDiff = Math.min(...axisCandidates.map((axis) => Math.abs(axis - gap.axis)))
-      if (axisDiff > threshold) return
-
-      const sizeDiff = Math.abs(gap.size - size)
-      if (sizeDiff > threshold) return
-
-      if (!best || sizeDiff < best.diff || (sizeDiff === best.diff && axisDiff < best.axisDiff)) {
-        best = { ...gap, diff: sizeDiff, axisDiff }
-      }
-    })
-
-    return best
-  }
-
-  /**
-   * Собирает вертикальные разрывы между отсортированными объектами.
-   */
-  private _collectVerticalGaps({
-    items,
-    threshold
-  }: {
-    items: Bounds[]
-    threshold: number
-  }): Gap[] {
-    if (items.length < 2) return []
-
-    const groups: Array<{ axis: number; items: Bounds[] }> = []
-
-    items.forEach((bounds) => {
-      this._getVerticalAxes(bounds).forEach((axis) => {
-        this._addToAxisGroup({
-          groups,
-          axis,
-          bounds,
-          threshold
-        })
-      })
-    })
-
-    const gaps: Gap[] = []
-
-    groups.forEach((group) => {
-      if (group.items.length < 2) return
-
-      const sorted = [...group.items].sort((a, b) => a.top - b.top)
-      for (let i = 0; i < sorted.length - 1; i += 1) {
-        const current = sorted[i]
-        const next = sorted[i + 1]
-        const size = next.top - current.bottom
-
-        if (size <= 0) continue
-
-        gaps.push({
-          size,
-          start: current.bottom,
-          end: next.top,
-          axis: group.axis
-        })
-      }
-    })
-
-    return gaps
-  }
-
-  /**
-   * Собирает горизонтальные разрывы между отсортированными объектами.
-   */
-  private _collectHorizontalGaps({
-    items,
-    threshold
-  }: {
-    items: Bounds[]
-    threshold: number
-  }): Gap[] {
-    if (items.length < 2) return []
-
-    const groups: Array<{ axis: number; items: Bounds[] }> = []
-
-    items.forEach((bounds) => {
-      this._getHorizontalAxes(bounds).forEach((axis) => {
-        this._addToAxisGroup({
-          groups,
-          axis,
-          bounds,
-          threshold
-        })
-      })
-    })
-
-    const gaps: Gap[] = []
-
-    groups.forEach((group) => {
-      if (group.items.length < 2) return
-
-      const sorted = [...group.items].sort((a, b) => a.left - b.left)
-      for (let i = 0; i < sorted.length - 1; i += 1) {
-        const current = sorted[i]
-        const next = sorted[i + 1]
-        const size = next.left - current.right
-
-        if (size <= 0) continue
-
-        gaps.push({
-          size,
-          start: current.right,
-          end: next.left,
-          axis: group.axis
-        })
-      }
-    })
-
-    return gaps
-  }
-
-  /**
-   * Добавляет bounds в группу по близкой оси.
-   */
-  private _addToAxisGroup({
-    groups,
-    axis,
-    bounds,
-    threshold
-  }: {
-    groups: Array<{ axis: number; items: Bounds[] }>
-    axis: number
-    bounds: Bounds
-    threshold: number
-  }): void {
-    const group = groups.find((item) => Math.abs(item.axis - axis) <= threshold)
-
-    if (group) {
-      if (group.items.includes(bounds)) return
-      const nextSize = group.items.length + 1
-      group.axis = ((group.axis * group.items.length) + axis) / nextSize
-      group.items.push(bounds)
-      return
-    }
-
-    groups.push({
-      axis,
-      items: [bounds]
-    })
-  }
-
-  /**
-   * Проверяет вертикальное выравнивание по центру или краям.
-   */
-  private _isVerticallyAligned({
-    activeBounds,
-    candidateBounds,
-    threshold
-  }: {
-    activeBounds: Bounds
-    candidateBounds: Bounds
-    threshold: number
-  }): boolean {
-    const activeAxes = this._getVerticalAxes(activeBounds)
-    const candidateAxes = this._getVerticalAxes(candidateBounds)
-
-    const minDiff = activeAxes.reduce((current, axis) => {
-      const diff = Math.min(...candidateAxes.map((candidateAxis) => Math.abs(candidateAxis - axis)))
-      return Math.min(current, diff)
-    }, Number.POSITIVE_INFINITY)
-
-    return minDiff <= threshold
-  }
-
-  /**
-   * Проверяет горизонтальное выравнивание по центру или краям.
-   */
-  private _isHorizontallyAligned({
-    activeBounds,
-    candidateBounds,
-    threshold
-  }: {
-    activeBounds: Bounds
-    candidateBounds: Bounds
-    threshold: number
-  }): boolean {
-    const activeAxes = this._getHorizontalAxes(activeBounds)
-    const candidateAxes = this._getHorizontalAxes(candidateBounds)
-
-    const minDiff = activeAxes.reduce((current, axis) => {
-      const diff = Math.min(...candidateAxes.map((candidateAxis) => Math.abs(candidateAxis - axis)))
-      return Math.min(current, diff)
-    }, Number.POSITIVE_INFINITY)
-
-    return minDiff <= threshold
-  }
-
-  /**
-   * Возвращает возможные оси для вертикального выравнивания.
-   */
-  private _getVerticalAxes(bounds: Bounds): number[] {
-    const { left, centerX, right } = bounds
-    return [left, centerX, right]
-  }
-
-  /**
-   * Возвращает возможные оси для горизонтального выравнивания.
-   */
-  private _getHorizontalAxes(bounds: Bounds): number[] {
-    const { top, centerY, bottom } = bounds
-    return [top, centerY, bottom]
-  }
-
-  /**
-   * Выбирает ось для отрисовки направляющей в сценарии деления промежутка пополам.
-   */
-  private _selectAxisForMiddleSpacing({
-    activeBounds,
-    prevBounds,
-    nextBounds,
-    orientation
-  }: {
-    activeBounds: Bounds
-    prevBounds: Bounds
-    nextBounds: Bounds
-    orientation: 'vertical' | 'horizontal'
-  }): number {
-    const activeAxes = orientation === 'vertical'
-      ? this._getVerticalAxes(activeBounds)
-      : this._getHorizontalAxes(activeBounds)
-    const prevAxes = orientation === 'vertical'
-      ? this._getVerticalAxes(prevBounds)
-      : this._getHorizontalAxes(prevBounds)
-    const nextAxes = orientation === 'vertical'
-      ? this._getVerticalAxes(nextBounds)
-      : this._getHorizontalAxes(nextBounds)
-
-    let bestAxis = activeAxes[0]
-    let bestScore = Number.POSITIVE_INFINITY
-
-    activeAxes.forEach((axis) => {
-      const diffPrev = Math.min(...prevAxes.map((value) => Math.abs(value - axis)))
-      const diffNext = Math.min(...nextAxes.map((value) => Math.abs(value - axis)))
-      const score = diffPrev + diffNext
-
-      if (score < bestScore) {
-        bestScore = score
-        bestAxis = axis
-      }
-    })
-
-    return bestAxis
   }
 
   /**
@@ -1278,7 +907,6 @@ export default class SnappingManager {
       activeEnd,
       distance
     } = guide
-    if (distance <= 0) return
     const distanceLabel = Math.round(distance).toString()
 
     context.beginPath()
@@ -1416,7 +1044,8 @@ export default class SnappingManager {
 
     const [
       scaleX = 1,
-      ,,
+      ,
+      ,
       scaleY = 1,
       translateX = 0,
       translateY = 0
