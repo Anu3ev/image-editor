@@ -93,6 +93,7 @@ import {
   applyTemplateBtn,
   templateJsonInput,
   serializeTemplateWithBackgroundCheckbox,
+  loadActiveObjectBtn,
   activeObjectJsonInput,
   saveActiveObjectBtn,
   // Undo/Redo
@@ -1168,7 +1169,6 @@ export default (editorInstance) => {
     canvasResolutionNode.textContent = getCanvasResolution(editorInstance)
     montageAreaResolutionNode.textContent = getMontageAreaResolution(editorInstance)
     currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
-    syncActiveObjectJson()
   })
 
   editorInstance.canvas.on('object:modified', (event) => {
@@ -1176,7 +1176,6 @@ export default (editorInstance) => {
     if (event?.target && event.target === getActiveText()) {
       syncTextControls(event.target)
     }
-    syncActiveObjectJson()
   })
 
   editorInstance.canvas.on('editor:display-width-changed', () => {
@@ -1187,9 +1186,15 @@ export default (editorInstance) => {
     canvasDisplaySizeNode.textContent = getCanvasDisplaySize(editorInstance)
   })
 
-  editorInstance.canvas.on('selection:created', syncActiveObjectJson)
-  editorInstance.canvas.on('selection:updated', syncActiveObjectJson)
-  editorInstance.canvas.on('selection:cleared', syncActiveObjectJson)
+  editorInstance.canvas.on('selection:created', () => {
+    currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+  })
+  editorInstance.canvas.on('selection:updated', () => {
+    currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+  })
+  editorInstance.canvas.on('selection:cleared', () => {
+    currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+  })
 
   // Canvas Zoom Node
   const canvasZoomNode = document.getElementById('canvas-zoom')
@@ -1287,8 +1292,8 @@ export default (editorInstance) => {
     }
   })
 
+  loadActiveObjectBtn?.addEventListener('click', syncActiveObjectJson)
   saveActiveObjectBtn?.addEventListener('click', applyActiveObjectJson)
-  syncActiveObjectJson()
 
   setColorBackgroundBtn.addEventListener('click', () => {
     const color = backgroundColorInput.value
