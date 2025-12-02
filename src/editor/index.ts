@@ -360,7 +360,7 @@ export class ImageEditor {
    */
   public destroy(): void {
     this.listeners.destroy()
-    this.snappingManager.destroy()
+    this.snappingManager?.destroy()
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
     this.textManager?.destroy()
