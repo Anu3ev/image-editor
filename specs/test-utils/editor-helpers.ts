@@ -411,6 +411,97 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
   }
 }
 
+// Создаёт примитивный FabricObject-стаб с управляемыми координатами.
+export const createBoundsObject = ({
+  left,
+  top,
+  width,
+  height,
+  id
+}: {
+  left: number
+  top: number
+  width: number
+  height: number
+  id?: string
+}) => {
+  const obj: any = {
+    left,
+    top,
+    width,
+    height,
+    id,
+    visible: true,
+    set: jest.fn((props: Partial<{ left: number; top: number; width: number; height: number }>) => {
+      Object.assign(obj, props)
+    }),
+    setCoords: jest.fn(),
+    getBoundingRect: jest.fn(() => ({
+      left: obj.left ?? 0,
+      top: obj.top ?? 0,
+      width: obj.width ?? 0,
+      height: obj.height ?? 0
+    }))
+  }
+
+  return obj
+}
+
+// Контекст для тестов SnappingManager c нужными моками канваса и редактора.
+export const createSnappingTestContext = () => {
+  const objects: any[] = []
+
+  const selectionContext = {
+    save: jest.fn(),
+    restore: jest.fn(),
+    transform: jest.fn(),
+    beginPath: jest.fn(),
+    moveTo: jest.fn(),
+    lineTo: jest.fn(),
+    stroke: jest.fn(),
+    setLineDash: jest.fn(),
+    fillText: jest.fn(),
+    fillStyle: '',
+    font: '',
+    textAlign: 'center' as CanvasTextAlign,
+    textBaseline: 'middle' as CanvasTextBaseline,
+    lineWidth: 0,
+    strokeStyle: ''
+  }
+
+  const canvas = {
+    ...createCanvasStub(),
+    requestRenderAll: jest.fn(),
+    getZoom: jest.fn().mockReturnValue(1),
+    getSelectionContext: jest.fn(() => selectionContext),
+    clearContext: jest.fn(),
+    contextTop: {},
+    forEachObject: jest.fn((cb: (obj: any) => void) => {
+      objects.forEach(cb)
+    })
+  }
+
+  const montageArea = createBoundsObject({
+    left: 0,
+    top: 0,
+    width: 400,
+    height: 300,
+    id: 'montage-area'
+  })
+
+  const editor = {
+    ...createEditorStub(),
+    canvas,
+    montageArea
+  }
+
+  return {
+    editor,
+    canvas,
+    objects
+  }
+}
+
 export type HistoryManagerTestSetupOptions = {
   maxHistoryLength?: number
   initialCanvasWidth?: number

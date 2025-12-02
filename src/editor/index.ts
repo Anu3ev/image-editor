@@ -26,6 +26,7 @@ import ErrorManager from './error-manager'
 import PanConstraintManager from './pan-constraint-manager'
 import TextManager from './text-manager'
 import TemplateManager from './template-manager'
+import SnappingManager from './snapping-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
@@ -166,6 +167,11 @@ export class ImageEditor {
   public panConstraintManager!: PanConstraintManager
 
   /**
+   * Менеджер прилипания к направляющим
+   */
+  public snappingManager!: SnappingManager
+
+  /**
    * Менеджер работы с текстом
    */
   public textManager!: TextManager
@@ -246,6 +252,7 @@ export class ImageEditor {
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
     this.panConstraintManager = new PanConstraintManager({ editor: this })
+    this.snappingManager = new SnappingManager({ editor: this })
     this.fontManager = new FontManager(this.options.fonts ?? [])
     this.textManager = new TextManager({ editor: this })
     this.templateManager = new TemplateManager({ editor: this })
@@ -353,6 +360,7 @@ export class ImageEditor {
    */
   public destroy(): void {
     this.listeners.destroy()
+    this.snappingManager?.destroy()
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
     this.textManager?.destroy()
