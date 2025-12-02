@@ -1044,8 +1044,7 @@ export default class SnappingManager {
 
     const [
       scaleX = 1,
-      ,
-      ,
+      ,,
       scaleY = 1,
       translateX = 0,
       translateY = 0
