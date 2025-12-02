@@ -143,6 +143,26 @@ export class BackgroundTextbox extends Textbox {
     })
   }
 
+  /**
+   * Возвращает сериализованное представление с учётом фона, отступов и скруглений.
+   */
+  public override toObject(propertiesToInclude: string[] = []): Record<string, unknown> {
+    const baseObject = super.toObject(propertiesToInclude)
+
+    return {
+      ...baseObject,
+      backgroundOpacity: this.backgroundOpacity,
+      paddingTop: this.paddingTop,
+      paddingRight: this.paddingRight,
+      paddingBottom: this.paddingBottom,
+      paddingLeft: this.paddingLeft,
+      radiusTopLeft: this.radiusTopLeft,
+      radiusTopRight: this.radiusTopRight,
+      radiusBottomRight: this.radiusBottomRight,
+      radiusBottomLeft: this.radiusBottomLeft
+    }
+  }
+
   protected override _renderBackground(ctx: CanvasRenderingContext2D): void {
     const fill = this._getEffectiveBackgroundFill()
     if (!fill) return
