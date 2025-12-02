@@ -36,6 +36,16 @@ type GuideLine = {
   position: number
 }
 
+type SpacingGuide = {
+  type: 'vertical' | 'horizontal'
+  axis: number
+  refStart: number
+  refEnd: number
+  activeStart: number
+  activeEnd: number
+  distance: number
+}
+
 type TransformEvent = BasicTransformEvent<TPointerEvent> & {
   target?: FabricObject | null
   e?: TPointerEvent | null
@@ -68,6 +78,11 @@ export default class SnappingManager {
    * Текущие направляющие для отрисовки.
    */
   private activeGuides: GuideLine[] = []
+
+  /**
+   * Текущие направляющие интервалов для отрисовки.
+   */
+  private activeSpacingGuides: SpacingGuide[] = []
 
   /**
    * Границы, в пределах которых рисуются направляющие.
@@ -183,7 +198,7 @@ export default class SnappingManager {
       this._cacheAnchors({ activeObject: target })
     }
 
-    const activeBounds = this._getBounds({ object: target })
+    let activeBounds = this._getBounds({ object: target })
     if (!activeBounds) {
       this._clearGuides()
       return
@@ -206,9 +221,29 @@ export default class SnappingManager {
         top: top + deltaY
       })
       target.setCoords()
+      activeBounds = this._getBounds({ object: target }) ?? activeBounds
     }
 
-    this._updateGuides({ guides })
+    const spacingResult = this._calculateSpacingSnap({
+      activeBounds,
+      activeObject: target,
+      threshold
+    })
+
+    if (spacingResult.deltaX !== 0 || spacingResult.deltaY !== 0) {
+      const { left = 0, top = 0 } = target
+      target.set({
+        left: left + spacingResult.deltaX,
+        top: top + spacingResult.deltaY
+      })
+      target.setCoords()
+      activeBounds = this._getBounds({ object: target }) ?? activeBounds
+    }
+
+    this._applyGuides({
+      guides,
+      spacingGuides: spacingResult.guides
+    })
   }
 
   /**
@@ -235,7 +270,7 @@ export default class SnappingManager {
    * Отрисовывает активные направляющие после рендера канваса.
    */
   private _handleAfterRender(): void {
-    if (!this.activeGuides.length) return
+    if (!this.activeGuides.length && !this.activeSpacingGuides.length) return
 
     const { canvas, guideBounds: cachedGuideBounds } = this
     const context = canvas.getSelectionContext()
@@ -267,29 +302,45 @@ export default class SnappingManager {
       context.stroke()
     }
 
+    for (const spacingGuide of this.activeSpacingGuides) {
+      this._drawSpacingGuide({
+        context,
+        guide: spacingGuide,
+        zoom
+      })
+    }
+
     context.restore()
   }
 
   /**
-   * Применяет найденные направляющие или удаляет их, если ничего не найдено.
+   * Применяет найденные направляющие или очищает их, если ничего нет.
    */
-  private _updateGuides({ guides }: { guides: GuideLine[] }): void {
-    if (!guides.length) {
+  private _applyGuides({
+    guides,
+    spacingGuides
+  }: {
+    guides: GuideLine[]
+    spacingGuides: SpacingGuide[]
+  }): void {
+    if (!guides.length && !spacingGuides.length) {
       this._clearGuides()
       return
     }
 
     this.activeGuides = guides
+    this.activeSpacingGuides = spacingGuides
     this.canvas.requestRenderAll()
   }
 
   /**
-   * Сбрасывает активные направляющие и инициирует перерисовку.
+   * Сбрасывает все активные направляющие и инициирует перерисовку.
    */
   private _clearGuides(): void {
-    if (!this.activeGuides.length) return
+    if (!this.activeGuides.length && !this.activeSpacingGuides.length) return
 
     this.activeGuides = []
+    this.activeSpacingGuides = []
     this.canvas.requestRenderAll()
   }
 
@@ -483,6 +534,325 @@ export default class SnappingManager {
   }
 
   /**
+   * Считает дельту для равноудалённого прилипания и набор направляющих интервалов.
+   */
+  private _calculateSpacingSnap({
+    activeBounds,
+    activeObject,
+    threshold
+  }: {
+    activeBounds: Bounds
+    activeObject: FabricObject
+    threshold: number
+  }): { deltaX: number; deltaY: number; guides: SpacingGuide[] } {
+    const candidateBounds = this._collectTargets({ activeObject })
+      .map((object) => this._getBounds({ object }))
+      .filter((bounds): bounds is Bounds => Boolean(bounds))
+
+    const verticalResult = this._calculateVerticalSpacing({
+      activeBounds,
+      candidates: candidateBounds,
+      threshold
+    })
+    const horizontalResult = this._calculateHorizontalSpacing({
+      activeBounds,
+      candidates: candidateBounds,
+      threshold
+    })
+
+    const guides: SpacingGuide[] = []
+    if (verticalResult.guide) {
+      guides.push(verticalResult.guide)
+    }
+    if (horizontalResult.guide) {
+      guides.push(horizontalResult.guide)
+    }
+
+    return {
+      deltaX: horizontalResult.delta,
+      deltaY: verticalResult.delta,
+      guides
+    }
+  }
+
+  /**
+   * Ищет подходящий вариант равноудалённого прилипания по вертикали.
+   */
+  private _calculateVerticalSpacing({
+    activeBounds,
+    candidates,
+    threshold
+  }: {
+    activeBounds: Bounds
+    candidates: Bounds[]
+    threshold: number
+  }): { delta: number; guide: SpacingGuide | null } {
+    const {
+      centerX,
+      top: activeTop,
+      bottom: activeBottom
+    } = activeBounds
+
+    const aligned = candidates.filter((bounds) => Math.abs(bounds.centerX - centerX) <= threshold)
+
+    if (!aligned.length) {
+      return { delta: 0, guide: null }
+    }
+
+    const items = [
+      ...aligned.map((bounds) => ({ bounds, isActive: false })),
+      { bounds: activeBounds, isActive: true }
+    ]
+
+    items.sort((a, b) => a.bounds.top - b.bounds.top)
+
+    const activeIndex = items.findIndex((item) => item.isActive)
+    if (activeIndex === -1) {
+      return { delta: 0, guide: null }
+    }
+
+    const prev = items[activeIndex - 1]
+    const prevPrev = items[activeIndex - 2]
+    const next = items[activeIndex + 1]
+    const nextNext = items[activeIndex + 2]
+    const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
+    const height = activeBottom - activeTop
+
+    if (prev && prevPrev) {
+      const { bounds: prevBounds } = prev
+      const { bounds: prevPrevBounds } = prevPrev
+      const gapRef = prevBounds.top - prevPrevBounds.bottom
+      const gapActive = activeTop - prevBounds.bottom
+      const diff = Math.abs(gapActive - gapRef)
+
+      if (diff <= threshold) {
+        const delta = gapRef - gapActive
+        const adjustedTop = activeTop + delta
+        const guide: SpacingGuide = {
+          type: 'vertical',
+          axis: centerX,
+          refStart: prevPrevBounds.bottom,
+          refEnd: prevBounds.top,
+          activeStart: prevBounds.bottom,
+          activeEnd: adjustedTop,
+          distance: gapRef
+        }
+
+        options.push({ delta, guide, diff })
+      }
+    }
+
+    if (next && nextNext) {
+      const { bounds: nextBounds } = next
+      const { bounds: nextNextBounds } = nextNext
+      const gapRef = nextNextBounds.top - nextBounds.bottom
+      const gapActive = nextBounds.top - activeBottom
+      const diff = Math.abs(gapActive - gapRef)
+
+      if (diff <= threshold) {
+        const delta = gapActive - gapRef
+        const adjustedBottom = activeBottom + delta
+        const guide: SpacingGuide = {
+          type: 'vertical',
+          axis: centerX,
+          refStart: nextBounds.bottom,
+          refEnd: nextNextBounds.top,
+          activeStart: adjustedBottom,
+          activeEnd: nextBounds.top,
+          distance: gapRef
+        }
+
+        options.push({ delta, guide, diff })
+      }
+    }
+
+    if (prev && next) {
+      const { bounds: prevBounds } = prev
+      const { bounds: nextBounds } = next
+      const totalGap = nextBounds.top - prevBounds.bottom
+      const availableSpace = totalGap - height
+
+      if (availableSpace >= 0) {
+        const desiredGap = availableSpace / 2
+        const gapTop = activeTop - prevBounds.bottom
+        const gapBottom = nextBounds.top - activeBottom
+        const diffTop = Math.abs(gapTop - desiredGap)
+        const diffBottom = Math.abs(gapBottom - desiredGap)
+        const diff = Math.max(diffTop, diffBottom)
+
+        if (diff <= threshold) {
+          const delta = desiredGap - gapTop
+          const adjustedTop = activeTop + delta
+          const adjustedBottom = activeBottom + delta
+          const guide: SpacingGuide = {
+            type: 'vertical',
+            axis: centerX,
+            refStart: prevBounds.bottom,
+            refEnd: prevBounds.bottom + desiredGap,
+            activeStart: adjustedBottom,
+            activeEnd: adjustedBottom + desiredGap,
+            distance: desiredGap
+          }
+
+          options.push({ delta, guide, diff })
+        }
+      }
+    }
+
+    if (!options.length) {
+      return { delta: 0, guide: null }
+    }
+
+    const bestOption = options.reduce((current, option) => {
+      if (option.diff < current.diff) return option
+      return current
+    }, options[0])
+
+    return {
+      delta: bestOption.delta,
+      guide: bestOption.guide
+    }
+  }
+
+  /**
+   * Ищет подходящий вариант равноудалённого прилипания по горизонтали.
+   */
+  private _calculateHorizontalSpacing({
+    activeBounds,
+    candidates,
+    threshold
+  }: {
+    activeBounds: Bounds
+    candidates: Bounds[]
+    threshold: number
+  }): { delta: number; guide: SpacingGuide | null } {
+    const {
+      centerY,
+      left: activeLeft,
+      right: activeRight
+    } = activeBounds
+
+    const aligned = candidates.filter((bounds) => Math.abs(bounds.centerY - centerY) <= threshold)
+
+    if (!aligned.length) {
+      return { delta: 0, guide: null }
+    }
+
+    const items = [
+      ...aligned.map((bounds) => ({ bounds, isActive: false })),
+      { bounds: activeBounds, isActive: true }
+    ]
+
+    items.sort((a, b) => a.bounds.left - b.bounds.left)
+
+    const activeIndex = items.findIndex((item) => item.isActive)
+    if (activeIndex === -1) {
+      return { delta: 0, guide: null }
+    }
+
+    const prev = items[activeIndex - 1]
+    const prevPrev = items[activeIndex - 2]
+    const next = items[activeIndex + 1]
+    const nextNext = items[activeIndex + 2]
+    const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
+    const width = activeRight - activeLeft
+
+    if (prev && prevPrev) {
+      const { bounds: prevBounds } = prev
+      const { bounds: prevPrevBounds } = prevPrev
+      const gapRef = prevBounds.left - prevPrevBounds.right
+      const gapActive = activeLeft - prevBounds.right
+      const diff = Math.abs(gapActive - gapRef)
+
+      if (diff <= threshold) {
+        const delta = gapRef - gapActive
+        const adjustedLeft = activeLeft + delta
+        const guide: SpacingGuide = {
+          type: 'horizontal',
+          axis: centerY,
+          refStart: prevPrevBounds.right,
+          refEnd: prevBounds.left,
+          activeStart: prevBounds.right,
+          activeEnd: adjustedLeft,
+          distance: gapRef
+        }
+
+        options.push({ delta, guide, diff })
+      }
+    }
+
+    if (next && nextNext) {
+      const { bounds: nextBounds } = next
+      const { bounds: nextNextBounds } = nextNext
+      const gapRef = nextNextBounds.left - nextBounds.right
+      const gapActive = nextBounds.left - activeRight
+      const diff = Math.abs(gapActive - gapRef)
+
+      if (diff <= threshold) {
+        const delta = gapActive - gapRef
+        const adjustedRight = activeRight + delta
+        const guide: SpacingGuide = {
+          type: 'horizontal',
+          axis: centerY,
+          refStart: nextBounds.right,
+          refEnd: nextNextBounds.left,
+          activeStart: adjustedRight,
+          activeEnd: nextBounds.left,
+          distance: gapRef
+        }
+
+        options.push({ delta, guide, diff })
+      }
+    }
+
+    if (prev && next) {
+      const { bounds: prevBounds } = prev
+      const { bounds: nextBounds } = next
+      const totalGap = nextBounds.left - prevBounds.right
+      const availableSpace = totalGap - width
+
+      if (availableSpace >= 0) {
+        const desiredGap = availableSpace / 2
+        const gapLeft = activeLeft - prevBounds.right
+        const gapRight = nextBounds.left - activeRight
+        const diffLeft = Math.abs(gapLeft - desiredGap)
+        const diffRight = Math.abs(gapRight - desiredGap)
+        const diff = Math.max(diffLeft, diffRight)
+
+        if (diff <= threshold) {
+          const delta = desiredGap - gapLeft
+          const adjustedRight = activeRight + delta
+          const guide: SpacingGuide = {
+            type: 'horizontal',
+            axis: centerY,
+            refStart: prevBounds.right,
+            refEnd: prevBounds.right + desiredGap,
+            activeStart: adjustedRight,
+            activeEnd: adjustedRight + desiredGap,
+            distance: desiredGap
+          }
+
+          options.push({ delta, guide, diff })
+        }
+      }
+    }
+
+    if (!options.length) {
+      return { delta: 0, guide: null }
+    }
+
+    const bestOption = options.reduce((current, option) => {
+      if (option.diff < current.diff) return option
+      return current
+    }, options[0])
+
+    return {
+      delta: bestOption.delta,
+      guide: bestOption.guide
+    }
+  }
+
+  /**
    * Ищет ближайшую линию привязки по одной оси.
    */
   private _findAxisSnap({
@@ -514,6 +884,153 @@ export default class SnappingManager {
       delta: nearestDelta,
       guidePosition
     }
+  }
+
+  /**
+   * Отрисовывает линии и бейджи для равноудалённых интервалов.
+   */
+  private _drawSpacingGuide({
+    context,
+    guide,
+    zoom
+  }: {
+    context: CanvasRenderingContext2D
+    guide: SpacingGuide
+    zoom: number
+  }): void {
+    const {
+      type,
+      axis,
+      refStart,
+      refEnd,
+      activeStart,
+      activeEnd,
+      distance
+    } = guide
+    const distanceLabel = Math.round(distance).toString()
+
+    context.beginPath()
+    if (type === 'vertical') {
+      context.moveTo(axis, refStart)
+      context.lineTo(axis, refEnd)
+      context.moveTo(axis, activeStart)
+      context.lineTo(axis, activeEnd)
+    } else {
+      context.moveTo(refStart, axis)
+      context.lineTo(refEnd, axis)
+      context.moveTo(activeStart, axis)
+      context.lineTo(activeEnd, axis)
+    }
+    context.stroke()
+
+    this._drawSpacingBadge({
+      context,
+      type,
+      axis,
+      start: refStart,
+      end: refEnd,
+      text: distanceLabel,
+      zoom
+    })
+    this._drawSpacingBadge({
+      context,
+      type,
+      axis,
+      start: activeStart,
+      end: activeEnd,
+      text: distanceLabel,
+      zoom
+    })
+  }
+
+  /**
+   * Рисует прямоугольный бейдж расстояния в центре указанного интервала.
+   */
+  private _drawSpacingBadge({
+    context,
+    type,
+    axis,
+    start,
+    end,
+    text,
+    zoom
+  }: {
+    context: CanvasRenderingContext2D
+    type: SpacingGuide['type']
+    axis: number
+    start: number
+    end: number
+    text: string
+    zoom: number
+  }): void {
+    const fontSize = 12 / zoom
+    const padding = 4 / zoom
+    const radius = 4 / zoom
+    const centerAlongInterval = (start + end) / 2
+
+    context.save()
+    context.setLineDash([])
+    context.fillStyle = GUIDE_COLOR
+    context.strokeStyle = GUIDE_COLOR
+    context.lineWidth = GUIDE_WIDTH / zoom
+    context.font = `${fontSize}px sans-serif`
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+
+    const badgeWidth = context.measureText(text).width + padding * 2
+    const badgeHeight = fontSize + padding * 2
+
+    const x = type === 'vertical' ? axis : centerAlongInterval
+    const y = type === 'vertical' ? centerAlongInterval : axis
+    const rectX = x - (badgeWidth / 2)
+    const rectY = y - (badgeHeight / 2)
+
+    context.beginPath()
+    this._drawRoundedRectPath({
+      context,
+      x: rectX,
+      y: rectY,
+      width: badgeWidth,
+      height: badgeHeight,
+      radius
+    })
+    context.fill()
+
+    context.fillStyle = '#ffffff'
+    context.fillText(text, x, y)
+    context.restore()
+  }
+
+  /**
+   * Строит путь скруглённого прямоугольника.
+   */
+  private _drawRoundedRectPath({
+    context,
+    x,
+    y,
+    width,
+    height,
+    radius
+  }: {
+    context: CanvasRenderingContext2D
+    x: number
+    y: number
+    width: number
+    height: number
+    radius: number
+  }): void {
+    const safeRadius = Math.min(radius, width / 2, height / 2)
+
+    context.moveTo(x + safeRadius, y)
+    context.lineTo(x + width - safeRadius, y)
+    context.quadraticCurveTo(x + width, y, x + width, y + safeRadius)
+    context.lineTo(x + width, y + height - safeRadius)
+    context.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height)
+    context.lineTo(x + safeRadius, y + height)
+    context.quadraticCurveTo(x, y + height, x, y + height - safeRadius)
+    context.lineTo(x, y + safeRadius)
+    context.quadraticCurveTo(x, y, x + safeRadius, y)
+    context.closePath()
   }
 
   /**
