@@ -7,6 +7,14 @@ export type AnchorBuckets = {
   horizontal: number[]
 }
 
+export type SpacingPattern = {
+  type: 'vertical' | 'horizontal'
+  axis: number
+  start: number
+  end: number
+  distance: number
+}
+
 export type GuideBounds = {
   left: number
   right: number

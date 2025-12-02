@@ -18,9 +18,15 @@ import type {
   Bounds,
   GuideBounds,
   GuideLine,
-  SpacingGuide
+  SpacingGuide,
+  SpacingPattern
 } from './types'
-import { collectExcludedObjects, pushBoundsToAnchors, shouldIgnoreObject } from './utils'
+import {
+  buildSpacingPatterns,
+  collectExcludedObjects,
+  pushBoundsToAnchors,
+  shouldIgnoreObject
+} from './utils'
 import { getObjectBounds } from '../utils/geometry'
 
 type TransformEvent = BasicTransformEvent<TPointerEvent> & {
@@ -50,6 +56,19 @@ export default class SnappingManager {
    * Кешированные линии для привязки.
    */
   private anchors: AnchorBuckets = { vertical: [], horizontal: [] }
+
+  /**
+   * Кешированные интервалы между объектами.
+   */
+  private spacingPatterns: { vertical: SpacingPattern[]; horizontal: SpacingPattern[] } = {
+    vertical: [],
+    horizontal: []
+  }
+
+  /**
+   * Кешированные границы доступных объектов.
+   */
+  private cachedTargetBounds: Bounds[] = []
 
   /**
    * Текущие направляющие для отрисовки.
@@ -202,14 +221,17 @@ export default class SnappingManager {
       activeBounds = getObjectBounds({ object: target }) ?? activeBounds
     }
 
-    const candidateBounds = this._collectTargets({ activeObject: target })
-      .map((object) => getObjectBounds({ object }))
-      .filter((bounds): bounds is Bounds => Boolean(bounds))
+    const candidateBounds = this.cachedTargetBounds.length
+      ? this.cachedTargetBounds
+      : this._collectTargets({ activeObject: target })
+        .map((object) => getObjectBounds({ object }))
+        .filter((bounds): bounds is Bounds => Boolean(bounds))
 
     const spacingResult = calculateSpacingSnap({
       activeBounds,
       candidates: candidateBounds,
-      threshold
+      threshold,
+      spacingPatterns: this.spacingPatterns
     })
 
     if (spacingResult.deltaX !== 0 || spacingResult.deltaY !== 0) {
@@ -331,6 +353,8 @@ export default class SnappingManager {
    */
   private _clearAnchors(): void {
     this.anchors = { vertical: [], horizontal: [] }
+    this.spacingPatterns = { vertical: [], horizontal: [] }
+    this.cachedTargetBounds = []
   }
 
   /**
@@ -339,11 +363,13 @@ export default class SnappingManager {
   private _cacheAnchors({ activeObject }: { activeObject?: FabricObject | null }): void {
     const targets = this._collectTargets({ activeObject })
     const nextAnchors: AnchorBuckets = { vertical: [], horizontal: [] }
+    const targetBounds: Bounds[] = []
 
     for (const object of targets) {
       const bounds = getObjectBounds({ object })
       if (!bounds) continue
       pushBoundsToAnchors({ anchors: nextAnchors, bounds })
+      targetBounds.push(bounds)
     }
 
     const { montageArea } = this.editor
@@ -363,6 +389,8 @@ export default class SnappingManager {
     }
 
     this.anchors = nextAnchors
+    this.spacingPatterns = buildSpacingPatterns({ bounds: targetBounds })
+    this.cachedTargetBounds = targetBounds
   }
 
   /**

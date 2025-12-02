@@ -1,4 +1,10 @@
-import type { AnchorBuckets, Bounds, GuideLine, SpacingGuide } from './types'
+import type {
+  AnchorBuckets,
+  Bounds,
+  GuideLine,
+  SpacingGuide,
+  SpacingPattern
+} from './types'
 
 /**
  * Ищет ближайшую линию привязки по одной оси.
@@ -83,16 +89,133 @@ export const calculateSnap = ({
 }
 
 /**
+ * Собирает варианты прилипания на основе заранее рассчитанных расстояний между объектами.
+ */
+const collectPatternSpacingOptions = ({
+  activeBounds,
+  aligned,
+  threshold,
+  patterns,
+  type
+}: {
+  activeBounds: Bounds
+  aligned: Bounds[]
+  threshold: number
+  patterns: SpacingPattern[]
+  type: SpacingPattern['type']
+}): Array<{ delta: number; guide: SpacingGuide; diff: number }> => {
+  if (!aligned.length || !patterns.length) return []
+
+  const {
+    top: activeTop,
+    bottom: activeBottom,
+    left: activeLeft,
+    right: activeRight,
+    centerX,
+    centerY
+  } = activeBounds
+
+  const axisValue = type === 'vertical' ? centerX : centerY
+  const filteredPatterns = patterns.filter((pattern) => Math.abs(pattern.axis - axisValue) <= threshold)
+
+  if (!filteredPatterns.length) return []
+
+  const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
+
+  for (const pattern of filteredPatterns) {
+    for (const candidate of aligned) {
+      if (type === 'vertical') {
+        const gapAbove = activeTop - candidate.bottom
+        const diffAbove = Math.abs(gapAbove - pattern.distance)
+
+        if (diffAbove <= threshold) {
+          const delta = pattern.distance - gapAbove
+          const guide: SpacingGuide = {
+            type,
+            axis: pattern.axis,
+            refStart: pattern.start,
+            refEnd: pattern.end,
+            activeStart: candidate.bottom,
+            activeEnd: candidate.bottom + pattern.distance,
+            distance: pattern.distance
+          }
+
+          options.push({ delta, guide, diff: diffAbove })
+        }
+
+        const gapBelow = candidate.top - activeBottom
+        const diffBelow = Math.abs(gapBelow - pattern.distance)
+
+        if (diffBelow <= threshold) {
+          const delta = pattern.distance - gapBelow
+          const guide: SpacingGuide = {
+            type,
+            axis: pattern.axis,
+            refStart: pattern.start,
+            refEnd: pattern.end,
+            activeStart: candidate.top - pattern.distance,
+            activeEnd: candidate.top,
+            distance: pattern.distance
+          }
+
+          options.push({ delta, guide, diff: diffBelow })
+        }
+      } else {
+        const gapLeft = activeLeft - candidate.right
+        const diffLeft = Math.abs(gapLeft - pattern.distance)
+
+        if (diffLeft <= threshold) {
+          const delta = pattern.distance - gapLeft
+          const guide: SpacingGuide = {
+            type,
+            axis: pattern.axis,
+            refStart: pattern.start,
+            refEnd: pattern.end,
+            activeStart: candidate.right,
+            activeEnd: candidate.right + pattern.distance,
+            distance: pattern.distance
+          }
+
+          options.push({ delta, guide, diff: diffLeft })
+        }
+
+        const gapRight = candidate.left - activeRight
+        const diffRight = Math.abs(gapRight - pattern.distance)
+
+        if (diffRight <= threshold) {
+          const delta = pattern.distance - gapRight
+          const guide: SpacingGuide = {
+            type,
+            axis: pattern.axis,
+            refStart: pattern.start,
+            refEnd: pattern.end,
+            activeStart: candidate.left - pattern.distance,
+            activeEnd: candidate.left,
+            distance: pattern.distance
+          }
+
+          options.push({ delta, guide, diff: diffRight })
+        }
+      }
+    }
+  }
+
+  return options
+}
+
+/**
  * Ищет подходящий вариант равноудалённого прилипания по вертикали.
  */
 export const calculateVerticalSpacing = ({
   activeBounds,
   candidates,
-  threshold
+  threshold,
+  patterns
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
+  patterns: SpacingPattern[]
 }): { delta: number; guide: SpacingGuide | null } => {
   const {
     centerX,
@@ -205,6 +328,15 @@ export const calculateVerticalSpacing = ({
     }
   }
 
+  const patternOptions = collectPatternSpacingOptions({
+    activeBounds,
+    aligned,
+    threshold,
+    patterns,
+    type: 'vertical'
+  })
+  options.push(...patternOptions)
+
   if (!options.length) {
     return { delta: 0, guide: null }
   }
@@ -226,11 +358,13 @@ export const calculateVerticalSpacing = ({
 export const calculateHorizontalSpacing = ({
   activeBounds,
   candidates,
-  threshold
+  threshold,
+  patterns
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
+  patterns: SpacingPattern[]
 }): { delta: number; guide: SpacingGuide | null } => {
   const {
     centerY,
@@ -343,6 +477,15 @@ export const calculateHorizontalSpacing = ({
     }
   }
 
+  const patternOptions = collectPatternSpacingOptions({
+    activeBounds,
+    aligned,
+    threshold,
+    patterns,
+    type: 'horizontal'
+  })
+  options.push(...patternOptions)
+
   if (!options.length) {
     return { delta: 0, guide: null }
   }
@@ -364,21 +507,25 @@ export const calculateHorizontalSpacing = ({
 export const calculateSpacingSnap = ({
   activeBounds,
   candidates,
-  threshold
+  threshold,
+  spacingPatterns
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
+  spacingPatterns: { vertical: SpacingPattern[]; horizontal: SpacingPattern[] }
 }): { deltaX: number; deltaY: number; guides: SpacingGuide[] } => {
   const verticalResult = calculateVerticalSpacing({
     activeBounds,
     candidates,
-    threshold
+    threshold,
+    patterns: spacingPatterns.vertical
   })
   const horizontalResult = calculateHorizontalSpacing({
     activeBounds,
     candidates,
-    threshold
+    threshold,
+    patterns: spacingPatterns.horizontal
   })
 
   const guides: SpacingGuide[] = []
