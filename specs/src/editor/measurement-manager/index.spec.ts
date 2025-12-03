@@ -21,15 +21,14 @@ describe('MeasurementManager', () => {
   it('строит вертикальные и горизонтальные направляющие для цели под курсором', () => {
     const { editor, canvas } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 50, top: 50, width: 40, height: 40, id: 'active' })
     const target = createBoundsObject({ left: 200, top: 120, width: 60, height: 60, id: 'target' })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(target) })
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(target) })
 
-    const guides = managerAny.activeGuides
+    const guides = manager.activeGuides
     const types = guides.map(({ type }: any) => type)
     expect(guides.length).toBeGreaterThanOrEqual(2)
     expect(types).toEqual(expect.arrayContaining(['horizontal', 'vertical']))
@@ -41,14 +40,13 @@ describe('MeasurementManager', () => {
   it('строит направляющие до краёв монтажной области при наведении на пустое место', () => {
     const { editor, canvas } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 100, top: 80, width: 40, height: 40 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(null) })
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(null) })
 
-    const guides = managerAny.activeGuides
+    const guides = manager.activeGuides
     const horizontal = guides.filter((guide: any) => guide.type === 'horizontal')
     const vertical = guides.filter((guide: any) => guide.type === 'vertical')
     expect(horizontal).toHaveLength(2)
@@ -60,14 +58,13 @@ describe('MeasurementManager', () => {
   it('не строит направляющие, если активный объект полностью вне монтажной области', () => {
     const { editor, canvas } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: -50, top: -50, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(null) })
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(null) })
 
-    expect(managerAny.activeGuides).toHaveLength(0)
+    expect(manager.activeGuides).toHaveLength(0)
 
     manager.destroy()
   })
@@ -75,12 +72,11 @@ describe('MeasurementManager', () => {
   it('пропускает измерение при отсутствии активных объектов', () => {
     const { editor } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
 
-    managerAny.isAltPressed = true
-    managerAny._handleMouseMove(buildEvent(null))
+    manager.isAltPressed = true
+    manager._handleMouseMove(buildEvent(null))
 
-    expect(managerAny.activeGuides).toHaveLength(0)
+    expect(manager.activeGuides).toHaveLength(0)
     manager.destroy()
   })
 
@@ -88,15 +84,14 @@ describe('MeasurementManager', () => {
     const { editor, canvas } = createSnappingTestContext()
     const { restore } = mockRaf()
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 60, top: 60, width: 20, height: 20 })
     const target = createBoundsObject({ left: 150, top: 150, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    managerAny._handleMouseMove(buildEvent(target))
-    managerAny._handleKeyDown(new KeyboardEvent('keydown', { key: 'Alt', altKey: true }))
+    manager._handleMouseMove(buildEvent(target))
+    manager._handleKeyDown(new KeyboardEvent('keydown', { key: 'Alt', altKey: true }))
 
-    expect(managerAny.activeGuides.length).toBeGreaterThan(0)
+    expect(manager.activeGuides.length).toBeGreaterThan(0)
     restore()
     manager.destroy()
   })
@@ -104,14 +99,13 @@ describe('MeasurementManager', () => {
   it('не показывает расстояние до стороны, за пределы которой вышел объект', () => {
     const { editor, canvas } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 380, top: 80, width: 40, height: 40 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(null) })
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(null) })
 
-    const guides = managerAny.activeGuides as Array<{ type: string; distance: number }>
+    const guides = manager.activeGuides as Array<{ type: string; distance: number }>
     const horizontal = guides.filter((guide) => guide.type === 'horizontal')
     expect(horizontal).toHaveLength(1)
     expect(horizontal[0].distance).toBe(380)
@@ -123,13 +117,12 @@ describe('MeasurementManager', () => {
     const { editor, canvas } = createSnappingTestContext()
     const labelSpy = jest.spyOn(renderUtils, 'drawGuideLabel')
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 100, top: 100, width: 40, height: 40 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(null) })
-    managerAny._handleAfterRender()
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(null) })
+    manager._handleAfterRender()
 
     expect(labelSpy).toHaveBeenCalled()
     const offsets = labelSpy.mock.calls.map(([args]) => (args as any).offsetAlongAxis)
@@ -142,14 +135,13 @@ describe('MeasurementManager', () => {
     const { editor, canvas } = createSnappingTestContext()
     const labelSpy = jest.spyOn(renderUtils, 'drawGuideLabel')
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 50, top: 50, width: 30, height: 30 })
     const target = createBoundsObject({ left: 150, top: 150, width: 30, height: 30 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(target) })
-    managerAny._handleAfterRender()
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(target) })
+    manager._handleAfterRender()
 
     const offsets = labelSpy.mock.calls.map(([args]) => (args as any).offsetAlongAxis ?? 0)
     expect(offsets.some((offset) => offset !== 0)).toBe(true)
@@ -161,19 +153,18 @@ describe('MeasurementManager', () => {
     const { editor, canvas } = createSnappingTestContext()
     const toolbar = attachToolbarMock(editor)
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 40, top: 40, width: 30, height: 30 })
     const target = createBoundsObject({ left: 100, top: 80, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(target) })
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(target) })
     expect(toolbar.hideTemporarily).toHaveBeenCalled()
-    expect(managerAny.isToolbarHidden).toBe(true)
+    expect(manager.isToolbarHidden).toBe(true)
 
-    managerAny._clearGuides()
+    manager._clearGuides()
     expect(toolbar.showAfterTemporary).toHaveBeenCalled()
-    expect(managerAny.isToolbarHidden).toBe(false)
+    expect(manager.isToolbarHidden).toBe(false)
 
     manager.destroy()
   })
@@ -182,18 +173,17 @@ describe('MeasurementManager', () => {
     const { editor, canvas } = createSnappingTestContext()
     const toolbar = attachToolbarMock(editor)
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 50, top: 50, width: 30, height: 30 })
     const target = createBoundsObject({ left: 120, top: 120, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(target) })
-    expect(managerAny.activeGuides.length).toBeGreaterThan(0)
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(target) })
+    expect(manager.activeGuides.length).toBeGreaterThan(0)
 
-    managerAny._handleWindowBlur()
-    expect(managerAny.activeGuides).toHaveLength(0)
-    expect(managerAny.isAltPressed).toBe(false)
+    manager._handleWindowBlur()
+    expect(manager.activeGuides).toHaveLength(0)
+    expect(manager.isAltPressed).toBe(false)
     expect(toolbar.showAfterTemporary).toHaveBeenCalled()
 
     manager.destroy()
@@ -203,17 +193,16 @@ describe('MeasurementManager', () => {
     const { editor, canvas } = createSnappingTestContext()
     const toolbar = attachToolbarMock(editor)
     const manager = new MeasurementManager({ editor })
-    const managerAny = manager as any
     const active = createBoundsObject({ left: 60, top: 60, width: 30, height: 30 })
     const target = createBoundsObject({ left: 120, top: 120, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    managerAny.isAltPressed = true
-    managerAny._updateGuides({ event: buildEvent(target) })
-    expect(managerAny.activeGuides.length).toBeGreaterThan(0)
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(target) })
+    expect(manager.activeGuides.length).toBeGreaterThan(0)
 
-    managerAny._handleKeyUp(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
-    expect(managerAny.activeGuides).toHaveLength(0)
+    manager._handleKeyUp(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
+    expect(manager.activeGuides).toHaveLength(0)
     expect(toolbar.showAfterTemporary).toHaveBeenCalled()
 
     manager.destroy()
