@@ -1,4 +1,5 @@
 import {
+  ActiveSelection,
   Canvas,
   FabricObject,
   IEvent,
@@ -23,7 +24,8 @@ import {
   isFullTextSelection,
   resolveStrokeColor,
   resolveStrokeWidth,
-  toUpperCaseSafe
+  toUpperCaseSafe,
+  type TextSelectionRange
 } from '../utils/text'
 
 type TextCreationFlags = {
@@ -104,10 +106,13 @@ type CornerRadiiValues = {
   topRight: number
 }
 
+type TextboxStyles = Record<string, Record<string, TextboxProps>>
+
 type ScalingState = {
   baseWidth: number
   baseLeft: number
   baseFontSize: number
+  baseStyles: TextboxStyles
   basePadding: PaddingValues
   baseRadii: CornerRadiiValues
   hasWidthChange: boolean
@@ -334,15 +339,19 @@ export default class TextManager {
 
     const updates: Partial<BackgroundTextboxProps> = { ...rest }
     const selectionRange = getSelectionRange({ textbox })
+    const fontSelectionRange = selectionRange
+      ? this._expandRangeToFullLines({ textbox, range: selectionRange })
+      : null
     const selectionStyles: Partial<TextboxProps> = {}
+    const lineSelectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
     const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
     const shouldUpdateWholeObject = !selectionRange || isSelectionForWholeText
     const shouldApplyWholeTextStyles = !selectionRange
 
     if (fontFamily !== undefined) {
-      if (selectionRange) {
-        selectionStyles.fontFamily = fontFamily
+      if (fontSelectionRange) {
+        lineSelectionStyles.fontFamily = fontFamily
       }
 
       if (shouldUpdateWholeObject) {
@@ -354,7 +363,16 @@ export default class TextManager {
     }
 
     if (fontSize !== undefined) {
-      updates.fontSize = fontSize
+      if (fontSelectionRange) {
+        lineSelectionStyles.fontSize = fontSize
+      }
+
+      if (shouldUpdateWholeObject) {
+        updates.fontSize = fontSize
+        if (shouldApplyWholeTextStyles) {
+          wholeTextStyles.fontSize = fontSize
+        }
+      }
     }
 
     if (bold !== undefined) {
@@ -528,7 +546,11 @@ export default class TextManager {
 
     let stylesApplied = false
     if (selectionRange) {
-      stylesApplied = applyStylesToRange({ textbox, styles: selectionStyles, range: selectionRange })
+      const selectionApplied = applyStylesToRange({ textbox, styles: selectionStyles, range: selectionRange })
+      const lineApplied = fontSelectionRange
+        ? applyStylesToRange({ textbox, styles: lineSelectionStyles, range: fontSelectionRange })
+        : false
+      stylesApplied = selectionApplied || lineApplied
     } else if (Object.keys(wholeTextStyles).length) {
       const fullRange = getFullTextRange({ textbox })
       if (fullRange) {
@@ -714,6 +736,13 @@ export default class TextManager {
     // При масштабировании текстовых объектов пересчитываем ширину/кегль и сбрасываем scale,
     // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
     const { target, transform } = event
+    if (target instanceof ActiveSelection) {
+      this._handleActiveSelectionScaling({
+        selection: target,
+        transform
+      })
+      return
+    }
     if (!TextManager._isTextbox(target)) return
     if (!transform) return
 
@@ -725,7 +754,8 @@ export default class TextManager {
       baseLeft: stateBaseLeft,
       baseFontSize,
       basePadding,
-      baseRadii
+      baseRadii,
+      baseStyles
     } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
     const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
@@ -737,6 +767,7 @@ export default class TextManager {
     const isHorizontalHandle = ['ml', 'mr'].includes(corner) || action === 'scaleX'
     const isVerticalHandle = ['mt', 'mb'].includes(corner) || action === 'scaleY'
     const isCornerHandle = ['tl', 'tr', 'bl', 'br'].includes(corner) || action === 'scale'
+    const shouldScaleFontSize = isCornerHandle || isVerticalHandle
 
     if (!isHorizontalHandle && !isVerticalHandle && !isCornerHandle) return
 
@@ -775,6 +806,35 @@ export default class TextManager {
         bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
       }
       : baseRadii
+    const hasBaseStyles = Object.keys(baseStyles).length > 0
+    let nextStyles: EditorTextbox['styles'] | undefined
+    if (shouldScaleFontSize && hasBaseStyles) {
+      const scaledStyles: TextboxStyles = {}
+
+      Object.entries(baseStyles).forEach(([lineIndex, lineStyles]) => {
+        if (!lineStyles) return
+
+        const scaledLineStyles: Record<string, TextboxProps> = {}
+        Object.entries(lineStyles as Record<string, TextboxProps>).forEach(([charIndex, charStyle]) => {
+          if (!charStyle) return
+
+          const nextCharStyle: TextboxProps = { ...charStyle }
+          if (typeof charStyle.fontSize === 'number') {
+            nextCharStyle.fontSize = Math.max(1, charStyle.fontSize * heightScale)
+          }
+
+          scaledLineStyles[charIndex] = nextCharStyle
+        })
+
+        if (Object.keys(scaledLineStyles).length) {
+          scaledStyles[lineIndex] = scaledLineStyles
+        }
+      })
+
+      if (Object.keys(scaledStyles).length) {
+        nextStyles = scaledStyles
+      }
+    }
 
     const originX = transform.originX ?? targetOriginX ?? 'left'
     const rightEdge = baseLeft + baseWidth
@@ -799,9 +859,13 @@ export default class TextManager {
       return
     }
 
+    if (nextStyles) {
+      target.styles = nextStyles
+    }
+
     target.set({
       width: nextWidth,
-      fontSize: isCornerHandle || isVerticalHandle ? nextFontSize : baseFontSize,
+      fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
       paddingTop: nextPadding.top,
       paddingRight: nextPadding.right,
       paddingBottom: nextPadding.bottom,
@@ -846,6 +910,7 @@ export default class TextManager {
 
     state.baseWidth = appliedWidth
     state.baseFontSize = target.fontSize ?? nextFontSize
+    state.baseStyles = JSON.parse(JSON.stringify(target.styles ?? {})) as TextboxStyles
     state.basePadding = {
       top: nextPadding.top,
       right: nextPadding.right,
@@ -866,6 +931,12 @@ export default class TextManager {
    */
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
+    if (target instanceof ActiveSelection) {
+      this._finalizeActiveSelectionScaling({
+        selection: target
+      })
+      return
+    }
     if (!TextManager._isTextbox(target)) return
 
     target.isScaling = false
@@ -878,6 +949,7 @@ export default class TextManager {
     // чтобы излишние scaleX/scaleY не попадали в историю.
     const width = target.width ?? target.calcTextWidth()
     const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
+    const hasInlineStyles = Boolean(state.baseStyles && Object.keys(state.baseStyles).length)
     const {
       paddingTop = 0,
       paddingRight = 0,
@@ -889,24 +961,148 @@ export default class TextManager {
       radiusBottomLeft = 0
     } = target
 
+    const styleUpdates: Partial<BackgroundTextboxProps> = {
+      width,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft
+    }
+
+    if (!hasInlineStyles) {
+      styleUpdates.fontSize = fontSize
+    }
+
     this.updateText({
       target,
-      style: {
-        width,
-        fontSize,
-        paddingTop,
-        paddingRight,
-        paddingBottom,
-        paddingLeft,
-        radiusTopLeft,
-        radiusTopRight,
-        radiusBottomRight,
-        radiusBottomLeft
-      }
+      style: styleUpdates
     })
 
     target.set({ scaleX: 1, scaleY: 1 })
     target.setCoords()
+  }
+
+  /**
+   * Обрабатывает горизонтальное масштабирование ActiveSelection: расширяет текстовые блоки по ширине без растяжения шрифта.
+   */
+  private _handleActiveSelectionScaling(
+    {
+      selection,
+      transform
+    }: {
+      selection: ActiveSelection
+      transform?: Transform
+    }
+  ): void {
+    const corner = transform?.corner ?? ''
+    const action = transform?.action ?? ''
+    const isHorizontalHandle = ['ml', 'mr', 'tl', 'tr', 'bl', 'br'].includes(corner) || action === 'scaleX' || action === 'scale'
+    if (!isHorizontalHandle) return
+
+    const scaleX = Math.abs(selection.scaleX ?? transform?.scaleX ?? 1) || 1
+    const inverseScaleX = scaleX === 0 ? 1 : 1 / scaleX
+
+    selection.getObjects().forEach((object) => {
+      if (!TextManager._isTextbox(object)) return
+
+      const state = this._ensureScalingState(object)
+      const nextWidth = Math.max(1, state.baseWidth * scaleX)
+
+      object.set({
+        width: nextWidth,
+        scaleX: inverseScaleX,
+        scaleY: 1
+      })
+      object.setCoords()
+      object.dirty = true
+    })
+
+    selection.setCoords()
+    this.canvas.requestRenderAll()
+  }
+
+  /**
+   * Завершает масштабирование ActiveSelection: фиксирует новую ширину текстовых объектов и сбрасывает компенсационный scale.
+   */
+  private _finalizeActiveSelectionScaling(
+    {
+      selection
+    }: {
+      selection: ActiveSelection
+    }
+  ): void {
+    const scaleX = Math.abs(selection.scaleX ?? 1) || 1
+    const textboxes = selection.getObjects().filter((object): object is EditorTextbox => TextManager._isTextbox(object))
+    if (!textboxes.length) return
+
+    textboxes.forEach((textbox) => {
+      const state = this._ensureScalingState(textbox)
+      const nextWidth = Math.max(1, state.baseWidth * scaleX)
+
+      textbox.set({
+        width: nextWidth,
+        scaleX: 1,
+        scaleY: 1
+      })
+      textbox.setCoords()
+      textbox.dirty = true
+      this.scalingState.delete(textbox)
+    })
+
+    selection.set({
+      scaleX: 1
+    })
+    selection.setCoords()
+    this.canvas.requestRenderAll()
+  }
+
+  /**
+   * Возвращает диапазоны символов для каждой строки текста без учёта символов переноса.
+   */
+  private _getLineRanges({ textbox }: { textbox: EditorTextbox }): TextSelectionRange[] {
+    const text = textbox.text ?? ''
+    if (!text.length) return []
+
+    const lines = text.split('\n')
+    let offset = 0
+
+    return lines.map((line) => {
+      const start = offset
+      const end = offset + line.length
+      offset = end + 1
+      return { start, end }
+    })
+  }
+
+  /**
+   * Расширяет выделение до полных строк, которые оно пересекает.
+   */
+  private _expandRangeToFullLines({
+    textbox,
+    range
+  }: {
+    textbox: EditorTextbox
+    range: TextSelectionRange
+  }): TextSelectionRange {
+    const lineRanges = this._getLineRanges({ textbox })
+    if (!lineRanges.length) return range
+
+    let start = range.start
+    let end = range.end
+
+    lineRanges.forEach(({ start: lineStart, end: lineEnd }) => {
+      const intersectsLine = range.end > lineStart && range.start < lineEnd
+      if (!intersectsLine) return
+
+      start = Math.min(start, lineStart)
+      end = Math.max(end, lineEnd)
+    })
+
+    return { start, end }
   }
 
   /**
@@ -919,6 +1115,7 @@ export default class TextManager {
       const baseWidth = textbox.width ?? textbox.calcTextWidth()
       const baseLeft = textbox.left ?? 0
       const baseFontSize = textbox.fontSize ?? 16
+      const { styles: textboxStyles = {} } = textbox
       const {
         paddingTop = 0,
         paddingRight = 0,
@@ -931,7 +1128,7 @@ export default class TextManager {
         radiusBottomRight = 0,
         radiusBottomLeft = 0
       } = textbox
-      // Храним базовые размеры для одного цикла масштабирования.
+      // Храним базовые размеры и стили для одного цикла масштабирования.
       state = {
         baseWidth,
         baseFontSize,
@@ -948,6 +1145,7 @@ export default class TextManager {
           bottomRight: radiusBottomRight,
           bottomLeft: radiusBottomLeft
         },
+        baseStyles: JSON.parse(JSON.stringify(textboxStyles)) as TextboxStyles,
         hasWidthChange: false
       }
       this.scalingState.set(textbox, state)

@@ -141,7 +141,42 @@ import {
   removeBackground
 } from './methods.js'
 
-import { OBJECT_SERIALIZATION_PROPS } from '../../editor/history-manager'
+const OBJECT_SERIALIZATION_PROPS = [
+  'selectable',
+  'evented',
+  'id',
+  'backgroundId',
+  'customData',
+  'backgroundType',
+  'format',
+  'width',
+  'height',
+  'locked',
+  'lockMovementX',
+  'lockMovementY',
+  'lockRotation',
+  'lockScalingX',
+  'lockScalingY',
+  'lockSkewingX',
+  'lockSkewingY',
+  'styles',
+  'textCaseRaw',
+  'uppercase',
+  'linethrough',
+  'underline',
+  'fontStyle',
+  'fontWeight',
+  'backgroundColor',
+  'backgroundOpacity',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
+]
 
 export default (editorInstance) => {
   const TEXT_FILL_PALETTE = [

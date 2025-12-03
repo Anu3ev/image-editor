@@ -178,9 +178,9 @@ describe('TextManager', () => {
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
       expect(textbox.dirty).toBe(true)
 
-      // Глобальные свойства не меняются при частичном выделении (кроме fontSize)
+      // Глобальные свойства не меняются при частичном выделении
       expect(textbox.fontFamily).toBe('Arial')
-      expect(textbox.fontSize).toBe(64)
+      expect(textbox.fontSize).toBe(32)
       expect(textbox.fill).toBe('#222222')
       expect(textbox.stroke).toBe('#333333')
       expect(textbox.strokeWidth).toBe(2)
@@ -208,6 +208,50 @@ describe('TextManager', () => {
         fontStyle: 'italic',
         fill: '#ff0000'
       })
+    })
+
+    it('применяет fontSize и fontFamily ко всей строке, если выделена её часть', () => {
+      const {
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'first line\nsecond line',
+        fontFamily: 'Arial',
+        fontSize: 32
+      })
+
+      const newlineIndex = (textbox.text ?? '').indexOf('\n')
+      expect(newlineIndex).toBeGreaterThan(0)
+
+      textbox.isEditing = true
+      textbox.selectionStart = 2
+      textbox.selectionEnd = 4
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          fontSize: 50,
+          fontFamily: 'Roboto'
+        }
+      })
+
+      const firstLineStyles = textbox.getSelectionStyles(0, newlineIndex)
+      expect(firstLineStyles).toHaveLength(newlineIndex)
+      firstLineStyles.forEach((style) => {
+        expect(style.fontSize).toBe(50)
+        expect(style.fontFamily).toBe('Roboto')
+      })
+
+      const secondLineStyles = textbox.getSelectionStyles(newlineIndex, textbox.text?.length ?? 0)
+      secondLineStyles.forEach((style) => {
+        expect(style.fontSize).toBeUndefined()
+        expect(style.fontFamily).toBeUndefined()
+      })
+
+      expect(textbox.fontSize).toBe(32)
+      expect(textbox.fontFamily).toBe('Arial')
     })
 
     it('синхронизирует базовые стили объекта, если выделён весь текст', () => {
