@@ -1179,7 +1179,9 @@ export default (editorInstance) => {
       syncTextControls(event.target)
     }
 
-    activeObjectJsonInput.value = ''
+    if (activeObjectJsonInput) {
+      activeObjectJsonInput.value = ''
+    }
   })
 
   editorInstance.canvas.on('editor:display-width-changed', () => {
