@@ -59,6 +59,11 @@ export default class ToolbarManager {
   public isTransforming: boolean = false
 
   /**
+   * Флаг временного скрытия панели инструментов внешними режимами.
+   */
+  public isTemporarilyHidden: boolean = false
+
+  /**
    * Обработчик события нажатия мыши.
    */
   private _onMouseDown!: (opt: TPointerEventInfo<TPointerEvent>) => void
@@ -162,6 +167,7 @@ export default class ToolbarManager {
     this.currentTarget = null
     this.currentLocked = false
     this.isTransforming = false
+    this.isTemporarilyHidden = false
 
     this._onMouseDown = this._handleMouseDown.bind(this)
     this._onObjectMoving = this._startTransform.bind(this)
@@ -259,6 +265,26 @@ export default class ToolbarManager {
   }
 
   /**
+   * Временно скрывает панель инструментов до повторного показа.
+   */
+  public hideTemporarily(): void {
+    if (!this.options.showToolbar || !this.el) return
+
+    this.isTemporarilyHidden = true
+    this.el.style.display = 'none'
+  }
+
+  /**
+   * Показывает панель инструментов после временного скрытия.
+   */
+  public showAfterTemporary(): void {
+    if (!this.options.showToolbar || !this.el) return
+
+    this.isTemporarilyHidden = false
+    this._updateToolbar()
+  }
+
+  /**
    * На время трансформации скрываем тулбар
    */
   private _handleMouseDown(opt: TPointerEventInfo<TPointerEvent>): void {
@@ -287,7 +313,7 @@ export default class ToolbarManager {
    * Обновляет панель инструментов в зависимости от выделенного объекта и его состояния
    */
   private _updateToolbar(): void {
-    if (this.isTransforming) return
+    if (this.isTransforming || this.isTemporarilyHidden) return
 
     const obj = this.canvas.getActiveObject()
     if (!obj) {
@@ -316,7 +342,7 @@ export default class ToolbarManager {
    * Обновляет позицию панели инструментов в зависимости от положения выделенного объекта
    */
   private _updatePos(): void {
-    if (this.isTransforming) return
+    if (this.isTransforming || this.isTemporarilyHidden) return
 
     const obj = this.canvas.getActiveObject()
 

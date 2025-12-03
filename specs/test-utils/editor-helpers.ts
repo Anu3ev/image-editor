@@ -458,15 +458,19 @@ export const createSnappingTestContext = () => {
     beginPath: jest.fn(),
     moveTo: jest.fn(),
     lineTo: jest.fn(),
+    quadraticCurveTo: jest.fn(),
+    closePath: jest.fn(),
     stroke: jest.fn(),
     setLineDash: jest.fn(),
     fillText: jest.fn(),
+    fill: jest.fn(),
     fillStyle: '',
     font: '',
     textAlign: 'center' as CanvasTextAlign,
     textBaseline: 'middle' as CanvasTextBaseline,
     lineWidth: 0,
-    strokeStyle: ''
+    strokeStyle: '',
+    measureText: jest.fn(() => ({ width: 10 }))
   }
 
   const canvas = {
@@ -500,6 +504,20 @@ export const createSnappingTestContext = () => {
     canvas,
     objects
   }
+}
+
+export const setActiveObjects = (canvas: any, objects: any[]) => {
+  canvas.getActiveObjects.mockReturnValue(objects)
+  canvas.getActiveObject.mockReturnValue(objects[0] ?? null)
+}
+
+export const attachToolbarMock = (editor: any) => {
+  const toolbar = {
+    hideTemporarily: jest.fn(),
+    showAfterTemporary: jest.fn()
+  }
+  editor.toolbar = toolbar
+  return toolbar
 }
 
 export type HistoryManagerTestSetupOptions = {

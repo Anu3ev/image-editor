@@ -23,11 +23,13 @@ import type {
 } from './types'
 import {
   buildSpacingPatterns,
-  collectExcludedObjects,
-  pushBoundsToAnchors,
-  shouldIgnoreObject
+  pushBoundsToAnchors
 } from './utils'
 import { getObjectBounds } from '../utils/geometry'
+import {
+  collectExcludedObjects,
+  shouldIgnoreObject
+} from '../utils/object-filter'
 
 type TransformEvent = BasicTransformEvent<TPointerEvent> & {
   target?: FabricObject | null
