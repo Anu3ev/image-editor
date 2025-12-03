@@ -141,6 +141,8 @@ import {
   removeBackground
 } from './methods.js'
 
+import { OBJECT_SERIALIZATION_PROPS } from '../../editor/history-manager'
+
 export default (editorInstance) => {
   const TEXT_FILL_PALETTE = [
     '#000000',
@@ -277,7 +279,7 @@ export default (editorInstance) => {
 
     try {
       const serialized = typeof activeObject.toDatalessObject === 'function'
-        ? activeObject.toDatalessObject()
+        ? activeObject.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
         : activeObject.toObject?.()
       const json = serialized ? JSON.stringify(serialized, null, ACTIVE_OBJECT_JSON_SPACES) : ''
       activeObjectJsonInput.value = json
