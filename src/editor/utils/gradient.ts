@@ -40,6 +40,11 @@ export const convertGradientToOptions = (fill: unknown): GradientBackground | nu
   const startPosition = typeof firstStop?.offset === 'number' ? firstStop.offset * 100 : undefined
   const endPosition = typeof lastStop?.offset === 'number' ? lastStop.offset * 100 : undefined
 
+  const mappedStops = stops.map((stop) => ({
+    color: typeof stop.color === 'string' ? stop.color : '#000000',
+    offset: typeof stop.offset === 'number' ? stop.offset * 100 : 0
+  }))
+
   if (!startColor || !endColor || !coords) return null
 
   if (type === 'linear') {
@@ -59,7 +64,8 @@ export const convertGradientToOptions = (fill: unknown): GradientBackground | nu
         startColor,
         endColor,
         startPosition,
-        endPosition
+        endPosition,
+        colorStops: mappedStops
       }
     }
   }
@@ -80,7 +86,8 @@ export const convertGradientToOptions = (fill: unknown): GradientBackground | nu
         startColor,
         endColor,
         startPosition,
-        endPosition
+        endPosition,
+        colorStops: mappedStops
       }
     }
   }

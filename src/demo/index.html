@@ -498,12 +498,13 @@
                   </select>
                 </div>
                 <div class="mb-2">
-                  <label for="gradient-start-color" class="form-label">Start Color:</label>
-                  <input type="color" class="form-control form-control-color" id="gradient-start-color" value="#79F1A4">
-                </div>
-                <div class="mb-2">
-                  <label for="gradient-end-color" class="form-label">End Color:</label>
-                  <input type="color" class="form-control form-control-color" id="gradient-end-color" value="#0E5CAD">
+                  <label class="form-label">Color Stops:</label>
+                  <div id="gradient-stops-container" class="d-flex flex-column gap-2 mb-2">
+                    <!-- Stops will be injected here -->
+                  </div>
+                  <button class="btn btn-outline-secondary btn-sm w-100" id="add-gradient-stop-btn">
+                    Add Color Stop
+                  </button>
                 </div>
                 <div id="linear-gradient-controls" class="mb-2">
                   <label for="gradient-angle" class="form-label">Angle:</label>

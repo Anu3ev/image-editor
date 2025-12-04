@@ -71,7 +71,8 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
       startColor,
       endColor,
       startPosition: 0,
-      endPosition: 100
+      endPosition: 100,
+      colorStops: options.colorStops
     }
   } else {
     gradient = {
@@ -80,7 +81,8 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
       startColor,
       endColor,
       startPosition: 0,
-      endPosition: 100
+      endPosition: 100,
+      colorStops: options.colorStops
     }
   }
 
