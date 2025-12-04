@@ -227,7 +227,7 @@ export default class ControlsCustomizer {
   }
 
   /**
-   * Блокирует вертикальное масштабирование для ActiveSelection, если в нём есть текстовые объекты.
+   * Блокирует горизонтальное масштабирование ActiveSelection, если в выделении есть текстовые объекты.
    */
   private static applyTextSelectionScalingLock(
     {
@@ -239,12 +239,18 @@ export default class ControlsCustomizer {
     }
   ): void {
     const hasText = objects.some((object) => object instanceof Textbox)
+    const isMultiSelection = selection instanceof ActiveSelection && objects.length > 1
+    const lockHorizontal = hasText && isMultiSelection
+
     selection.set({
-      lockScalingY: hasText
+      lockScalingY: hasText,
+      lockScalingX: lockHorizontal
     })
     selection.setControlsVisibility({
       mt: !hasText,
-      mb: !hasText
+      mb: !hasText,
+      ml: !lockHorizontal,
+      mr: !lockHorizontal
     })
   }
 }

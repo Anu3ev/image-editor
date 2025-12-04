@@ -757,16 +757,33 @@ export default class TextManager {
 
   /**
    * Обрабатывает масштабирование текстового объекта: пересчитывает ширину, кегль и паддинги/радиусы.
+   * Для ActiveSelection с текстом блокирует горизонтальное масштабирование.
    */
   private _handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
     // При масштабировании текстовых объектов пересчитываем ширину/кегль и сбрасываем scale,
     // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
     const { target, transform } = event
     if (target instanceof ActiveSelection) {
-      this._handleActiveSelectionScaling({
-        selection: target,
-        transform
+      const objects = target.getObjects?.() ?? []
+      const hasText = objects.some((object) => TextManager._isTextbox(object))
+      if (!hasText) return
+
+      const {
+        corner = '',
+        action = ''
+      } = transform ?? {}
+      const hasHorizontalComponent = ['ml', 'mr', 'tl', 'tr', 'bl', 'br'].includes(corner) || action === 'scaleX' || action === 'scale'
+      if (!hasHorizontalComponent || !transform) return
+
+      target.set({
+        scaleX: 1
       })
+      transform.scaleX = 1
+      if (transform.original) {
+        transform.original.scaleX = 1
+      }
+      target.setCoords()
+      this.canvas.requestRenderAll()
       return
     }
     if (!TextManager._isTextbox(target)) return
@@ -968,12 +985,7 @@ export default class TextManager {
    */
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
-    if (target instanceof ActiveSelection) {
-      this._finalizeActiveSelectionScaling({
-        selection: target
-      })
-      return
-    }
+    if (target instanceof ActiveSelection) return
     if (!TextManager._isTextbox(target)) return
 
     target.isScaling = false
@@ -1021,84 +1033,6 @@ export default class TextManager {
 
     target.set({ scaleX: 1, scaleY: 1 })
     target.setCoords()
-  }
-
-  /**
-   * Обрабатывает горизонтальное масштабирование ActiveSelection: расширяет текстовые блоки по ширине без растяжения шрифта.
-   */
-  private _handleActiveSelectionScaling(
-    {
-      selection,
-      transform
-    }: {
-      selection: ActiveSelection
-      transform?: Transform
-    }
-  ): void {
-    const corner = transform?.corner ?? ''
-    const action = transform?.action ?? ''
-    const isHorizontalHandle = ['ml', 'mr', 'tl', 'tr', 'bl', 'br'].includes(corner) || action === 'scaleX' || action === 'scale'
-    if (!isHorizontalHandle) return
-
-    const scaleX = Math.abs(selection.scaleX ?? transform?.scaleX ?? 1) || 1
-    const inverseScaleX = scaleX === 0 ? 1 : 1 / scaleX
-
-    selection.getObjects().forEach((object) => {
-      if (!TextManager._isTextbox(object)) return
-
-      const state = this._ensureScalingState(object)
-      const nextWidth = Math.max(1, Math.round(state.baseWidth * scaleX))
-
-      object.set({
-        width: nextWidth,
-        scaleX: inverseScaleX,
-        scaleY: 1
-      })
-
-      TextManager._roundTextboxDimensions({ textbox: object })
-
-      object.setCoords()
-      object.dirty = true
-    })
-
-    selection.setCoords()
-    this.canvas.requestRenderAll()
-  }
-
-  /**
-   * Завершает масштабирование ActiveSelection: фиксирует новую ширину текстовых объектов и сбрасывает компенсационный scale.
-   */
-  private _finalizeActiveSelectionScaling(
-    {
-      selection
-    }: {
-      selection: ActiveSelection
-    }
-  ): void {
-    const scaleX = Math.abs(selection.scaleX ?? 1) || 1
-    const textboxes = selection.getObjects().filter((object): object is EditorTextbox => TextManager._isTextbox(object))
-    if (!textboxes.length) return
-
-    textboxes.forEach((textbox) => {
-      const state = this._ensureScalingState(textbox)
-      const nextWidth = Math.max(1, Math.round(state.baseWidth * scaleX))
-
-      textbox.set({
-        width: nextWidth,
-        scaleX: 1,
-        scaleY: 1
-      })
-      TextManager._roundTextboxDimensions({ textbox })
-      textbox.setCoords()
-      textbox.dirty = true
-      this.scalingState.delete(textbox)
-    })
-
-    selection.set({
-      scaleX: 1
-    })
-    selection.setCoords()
-    this.canvas.requestRenderAll()
   }
 
   /**

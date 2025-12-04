@@ -38,7 +38,7 @@ function importImage(e, editorInstance) {
 
 // Сохранение результата
 async function saveResult(editorInstance) {
-  const { image } = await editorInstance.imageManager.exportCanvasAsImageFile({ contentType: 'image/svg+xml' })
+  const { image } = await editorInstance.imageManager.exportCanvasAsImageFile({ contentType: 'image/png' })
 
   const url = URL.createObjectURL(image)
   const link = document.createElement('a')
