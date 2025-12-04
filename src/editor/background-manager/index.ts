@@ -8,13 +8,19 @@ export type SetColorOptions = {
   withoutSave?: boolean
 }
 
+export type GradientColorStop = {
+  color: string
+  offset: number // позиция цвета в процентах (0-100)
+}
+
 export type LinearGradientBackground = {
   type: 'linear'
   angle: number // угол в градусах (0-360)
-  startColor: string // HEX цвет начала градиента
-  endColor: string // HEX цвет конца градиента
+  startColor?: string // HEX цвет начала градиента (опционально, если есть colorStops)
+  endColor?: string // HEX цвет конца градиента (опционально, если есть colorStops)
   startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
   endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
+  colorStops?: GradientColorStop[] // Массив цветов градиента
 }
 
 export type RadialGradientBackground = {
@@ -22,10 +28,11 @@ export type RadialGradientBackground = {
   centerX?: number // позиция центра по X в процентах (0-100, по умолчанию 50)
   centerY?: number // позиция центра по Y в процентах (0-100, по умолчанию 50)
   radius?: number // радиус в процентах (0-100, по умолчанию 50)
-  startColor: string // HEX цвет центра градиента
-  endColor: string // HEX цвет края градиента
+  startColor?: string // HEX цвет центра градиента (опционально, если есть colorStops)
+  endColor?: string // HEX цвет края градиента (опционально, если есть colorStops)
   startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
   endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
+  colorStops?: GradientColorStop[] // Массив цветов градиента
 }
 
 export type GradientBackground = LinearGradientBackground | RadialGradientBackground
@@ -217,14 +224,16 @@ export default class BackgroundManager {
     endColor,
     startPosition,
     endPosition,
+    colorStops,
     customData = {},
     withoutSave = false
   }: {
     angle: number
-    startColor: string
-    endColor: string
+    startColor?: string
+    endColor?: string
     startPosition?: number
     endPosition?: number
+    colorStops?: GradientColorStop[]
     customData?: object
     withoutSave?: boolean
   }): void {
@@ -235,7 +244,8 @@ export default class BackgroundManager {
         startColor,
         endColor,
         startPosition,
-        endPosition
+        endPosition,
+        colorStops
       },
       customData,
       withoutSave
@@ -254,16 +264,18 @@ export default class BackgroundManager {
     endColor,
     startPosition,
     endPosition,
+    colorStops,
     customData = {},
     withoutSave = false
   }: {
     centerX?: number
     centerY?: number
     radius?: number
-    startColor: string
-    endColor: string
+    startColor?: string
+    endColor?: string
     startPosition?: number
     endPosition?: number
+    colorStops?: GradientColorStop[]
     customData?: object
     withoutSave?: boolean
   }): void {
@@ -276,7 +288,8 @@ export default class BackgroundManager {
         startColor,
         endColor,
         startPosition,
-        endPosition
+        endPosition,
+        colorStops
       },
       customData,
       withoutSave
@@ -478,14 +491,30 @@ export default class BackgroundManager {
       startColor,
       endColor,
       startPosition = 0,
-      endPosition = 100
+      endPosition = 100,
+      colorStops: providedStops
     } = gradient
 
     // Создаем цветовые остановки
-    const colorStops = [
-      { offset: startPosition / 100, color: startColor },
-      { offset: endPosition / 100, color: endColor }
-    ]
+    let colorStops: Array<{ offset: number; color: string }>
+
+    if (providedStops && providedStops.length > 0) {
+      colorStops = providedStops.map((stop) => ({
+        offset: stop.offset / 100,
+        color: stop.color
+      }))
+    } else if (startColor && endColor) {
+      colorStops = [
+        { offset: startPosition / 100, color: startColor },
+        { offset: endPosition / 100, color: endColor }
+      ]
+    } else {
+      // Fallback если цвета не переданы
+      colorStops = [
+        { offset: 0, color: '#000000' },
+        { offset: 1, color: '#ffffff' }
+      ]
+    }
 
     if (gradient.type === 'linear') {
       // Конвертируем угол в координаты для Fabric.js

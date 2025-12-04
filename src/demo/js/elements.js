@@ -136,8 +136,8 @@ export const setColorBackgroundBtn = document.getElementById('set-color-backgrou
 export const gradientTypeSelect = document.getElementById('gradient-type')
 export const linearGradientControls = document.getElementById('linear-gradient-controls')
 export const radialGradientControls = document.getElementById('radial-gradient-controls')
-export const gradientStartColorInput = document.getElementById('gradient-start-color')
-export const gradientEndColorInput = document.getElementById('gradient-end-color')
+export const gradientStopsContainer = document.getElementById('gradient-stops-container')
+export const addGradientStopBtn = document.getElementById('add-gradient-stop-btn')
 
 // Linear gradient controls
 export const gradientAngleInput = document.getElementById('gradient-angle')

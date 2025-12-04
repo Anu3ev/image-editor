@@ -110,8 +110,8 @@ import {
   gradientTypeSelect,
   linearGradientControls,
   radialGradientControls,
-  gradientStartColorInput,
-  gradientEndColorInput,
+  gradientStopsContainer,
+  addGradientStopBtn,
   // Linear gradient controls
   gradientAngleInput,
   gradientAngleValue,
@@ -1347,9 +1347,60 @@ export default (editorInstance) => {
   })
 
   // Gradient background
+  const createGradientStopElement = (color = '#000000', offset = 0) => {
+    const container = document.createElement('div')
+    container.className = 'd-flex gap-2 align-items-center gradient-stop-row'
+
+    const colorInput = document.createElement('input')
+    colorInput.type = 'color'
+    colorInput.className = 'form-control form-control-color form-control-sm'
+    colorInput.value = color
+
+    const offsetInput = document.createElement('input')
+    offsetInput.type = 'number'
+    offsetInput.className = 'form-control form-control-sm'
+    offsetInput.min = '0'
+    offsetInput.max = '100'
+    offsetInput.value = offset
+    offsetInput.placeholder = '%'
+
+    const removeBtn = document.createElement('button')
+    removeBtn.className = 'btn btn-outline-danger btn-sm'
+    removeBtn.textContent = '×'
+    removeBtn.title = 'Remove stop'
+    removeBtn.onclick = () => container.remove()
+
+    container.appendChild(colorInput)
+    container.appendChild(offsetInput)
+    container.appendChild(removeBtn)
+
+    return container
+  }
+
+  const getGradientStops = () => {
+    const rows = gradientStopsContainer.querySelectorAll('.gradient-stop-row')
+    const stops = []
+    rows.forEach((row) => {
+      const inputs = row.querySelectorAll('input')
+      const color = inputs[0].value
+      const offset = Number(inputs[1].value)
+      stops.push({ color, offset })
+    })
+    return stops.sort((a, b) => a.offset - b.offset)
+  }
+
+  // Initialize default stops
+  if (gradientStopsContainer.children.length === 0) {
+    gradientStopsContainer.appendChild(createGradientStopElement('#79F1A4', 0))
+    gradientStopsContainer.appendChild(createGradientStopElement('#0E5CAD', 100))
+  }
+
+  addGradientStopBtn.addEventListener('click', () => {
+    gradientStopsContainer.appendChild(createGradientStopElement('#ffffff', 50))
+  })
+
   setGradientBackgroundBtn.addEventListener('click', () => {
-    const startColor = gradientStartColorInput.value
-    const endColor = gradientEndColorInput.value
+    const colorStops = getGradientStops()
     const gradientType = gradientTypeSelect.value
 
     if (gradientType === 'radial') {
@@ -1357,15 +1408,17 @@ export default (editorInstance) => {
       const centerY = parseFloat(gradientCenterYInput.value)
       const radius = parseFloat(gradientRadiusInput.value)
 
-      setGradientBackground(editorInstance, startColor, endColor, 'radial', {
+      setGradientBackground(editorInstance, null, null, 'radial', {
         centerX,
         centerY,
-        radius
+        radius,
+        colorStops
       })
     } else {
       const angle = gradientAngleInput.value
-      setGradientBackground(editorInstance, startColor, endColor, 'linear', {
-        angle
+      setGradientBackground(editorInstance, null, null, 'linear', {
+        angle,
+        colorStops
       })
     }
   })
