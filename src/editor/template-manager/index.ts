@@ -987,4 +987,13 @@ export default class TemplateManager {
 
     return null
   }
+
+  /**
+   * Оживляет сериализованный объект, восстанавливая вложенные описания (градиенты, клиппаты и т.д.).
+   * @param serialized - исходное сериализованное описание Fabric-объекта
+   * @returns оживлённый объект с восстановленными вложенными структурами
+   */
+  public static enlivenObjectEnlivables<T extends Record<string, unknown>>(serialized: T): Promise<T> {
+    return util.enlivenObjectEnlivables(serialized) as Promise<T>
+  }
 }

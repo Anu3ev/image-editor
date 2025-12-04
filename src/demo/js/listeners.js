@@ -1,5 +1,3 @@
-import { util } from 'fabric'
-
 import {
   // Кнопка выбора изображения
   chooseImageBtn,
@@ -349,8 +347,9 @@ export default (editorInstance) => {
       if (parsed && typeof parsed === 'object') {
         delete parsed.type
       }
+
       const enlivenedProps = parsed && typeof parsed === 'object'
-        ? await util.enlivenObjectEnlivables(parsed)
+        ? await editorInstance.templateManager.constructor.enlivenObjectEnlivables(parsed)
         : parsed
 
       activeObject.set(enlivenedProps)
