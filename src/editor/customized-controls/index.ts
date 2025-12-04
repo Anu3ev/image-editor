@@ -239,14 +239,14 @@ export default class ControlsCustomizer {
     }
   ): void {
     const hasText = objects.some((object) => object instanceof Textbox)
-    const isMultiSelection = selection instanceof ActiveSelection && objects.length > 1
-    const lockHorizontal = hasText && isMultiSelection
 
+    // Разрешаем горизонтальное масштабирование для групп с текстом,
+    // так как TextManager теперь умеет корректно обрабатывать изменение ширины (reflow).
     selection.setControlsVisibility({
       mt: !hasText,
       mb: !hasText,
-      ml: !lockHorizontal,
-      mr: !lockHorizontal
+      ml: true,
+      mr: true
     })
   }
 }

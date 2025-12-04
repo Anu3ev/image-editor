@@ -770,6 +770,28 @@ describe('TextManager', () => {
         expect(textbox.scaleX).toBe(1)
         expect(textbox.scaleY).toBe(1)
       })
+
+      it('горизонтальное масштабирование увеличивает ширину, но не шрифт', () => {
+        const { canvas, textManager } = createTextManagerTestSetup()
+        const textbox = textManager.addText({
+          text: 'Text',
+          width: 100,
+          fontSize: 20
+        })
+
+        const selection = new ActiveSelection([textbox], { canvas })
+        canvas.setActiveObject(selection)
+
+        selection.scaleX = 2
+        selection.scaleY = 1
+
+        canvas.fire('object:modified', { target: selection })
+
+        expect(textbox.width).toBe(200)
+        expect(textbox.fontSize).toBe(20)
+        expect(textbox.scaleX).toBe(1)
+        expect(textbox.scaleY).toBe(1)
+      })
     })
   })
 })
