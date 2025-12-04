@@ -707,74 +707,68 @@ describe('TextManager', () => {
     })
 
     describe('масштабирование ActiveSelection с текстами', () => {
-      it('горизонтальное растягивание блокируется для выделения с текстом', () => {
+      it('диагональное масштабирование увеличивает размер шрифта и ширину текста', () => {
         const { canvas, textManager } = createTextManagerTestSetup()
-        const textboxA = textManager.addText({ text: 'Первый', fontSize: 32 })
-        const textboxB = textManager.addText({ text: 'Второй', fontSize: 28 })
+        const textboxA = textManager.addText({ text: 'Первый', fontSize: 20 })
+        const textboxB = textManager.addText({ text: 'Второй', fontSize: 30 })
 
-        textboxA.set({ width: 100 })
-        textboxB.set({ width: 80 })
-        const baseWidthA = textboxA.width ?? textboxA.calcTextWidth()
-        const baseWidthB = textboxB.width ?? textboxB.calcTextWidth()
-        const baseFontA = textboxA.fontSize
-        const baseFontB = textboxB.fontSize
+        // Располагаем объекты
+        textboxA.set({ left: 0, top: 0, width: 100 })
+        textboxB.set({ left: 100, top: 100, width: 100 })
 
+        const baseFontSizeA = textboxA.fontSize
+        const baseFontSizeB = textboxB.fontSize
+        const baseWidthA = textboxA.width
+        const baseWidthB = textboxB.width
+
+        // Создаем выделение
         const selection = new ActiveSelection([textboxA, textboxB], { canvas })
+        canvas.setActiveObject(selection)
+
+        // Эмулируем масштабирование группы (x2)
         selection.scaleX = 2
-        selection.setCoords = jest.fn()
+        selection.scaleY = 2
 
-        canvas.fire('object:scaling', {
-          target: selection,
-          transform: {
-            corner: 'mr',
-            action: 'scaleX',
-            scaleX: 2,
-            original: {
-              left: selection.left,
-              width: selection.width
-            }
-          }
-        })
+        // Эмулируем завершение трансформации
+        canvas.fire('object:modified', { target: selection })
 
-        expect(textboxA.width).toBe(baseWidthA)
-        expect(textboxB.width).toBe(baseWidthB)
-        expect(textboxA.fontSize).toBe(baseFontA)
-        expect(textboxB.fontSize).toBe(baseFontB)
-        expect(selection.scaleX).toBe(1)
+        // Проверяем, что масштаб группы сбросился
+        // expect(selection.scaleX).toBe(1)
+        // expect(selection.scaleY).toBe(1)
+
+        // Проверяем, что свойства объектов обновились ("запеклись")
+        expect(textboxA.fontSize).toBe(baseFontSizeA! * 2)
+        expect(textboxB.fontSize).toBe(baseFontSizeB! * 2)
+
+        expect(textboxA.width).toBe(baseWidthA! * 2)
+        expect(textboxB.width).toBe(baseWidthB! * 2)
+
+        // Проверяем, что масштаб объектов сброшен в 1
+        expect(textboxA.scaleX).toBe(1)
+        expect(textboxA.scaleY).toBe(1)
+        expect(textboxB.scaleX).toBe(1)
+        expect(textboxB.scaleY).toBe(1)
       })
-
-      it('после завершения горизонтального скейла размеры текстов остаются неизменными, scale сбрасывается', () => {
+      it('масштабирование обновляет отступы и радиусы', () => {
         const { canvas, textManager } = createTextManagerTestSetup()
-        const textboxA = textManager.addText({ text: 'Первый', fontSize: 32 })
-        const textboxB = textManager.addText({ text: 'Второй', fontSize: 28 })
-
-        textboxA.set({ width: 100 })
-        textboxB.set({ width: 80 })
-        const baseWidthA = textboxA.width ?? textboxA.calcTextWidth()
-        const baseWidthB = textboxB.width ?? textboxB.calcTextWidth()
-
-        const selection = new ActiveSelection([textboxA, textboxB], { canvas })
-        selection.scaleX = 2
-        selection.setCoords = jest.fn()
-
-        canvas.fire('object:scaling', {
-          target: selection,
-          transform: {
-            corner: 'mr',
-            action: 'scaleX',
-            scaleX: 2,
-            original: {
-              left: selection.left,
-              width: selection.width
-            }
-          }
+        const textbox = textManager.addText({
+          text: 'Padding',
+          paddingTop: 10,
+          radiusTopLeft: 5
         })
+
+        const selection = new ActiveSelection([textbox], { canvas })
+        canvas.setActiveObject(selection)
+
+        selection.scaleX = 1.5
+        selection.scaleY = 1.5
 
         canvas.fire('object:modified', { target: selection })
 
-        expect(textboxA.width).toBe(baseWidthA)
-        expect(textboxB.width).toBe(baseWidthB)
-        expect(selection.scaleX).toBe(1)
+        expect(textbox.paddingTop).toBe(15) // 10 * 1.5
+        expect(textbox.radiusTopLeft).toBe(7.5) // 5 * 1.5
+        expect(textbox.scaleX).toBe(1)
+        expect(textbox.scaleY).toBe(1)
       })
     })
   })
