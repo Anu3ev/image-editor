@@ -1,3 +1,4 @@
+import { ActiveSelection } from 'fabric'
 import { nanoid } from 'nanoid'
 import { createTextManagerTestSetup } from '../../../test-utils/editor-helpers'
 
@@ -178,9 +179,9 @@ describe('TextManager', () => {
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
       expect(textbox.dirty).toBe(true)
 
-      // Глобальные свойства не меняются при частичном выделении (кроме fontSize)
+      // Глобальные свойства не меняются при частичном выделении
       expect(textbox.fontFamily).toBe('Arial')
-      expect(textbox.fontSize).toBe(64)
+      expect(textbox.fontSize).toBe(32)
       expect(textbox.fill).toBe('#222222')
       expect(textbox.stroke).toBe('#333333')
       expect(textbox.strokeWidth).toBe(2)
@@ -208,6 +209,50 @@ describe('TextManager', () => {
         fontStyle: 'italic',
         fill: '#ff0000'
       })
+    })
+
+    it('применяет fontSize и fontFamily ко всей строке, если выделена её часть', () => {
+      const {
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'first line\nsecond line',
+        fontFamily: 'Arial',
+        fontSize: 32
+      })
+
+      const newlineIndex = (textbox.text ?? '').indexOf('\n')
+      expect(newlineIndex).toBeGreaterThan(0)
+
+      textbox.isEditing = true
+      textbox.selectionStart = 2
+      textbox.selectionEnd = 4
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          fontSize: 50,
+          fontFamily: 'Roboto'
+        }
+      })
+
+      const firstLineStyles = textbox.getSelectionStyles(0, newlineIndex)
+      expect(firstLineStyles).toHaveLength(newlineIndex)
+      firstLineStyles.forEach((style) => {
+        expect(style.fontSize).toBe(50)
+        expect(style.fontFamily).toBe('Roboto')
+      })
+
+      const secondLineStyles = textbox.getSelectionStyles(newlineIndex, textbox.text?.length ?? 0)
+      secondLineStyles.forEach((style) => {
+        expect(style.fontSize).toBeUndefined()
+        expect(style.fontFamily).toBeUndefined()
+      })
+
+      expect(textbox.fontSize).toBe(32)
+      expect(textbox.fontFamily).toBe('Arial')
     })
 
     it('синхронизирует базовые стили объекта, если выделён весь текст', () => {
@@ -616,6 +661,81 @@ describe('TextManager', () => {
 
         expect(textbox.textCaseRaw).toBe(rawBeforeExit)
         expect(textbox.textCaseRaw).not.toBe('НОРМАЛЬНЫЙ ТЕКСТ')
+      })
+    })
+
+    describe('масштабирование ActiveSelection с текстами', () => {
+      it('горизонтальное растягивание увеличивает ширину текстов без изменения кегля и с компенсацией scale', () => {
+        const { canvas, textManager } = createTextManagerTestSetup()
+        const textboxA = textManager.addText({ text: 'Первый', fontSize: 32 })
+        const textboxB = textManager.addText({ text: 'Второй', fontSize: 28 })
+
+        textboxA.set({ width: 100 })
+        textboxB.set({ width: 80 })
+        const baseWidthA = textboxA.width ?? textboxA.calcTextWidth()
+        const baseWidthB = textboxB.width ?? textboxB.calcTextWidth()
+        const baseFontA = textboxA.fontSize
+        const baseFontB = textboxB.fontSize
+
+        const selection = new ActiveSelection([textboxA, textboxB], { canvas })
+        selection.scaleX = 2
+        selection.setCoords = jest.fn()
+
+        canvas.fire('object:scaling', {
+          target: selection,
+          transform: {
+            corner: 'mr',
+            action: 'scaleX',
+            scaleX: 2,
+            original: {
+              left: selection.left,
+              width: selection.width
+            }
+          }
+        })
+
+        expect(textboxA.width).toBeCloseTo((baseWidthA ?? 0) * 2)
+        expect(textboxB.width).toBeCloseTo((baseWidthB ?? 0) * 2)
+        expect(textboxA.scaleX).toBeCloseTo(0.5)
+        expect(textboxB.scaleX).toBeCloseTo(0.5)
+        expect(textboxA.fontSize).toBe(baseFontA)
+        expect(textboxB.fontSize).toBe(baseFontB)
+      })
+
+      it('после завершения горизонтального скейла ширина фиксируется, а scale сбрасывается к 1', () => {
+        const { canvas, textManager } = createTextManagerTestSetup()
+        const textboxA = textManager.addText({ text: 'Первый', fontSize: 32 })
+        const textboxB = textManager.addText({ text: 'Второй', fontSize: 28 })
+
+        textboxA.set({ width: 100 })
+        textboxB.set({ width: 80 })
+        const baseWidthA = textboxA.width ?? textboxA.calcTextWidth()
+        const baseWidthB = textboxB.width ?? textboxB.calcTextWidth()
+
+        const selection = new ActiveSelection([textboxA, textboxB], { canvas })
+        selection.scaleX = 2
+        selection.setCoords = jest.fn()
+
+        canvas.fire('object:scaling', {
+          target: selection,
+          transform: {
+            corner: 'mr',
+            action: 'scaleX',
+            scaleX: 2,
+            original: {
+              left: selection.left,
+              width: selection.width
+            }
+          }
+        })
+
+        canvas.fire('object:modified', { target: selection })
+
+        expect(textboxA.width).toBeCloseTo((baseWidthA ?? 0) * 2)
+        expect(textboxB.width).toBeCloseTo((baseWidthB ?? 0) * 2)
+        expect(textboxA.scaleX).toBe(1)
+        expect(textboxB.scaleX).toBe(1)
+        expect(selection.scaleX).toBe(1)
       })
     })
   })

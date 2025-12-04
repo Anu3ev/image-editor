@@ -1,3 +1,5 @@
+import { util } from 'fabric'
+
 import {
   // Кнопка выбора изображения
   chooseImageBtn,
@@ -141,7 +143,42 @@ import {
   removeBackground
 } from './methods.js'
 
-import { OBJECT_SERIALIZATION_PROPS } from '../../editor/history-manager'
+const OBJECT_SERIALIZATION_PROPS = [
+  'selectable',
+  'evented',
+  'id',
+  'backgroundId',
+  'customData',
+  'backgroundType',
+  'format',
+  'width',
+  'height',
+  'locked',
+  'lockMovementX',
+  'lockMovementY',
+  'lockRotation',
+  'lockScalingX',
+  'lockScalingY',
+  'lockSkewingX',
+  'lockSkewingY',
+  'styles',
+  'textCaseRaw',
+  'uppercase',
+  'linethrough',
+  'underline',
+  'fontStyle',
+  'fontWeight',
+  'backgroundColor',
+  'backgroundOpacity',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
+]
 
 export default (editorInstance) => {
   const TEXT_FILL_PALETTE = [
@@ -292,7 +329,7 @@ export default (editorInstance) => {
   /**
    * Применяет изменения из textarea к активному объекту.
    */
-  const applyActiveObjectJson = () => {
+  const applyActiveObjectJson = async() => {
     if (!activeObjectJsonInput) return
 
     const activeObject = getSingleActiveObject()
@@ -312,7 +349,11 @@ export default (editorInstance) => {
       if (parsed && typeof parsed === 'object') {
         delete parsed.type
       }
-      activeObject.set(parsed)
+      const enlivenedProps = parsed && typeof parsed === 'object'
+        ? await util.enlivenObjectEnlivables(parsed)
+        : parsed
+
+      activeObject.set(enlivenedProps)
       activeObject.setCoords()
       editorInstance.canvas.requestRenderAll()
       editorInstance.historyManager.saveState()
