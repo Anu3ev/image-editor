@@ -956,7 +956,11 @@ export default class TextManager {
       bottomRight: nextRadii.bottomRight,
       bottomLeft: nextRadii.bottomLeft
     }
-    state.hasWidthChange = widthActuallyChanged || fontSizeChanged || paddingChanged || radiusChanged || dimensionsRoundedOnScale
+    state.hasWidthChange = widthActuallyChanged
+      || fontSizeChanged
+      || paddingChanged
+      || radiusChanged
+      || dimensionsRoundedOnScale
   }
 
   /**
@@ -1128,8 +1132,8 @@ export default class TextManager {
     const lineRanges = this._getLineRanges({ textbox })
     if (!lineRanges.length) return range
 
-    let start = range.start
-    let end = range.end
+    let { start } = range
+    let { end } = range
 
     lineRanges.forEach(({ start: lineStart, end: lineEnd }) => {
       const intersectsLine = range.end > lineStart && range.start < lineEnd
@@ -1192,6 +1196,27 @@ export default class TextManager {
   }
 
   /**
+   * Возвращает числовое значение размера, используя исходное значение или заранее вычисленное.
+   */
+  private static _resolveDimension(
+    {
+      rawValue,
+      calculatedValue
+    }: {
+      rawValue: unknown
+      calculatedValue?: unknown
+    }
+  ): number {
+    if (typeof rawValue === 'number') return rawValue
+
+    if (typeof calculatedValue === 'number') {
+      return calculatedValue
+    }
+
+    return 0
+  }
+
+  /**
    * Округляет ширину и высоту текстового блока до ближайших целых значений.
    */
   private static _roundTextboxDimensions(
@@ -1201,9 +1226,24 @@ export default class TextManager {
       textbox: EditorTextbox
     }
   ): boolean {
-    const { width: rawWidth, height: rawHeight } = textbox
-    const width = typeof rawWidth === 'number' ? rawWidth : textbox.calcTextWidth() ?? 0
-    const height = typeof rawHeight === 'number' ? rawHeight : textbox.calcTextHeight() ?? 0
+    const { width: rawWidth, height: rawHeight, calcTextWidth, calcTextHeight } = textbox as Textbox
+
+    const calculatedWidth = typeof calcTextWidth === 'function'
+      ? calcTextWidth.call(textbox)
+      : undefined
+    const calculatedHeight = typeof calcTextHeight === 'function'
+      ? calcTextHeight.call(textbox)
+      : undefined
+
+    const width = TextManager._resolveDimension({
+      rawValue: rawWidth,
+      calculatedValue: calculatedWidth
+    })
+    const height = TextManager._resolveDimension({
+      rawValue: rawHeight,
+      calculatedValue: calculatedHeight
+    })
+
     const roundedWidth = Number.isFinite(width) ? Math.round(width) : null
     const roundedHeight = Number.isFinite(height) ? Math.round(height) : null
     const updates: Partial<EditorTextbox> = {}

@@ -115,6 +115,8 @@ export class BackgroundTextbox extends Textbox {
     this.radiusTopRight = options.radiusTopRight ?? 0
     this.radiusBottomRight = options.radiusBottomRight ?? 0
     this.radiusBottomLeft = options.radiusBottomLeft ?? 0
+
+    this._roundDimensions()
   }
 
   /**
