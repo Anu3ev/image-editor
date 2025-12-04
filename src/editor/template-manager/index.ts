@@ -993,7 +993,8 @@ export default class TemplateManager {
    * @param serialized - исходное сериализованное описание Fabric-объекта
    * @returns оживлённый объект с восстановленными вложенными структурами
    */
-  public static enlivenObjectEnlivables<T extends Record<string, unknown>>(serialized: T): Promise<T> {
+  // eslint-disable-next-line class-methods-use-this
+  public enlivenObjectEnlivables<T extends Record<string, unknown>>(serialized: T): Promise<T> {
     return util.enlivenObjectEnlivables(serialized) as Promise<T>
   }
 }

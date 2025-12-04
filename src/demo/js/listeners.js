@@ -349,7 +349,7 @@ export default (editorInstance) => {
       }
 
       const enlivenedProps = parsed && typeof parsed === 'object'
-        ? await editorInstance.templateManager.constructor.enlivenObjectEnlivables(parsed)
+        ? await editorInstance.templateManager.enlivenObjectEnlivables(parsed)
         : parsed
 
       activeObject.set(enlivenedProps)
