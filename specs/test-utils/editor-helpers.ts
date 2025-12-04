@@ -740,6 +740,22 @@ export const createTextManagerTestSetup = (
     setActiveObject: jest.fn((textbox: Textbox) => {
       activeObject = textbox
     }),
+    discardActiveObject: jest.fn(() => {
+      if (activeObject && (activeObject as any).type === 'activeSelection') {
+        const selection = activeObject as unknown as ActiveSelection
+        const objects = selection.getObjects()
+        const { scaleX = 1, scaleY = 1 } = selection
+
+        objects.forEach((obj: any) => {
+          const currentScaleX = obj.scaleX ?? 1
+          const currentScaleY = obj.scaleY ?? 1
+
+          obj.scaleX = currentScaleX * scaleX
+          obj.scaleY = currentScaleY * scaleY
+        })
+      }
+      activeObject = null
+    }),
     getActiveObject: jest.fn(() => activeObject),
     requestRenderAll: jest.fn(),
     fire: fireMock,
