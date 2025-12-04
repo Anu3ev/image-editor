@@ -242,10 +242,6 @@ export default class ControlsCustomizer {
     const isMultiSelection = selection instanceof ActiveSelection && objects.length > 1
     const lockHorizontal = hasText && isMultiSelection
 
-    selection.set({
-      lockScalingY: hasText,
-      lockScalingX: lockHorizontal
-    })
     selection.setControlsVisibility({
       mt: !hasText,
       mb: !hasText,

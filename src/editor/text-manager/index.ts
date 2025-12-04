@@ -764,26 +764,6 @@ export default class TextManager {
     // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
     const { target, transform } = event
     if (target instanceof ActiveSelection) {
-      const objects = target.getObjects?.() ?? []
-      const hasText = objects.some((object) => TextManager._isTextbox(object))
-      if (!hasText) return
-
-      const {
-        corner = '',
-        action = ''
-      } = transform ?? {}
-      const hasHorizontalComponent = ['ml', 'mr', 'tl', 'tr', 'bl', 'br'].includes(corner) || action === 'scaleX' || action === 'scale'
-      if (!hasHorizontalComponent || !transform) return
-
-      target.set({
-        scaleX: 1
-      })
-      transform.scaleX = 1
-      if (transform.original) {
-        transform.original.scaleX = 1
-      }
-      target.setCoords()
-      this.canvas.requestRenderAll()
       return
     }
     if (!TextManager._isTextbox(target)) return
@@ -985,7 +965,93 @@ export default class TextManager {
    */
   private _handleObjectModified = (event: IEvent<MouseEvent>): void => {
     const { target } = event
-    if (target instanceof ActiveSelection) return
+    if (target instanceof ActiveSelection) {
+      const objects = target.getObjects()
+      const hasText = objects.some((obj) => TextManager._isTextbox(obj))
+      if (!hasText) return
+
+      const { scaleX = 1, scaleY = 1 } = target
+      if (Math.abs(scaleX - 1) < DIMENSION_EPSILON && Math.abs(scaleY - 1) < DIMENSION_EPSILON) return
+
+      // "Запекаем" трансформацию группы в объекты, расформировывая группу.
+      // Это обновляет абсолютные координаты и масштаб объектов на канвасе.
+      this.canvas.discardActiveObject()
+
+      objects.forEach((obj) => {
+        if (TextManager._isTextbox(obj)) {
+          const sX = obj.scaleX ?? 1
+          const sY = obj.scaleY ?? 1
+
+          const newFontSize = (obj.fontSize ?? 16) * sY
+          const newWidth = (obj.width ?? 0) * sX
+
+          // Используем scaleY для отступов и радиусов
+          const scaleForProps = sY
+
+          const {
+            paddingTop = 0,
+            paddingRight = 0,
+            paddingBottom = 0,
+            paddingLeft = 0,
+            radiusTopLeft = 0,
+            radiusTopRight = 0,
+            radiusBottomRight = 0,
+            radiusBottomLeft = 0,
+            styles
+          } = obj
+
+          const nextPadding = {
+            paddingTop: Math.max(0, paddingTop * scaleForProps),
+            paddingRight: Math.max(0, paddingRight * scaleForProps),
+            paddingBottom: Math.max(0, paddingBottom * scaleForProps),
+            paddingLeft: Math.max(0, paddingLeft * scaleForProps)
+          }
+
+          const nextRadii = {
+            radiusTopLeft: Math.max(0, radiusTopLeft * scaleForProps),
+            radiusTopRight: Math.max(0, radiusTopRight * scaleForProps),
+            radiusBottomRight: Math.max(0, radiusBottomRight * scaleForProps),
+            radiusBottomLeft: Math.max(0, radiusBottomLeft * scaleForProps)
+          }
+
+          let nextStyles: TextboxStyles | undefined = styles
+          if (styles && Object.keys(styles).length > 0) {
+            nextStyles = JSON.parse(JSON.stringify(styles)) as TextboxStyles
+            Object.values(nextStyles).forEach((line) => {
+              Object.values(line).forEach((charStyle) => {
+                if (typeof charStyle.fontSize === 'number') {
+                  charStyle.fontSize = Math.max(1, charStyle.fontSize * scaleForProps)
+                }
+              })
+            })
+          }
+
+          obj.set({
+            fontSize: newFontSize,
+            width: newWidth,
+            scaleX: 1,
+            scaleY: 1,
+            ...nextPadding,
+            ...nextRadii,
+            styles: nextStyles
+          })
+
+          TextManager._roundTextboxDimensions({ textbox: obj })
+        }
+
+        obj.setCoords()
+      })
+
+      // Пересоздаем ActiveSelection, чтобы Fabric пересчитал границы группы
+      // на основе новых размеров и позиций объектов.
+      const newSelection = new ActiveSelection(objects, {
+        canvas: this.canvas
+      })
+      this.canvas.setActiveObject(newSelection)
+      this.canvas.requestRenderAll()
+      return
+    }
+
     if (!TextManager._isTextbox(target)) return
 
     target.isScaling = false
