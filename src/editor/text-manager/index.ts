@@ -249,6 +249,12 @@ export default class TextManager {
       }
     }
 
+    const dimensionsRoundedOnCreate = TextManager._roundTextboxDimensions({ textbox })
+
+    if (dimensionsRoundedOnCreate) {
+      textbox.dirty = true
+    }
+
     if (rest.left === undefined && rest.top === undefined) {
       canvas.centerObject(textbox)
     }
@@ -576,6 +582,12 @@ export default class TextManager {
       textbox.dirty = true
     }
 
+    const dimensionsRounded = TextManager._roundTextboxDimensions({ textbox })
+
+    if (dimensionsRounded) {
+      textbox.dirty = true
+    }
+
     textbox.setCoords()
 
     if (!skipRender) {
@@ -658,7 +670,7 @@ export default class TextManager {
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
-    canvas.on('text:changed', TextManager._handleTextChanged)
+    canvas.on('text:changed', this._handleTextChanged)
   }
 
   /**
@@ -671,26 +683,32 @@ export default class TextManager {
   /**
    * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
    */
-  private static _handleTextChanged(event: IEvent): void {
+  private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
-    const currentText = target.text ?? ''
-    const isUppercase = Boolean(target.uppercase)
-    const normalizedRaw = currentText.toLocaleLowerCase()
+    const { text = '', uppercase } = target
+    const isUppercase = Boolean(uppercase)
+    const normalizedRaw = text.toLocaleLowerCase()
 
     if (isUppercase) {
       const uppercased = toUpperCaseSafe({ value: normalizedRaw })
 
-      if (uppercased !== currentText) {
+      if (uppercased !== text) {
         target.set({ text: uppercased })
       }
 
       target.textCaseRaw = normalizedRaw
-      return
+    } else {
+      target.textCaseRaw = text
     }
 
-    target.textCaseRaw = currentText
+    const dimensionsRounded = TextManager._roundTextboxDimensions({ textbox: target })
+
+    if (dimensionsRounded) {
+      target.setCoords()
+      target.dirty = true
+    }
   }
 
   /**
@@ -712,6 +730,14 @@ export default class TextManager {
     } else {
       // Если uppercase выключен, сохраняем текст как есть
       target.textCaseRaw = currentText
+    }
+
+    const dimensionsRoundedAfterEditing = TextManager._roundTextboxDimensions({ textbox: target })
+
+    if (dimensionsRoundedAfterEditing) {
+      target.setCoords()
+      target.dirty = true
+      this.canvas.requestRenderAll()
     }
 
     // Сбрасываем lock-свойства после выхода из режима редактирования
@@ -774,6 +800,7 @@ export default class TextManager {
     const widthScale = Math.abs(target.scaleX ?? transform.scaleX ?? 1) || 1
     const heightScale = Math.abs(target.scaleY ?? transform.scaleY ?? 1) || 1
     const nextWidth = Math.max(1, baseWidth * widthScale)
+    const roundedNextWidth = Math.max(1, Math.round(nextWidth))
     const nextFontSize = Math.max(1, baseFontSize * heightScale)
     const {
       paddingTop = 0,
@@ -841,7 +868,7 @@ export default class TextManager {
     const centerX = baseLeft + (baseWidth / 2)
 
     const currentWidth = currentWidthProp ?? baseWidth
-    const widthChanged = Math.abs(nextWidth - currentWidth) > DIMENSION_EPSILON
+    const widthChanged = roundedNextWidth !== currentWidth
     const fontSizeChanged = Math.abs(nextFontSize - (currentFontSize ?? baseFontSize)) > DIMENSION_EPSILON
     const paddingChanged = Math.abs(nextPadding.top - paddingTop) > DIMENSION_EPSILON
       || Math.abs(nextPadding.right - paddingRight) > DIMENSION_EPSILON
@@ -864,7 +891,7 @@ export default class TextManager {
     }
 
     target.set({
-      width: nextWidth,
+      width: roundedNextWidth,
       fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
       paddingTop: nextPadding.top,
       paddingRight: nextPadding.right,
@@ -878,8 +905,14 @@ export default class TextManager {
       scaleY: 1
     })
 
-    const appliedWidth = target.width ?? nextWidth
-    const widthActuallyChanged = Math.abs(appliedWidth - currentWidth) > DIMENSION_EPSILON
+    const dimensionsRoundedOnScale = TextManager._roundTextboxDimensions({ textbox: target })
+
+    if (dimensionsRoundedOnScale) {
+      target.dirty = true
+    }
+
+    const appliedWidth = target.width ?? roundedNextWidth
+    const widthActuallyChanged = appliedWidth !== currentWidth
 
     let adjustedLeft = baseLeft
     if (widthActuallyChanged && (isHorizontalHandle || isCornerHandle)) {
@@ -923,7 +956,11 @@ export default class TextManager {
       bottomRight: nextRadii.bottomRight,
       bottomLeft: nextRadii.bottomLeft
     }
-    state.hasWidthChange = widthActuallyChanged || fontSizeChanged || paddingChanged || radiusChanged
+    state.hasWidthChange = widthActuallyChanged
+      || fontSizeChanged
+      || paddingChanged
+      || radiusChanged
+      || dimensionsRoundedOnScale
   }
 
   /**
@@ -1010,13 +1047,16 @@ export default class TextManager {
       if (!TextManager._isTextbox(object)) return
 
       const state = this._ensureScalingState(object)
-      const nextWidth = Math.max(1, state.baseWidth * scaleX)
+      const nextWidth = Math.max(1, Math.round(state.baseWidth * scaleX))
 
       object.set({
         width: nextWidth,
         scaleX: inverseScaleX,
         scaleY: 1
       })
+
+      TextManager._roundTextboxDimensions({ textbox: object })
+
       object.setCoords()
       object.dirty = true
     })
@@ -1041,13 +1081,14 @@ export default class TextManager {
 
     textboxes.forEach((textbox) => {
       const state = this._ensureScalingState(textbox)
-      const nextWidth = Math.max(1, state.baseWidth * scaleX)
+      const nextWidth = Math.max(1, Math.round(state.baseWidth * scaleX))
 
       textbox.set({
         width: nextWidth,
         scaleX: 1,
         scaleY: 1
       })
+      TextManager._roundTextboxDimensions({ textbox })
       textbox.setCoords()
       textbox.dirty = true
       this.scalingState.delete(textbox)
@@ -1091,8 +1132,8 @@ export default class TextManager {
     const lineRanges = this._getLineRanges({ textbox })
     if (!lineRanges.length) return range
 
-    let start = range.start
-    let end = range.end
+    let { start } = range
+    let { end } = range
 
     lineRanges.forEach(({ start: lineStart, end: lineEnd }) => {
       const intersectsLine = range.end > lineStart && range.start < lineEnd
@@ -1152,6 +1193,73 @@ export default class TextManager {
     }
 
     return state
+  }
+
+  /**
+   * Возвращает числовое значение размера, используя исходное значение или заранее вычисленное.
+   */
+  private static _resolveDimension(
+    {
+      rawValue,
+      calculatedValue
+    }: {
+      rawValue: unknown
+      calculatedValue?: unknown
+    }
+  ): number {
+    if (typeof rawValue === 'number') return rawValue
+
+    if (typeof calculatedValue === 'number') {
+      return calculatedValue
+    }
+
+    return 0
+  }
+
+  /**
+   * Округляет ширину и высоту текстового блока до ближайших целых значений.
+   */
+  private static _roundTextboxDimensions(
+    {
+      textbox
+    }: {
+      textbox: EditorTextbox
+    }
+  ): boolean {
+    const { width: rawWidth, height: rawHeight, calcTextWidth, calcTextHeight } = textbox as Textbox
+
+    const calculatedWidth = typeof calcTextWidth === 'function'
+      ? calcTextWidth.call(textbox)
+      : undefined
+    const calculatedHeight = typeof calcTextHeight === 'function'
+      ? calcTextHeight.call(textbox)
+      : undefined
+
+    const width = TextManager._resolveDimension({
+      rawValue: rawWidth,
+      calculatedValue: calculatedWidth
+    })
+    const height = TextManager._resolveDimension({
+      rawValue: rawHeight,
+      calculatedValue: calculatedHeight
+    })
+
+    const roundedWidth = Number.isFinite(width) ? Math.round(width) : null
+    const roundedHeight = Number.isFinite(height) ? Math.round(height) : null
+    const updates: Partial<EditorTextbox> = {}
+
+    if (roundedWidth !== null && roundedWidth !== width) {
+      updates.width = Math.max(0, roundedWidth)
+    }
+
+    if (roundedHeight !== null && roundedHeight !== height) {
+      updates.height = Math.max(0, roundedHeight)
+    }
+
+    if (!Object.keys(updates).length) return false
+
+    textbox.set(updates)
+    return true
   }
 
   /**

@@ -14,8 +14,8 @@ describe('SnappingManager', () => {
     const active = createBoundsObject({ left: 5, top: 180, width: 60, height: 40, id: 'active' })
     objects.push(first, second, active)
 
-    const snappingManager = new SnappingManager({ editor })
-    ;(snappingManager as any)._handleMouseDown({ target: active })
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleMouseDown({ target: active })
 
     const { spacingPatterns, cachedTargetBounds } = snappingManager as any
     expect(cachedTargetBounds).toHaveLength(2)
@@ -37,9 +37,9 @@ describe('SnappingManager', () => {
     const active = createBoundsObject({ left: 5, top: 188, width: 20, height: 50, id: 'active' })
     objects.push(first, second, active)
 
-    const snappingManager = new SnappingManager({ editor })
-    ;(snappingManager as any)._handleMouseDown({ target: active })
-    ;(snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleMouseDown({ target: active });
+    (snappingManager as any)._handleObjectMoving({ target: active })
 
     expect(active.top).toBe(190)
 
@@ -53,8 +53,8 @@ describe('SnappingManager', () => {
     const { editor } = createSnappingTestContext()
     const active = createBoundsObject({ left: 10.2, top: 15.8, width: 20, height: 20, id: 'active' })
 
-    const snappingManager = new SnappingManager({ editor })
-    ;(snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleObjectMoving({ target: active })
 
     expect(active.left).toBe(Math.round(10.2 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
     expect(active.top).toBe(Math.round(15.8 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
@@ -65,8 +65,8 @@ describe('SnappingManager', () => {
     const { editor } = createSnappingTestContext()
     const active = createBoundsObject({ left: 21.6, top: 33.3, width: 30, height: 30, id: 'active' })
 
-    const snappingManager = new SnappingManager({ editor })
-    ;(snappingManager as any)._handleObjectMoving({
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleObjectMoving({
       target: active,
       e: { ctrlKey: true }
     })

@@ -1,6 +1,7 @@
 import { ActiveSelection } from 'fabric'
 import { nanoid } from 'nanoid'
 import { createTextManagerTestSetup } from '../../../test-utils/editor-helpers'
+import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 
 jest.mock('nanoid')
 
@@ -446,6 +447,47 @@ describe('TextManager', () => {
       await historyManager.redo()
       expect(getObjects()).toHaveLength(1)
       expect(getObjects()[0]?.text).toBe('версия 2')
+    })
+  })
+
+  describe('округление размеров', () => {
+    it('округляет ширину и высоту при создании текстового объекта', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'fractional',
+        width: 100.7,
+        height: 50.2
+      })
+
+      expect(textbox.width).toBe(101)
+      expect(textbox.height).toBe(50)
+    })
+
+    it('округляет размеры при updateText', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'resize me' })
+      textManager.updateText({
+        target: textbox,
+        style: {
+          width: 120.6,
+          height: 33.3
+        }
+      })
+
+      expect(textbox.width).toBe(121)
+      expect(textbox.height).toBe(33)
+    })
+
+    it('BackgroundTextbox.initDimensions приводит размеры к целым значениям', () => {
+      const textbox = new BackgroundTextbox('demo', {
+        width: 75.9,
+        height: 24.1
+      })
+
+      expect(textbox.width).toBe(76)
+      expect(textbox.height).toBe(24)
     })
   })
 
