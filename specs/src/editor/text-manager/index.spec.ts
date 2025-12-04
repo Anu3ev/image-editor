@@ -707,7 +707,7 @@ describe('TextManager', () => {
     })
 
     describe('масштабирование ActiveSelection с текстами', () => {
-      it('горизонтальное растягивание увеличивает ширину текстов без изменения кегля и с компенсацией scale', () => {
+      it('горизонтальное растягивание блокируется для выделения с текстом', () => {
         const { canvas, textManager } = createTextManagerTestSetup()
         const textboxA = textManager.addText({ text: 'Первый', fontSize: 32 })
         const textboxB = textManager.addText({ text: 'Второй', fontSize: 28 })
@@ -736,15 +736,14 @@ describe('TextManager', () => {
           }
         })
 
-        expect(textboxA.width).toBeCloseTo((baseWidthA ?? 0) * 2)
-        expect(textboxB.width).toBeCloseTo((baseWidthB ?? 0) * 2)
-        expect(textboxA.scaleX).toBeCloseTo(0.5)
-        expect(textboxB.scaleX).toBeCloseTo(0.5)
+        expect(textboxA.width).toBe(baseWidthA)
+        expect(textboxB.width).toBe(baseWidthB)
         expect(textboxA.fontSize).toBe(baseFontA)
         expect(textboxB.fontSize).toBe(baseFontB)
+        expect(selection.scaleX).toBe(1)
       })
 
-      it('после завершения горизонтального скейла ширина фиксируется, а scale сбрасывается к 1', () => {
+      it('после завершения горизонтального скейла размеры текстов остаются неизменными, scale сбрасывается', () => {
         const { canvas, textManager } = createTextManagerTestSetup()
         const textboxA = textManager.addText({ text: 'Первый', fontSize: 32 })
         const textboxB = textManager.addText({ text: 'Второй', fontSize: 28 })
@@ -773,10 +772,8 @@ describe('TextManager', () => {
 
         canvas.fire('object:modified', { target: selection })
 
-        expect(textboxA.width).toBeCloseTo((baseWidthA ?? 0) * 2)
-        expect(textboxB.width).toBeCloseTo((baseWidthB ?? 0) * 2)
-        expect(textboxA.scaleX).toBe(1)
-        expect(textboxB.scaleX).toBe(1)
+        expect(textboxA.width).toBe(baseWidthA)
+        expect(textboxB.width).toBe(baseWidthB)
         expect(selection.scaleX).toBe(1)
       })
     })
