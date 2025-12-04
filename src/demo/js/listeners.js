@@ -1,3 +1,5 @@
+import { util } from 'fabric'
+
 import {
   // Кнопка выбора изображения
   chooseImageBtn,
@@ -327,7 +329,7 @@ export default (editorInstance) => {
   /**
    * Применяет изменения из textarea к активному объекту.
    */
-  const applyActiveObjectJson = () => {
+  const applyActiveObjectJson = async() => {
     if (!activeObjectJsonInput) return
 
     const activeObject = getSingleActiveObject()
@@ -347,7 +349,11 @@ export default (editorInstance) => {
       if (parsed && typeof parsed === 'object') {
         delete parsed.type
       }
-      activeObject.set(parsed)
+      const enlivenedProps = parsed && typeof parsed === 'object'
+        ? await util.enlivenObjectEnlivables(parsed)
+        : parsed
+
+      activeObject.set(enlivenedProps)
       activeObject.setCoords()
       editorInstance.canvas.requestRenderAll()
       editorInstance.historyManager.saveState()
