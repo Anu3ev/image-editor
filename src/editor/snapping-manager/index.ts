@@ -192,8 +192,10 @@ export default class SnappingManager {
       return
     }
 
-    if (e?.ctrlKey) {
+    const isCtrlPressed = Boolean(e?.ctrlKey)
+    if (isCtrlPressed) {
       this._clearGuides()
+      this._applyMovementStep({ target })
       return
     }
 
