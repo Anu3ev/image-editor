@@ -7,7 +7,12 @@ import {
 } from 'fabric'
 
 import { ImageEditor } from '..'
-import { GUIDE_COLOR, GUIDE_WIDTH, SNAP_THRESHOLD } from './constants'
+import {
+  GUIDE_COLOR,
+  GUIDE_WIDTH,
+  MOVE_SNAP_STEP,
+  SNAP_THRESHOLD
+} from './constants'
 import {
   calculateSnap,
   calculateSpacingSnap
@@ -250,6 +255,8 @@ export default class SnappingManager {
       guides,
       spacingGuides: spacingResult.guides
     })
+
+    this._applyMovementStep({ target })
   }
 
   /**
@@ -357,6 +364,24 @@ export default class SnappingManager {
     this.anchors = { vertical: [], horizontal: [] }
     this.spacingPatterns = { vertical: [], horizontal: [] }
     this.cachedTargetBounds = []
+  }
+
+  /**
+   * Применяет шаг перемещения, округляя координаты объекта к сетке MOVE_SNAP_STEP.
+   */
+  private _applyMovementStep({ target }: { target: FabricObject }): void {
+    const { left = 0, top = 0 } = target
+    const snappedLeft = Math.round(left / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
+    const snappedTop = Math.round(top / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
+    const isAlreadySnapped = snappedLeft === left && snappedTop === top
+
+    if (isAlreadySnapped) return
+
+    target.set({
+      left: snappedLeft,
+      top: snappedTop
+    })
+    target.setCoords()
   }
 
   /**
