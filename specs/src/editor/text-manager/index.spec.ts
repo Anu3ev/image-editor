@@ -794,4 +794,108 @@ describe('TextManager', () => {
       })
     })
   })
+
+  describe('resizing', () => {
+    it('корректирует ширину, вычитая отступы при изменении размера', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = textManager.addText({ text: 'Test' })
+
+      // Устанавливаем отступы
+      textbox.set({
+        paddingLeft: 10,
+        paddingRight: 10,
+        width: 100 // Начальная ширина
+      })
+
+      // Эмулируем изменение размера (resizing)
+      // Fabric рассчитывает новую ширину на основе позиции мыши, включая визуальные отступы.
+      // Если мы растягиваем объект до 150px визуально, Fabric ставит width = 150.
+      // Но нам нужно, чтобы ширина текста была 150 - 20 = 130.
+
+      textbox.set({ width: 150 })
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: { corner: 'mr' } // Правый контрол
+      })
+
+      expect(textbox.width).toBe(130)
+    })
+
+    it('корректирует позицию при изменении размера слева (ml)', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = textManager.addText({ text: 'Test' })
+
+      textbox.set({
+        paddingLeft: 10,
+        paddingRight: 10,
+        width: 100,
+        left: 100,
+        top: 100,
+        scaleX: 1,
+        angle: 0
+      })
+
+      // Эмулируем изменение размера слева
+      // Допустим, мы тянем левый контрол влево на 50px.
+      // Визуальная ширина становится 150. Fabric ставит width = 150.
+      // Fabric также сдвигает 'left', так как origin сместился.
+      // Если ширина увеличилась на 50 (100 -> 150), left сдвигается на -50 (100 -> 50).
+
+      textbox.set({
+        width: 150,
+        left: 50
+      })
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: { corner: 'ml' }
+      })
+
+      // Ожидаемое поведение:
+      // Ширина должна быть 150 - 20 = 130.
+      // Разница ширин 150 - 130 = 20.
+      // Нам нужно сдвинуть 'left' на +20, чтобы компенсировать уменьшение ширины.
+      // Новый left должен быть 50 + 20 = 70.
+      // Это гарантирует, что правый край останется на 200 (70 + 130 = 200).
+
+      expect(textbox.width).toBe(130)
+      expect(textbox.left).toBe(70)
+    })
+
+    it('не корректирует позицию при изменении размера справа (mr)', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = textManager.addText({ text: 'Test' })
+
+      textbox.set({
+        paddingLeft: 10,
+        paddingRight: 10,
+        width: 100,
+        left: 100,
+        top: 100,
+        scaleX: 1
+      })
+
+      // Эмулируем изменение размера справа
+      // Тянем правый контрол на 50px.
+      // Ширина становится 150. Left остается 100.
+
+      textbox.set({
+        width: 150,
+        left: 100
+      })
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: { corner: 'mr' }
+      })
+
+      // Ожидаемое поведение:
+      // Ширина должна быть 150 - 20 = 130.
+      // Left должен остаться 100.
+
+      expect(textbox.width).toBe(130)
+      expect(textbox.left).toBe(100)
+    })
+  })
 })
