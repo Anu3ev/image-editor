@@ -346,7 +346,7 @@ export default class TextManager {
     const updates: Partial<BackgroundTextboxProps> = { ...rest }
     const selectionRange = getSelectionRange({ textbox })
     const fontSelectionRange = selectionRange
-      ? this._expandRangeToFullLines({ textbox, range: selectionRange })
+      ? TextManager._expandRangeToFullLines({ textbox, range: selectionRange })
       : null
     const selectionStyles: Partial<TextboxProps> = {}
     const lineSelectionStyles: Partial<TextboxProps> = {}
@@ -625,10 +625,11 @@ export default class TextManager {
   public destroy(): void {
     const { canvas } = this
     canvas.off('object:scaling', this._handleObjectScaling)
+    canvas.off('object:resizing', TextManager._handleObjectResizing)
     canvas.off('object:modified', this._handleObjectModified)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
-    canvas.off('text:changed', this._handleTextChanged)
+    canvas.off('text:changed', TextManager._handleTextChanged)
   }
 
   /**
@@ -667,10 +668,11 @@ export default class TextManager {
   private _bindEvents(): void {
     const { canvas } = this
     canvas.on('object:scaling', this._handleObjectScaling)
+    canvas.on('object:resizing', TextManager._handleObjectResizing)
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
-    canvas.on('text:changed', this._handleTextChanged)
+    canvas.on('text:changed', TextManager._handleTextChanged)
   }
 
   /**
@@ -683,7 +685,7 @@ export default class TextManager {
   /**
    * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
    */
-  private _handleTextChanged = (event: IEvent): void => {
+  private static _handleTextChanged(event: IEvent): void {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
@@ -753,6 +755,61 @@ export default class TextManager {
       this.isTextEditingActive = false
       this.editor.historyManager.saveState()
     }, TEXT_EDITING_DEBOUNCE_MS)
+  }
+
+  /**
+   * Обрабатывает изменение ширины текстового объекта (resizing).
+   * Корректирует ширину, вычитая паддинги, так как Fabric при изменении ширины
+   * устанавливает значение, включающее визуальные отступы.
+   * Также корректирует позицию при ресайзе слева, чтобы компенсировать смещение.
+   */
+  private static _handleObjectResizing(event: IEvent<MouseEvent> & { transform?: Transform }): void {
+    const { target, transform } = event
+    if (!TextManager._isTextbox(target)) return
+
+    const {
+      paddingLeft = 0,
+      paddingRight = 0
+    } = target
+
+    const totalPadding = paddingLeft + paddingRight
+    if (totalPadding === 0) return
+
+    const prevWidth = target.width ?? 0
+    // Fabric рассчитывает новую ширину на основе положения курсора.
+    // Так как контролы отрисовываются с учетом паддингов (через _getTransformedDimensions),
+    // рассчитанная ширина включает в себя паддинги.
+    // Нам нужно сохранить "чистую" ширину текста.
+    const nextWidth = Math.max(0, prevWidth - totalPadding)
+
+    if (prevWidth === nextWidth) return
+
+    target.set({ width: nextWidth })
+
+    // Проверяем, какая ширина реально применилась
+    const finalWidth = target.width ?? 0
+    const widthDiff = prevWidth - finalWidth
+
+    if (widthDiff === 0) return
+
+    // Корректируем позицию только при ресайзе за левый край (ml).
+    // При ресайзе за правый край (mr) Fabric корректно держит левую границу (origin),
+    // и так как мы уменьшаем ширину справа, визуально всё выглядит верно.
+    // А при ресайзе слева (ml) Fabric сдвигает origin влево на величину "грязной" ширины.
+    // Так как мы уменьшили ширину на паддинг, нам нужно вернуть origin вправо на эту разницу.
+    if (transform && transform.corner === 'ml') {
+      const angle = target.angle ?? 0
+      const rad = (angle * Math.PI) / 180
+      const cos = Math.cos(rad)
+      const sin = Math.sin(rad)
+      const scaleX = target.scaleX ?? 1
+      const shift = widthDiff * scaleX
+
+      target.set({
+        left: (target.left ?? 0) + shift * cos,
+        top: (target.top ?? 0) + shift * sin
+      })
+    }
   }
 
   /**
@@ -1104,7 +1161,7 @@ export default class TextManager {
   /**
    * Возвращает диапазоны символов для каждой строки текста без учёта символов переноса.
    */
-  private _getLineRanges({ textbox }: { textbox: EditorTextbox }): TextSelectionRange[] {
+  private static _getLineRanges({ textbox }: { textbox: EditorTextbox }): TextSelectionRange[] {
     const text = textbox.text ?? ''
     if (!text.length) return []
 
@@ -1122,14 +1179,14 @@ export default class TextManager {
   /**
    * Расширяет выделение до полных строк, которые оно пересекает.
    */
-  private _expandRangeToFullLines({
+  private static _expandRangeToFullLines({
     textbox,
     range
   }: {
     textbox: EditorTextbox
     range: TextSelectionRange
   }): TextSelectionRange {
-    const lineRanges = this._getLineRanges({ textbox })
+    const lineRanges = TextManager._getLineRanges({ textbox })
     if (!lineRanges.length) return range
 
     let { start } = range
