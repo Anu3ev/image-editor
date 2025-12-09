@@ -645,15 +645,7 @@ export default class TemplateManager {
     return 'start'
   }
 
-  private static _detectAnchor({
-    start,
-    end
-  }: {
-    center: number
-    start: number
-    end: number
-  }): TemplateAnchor {
-    // Базовый сценарий: привязка к ближайшему краю, если объект касается/вылезает за него
+  private static _detectAnchor({ start, end }: { center: number; start: number; end: number }): TemplateAnchor {
     const touchesStart = start <= 0.05
     const touchesEnd = end >= 0.95
     const exceedsStart = start < 0
@@ -661,18 +653,18 @@ export default class TemplateManager {
     const span = end - start
     const marginStart = Math.max(0, start)
     const marginEnd = Math.max(0, 1 - end)
+    const balanced = Math.abs(marginStart - marginEnd) <= 0.02 // допуск ~2%
 
     if ((touchesStart && touchesEnd) || (exceedsStart && exceedsEnd)) {
-      if (span >= 0.98) return 'center'
+      if (balanced || span >= 0.9) return 'center'
       return marginStart <= marginEnd ? 'start' : 'end'
     }
+
     if (touchesStart || exceedsStart) return 'start'
     if (touchesEnd || exceedsEnd) return 'end'
 
-    // Иначе — выбираем ближайший край. Центр остаётся только если объект примерно по центру.
     const diff = marginStart - marginEnd
     const nearCenter = Math.abs(diff) <= 0.1
-
     if (nearCenter) return 'center'
     return diff < 0 ? 'start' : 'end'
   }
