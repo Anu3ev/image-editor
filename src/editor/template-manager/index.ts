@@ -36,6 +36,8 @@ type TemplatePlaceholder = {
   type: 'text' | 'image'
 }
 
+type ImageFit = 'contain' | 'stretch'
+
 export type TemplateMeta = {
   baseWidth: number
   baseHeight: number
@@ -53,13 +55,19 @@ const TEMPLATE_ANCHOR_Y_KEY = '_templateAnchorY'
 
 type TemplateAnchor = 'start' | 'center' | 'end'
 
+type TemplateCustomData = Record<string, unknown> & {
+  templateField?: string
+  text?: string
+  imageFit?: ImageFit
+}
+
 export type TemplateObjectData = Record<string, unknown> & {
   left?: number
   top?: number
   scaleX?: number
   scaleY?: number
   svgMarkup?: string
-  customData?: Record<string, unknown>
+  customData?: TemplateCustomData
   _templateAnchorX?: TemplateAnchor
   _templateAnchorY?: TemplateAnchor
 }
@@ -372,7 +380,8 @@ export default class TemplateManager {
       width: serializedWidth,
       height: serializedHeight,
       scaleX: serializedScaleX,
-      scaleY: serializedScaleY
+      scaleY: serializedScaleY,
+      customData
     } = serialized
     const image = revived as FabricImage
 
@@ -405,28 +414,73 @@ export default class TemplateManager {
     const targetDisplayWidth = targetWidth * baseScaleX
     const targetDisplayHeight = targetHeight * baseScaleY
 
-    const nextScaleX = intrinsicWidth ? targetDisplayWidth / intrinsicWidth : null
-    const nextScaleY = intrinsicHeight ? targetDisplayHeight / intrinsicHeight : null
+    const hasIntrinsicWidth = intrinsicWidth > 0
+    const hasIntrinsicHeight = intrinsicHeight > 0
+    const hasTargetWidth = targetDisplayWidth > 0
+    const hasTargetHeight = targetDisplayHeight > 0
+    const imageFit = TemplateManager._resolveImageFit({ customData })
 
     const nextProps: Record<string, number> = {}
 
-    if (intrinsicWidth > 0) {
+    if (hasIntrinsicWidth) {
       nextProps.width = intrinsicWidth
     }
 
-    if (intrinsicHeight > 0) {
+    if (hasIntrinsicHeight) {
       nextProps.height = intrinsicHeight
     }
 
-    if (nextScaleX && nextScaleX > 0) {
-      nextProps.scaleX = nextScaleX
+    if (!hasIntrinsicWidth || !hasIntrinsicHeight) {
+      image.set(nextProps)
+      return
     }
 
-    if (nextScaleY && nextScaleY > 0) {
-      nextProps.scaleY = nextScaleY
+    if (imageFit === 'stretch') {
+      const nextScaleX = hasTargetWidth ? targetDisplayWidth / intrinsicWidth : null
+      const nextScaleY = hasTargetHeight ? targetDisplayHeight / intrinsicHeight : null
+
+      if (nextScaleX && nextScaleX > 0) {
+        nextProps.scaleX = nextScaleX
+      }
+
+      if (nextScaleY && nextScaleY > 0) {
+        nextProps.scaleY = nextScaleY
+      }
+
+      image.set(nextProps)
+      return
+    }
+
+    if (!hasTargetWidth || !hasTargetHeight) {
+      image.set(nextProps)
+      return
+    }
+
+    const containScale = Math.min(targetDisplayWidth / intrinsicWidth, targetDisplayHeight / intrinsicHeight)
+
+    if (Number.isFinite(containScale) && containScale > 0) {
+      nextProps.scaleX = containScale
+      nextProps.scaleY = containScale
     }
 
     image.set(nextProps)
+  }
+
+  /**
+   * Определяет режим вписывания изображения при восстановлении.
+   */
+  private static _resolveImageFit({
+    customData
+  }: {
+    customData?: TemplateCustomData
+  }): ImageFit {
+    if (!customData || typeof customData !== 'object') return 'contain'
+
+    const { imageFit } = customData
+
+    if (imageFit === 'stretch') return 'stretch'
+
+    return 'contain'
   }
 
   /**
@@ -745,7 +799,7 @@ export default class TemplateManager {
   }): void {
     if (!('text' in object)) return
 
-    const customData = object.customData as Record<string, unknown> | undefined
+    const customData = object.customData as TemplateCustomData | undefined
     const { templateField: rawTemplateField, text: rawText } = customData ?? {}
 
     const templateField = typeof rawTemplateField === 'string' ? rawTemplateField : undefined
