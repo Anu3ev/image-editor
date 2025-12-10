@@ -37,7 +37,6 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'underline',
   'fontStyle',
   'fontWeight',
-  'backgroundColor',
   'backgroundOpacity',
   'paddingTop',
   'paddingRight',
@@ -261,15 +260,6 @@ export default class HistoryManager {
   }
 
   /**
-   * Гарантирует, что фон канваса сериализуется стабильно.
-   */
-  private _ensureCanvasBackground(): void {
-    if (typeof this.canvas.backgroundColor === 'undefined') {
-      this.canvas.backgroundColor = ''
-    }
-  }
-
-  /**
    * Сохраняем текущее состояние в виде диффа от последнего сохранённого полного состояния.
    */
   public saveState(): void {
@@ -281,8 +271,6 @@ export default class HistoryManager {
     console.time('saveState')
 
     try {
-      this._ensureCanvasBackground()
-
       // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
       const currentStateObj = this._withTemporaryUnlock(
         () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
