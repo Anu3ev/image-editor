@@ -37,7 +37,6 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'underline',
   'fontStyle',
   'fontWeight',
-  'backgroundColor',
   'backgroundOpacity',
   'paddingTop',
   'paddingRight',
@@ -117,6 +116,12 @@ export default class HistoryManager {
   public diffPatcher!: DiffPatcher
 
   /**
+   * Флаг, показывающий что в данный момент идёт сохранение состояния.
+   * Используется для блокировки undo/redo во время фиксации изменений.
+   */
+  private _isSavingState: boolean
+
+  /**
    * Счётчик приостановки истории. Если он больше 0, то сохранение истории (saveHistory) пропускается.
    */
   private _historySuspendCount: number
@@ -124,6 +129,7 @@ export default class HistoryManager {
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
+    this._isSavingState = false
     this._historySuspendCount = 0
     this.baseState = null
     this.patches = []
@@ -140,7 +146,7 @@ export default class HistoryManager {
 
   /** Проверка, нужно ли пропускать сохранение истории */
   public get skipHistory(): boolean {
-    return this._historySuspendCount > 0
+    return this._historySuspendCount > 0 || this._isSavingState
   }
 
   public get lastPatch(): { id: string; diff: Delta } | null {
@@ -155,11 +161,11 @@ export default class HistoryManager {
 
         // Сериализуем styles в JSON строку для корректного сравнения
         const stylesHash = textbox.styles ? JSON.stringify(textbox.styles) : ''
+        const customDataHash = fabricObj.customData ? JSON.stringify(fabricObj.customData) : ''
 
         return [
           fabricObj.id,
           fabricObj.backgroundId,
-          fabricObj.customData,
           fabricObj.format,
           fabricObj.locked,
           fabricObj.left,
@@ -172,6 +178,7 @@ export default class HistoryManager {
           fabricObj.scaleY,
           fabricObj.angle,
           fabricObj.opacity,
+          customDataHash,
           textbox.text,
           textbox.textCaseRaw,
           textbox.uppercase,
@@ -259,100 +266,69 @@ export default class HistoryManager {
     console.log('saveState')
     if (this.skipHistory) return
 
+    this._isSavingState = true
+
     console.time('saveState')
 
-    // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
-    const currentStateObj = this._withTemporaryUnlock(
-      () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
-    )
-
-    console.timeEnd('saveState')
-
-    // Если базовое состояние ещё не установлено, сохраняем полное состояние как базу
-    if (!this.baseState) {
-      this.baseState = currentStateObj
-      this.patches = []
-      this.currentIndex = 0
-      console.log('Базовое состояние сохранено.')
-      return
-    }
-
-    // Вычисляем diff между последним сохранённым полным состоянием и текущим состоянием.
-    // Последнее сохранённое полное состояние – это результат getFullState()
-    const prevState = this.getFullState()
-    const diff = this.diffPatcher.diff(prevState, currentStateObj)
-
-    // Если изменений нет, не сохраняем новый шаг
-    if (!diff) {
-      console.log('Нет изменений для сохранения.')
-      return
-    }
-
-    console.log('baseState', this.baseState)
-
-    // Если мы уже сделали undo и сейчас добавляем новое состояние,
-    // удаляем «редо»-ветку
-    if (this.currentIndex < this.patches.length) {
-      this.patches.splice(this.currentIndex)
-    }
-
-    console.log('diff', diff)
-
-    this.totalChangesCount += 1
-
-    // Сохраняем дифф
-    this.patches.push({ id: nanoid(), diff })
-    this.currentIndex += 1
-
-    // Если история стала слишком длинной, сбрасываем её: делаем новое базовое состояние
-    if (this.patches.length > this.maxHistoryLength) {
-      // Обновляем базовое состояние, применяя самый старый дифф
-      // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
-      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as CanvasFullState
-      this.patches.shift() // Удаляем первый дифф
-      this.currentIndex -= 1 // Корректируем индекс
-
-      // Увеличиваем счётчик изменений, "свёрнутых" в базовое состояние
-      this.baseStateChangesCount += 1
-    }
-
-    console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
-  }
-
-  /**
-   * Сериализует customData объектов в строку. Это необходимо чтобы при вызове loadFromJSON fabricjs не пытался обрабатывать свойства внутри customData, как свойства FabricObject, если их названия совпадают с зарезервированными.
-   *
-   * @param state - состояние канваса для сериализации
-   */
-  private static _serializeCustomData(state: CanvasFullState): void {
-    if (!state.objects) return
-
-    state.objects.forEach((obj) => {
-      if (obj.customData && typeof obj.customData === 'object') {
-        obj._serializedCustomData = JSON.stringify(obj.customData)
-        delete obj.customData
-      }
-    })
-  }
-
-  /**
-   * Десериализует customData из строки обратно в объект
-   * @param serializedObj - сериализованный объект из JSON
-   * @param fabricObject - объект Fabric, в который нужно записать customData
-   */
-  private static _deserializeCustomData(
-    serializedObj: Record<string, unknown>,
-    fabricObject: FabricObject | null
-  ): void {
-    if (!serializedObj._serializedCustomData || !fabricObject) return
-
     try {
-      fabricObject.customData = JSON.parse(
-        serializedObj._serializedCustomData as string
+      // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
+      const currentStateObj = this._withTemporaryUnlock(
+        () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
       )
-    } catch (error) {
-      console.warn('Не удалось десериализовать customData:', error)
-      fabricObject.customData = {}
+
+      console.timeEnd('saveState')
+
+      // Если базовое состояние ещё не установлено, сохраняем полное состояние как базу
+      if (!this.baseState) {
+        this.baseState = currentStateObj
+        this.patches = []
+        this.currentIndex = 0
+        console.log('Базовое состояние сохранено.')
+        return
+      }
+
+      // Вычисляем diff между последним сохранённым полным состоянием и текущим состоянием.
+      // Последнее сохранённое полное состояние – это результат getFullState()
+      const prevState = this.getFullState()
+      const diff = this.diffPatcher.diff(prevState, currentStateObj)
+
+      // Если изменений нет, не сохраняем новый шаг
+      if (!diff) {
+        console.log('Нет изменений для сохранения.')
+        return
+      }
+
+      console.log('baseState', this.baseState)
+
+      // Если мы уже сделали undo и сейчас добавляем новое состояние,
+      // удаляем «редо»-ветку
+      if (this.currentIndex < this.patches.length) {
+        this.patches.splice(this.currentIndex)
+      }
+
+      console.log('diff', diff)
+
+      this.totalChangesCount += 1
+
+      // Сохраняем дифф
+      this.patches.push({ id: nanoid(), diff })
+      this.currentIndex += 1
+
+      // Если история стала слишком длинной, сбрасываем её: делаем новое базовое состояние
+      if (this.patches.length > this.maxHistoryLength) {
+        // Обновляем базовое состояние, применяя самый старый дифф
+        // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
+        this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as CanvasFullState
+        this.patches.shift() // Удаляем первый дифф
+        this.currentIndex -= 1 // Корректируем индекс
+
+        // Увеличиваем счётчик изменений, "свёрнутых" в базовое состояние
+        this.baseStateChangesCount += 1
+      }
+
+      console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
+    } finally {
+      this._isSavingState = false
     }
   }
 
@@ -372,13 +348,7 @@ export default class HistoryManager {
     // Сбрасываем overlay, так как он может задваиваться при загрузке состояния
     interactionBlocker.overlayMask = null
 
-    // Сериализуем customData в строку перед loadFromJSON
-    HistoryManager._serializeCustomData(fullState)
-
-    await canvas.loadFromJSON(fullState, (serializedObj, fabricObject) => {
-      // Десериализуем customData обратно в объект
-      HistoryManager._deserializeCustomData(serializedObj, fabricObject as FabricObject)
-    })
+    await canvas.loadFromJSON(fullState)
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
     const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area') as Rect | undefined
@@ -425,6 +395,8 @@ export default class HistoryManager {
   public async undo(): Promise<void> {
     if (this.skipHistory) return
 
+    this.saveState()
+
     if (this.currentIndex <= 0) {
       console.log('Нет предыдущих состояний для отмены.')
       return
@@ -469,6 +441,8 @@ export default class HistoryManager {
    */
   public async redo(): Promise<void> {
     if (this.skipHistory) return
+
+    this.saveState()
 
     if (this.currentIndex >= this.patches.length) {
       console.log('Нет состояний для повтора.')

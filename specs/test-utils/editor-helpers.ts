@@ -9,12 +9,14 @@ export type AnyFn = (...args: any[]) => any
 
 export const createSimpleDiffPatcher = () => ({
   diff: jest.fn((prev: any, next: any) => {
+    if (typeof next === 'undefined') return null
+
+    const clone = JSON.parse(JSON.stringify(next))
     const prevStr = JSON.stringify(prev)
-    const nextStr = JSON.stringify(next)
-    if (prevStr === nextStr) {
-      return null
-    }
-    return { next: JSON.parse(nextStr) }
+    const nextStr = JSON.stringify(clone)
+    if (prevStr === nextStr) return null
+
+    return { next: clone }
   }),
   patch: jest.fn((state: any, diff: any) => {
     if (!diff) {
@@ -540,7 +542,13 @@ export const createHistoryManagerTestSetup = (
   let objects: any[] = []
 
   const mockCanvas = {
-    toDatalessObject: jest.fn(),
+    toDatalessObject: jest.fn().mockImplementation(() => ({
+      clipPath: null,
+      width: currentWidth,
+      height: currentHeight,
+      version: '5.0.0',
+      objects: JSON.parse(JSON.stringify(objects))
+    })),
     loadFromJSON: jest.fn().mockImplementation(
       async(state: any, reviver?: (serializedObj: any, fabricObject: any) => void) => {
         const serializedObjects = state?.objects || []
