@@ -166,7 +166,6 @@ const OBJECT_SERIALIZATION_PROPS = [
   'underline',
   'fontStyle',
   'fontWeight',
-  'backgroundColor',
   'backgroundOpacity',
   'paddingTop',
   'paddingRight',
