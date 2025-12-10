@@ -96,6 +96,9 @@ describe('HistoryManager', () => {
       mockCanvas.toDatalessObject
         .mockReturnValueOnce(baseState)
         .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
 
       historyManager.saveState()
       historyManager.saveState()
@@ -279,6 +282,8 @@ describe('HistoryManager', () => {
         .mockReturnValueOnce(state1)
         .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state3)
+        .mockReturnValueOnce(state3)
+        .mockReturnValueOnce(state4)
 
       historyManager.saveState() // Базовое состояние
       historyManager.saveState() // patch-1
@@ -288,6 +293,7 @@ describe('HistoryManager', () => {
       expect(historyManager.currentIndex).toBe(2)
       expect(historyManager.totalChangesCount).toBe(2)
 
+      mockCanvas.toDatalessObject.mockReturnValueOnce(state3)
       await historyManager.undo()
       expect(historyManager.currentIndex).toBe(1)
       expect(historyManager.totalChangesCount).toBe(1)
@@ -601,6 +607,8 @@ describe('HistoryManager', () => {
       mockCanvas.toDatalessObject
         .mockReturnValueOnce(baseState)
         .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(baseState)
 
       historyManager.saveState()
       historyManager.saveState()
@@ -634,6 +642,10 @@ describe('HistoryManager', () => {
         .mockReturnValueOnce(state1)
         .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state3)
+        .mockReturnValueOnce(state3)
+        .mockReturnValueOnce(state2)
+        .mockReturnValueOnce(state1)
+        .mockReturnValueOnce(state2)
 
       historyManager.saveState()
       historyManager.saveState()
@@ -665,6 +677,8 @@ describe('HistoryManager', () => {
       mockCanvas.toDatalessObject
         .mockReturnValueOnce(baseState)
         .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(baseState)
 
       historyManager.saveState()
       historyManager.saveState()
@@ -697,6 +711,10 @@ describe('HistoryManager', () => {
         .mockReturnValueOnce(state1)
         .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state3)
+        .mockReturnValueOnce(state3)
+        .mockReturnValueOnce(state2)
+        .mockReturnValueOnce(state1)
+        .mockReturnValueOnce(state2)
 
       historyManager.saveState()
       historyManager.saveState()
@@ -733,6 +751,7 @@ describe('HistoryManager', () => {
 
       mockCanvas.toDatalessObject
         .mockReturnValueOnce(state1)
+        .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state2)
 
       historyManager.saveState()
@@ -911,6 +930,10 @@ describe('HistoryManager', () => {
         .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state3)
         .mockReturnValueOnce(state4)
+        .mockReturnValueOnce(state4)
+        .mockReturnValueOnce(state3)
+        .mockReturnValueOnce(state2)
+        .mockReturnValueOnce(state3)
 
       // Создаём историю
       historyManager.saveState()
@@ -954,6 +977,12 @@ describe('HistoryManager', () => {
       mockCanvas.toDatalessObject
         .mockReturnValueOnce(state1)
         .mockReturnValueOnce(state2)
+        .mockReturnValueOnce(state2)
+        .mockReturnValueOnce(state1)
+        .mockReturnValueOnce(state2)
+        .mockReturnValueOnce(state1)
+        .mockReturnValueOnce(state2)
+        .mockReturnValueOnce(state1)
 
       historyManager.saveState()
       historyManager.saveState()
@@ -984,6 +1013,8 @@ describe('HistoryManager', () => {
         .mockReturnValueOnce(states[2])
         .mockReturnValueOnce(states[3])
         .mockReturnValueOnce(states[4])
+        .mockReturnValueOnce(states[4])
+        .mockReturnValueOnce(states[3])
 
       historyManager.saveState()
       historyManager.saveState()
