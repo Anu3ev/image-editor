@@ -33,6 +33,7 @@ export type ImportImageOptions = {
   fromClipboard?: boolean,
   isBackground?: boolean,
   withoutSelection?: boolean
+  withoutAdding?: boolean
 }
 
 export type ExportObjectAsImageFileParameters = {
@@ -109,7 +110,8 @@ export default class ImageManager {
       withoutSave = false,
       fromClipboard = false,
       isBackground = false,
-      withoutSelection = false
+      withoutSelection = false,
+      withoutAdding = false
     } = options
 
     if (!source) return null
@@ -138,7 +140,8 @@ export default class ImageManager {
           acceptFormats,
           fromClipboard,
           isBackground,
-          withoutSelection
+          withoutSelection,
+          withoutAdding
         }
       })
 
@@ -172,7 +175,8 @@ export default class ImageManager {
             acceptFormats,
             fromClipboard,
             isBackground,
-            withoutSelection
+            withoutSelection,
+            withoutAdding
           }
         })
 
@@ -245,6 +249,26 @@ export default class ImageManager {
         }
       }
 
+      const result = {
+        image: img,
+        format,
+        contentType,
+        scale,
+        withoutSave,
+        source,
+        fromClipboard,
+        isBackground,
+        withoutSelection,
+        withoutAdding
+      }
+
+      if (withoutAdding) {
+        historyManager.resumeHistory()
+
+        canvas.fire('editor:image-imported', result)
+        return result
+      }
+
       // Добавляем изображение, центрируем его и перерисовываем канвас
       canvas.add(img)
       canvas.centerObject(img)
@@ -259,18 +283,6 @@ export default class ImageManager {
 
       if (!withoutSave) {
         historyManager.saveState()
-      }
-
-      const result = {
-        image: img,
-        format,
-        contentType,
-        scale,
-        withoutSave,
-        source,
-        fromClipboard,
-        isBackground,
-        withoutSelection
       }
 
       canvas.fire('editor:image-imported', result)
@@ -290,7 +302,8 @@ export default class ImageManager {
           withoutSave,
           fromClipboard,
           isBackground,
-          withoutSelection
+          withoutSelection,
+          withoutAdding
         }
       })
 
