@@ -243,7 +243,10 @@ export default class TemplateManager {
 
       // Применяем текстовые подстановки, трансформируем координаты и добавляем объекты на канвас
       const insertedObjects = contentObjects.map((object) => {
-        TemplateManager._applyTextOverrides({ object, data })
+        this._adaptTextboxWidth({
+          object,
+          baseWidth: meta.baseWidth
+        })
 
         TemplateManager._transformObject({
           object,
@@ -788,28 +791,114 @@ export default class TemplateManager {
   }
 
   /**
-   * Применяет текстовые значения из customData или переданных данных.
+   * Подгоняет ширину текстового объекта под фактическую длину строк, сохраняя выравнивание по якорю.
    */
-  private static _applyTextOverrides({
+  private _adaptTextboxWidth({
     object,
-    data
+    baseWidth
   }: {
     object: FabricObject
-    data?: Record<string, string>
+    baseWidth: number
   }): void {
-    if (!('text' in object)) return
+    if (!(object instanceof Textbox)) return
 
-    const customData = object.customData as TemplateCustomData | undefined
-    const { templateField: rawTemplateField, text: rawText } = customData ?? {}
+    const textValue = typeof object.text === 'string' ? object.text : ''
+    if (!textValue) return
 
-    const templateField = typeof rawTemplateField === 'string' ? rawTemplateField : undefined
-    const fallbackText = typeof rawText === 'string' ? rawText : undefined
-    const providedText = templateField && data ? data[templateField] : undefined
-    const nextValue = providedText ?? fallbackText
+    const montageAreaWidth = toNumber({
+      value: this.editor?.montageArea?.width,
+      fallback: 0
+    })
+    const {
+      width: storedWidth = 0,
+      scaleX: rawScaleX = 1,
+      strokeWidth: rawStrokeWidth = 0
+    } = object
+    const normalizedBaseWidth = toNumber({ value: baseWidth, fallback: 0 })
+    const rawPadding = object as Partial<Record<string, unknown>>
+    const paddingLeft = toNumber({ value: rawPadding.paddingLeft, fallback: 0 })
+    const paddingRight = toNumber({ value: rawPadding.paddingRight, fallback: 0 })
+    const scaleX = toNumber({ value: rawScaleX, fallback: 1 })
+    const strokeWidth = toNumber({ value: rawStrokeWidth, fallback: 0 }) * scaleX
+    const textWidth = toNumber({ value: storedWidth, fallback: 0 })
+    const textWidthScaled = textWidth * scaleX
+    const paddingLeftScaled = paddingLeft * scaleX
+    const paddingRightScaled = paddingRight * scaleX
+    const initialDisplayWidth = textWidthScaled + paddingLeftScaled + paddingRightScaled + strokeWidth
+    if (!montageAreaWidth || !textWidth || !normalizedBaseWidth) return
 
-    if (typeof nextValue === 'string') {
-      (object as Textbox).text = nextValue
+    object.setCoords()
+    const objectRecord = object as Record<string, unknown>
+    const normalizedCenterValue = objectRecord[TEMPLATE_CENTER_X_KEY]
+    const normalizedCenter = typeof normalizedCenterValue === 'number'
+      ? normalizedCenterValue
+      : null
+    const anchorX = TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_X_KEY)
+    const initialWidthNormalized = initialDisplayWidth / normalizedBaseWidth
+    const leftNormalized = normalizedCenter !== null
+      ? normalizedCenter - (initialWidthNormalized / 2)
+      : null
+    const rightNormalized = normalizedCenter !== null
+      ? normalizedCenter + (initialWidthNormalized / 2)
+      : null
+    const originalCenter = object.getCenterPoint()
+
+    object.set('width', montageAreaWidth)
+    object.initDimensions()
+
+    const longestLineWidth = TemplateManager._getLongestLineWidth({
+      textbox: object,
+      text: textValue
+    })
+    const nextWidth = longestLineWidth > textWidth ? longestLineWidth + 1 : textWidth
+
+    object.set('width', nextWidth)
+    object.initDimensions()
+    object.setPositionByOrigin(originalCenter, 'center', 'center')
+    object.setCoords()
+
+    const finalDisplayWidth = (nextWidth * scaleX) + paddingLeftScaled + paddingRightScaled + strokeWidth
+    const nextWidthNormalized = finalDisplayWidth / normalizedBaseWidth
+    let nextCenterNormalized = normalizedCenter
+
+    if (anchorX === 'start' && leftNormalized !== null) {
+      nextCenterNormalized = Math.max(0, leftNormalized) + (nextWidthNormalized / 2)
+    } else if (anchorX === 'end' && rightNormalized !== null) {
+      const safeRight = Math.min(1, rightNormalized)
+      nextCenterNormalized = safeRight - (nextWidthNormalized / 2)
     }
+
+    if (typeof nextCenterNormalized === 'number') {
+      objectRecord[TEMPLATE_CENTER_X_KEY] = nextCenterNormalized
+    }
+  }
+
+  /**
+   * Возвращает ширину самой длинной строки текстового объекта.
+   */
+  private static _getLongestLineWidth({
+    textbox,
+    text
+  }: {
+    textbox: Textbox
+    text: string
+  }): number {
+    const {
+      textLines
+    } = textbox as unknown as { textLines?: string[] }
+    const lineCount = Array.isArray(textLines) && textLines.length > 0
+      ? textLines.length
+      : Math.max(text.split('\n').length, 1)
+
+    let longestLineWidth = 0
+    for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
+      const lineWidth = textbox.getLineWidth(lineIndex)
+      if (lineWidth > longestLineWidth) {
+        longestLineWidth = lineWidth
+      }
+    }
+
+    return longestLineWidth
   }
 
   /**
