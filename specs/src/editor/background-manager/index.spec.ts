@@ -64,7 +64,13 @@ describe('BackgroundManager', () => {
       }, { withoutSelection: true })
 
       expect(backgroundManager.backgroundObject).toBe(mockBackground)
-      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', { type: 'color', color: '#ff0000' })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
+        type: 'color',
+        color: '#ff0000',
+        customData: {},
+        fromTemplate: false,
+        withoutSave: false
+      })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
@@ -96,7 +102,13 @@ describe('BackgroundManager', () => {
         backgroundId: expect.stringMatching(/^background-/)
       })
       expect(mockBackground.set).toHaveBeenCalledWith({ customData: {} })
-      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', { type: 'color', color: '#00ff00' })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
+        type: 'color',
+        color: '#00ff00',
+        customData: {},
+        fromTemplate: false,
+        withoutSave: false
+      })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
@@ -132,7 +144,10 @@ describe('BackgroundManager', () => {
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'image',
         imageSource,
-        backgroundObject: mockImage
+        backgroundObject: mockImage,
+        customData: {},
+        fromTemplate: false,
+        withoutSave: false
       })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
@@ -160,7 +175,7 @@ describe('BackgroundManager', () => {
 
       expect(mockCanvas.remove).toHaveBeenCalledWith(mockBackground)
       expect(backgroundManager.backgroundObject).toBeNull()
-      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:removed')
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:removed', { withoutSave: false })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
@@ -404,7 +419,10 @@ describe('BackgroundManager', () => {
       )
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'gradient',
-        gradientParams: gradient
+        gradientParams: gradient,
+        customData: {},
+        fromTemplate: false,
+        withoutSave: false
       })
     })
 
@@ -435,7 +453,10 @@ describe('BackgroundManager', () => {
       )
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'gradient',
-        gradientParams: gradient
+        gradientParams: gradient,
+        customData: {},
+        fromTemplate: false,
+        withoutSave: false
       })
     })
 
@@ -495,7 +516,10 @@ describe('BackgroundManager', () => {
       )
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'gradient',
-        gradientParams: gradient
+        gradientParams: gradient,
+        customData: {},
+        fromTemplate: false,
+        withoutSave: false
       })
     })
 
@@ -527,7 +551,10 @@ describe('BackgroundManager', () => {
       )
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
         type: 'gradient',
-        gradientParams: gradient
+        gradientParams: gradient,
+        customData: {},
+        fromTemplate: false,
+        withoutSave: false
       })
     })
 
