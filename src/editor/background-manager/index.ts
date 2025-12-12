@@ -5,6 +5,7 @@ import { ImageEditor } from '../index'
 export type SetColorOptions = {
   color: string
   customData?: object
+  fromTemplate?: boolean
   withoutSave?: boolean
 }
 
@@ -40,12 +41,14 @@ export type GradientBackground = LinearGradientBackground | RadialGradientBackgr
 export type SetGradientOptions = {
   gradient: GradientBackground
   customData?: object
+  fromTemplate?: boolean
   withoutSave?: boolean
 }
 
 export type SetImageOptions = {
   imageSource: string | File
   customData?: object
+  fromTemplate?: boolean
   withoutSave?: boolean
 }
 
@@ -106,6 +109,7 @@ export default class BackgroundManager {
   public setColorBackground({
     color,
     customData = {},
+    fromTemplate = false,
     withoutSave = false
   }: SetColorOptions): void {
     try {
@@ -137,7 +141,13 @@ export default class BackgroundManager {
 
       this.backgroundObject?.set({ customData })
 
-      this.editor.canvas.fire('editor:background:changed', { type: 'color', color })
+      this.editor.canvas.fire('editor:background:changed', {
+        type: 'color',
+        color,
+        customData,
+        fromTemplate,
+        withoutSave
+      })
       historyManager.resumeHistory()
 
       if (!withoutSave) {
@@ -149,7 +159,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setColorBackground',
         message: 'Не удалось установить цветовой фон',
-        data: { error }
+        data: { error, color, customData, fromTemplate, withoutSave }
       })
     }
   }
@@ -163,6 +173,7 @@ export default class BackgroundManager {
   public setGradientBackground({
     gradient,
     customData = {},
+    fromTemplate = false,
     withoutSave = false
   }: SetGradientOptions): void {
     try {
@@ -196,6 +207,9 @@ export default class BackgroundManager {
 
       this.editor.canvas.fire('editor:background:changed', {
         type: 'gradient',
+        customData,
+        fromTemplate,
+        withoutSave,
         gradientParams: gradient
       })
       historyManager.resumeHistory()
@@ -209,7 +223,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setGradientBackground',
         message: 'Не удалось установить градиентный фон',
-        data: { error }
+        data: { error, gradient, customData, fromTemplate, withoutSave }
       })
     }
   }
@@ -305,6 +319,7 @@ export default class BackgroundManager {
   public async setImageBackground({
     imageSource,
     customData = {},
+    fromTemplate = false,
     withoutSave = false
   }: SetImageOptions): Promise<void> {
     try {
@@ -316,6 +331,9 @@ export default class BackgroundManager {
       this.editor.canvas.fire('editor:background:changed', {
         type: 'image',
         imageSource,
+        customData,
+        fromTemplate,
+        withoutSave,
         backgroundObject: this.backgroundObject
       })
       historyManager.resumeHistory()
@@ -329,7 +347,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setImageBackground',
         message: 'Не удалось установить изображение в качестве фона',
-        data: { error }
+        data: { error, imageSource, customData, fromTemplate, withoutSave }
       })
     }
   }
@@ -347,7 +365,7 @@ export default class BackgroundManager {
 
       historyManager.suspendHistory()
       this._removeCurrentBackground()
-      this.editor.canvas.fire('editor:background:removed')
+      this.editor.canvas.fire('editor:background:removed', { withoutSave })
       historyManager.resumeHistory()
 
       if (!withoutSave) {
@@ -359,7 +377,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'removeBackground',
         message: 'Не удалось удалить фон',
-        data: { error }
+        data: { error, withoutSave }
       })
     }
   }
