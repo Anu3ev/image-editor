@@ -1019,6 +1019,7 @@ export default class TemplateManager {
         backgroundManager.setColorBackground({
           color: fill,
           customData,
+          fromTemplate: true,
           withoutSave: true
         })
         return true
@@ -1031,6 +1032,7 @@ export default class TemplateManager {
           backgroundManager.setGradientBackground({
             gradient,
             customData,
+            fromTemplate: true,
             withoutSave: true
           })
           return true
@@ -1044,6 +1046,7 @@ export default class TemplateManager {
           await backgroundManager.setImageBackground({
             imageSource: src,
             customData,
+            fromTemplate: true,
             withoutSave: true
           })
           return true
