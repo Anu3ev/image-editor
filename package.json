@@ -55,7 +55,7 @@
   },
   "dependencies": {
     "diff-match-patch": "^1.0.5",
-    "fabric": "^6.7.1",
+    "fabric": "^6.9.1",
     "jsondiffpatch": "^0.6.2",
     "jspdf": "^3.0.1",
     "nanoid": "^5.0.9"
