@@ -589,6 +589,16 @@ class Listeners {
 
     // Создаем новый ActiveSelection с валидными объектами
     const newSelection = new ActiveSelection(validObjects, { canvas })
+
+    // Если хотя бы один объект заблокирован, блокируем и само выделение
+    if (validObjects.some((obj) => obj.locked)) {
+      editor.objectLockManager.lockObject({
+        object: newSelection,
+        skipInnerObjects: true,
+        withoutSave: true
+      })
+    }
+
     canvas.setActiveObject(newSelection)
   }
 

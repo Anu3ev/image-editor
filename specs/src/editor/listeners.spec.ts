@@ -1,3 +1,4 @@
+import { ActiveSelection } from 'fabric'
 import Listeners from '../../../src/editor/listeners'
 import { createEditorStub } from '../../test-utils/editor-helpers'
 import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../test-utils/events'
@@ -198,6 +199,47 @@ describe('Listeners', () => {
       const objs = (editor.canvasManager.getObjects as jest.Mock).mock.results[0].value
       expect(objs[0].set).toHaveBeenCalled()
       expect(objs[1].set).toHaveBeenCalled()
+    })
+
+    it('восстанавливает заблокированное выделение, если внутри есть заблокированные объекты', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+
+      // Подготовка: создаем объекты, один из которых заблокирован
+      const obj1 = { set: jest.fn(), locked: false } as any
+      const obj2 = { set: jest.fn(), locked: true } as any
+      const objects = [obj1, obj2];
+
+      // Мокаем getObjects, чтобы _restoreSelection считал их валидными (существующими на канвасе)
+      (editor.canvasManager.getObjects as jest.Mock).mockReturnValue(objects)
+
+      // Мокаем текущее выделение перед нажатием пробела
+      // Используем ActiveSelection из мока fabric, чтобы сработал instanceof в handleSpaceKeyDown
+      const activeSelection = new ActiveSelection([], {})
+      jest.spyOn(activeSelection, 'getObjects').mockReturnValue(objects);
+      (editor.canvas.getActiveObject as jest.Mock).mockReturnValue(activeSelection)
+
+      // 1. Нажимаем пробел (сохранение выделения и переход в режим drag)
+      const eSpaceDown = keyDown({ code: 'Space' })
+      Object.defineProperty(eSpaceDown, 'preventDefault', { value: jest.fn() })
+      listeners.handleSpaceKeyDown(eSpaceDown)
+
+      // Проверяем, что выделение было сброшено
+      expect(editor.canvas.discardActiveObject).toHaveBeenCalled()
+
+      // 2. Отпускаем пробел (выход из режима drag и восстановление выделения)
+      const eSpaceUp = keyUp({ code: 'Space' })
+      listeners.handleSpaceKeyUp(eSpaceUp)
+
+      // Проверяем, что lockObject был вызван для восстановленного выделения,
+      // так как один из объектов (obj2) был заблокирован
+      expect(editor.objectLockManager.lockObject).toHaveBeenCalledWith(expect.objectContaining({
+        skipInnerObjects: true,
+        withoutSave: true
+      }))
+
+      // Проверяем, что setActiveObject был вызван (выделение восстановлено)
+      expect(editor.canvas.setActiveObject).toHaveBeenCalled()
     })
   })
 
