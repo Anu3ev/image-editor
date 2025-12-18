@@ -314,5 +314,4 @@ describe('ZoomManager', () => {
       expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
     })
   })
-
 })

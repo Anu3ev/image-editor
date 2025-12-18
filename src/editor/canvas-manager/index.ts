@@ -64,6 +64,39 @@ export default class CanvasManager {
   }
 
   /**
+   * Возвращает центральную точку текущей видимой области канваса.
+   * Если точка находится за пределами монтажной области, она проецируется на ближайшую границу монтажной области.
+   */
+  public getVisibleCenterPoint(): Point {
+    const { canvas, montageArea } = this.editor
+    const zoom = canvas.getZoom()
+    const vpt = canvas.viewportTransform
+    const width = canvas.getWidth()
+    const height = canvas.getHeight()
+
+    // Рассчитываем центр вьюпорта в координатах канваса
+    const viewportCenterX = (width / 2 - vpt[4]) / zoom
+    const viewportCenterY = (height / 2 - vpt[5]) / zoom
+
+    // Ограничиваем точку границами монтажной области
+    const halfWidth = montageArea.width / 2
+    const halfHeight = montageArea.height / 2
+
+    const clampedX = clampValue(
+      viewportCenterX,
+      montageArea.left - halfWidth,
+      montageArea.left + halfWidth
+    )
+    const clampedY = clampValue(
+      viewportCenterY,
+      montageArea.top - halfHeight,
+      montageArea.top + halfHeight
+    )
+
+    return new Point(clampedX, clampedY)
+  }
+
+  /**
    * Устанавливаем внутреннюю ширину канваса (для экспорта)
    * @param width - ширина канваса
    * @param options
