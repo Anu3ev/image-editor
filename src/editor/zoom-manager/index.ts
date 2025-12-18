@@ -38,7 +38,17 @@ export default class ZoomManager {
     this.options = editor.options
     this.minZoom = this.options.minZoom || MIN_ZOOM
     this.maxZoom = this.options.maxZoom || MAX_ZOOM
-    this.defaultZoom = this.options.defaultScale
+    this.defaultZoom = this._normalizeDefaultZoom(this.options.defaultScale)
+  }
+
+  /**
+   * Приводит значение defaultZoom к числу с двумя знаками после запятой, а также учитывает минимальное и максимальное значения.
+   * @param zoom - Значение зума для нормализации
+   * @returns Нормализованное значение зума
+   * @private
+   */
+  private _normalizeDefaultZoom(zoom: number): number {
+    return Math.min(this.maxZoom, Math.max(this.minZoom, Number(zoom.toFixed(2))))
   }
 
   /**
@@ -307,7 +317,7 @@ export default class ZoomManager {
     const scaleY = (containerHeight / montageHeight) * scale
 
     // выбираем меньший зум, чтобы монтажная область целиком помещалась
-    this.defaultZoom = Math.min(scaleX, scaleY)
+    this.defaultZoom = this._normalizeDefaultZoom(Math.min(scaleX, scaleY))
 
     // применяем дефолтный зум
     this.setZoom()
@@ -392,7 +402,7 @@ export default class ZoomManager {
     this.editor.montageArea.setCoords()
     this.editor.canvas.requestRenderAll()
 
-    let zoom = Number((currentZoom + Number(scale)).toFixed(3))
+    let zoom = Number((currentZoom + Number(scale)).toFixed(2))
     if (zoom > maxZoom) zoom = maxZoom
     if (zoom < minZoom) zoom = minZoom
 
