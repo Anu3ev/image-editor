@@ -23,6 +23,7 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'width',
   'height',
   'locked',
+  'editable',
   'lockMovementX',
   'lockMovementY',
   'lockRotation',
