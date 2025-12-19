@@ -150,12 +150,15 @@ export class Textbox extends FabricObject {
   public uppercase?: boolean
   public textCaseRaw?: string
   public fontSize?: number
+  public lineHeight?: number
   public width?: number
+  public height?: number
   public left?: number
   public dirty = false
   public isEditing = false
   public selectionStart = 0
   public selectionEnd = 0
+  public textLines: string[] = []
   private charStyles: Record<number, Record<string, any>> = {}
 
   static ownDefaults: Record<string, any> = {}
@@ -172,6 +175,46 @@ export class Textbox extends FabricObject {
 
   setCoords() {
     // noop in mock
+  }
+
+  /**
+   * Пересчитывает размеры и строки текста в мок-окружении.
+   */
+  initDimensions() {
+    const { text = '' } = this
+    const lineCount = text ? text.split('\n').length : 0
+    this.textLines = lineCount ? text.split('\n') : ['']
+
+    const nextWidth = this.calcTextWidth()
+    if (typeof nextWidth === 'number') {
+      this.width = nextWidth
+    }
+
+    const nextHeight = this.calcTextHeight()
+    if (typeof nextHeight === 'number') {
+      this.height = nextHeight
+    }
+  }
+
+  /**
+   * Возвращает приблизительную высоту текста для мок-рендера.
+   */
+  calcTextHeight() {
+    const {
+      text = '',
+      fontSize = 0,
+      lineHeight = 1
+    } = this
+
+    if (!text) return 0
+
+    const lineCount = text.split('\n').length
+    if (!lineCount) return 0
+
+    const safeFontSize = typeof fontSize === 'number' ? fontSize : 0
+    const safeLineHeight = typeof lineHeight === 'number' ? lineHeight : 1
+
+    return lineCount * safeFontSize * safeLineHeight
   }
 
   calcTextWidth() {

@@ -256,6 +256,34 @@ describe('TextManager', () => {
       expect(textbox.fontFamily).toBe('Arial')
     })
 
+    it('пересчитывает размеры при смене шрифта для выделенного текста', () => {
+      const {
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'line one\nline two',
+        fontFamily: 'Arial',
+        fontSize: 32
+      })
+
+      textbox.isEditing = true
+      textbox.selectionStart = 0
+      textbox.selectionEnd = 4
+
+      const initDimensionsSpy = jest.spyOn(textbox, 'initDimensions')
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          fontFamily: 'Roboto'
+        }
+      })
+
+      expect(initDimensionsSpy).toHaveBeenCalledTimes(1)
+    })
+
     it('синхронизирует базовые стили объекта, если выделён весь текст', () => {
       const {
         textManager
