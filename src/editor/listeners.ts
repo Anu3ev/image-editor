@@ -1,10 +1,10 @@
 import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent, Textbox } from 'fabric'
 
+import { ImageEditor } from '.'
+
 type CanvasWithTransform = Canvas & {
   _currentTransform?: Record<string, unknown> | null
 }
-
-import { ImageEditor } from '.'
 
 class Listeners {
   /**
