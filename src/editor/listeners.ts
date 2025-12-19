@@ -1,5 +1,9 @@
 import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent, Textbox } from 'fabric'
 
+type CanvasWithTransform = Canvas & {
+  _currentTransform?: Record<string, unknown> | null
+}
+
 import { ImageEditor } from '.'
 
 class Listeners {
@@ -490,7 +494,15 @@ class Listeners {
    * @param event.code — код клавиши
    */
   handleSpaceKeyDown(event:KeyboardEvent): void {
-    if (event.code !== 'Space' || this._shouldIgnoreKeyboardEvent(event)) return
+    const { code } = event
+    if (code !== 'Space') return
+
+    if (this._shouldIgnoreKeyboardEvent(event)) return
+
+    if (this._isObjectTransforming()) {
+      event.preventDefault()
+      return
+    }
 
     const { canvas, editor, isSpacePressed, isDragging } = this
 
@@ -537,7 +549,10 @@ class Listeners {
    * @param event.code — код клавиши
    */
   handleSpaceKeyUp(event:KeyboardEvent): void {
-    if (event.code !== 'Space' || this._shouldIgnoreKeyboardEvent(event)) return
+    const { code } = event
+    if (code !== 'Space' || this._shouldIgnoreKeyboardEvent(event)) return
+
+    if (!this.isSpacePressed) return
 
     this.isSpacePressed = false
 
@@ -600,6 +615,16 @@ class Listeners {
     }
 
     canvas.setActiveObject(newSelection)
+  }
+
+  /**
+   * Проверяет, идет ли трансформация объекта на канвасе прямо сейчас.
+   */
+  private _isObjectTransforming(): boolean {
+    const { canvas } = this
+    const { _currentTransform } = canvas as CanvasWithTransform
+
+    return Boolean(_currentTransform)
   }
 
   // --- Обработчики для событий canvas (Fabric) ---
