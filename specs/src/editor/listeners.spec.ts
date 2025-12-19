@@ -201,6 +201,32 @@ describe('Listeners', () => {
       expect(objs[1].set).toHaveBeenCalled()
     })
 
+    it('не включает режим drag, если в момент нажатия пробела идет трансформация объекта', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+      const { canvas, canvasManager } = editor
+
+      Object.defineProperty(document, 'activeElement', {
+        value: document.body,
+        configurable: true
+      })
+
+      const canvasWithTransform = canvas as any
+      canvasWithTransform._currentTransform = {}
+
+      const preventDefault = jest.fn()
+      const eSpace = keyDown({ code: 'Space' })
+      Object.defineProperty(eSpace, 'preventDefault', { value: preventDefault })
+
+      listeners.handleSpaceKeyDown(eSpace)
+
+      expect(preventDefault).toHaveBeenCalled()
+      expect(listeners.isSpacePressed).toBe(false)
+      expect(canvas.set).not.toHaveBeenCalled()
+      expect(canvas.setCursor).not.toHaveBeenCalled()
+      expect(canvasManager.getObjects).not.toHaveBeenCalled()
+    })
+
     it('восстанавливает заблокированное выделение, если внутри есть заблокированные объекты', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { canvasDragging: true } })
