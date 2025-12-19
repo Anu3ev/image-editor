@@ -3,13 +3,21 @@
 
 export class Canvas {
   public clipPath: any = null
+
   public dispose = jest.fn()
+
   public on = jest.fn()
+
   public off = jest.fn()
+
   public add = jest.fn()
+
   public centerObject = jest.fn()
+
   public setActiveObject = jest.fn()
+
   public getActiveObject = jest.fn().mockReturnValue(null)
+
   public requestRenderAll = jest.fn()
 
   constructor(public el: any, public options: any) {}
@@ -34,9 +42,11 @@ export class Point {
 
 export class Rect {
   private props: Record<string, any>
+
   constructor(options: Record<string, any>) {
     this.props = { ...options }
   }
+
   get(key: string) {
     return this.props[key]
   }
@@ -68,7 +78,7 @@ export class ActiveSelection {
 
   async clone() {
     // Глубокое копирование objects и options для избежания shared references
-    const clonedObjects = this.objects.map(obj => ({ ...obj }))
+    const clonedObjects = this.objects.map((obj) => ({ ...obj }))
     const clonedOptions = { ...this.options }
 
     const cloned = new ActiveSelection(clonedObjects, clonedOptions)
@@ -91,11 +101,17 @@ export class ActiveSelection {
 
 export class Group {
   type = 'group'
+
   id = ''
+
   left = 0
+
   top = 0
+
   width = 100
+
   height = 100
+
   _objects: any[] = []
 
   constructor(objects: any[] = [], public options: any = {}) {
@@ -118,7 +134,7 @@ export class Group {
   }
 
   async clone() {
-    const clonedObjects = this._objects.map(obj => ({ ...obj }))
+    const clonedObjects = this._objects.map((obj) => ({ ...obj }))
     const clonedOptions = { ...this.options }
     return new Group(clonedObjects, clonedOptions)
   }
@@ -145,23 +161,39 @@ export class InteractiveFabricObject extends FabricObject {}
 
 export class Textbox extends FabricObject {
   public text?: string
+
   public id?: string
+
   public controls: Record<string, any> = {}
+
   public uppercase?: boolean
+
   public textCaseRaw?: string
+
   public fontSize?: number
+
   public lineHeight?: number
+
   public width?: number
+
   public height?: number
+
   public left?: number
+
   public dirty = false
+
   public isEditing = false
+
   public selectionStart = 0
+
   public selectionEnd = 0
+
   public textLines: string[] = []
+
   private charStyles: Record<number, Record<string, any>> = {}
 
   static ownDefaults: Record<string, any> = {}
+
   static type = 'textbox'
 
   constructor(text: string, options: Record<string, any> = {}) {
@@ -239,7 +271,7 @@ export class Textbox extends FabricObject {
     const safeEnd = typeof end === 'number' ? end : start + 1
     const styles: Array<Record<string, any>> = []
     for (let i = start; i < safeEnd; i += 1) {
-      styles.push({ ...(this.charStyles[i] ?? {}) })
+      styles.push({ ...this.charStyles[i] ?? {} })
     }
     return styles
   }
@@ -256,8 +288,11 @@ export const controlsUtils = {
 
 export class Gradient {
   type: string
+
   gradientUnits: string
+
   coords: any
+
   colorStops: any[]
 
   constructor(public options: any = {}) {
@@ -271,6 +306,7 @@ export class Gradient {
 
 export class FabricImage {
   type = 'image'
+
   constructor(public options: any = {}) {
     Object.assign(this, options)
   }
@@ -295,8 +331,11 @@ export interface CanvasOptions {
 
 export class Color {
   private r: number
+
   private g: number
+
   private b: number
+
   private a = 1
 
   constructor(value: string) {
@@ -330,7 +369,7 @@ export const classRegistry = {
 }
 
 export const util = {
-  enlivenObjects: async (objects: any[]) => objects.map((obj) => {
+  enlivenObjects: async(objects: any[]) => objects.map((obj) => {
     const Cls = classRegistry.getClass(obj.type)
     return Cls ? new Cls(obj.text ?? '', obj) : obj
   })
