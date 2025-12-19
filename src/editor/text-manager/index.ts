@@ -564,9 +564,24 @@ export default class TextManager {
       }
     }
 
+    const shouldRecalculateDimensions = stylesApplied
+      && TextManager._hasLayoutAffectingStyles({
+        stylesList: [
+          selectionStyles,
+          lineSelectionStyles,
+          wholeTextStyles
+        ]
+      })
+
     if (stylesApplied) {
       textbox.dirty = true
     }
+
+    if (shouldRecalculateDimensions) {
+      textbox.initDimensions()
+      textbox.dirty = true
+    }
+
     if (
       backgroundColor !== undefined
       || backgroundOpacity !== undefined
@@ -579,14 +594,6 @@ export default class TextManager {
       || radiusBottomRight !== undefined
       || radiusBottomLeft !== undefined
     ) {
-      textbox.dirty = true
-    }
-
-    // Если текст вылезает за границы (например, при смене шрифта),
-    // обновляем ширину блока, чтобы вместить текст.
-    const textWidth = textbox.calcTextWidth()
-    if (textWidth > (textbox.width ?? 0)) {
-      textbox.set({ width: textWidth })
       textbox.dirty = true
     }
 
@@ -1279,6 +1286,41 @@ export default class TextManager {
     }
 
     return 0
+  }
+
+  /**
+   * Проверяет, есть ли среди стилей свойства, влияющие на перенос строк и высоту текста.
+   */
+  private static _hasLayoutAffectingStyles({
+    stylesList
+  }: {
+    stylesList: Array<Partial<TextboxProps>>
+  }): boolean {
+    const stylesCount = stylesList.length
+    if (!stylesCount) return false
+
+    for (let index = 0; index < stylesCount; index += 1) {
+      const styles = stylesList[index]
+      if (!styles) continue
+
+      const {
+        fontFamily,
+        fontSize,
+        fontWeight,
+        fontStyle,
+        lineHeight,
+        charSpacing
+      } = styles
+
+      if (fontFamily !== undefined) return true
+      if (fontSize !== undefined) return true
+      if (fontWeight !== undefined) return true
+      if (fontStyle !== undefined) return true
+      if (lineHeight !== undefined) return true
+      if (charSpacing !== undefined) return true
+    }
+
+    return false
   }
 
   /**
