@@ -508,6 +508,14 @@ class Listeners {
 
     if (isSpacePressed || isDragging) return
 
+    // Фиксируем все изменения до входа в режим панорамирования,
+    // чтобы временные selectable/evented не попадали в историю.
+    if (!editor.historyManager.skipHistory) {
+      editor.historyManager.saveState()
+    }
+
+    editor.historyManager.suspendHistory()
+
     this.isSpacePressed = true
     event.preventDefault()
 
@@ -550,7 +558,8 @@ class Listeners {
    */
   handleSpaceKeyUp(event:KeyboardEvent): void {
     const { code } = event
-    if (code !== 'Space' || this._shouldIgnoreKeyboardEvent(event)) return
+    if (code !== 'Space') return
+    if (this._shouldIgnoreKeyboardEvent(event) && !this.isSpacePressed) return
 
     if (!this.isSpacePressed) return
 
@@ -579,6 +588,8 @@ class Listeners {
     // Восстанавливаем сохраненное выделение
     this._restoreSelection(this.savedSelection)
     this.savedSelection = []
+
+    this.editor.historyManager.resumeHistory()
 
     this.canvas.requestRenderAll()
   }

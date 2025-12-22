@@ -281,7 +281,7 @@ describe('TextManager', () => {
         }
       })
 
-      expect(initDimensionsSpy).toHaveBeenCalledTimes(1)
+      expect(initDimensionsSpy).toHaveBeenCalled()
     })
 
     it('синхронизирует базовые стили объекта, если выделён весь текст', () => {
@@ -436,6 +436,63 @@ describe('TextManager', () => {
       const restoredTextbox = stateAfterUndo.objects?.[0]
 
       expect(restoredTextbox?.styles?.[0]).toBeUndefined()
+    })
+  })
+
+  describe('авто-расширение ширины', () => {
+    it('updateText увеличивает ширину и не сдвигает объект по Y', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Short', width: 120 })
+      textbox.set({ top: 80, left: 40 })
+
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
+
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'Longer text' },
+        withoutSave: true
+      })
+
+      expect(textbox.width).toBe(260)
+      expect(textbox.top).toBe(80)
+
+      lineWidthSpy.mockRestore()
+    })
+
+    it('text:changed сохраняет вертикальную позицию при редактировании', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Short', width: 100 })
+      textbox.set({ top: 70, left: 30 })
+
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(240)
+
+      canvas.fire('text:editing:entered', { target: textbox })
+      textbox.text = 'Longer text'
+      canvas.fire('text:changed', { target: textbox })
+
+      expect(textbox.width).toBe(240)
+      expect(textbox.top).toBe(70)
+
+      lineWidthSpy.mockRestore()
+    })
+
+    it('не превышает ширину монтажной области при updateText', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Short', width: 120 })
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(1000)
+
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'Very long text' },
+        withoutSave: true
+      })
+
+      expect(textbox.width).toBeLessThanOrEqual(400)
+
+      lineWidthSpy.mockRestore()
     })
   })
 

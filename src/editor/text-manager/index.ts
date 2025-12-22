@@ -3,6 +3,7 @@ import {
   Canvas,
   FabricObject,
   IEvent,
+  Point,
   Textbox,
   TextboxProps,
   Transform
@@ -120,6 +121,12 @@ type ScalingState = {
 
 type TextboxSnapshot = Record<string, unknown>
 
+type TextEditingAnchor = {
+  originY: EditorTextbox['originY']
+  x: number
+  y: number
+}
+
 /**
  * Менеджер текста для редактора.
  * Управляет добавлением и обновлением текстовых объектов, а также синхронизацией размера шрифта при трансформациях.
@@ -146,6 +153,11 @@ export default class TextManager {
   private scalingState: WeakMap<EditorTextbox, ScalingState>
 
   /**
+   * Вертикальная опорная точка текстового объекта на момент входа в редактирование.
+   */
+  private editingAnchorState?: WeakMap<EditorTextbox, TextEditingAnchor>
+
+  /**
    * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
    * Используется для предотвращения сохранения состояния с временными lock-свойствами.
    */
@@ -156,6 +168,7 @@ export default class TextManager {
     this.canvas = editor.canvas
     this.fonts = editor.options.fonts ?? []
     this.scalingState = new WeakMap()
+    this.editingAnchorState = new WeakMap()
     this.isTextEditingActive = false
 
     this._bindEvents()
@@ -597,7 +610,37 @@ export default class TextManager {
       textbox.dirty = true
     }
 
-    const dimensionsRounded = TextManager._roundTextboxDimensions({ textbox })
+    const hasLayoutUpdates = TextManager._hasLayoutAffectingStyles({
+      stylesList: [
+        updates,
+        selectionStyles,
+        lineSelectionStyles,
+        wholeTextStyles
+      ]
+    })
+    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
+    const shouldAutoExpand = !hasExplicitWidthUpdate
+      && (hasTextUpdate || uppercaseChanged || hasLayoutUpdates)
+    let geometryAdjusted = false
+
+    if (shouldAutoExpand) {
+      const anchorOriginY = textbox.originY ?? 'top'
+      const anchorPoint = textbox.getPointByOrigin('center', anchorOriginY)
+      geometryAdjusted = this._autoExpandTextboxWidth(textbox, {
+        anchor: {
+          originY: anchorOriginY,
+          x: anchorPoint.x,
+          y: anchorPoint.y
+        }
+      })
+      if (geometryAdjusted) {
+        textbox.dirty = true
+      }
+    }
+
+    const dimensionsRounded = geometryAdjusted
+      ? false
+      : TextManager._roundTextboxDimensions({ textbox })
 
     if (dimensionsRounded) {
       textbox.dirty = true
@@ -644,7 +687,7 @@ export default class TextManager {
     canvas.off('object:modified', this._handleObjectModified)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
-    canvas.off('text:changed', TextManager._handleTextChanged)
+    canvas.off('text:changed', this._handleTextChanged)
   }
 
   /**
@@ -687,20 +730,30 @@ export default class TextManager {
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
-    canvas.on('text:changed', TextManager._handleTextChanged)
+    canvas.on('text:changed', this._handleTextChanged)
   }
 
   /**
    * Обработчик входа в режим редактирования текста.
    */
-  private _handleTextEditingEntered = (): void => {
+  private _handleTextEditingEntered = (event: IEvent): void => {
     this.isTextEditingActive = true
+    const { target } = event
+    if (!TextManager._isTextbox(target)) return
+    const originY = target.originY ?? 'top'
+    const originPoint = target.getPointByOrigin('center', originY)
+    const anchorState = this._ensureEditingAnchorState()
+    anchorState.set(target, {
+      originY,
+      x: originPoint.x,
+      y: originPoint.y
+    })
   }
 
   /**
    * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
    */
-  private static _handleTextChanged(event: IEvent): void {
+  private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
@@ -720,12 +773,151 @@ export default class TextManager {
       target.textCaseRaw = text
     }
 
-    const dimensionsRounded = TextManager._roundTextboxDimensions({ textbox: target })
+    const geometryAdjusted = this._autoExpandTextboxWidth(target)
+    const dimensionsRounded = geometryAdjusted
+      ? false
+      : TextManager._roundTextboxDimensions({ textbox: target })
 
-    if (dimensionsRounded) {
+    if (geometryAdjusted || dimensionsRounded) {
       target.setCoords()
       target.dirty = true
     }
+  }
+
+  /**
+   * Автоматически увеличивает ширину текстового объекта до ширины текста,
+   * но не шире монтажной области, и удерживает объект в её пределах.
+   */
+  private _autoExpandTextboxWidth(
+    textbox: EditorTextbox,
+    { anchor }: { anchor?: TextEditingAnchor } = {}
+  ): boolean {
+    const { montageArea } = this.editor
+    if (!montageArea) return false
+
+    const textValue = typeof textbox.text === 'string' ? textbox.text : ''
+    if (!textValue.length) return false
+
+    montageArea.setCoords()
+    const montageBounds = montageArea.getBoundingRect(false, true)
+    const montageWidth = montageBounds.width ?? 0
+    if (!Number.isFinite(montageWidth) || montageWidth <= 0) return false
+
+    const storedAnchor = anchor ?? this.editingAnchorState?.get(textbox)
+    const anchorOriginY = storedAnchor?.originY ?? textbox.originY ?? 'top'
+    const scaleX = Math.abs(textbox.scaleX ?? 1) || 1
+    const paddingLeft = textbox.paddingLeft ?? 0
+    const paddingRight = textbox.paddingRight ?? 0
+    const strokeWidth = textbox.strokeWidth ?? 0
+    const maxInnerWidth = Math.max(
+      1,
+      (montageWidth / scaleX) - paddingLeft - paddingRight - strokeWidth
+    )
+
+    if (!Number.isFinite(maxInnerWidth) || maxInnerWidth <= 0) return false
+
+    let geometryChanged = false
+    const rawOriginalWidth = typeof textbox.width === 'number'
+      ? textbox.width
+      : textbox.calcTextWidth()
+    const originalWidth = Number.isFinite(rawOriginalWidth) ? rawOriginalWidth : 0
+
+    if (Math.abs((textbox.width ?? 0) - maxInnerWidth) > DIMENSION_EPSILON) {
+      textbox.set({ width: maxInnerWidth })
+      geometryChanged = true
+    }
+
+    textbox.initDimensions()
+
+    const longestLineWidth = Math.ceil(
+      TextManager._getLongestLineWidth({ textbox, text: textValue })
+    )
+    const baseWidth = Math.min(originalWidth, maxInnerWidth)
+    const minWidth = Math.min(textbox.minWidth ?? 1, maxInnerWidth)
+    const targetWidth = Math.min(
+      maxInnerWidth,
+      Math.max(longestLineWidth, baseWidth, minWidth)
+    )
+
+    if (Math.abs((textbox.width ?? 0) - targetWidth) > DIMENSION_EPSILON) {
+      textbox.set({ width: targetWidth })
+      textbox.initDimensions()
+      geometryChanged = true
+    }
+
+    const dimensionsRounded = TextManager._roundTextboxDimensions({ textbox })
+    if (dimensionsRounded) {
+      geometryChanged = true
+    }
+
+    if (storedAnchor) {
+      textbox.setPositionByOrigin(new Point(storedAnchor.x, storedAnchor.y), 'center', anchorOriginY)
+      geometryChanged = true
+    }
+
+    const positionAdjusted = this._clampTextboxToMontage({
+      textbox,
+      montageLeft: montageBounds.left ?? 0,
+      montageRight: (montageBounds.left ?? 0) + montageWidth
+    })
+
+    return geometryChanged || positionAdjusted
+  }
+
+  /**
+   * Возвращает ширину самой длинной строки текстового объекта.
+   */
+  private static _getLongestLineWidth({
+    textbox,
+    text
+  }: {
+    textbox: EditorTextbox
+    text: string
+  }): number {
+    const { textLines } = textbox as unknown as { textLines?: string[] }
+    const lineCount = Array.isArray(textLines) && textLines.length > 0
+      ? textLines.length
+      : Math.max(text.split('\n').length, 1)
+
+    let longestLineWidth = 0
+    for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
+      const lineWidth = textbox.getLineWidth(lineIndex)
+      if (lineWidth > longestLineWidth) {
+        longestLineWidth = lineWidth
+      }
+    }
+
+    return longestLineWidth
+  }
+
+  /**
+   * Сдвигает текстовый объект по X, чтобы он не выходил за пределы монтажной области.
+   */
+  private _clampTextboxToMontage({
+    textbox,
+    montageLeft,
+    montageRight
+  }: {
+    textbox: EditorTextbox
+    montageLeft: number
+    montageRight: number
+  }): boolean {
+    textbox.setCoords()
+    const bounds = textbox.getBoundingRect(false, true)
+    const left = bounds.left ?? 0
+    const right = left + (bounds.width ?? 0)
+
+    let shiftX = 0
+    if (left < montageLeft) {
+      shiftX = montageLeft - left
+    } else if (right > montageRight) {
+      shiftX = montageRight - right
+    }
+
+    if (Math.abs(shiftX) <= DIMENSION_EPSILON) return false
+
+    textbox.set({ left: (textbox.left ?? 0) + shiftX })
+    return true
   }
 
   /**
@@ -734,6 +926,7 @@ export default class TextManager {
   private _handleTextEditingExited = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
+    this.editingAnchorState?.delete(target)
 
     // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
     const currentText = target.text ?? ''
@@ -1171,6 +1364,17 @@ export default class TextManager {
 
     target.set({ scaleX: 1, scaleY: 1 })
     target.setCoords()
+  }
+
+  /**
+   * Возвращает хранилище якорей редактирования, создавая его при необходимости.
+   */
+  private _ensureEditingAnchorState(): WeakMap<EditorTextbox, TextEditingAnchor> {
+    if (!this.editingAnchorState) {
+      this.editingAnchorState = new WeakMap()
+    }
+
+    return this.editingAnchorState
   }
 
   /**
