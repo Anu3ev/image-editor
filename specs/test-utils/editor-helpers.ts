@@ -572,6 +572,9 @@ export const createHistoryManagerTestSetup = (
       }
     ),
     getObjects: jest.fn(() => objects),
+    add: jest.fn((obj: any) => {
+      objects = [...objects, obj]
+    }),
     getWidth: jest.fn(() => currentWidth),
     getHeight: jest.fn(() => currentHeight),
     fire: jest.fn(),

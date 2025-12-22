@@ -44,6 +44,7 @@ export default class InteractionBlocker {
       hasBorders: false,
       hasControls: false,
       visible: false,
+      excludeFromExport: true,
       id: 'overlay-mask'
     }, { withoutSelection: true })
 
