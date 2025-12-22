@@ -830,7 +830,16 @@ export const createTextManagerTestSetup = (
     montageArea: {
       id: 'montage-area',
       width: 400,
-      height: 300
+      height: 300,
+      left: 200,
+      top: 150,
+      setCoords: jest.fn(),
+      getBoundingRect: jest.fn(() => ({
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 300
+      }))
     },
     errorManager: {
       emitError: jest.fn()

@@ -180,6 +180,12 @@ export class Textbox extends FabricObject {
 
   public left?: number
 
+  public top?: number
+
+  public originX?: 'left' | 'center' | 'right'
+
+  public originY?: 'top' | 'center' | 'bottom'
+
   public dirty = false
 
   public isEditing = false
@@ -207,6 +213,66 @@ export class Textbox extends FabricObject {
 
   setCoords() {
     // noop in mock
+  }
+
+  getBoundingRect() {
+    return {
+      left: this.left ?? 0,
+      top: this.top ?? 0,
+      width: this.width ?? 0,
+      height: this.height ?? 0
+    }
+  }
+
+  getLineWidth(_lineIndex: number) {
+    return this.calcTextWidth()
+  }
+
+  getPointByOrigin(originX: 'left' | 'center' | 'right', originY: 'top' | 'center' | 'bottom') {
+    const width = this.width ?? 0
+    const height = this.height ?? 0
+    let x = this.left ?? 0
+    let y = this.top ?? 0
+
+    if (originX === 'center') {
+      x += width / 2
+    } else if (originX === 'right') {
+      x += width
+    }
+
+    if (originY === 'center') {
+      y += height / 2
+    } else if (originY === 'bottom') {
+      y += height
+    }
+
+    return new Point(x, y)
+  }
+
+  setPositionByOrigin(
+    point: Point,
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
+  ) {
+    const width = this.width ?? 0
+    const height = this.height ?? 0
+    let left = point.x
+    let top = point.y
+
+    if (originX === 'center') {
+      left -= width / 2
+    } else if (originX === 'right') {
+      left -= width
+    }
+
+    if (originY === 'center') {
+      top -= height / 2
+    } else if (originY === 'bottom') {
+      top -= height
+    }
+
+    this.left = left
+    this.top = top
   }
 
   /**
