@@ -334,7 +334,6 @@ export class ImageEditor {
       originX: 'center',
       originY: 'center',
       objectCaching: false,
-      excludeFromExport: true,
       noScaleCache: true
     }, { withoutSelection: true })
   }
