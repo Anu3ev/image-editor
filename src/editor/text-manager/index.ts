@@ -328,6 +328,13 @@ export default class TextManager {
     historyManager.suspendHistory()
 
     const beforeState = TextManager._getSnapshot(textbox)
+    const anchorOriginY = textbox.originY ?? 'top'
+    const anchorPoint = textbox.getPointByOrigin('center', anchorOriginY)
+    const anchorSnapshot: TextEditingAnchor = {
+      originY: anchorOriginY,
+      x: anchorPoint.x,
+      y: anchorPoint.y
+    }
 
     const {
       text,
@@ -624,14 +631,8 @@ export default class TextManager {
     let geometryAdjusted = false
 
     if (shouldAutoExpand) {
-      const anchorOriginY = textbox.originY ?? 'top'
-      const anchorPoint = textbox.getPointByOrigin('center', anchorOriginY)
       geometryAdjusted = this._autoExpandTextboxWidth(textbox, {
-        anchor: {
-          originY: anchorOriginY,
-          x: anchorPoint.x,
-          y: anchorPoint.y
-        }
+        anchor: anchorSnapshot
       })
       if (geometryAdjusted) {
         textbox.dirty = true
