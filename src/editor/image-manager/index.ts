@@ -33,7 +33,8 @@ export type ImportImageOptions = {
   fromClipboard?: boolean,
   isBackground?: boolean,
   withoutSelection?: boolean
-  withoutAdding?: boolean
+  withoutAdding?: boolean,
+  customData?: object
 }
 
 export type ExportObjectAsImageFileParameters = {
@@ -111,7 +112,8 @@ export default class ImageManager {
       fromClipboard = false,
       isBackground = false,
       withoutSelection = false,
-      withoutAdding = false
+      withoutAdding = false,
+      customData = null
     } = options
 
     if (!source) return null
@@ -141,7 +143,8 @@ export default class ImageManager {
           fromClipboard,
           isBackground,
           withoutSelection,
-          withoutAdding
+          withoutAdding,
+          customData
         }
       })
 
@@ -176,7 +179,8 @@ export default class ImageManager {
             fromClipboard,
             isBackground,
             withoutSelection,
-            withoutAdding
+            withoutAdding,
+            customData
           }
         })
 
@@ -230,6 +234,7 @@ export default class ImageManager {
 
       img.set('id', `${img.type}-${nanoid()}`)
       img.set('format', format)
+      img.set('customData', customData || null)
 
       // Растягиваем монтажную область под изображение или наоборот
       if (scale === 'scale-montage') {
@@ -259,7 +264,8 @@ export default class ImageManager {
         fromClipboard,
         isBackground,
         withoutSelection,
-        withoutAdding
+        withoutAdding,
+        customData
       }
 
       if (withoutAdding) {
@@ -303,7 +309,8 @@ export default class ImageManager {
           fromClipboard,
           isBackground,
           withoutSelection,
-          withoutAdding
+          withoutAdding,
+          customData
         }
       })
 

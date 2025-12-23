@@ -328,6 +328,13 @@ export default class TextManager {
     historyManager.suspendHistory()
 
     const beforeState = TextManager._getSnapshot(textbox)
+    const anchorOriginY = textbox.originY ?? 'top'
+    const anchorPoint = textbox.getPointByOrigin('center', anchorOriginY)
+    const anchorSnapshot: TextEditingAnchor = {
+      originY: anchorOriginY,
+      x: anchorPoint.x,
+      y: anchorPoint.y
+    }
 
     const {
       text,
@@ -624,14 +631,8 @@ export default class TextManager {
     let geometryAdjusted = false
 
     if (shouldAutoExpand) {
-      const anchorOriginY = textbox.originY ?? 'top'
-      const anchorPoint = textbox.getPointByOrigin('center', anchorOriginY)
       geometryAdjusted = this._autoExpandTextboxWidth(textbox, {
-        anchor: {
-          originY: anchorOriginY,
-          x: anchorPoint.x,
-          y: anchorPoint.y
-        }
+        anchor: anchorSnapshot
       })
       if (geometryAdjusted) {
         textbox.dirty = true
@@ -816,28 +817,30 @@ export default class TextManager {
 
     if (!Number.isFinite(maxInnerWidth) || maxInnerWidth <= 0) return false
 
-    let geometryChanged = false
-    const rawOriginalWidth = typeof textbox.width === 'number'
-      ? textbox.width
-      : textbox.calcTextWidth()
-    const originalWidth = Number.isFinite(rawOriginalWidth) ? rawOriginalWidth : 0
+    const explicitLineCount = textValue.split('\n').length
 
+    let geometryChanged = false
     if (Math.abs((textbox.width ?? 0) - maxInnerWidth) > DIMENSION_EPSILON) {
       textbox.set({ width: maxInnerWidth })
       geometryChanged = true
     }
 
     textbox.initDimensions()
+    const { textLines } = (textbox as unknown as { textLines?: string[] })
+    const hasWrappedLines = Array.isArray(textLines) && textLines.length > explicitLineCount
 
     const longestLineWidth = Math.ceil(
       TextManager._getLongestLineWidth({ textbox, text: textValue })
     )
-    const baseWidth = Math.min(originalWidth, maxInnerWidth)
     const minWidth = Math.min(textbox.minWidth ?? 1, maxInnerWidth)
-    const targetWidth = Math.min(
+    let targetWidth = Math.min(
       maxInnerWidth,
-      Math.max(longestLineWidth, baseWidth, minWidth)
+      Math.max(longestLineWidth, minWidth)
     )
+
+    if (hasWrappedLines) {
+      targetWidth = maxInnerWidth
+    }
 
     if (Math.abs((textbox.width ?? 0) - targetWidth) > DIMENSION_EPSILON) {
       textbox.set({ width: targetWidth })
@@ -855,7 +858,7 @@ export default class TextManager {
       geometryChanged = true
     }
 
-    const positionAdjusted = this._clampTextboxToMontage({
+    const positionAdjusted = TextManager._clampTextboxToMontage({
       textbox,
       montageLeft: montageBounds.left ?? 0,
       montageRight: (montageBounds.left ?? 0) + montageWidth
@@ -893,7 +896,7 @@ export default class TextManager {
   /**
    * Сдвигает текстовый объект по X, чтобы он не выходил за пределы монтажной области.
    */
-  private _clampTextboxToMontage({
+  static private _clampTextboxToMontage({
     textbox,
     montageLeft,
     montageRight
@@ -906,6 +909,11 @@ export default class TextManager {
     const bounds = textbox.getBoundingRect(false, true)
     const left = bounds.left ?? 0
     const right = left + (bounds.width ?? 0)
+    const montageWidth = montageRight - montageLeft
+
+    if (montageWidth > 0 && (bounds.width ?? 0) >= montageWidth - DIMENSION_EPSILON) {
+      return false
+    }
 
     let shiftX = 0
     if (left < montageLeft) {

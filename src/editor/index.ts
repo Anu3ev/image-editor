@@ -290,10 +290,11 @@ export class ImageEditor {
       const {
         source,
         scale = `image-${scaleType}`,
-        withoutSave = true
+        withoutSave = true,
+        ...rest
       } = initialImage as ImportImageOptions
 
-      await this.imageManager.importImage({ source, scale, withoutSave })
+      await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
     }
 
     if (initialStateJSON) {

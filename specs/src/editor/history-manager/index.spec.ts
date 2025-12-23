@@ -410,24 +410,64 @@ describe('HistoryManager', () => {
       }))
     })
 
-    it('сериализует и десериализует customData корректно', async() => {
+    it('сериализует customData для loadFromJSON и восстанавливает объект без мутации состояния', async() => {
       const { historyManager, mockEditor } = createHistoryManagerTestSetup()
+      const customData = {
+        testProp: true,
+        anotherProp: 'value',
+        type: 'image',
+        src: { file1: 'test', file2: 'test2' },
+        nested: { value: 123 }
+      }
       const state = createState({
         objects: [
           { id: 'montage-area', type: 'rect' },
-          { id: 'object-1', customData: { foo: 'bar', nested: { value: 123 } } }
+          { id: 'object-1', customData }
         ] as any[]
       })
+      const expectedCustomData = JSON.parse(JSON.stringify(customData)) as object
+      const { objects: stateObjects = [] } = state
 
       await historyManager.loadStateFromFullState(state)
 
-      const loadedObjects = mockEditor.canvas.getObjects()
-      const loadedObject = loadedObjects.find((obj: any) => obj.id === 'object-1')
+      expect(mockEditor.canvas.loadFromJSON).toHaveBeenCalledTimes(1)
 
-      expect(loadedObject?.customData).toEqual({
-        foo: 'bar',
-        nested: { value: 123 }
-      })
+      const loadFromJsonCalls = mockEditor.canvas.loadFromJSON.mock.calls
+      const [safeState] = loadFromJsonCalls[0] ?? []
+      const safeObjects = safeState?.objects ?? []
+      let safeCustomData: unknown
+
+      for (let index = 0; index < safeObjects.length; index += 1) {
+        const safeObject = safeObjects[index]
+        if (safeObject?.id !== 'object-1') continue
+        safeCustomData = safeObject.customData
+        break
+      }
+
+      expect(typeof safeCustomData).toBe('string')
+
+      let stateCustomData: unknown
+
+      for (let index = 0; index < stateObjects.length; index += 1) {
+        const stateObject = stateObjects[index]
+        if (stateObject?.id !== 'object-1') continue
+        stateCustomData = stateObject.customData
+        break
+      }
+
+      expect(stateCustomData).toEqual(expectedCustomData)
+
+      const loadedObjects = mockEditor.canvas.getObjects()
+      let loadedCustomData: unknown
+
+      for (let index = 0; index < loadedObjects.length; index += 1) {
+        const loadedObject = loadedObjects[index]
+        if (loadedObject?.id !== 'object-1') continue
+        loadedCustomData = loadedObject.customData
+        break
+      }
+
+      expect(loadedCustomData).toEqual(expectedCustomData)
     })
 
     it('восстанавливает overlay и скрывает его', async() => {

@@ -812,14 +812,6 @@ export default (editorInstance) => {
     applyTextStyle({ fontFamily: family })
   })
 
-  textFontSizeInput.addEventListener('input', (e) => {
-    const rawValue = Number(e.target.value)
-    const value = Math.max(1, Number.isNaN(rawValue) ? 1 : Math.round(rawValue))
-    e.target.value = value
-    if (!getActiveText()) return
-    applyTextStyle({ fontSize: value }, { withoutSave: true })
-  })
-
   textFontSizeInput.addEventListener('change', (e) => {
     const rawValue = Number(e.target.value)
     const value = Math.max(1, Number.isNaN(rawValue) ? 1 : Math.round(rawValue))

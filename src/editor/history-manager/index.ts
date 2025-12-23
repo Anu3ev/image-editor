@@ -291,6 +291,7 @@ export default class HistoryManager {
       // Вычисляем diff между последним сохранённым полным состоянием и текущим состоянием.
       // Последнее сохранённое полное состояние – это результат getFullState()
       const prevState = this.getFullState()
+      console.log('prevState', prevState)
       const diff = this.diffPatcher.diff(prevState, currentStateObj)
 
       // Если изменений нет, не сохраняем новый шаг
@@ -334,6 +335,89 @@ export default class HistoryManager {
   }
 
   /**
+   * Создаёт безопасную копию состояния для загрузки в canvas.
+   * customData сериализуется, чтобы Fabric не обрабатывал её как параметры объекта.
+   *
+   * @param state - полное состояние канваса
+   */
+  private static _createLoadSafeState({ state }: { state: CanvasFullState }): CanvasFullState {
+    const clonedState = JSON.parse(JSON.stringify(state)) as CanvasFullState
+    const { objects = [] } = clonedState
+
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index]
+      const { customData } = object
+
+      if (!customData || typeof customData !== 'object') continue
+
+      object.customData = JSON.stringify(customData)
+    }
+
+    return clonedState
+  }
+
+  /**
+   * Восстанавливает customData на объектах канваса из состояния истории.
+   * Нужна, чтобы в истории всегда сохранялся объект, а не строка.
+   *
+   * @param state - исходное состояние с object customData
+   * @param canvas - канвас, в который загружены объекты
+   */
+  private static _applyCustomDataFromState({
+    state,
+    canvas
+  }: {
+    state: CanvasFullState
+    canvas: Canvas
+  }): void {
+    const { objects: stateObjects = [] } = state
+    const customDataById = new Map<string, object>()
+    const customDataByIndex = new Map<number, object>()
+
+    for (let index = 0; index < stateObjects.length; index += 1) {
+      const stateObject = stateObjects[index]
+      const { customData, id } = stateObject
+
+      if (!customData || typeof customData !== 'object') continue
+
+      if (typeof id === 'string') {
+        customDataById.set(id, customData)
+        continue
+      }
+
+      customDataByIndex.set(index, customData)
+    }
+
+    const canvasObjects = canvas.getObjects?.() ?? []
+
+    for (let index = 0; index < canvasObjects.length; index += 1) {
+      const canvasObject = canvasObjects[index]
+      const { id } = canvasObject
+      let customData: object | undefined
+
+      if (typeof id === 'string') {
+        customData = customDataById.get(id)
+      }
+
+      if (!customData) {
+        customData = customDataByIndex.get(index)
+      }
+
+      if (!customData) continue
+
+      canvasObject.customData = HistoryManager._cloneCustomData({ customData })
+    }
+  }
+
+  /**
+   * Делает глубокую копию customData, чтобы избежать общих ссылок со state.
+   * @param customData - пользовательские данные объекта
+   */
+  private static _cloneCustomData({ customData }: { customData: object }): object {
+    return JSON.parse(JSON.stringify(customData)) as object
+  }
+
+  /**
    * Функция загрузки состояния в канвас.
    * @param fullState - полное состояние канваса
    * @fires editor:history-state-loaded
@@ -349,7 +433,10 @@ export default class HistoryManager {
     // Сбрасываем overlay, так как он может задваиваться при загрузке состояния
     interactionBlocker.overlayMask = null
 
-    await canvas.loadFromJSON(fullState)
+    const safeState = HistoryManager._createLoadSafeState({ state: fullState })
+
+    await canvas.loadFromJSON(safeState)
+    HistoryManager._applyCustomDataFromState({ state: fullState, canvas })
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
     const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area') as Rect | undefined
