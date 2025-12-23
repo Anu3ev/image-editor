@@ -86,12 +86,18 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
     }
   }
 
-  editorInstance.backgroundManager.setGradientBackground({ gradient })
+  editorInstance.backgroundManager.setGradientBackground({
+    gradient,
+    customData: { testProp: true, anotherProp: 'value', type: 'gradient' }
+  })
 }
 
 // Установка фона из изображения
 async function setImageBackground(editorInstance, file) {
-  await editorInstance.backgroundManager.setImageBackground({ imageSource: file })
+  await editorInstance.backgroundManager.setImageBackground({
+    imageSource: file,
+    customData: { testProp: true, anotherProp: 'value', type: 'image', src: { file1: 'test', file2: 'test2' } }
+  })
 }
 
 // Удаление фона
