@@ -334,7 +334,6 @@ export default class HistoryManager {
     }
   }
 
-
   /**
    * Создаёт безопасную копию состояния для загрузки в canvas.
    * customData сериализуется, чтобы Fabric не обрабатывал её как параметры объекта.
