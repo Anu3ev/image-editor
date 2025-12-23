@@ -817,28 +817,30 @@ export default class TextManager {
 
     if (!Number.isFinite(maxInnerWidth) || maxInnerWidth <= 0) return false
 
-    let geometryChanged = false
-    const rawOriginalWidth = typeof textbox.width === 'number'
-      ? textbox.width
-      : textbox.calcTextWidth()
-    const originalWidth = Number.isFinite(rawOriginalWidth) ? rawOriginalWidth : 0
+    const explicitLineCount = textValue.split('\n').length
 
+    let geometryChanged = false
     if (Math.abs((textbox.width ?? 0) - maxInnerWidth) > DIMENSION_EPSILON) {
       textbox.set({ width: maxInnerWidth })
       geometryChanged = true
     }
 
     textbox.initDimensions()
+    const textLines = (textbox as unknown as { textLines?: string[] }).textLines
+    const hasWrappedLines = Array.isArray(textLines) && textLines.length > explicitLineCount
 
     const longestLineWidth = Math.ceil(
       TextManager._getLongestLineWidth({ textbox, text: textValue })
     )
-    const baseWidth = Math.min(originalWidth, maxInnerWidth)
     const minWidth = Math.min(textbox.minWidth ?? 1, maxInnerWidth)
-    const targetWidth = Math.min(
+    let targetWidth = Math.min(
       maxInnerWidth,
-      Math.max(longestLineWidth, baseWidth, minWidth)
+      Math.max(longestLineWidth, minWidth)
     )
+
+    if (hasWrappedLines) {
+      targetWidth = maxInnerWidth
+    }
 
     if (Math.abs((textbox.width ?? 0) - targetWidth) > DIMENSION_EPSILON) {
       textbox.set({ width: targetWidth })
@@ -907,6 +909,11 @@ export default class TextManager {
     const bounds = textbox.getBoundingRect(false, true)
     const left = bounds.left ?? 0
     const right = left + (bounds.width ?? 0)
+    const montageWidth = montageRight - montageLeft
+
+    if (montageWidth > 0 && (bounds.width ?? 0) >= montageWidth - DIMENSION_EPSILON) {
+      return false
+    }
 
     let shiftX = 0
     if (left < montageLeft) {

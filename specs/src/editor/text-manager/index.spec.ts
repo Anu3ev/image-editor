@@ -460,6 +460,69 @@ describe('TextManager', () => {
       lineWidthSpy.mockRestore()
     })
 
+    it('updateText уменьшает ширину при сокращении текста', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Longer text', width: 300 })
+      textbox.set({ top: 80, left: 40 })
+
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(120)
+
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'Short' },
+        withoutSave: true
+      })
+
+      expect(textbox.width).toBe(120)
+      expect(textbox.top).toBe(80)
+
+      lineWidthSpy.mockRestore()
+    })
+
+    it('не уменьшает ширину при автоматическом переносе строки', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Long text', width: 200 })
+      textbox.set({ top: 80, left: 40 })
+
+      const initSpy = jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+        textbox.textLines = ['line-1', 'line-2']
+      })
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(180)
+
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'Longer text without explicit breaks' },
+        withoutSave: true
+      })
+
+      expect(textbox.width).toBe(400)
+      expect(textbox.top).toBe(80)
+
+      lineWidthSpy.mockRestore()
+      initSpy.mockRestore()
+    })
+
+    it('не сдвигает объект по X при ширине больше или равной монтажной области', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Wide text', width: 400 })
+      textbox.set({ top: 80, left: -50 })
+
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(400)
+
+      textManager.updateText({
+        target: textbox,
+        style: { fontSize: 50 },
+        withoutSave: true
+      })
+
+      expect(textbox.left).toBe(-50)
+
+      lineWidthSpy.mockRestore()
+    })
+
     it('text:changed сохраняет вертикальную позицию при редактировании', () => {
       const { canvas, textManager } = createTextManagerTestSetup()
 
