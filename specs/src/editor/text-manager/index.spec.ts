@@ -560,7 +560,7 @@ describe('TextManager', () => {
   })
 
   describe('HistoryManager интеграция', () => {
-    it('поддерживает undo/redo для добавления и обновления текста', async () => {
+    it('поддерживает undo/redo для добавления и обновления текста', async() => {
       const {
         canvas,
         historyManager,
@@ -752,7 +752,7 @@ describe('TextManager', () => {
 
         const texts = ['Новый', 'ЗАГЛАВНЫЙ', 'СмЕшАнНыЙ', 'lowercase']
 
-        texts.forEach(text => {
+        texts.forEach((text) => {
           textbox.text = text
           canvas.fire('text:changed', { target: textbox })
           expect(textbox.textCaseRaw).toBe(text)

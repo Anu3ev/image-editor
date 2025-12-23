@@ -826,7 +826,7 @@ export default class TextManager {
     }
 
     textbox.initDimensions()
-    const textLines = (textbox as unknown as { textLines?: string[] }).textLines
+    const { textLines } = (textbox as unknown as { textLines?: string[] })
     const hasWrappedLines = Array.isArray(textLines) && textLines.length > explicitLineCount
 
     const longestLineWidth = Math.ceil(
@@ -858,7 +858,7 @@ export default class TextManager {
       geometryChanged = true
     }
 
-    const positionAdjusted = this._clampTextboxToMontage({
+    const positionAdjusted = TextManager._clampTextboxToMontage({
       textbox,
       montageLeft: montageBounds.left ?? 0,
       montageRight: (montageBounds.left ?? 0) + montageWidth
@@ -896,7 +896,7 @@ export default class TextManager {
   /**
    * Сдвигает текстовый объект по X, чтобы он не выходил за пределы монтажной области.
    */
-  private _clampTextboxToMontage({
+  static private _clampTextboxToMontage({
     textbox,
     montageLeft,
     montageRight
