@@ -265,6 +265,16 @@ export default class HistoryManager {
         return
       }
 
+      const statesEqual = HistoryManager._areStatesEqual({
+        prevState: normalizedPrevState,
+        nextState: normalizedCurrentState
+      })
+
+      if (statesEqual) {
+        console.log('statesEqual. Нет изменений для сохранения.')
+        return
+      }
+
       console.log('baseState', this.baseState)
 
       // Если мы уже сделали undo и сейчас добавляем новое состояние,
@@ -339,6 +349,63 @@ export default class HistoryManager {
   }
 
   /**
+   * Проверяет, равны ли два состояния после нормализации с учётом устойчивого порядка ключей.
+   * @param prevState - предыдущее состояние
+   * @param nextState - следующее состояние
+   */
+  private static _areStatesEqual({
+    prevState,
+    nextState
+  }: {
+    prevState: CanvasFullState
+    nextState: CanvasFullState
+  }): boolean {
+    const prevStable = HistoryManager._stableStringify({ value: prevState })
+    const nextStable = HistoryManager._stableStringify({ value: nextState })
+    return prevStable === nextStable
+  }
+
+  /**
+   * Делает устойчивую сериализацию значения с сортировкой ключей объектов.
+   * @param value - значение для сериализации
+   */
+  private static _stableStringify({ value }: { value: unknown }): string {
+    /**
+     * Нормализует значение для стабильной сериализации.
+     * @param value - исходное значение
+     */
+    const normalizeValue = ({ value: rawValue }: { value: unknown }): unknown => {
+      if (Array.isArray(rawValue)) {
+        const normalizedArray: unknown[] = []
+
+        for (let index = 0; index < rawValue.length; index += 1) {
+          normalizedArray.push(normalizeValue({ value: rawValue[index] }))
+        }
+
+        return normalizedArray
+      }
+
+      if (rawValue && typeof rawValue === 'object') {
+        const normalizedObject: Record<string, unknown> = {}
+        const keys = Object.keys(rawValue).sort()
+
+        for (let index = 0; index < keys.length; index += 1) {
+          const key = keys[index]
+          normalizedObject[key] = normalizeValue({
+            value: (rawValue as Record<string, unknown>)[key]
+          })
+        }
+
+        return normalizedObject
+      }
+
+      return rawValue
+    }
+
+    return JSON.stringify(normalizeValue({ value }))
+  }
+
+  /**
    * Нормализует backgroundColor у текстовых объектов без фона, чтобы избежать шумовых диффов.
    * @param objects - список объектов канваса
    */
@@ -348,16 +415,28 @@ export default class HistoryManager {
         type?: string
         backgroundOpacity?: number
         backgroundColor?: string | null
+        textBackgroundColor?: string | null
       }
-      const { type } = object
-      const rawBackgroundOpacity = object.backgroundOpacity
+      const {
+        type,
+        backgroundOpacity: rawBackgroundOpacity,
+        backgroundColor: rawBackgroundColor,
+        textBackgroundColor: rawTextBackgroundColor
+      } = object
       const backgroundOpacity = typeof rawBackgroundOpacity === 'number' ? rawBackgroundOpacity : 0
-      const isTextObject = type === 'textbox' || type === 'i-text' || type === 'text'
+      const backgroundColor = typeof rawBackgroundColor === 'string' ? rawBackgroundColor : ''
+      const textBackgroundColor = typeof rawTextBackgroundColor === 'string' ? rawTextBackgroundColor : ''
+      const isTextObject = type === 'textbox'
+        || type === 'i-text'
+        || type === 'text'
+        || type === 'background-textbox'
+      const hasBackgroundColor = backgroundColor.length > 0 || textBackgroundColor.length > 0
 
       if (!isTextObject) continue
-      if (backgroundOpacity > 0) continue
+      if (backgroundOpacity > 0 && hasBackgroundColor) continue
 
       object.backgroundColor = null
+      object.textBackgroundColor = null
     }
   }
 
@@ -797,6 +876,7 @@ export default class HistoryManager {
       const isTextObject = type === 'textbox'
         || type === 'i-text'
         || typeof (object as Textbox).isEditing === 'boolean'
+        || type === 'background-textbox'
       if (!isTextObject) return
 
       if (object.locked) return

@@ -180,6 +180,37 @@ describe('HistoryManager', () => {
       expect(historyManager.hasUnsavedChanges()).toBe(false)
     })
 
+    it('не сохраняет состояние если diff есть, но нормализованные состояния равны', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseObject = { id: 'object-1', left: 0, top: 0 }
+      const reorderedObject = { top: 0, left: 0, id: 'object-1' }
+      const baseState = createState({
+        objects: [baseObject] as any[]
+      })
+      const nextState = createState({
+        objects: [reorderedObject] as any[]
+      })
+
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.diffPatcher = {
+        diff: jest.fn(() => ({ objects: { _t: 'a' } })),
+        patch: jest.fn(),
+        clone: jest.fn(),
+        unpatch: jest.fn()
+      } as any
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      expect(historyManager.patches).toHaveLength(0)
+      expect(historyManager.currentIndex).toBe(0)
+      expect(historyManager.totalChangesCount).toBe(0)
+      expect(historyManager.hasUnsavedChanges()).toBe(false)
+    })
+
     it('игнорирует изменения размеров канваса без изменения монтажной области', () => {
       const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
       const baseMontageArea = {
