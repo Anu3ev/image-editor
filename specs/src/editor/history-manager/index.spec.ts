@@ -1,5 +1,7 @@
 import { nanoid } from 'nanoid'
-import type { CanvasFullState } from '../../../../src/editor/history-manager'
+import HistoryManager, {
+  type CanvasFullState
+} from '../../../../src/editor/history-manager'
 import { createHistoryManagerTestSetup } from '../../../test-utils/editor-helpers'
 
 // Мокаем nanoid для предсказуемых ID в тестах
@@ -176,6 +178,295 @@ describe('HistoryManager', () => {
       expect(historyManager.patches).toHaveLength(0)
       expect(historyManager.totalChangesCount).toBe(0)
       expect(historyManager.hasUnsavedChanges()).toBe(false)
+    })
+
+    it('игнорирует изменения размеров канваса без изменения монтажной области', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseMontageArea = {
+        id: 'montage-area',
+        type: 'rect',
+        width: 400,
+        height: 300,
+        left: 100,
+        top: 50
+      }
+      const nextMontageArea = {
+        id: 'montage-area',
+        type: 'rect',
+        width: 400,
+        height: 300,
+        left: 100,
+        top: 50
+      }
+      const baseState = createState({
+        width: 800,
+        height: 600,
+        objects: [baseMontageArea] as any[]
+      })
+      const nextState = createState({
+        width: 900,
+        height: 700,
+        objects: [nextMontageArea] as any[]
+      })
+      const { toDatalessObject } = mockCanvas
+
+      toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      const { patches, totalChangesCount } = historyManager
+
+      expect(patches).toHaveLength(0)
+      expect(totalChangesCount).toBe(0)
+    })
+
+    it('сохраняет изменения если меняется размер монтажной области', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseMontageArea = {
+        id: 'montage-area',
+        type: 'rect',
+        width: 400,
+        height: 300,
+        left: 100,
+        top: 50
+      }
+      const nextMontageArea = {
+        id: 'montage-area',
+        type: 'rect',
+        width: 450,
+        height: 300,
+        left: 100,
+        top: 50
+      }
+      const baseState = createState({
+        width: 800,
+        height: 600,
+        objects: [baseMontageArea] as any[]
+      })
+      const nextState = createState({
+        width: 900,
+        height: 700,
+        objects: [nextMontageArea] as any[]
+      })
+      const { toDatalessObject } = mockCanvas
+
+      toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      const { patches, totalChangesCount } = historyManager
+
+      expect(patches).toHaveLength(1)
+      expect(totalChangesCount).toBe(1)
+    })
+
+    it('не сохраняет дифф при смещении монтажной области и объектов на одинаковую дельту', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState({
+        clipPath: {
+          left: 100,
+          top: 50
+        },
+        objects: [
+          {
+            id: 'montage-area',
+            type: 'rect',
+            width: 400,
+            height: 300,
+            left: 100,
+            top: 50
+          },
+          {
+            id: 'object-1',
+            left: 200,
+            top: 100
+          }
+        ] as any[]
+      })
+      const nextState = createState({
+        clipPath: {
+          left: 120,
+          top: 70
+        },
+        objects: [
+          {
+            id: 'montage-area',
+            type: 'rect',
+            width: 400,
+            height: 300,
+            left: 120,
+            top: 70
+          },
+          {
+            id: 'object-1',
+            left: 220,
+            top: 120
+          }
+        ] as any[]
+      })
+      const { toDatalessObject } = mockCanvas
+
+      toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      const { patches } = historyManager
+
+      expect(patches).toHaveLength(0)
+    })
+
+    it('сохраняет дифф если при смещении есть реальные изменения объекта', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState({
+        clipPath: {
+          left: 100,
+          top: 50
+        },
+        objects: [
+          {
+            id: 'montage-area',
+            type: 'rect',
+            width: 400,
+            height: 300,
+            left: 100,
+            top: 50
+          },
+          {
+            id: 'object-1',
+            left: 200,
+            top: 100
+          }
+        ] as any[]
+      })
+      const nextState = createState({
+        clipPath: {
+          left: 120,
+          top: 70
+        },
+        objects: [
+          {
+            id: 'montage-area',
+            type: 'rect',
+            width: 400,
+            height: 300,
+            left: 120,
+            top: 70
+          },
+          {
+            id: 'object-1',
+            left: 230,
+            top: 125
+          }
+        ] as any[]
+      })
+      const { toDatalessObject } = mockCanvas
+
+      toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      const { patches } = historyManager
+
+      expect(patches).toHaveLength(1)
+    })
+
+    it('игнорирует изменения backgroundColor если фон отключен', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState({
+        objects: [
+          {
+            id: 'text-1',
+            type: 'textbox',
+            backgroundOpacity: 0,
+            backgroundColor: '#ffffff'
+          }
+        ] as any[]
+      })
+      const nextState = createState({
+        objects: [
+          {
+            id: 'text-1',
+            type: 'textbox',
+            backgroundOpacity: 0,
+            backgroundColor: '#000000'
+          }
+        ] as any[]
+      })
+      const { toDatalessObject } = mockCanvas
+
+      toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      const normalized = (HistoryManager as any)._prepareStatesForDiff({
+        prevState: baseState,
+        nextState
+      }) as {
+        prevState: CanvasFullState
+        nextState: CanvasFullState
+      }
+      const { prevState: normalizedPrevState, nextState: normalizedNextState } = normalized
+      const [prevTextObject] = normalizedPrevState.objects
+      const [nextTextObject] = normalizedNextState.objects
+      const { backgroundColor: prevBackgroundColor } = prevTextObject as { backgroundColor?: string | null }
+      const { backgroundColor: nextBackgroundColor } = nextTextObject as { backgroundColor?: string | null }
+
+      const { patches } = historyManager
+
+      expect(prevBackgroundColor).toBeNull()
+      expect(nextBackgroundColor).toBeNull()
+      expect(patches).toHaveLength(0)
+    })
+
+    it('сохраняет изменения backgroundColor если фон включен', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState({
+        objects: [
+          {
+            id: 'text-1',
+            type: 'textbox',
+            backgroundOpacity: 1,
+            backgroundColor: '#ffffff'
+          }
+        ] as any[]
+      })
+      const nextState = createState({
+        objects: [
+          {
+            id: 'text-1',
+            type: 'textbox',
+            backgroundOpacity: 1,
+            backgroundColor: '#000000'
+          }
+        ] as any[]
+      })
+      const { toDatalessObject } = mockCanvas
+
+      toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      const { patches } = historyManager
+
+      expect(patches).toHaveLength(1)
     })
 
     it('не сохраняет состояние когда история приостановлена', () => {
@@ -972,7 +1263,6 @@ describe('HistoryManager', () => {
         .mockReturnValueOnce(state4)
         .mockReturnValueOnce(state4)
         .mockReturnValueOnce(state3)
-        .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state3)
 
       // Создаём историю
@@ -1018,7 +1308,7 @@ describe('HistoryManager', () => {
         .mockReturnValueOnce(state1)
         .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state2)
-        .mockReturnValueOnce(state1)
+        .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state2)
         .mockReturnValueOnce(state1)
         .mockReturnValueOnce(state2)

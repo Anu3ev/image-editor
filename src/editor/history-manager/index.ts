@@ -13,8 +13,6 @@ import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
 
 export const OBJECT_SERIALIZATION_PROPS = [
-  'selectable',
-  'evented',
   'id',
   'backgroundId',
   'customData',
@@ -24,6 +22,8 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'height',
   'locked',
   'editable',
+  'evented',
+  'selectable',
   'lockMovementX',
   'lockMovementY',
   'lockRotation',
@@ -158,53 +158,11 @@ export default class HistoryManager {
     this.diffPatcher = diffPatchCreate({
       objectHash(obj: object) {
         const fabricObj = obj as FabricObject
-        const textbox = obj as Textbox
 
         // Сериализуем styles в JSON строку для корректного сравнения
-        const stylesHash = textbox.styles ? JSON.stringify(textbox.styles) : ''
-        const customDataHash = fabricObj.customData ? JSON.stringify(fabricObj.customData) : ''
+        const objectHash = JSON.stringify(fabricObj)
 
-        return [
-          fabricObj.id,
-          fabricObj.backgroundId,
-          fabricObj.format,
-          fabricObj.locked,
-          fabricObj.left,
-          fabricObj.top,
-          fabricObj.width,
-          fabricObj.height,
-          fabricObj.flipX,
-          fabricObj.flipY,
-          fabricObj.scaleX,
-          fabricObj.scaleY,
-          fabricObj.angle,
-          fabricObj.opacity,
-          customDataHash,
-          textbox.text,
-          textbox.textCaseRaw,
-          textbox.uppercase,
-          textbox.fontFamily,
-          textbox.fontSize,
-          textbox.fontWeight,
-          textbox.fontStyle,
-          textbox.underline,
-          textbox.linethrough,
-          textbox.textAlign,
-          textbox.fill,
-          textbox.stroke,
-          textbox.strokeWidth,
-          stylesHash,
-          textbox.paddingTop,
-          textbox.paddingRight,
-          textbox.paddingBottom,
-          textbox.paddingLeft,
-          textbox.backgroundColor,
-          textbox.backgroundOpacity,
-          textbox.radiusTopLeft,
-          textbox.radiusTopRight,
-          textbox.radiusBottomRight,
-          textbox.radiusBottomLeft
-        ].join('-')
+        return [objectHash].join('-')
       },
 
       arrays: {
@@ -292,7 +250,14 @@ export default class HistoryManager {
       // Последнее сохранённое полное состояние – это результат getFullState()
       const prevState = this.getFullState()
       console.log('prevState', prevState)
-      const diff = this.diffPatcher.diff(prevState, currentStateObj)
+      const {
+        prevState: normalizedPrevState,
+        nextState: normalizedCurrentState
+      } = HistoryManager._prepareStatesForDiff({
+        prevState,
+        nextState: currentStateObj as CanvasFullState
+      })
+      const diff = this.diffPatcher.diff(normalizedPrevState, normalizedCurrentState)
 
       // Если изменений нет, не сохраняем новый шаг
       if (!diff) {
@@ -332,6 +297,249 @@ export default class HistoryManager {
     } finally {
       this._isSavingState = false
     }
+  }
+
+  /**
+   * Подготавливает состояния для расчёта diff: нормализует технические изменения
+   * и компенсирует смещения при ресайзе окна.
+   */
+  private static _prepareStatesForDiff({
+    prevState,
+    nextState
+  }: {
+    prevState: CanvasFullState
+    nextState: CanvasFullState
+  }): { prevState: CanvasFullState; nextState: CanvasFullState } {
+    const normalizedPrevState = HistoryManager._cloneState({ state: prevState })
+    const normalizedNextState = HistoryManager._cloneState({ state: nextState })
+
+    HistoryManager._normalizeTextBackground({ objects: normalizedPrevState.objects })
+    HistoryManager._normalizeTextBackground({ objects: normalizedNextState.objects })
+    HistoryManager._normalizeCanvasSize({
+      prevState: normalizedPrevState,
+      nextState: normalizedNextState
+    })
+    HistoryManager._normalizeTranslation({
+      prevState: normalizedPrevState,
+      nextState: normalizedNextState
+    })
+
+    return {
+      prevState: normalizedPrevState,
+      nextState: normalizedNextState
+    }
+  }
+
+  /**
+   * Делает глубокую копию состояния канваса.
+   * @param state - исходное состояние
+   */
+  private static _cloneState({ state }: { state: CanvasFullState }): CanvasFullState {
+    return JSON.parse(JSON.stringify(state)) as CanvasFullState
+  }
+
+  /**
+   * Нормализует backgroundColor у текстовых объектов без фона, чтобы избежать шумовых диффов.
+   * @param objects - список объектов канваса
+   */
+  private static _normalizeTextBackground({ objects }: { objects: FabricObject[] }): void {
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index] as FabricObject & {
+        type?: string
+        backgroundOpacity?: number
+        backgroundColor?: string | null
+      }
+      const { type } = object
+      const rawBackgroundOpacity = object.backgroundOpacity
+      const backgroundOpacity = typeof rawBackgroundOpacity === 'number' ? rawBackgroundOpacity : 0
+      const isTextObject = type === 'textbox' || type === 'i-text' || type === 'text'
+
+      if (!isTextObject) continue
+      if (backgroundOpacity > 0) continue
+
+      object.backgroundColor = null
+    }
+  }
+
+  /**
+   * Игнорирует изменения размеров канваса, если размер монтажной области не менялся.
+   * Это устраняет диффы от ресайза окна без влияния на историю документа.
+   */
+  private static _normalizeCanvasSize({
+    prevState,
+    nextState
+  }: {
+    prevState: CanvasFullState
+    nextState: CanvasFullState
+  }): void {
+    const { width: prevWidth, height: prevHeight, objects: prevObjects } = prevState
+    const { objects: nextObjects } = nextState
+    const {
+      width: prevMontageWidth,
+      height: prevMontageHeight
+    } = HistoryManager._getMontageAreaSize({ objects: prevObjects })
+
+    const {
+      width: nextMontageWidth,
+      height: nextMontageHeight
+    } = HistoryManager._getMontageAreaSize({ objects: nextObjects })
+    const montageSizeChanged = prevMontageWidth !== nextMontageWidth
+      || prevMontageHeight !== nextMontageHeight
+
+    if (montageSizeChanged) return
+
+    nextState.width = prevWidth
+    nextState.height = prevHeight
+  }
+
+  /**
+   * Компенсирует смещение монтажной области, чтобы не сохранять ресайз как изменение истории.
+   */
+  private static _normalizeTranslation({
+    prevState,
+    nextState
+  }: {
+    prevState: CanvasFullState
+    nextState: CanvasFullState
+  }): void {
+    const { objects: prevObjects, clipPath: prevClipPath } = prevState
+    const { objects: nextObjects, clipPath: nextClipPath } = nextState
+    const {
+      left: prevMontageLeft,
+      top: prevMontageTop
+    } = HistoryManager._getMontageAreaPosition({ objects: prevObjects })
+
+    const {
+      left: nextMontageLeft,
+      top: nextMontageTop
+    } = HistoryManager._getMontageAreaPosition({ objects: nextObjects })
+
+    const deltaX = nextMontageLeft - prevMontageLeft
+    const deltaY = nextMontageTop - prevMontageTop
+
+    if (deltaX === 0 && deltaY === 0) return
+
+    const montageObject = HistoryManager._getObjectById({
+      objects: nextObjects,
+      id: 'montage-area'
+    })
+
+    if (montageObject) {
+      montageObject.left = prevMontageLeft
+      montageObject.top = prevMontageTop
+    }
+
+    const prevClipPathPosition = HistoryManager._getClipPathPosition({ clipPath: prevClipPath })
+
+    if (prevClipPathPosition && nextClipPath && typeof nextClipPath === 'object') {
+      const { left, top } = prevClipPathPosition
+      const clipPathObject = nextClipPath as { left?: number; top?: number }
+
+      clipPathObject.left = left
+      clipPathObject.top = top
+    }
+
+    const ignoredIds = HistoryManager._getTranslationIgnoredIds()
+
+    for (let index = 0; index < nextObjects.length; index += 1) {
+      const object = nextObjects[index] as FabricObject & { id?: string }
+      const { id } = object
+
+      if (id && ignoredIds.has(id)) continue
+
+      if (typeof object.left === 'number') {
+        object.left -= deltaX
+      }
+
+      if (typeof object.top === 'number') {
+        object.top -= deltaY
+      }
+    }
+  }
+
+  /**
+   * Возвращает позицию clipPath из состояния, если она доступна.
+   */
+  private static _getClipPathPosition({
+    clipPath
+  }: {
+    clipPath: object | null
+  }): { left: number; top: number } | null {
+    if (!clipPath || typeof clipPath !== 'object') return null
+
+    const { left, top } = clipPath as { left?: number; top?: number }
+
+    if (typeof left !== 'number' || typeof top !== 'number') return null
+
+    return { left, top }
+  }
+
+  /**
+   * Возвращает позицию монтажной области из списка объектов.
+   */
+  private static _getMontageAreaPosition({
+    objects
+  }: {
+    objects: FabricObject[]
+  }): { left: number; top: number } {
+    const montageObject = HistoryManager._getObjectById({
+      objects,
+      id: 'montage-area'
+    })
+
+    if (!montageObject) {
+      return { left: 0, top: 0 }
+    }
+
+    const { left = 0, top = 0 } = montageObject
+    return { left, top }
+  }
+
+  /**
+   * Возвращает размеры монтажной области из списка объектов.
+   */
+  private static _getMontageAreaSize({
+    objects
+  }: {
+    objects: FabricObject[]
+  }): { width: number; height: number } {
+    const montageObject = HistoryManager._getObjectById({
+      objects,
+      id: 'montage-area'
+    })
+
+    if (!montageObject) {
+      return { width: 0, height: 0 }
+    }
+
+    const { width = 0, height = 0 } = montageObject
+    return { width, height }
+  }
+
+  /**
+   * Находит объект по id в массиве объектов канваса.
+   */
+  private static _getObjectById({
+    objects,
+    id
+  }: {
+    objects: FabricObject[]
+    id: string
+  }): FabricObject | null {
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index] as FabricObject & { id?: string }
+
+      if (object.id === id) return object
+    }
+
+    return null
+  }
+
+  /**
+   * Возвращает набор id объектов, которые не должны сдвигаться при нормализации.
+   */
+  private static _getTranslationIgnoredIds(): Set<string> {
+    return new Set(['montage-area', 'overlay-mask', 'background'])
   }
 
   /**
@@ -529,8 +737,6 @@ export default class HistoryManager {
    */
   public async redo(): Promise<void> {
     if (this.skipHistory) return
-
-    this.saveState()
 
     if (this.currentIndex >= this.patches.length) {
       console.log('Нет состояний для повтора.')
