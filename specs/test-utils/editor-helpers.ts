@@ -145,6 +145,10 @@ export const createEditorStub = () => {
     historyManager: {
       skipHistory: false,
       saveState: jest.fn(),
+      scheduleSaveState: jest.fn(),
+      flushPendingSave: jest.fn(),
+      beginAction: jest.fn(),
+      endAction: jest.fn(),
       suspendHistory: jest.fn(),
       resumeHistory: jest.fn(),
       undo: jest.fn().mockResolvedValue(undefined),

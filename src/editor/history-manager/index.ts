@@ -128,11 +128,41 @@ export default class HistoryManager {
    */
   private _historySuspendCount: number
 
+  /**
+   * Флаг активного пользовательского действия (перемещение/масштабирование/редактирование текста).
+   */
+  private _isActionInProgress: boolean
+
+  /**
+   * Снимок состояния на начало действия для отмены.
+   */
+  private _actionSnapshot: CanvasFullState | null
+
+  /**
+   * Причина активного действия (для отладки).
+   */
+  private _actionReason: string | null
+
+  /**
+   * Таймер отложенного сохранения состояния.
+   */
+  private _pendingSaveTimeoutId: ReturnType<typeof setTimeout> | null
+
+  /**
+   * Причина отложенного сохранения состояния.
+   */
+  private _pendingSaveReason: string | null
+
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
     this._isSavingState = false
     this._historySuspendCount = 0
+    this._isActionInProgress = false
+    this._actionSnapshot = null
+    this._actionReason = null
+    this._pendingSaveTimeoutId = null
+    this._pendingSaveReason = null
     this.baseState = null
     this.patches = []
     this.currentIndex = 0
@@ -189,6 +219,54 @@ export default class HistoryManager {
   }
 
   /**
+   * Запоминает состояние для отмены активного действия.
+   * @param reason - причина начала действия
+   */
+  public beginAction({ reason }: { reason: string }): void {
+    if (this._isActionInProgress) return
+    if (this.skipHistory) return
+
+    this._isActionInProgress = true
+    this._actionReason = reason
+    this._actionSnapshot = this._captureCurrentState()
+  }
+
+  /**
+   * Завершает активное действие и очищает снимок.
+   * @param reason - причина завершения (опционально)
+   */
+  public endAction({ reason }: { reason?: string } = {}): void {
+    if (!this._isActionInProgress) return
+    if (reason && this._actionReason && reason !== this._actionReason) return
+
+    this._clearPendingAction()
+  }
+
+  /**
+   * Планирует сохранение состояния с отложенным вызовом.
+   * @param delayMs - задержка перед сохранением
+   * @param reason - причина сохранения
+   */
+  public scheduleSaveState({ delayMs, reason }: { delayMs: number; reason: string }): void {
+    this._clearPendingSave()
+
+    this._pendingSaveReason = reason
+    this._pendingSaveTimeoutId = setTimeout(this._handlePendingSaveTimeout.bind(this), delayMs)
+  }
+
+  /**
+   * Принудительно сохраняет отложенное состояние.
+   */
+  public flushPendingSave(): boolean {
+    if (this._pendingSaveTimeoutId === null) return false
+
+    const pendingReason = this._pendingSaveReason
+    this._clearPendingSave()
+    this._finalizePendingSave({ reason: pendingReason })
+    return true
+  }
+
+  /**
    * Проверяет, есть ли в редакторе несохранённые изменения
    */
   public hasUnsavedChanges(): boolean {
@@ -217,6 +295,105 @@ export default class HistoryManager {
 
     console.log('getFullState state', state)
     return state
+  }
+
+  /**
+   * Возвращает текущее состояние канваса с учётом временной разблокировки объектов.
+   */
+  private _captureCurrentState(): CanvasFullState {
+    return this._withTemporaryUnlock(this._serializeCanvasState.bind(this))
+  }
+
+  /**
+   * Сериализует текущее состояние канваса.
+   */
+  private _serializeCanvasState(): CanvasFullState {
+    const { canvas } = this
+    return canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as CanvasFullState
+  }
+
+  /**
+   * Обрабатывает срабатывание отложенного сохранения.
+   */
+  private _handlePendingSaveTimeout(): void {
+    if (this._pendingSaveTimeoutId === null) return
+
+    const pendingReason = this._pendingSaveReason
+    this._pendingSaveTimeoutId = null
+    this._pendingSaveReason = null
+
+    this._finalizePendingSave({ reason: pendingReason })
+  }
+
+  /**
+   * Завершает отложенное сохранение и применяет состояние.
+   * @param reason - причина сохранения
+   */
+  private _finalizePendingSave({ reason }: { reason: string | null }): void {
+    if (reason === 'text-edit') {
+      this._deactivateTextEditing()
+    }
+
+    this.saveState()
+  }
+
+  /**
+   * Сбрасывает флаг редактирования текста, если он активен.
+   */
+  private _deactivateTextEditing(): void {
+    const { textManager } = this.editor
+    if (!textManager) return
+    if (!textManager.isTextEditingActive) return
+
+    textManager.isTextEditingActive = false
+  }
+
+  /**
+   * Очищает отложенное сохранение без фиксации состояния.
+   */
+  private _clearPendingSave(): void {
+    const { _pendingSaveTimeoutId: pendingSaveTimeoutId } = this
+    if (pendingSaveTimeoutId === null) return
+
+    clearTimeout(pendingSaveTimeoutId)
+    this._pendingSaveTimeoutId = null
+    this._pendingSaveReason = null
+  }
+
+  /**
+   * Очищает состояние активного действия.
+   */
+  private _clearPendingAction(): void {
+    this._isActionInProgress = false
+    this._actionSnapshot = null
+    this._actionReason = null
+  }
+
+  /**
+   * Отменяет активное действие и возвращает состояние на момент начала.
+   */
+  private async _cancelPendingAction(): Promise<boolean> {
+    const { _isActionInProgress: isActionInProgress, _actionSnapshot: actionSnapshot } = this
+    if (!isActionInProgress || !actionSnapshot) return false
+
+    const actionReason = this._actionReason
+
+    this._clearPendingSave()
+    this._clearPendingAction()
+
+    this.suspendHistory()
+
+    try {
+      await this.loadStateFromFullState(actionSnapshot)
+
+      if (actionReason === 'text-edit') {
+        this._deactivateTextEditing()
+      }
+
+      return true
+    } finally {
+      this.resumeHistory()
+    }
   }
 
   /**
@@ -250,7 +427,7 @@ export default class HistoryManager {
       // Вычисляем diff между последним сохранённым полным состоянием и текущим состоянием.
       // Последнее сохранённое полное состояние – это результат getFullState()
       const prevState = this.getFullState()
-      console.log('prevState', prevState)
+
       const {
         prevState: normalizedPrevState,
         nextState: normalizedCurrentState
@@ -259,6 +436,9 @@ export default class HistoryManager {
         nextState: currentStateObj as CanvasFullState
       })
       const diff = this.diffPatcher.diff(normalizedPrevState, normalizedCurrentState)
+
+      console.log('normalizedPrevState', normalizedPrevState)
+      console.log('normalizedCurrentState', normalizedCurrentState)
 
       // Если изменений нет, не сохраняем новый шаг
       if (!diff) {
@@ -771,7 +951,10 @@ export default class HistoryManager {
   public async undo(): Promise<void> {
     if (this.skipHistory) return
 
-    this.saveState()
+    const isActionCanceled = await this._cancelPendingAction()
+    if (isActionCanceled) return
+
+    this.flushPendingSave()
 
     if (this.currentIndex <= 0) {
       console.log('Нет предыдущих состояний для отмены.')
@@ -817,6 +1000,11 @@ export default class HistoryManager {
    */
   public async redo(): Promise<void> {
     if (this.skipHistory) return
+
+    const isActionCanceled = await this._cancelPendingAction()
+    if (isActionCanceled) return
+
+    this.flushPendingSave()
 
     if (this.currentIndex >= this.patches.length) {
       console.log('Нет состояний для повтора.')

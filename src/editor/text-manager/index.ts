@@ -765,6 +765,8 @@ export default class TextManager {
     this.isTextEditingActive = true
     const { target } = event
     if (!TextManager._isTextbox(target)) return
+    const { historyManager } = this.editor
+    historyManager.beginAction({ reason: 'text-edit' })
     const originY = target.originY ?? 'top'
     const originPoint = target.getPointByOrigin('center', originY)
     const anchorState = this._ensureEditingAnchorState()
@@ -1002,11 +1004,15 @@ export default class TextManager {
       })
     }
 
+    const { historyManager } = this.editor
+
+    historyManager.endAction({ reason: 'text-edit' })
+
     // Сохраняем состояние с небольшой задержкой, чтобы Fabric успел завершить все внутренние операции
-    setTimeout(() => {
-      this.isTextEditingActive = false
-      this.editor.historyManager.saveState()
-    }, TEXT_EDITING_DEBOUNCE_MS)
+    historyManager.scheduleSaveState({
+      delayMs: TEXT_EDITING_DEBOUNCE_MS,
+      reason: 'text-edit'
+    })
   }
 
   /**

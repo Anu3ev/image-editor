@@ -12,7 +12,14 @@ const OPTIONAL_CANVAS_EVENTS = [
 ]
 
 const ALWAYS_HISTORY_EVENTS = [
-  'object:modified', 'object:rotating', 'object:added', 'object:removed'
+  'object:modified',
+  'object:rotating',
+  'object:added',
+  'object:removed',
+  'object:moving',
+  'object:scaling',
+  'object:skewing',
+  'object:resizing'
 ]
 
 const ALWAYS_REQUIRED_EVENTS = [
@@ -371,23 +378,39 @@ describe('Listeners', () => {
     it('history save handlers учитывают skipHistory', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: {} })
+      const { historyManager, textManager } = editor
       listeners.handleObjectModifiedHistory()
       listeners.handleObjectRotatingHistory()
       listeners.handleObjectAddedHistory()
       listeners.handleObjectRemovedHistory()
-      expect(editor.historyManager.saveState).toHaveBeenCalledTimes(4);
+      expect(historyManager.scheduleSaveState).toHaveBeenCalledTimes(2)
+      expect(historyManager.saveState).toHaveBeenCalledTimes(2)
 
-      (editor.historyManager.saveState as jest.Mock).mockClear()
-      editor.historyManager.skipHistory = true
+      const scheduleSaveStateMock = historyManager.scheduleSaveState as jest.Mock
+      scheduleSaveStateMock.mockClear()
+      historyManager.skipHistory = true
       listeners.handleObjectModifiedHistory()
-      expect(editor.historyManager.saveState).not.toHaveBeenCalled();
+      expect(scheduleSaveStateMock).not.toHaveBeenCalled()
 
       // Проверяем что isTextEditingActive также блокирует сохранение
-      (editor.historyManager.saveState as jest.Mock).mockClear()
-      editor.historyManager.skipHistory = false
-      editor.textManager.isTextEditingActive = true
+      scheduleSaveStateMock.mockClear()
+      historyManager.skipHistory = false
+      textManager.isTextEditingActive = true
       listeners.handleObjectModifiedHistory()
-      expect(editor.historyManager.saveState).not.toHaveBeenCalled()
+      expect(scheduleSaveStateMock).not.toHaveBeenCalled()
+    })
+
+    it('фиксирует начало и конец трансформации объекта', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: {} })
+      const { historyManager } = editor
+      const target = { id: 'object-1' } as any
+
+      listeners.handleObjectTransformStart({ target })
+      expect(historyManager.beginAction).toHaveBeenCalledWith({ reason: 'object-transform' })
+
+      listeners.handleObjectTransformEnd()
+      expect(historyManager.endAction).toHaveBeenCalledWith({ reason: 'object-transform' })
     })
 
     it('_shouldIgnoreKeyboardEvent учитывает inputs, contenteditable и селекторы', () => {

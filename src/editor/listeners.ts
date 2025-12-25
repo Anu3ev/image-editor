@@ -2,6 +2,8 @@ import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo
 
 import { ImageEditor } from '.'
 
+const HISTORY_SAVE_DEBOUNCE_MS = 300
+
 type CanvasWithTransform = Canvas & {
   _currentTransform?: Record<string, unknown> | null
 }
@@ -89,6 +91,10 @@ class Listeners {
 
   handleObjectRotatingHistoryBound: () => void
 
+  handleObjectTransformStartBound: ({ target }: { target?: FabricObject }) => void
+
+  handleObjectTransformEndBound: () => void
+
   handleObjectAddedHistoryBound: () => void
 
   handleObjectRemovedHistoryBound: () => void
@@ -172,8 +178,10 @@ class Listeners {
     this.handleSpaceKeyUpBound = this.handleSpaceKeyUp.bind(this)
 
     // Canvas (Fabric) события:
-    this.handleObjectModifiedHistoryBound = Listeners.debounce(this.handleObjectModifiedHistory.bind(this), 300)
-    this.handleObjectRotatingHistoryBound = Listeners.debounce(this.handleObjectRotatingHistory.bind(this), 300)
+    this.handleObjectModifiedHistoryBound = this.handleObjectModifiedHistory.bind(this)
+    this.handleObjectRotatingHistoryBound = this.handleObjectRotatingHistory.bind(this)
+    this.handleObjectTransformStartBound = this.handleObjectTransformStart.bind(this)
+    this.handleObjectTransformEndBound = this.handleObjectTransformEnd.bind(this)
     this.handleObjectAddedHistoryBound = this.handleObjectAddedHistory.bind(this)
     this.handleObjectRemovedHistoryBound = this.handleObjectRemovedHistory.bind(this)
     this.handleOverlayUpdateBound = this.handleOverlayUpdate.bind(this)
@@ -260,6 +268,12 @@ class Listeners {
     this.canvas.on('object:rotating', this.handleObjectRotatingHistoryBound)
     this.canvas.on('object:added', this.handleObjectAddedHistoryBound)
     this.canvas.on('object:removed', this.handleObjectRemovedHistoryBound)
+    this.canvas.on('object:moving', this.handleObjectTransformStartBound)
+    this.canvas.on('object:scaling', this.handleObjectTransformStartBound)
+    this.canvas.on('object:rotating', this.handleObjectTransformStartBound)
+    this.canvas.on('object:skewing', this.handleObjectTransformStartBound)
+    this.canvas.on('object:resizing', this.handleObjectTransformStartBound)
+    this.canvas.on('object:modified', this.handleObjectTransformEndBound)
 
     // Инициализация событий для overlayMask
     this.canvas.on('object:added', this.handleOverlayUpdateBound)
@@ -342,15 +356,43 @@ class Listeners {
    * Срабатывают при изменении объектов (перемещение, изменение размера и т.д.).
    */
   handleObjectModifiedHistory(): void {
-    if (this.editor.historyManager.skipHistory) return
-    if (this.editor.textManager.isTextEditingActive) return
-    this.editor.historyManager.saveState()
+    const { historyManager, textManager } = this.editor
+    if (historyManager.skipHistory) return
+    if (textManager.isTextEditingActive) return
+
+    historyManager.scheduleSaveState({
+      delayMs: HISTORY_SAVE_DEBOUNCE_MS,
+      reason: 'object-modified'
+    })
   }
 
   handleObjectRotatingHistory(): void {
-    if (this.editor.historyManager.skipHistory) return
-    if (this.editor.textManager.isTextEditingActive) return
-    this.editor.historyManager.saveState()
+    const { historyManager, textManager } = this.editor
+    if (historyManager.skipHistory) return
+    if (textManager.isTextEditingActive) return
+
+    historyManager.scheduleSaveState({
+      delayMs: HISTORY_SAVE_DEBOUNCE_MS,
+      reason: 'object-rotating'
+    })
+  }
+
+  /**
+   * Фиксирует старт трансформации объекта для корректного undo.
+   * @param options - параметры события
+   * @param options.target - объект, который трансформируется
+   */
+  handleObjectTransformStart({ target }: { target?: FabricObject }): void {
+    if (!target) return
+
+    this.editor.historyManager.beginAction({ reason: 'object-transform' })
+  }
+
+  /**
+   * Завершает трансформацию объекта.
+   */
+  handleObjectTransformEnd(): void {
+    this.editor.historyManager.endAction({ reason: 'object-transform' })
   }
 
   handleObjectAddedHistory(): void {
@@ -890,6 +932,12 @@ class Listeners {
     this.canvas.off('object:rotating', this.handleObjectRotatingHistoryBound)
     this.canvas.off('object:added', this.handleObjectAddedHistoryBound)
     this.canvas.off('object:removed', this.handleObjectRemovedHistoryBound)
+    this.canvas.off('object:moving', this.handleObjectTransformStartBound)
+    this.canvas.off('object:scaling', this.handleObjectTransformStartBound)
+    this.canvas.off('object:rotating', this.handleObjectTransformStartBound)
+    this.canvas.off('object:skewing', this.handleObjectTransformStartBound)
+    this.canvas.off('object:resizing', this.handleObjectTransformStartBound)
+    this.canvas.off('object:modified', this.handleObjectTransformEndBound)
 
     this.canvas.off('object:added', this.handleOverlayUpdateBound)
     this.canvas.off('selection:created', this.handleOverlayUpdateBound)
