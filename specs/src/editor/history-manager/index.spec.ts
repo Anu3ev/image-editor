@@ -421,7 +421,8 @@ describe('HistoryManager', () => {
             id: 'text-1',
             type: 'textbox',
             backgroundOpacity: 0,
-            backgroundColor: '#ffffff'
+            backgroundColor: '#ffffff',
+            textBackgroundColor: null
           }
         ] as any[]
       })
@@ -431,7 +432,8 @@ describe('HistoryManager', () => {
             id: 'text-1',
             type: 'textbox',
             backgroundOpacity: 0,
-            backgroundColor: '#000000'
+            backgroundColor: '#000000',
+            textBackgroundColor: ''
           }
         ] as any[]
       })
@@ -454,13 +456,21 @@ describe('HistoryManager', () => {
       const { prevState: normalizedPrevState, nextState: normalizedNextState } = normalized
       const [prevTextObject] = normalizedPrevState.objects
       const [nextTextObject] = normalizedNextState.objects
-      const { backgroundColor: prevBackgroundColor } = prevTextObject as { backgroundColor?: string | null }
-      const { backgroundColor: nextBackgroundColor } = nextTextObject as { backgroundColor?: string | null }
+      const {
+        backgroundColor: prevBackgroundColor,
+        textBackgroundColor: prevTextBackgroundColor
+      } = prevTextObject as { backgroundColor?: string | null; textBackgroundColor?: string | null }
+      const {
+        backgroundColor: nextBackgroundColor,
+        textBackgroundColor: nextTextBackgroundColor
+      } = nextTextObject as { backgroundColor?: string | null; textBackgroundColor?: string | null }
 
       const { patches } = historyManager
 
       expect(prevBackgroundColor).toBeNull()
       expect(nextBackgroundColor).toBeNull()
+      expect(prevTextBackgroundColor).toBeNull()
+      expect(nextTextBackgroundColor).toBeNull()
       expect(patches).toHaveLength(0)
     })
 
@@ -498,6 +508,64 @@ describe('HistoryManager', () => {
       const { patches } = historyManager
 
       expect(patches).toHaveLength(1)
+    })
+
+    it('сохраняет изменения геометрии системных объектов', () => {
+      const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
+      const baseState = createState({
+        objects: [
+          {
+            id: 'montage-area',
+            type: 'rect',
+            left: 0,
+            top: 0,
+            width: 400,
+            height: 300
+          },
+          {
+            id: 'background',
+            type: 'rect',
+            left: -10,
+            top: -20,
+            width: 100,
+            height: 100,
+            scaleX: 1,
+            scaleY: 1
+          }
+        ] as any[]
+      })
+      const nextState = createState({
+        objects: [
+          {
+            id: 'montage-area',
+            type: 'rect',
+            left: 0,
+            top: 0,
+            width: 400,
+            height: 300
+          },
+          {
+            id: 'background',
+            type: 'rect',
+            left: -5,
+            top: -10,
+            width: 100,
+            height: 100,
+            scaleX: 1,
+            scaleY: 1
+          }
+        ] as any[]
+      })
+      const { toDatalessObject } = mockCanvas
+
+      toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+
+      expect(historyManager.patches).toHaveLength(1)
     })
 
     it('не сохраняет состояние когда история приостановлена', () => {
@@ -931,6 +999,62 @@ describe('HistoryManager', () => {
       expect(mockEditor.canvas.fire).not.toHaveBeenCalledWith('editor:undo', expect.anything())
 
       loadSpy.mockRestore()
+    })
+
+    it('отменяет активное действие и не изменяет историю', async() => {
+      const {
+        historyManager,
+        getCanvasObjects,
+        setCanvasObjects,
+        mockCanvas
+      } = createHistoryManagerTestSetup()
+
+      setCanvasObjects([{ id: 'object-1', type: 'rect', left: 0 }] as any[])
+      historyManager.saveState()
+
+      setCanvasObjects([{ id: 'object-1', type: 'rect', left: 10 }] as any[])
+      historyManager.saveState()
+
+      const { currentIndex, totalChangesCount } = historyManager
+
+      historyManager.beginAction({ reason: 'object-transform' })
+
+      setCanvasObjects([{ id: 'object-1', type: 'rect', left: 20 }] as any[])
+
+      await historyManager.undo()
+
+      expect(historyManager.currentIndex).toBe(currentIndex)
+      expect(historyManager.totalChangesCount).toBe(totalChangesCount)
+      expect(getCanvasObjects()[0]?.left).toBe(10)
+      expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:undo', expect.anything())
+    })
+
+    it('undo фиксирует отложенное сохранение перед откатом', async() => {
+      const {
+        historyManager,
+        getCanvasObjects,
+        setCanvasObjects
+      } = createHistoryManagerTestSetup()
+
+      setCanvasObjects([{ id: 'object-1', type: 'rect', left: 0 }] as any[])
+      historyManager.saveState()
+
+      setCanvasObjects([{ id: 'object-1', type: 'rect', left: 10 }] as any[])
+
+      const saveSpy = jest.spyOn(historyManager, 'saveState')
+      saveSpy.mockClear()
+
+      historyManager.scheduleSaveState({
+        delayMs: 100,
+        reason: 'object-modified'
+      })
+
+      await historyManager.undo()
+
+      expect(saveSpy).toHaveBeenCalledTimes(1)
+      expect(getCanvasObjects()[0]?.left).toBe(0)
+
+      saveSpy.mockRestore()
     })
 
     it('ничего не делает если currentIndex уже равен 0', async() => {

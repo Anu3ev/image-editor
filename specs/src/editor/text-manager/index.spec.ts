@@ -2,6 +2,7 @@ import { ActiveSelection } from 'fabric'
 import { nanoid } from 'nanoid'
 import { createTextManagerTestSetup } from '../../../test-utils/editor-helpers'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
+import { TEXT_EDITING_DEBOUNCE_MS } from '../../../../src/editor/constants'
 
 jest.mock('nanoid')
 
@@ -651,6 +652,37 @@ describe('TextManager', () => {
       await historyManager.redo()
       expect(getObjects()).toHaveLength(1)
       expect(getObjects()[0]?.text).toBe('версия 2')
+    })
+
+    it('фиксирует начало и конец редактирования текста', () => {
+      const {
+        canvas,
+        historyManager,
+        textManager
+      } = createTextManagerTestSetup()
+
+      const beginActionSpy = jest.spyOn(historyManager, 'beginAction').mockImplementation(() => {})
+      const endActionSpy = jest.spyOn(historyManager, 'endAction').mockImplementation(() => {})
+      const scheduleSaveSpy = jest.spyOn(historyManager, 'scheduleSaveState').mockImplementation(() => {})
+
+      const textbox = textManager.addText({ text: 'Редактирование' })
+
+      canvas.fire('text:editing:entered', { target: textbox })
+
+      expect(beginActionSpy).toHaveBeenCalledWith({ reason: 'text-edit' })
+      expect(textManager.isTextEditingActive).toBe(true)
+
+      canvas.fire('text:editing:exited', { target: textbox })
+
+      expect(endActionSpy).toHaveBeenCalledWith({ reason: 'text-edit' })
+      expect(scheduleSaveSpy).toHaveBeenCalledWith({
+        delayMs: TEXT_EDITING_DEBOUNCE_MS,
+        reason: 'text-edit'
+      })
+
+      beginActionSpy.mockRestore()
+      endActionSpy.mockRestore()
+      scheduleSaveSpy.mockRestore()
     })
   })
 
