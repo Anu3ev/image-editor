@@ -38,6 +38,7 @@ type TextCreationFlags = {
 export type TextStyleOptions = {
   id?: string
   text?: string
+  autoExpand?: boolean
   fontFamily?: string
   fontSize?: number
   bold?: boolean
@@ -77,10 +78,13 @@ export type TextStyleOptions = {
     | 'text'
     | 'shadow'
     | 'textTransform'
+    | 'autoExpand'
   >
 >
 
-type EditorTextbox = Textbox & Partial<BackgroundTextboxProps>
+type EditorTextbox = Textbox & Partial<BackgroundTextboxProps> & {
+  autoExpand?: boolean
+}
 
 type TextReference = string | EditorTextbox | null | undefined
 
@@ -184,6 +188,7 @@ export default class TextManager {
     {
       id = `text-${nanoid()}`,
       text = 'Новый текст',
+      autoExpand = true,
       fontFamily,
       fontSize = 48,
       bold = false,
@@ -251,6 +256,8 @@ export default class TextManager {
     }
 
     const textbox = new BackgroundTextbox(text, finalOptions)
+    const isAutoExpandEnabled = autoExpand !== false
+    textbox.autoExpand = isAutoExpandEnabled
 
     // textCaseRaw хранит исходную строку без применения uppercase
     textbox.textCaseRaw = textbox.text ?? ''
@@ -319,7 +326,12 @@ export default class TextManager {
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
    */
-  public updateText({ target, style = {}, withoutSave, skipRender }: UpdateOptions = {}): EditorTextbox | null {
+  public updateText({
+    target,
+    style = {},
+    withoutSave,
+    skipRender
+  }: UpdateOptions = {}): EditorTextbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
 
@@ -338,6 +350,7 @@ export default class TextManager {
 
     const {
       text,
+      autoExpand,
       fontFamily,
       fontSize,
       bold,
@@ -625,8 +638,19 @@ export default class TextManager {
         wholeTextStyles
       ]
     })
+    const { autoExpand: storedAutoExpand } = textbox
+    const hasAutoExpandUpdate = autoExpand !== undefined
+    const resolvedAutoExpand = autoExpand ?? storedAutoExpand
+    const isAutoExpandEnabled = resolvedAutoExpand !== false
+
+    if (hasAutoExpandUpdate) {
+      textbox.autoExpand = autoExpand !== false
+    } else if (storedAutoExpand === undefined) {
+      textbox.autoExpand = true
+    }
     const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
-    const shouldAutoExpand = !hasExplicitWidthUpdate
+    const shouldAutoExpand = isAutoExpandEnabled
+      && !hasExplicitWidthUpdate
       && (hasTextUpdate || uppercaseChanged || hasLayoutUpdates)
     let geometryAdjusted = false
 
@@ -758,8 +782,9 @@ export default class TextManager {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
-    const { text = '', uppercase } = target
+    const { text = '', uppercase, autoExpand } = target
     const isUppercase = Boolean(uppercase)
+    const isAutoExpandEnabled = autoExpand !== false
     const normalizedRaw = text.toLocaleLowerCase()
 
     if (isUppercase) {
@@ -774,10 +799,21 @@ export default class TextManager {
       target.textCaseRaw = text
     }
 
-    const geometryAdjusted = this._autoExpandTextboxWidth(target)
-    const dimensionsRounded = geometryAdjusted
-      ? false
-      : TextManager._roundTextboxDimensions({ textbox: target })
+    if (autoExpand === undefined) {
+      target.autoExpand = true
+    }
+
+    let geometryAdjusted = false
+
+    if (isAutoExpandEnabled) {
+      geometryAdjusted = this._autoExpandTextboxWidth(target)
+    }
+
+    let dimensionsRounded = false
+
+    if (!geometryAdjusted) {
+      dimensionsRounded = TextManager._roundTextboxDimensions({ textbox: target })
+    }
 
     if (geometryAdjusted || dimensionsRounded) {
       target.setCoords()
@@ -1606,6 +1642,7 @@ export default class TextManager {
       text,
       textCaseRaw,
       uppercase,
+      autoExpand,
       fontFamily,
       fontSize,
       fontWeight,
@@ -1647,6 +1684,7 @@ export default class TextManager {
       entries: {
         text,
         textCaseRaw,
+        autoExpand,
         fontFamily,
         fontSize,
         fontWeight,

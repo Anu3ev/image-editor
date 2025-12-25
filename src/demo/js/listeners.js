@@ -162,6 +162,7 @@ const OBJECT_SERIALIZATION_PROPS = [
   'styles',
   'textCaseRaw',
   'uppercase',
+  'autoExpand',
   'linethrough',
   'underline',
   'fontStyle',

@@ -34,6 +34,7 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'styles',
   'textCaseRaw',
   'uppercase',
+  'autoExpand',
   'linethrough',
   'underline',
   'fontStyle',
@@ -274,6 +275,8 @@ export default class HistoryManager {
         console.log('statesEqual. Нет изменений для сохранения.')
         return
       }
+
+      this._logDiff(diff)
 
       console.log('baseState', this.baseState)
 
@@ -906,5 +909,96 @@ export default class HistoryManager {
         object.selectable = selectable
       })
     }
+  }
+
+
+  /**
+   * Вспомогательный метод для логирования изменений в понятном виде.
+   * Помогает понять, что именно изменилось, даже если jsondiffpatch показывает удаление+вставку.
+   */
+  private _logDiff(diff: Delta): void {
+    if (!diff) return
+
+    console.group('🔍 Анализ изменений (HistoryManager)')
+
+    // 1. Проверяем изменения верхнего уровня (размеры канваса, clipPath и т.д.)
+    Object.keys(diff).forEach((key) => {
+      if (key === 'objects') return
+      console.log(`Изменено свойство канваса "${key}":`, diff[key])
+    })
+
+    // 2. Проверяем изменения объектов
+    if (diff.objects) {
+      const objectsDiff = diff.objects as any
+      const deletedObjs: any[] = []
+      const insertedObjs: any[] = []
+
+      // Собираем удаленные и добавленные объекты
+      Object.keys(objectsDiff).forEach((key) => {
+        if (key === '_t') return // служебное поле
+
+        const delta = objectsDiff[key]
+
+        // Удаление: [oldVal, 0, 0]
+        if (Array.isArray(delta) && delta.length === 3 && delta[1] === 0 && delta[2] === 0) {
+          deletedObjs.push(delta[0])
+        }
+        // Вставка: [newVal]
+        else if (Array.isArray(delta) && delta.length === 1) {
+          insertedObjs.push(delta[0])
+        }
+      })
+
+      // Пытаемся найти пары "удален-добавлен" с одинаковым ID
+      const matchedIds = new Set<string>()
+
+      deletedObjs.forEach((delObj) => {
+        const insObj = insertedObjs.find((o) => o.id === delObj.id)
+        if (insObj) {
+          matchedIds.add(delObj.id)
+          console.group(`🔄 Объект ${delObj.id} (${delObj.type}) изменился:`)
+
+          // Сравниваем свойства вручную
+          const allKeys = new Set([...Object.keys(delObj), ...Object.keys(insObj)])
+          allKeys.forEach((prop) => {
+            if (prop === 'version') return // игнорируем версию fabric
+
+            const val1 = delObj[prop]
+            const val2 = insObj[prop]
+
+            // Простое сравнение через JSON stringify
+            if (JSON.stringify(val1) !== JSON.stringify(val2)) {
+              console.log(`   ${prop}:`, val1, '=>', val2)
+            }
+          })
+          console.groupEnd()
+        } else {
+          console.log(`➖ Удален объект ${delObj.id} (${delObj.type})`)
+        }
+      })
+
+      // Те, кого добавили, но не нашли в удаленных (реально новые)
+      insertedObjs.forEach((insObj) => {
+        if (!matchedIds.has(insObj.id)) {
+          console.log(`➕ Добавлен новый объект ${insObj.id} (${insObj.type})`)
+        }
+      })
+
+      // Изменения свойств (если хеш совпал)
+      Object.keys(objectsDiff).forEach((key) => {
+        if (key === '_t') return
+        const delta = objectsDiff[key]
+
+        // Если это не удаление и не вставка массива, значит это изменение свойств
+        const isDelete = Array.isArray(delta) && delta.length === 3 && delta[1] === 0 && delta[2] === 0
+        const isInsert = Array.isArray(delta) && delta.length === 1
+
+        if (!isDelete && !isInsert) {
+          console.log(`📝 Изменен объект по индексу ${key} (хеш совпал):`, delta)
+        }
+      })
+    }
+
+    console.groupEnd()
   }
 }
