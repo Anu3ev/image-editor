@@ -59,6 +59,14 @@ describe('TextManager', () => {
 
       expect(textbox.autoExpand).toBe(true)
     })
+
+    it('поддерживает autoExpand=false при создании', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Без авто', autoExpand: false })
+
+      expect(textbox.autoExpand).toBe(false)
+    })
   })
 
   describe('updateText', () => {
@@ -566,19 +574,18 @@ describe('TextManager', () => {
       lineWidthSpy.mockRestore()
     })
 
-    it('не изменяет ширину при updateText, если autoExpand=false', () => {
+    it('updateText может отключить autoExpand и не расширяет ширину', () => {
       const { textManager } = createTextManagerTestSetup()
 
       const textbox = textManager.addText({
         text: 'Short',
-        width: 120,
-        autoExpand: false
+        width: 120
       })
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
 
       textManager.updateText({
         target: textbox,
-        style: { text: 'Longer text' },
+        style: { text: 'Longer text', autoExpand: false },
         withoutSave: true
       })
 
