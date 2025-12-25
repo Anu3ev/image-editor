@@ -51,6 +51,22 @@ describe('TextManager', () => {
       expect(state.objects).toHaveLength(1)
       expect(state.objects?.[0]?.text).toBe('Привет')
     })
+
+    it('ставит autoExpand=true по умолчанию', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Авто' })
+
+      expect(textbox.autoExpand).toBe(true)
+    })
+
+    it('поддерживает autoExpand=false при создании', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({ text: 'Без авто', autoExpand: false })
+
+      expect(textbox.autoExpand).toBe(false)
+    })
   })
 
   describe('updateText', () => {
@@ -554,6 +570,46 @@ describe('TextManager', () => {
       })
 
       expect(textbox.width).toBeLessThanOrEqual(400)
+
+      lineWidthSpy.mockRestore()
+    })
+
+    it('updateText может отключить autoExpand и не расширяет ширину', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120
+      })
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
+
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'Longer text', autoExpand: false },
+        withoutSave: true
+      })
+
+      expect(textbox.autoExpand).toBe(false)
+      expect(textbox.width).toBe(120)
+
+      lineWidthSpy.mockRestore()
+    })
+
+    it('text:changed не расширяет ширину при autoExpand=false', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120,
+        autoExpand: false
+      })
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(240)
+
+      canvas.fire('text:editing:entered', { target: textbox })
+      textbox.text = 'Longer text'
+      canvas.fire('text:changed', { target: textbox })
+
+      expect(textbox.width).toBe(120)
 
       lineWidthSpy.mockRestore()
     })
