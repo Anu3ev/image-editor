@@ -1,4 +1,4 @@
-import { FabricObject, ActiveSelection, Group } from 'fabric'
+import { FabricObject, ActiveSelection, Group, Textbox } from 'fabric'
 import { ImageEditor } from '../index'
 
 type lockObjectOptions = {
@@ -58,6 +58,11 @@ export default class ObjectLockManager {
       (activeObject as Group | ActiveSelection).getObjects().forEach((obj) => {
         obj.set(lockOptions)
       })
+    }
+
+    // Если объект — текстовый блок в режиме редактирования, выходим из него перед блокировкой
+    if (activeObject instanceof Textbox && activeObject.isEditing) {
+      activeObject.exitEditing()
     }
 
     canvas.renderAll()

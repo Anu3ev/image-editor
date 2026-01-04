@@ -93,6 +93,9 @@ import {
   applyTemplateBtn,
   templateJsonInput,
   serializeTemplateWithBackgroundCheckbox,
+  loadActiveObjectBtn,
+  activeObjectJsonInput,
+  saveActiveObjectBtn,
   // Undo/Redo
   undoBtn,
   redoBtn,
@@ -107,8 +110,8 @@ import {
   gradientTypeSelect,
   linearGradientControls,
   radialGradientControls,
-  gradientStartColorInput,
-  gradientEndColorInput,
+  gradientStopsContainer,
+  addGradientStopBtn,
   // Linear gradient controls
   gradientAngleInput,
   gradientAngleValue,
@@ -137,6 +140,43 @@ import {
   setImageBackground,
   removeBackground
 } from './methods.js'
+
+const OBJECT_SERIALIZATION_PROPS = [
+  'selectable',
+  'evented',
+  'id',
+  'backgroundId',
+  'customData',
+  'backgroundType',
+  'format',
+  'width',
+  'height',
+  'locked',
+  'lockMovementX',
+  'lockMovementY',
+  'lockRotation',
+  'lockScalingX',
+  'lockScalingY',
+  'lockSkewingX',
+  'lockSkewingY',
+  'styles',
+  'textCaseRaw',
+  'uppercase',
+  'autoExpand',
+  'linethrough',
+  'underline',
+  'fontStyle',
+  'fontWeight',
+  'backgroundOpacity',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
+]
 
 export default (editorInstance) => {
   const TEXT_FILL_PALETTE = [
@@ -221,8 +261,8 @@ export default (editorInstance) => {
       return
     }
 
-    editorInstance.canvasManager.setResolutionWidth(width)
-    editorInstance.canvasManager.setResolutionHeight(height)
+    editorInstance.canvasManager.setResolutionWidth(width, { withoutSave: true })
+    editorInstance.canvasManager.setResolutionHeight(height, { withoutSave: true })
     editorInstance.backgroundManager.refresh()
     editorInstance.canvasManager.updateCanvas()
     editorInstance.zoomManager.calculateAndApplyDefaultZoom()
@@ -243,6 +283,83 @@ export default (editorInstance) => {
     textStrokeWidthInput.value = normalized
     textStrokeWidthValue.textContent = normalized > 0 ? `${normalized}px` : 'Off'
     setStrokeControlsEnabled(normalized > 0)
+  }
+
+  const ACTIVE_OBJECT_JSON_SPACES = 2
+
+  /**
+   * Возвращает активный объект, если выделен один объект.
+   */
+  const getSingleActiveObject = () => {
+    const activeObject = editorInstance.canvas.getActiveObject()
+    if (!activeObject) return null
+
+    const { type } = activeObject
+    if (type === 'activeSelection') return null
+
+    return activeObject
+  }
+
+  /**
+   * Обновляет textarea с JSON активного объекта.
+   */
+  const syncActiveObjectJson = () => {
+    if (!activeObjectJsonInput) return
+
+    const activeObject = getSingleActiveObject()
+    if (!activeObject) {
+      activeObjectJsonInput.value = ''
+      return
+    }
+
+    try {
+      const serialized = typeof activeObject.toDatalessObject === 'function'
+        ? activeObject.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
+        : activeObject.toObject?.()
+      const json = serialized ? JSON.stringify(serialized, null, ACTIVE_OBJECT_JSON_SPACES) : ''
+      activeObjectJsonInput.value = json
+    } catch (error) {
+      console.warn('Failed to serialize active object', error)
+      activeObjectJsonInput.value = ''
+    }
+  }
+
+  /**
+   * Применяет изменения из textarea к активному объекту.
+   */
+  const applyActiveObjectJson = async() => {
+    if (!activeObjectJsonInput) return
+
+    const activeObject = getSingleActiveObject()
+    if (!activeObject) {
+      console.warn('No active object to update')
+      return
+    }
+
+    const rawValue = activeObjectJsonInput.value.trim()
+    if (!rawValue) {
+      console.warn('Active object JSON is empty')
+      return
+    }
+
+    try {
+      const parsed = JSON.parse(rawValue)
+      if (parsed && typeof parsed === 'object') {
+        delete parsed.type
+      }
+
+      const enlivenedProps = parsed && typeof parsed === 'object'
+        ? await editorInstance.templateManager.enlivenObjectEnlivables(parsed)
+        : parsed
+
+      activeObject.set(enlivenedProps)
+      activeObject.setCoords()
+      editorInstance.canvas.requestRenderAll()
+      editorInstance.historyManager.saveState()
+      syncActiveObjectJson()
+    } catch (error) {
+      console.error('Failed to apply active object JSON', error)
+    }
   }
 
   const renderPalette = (container, colors) => {
@@ -331,7 +448,8 @@ export default (editorInstance) => {
     }
   }
 
-  const isTextboxObject = (object) => Boolean(object) && (object.type === 'textbox' || object.type === 'background-textbox')
+  const isTextboxObject = (object) => Boolean(object)
+    && (object.type === 'textbox' || object.type === 'background-textbox')
 
   const getActiveText = () => {
     const object = editorInstance.canvas.getActiveObject()
@@ -437,7 +555,10 @@ export default (editorInstance) => {
       const width = typeof style.strokeWidth === 'number' ? style.strokeWidth : undefined
       return typeof width === 'number' ? Math.max(0, Math.round(width)) : undefined
     })
-    const selectionStrokeColor = getSelectionUniformValue(selectionInfo, (style) => normalizeColorOptional(style.stroke))
+    const selectionStrokeColor = getSelectionUniformValue(
+      selectionInfo,
+      (style) => normalizeColorOptional(style.stroke)
+    )
     const fallbackStrokeWidth = Number(textStrokeWidthInput.value) || 0
     const baseStrokeWidth = typeof textbox.strokeWidth === 'number'
       ? Math.max(0, Math.round(textbox.strokeWidth))
@@ -690,14 +811,6 @@ export default (editorInstance) => {
     ensureFontOption(family)
     if (!getActiveText()) return
     applyTextStyle({ fontFamily: family })
-  })
-
-  textFontSizeInput.addEventListener('input', (e) => {
-    const rawValue = Number(e.target.value)
-    const value = Math.max(1, Number.isNaN(rawValue) ? 1 : Math.round(rawValue))
-    e.target.value = value
-    if (!getActiveText()) return
-    applyTextStyle({ fontSize: value }, { withoutSave: true })
   })
 
   textFontSizeInput.addEventListener('change', (e) => {
@@ -1097,6 +1210,10 @@ export default (editorInstance) => {
     if (event?.target && event.target === getActiveText()) {
       syncTextControls(event.target)
     }
+
+    if (activeObjectJsonInput) {
+      activeObjectJsonInput.value = ''
+    }
   })
 
   editorInstance.canvas.on('editor:display-width-changed', () => {
@@ -1105,6 +1222,16 @@ export default (editorInstance) => {
 
   editorInstance.canvas.on('editor:display-height-changed', () => {
     canvasDisplaySizeNode.textContent = getCanvasDisplaySize(editorInstance)
+  })
+
+  editorInstance.canvas.on('selection:created', () => {
+    currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+  })
+  editorInstance.canvas.on('selection:updated', () => {
+    currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+  })
+  editorInstance.canvas.on('selection:cleared', () => {
+    currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
   })
 
   // Canvas Zoom Node
@@ -1203,15 +1330,69 @@ export default (editorInstance) => {
     }
   })
 
+  loadActiveObjectBtn?.addEventListener('click', syncActiveObjectJson)
+  saveActiveObjectBtn?.addEventListener('click', applyActiveObjectJson)
+
   setColorBackgroundBtn.addEventListener('click', () => {
     const color = backgroundColorInput.value
     setColorBackground(editorInstance, color)
   })
 
   // Gradient background
+  const createGradientStopElement = (color = '#000000', offset = 0) => {
+    const container = document.createElement('div')
+    container.className = 'd-flex gap-2 align-items-center gradient-stop-row'
+
+    const colorInput = document.createElement('input')
+    colorInput.type = 'color'
+    colorInput.className = 'form-control form-control-color form-control-sm'
+    colorInput.value = color
+
+    const offsetInput = document.createElement('input')
+    offsetInput.type = 'number'
+    offsetInput.className = 'form-control form-control-sm'
+    offsetInput.min = '0'
+    offsetInput.max = '100'
+    offsetInput.value = offset
+    offsetInput.placeholder = '%'
+
+    const removeBtn = document.createElement('button')
+    removeBtn.className = 'btn btn-outline-danger btn-sm'
+    removeBtn.textContent = '×'
+    removeBtn.title = 'Remove stop'
+    removeBtn.onclick = () => container.remove()
+
+    container.appendChild(colorInput)
+    container.appendChild(offsetInput)
+    container.appendChild(removeBtn)
+
+    return container
+  }
+
+  const getGradientStops = () => {
+    const rows = gradientStopsContainer.querySelectorAll('.gradient-stop-row')
+    const stops = []
+    rows.forEach((row) => {
+      const inputs = row.querySelectorAll('input')
+      const color = inputs[0].value
+      const offset = Number(inputs[1].value)
+      stops.push({ color, offset })
+    })
+    return stops.sort((a, b) => a.offset - b.offset)
+  }
+
+  // Initialize default stops
+  if (gradientStopsContainer.children.length === 0) {
+    gradientStopsContainer.appendChild(createGradientStopElement('#79F1A4', 0))
+    gradientStopsContainer.appendChild(createGradientStopElement('#0E5CAD', 100))
+  }
+
+  addGradientStopBtn.addEventListener('click', () => {
+    gradientStopsContainer.appendChild(createGradientStopElement('#ffffff', 50))
+  })
+
   setGradientBackgroundBtn.addEventListener('click', () => {
-    const startColor = gradientStartColorInput.value
-    const endColor = gradientEndColorInput.value
+    const colorStops = getGradientStops()
     const gradientType = gradientTypeSelect.value
 
     if (gradientType === 'radial') {
@@ -1219,15 +1400,17 @@ export default (editorInstance) => {
       const centerY = parseFloat(gradientCenterYInput.value)
       const radius = parseFloat(gradientRadiusInput.value)
 
-      setGradientBackground(editorInstance, startColor, endColor, 'radial', {
+      setGradientBackground(editorInstance, null, null, 'radial', {
         centerX,
         centerY,
-        radius
+        radius,
+        colorStops
       })
     } else {
       const angle = gradientAngleInput.value
-      setGradientBackground(editorInstance, startColor, endColor, 'linear', {
-        angle
+      setGradientBackground(editorInstance, null, null, 'linear', {
+        angle,
+        colorStops
       })
     }
   })

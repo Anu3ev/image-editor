@@ -137,6 +137,7 @@ export default [
       'rest-spread-spacing': 'error',
       'space-before-blocks': 'warn',
       'template-curly-spacing': 'error',
+      'semi-style': ['error', 'last'],
 
       'vue/valid-v-slot': ['error', {
         allowModifiers: true
@@ -424,7 +425,8 @@ export default [
 
       // Более гибкие правила для объектов в тестах
       'object-curly-newline': 'off',
-      'max-classes-per-file': null
+      'max-classes-per-file': 'off',
+      'semi-style': ['error', 'last']
     }
   }
 ]

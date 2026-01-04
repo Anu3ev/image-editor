@@ -7,14 +7,56 @@ import type { EditorFontDefinition } from '../../src/editor/types/font'
 
 export type AnyFn = (...args: any[]) => any
 
+/**
+ * Делает устойчивую сериализацию значения с сортировкой ключей объектов.
+ * @param value - значение для сериализации
+ */
+const stableStringify = ({ value }: { value: unknown }): string => {
+  /**
+   * Нормализует значение для стабильной сериализации.
+   * @param value - исходное значение
+   */
+  const normalizeValue = ({ value: rawValue }: { value: unknown }): unknown => {
+    if (Array.isArray(rawValue)) {
+      const normalizedArray: unknown[] = []
+
+      for (let index = 0; index < rawValue.length; index += 1) {
+        normalizedArray.push(normalizeValue({ value: rawValue[index] }))
+      }
+
+      return normalizedArray
+    }
+
+    if (rawValue && typeof rawValue === 'object') {
+      const normalizedObject: Record<string, unknown> = {}
+      const keys = Object.keys(rawValue).sort()
+
+      for (let index = 0; index < keys.length; index += 1) {
+        const key = keys[index]
+        normalizedObject[key] = normalizeValue({
+          value: (rawValue as Record<string, unknown>)[key]
+        })
+      }
+
+      return normalizedObject
+    }
+
+    return rawValue
+  }
+
+  return JSON.stringify(normalizeValue({ value }))
+}
+
 export const createSimpleDiffPatcher = () => ({
   diff: jest.fn((prev: any, next: any) => {
-    const prevStr = JSON.stringify(prev)
-    const nextStr = JSON.stringify(next)
-    if (prevStr === nextStr) {
-      return null
-    }
-    return { next: JSON.parse(nextStr) }
+    if (typeof next === 'undefined') return null
+
+    const clone = JSON.parse(JSON.stringify(next))
+    const prevStr = stableStringify({ value: prev })
+    const nextStr = stableStringify({ value: clone })
+    if (prevStr === nextStr) return null
+
+    return { next: clone }
   }),
   patch: jest.fn((state: any, diff: any) => {
     if (!diff) {
@@ -103,6 +145,10 @@ export const createEditorStub = () => {
     historyManager: {
       skipHistory: false,
       saveState: jest.fn(),
+      scheduleSaveState: jest.fn(),
+      flushPendingSave: jest.fn(),
+      beginAction: jest.fn(),
+      endAction: jest.fn(),
       suspendHistory: jest.fn(),
       resumeHistory: jest.fn(),
       undo: jest.fn().mockResolvedValue(undefined),
@@ -146,6 +192,9 @@ export const createEditorStub = () => {
     selectionManager: { selectAll: jest.fn() },
     deletionManager: { deleteSelectedObjects: jest.fn() },
     clipboardManager: { copy: jest.fn(), handlePasteEvent: jest.fn() },
+    objectLockManager: {
+      lockObject: jest.fn()
+    },
     textManager: {
       isTextEditingActive: false
     },
@@ -411,6 +460,115 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
   }
 }
 
+// Создаёт примитивный FabricObject-стаб с управляемыми координатами.
+export const createBoundsObject = ({
+  left,
+  top,
+  width,
+  height,
+  id
+}: {
+  left: number
+  top: number
+  width: number
+  height: number
+  id?: string
+}) => {
+  const obj: any = {
+    left,
+    top,
+    width,
+    height,
+    id,
+    visible: true,
+    set: jest.fn((props: Partial<{ left: number; top: number; width: number; height: number }>) => {
+      Object.assign(obj, props)
+    }),
+    setCoords: jest.fn(),
+    getBoundingRect: jest.fn(() => ({
+      left: obj.left ?? 0,
+      top: obj.top ?? 0,
+      width: obj.width ?? 0,
+      height: obj.height ?? 0
+    }))
+  }
+
+  return obj
+}
+
+// Контекст для тестов SnappingManager c нужными моками канваса и редактора.
+export const createSnappingTestContext = () => {
+  const objects: any[] = []
+
+  const selectionContext = {
+    save: jest.fn(),
+    restore: jest.fn(),
+    transform: jest.fn(),
+    beginPath: jest.fn(),
+    moveTo: jest.fn(),
+    lineTo: jest.fn(),
+    quadraticCurveTo: jest.fn(),
+    closePath: jest.fn(),
+    stroke: jest.fn(),
+    setLineDash: jest.fn(),
+    fillText: jest.fn(),
+    fill: jest.fn(),
+    fillStyle: '',
+    font: '',
+    textAlign: 'center' as CanvasTextAlign,
+    textBaseline: 'middle' as CanvasTextBaseline,
+    lineWidth: 0,
+    strokeStyle: '',
+    measureText: jest.fn(() => ({ width: 10 }))
+  }
+
+  const canvas = {
+    ...createCanvasStub(),
+    requestRenderAll: jest.fn(),
+    getZoom: jest.fn().mockReturnValue(1),
+    getSelectionContext: jest.fn(() => selectionContext),
+    clearContext: jest.fn(),
+    contextTop: {},
+    forEachObject: jest.fn((cb: (obj: any) => void) => {
+      objects.forEach(cb)
+    })
+  }
+
+  const montageArea = createBoundsObject({
+    left: 0,
+    top: 0,
+    width: 400,
+    height: 300,
+    id: 'montage-area'
+  })
+
+  const editor = {
+    ...createEditorStub(),
+    canvas,
+    montageArea
+  }
+
+  return {
+    editor,
+    canvas,
+    objects
+  }
+}
+
+export const setActiveObjects = (canvas: any, objects: any[]) => {
+  canvas.getActiveObjects.mockReturnValue(objects)
+  canvas.getActiveObject.mockReturnValue(objects[0] ?? null)
+}
+
+export const attachToolbarMock = (editor: any) => {
+  const toolbar = {
+    hideTemporarily: jest.fn(),
+    showAfterTemporary: jest.fn()
+  }
+  editor.toolbar = toolbar
+  return toolbar
+}
+
 export type HistoryManagerTestSetupOptions = {
   maxHistoryLength?: number
   initialCanvasWidth?: number
@@ -431,7 +589,13 @@ export const createHistoryManagerTestSetup = (
   let objects: any[] = []
 
   const mockCanvas = {
-    toDatalessObject: jest.fn(),
+    toDatalessObject: jest.fn().mockImplementation(() => ({
+      clipPath: null,
+      width: currentWidth,
+      height: currentHeight,
+      version: '5.0.0',
+      objects: JSON.parse(JSON.stringify(objects))
+    })),
     loadFromJSON: jest.fn().mockImplementation(
       async(state: any, reviver?: (serializedObj: any, fabricObject: any) => void) => {
         const serializedObjects = state?.objects || []
@@ -452,6 +616,9 @@ export const createHistoryManagerTestSetup = (
       }
     ),
     getObjects: jest.fn(() => objects),
+    add: jest.fn((obj: any) => {
+      objects = [...objects, obj]
+    }),
     getWidth: jest.fn(() => currentWidth),
     getHeight: jest.fn(() => currentHeight),
     fire: jest.fn(),
@@ -631,6 +798,22 @@ export const createTextManagerTestSetup = (
     setActiveObject: jest.fn((textbox: Textbox) => {
       activeObject = textbox
     }),
+    discardActiveObject: jest.fn(() => {
+      if (activeObject && (activeObject as any).type === 'activeSelection') {
+        const selection = activeObject as unknown as ActiveSelection
+        const objects = selection.getObjects()
+        const { scaleX = 1, scaleY = 1 } = selection
+
+        objects.forEach((obj: any) => {
+          const currentScaleX = obj.scaleX ?? 1
+          const currentScaleY = obj.scaleY ?? 1
+
+          obj.scaleX = currentScaleX * scaleX
+          obj.scaleY = currentScaleY * scaleY
+        })
+      }
+      activeObject = null
+    }),
     getActiveObject: jest.fn(() => activeObject),
     requestRenderAll: jest.fn(),
     fire: fireMock,
@@ -691,7 +874,16 @@ export const createTextManagerTestSetup = (
     montageArea: {
       id: 'montage-area',
       width: 400,
-      height: 300
+      height: 300,
+      left: 200,
+      top: 150,
+      setCoords: jest.fn(),
+      getBoundingRect: jest.fn(() => ({
+        left: 0,
+        top: 0,
+        width: 400,
+        height: 300
+      }))
     },
     errorManager: {
       emitError: jest.fn()

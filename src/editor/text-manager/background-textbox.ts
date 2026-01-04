@@ -44,15 +44,21 @@ type Padding = {
   top: number
 }
 
-const clampNumber = ({ value, min, max }: { max: number; min: number; value: number }): number => (
-  Math.min(Math.max(value, min), max)
-)
+const clampNumber = ({
+  value,
+  min,
+  max
+}: {
+  max: number
+  min: number
+  value: number
+}): number => Math.min(Math.max(value, min), max)
 
 export class BackgroundTextbox extends Textbox {
   static override type = 'background-textbox'
 
   static override cacheProperties = [
-    ...(Array.isArray(Textbox.cacheProperties) ? Textbox.cacheProperties : []),
+    ...Array.isArray(Textbox.cacheProperties) ? Textbox.cacheProperties : [],
     'backgroundColor',
     'backgroundOpacity',
     'paddingTop',
@@ -66,7 +72,7 @@ export class BackgroundTextbox extends Textbox {
   ]
 
   static override stateProperties = [
-    ...(Array.isArray(Textbox.stateProperties) ? Textbox.stateProperties : []),
+    ...Array.isArray(Textbox.stateProperties) ? Textbox.stateProperties : [],
     'backgroundColor',
     'backgroundOpacity',
     'paddingTop',
@@ -109,6 +115,16 @@ export class BackgroundTextbox extends Textbox {
     this.radiusTopRight = options.radiusTopRight ?? 0
     this.radiusBottomRight = options.radiusBottomRight ?? 0
     this.radiusBottomLeft = options.radiusBottomLeft ?? 0
+
+    this._roundDimensions()
+  }
+
+  /**
+   * Пересчитывает размеры текста и округляет их до целых значений.
+   */
+  public override initDimensions(): void {
+    super.initDimensions()
+    this._roundDimensions()
   }
 
   protected override _getLeftOffset(): number {
@@ -135,6 +151,26 @@ export class BackgroundTextbox extends Textbox {
       width,
       height
     })
+  }
+
+  /**
+   * Возвращает сериализованное представление с учётом фона, отступов и скруглений.
+   */
+  public override toObject(propertiesToInclude: string[] = []): Record<string, unknown> {
+    const baseObject = super.toObject(propertiesToInclude)
+
+    return {
+      ...baseObject,
+      backgroundOpacity: this.backgroundOpacity,
+      paddingTop: this.paddingTop,
+      paddingRight: this.paddingRight,
+      paddingBottom: this.paddingBottom,
+      paddingLeft: this.paddingLeft,
+      radiusTopLeft: this.radiusTopLeft,
+      radiusTopRight: this.radiusTopRight,
+      radiusBottomRight: this.radiusBottomRight,
+      radiusBottomLeft: this.radiusBottomLeft
+    }
   }
 
   protected override _renderBackground(ctx: CanvasRenderingContext2D): void {
@@ -254,6 +290,26 @@ export class BackgroundTextbox extends Textbox {
     ctx.lineTo(left, top + radiusTopLeftX)
     ctx.quadraticCurveTo(left, top, left + radiusTopLeftX, top)
     ctx.closePath()
+  }
+
+  /**
+   * Округляет текущие значения ширины и высоты до ближайших целых.
+   */
+  private _roundDimensions(): void {
+    const {
+      width: rawWidth = 0,
+      height: rawHeight = 0
+    } = this
+    const roundedWidth = Math.round(rawWidth)
+    const roundedHeight = Math.round(rawHeight)
+
+    if (roundedWidth !== rawWidth) {
+      this.width = Math.max(0, roundedWidth)
+    }
+
+    if (roundedHeight !== rawHeight) {
+      this.height = Math.max(0, roundedHeight)
+    }
   }
 }
 

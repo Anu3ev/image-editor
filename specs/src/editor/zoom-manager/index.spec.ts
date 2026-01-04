@@ -44,6 +44,36 @@ describe('ZoomManager', () => {
       expect(zm.minZoom).toBe(0.1)
       expect(zm.maxZoom).toBe(2)
     })
+
+    it('должен ограничивать defaultZoom минимальным значением', () => {
+      const { options } = mockEditor
+      const editorWithSmallScale = {
+        ...mockEditor,
+        options: {
+          ...options,
+          defaultScale: 0.01
+        }
+      }
+
+      const zm = new ZoomManager({ editor: editorWithSmallScale })
+
+      expect(zm.defaultZoom).toBe(zm.minZoom)
+    })
+
+    it('должен ограничивать defaultZoom максимальным значением', () => {
+      const { options } = mockEditor
+      const editorWithLargeScale = {
+        ...mockEditor,
+        options: {
+          ...options,
+          defaultScale: 5
+        }
+      }
+
+      const zm = new ZoomManager({ editor: editorWithLargeScale })
+
+      expect(zm.defaultZoom).toBe(zm.maxZoom)
+    })
   })
 
   describe('calculateAndApplyDefaultZoom', () => {
@@ -284,5 +314,4 @@ describe('ZoomManager', () => {
       expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
     })
   })
-
 })

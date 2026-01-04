@@ -1,3 +1,4 @@
+import { ActiveSelection } from 'fabric'
 import Listeners from '../../../src/editor/listeners'
 import { createEditorStub } from '../../test-utils/editor-helpers'
 import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../test-utils/events'
@@ -11,7 +12,14 @@ const OPTIONAL_CANVAS_EVENTS = [
 ]
 
 const ALWAYS_HISTORY_EVENTS = [
-  'object:modified', 'object:rotating', 'object:added', 'object:removed'
+  'object:modified',
+  'object:rotating',
+  'object:added',
+  'object:removed',
+  'object:moving',
+  'object:scaling',
+  'object:skewing',
+  'object:resizing'
 ]
 
 const ALWAYS_REQUIRED_EVENTS = [
@@ -159,6 +167,13 @@ describe('Listeners', () => {
   })
 
   describe('space & drag', () => {
+    beforeEach(() => {
+      Object.defineProperty(document, 'activeElement', {
+        value: document.body,
+        configurable: true
+      })
+    })
+
     it('Space включает режим drag, mouse down/move/up двигает вьюпорт', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { canvasDragging: true } })
@@ -169,6 +184,8 @@ describe('Listeners', () => {
       Object.defineProperty(eSpace, 'preventDefault', { value: preventDefault })
       listeners.handleSpaceKeyDown(eSpace)
       expect(preventDefault).toHaveBeenCalled()
+      expect(editor.historyManager.saveState).toHaveBeenCalledTimes(1)
+      expect(editor.historyManager.suspendHistory).toHaveBeenCalledTimes(1)
       expect(editor.canvas.set).toHaveBeenCalledWith(expect.objectContaining({ selection: false, defaultCursor: 'grab' }))
       expect(editor.canvas.setCursor).toHaveBeenCalledWith('grab')
 
@@ -193,11 +210,114 @@ describe('Listeners', () => {
 
       // keyup Space restores selection and flags
       listeners.handleSpaceKeyUp(keyUp({ code: 'Space' }))
+      expect(editor.historyManager.resumeHistory).toHaveBeenCalledTimes(1)
       expect(editor.canvas.set).toHaveBeenCalledWith(expect.objectContaining({ selection: true, defaultCursor: 'default' }))
       expect(editor.canvas.setCursor).toHaveBeenCalledWith('default')
       const objs = (editor.canvasManager.getObjects as jest.Mock).mock.results[0].value
       expect(objs[0].set).toHaveBeenCalled()
       expect(objs[1].set).toHaveBeenCalled()
+    })
+
+    it('Space завершает режим drag даже если фокус в input', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+
+      const preventDefault = jest.fn()
+      const eSpaceDown = keyDown({ code: 'Space' })
+      Object.defineProperty(eSpaceDown, 'preventDefault', { value: preventDefault })
+      listeners.handleSpaceKeyDown(eSpaceDown)
+      expect(listeners.isSpacePressed).toBe(true)
+
+      const input = document.createElement('input')
+      Object.defineProperty(document, 'activeElement', {
+        value: input,
+        configurable: true
+      })
+      const eSpaceUp = keyUp({ code: 'Space' }, input)
+      listeners.handleSpaceKeyUp(eSpaceUp)
+
+      expect(editor.historyManager.resumeHistory).toHaveBeenCalled()
+      expect(listeners.isSpacePressed).toBe(false)
+    })
+
+    it('Space не вызывает saveState когда история уже заблокирована', () => {
+      const editor = createEditorStub()
+      editor.historyManager.skipHistory = true
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+
+      const eSpace = keyDown({ code: 'Space' })
+      Object.defineProperty(eSpace, 'preventDefault', { value: jest.fn() })
+      listeners.handleSpaceKeyDown(eSpace)
+
+      expect(editor.historyManager.saveState).not.toHaveBeenCalled()
+      expect(editor.historyManager.suspendHistory).toHaveBeenCalled()
+    })
+
+    it('не включает режим drag, если в момент нажатия пробела идет трансформация объекта', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+      const { canvas, canvasManager } = editor
+
+      Object.defineProperty(document, 'activeElement', {
+        value: document.body,
+        configurable: true
+      })
+
+      const canvasWithTransform = canvas as any
+      canvasWithTransform._currentTransform = {}
+
+      const preventDefault = jest.fn()
+      const eSpace = keyDown({ code: 'Space' })
+      Object.defineProperty(eSpace, 'preventDefault', { value: preventDefault })
+
+      listeners.handleSpaceKeyDown(eSpace)
+
+      expect(preventDefault).toHaveBeenCalled()
+      expect(listeners.isSpacePressed).toBe(false)
+      expect(canvas.set).not.toHaveBeenCalled()
+      expect(canvas.setCursor).not.toHaveBeenCalled()
+      expect(canvasManager.getObjects).not.toHaveBeenCalled()
+    })
+
+    it('восстанавливает заблокированное выделение, если внутри есть заблокированные объекты', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+
+      // Подготовка: создаем объекты, один из которых заблокирован
+      const obj1 = { set: jest.fn(), locked: false } as any
+      const obj2 = { set: jest.fn(), locked: true } as any
+      const objects = [obj1, obj2];
+
+      // Мокаем getObjects, чтобы _restoreSelection считал их валидными (существующими на канвасе)
+      (editor.canvasManager.getObjects as jest.Mock).mockReturnValue(objects)
+
+      // Мокаем текущее выделение перед нажатием пробела
+      // Используем ActiveSelection из мока fabric, чтобы сработал instanceof в handleSpaceKeyDown
+      const activeSelection = new ActiveSelection([], {})
+      jest.spyOn(activeSelection, 'getObjects').mockReturnValue(objects);
+      (editor.canvas.getActiveObject as jest.Mock).mockReturnValue(activeSelection)
+
+      // 1. Нажимаем пробел (сохранение выделения и переход в режим drag)
+      const eSpaceDown = keyDown({ code: 'Space' })
+      Object.defineProperty(eSpaceDown, 'preventDefault', { value: jest.fn() })
+      listeners.handleSpaceKeyDown(eSpaceDown)
+
+      // Проверяем, что выделение было сброшено
+      expect(editor.canvas.discardActiveObject).toHaveBeenCalled()
+
+      // 2. Отпускаем пробел (выход из режима drag и восстановление выделения)
+      const eSpaceUp = keyUp({ code: 'Space' })
+      listeners.handleSpaceKeyUp(eSpaceUp)
+
+      // Проверяем, что lockObject был вызван для восстановленного выделения,
+      // так как один из объектов (obj2) был заблокирован
+      expect(editor.objectLockManager.lockObject).toHaveBeenCalledWith(expect.objectContaining({
+        skipInnerObjects: true,
+        withoutSave: true
+      }))
+
+      // Проверяем, что setActiveObject был вызван (выделение восстановлено)
+      expect(editor.canvas.setActiveObject).toHaveBeenCalled()
     })
   })
 
@@ -258,23 +378,39 @@ describe('Listeners', () => {
     it('history save handlers учитывают skipHistory', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: {} })
+      const { historyManager, textManager } = editor
       listeners.handleObjectModifiedHistory()
       listeners.handleObjectRotatingHistory()
       listeners.handleObjectAddedHistory()
       listeners.handleObjectRemovedHistory()
-      expect(editor.historyManager.saveState).toHaveBeenCalledTimes(4);
+      expect(historyManager.scheduleSaveState).toHaveBeenCalledTimes(2)
+      expect(historyManager.saveState).toHaveBeenCalledTimes(2)
 
-      (editor.historyManager.saveState as jest.Mock).mockClear()
-      editor.historyManager.skipHistory = true
+      const scheduleSaveStateMock = historyManager.scheduleSaveState as jest.Mock
+      scheduleSaveStateMock.mockClear()
+      historyManager.skipHistory = true
       listeners.handleObjectModifiedHistory()
-      expect(editor.historyManager.saveState).not.toHaveBeenCalled();
+      expect(scheduleSaveStateMock).not.toHaveBeenCalled()
 
       // Проверяем что isTextEditingActive также блокирует сохранение
-      (editor.historyManager.saveState as jest.Mock).mockClear()
-      editor.historyManager.skipHistory = false
-      editor.textManager.isTextEditingActive = true
+      scheduleSaveStateMock.mockClear()
+      historyManager.skipHistory = false
+      textManager.isTextEditingActive = true
       listeners.handleObjectModifiedHistory()
-      expect(editor.historyManager.saveState).not.toHaveBeenCalled()
+      expect(scheduleSaveStateMock).not.toHaveBeenCalled()
+    })
+
+    it('фиксирует начало и конец трансформации объекта', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: {} })
+      const { historyManager } = editor
+      const target = { id: 'object-1' } as any
+
+      listeners.handleObjectTransformStart({ target })
+      expect(historyManager.beginAction).toHaveBeenCalledWith({ reason: 'object-transform' })
+
+      listeners.handleObjectTransformEnd()
+      expect(historyManager.endAction).toHaveBeenCalledWith({ reason: 'object-transform' })
     })
 
     it('_shouldIgnoreKeyboardEvent учитывает inputs, contenteditable и селекторы', () => {

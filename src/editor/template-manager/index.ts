@@ -4,6 +4,7 @@ import {
   FabricImage,
   FabricObject,
   Textbox,
+  loadSVGFromString,
   util
 } from 'fabric'
 import { nanoid } from 'nanoid'
@@ -35,6 +36,8 @@ type TemplatePlaceholder = {
   type: 'text' | 'image'
 }
 
+type ImageFit = 'contain' | 'stretch'
+
 export type TemplateMeta = {
   baseWidth: number
   baseHeight: number
@@ -47,13 +50,26 @@ export type TemplateMeta = {
 
 const TEMPLATE_CENTER_X_KEY = '_templateCenterX'
 const TEMPLATE_CENTER_Y_KEY = '_templateCenterY'
+const TEMPLATE_ANCHOR_X_KEY = '_templateAnchorX'
+const TEMPLATE_ANCHOR_Y_KEY = '_templateAnchorY'
+
+type TemplateAnchor = 'start' | 'center' | 'end'
+
+type TemplateCustomData = Record<string, unknown> & {
+  templateField?: string
+  text?: string
+  imageFit?: ImageFit
+}
 
 export type TemplateObjectData = Record<string, unknown> & {
   left?: number
   top?: number
   scaleX?: number
   scaleY?: number
-  customData?: Record<string, unknown>
+  svgMarkup?: string
+  customData?: TemplateCustomData
+  _templateAnchorX?: TemplateAnchor
+  _templateAnchorY?: TemplateAnchor
 }
 
 export type TemplateDefinition = {
@@ -227,7 +243,10 @@ export default class TemplateManager {
 
       // Применяем текстовые подстановки, трансформируем координаты и добавляем объекты на канвас
       const insertedObjects = contentObjects.map((object) => {
-        TemplateManager._applyTextOverrides({ object, data })
+        this._adaptTextboxWidth({
+          object,
+          baseWidth: meta.baseWidth
+        })
 
         TemplateManager._transformObject({
           object,
@@ -323,11 +342,239 @@ export default class TemplateManager {
   }
 
   /**
-   * Превращает plain-описание объектов в Fabric объекты.
-   */
+    * Превращает plain-описание объектов в Fabric объекты.
+    */
   private static async _enlivenObjects(objects: TemplateObjectData[]): Promise<FabricObject[]> {
-    const enlivened = await util.enlivenObjects<FabricObject>(objects)
-    return enlivened ?? []
+    const revivedList = await Promise.all(objects.map(async(serialized) => {
+      if (TemplateManager._hasSerializedSvgMarkup(serialized)) {
+        const revived = await TemplateManager._reviveSvgObject(serialized)
+        if (revived) {
+          TemplateManager._restoreImageScale({ revived, serialized })
+          return revived
+        }
+      }
+
+      const enlivened = await util.enlivenObjects<FabricObject>([serialized])
+      const revived = enlivened?.[0]
+
+      if (revived) {
+        TemplateManager._restoreImageScale({ revived, serialized })
+        return revived
+      }
+
+      return null
+    }))
+
+    return revivedList.filter((object): object is FabricObject => Boolean(object))
+  }
+
+  /**
+   * Восстанавливает масштаб изображения, если его фактический размер отличается от сериализованного.
+   */
+  private static _restoreImageScale({
+    revived,
+    serialized
+  }: { revived: FabricObject; serialized: TemplateObjectData }): void {
+    const objectType = typeof revived.type === 'string' ? revived.type.toLowerCase() : ''
+
+    if (objectType !== 'image') return
+
+    const {
+      width: serializedWidth,
+      height: serializedHeight,
+      scaleX: serializedScaleX,
+      scaleY: serializedScaleY,
+      customData
+    } = serialized
+    const image = revived as FabricImage
+
+    const element = 'getElement' in image && typeof image.getElement === 'function'
+      ? image.getElement()
+      : null
+
+    const {
+      naturalWidth = 0,
+      naturalHeight = 0,
+      width: elementWidth = 0,
+      height: elementHeight = 0
+    } = element instanceof HTMLImageElement
+      ? element
+      : {
+        naturalWidth: 0,
+        naturalHeight: 0,
+        width: 0,
+        height: 0
+      }
+
+    const intrinsicWidth = toNumber({ value: naturalWidth || elementWidth || image.width, fallback: 0 })
+    const intrinsicHeight = toNumber({ value: naturalHeight || elementHeight || image.height, fallback: 0 })
+
+    const targetWidth = toNumber({ value: serializedWidth, fallback: intrinsicWidth })
+    const targetHeight = toNumber({ value: serializedHeight, fallback: intrinsicHeight })
+    const baseScaleX = toNumber({ value: serializedScaleX, fallback: image.scaleX || 1 })
+    const baseScaleY = toNumber({ value: serializedScaleY, fallback: image.scaleY || 1 })
+
+    const targetDisplayWidth = targetWidth * baseScaleX
+    const targetDisplayHeight = targetHeight * baseScaleY
+
+    const hasIntrinsicWidth = intrinsicWidth > 0
+    const hasIntrinsicHeight = intrinsicHeight > 0
+    const hasTargetWidth = targetDisplayWidth > 0
+    const hasTargetHeight = targetDisplayHeight > 0
+    const imageFit = TemplateManager._resolveImageFit({ customData })
+
+    const nextProps: Record<string, number> = {}
+
+    if (hasIntrinsicWidth) {
+      nextProps.width = intrinsicWidth
+    }
+
+    if (hasIntrinsicHeight) {
+      nextProps.height = intrinsicHeight
+    }
+
+    if (!hasIntrinsicWidth || !hasIntrinsicHeight) {
+      image.set(nextProps)
+      return
+    }
+
+    if (imageFit === 'stretch') {
+      const nextScaleX = hasTargetWidth ? targetDisplayWidth / intrinsicWidth : null
+      const nextScaleY = hasTargetHeight ? targetDisplayHeight / intrinsicHeight : null
+
+      if (nextScaleX && nextScaleX > 0) {
+        nextProps.scaleX = nextScaleX
+      }
+
+      if (nextScaleY && nextScaleY > 0) {
+        nextProps.scaleY = nextScaleY
+      }
+
+      image.set(nextProps)
+      return
+    }
+
+    if (!hasTargetWidth || !hasTargetHeight) {
+      image.set(nextProps)
+      return
+    }
+
+    const containScale = Math.min(targetDisplayWidth / intrinsicWidth, targetDisplayHeight / intrinsicHeight)
+
+    if (Number.isFinite(containScale) && containScale > 0) {
+      nextProps.scaleX = containScale
+      nextProps.scaleY = containScale
+    }
+
+    image.set(nextProps)
+  }
+
+  /**
+   * Определяет режим вписывания изображения при восстановлении.
+   */
+  private static _resolveImageFit({
+    customData
+  }: {
+    customData?: TemplateCustomData
+  }): ImageFit {
+    if (!customData || typeof customData !== 'object') return 'contain'
+
+    const { imageFit } = customData
+
+    if (imageFit === 'stretch') return 'stretch'
+
+    return 'contain'
+  }
+
+  /**
+   * Проверяет, содержит ли сериализованный объект инлайн SVG.
+   */
+  private static _hasSerializedSvgMarkup(
+    object: TemplateObjectData
+  ): object is TemplateObjectData & { svgMarkup: string } {
+    return typeof object.svgMarkup === 'string' && Boolean(object.svgMarkup.trim())
+  }
+
+  /**
+   * Восстанавливает SVG-объект из компактного описания.
+   */
+  private static async _reviveSvgObject(
+    serialized: TemplateObjectData & { svgMarkup?: unknown }
+  ): Promise<FabricObject | null> {
+    const svgMarkup = typeof serialized.svgMarkup === 'string' ? serialized.svgMarkup : null
+
+    if (!svgMarkup) return null
+
+    try {
+      const svgData = await loadSVGFromString(svgMarkup)
+      const grouped = util.groupSVGElements(svgData.objects as FabricObject[], svgData.options)
+
+      const props = await util.enlivenObjectEnlivables(
+        TemplateManager._prepareSerializableProps(serialized)
+      )
+
+      grouped.set(props as Record<string, unknown>)
+      grouped.setCoords()
+
+      return grouped
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Убирает технические поля сериализации, оставляя только применимые свойства.
+   */
+  private static _prepareSerializableProps(serialized: TemplateObjectData): Record<string, unknown> {
+    const rest = { ...(serialized as Record<string, unknown>) }
+
+    delete rest.svgMarkup
+    delete rest.objects
+    delete rest.path
+    delete rest.paths
+    delete rest.type
+    delete rest.version
+
+    return rest
+  }
+
+  /**
+   * Определяет, что объект представляет SVG.
+   */
+  private static _isSvgObject(object: FabricObject): boolean {
+    return (object as Record<string, unknown>).format === 'svg'
+  }
+
+  /**
+   * Превращает объект в компактную SVG-строку, добавляя корневой тег при необходимости.
+   */
+  private static _extractSvgMarkup(object: FabricObject): string | null {
+    const toSvg = (object as FabricObject & { toSVG?: () => string }).toSVG
+    if (typeof toSvg !== 'function') return null
+
+    try {
+      const svgContent = toSvg.call(object)
+      if (!svgContent) return null
+
+      const hasRoot = /<svg[\s>]/i.test(svgContent)
+      if (hasRoot) return svgContent
+
+      const { width, height } = object.getBoundingRect(false, true)
+      const safeWidth = width || object.width || 0
+      const safeHeight = height || object.height || 0
+
+      return `
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="${safeWidth}"
+          height="${safeHeight}"
+          viewBox="0 0 ${safeWidth} ${safeHeight}">
+            ${svgContent}
+        </svg>
+      `
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -352,6 +599,7 @@ export default class TemplateManager {
     montageArea: FabricObject | null
     useRelativePositions: boolean
   }): void {
+    const objectRecord = object as Record<string, unknown>
     const { x: normalizedX, y: normalizedY } = resolveNormalizedCenter({
       object,
       baseWidth,
@@ -366,10 +614,20 @@ export default class TemplateManager {
     const currentScaleX = toNumber({ value: scaleX, fallback: 1 })
     const currentScaleY = toNumber({ value: scaleY, fallback: 1 })
 
+    const positioningBounds = TemplateManager._getPositioningBounds({
+      bounds,
+      baseWidth,
+      baseHeight,
+      scale,
+      useRelativePositions,
+      anchorX: TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_X_KEY),
+      anchorY: TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_Y_KEY)
+    })
+
     const absoluteCenter = denormalizeCenter({
       normalizedX,
       normalizedY,
-      bounds,
+      bounds: positioningBounds,
       targetSize,
       montageArea
     })
@@ -386,9 +644,86 @@ export default class TemplateManager {
     object.setPositionByOrigin(absoluteCenter, 'center', 'center')
     object.setCoords()
 
-    const objectRecord = object as Record<string, unknown>
     delete objectRecord[TEMPLATE_CENTER_X_KEY]
     delete objectRecord[TEMPLATE_CENTER_Y_KEY]
+    delete objectRecord[TEMPLATE_ANCHOR_X_KEY]
+    delete objectRecord[TEMPLATE_ANCHOR_Y_KEY]
+  }
+
+  /**
+   * Возвращает bounds, в которых должны позиционироваться нормализованные объекты.
+   * Для нормализованных позиций используем размеры сцены после масштабирования (letterbox/pillarbox).
+   */
+  private static _getPositioningBounds({
+    bounds,
+    baseWidth,
+    baseHeight,
+    scale,
+    useRelativePositions,
+    anchorX,
+    anchorY
+  }: {
+    bounds: Bounds
+    baseWidth: number
+    baseHeight: number
+    scale: number
+    useRelativePositions: boolean
+    anchorX: TemplateAnchor
+    anchorY: TemplateAnchor
+  }): Bounds {
+    if (!useRelativePositions) return bounds
+
+    const scaledWidth = (baseWidth || bounds.width) * scale
+    const scaledHeight = (baseHeight || bounds.height) * scale
+    const leftoverX = bounds.width - scaledWidth
+    const leftoverY = bounds.height - scaledHeight
+
+    const offsetX = bounds.left + TemplateManager._calculateAnchorOffset(anchorX, leftoverX)
+    const offsetY = bounds.top + TemplateManager._calculateAnchorOffset(anchorY, leftoverY)
+
+    return {
+      left: offsetX,
+      top: offsetY,
+      width: scaledWidth,
+      height: scaledHeight
+    }
+  }
+
+  private static _calculateAnchorOffset(anchor: TemplateAnchor, leftover: number): number {
+    if (leftover <= 0) return 0
+    if (anchor === 'end') return leftover
+    if (anchor === 'center') return leftover / 2
+    return 0
+  }
+
+  private static _resolveAnchor(objectRecord: Record<string, unknown>, key: string): TemplateAnchor {
+    const value = objectRecord[key]
+    if (value === 'center' || value === 'end' || value === 'start') return value
+    return 'start'
+  }
+
+  private static _detectAnchor({ start, end }: { center: number; start: number; end: number }): TemplateAnchor {
+    const touchesStart = start <= 0.05
+    const touchesEnd = end >= 0.95
+    const exceedsStart = start < 0
+    const exceedsEnd = end > 1
+    const span = end - start
+    const marginStart = Math.max(0, start)
+    const marginEnd = Math.max(0, 1 - end)
+    const balanced = Math.abs(marginStart - marginEnd) <= 0.02 // допуск ~2%
+
+    if ((touchesStart && touchesEnd) || (exceedsStart && exceedsEnd)) {
+      if (balanced || span >= 0.9) return 'center'
+      return marginStart <= marginEnd ? 'start' : 'end'
+    }
+
+    if (touchesStart || exceedsStart) return 'start'
+    if (touchesEnd || exceedsEnd) return 'end'
+
+    const diff = marginStart - marginEnd
+    const nearCenter = Math.abs(diff) <= 0.1
+    if (nearCenter) return 'center'
+    return diff < 0 ? 'start' : 'end'
   }
 
   /**
@@ -456,28 +791,114 @@ export default class TemplateManager {
   }
 
   /**
-   * Применяет текстовые значения из customData или переданных данных.
+   * Подгоняет ширину текстового объекта под фактическую длину строк, сохраняя выравнивание по якорю.
    */
-  private static _applyTextOverrides({
+  private _adaptTextboxWidth({
     object,
-    data
+    baseWidth
   }: {
     object: FabricObject
-    data?: Record<string, string>
+    baseWidth: number
   }): void {
-    if (!('text' in object)) return
+    if (!(object instanceof Textbox)) return
 
-    const customData = object.customData as Record<string, unknown> | undefined
-    const { templateField: rawTemplateField, text: rawText } = customData ?? {}
+    const textValue = typeof object.text === 'string' ? object.text : ''
+    if (!textValue) return
 
-    const templateField = typeof rawTemplateField === 'string' ? rawTemplateField : undefined
-    const fallbackText = typeof rawText === 'string' ? rawText : undefined
-    const providedText = templateField && data ? data[templateField] : undefined
-    const nextValue = providedText ?? fallbackText
+    const montageAreaWidth = toNumber({
+      value: this.editor?.montageArea?.width,
+      fallback: 0
+    })
+    const {
+      width: storedWidth = 0,
+      scaleX: rawScaleX = 1,
+      strokeWidth: rawStrokeWidth = 0
+    } = object
+    const normalizedBaseWidth = toNumber({ value: baseWidth, fallback: 0 })
+    const rawPadding = object as Partial<Record<string, unknown>>
+    const paddingLeft = toNumber({ value: rawPadding.paddingLeft, fallback: 0 })
+    const paddingRight = toNumber({ value: rawPadding.paddingRight, fallback: 0 })
+    const scaleX = toNumber({ value: rawScaleX, fallback: 1 })
+    const strokeWidth = toNumber({ value: rawStrokeWidth, fallback: 0 }) * scaleX
+    const textWidth = toNumber({ value: storedWidth, fallback: 0 })
+    const textWidthScaled = textWidth * scaleX
+    const paddingLeftScaled = paddingLeft * scaleX
+    const paddingRightScaled = paddingRight * scaleX
+    const initialDisplayWidth = textWidthScaled + paddingLeftScaled + paddingRightScaled + strokeWidth
+    if (!montageAreaWidth || !textWidth || !normalizedBaseWidth) return
 
-    if (typeof nextValue === 'string') {
-      (object as Textbox).text = nextValue
+    object.setCoords()
+    const objectRecord = object as Record<string, unknown>
+    const normalizedCenterValue = objectRecord[TEMPLATE_CENTER_X_KEY]
+    const normalizedCenter = typeof normalizedCenterValue === 'number'
+      ? normalizedCenterValue
+      : null
+    const anchorX = TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_X_KEY)
+    const initialWidthNormalized = initialDisplayWidth / normalizedBaseWidth
+    const leftNormalized = normalizedCenter !== null
+      ? normalizedCenter - (initialWidthNormalized / 2)
+      : null
+    const rightNormalized = normalizedCenter !== null
+      ? normalizedCenter + (initialWidthNormalized / 2)
+      : null
+    const originalCenter = object.getCenterPoint()
+
+    object.set('width', montageAreaWidth)
+    object.initDimensions()
+
+    const longestLineWidth = TemplateManager._getLongestLineWidth({
+      textbox: object,
+      text: textValue
+    })
+    const nextWidth = longestLineWidth > textWidth ? longestLineWidth + 1 : textWidth
+
+    object.set('width', nextWidth)
+    object.initDimensions()
+    object.setPositionByOrigin(originalCenter, 'center', 'center')
+    object.setCoords()
+
+    const finalDisplayWidth = (nextWidth * scaleX) + paddingLeftScaled + paddingRightScaled + strokeWidth
+    const nextWidthNormalized = finalDisplayWidth / normalizedBaseWidth
+    let nextCenterNormalized = normalizedCenter
+
+    if (anchorX === 'start' && leftNormalized !== null) {
+      nextCenterNormalized = Math.max(0, leftNormalized) + (nextWidthNormalized / 2)
+    } else if (anchorX === 'end' && rightNormalized !== null) {
+      const safeRight = Math.min(1, rightNormalized)
+      nextCenterNormalized = safeRight - (nextWidthNormalized / 2)
     }
+
+    if (typeof nextCenterNormalized === 'number') {
+      objectRecord[TEMPLATE_CENTER_X_KEY] = nextCenterNormalized
+    }
+  }
+
+  /**
+   * Возвращает ширину самой длинной строки текстового объекта.
+   */
+  private static _getLongestLineWidth({
+    textbox,
+    text
+  }: {
+    textbox: Textbox
+    text: string
+  }): number {
+    const {
+      textLines
+    } = textbox as unknown as { textLines?: string[] }
+    const lineCount = Array.isArray(textLines) && textLines.length > 0
+      ? textLines.length
+      : Math.max(text.split('\n').length, 1)
+
+    let longestLineWidth = 0
+    for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
+      const lineWidth = textbox.getLineWidth(lineIndex)
+      if (lineWidth > longestLineWidth) {
+        longestLineWidth = lineWidth
+      }
+    }
+
+    return longestLineWidth
   }
 
   /**
@@ -498,6 +919,16 @@ export default class TemplateManager {
   }): TemplateObjectData {
     const serialized = object.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as TemplateObjectData
 
+    if (TemplateManager._isSvgObject(object)) {
+      const svgMarkup = TemplateManager._extractSvgMarkup(object)
+
+      if (svgMarkup) {
+        serialized.svgMarkup = svgMarkup
+        delete (serialized as Record<string, unknown>).objects
+        delete (serialized as Record<string, unknown>).path
+      }
+    }
+
     if (!bounds) return serialized
 
     const {
@@ -516,17 +947,34 @@ export default class TemplateManager {
       bounds
     })
 
-    if (normalizedCenter) {
-      serialized[TEMPLATE_CENTER_X_KEY] = normalizedCenter.x
-      serialized[TEMPLATE_CENTER_Y_KEY] = normalizedCenter.y
-    } else {
+    const centerForAnchor = normalizedCenter ?? (() => {
       const centerPoint = object.getCenterPoint()
-      serialized[TEMPLATE_CENTER_X_KEY] = (centerPoint.x - boundsLeft) / safeWidth
-      serialized[TEMPLATE_CENTER_Y_KEY] = (centerPoint.y - boundsTop) / safeHeight
-    }
+      return {
+        x: (centerPoint.x - boundsLeft) / safeWidth,
+        y: (centerPoint.y - boundsTop) / safeHeight
+      }
+    })()
 
-    serialized.left = (rect.left - boundsLeft) / safeWidth
-    serialized.top = (rect.top - boundsTop) / safeHeight
+    const normalizedLeft = (rect.left - boundsLeft) / safeWidth
+    const normalizedTop = (rect.top - boundsTop) / safeHeight
+    const normalizedRight = normalizedLeft + (rect.width / safeWidth)
+    const normalizedBottom = normalizedTop + (rect.height / safeHeight)
+
+    serialized[TEMPLATE_CENTER_X_KEY] = centerForAnchor.x
+    serialized[TEMPLATE_CENTER_Y_KEY] = centerForAnchor.y
+    serialized[TEMPLATE_ANCHOR_X_KEY] = TemplateManager._detectAnchor({
+      center: centerForAnchor.x,
+      start: normalizedLeft,
+      end: normalizedRight
+    })
+    serialized[TEMPLATE_ANCHOR_Y_KEY] = TemplateManager._detectAnchor({
+      center: centerForAnchor.y,
+      start: normalizedTop,
+      end: normalizedBottom
+    })
+
+    serialized.left = normalizedLeft
+    serialized.top = normalizedTop
 
     return serialized
   }
@@ -571,6 +1019,7 @@ export default class TemplateManager {
         backgroundManager.setColorBackground({
           color: fill,
           customData,
+          fromTemplate: true,
           withoutSave: true
         })
         return true
@@ -583,6 +1032,7 @@ export default class TemplateManager {
           backgroundManager.setGradientBackground({
             gradient,
             customData,
+            fromTemplate: true,
             withoutSave: true
           })
           return true
@@ -596,6 +1046,7 @@ export default class TemplateManager {
           await backgroundManager.setImageBackground({
             imageSource: src,
             customData,
+            fromTemplate: true,
             withoutSave: true
           })
           return true
@@ -673,5 +1124,15 @@ export default class TemplateManager {
     }
 
     return null
+  }
+
+  /**
+   * Оживляет сериализованный объект, восстанавливая вложенные описания (градиенты, клиппаты и т.д.).
+   * @param serialized - исходное сериализованное описание Fabric-объекта
+   * @returns оживлённый объект с восстановленными вложенными структурами
+   */
+  // eslint-disable-next-line class-methods-use-this
+  public enlivenObjectEnlivables<T extends Record<string, unknown>>(serialized: T): Promise<T> {
+    return util.enlivenObjectEnlivables(serialized) as Promise<T>
   }
 }

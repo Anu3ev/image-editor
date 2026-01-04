@@ -38,7 +38,7 @@ function importImage(e, editorInstance) {
 
 // Сохранение результата
 async function saveResult(editorInstance) {
-  const { image } = await editorInstance.imageManager.exportCanvasAsImageFile({ contentType: 'image/svg+xml' })
+  const { image } = await editorInstance.imageManager.exportCanvasAsImageFile({ contentType: 'image/png' })
 
   const url = URL.createObjectURL(image)
   const link = document.createElement('a')
@@ -71,7 +71,8 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
       startColor,
       endColor,
       startPosition: 0,
-      endPosition: 100
+      endPosition: 100,
+      colorStops: options.colorStops
     }
   } else {
     gradient = {
@@ -80,16 +81,23 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
       startColor,
       endColor,
       startPosition: 0,
-      endPosition: 100
+      endPosition: 100,
+      colorStops: options.colorStops
     }
   }
 
-  editorInstance.backgroundManager.setGradientBackground({ gradient })
+  editorInstance.backgroundManager.setGradientBackground({
+    gradient,
+    customData: { testProp: true, anotherProp: 'value', type: 'gradient' }
+  })
 }
 
 // Установка фона из изображения
 async function setImageBackground(editorInstance, file) {
-  await editorInstance.backgroundManager.setImageBackground({ imageSource: file })
+  await editorInstance.backgroundManager.setImageBackground({
+    imageSource: file,
+    customData: { testProp: true, anotherProp: 'value', type: 'image', src: { file1: 'test', file2: 'test2' } }
+  })
 }
 
 // Удаление фона

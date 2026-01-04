@@ -26,14 +26,16 @@ import ErrorManager from './error-manager'
 import PanConstraintManager from './pan-constraint-manager'
 import TextManager from './text-manager'
 import TemplateManager from './template-manager'
+import SnappingManager from './snapping-manager'
+import MeasurementManager from './measurement-manager'
 
 import type { ImportImageOptions } from './image-manager'
 
 // TODO: Обложиться тестами с помощью jest
 // TODO: Сделать более симпатичное демо
 // TODO: Режим рисования
-// TODO: Сделать снэп (прилипание к краям и центру)
 // TODO: Подумать как работать с переводами в редакторе
+// TODO: Сделать чтобы при наведении мыши на область где находится объект под другим объектом, этот объект тоже подсвечивался, и его можно было выбрать
 
 /**
  * Класс редактора изображений.
@@ -166,6 +168,16 @@ export class ImageEditor {
   public panConstraintManager!: PanConstraintManager
 
   /**
+   * Менеджер прилипания к направляющим
+   */
+  public snappingManager!: SnappingManager
+
+  /**
+   * Менеджер измерений между объектами
+   */
+  public measurementManager!: MeasurementManager
+
+  /**
    * Менеджер работы с текстом
    */
   public textManager!: TextManager
@@ -246,6 +258,8 @@ export class ImageEditor {
     this.selectionManager = new SelectionManager({ editor: this })
     this.deletionManager = new DeletionManager({ editor: this })
     this.panConstraintManager = new PanConstraintManager({ editor: this })
+    this.snappingManager = new SnappingManager({ editor: this })
+    this.measurementManager = new MeasurementManager({ editor: this })
     this.fontManager = new FontManager(this.options.fonts ?? [])
     this.textManager = new TextManager({ editor: this })
     this.templateManager = new TemplateManager({ editor: this })
@@ -276,10 +290,11 @@ export class ImageEditor {
       const {
         source,
         scale = `image-${scaleType}`,
-        withoutSave = true
+        withoutSave = true,
+        ...rest
       } = initialImage as ImportImageOptions
 
-      await this.imageManager.importImage({ source, scale, withoutSave })
+      await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
     }
 
     if (initialStateJSON) {
@@ -353,6 +368,8 @@ export class ImageEditor {
    */
   public destroy(): void {
     this.listeners.destroy()
+    this.snappingManager?.destroy()
+    this.measurementManager?.destroy()
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
     this.textManager?.destroy()

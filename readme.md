@@ -15,8 +15,10 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 - **Professional Tools** - Copy/paste, grouping, selection, and alignment
 
 ### Advanced Capabilities
-- **Background Management** - Color, gradient, and image backgrounds
+- **Background Management** - Color, multi-stop gradient, and image backgrounds
 - **Image Import/Export** - Support for PNG, JPG, SVG, and PDF formats
+- **Precision Alignment** - Snapping to montage edges/centers and nearby objects with visual guides and spacing detection
+- **Live Measurements** - Hold `Alt` with a selection to display distance guides to the hovered object or montage area
 - **Web Worker Integration** - Heavy operations run in background threads
 - **Font Loader** - FontManager handles Google Fonts + custom sources with automatic `@font-face` registration
 - **Configurable Toolbar** - Dynamic toolbar with context-sensitive actions
@@ -93,14 +95,16 @@ const url = URL.createObjectURL(result.image)
 // Set a color background
 editor.backgroundManager.setColorBackground({ color: '#ff0000' })
 
-// Set a gradient background
+// Set a gradient background (supports multi-stop ramps)
 editor.backgroundManager.setGradientBackground({
   gradient: {
-    // 'linear' or 'radial'
-    type: 'linear',
-    angle: 45,
-    startColor: '#ff0000',
-    endColor: '#0000ff'
+    type: 'linear', // 'linear' or 'radial'
+    angle: 120,
+    colorStops: [
+      { offset: 0, color: '#ff8a00' },
+      { offset: 45, color: '#e52e71' },
+      { offset: 100, color: '#4a00e0' }
+    ]
   },
   customData: {
     customProperty: 'value'
@@ -108,12 +112,18 @@ editor.backgroundManager.setGradientBackground({
   withoutSave: false
 })
 
+// Simple two-stop gradients still work:
+// use startColor/endColor with optional startPosition/endPosition (0-100).
+// For radial gradients pass centerX/centerY/radius in percentages.
+
 // Set an image background
 await editor.backgroundManager.setImageBackground({ imageSource: 'bg-image.jpg' })
 
 // Remove background
 editor.backgroundManager.removeBackground()
 ```
+
+Offsets in `colorStops` use percentages from 0 to 100 and are normalized for Fabric gradients.
 
 ### Working with Text
 
@@ -225,6 +235,7 @@ The editor follows a modular architecture with specialized managers:
 - **`LayerManager`** - Object layering, z-index management, send to back/front
 - **`BackgroundManager`** - Background colors, gradients, and images
 - **`TransformManager`** - Object transformations, fitting, and scaling
+- **`ZoomManager`** - Zoom limits, fit calculations, and smooth viewport centering
 
 ### Utility Managers
 - **`SelectionManager`** - Object selection and multi-selection handling
@@ -233,6 +244,9 @@ The editor follows a modular architecture with specialized managers:
 - **`DeletionManager`** - Object deletion with group handling
 - **`ShapeManager`** - Shape creation (rectangles, circles, triangles)
 - **`ObjectLockManager`** - Object locking and unlocking functionality
+- **`SnappingManager`** - Alignment guides and equal-spacing snaps while moving objects
+- **`MeasurementManager`** - ALT-triggered distance guides to hovered objects or the montage area
+- **`PanConstraintManager`** - Constrains canvas panning relative to zoom and montage bounds
 - **`WorkerManager`** - Web Worker integration for heavy operations
 - **`FontManager`** - Font loading via FontFace API or fallback @font-face injection
 - **`ModuleLoader`** - Dynamic module loading (jsPDF, etc.)
@@ -243,6 +257,7 @@ The editor follows a modular architecture with specialized managers:
 - **`ToolbarManager`** - Dynamic toolbar with configurable actions
 - **`CustomizedControls`** - Custom FabricJS controls and interactions
 - **`InteractionBlocker`** - UI blocking during operations
+- **`AngleIndicatorManager`** - Rotation angle badge shown while rotating selected objects (toggle via `showRotationAngle`)
 
 ## 📚 API Reference
 
@@ -335,6 +350,11 @@ editor.layerManager.bringToFront(object)
 editor.layerManager.sendBackwards(object)
 editor.layerManager.bringForward(object)
 ```
+
+#### Alignment & Guides
+- Objects snap to montage area edges/centers and nearby objects while dragging, with guides for matches and equal spacing.
+- Hold `Ctrl` during drag to temporarily disable snapping (movement still follows the configured move step).
+- Hold `Alt` with an active selection to show measurement overlays to the hovered object or montage area; distances are labeled on the helper layer and the toolbar hides temporarily until guides clear.
 
 #### History Control
 ```javascript
@@ -446,7 +466,6 @@ jest.config.ts           # Jest test configuration
 The following features are planned for future releases:
 
 - **Drawing Mode** - Freehand drawing tools and brushes
-- **Snap/Alignment** - Snap to edges, centers, and guides
 - **Filters & Effects** - Image filters and visual effects
 - **Extended Shape Library** - Additional shapes beyond current rectangles, circles, and triangles
 - **Multi-language** - Internationalization support

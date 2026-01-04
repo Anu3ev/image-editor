@@ -5,16 +5,23 @@ import { ImageEditor } from '../index'
 export type SetColorOptions = {
   color: string
   customData?: object
+  fromTemplate?: boolean
   withoutSave?: boolean
+}
+
+export type GradientColorStop = {
+  color: string
+  offset: number // позиция цвета в процентах (0-100)
 }
 
 export type LinearGradientBackground = {
   type: 'linear'
   angle: number // угол в градусах (0-360)
-  startColor: string // HEX цвет начала градиента
-  endColor: string // HEX цвет конца градиента
+  startColor?: string // HEX цвет начала градиента (опционально, если есть colorStops)
+  endColor?: string // HEX цвет конца градиента (опционально, если есть colorStops)
   startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
   endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
+  colorStops?: GradientColorStop[] // Массив цветов градиента
 }
 
 export type RadialGradientBackground = {
@@ -22,10 +29,11 @@ export type RadialGradientBackground = {
   centerX?: number // позиция центра по X в процентах (0-100, по умолчанию 50)
   centerY?: number // позиция центра по Y в процентах (0-100, по умолчанию 50)
   radius?: number // радиус в процентах (0-100, по умолчанию 50)
-  startColor: string // HEX цвет центра градиента
-  endColor: string // HEX цвет края градиента
+  startColor?: string // HEX цвет центра градиента (опционально, если есть colorStops)
+  endColor?: string // HEX цвет края градиента (опционально, если есть colorStops)
   startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
   endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
+  colorStops?: GradientColorStop[] // Массив цветов градиента
 }
 
 export type GradientBackground = LinearGradientBackground | RadialGradientBackground
@@ -33,12 +41,14 @@ export type GradientBackground = LinearGradientBackground | RadialGradientBackgr
 export type SetGradientOptions = {
   gradient: GradientBackground
   customData?: object
+  fromTemplate?: boolean
   withoutSave?: boolean
 }
 
 export type SetImageOptions = {
   imageSource: string | File
   customData?: object
+  fromTemplate?: boolean
   withoutSave?: boolean
 }
 
@@ -99,6 +109,7 @@ export default class BackgroundManager {
   public setColorBackground({
     color,
     customData = {},
+    fromTemplate = false,
     withoutSave = false
   }: SetColorOptions): void {
     try {
@@ -130,7 +141,13 @@ export default class BackgroundManager {
 
       this.backgroundObject?.set({ customData })
 
-      this.editor.canvas.fire('editor:background:changed', { type: 'color', color })
+      this.editor.canvas.fire('editor:background:changed', {
+        type: 'color',
+        color,
+        customData,
+        fromTemplate,
+        withoutSave
+      })
       historyManager.resumeHistory()
 
       if (!withoutSave) {
@@ -142,7 +159,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setColorBackground',
         message: 'Не удалось установить цветовой фон',
-        data: { error }
+        data: { error, color, customData, fromTemplate, withoutSave }
       })
     }
   }
@@ -156,6 +173,7 @@ export default class BackgroundManager {
   public setGradientBackground({
     gradient,
     customData = {},
+    fromTemplate = false,
     withoutSave = false
   }: SetGradientOptions): void {
     try {
@@ -189,6 +207,9 @@ export default class BackgroundManager {
 
       this.editor.canvas.fire('editor:background:changed', {
         type: 'gradient',
+        customData,
+        fromTemplate,
+        withoutSave,
         gradientParams: gradient
       })
       historyManager.resumeHistory()
@@ -202,7 +223,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setGradientBackground',
         message: 'Не удалось установить градиентный фон',
-        data: { error }
+        data: { error, gradient, customData, fromTemplate, withoutSave }
       })
     }
   }
@@ -217,14 +238,16 @@ export default class BackgroundManager {
     endColor,
     startPosition,
     endPosition,
+    colorStops,
     customData = {},
     withoutSave = false
   }: {
     angle: number
-    startColor: string
-    endColor: string
+    startColor?: string
+    endColor?: string
     startPosition?: number
     endPosition?: number
+    colorStops?: GradientColorStop[]
     customData?: object
     withoutSave?: boolean
   }): void {
@@ -235,7 +258,8 @@ export default class BackgroundManager {
         startColor,
         endColor,
         startPosition,
-        endPosition
+        endPosition,
+        colorStops
       },
       customData,
       withoutSave
@@ -254,16 +278,18 @@ export default class BackgroundManager {
     endColor,
     startPosition,
     endPosition,
+    colorStops,
     customData = {},
     withoutSave = false
   }: {
     centerX?: number
     centerY?: number
     radius?: number
-    startColor: string
-    endColor: string
+    startColor?: string
+    endColor?: string
     startPosition?: number
     endPosition?: number
+    colorStops?: GradientColorStop[]
     customData?: object
     withoutSave?: boolean
   }): void {
@@ -276,7 +302,8 @@ export default class BackgroundManager {
         startColor,
         endColor,
         startPosition,
-        endPosition
+        endPosition,
+        colorStops
       },
       customData,
       withoutSave
@@ -292,6 +319,7 @@ export default class BackgroundManager {
   public async setImageBackground({
     imageSource,
     customData = {},
+    fromTemplate = false,
     withoutSave = false
   }: SetImageOptions): Promise<void> {
     try {
@@ -303,6 +331,9 @@ export default class BackgroundManager {
       this.editor.canvas.fire('editor:background:changed', {
         type: 'image',
         imageSource,
+        customData,
+        fromTemplate,
+        withoutSave,
         backgroundObject: this.backgroundObject
       })
       historyManager.resumeHistory()
@@ -316,7 +347,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setImageBackground',
         message: 'Не удалось установить изображение в качестве фона',
-        data: { error }
+        data: { error, imageSource, customData, fromTemplate, withoutSave }
       })
     }
   }
@@ -334,7 +365,7 @@ export default class BackgroundManager {
 
       historyManager.suspendHistory()
       this._removeCurrentBackground()
-      this.editor.canvas.fire('editor:background:removed')
+      this.editor.canvas.fire('editor:background:removed', { withoutSave })
       historyManager.resumeHistory()
 
       if (!withoutSave) {
@@ -346,7 +377,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'removeBackground',
         message: 'Не удалось удалить фон',
-        data: { error }
+        data: { error, withoutSave }
       })
     }
   }
@@ -478,14 +509,30 @@ export default class BackgroundManager {
       startColor,
       endColor,
       startPosition = 0,
-      endPosition = 100
+      endPosition = 100,
+      colorStops: providedStops
     } = gradient
 
     // Создаем цветовые остановки
-    const colorStops = [
-      { offset: startPosition / 100, color: startColor },
-      { offset: endPosition / 100, color: endColor }
-    ]
+    let colorStops: Array<{ offset: number; color: string }>
+
+    if (providedStops && providedStops.length > 0) {
+      colorStops = providedStops.map((stop) => ({
+        offset: stop.offset / 100,
+        color: stop.color
+      }))
+    } else if (startColor && endColor) {
+      colorStops = [
+        { offset: startPosition / 100, color: startColor },
+        { offset: endPosition / 100, color: endColor }
+      ]
+    } else {
+      // Fallback если цвета не переданы
+      colorStops = [
+        { offset: 0, color: '#000000' },
+        { offset: 1, color: '#ffffff' }
+      ]
+    }
 
     if (gradient.type === 'linear') {
       // Конвертируем угол в координаты для Fabric.js

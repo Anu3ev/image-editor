@@ -97,6 +97,68 @@ describe('CanvasManager', () => {
         expect(result).toBe(mockContainer)
       })
     })
+
+    describe('getVisibleCenterPoint', () => {
+      beforeEach(() => {
+        // Настраиваем стандартные параметры для тестов
+        mockCanvas.getWidth.mockReturnValue(800)
+        mockCanvas.getHeight.mockReturnValue(600)
+
+        // Монтажная область 400x300 по центру канваса 800x600
+        // left/top = 400/300 (центр)
+        mockMontageArea.width = 400
+        mockMontageArea.height = 300
+        mockMontageArea.left = 400
+        mockMontageArea.top = 300
+      })
+
+      it('возвращает центр вьюпорта, если он находится внутри монтажной области', () => {
+        // Zoom 2, смещение такое, чтобы центр вьюпорта попадал в точку (250, 200)
+        // CenterX = (CanvasW/2 - vptX) / zoom => 250 = (400 - vptX) / 2 => 500 = 400 - vptX => vptX = -100
+        // CenterY = (CanvasH/2 - vptY) / zoom => 200 = (300 - vptY) / 2 => 400 = 300 - vptY => vptY = -100
+
+        mockCanvas.getZoom.mockReturnValue(2)
+        mockCanvas.viewportTransform = [2, 0, 0, 2, -100, -100]
+
+        const result = canvasManager.getVisibleCenterPoint()
+
+        // Границы монтажной области:
+        // X: [400 - 200, 400 + 200] = [200, 600]
+        // Y: [300 - 150, 300 + 150] = [150, 450]
+        // Точка (250, 200) внутри границ
+        expect(result.x).toBe(250)
+        expect(result.y).toBe(200)
+      })
+
+      it('ограничивает координаты границами монтажной области (clamping)', () => {
+        // Zoom 1, смещение такое, что центр вьюпорта улетает далеко влево-вверх (-600, -700)
+        // CenterX = (400 - 1000) / 1 = -600
+        // CenterY = (300 - 1000) / 1 = -700
+
+        mockCanvas.getZoom.mockReturnValue(1)
+        mockCanvas.viewportTransform = [1, 0, 0, 1, 1000, 1000]
+
+        const result = canvasManager.getVisibleCenterPoint()
+
+        // Границы монтажной области: [200, 600] x [150, 450]
+        // Ожидаем привязку к левому верхнему углу монтажной области
+        expect(result.x).toBe(200)
+        expect(result.y).toBe(150)
+      })
+
+      it('возвращает центр монтажной области, если вьюпорт центрирован на ней', () => {
+        mockCanvas.getZoom.mockReturnValue(1)
+        // vpt = [1, 0, 0, 1, 0, 0] -> смещения нет
+        // CenterX = 400 / 1 = 400
+        // CenterY = 300 / 1 = 300
+        mockCanvas.viewportTransform = [1, 0, 0, 1, 0, 0]
+
+        const result = canvasManager.getVisibleCenterPoint()
+
+        expect(result.x).toBe(400)
+        expect(result.y).toBe(300)
+      })
+    })
   })
 
   describe('setResolutionWidth', () => {

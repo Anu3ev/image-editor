@@ -157,7 +157,8 @@ describe('ImageEditor', () => {
         initialImage: {
           source: 'test-image.jpg',
           scale: 'contain',
-          withoutSave: true
+          withoutSave: true,
+          customData: { exampleKey: 'exampleValue' }
         }
       })
 
@@ -166,7 +167,8 @@ describe('ImageEditor', () => {
       expect(editor.imageManager.importImage).toHaveBeenCalledWith({
         source: 'test-image.jpg',
         scale: 'contain',
-        withoutSave: true
+        withoutSave: true,
+        customData: { exampleKey: 'exampleValue' }
       })
     })
 

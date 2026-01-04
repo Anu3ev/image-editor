@@ -33,6 +33,8 @@ export type ImportImageOptions = {
   fromClipboard?: boolean,
   isBackground?: boolean,
   withoutSelection?: boolean
+  withoutAdding?: boolean,
+  customData?: object
 }
 
 export type ExportObjectAsImageFileParameters = {
@@ -109,7 +111,9 @@ export default class ImageManager {
       withoutSave = false,
       fromClipboard = false,
       isBackground = false,
-      withoutSelection = false
+      withoutSelection = false,
+      withoutAdding = false,
+      customData = null
     } = options
 
     if (!source) return null
@@ -138,7 +142,9 @@ export default class ImageManager {
           acceptFormats,
           fromClipboard,
           isBackground,
-          withoutSelection
+          withoutSelection,
+          withoutAdding,
+          customData
         }
       })
 
@@ -172,7 +178,9 @@ export default class ImageManager {
             acceptFormats,
             fromClipboard,
             isBackground,
-            withoutSelection
+            withoutSelection,
+            withoutAdding,
+            customData
           }
         })
 
@@ -226,6 +234,7 @@ export default class ImageManager {
 
       img.set('id', `${img.type}-${nanoid()}`)
       img.set('format', format)
+      img.set('customData', customData || null)
 
       // Растягиваем монтажную область под изображение или наоборот
       if (scale === 'scale-montage') {
@@ -245,6 +254,27 @@ export default class ImageManager {
         }
       }
 
+      const result = {
+        image: img,
+        format,
+        contentType,
+        scale,
+        withoutSave,
+        source,
+        fromClipboard,
+        isBackground,
+        withoutSelection,
+        withoutAdding,
+        customData
+      }
+
+      if (withoutAdding) {
+        historyManager.resumeHistory()
+
+        canvas.fire('editor:image-imported', result)
+        return result
+      }
+
       // Добавляем изображение, центрируем его и перерисовываем канвас
       canvas.add(img)
       canvas.centerObject(img)
@@ -259,18 +289,6 @@ export default class ImageManager {
 
       if (!withoutSave) {
         historyManager.saveState()
-      }
-
-      const result = {
-        image: img,
-        format,
-        contentType,
-        scale,
-        withoutSave,
-        source,
-        fromClipboard,
-        isBackground,
-        withoutSelection
       }
 
       canvas.fire('editor:image-imported', result)
@@ -290,7 +308,9 @@ export default class ImageManager {
           withoutSave,
           fromClipboard,
           isBackground,
-          withoutSelection
+          withoutSelection,
+          withoutAdding,
+          customData
         }
       })
 

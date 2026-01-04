@@ -1,0 +1,2 @@
+export const MEASUREMENT_COLOR = '#3D8BF4'
+export const MEASUREMENT_LINE_WIDTH = 1

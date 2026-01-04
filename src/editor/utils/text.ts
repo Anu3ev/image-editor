@@ -95,7 +95,7 @@ export const getSelectionStyleValue = <T extends keyof TextboxProps>({
 export const resolveStrokeColor = (
   { strokeColor, width }: { strokeColor?: string; width: number }
 ): string | undefined => {
-  if (width <= 0) return undefined
+  if (width <= 0) return null
 
   return strokeColor ?? '#000000'
 }

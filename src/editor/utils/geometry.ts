@@ -5,6 +5,15 @@ export type Dimensions = {
   height: number
 }
 
+export type ObjectBounds = {
+  left: number
+  right: number
+  top: number
+  bottom: number
+  centerX: number
+  centerY: number
+}
+
 /**
  * Возвращает числовое значение или fallback, если value некорректно.
  */
@@ -163,6 +172,44 @@ export const calculateNormalizedCenter = ({
     return {
       x: normalizedX,
       y: normalizedY
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Возвращает bounding box объекта с учётом трансформации.
+ */
+export const getObjectBounds = ({
+  object
+}: {
+  object?: FabricObject | null
+}): ObjectBounds | null => {
+  if (!object) return null
+
+  try {
+    object.setCoords()
+    const rect = object.getBoundingRect(false, true)
+    const {
+      left = 0,
+      top = 0,
+      width = 0,
+      height = 0
+    } = rect
+
+    const right = left + width
+    const bottom = top + height
+    const centerX = left + (width / 2)
+    const centerY = top + (height / 2)
+
+    return {
+      left,
+      right,
+      top,
+      bottom,
+      centerX,
+      centerY
     }
   } catch {
     return null
