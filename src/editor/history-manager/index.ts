@@ -32,6 +32,7 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'lockSkewingX',
   'lockSkewingY',
   'styles',
+  'lineFontDefaults',
   'textCaseRaw',
   'uppercase',
   'autoExpand',

@@ -34,7 +34,8 @@ export const CLIPBOARD_CLONE_OBJECT_KEYS = [
   'radiusTopLeft',
   'radiusTopRight',
   'radiusBottomRight',
-  'radiusBottomLeft'
+  'radiusBottomLeft',
+  'lineFontDefaults'
 ]
 
 /**

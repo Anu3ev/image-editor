@@ -355,6 +355,18 @@ describe('BackgroundTextbox', () => {
 
   describe('serialization', () => {
     it('включает кастомные поля в toObject и восстанавливается через classRegistry', async () => {
+      const lineFontDefaults = {
+        0: {
+          fontFamily: 'Arial',
+          fontSize: 20,
+          fill: '#111111',
+          stroke: '#222222'
+        },
+        2: {
+          fontFamily: 'Roboto',
+          fontSize: 30
+        }
+      }
       const textbox = new BackgroundTextbox('Serialize', {
         paddingTop: 1,
         paddingRight: 2,
@@ -365,7 +377,8 @@ describe('BackgroundTextbox', () => {
         radiusBottomRight: 7,
         radiusBottomLeft: 8,
         backgroundColor: '#abcdef',
-        backgroundOpacity: 0.7
+        backgroundOpacity: 0.7,
+        lineFontDefaults
       })
 
       const obj = textbox.toObject()
@@ -380,7 +393,8 @@ describe('BackgroundTextbox', () => {
         radiusBottomRight: 7,
         radiusBottomLeft: 8,
         backgroundColor: '#abcdef',
-        backgroundOpacity: 0.7
+        backgroundOpacity: 0.7,
+        lineFontDefaults
       })
 
       registerBackgroundTextbox()
@@ -397,7 +411,8 @@ describe('BackgroundTextbox', () => {
         radiusBottomRight: 7,
         radiusBottomLeft: 8,
         backgroundColor: '#abcdef',
-        backgroundOpacity: 0.7
+        backgroundOpacity: 0.7,
+        lineFontDefaults
       })
     })
   })

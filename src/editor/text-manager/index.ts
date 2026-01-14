@@ -15,8 +15,46 @@ import type { EditorFontDefinition } from '../types/font'
 import {
   BackgroundTextbox,
   registerBackgroundTextbox,
-  type BackgroundTextboxProps
+  type BackgroundTextboxProps,
+  type LineFontDefault,
+  type LineFontDefaults
 } from './background-textbox'
+import { DIMENSION_EPSILON } from './constants'
+import {
+  applyLineDefaultUpdates,
+  cloneLineFontDefaults,
+  scaleLineFontDefaults,
+  syncLineDefaultStyles
+} from './line-defaults'
+import {
+  clampSelectionRange,
+  expandRangeToFullLines,
+  getFirstDiffIndex,
+  getFullLineIndicesForRange,
+  getLineIndexByCharIndex,
+  getLineIndicesForRange,
+  getLineStartIndex
+} from './selection'
+import {
+  clampTextboxToMontage,
+  getLongestLineWidth,
+  hasLayoutAffectingStyles,
+  roundTextboxDimensions
+} from './geometry'
+import type {
+  CornerRadiiValues,
+  EditorTextbox,
+  LineFontDefaultUpdate,
+  PaddingValues,
+  ScalingState,
+  TextCreationFlags,
+  TextEditingAnchor,
+  TextReference,
+  TextStyleOptions,
+  TextboxSnapshot,
+  TextboxStyles,
+  UpdateOptions
+} from './types'
 import {
   applyStylesToRange,
   getFullTextRange,
@@ -25,111 +63,10 @@ import {
   isFullTextSelection,
   resolveStrokeColor,
   resolveStrokeWidth,
-  toUpperCaseSafe,
-  type TextSelectionRange
+  toUpperCaseSafe
 } from '../utils/text'
 
-type TextCreationFlags = {
-  withoutSelection?: boolean
-  withoutSave?: boolean
-  withoutAdding?: boolean
-}
-
-export type TextStyleOptions = {
-  id?: string
-  text?: string
-  autoExpand?: boolean
-  fontFamily?: string
-  fontSize?: number
-  bold?: boolean
-  italic?: boolean
-  underline?: boolean
-  uppercase?: boolean
-  strikethrough?: boolean
-  align?: 'left' | 'center' | 'right' | 'justify'
-  color?: string
-  strokeColor?: string
-  strokeWidth?: number
-  opacity?: number
-  backgroundColor?: string
-  backgroundOpacity?: number
-  paddingTop?: number
-  paddingRight?: number
-  paddingBottom?: number
-  paddingLeft?: number
-  radiusTopLeft?: number
-  radiusTopRight?: number
-  radiusBottomRight?: number
-  radiusBottomLeft?: number
-} & Partial<
-  Omit<
-    BackgroundTextboxProps,
-    | 'fontFamily'
-    | 'fontSize'
-    | 'fontWeight'
-    | 'fontStyle'
-    | 'underline'
-    | 'textAlign'
-    | 'fill'
-    | 'linethrough'
-    | 'opacity'
-    | 'stroke'
-    | 'strokeWidth'
-    | 'text'
-    | 'shadow'
-    | 'textTransform'
-    | 'autoExpand'
-  >
->
-
-type EditorTextbox = Textbox & Partial<BackgroundTextboxProps> & {
-  autoExpand?: boolean
-}
-
-type TextReference = string | EditorTextbox | null | undefined
-
-type UpdateOptions = {
-  target?: TextReference
-  style?: TextStyleOptions
-  withoutSave?: boolean
-  skipRender?: boolean
-}
-
-const DIMENSION_EPSILON = 0.01
-
-type PaddingValues = {
-  bottom: number
-  left: number
-  right: number
-  top: number
-}
-
-type CornerRadiiValues = {
-  bottomLeft: number
-  bottomRight: number
-  topLeft: number
-  topRight: number
-}
-
-type TextboxStyles = Record<string, Record<string, TextboxProps>>
-
-type ScalingState = {
-  baseWidth: number
-  baseLeft: number
-  baseFontSize: number
-  baseStyles: TextboxStyles
-  basePadding: PaddingValues
-  baseRadii: CornerRadiiValues
-  hasWidthChange: boolean
-}
-
-type TextboxSnapshot = Record<string, unknown>
-
-type TextEditingAnchor = {
-  originY: EditorTextbox['originY']
-  x: number
-  y: number
-}
+export type { TextStyleOptions } from './types'
 
 /**
  * Менеджер текста для редактора.
@@ -162,6 +99,11 @@ export default class TextManager {
   private editingAnchorState?: WeakMap<EditorTextbox, TextEditingAnchor>
 
   /**
+   * Хранилище для защиты от повторной синхронизации lineFontDefaults.
+   */
+  private lineDefaultsSyncing: WeakSet<EditorTextbox>
+
+  /**
    * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
    * Используется для предотвращения сохранения состояния с временными lock-свойствами.
    */
@@ -173,6 +115,7 @@ export default class TextManager {
     this.fonts = editor.options.fonts ?? []
     this.scalingState = new WeakMap()
     this.editingAnchorState = new WeakMap()
+    this.lineDefaultsSyncing = new WeakSet()
     this.isTextEditingActive = false
 
     this._bindEvents()
@@ -269,7 +212,7 @@ export default class TextManager {
       }
     }
 
-    const dimensionsRoundedOnCreate = TextManager._roundTextboxDimensions({ textbox })
+    const dimensionsRoundedOnCreate = roundTextboxDimensions({ textbox })
 
     if (dimensionsRoundedOnCreate) {
       textbox.dirty = true
@@ -325,16 +268,19 @@ export default class TextManager {
    * @param options.style — стиль, который нужно применить
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
+   * @param options.selectionRange — внешний диапазон выделения для применения стилей
    */
   public updateText({
     target,
     style = {},
     withoutSave,
-    skipRender
+    skipRender,
+    selectionRange: selectionRangeOverride
   }: UpdateOptions = {}): EditorTextbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
 
+    const { text: currentText = '' } = textbox
     const { historyManager } = this.editor
     const { canvas } = this
     historyManager.suspendHistory()
@@ -377,13 +323,20 @@ export default class TextManager {
     } = style
 
     const updates: Partial<BackgroundTextboxProps> = { ...rest }
-    const selectionRange = getSelectionRange({ textbox })
+    const selectionRange = selectionRangeOverride !== undefined
+      ? clampSelectionRange({
+        text: currentText,
+        range: selectionRangeOverride
+      })
+      : getSelectionRange({ textbox })
     const fontSelectionRange = selectionRange
-      ? TextManager._expandRangeToFullLines({ textbox, range: selectionRange })
+      ? expandRangeToFullLines({ textbox, range: selectionRange })
       : null
     const selectionStyles: Partial<TextboxProps> = {}
     const lineSelectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
+    let resolvedStrokeColor: string | null | undefined
+    let resolvedStrokeWidth: number | undefined
     const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
     const shouldUpdateWholeObject = !selectionRange || isSelectionForWholeText
     const shouldApplyWholeTextStyles = !selectionRange
@@ -494,9 +447,9 @@ export default class TextManager {
         : undefined
 
       const widthSource = strokeWidth ?? selectionStrokeWidth ?? textbox.strokeWidth ?? 0
-      const resolvedStrokeWidth = resolveStrokeWidth({ width: widthSource })
+      resolvedStrokeWidth = resolveStrokeWidth({ width: widthSource })
       const colorSource = strokeColor ?? selectionStrokeColor ?? textbox.stroke ?? undefined
-      const resolvedStrokeColor = resolveStrokeColor({
+      resolvedStrokeColor = resolveStrokeColor({
         strokeColor: colorSource,
         width: resolvedStrokeWidth
       })
@@ -560,7 +513,7 @@ export default class TextManager {
       updates.radiusBottomLeft = radiusBottomLeft
     }
 
-    const previousRaw = textbox.textCaseRaw ?? (textbox.text ?? '')
+    const previousRaw = textbox.textCaseRaw ?? currentText
     const previousUppercase = Boolean(textbox.uppercase)
     const hasTextUpdate = text !== undefined
     const targetRawText = hasTextUpdate ? text ?? '' : previousRaw
@@ -598,7 +551,7 @@ export default class TextManager {
     }
 
     const shouldRecalculateDimensions = stylesApplied
-      && TextManager._hasLayoutAffectingStyles({
+      && hasLayoutAffectingStyles({
         stylesList: [
           selectionStyles,
           lineSelectionStyles,
@@ -608,6 +561,59 @@ export default class TextManager {
 
     if (stylesApplied) {
       textbox.dirty = true
+    }
+
+    if (fontSelectionRange && (fontFamily !== undefined || fontSize !== undefined)) {
+      const lineIndices = getLineIndicesForRange({
+        textbox,
+        range: fontSelectionRange
+      })
+      const lineDefaultsUpdates: LineFontDefaultUpdate = {}
+
+      if (fontFamily !== undefined) {
+        lineDefaultsUpdates.fontFamily = fontFamily
+      }
+
+      if (fontSize !== undefined) {
+        lineDefaultsUpdates.fontSize = fontSize
+      }
+
+      applyLineDefaultUpdates({
+        textbox,
+        lineIndices,
+        updates: lineDefaultsUpdates
+      })
+    }
+
+    if (
+      selectionRange
+      && (color !== undefined || strokeColor !== undefined || strokeWidth !== undefined)
+    ) {
+      const fullLineIndices = getFullLineIndicesForRange({
+        textbox,
+        range: selectionRange
+      })
+      const lineDefaultsUpdates: LineFontDefaultUpdate = {}
+
+      if (color !== undefined) {
+        lineDefaultsUpdates.fill = color
+      }
+
+      if (strokeColor !== undefined || strokeWidth !== undefined) {
+        if (resolvedStrokeColor === null) {
+          lineDefaultsUpdates.stroke = null
+        }
+
+        if (resolvedStrokeColor !== null && resolvedStrokeColor !== undefined) {
+          lineDefaultsUpdates.stroke = resolvedStrokeColor
+        }
+      }
+
+      applyLineDefaultUpdates({
+        textbox,
+        lineIndices: fullLineIndices,
+        updates: lineDefaultsUpdates
+      })
     }
 
     if (shouldRecalculateDimensions) {
@@ -630,7 +636,7 @@ export default class TextManager {
       textbox.dirty = true
     }
 
-    const hasLayoutUpdates = TextManager._hasLayoutAffectingStyles({
+    const hasLayoutUpdates = hasLayoutAffectingStyles({
       stylesList: [
         updates,
         selectionStyles,
@@ -665,7 +671,7 @@ export default class TextManager {
 
     const dimensionsRounded = geometryAdjusted
       ? false
-      : TextManager._roundTextboxDimensions({ textbox })
+      : roundTextboxDimensions({ textbox })
 
     if (dimensionsRounded) {
       textbox.dirty = true
@@ -783,6 +789,7 @@ export default class TextManager {
   private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
+    if (this.lineDefaultsSyncing.has(target)) return
 
     const { text = '', uppercase, autoExpand } = target
     const isUppercase = Boolean(uppercase)
@@ -814,13 +821,312 @@ export default class TextManager {
     let dimensionsRounded = false
 
     if (!geometryAdjusted) {
-      dimensionsRounded = TextManager._roundTextboxDimensions({ textbox: target })
+      dimensionsRounded = roundTextboxDimensions({ textbox: target })
     }
 
     if (geometryAdjusted || dimensionsRounded) {
       target.setCoords()
       target.dirty = true
     }
+
+    this._syncLineFontDefaultsOnTextChanged({ textbox: target })
+  }
+
+  /**
+   * Синхронизирует lineFontDefaults при изменении текста и сохраняет typing style для пустых строк.
+   */
+  private _syncLineFontDefaultsOnTextChanged({ textbox }: { textbox: EditorTextbox }): void {
+    const {
+      text = '',
+      lineFontDefaults,
+      styles,
+      fontFamily: globalFontFamily,
+      fontSize: globalFontSize,
+      fill: rawGlobalFill,
+      stroke: rawGlobalStroke,
+      selectionStart,
+      isEditing
+    } = textbox
+    const currentText = text
+    const previousText = textbox.__lineDefaultsPrevText ?? currentText
+    const previousLines = previousText.split('\n')
+    const currentLines = currentText.split('\n')
+    const oldLineCount = previousLines.length
+    const newLineCount = currentLines.length
+    const deltaLines = newLineCount - oldLineCount
+
+    let nextLineDefaults = lineFontDefaults
+    let lineDefaultsChanged = false
+    let lineDefaultsCloned = false
+
+    const resolvedGlobalFill = typeof rawGlobalFill === 'string' ? rawGlobalFill : undefined
+    const resolvedGlobalStroke = typeof rawGlobalStroke === 'string' ? rawGlobalStroke : undefined
+
+    if (deltaLines !== 0 && lineFontDefaults && Object.keys(lineFontDefaults).length) {
+      const diffIndex = getFirstDiffIndex({
+        previous: previousText,
+        next: currentText
+      })
+      const lineIndexOld = getLineIndexByCharIndex({
+        text: previousText,
+        charIndex: diffIndex
+      })
+
+      if (deltaLines > 0) {
+        const lineStartOld = getLineStartIndex({
+          text: previousText,
+          lineIndex: lineIndexOld
+        })
+        let shiftStartIndex = lineIndexOld + 1
+        if (diffIndex === lineStartOld) {
+          shiftStartIndex = lineIndexOld
+        }
+
+        const shiftedDefaults: LineFontDefaults = {}
+        for (const key in lineFontDefaults) {
+          if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
+          const numericIndex = Number(key)
+          if (!Number.isFinite(numericIndex)) continue
+          const lineDefault = lineFontDefaults[numericIndex]
+          if (!lineDefault) continue
+
+          const nextIndex = numericIndex >= shiftStartIndex
+            ? numericIndex + deltaLines
+            : numericIndex
+          shiftedDefaults[nextIndex] = { ...lineDefault }
+        }
+
+        nextLineDefaults = shiftedDefaults
+        lineDefaultsChanged = true
+        lineDefaultsCloned = true
+      }
+
+      if (deltaLines < 0) {
+        const removedLinesCount = Math.abs(deltaLines)
+        let removedLineStart = lineIndexOld
+        const oldChar = previousText[diffIndex]
+
+        if (oldChar === '\n') {
+          const lineText = previousLines[lineIndexOld] ?? ''
+          if (lineText.length > 0) {
+            removedLineStart = lineIndexOld + 1
+          }
+        }
+
+        const removedLineEnd = removedLineStart + removedLinesCount - 1
+        const shiftedDefaults: LineFontDefaults = {}
+
+        for (const key in lineFontDefaults) {
+          if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
+          const numericIndex = Number(key)
+          if (!Number.isFinite(numericIndex)) continue
+          const lineDefault = lineFontDefaults[numericIndex]
+          if (!lineDefault) continue
+
+          if (numericIndex < removedLineStart) {
+            shiftedDefaults[numericIndex] = { ...lineDefault }
+          }
+
+          if (numericIndex > removedLineEnd) {
+            shiftedDefaults[numericIndex + deltaLines] = { ...lineDefault }
+          }
+        }
+
+        nextLineDefaults = shiftedDefaults
+        lineDefaultsChanged = true
+        lineDefaultsCloned = true
+      }
+    }
+
+    let cursorLineIndex: number | null = null
+    if (isEditing && typeof selectionStart === 'number') {
+      const cursorLocation = textbox.get2DCursorLocation(selectionStart)
+      const { lineIndex } = cursorLocation
+      if (Number.isFinite(lineIndex)) {
+        cursorLineIndex = lineIndex
+      }
+    }
+
+    let nextStyles = styles
+    let stylesChanged = false
+    let stylesCloned = false
+    let lastLineDefaults: LineFontDefault | undefined
+    let cursorLineDefaults: LineFontDefault | null = null
+
+    for (let lineIndex = 0; lineIndex < currentLines.length; lineIndex += 1) {
+      const lineText = currentLines[lineIndex] ?? ''
+      const storedLineDefaults = nextLineDefaults ? nextLineDefaults[lineIndex] : undefined
+
+      if (storedLineDefaults) {
+        lastLineDefaults = storedLineDefaults
+      }
+
+      const hasLineText = lineText.length !== 0
+      if (hasLineText) {
+        if (storedLineDefaults) {
+          const syncResult = syncLineDefaultStyles({
+            lineText,
+            lineStyles: nextStyles ? nextStyles[lineIndex] : undefined,
+            lineDefaults: storedLineDefaults
+          })
+
+          if (syncResult.changed) {
+            if (!nextStyles) {
+              nextStyles = {}
+              stylesCloned = true
+            }
+
+            if (!stylesCloned) {
+              nextStyles = { ...nextStyles }
+              stylesCloned = true
+            }
+
+            if (syncResult.lineStyles) {
+              nextStyles[lineIndex] = syncResult.lineStyles
+            }
+
+            if (!syncResult.lineStyles && nextStyles[lineIndex]) {
+              delete nextStyles[lineIndex]
+            }
+
+            stylesChanged = true
+          }
+        }
+
+        continue
+      }
+
+      const sourceDefaults = storedLineDefaults ?? lastLineDefaults
+      const resolvedDefaults: LineFontDefault = {}
+
+      if (sourceDefaults?.fontFamily !== undefined) {
+        resolvedDefaults.fontFamily = sourceDefaults.fontFamily
+      } else if (globalFontFamily !== undefined) {
+        resolvedDefaults.fontFamily = globalFontFamily
+      }
+
+      if (sourceDefaults?.fontSize !== undefined) {
+        resolvedDefaults.fontSize = sourceDefaults.fontSize
+      } else if (globalFontSize !== undefined) {
+        resolvedDefaults.fontSize = globalFontSize
+      }
+
+      if (sourceDefaults?.fill !== undefined) {
+        resolvedDefaults.fill = sourceDefaults.fill
+      } else if (resolvedGlobalFill !== undefined) {
+        resolvedDefaults.fill = resolvedGlobalFill
+      }
+
+      if (sourceDefaults?.stroke !== undefined) {
+        resolvedDefaults.stroke = sourceDefaults.stroke
+      } else if (resolvedGlobalStroke !== undefined) {
+        resolvedDefaults.stroke = resolvedGlobalStroke
+      }
+
+      if (!storedLineDefaults && Object.keys(resolvedDefaults).length) {
+        if (!nextLineDefaults) {
+          nextLineDefaults = {}
+          lineDefaultsCloned = true
+        }
+
+        if (!lineDefaultsCloned) {
+          nextLineDefaults = { ...nextLineDefaults }
+          lineDefaultsCloned = true
+        }
+
+        nextLineDefaults[lineIndex] = resolvedDefaults
+        lineDefaultsChanged = true
+        lastLineDefaults = resolvedDefaults
+      }
+
+      if (storedLineDefaults) {
+        lastLineDefaults = storedLineDefaults
+      }
+
+      if (cursorLineIndex !== null && cursorLineIndex === lineIndex) {
+        cursorLineDefaults = resolvedDefaults
+      }
+
+      const allowedStyles: Partial<TextboxProps> = {}
+      if (resolvedDefaults.fontFamily !== undefined) {
+        allowedStyles.fontFamily = resolvedDefaults.fontFamily
+      }
+
+      if (resolvedDefaults.fontSize !== undefined) {
+        allowedStyles.fontSize = resolvedDefaults.fontSize
+      }
+
+      if (resolvedDefaults.fill !== undefined) {
+        allowedStyles.fill = resolvedDefaults.fill
+      }
+
+      if (resolvedDefaults.stroke !== undefined) {
+        allowedStyles.stroke = resolvedDefaults.stroke
+      }
+
+      const hasAllowedStyles = Object.keys(allowedStyles).length > 0
+      if (hasAllowedStyles || (nextStyles && nextStyles[lineIndex])) {
+        if (!nextStyles) {
+          nextStyles = {}
+          stylesCloned = true
+        }
+
+        if (!stylesCloned) {
+          nextStyles = { ...nextStyles }
+          stylesCloned = true
+        }
+
+        if (hasAllowedStyles) {
+          nextStyles[lineIndex] = { 0: allowedStyles }
+        }
+
+        if (!hasAllowedStyles && nextStyles[lineIndex]) {
+          delete nextStyles[lineIndex]
+        }
+
+        stylesChanged = true
+      }
+    }
+
+    if (lineDefaultsChanged && nextLineDefaults) {
+      textbox.lineFontDefaults = nextLineDefaults
+    }
+
+    if (stylesChanged) {
+      textbox.styles = nextStyles
+      textbox.dirty = true
+    }
+
+    if (cursorLineDefaults && typeof selectionStart === 'number') {
+      const typingStyles: Partial<TextboxProps> = {}
+
+      if (cursorLineDefaults.fontFamily !== undefined) {
+        typingStyles.fontFamily = cursorLineDefaults.fontFamily
+      }
+
+      if (cursorLineDefaults.fontSize !== undefined) {
+        typingStyles.fontSize = cursorLineDefaults.fontSize
+      }
+
+      if (cursorLineDefaults.fill !== undefined) {
+        typingStyles.fill = cursorLineDefaults.fill
+      }
+
+      if (cursorLineDefaults.stroke !== undefined) {
+        typingStyles.stroke = cursorLineDefaults.stroke
+      }
+
+      if (Object.keys(typingStyles).length) {
+        this.lineDefaultsSyncing.add(textbox)
+        try {
+          textbox.setSelectionStyles(typingStyles, selectionStart, selectionStart)
+        } finally {
+          this.lineDefaultsSyncing.delete(textbox)
+        }
+      }
+    }
+
+    textbox.__lineDefaultsPrevText = currentText
   }
 
   /**
@@ -868,7 +1174,7 @@ export default class TextManager {
     const hasWrappedLines = Array.isArray(textLines) && textLines.length > explicitLineCount
 
     const longestLineWidth = Math.ceil(
-      TextManager._getLongestLineWidth({ textbox, text: textValue })
+      getLongestLineWidth({ textbox, text: textValue })
     )
     const minWidth = Math.min(textbox.minWidth ?? 1, maxInnerWidth)
     let targetWidth = Math.min(
@@ -886,7 +1192,7 @@ export default class TextManager {
       geometryChanged = true
     }
 
-    const dimensionsRounded = TextManager._roundTextboxDimensions({ textbox })
+    const dimensionsRounded = roundTextboxDimensions({ textbox })
     if (dimensionsRounded) {
       geometryChanged = true
     }
@@ -896,74 +1202,13 @@ export default class TextManager {
       geometryChanged = true
     }
 
-    const positionAdjusted = TextManager._clampTextboxToMontage({
+    const positionAdjusted = clampTextboxToMontage({
       textbox,
       montageLeft: montageBounds.left ?? 0,
       montageRight: (montageBounds.left ?? 0) + montageWidth
     })
 
     return geometryChanged || positionAdjusted
-  }
-
-  /**
-   * Возвращает ширину самой длинной строки текстового объекта.
-   */
-  private static _getLongestLineWidth({
-    textbox,
-    text
-  }: {
-    textbox: EditorTextbox
-    text: string
-  }): number {
-    const { textLines } = textbox as unknown as { textLines?: string[] }
-    const lineCount = Array.isArray(textLines) && textLines.length > 0
-      ? textLines.length
-      : Math.max(text.split('\n').length, 1)
-
-    let longestLineWidth = 0
-    for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
-      const lineWidth = textbox.getLineWidth(lineIndex)
-      if (lineWidth > longestLineWidth) {
-        longestLineWidth = lineWidth
-      }
-    }
-
-    return longestLineWidth
-  }
-
-  /**
-   * Сдвигает текстовый объект по X, чтобы он не выходил за пределы монтажной области.
-   */
-  static private _clampTextboxToMontage({
-    textbox,
-    montageLeft,
-    montageRight
-  }: {
-    textbox: EditorTextbox
-    montageLeft: number
-    montageRight: number
-  }): boolean {
-    textbox.setCoords()
-    const bounds = textbox.getBoundingRect(false, true)
-    const left = bounds.left ?? 0
-    const right = left + (bounds.width ?? 0)
-    const montageWidth = montageRight - montageLeft
-
-    if (montageWidth > 0 && (bounds.width ?? 0) >= montageWidth - DIMENSION_EPSILON) {
-      return false
-    }
-
-    let shiftX = 0
-    if (left < montageLeft) {
-      shiftX = montageLeft - left
-    } else if (right > montageRight) {
-      shiftX = montageRight - right
-    }
-
-    if (Math.abs(shiftX) <= DIMENSION_EPSILON) return false
-
-    textbox.set({ left: (textbox.left ?? 0) + shiftX })
-    return true
   }
 
   /**
@@ -988,7 +1233,7 @@ export default class TextManager {
       target.textCaseRaw = currentText
     }
 
-    const dimensionsRoundedAfterEditing = TextManager._roundTextboxDimensions({ textbox: target })
+    const dimensionsRoundedAfterEditing = roundTextboxDimensions({ textbox: target })
 
     if (dimensionsRoundedAfterEditing) {
       target.setCoords()
@@ -1093,7 +1338,8 @@ export default class TextManager {
       baseFontSize,
       basePadding,
       baseRadii,
-      baseStyles
+      baseStyles,
+      baseLineFontDefaults
     } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
     const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
@@ -1175,6 +1421,14 @@ export default class TextManager {
       }
     }
 
+    let nextLineFontDefaults: LineFontDefaults | undefined
+    if (shouldScaleFontSize) {
+      nextLineFontDefaults = scaleLineFontDefaults({
+        lineFontDefaults: baseLineFontDefaults,
+        scale: heightScale
+      })
+    }
+
     const originX = transform.originX ?? targetOriginX ?? 'left'
     const rightEdge = baseLeft + baseWidth
     const centerX = baseLeft + (baseWidth / 2)
@@ -1202,6 +1456,10 @@ export default class TextManager {
       target.styles = nextStyles
     }
 
+    if (nextLineFontDefaults) {
+      target.lineFontDefaults = nextLineFontDefaults
+    }
+
     target.set({
       width: roundedNextWidth,
       fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
@@ -1217,7 +1475,7 @@ export default class TextManager {
       scaleY: 1
     })
 
-    const dimensionsRoundedOnScale = TextManager._roundTextboxDimensions({ textbox: target })
+    const dimensionsRoundedOnScale = roundTextboxDimensions({ textbox: target })
 
     if (dimensionsRoundedOnScale) {
       target.dirty = true
@@ -1256,6 +1514,9 @@ export default class TextManager {
     state.baseWidth = appliedWidth
     state.baseFontSize = target.fontSize ?? nextFontSize
     state.baseStyles = JSON.parse(JSON.stringify(target.styles ?? {})) as TextboxStyles
+    state.baseLineFontDefaults = cloneLineFontDefaults({
+      lineFontDefaults: target.lineFontDefaults
+    })
     state.basePadding = {
       top: nextPadding.top,
       right: nextPadding.right,
@@ -1341,7 +1602,12 @@ export default class TextManager {
             })
           }
 
-          obj.set({
+          const nextLineFontDefaults = scaleLineFontDefaults({
+            lineFontDefaults: obj.lineFontDefaults,
+            scale: scaleForProps
+          })
+
+          const nextObjectUpdates: Partial<EditorTextbox> = {
             fontSize: newFontSize,
             width: newWidth,
             scaleX: 1,
@@ -1349,9 +1615,15 @@ export default class TextManager {
             ...nextPadding,
             ...nextRadii,
             styles: nextStyles
-          })
+          }
 
-          TextManager._roundTextboxDimensions({ textbox: obj })
+          if (nextLineFontDefaults) {
+            nextObjectUpdates.lineFontDefaults = nextLineFontDefaults
+          }
+
+          obj.set(nextObjectUpdates)
+
+          roundTextboxDimensions({ textbox: obj })
         }
 
         obj.setCoords()
@@ -1428,51 +1700,6 @@ export default class TextManager {
   }
 
   /**
-   * Возвращает диапазоны символов для каждой строки текста без учёта символов переноса.
-   */
-  private static _getLineRanges({ textbox }: { textbox: EditorTextbox }): TextSelectionRange[] {
-    const text = textbox.text ?? ''
-    if (!text.length) return []
-
-    const lines = text.split('\n')
-    let offset = 0
-
-    return lines.map((line) => {
-      const start = offset
-      const end = offset + line.length
-      offset = end + 1
-      return { start, end }
-    })
-  }
-
-  /**
-   * Расширяет выделение до полных строк, которые оно пересекает.
-   */
-  private static _expandRangeToFullLines({
-    textbox,
-    range
-  }: {
-    textbox: EditorTextbox
-    range: TextSelectionRange
-  }): TextSelectionRange {
-    const lineRanges = TextManager._getLineRanges({ textbox })
-    if (!lineRanges.length) return range
-
-    let { start } = range
-    let { end } = range
-
-    lineRanges.forEach(({ start: lineStart, end: lineEnd }) => {
-      const intersectsLine = range.end > lineStart && range.start < lineEnd
-      if (!intersectsLine) return
-
-      start = Math.min(start, lineStart)
-      end = Math.max(end, lineEnd)
-    })
-
-    return { start, end }
-  }
-
-  /**
    * Создаёт или возвращает сохранённое состояние для текущего цикла масштабирования текста.
    */
   private _ensureScalingState(textbox: EditorTextbox): ScalingState {
@@ -1483,6 +1710,7 @@ export default class TextManager {
       const baseLeft = textbox.left ?? 0
       const baseFontSize = textbox.fontSize ?? 16
       const { styles: textboxStyles = {} } = textbox
+      const { lineFontDefaults } = textbox
       const {
         paddingTop = 0,
         paddingRight = 0,
@@ -1513,114 +1741,13 @@ export default class TextManager {
           bottomLeft: radiusBottomLeft
         },
         baseStyles: JSON.parse(JSON.stringify(textboxStyles)) as TextboxStyles,
+        baseLineFontDefaults: cloneLineFontDefaults({ lineFontDefaults }),
         hasWidthChange: false
       }
       this.scalingState.set(textbox, state)
     }
 
     return state
-  }
-
-  /**
-   * Возвращает числовое значение размера, используя исходное значение или заранее вычисленное.
-   */
-  private static _resolveDimension(
-    {
-      rawValue,
-      calculatedValue
-    }: {
-      rawValue: unknown
-      calculatedValue?: unknown
-    }
-  ): number {
-    if (typeof rawValue === 'number') return rawValue
-
-    if (typeof calculatedValue === 'number') {
-      return calculatedValue
-    }
-
-    return 0
-  }
-
-  /**
-   * Проверяет, есть ли среди стилей свойства, влияющие на перенос строк и высоту текста.
-   */
-  private static _hasLayoutAffectingStyles({
-    stylesList
-  }: {
-    stylesList: Array<Partial<TextboxProps>>
-  }): boolean {
-    const stylesCount = stylesList.length
-    if (!stylesCount) return false
-
-    for (let index = 0; index < stylesCount; index += 1) {
-      const styles = stylesList[index]
-      if (!styles) continue
-
-      const {
-        fontFamily,
-        fontSize,
-        fontWeight,
-        fontStyle,
-        lineHeight,
-        charSpacing
-      } = styles
-
-      if (fontFamily !== undefined) return true
-      if (fontSize !== undefined) return true
-      if (fontWeight !== undefined) return true
-      if (fontStyle !== undefined) return true
-      if (lineHeight !== undefined) return true
-      if (charSpacing !== undefined) return true
-    }
-
-    return false
-  }
-
-  /**
-   * Округляет ширину и высоту текстового блока до ближайших целых значений.
-   */
-  private static _roundTextboxDimensions(
-    {
-      textbox
-    }: {
-      textbox: EditorTextbox
-    }
-  ): boolean {
-    const { width: rawWidth, height: rawHeight, calcTextWidth, calcTextHeight } = textbox as Textbox
-
-    const calculatedWidth = typeof calcTextWidth === 'function'
-      ? calcTextWidth.call(textbox)
-      : undefined
-    const calculatedHeight = typeof calcTextHeight === 'function'
-      ? calcTextHeight.call(textbox)
-      : undefined
-
-    const width = TextManager._resolveDimension({
-      rawValue: rawWidth,
-      calculatedValue: calculatedWidth
-    })
-    const height = TextManager._resolveDimension({
-      rawValue: rawHeight,
-      calculatedValue: calculatedHeight
-    })
-
-    const roundedWidth = Number.isFinite(width) ? Math.round(width) : null
-    const roundedHeight = Number.isFinite(height) ? Math.round(height) : null
-    const updates: Partial<EditorTextbox> = {}
-
-    if (roundedWidth !== null && roundedWidth !== width) {
-      updates.width = Math.max(0, roundedWidth)
-    }
-
-    if (roundedHeight !== null && roundedHeight !== height) {
-      updates.height = Math.max(0, roundedHeight)
-    }
-
-    if (!Object.keys(updates).length) return false
-
-    textbox.set(updates)
-    return true
   }
 
   /**

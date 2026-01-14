@@ -7,9 +7,19 @@ import {
 } from 'fabric'
 import ErrorManager from '../error-manager'
 
+export type LineFontDefault = {
+  fontFamily?: string
+  fontSize?: number
+  fill?: string
+  stroke?: string
+}
+
+export type LineFontDefaults = Record<number, LineFontDefault>
+
 export type BackgroundTextboxProps = TextboxProps & {
   backgroundColor?: string
   backgroundOpacity?: number
+  lineFontDefaults?: LineFontDefaults
   paddingBottom?: number
   paddingLeft?: number
   paddingRight?: number
@@ -61,6 +71,7 @@ export class BackgroundTextbox extends Textbox {
     ...Array.isArray(Textbox.cacheProperties) ? Textbox.cacheProperties : [],
     'backgroundColor',
     'backgroundOpacity',
+    'lineFontDefaults',
     'paddingTop',
     'paddingRight',
     'paddingBottom',
@@ -75,6 +86,7 @@ export class BackgroundTextbox extends Textbox {
     ...Array.isArray(Textbox.stateProperties) ? Textbox.stateProperties : [],
     'backgroundColor',
     'backgroundOpacity',
+    'lineFontDefaults',
     'paddingTop',
     'paddingRight',
     'paddingBottom',
@@ -86,6 +98,8 @@ export class BackgroundTextbox extends Textbox {
   ]
 
   public backgroundOpacity?: number
+
+  public lineFontDefaults?: LineFontDefaults
 
   public paddingBottom?: number
 
@@ -107,6 +121,7 @@ export class BackgroundTextbox extends Textbox {
     super(text, options)
 
     this.backgroundOpacity = options.backgroundOpacity ?? 1
+    this.lineFontDefaults = options.lineFontDefaults ?? undefined
     this.paddingTop = options.paddingTop ?? 0
     this.paddingRight = options.paddingRight ?? 0
     this.paddingBottom = options.paddingBottom ?? 0
@@ -162,6 +177,7 @@ export class BackgroundTextbox extends Textbox {
     return {
       ...baseObject,
       backgroundOpacity: this.backgroundOpacity,
+      lineFontDefaults: this.lineFontDefaults,
       paddingTop: this.paddingTop,
       paddingRight: this.paddingRight,
       paddingBottom: this.paddingBottom,
