@@ -273,6 +273,118 @@ describe('TextManager', () => {
       expect(textbox.fontFamily).toBe('Arial')
     })
 
+    it('использует selectionRange для применения стилей без режима редактирования', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'first line\nsecond line',
+        fontFamily: 'Arial',
+        fontSize: 32
+      })
+      const textValue = textbox.text ?? ''
+      const newlineIndex = textValue.indexOf('\n')
+      const secondLineStart = newlineIndex + 1
+
+      expect(newlineIndex).toBeGreaterThan(0)
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        selectionRange: { start: 2, end: 4 },
+        style: {
+          fontSize: 50,
+          fontFamily: 'Roboto'
+        }
+      })
+
+      const firstLineStyles = textbox.getSelectionStyles(0, newlineIndex)
+      expect(firstLineStyles).toHaveLength(newlineIndex)
+      for (let index = 0; index < firstLineStyles.length; index += 1) {
+        const style = firstLineStyles[index]
+        expect(style.fontSize).toBe(50)
+        expect(style.fontFamily).toBe('Roboto')
+      }
+
+      const secondLineStyles = textbox.getSelectionStyles(secondLineStart, textValue.length)
+      for (let index = 0; index < secondLineStyles.length; index += 1) {
+        const style = secondLineStyles[index]
+        expect(style.fontSize).toBeUndefined()
+        expect(style.fontFamily).toBeUndefined()
+      }
+
+      expect(textbox.fontSize).toBe(32)
+      expect(textbox.fontFamily).toBe('Arial')
+    })
+
+    it('сохраняет lineFontDefaults для строки при частичном изменении шрифта', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Первая строка\nВторая строка',
+        fontFamily: 'Arial',
+        fontSize: 32
+      })
+
+      textbox.isEditing = true
+      textbox.selectionStart = 1
+      textbox.selectionEnd = 4
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          fontFamily: 'Roboto',
+          fontSize: 40
+        }
+      })
+
+      const { lineFontDefaults } = textbox
+      const firstLineDefaults = lineFontDefaults?.[0]
+      const secondLineDefaults = lineFontDefaults?.[1]
+
+      expect(firstLineDefaults).toMatchObject({
+        fontFamily: 'Roboto',
+        fontSize: 40
+      })
+      expect(secondLineDefaults).toBeUndefined()
+    })
+
+    it('сохраняет fill и stroke в lineFontDefaults при выделении всей строки', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'LineOne\nLineTwo',
+        fontFamily: 'Arial',
+        fontSize: 32,
+        color: '#111111'
+      })
+
+      const firstLineLength = 'LineOne'.length
+      textbox.isEditing = true
+      textbox.selectionStart = 0
+      textbox.selectionEnd = firstLineLength
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          color: '#ff0000',
+          strokeColor: '#00ff00',
+          strokeWidth: 2
+        }
+      })
+
+      const { lineFontDefaults } = textbox
+      const firstLineDefaults = lineFontDefaults?.[0]
+      const secondLineDefaults = lineFontDefaults?.[1]
+
+      expect(firstLineDefaults).toMatchObject({
+        fill: '#ff0000',
+        stroke: '#00ff00'
+      })
+      expect(secondLineDefaults).toBeUndefined()
+    })
+
     it('пересчитывает размеры при смене шрифта для выделенного текста', () => {
       const {
         textManager
@@ -613,6 +725,64 @@ describe('TextManager', () => {
       expect(textbox.width).toBe(120)
 
       lineWidthSpy.mockRestore()
+    })
+  })
+
+  describe('lineFontDefaults', () => {
+    it('text:changed дополняет пропущенные стили строки и удаляет лишние индексы', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'aaa\nbb\nccc',
+        autoExpand: false,
+        fontFamily: 'Arial',
+        fontSize: 48,
+        color: '#000000'
+      })
+
+      textbox.lineFontDefaults = {
+        2: {
+          fontFamily: 'Arial',
+          fontSize: 28,
+          fill: '#111111',
+          stroke: '#222222'
+        }
+      }
+      textbox.styles = {
+        2: {
+          0: { fontSize: 28, fill: '#ff0000' },
+          1: { fontSize: 28 },
+          10: { fontSize: 28 },
+          foo: { fontSize: 28 }
+        }
+      }
+
+      canvas.fire('text:changed', { target: textbox })
+
+      const { styles } = textbox
+      const lineStyles = styles?.[2]
+
+      expect(lineStyles).toBeDefined()
+      expect(lineStyles?.[0]).toMatchObject({
+        fontSize: 28,
+        fill: '#ff0000',
+        fontFamily: 'Arial',
+        stroke: '#222222'
+      })
+      expect(lineStyles?.[1]).toMatchObject({
+        fontSize: 28,
+        fill: '#111111',
+        fontFamily: 'Arial',
+        stroke: '#222222'
+      })
+      expect(lineStyles?.[2]).toMatchObject({
+        fontSize: 28,
+        fill: '#111111',
+        fontFamily: 'Arial',
+        stroke: '#222222'
+      })
+      expect(lineStyles?.[10]).toBeUndefined()
+      expect(lineStyles?.['foo']).toBeUndefined()
     })
   })
 
