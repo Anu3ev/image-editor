@@ -1,8 +1,9 @@
-import { CanvasOptions, ActiveSelection, Group, Textbox } from 'fabric'
+import { CanvasOptions, ActiveSelection, Group, Point, Textbox } from 'fabric'
 import { ImageEditor } from '../../src/editor'
 import HistoryManager from '../../src/editor/history-manager'
 import TextManager from '../../src/editor/text-manager'
 import FontManager from '../../src/editor/font-manager'
+import { BackgroundTextbox } from '../../src/editor/text-manager/background-textbox'
 import type { EditorFontDefinition } from '../../src/editor/types/font'
 
 export type AnyFn = (...args: any[]) => any
@@ -1127,6 +1128,174 @@ export const createMockBackgroundImage = (props: any = {}) => ({
     height: props.height || 300
   })
 })
+
+/**
+ * Создаёт минимальный мок CanvasRenderingContext2D для рендера.
+ */
+export const createMockContext = (): CanvasRenderingContext2D => {
+  const ctx: any = {
+    save: jest.fn(),
+    restore: jest.fn(),
+    beginPath: jest.fn(),
+    moveTo: jest.fn(),
+    lineTo: jest.fn(),
+    quadraticCurveTo: jest.fn(),
+    closePath: jest.fn(),
+    fill: jest.fn(),
+    _fillStyle: undefined as string | undefined
+  }
+
+  Object.defineProperty(ctx, 'fillStyle', {
+    get: () => ctx._fillStyle,
+    set: (value) => {
+      ctx._fillStyle = value
+    }
+  })
+
+  return ctx as CanvasRenderingContext2D
+}
+
+/**
+ * Добавляет недостающие методы в mock-классы Fabric для тестов.
+ */
+export const ensureFabricHelpers = (): void => {
+  const { prototype: pointPrototype } = Point
+  if (!pointPrototype.scalarAdd) {
+    pointPrototype.scalarAdd = function addScalar(value: number) {
+      return new Point(this.x + value, this.y + value)
+    }
+  }
+
+  const { prototype: textboxPrototype } = Textbox
+  if (!textboxPrototype.toObject) {
+    textboxPrototype.toObject = function toObject() {
+      const { constructor } = this as any
+      return { ...this, type: constructor?.type ?? 'textbox' }
+    }
+  }
+}
+
+/**
+ * Создаёт BackgroundTextbox с переопределённым чтением стилей для декораций.
+ */
+export const createDecorationTextbox = ({
+  stroke = '#ff0000',
+  strokeWidth = 2,
+  fill = '#000000'
+}: {
+  stroke?: string | null
+  strokeWidth?: number
+  fill?: string
+} = {}) => {
+  const textbox = new BackgroundTextbox('Test')
+  const state = {
+    stroke,
+    strokeWidth,
+    fill
+  }
+  const textboxAny = textbox as any
+
+  textboxAny.getValueOfPropertyAt = (
+    _lineIndex: number,
+    _charIndex: number,
+    property: string
+  ) => {
+    const {
+      strokeWidth: currentStrokeWidth,
+      stroke: currentStroke,
+      fill: currentFill
+    } = state
+
+    if (property === 'strokeWidth') return currentStrokeWidth
+    if (property === 'stroke') return currentStroke
+    if (property === 'fill') return currentFill
+    return undefined
+  }
+
+  return { textbox, state }
+}
+
+/**
+ * Готовит BackgroundTextbox и контекст для проверки цветов декораций.
+ */
+export const createDecorationRenderSetup = ({
+  text,
+  type,
+  strokeByIndex,
+  strokeWidth = 2,
+  fill = '#000000'
+}: {
+  text: string
+  type: 'underline' | 'linethrough'
+  strokeByIndex: string[]
+  strokeWidth?: number
+  fill?: string
+}) => {
+  const textbox = new BackgroundTextbox(text, { fontSize: 10, lineHeight: 1 })
+  const chars = text.split('')
+  const { length: charsLength } = chars
+  const charBounds: Array<{
+    left: number
+    width: number
+    kernedWidth: number
+    height: number
+    deltaY: number
+  }> = []
+  for (let index = 0; index < charsLength; index += 1) {
+    charBounds.push({
+      left: index * 10,
+      width: 10,
+      kernedWidth: 10,
+      height: 10,
+      deltaY: 0
+    })
+  }
+
+  const textboxAny = textbox as any
+  textboxAny._textLines = [chars]
+  textboxAny.__charBounds = [charBounds]
+  textboxAny.offsets = { underline: 0, linethrough: 0, overline: 0 }
+  textboxAny._fontSizeFraction = 0
+  textboxAny.direction = 'ltr'
+  textboxAny.width = charsLength * 10
+  textboxAny._getWidthOfCharSpacing = () => 0
+  textboxAny._getLineLeftOffset = () => 0
+  textboxAny._getTopOffset = () => 0
+  textboxAny._getLeftOffset = () => 0
+  textboxAny.getHeightOfLine = () => 10
+  textboxAny.getHeightOfChar = () => 10
+  textboxAny._removeShadow = jest.fn()
+  textboxAny[type] = true
+
+  const { length: strokeByIndexLength } = strokeByIndex
+  const fallbackStrokeIndex = Math.max(strokeByIndexLength - 1, 0)
+
+  textboxAny.getValueOfPropertyAt = (
+    _lineIndex: number,
+    charIndex: number,
+    property: string
+  ) => {
+    if (property === type) return true
+    if (property === 'textDecorationThickness') return 100
+    if (property === 'deltaY') return 0
+    if (property === 'strokeWidth') return strokeWidth
+    if (property === 'stroke') {
+      const strokeAtIndex = strokeByIndex[charIndex]
+      const fallbackStroke = strokeByIndex[fallbackStrokeIndex]
+      return strokeAtIndex ?? fallbackStroke
+    }
+    if (property === 'fill') return fill
+    return undefined
+  }
+
+  const ctx = createMockContext()
+  const fillStyles: string[] = []
+  ctx.fillRect = function fillRect() {
+    fillStyles.push(ctx.fillStyle as string)
+  }
+
+  return { textbox, ctx, fillStyles }
+}
 
 // Глобальные моки браузерных API для тестов буфера обмена
 export const mockNavigatorClipboard = {
