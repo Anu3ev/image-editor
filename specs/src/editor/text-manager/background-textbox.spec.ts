@@ -1,74 +1,12 @@
+import fabric from 'fabric'
 import { BackgroundTextbox, registerBackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import ErrorManager from '../../../../src/editor/error-manager'
-import fabric from 'fabric'
-
-const createMockContext = () => {
-  const ctx: any = {
-    save: jest.fn(),
-    restore: jest.fn(),
-    beginPath: jest.fn(),
-    moveTo: jest.fn(),
-    lineTo: jest.fn(),
-    quadraticCurveTo: jest.fn(),
-    closePath: jest.fn(),
-    fill: jest.fn(),
-    _fillStyle: undefined as string | undefined
-  }
-
-  Object.defineProperty(ctx, 'fillStyle', {
-    get: () => ctx._fillStyle,
-    set: (value) => {
-      ctx._fillStyle = value
-    }
-  })
-
-  return ctx as CanvasRenderingContext2D
-}
-
-const ensureFabricHelpers = () => {
-  const fabricMock = fabric as any
-
-  if (fabricMock.Point?.prototype) {
-    fabricMock.Point.prototype.scalarAdd = function addScalar(value: number) {
-      const PointCtor = fabricMock.Point
-      return new PointCtor(this.x + value, this.y + value)
-    }
-  }
-
-  if (fabricMock.Textbox?.prototype) {
-    fabricMock.Textbox.prototype.toObject = function toObject() {
-      const ctor = (this as any).constructor
-      return { ...this, type: ctor?.type ?? 'textbox' }
-    }
-  }
-
-  if (!fabricMock.Color) {
-    fabricMock.Color = class Color {
-      private r: number
-      private g: number
-      private b: number
-      private a = 1
-
-      constructor(value: string) {
-        if (!/^#?[0-9a-f]{6}$/i.test(value)) {
-          throw new Error('Invalid color')
-        }
-        const hex = value.replace('#', '')
-        this.r = parseInt(hex.slice(0, 2), 16)
-        this.g = parseInt(hex.slice(2, 4), 16)
-        this.b = parseInt(hex.slice(4, 6), 16)
-      }
-
-      setAlpha(alpha: number) {
-        this.a = alpha
-      }
-
-      toRgba() {
-        return `rgba(${this.r},${this.g},${this.b},${this.a})`
-      }
-    }
-  }
-}
+import {
+  createDecorationRenderSetup,
+  createDecorationTextbox,
+  createMockContext,
+  ensureFabricHelpers
+} from '../../../test-utils/editor-helpers'
 
 jest.mock('../../../../src/editor/error-manager', () => ({
   __esModule: true,
@@ -219,8 +157,8 @@ describe('BackgroundTextbox', () => {
     it('не рисует фон без цвета', () => {
       const textbox = new BackgroundTextbox('Test', { width: 10, height: 10 })
       const ctx = createMockContext()
-
-      ;(textbox as any)._renderBackground(ctx)
+      const textboxAny = textbox as any
+      textboxAny._renderBackground(ctx)
 
       expect(ctx.fill).not.toHaveBeenCalled()
       expect(ctx.beginPath).not.toHaveBeenCalled()
@@ -239,8 +177,8 @@ describe('BackgroundTextbox', () => {
       })
       const ctx = createMockContext()
       const roundedSpy = jest.spyOn(BackgroundTextbox as any, '_renderRoundedRect')
-
-      ;(textbox as any)._renderBackground(ctx)
+      const textboxAny = textbox as any
+      textboxAny._renderBackground(ctx)
 
       expect(roundedSpy).toHaveBeenCalledWith(expect.objectContaining({
         ctx,
@@ -265,7 +203,7 @@ describe('BackgroundTextbox', () => {
     })
 
     it('репортит ошибку при невалидном цвете', () => {
-      ;(ErrorManager as any).emitError = jest.fn()
+      (ErrorManager as any).emitError = jest.fn()
       const textbox = new BackgroundTextbox('Test', {
         backgroundColor: 'invalid-color'
       })
@@ -278,6 +216,82 @@ describe('BackgroundTextbox', () => {
         origin: 'BackgroundTextbox',
         method: '_getEffectiveBackgroundFill'
       }))
+    })
+  })
+
+  describe('text decoration colors', () => {
+    it('использует цвет обводки для underline при включённой обводке', () => {
+      const { textbox } = createDecorationTextbox({
+        stroke: '#ff0000',
+        strokeWidth: 2,
+        fill: '#000000'
+      })
+
+      const color = (textbox as any)._getDecorationColorAt(0, 0)
+      expect(color).toBe('#ff0000')
+    })
+
+    it('использует цвет обводки для linethrough при включённой обводке', () => {
+      const { textbox } = createDecorationTextbox({
+        stroke: '#ff0000',
+        strokeWidth: 2,
+        fill: '#000000'
+      })
+
+      const color = (textbox as any)._getDecorationColorAt(0, 0)
+      expect(color).toBe('#ff0000')
+    })
+
+    it('использует цвет fill при выключенной обводке', () => {
+      const { textbox, state } = createDecorationTextbox({
+        stroke: '#ff0000',
+        strokeWidth: 0,
+        fill: '#111111'
+      })
+
+      expect((textbox as any)._getDecorationColorAt(0, 0)).toBe('#111111')
+
+      state.strokeWidth = 2
+      state.stroke = null
+      state.fill = '#222222'
+
+      expect((textbox as any)._getDecorationColorAt(0, 0)).toBe('#222222')
+    })
+
+    it('обновляет цвет при изменении stroke', () => {
+      const { textbox, state } = createDecorationTextbox({
+        stroke: '#ff0000',
+        strokeWidth: 2,
+        fill: '#000000'
+      })
+
+      expect((textbox as any)._getDecorationColorAt(0, 0)).toBe('#ff0000')
+      state.stroke = '#00ff00'
+      expect((textbox as any)._getDecorationColorAt(0, 0)).toBe('#00ff00')
+    })
+
+    it('не меняет цвет при изменении fill при включённой обводке', () => {
+      const { textbox, state } = createDecorationTextbox({
+        stroke: '#ff0000',
+        strokeWidth: 2,
+        fill: '#000000'
+      })
+
+      expect((textbox as any)._getDecorationColorAt(0, 0)).toBe('#ff0000')
+      state.fill = '#ffffff'
+      expect((textbox as any)._getDecorationColorAt(0, 0)).toBe('#ff0000')
+    })
+
+    it('использует разные цвета для разных диапазонов в строке', () => {
+      const { textbox, ctx, fillStyles } = createDecorationRenderSetup({
+        text: 'AB',
+        type: 'underline',
+        strokeByIndex: ['#ff0000', '#0000ff']
+      })
+      const textboxAny = textbox as any
+      textboxAny._renderTextDecoration(ctx, 'underline')
+
+      expect(fillStyles).toEqual(['#ff0000', '#0000ff'])
     })
   })
 
@@ -331,7 +345,8 @@ describe('BackgroundTextbox', () => {
       })
 
       const ctx = createMockContext()
-      ;(BackgroundTextbox as any)._renderRoundedRect({
+      const backgroundTextboxAny = BackgroundTextbox as any
+      backgroundTextboxAny._renderRoundedRect({
         ctx,
         width: 100,
         height: 60,
@@ -354,7 +369,7 @@ describe('BackgroundTextbox', () => {
   })
 
   describe('serialization', () => {
-    it('включает кастомные поля в toObject и восстанавливается через classRegistry', async () => {
+    it('включает кастомные поля в toObject и восстанавливается через classRegistry', async() => {
       const lineFontDefaults = {
         0: {
           fontFamily: 'Arial',

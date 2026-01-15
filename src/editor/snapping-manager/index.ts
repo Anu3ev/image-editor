@@ -195,7 +195,7 @@ export default class SnappingManager {
     const isCtrlPressed = Boolean(e?.ctrlKey)
     if (isCtrlPressed) {
       this._clearGuides()
-      this._applyMovementStep({ target })
+      SnappingManager._applyMovementStep({ target })
       return
     }
 
@@ -258,7 +258,7 @@ export default class SnappingManager {
       spacingGuides: spacingResult.guides
     })
 
-    this._applyMovementStep({ target })
+    SnappingManager._applyMovementStep({ target })
   }
 
   /**
@@ -371,7 +371,7 @@ export default class SnappingManager {
   /**
    * Применяет шаг перемещения, округляя координаты объекта к сетке MOVE_SNAP_STEP.
    */
-  private _applyMovementStep({ target }: { target: FabricObject }): void {
+  private static _applyMovementStep({ target }: { target: FabricObject }): void {
     const { left = 0, top = 0 } = target
     const snappedLeft = Math.round(left / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
     const snappedTop = Math.round(top / MOVE_SNAP_STEP) * MOVE_SNAP_STEP

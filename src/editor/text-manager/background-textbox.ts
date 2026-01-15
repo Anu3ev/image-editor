@@ -2,10 +2,12 @@ import {
   Color,
   Point,
   Textbox,
+  type GraphemeBBox,
   type TextboxProps,
   classRegistry
 } from 'fabric'
 import ErrorManager from '../error-manager'
+import { resolveStrokeColor, resolveStrokeWidth } from '../utils/text'
 
 export type LineFontDefault = {
   fontFamily?: string
@@ -216,6 +218,151 @@ export class BackgroundTextbox extends Textbox {
       ctx.fill()
       ctx.restore()
     }
+  }
+
+  /**
+   * Рисует линии декорации текста с учетом активной обводки или заливки.
+   */
+  protected override _renderTextDecoration(
+    ctx: CanvasRenderingContext2D,
+    type: 'underline' | 'linethrough' | 'overline'
+  ): void {
+    if (!this[type] && !this.styleHas(type)) {
+      return
+    }
+    const {
+      direction,
+      fontSize,
+      lineHeight,
+      offsets,
+      width,
+      _fontSizeFraction: fontSizeFraction,
+      _textLines: textLines
+    } = this
+    let topOffset = this._getTopOffset()
+    const leftOffset = this._getLeftOffset()
+    const { path } = this
+    const charSpacing = this._getWidthOfCharSpacing()
+    const offsetY = offsets[type]
+    let offsetAligner = 0
+    if (type === 'linethrough') {
+      offsetAligner = 0.5
+    } else if (type === 'overline') {
+      offsetAligner = 1
+    }
+
+    for (let i = 0, len = textLines.length; i < len; i += 1) {
+      const heightOfLine = this.getHeightOfLine(i)
+      if (!this[type] && !this.styleHas(type, i)) {
+        topOffset += heightOfLine
+        continue
+      }
+      const line = textLines[i]
+      const maxHeight = heightOfLine / lineHeight
+      const lineLeftOffset = this._getLineLeftOffset(i)
+      let boxStart = 0
+      let boxWidth = 0
+      let lastDecoration = this.getValueOfPropertyAt(i, 0, type)
+      let lastDecorationColor = this._getDecorationColorAt(i, 0)
+      let lastThickness = this.getValueOfPropertyAt(i, 0, 'textDecorationThickness')
+      let currentDecoration = lastDecoration
+      let currentDecorationColor = lastDecorationColor
+      let currentThickness = lastThickness
+      const top = topOffset + maxHeight * (1 - fontSizeFraction)
+      let size = this.getHeightOfChar(i, 0)
+      let dy = this.getValueOfPropertyAt(i, 0, 'deltaY')
+
+      for (let j = 0, jlen = line.length; j < jlen; j += 1) {
+        const charBox = this.__charBounds[i][j] as Required<GraphemeBBox>
+        currentDecoration = this.getValueOfPropertyAt(i, j, type)
+        currentDecorationColor = this._getDecorationColorAt(i, j)
+        currentThickness = this.getValueOfPropertyAt(i, j, 'textDecorationThickness')
+        const currentSize = this.getHeightOfChar(i, j)
+        const currentDy = this.getValueOfPropertyAt(i, j, 'deltaY')
+        if (path && currentDecoration && currentDecorationColor) {
+          const finalThickness = (fontSize * currentThickness) / 1000
+          ctx.save()
+          ctx.fillStyle = lastDecorationColor as string
+          ctx.translate(charBox.renderLeft, charBox.renderTop)
+          ctx.rotate(charBox.angle)
+          ctx.fillRect(
+            -charBox.kernedWidth / 2,
+            offsetY * currentSize + currentDy - offsetAligner * finalThickness,
+            charBox.kernedWidth,
+            finalThickness
+          )
+          ctx.restore()
+        } else if (
+          (currentDecoration !== lastDecoration
+            || currentDecorationColor !== lastDecorationColor
+            || currentSize !== size
+            || currentThickness !== lastThickness
+            || currentDy !== dy)
+          && boxWidth > 0
+        ) {
+          const finalThickness = (fontSize * lastThickness) / 1000
+          let drawStart = leftOffset + lineLeftOffset + boxStart
+          if (direction === 'rtl') {
+            drawStart = width - drawStart - boxWidth
+          }
+          if (lastDecoration && lastDecorationColor && lastThickness) {
+            ctx.fillStyle = lastDecorationColor as string
+            ctx.fillRect(
+              drawStart,
+              top + offsetY * size + dy - offsetAligner * finalThickness,
+              boxWidth,
+              finalThickness
+            )
+          }
+          boxStart = charBox.left
+          boxWidth = charBox.width
+          lastDecoration = currentDecoration
+          lastThickness = currentThickness
+          lastDecorationColor = currentDecorationColor
+          size = currentSize
+          dy = currentDy
+        } else {
+          boxWidth += charBox.kernedWidth
+        }
+      }
+      let drawStart = leftOffset + lineLeftOffset + boxStart
+      if (direction === 'rtl') {
+        drawStart = width - drawStart - boxWidth
+      }
+      ctx.fillStyle = currentDecorationColor as string
+      const finalThickness = (fontSize * currentThickness) / 1000
+      if (currentDecoration && currentDecorationColor && currentThickness) {
+        ctx.fillRect(
+          drawStart,
+          top + offsetY * size + dy - offsetAligner * finalThickness,
+          boxWidth - charSpacing,
+          finalThickness
+        )
+      }
+      topOffset += heightOfLine
+    }
+    this._removeShadow(ctx)
+  }
+
+  /**
+   * Возвращает цвет линии декорации для символа, учитывая обводку и заливку.
+   */
+  private _getDecorationColorAt(lineIndex: number, charIndex: number): string | null {
+    const rawStrokeWidth = this.getValueOfPropertyAt(lineIndex, charIndex, 'strokeWidth')
+    const resolvedStrokeWidth = resolveStrokeWidth({
+      width: typeof rawStrokeWidth === 'number' && Number.isFinite(rawStrokeWidth) ? rawStrokeWidth : 0
+    })
+    const rawStroke = this.getValueOfPropertyAt(lineIndex, charIndex, 'stroke') as string | null | undefined
+    const resolvedStrokeColor = rawStroke == null
+      ? null
+      : resolveStrokeColor({ strokeColor: rawStroke, width: resolvedStrokeWidth })
+
+    if (resolvedStrokeWidth > 0 && resolvedStrokeColor != null) {
+      return resolvedStrokeColor
+    }
+
+    const fill = this.getValueOfPropertyAt(lineIndex, charIndex, 'fill') as string | null | undefined
+    return fill ?? null
   }
 
   private _getBackgroundDimensions(): { width: number; height: number } {
