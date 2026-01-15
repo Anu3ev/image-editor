@@ -1,6 +1,6 @@
 {
   "name": "@anu3ev/fabric-image-editor",
-  "version": "0.5.28",
+  "version": "0.5.29",
   "description": "JavaScript image editor built on FabricJS, allowing you to create instances with an integrated montage area and providing an API to modify and manage state.",
   "module": "dist/main.js",
   "files": [
