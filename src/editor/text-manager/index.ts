@@ -6,7 +6,8 @@ import {
   Point,
   Textbox,
   TextboxProps,
-  Transform
+  Transform,
+  util
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
@@ -706,6 +707,17 @@ export default class TextManager {
     })
 
     return textbox
+  }
+
+  /**
+   * Преобразует стили из массивного формата Fabric в объектный.
+   */
+  // eslint-disable-next-line class-methods-use-this
+  public stylesFromArray(
+    styles: Parameters<typeof util.stylesFromArray>[0],
+    text: Parameters<typeof util.stylesFromArray>[1]
+  ): ReturnType<typeof util.stylesFromArray> {
+    return util.stylesFromArray(styles, text)
   }
 
   /**
