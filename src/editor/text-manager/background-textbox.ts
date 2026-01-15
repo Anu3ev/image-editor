@@ -220,6 +220,9 @@ export class BackgroundTextbox extends Textbox {
     }
   }
 
+  /**
+   * Рисует линии декорации текста с учетом активной обводки или заливки.
+   */
   protected override _renderTextDecoration(
     ctx: CanvasRenderingContext2D,
     type: 'underline' | 'linethrough' | 'overline'
@@ -227,21 +230,35 @@ export class BackgroundTextbox extends Textbox {
     if (!this[type] && !this.styleHas(type)) {
       return
     }
+    const {
+      direction,
+      fontSize,
+      lineHeight,
+      offsets,
+      width,
+      _fontSizeFraction: fontSizeFraction,
+      _textLines: textLines
+    } = this
     let topOffset = this._getTopOffset()
     const leftOffset = this._getLeftOffset()
     const { path } = this
     const charSpacing = this._getWidthOfCharSpacing()
-    const offsetAligner = type === 'linethrough' ? 0.5 : type === 'overline' ? 1 : 0
-    const offsetY = this.offsets[type]
+    const offsetY = offsets[type]
+    let offsetAligner = 0
+    if (type === 'linethrough') {
+      offsetAligner = 0.5
+    } else if (type === 'overline') {
+      offsetAligner = 1
+    }
 
-    for (let i = 0, len = this._textLines.length; i < len; i += 1) {
+    for (let i = 0, len = textLines.length; i < len; i += 1) {
       const heightOfLine = this.getHeightOfLine(i)
       if (!this[type] && !this.styleHas(type, i)) {
         topOffset += heightOfLine
         continue
       }
-      const line = this._textLines[i]
-      const maxHeight = heightOfLine / this.lineHeight
+      const line = textLines[i]
+      const maxHeight = heightOfLine / lineHeight
       const lineLeftOffset = this._getLineLeftOffset(i)
       let boxStart = 0
       let boxWidth = 0
@@ -251,7 +268,7 @@ export class BackgroundTextbox extends Textbox {
       let currentDecoration = lastDecoration
       let currentDecorationColor = lastDecorationColor
       let currentThickness = lastThickness
-      const top = topOffset + maxHeight * (1 - this._fontSizeFraction)
+      const top = topOffset + maxHeight * (1 - fontSizeFraction)
       let size = this.getHeightOfChar(i, 0)
       let dy = this.getValueOfPropertyAt(i, 0, 'deltaY')
 
@@ -263,7 +280,7 @@ export class BackgroundTextbox extends Textbox {
         const currentSize = this.getHeightOfChar(i, j)
         const currentDy = this.getValueOfPropertyAt(i, j, 'deltaY')
         if (path && currentDecoration && currentDecorationColor) {
-          const finalThickness = (this.fontSize * currentThickness) / 1000
+          const finalThickness = (fontSize * currentThickness) / 1000
           ctx.save()
           ctx.fillStyle = lastDecorationColor as string
           ctx.translate(charBox.renderLeft, charBox.renderTop)
@@ -283,10 +300,10 @@ export class BackgroundTextbox extends Textbox {
             || currentDy !== dy)
           && boxWidth > 0
         ) {
-          const finalThickness = (this.fontSize * lastThickness) / 1000
+          const finalThickness = (fontSize * lastThickness) / 1000
           let drawStart = leftOffset + lineLeftOffset + boxStart
-          if (this.direction === 'rtl') {
-            drawStart = this.width - drawStart - boxWidth
+          if (direction === 'rtl') {
+            drawStart = width - drawStart - boxWidth
           }
           if (lastDecoration && lastDecorationColor && lastThickness) {
             ctx.fillStyle = lastDecorationColor as string
@@ -309,25 +326,27 @@ export class BackgroundTextbox extends Textbox {
         }
       }
       let drawStart = leftOffset + lineLeftOffset + boxStart
-      if (this.direction === 'rtl') {
-        drawStart = this.width - drawStart - boxWidth
+      if (direction === 'rtl') {
+        drawStart = width - drawStart - boxWidth
       }
       ctx.fillStyle = currentDecorationColor as string
-      const finalThickness = (this.fontSize * currentThickness) / 1000
-      currentDecoration
-        && currentDecorationColor
-        && currentThickness
-        && ctx.fillRect(
+      const finalThickness = (fontSize * currentThickness) / 1000
+      if (currentDecoration && currentDecorationColor && currentThickness) {
+        ctx.fillRect(
           drawStart,
           top + offsetY * size + dy - offsetAligner * finalThickness,
           boxWidth - charSpacing,
           finalThickness
         )
+      }
       topOffset += heightOfLine
     }
     this._removeShadow(ctx)
   }
 
+  /**
+   * Возвращает цвет линии декорации для символа, учитывая обводку и заливку.
+   */
   private _getDecorationColorAt(lineIndex: number, charIndex: number): string | null {
     const rawStrokeWidth = this.getValueOfPropertyAt(lineIndex, charIndex, 'strokeWidth')
     const resolvedStrokeWidth = resolveStrokeWidth({
