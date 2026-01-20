@@ -15,6 +15,15 @@ export type ObjectBounds = {
 }
 
 /**
+ * Округляет значение до ближайшего чётного числа.
+ */
+export const roundToEven = ({
+  value
+}: {
+  value: number
+}): number => Math.round(value / 2) * 2
+
+/**
  * Возвращает числовое значение или fallback, если value некорректно.
  */
 export const toNumber = ({
@@ -179,7 +188,7 @@ export const calculateNormalizedCenter = ({
 }
 
 /**
- * Возвращает bounding box объекта с учётом трансформации.
+ * Возвращает bounding box объекта с учётом трансформации и округлением до чётных пикселей.
  */
 export const getObjectBounds = ({
   object
@@ -192,16 +201,23 @@ export const getObjectBounds = ({
     object.setCoords()
     const rect = object.getBoundingRect(false, true)
     const {
-      left = 0,
-      top = 0,
+      left: rawLeft = 0,
+      top: rawTop = 0,
       width = 0,
       height = 0
     } = rect
 
-    const right = left + width
-    const bottom = top + height
-    const centerX = left + (width / 2)
-    const centerY = top + (height / 2)
+    const rawRight = rawLeft + width
+    const rawBottom = rawTop + height
+
+    const left = roundToEven({ value: rawLeft })
+    const top = roundToEven({ value: rawTop })
+    const right = roundToEven({ value: rawRight })
+    const bottom = roundToEven({ value: rawBottom })
+    const widthEven = right - left
+    const heightEven = bottom - top
+    const centerX = left + (widthEven / 2)
+    const centerY = top + (heightEven / 2)
 
     return {
       left,
