@@ -1,5 +1,6 @@
 import SnappingManager from '../../../../src/editor/snapping-manager'
 import { MOVE_SNAP_STEP } from '../../../../src/editor/snapping-manager/constants'
+import { getObjectBounds } from '../../../../src/editor/utils/geometry'
 import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/editor-helpers'
 
 describe('SnappingManager', () => {
@@ -74,5 +75,59 @@ describe('SnappingManager', () => {
     expect(active.left).toBe(Math.round(21.6 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
     expect(active.top).toBe(Math.round(33.3 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
     expect(active.setCoords).toHaveBeenCalled()
+  })
+
+  it('не показывает равноудалённость, если половина свободного зазора не кратна шагу', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const first = createBoundsObject({ left: 0, top: 0, width: 10, height: 10, id: 'obj-1' })
+    const second = createBoundsObject({ left: 24, top: 0, width: 10, height: 10, id: 'obj-2' })
+    const active = createBoundsObject({ left: 14, top: 0, width: 8, height: 10, id: 'active' })
+    objects.push(first)
+    objects.push(second)
+    objects.push(active)
+
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleMouseDown({ target: active });
+    (snappingManager as any)._handleObjectMoving({ target: active })
+
+    const { activeSpacingGuides } = snappingManager as any
+    expect(activeSpacingGuides).toHaveLength(0)
+  })
+
+  it('показывает равноудалённость по шагу и расстояние совпадает с фактическим зазором', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const first = createBoundsObject({ left: 0, top: 0, width: 10, height: 10, id: 'obj-1' })
+    const second = createBoundsObject({ left: 26, top: 0, width: 10, height: 10, id: 'obj-2' })
+    const active = createBoundsObject({ left: 12, top: 0, width: 8, height: 10, id: 'active' })
+    objects.push(first)
+    objects.push(second)
+    objects.push(active)
+
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleMouseDown({ target: active });
+    (snappingManager as any)._handleObjectMoving({ target: active })
+
+    const { activeSpacingGuides } = snappingManager as any
+    expect(activeSpacingGuides.length).toBeGreaterThan(0)
+
+    const guide = activeSpacingGuides[0]
+    const { distance } = guide
+    const activeBounds = getObjectBounds({ object: active })
+    const firstBounds = getObjectBounds({ object: first })
+    const secondBounds = getObjectBounds({ object: second })
+
+    if (!activeBounds || !firstBounds || !secondBounds) {
+      throw new Error('Bounds не рассчитаны для теста равноудалённости')
+    }
+
+    const { left: activeLeft, right: activeRight } = activeBounds
+    const { right: firstRight } = firstBounds
+    const { left: secondLeft } = secondBounds
+    const gapLeft = activeLeft - firstRight
+    const gapRight = secondLeft - activeRight
+
+    expect(gapLeft).toBe(distance)
+    expect(gapRight).toBe(distance)
+    expect(distance % MOVE_SNAP_STEP).toBe(0)
   })
 })

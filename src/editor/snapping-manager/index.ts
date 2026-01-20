@@ -199,6 +199,8 @@ export default class SnappingManager {
       return
     }
 
+    SnappingManager._applyMovementStep({ target })
+
     if (!this.anchors.vertical.length && !this.anchors.horizontal.length) {
       this._cacheAnchors({ activeObject: target })
     }
