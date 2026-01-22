@@ -888,6 +888,9 @@ export const createTextManagerTestSetup = (
     },
     errorManager: {
       emitError: jest.fn()
+    },
+    snappingManager: {
+      applyTextResizingSnap: jest.fn()
     }
   } as any
 

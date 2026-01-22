@@ -1,7 +1,123 @@
+import { Textbox } from 'fabric'
 import SnappingManager from '../../../../src/editor/snapping-manager'
 import { MOVE_SNAP_STEP } from '../../../../src/editor/snapping-manager/constants'
 import { getObjectBounds } from '../../../../src/editor/utils/geometry'
 import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/editor-helpers'
+
+type OriginX = 'left' | 'center' | 'right'
+type OriginY = 'top' | 'center' | 'bottom'
+
+/**
+ * Создаёт мок объекта для тестирования масштабирования со снапом.
+ */
+const createScalingObject = ({
+  left,
+  top,
+  width,
+  height,
+  scaleX = 1,
+  scaleY = 1,
+  originX = 'left',
+  originY = 'top',
+  angle = 0
+}: {
+  left: number
+  top: number
+  width: number
+  height: number
+  scaleX?: number
+  scaleY?: number
+  originX?: OriginX
+  originY?: OriginY
+  angle?: number
+}) => {
+  const obj: any = {
+    left,
+    top,
+    width,
+    height,
+    scaleX,
+    scaleY,
+    originX,
+    originY,
+    angle,
+    visible: true,
+    set: (props: Partial<Record<string, number | string>>) => {
+      Object.assign(obj, props)
+    },
+    setCoords: jest.fn(),
+    getBoundingRect: () => {
+      const {
+        left: objLeft = 0,
+        top: objTop = 0,
+        width: rawWidth = 0,
+        height: rawHeight = 0,
+        scaleX: currentScaleX = 1,
+        scaleY: currentScaleY = 1
+      } = obj
+      const resolvedWidth = rawWidth * currentScaleX
+      const resolvedHeight = rawHeight * currentScaleY
+
+      return {
+        left: objLeft,
+        top: objTop,
+        width: resolvedWidth,
+        height: resolvedHeight
+      }
+    },
+    getRelativeCenterPoint: () => {
+      const {
+        left: objLeft = 0,
+        top: objTop = 0,
+        width: rawWidth = 0,
+        height: rawHeight = 0,
+        scaleX: currentScaleX = 1,
+        scaleY: currentScaleY = 1
+      } = obj
+      const resolvedWidth = rawWidth * currentScaleX
+      const resolvedHeight = rawHeight * currentScaleY
+
+      return {
+        x: objLeft + (resolvedWidth / 2),
+        y: objTop + (resolvedHeight / 2)
+      }
+    },
+    translateToOriginPoint: (point: { x: number; y: number }, nextOriginX: OriginX, nextOriginY: OriginY) => {
+      const {
+        width: rawWidth = 0,
+        height: rawHeight = 0,
+        scaleX: currentScaleX = 1,
+        scaleY: currentScaleY = 1
+      } = obj
+      const resolvedWidth = rawWidth * currentScaleX
+      const resolvedHeight = rawHeight * currentScaleY
+
+      let nextX = point.x
+      let nextY = point.y
+
+      if (nextOriginX === 'left') {
+        nextX -= resolvedWidth / 2
+      }
+      if (nextOriginX === 'right') {
+        nextX += resolvedWidth / 2
+      }
+      if (nextOriginY === 'top') {
+        nextY -= resolvedHeight / 2
+      }
+      if (nextOriginY === 'bottom') {
+        nextY += resolvedHeight / 2
+      }
+
+      return {
+        x: nextX,
+        y: nextY
+      }
+    },
+    setPositionByOrigin: jest.fn()
+  }
+
+  return obj
+}
 
 describe('SnappingManager', () => {
   beforeEach(() => {
@@ -129,5 +245,87 @@ describe('SnappingManager', () => {
     expect(gapLeft).toBe(distance)
     expect(gapRight).toBe(distance)
     expect(distance % MOVE_SNAP_STEP).toBe(0)
+  })
+
+  it('масштабирует объект по X с прилипаниями и фиксирует origin', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const active = createScalingObject({
+      left: 296,
+      top: 100,
+      width: 100,
+      height: 50,
+      originX: 'left',
+      originY: 'top'
+    })
+    objects.push(active)
+
+    const snappingManager = new SnappingManager({ editor });
+    const snappingManagerState = snappingManager as any
+    snappingManagerState.anchors = { vertical: [400], horizontal: [] }
+    snappingManagerState._handleObjectScaling({
+      target: active,
+      transform: {
+        corner: 'mr',
+        action: 'scaleX',
+        originX: 'left',
+        originY: 'top',
+        scaleX: 1,
+        scaleY: 1
+      }
+    })
+
+    expect(active.scaleX).toBeCloseTo(1.04, 4)
+    expect(active.setPositionByOrigin).toHaveBeenCalledWith(
+      expect.objectContaining({ x: 296, y: 100 }),
+      'left',
+      'top'
+    )
+
+    const { activeGuides } = snappingManager as any
+    expect(activeGuides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'vertical',
+          position: 400
+        })
+      ])
+    )
+  })
+
+  it('применяет snap для текстового ресайза по горизонтали и фиксирует правый край', () => {
+    const { editor, canvas } = createSnappingTestContext()
+    const snappingManager = new SnappingManager({ editor });
+    const snappingManagerState = snappingManager as any
+    snappingManagerState.anchors = { vertical: [200], horizontal: [] }
+    const textbox = new Textbox('Test', {
+      left: 204,
+      top: 50,
+      width: 100
+    })
+
+    textbox.canvas = canvas as any
+
+    snappingManager.applyTextResizingSnap({
+      target: textbox,
+      transform: {
+        corner: 'ml',
+        originX: 'right',
+        originY: 'top'
+      } as any,
+      event: null
+    })
+
+    expect(textbox.width).toBe(104)
+    expect(textbox.left).toBe(200)
+
+    const { activeGuides } = snappingManager as any
+    expect(activeGuides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'vertical',
+          position: 200
+        })
+      ])
+    )
   })
 })

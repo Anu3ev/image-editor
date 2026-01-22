@@ -726,7 +726,7 @@ export default class TextManager {
   public destroy(): void {
     const { canvas } = this
     canvas.off('object:scaling', this._handleObjectScaling)
-    canvas.off('object:resizing', TextManager._handleObjectResizing)
+    canvas.off('object:resizing', this._handleObjectResizing)
     canvas.off('object:modified', this._handleObjectModified)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
@@ -769,7 +769,7 @@ export default class TextManager {
   private _bindEvents(): void {
     const { canvas } = this
     canvas.on('object:scaling', this._handleObjectScaling)
-    canvas.on('object:resizing', TextManager._handleObjectResizing)
+    canvas.on('object:resizing', this._handleObjectResizing)
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
@@ -1278,8 +1278,8 @@ export default class TextManager {
    * устанавливает значение, включающее визуальные отступы.
    * Также корректирует позицию при ресайзе слева, чтобы компенсировать смещение.
    */
-  private static _handleObjectResizing(event: IEvent<MouseEvent> & { transform?: Transform }): void {
-    const { target, transform } = event
+  private _handleObjectResizing = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
+    const { target, transform, e } = event
     if (!TextManager._isTextbox(target)) return
 
     const {
@@ -1288,43 +1288,48 @@ export default class TextManager {
     } = target
 
     const totalPadding = paddingLeft + paddingRight
-    if (totalPadding === 0) return
 
-    const prevWidth = target.width ?? 0
-    // Fabric рассчитывает новую ширину на основе положения курсора.
-    // Так как контролы отрисовываются с учетом паддингов (через _getTransformedDimensions),
-    // рассчитанная ширина включает в себя паддинги.
-    // Нам нужно сохранить "чистую" ширину текста.
-    const nextWidth = Math.max(0, prevWidth - totalPadding)
+    if (totalPadding !== 0) {
+      const { width: previousWidth = 0 } = target
+      // Fabric рассчитывает новую ширину на основе положения курсора.
+      // Так как контролы отрисовываются с учетом паддингов (через _getTransformedDimensions),
+      // рассчитанная ширина включает в себя паддинги.
+      // Нам нужно сохранить "чистую" ширину текста.
+      const nextWidth = Math.max(0, previousWidth - totalPadding)
 
-    if (prevWidth === nextWidth) return
+      if (previousWidth !== nextWidth) {
+        target.set({ width: nextWidth })
 
-    target.set({ width: nextWidth })
+        // Проверяем, какая ширина реально применилась
+        const { width: finalWidth = 0 } = target
+        const widthDiff = previousWidth - finalWidth
 
-    // Проверяем, какая ширина реально применилась
-    const finalWidth = target.width ?? 0
-    const widthDiff = prevWidth - finalWidth
+        if (widthDiff !== 0 && transform && transform.corner === 'ml') {
+          // Корректируем позицию только при ресайзе за левый край (ml).
+          // При ресайзе за правый край (mr) Fabric корректно держит левую границу (origin),
+          // и так как мы уменьшаем ширину справа, визуально всё выглядит верно.
+          // А при ресайзе слева (ml) Fabric сдвигает origin влево на величину "грязной" ширины.
+          // Так как мы уменьшили ширину на паддинг, нам нужно вернуть origin вправо на эту разницу.
+          const angle = target.angle ?? 0
+          const rad = (angle * Math.PI) / 180
+          const cos = Math.cos(rad)
+          const sin = Math.sin(rad)
+          const scaleX = target.scaleX ?? 1
+          const shift = widthDiff * scaleX
 
-    if (widthDiff === 0) return
-
-    // Корректируем позицию только при ресайзе за левый край (ml).
-    // При ресайзе за правый край (mr) Fabric корректно держит левую границу (origin),
-    // и так как мы уменьшаем ширину справа, визуально всё выглядит верно.
-    // А при ресайзе слева (ml) Fabric сдвигает origin влево на величину "грязной" ширины.
-    // Так как мы уменьшили ширину на паддинг, нам нужно вернуть origin вправо на эту разницу.
-    if (transform && transform.corner === 'ml') {
-      const angle = target.angle ?? 0
-      const rad = (angle * Math.PI) / 180
-      const cos = Math.cos(rad)
-      const sin = Math.sin(rad)
-      const scaleX = target.scaleX ?? 1
-      const shift = widthDiff * scaleX
-
-      target.set({
-        left: (target.left ?? 0) + shift * cos,
-        top: (target.top ?? 0) + shift * sin
-      })
+          target.set({
+            left: (target.left ?? 0) + shift * cos,
+            top: (target.top ?? 0) + shift * sin
+          })
+        }
+      }
     }
+
+    this.editor.snappingManager.applyTextResizingSnap({
+      target,
+      transform,
+      event: e ?? null
+    })
   }
 
   /**
