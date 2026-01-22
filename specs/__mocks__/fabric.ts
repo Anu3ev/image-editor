@@ -149,6 +149,98 @@ export class FabricObject {
     Object.assign(this, options)
   }
 
+  /**
+   * Возвращает относительную точку центра объекта.
+   */
+  public getRelativeCenterPoint() {
+    const {
+      left = 0,
+      top = 0,
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1
+    } = this as any
+    const resolvedWidth = width * scaleX
+    const resolvedHeight = height * scaleY
+
+    return new Point(left + (resolvedWidth / 2), top + (resolvedHeight / 2))
+  }
+
+  /**
+   * Переводит точку из центра в координаты origin объекта.
+   */
+  public translateToOriginPoint(
+    point: { x: number; y: number },
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
+  ) {
+    const {
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1
+    } = this as any
+    const resolvedWidth = width * scaleX
+    const resolvedHeight = height * scaleY
+
+    let nextX = point.x
+    let nextY = point.y
+
+    if (originX === 'left') {
+      nextX -= resolvedWidth / 2
+    }
+    if (originX === 'right') {
+      nextX += resolvedWidth / 2
+    }
+    if (originY === 'top') {
+      nextY -= resolvedHeight / 2
+    }
+    if (originY === 'bottom') {
+      nextY += resolvedHeight / 2
+    }
+
+    return new Point(nextX, nextY)
+  }
+
+  /**
+   * Устанавливает позицию объекта по заданному origin.
+   */
+  public setPositionByOrigin(
+    point: { x: number; y: number },
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
+  ) {
+    const {
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1
+    } = this as any
+    const resolvedWidth = width * scaleX
+    const resolvedHeight = height * scaleY
+
+    let nextLeft = point.x
+    let nextTop = point.y
+
+    if (originX === 'center') {
+      nextLeft -= resolvedWidth / 2
+    }
+    if (originX === 'right') {
+      nextLeft -= resolvedWidth
+    }
+    if (originY === 'center') {
+      nextTop -= resolvedHeight / 2
+    }
+    if (originY === 'bottom') {
+      nextTop -= resolvedHeight
+    }
+
+    const target = this as any
+    target.left = nextLeft
+    target.top = nextTop
+  }
+
   _getTransformedDimensions(options: { width?: number; height?: number } = {}) {
     const width = options.width ?? 0
     const height = options.height ?? 0

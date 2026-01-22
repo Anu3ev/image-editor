@@ -1303,5 +1303,28 @@ describe('TextManager', () => {
       expect(textbox.width).toBe(130)
       expect(textbox.left).toBe(100)
     })
+
+    it('вызывает snappingManager.applyTextResizingSnap при изменении размера', () => {
+      const { textManager, canvas, editor } = createTextManagerTestSetup()
+      const textbox = textManager.addText({ text: 'Test' })
+      const transform = { corner: 'mr' }
+      const event = { ctrlKey: false }
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform,
+        e: event
+      })
+
+      const { snappingManager } = editor
+      const { applyTextResizingSnap } = snappingManager
+
+      expect(applyTextResizingSnap).toHaveBeenCalledTimes(1)
+      expect(applyTextResizingSnap).toHaveBeenCalledWith({
+        target: textbox,
+        transform,
+        event
+      })
+    })
   })
 })
