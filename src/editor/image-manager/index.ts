@@ -37,6 +37,17 @@ export type ImportImageOptions = {
   customData?: object
 }
 
+export type ResizeImageToBoundariesOptions = {
+  dataURL: string,
+  sizeType?: 'max' | 'min',
+  maxWidth?: number,
+  maxHeight?: number,
+  minWidth?: number,
+  minHeight?: number,
+  asBase64?: boolean,
+  asBlob?: boolean
+}
+
 export type ExportObjectAsImageFileParameters = {
   object?: FabricObject,
   fileName?: string,
@@ -184,6 +195,7 @@ export default class ImageManager {
           }
         })
 
+        historyManager.resumeHistory()
         return null
       }
 
@@ -215,7 +227,10 @@ export default class ImageManager {
 
         // Если изображение больше максимальных размеров, то даунскейлим его
         if (imageHeight > CANVAS_MAX_HEIGHT || imageWidth > CANVAS_MAX_WIDTH) {
-          const resizedBlob = await this.resizeImageToBoundaries(imageSrc, 'max')
+          const resizedBlob = await this.resizeImageToBoundaries({
+            dataURL: imageSrc,
+            sizeType: 'max'
+          })
           const resizedBlobURL = URL.createObjectURL(resizedBlob)
           this._createdBlobUrls.push(resizedBlobURL)
 
@@ -223,7 +238,10 @@ export default class ImageManager {
           img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
         } else if (imageHeight < CANVAS_MIN_HEIGHT || imageWidth < CANVAS_MIN_WIDTH) {
           // Если изображение меньше минимальных размеров, то апскейлим его
-          const resizedBlob = await this.resizeImageToBoundaries(imageSrc, 'min')
+          const resizedBlob = await this.resizeImageToBoundaries({
+            dataURL: imageSrc,
+            sizeType: 'min'
+          })
           const resizedBlobURL = URL.createObjectURL(resizedBlob)
           this._createdBlobUrls.push(resizedBlobURL)
 
@@ -320,40 +338,80 @@ export default class ImageManager {
   }
 
   /**
-   * Функция для ресайза изображения до максимальных размеров,
-   * если оно их превышает. Сохраняет пропорции.
+   * Ресайзит изображение до заданных максимальных или минимальных размеров,
+   * сохраняя пропорции. По умолчанию использует границы канваса.
    *
-   * @param dataURL - dataURL изображения
-   * @param size ('max | min') - максимальный или минимальный размер
-   * @returns возвращает Promise с Blob-объектом уменьшенного изображения
+   * @param options - опции
+   * @param options.dataURL - dataURL изображения
+   * @param options.sizeType - максимальный или минимальный размер ('max' | 'min')
+   * @param options.maxWidth - максимальная ширина (по умолчанию CANVAS_MAX_WIDTH)
+   * @param options.maxHeight - максимальная высота (по умолчанию CANVAS_MAX_HEIGHT)
+   * @param options.minWidth - минимальная ширина (по умолчанию CANVAS_MIN_WIDTH)
+   * @param options.minHeight - минимальная высота (по умолчанию CANVAS_MIN_HEIGHT)
+   * @param options.asBase64 - вернуть base64 вместо Blob
+   * @param options.emitMessage - выводить предупреждение в случае ресайза
+   * @returns возвращает Promise с Blob или base64 в зависимости от опций
    */
-  public async resizeImageToBoundaries(dataURL: string, size = 'max'): Promise<Blob> {
-    // eslint-disable-next-line max-len
-    let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${CANVAS_MAX_WIDTH}x${CANVAS_MAX_HEIGHT}`
+  public async resizeImageToBoundaries(
+    options: ResizeImageToBoundariesOptions
+  ): Promise<Blob | Base64URLString> {
+    const {
+      dataURL,
+      sizeType = 'max',
+      maxWidth = CANVAS_MAX_WIDTH,
+      maxHeight = CANVAS_MAX_HEIGHT,
+      minWidth = CANVAS_MIN_WIDTH,
+      minHeight = CANVAS_MIN_HEIGHT,
+      asBase64 = false,
+      emitMessage = true
+    } = options
 
-    if (size === 'min') {
-      // eslint-disable-next-line max-len
-      message = `Размер изображения меньше минимального размера канваса, поэтому оно будет увеличено до минимальных размеров c сохранением пропорций: ${CANVAS_MIN_WIDTH}x${CANVAS_MIN_HEIGHT}`
-    }
+    const { errorManager, workerManager } = this.editor
 
     const data = {
       dataURL,
-      sizeType: size,
-      maxWidth: CANVAS_MAX_WIDTH,
-      maxHeight: CANVAS_MAX_HEIGHT,
-      minWidth: CANVAS_MIN_WIDTH,
-      minHeight: CANVAS_MIN_HEIGHT
+      sizeType,
+      maxWidth,
+      maxHeight,
+      minWidth,
+      minHeight
     }
 
-    this.editor.errorManager.emitWarning({
-      origin: 'ImageManager',
-      method: 'resizeImageToBoundaries',
-      code: 'IMAGE_RESIZE_WARNING',
-      message,
-      data
-    })
+    if (emitMessage) {
+      // eslint-disable-next-line max-len
+      let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${maxWidth}x${maxHeight}`
 
-    return this.editor.workerManager.post('resizeImage', data) as Promise<Blob>
+      if (sizeType === 'min') {
+        // eslint-disable-next-line max-len
+        message = `Размер изображения меньше минимального размера канваса, поэтому оно будет увеличено до минимальных размеров c сохранением пропорций: ${minWidth}x${minHeight}`
+      }
+
+      errorManager.emitWarning({
+        origin: 'ImageManager',
+        method: 'resizeImageToBoundaries',
+        code: 'IMAGE_RESIZE_WARNING',
+        message,
+        data
+      })
+    }
+
+    const resizedBlob = await workerManager.post('resizeImage', data) as Blob
+
+    if (asBase64) {
+      const contentType = await this.getContentTypeFromUrl(dataURL)
+      const format = ImageManager.getFormatFromContentType(contentType)
+      const outputFormat = format || 'png'
+      const bitmap = await createImageBitmap(resizedBlob)
+      const dataUrl = await workerManager.post(
+        'toDataURL',
+        { format: outputFormat, quality: 1, bitmap },
+        [bitmap]
+      ) as Base64URLString
+
+      return dataUrl
+    }
+
+    return resizedBlob
   }
 
   /**

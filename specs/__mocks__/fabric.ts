@@ -72,8 +72,12 @@ export class ActiveSelection {
     this.objects.forEach(callback)
   }
 
-  set(props: any) {
-    Object.assign(this, props)
+  set(key: string | Record<string, any>, value?: any) {
+    if (typeof key === 'string') {
+      (this as any)[key] = value
+      return
+    }
+    Object.assign(this, key)
   }
 
   async clone() {
@@ -147,6 +151,14 @@ export class Group {
 export class FabricObject {
   constructor(public options: any = {}) {
     Object.assign(this, options)
+  }
+
+  set(key: string | Record<string, any>, value?: any) {
+    if (typeof key === 'string') {
+      (this as any)[key] = value
+      return
+    }
+    Object.assign(this, key)
   }
 
   /**
@@ -469,8 +481,22 @@ export class FabricImage {
     Object.assign(this, options)
   }
 
-  set(props: any) {
-    Object.assign(this, props)
+  set(key: string | Record<string, any>, value?: any) {
+    if (typeof key === 'string') {
+      (this as any)[key] = value
+      return
+    }
+    Object.assign(this, key)
+  }
+
+  getElement(): HTMLImageElement | HTMLCanvasElement {
+    const element = (this as any).element
+    if (element) {
+      return element
+    }
+    const img = new Image()
+    img.src = (this as any).src || ''
+    return img
   }
 
   static fromURL(url: string, options?: any): Promise<FabricImage> {
@@ -530,8 +556,14 @@ export const util = {
   enlivenObjects: async(objects: any[]) => objects.map((obj) => {
     const Cls = classRegistry.getClass(obj.type)
     return Cls ? new Cls(obj.text ?? '', obj) : obj
-  })
+  }),
+  groupSVGElements: jest.fn((objects: any[], options: any = {}) => new Group(objects, options))
 }
+
+export const loadSVGFromURL = jest.fn(async(_url: string) => ({
+  objects: [],
+  options: {}
+}))
 
 export default {
   Canvas,
@@ -547,5 +579,6 @@ export default {
   controlsUtils,
   Color,
   classRegistry,
-  util
+  util,
+  loadSVGFromURL
 }
