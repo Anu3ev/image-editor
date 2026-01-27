@@ -40,6 +40,7 @@ export type ImportImageOptions = {
 export type ResizeImageToBoundariesOptions = {
   dataURL: string,
   sizeType?: 'max' | 'min',
+  contentType?: string,
   maxWidth?: number,
   maxHeight?: number,
   minWidth?: number,
@@ -229,7 +230,8 @@ export default class ImageManager {
         if (imageHeight > CANVAS_MAX_HEIGHT || imageWidth > CANVAS_MAX_WIDTH) {
           const resizedBlob = await this.resizeImageToBoundaries({
             dataURL: imageSrc,
-            sizeType: 'max'
+            sizeType: 'max',
+            contentType
           })
           const resizedBlobURL = URL.createObjectURL(resizedBlob)
           this._createdBlobUrls.push(resizedBlobURL)
@@ -240,7 +242,8 @@ export default class ImageManager {
           // Если изображение меньше минимальных размеров, то апскейлим его
           const resizedBlob = await this.resizeImageToBoundaries({
             dataURL: imageSrc,
-            sizeType: 'min'
+            sizeType: 'min',
+            contentType
           })
           const resizedBlobURL = URL.createObjectURL(resizedBlob)
           this._createdBlobUrls.push(resizedBlobURL)
@@ -252,6 +255,7 @@ export default class ImageManager {
 
       img.set('id', `${img.type}-${nanoid()}`)
       img.set('format', format)
+      img.set('contentType', contentType)
       img.set('customData', customData || null)
 
       // Растягиваем монтажную область под изображение или наоборот
@@ -358,6 +362,8 @@ export default class ImageManager {
     const {
       dataURL,
       sizeType = 'max',
+      contentType = 'image/png',
+      quality = 1,
       maxWidth = CANVAS_MAX_WIDTH,
       maxHeight = CANVAS_MAX_HEIGHT,
       minWidth = CANVAS_MIN_WIDTH,
@@ -371,6 +377,8 @@ export default class ImageManager {
     const data = {
       dataURL,
       sizeType,
+      contentType,
+      quality,
       maxWidth,
       maxHeight,
       minWidth,
@@ -398,13 +406,10 @@ export default class ImageManager {
     const resizedBlob = await workerManager.post('resizeImage', data) as Blob
 
     if (asBase64) {
-      const contentType = await this.getContentTypeFromUrl(dataURL)
-      const format = ImageManager.getFormatFromContentType(contentType)
-      const outputFormat = format || 'png'
       const bitmap = await createImageBitmap(resizedBlob)
       const dataUrl = await workerManager.post(
         'toDataURL',
-        { format: outputFormat, quality: 1, bitmap },
+        { contentType, quality, bitmap },
         [bitmap]
       ) as Base64URLString
 
@@ -542,7 +547,7 @@ export default class ImageManager {
       const bitmap = await createImageBitmap(blob)
       const dataUrl = await workerManager.post(
         'toDataURL',
-        { format, quality: 1, bitmap },
+        { contentType: adjustedContentType, quality: 1, bitmap },
         [bitmap]
       )
 
@@ -649,11 +654,14 @@ export default class ImageManager {
   ): Promise<SuccessfulExportResult | null> {
     const {
       object,
-      fileName = 'image.png',
-      contentType = 'image/png',
+      fileName,
+      contentType,
       exportAsBase64 = false,
       exportAsBlob = false
     } = options
+
+    const processedFileName = fileName ?? `image.${object.format}`
+    const processedContentType = contentType ?? object.contentType ?? 'image/png'
 
     const { canvas, workerManager } = this.editor
 
@@ -665,14 +673,14 @@ export default class ImageManager {
         method: 'exportObjectAsImageFile',
         code: 'NO_OBJECT_SELECTED',
         message: 'Не выбран объект для экспорта',
-        data: { contentType, fileName, exportAsBase64, exportAsBlob }
+        data: { contentType: processedContentType, fileName: processedFileName, exportAsBase64, exportAsBlob }
       })
 
       return null
     }
 
     try {
-      const format = ImageManager.getFormatFromContentType(contentType)
+      const format = ImageManager.getFormatFromContentType(processedContentType)
 
       if (format === 'svg') {
       // Конвертируем fabric.Object в SVG-строку
@@ -701,7 +709,7 @@ export default class ImageManager {
         const dataUrl = await workerManager.post(
           'toDataURL',
           {
-            format,
+            contentType: processedContentType,
             quality: 1,
             bitmap
           },
@@ -712,8 +720,8 @@ export default class ImageManager {
           object: activeObject,
           image: dataUrl,
           format,
-          contentType,
-          fileName
+          contentType: processedContentType,
+          fileName: processedFileName
         }
 
         canvas.fire('editor:object-exported', data)
@@ -738,8 +746,8 @@ export default class ImageManager {
           object: activeObject,
           image: activeObjectBlob,
           format,
-          contentType,
-          fileName
+          contentType: processedContentType,
+          fileName: processedFileName
         }
 
         canvas.fire('editor:object-exported', data)
@@ -747,14 +755,14 @@ export default class ImageManager {
       }
 
       // Преобразуем Blob в File
-      const file = new File([activeObjectBlob], fileName, { type: contentType })
+      const file = new File([activeObjectBlob], fileName, { type: processedContentType })
 
       const data = {
         object: activeObject,
         image: file,
         format,
-        contentType,
-        fileName
+        contentType: processedContentType,
+        fileName: processedFileName
       }
 
       canvas.fire('editor:object-exported', data)
@@ -765,7 +773,12 @@ export default class ImageManager {
         method: 'exportObjectAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
         message: `Ошибка экспорта объекта: ${(error as Error).message}`,
-        data: { contentType, fileName, exportAsBase64, exportAsBlob }
+        data: {
+          contentType: processedContentType,
+          fileName: processedFileName,
+          exportAsBase64,
+          exportAsBlob
+        }
       })
 
       return null
