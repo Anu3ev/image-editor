@@ -18,6 +18,7 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'customData',
   'backgroundType',
   'format',
+  'contentType',
   'width',
   'height',
   'locked',
