@@ -703,7 +703,6 @@ export default class ImageManager {
     const processedFileName = fileName ?? `image.${format}`
 
     try {
-
       if (format === 'svg') {
       // Конвертируем fabric.Object в SVG-строку
         const svgString = activeObject.toSVG()
