@@ -6,7 +6,16 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
   try {
     switch (action) {
     case 'resizeImage': {
-      const { dataURL, maxWidth, maxHeight, minWidth, minHeight, contentType, quality, sizeType } = payload
+      const {
+        dataURL,
+        maxWidth,
+        maxHeight,
+        minWidth,
+        minHeight,
+        contentType,
+        quality,
+        sizeType
+      } = payload
       const imgBitmap = await createImageBitmap(await (await fetch(dataURL)).blob())
 
       // вычисляем новый размер
@@ -38,7 +47,12 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
     }
 
     case 'toDataURL': {
-      const { bitmap, contentType, quality, returnBlob } = payload
+      const {
+        bitmap,
+        contentType,
+        quality,
+        returnBlob
+      } = payload
       const { width, height } = bitmap
 
       // рисуем изображение в offscreen
