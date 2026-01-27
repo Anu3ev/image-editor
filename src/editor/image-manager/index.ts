@@ -41,12 +41,16 @@ export type ResizeImageToBoundariesOptions = {
   dataURL: string,
   sizeType?: 'max' | 'min',
   contentType?: string,
+  quality?: number,
   maxWidth?: number,
   maxHeight?: number,
   minWidth?: number,
   minHeight?: number,
   asBase64?: boolean,
-  asBlob?: boolean
+  asBlob?: boolean,
+  emitMessage?: boolean,
+  optimizePng?: boolean,
+  oxipngLevel?: number
 }
 
 export type ExportObjectAsImageFileParameters = {
@@ -54,14 +58,18 @@ export type ExportObjectAsImageFileParameters = {
   fileName?: string,
   contentType?: string,
   exportAsBase64?: boolean,
-  exportAsBlob?: boolean
+  exportAsBlob?: boolean,
+  optimizePng?: boolean,
+  oxipngLevel?: number
 }
 
 export type exportCanvasAsImageFileOptions = {
   fileName?: string,
   contentType?: string,
   exportAsBase64?: boolean,
-  exportAsBlob?: boolean
+  exportAsBlob?: boolean,
+  optimizePng?: boolean,
+  oxipngLevel?: number
 }
 
 type JsPDFModule = {
@@ -354,6 +362,10 @@ export default class ImageManager {
    * @param options.minHeight - минимальная высота (по умолчанию CANVAS_MIN_HEIGHT)
    * @param options.asBase64 - вернуть base64 вместо Blob
    * @param options.emitMessage - выводить предупреждение в случае ресайза
+   * @param options.contentType - тип контента
+   * @param options.quality - качество изображения от 0 до 1 (для JPEG/WebP)
+   * @param options.optimizePng - применять ли оптимизацию PNG через oxipng (не рекомендуется для больших изображений)
+   * @param options.oxipngLevel - уровень оптимизации oxipng (0-6)
    * @returns возвращает Promise с Blob или base64 в зависимости от опций
    */
   public async resizeImageToBoundaries(
@@ -369,7 +381,9 @@ export default class ImageManager {
       minWidth = CANVAS_MIN_WIDTH,
       minHeight = CANVAS_MIN_HEIGHT,
       asBase64 = false,
-      emitMessage = true
+      emitMessage = true,
+      optimizePng = false,
+      oxipngLevel = 4
     } = options
 
     const { errorManager, workerManager } = this.editor
@@ -382,7 +396,9 @@ export default class ImageManager {
       maxWidth,
       maxHeight,
       minWidth,
-      minHeight
+      minHeight,
+      optimizePng,
+      oxipngLevel
     }
 
     if (emitMessage) {
@@ -427,6 +443,8 @@ export default class ImageManager {
    * @param options.contentType - тип контента
    * @param options.exportAsBase64 - экспортировать как base64
    * @param options.exportAsBlob - экспортировать как blob
+   * @param options.optimizePng - применить lossless-сжатие PNG через oxipng (не рекомендуется для больших изображений)
+   * @param options.oxipngLevel - уровень сжатия oxipng (0-6)
    * @returns возвращает Promise с объектом файла или null в случае ошибки
    * @fires editor:canvas-exported
    */
@@ -437,7 +455,9 @@ export default class ImageManager {
       fileName = 'image.png',
       contentType = 'image/png',
       exportAsBase64 = false,
-      exportAsBlob = false
+      exportAsBlob = false,
+      optimizePng = false,
+      oxipngLevel = 4
     } = options
 
     const { canvas, montageArea, workerManager, interactionBlocker } = this.editor
@@ -516,23 +536,47 @@ export default class ImageManager {
         return data
       }
 
-      // Получаем blob из клонированного канваса
+      // Получаем blob из клонированного канваса в нужном формате
       const blob: Blob = await new Promise((resolve, reject) => {
-        tmpCanvas.getElement().toBlob((canvasBlob) => {
-          if (canvasBlob) {
-            resolve(canvasBlob)
-          } else {
-            reject(new Error('Failed to create Blob from canvas'))
-          }
-        })
+        tmpCanvas.getElement().toBlob(
+          (canvasBlob) => {
+            if (canvasBlob) {
+              resolve(canvasBlob)
+            } else {
+              reject(new Error('Failed to create Blob from canvas'))
+            }
+          },
+          adjustedContentType,
+          1
+        )
       })
 
       // Уничтожаем клон
       tmpCanvas.dispose()
 
+      // Создаём bitmap из blob, отправляем в воркер и получаем dataURL
+      const bitmap = await createImageBitmap(blob)
+      const shouldOptimizePng = optimizePng && adjustedContentType === 'image/png'
+
       if (exportAsBlob) {
+        // Воркер используем только если это PNG и явно включена оптимизация
+        const imageBlob = shouldOptimizePng
+          ? await workerManager.post(
+            'toDataURL',
+            {
+              contentType: adjustedContentType,
+              quality: 1,
+              bitmap,
+              optimizePng: true,
+              oxipngLevel,
+              returnBlob: true
+            },
+            []
+          ) as Blob
+          : blob
+
         const data = {
-          image: blob,
+          image: imageBlob,
           format,
           contentType: adjustedContentType,
           fileName
@@ -543,11 +587,15 @@ export default class ImageManager {
         return data
       }
 
-      // Создаём bitmap из blob, отправляем в воркер и получаем dataURL
-      const bitmap = await createImageBitmap(blob)
       const dataUrl = await workerManager.post(
         'toDataURL',
-        { contentType: adjustedContentType, quality: 1, bitmap },
+        {
+          contentType: adjustedContentType,
+          quality: 1,
+          bitmap,
+          optimizePng: shouldOptimizePng,
+          oxipngLevel
+        },
         [bitmap]
       )
 
@@ -646,6 +694,8 @@ export default class ImageManager {
    * @param options.contentType - тип контента
    * @param options.exportAsBase64 - экспортировать как base64
    * @param options.exportAsBlob - экспортировать как blob
+   * @param options.optimizePng - применить lossless-сжатие PNG через oxipng (не рекомендуется для больших изображений)
+   * @param options.oxipngLevel - уровень сжатия oxipng (0-6)
    * @returns - возвращает Promise с объектом файла или null в случае ошибки
    * @fires editor:object-exported
    */
@@ -657,7 +707,9 @@ export default class ImageManager {
       fileName,
       contentType,
       exportAsBase64 = false,
-      exportAsBlob = false
+      exportAsBlob = false,
+      optimizePng = false,
+      oxipngLevel = 4
     } = options
 
     const processedFileName = fileName ?? `image.${object.format}`
@@ -706,12 +758,17 @@ export default class ImageManager {
 
       if (exportAsBase64 && activeObject instanceof FabricImage) {
         const bitmap = await createImageBitmap(activeObject.getElement())
+        const shouldOptimizePng = optimizePng && processedContentType === 'image/png'
+
+        console.log('Should optimize PNG:', shouldOptimizePng)
         const dataUrl = await workerManager.post(
           'toDataURL',
           {
             contentType: processedContentType,
             quality: 1,
-            bitmap
+            bitmap,
+            optimizePng: shouldOptimizePng,
+            oxipngLevel
           },
           [bitmap]
         )
