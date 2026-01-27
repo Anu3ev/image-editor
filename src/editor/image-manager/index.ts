@@ -41,12 +41,14 @@ export type ResizeImageToBoundariesOptions = {
   dataURL: string,
   sizeType?: 'max' | 'min',
   contentType?: string,
+  quality?: number,
   maxWidth?: number,
   maxHeight?: number,
   minWidth?: number,
   minHeight?: number,
   asBase64?: boolean,
-  asBlob?: boolean
+  asBlob?: boolean,
+  emitMessage?: boolean
 }
 
 export type ExportObjectAsImageFileParameters = {
@@ -354,6 +356,8 @@ export default class ImageManager {
    * @param options.minHeight - минимальная высота (по умолчанию CANVAS_MIN_HEIGHT)
    * @param options.asBase64 - вернуть base64 вместо Blob
    * @param options.emitMessage - выводить предупреждение в случае ресайза
+   * @param options.contentType - тип контента
+   * @param options.quality - качество изображения от 0 до 1 (для JPEG/WebP)
    * @returns возвращает Promise с Blob или base64 в зависимости от опций
    */
   public async resizeImageToBoundaries(
@@ -516,15 +520,19 @@ export default class ImageManager {
         return data
       }
 
-      // Получаем blob из клонированного канваса
+      // Получаем blob из клонированного канваса в нужном формате
       const blob: Blob = await new Promise((resolve, reject) => {
-        tmpCanvas.getElement().toBlob((canvasBlob) => {
-          if (canvasBlob) {
-            resolve(canvasBlob)
-          } else {
-            reject(new Error('Failed to create Blob from canvas'))
-          }
-        })
+        tmpCanvas.getElement().toBlob(
+          (canvasBlob) => {
+            if (canvasBlob) {
+              resolve(canvasBlob)
+            } else {
+              reject(new Error('Failed to create Blob from canvas'))
+            }
+          },
+          adjustedContentType,
+          1
+        )
       })
 
       // Уничтожаем клон
@@ -545,9 +553,14 @@ export default class ImageManager {
 
       // Создаём bitmap из blob, отправляем в воркер и получаем dataURL
       const bitmap = await createImageBitmap(blob)
+
       const dataUrl = await workerManager.post(
         'toDataURL',
-        { contentType: adjustedContentType, quality: 1, bitmap },
+        {
+          contentType: adjustedContentType,
+          quality: 1,
+          bitmap
+        },
         [bitmap]
       )
 
@@ -660,12 +673,12 @@ export default class ImageManager {
       exportAsBlob = false
     } = options
 
-    const processedFileName = fileName ?? `image.${object.format}`
-    const processedContentType = contentType ?? object.contentType ?? 'image/png'
-
     const { canvas, workerManager } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
+    const fallbackContentType = contentType ?? 'image/png'
+    const fallbackFormat = ImageManager.getFormatFromContentType(fallbackContentType) || 'png'
+    const fallbackFileName = fileName ?? `image.${fallbackFormat}`
 
     if (!activeObject) {
       this.editor.errorManager.emitError({
@@ -673,14 +686,23 @@ export default class ImageManager {
         method: 'exportObjectAsImageFile',
         code: 'NO_OBJECT_SELECTED',
         message: 'Не выбран объект для экспорта',
-        data: { contentType: processedContentType, fileName: processedFileName, exportAsBase64, exportAsBlob }
+        data: { contentType: fallbackContentType, fileName: fallbackFileName, exportAsBase64, exportAsBlob }
       })
 
       return null
     }
 
+    const { contentType: objectContentType, format: objectFormat = '' } = activeObject as {
+      contentType?: string
+      format?: string
+    }
+    const processedContentType = contentType ?? objectContentType ?? 'image/png'
+    const format = ImageManager.getFormatFromContentType(processedContentType)
+      || objectFormat
+      || 'png'
+    const processedFileName = fileName ?? `image.${format}`
+
     try {
-      const format = ImageManager.getFormatFromContentType(processedContentType)
 
       if (format === 'svg') {
       // Конвертируем fabric.Object в SVG-строку
@@ -689,7 +711,7 @@ export default class ImageManager {
         const svg = ImageManager._exportSVGStringAsFile(svgString, {
           exportAsBase64,
           exportAsBlob,
-          fileName
+          fileName: processedFileName
         })
 
         const data = {
@@ -697,7 +719,7 @@ export default class ImageManager {
           image: svg,
           format,
           contentType: 'image/svg+xml',
-          fileName: fileName.replace(/\.[^/.]+$/, '.svg')
+          fileName: processedFileName.replace(/\.[^/.]+$/, '.svg')
         }
 
         canvas.fire('editor:object-exported', data)
@@ -755,7 +777,7 @@ export default class ImageManager {
       }
 
       // Преобразуем Blob в File
-      const file = new File([activeObjectBlob], fileName, { type: processedContentType })
+      const file = new File([activeObjectBlob], processedFileName, { type: processedContentType })
 
       const data = {
         object: activeObject,
