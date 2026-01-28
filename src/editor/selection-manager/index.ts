@@ -199,17 +199,17 @@ export default class SelectionManager {
     const activeObject = canvas.getActiveObject()
     if (!activeObject) return
 
-    const currentSelection = this._collectSelectionObjects({ activeObject })
+    const currentSelection = SelectionManager._collectSelectionObjects({ activeObject })
     if (currentSelection.length <= 1) return
 
-    const { lockedObjects, unlockedObjects } = this._splitLockedObjects({ objects: currentSelection })
+    const { lockedObjects, unlockedObjects } = SelectionManager._splitLockedObjects({ objects: currentSelection })
 
     // Если нет заблокированных объектов, то ничего не делаем
     if (lockedObjects.length === 0) return
 
     if (unlockedObjects.length > 0) {
       const addedObjects = selected ?? []
-      const shouldKeepLocked = this._shouldKeepLockedSelection({
+      const shouldKeepLocked = SelectionManager._shouldKeepLockedSelection({
         addedObjects,
         currentSelection,
         pointerEvent: e
@@ -258,22 +258,22 @@ export default class SelectionManager {
     if (selected.length === 0) return
 
     const activeObject = canvas.getActiveObject()
-    const currentSelection = this._collectSelectionObjects({ activeObject })
+    const currentSelection = SelectionManager._collectSelectionObjects({ activeObject })
 
     if (currentSelection.length === 0) return
 
     const baseSelection = lastSelection
-    const baseLockedOnly = this._isSelectionLockedOnly({ objects: baseSelection })
+    const baseLockedOnly = SelectionManager._isSelectionLockedOnly({ objects: baseSelection })
     const addedSelection = baseLockedOnly
-      ? this._filterLockedSelectionObjects({ objects: currentSelection })
+      ? SelectionManager._filterLockedSelectionObjects({ objects: currentSelection })
       : currentSelection
 
-    const mergedSelection = this._mergeSelections({
+    const mergedSelection = SelectionManager._mergeSelections({
       baseSelection,
       addedSelection
     })
 
-    const selectionIsSame = this._areSelectionsEqual({
+    const selectionIsSame = SelectionManager._areSelectionsEqual({
       left: mergedSelection,
       right: currentSelection
     })
@@ -310,7 +310,7 @@ export default class SelectionManager {
     if (!isMultiSelectKeyPressed) return
 
     const activeObject = canvas.getActiveObject()
-    const selection = this._collectSelectionObjects({ activeObject })
+    const selection = SelectionManager._collectSelectionObjects({ activeObject })
 
     this.lastSelection = selection.slice()
     this.isCtrlSelectionBoxActive = selection.length > 0
@@ -332,7 +332,7 @@ export default class SelectionManager {
   private _handleSelectionChange(): void {
     const { canvas } = this.editor
     const activeObject = canvas.getActiveObject()
-    const selection = this._collectSelectionObjects({ activeObject })
+    const selection = SelectionManager._collectSelectionObjects({ activeObject })
     this.lastSelection = selection.slice()
   }
 
@@ -371,7 +371,7 @@ export default class SelectionManager {
   /**
    * Собирает объекты активного выделения.
    */
-  private _collectSelectionObjects({ activeObject }: { activeObject: FabricObject | null }): FabricObject[] {
+  private static _collectSelectionObjects({ activeObject }: { activeObject: FabricObject | null }): FabricObject[] {
     if (!activeObject) return []
 
     if (activeObject instanceof ActiveSelection) {
@@ -384,7 +384,7 @@ export default class SelectionManager {
   /**
    * Проверяет, что выборка состоит только из заблокированных объектов.
    */
-  private _isSelectionLockedOnly({ objects }: { objects: FabricObject[] }): boolean {
+  private static _isSelectionLockedOnly({ objects }: { objects: FabricObject[] }): boolean {
     if (objects.length === 0) return false
 
     for (const object of objects) {
@@ -397,7 +397,7 @@ export default class SelectionManager {
   /**
    * Оставляет только заблокированные объекты в выборке.
    */
-  private _filterLockedSelectionObjects({ objects }: { objects: FabricObject[] }): FabricObject[] {
+  private static _filterLockedSelectionObjects({ objects }: { objects: FabricObject[] }): FabricObject[] {
     const lockedObjects: FabricObject[] = []
 
     for (const object of objects) {
@@ -427,7 +427,7 @@ export default class SelectionManager {
   /**
    * Проверяет равенство двух выборок без учёта порядка.
    */
-  private _areSelectionsEqual({
+  private static _areSelectionsEqual({
     left,
     right
   }: {
@@ -447,7 +447,7 @@ export default class SelectionManager {
   /**
    * Объединяет список объектов без дубликатов.
    */
-  private _mergeSelections({
+  private static _mergeSelections({
     baseSelection,
     addedSelection
   }: {
@@ -474,7 +474,7 @@ export default class SelectionManager {
   /**
    * Делит объекты на заблокированные и доступные для редактирования.
    */
-  private _splitLockedObjects({
+  private static _splitLockedObjects({
     objects
   }: {
     objects: FabricObject[]
@@ -497,7 +497,7 @@ export default class SelectionManager {
   /**
    * Определяет, нужно ли сохранить только заблокированное выделение при попытке добавить обычные объекты.
    */
-  private _shouldKeepLockedSelection({
+  private static _shouldKeepLockedSelection({
     addedObjects,
     currentSelection,
     pointerEvent
@@ -554,7 +554,7 @@ export default class SelectionManager {
     }
 
     const selection = new ActiveSelection(validObjects, { canvas })
-    const hasLockedObjects = this._hasLockedObjects({ objects: validObjects })
+    const hasLockedObjects = SelectionManager._hasLockedObjects({ objects: validObjects })
 
     if (hasLockedObjects) {
       objectLockManager.lockObject({
@@ -570,7 +570,7 @@ export default class SelectionManager {
   /**
    * Проверяет, есть ли среди объектов заблокированные.
    */
-  private _hasLockedObjects({ objects }: { objects: FabricObject[] }): boolean {
+  private static _hasLockedObjects({ objects }: { objects: FabricObject[] }): boolean {
     for (const object of objects) {
       if (object.locked) return true
     }

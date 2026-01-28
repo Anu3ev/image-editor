@@ -845,7 +845,6 @@ class Listeners {
 
     this.canvas.off('object:added', this.handleBackgroundUpdateBound)
     this.canvas.off('selection:created', this.handleBackgroundUpdateBound)
-
   }
 
   /**
