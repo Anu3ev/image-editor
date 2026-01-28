@@ -111,15 +111,7 @@ class Listeners {
 
   handleMouseWheelZoomBound: (options: TPointerEventInfo<WheelEvent>) => void
 
-  handleBringToFrontBound: ({ selected }: { selected: FabricObject[] }) => void
-
   handleResetObjectFitBound: (options: TPointerEventInfo<TPointerEvent>) => void
-
-  handleLockedSelectionBound: (options: {
-    selected: FabricObject[],
-    deselected?: FabricObject[],
-    e?: TPointerEvent
-  }) => void
 
   /**
    * Опции редактора, которые могут быть изменены пользователем.
@@ -127,8 +119,6 @@ class Listeners {
   canvasDragging: boolean = false
 
   mouseWheelZooming: boolean = false
-
-  bringToFrontOnSelection: boolean = false
 
   resetObjectFitByDoubleClick: boolean = false
 
@@ -151,7 +141,6 @@ class Listeners {
    * @param params.options — настройки редактора (см. defaults.js)
    * @param params.options.canvasDragging — включить перетаскивание канваса
    * @param params.options.mouseWheelZooming — включить зум колесом мыши
-   * @param params.options.bringToFrontOnSelection — поднимать объект на передний план при выборе
    * @param params.options.copyObjectsByHotkey — копировать объекты по Ctrl+C
    * @param params.options.pasteImageFromClipboard — вставлять изображения и объекты из буфера обмена
    * @param params.options.undoRedoByHotKeys — отмена/повтор по Ctrl+Z/Ctrl+Y
@@ -190,9 +179,7 @@ class Listeners {
     this.handleCanvasDraggingBound = this.handleCanvasDragging.bind(this)
     this.handleCanvasDragEndBound = this.handleCanvasDragEnd.bind(this)
     this.handleMouseWheelZoomBound = this.handleMouseWheelZoom.bind(this)
-    this.handleBringToFrontBound = this.handleBringToFront.bind(this)
     this.handleResetObjectFitBound = this.handleResetObjectFit.bind(this)
-    this.handleLockedSelectionBound = this._filterLockedSelection.bind(this)
 
     this.init()
   }
@@ -205,7 +192,6 @@ class Listeners {
       adaptCanvasToContainerOnResize,
       canvasDragging,
       mouseWheelZooming,
-      bringToFrontOnSelection,
       copyObjectsByHotkey,
       pasteImageFromClipboard,
       undoRedoByHotKeys,
@@ -225,11 +211,6 @@ class Listeners {
 
     if (mouseWheelZooming) {
       this.canvas.on('mouse:wheel', this.handleMouseWheelZoomBound)
-    }
-
-    if (bringToFrontOnSelection) {
-      this.canvas.on('selection:created', this.handleBringToFrontBound)
-      this.canvas.on('selection:updated', this.handleBringToFrontBound)
     }
 
     if (resetObjectFitByDoubleClick) {
@@ -279,76 +260,9 @@ class Listeners {
     this.canvas.on('object:added', this.handleOverlayUpdateBound)
     this.canvas.on('selection:created', this.handleOverlayUpdateBound)
 
-    this.canvas.on('selection:created', this.handleLockedSelectionBound)
-    this.canvas.on('selection:updated', this.handleLockedSelectionBound)
-
     // Инициализация событий для background
     this.canvas.on('object:added', this.handleBackgroundUpdateBound)
     this.canvas.on('selection:created', this.handleBackgroundUpdateBound)
-  }
-
-  /**
-   * При массовом выделении объектов удаляем из него залоченные.
-   * @param params - параметры события
-   * @param params.selected - массив выделенных объектов
-   * @param params.e - событие указателя (опционально)
-   */
-  private _filterLockedSelection({ selected, e }: { selected: FabricObject[], e?: TPointerEvent }): void {
-    // Если это не событие мыши или если нет выделенных объектов, то ничего не делаем
-    if (!selected?.length || !(e instanceof MouseEvent)) return
-
-    //  Если объект один, то просто делаем его активным, не важно залочен он или нет
-    if (selected.length === 1) return
-
-    // Проверяем наличие заблокированных и незаблокированных объектов
-    const { lockedObjects, unlockedObjects } = selected.reduce<{
-      lockedObjects: FabricObject[];
-      unlockedObjects: FabricObject[]
-    }>(
-      (acc, obj) => {
-        if (obj.locked) {
-          acc.lockedObjects.push(obj)
-          return acc
-        }
-
-        acc.unlockedObjects.push(obj)
-        return acc
-      },
-      { lockedObjects: [], unlockedObjects: [] }
-    )
-
-    // Если нет заблокированных объектов, то ничего не делаем
-    if (lockedObjects.length === 0) return
-
-    // Если есть и заблокированные, и незаблокированные объекты
-    if (unlockedObjects.length > 0) {
-      // Убираем заблокированные объекты из выделения
-      if (unlockedObjects.length === 1) {
-        this.canvas.setActiveObject(unlockedObjects[0])
-      } else {
-        const newSel = new ActiveSelection(unlockedObjects, {
-          canvas: this.canvas
-        })
-        this.canvas.setActiveObject(newSel)
-      }
-      this.canvas.requestRenderAll()
-      return
-    }
-
-    // Если все объекты заблокированы, создаем ActiveSelection и блокируем его
-    const activeSelection = new ActiveSelection(selected, {
-      canvas: this.canvas
-    })
-
-    // Блокируем сам ActiveSelection, но не его внутренние объекты
-    this.editor.objectLockManager.lockObject({
-      object: activeSelection,
-      skipInnerObjects: true,
-      withoutSave: true
-    })
-
-    this.canvas.setActiveObject(activeSelection)
-    this.canvas.requestRenderAll()
   }
 
   /**
@@ -793,23 +707,14 @@ class Listeners {
   }
 
   /**
-   * Обработчик, поднимающий выделенные объекты на передний план.
-   * @param event - объект события выделения
-   * @param event.selected - массив выбранных объектов
-   */
-  handleBringToFront({ selected }: { selected: FabricObject[] }): void {
-    if (!selected?.length) return
-    selected.forEach((obj) => {
-      this.editor.layerManager.bringToFront(obj)
-    })
-  }
-
-  /**
    * Обработчик сброса объекта по двойному клику.
    * @param options - объект события fabric
    */
   handleResetObjectFit(options: TPointerEventInfo<TPointerEvent>): void {
-    const target = options?.target
+    const { target, e } = options
+    const isCtrlPressed = Boolean(e && (e.ctrlKey || e.metaKey))
+
+    if (isCtrlPressed) return
     if (!target || target instanceof Textbox) return
     this.editor.transformManager.resetObject({ object: target })
   }
@@ -920,10 +825,6 @@ class Listeners {
     if (this.options.mouseWheelZooming) {
       this.canvas.off('mouse:wheel', this.handleMouseWheelZoomBound)
     }
-    if (this.options.bringToFrontOnSelection) {
-      this.canvas.off('selection:created', this.handleBringToFrontBound)
-      this.canvas.off('selection:updated', this.handleBringToFrontBound)
-    }
     if (this.options.resetObjectFitByDoubleClick) {
       this.canvas.off('mouse:dblclick', this.handleResetObjectFitBound)
     }
@@ -944,9 +845,6 @@ class Listeners {
 
     this.canvas.off('object:added', this.handleBackgroundUpdateBound)
     this.canvas.off('selection:created', this.handleBackgroundUpdateBound)
-
-    this.canvas.off('selection:created', this.handleLockedSelectionBound)
-    this.canvas.off('selection:updated', this.handleLockedSelectionBound)
   }
 
   /**

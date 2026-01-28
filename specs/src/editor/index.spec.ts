@@ -233,6 +233,7 @@ describe('ImageEditor', () => {
       const editor = {
         listeners: { destroy: mockDestroy },
         toolbar: { destroy: mockDestroy },
+        selectionManager: { destroy: mockDestroy },
         canvas: { dispose: mockDispose },
         workerManager: { worker: { terminate: mockTerminate } },
         imageManager: { revokeBlobUrls: mockRevokeBlobUrls },
@@ -242,7 +243,7 @@ describe('ImageEditor', () => {
 
       editor.destroy()
 
-      expect(mockDestroy).toHaveBeenCalledTimes(2) // listeners + toolbar
+      expect(mockDestroy).toHaveBeenCalledTimes(3) // listeners + toolbar + selectionManager
       expect(mockDispose).toHaveBeenCalled()
       expect(mockTerminate).toHaveBeenCalled()
       expect(mockRevokeBlobUrls).toHaveBeenCalled()

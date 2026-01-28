@@ -9,6 +9,7 @@ export const defaults: Partial<CanvasOptions> = {
   controlsAboveOverlay: true,
   centeredRotation: true,
   enableRetinaScaling: false,
+  selectionKey: ['ctrlKey', 'metaKey'],
 
   /*
    * Кастомные опции
@@ -82,7 +83,6 @@ export const defaults: Partial<CanvasOptions> = {
    * Настройки слушателей событий
    */
   adaptCanvasToContainerOnResize: true,
-  bringToFrontOnSelection: false,
   mouseWheelZooming: true,
   canvasDragging: true,
   copyObjectsByHotkey: true,

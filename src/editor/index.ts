@@ -373,6 +373,7 @@ export class ImageEditor {
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
     this.textManager?.destroy()
+    this.selectionManager.destroy()
     this.canvas.dispose()
     this.workerManager.worker.terminate()
     this.imageManager.revokeBlobUrls()

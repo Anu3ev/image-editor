@@ -7,7 +7,6 @@ import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../te
 const OPTIONAL_CANVAS_EVENTS = [
   'mouse:down', 'mouse:move', 'mouse:up',
   'mouse:wheel',
-  'selection:created', 'selection:updated',
   'mouse:dblclick'
 ]
 
@@ -24,7 +23,7 @@ const ALWAYS_HISTORY_EVENTS = [
 
 const ALWAYS_REQUIRED_EVENTS = [
   ...ALWAYS_HISTORY_EVENTS,
-  // overlay/locked-selection use selection:created всегда
+  // overlay/background используют selection:created всегда
   'selection:created'
 ]
 
@@ -55,7 +54,6 @@ describe('Listeners', () => {
         options: {
           canvasDragging: true,
           mouseWheelZooming: true,
-          bringToFrontOnSelection: true,
           resetObjectFitByDoubleClick: true,
           adaptCanvasToContainerOnResize: true,
           copyObjectsByHotkey: true,
@@ -364,15 +362,21 @@ describe('Listeners', () => {
       expect(editor.interactionBlocker.refresh).toHaveBeenCalled()
     })
 
-    it('bringToFront и resetObject работают', () => {
+    it('resetObject срабатывает без модификаторов', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: {} })
-      listeners.handleBringToFront({ selected: [{}, {}] as any })
-      expect(editor.layerManager.bringToFront).toHaveBeenCalledTimes(2)
-
       const target = {}
       listeners.handleResetObjectFit(fabricPtrWithTarget(target))
       expect(editor.transformManager.resetObject).toHaveBeenCalledWith({ object: target })
+    })
+
+    it('resetObject не срабатывает при зажатом Ctrl/Cmd', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: {} })
+      const target = {}
+      const event = mouse('dblclick', { ctrlKey: true })
+      listeners.handleResetObjectFit({ target, e: event } as any)
+      expect(editor.transformManager.resetObject).not.toHaveBeenCalled()
     })
 
     it('history save handlers учитывают skipHistory', () => {
@@ -463,7 +467,6 @@ describe('Listeners', () => {
         options: {
           canvasDragging: true,
           mouseWheelZooming: true,
-          bringToFrontOnSelection: true,
           resetObjectFitByDoubleClick: true
         }
       })

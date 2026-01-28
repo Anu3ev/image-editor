@@ -171,11 +171,6 @@ declare module 'fabric' {
      */
     adaptCanvasToContainerOnResize: boolean
     /**
-     * Поднимать объект на передний план по оси Z при выделении.
-     * Если true, то при выделении объекта он будет подниматься на передний план.
-     */
-    bringToFrontOnSelection: boolean
-    /**
      * Зум по CTRL + колесико мыши.
      */
     mouseWheelZooming: boolean
