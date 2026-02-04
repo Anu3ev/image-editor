@@ -202,13 +202,17 @@ export default class ClipboardManager {
    * @param source - источник изображения (data URL или URL)
    */
   private async _handleImageImport(source: string): Promise<void> {
-    const { image } = await this.editor.imageManager.importImage({
+    const { image, imageSource } = await this.editor.imageManager.importImage({
       source,
       fromClipboard: true
     }) ?? {}
 
     if (image) {
-      this.editor.canvas.fire('editor:object-pasted', { object: image })
+      this.editor.canvas.fire('editor:object-pasted', {
+        imageSource,
+        fromInternalClipboard: false,
+        object: image
+      })
     }
   }
 
@@ -249,7 +253,10 @@ export default class ClipboardManager {
       // Добавляем на canvas
       this._addClonedObjectToCanvas(clonedObject)
 
-      canvas.fire('editor:object-duplicated', { object: clonedObject })
+      canvas.fire('editor:object-duplicated', {
+        targetObject,
+        clonedObject
+      })
 
       return true
     } catch (error) {
@@ -372,7 +379,12 @@ export default class ClipboardManager {
       // Добавляем клонированный объект на canvas
       this._addClonedObjectToCanvas(clonedObj)
 
-      canvas.fire('editor:object-pasted', { object: clonedObj })
+      canvas.fire('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: this.clipboard,
+        object: clonedObj
+      })
+
       return true
     } catch (error) {
       const { errorManager } = this.editor

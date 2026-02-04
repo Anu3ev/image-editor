@@ -183,7 +183,7 @@ describe('ImageEditor', () => {
 
     it('должен загрузить начальное состояние если оно предоставлено', async() => {
       const editor = createEditorWithMocks({
-        initialStateJSON: { test: 'state' }
+        initialState: { test: 'state' }
       })
 
       await editor.init()

@@ -277,12 +277,17 @@ declare module 'fabric' {
     /**
      * Срабатывает после вставки объекта.
      */
-    'editor:object-pasted': { object: FabricObject }
+    'editor:object-pasted': {
+      imageSource?: string | File,
+      object: FabricObject,
+      fromInternalClipboard: boolean,
+      clipboardObject?: FabricObject | null
+     }
 
     /**
      * Срабатывает после нажатия на кнопку "Создать копию" в тулбаре выделенного объекта.
      */
-    'editor:object-duplicated': { object: FabricObject }
+    'editor:object-duplicated': { targetObject: FabricObject, clonedObject: FabricObject }
 
     /**
      * Срабатывает после поворота объекта.

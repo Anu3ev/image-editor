@@ -211,7 +211,6 @@ export class ImageEditor {
     this.options = options
     this.containerId = canvasId
     this.editorId = `${canvasId}-${nanoid()}`
-    this.clipboard = null
 
     this.init()
   }
@@ -230,7 +229,7 @@ export class ImageEditor {
       canvasCSSWidth,
       canvasCSSHeight,
       initialImage,
-      initialStateJSON,
+      initialState,
       scaleType,
       showRotationAngle,
       _onReadyCallback
@@ -286,7 +285,11 @@ export class ImageEditor {
     // Загружаем шрифты после того как редактор получил размеры
     await this.fontManager.loadFonts()
 
-    if (initialImage?.source) {
+    if (initialState) {
+      this.historyManager.suspendHistory()
+      await this.historyManager.loadStateFromFullState(initialState as CanvasFullState)
+      this.historyManager.resumeHistory()
+    } else if (initialImage?.source) {
       const {
         source,
         scale = `image-${scaleType}`,
@@ -295,10 +298,6 @@ export class ImageEditor {
       } = initialImage as ImportImageOptions
 
       await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
-    }
-
-    if (initialStateJSON) {
-      this.historyManager.loadStateFromFullState(initialStateJSON as CanvasFullState)
     }
 
     this.historyManager.saveState()

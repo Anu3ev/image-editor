@@ -70,7 +70,7 @@ export const defaults: Partial<CanvasOptions> = {
       }
     ]
   },
-  initialStateJSON: null,
+  initialState: null,
   initialImage: null,
   defaultScale: 0.5,
   minZoom: 0.1,

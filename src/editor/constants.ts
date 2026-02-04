@@ -23,6 +23,9 @@ export const CLIPBOARD_DATA_PREFIX = 'application/image-editor:'
  */
 export const CLIPBOARD_CLONE_OBJECT_KEYS = [
   'format',
+  'customData',
+  'contentType',
+  'autoExpand',
   'uppercase',
   'textCaseRaw',
   'backgroundColor',
