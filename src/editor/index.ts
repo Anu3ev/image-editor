@@ -287,7 +287,10 @@ export class ImageEditor {
 
     if (initialState) {
       this.historyManager.suspendHistory()
-      await this.historyManager.loadStateFromFullState(initialState as CanvasFullState)
+      const preparedState = await this.imageManager.prepareInitialState({
+        state: initialState as CanvasFullState
+      })
+      await this.historyManager.loadStateFromFullState(preparedState)
       this.historyManager.resumeHistory()
     } else if (initialImage?.source) {
       const {

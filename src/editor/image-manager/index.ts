@@ -9,6 +9,7 @@ import {
 } from '../constants'
 
 import { ImageEditor } from '../index'
+import type { CanvasFullState } from '../history-manager'
 
 export type SuccessulImageImportResult = {
   image: FabricImage | FabricObject
@@ -107,6 +108,118 @@ export default class ImageManager {
   }
 
   /**
+   * Подготавливает initialState: заменяет src у изображений на blob-URL с кешированием.
+   * Если запрос не удался (например, CORS), src остаётся исходным.
+   */
+  public async prepareInitialState({ state }: { state: CanvasFullState }): Promise<CanvasFullState> {
+    if (!state) return state
+
+    const clonedState = JSON.parse(JSON.stringify(state)) as CanvasFullState
+    const cache = new Map<string, string>()
+
+    const { objects = [] } = clonedState
+
+    console.log('objects', objects)
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index] as Record<string, unknown>
+
+      // eslint-disable-next-line no-await-in-loop
+      await this._replaceImageSrcInObject({ object, cache })
+    }
+
+    return clonedState
+  }
+
+  /**
+   * Рекурсивно заменяет src у изображений в объекте на blob-URL.
+   */
+  private async _replaceImageSrcInObject({
+    object,
+    cache
+  }: {
+    object: Record<string, unknown>
+    cache: Map<string, string>
+  }): Promise<void> {
+    if (!object) return
+
+    const { type, src, objects } = object
+
+    console.log('_replaceImageSrcInObject', { type, src, objects })
+    if (type?.toLowerCase() === 'image') {
+      const blobUrl = await this._getOrCreateBlobUrl({ src, cache })
+
+      if (blobUrl) {
+        object.src = blobUrl
+      }
+    }
+
+    if (Array.isArray(objects)) {
+      for (let index = 0; index < objects.length; index += 1) {
+        const childObject = objects[index] as Record<string, unknown>
+
+        // eslint-disable-next-line no-await-in-loop
+        await this._replaceImageSrcInObject({ object: childObject, cache })
+      }
+    }
+  }
+
+  /**
+   * Возвращает blob-URL для src, создавая и кешируя его при необходимости.
+   */
+  private async _getOrCreateBlobUrl({
+    src,
+    cache
+  }: {
+    src: string
+    cache: Map<string, string>
+  }): Promise<string | null> {
+    if (ImageManager._isBlobOrDataUrl({ src })) return src
+
+    if (cache.has(src)) {
+      return cache.get(src) ?? null
+    }
+
+    const blobUrl = await this._fetchAsBlobUrl({ src })
+    console.log('_getOrCreateBlobUrl', { src, blobUrl })
+    if (!blobUrl) return null
+
+    cache.set(src, blobUrl)
+
+    return blobUrl
+  }
+
+  /**
+   * Проверяет, что src является blob/data URL.
+   */
+  static private _isBlobOrDataUrl({ src }: { src: string }): boolean {
+    if (src.startsWith('blob:')) return true
+    if (src.startsWith('data:')) return true
+
+    return false
+  }
+
+  /**
+   * Загружает изображение по URL и возвращает blob-URL. При ошибке возвращает null.
+   */
+  private async _fetchAsBlobUrl({ src }: { src: string }): Promise<string | null> {
+    try {
+      const response = await fetch(src, { mode: 'cors' })
+
+      if (!response.ok) return null
+
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      console.log('_fetchAsBlobUrl', { src, blobUrl })
+
+      this._createdBlobUrls.push(blobUrl)
+
+      return blobUrl
+    } catch {
+      return null
+    }
+  }
+
+  /**
    * Импорт изображения
    * @param options
    * @param options.source - URL изображения или объект File
@@ -173,11 +286,9 @@ export default class ImageManager {
 
       if (source instanceof File) {
         dataUrl = URL.createObjectURL(source)
+        this._createdBlobUrls.push(dataUrl)
       } else if (typeof source === 'string') {
-        const resp = await fetch(source, { mode: 'cors' })
-        const blob = await resp.blob()
-
-        dataUrl = URL.createObjectURL(blob)
+        dataUrl = await this._fetchAsBlobUrl({ src: source })
       } else {
         errorManager.emitError({
           origin: 'ImageManager',
@@ -201,9 +312,6 @@ export default class ImageManager {
         historyManager.resumeHistory()
         return null
       }
-
-      // Создаем blobURL и добавляем его в массив для последующего удаления (destroy)
-      this._createdBlobUrls.push(dataUrl)
 
       // SVG: парсим через loadSVGFromURL и группируем в один объект
       if (format === 'svg') {

@@ -64,6 +64,11 @@ export const errorCodes = {
     PASTE_IMAGE_FAILED: 'PASTE_IMAGE_FAILED',
 
     /**
+     * Ошибка вставки изображения из буфера обмена, которая была отложена и затем отклонена (например, из-за того, что пользователь отклонил запрос на доступ к буферу обмена).
+     */
+    EXTERNAL_PASTE_DEFERRED_REJECTED: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
+
+    /**
      * Ошибка вставки HTML-изображения из буфера обмена.
      */
     PASTE_HTML_IMAGE_FAILED: 'PASTE_HTML_IMAGE_FAILED',

@@ -207,14 +207,17 @@ export default class ClipboardManager {
     let isDeferred = false
     let isSettled = false
 
-    let resolveDeferred: ((customData?: object | null) => void) | null = null
+    let resolveDeferred: ((customData?: object | null, importOptions?: object | null) => void) | null = null
     let rejectDeferred: ((error?: unknown) => void) | null = null
 
-    const deferredPromise = new Promise<{ customData?: object | null }>((resolve, reject) => {
-      resolveDeferred = (customData?: object | null) => {
+    const deferredPromise = new Promise<{
+      customData?: object | null,
+      importOptions: object | null
+    }>((resolve, reject) => {
+      resolveDeferred = (customData?: object | null, importOptions?: object | null) => {
         if (isSettled) return
         isSettled = true
-        resolve({ customData })
+        resolve({ customData, importOptions })
       }
 
       rejectDeferred = (error?: unknown) => {
@@ -228,7 +231,7 @@ export default class ClipboardManager {
       isDeferred = true
 
       return {
-        resolve: resolveDeferred as (customData?: object | null) => void,
+        resolve: resolveDeferred as (customData?: object | null, importOptions?: object | null) => void,
         reject: rejectDeferred as (error?: unknown) => void
       }
     }
@@ -244,10 +247,10 @@ export default class ClipboardManager {
     }
 
     try {
-      const { customData } = await deferredPromise
-      await this._importExternalImage({ source, customData: customData ?? undefined })
+      const { customData, importOptions } = await deferredPromise
+      await this._importExternalImage({ source, customData: customData ?? undefined, importOptions })
     } catch (error) {
-      errorManager.emitWarning({
+      errorManager.emitError({
         origin: 'ClipboardManager',
         method: '_handleImageImport',
         code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
@@ -262,21 +265,24 @@ export default class ClipboardManager {
    */
   private async _importExternalImage({
     source,
-    customData
+    customData,
+    importOptions
   }: {
     source: string
-    customData?: object
+    customData?: object,
+    importOptions?: object
   }): Promise<void> {
-    const importOptions = {
+    const options = {
       source,
-      fromClipboard: true
+      fromClipboard: true,
+      ...importOptions
     }
 
     if (customData) {
-      importOptions.customData = customData
+      options.customData = customData
     }
 
-    const result = await this.editor.imageManager.importImage(importOptions)
+    const result = await this.editor.imageManager.importImage(options)
 
     const image = result?.image
     const imageSource = result?.source ?? source
