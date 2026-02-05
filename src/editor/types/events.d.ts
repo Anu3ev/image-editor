@@ -132,6 +132,14 @@ export type BackgroundChangedPayload = {
   backgroundObject?: FabricImage | FabricObject | null
 }
 
+export type ExternalImagePastePendingPayload = {
+  imageSource: string | File,
+  defer: () => {
+    resolve: (customData?: object | null) => void
+    reject: (error?: unknown) => void
+  }
+}
+
 declare module 'fabric' {
   interface CanvasEvents {
     /**
@@ -283,6 +291,12 @@ declare module 'fabric' {
       fromInternalClipboard: boolean,
       clipboardObject?: FabricObject | null
      }
+
+    /**
+     * Срабатывает перед вставкой изображения из внешнего буфера обмена.
+     * Позволяет отложить вставку и передать customData.
+     */
+    'editor:external-image-paste-pending': ExternalImagePastePendingPayload
 
     /**
      * Срабатывает после нажатия на кнопку "Создать копию" в тулбаре выделенного объекта.

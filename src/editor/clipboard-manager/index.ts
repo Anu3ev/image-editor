@@ -202,10 +202,84 @@ export default class ClipboardManager {
    * @param source - источник изображения (data URL или URL)
    */
   private async _handleImageImport(source: string): Promise<void> {
-    const { image, imageSource } = await this.editor.imageManager.importImage({
+    const { canvas, errorManager } = this.editor
+
+    let isDeferred = false
+    let isSettled = false
+
+    let resolveDeferred: ((customData?: object | null) => void) | null = null
+    let rejectDeferred: ((error?: unknown) => void) | null = null
+
+    const deferredPromise = new Promise<{ customData?: object | null }>((resolve, reject) => {
+      resolveDeferred = (customData?: object | null) => {
+        if (isSettled) return
+        isSettled = true
+        resolve({ customData })
+      }
+
+      rejectDeferred = (error?: unknown) => {
+        if (isSettled) return
+        isSettled = true
+        reject(error)
+      }
+    })
+
+    const defer = () => {
+      isDeferred = true
+
+      return {
+        resolve: resolveDeferred as (customData?: object | null) => void,
+        reject: rejectDeferred as (error?: unknown) => void
+      }
+    }
+
+    canvas.fire('editor:external-image-paste-pending', {
+      imageSource: source,
+      defer
+    })
+
+    if (!isDeferred) {
+      await this._importExternalImage({ source })
+      return
+    }
+
+    try {
+      const { customData } = await deferredPromise
+      await this._importExternalImage({ source, customData: customData ?? undefined })
+    } catch (error) {
+      errorManager.emitWarning({
+        origin: 'ClipboardManager',
+        method: '_handleImageImport',
+        code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
+        message: 'Вставка изображения из буфера обмена была отменена или завершилась ошибкой',
+        data: { error }
+      })
+    }
+  }
+
+  /**
+   * Импорт изображения из внешнего буфера обмена
+   */
+  private async _importExternalImage({
+    source,
+    customData
+  }: {
+    source: string
+    customData?: object
+  }): Promise<void> {
+    const importOptions = {
       source,
       fromClipboard: true
-    }) ?? {}
+    }
+
+    if (customData) {
+      importOptions.customData = customData
+    }
+
+    const result = await this.editor.imageManager.importImage(importOptions)
+
+    const image = result?.image
+    const imageSource = result?.source ?? source
 
     if (image) {
       this.editor.canvas.fire('editor:object-pasted', {
