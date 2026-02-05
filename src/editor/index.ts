@@ -287,11 +287,35 @@ export class ImageEditor {
 
     if (initialState) {
       this.historyManager.suspendHistory()
-      const preparedState = await this.imageManager.prepareInitialState({
-        state: initialState as CanvasFullState
-      })
-      await this.historyManager.loadStateFromFullState(preparedState)
-      this.historyManager.resumeHistory()
+
+      try {
+        const preparedState = await this.imageManager.prepareInitialState({
+          state: initialState as CanvasFullState
+        })
+
+        await this.historyManager.loadStateFromFullState(preparedState)
+      } catch (error) {
+        const {
+          source,
+          scale = `image-${scaleType}`,
+          withoutSave = true,
+          ...rest
+        } = initialImage as ImportImageOptions
+
+        if (source) {
+          await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
+        }
+
+        this.errorManager.emitError({
+          origin: 'ImageEditor',
+          method: 'init',
+          code: 'INITIAL_STATE_LOAD_FAILED',
+          message: 'Не удалось загрузить состояние редактора. Попытка импортировать начальное изображение.',
+          data: error as Error
+        })
+      } finally {
+        this.historyManager.resumeHistory()
+      }
     } else if (initialImage?.source) {
       const {
         source,

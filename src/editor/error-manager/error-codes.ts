@@ -26,7 +26,12 @@ export const errorCodes = {
     /**
      * Ошибка при экспорте изображения
      */
-    IMAGE_EXPORT_FAILED: 'IMAGE_EXPORT_FAILED'
+    IMAGE_EXPORT_FAILED: 'IMAGE_EXPORT_FAILED',
+
+    /**
+     * Ошибка при загрузке начального состояния редактора
+     */
+    INITIAL_STATE_LOAD_FAILED: 'INITIAL_STATE_LOAD_FAILED'
   },
 
   /**
