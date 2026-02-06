@@ -3,6 +3,7 @@ import type {
   AnchorBuckets,
   Bounds,
   GuideLine,
+  SpacingCandidate,
   SpacingGuide,
   SpacingPattern
 } from './types'
@@ -18,6 +19,102 @@ type NeighborGap = {
   start: number
   end: number
   distance: number
+}
+
+/**
+ * Возвращает величину перекрытия двух отрезков на оси.
+ * Положительное значение означает пересечение, 0 — касание, отрицательное — разрыв.
+ */
+const getAxisOverlap = ({
+  firstStart,
+  firstEnd,
+  secondStart,
+  secondEnd
+}: {
+  firstStart: number
+  firstEnd: number
+  secondStart: number
+  secondEnd: number
+}): number => Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart)
+
+/**
+ * Убирает кандидатов, чья проекция по оси расчёта (X или Y) полностью накрыта объектом выше.
+ * Это нужно, чтобы фоновые элементы не ломали цепочку «соседних зазоров», но при этом
+ * элементы, которые выступают по оси (как в Canva), оставались в расчёте.
+ */
+const filterOccludedSpacingCandidates = ({
+  candidates,
+  axis
+}: {
+  candidates: SpacingCandidate[]
+  axis: 'horizontal' | 'vertical'
+}): SpacingCandidate[] => {
+  const result: SpacingCandidate[] = []
+
+  for (let index = 0; index < candidates.length; index += 1) {
+    const candidate = candidates[index]
+    const {
+      bounds: candidateBounds,
+      zIndex: candidateZIndex
+    } = candidate
+
+    const {
+      left: candidateLeft,
+      right: candidateRight,
+      top: candidateTop,
+      bottom: candidateBottom
+    } = candidateBounds
+
+    let isCovered = false
+
+    for (let coverIndex = 0; coverIndex < candidates.length; coverIndex += 1) {
+      if (coverIndex === index) continue
+
+      const coverCandidate = candidates[coverIndex]
+      const { zIndex: coverZIndex, bounds: coverBounds } = coverCandidate
+      if (coverZIndex <= candidateZIndex) continue
+
+      const {
+        left: coverLeft,
+        right: coverRight,
+        top: coverTop,
+        bottom: coverBottom
+      } = coverBounds
+
+      const overlapX = getAxisOverlap({
+        firstStart: candidateLeft,
+        firstEnd: candidateRight,
+        secondStart: coverLeft,
+        secondEnd: coverRight
+      })
+      if (overlapX <= 0) continue
+
+      const overlapY = getAxisOverlap({
+        firstStart: candidateTop,
+        firstEnd: candidateBottom,
+        secondStart: coverTop,
+        secondEnd: coverBottom
+      })
+      if (overlapY <= 0) continue
+
+      if (axis === 'horizontal') {
+        const isCoveredOnAxis = coverLeft <= candidateLeft && coverRight >= candidateRight
+        if (!isCoveredOnAxis) continue
+        isCovered = true
+        break
+      }
+
+      const isCoveredOnAxis = coverTop <= candidateTop && coverBottom >= candidateBottom
+      if (!isCoveredOnAxis) continue
+      isCovered = true
+      break
+    }
+
+    if (isCovered) continue
+    result.push(candidate)
+  }
+
+  return result
 }
 
 /**
@@ -223,7 +320,7 @@ export const calculateVerticalSpacing = ({
   patterns: _patterns
 }: {
   activeBounds: Bounds
-  candidates: Bounds[]
+  candidates: SpacingCandidate[]
   threshold: number
   patterns: SpacingPattern[]
 }): { delta: number; guide: SpacingGuide | null } => {
@@ -235,10 +332,25 @@ export const calculateVerticalSpacing = ({
     right: activeRight
   } = activeBounds
 
+  const filteredCandidates = filterOccludedSpacingCandidates({
+    candidates,
+    axis: 'vertical'
+  })
+
   const aligned: Bounds[] = []
-  for (const bounds of candidates) {
-    const { left, right } = bounds
-    const overlap = Math.min(right, activeRight) - Math.max(left, activeLeft)
+  for (const candidate of filteredCandidates) {
+    const { bounds } = candidate
+    const {
+      left,
+      right
+    } = bounds
+
+    const overlap = getAxisOverlap({
+      firstStart: left,
+      firstEnd: right,
+      secondStart: activeLeft,
+      secondEnd: activeRight
+    })
     if (overlap > 0) {
       aligned.push(bounds)
     }
@@ -423,7 +535,7 @@ export const calculateHorizontalSpacing = ({
   patterns: _patterns
 }: {
   activeBounds: Bounds
-  candidates: Bounds[]
+  candidates: SpacingCandidate[]
   threshold: number
   patterns: SpacingPattern[]
 }): { delta: number; guide: SpacingGuide | null } => {
@@ -435,10 +547,25 @@ export const calculateHorizontalSpacing = ({
     bottom: activeBottom
   } = activeBounds
 
+  const filteredCandidates = filterOccludedSpacingCandidates({
+    candidates,
+    axis: 'horizontal'
+  })
+
   const aligned: Bounds[] = []
-  for (const bounds of candidates) {
-    const { top, bottom } = bounds
-    const overlap = Math.min(bottom, activeBottom) - Math.max(top, activeTop)
+  for (const candidate of filteredCandidates) {
+    const { bounds } = candidate
+    const {
+      top,
+      bottom
+    } = bounds
+
+    const overlap = getAxisOverlap({
+      firstStart: top,
+      firstEnd: bottom,
+      secondStart: activeTop,
+      secondEnd: activeBottom
+    })
     if (overlap > 0) {
       aligned.push(bounds)
     }
@@ -623,7 +750,7 @@ export const calculateSpacingSnap = ({
   spacingPatterns
 }: {
   activeBounds: Bounds
-  candidates: Bounds[]
+  candidates: SpacingCandidate[]
   threshold: number
   spacingPatterns: { vertical: SpacingPattern[]; horizontal: SpacingPattern[] }
 }): { deltaX: number; deltaY: number; guides: SpacingGuide[] } => {
