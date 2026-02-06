@@ -132,10 +132,14 @@ export type BackgroundChangedPayload = {
   backgroundObject?: FabricImage | FabricObject | null
 }
 
+export type ExternalImagePasteImportOptions = Partial<
+  Omit<import('../image-manager').ImportImageOptions, 'source' | 'fromClipboard'>
+>
+
 export type ExternalImagePastePendingPayload = {
   imageSource: string | File,
   defer: () => {
-    resolve: (customData?: object | null) => void
+    resolve: (importOptions?: ExternalImagePasteImportOptions | null) => void
     reject: (error?: unknown) => void
   }
 }

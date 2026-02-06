@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import { CLIPBOARD_DATA_PREFIX, CLIPBOARD_CLONE_OBJECT_KEYS } from '../constants'
 
 import { ImageEditor } from '../index'
+import type { ImportImageOptions } from '../image-manager'
 
 export default class ClipboardManager {
   /**
@@ -207,17 +208,16 @@ export default class ClipboardManager {
     let isDeferred = false
     let isSettled = false
 
-    let resolveDeferred: ((customData?: object | null, importOptions?: object | null) => void) | null = null
+    type DeferredImportOptions = Partial<Omit<ImportImageOptions, 'source' | 'fromClipboard'>>
+
+    let resolveDeferred: ((importOptions?: DeferredImportOptions | null) => void) | null = null
     let rejectDeferred: ((error?: unknown) => void) | null = null
 
-    const deferredPromise = new Promise<{
-      customData?: object | null,
-      importOptions: object | null
-    }>((resolve, reject) => {
-      resolveDeferred = (customData?: object | null, importOptions?: object | null) => {
+    const deferredPromise = new Promise<DeferredImportOptions | null>((resolve, reject) => {
+      resolveDeferred = (importOptions?: DeferredImportOptions | null) => {
         if (isSettled) return
         isSettled = true
-        resolve({ customData, importOptions })
+        resolve(importOptions ?? null)
       }
 
       rejectDeferred = (error?: unknown) => {
@@ -231,7 +231,7 @@ export default class ClipboardManager {
       isDeferred = true
 
       return {
-        resolve: resolveDeferred as (customData?: object | null, importOptions?: object | null) => void,
+        resolve: resolveDeferred as (importOptions?: DeferredImportOptions | null) => void,
         reject: rejectDeferred as (error?: unknown) => void
       }
     }
@@ -247,8 +247,8 @@ export default class ClipboardManager {
     }
 
     try {
-      const { customData, importOptions } = await deferredPromise
-      await this._importExternalImage({ source, customData: customData ?? undefined, importOptions })
+      const importOptions = await deferredPromise
+      await this._importExternalImage({ source, importOptions })
     } catch (error) {
       errorManager.emitError({
         origin: 'ClipboardManager',
@@ -265,21 +265,15 @@ export default class ClipboardManager {
    */
   private async _importExternalImage({
     source,
-    customData,
-    importOptions
+    importOptions = {}
   }: {
     source: string
-    customData?: object,
-    importOptions?: object
+    importOptions?: Partial<Omit<ImportImageOptions, 'source' | 'fromClipboard'>>
   }): Promise<void> {
-    const options = {
+    const options: ImportImageOptions = {
+      ...importOptions,
       source,
-      fromClipboard: true,
-      ...importOptions
-    }
-
-    if (customData) {
-      options.customData = customData
+      fromClipboard: true
     }
 
     const result = await this.editor.imageManager.importImage(options)
