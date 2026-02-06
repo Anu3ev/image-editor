@@ -259,6 +259,7 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
 
   editor.imageManager = {
     importImage: jest.fn().mockResolvedValue(undefined),
+    prepareInitialState: jest.fn().mockImplementation(async({ state }) => state),
     calculateScaleFactor: jest.fn().mockReturnValue(1)
   } as any
 

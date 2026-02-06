@@ -94,7 +94,8 @@ describe('ClipboardManager', () => {
       expect(mockCanvas.add).toHaveBeenCalled()
       expect(mockCanvas.setActiveObject).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
-        object: expect.objectContaining({
+        targetObject: mockObject,
+        clonedObject: expect.objectContaining({
           left: left + OBJECT_OFFSET,
           top: top + OBJECT_OFFSET
         })
@@ -119,7 +120,8 @@ describe('ClipboardManager', () => {
       expect(result).toBe(true)
       expect(mockCanvas.add).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
-        object: expect.objectContaining({
+        targetObject: mockSvgObject,
+        clonedObject: expect.objectContaining({
           left: left + OBJECT_OFFSET,
           top: top + OBJECT_OFFSET
         })
@@ -139,7 +141,8 @@ describe('ClipboardManager', () => {
       expect(result).toBe(true)
       expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
-        object: expect.any(Object)
+        targetObject: mockGroup,
+        clonedObject: expect.any(Object)
       })
     })
 
@@ -155,7 +158,8 @@ describe('ClipboardManager', () => {
       expect(result).toBe(true)
       expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
-        object: expect.any(Object)
+        targetObject: mockGroup,
+        clonedObject: expect.any(Object)
       })
     })
 
@@ -190,6 +194,8 @@ describe('ClipboardManager', () => {
       expect(mockCanvas.add).toHaveBeenCalled()
       expect(mockCanvas.setActiveObject).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockClipboardObject,
         object: expect.objectContaining({
           left: left + OBJECT_OFFSET,
           top: top + OBJECT_OFFSET
@@ -215,6 +221,8 @@ describe('ClipboardManager', () => {
       expect(result).toBe(true)
       expect(mockCanvas.add).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockSvgObject,
         object: expect.objectContaining({
           left: left + OBJECT_OFFSET,
           top: top + OBJECT_OFFSET
@@ -238,6 +246,8 @@ describe('ClipboardManager', () => {
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockGroup,
         object: expect.any(Object)
       })
     })
@@ -257,6 +267,8 @@ describe('ClipboardManager', () => {
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockGroup,
         object: expect.any(Object)
       })
     })
@@ -284,6 +296,8 @@ describe('ClipboardManager', () => {
 
       // Проверяем вызов события
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockGroup,
         object: expect.any(ActiveSelection)
       })
     })
@@ -310,7 +324,8 @@ describe('ClipboardManager', () => {
 
       // Проверяем вызов события
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
-        object: expect.any(ActiveSelection)
+        targetObject: mockGroup,
+        clonedObject: expect.any(ActiveSelection)
       })
     })
 
@@ -359,6 +374,8 @@ describe('ClipboardManager', () => {
       })
 
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: false,
+        imageSource: expect.any(String),
         object: mockImage
       })
 
@@ -367,6 +384,8 @@ describe('ClipboardManager', () => {
 
       expect(result).toBe(true)
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: clipboardManager.clipboard,
         object: expect.any(Object)
       })
     })
@@ -395,6 +414,8 @@ describe('ClipboardManager', () => {
 
       expect(result).toBe(true)
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: clipboardManager.clipboard,
         object: expect.any(Object)
       })
     })
@@ -426,6 +447,8 @@ describe('ClipboardManager', () => {
       })
 
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: false,
+        imageSource: expect.stringContaining('data:image/png;base64,'),
         object: mockImage
       })
     })
@@ -467,6 +490,8 @@ describe('ClipboardManager', () => {
       })
 
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: false,
+        imageSource: 'https://example.com/image.jpg',
         object: mockImage
       })
     })
@@ -486,7 +511,11 @@ describe('ClipboardManager', () => {
 
       await clipboardManager.handlePasteEvent(clipboardEvent)
 
+      await new Promise(process.nextTick)
+
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockObject,
         object: expect.any(Object)
       })
     })
@@ -498,7 +527,11 @@ describe('ClipboardManager', () => {
       const emptyEvent = createEmptyClipboardEvent()
       await clipboardManager.handlePasteEvent(emptyEvent)
 
+      await new Promise(process.nextTick)
+
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockObject,
         object: expect.any(Object)
       })
     })
@@ -519,7 +552,11 @@ describe('ClipboardManager', () => {
 
       await clipboardManager.handlePasteEvent(clipboardEvent)
 
+      await new Promise(process.nextTick)
+
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: mockObject,
         object: expect.any(Object)
       })
     })

@@ -11,7 +11,15 @@ jest.mock('../../../src/editor/worker-manager')
 jest.mock('../../../src/editor/customized-controls')
 jest.mock('../../../src/editor/ui/toolbar-manager')
 jest.mock('../../../src/editor/history-manager')
-jest.mock('../../../src/editor/image-manager')
+jest.mock('../../../src/editor/image-manager', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    importImage: jest.fn().mockResolvedValue(undefined),
+    prepareInitialState: jest.fn().mockImplementation(async({ state }) => state),
+    calculateScaleFactor: jest.fn().mockReturnValue(1),
+    revokeBlobUrls: jest.fn()
+  }))
+}))
 jest.mock('../../../src/editor/canvas-manager')
 jest.mock('../../../src/editor/transform-manager')
 jest.mock('../../../src/editor/interaction-blocker')
@@ -57,7 +65,6 @@ describe('ImageEditor', () => {
       expect(editor.containerId).toBe(canvasId)
       expect(editor.options).toBe(options)
       expect(editor.editorId).toBe(`${canvasId}-test-id-123`)
-      expect(editor.clipboard).toBeNull()
       expect(mockNanoid).toHaveBeenCalledTimes(1)
     })
 

@@ -58,6 +58,7 @@ export const setupImageManagerGlobalMocks = () => {
   let blobCounter = 0
 
   const mockFetch = jest.fn(async() => ({
+    ok: true,
     blob: async() => new Blob(['mock'], { type: 'image/png' }),
     headers: {
       get: jest.fn(() => 'image/png')

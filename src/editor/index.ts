@@ -295,14 +295,14 @@ export class ImageEditor {
 
         await this.historyManager.loadStateFromFullState(preparedState)
       } catch (error) {
-        const {
-          source,
-          scale = `image-${scaleType}`,
-          withoutSave = true,
-          ...rest
-        } = initialImage as ImportImageOptions
+        if (initialImage?.source) {
+          const {
+            source,
+            scale = `image-${scaleType}`,
+            withoutSave = true,
+            ...rest
+          } = initialImage as ImportImageOptions
 
-        if (source) {
           await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
         }
 
