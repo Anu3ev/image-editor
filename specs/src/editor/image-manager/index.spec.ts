@@ -41,6 +41,110 @@ describe('ImageManager', () => {
     restoreGlobals()
   })
 
+  describe('prepareInitialState', () => {
+    it('заменяет src у image-объектов на blob URL и не мутирует исходный state', async() => {
+      const initialState: any = {
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          { type: 'image', src: 'https://example.com/a.png' },
+          { type: 'rect', fill: '#fff' }
+        ]
+      }
+
+      const prepared = await imageManager.prepareInitialState({ state: initialState })
+
+      expect(initialState.objects[0].src).toBe('https://example.com/a.png')
+      expect(prepared.objects?.[0].src).toMatch(/^blob:mock-\d+$/)
+      expect(prepared.objects?.[1]).toEqual(expect.objectContaining({ type: 'rect' }))
+      expect(mockFetch).toHaveBeenCalledWith('https://example.com/a.png', { mode: 'cors' })
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
+    })
+
+    it('кеширует blob URL для одинаковых src и не делает повторных fetch', async() => {
+      const initialState: any = {
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          { type: 'image', src: 'https://example.com/same.png' },
+          { type: 'image', src: 'https://example.com/same.png' }
+        ]
+      }
+
+      const prepared = await imageManager.prepareInitialState({ state: initialState })
+
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
+      expect(prepared.objects?.[0].src).toBe(prepared.objects?.[1].src)
+      expect(prepared.objects?.[0].src).toMatch(/^blob:mock-\d+$/)
+    })
+
+    it('рекурсивно заменяет src у изображений во вложенных objects', async() => {
+      const initialState: any = {
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          {
+            type: 'group',
+            objects: [
+              { type: 'image', src: 'https://example.com/nested.png' }
+            ]
+          }
+        ]
+      }
+
+      const prepared = await imageManager.prepareInitialState({ state: initialState })
+
+      const nestedSrc = prepared.objects?.[0]?.objects?.[0]?.src
+      expect(nestedSrc).toMatch(/^blob:mock-\d+$/)
+      expect(mockFetch).toHaveBeenCalledWith('https://example.com/nested.png', { mode: 'cors' })
+    })
+
+    it('не трогает blob/data URL и не делает fetch', async() => {
+      const initialState: any = {
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          { type: 'image', src: 'blob:already' },
+          { type: 'image', src: 'data:image/png;base64,abc' }
+        ]
+      }
+
+      const prepared = await imageManager.prepareInitialState({ state: initialState })
+
+      expect(prepared.objects?.[0].src).toBe('blob:already')
+      expect(prepared.objects?.[1].src).toBe('data:image/png;base64,abc')
+      expect(mockFetch).not.toHaveBeenCalled()
+      expect(mockCreateObjectURL).not.toHaveBeenCalled()
+    })
+
+    it('при неуспешной загрузке оставляет исходный src (fallback)', async() => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        blob: async() => new Blob(['mock'], { type: 'image/png' }),
+        headers: { get: jest.fn(() => 'image/png') }
+      })
+
+      const initialState: any = {
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          { type: 'image', src: 'https://example.com/fail.png' }
+        ]
+      }
+
+      const prepared = await imageManager.prepareInitialState({ state: initialState })
+
+      expect(prepared.objects?.[0].src).toBe('https://example.com/fail.png')
+      expect(mockCreateObjectURL).not.toHaveBeenCalled()
+    })
+  })
+
   describe('importImage', () => {
     it('returns null when source is missing', async() => {
       const result = await imageManager.importImage({ source: null as any })
