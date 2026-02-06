@@ -21,6 +21,22 @@ type NeighborGap = {
 }
 
 /**
+ * Возвращает величину перекрытия двух отрезков на оси.
+ * Положительное значение означает пересечение, 0 — касание, отрицательное — разрыв.
+ */
+const getAxisOverlap = ({
+  firstStart,
+  firstEnd,
+  secondStart,
+  secondEnd
+}: {
+  firstStart: number
+  firstEnd: number
+  secondStart: number
+  secondEnd: number
+}): number => Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart)
+
+/**
  * Приводит значение к ближайшему шагу сетки.
  */
 const snapToStep = ({
@@ -53,6 +69,36 @@ const isStepAligned = ({
 }
 
 /**
+ * Возвращает границы по выбранной оси в формате start/end.
+ */
+const resolveBoundsEdges = ({
+  bounds,
+  axis
+}: {
+  bounds: Bounds
+  axis: 'horizontal' | 'vertical'
+}): { start: number; end: number } => {
+  const {
+    left = 0,
+    right = 0,
+    top = 0,
+    bottom = 0
+  } = bounds
+
+  if (axis === 'vertical') {
+    return {
+      start: top,
+      end: bottom
+    }
+  }
+
+  return {
+    start: left,
+    end: right
+  }
+}
+
+/**
  * Сортирует элементы по заданной оси без использования колбэков.
  */
 const sortSpacingItems = ({
@@ -82,6 +128,64 @@ const sortSpacingItems = ({
 }
 
 /**
+ * Ищет ближайшего соседа с положительным зазором по выбранной оси.
+ */
+const findNeighborIndex = ({
+  items,
+  index,
+  axis,
+  direction
+}: {
+  items: SpacingItem[]
+  index: number
+  axis: 'horizontal' | 'vertical'
+  direction: 'prev' | 'next'
+}): number | null => {
+  const activeItem = items[index]
+  if (!activeItem) return null
+
+  const { bounds: activeBounds } = activeItem
+  const { start: activeStart, end: activeEnd } = resolveBoundsEdges({
+    bounds: activeBounds,
+    axis
+  })
+
+  if (direction === 'prev') {
+    for (let cursor = index - 1; cursor >= 0; cursor -= 1) {
+      const candidate = items[cursor]
+      if (!candidate) continue
+
+      const { bounds: candidateBounds } = candidate
+      const { end: candidateEnd } = resolveBoundsEdges({
+        bounds: candidateBounds,
+        axis
+      })
+
+      const distance = activeStart - candidateEnd
+      if (distance >= 0) return cursor
+    }
+
+    return null
+  }
+
+  for (let cursor = index + 1; cursor < items.length; cursor += 1) {
+    const candidate = items[cursor]
+    if (!candidate) continue
+
+    const { bounds: candidateBounds } = candidate
+    const { start: candidateStart } = resolveBoundsEdges({
+      bounds: candidateBounds,
+      axis
+    })
+
+    const distance = candidateStart - activeEnd
+    if (distance >= 0) return cursor
+  }
+
+  return null
+}
+
+/**
  * Возвращает индекс активного элемента в списке.
  */
 const findActiveItemIndex = ({
@@ -98,7 +202,7 @@ const findActiveItemIndex = ({
 }
 
 /**
- * Собирает положительные зазоры между соседними элементами на выбранной оси.
+ * Собирает положительные зазоры между ближайшими неперекрывающимися элементами на выбранной оси.
  */
 const collectNeighborGaps = ({
   items,
@@ -108,24 +212,39 @@ const collectNeighborGaps = ({
   axis: 'horizontal' | 'vertical'
 }): NeighborGap[] => {
   const gaps: NeighborGap[] = []
-  const isVertical = axis === 'vertical'
 
   for (let index = 0; index < items.length - 1; index += 1) {
-    const { bounds: beforeBounds } = items[index]
-    const { bounds: afterBounds } = items[index + 1]
-    const start = isVertical ? beforeBounds.bottom : beforeBounds.right
-    const end = isVertical ? afterBounds.top : afterBounds.left
-    const distance = end - start
+    const currentItem = items[index]
+    if (!currentItem) continue
 
-    if (distance < 0) continue
-
-    gaps.push({
-      beforeIndex: index,
-      afterIndex: index + 1,
-      start,
-      end,
-      distance
+    const { bounds: currentBounds } = currentItem
+    const { end: currentEnd } = resolveBoundsEdges({
+      bounds: currentBounds,
+      axis
     })
+
+    for (let nextIndex = index + 1; nextIndex < items.length; nextIndex += 1) {
+      const nextItem = items[nextIndex]
+      if (!nextItem) continue
+
+      const { bounds: nextBounds } = nextItem
+      const { start: nextStart } = resolveBoundsEdges({
+        bounds: nextBounds,
+        axis
+      })
+
+      const distance = nextStart - currentEnd
+      if (distance < 0) continue
+
+      gaps.push({
+        beforeIndex: index,
+        afterIndex: nextIndex,
+        start: currentEnd,
+        end: nextStart,
+        distance
+      })
+      break
+    }
   }
 
   return gaps
@@ -236,11 +355,20 @@ export const calculateVerticalSpacing = ({
   } = activeBounds
 
   const aligned: Bounds[] = []
-  for (const bounds of candidates) {
-    const { left, right } = bounds
-    const overlap = Math.min(right, activeRight) - Math.max(left, activeLeft)
+  for (const candidate of candidates) {
+    const {
+      left,
+      right
+    } = candidate
+
+    const overlap = getAxisOverlap({
+      firstStart: left,
+      firstEnd: right,
+      secondStart: activeLeft,
+      secondEnd: activeRight
+    })
     if (overlap > 0) {
-      aligned.push(bounds)
+      aligned.push(candidate)
     }
   }
 
@@ -263,8 +391,20 @@ export const calculateVerticalSpacing = ({
 
   const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
   const height = activeBottom - activeTop
-  const prev = items[activeIndex - 1]
-  const next = items[activeIndex + 1]
+  const prevIndex = findNeighborIndex({
+    items,
+    index: activeIndex,
+    axis: 'vertical',
+    direction: 'prev'
+  })
+  const nextIndex = findNeighborIndex({
+    items,
+    index: activeIndex,
+    axis: 'vertical',
+    direction: 'next'
+  })
+  const prev = prevIndex === null ? null : items[prevIndex]
+  const next = nextIndex === null ? null : items[nextIndex]
 
   if (prev && next) {
     const { bounds: prevBounds } = prev
@@ -436,11 +576,20 @@ export const calculateHorizontalSpacing = ({
   } = activeBounds
 
   const aligned: Bounds[] = []
-  for (const bounds of candidates) {
-    const { top, bottom } = bounds
-    const overlap = Math.min(bottom, activeBottom) - Math.max(top, activeTop)
+  for (const candidate of candidates) {
+    const {
+      top,
+      bottom
+    } = candidate
+
+    const overlap = getAxisOverlap({
+      firstStart: top,
+      firstEnd: bottom,
+      secondStart: activeTop,
+      secondEnd: activeBottom
+    })
     if (overlap > 0) {
-      aligned.push(bounds)
+      aligned.push(candidate)
     }
   }
 
@@ -463,8 +612,20 @@ export const calculateHorizontalSpacing = ({
 
   const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
   const width = activeRight - activeLeft
-  const prev = items[activeIndex - 1]
-  const next = items[activeIndex + 1]
+  const prevIndex = findNeighborIndex({
+    items,
+    index: activeIndex,
+    axis: 'horizontal',
+    direction: 'prev'
+  })
+  const nextIndex = findNeighborIndex({
+    items,
+    index: activeIndex,
+    axis: 'horizontal',
+    direction: 'next'
+  })
+  const prev = prevIndex === null ? null : items[prevIndex]
+  const next = nextIndex === null ? null : items[nextIndex]
 
   if (prev && next) {
     const { bounds: prevBounds } = prev

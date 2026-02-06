@@ -26,7 +26,12 @@ export const errorCodes = {
     /**
      * Ошибка при экспорте изображения
      */
-    IMAGE_EXPORT_FAILED: 'IMAGE_EXPORT_FAILED'
+    IMAGE_EXPORT_FAILED: 'IMAGE_EXPORT_FAILED',
+
+    /**
+     * Ошибка при загрузке начального состояния редактора
+     */
+    INITIAL_STATE_LOAD_FAILED: 'INITIAL_STATE_LOAD_FAILED'
   },
 
   /**
@@ -62,6 +67,11 @@ export const errorCodes = {
      * Ошибка вставки изображения из буфера обмена.
      */
     PASTE_IMAGE_FAILED: 'PASTE_IMAGE_FAILED',
+
+    /**
+     * Ошибка вставки изображения из буфера обмена, которая была отложена и затем отклонена (например, из-за того, что пользователь отклонил запрос на доступ к буферу обмена).
+     */
+    EXTERNAL_PASTE_DEFERRED_REJECTED: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
 
     /**
      * Ошибка вставки HTML-изображения из буфера обмена.

@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import { CLIPBOARD_DATA_PREFIX, CLIPBOARD_CLONE_OBJECT_KEYS } from '../constants'
 
 import { ImageEditor } from '../index'
+import type { ImportImageOptions } from '../image-manager'
 
 export default class ClipboardManager {
   /**
@@ -202,13 +203,90 @@ export default class ClipboardManager {
    * @param source - источник изображения (data URL или URL)
    */
   private async _handleImageImport(source: string): Promise<void> {
-    const { image } = await this.editor.imageManager.importImage({
+    const { canvas, errorManager } = this.editor
+
+    let isDeferred = false
+    let isSettled = false
+
+    type DeferredImportOptions = Partial<Omit<ImportImageOptions, 'source' | 'fromClipboard'>>
+
+    let resolveDeferred: ((importOptions?: DeferredImportOptions | null) => void) | null = null
+    let rejectDeferred: ((error?: unknown) => void) | null = null
+
+    const deferredPromise = new Promise<DeferredImportOptions | null>((resolve, reject) => {
+      resolveDeferred = (importOptions?: DeferredImportOptions | null) => {
+        if (isSettled) return
+        isSettled = true
+        resolve(importOptions ?? null)
+      }
+
+      rejectDeferred = (error?: unknown) => {
+        if (isSettled) return
+        isSettled = true
+        reject(error)
+      }
+    })
+
+    const defer = () => {
+      isDeferred = true
+
+      return {
+        resolve: resolveDeferred as (importOptions?: DeferredImportOptions | null) => void,
+        reject: rejectDeferred as (error?: unknown) => void
+      }
+    }
+
+    canvas.fire('editor:external-image-paste-pending', {
+      imageSource: source,
+      defer
+    })
+
+    if (!isDeferred) {
+      await this._importExternalImage({ source })
+      return
+    }
+
+    try {
+      const importOptions = await deferredPromise
+      await this._importExternalImage({ source, importOptions })
+    } catch (error) {
+      errorManager.emitError({
+        origin: 'ClipboardManager',
+        method: '_handleImageImport',
+        code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
+        message: 'Вставка изображения из буфера обмена была отменена или завершилась ошибкой',
+        data: { error }
+      })
+    }
+  }
+
+  /**
+   * Импорт изображения из внешнего буфера обмена
+   */
+  private async _importExternalImage({
+    source,
+    importOptions = {}
+  }: {
+    source: string
+    importOptions?: Partial<Omit<ImportImageOptions, 'source' | 'fromClipboard'>>
+  }): Promise<void> {
+    const options: ImportImageOptions = {
+      ...importOptions,
       source,
       fromClipboard: true
-    }) ?? {}
+    }
+
+    const result = await this.editor.imageManager.importImage(options)
+
+    const image = result?.image
+    const imageSource = result?.source ?? source
 
     if (image) {
-      this.editor.canvas.fire('editor:object-pasted', { object: image })
+      this.editor.canvas.fire('editor:object-pasted', {
+        imageSource,
+        fromInternalClipboard: false,
+        object: image
+      })
     }
   }
 
@@ -249,7 +327,10 @@ export default class ClipboardManager {
       // Добавляем на canvas
       this._addClonedObjectToCanvas(clonedObject)
 
-      canvas.fire('editor:object-duplicated', { object: clonedObject })
+      canvas.fire('editor:object-duplicated', {
+        targetObject,
+        clonedObject
+      })
 
       return true
     } catch (error) {
@@ -372,7 +453,12 @@ export default class ClipboardManager {
       // Добавляем клонированный объект на canvas
       this._addClonedObjectToCanvas(clonedObj)
 
-      canvas.fire('editor:object-pasted', { object: clonedObj })
+      canvas.fire('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: this.clipboard,
+        object: clonedObj
+      })
+
       return true
     } catch (error) {
       const { errorManager } = this.editor

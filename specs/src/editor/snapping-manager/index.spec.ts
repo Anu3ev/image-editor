@@ -6,6 +6,7 @@ import { createBoundsObject, createSnappingTestContext } from '../../../test-uti
 
 type OriginX = 'left' | 'center' | 'right'
 type OriginY = 'top' | 'center' | 'bottom'
+type SpacingAxis = 'vertical' | 'horizontal'
 
 /**
  * Создаёт мок объекта для тестирования масштабирования со снапом.
@@ -117,6 +118,43 @@ const createScalingObject = ({
   }
 
   return obj
+}
+
+/**
+ * Создаёт сценарий равноудалённости с перекрывающим объектом на выбранной оси.
+ */
+const createSpacingScenario = ({ axis }: { axis: SpacingAxis }) => {
+  const { editor, objects, canvas } = createSnappingTestContext()
+  canvas.getZoom.mockReturnValue(2)
+  const expectedGap = 24
+
+  if (axis === 'vertical') {
+    const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+    const active = createBoundsObject({ left: 0, top: 46, width: 20, height: 20, id: 'active' })
+    const third = createBoundsObject({ left: 0, top: 88, width: 20, height: 20, id: 'obj-2' })
+    const blocker = createBoundsObject({ left: 0, top: 60, width: 40, height: 40, id: 'blocker' })
+    objects.push(first, third, blocker, active)
+
+    return {
+      editor,
+      active,
+      expectedGap,
+      expectedPosition: 44
+    }
+  }
+
+  const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+  const active = createBoundsObject({ left: 46, top: 0, width: 20, height: 20, id: 'active' })
+  const third = createBoundsObject({ left: 88, top: 0, width: 20, height: 20, id: 'obj-2' })
+  const blocker = createBoundsObject({ left: 60, top: 0, width: 40, height: 20, id: 'blocker' })
+  objects.push(first, third, blocker, active)
+
+  return {
+    editor,
+    active,
+    expectedGap,
+    expectedPosition: 44
+  }
 }
 
 describe('SnappingManager', () => {
@@ -245,6 +283,52 @@ describe('SnappingManager', () => {
     expect(gapLeft).toBe(distance)
     expect(gapRight).toBe(distance)
     expect(distance % MOVE_SNAP_STEP).toBe(0)
+  })
+
+  it('снапит равноудалённость по вертикали при перекрывающем объекте между кругами', () => {
+    const scenario = createSpacingScenario({ axis: 'vertical' })
+    const {
+      editor,
+      active,
+      expectedGap,
+      expectedPosition
+    } = scenario
+
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleMouseDown({ target: active });
+    (snappingManager as any)._handleObjectMoving({ target: active })
+
+    expect(active.top).toBe(expectedPosition)
+
+    const { activeSpacingGuides } = snappingManager as any
+    expect(activeSpacingGuides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ distance: expectedGap })
+      ])
+    )
+  })
+
+  it('снапит равноудалённость по горизонтали при перекрывающем объекте между кругами', () => {
+    const scenario = createSpacingScenario({ axis: 'horizontal' })
+    const {
+      editor,
+      active,
+      expectedGap,
+      expectedPosition
+    } = scenario
+
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleMouseDown({ target: active });
+    (snappingManager as any)._handleObjectMoving({ target: active })
+
+    expect(active.left).toBe(expectedPosition)
+
+    const { activeSpacingGuides } = snappingManager as any
+    expect(activeSpacingGuides).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ distance: expectedGap })
+      ])
+    )
   })
 
   it('масштабирует объект по X с прилипаниями и фиксирует origin', () => {

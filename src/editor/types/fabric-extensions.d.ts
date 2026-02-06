@@ -97,7 +97,7 @@ declare module 'fabric' {
     /**
      * JSON объект с начальными состоянием редактора.
      */
-    initialStateJSON: object | null
+    initialState: object | null
     /**
      * Объект изображения с которым редактор будет инициализирован.
      * Может содержать:

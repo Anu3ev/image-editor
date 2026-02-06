@@ -132,6 +132,18 @@ export type BackgroundChangedPayload = {
   backgroundObject?: FabricImage | FabricObject | null
 }
 
+export type ExternalImagePasteImportOptions = Partial<
+  Omit<import('../image-manager').ImportImageOptions, 'source' | 'fromClipboard'>
+>
+
+export type ExternalImagePastePendingPayload = {
+  imageSource: string | File,
+  defer: () => {
+    resolve: (importOptions?: ExternalImagePasteImportOptions | null) => void
+    reject: (error?: unknown) => void
+  }
+}
+
 declare module 'fabric' {
   interface CanvasEvents {
     /**
@@ -277,12 +289,23 @@ declare module 'fabric' {
     /**
      * Срабатывает после вставки объекта.
      */
-    'editor:object-pasted': { object: FabricObject }
+    'editor:object-pasted': {
+      imageSource?: string | File,
+      object: FabricObject,
+      fromInternalClipboard: boolean,
+      clipboardObject?: FabricObject | null
+     }
+
+    /**
+     * Срабатывает перед вставкой изображения из внешнего буфера обмена.
+     * Позволяет отложить вставку и передать customData.
+     */
+    'editor:external-image-paste-pending': ExternalImagePastePendingPayload
 
     /**
      * Срабатывает после нажатия на кнопку "Создать копию" в тулбаре выделенного объекта.
      */
-    'editor:object-duplicated': { object: FabricObject }
+    'editor:object-duplicated': { targetObject: FabricObject, clonedObject: FabricObject }
 
     /**
      * Срабатывает после поворота объекта.
