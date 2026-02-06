@@ -198,6 +198,184 @@ describe('ImageEditor', () => {
       expect(editor.historyManager.loadStateFromFullState).toHaveBeenCalledWith({ test: 'state' })
     })
 
+    it('должен подготовить initialState через imageManager.prepareInitialState перед загрузкой в историю', async() => {
+      const initialState = { test: 'state' }
+      const preparedState = { prepared: true }
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const prepareInitialState = jest.fn().mockResolvedValue(preparedState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage: jest.fn().mockResolvedValue(undefined),
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const loadStateFromFullState = jest.fn().mockResolvedValue(undefined)
+      const suspendHistory = jest.fn()
+      const resumeHistory = jest.fn()
+      const saveState = jest.fn()
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState,
+        suspendHistory,
+        resumeHistory,
+        saveState
+      }))
+
+      const editor = createEditorWithMocks({ initialState })
+      await editor.init()
+
+      expect(prepareInitialState).toHaveBeenCalledWith({ state: initialState })
+      expect(loadStateFromFullState).toHaveBeenCalledWith(preparedState)
+      expect(suspendHistory).toHaveBeenCalled()
+      expect(resumeHistory).toHaveBeenCalled()
+    })
+
+    it('должен делать fallback на initialImage, если загрузка initialState завершилась ошибкой', async() => {
+      const initialState = { test: 'state' }
+      const loadError = new Error('load failed')
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const importImage = jest.fn().mockResolvedValue(undefined)
+      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage,
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const suspendHistory = jest.fn()
+      const resumeHistory = jest.fn()
+      const saveState = jest.fn()
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState: jest.fn().mockRejectedValue(loadError),
+        suspendHistory,
+        resumeHistory,
+        saveState
+      }))
+
+      const ErrorManagerMock = jest.requireMock('../../../src/editor/error-manager').default as jest.Mock
+      const emitError = jest.fn()
+
+      ErrorManagerMock.mockImplementationOnce(() => ({
+        emitError,
+        emitWarning: jest.fn(),
+        cleanBuffer: jest.fn()
+      }))
+
+      const editor = createEditorWithMocks({
+        initialState,
+        scaleType: 'contain',
+        initialImage: { source: 'test-image.jpg' }
+      })
+
+      await editor.init()
+
+      expect(prepareInitialState).toHaveBeenCalledWith({ state: initialState })
+      expect(importImage).toHaveBeenCalledWith({
+        source: 'test-image.jpg',
+        scale: 'image-contain',
+        withoutSave: true
+      })
+
+      expect(emitError).toHaveBeenCalledWith(expect.objectContaining({
+        origin: 'ImageEditor',
+        method: 'init',
+        code: 'INITIAL_STATE_LOAD_FAILED'
+      }))
+
+      expect(suspendHistory).toHaveBeenCalled()
+      expect(resumeHistory).toHaveBeenCalled()
+    })
+
+    it('не должен импортировать initialImage, если initialState загрузился успешно', async() => {
+      const initialState = { test: 'state' }
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const importImage = jest.fn().mockResolvedValue(undefined)
+      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage,
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const loadStateFromFullState = jest.fn().mockResolvedValue(undefined)
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState,
+        suspendHistory: jest.fn(),
+        resumeHistory: jest.fn(),
+        saveState: jest.fn()
+      }))
+
+      const editor = createEditorWithMocks({
+        initialState,
+        initialImage: { source: 'test-image.jpg' }
+      })
+
+      await editor.init()
+
+      expect(loadStateFromFullState).toHaveBeenCalledWith(initialState)
+      expect(importImage).not.toHaveBeenCalled()
+    })
+
+    it('не должен делать fallback на initialImage, если initialState загрузился с ошибкой и initialImage не задан', async() => {
+      const initialState = { test: 'state' }
+      const loadError = new Error('load failed')
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const importImage = jest.fn().mockResolvedValue(undefined)
+      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage,
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const suspendHistory = jest.fn()
+      const resumeHistory = jest.fn()
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState: jest.fn().mockRejectedValue(loadError),
+        suspendHistory,
+        resumeHistory,
+        saveState: jest.fn()
+      }))
+
+      const ErrorManagerMock = jest.requireMock('../../../src/editor/error-manager').default as jest.Mock
+      const emitError = jest.fn()
+
+      ErrorManagerMock.mockImplementationOnce(() => ({
+        emitError,
+        emitWarning: jest.fn(),
+        cleanBuffer: jest.fn()
+      }))
+
+      const editor = createEditorWithMocks({ initialState })
+      await editor.init()
+
+      expect(importImage).not.toHaveBeenCalled()
+      expect(emitError).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'INITIAL_STATE_LOAD_FAILED'
+      }))
+      expect(suspendHistory).toHaveBeenCalled()
+      expect(resumeHistory).toHaveBeenCalled()
+    })
+
     it('должен вызвать колбэк готовности если он предоставлен', async() => {
       const mockCallback = jest.fn()
       const editor = createEditorWithMocks({
