@@ -155,6 +155,11 @@ export default class HistoryManager {
    */
   private _pendingSaveReason: string | null
 
+  /**
+   * Флаг отложенного сохранения во время блокировки UI.
+   */
+  private _hasDeferredSaveAfterUnblock: boolean
+
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
@@ -165,6 +170,7 @@ export default class HistoryManager {
     this._actionReason = null
     this._pendingSaveTimeoutId = null
     this._pendingSaveReason = null
+    this._hasDeferredSaveAfterUnblock = false
     this.baseState = null
     this.patches = []
     this.currentIndex = 0
@@ -280,6 +286,37 @@ export default class HistoryManager {
    */
   public getCurrentChangePosition(): number {
     return this.baseStateChangesCount + this.currentIndex
+  }
+
+  /**
+   * Проверяет, заблокирован ли UI редактора.
+   */
+  private _isUiBlocked(): boolean {
+    const { interactionBlocker } = this.editor
+    if (!interactionBlocker) return false
+
+    return interactionBlocker.isBlocked
+  }
+
+  /**
+   * Помечает, что состояние нужно сохранить после снятия блокировки UI.
+   */
+  private _deferSaveAfterUiUnblock(): void {
+    this._hasDeferredSaveAfterUnblock = true
+  }
+
+  /**
+   * Выполняет отложенное сохранение после снятия блокировки UI.
+   */
+  public flushDeferredSaveAfterUnblock(): boolean {
+    if (!this._hasDeferredSaveAfterUnblock) return false
+    if (this._isUiBlocked()) return false
+    if (this.skipHistory) return false
+
+    this._hasDeferredSaveAfterUnblock = false
+    this.saveState()
+
+    return true
   }
 
   /**
@@ -404,6 +441,10 @@ export default class HistoryManager {
   public saveState(): void {
     console.log('saveState')
     if (this.skipHistory) return
+    if (this._isUiBlocked()) {
+      this._deferSaveAfterUiUnblock()
+      return
+    }
 
     this._isSavingState = true
 
