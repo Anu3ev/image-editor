@@ -138,5 +138,6 @@ export default class InteractionBlocker {
 
     canvas.fire('editor:enabled')
     historyManager.resumeHistory()
+    historyManager.flushDeferredSaveAfterUnblock()
   }
 }
