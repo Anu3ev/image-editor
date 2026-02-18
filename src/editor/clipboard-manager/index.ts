@@ -271,8 +271,8 @@ export default class ClipboardManager {
     importOptions?: Partial<Omit<ImportImageOptions, 'source' | 'fromClipboard'>>
   }): Promise<void> {
     const options: ImportImageOptions = {
-      ...importOptions,
       source,
+      ...importOptions,
       fromClipboard: true
     }
 
