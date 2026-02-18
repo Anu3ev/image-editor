@@ -248,7 +248,7 @@ export default class ImageManager {
     const { canvas, montageArea, transformManager, historyManager, errorManager } = this.editor
 
     const contentType = await this.getContentType(source)
-    const format = ImageManager.getFormatFromContentType(contentType)
+    const format = this.getFormatFromContentType(contentType)
 
     const { acceptContentTypes, acceptFormats } = this
 
@@ -559,7 +559,7 @@ export default class ImageManager {
       // Если это PDF, то дальше нам нужен будет .jpg
       const adjustedContentType = isPDF ? 'image/jpg' : contentType
 
-      const format = ImageManager.getFormatFromContentType(adjustedContentType)
+      const format = this.getFormatFromContentType(adjustedContentType)
 
       // Пересчитываем координаты монтажной области:
       montageArea.setCoords()
@@ -785,7 +785,7 @@ export default class ImageManager {
 
     const activeObject = object || canvas.getActiveObject()
     const fallbackContentType = contentType ?? 'image/png'
-    const fallbackFormat = ImageManager.getFormatFromContentType(fallbackContentType) || 'png'
+    const fallbackFormat = this.getFormatFromContentType(fallbackContentType) || 'png'
     const fallbackFileName = fileName ?? `image.${fallbackFormat}`
 
     if (!activeObject) {
@@ -805,7 +805,7 @@ export default class ImageManager {
       format?: string
     }
     const processedContentType = contentType ?? objectContentType ?? 'image/png'
-    const format = ImageManager.getFormatFromContentType(processedContentType)
+    const format = this.getFormatFromContentType(processedContentType)
       || objectFormat
       || 'png'
     const processedFileName = fileName ?? `image.${format}`
@@ -928,7 +928,7 @@ export default class ImageManager {
    */
   public getAllowedFormatsFromContentTypes(): string[] {
     return this.acceptContentTypes
-      .map((contentType) => ImageManager.getFormatFromContentType(contentType))
+      .map((contentType) => this.getFormatFromContentType(contentType))
       .filter((format) => format)
   }
 
@@ -997,7 +997,7 @@ export default class ImageManager {
       // Создаем mimeMap из acceptContentTypes
       const mimeMap: { [key: string]: string } = {}
       this.acceptContentTypes.forEach((contentType) => {
-        const format = ImageManager.getFormatFromContentType(contentType)
+        const format = this.getFormatFromContentType(contentType)
         if (format) {
           mimeMap[format] = contentType
         }
@@ -1078,9 +1078,9 @@ export default class ImageManager {
    * отбросив любую часть после «+» или «;»
    * @param contentType
    * @returns формат, например 'png', 'jpeg', 'svg'
-   * @static
+   * @public
    */
-  static getFormatFromContentType(contentType = ''): string {
+  getFormatFromContentType(contentType = ''): string {
     const match = contentType.match(/^[^/]+\/([^+;]+)/)
     return match ? match[1] : ''
   }

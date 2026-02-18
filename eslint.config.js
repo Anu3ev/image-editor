@@ -336,7 +336,7 @@ export default [
       'no-var': 1,
       'import/no-cycle': 1,
       'no-new': 1,
-      'class-methods-use-this': 1,
+      'class-methods-use-this': 0,
       'max-classes-per-file': 1,
       'no-void': 1,
       'block-scoped-var': 1,
