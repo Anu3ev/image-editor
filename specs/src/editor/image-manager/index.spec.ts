@@ -651,9 +651,9 @@ describe('ImageManager', () => {
     })
 
     it('extracts format from content type', () => {
-      expect(ImageManager.getFormatFromContentType('image/svg+xml')).toBe('svg')
-      expect(ImageManager.getFormatFromContentType('application/pdf')).toBe('pdf')
-      expect(ImageManager.getFormatFromContentType('')).toBe('')
+      expect(imageManager.getFormatFromContentType('image/svg+xml')).toBe('svg')
+      expect(imageManager.getFormatFromContentType('application/pdf')).toBe('pdf')
+      expect(imageManager.getFormatFromContentType('')).toBe('')
     })
   })
 
