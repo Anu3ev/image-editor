@@ -13,6 +13,37 @@ describe('MeasurementManager', () => {
     jest.clearAllMocks()
   })
 
+  /**
+   * Возвращает первое горизонтальное расстояние из активных направляющих.
+   */
+  const getHorizontalDistance = ({ manager }: { manager: MeasurementManager }): number => {
+    const horizontalGuide = manager.activeGuides.find(({ type }) => type === 'horizontal')
+
+    return horizontalGuide?.distance ?? -1
+  }
+
+  /**
+   * Создаёт три объекта в линию с равными зазорами.
+   */
+  const createEqualSpacingHorizontalScene = () => {
+    const { editor, canvas, objects } = createSnappingTestContext()
+    const left = createBoundsObject({ left: 0, top: 100, width: 40, height: 40, id: 'left' })
+    const center = createBoundsObject({ left: 83, top: 100, width: 40, height: 40, id: 'center' })
+    const right = createBoundsObject({ left: 166, top: 100, width: 40, height: 40, id: 'right' })
+    objects.push(left)
+    objects.push(center)
+    objects.push(right)
+    canvas.getObjects.mockReturnValue(objects)
+
+    return {
+      editor,
+      canvas,
+      left,
+      center,
+      right
+    }
+  }
+
   const buildEvent = (target: any, altKey = true) => ({
     e: { altKey },
     target
@@ -204,6 +235,54 @@ describe('MeasurementManager', () => {
     manager._handleKeyUp(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
     expect(manager.activeGuides).toHaveLength(0)
     expect(toolbar.showAfterTemporary).toHaveBeenCalled()
+
+    manager.destroy()
+  })
+
+  it('показывает одинаковое расстояние от центрального объекта к левому и правому соседу', () => {
+    const {
+      editor,
+      canvas,
+      left,
+      center,
+      right
+    } = createEqualSpacingHorizontalScene()
+    const manager = new MeasurementManager({ editor })
+    setActiveObjects(canvas, [center])
+
+    manager.isAltPressed = true
+    manager._updateGuides({ event: buildEvent(left) })
+    const leftDistance = getHorizontalDistance({ manager })
+
+    manager._updateGuides({ event: buildEvent(right) })
+    const rightDistance = getHorizontalDistance({ manager })
+
+    expect(leftDistance).toBe(43)
+    expect(rightDistance).toBe(43)
+
+    manager.destroy()
+  })
+
+  it('показывает одинаковое расстояние при измерении центр→крайний и крайний→центр', () => {
+    const {
+      editor,
+      canvas,
+      left,
+      center
+    } = createEqualSpacingHorizontalScene()
+    const manager = new MeasurementManager({ editor })
+
+    manager.isAltPressed = true
+    setActiveObjects(canvas, [center])
+    manager._updateGuides({ event: buildEvent(left) })
+    const centerToLeftDistance = getHorizontalDistance({ manager })
+
+    setActiveObjects(canvas, [left])
+    manager._updateGuides({ event: buildEvent(center) })
+    const leftToCenterDistance = getHorizontalDistance({ manager })
+
+    expect(centerToLeftDistance).toBe(43)
+    expect(leftToCenterDistance).toBe(43)
 
     manager.destroy()
   })

@@ -1,4 +1,5 @@
 import { MOVE_SNAP_STEP } from './constants'
+import { resolveDisplayDistance } from '../utils/distance'
 import type {
   AnchorBuckets,
   Bounds,
@@ -37,6 +38,25 @@ const getAxisOverlap = ({
 }): number => Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart)
 
 /**
+ * Возвращает количество знаков после запятой для шага сетки.
+ */
+const resolveStepPrecision = ({
+  step
+}: {
+  step: number
+}): number => {
+  const normalizedStep = Math.abs(step)
+  const stepString = normalizedStep.toString()
+  const dotIndex = stepString.indexOf('.')
+
+  if (dotIndex === -1) return 0
+
+  const decimalPart = stepString.slice(dotIndex + 1)
+
+  return decimalPart.length
+}
+
+/**
  * Приводит значение к ближайшему шагу сетки.
  */
 const snapToStep = ({
@@ -48,7 +68,10 @@ const snapToStep = ({
 }): number => {
   if (step === 0) return value
 
-  return Math.round(value / step) * step
+  const precision = resolveStepPrecision({ step })
+  const snappedValue = Math.round(value / step) * step
+
+  return Number(snappedValue.toFixed(precision))
 }
 
 /**
@@ -64,8 +87,10 @@ const isStepAligned = ({
   if (step === 0) return true
 
   const snappedValue = snapToStep({ value, step })
+  const precision = resolveStepPrecision({ step })
+  const epsilon = 10 ** -(precision + 4)
 
-  return snappedValue === value
+  return Math.abs(snappedValue - value) <= epsilon
 }
 
 /**
@@ -250,6 +275,97 @@ const collectNeighborGaps = ({
   return gaps
 }
 
+type EqualSpacingCandidate = {
+  delta: number
+  distance: number
+  diff: number
+  activeStart: number
+  activeEnd: number
+}
+
+/**
+ * Подбирает дельту для центрального равноудалённого прилипания на сетке шага.
+ */
+const resolveCenteredEqualSpacing = ({
+  activeStart,
+  activeEnd,
+  targetGap,
+  beforeEdge,
+  afterEdge,
+  threshold,
+  step
+}: {
+  activeStart: number
+  activeEnd: number
+  targetGap: number
+  beforeEdge: number
+  afterEdge: number
+  threshold: number
+  step: number
+}): EqualSpacingCandidate | null => {
+  const rawDelta = targetGap - (activeStart - beforeEdge)
+  const snappedDelta = snapToStep({ value: rawDelta, step })
+  const stepCount = Math.max(1, Math.ceil(threshold / Math.max(step, 1)))
+
+  let bestCandidate: EqualSpacingCandidate | null = null
+
+  for (let offset = -stepCount; offset <= stepCount; offset += 1) {
+    const delta = snappedDelta + (offset * step)
+    const adjustedStart = activeStart + delta
+    const adjustedEnd = activeEnd + delta
+    const gapBefore = adjustedStart - beforeEdge
+    const gapAfter = afterEdge - adjustedEnd
+
+    const beforeDistance = resolveDisplayDistance({ distance: gapBefore })
+    const afterDistance = resolveDisplayDistance({ distance: gapAfter })
+    const distanceDiff = Math.abs(beforeDistance - afterDistance)
+    if (distanceDiff > 1) continue
+
+    const commonDistance = Math.max(beforeDistance, afterDistance)
+
+    const nearestDiff = Math.max(
+      Math.abs(gapBefore - targetGap),
+      Math.abs(gapAfter - targetGap)
+    )
+    if (nearestDiff > threshold) continue
+
+    const equalDiff = Math.abs(gapBefore - gapAfter)
+    const deltaDiff = Math.abs(delta - rawDelta)
+    const score = equalDiff + (distanceDiff * 0.5) + (deltaDiff * 0.001)
+
+    if (!bestCandidate || score < bestCandidate.diff) {
+      bestCandidate = {
+        delta,
+        distance: commonDistance,
+        diff: score,
+        activeStart: adjustedEnd,
+        activeEnd: adjustedEnd + commonDistance
+      }
+    }
+  }
+
+  return bestCandidate
+}
+
+/**
+ * Нормализует отображаемое расстояние для гайда равноудалённости.
+ */
+const resolveGuideDisplayDistance = ({
+  currentGap,
+  referenceGap
+}: {
+  currentGap: number
+  referenceGap: number
+}): number => {
+  const currentDisplay = resolveDisplayDistance({ distance: currentGap })
+  const referenceDisplay = resolveDisplayDistance({ distance: referenceGap })
+  const displayDiff = Math.abs(currentDisplay - referenceDisplay)
+
+  if (displayDiff > 1) return referenceDisplay
+
+  return Math.max(currentDisplay, referenceDisplay)
+}
+
 /**
  * Ищет ближайшую линию привязки по одной оси.
  */
@@ -416,34 +532,44 @@ export const calculateVerticalSpacing = ({
 
     if (availableSpace >= 0) {
       const idealGap = availableSpace / 2
-      const isAligned = isStepAligned({ value: idealGap, step: MOVE_SNAP_STEP })
+      const desiredGap = snapToStep({ value: idealGap, step: MOVE_SNAP_STEP })
+      const gapTop = activeTop - prevBottom
+      const gapBottom = nextTop - activeBottom
+      const diffTop = Math.abs(gapTop - desiredGap)
+      const diffBottom = Math.abs(gapBottom - desiredGap)
+      const diff = Math.max(diffTop, diffBottom)
 
-      if (isAligned) {
-        const desiredGap = snapToStep({ value: idealGap, step: MOVE_SNAP_STEP })
-        const gapTop = activeTop - prevBottom
-        const gapBottom = nextTop - activeBottom
-        const diffTop = Math.abs(gapTop - desiredGap)
-        const diffBottom = Math.abs(gapBottom - desiredGap)
-        const diff = Math.max(diffTop, diffBottom)
+      if (diff <= threshold) {
+        const centered = resolveCenteredEqualSpacing({
+          activeStart: activeTop,
+          activeEnd: activeBottom,
+          targetGap: desiredGap,
+          beforeEdge: prevBottom,
+          afterEdge: nextTop,
+          threshold,
+          step: MOVE_SNAP_STEP
+        })
 
-        if (diff <= threshold) {
-          const delta = desiredGap - gapTop
-          const isDeltaAligned = isStepAligned({ value: delta, step: MOVE_SNAP_STEP })
+        if (centered) {
+          const {
+            delta,
+            distance,
+            diff: centeredDiff,
+            activeStart: centeredActiveStart,
+            activeEnd: centeredActiveEnd
+          } = centered
 
-          if (isDeltaAligned) {
-            const adjustedBottom = activeBottom + delta
-            const guide: SpacingGuide = {
-              type: 'vertical',
-              axis: centerX,
-              refStart: prevBottom,
-              refEnd: prevBottom + desiredGap,
-              activeStart: adjustedBottom,
-              activeEnd: adjustedBottom + desiredGap,
-              distance: desiredGap
-            }
-
-            options.push({ delta, guide, diff })
+          const guide: SpacingGuide = {
+            type: 'vertical',
+            axis: centerX,
+            refStart: prevBottom,
+            refEnd: prevBottom + distance,
+            activeStart: centeredActiveStart,
+            activeEnd: centeredActiveEnd,
+            distance
           }
+
+          options.push({ delta, guide, diff: centeredDiff })
         }
       }
     }
@@ -491,12 +617,18 @@ export const calculateVerticalSpacing = ({
     if (gapAbove !== null && prevBounds) {
       const diff = Math.abs(gapAbove - refDistance)
       if (diff <= threshold) {
-        const delta = refDistance - gapAbove
-        const isDeltaAligned = isStepAligned({ value: delta, step: MOVE_SNAP_STEP })
-
-        if (!isDeltaAligned) continue
+        const rawDelta = refDistance - gapAbove
+        const delta = snapToStep({ value: rawDelta, step: MOVE_SNAP_STEP })
         const adjustedTop = activeTop + delta
         const { bottom: prevBottom } = prevBounds
+        const adjustedGap = adjustedTop - prevBottom
+        const postDiff = Math.abs(adjustedGap - refDistance)
+
+        if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'vertical',
           axis: centerX,
@@ -504,22 +636,28 @@ export const calculateVerticalSpacing = ({
           refEnd,
           activeStart: prevBottom,
           activeEnd: adjustedTop,
-          distance: refDistance
+          distance
         }
 
-        options.push({ delta, guide, diff })
+        options.push({ delta, guide, diff: postDiff })
       }
     }
 
     if (gapBelow !== null && nextBounds) {
       const diff = Math.abs(gapBelow - refDistance)
       if (diff <= threshold) {
-        const delta = gapBelow - refDistance
-        const isDeltaAligned = isStepAligned({ value: delta, step: MOVE_SNAP_STEP })
-
-        if (!isDeltaAligned) continue
+        const rawDelta = gapBelow - refDistance
+        const delta = snapToStep({ value: rawDelta, step: MOVE_SNAP_STEP })
         const adjustedBottom = activeBottom + delta
         const { top: nextTop } = nextBounds
+        const adjustedGap = nextTop - adjustedBottom
+        const postDiff = Math.abs(adjustedGap - refDistance)
+
+        if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'vertical',
           axis: centerX,
@@ -527,10 +665,10 @@ export const calculateVerticalSpacing = ({
           refEnd,
           activeStart: adjustedBottom,
           activeEnd: nextTop,
-          distance: refDistance
+          distance
         }
 
-        options.push({ delta, guide, diff })
+        options.push({ delta, guide, diff: postDiff })
       }
     }
   }
@@ -637,34 +775,44 @@ export const calculateHorizontalSpacing = ({
 
     if (availableSpace >= 0) {
       const idealGap = availableSpace / 2
-      const isAligned = isStepAligned({ value: idealGap, step: MOVE_SNAP_STEP })
+      const desiredGap = snapToStep({ value: idealGap, step: MOVE_SNAP_STEP })
+      const gapLeft = activeLeft - prevRight
+      const gapRight = nextLeft - activeRight
+      const diffLeft = Math.abs(gapLeft - desiredGap)
+      const diffRight = Math.abs(gapRight - desiredGap)
+      const diff = Math.max(diffLeft, diffRight)
 
-      if (isAligned) {
-        const desiredGap = snapToStep({ value: idealGap, step: MOVE_SNAP_STEP })
-        const gapLeft = activeLeft - prevRight
-        const gapRight = nextLeft - activeRight
-        const diffLeft = Math.abs(gapLeft - desiredGap)
-        const diffRight = Math.abs(gapRight - desiredGap)
-        const diff = Math.max(diffLeft, diffRight)
+      if (diff <= threshold) {
+        const centered = resolveCenteredEqualSpacing({
+          activeStart: activeLeft,
+          activeEnd: activeRight,
+          targetGap: desiredGap,
+          beforeEdge: prevRight,
+          afterEdge: nextLeft,
+          threshold,
+          step: MOVE_SNAP_STEP
+        })
 
-        if (diff <= threshold) {
-          const delta = desiredGap - gapLeft
-          const isDeltaAligned = isStepAligned({ value: delta, step: MOVE_SNAP_STEP })
+        if (centered) {
+          const {
+            delta,
+            distance,
+            diff: centeredDiff,
+            activeStart: centeredActiveStart,
+            activeEnd: centeredActiveEnd
+          } = centered
 
-          if (isDeltaAligned) {
-            const adjustedRight = activeRight + delta
-            const guide: SpacingGuide = {
-              type: 'horizontal',
-              axis: centerY,
-              refStart: prevRight,
-              refEnd: prevRight + desiredGap,
-              activeStart: adjustedRight,
-              activeEnd: adjustedRight + desiredGap,
-              distance: desiredGap
-            }
-
-            options.push({ delta, guide, diff })
+          const guide: SpacingGuide = {
+            type: 'horizontal',
+            axis: centerY,
+            refStart: prevRight,
+            refEnd: prevRight + distance,
+            activeStart: centeredActiveStart,
+            activeEnd: centeredActiveEnd,
+            distance
           }
+
+          options.push({ delta, guide, diff: centeredDiff })
         }
       }
     }
@@ -712,12 +860,18 @@ export const calculateHorizontalSpacing = ({
     if (gapLeft !== null && prevBounds) {
       const diff = Math.abs(gapLeft - refDistance)
       if (diff <= threshold) {
-        const delta = refDistance - gapLeft
-        const isDeltaAligned = isStepAligned({ value: delta, step: MOVE_SNAP_STEP })
-
-        if (!isDeltaAligned) continue
+        const rawDelta = refDistance - gapLeft
+        const delta = snapToStep({ value: rawDelta, step: MOVE_SNAP_STEP })
         const adjustedLeft = activeLeft + delta
         const { right: prevRight } = prevBounds
+        const adjustedGap = adjustedLeft - prevRight
+        const postDiff = Math.abs(adjustedGap - refDistance)
+
+        if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'horizontal',
           axis: centerY,
@@ -725,22 +879,28 @@ export const calculateHorizontalSpacing = ({
           refEnd,
           activeStart: prevRight,
           activeEnd: adjustedLeft,
-          distance: refDistance
+          distance
         }
 
-        options.push({ delta, guide, diff })
+        options.push({ delta, guide, diff: postDiff })
       }
     }
 
     if (gapRight !== null && nextBounds) {
       const diff = Math.abs(gapRight - refDistance)
       if (diff <= threshold) {
-        const delta = gapRight - refDistance
-        const isDeltaAligned = isStepAligned({ value: delta, step: MOVE_SNAP_STEP })
-
-        if (!isDeltaAligned) continue
+        const rawDelta = gapRight - refDistance
+        const delta = snapToStep({ value: rawDelta, step: MOVE_SNAP_STEP })
         const adjustedRight = activeRight + delta
         const { left: nextLeft } = nextBounds
+        const adjustedGap = nextLeft - adjustedRight
+        const postDiff = Math.abs(adjustedGap - refDistance)
+
+        if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'horizontal',
           axis: centerY,
@@ -748,10 +908,10 @@ export const calculateHorizontalSpacing = ({
           refEnd,
           activeStart: adjustedRight,
           activeEnd: nextLeft,
-          distance: refDistance
+          distance
         }
 
-        options.push({ delta, guide, diff })
+        options.push({ delta, guide, diff: postDiff })
       }
     }
   }

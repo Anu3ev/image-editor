@@ -12,6 +12,7 @@ import { ImageEditor } from '..'
 import {
   GUIDE_COLOR,
   GUIDE_WIDTH,
+  SCALE_SNAP_STEP,
   MOVE_SNAP_STEP,
   SNAP_THRESHOLD
 } from './constants'
@@ -249,7 +250,7 @@ export default class SnappingManager {
       anchors: this.anchors
     })
 
-    const { deltaX, deltaY, guides } = snapResult
+    const { deltaX, deltaY } = snapResult
 
     if (deltaX !== 0 || deltaY !== 0) {
       const { left = 0, top = 0 } = target
@@ -284,12 +285,25 @@ export default class SnappingManager {
       activeBounds = getObjectBounds({ object: target }) ?? activeBounds
     }
 
-    this._applyGuides({
-      guides,
-      spacingGuides: spacingResult.guides
+    SnappingManager._applyMovementStep({ target })
+
+    const finalBounds = getObjectBounds({ object: target }) ?? activeBounds
+    const visualSnapResult = calculateSnap({
+      activeBounds: finalBounds,
+      threshold,
+      anchors: this.anchors
+    })
+    const visualSpacingResult = calculateSpacingSnap({
+      activeBounds: finalBounds,
+      candidates: candidateBounds,
+      threshold,
+      spacingPatterns: this.spacingPatterns
     })
 
-    SnappingManager._applyMovementStep({ target })
+    this._applyGuides({
+      guides: visualSnapResult.guides,
+      spacingGuides: visualSpacingResult.guides
+    })
   }
 
   /**
@@ -306,8 +320,13 @@ export default class SnappingManager {
     const isCtrlPressed = Boolean(e?.ctrlKey)
     if (isCtrlPressed) {
       this._clearGuides()
+      SnappingManager._applyScalingStep({ target, transform })
+      SnappingManager._applyMovementStep({ target })
       return
     }
+
+    SnappingManager._applyScalingStep({ target, transform })
+    SnappingManager._applyMovementStep({ target })
 
     const {
       shouldSnapX,
@@ -497,6 +516,9 @@ export default class SnappingManager {
         target.setCoords()
       }
     }
+
+    SnappingManager._applyScalingStep({ target, transform })
+    SnappingManager._applyMovementStep({ target })
 
     this._applyGuides({
       guides,
@@ -1206,6 +1228,78 @@ export default class SnappingManager {
       top: snappedTop
     })
     target.setCoords()
+  }
+
+  /**
+   * Применяет шаг масштабирования, округляя scaleX/scaleY к сетке SCALE_SNAP_STEP.
+   */
+  private static _applyScalingStep({
+    target,
+    transform
+  }: {
+    target: FabricObject
+    transform?: Transform | null
+  }): void {
+    const {
+      scaleX: rawScaleX = 1,
+      scaleY: rawScaleY = 1
+    } = target
+    const snappedScaleX = SnappingManager._snapScaleToStep({ value: rawScaleX })
+    const snappedScaleY = SnappingManager._snapScaleToStep({ value: rawScaleY })
+    const isAlreadySnapped = snappedScaleX === rawScaleX && snappedScaleY === rawScaleY
+
+    if (isAlreadySnapped) return
+
+    target.set({
+      scaleX: snappedScaleX,
+      scaleY: snappedScaleY
+    })
+
+    if (transform) {
+      transform.scaleX = snappedScaleX
+      transform.scaleY = snappedScaleY
+    }
+
+    target.setCoords()
+  }
+
+  /**
+   * Округляет scale до шага SCALE_SNAP_STEP, не допуская нулевого масштаба.
+   */
+  private static _snapScaleToStep({ value }: { value: number }): number {
+    const step = Math.abs(SCALE_SNAP_STEP)
+    if (step === 0) return value
+
+    const precision = SnappingManager._resolveStepPrecision({ step })
+    const factor = 10 ** precision
+    const scaledStep = Math.round(step * factor)
+    if (scaledStep <= 0) return value
+
+    const scaledValue = Math.round(value * factor)
+    const snappedScaledValue = Math.round(scaledValue / scaledStep) * scaledStep
+    const snappedValue = snappedScaledValue / factor
+    const normalizedValue = Number(snappedValue.toFixed(precision))
+
+    if (normalizedValue !== 0) return normalizedValue
+    if (value === 0) return step
+
+    if (value > 0) return step
+
+    return -step
+  }
+
+  /**
+   * Определяет количество знаков после запятой у шага.
+   */
+  private static _resolveStepPrecision({ step }: { step: number }): number {
+    const stepString = step.toString()
+    const dotIndex = stepString.indexOf('.')
+
+    if (dotIndex === -1) return 0
+
+    const decimalPart = stepString.slice(dotIndex + 1)
+
+    return decimalPart.length
   }
 
   /**
