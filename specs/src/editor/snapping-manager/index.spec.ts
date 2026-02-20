@@ -231,7 +231,7 @@ describe('SnappingManager', () => {
     expect(active.setCoords).toHaveBeenCalled()
   })
 
-  it('не показывает равноудалённость, если половина свободного зазора не кратна шагу', () => {
+  it('показывает равноудалённость, если половина свободного зазора не кратна шагу', () => {
     const { editor, objects } = createSnappingTestContext()
     const first = createBoundsObject({ left: 0, top: 0, width: 10, height: 10, id: 'obj-1' })
     const second = createBoundsObject({ left: 24, top: 0, width: 10, height: 10, id: 'obj-2' })
@@ -245,7 +245,26 @@ describe('SnappingManager', () => {
     (snappingManager as any)._handleObjectMoving({ target: active })
 
     const { activeSpacingGuides } = snappingManager as any
-    expect(activeSpacingGuides).toHaveLength(0)
+    expect(activeSpacingGuides.length).toBeGreaterThan(0)
+    expect(activeSpacingGuides[0].distance).toBe(3)
+  })
+
+  it('показывает общий display-distance при неидеально делимом центральном зазоре', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const first = createBoundsObject({ left: 0, top: 0, width: 10, height: 10, id: 'obj-1' })
+    const second = createBoundsObject({ left: 75, top: 0, width: 10, height: 10, id: 'obj-2' })
+    const active = createBoundsObject({ left: 33, top: 0, width: 20, height: 10, id: 'active' })
+    objects.push(first)
+    objects.push(second)
+    objects.push(active)
+
+    const snappingManager = new SnappingManager({ editor });
+    (snappingManager as any)._handleMouseDown({ target: active });
+    (snappingManager as any)._handleObjectMoving({ target: active })
+
+    const { activeSpacingGuides } = snappingManager as any
+    expect(activeSpacingGuides.length).toBeGreaterThan(0)
+    expect(activeSpacingGuides[0].distance).toBe(22)
   })
 
   it('показывает равноудалённость по шагу и расстояние совпадает с фактическим зазором', () => {
