@@ -249,7 +249,7 @@ export default class SnappingManager {
       anchors: this.anchors
     })
 
-    const { deltaX, deltaY, guides } = snapResult
+    const { deltaX, deltaY } = snapResult
 
     if (deltaX !== 0 || deltaY !== 0) {
       const { left = 0, top = 0 } = target
@@ -284,12 +284,25 @@ export default class SnappingManager {
       activeBounds = getObjectBounds({ object: target }) ?? activeBounds
     }
 
-    this._applyGuides({
-      guides,
-      spacingGuides: spacingResult.guides
+    SnappingManager._applyMovementStep({ target })
+
+    const finalBounds = getObjectBounds({ object: target }) ?? activeBounds
+    const visualSnapResult = calculateSnap({
+      activeBounds: finalBounds,
+      threshold,
+      anchors: this.anchors
+    })
+    const visualSpacingResult = calculateSpacingSnap({
+      activeBounds: finalBounds,
+      candidates: candidateBounds,
+      threshold,
+      spacingPatterns: this.spacingPatterns
     })
 
-    SnappingManager._applyMovementStep({ target })
+    this._applyGuides({
+      guides: visualSnapResult.guides,
+      spacingGuides: visualSpacingResult.guides
+    })
   }
 
   /**
