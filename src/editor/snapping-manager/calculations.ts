@@ -321,8 +321,7 @@ const resolveCenteredEqualSpacing = ({
     const distanceDiff = Math.abs(beforeDistance - afterDistance)
     if (distanceDiff > 1) continue
 
-    const averageGap = (gapBefore + gapAfter) / 2
-    const commonDistance = resolveDisplayDistance({ distance: averageGap })
+    const commonDistance = Math.max(beforeDistance, afterDistance)
 
     const nearestDiff = Math.max(
       Math.abs(gapBefore - targetGap),
@@ -346,6 +345,25 @@ const resolveCenteredEqualSpacing = ({
   }
 
   return bestCandidate
+}
+
+/**
+ * Нормализует отображаемое расстояние для гайда равноудалённости.
+ */
+const resolveGuideDisplayDistance = ({
+  currentGap,
+  referenceGap
+}: {
+  currentGap: number
+  referenceGap: number
+}): number => {
+  const currentDisplay = resolveDisplayDistance({ distance: currentGap })
+  const referenceDisplay = resolveDisplayDistance({ distance: referenceGap })
+  const displayDiff = Math.abs(currentDisplay - referenceDisplay)
+
+  if (displayDiff > 1) return referenceDisplay
+
+  return Math.max(currentDisplay, referenceDisplay)
 }
 
 /**
@@ -607,6 +625,10 @@ export const calculateVerticalSpacing = ({
         const postDiff = Math.abs(adjustedGap - refDistance)
 
         if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'vertical',
           axis: centerX,
@@ -614,7 +636,7 @@ export const calculateVerticalSpacing = ({
           refEnd,
           activeStart: prevBottom,
           activeEnd: adjustedTop,
-          distance: refDistance
+          distance
         }
 
         options.push({ delta, guide, diff: postDiff })
@@ -632,6 +654,10 @@ export const calculateVerticalSpacing = ({
         const postDiff = Math.abs(adjustedGap - refDistance)
 
         if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'vertical',
           axis: centerX,
@@ -639,7 +665,7 @@ export const calculateVerticalSpacing = ({
           refEnd,
           activeStart: adjustedBottom,
           activeEnd: nextTop,
-          distance: refDistance
+          distance
         }
 
         options.push({ delta, guide, diff: postDiff })
@@ -842,6 +868,10 @@ export const calculateHorizontalSpacing = ({
         const postDiff = Math.abs(adjustedGap - refDistance)
 
         if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'horizontal',
           axis: centerY,
@@ -849,7 +879,7 @@ export const calculateHorizontalSpacing = ({
           refEnd,
           activeStart: prevRight,
           activeEnd: adjustedLeft,
-          distance: refDistance
+          distance
         }
 
         options.push({ delta, guide, diff: postDiff })
@@ -867,6 +897,10 @@ export const calculateHorizontalSpacing = ({
         const postDiff = Math.abs(adjustedGap - refDistance)
 
         if (postDiff > threshold) continue
+        const distance = resolveGuideDisplayDistance({
+          currentGap: adjustedGap,
+          referenceGap: refDistance
+        })
         const guide: SpacingGuide = {
           type: 'horizontal',
           axis: centerY,
@@ -874,7 +908,7 @@ export const calculateHorizontalSpacing = ({
           refEnd,
           activeStart: adjustedRight,
           activeEnd: nextLeft,
-          distance: refDistance
+          distance
         }
 
         options.push({ delta, guide, diff: postDiff })

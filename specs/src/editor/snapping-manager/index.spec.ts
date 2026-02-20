@@ -264,7 +264,7 @@ describe('SnappingManager', () => {
 
     const { activeSpacingGuides } = snappingManager as any
     expect(activeSpacingGuides.length).toBeGreaterThan(0)
-    expect(activeSpacingGuides[0].distance).toBe(22)
+    expect(activeSpacingGuides[0].distance).toBe(23)
   })
 
   it('показывает равноудалённость по шагу и расстояние совпадает с фактическим зазором', () => {
@@ -348,6 +348,56 @@ describe('SnappingManager', () => {
         expect.objectContaining({ distance: expectedGap })
       ])
     )
+  })
+
+  it('показывает одинаковый display-distance для разных объектов в вертикальной цепочке', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const top = createBoundsObject({ left: 0, top: 0, width: 50, height: 50, id: 'top' })
+    const middle = createBoundsObject({ left: 0, top: 91, width: 50, height: 50, id: 'middle' })
+    const bottom = createBoundsObject({ left: 0, top: 182, width: 50, height: 50, id: 'bottom' })
+    objects.push(top)
+    objects.push(middle)
+    objects.push(bottom)
+
+    const middleSnappingManager = new SnappingManager({ editor });
+    (middleSnappingManager as any)._handleMouseDown({ target: middle });
+    (middleSnappingManager as any)._handleObjectMoving({ target: middle })
+    const middleGuides = (middleSnappingManager as any).activeSpacingGuides
+    const middleDistance = middleGuides[0]?.distance
+
+    const topSnappingManager = new SnappingManager({ editor });
+    (topSnappingManager as any)._handleMouseDown({ target: top });
+    (topSnappingManager as any)._handleObjectMoving({ target: top })
+    const topGuides = (topSnappingManager as any).activeSpacingGuides
+    const topDistance = topGuides[0]?.distance
+
+    expect(middleDistance).toBe(41)
+    expect(topDistance).toBe(41)
+  })
+
+  it('показывает одинаковый display-distance в вертикальной цепочке при уменьшенном среднем объекте', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const top = createBoundsObject({ left: 0, top: 0, width: 80, height: 80, id: 'top' })
+    const middle = createBoundsObject({ left: 0, top: 109, width: 80, height: 40, id: 'middle' })
+    const bottom = createBoundsObject({ left: 0, top: 177, width: 80, height: 80, id: 'bottom' })
+    objects.push(top)
+    objects.push(middle)
+    objects.push(bottom)
+
+    const middleSnappingManager = new SnappingManager({ editor });
+    (middleSnappingManager as any)._handleMouseDown({ target: middle });
+    (middleSnappingManager as any)._handleObjectMoving({ target: middle })
+    const middleGuides = (middleSnappingManager as any).activeSpacingGuides
+    const middleDistance = middleGuides[0]?.distance
+
+    const bottomSnappingManager = new SnappingManager({ editor });
+    (bottomSnappingManager as any)._handleMouseDown({ target: bottom });
+    (bottomSnappingManager as any)._handleObjectMoving({ target: bottom })
+    const bottomGuides = (bottomSnappingManager as any).activeSpacingGuides
+    const bottomDistance = bottomGuides[0]?.distance
+
+    expect(middleDistance).toBe(29)
+    expect(bottomDistance).toBe(29)
   })
 
   it('масштабирует объект по X с прилипаниями и фиксирует origin', () => {
