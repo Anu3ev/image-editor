@@ -12,6 +12,7 @@ import {
   shouldIgnoreObject
 } from '../utils/object-filter'
 import { drawGuideLabel } from '../utils/render-utils'
+import { resolveDisplayDistance } from '../utils/distance'
 import {
   MEASUREMENT_COLOR,
   MEASUREMENT_LINE_WIDTH
@@ -320,15 +321,312 @@ export default class MeasurementManager {
       targetIsMontageArea
     })
 
-    if (!guides.length) {
+    const normalizedGuides = !targetIsMontageArea && targetObject
+      ? this._normalizeSymmetricGuides({
+        guides,
+        activeObject,
+        targetObject,
+        activeBounds,
+        targetBounds
+      })
+      : guides
+
+    if (!normalizedGuides.length) {
       this._clearGuides()
       return
     }
 
     this.isTargetMontageArea = targetIsMontageArea
-    this.activeGuides = guides
+    this.activeGuides = normalizedGuides
     this._hideToolbar()
     canvas.requestRenderAll()
+  }
+
+  /**
+   * Нормализует отображаемые расстояния для симметричных случаев (как при равных отступах).
+   */
+  private _normalizeSymmetricGuides({
+    guides,
+    activeObject,
+    targetObject,
+    activeBounds,
+    targetBounds
+  }: {
+    guides: MeasurementGuide[]
+    activeObject: FabricObject
+    targetObject: FabricObject
+    activeBounds: Bounds
+    targetBounds: Bounds
+  }): MeasurementGuide[] {
+    return guides.map((guide) => {
+      if (guide.type === 'horizontal') {
+        return this._normalizeSymmetricHorizontalGuide({
+          guide,
+          activeObject,
+          targetObject,
+          activeBounds,
+          targetBounds
+        })
+      }
+
+      return this._normalizeSymmetricVerticalGuide({
+        guide,
+        activeObject,
+        targetObject,
+        activeBounds,
+        targetBounds
+      })
+    })
+  }
+
+  /**
+   * Приводит горизонтальную метку к общему значению, если объект симметрично между соседями.
+   */
+  private _normalizeSymmetricHorizontalGuide({
+    guide,
+    activeObject,
+    targetObject,
+    activeBounds,
+    targetBounds
+  }: {
+    guide: MeasurementGuide
+    activeObject: FabricObject
+    targetObject: FabricObject
+    activeBounds: Bounds
+    targetBounds: Bounds
+  }): MeasurementGuide {
+    const targetOnLeft = (targetBounds.right ?? 0) <= (activeBounds.left ?? 0)
+    const targetOnRight = (targetBounds.left ?? 0) >= (activeBounds.right ?? 0)
+
+    if (!targetOnLeft && !targetOnRight) return guide
+
+    const currentGap = targetOnLeft
+      ? (activeBounds.left ?? 0) - (targetBounds.right ?? 0)
+      : (targetBounds.left ?? 0) - (activeBounds.right ?? 0)
+    if (currentGap <= 0) return guide
+
+    const oppositeGapFromActive = this._findOppositeHorizontalGap({
+      activeObject,
+      targetObject,
+      activeBounds,
+      searchRightSide: targetOnLeft
+    })
+    const oppositeGapFromTarget = this._findOppositeHorizontalGap({
+      activeObject: targetObject,
+      targetObject: activeObject,
+      activeBounds: targetBounds,
+      searchRightSide: targetOnRight
+    })
+
+    const commonDistance = this._resolveCommonSymmetricDistance({
+      currentGap,
+      oppositeGaps: [oppositeGapFromActive, oppositeGapFromTarget]
+    })
+    if (commonDistance === null) return guide
+
+    return {
+      ...guide,
+      distance: commonDistance
+    }
+  }
+
+  /**
+   * Приводит вертикальную метку к общему значению, если объект симметрично между соседями.
+   */
+  private _normalizeSymmetricVerticalGuide({
+    guide,
+    activeObject,
+    targetObject,
+    activeBounds,
+    targetBounds
+  }: {
+    guide: MeasurementGuide
+    activeObject: FabricObject
+    targetObject: FabricObject
+    activeBounds: Bounds
+    targetBounds: Bounds
+  }): MeasurementGuide {
+    const targetOnTop = (targetBounds.bottom ?? 0) <= (activeBounds.top ?? 0)
+    const targetOnBottom = (targetBounds.top ?? 0) >= (activeBounds.bottom ?? 0)
+
+    if (!targetOnTop && !targetOnBottom) return guide
+
+    const currentGap = targetOnTop
+      ? (activeBounds.top ?? 0) - (targetBounds.bottom ?? 0)
+      : (targetBounds.top ?? 0) - (activeBounds.bottom ?? 0)
+    if (currentGap <= 0) return guide
+
+    const oppositeGapFromActive = this._findOppositeVerticalGap({
+      activeObject,
+      targetObject,
+      activeBounds,
+      searchBottomSide: targetOnTop
+    })
+    const oppositeGapFromTarget = this._findOppositeVerticalGap({
+      activeObject: targetObject,
+      targetObject: activeObject,
+      activeBounds: targetBounds,
+      searchBottomSide: targetOnBottom
+    })
+
+    const commonDistance = this._resolveCommonSymmetricDistance({
+      currentGap,
+      oppositeGaps: [oppositeGapFromActive, oppositeGapFromTarget]
+    })
+    if (commonDistance === null) return guide
+
+    return {
+      ...guide,
+      distance: commonDistance
+    }
+  }
+
+  /**
+   * Вычисляет общее отображаемое расстояние для пары почти-симметричных зазоров.
+   */
+  private _resolveCommonSymmetricDistance({
+    currentGap,
+    oppositeGaps
+  }: {
+    currentGap: number
+    oppositeGaps: Array<number | null>
+  }): number | null {
+    const currentDisplay = resolveDisplayDistance({ distance: currentGap })
+    let bestCommonDistance: number | null = null
+    let bestDiff = Number.POSITIVE_INFINITY
+
+    for (const oppositeGap of oppositeGaps) {
+      if (oppositeGap === null) continue
+
+      const oppositeDisplay = resolveDisplayDistance({ distance: oppositeGap })
+      const displayDiff = Math.abs(currentDisplay - oppositeDisplay)
+      if (displayDiff > 1 || displayDiff >= bestDiff) continue
+
+      bestDiff = displayDiff
+      bestCommonDistance = resolveDisplayDistance({
+        distance: (currentGap + oppositeGap) / 2
+      })
+    }
+
+    return bestCommonDistance
+  }
+
+  /**
+   * Находит ближайший горизонтальный зазор с противоположной стороны активного объекта.
+   */
+  private _findOppositeHorizontalGap({
+    activeObject,
+    targetObject,
+    activeBounds,
+    searchRightSide
+  }: {
+    activeObject: FabricObject
+    targetObject: FabricObject
+    activeBounds: Bounds
+    searchRightSide: boolean
+  }): number | null {
+    const { montageArea } = this.editor
+    const excluded = collectExcludedObjects({ activeObject })
+    let minGap = Number.POSITIVE_INFINITY
+
+    for (const object of this.canvas.getObjects()) {
+      if (object === activeObject || object === targetObject || object === montageArea) continue
+      if (shouldIgnoreObject({ object, excluded })) continue
+
+      const bounds = getObjectBounds({ object })
+      if (!bounds) continue
+      if (!MeasurementManager._hasVerticalOverlap({ a: activeBounds, b: bounds })) continue
+
+      let gap = -1
+      if (searchRightSide && (bounds.left ?? 0) >= (activeBounds.right ?? 0)) {
+        gap = (bounds.left ?? 0) - (activeBounds.right ?? 0)
+      }
+
+      if (!searchRightSide && (bounds.right ?? 0) <= (activeBounds.left ?? 0)) {
+        gap = (activeBounds.left ?? 0) - (bounds.right ?? 0)
+      }
+
+      if (gap > 0 && gap < minGap) {
+        minGap = gap
+      }
+    }
+
+    return Number.isFinite(minGap) ? minGap : null
+  }
+
+  /**
+   * Находит ближайший вертикальный зазор с противоположной стороны активного объекта.
+   */
+  private _findOppositeVerticalGap({
+    activeObject,
+    targetObject,
+    activeBounds,
+    searchBottomSide
+  }: {
+    activeObject: FabricObject
+    targetObject: FabricObject
+    activeBounds: Bounds
+    searchBottomSide: boolean
+  }): number | null {
+    const { montageArea } = this.editor
+    const excluded = collectExcludedObjects({ activeObject })
+    let minGap = Number.POSITIVE_INFINITY
+
+    for (const object of this.canvas.getObjects()) {
+      if (object === activeObject || object === targetObject || object === montageArea) continue
+      if (shouldIgnoreObject({ object, excluded })) continue
+
+      const bounds = getObjectBounds({ object })
+      if (!bounds) continue
+      if (!MeasurementManager._hasHorizontalOverlap({ a: activeBounds, b: bounds })) continue
+
+      let gap = -1
+      if (searchBottomSide && (bounds.top ?? 0) >= (activeBounds.bottom ?? 0)) {
+        gap = (bounds.top ?? 0) - (activeBounds.bottom ?? 0)
+      }
+
+      if (!searchBottomSide && (bounds.bottom ?? 0) <= (activeBounds.top ?? 0)) {
+        gap = (activeBounds.top ?? 0) - (bounds.bottom ?? 0)
+      }
+
+      if (gap > 0 && gap < minGap) {
+        minGap = gap
+      }
+    }
+
+    return Number.isFinite(minGap) ? minGap : null
+  }
+
+  /**
+   * Проверяет пересечение по оси Y.
+   */
+  private static _hasVerticalOverlap({
+    a,
+    b
+  }: {
+    a: Bounds
+    b: Bounds
+  }): boolean {
+    const overlapStart = Math.max(a.top ?? 0, b.top ?? 0)
+    const overlapEnd = Math.min(a.bottom ?? 0, b.bottom ?? 0)
+
+    return overlapEnd >= overlapStart
+  }
+
+  /**
+   * Проверяет пересечение по оси X.
+   */
+  private static _hasHorizontalOverlap({
+    a,
+    b
+  }: {
+    a: Bounds
+    b: Bounds
+  }): boolean {
+    const overlapStart = Math.max(a.left ?? 0, b.left ?? 0)
+    const overlapEnd = Math.min(a.right ?? 0, b.right ?? 0)
+
+    return overlapEnd >= overlapStart
   }
 
   /**
@@ -657,7 +955,7 @@ export default class MeasurementManager {
         axis,
         start,
         end,
-        text: Math.round(distance).toString(),
+        text: resolveDisplayDistance({ distance }).toString(),
         zoom,
         color: MEASUREMENT_COLOR,
         lineWidth: MEASUREMENT_LINE_WIDTH,
