@@ -208,8 +208,9 @@ describe('SnappingManager', () => {
     const { editor } = createSnappingTestContext()
     const active = createBoundsObject({ left: 10.2, top: 15.8, width: 20, height: 20, id: 'active' })
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleObjectMoving({ target: active })
 
     expect(active.left).toBe(Math.round(10.2 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
     expect(active.top).toBe(Math.round(15.8 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
@@ -220,8 +221,9 @@ describe('SnappingManager', () => {
     const { editor } = createSnappingTestContext()
     const active = createBoundsObject({ left: 21.6, top: 33.3, width: 30, height: 30, id: 'active' })
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleObjectMoving({
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleObjectMoving({
       target: active,
       e: { ctrlKey: true }
     })
@@ -240,9 +242,10 @@ describe('SnappingManager', () => {
     objects.push(second)
     objects.push(active)
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleMouseDown({ target: active });
-    (snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleMouseDown({ target: active })
+    snappingManagerState._handleObjectMoving({ target: active })
 
     const { activeSpacingGuides } = snappingManager as any
     expect(activeSpacingGuides.length).toBeGreaterThan(0)
@@ -258,9 +261,10 @@ describe('SnappingManager', () => {
     objects.push(second)
     objects.push(active)
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleMouseDown({ target: active });
-    (snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleMouseDown({ target: active })
+    snappingManagerState._handleObjectMoving({ target: active })
 
     const { activeSpacingGuides } = snappingManager as any
     expect(activeSpacingGuides.length).toBeGreaterThan(0)
@@ -276,9 +280,10 @@ describe('SnappingManager', () => {
     objects.push(second)
     objects.push(active)
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleMouseDown({ target: active });
-    (snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleMouseDown({ target: active })
+    snappingManagerState._handleObjectMoving({ target: active })
 
     const { activeSpacingGuides } = snappingManager as any
     expect(activeSpacingGuides.length).toBeGreaterThan(0)
@@ -313,9 +318,10 @@ describe('SnappingManager', () => {
       expectedPosition
     } = scenario
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleMouseDown({ target: active });
-    (snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleMouseDown({ target: active })
+    snappingManagerState._handleObjectMoving({ target: active })
 
     expect(active.top).toBe(expectedPosition)
 
@@ -336,9 +342,10 @@ describe('SnappingManager', () => {
       expectedPosition
     } = scenario
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleMouseDown({ target: active });
-    (snappingManager as any)._handleObjectMoving({ target: active })
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleMouseDown({ target: active })
+    snappingManagerState._handleObjectMoving({ target: active })
 
     expect(active.left).toBe(expectedPosition)
 
@@ -400,6 +407,102 @@ describe('SnappingManager', () => {
     expect(bottomDistance).toBe(29)
   })
 
+  it('не переносит левый референсный зазор на правую сторону без правой цепочки', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+    const second = createBoundsObject({ left: 82, top: 0, width: 20, height: 20, id: 'obj-2' })
+    const active = createBoundsObject({ left: 169, top: 0, width: 20, height: 20, id: 'active' })
+    const right = createBoundsObject({ left: 251, top: 0, width: 20, height: 20, id: 'obj-3' })
+    objects.push(first, second, right, active)
+
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleMouseDown({ target: active })
+    snappingManagerState._handleObjectMoving({ target: active })
+
+    expect(active.left).toBe(164)
+
+    const activeBounds = getObjectBounds({ object: active })
+    const rightBounds = getObjectBounds({ object: right })
+    if (!activeBounds || !rightBounds) {
+      throw new Error('Bounds не рассчитаны для проверки side ownership')
+    }
+
+    const rightGap = rightBounds.left - activeBounds.right
+    expect(rightGap).toBe(67)
+
+    const {
+      activeSpacingGuides
+    }: {
+      activeSpacingGuides: Array<{
+        activeEnd: number
+        activeStart: number
+        distance: number
+      }>
+    } = snappingManager as any
+    expect(activeSpacingGuides).toHaveLength(1)
+    expect(activeSpacingGuides[0].distance).toBe(62)
+    expect(activeSpacingGuides[0].activeStart).toBe(second.left + second.width)
+    expect(activeSpacingGuides[0].activeEnd).toBe(active.left)
+    expect(activeSpacingGuides[0].activeEnd).not.toBe(rightBounds.left)
+  })
+
+  it('показывает левый и правый контекст, когда паттерн равноудалённости совместим', () => {
+    const { editor, objects } = createSnappingTestContext()
+    const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+    const second = createBoundsObject({ left: 82, top: 0, width: 20, height: 20, id: 'obj-2' })
+    const active = createBoundsObject({ left: 164, top: 0, width: 20, height: 20, id: 'active' })
+    const right = createBoundsObject({ left: 246, top: 0, width: 20, height: 20, id: 'obj-3' })
+    objects.push(first, second, right, active)
+
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    snappingManagerState._handleMouseDown({ target: active })
+    snappingManagerState._handleObjectMoving({ target: active })
+
+    const firstBounds = getObjectBounds({ object: first })
+    const secondBounds = getObjectBounds({ object: second })
+    const activeBounds = getObjectBounds({ object: active })
+    const rightBounds = getObjectBounds({ object: right })
+    if (!firstBounds || !secondBounds || !activeBounds || !rightBounds) {
+      throw new Error('Bounds не рассчитаны для проверки совместимого паттерна')
+    }
+
+    const {
+      activeSpacingGuides
+    }: {
+      activeSpacingGuides: Array<{
+        refStart: number
+        refEnd: number
+        activeStart: number
+        activeEnd: number
+        distance: number
+      }>
+    } = snappingManager as any
+    expect(activeSpacingGuides.length).toBeGreaterThanOrEqual(2)
+
+    let hasLeftReferenceGuide = false
+    let hasRightActiveGuide = false
+    for (const guide of activeSpacingGuides) {
+      const isLeftReferenceGuide = guide.refStart === firstBounds.right
+        && guide.refEnd === secondBounds.left
+        && guide.distance === 62
+      if (isLeftReferenceGuide) {
+        hasLeftReferenceGuide = true
+      }
+
+      const isRightActiveGuide = guide.activeStart === activeBounds.right
+        && guide.activeEnd === rightBounds.left
+        && guide.distance === 62
+      if (isRightActiveGuide) {
+        hasRightActiveGuide = true
+      }
+    }
+
+    expect(hasLeftReferenceGuide).toBe(true)
+    expect(hasRightActiveGuide).toBe(true)
+  })
+
   it('масштабирует объект по X с прилипаниями и фиксирует origin', () => {
     const { editor, objects } = createSnappingTestContext()
     const active = createScalingObject({
@@ -412,7 +515,7 @@ describe('SnappingManager', () => {
     })
     objects.push(active)
 
-    const snappingManager = new SnappingManager({ editor });
+    const snappingManager = new SnappingManager({ editor })
     const snappingManagerState = snappingManager as any
     snappingManagerState.anchors = { vertical: [400], horizontal: [] }
     snappingManagerState._handleObjectScaling({
@@ -447,7 +550,7 @@ describe('SnappingManager', () => {
 
   it('применяет snap для текстового ресайза по горизонтали и фиксирует правый край', () => {
     const { editor, canvas } = createSnappingTestContext()
-    const snappingManager = new SnappingManager({ editor });
+    const snappingManager = new SnappingManager({ editor })
     const snappingManagerState = snappingManager as any
     snappingManagerState.anchors = { vertical: [200], horizontal: [] }
     const textbox = new Textbox('Test', {

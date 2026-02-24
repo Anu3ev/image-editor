@@ -1,5 +1,8 @@
 import { MOVE_SNAP_STEP } from './constants'
-import { resolveDisplayDistance } from '../utils/distance'
+import {
+  MAX_DISPLAY_DISTANCE_DIFF,
+  resolveCommonDisplayDistance
+} from '../utils/distance'
 import type {
   AnchorBuckets,
   Bounds,
@@ -19,6 +22,15 @@ type NeighborGap = {
   start: number
   end: number
   distance: number
+}
+
+type SpacingOptionSide = 'before' | 'center' | 'after'
+
+type SpacingOption = {
+  delta: number
+  guide: SpacingGuide
+  diff: number
+  side: SpacingOptionSide
 }
 
 /**
@@ -284,6 +296,227 @@ type EqualSpacingCandidate = {
 }
 
 /**
+ * Проверяет, что референсный зазор расположен полностью до активного объекта по оси.
+ */
+const isReferenceGapBeforeActive = ({
+  beforeIndex,
+  afterIndex,
+  activeIndex
+}: {
+  beforeIndex: number
+  afterIndex: number
+  activeIndex: number
+}): boolean => beforeIndex < activeIndex && afterIndex < activeIndex
+
+/**
+ * Проверяет, что референсный зазор расположен полностью после активного объекта по оси.
+ */
+const isReferenceGapAfterActive = ({
+  beforeIndex,
+  afterIndex,
+  activeIndex
+}: {
+  beforeIndex: number
+  afterIndex: number
+  activeIndex: number
+}): boolean => beforeIndex > activeIndex && afterIndex > activeIndex
+
+/**
+ * Проверяет, что два варианта привязки совместимы и описывают один и тот же display-паттерн.
+ */
+const areSpacingOptionsCompatible = ({
+  baseOption,
+  candidateOption
+}: {
+  baseOption: SpacingOption
+  candidateOption: SpacingOption
+}): boolean => {
+  const {
+    delta: baseDelta,
+    guide: { distance: baseDistance }
+  } = baseOption
+  const {
+    delta: candidateDelta,
+    guide: { distance: candidateDistance }
+  } = candidateOption
+
+  return baseDelta === candidateDelta && baseDistance === candidateDistance
+}
+
+/**
+ * Выбирает лучший вариант по минимальной ошибке diff с учётом ближайшей дельты.
+ */
+const resolveBestSpacingOption = ({
+  options
+}: {
+  options: SpacingOption[]
+}): SpacingOption => {
+  let bestOption = options[0]
+
+  for (let index = 1; index < options.length; index += 1) {
+    const option = options[index]
+    if (option.diff < bestOption.diff) {
+      bestOption = option
+      continue
+    }
+
+    if (option.diff !== bestOption.diff) continue
+
+    const optionDelta = Math.abs(option.delta)
+    const bestDelta = Math.abs(bestOption.delta)
+    if (optionDelta < bestDelta) {
+      bestOption = option
+    }
+  }
+
+  return bestOption
+}
+
+/**
+ * Возвращает лучший вариант по выбранной стороне, совместимый с базовым паттерном.
+ */
+const resolveBestSpacingOptionBySide = ({
+  options,
+  side,
+  baseOption
+}: {
+  options: SpacingOption[]
+  side: SpacingOptionSide
+  baseOption: SpacingOption
+}): SpacingOption | null => {
+  let bestOption: SpacingOption | null = null
+
+  for (const option of options) {
+    if (option.side !== side) continue
+    const isCompatible = areSpacingOptionsCompatible({
+      baseOption,
+      candidateOption: option
+    })
+    if (!isCompatible) continue
+
+    if (!bestOption || option.diff < bestOption.diff) {
+      bestOption = option
+      continue
+    }
+
+    if (!bestOption || option.diff !== bestOption.diff) continue
+
+    const optionDelta = Math.abs(option.delta)
+    const bestDelta = Math.abs(bestOption.delta)
+    if (optionDelta < bestDelta) {
+      bestOption = option
+    }
+  }
+
+  return bestOption
+}
+
+/**
+ * Добавляет guide в итог без дублей по геометрии и distance.
+ */
+const pushUniqueSpacingGuide = ({
+  guides,
+  seenGuideKeys,
+  guide
+}: {
+  guides: SpacingGuide[]
+  seenGuideKeys: Set<string>
+  guide: SpacingGuide
+}): void => {
+  const {
+    type,
+    axis,
+    refStart,
+    refEnd,
+    activeStart,
+    activeEnd,
+    distance
+  } = guide
+  const key = `${type}:${axis}:${refStart}:${refEnd}:${activeStart}:${activeEnd}:${distance}`
+  if (seenGuideKeys.has(key)) return
+
+  seenGuideKeys.add(key)
+  guides.push(guide)
+}
+
+/**
+ * Формирует итоговые направляющие для равноудалённости без смешивания разных паттернов.
+ */
+const resolveSpacingResult = ({
+  options
+}: {
+  options: SpacingOption[]
+}): { delta: number; guides: SpacingGuide[] } => {
+  if (!options.length) {
+    return {
+      delta: 0,
+      guides: []
+    }
+  }
+
+  const bestOption = resolveBestSpacingOption({ options })
+  const beforeOption = resolveBestSpacingOptionBySide({
+    options,
+    side: 'before',
+    baseOption: bestOption
+  })
+  const centerOption = resolveBestSpacingOptionBySide({
+    options,
+    side: 'center',
+    baseOption: bestOption
+  })
+  const afterOption = resolveBestSpacingOptionBySide({
+    options,
+    side: 'after',
+    baseOption: bestOption
+  })
+
+  const selectedOptions: SpacingOption[] = []
+  if (beforeOption && afterOption) {
+    selectedOptions.push(beforeOption, afterOption)
+  } else {
+    selectedOptions.push(bestOption)
+
+    if (bestOption.side === 'before' && afterOption) {
+      selectedOptions.push(afterOption)
+    }
+
+    if (bestOption.side === 'after' && beforeOption) {
+      selectedOptions.push(beforeOption)
+    }
+
+    if (bestOption.side === 'center') {
+      if (beforeOption && !afterOption) {
+        selectedOptions.push(beforeOption)
+      }
+
+      if (afterOption && !beforeOption) {
+        selectedOptions.push(afterOption)
+      }
+    }
+  }
+
+  if (!selectedOptions.length && centerOption) {
+    selectedOptions.push(centerOption)
+  }
+
+  const guides: SpacingGuide[] = []
+  const seenGuideKeys = new Set<string>()
+  for (const option of selectedOptions) {
+    pushUniqueSpacingGuide({
+      guides,
+      seenGuideKeys,
+      guide: option.guide
+    })
+  }
+
+  return {
+    delta: bestOption.delta,
+    guides
+  }
+}
+
+/**
  * Подбирает дельту для центрального равноудалённого прилипания на сетке шага.
  */
 const resolveCenteredEqualSpacing = ({
@@ -316,12 +549,14 @@ const resolveCenteredEqualSpacing = ({
     const gapBefore = adjustedStart - beforeEdge
     const gapAfter = afterEdge - adjustedEnd
 
-    const beforeDistance = resolveDisplayDistance({ distance: gapBefore })
-    const afterDistance = resolveDisplayDistance({ distance: gapAfter })
-    const distanceDiff = Math.abs(beforeDistance - afterDistance)
-    if (distanceDiff > 1) continue
-
-    const commonDistance = Math.max(beforeDistance, afterDistance)
+    const {
+      displayDistanceDiff: distanceDiff,
+      commonDisplayDistance: commonDistance
+    } = resolveCommonDisplayDistance({
+      firstDistance: gapBefore,
+      secondDistance: gapAfter
+    })
+    if (distanceDiff > MAX_DISPLAY_DISTANCE_DIFF) continue
 
     const nearestDiff = Math.max(
       Math.abs(gapBefore - targetGap),
@@ -357,13 +592,18 @@ const resolveGuideDisplayDistance = ({
   currentGap: number
   referenceGap: number
 }): number => {
-  const currentDisplay = resolveDisplayDistance({ distance: currentGap })
-  const referenceDisplay = resolveDisplayDistance({ distance: referenceGap })
-  const displayDiff = Math.abs(currentDisplay - referenceDisplay)
+  const {
+    secondDisplayDistance: referenceDisplay,
+    displayDistanceDiff,
+    commonDisplayDistance
+  } = resolveCommonDisplayDistance({
+    firstDistance: currentGap,
+    secondDistance: referenceGap
+  })
 
-  if (displayDiff > 1) return referenceDisplay
+  if (displayDistanceDiff > MAX_DISPLAY_DISTANCE_DIFF) return referenceDisplay
 
-  return Math.max(currentDisplay, referenceDisplay)
+  return commonDisplayDistance
 }
 
 /**
@@ -461,7 +701,7 @@ export const calculateVerticalSpacing = ({
   candidates: Bounds[]
   threshold: number
   patterns: SpacingPattern[]
-}): { delta: number; guide: SpacingGuide | null } => {
+}): { delta: number; guides: SpacingGuide[] } => {
   const {
     centerX,
     top: activeTop,
@@ -489,7 +729,7 @@ export const calculateVerticalSpacing = ({
   }
 
   if (!aligned.length) {
-    return { delta: 0, guide: null }
+    return { delta: 0, guides: [] }
   }
 
   const items: SpacingItem[] = []
@@ -502,10 +742,10 @@ export const calculateVerticalSpacing = ({
 
   const activeIndex = findActiveItemIndex({ items })
   if (activeIndex === -1) {
-    return { delta: 0, guide: null }
+    return { delta: 0, guides: [] }
   }
 
-  const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
+  const options: SpacingOption[] = []
   const height = activeBottom - activeTop
   const prevIndex = findNeighborIndex({
     items,
@@ -569,7 +809,12 @@ export const calculateVerticalSpacing = ({
             distance
           }
 
-          options.push({ delta, guide, diff: centeredDiff })
+          options.push({
+            delta,
+            guide,
+            diff: centeredDiff,
+            side: 'center'
+          })
         }
       }
     }
@@ -614,7 +859,18 @@ export const calculateVerticalSpacing = ({
 
     if (!isRefAligned) continue
 
-    if (gapAbove !== null && prevBounds) {
+    const isGapBeforeActive = isReferenceGapBeforeActive({
+      beforeIndex,
+      afterIndex,
+      activeIndex
+    })
+    const isGapAfterActive = isReferenceGapAfterActive({
+      beforeIndex,
+      afterIndex,
+      activeIndex
+    })
+
+    if (gapAbove !== null && prevBounds && isGapBeforeActive) {
       const diff = Math.abs(gapAbove - refDistance)
       if (diff <= threshold) {
         const rawDelta = refDistance - gapAbove
@@ -639,11 +895,16 @@ export const calculateVerticalSpacing = ({
           distance
         }
 
-        options.push({ delta, guide, diff: postDiff })
+        options.push({
+          delta,
+          guide,
+          diff: postDiff,
+          side: 'before'
+        })
       }
     }
 
-    if (gapBelow !== null && nextBounds) {
+    if (gapBelow !== null && nextBounds && isGapAfterActive) {
       const diff = Math.abs(gapBelow - refDistance)
       if (diff <= threshold) {
         const rawDelta = gapBelow - refDistance
@@ -668,27 +929,17 @@ export const calculateVerticalSpacing = ({
           distance
         }
 
-        options.push({ delta, guide, diff: postDiff })
+        options.push({
+          delta,
+          guide,
+          diff: postDiff,
+          side: 'after'
+        })
       }
     }
   }
 
-  if (!options.length) {
-    return { delta: 0, guide: null }
-  }
-
-  let bestOption = options[0]
-  for (let index = 1; index < options.length; index += 1) {
-    const option = options[index]
-    if (option.diff < bestOption.diff) {
-      bestOption = option
-    }
-  }
-
-  return {
-    delta: bestOption.delta,
-    guide: bestOption.guide
-  }
+  return resolveSpacingResult({ options })
 }
 
 /**
@@ -704,7 +955,7 @@ export const calculateHorizontalSpacing = ({
   candidates: Bounds[]
   threshold: number
   patterns: SpacingPattern[]
-}): { delta: number; guide: SpacingGuide | null } => {
+}): { delta: number; guides: SpacingGuide[] } => {
   const {
     centerY,
     left: activeLeft,
@@ -732,7 +983,7 @@ export const calculateHorizontalSpacing = ({
   }
 
   if (!aligned.length) {
-    return { delta: 0, guide: null }
+    return { delta: 0, guides: [] }
   }
 
   const items: SpacingItem[] = []
@@ -745,10 +996,10 @@ export const calculateHorizontalSpacing = ({
 
   const activeIndex = findActiveItemIndex({ items })
   if (activeIndex === -1) {
-    return { delta: 0, guide: null }
+    return { delta: 0, guides: [] }
   }
 
-  const options: Array<{ delta: number; guide: SpacingGuide; diff: number }> = []
+  const options: SpacingOption[] = []
   const width = activeRight - activeLeft
   const prevIndex = findNeighborIndex({
     items,
@@ -812,7 +1063,12 @@ export const calculateHorizontalSpacing = ({
             distance
           }
 
-          options.push({ delta, guide, diff: centeredDiff })
+          options.push({
+            delta,
+            guide,
+            diff: centeredDiff,
+            side: 'center'
+          })
         }
       }
     }
@@ -857,7 +1113,18 @@ export const calculateHorizontalSpacing = ({
 
     if (!isRefAligned) continue
 
-    if (gapLeft !== null && prevBounds) {
+    const isGapBeforeActive = isReferenceGapBeforeActive({
+      beforeIndex,
+      afterIndex,
+      activeIndex
+    })
+    const isGapAfterActive = isReferenceGapAfterActive({
+      beforeIndex,
+      afterIndex,
+      activeIndex
+    })
+
+    if (gapLeft !== null && prevBounds && isGapBeforeActive) {
       const diff = Math.abs(gapLeft - refDistance)
       if (diff <= threshold) {
         const rawDelta = refDistance - gapLeft
@@ -882,11 +1149,16 @@ export const calculateHorizontalSpacing = ({
           distance
         }
 
-        options.push({ delta, guide, diff: postDiff })
+        options.push({
+          delta,
+          guide,
+          diff: postDiff,
+          side: 'before'
+        })
       }
     }
 
-    if (gapRight !== null && nextBounds) {
+    if (gapRight !== null && nextBounds && isGapAfterActive) {
       const diff = Math.abs(gapRight - refDistance)
       if (diff <= threshold) {
         const rawDelta = gapRight - refDistance
@@ -911,27 +1183,17 @@ export const calculateHorizontalSpacing = ({
           distance
         }
 
-        options.push({ delta, guide, diff: postDiff })
+        options.push({
+          delta,
+          guide,
+          diff: postDiff,
+          side: 'after'
+        })
       }
     }
   }
 
-  if (!options.length) {
-    return { delta: 0, guide: null }
-  }
-
-  let bestOption = options[0]
-  for (let index = 1; index < options.length; index += 1) {
-    const option = options[index]
-    if (option.diff < bestOption.diff) {
-      bestOption = option
-    }
-  }
-
-  return {
-    delta: bestOption.delta,
-    guide: bestOption.guide
-  }
+  return resolveSpacingResult({ options })
 }
 
 /**
@@ -962,11 +1224,11 @@ export const calculateSpacingSnap = ({
   })
 
   const guides: SpacingGuide[] = []
-  if (verticalResult.guide) {
-    guides.push(verticalResult.guide)
+  for (const guide of verticalResult.guides) {
+    guides.push(guide)
   }
-  if (horizontalResult.guide) {
-    guides.push(horizontalResult.guide)
+  for (const guide of horizontalResult.guides) {
+    guides.push(guide)
   }
 
   return {
