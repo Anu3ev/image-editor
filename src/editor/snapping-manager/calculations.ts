@@ -1,5 +1,8 @@
 import { MOVE_SNAP_STEP } from './constants'
-import { resolveDisplayDistance } from '../utils/distance'
+import {
+  MAX_DISPLAY_DISTANCE_DIFF,
+  resolveCommonDisplayDistance
+} from '../utils/distance'
 import type {
   AnchorBuckets,
   Bounds,
@@ -316,12 +319,14 @@ const resolveCenteredEqualSpacing = ({
     const gapBefore = adjustedStart - beforeEdge
     const gapAfter = afterEdge - adjustedEnd
 
-    const beforeDistance = resolveDisplayDistance({ distance: gapBefore })
-    const afterDistance = resolveDisplayDistance({ distance: gapAfter })
-    const distanceDiff = Math.abs(beforeDistance - afterDistance)
-    if (distanceDiff > 1) continue
-
-    const commonDistance = Math.max(beforeDistance, afterDistance)
+    const {
+      displayDistanceDiff: distanceDiff,
+      commonDisplayDistance: commonDistance
+    } = resolveCommonDisplayDistance({
+      firstDistance: gapBefore,
+      secondDistance: gapAfter
+    })
+    if (distanceDiff > MAX_DISPLAY_DISTANCE_DIFF) continue
 
     const nearestDiff = Math.max(
       Math.abs(gapBefore - targetGap),
@@ -357,13 +362,18 @@ const resolveGuideDisplayDistance = ({
   currentGap: number
   referenceGap: number
 }): number => {
-  const currentDisplay = resolveDisplayDistance({ distance: currentGap })
-  const referenceDisplay = resolveDisplayDistance({ distance: referenceGap })
-  const displayDiff = Math.abs(currentDisplay - referenceDisplay)
+  const {
+    secondDisplayDistance: referenceDisplay,
+    displayDistanceDiff,
+    commonDisplayDistance
+  } = resolveCommonDisplayDistance({
+    firstDistance: currentGap,
+    secondDistance: referenceGap
+  })
 
-  if (displayDiff > 1) return referenceDisplay
+  if (displayDistanceDiff > MAX_DISPLAY_DISTANCE_DIFF) return referenceDisplay
 
-  return Math.max(currentDisplay, referenceDisplay)
+  return commonDisplayDistance
 }
 
 /**

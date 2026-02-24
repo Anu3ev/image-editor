@@ -12,7 +12,11 @@ import {
   shouldIgnoreObject
 } from '../utils/object-filter'
 import { drawGuideLabel } from '../utils/render-utils'
-import { resolveDisplayDistance } from '../utils/distance'
+import {
+  MAX_DISPLAY_DISTANCE_DIFF,
+  resolveCommonDisplayDistance,
+  resolveDisplayDistance
+} from '../utils/distance'
 import {
   MEASUREMENT_COLOR,
   MEASUREMENT_LINE_WIDTH
@@ -491,21 +495,23 @@ export default class MeasurementManager {
     currentGap: number
     oppositeGaps: Array<number | null>
   }): number | null {
-    const currentDisplay = resolveDisplayDistance({ distance: currentGap })
     let bestCommonDistance: number | null = null
     let bestDiff = Number.POSITIVE_INFINITY
 
     for (const oppositeGap of oppositeGaps) {
       if (oppositeGap === null) continue
 
-      const oppositeDisplay = resolveDisplayDistance({ distance: oppositeGap })
-      const displayDiff = Math.abs(currentDisplay - oppositeDisplay)
-      if (displayDiff > 1 || displayDiff >= bestDiff) continue
-
-      bestDiff = displayDiff
-      bestCommonDistance = resolveDisplayDistance({
-        distance: (currentGap + oppositeGap) / 2
+      const {
+        displayDistanceDiff,
+        commonDisplayDistance
+      } = resolveCommonDisplayDistance({
+        firstDistance: currentGap,
+        secondDistance: oppositeGap
       })
+      if (displayDistanceDiff > MAX_DISPLAY_DISTANCE_DIFF || displayDistanceDiff >= bestDiff) continue
+
+      bestDiff = displayDistanceDiff
+      bestCommonDistance = commonDisplayDistance
     }
 
     return bestCommonDistance
@@ -610,7 +616,7 @@ export default class MeasurementManager {
     const overlapStart = Math.max(a.top ?? 0, b.top ?? 0)
     const overlapEnd = Math.min(a.bottom ?? 0, b.bottom ?? 0)
 
-    return overlapEnd >= overlapStart
+    return overlapEnd > overlapStart
   }
 
   /**
@@ -626,7 +632,7 @@ export default class MeasurementManager {
     const overlapStart = Math.max(a.left ?? 0, b.left ?? 0)
     const overlapEnd = Math.min(a.right ?? 0, b.right ?? 0)
 
-    return overlapEnd >= overlapStart
+    return overlapEnd > overlapStart
   }
 
   /**
