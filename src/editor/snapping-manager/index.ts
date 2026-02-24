@@ -262,11 +262,7 @@ export default class SnappingManager {
       activeBounds = getObjectBounds({ object: target }) ?? activeBounds
     }
 
-    const candidateBounds = this.cachedTargetBounds.length
-      ? this.cachedTargetBounds
-      : this._collectTargets({ activeObject: target })
-        .map((object) => getObjectBounds({ object }))
-        .filter((bounds): bounds is Bounds => Boolean(bounds))
+    const candidateBounds = this._resolveCurrentTargetBounds({ activeObject: target })
 
     const spacingResult = calculateSpacingSnap({
       activeBounds,
@@ -1351,6 +1347,23 @@ export default class SnappingManager {
     })
 
     return targets
+  }
+
+  /**
+   * Возвращает актуальные границы объектов-целей для расчёта равноудалённого прилипания.
+   */
+  private _resolveCurrentTargetBounds({ activeObject }: { activeObject: FabricObject }): Bounds[] {
+    const targets = this._collectTargets({ activeObject })
+    const boundsList: Bounds[] = []
+
+    for (const object of targets) {
+      const bounds = getObjectBounds({ object })
+      if (!bounds) continue
+
+      boundsList.push(bounds)
+    }
+
+    return boundsList
   }
 
   /**
