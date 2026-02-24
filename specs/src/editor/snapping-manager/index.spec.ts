@@ -1,6 +1,14 @@
 import { Textbox } from 'fabric'
 import SnappingManager from '../../../../src/editor/snapping-manager'
-import { MOVE_SNAP_STEP } from '../../../../src/editor/snapping-manager/constants'
+import {
+  calculateHorizontalSpacing,
+  calculateVerticalSpacing
+} from '../../../../src/editor/snapping-manager/calculations'
+import {
+  MOVE_SNAP_STEP,
+  SNAP_THRESHOLD
+} from '../../../../src/editor/snapping-manager/constants'
+import type { Bounds, SpacingPattern } from '../../../../src/editor/snapping-manager/types'
 import { getObjectBounds } from '../../../../src/editor/utils/geometry'
 import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/editor-helpers'
 
@@ -501,6 +509,292 @@ describe('SnappingManager', () => {
 
     expect(hasLeftReferenceGuide).toBe(true)
     expect(hasRightActiveGuide).toBe(true)
+  })
+
+  it('выбирает ближайший верхний референсный паттерн по вертикали и не даёт второй snap на 1px', () => {
+    const activeBounds: Bounds = {
+      left: 0,
+      top: 200,
+      right: 40,
+      bottom: 240,
+      centerX: 20,
+      centerY: 220
+    }
+    const candidates: Bounds[] = [
+      {
+        left: 0,
+        top: 120,
+        right: 40,
+        bottom: 158,
+        centerX: 20,
+        centerY: 139
+      },
+      {
+        left: 0,
+        top: 330,
+        right: 40,
+        bottom: 370,
+        centerX: 20,
+        centerY: 350
+      }
+    ]
+    const patterns: SpacingPattern[] = [
+      {
+        type: 'vertical',
+        axis: 20,
+        start: 100,
+        end: 143,
+        distance: 43
+      },
+      {
+        type: 'vertical',
+        axis: 20,
+        start: 146,
+        end: 190,
+        distance: 44
+      },
+      {
+        type: 'vertical',
+        axis: 20,
+        start: 300,
+        end: 350,
+        distance: 50
+      }
+    ]
+
+    const { delta, guides } = calculateVerticalSpacing({
+      activeBounds,
+      candidates,
+      threshold: SNAP_THRESHOLD,
+      patterns
+    })
+
+    expect(delta).toBe(2)
+    expect(guides).toHaveLength(1)
+    expect(guides[0]).toEqual(expect.objectContaining({
+      refStart: 146,
+      refEnd: 190,
+      distance: 44
+    }))
+
+    let hasDistance43 = false
+    for (const guide of guides) {
+      if (guide.distance === 43) {
+        hasDistance43 = true
+      }
+    }
+
+    expect(hasDistance43).toBe(false)
+  })
+
+  it('сохраняет вертикальный snap для нижнего контекста, когда верхние референсы вне порога', () => {
+    const activeBounds: Bounds = {
+      left: 0,
+      top: 248,
+      right: 40,
+      bottom: 288,
+      centerX: 20,
+      centerY: 268
+    }
+    const candidates: Bounds[] = [
+      {
+        left: 0,
+        top: 120,
+        right: 40,
+        bottom: 158,
+        centerX: 20,
+        centerY: 139
+      },
+      {
+        left: 0,
+        top: 337,
+        right: 40,
+        bottom: 377,
+        centerX: 20,
+        centerY: 357
+      }
+    ]
+    const patterns: SpacingPattern[] = [
+      {
+        type: 'vertical',
+        axis: 20,
+        start: 100,
+        end: 143,
+        distance: 43
+      },
+      {
+        type: 'vertical',
+        axis: 20,
+        start: 146,
+        end: 190,
+        distance: 44
+      },
+      {
+        type: 'vertical',
+        axis: 20,
+        start: 300,
+        end: 350,
+        distance: 50
+      }
+    ]
+
+    const { delta, guides } = calculateVerticalSpacing({
+      activeBounds,
+      candidates,
+      threshold: SNAP_THRESHOLD,
+      patterns
+    })
+
+    expect(delta).toBe(-1)
+    expect(guides).toHaveLength(1)
+    expect(guides[0]).toEqual(expect.objectContaining({
+      refStart: 300,
+      refEnd: 350,
+      distance: 50
+    }))
+  })
+
+  it('выбирает ближайший левый референсный паттерн по горизонтали и не даёт второй snap на 1px', () => {
+    const activeBounds: Bounds = {
+      left: 200,
+      top: 0,
+      right: 240,
+      bottom: 40,
+      centerX: 220,
+      centerY: 20
+    }
+    const candidates: Bounds[] = [
+      {
+        left: 120,
+        top: 0,
+        right: 158,
+        bottom: 40,
+        centerX: 139,
+        centerY: 20
+      },
+      {
+        left: 330,
+        top: 0,
+        right: 370,
+        bottom: 40,
+        centerX: 350,
+        centerY: 20
+      }
+    ]
+    const patterns: SpacingPattern[] = [
+      {
+        type: 'horizontal',
+        axis: 20,
+        start: 100,
+        end: 143,
+        distance: 43
+      },
+      {
+        type: 'horizontal',
+        axis: 20,
+        start: 146,
+        end: 190,
+        distance: 44
+      },
+      {
+        type: 'horizontal',
+        axis: 20,
+        start: 300,
+        end: 350,
+        distance: 50
+      }
+    ]
+
+    const { delta, guides } = calculateHorizontalSpacing({
+      activeBounds,
+      candidates,
+      threshold: SNAP_THRESHOLD,
+      patterns
+    })
+
+    expect(delta).toBe(2)
+    expect(guides).toHaveLength(1)
+    expect(guides[0]).toEqual(expect.objectContaining({
+      refStart: 146,
+      refEnd: 190,
+      distance: 44
+    }))
+
+    let hasDistance43 = false
+    for (const guide of guides) {
+      if (guide.distance === 43) {
+        hasDistance43 = true
+      }
+    }
+
+    expect(hasDistance43).toBe(false)
+  })
+
+  it('сохраняет горизонтальный snap для правого контекста, когда левые референсы вне порога', () => {
+    const activeBounds: Bounds = {
+      left: 248,
+      top: 0,
+      right: 288,
+      bottom: 40,
+      centerX: 268,
+      centerY: 20
+    }
+    const candidates: Bounds[] = [
+      {
+        left: 120,
+        top: 0,
+        right: 158,
+        bottom: 40,
+        centerX: 139,
+        centerY: 20
+      },
+      {
+        left: 337,
+        top: 0,
+        right: 377,
+        bottom: 40,
+        centerX: 357,
+        centerY: 20
+      }
+    ]
+    const patterns: SpacingPattern[] = [
+      {
+        type: 'horizontal',
+        axis: 20,
+        start: 100,
+        end: 143,
+        distance: 43
+      },
+      {
+        type: 'horizontal',
+        axis: 20,
+        start: 146,
+        end: 190,
+        distance: 44
+      },
+      {
+        type: 'horizontal',
+        axis: 20,
+        start: 300,
+        end: 350,
+        distance: 50
+      }
+    ]
+
+    const { delta, guides } = calculateHorizontalSpacing({
+      activeBounds,
+      candidates,
+      threshold: SNAP_THRESHOLD,
+      patterns
+    })
+
+    expect(delta).toBe(-1)
+    expect(guides).toHaveLength(1)
+    expect(guides[0]).toEqual(expect.objectContaining({
+      refStart: 300,
+      refEnd: 350,
+      distance: 50
+    }))
   })
 
   it('масштабирует объект по X с прилипаниями и фиксирует origin', () => {
