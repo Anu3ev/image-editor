@@ -16,21 +16,16 @@ type SpacingItem = {
   isActive: boolean
 }
 
-type NeighborGap = {
-  beforeIndex: number
-  afterIndex: number
-  start: number
-  end: number
-  distance: number
-}
-
 type SpacingOptionSide = 'before' | 'center' | 'after'
+type SpacingOptionKind = 'reference' | 'center'
 
 type SpacingOption = {
   delta: number
   guide: SpacingGuide
   diff: number
   side: SpacingOptionSide
+  kind: SpacingOptionKind
+  contextDistance: number
 }
 
 /**
@@ -238,55 +233,6 @@ const findActiveItemIndex = ({
   return -1
 }
 
-/**
- * Собирает положительные зазоры между ближайшими неперекрывающимися элементами на выбранной оси.
- */
-const collectNeighborGaps = ({
-  items,
-  axis
-}: {
-  items: SpacingItem[]
-  axis: 'horizontal' | 'vertical'
-}): NeighborGap[] => {
-  const gaps: NeighborGap[] = []
-
-  for (let index = 0; index < items.length - 1; index += 1) {
-    const currentItem = items[index]
-    if (!currentItem) continue
-
-    const { bounds: currentBounds } = currentItem
-    const { end: currentEnd } = resolveBoundsEdges({
-      bounds: currentBounds,
-      axis
-    })
-
-    for (let nextIndex = index + 1; nextIndex < items.length; nextIndex += 1) {
-      const nextItem = items[nextIndex]
-      if (!nextItem) continue
-
-      const { bounds: nextBounds } = nextItem
-      const { start: nextStart } = resolveBoundsEdges({
-        bounds: nextBounds,
-        axis
-      })
-
-      const distance = nextStart - currentEnd
-      if (distance < 0) continue
-
-      gaps.push({
-        beforeIndex: index,
-        afterIndex: nextIndex,
-        start: currentEnd,
-        end: nextStart,
-        distance
-      })
-      break
-    }
-  }
-
-  return gaps
-}
-
 type EqualSpacingCandidate = {
   delta: number
   distance: number
@@ -296,30 +242,44 @@ type EqualSpacingCandidate = {
 }
 
 /**
- * Проверяет, что референсный зазор расположен полностью до активного объекта по оси.
+ * Проверяет, попадает ли ось референсного паттерна в диапазон активного объекта.
  */
-const isReferenceGapBeforeActive = ({
-  beforeIndex,
-  afterIndex,
-  activeIndex
+const isPatternAxisAlignedWithActiveRange = ({
+  patternAxis,
+  activeRangeStart,
+  activeRangeEnd,
+  tolerance = 0
 }: {
-  beforeIndex: number
-  afterIndex: number
-  activeIndex: number
-}): boolean => beforeIndex < activeIndex && afterIndex < activeIndex
+  patternAxis: number
+  activeRangeStart: number
+  activeRangeEnd: number
+  tolerance?: number
+}): boolean => {
+  const minRange = Math.min(activeRangeStart, activeRangeEnd)
+  const maxRange = Math.max(activeRangeStart, activeRangeEnd)
+
+  return patternAxis >= minRange - tolerance && patternAxis <= maxRange + tolerance
+}
 
 /**
- * Проверяет, что референсный зазор расположен полностью после активного объекта по оси.
+ * Определяет сторону активного объекта, на которой находится референсный паттерн.
  */
-const isReferenceGapAfterActive = ({
-  beforeIndex,
-  afterIndex,
-  activeIndex
+const resolveReferencePatternSide = ({
+  patternStart,
+  patternEnd,
+  activeStart,
+  activeEnd
 }: {
-  beforeIndex: number
-  afterIndex: number
-  activeIndex: number
-}): boolean => beforeIndex > activeIndex && afterIndex > activeIndex
+  patternStart: number
+  patternEnd: number
+  activeStart: number
+  activeEnd: number
+}): Exclude<SpacingOptionSide, 'center'> | null => {
+  if (patternEnd <= activeStart) return 'before'
+  if (patternStart >= activeEnd) return 'after'
+
+  return null
+}
 
 /**
  * Проверяет, что два варианта привязки совместимы и описывают один и тот же display-паттерн.
@@ -370,6 +330,82 @@ const resolveBestSpacingOption = ({
   }
 
   return bestOption
+}
+
+/**
+ * Возвращает true, если следующий вариант лучше текущего для одной стороны по приоритету близости контекста.
+ */
+const shouldReplaceContextOption = ({
+  currentOption,
+  nextOption
+}: {
+  currentOption: SpacingOption | null
+  nextOption: SpacingOption
+}): boolean => {
+  if (!currentOption) return true
+
+  const { contextDistance: currentContextDistance, diff: currentDiff, delta: currentDelta } = currentOption
+  const { contextDistance: nextContextDistance, diff: nextDiff, delta: nextDelta } = nextOption
+
+  if (nextContextDistance < currentContextDistance) return true
+  if (nextContextDistance > currentContextDistance) return false
+
+  if (nextDiff < currentDiff) return true
+  if (nextDiff > currentDiff) return false
+
+  return Math.abs(nextDelta) < Math.abs(currentDelta)
+}
+
+/**
+ * Оставляет только ближайший референсный контекст на каждой стороне, чтобы не было конкурирующих 1px-паттернов.
+ */
+const resolveNearestReferenceOptions = ({
+  options
+}: {
+  options: SpacingOption[]
+}): SpacingOption[] => {
+  const filteredOptions: SpacingOption[] = []
+  let bestBeforeOption: SpacingOption | null = null
+  let bestAfterOption: SpacingOption | null = null
+
+  for (const option of options) {
+    const { kind, side } = option
+
+    if (kind !== 'reference') {
+      filteredOptions.push(option)
+      continue
+    }
+
+    if (side === 'before') {
+      const shouldReplace = shouldReplaceContextOption({
+        currentOption: bestBeforeOption,
+        nextOption: option
+      })
+      if (shouldReplace) {
+        bestBeforeOption = option
+      }
+    }
+
+    if (side === 'after') {
+      const shouldReplace = shouldReplaceContextOption({
+        currentOption: bestAfterOption,
+        nextOption: option
+      })
+      if (shouldReplace) {
+        bestAfterOption = option
+      }
+    }
+  }
+
+  if (bestBeforeOption) {
+    filteredOptions.push(bestBeforeOption)
+  }
+
+  if (bestAfterOption) {
+    filteredOptions.push(bestAfterOption)
+  }
+
+  return filteredOptions
 }
 
 /**
@@ -454,20 +490,30 @@ const resolveSpacingResult = ({
     }
   }
 
-  const bestOption = resolveBestSpacingOption({ options })
+  const resolvedOptions = resolveNearestReferenceOptions({ options })
+  const referenceOptions: SpacingOption[] = []
+  for (const option of resolvedOptions) {
+    if (option.kind !== 'reference') continue
+    referenceOptions.push(option)
+  }
+  const hasReferenceOptions = referenceOptions.length > 0
+  const prioritizedOptions = hasReferenceOptions ? referenceOptions : resolvedOptions
+
+  const bestOption = resolveBestSpacingOption({ options: prioritizedOptions })
   const beforeOption = resolveBestSpacingOptionBySide({
-    options,
+    options: prioritizedOptions,
     side: 'before',
     baseOption: bestOption
   })
-  const centerOption = resolveBestSpacingOptionBySide({
-    options,
-    side: 'center',
+  const afterOption = resolveBestSpacingOptionBySide({
+    options: prioritizedOptions,
+    side: 'after',
     baseOption: bestOption
   })
-  const afterOption = resolveBestSpacingOptionBySide({
-    options,
-    side: 'after',
+  const centerOptionSource = hasReferenceOptions ? resolvedOptions : prioritizedOptions
+  const centerOption = resolveBestSpacingOptionBySide({
+    options: centerOptionSource,
+    side: 'center',
     baseOption: bestOption
   })
 
@@ -493,6 +539,14 @@ const resolveSpacingResult = ({
       if (afterOption && !beforeOption) {
         selectedOptions.push(afterOption)
       }
+    }
+
+    if (hasReferenceOptions && bestOption.side === 'before' && !afterOption && centerOption) {
+      selectedOptions.push(centerOption)
+    }
+
+    if (hasReferenceOptions && bestOption.side === 'after' && !beforeOption && centerOption) {
+      selectedOptions.push(centerOption)
     }
   }
 
@@ -583,7 +637,7 @@ const resolveCenteredEqualSpacing = ({
 }
 
 /**
- * Нормализует отображаемое расстояние для гайда равноудалённости.
+ * Возвращает отображаемое расстояние для гайда только при консистентном display-gap.
  */
 const resolveGuideDisplayDistance = ({
   currentGap,
@@ -591,19 +645,18 @@ const resolveGuideDisplayDistance = ({
 }: {
   currentGap: number
   referenceGap: number
-}): number => {
+}): number | null => {
   const {
-    secondDisplayDistance: referenceDisplay,
-    displayDistanceDiff,
-    commonDisplayDistance
+    firstDisplayDistance: currentDisplayDistance,
+    displayDistanceDiff
   } = resolveCommonDisplayDistance({
     firstDistance: currentGap,
     secondDistance: referenceGap
   })
 
-  if (displayDistanceDiff > MAX_DISPLAY_DISTANCE_DIFF) return referenceDisplay
+  if (displayDistanceDiff > MAX_DISPLAY_DISTANCE_DIFF) return null
 
-  return commonDisplayDistance
+  return currentDisplayDistance
 }
 
 /**
@@ -695,7 +748,7 @@ export const calculateVerticalSpacing = ({
   activeBounds,
   candidates,
   threshold,
-  patterns: _patterns
+  patterns
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
@@ -813,14 +866,15 @@ export const calculateVerticalSpacing = ({
             delta,
             guide,
             diff: centeredDiff,
-            side: 'center'
+            side: 'center',
+            kind: 'center',
+            contextDistance: 0
           })
         }
       }
     }
   }
 
-  const neighborGaps = collectNeighborGaps({ items, axis: 'vertical' })
   let gapAbove: number | null = null
   let gapBelow: number | null = null
   let prevBounds: Bounds | null = null
@@ -844,33 +898,36 @@ export const calculateVerticalSpacing = ({
     }
   }
 
-  for (const gap of neighborGaps) {
+  for (const pattern of patterns) {
     const {
-      beforeIndex,
-      afterIndex,
+      axis: refAxis,
       start: refStart,
       end: refEnd,
       distance: refDistance
-    } = gap
-
-    if (beforeIndex === activeIndex || afterIndex === activeIndex) continue
+    } = pattern
 
     const isRefAligned = isStepAligned({ value: refDistance, step: MOVE_SNAP_STEP })
 
     if (!isRefAligned) continue
 
-    const isGapBeforeActive = isReferenceGapBeforeActive({
-      beforeIndex,
-      afterIndex,
-      activeIndex
-    })
-    const isGapAfterActive = isReferenceGapAfterActive({
-      beforeIndex,
-      afterIndex,
-      activeIndex
+    const isAxisAligned = isPatternAxisAlignedWithActiveRange({
+      patternAxis: refAxis,
+      activeRangeStart: activeLeft,
+      activeRangeEnd: activeRight,
+      tolerance: threshold
     })
 
-    if (gapAbove !== null && prevBounds && isGapBeforeActive) {
+    if (!isAxisAligned) continue
+
+    const side = resolveReferencePatternSide({
+      patternStart: refStart,
+      patternEnd: refEnd,
+      activeStart: activeTop,
+      activeEnd: activeBottom
+    })
+    if (!side) continue
+
+    if (gapAbove !== null && prevBounds && side === 'before') {
       const diff = Math.abs(gapAbove - refDistance)
       if (diff <= threshold) {
         const rawDelta = refDistance - gapAbove
@@ -885,6 +942,7 @@ export const calculateVerticalSpacing = ({
           currentGap: adjustedGap,
           referenceGap: refDistance
         })
+        if (distance === null) continue
         const guide: SpacingGuide = {
           type: 'vertical',
           axis: centerX,
@@ -899,12 +957,14 @@ export const calculateVerticalSpacing = ({
           delta,
           guide,
           diff: postDiff,
-          side: 'before'
+          side: 'before',
+          kind: 'reference',
+          contextDistance: activeTop - refEnd
         })
       }
     }
 
-    if (gapBelow !== null && nextBounds && isGapAfterActive) {
+    if (gapBelow !== null && nextBounds && side === 'after') {
       const diff = Math.abs(gapBelow - refDistance)
       if (diff <= threshold) {
         const rawDelta = gapBelow - refDistance
@@ -919,6 +979,7 @@ export const calculateVerticalSpacing = ({
           currentGap: adjustedGap,
           referenceGap: refDistance
         })
+        if (distance === null) continue
         const guide: SpacingGuide = {
           type: 'vertical',
           axis: centerX,
@@ -933,7 +994,9 @@ export const calculateVerticalSpacing = ({
           delta,
           guide,
           diff: postDiff,
-          side: 'after'
+          side: 'after',
+          kind: 'reference',
+          contextDistance: refStart - activeBottom
         })
       }
     }
@@ -949,7 +1012,7 @@ export const calculateHorizontalSpacing = ({
   activeBounds,
   candidates,
   threshold,
-  patterns: _patterns
+  patterns
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
@@ -1067,14 +1130,15 @@ export const calculateHorizontalSpacing = ({
             delta,
             guide,
             diff: centeredDiff,
-            side: 'center'
+            side: 'center',
+            kind: 'center',
+            contextDistance: 0
           })
         }
       }
     }
   }
 
-  const neighborGaps = collectNeighborGaps({ items, axis: 'horizontal' })
   let gapLeft: number | null = null
   let gapRight: number | null = null
   let prevBounds: Bounds | null = null
@@ -1098,33 +1162,36 @@ export const calculateHorizontalSpacing = ({
     }
   }
 
-  for (const gap of neighborGaps) {
+  for (const pattern of patterns) {
     const {
-      beforeIndex,
-      afterIndex,
+      axis: refAxis,
       start: refStart,
       end: refEnd,
       distance: refDistance
-    } = gap
-
-    if (beforeIndex === activeIndex || afterIndex === activeIndex) continue
+    } = pattern
 
     const isRefAligned = isStepAligned({ value: refDistance, step: MOVE_SNAP_STEP })
 
     if (!isRefAligned) continue
 
-    const isGapBeforeActive = isReferenceGapBeforeActive({
-      beforeIndex,
-      afterIndex,
-      activeIndex
-    })
-    const isGapAfterActive = isReferenceGapAfterActive({
-      beforeIndex,
-      afterIndex,
-      activeIndex
+    const isAxisAligned = isPatternAxisAlignedWithActiveRange({
+      patternAxis: refAxis,
+      activeRangeStart: activeTop,
+      activeRangeEnd: activeBottom,
+      tolerance: threshold
     })
 
-    if (gapLeft !== null && prevBounds && isGapBeforeActive) {
+    if (!isAxisAligned) continue
+
+    const side = resolveReferencePatternSide({
+      patternStart: refStart,
+      patternEnd: refEnd,
+      activeStart: activeLeft,
+      activeEnd: activeRight
+    })
+    if (!side) continue
+
+    if (gapLeft !== null && prevBounds && side === 'before') {
       const diff = Math.abs(gapLeft - refDistance)
       if (diff <= threshold) {
         const rawDelta = refDistance - gapLeft
@@ -1139,6 +1206,7 @@ export const calculateHorizontalSpacing = ({
           currentGap: adjustedGap,
           referenceGap: refDistance
         })
+        if (distance === null) continue
         const guide: SpacingGuide = {
           type: 'horizontal',
           axis: centerY,
@@ -1153,12 +1221,14 @@ export const calculateHorizontalSpacing = ({
           delta,
           guide,
           diff: postDiff,
-          side: 'before'
+          side: 'before',
+          kind: 'reference',
+          contextDistance: activeLeft - refEnd
         })
       }
     }
 
-    if (gapRight !== null && nextBounds && isGapAfterActive) {
+    if (gapRight !== null && nextBounds && side === 'after') {
       const diff = Math.abs(gapRight - refDistance)
       if (diff <= threshold) {
         const rawDelta = gapRight - refDistance
@@ -1173,6 +1243,7 @@ export const calculateHorizontalSpacing = ({
           currentGap: adjustedGap,
           referenceGap: refDistance
         })
+        if (distance === null) continue
         const guide: SpacingGuide = {
           type: 'horizontal',
           axis: centerY,
@@ -1187,7 +1258,9 @@ export const calculateHorizontalSpacing = ({
           delta,
           guide,
           diff: postDiff,
-          side: 'after'
+          side: 'after',
+          kind: 'reference',
+          contextDistance: refStart - activeRight
         })
       }
     }
