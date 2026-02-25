@@ -1,5 +1,5 @@
 /**
- * Нормализует расстояние для отображения в пикселях, скрывая субпиксельные артефакты.
+ * Нормализует расстояние для отображения в пикселях, округляя до ближайшего целого.
  */
 export const resolveDisplayDistance = ({
   distance
@@ -8,10 +8,7 @@ export const resolveDisplayDistance = ({
 }): number => {
   if (!Number.isFinite(distance)) return 0
 
-  const normalizedDistance = Math.max(0, distance)
-  const epsilon = 0.000001
-
-  return Math.floor(normalizedDistance + epsilon)
+  return Math.round(Math.max(0, distance))
 }
 
 /**

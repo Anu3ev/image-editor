@@ -1,6 +1,7 @@
 import { Rect, Circle, Triangle, FabricObject, RectProps, CircleProps } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import { snapObjectToPixelGrid } from '../utils/geometry'
 
 type ShapeCreationFlags = {
   withoutSelection?: boolean
@@ -65,6 +66,8 @@ export default class ShapeManager {
       canvas.centerObject(rect)
     }
 
+    snapObjectToPixelGrid({ object: rect })
+
     if (withoutAdding) return rect
 
     canvas.add(rect)
@@ -118,6 +121,8 @@ export default class ShapeManager {
     if (!left && !top) {
       canvas.centerObject(circle)
     }
+
+    snapObjectToPixelGrid({ object: circle })
 
     if (withoutAdding) return circle
     canvas.add(circle)
@@ -174,6 +179,8 @@ export default class ShapeManager {
     if (!left && !top) {
       canvas.centerObject(triangle)
     }
+
+    snapObjectToPixelGrid({ object: triangle })
 
     if (withoutAdding) return triangle
     canvas.add(triangle)

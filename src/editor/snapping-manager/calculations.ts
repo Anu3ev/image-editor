@@ -1,4 +1,4 @@
-import { MOVE_SNAP_STEP } from './constants'
+import { CENTERING_STEP, MOVE_SNAP_STEP } from './constants'
 import {
   MAX_DISPLAY_DISTANCE_DIFF,
   resolveCommonDisplayDistance
@@ -16,8 +16,19 @@ type SpacingItem = {
   isActive: boolean
 }
 
-type SpacingOptionSide = 'before' | 'center' | 'after'
-type SpacingOptionKind = 'reference' | 'center'
+export type SpacingSelectionContext = {
+  side: 'before' | 'center' | 'after'
+  kind: 'reference' | 'center'
+  distance: number
+}
+
+export type SpacingContextByAxis = {
+  vertical: SpacingSelectionContext | null
+  horizontal: SpacingSelectionContext | null
+}
+
+type SpacingOptionSide = SpacingSelectionContext['side']
+type SpacingOptionKind = SpacingSelectionContext['kind']
 
 type SpacingOption = {
   delta: number
@@ -448,6 +459,108 @@ const resolveBestSpacingOptionBySide = ({
 }
 
 /**
+ * Преобразует вариант прилипания в контекст выбора для последующей стабилизации.
+ */
+const resolveSpacingContextFromOption = ({
+  option
+}: {
+  option: SpacingOption
+}): SpacingSelectionContext => {
+  const {
+    side,
+    kind,
+    guide: { distance }
+  } = option
+
+  return {
+    side,
+    kind,
+    distance
+  }
+}
+
+/**
+ * Проверяет, соответствует ли вариант сохранённому контексту выбора.
+ */
+const isSpacingOptionMatchedByContext = ({
+  option,
+  context
+}: {
+  option: SpacingOption
+  context: SpacingSelectionContext
+}): boolean => {
+  const {
+    side: contextSide,
+    kind: contextKind,
+    distance: contextDistance
+  } = context
+  const {
+    side: optionSide,
+    kind: optionKind,
+    guide: { distance: optionDistance }
+  } = option
+
+  if (contextSide !== optionSide || contextKind !== optionKind) return false
+
+  const distanceDiff = Math.abs(optionDistance - contextDistance)
+
+  return distanceDiff <= MAX_DISPLAY_DISTANCE_DIFF
+}
+
+/**
+ * Находит вариант прилипания, соответствующий ранее выбранному контексту.
+ */
+const resolveSpacingOptionByContext = ({
+  options,
+  context
+}: {
+  options: SpacingOption[]
+  context: SpacingSelectionContext | null
+}): SpacingOption | null => {
+  if (!context) return null
+
+  for (const option of options) {
+    const isMatched = isSpacingOptionMatchedByContext({
+      option,
+      context
+    })
+
+    if (isMatched) return option
+  }
+
+  return null
+}
+
+/**
+ * Возвращает основной вариант прилипания с учетом порога переключения контекста.
+ */
+const resolvePrimarySpacingOption = ({
+  options,
+  bestOption,
+  previousContext,
+  switchDistance = 0
+}: {
+  options: SpacingOption[]
+  bestOption: SpacingOption
+  previousContext: SpacingSelectionContext | null
+  switchDistance?: number
+}): SpacingOption => {
+  const previousOption = resolveSpacingOptionByContext({
+    options,
+    context: previousContext
+  })
+  if (!previousOption) return bestOption
+
+  const normalizedSwitchDistance = Math.max(0, switchDistance)
+  if (normalizedSwitchDistance === 0) return bestOption
+
+  const deltaDistance = Math.abs(bestOption.delta - previousOption.delta)
+  if (deltaDistance >= normalizedSwitchDistance) return bestOption
+
+  return previousOption
+}
+
+/**
  * Добавляет guide в итог без дублей по геометрии и distance.
  */
 const pushUniqueSpacingGuide = ({
@@ -479,14 +592,19 @@ const pushUniqueSpacingGuide = ({
  * Формирует итоговые направляющие для равноудалённости без смешивания разных паттернов.
  */
 const resolveSpacingResult = ({
-  options
+  options,
+  previousContext = null,
+  switchDistance = 0
 }: {
   options: SpacingOption[]
-}): { delta: number; guides: SpacingGuide[] } => {
+  previousContext?: SpacingSelectionContext | null
+  switchDistance?: number
+}): { delta: number; guides: SpacingGuide[]; context: SpacingSelectionContext | null } => {
   if (!options.length) {
     return {
       delta: 0,
-      guides: []
+      guides: [],
+      context: null
     }
   }
 
@@ -500,38 +618,44 @@ const resolveSpacingResult = ({
   const prioritizedOptions = hasReferenceOptions ? referenceOptions : resolvedOptions
 
   const bestOption = resolveBestSpacingOption({ options: prioritizedOptions })
+  const primaryOption = resolvePrimarySpacingOption({
+    options: prioritizedOptions,
+    bestOption,
+    previousContext,
+    switchDistance
+  })
   const beforeOption = resolveBestSpacingOptionBySide({
     options: prioritizedOptions,
     side: 'before',
-    baseOption: bestOption
+    baseOption: primaryOption
   })
   const afterOption = resolveBestSpacingOptionBySide({
     options: prioritizedOptions,
     side: 'after',
-    baseOption: bestOption
+    baseOption: primaryOption
   })
   const centerOptionSource = hasReferenceOptions ? resolvedOptions : prioritizedOptions
   const centerOption = resolveBestSpacingOptionBySide({
     options: centerOptionSource,
     side: 'center',
-    baseOption: bestOption
+    baseOption: primaryOption
   })
 
   const selectedOptions: SpacingOption[] = []
   if (beforeOption && afterOption) {
     selectedOptions.push(beforeOption, afterOption)
   } else {
-    selectedOptions.push(bestOption)
+    selectedOptions.push(primaryOption)
 
-    if (bestOption.side === 'before' && afterOption) {
+    if (primaryOption.side === 'before' && afterOption) {
       selectedOptions.push(afterOption)
     }
 
-    if (bestOption.side === 'after' && beforeOption) {
+    if (primaryOption.side === 'after' && beforeOption) {
       selectedOptions.push(beforeOption)
     }
 
-    if (bestOption.side === 'center') {
+    if (primaryOption.side === 'center') {
       if (beforeOption && !afterOption) {
         selectedOptions.push(beforeOption)
       }
@@ -541,11 +665,11 @@ const resolveSpacingResult = ({
       }
     }
 
-    if (hasReferenceOptions && bestOption.side === 'before' && !afterOption && centerOption) {
+    if (hasReferenceOptions && primaryOption.side === 'before' && !afterOption && centerOption) {
       selectedOptions.push(centerOption)
     }
 
-    if (hasReferenceOptions && bestOption.side === 'after' && !beforeOption && centerOption) {
+    if (hasReferenceOptions && primaryOption.side === 'after' && !beforeOption && centerOption) {
       selectedOptions.push(centerOption)
     }
   }
@@ -565,8 +689,11 @@ const resolveSpacingResult = ({
   }
 
   return {
-    delta: bestOption.delta,
-    guides
+    delta: primaryOption.delta,
+    guides,
+    context: resolveSpacingContextFromOption({
+      option: primaryOption
+    })
   }
 }
 
@@ -647,7 +774,7 @@ const resolveGuideDisplayDistance = ({
   referenceGap: number
 }): number | null => {
   const {
-    firstDisplayDistance: currentDisplayDistance,
+    secondDisplayDistance: referenceDisplayDistance,
     displayDistanceDiff
   } = resolveCommonDisplayDistance({
     firstDistance: currentGap,
@@ -656,7 +783,7 @@ const resolveGuideDisplayDistance = ({
 
   if (displayDistanceDiff > MAX_DISPLAY_DISTANCE_DIFF) return null
 
-  return currentDisplayDistance
+  return referenceDisplayDistance
 }
 
 /**
@@ -748,13 +875,17 @@ export const calculateVerticalSpacing = ({
   activeBounds,
   candidates,
   threshold,
-  patterns
+  patterns,
+  previousContext = null,
+  switchDistance = 0
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
   patterns: SpacingPattern[]
-}): { delta: number; guides: SpacingGuide[] } => {
+  previousContext?: SpacingSelectionContext | null
+  switchDistance?: number
+}): { delta: number; guides: SpacingGuide[]; context: SpacingSelectionContext | null } => {
   const {
     centerX,
     top: activeTop,
@@ -782,7 +913,7 @@ export const calculateVerticalSpacing = ({
   }
 
   if (!aligned.length) {
-    return { delta: 0, guides: [] }
+    return { delta: 0, guides: [], context: null }
   }
 
   const items: SpacingItem[] = []
@@ -795,7 +926,7 @@ export const calculateVerticalSpacing = ({
 
   const activeIndex = findActiveItemIndex({ items })
   if (activeIndex === -1) {
-    return { delta: 0, guides: [] }
+    return { delta: 0, guides: [], context: null }
   }
 
   const options: SpacingOption[] = []
@@ -840,7 +971,7 @@ export const calculateVerticalSpacing = ({
           beforeEdge: prevBottom,
           afterEdge: nextTop,
           threshold,
-          step: MOVE_SNAP_STEP
+          step: CENTERING_STEP
         })
 
         if (centered) {
@@ -906,7 +1037,7 @@ export const calculateVerticalSpacing = ({
       distance: refDistance
     } = pattern
 
-    const isRefAligned = isStepAligned({ value: refDistance, step: MOVE_SNAP_STEP })
+    const isRefAligned = isStepAligned({ value: refDistance, step: CENTERING_STEP })
 
     if (!isRefAligned) continue
 
@@ -1002,7 +1133,11 @@ export const calculateVerticalSpacing = ({
     }
   }
 
-  return resolveSpacingResult({ options })
+  return resolveSpacingResult({
+    options,
+    previousContext,
+    switchDistance
+  })
 }
 
 /**
@@ -1012,13 +1147,17 @@ export const calculateHorizontalSpacing = ({
   activeBounds,
   candidates,
   threshold,
-  patterns
+  patterns,
+  previousContext = null,
+  switchDistance = 0
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
   patterns: SpacingPattern[]
-}): { delta: number; guides: SpacingGuide[] } => {
+  previousContext?: SpacingSelectionContext | null
+  switchDistance?: number
+}): { delta: number; guides: SpacingGuide[]; context: SpacingSelectionContext | null } => {
   const {
     centerY,
     left: activeLeft,
@@ -1046,7 +1185,7 @@ export const calculateHorizontalSpacing = ({
   }
 
   if (!aligned.length) {
-    return { delta: 0, guides: [] }
+    return { delta: 0, guides: [], context: null }
   }
 
   const items: SpacingItem[] = []
@@ -1059,7 +1198,7 @@ export const calculateHorizontalSpacing = ({
 
   const activeIndex = findActiveItemIndex({ items })
   if (activeIndex === -1) {
-    return { delta: 0, guides: [] }
+    return { delta: 0, guides: [], context: null }
   }
 
   const options: SpacingOption[] = []
@@ -1104,7 +1243,7 @@ export const calculateHorizontalSpacing = ({
           beforeEdge: prevRight,
           afterEdge: nextLeft,
           threshold,
-          step: MOVE_SNAP_STEP
+          step: CENTERING_STEP
         })
 
         if (centered) {
@@ -1170,7 +1309,7 @@ export const calculateHorizontalSpacing = ({
       distance: refDistance
     } = pattern
 
-    const isRefAligned = isStepAligned({ value: refDistance, step: MOVE_SNAP_STEP })
+    const isRefAligned = isStepAligned({ value: refDistance, step: CENTERING_STEP })
 
     if (!isRefAligned) continue
 
@@ -1266,7 +1405,11 @@ export const calculateHorizontalSpacing = ({
     }
   }
 
-  return resolveSpacingResult({ options })
+  return resolveSpacingResult({
+    options,
+    previousContext,
+    switchDistance
+  })
 }
 
 /**
@@ -1276,24 +1419,42 @@ export const calculateSpacingSnap = ({
   activeBounds,
   candidates,
   threshold,
-  spacingPatterns
+  spacingPatterns,
+  previousContexts,
+  switchDistance = 0
 }: {
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
   spacingPatterns: { vertical: SpacingPattern[]; horizontal: SpacingPattern[] }
-}): { deltaX: number; deltaY: number; guides: SpacingGuide[] } => {
+  previousContexts?: SpacingContextByAxis
+  switchDistance?: number
+}): {
+  deltaX: number
+  deltaY: number
+  guides: SpacingGuide[]
+  contexts: SpacingContextByAxis
+} => {
+  const {
+    vertical: previousVerticalContext = null,
+    horizontal: previousHorizontalContext = null
+  } = previousContexts ?? {}
+
   const verticalResult = calculateVerticalSpacing({
     activeBounds,
     candidates,
     threshold,
-    patterns: spacingPatterns.vertical
+    patterns: spacingPatterns.vertical,
+    previousContext: previousVerticalContext,
+    switchDistance
   })
   const horizontalResult = calculateHorizontalSpacing({
     activeBounds,
     candidates,
     threshold,
-    patterns: spacingPatterns.horizontal
+    patterns: spacingPatterns.horizontal,
+    previousContext: previousHorizontalContext,
+    switchDistance
   })
 
   const guides: SpacingGuide[] = []
@@ -1307,6 +1468,10 @@ export const calculateSpacingSnap = ({
   return {
     deltaX: horizontalResult.delta,
     deltaY: verticalResult.delta,
-    guides
+    guides,
+    contexts: {
+      vertical: verticalResult.context,
+      horizontal: horizontalResult.context
+    }
   }
 }

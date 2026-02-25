@@ -1,6 +1,6 @@
 {
   "name": "@anu3ev/fabric-image-editor",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "JavaScript image editor built on FabricJS, allowing you to create instances with an integrated montage area and providing an API to modify and manage state.",
   "module": "dist/main.js",
   "files": [
@@ -28,8 +28,10 @@
     "@babel/core": "^7.26.7",
     "@babel/preset-env": "^7.28.3",
     "@eslint/js": "^9.16.0",
+    "@playwright/test": "^1.58.2",
     "@types/fabric": "^5.3.10",
     "@types/jest": "^30.0.0",
+    "@types/node": "^25.3.0",
     "@typescript-eslint/eslint-plugin": "^8.36.0",
     "@typescript-eslint/parser": "^8.36.0",
     "@vitejs/plugin-basic-ssl": "^2.1.0",

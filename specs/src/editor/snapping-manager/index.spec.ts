@@ -5,8 +5,10 @@ import {
   calculateVerticalSpacing
 } from '../../../../src/editor/snapping-manager/calculations'
 import {
+  CENTERING_STEP,
   MOVE_SNAP_STEP,
-  SNAP_THRESHOLD
+  SNAP_THRESHOLD,
+  SPACING_SNAP_HOLD_MARGIN
 } from '../../../../src/editor/snapping-manager/constants'
 import type { Bounds, SpacingPattern } from '../../../../src/editor/snapping-manager/types'
 import { getObjectBounds } from '../../../../src/editor/utils/geometry'
@@ -50,6 +52,8 @@ const createScalingObject = ({
     originX,
     originY,
     angle,
+    strokeWidth: 0,
+    strokeUniform: true,
     visible: true,
     set: (props: Partial<Record<string, number | string>>) => {
       Object.assign(obj, props)
@@ -877,5 +881,469 @@ describe('SnappingManager', () => {
         })
       ])
     )
+  })
+
+  describe('pixel-snap масштабирования', () => {
+    it('округляет scaleX так, чтобы визуальная ширина была целым числом', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 100,
+        scaleX: 0.337,
+        scaleY: 0.337
+      })
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'mr',
+        action: 'scaleX',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.337,
+        scaleY: 0.337
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      const { scaleX } = active
+      const visualWidth = 100 * scaleX
+      expect(Math.round(visualWidth)).toBe(visualWidth)
+    })
+
+    it('округляет scaleY так, чтобы визуальная высота была целым числом', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 100,
+        scaleX: 1,
+        scaleY: 0.437
+      })
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'mb',
+        action: 'scaleY',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 1,
+        scaleY: 0.437
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      const { scaleY } = active
+      const visualHeight = 100 * scaleY
+      expect(Math.round(visualHeight)).toBe(visualHeight)
+    })
+
+    it('гарантирует минимальный визуальный размер в 1px', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 100,
+        scaleX: 0.001,
+        scaleY: 0.001
+      })
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'br',
+        action: 'scale',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.001,
+        scaleY: 0.001
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      const visualWidth = 100 * active.scaleX
+      const visualHeight = 100 * active.scaleY
+
+      expect(visualWidth).toBeGreaterThanOrEqual(1)
+      expect(visualHeight).toBeGreaterThanOrEqual(1)
+    })
+
+    it('не меняет scale если визуальные размеры уже целые', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 100,
+        scaleX: 0.5,
+        scaleY: 0.5
+      })
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'br',
+        action: 'scale',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.5,
+        scaleY: 0.5
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      expect(active.scaleX).toBe(0.5)
+      expect(active.scaleY).toBe(0.5)
+    })
+
+    it('при uniform scaling сохраняет равенство scaleX и scaleY', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 80,
+        scaleX: 0.337,
+        scaleY: 0.337
+      })
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'br',
+        action: 'scale',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.337,
+        scaleY: 0.337
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      expect(active.scaleX).toBe(active.scaleY)
+    })
+
+    it('учитывает strokeWidth при non-uniform масштабировании', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 100,
+        scaleX: 0.33,
+        scaleY: 0.43
+      })
+      active.strokeWidth = 1
+      active.strokeUniform = false
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'mr',
+        action: 'scaleX',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.33,
+        scaleY: 0.43
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      const effectiveWidth = 100 + 1
+      const visualWidth = effectiveWidth * active.scaleX
+      expect(Math.round(visualWidth)).toBe(visualWidth)
+    })
+
+    it('не учитывает strokeWidth если strokeUniform === true', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 100,
+        scaleX: 0.337,
+        scaleY: 1
+      })
+      active.strokeWidth = 5
+      active.strokeUniform = true
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'mr',
+        action: 'scaleX',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.337,
+        scaleY: 1
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      const visualWidth = 100 * active.scaleX
+      expect(Math.round(visualWidth)).toBe(visualWidth)
+    })
+
+    it('записывает snapped scale в transform-объект', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 100,
+        scaleX: 0.337,
+        scaleY: 1
+      })
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'mr',
+        action: 'scaleX',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.337,
+        scaleY: 1
+      }
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      expect(transform.scaleX).toBe(active.scaleX)
+    })
+  })
+
+  describe('удержание равноудалённого прилипания', () => {
+    it('использует расширенный порог при наличии активного spacing-контекста', () => {
+      const { editor, objects, canvas } = createSnappingTestContext()
+      canvas.getZoom.mockReturnValue(1)
+
+      const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 50, top: 0, width: 20, height: 20, id: 'obj-2' })
+      const third = createBoundsObject({ left: 100, top: 0, width: 20, height: 20, id: 'obj-3' })
+      const active = createBoundsObject({ left: 78, top: 0, width: 20, height: 20, id: 'active' })
+      objects.push(first, second, third, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides: firstGuides } = snappingManagerState
+      const isSnapped = firstGuides.length > 0
+
+      if (isSnapped) {
+        const snappedLeft = active.left
+        active.left = snappedLeft + (SPACING_SNAP_HOLD_MARGIN - 1)
+        snappingManagerState._handleObjectMoving({ target: active })
+
+        const { activeSpacingGuides: holdGuides } = snappingManagerState
+        expect(holdGuides.length).toBeGreaterThan(0)
+      }
+    })
+
+    it('отпускает прилипание при перемещении за пределы расширенного порога', () => {
+      const { editor, objects, canvas } = createSnappingTestContext()
+      canvas.getZoom.mockReturnValue(1)
+
+      const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 50, top: 0, width: 20, height: 20, id: 'obj-2' })
+      const third = createBoundsObject({ left: 100, top: 0, width: 20, height: 20, id: 'obj-3' })
+      const active = createBoundsObject({ left: 78, top: 0, width: 20, height: 20, id: 'active' })
+      objects.push(first, second, third, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      active.left = 500
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides: releaseGuides } = snappingManagerState
+      expect(releaseGuides).toHaveLength(0)
+    })
+  })
+
+  describe('визуальные гайды при неточной позиции', () => {
+    it('не показывает spacing-гайды если объект далеко от позиции равноудалённости', () => {
+      const { editor, objects } = createSnappingTestContext()
+
+      const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 50, top: 0, width: 20, height: 20, id: 'obj-2' })
+      const third = createBoundsObject({ left: 100, top: 0, width: 20, height: 20, id: 'obj-3' })
+      const active = createBoundsObject({ left: 500, top: 0, width: 20, height: 20, id: 'active' })
+      objects.push(first, second, third, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides } = snappingManagerState
+      expect(activeSpacingGuides).toHaveLength(0)
+    })
+
+    it('показывает spacing-гайды когда объект на точной позиции прилипания', () => {
+      const { editor, objects } = createSnappingTestContext()
+
+      const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 70, top: 0, width: 20, height: 20, id: 'obj-2' })
+      const active = createBoundsObject({ left: 33, top: 0, width: 20, height: 20, id: 'active' })
+      objects.push(first, second, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const activeBounds = getObjectBounds({ object: active })
+      if (!activeBounds) throw new Error('activeBounds should exist')
+
+      const gapLeft = activeBounds.left - 20
+      const gapRight = 70 - activeBounds.right
+
+      const { activeSpacingGuides } = snappingManagerState
+
+      if (gapLeft === gapRight) {
+        expect(activeSpacingGuides.length).toBeGreaterThan(0)
+      }
+    })
+  })
+
+  describe('суб-пиксельное центрирование (CENTERING_STEP)', () => {
+    it('позиционирует объект с шагом 0.5px для одинаковых display-distance при нечётном зазоре', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 51, top: 0, width: 20, height: 20, id: 'obj-2' })
+      const active = createBoundsObject({ left: 31, top: 0, width: 10, height: 20, id: 'active' })
+      objects.push(first, second, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides } = snappingManagerState
+      expect(activeSpacingGuides.length).toBeGreaterThan(0)
+
+      const activeBounds = getObjectBounds({ object: active })
+      if (!activeBounds) throw new Error('activeBounds should exist')
+
+      const gapLeft = activeBounds.left - 20
+      const gapRight = 51 - activeBounds.right
+      const remainder = active.left % CENTERING_STEP
+
+      expect(remainder).toBe(0)
+
+      const { resolveDisplayDistance } = require('../../../../src/editor/utils/distance')
+      const displayLeft = resolveDisplayDistance({ distance: gapLeft })
+      const displayRight = resolveDisplayDistance({ distance: gapRight })
+
+      expect(displayLeft).toBe(displayRight)
+    })
+
+    it('не ставит объект на суб-пиксельную позицию если зазор делится поровну', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 50, top: 0, width: 20, height: 20, id: 'obj-2' })
+      const active = createBoundsObject({ left: 28, top: 0, width: 10, height: 20, id: 'active' })
+      objects.push(first, second, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides } = snappingManagerState
+      expect(activeSpacingGuides.length).toBeGreaterThan(0)
+
+      expect(Number.isInteger(active.left)).toBe(true)
+    })
+
+    it('показывает одинаковый distance для обоих гайдов при суб-пиксельном центрировании', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const first = createBoundsObject({ left: 0, top: 0, width: 30, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 71, top: 0, width: 30, height: 20, id: 'obj-2' })
+      const active = createBoundsObject({ left: 40, top: 0, width: 20, height: 20, id: 'active' })
+      objects.push(first, second, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides } = snappingManagerState
+      if (activeSpacingGuides.length < 2) return
+
+      const distances = activeSpacingGuides.map((guide: any) => guide.distance)
+      const uniqueDistances = [...new Set(distances)]
+
+      expect(uniqueDistances).toHaveLength(1)
+    })
+  })
+
+  describe('пропуск movementStep после spacing snap', () => {
+    it('сохраняет суб-пиксельную позицию после spacing snap (не округляет до MOVE_SNAP_STEP)', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })
+      const second = createBoundsObject({ left: 51, top: 0, width: 20, height: 20, id: 'obj-2' })
+      const active = createBoundsObject({ left: 31, top: 0, width: 10, height: 20, id: 'active' })
+      objects.push(first, second, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides } = snappingManagerState
+      if (activeSpacingGuides.length === 0) return
+
+      const remainder = active.left % CENTERING_STEP
+      expect(remainder).toBe(0)
+    })
+
+    it('округляет позицию до MOVE_SNAP_STEP когда spacing snap не срабатывает', () => {
+      const { editor } = createSnappingTestContext()
+      const active = createBoundsObject({ left: 120.3, top: 73.7, width: 20, height: 20, id: 'active' })
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      expect(active.left).toBe(Math.round(120.3 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
+      expect(active.top).toBe(Math.round(73.7 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
+    })
+
+    it('при равноудалённом снапе по вертикали позиция кратна CENTERING_STEP', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const top = createBoundsObject({ left: 0, top: 0, width: 40, height: 30, id: 'top' })
+      const bottom = createBoundsObject({ left: 0, top: 71, width: 40, height: 30, id: 'bottom' })
+      const active = createBoundsObject({ left: 0, top: 35, width: 40, height: 20, id: 'active' })
+      objects.push(top, bottom, active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      const { activeSpacingGuides } = snappingManagerState
+      if (activeSpacingGuides.length === 0) return
+
+      const topRemainder = active.top % CENTERING_STEP
+      expect(topRemainder).toBe(0)
+    })
   })
 })

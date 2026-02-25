@@ -179,6 +179,52 @@ export const calculateNormalizedCenter = ({
 }
 
 /**
+ * Округляет позицию и масштаб объекта так, чтобы визуальные размеры и координаты были целыми пикселями.
+ */
+export const snapObjectToPixelGrid = ({
+  object
+}: {
+  object: FabricObject
+}): void => {
+  const {
+    left = 0,
+    top = 0,
+    width = 0,
+    height = 0,
+    scaleX = 1,
+    scaleY = 1,
+    strokeWidth = 0,
+    strokeUniform = false
+  } = object
+
+  const isTextbox = object.type === 'Textbox'
+  const strokeContribution = strokeUniform ? 0 : strokeWidth
+  const effectiveWidth = width + strokeContribution
+  const effectiveHeight = height + strokeContribution
+
+  const snappedLeft = Math.round(left)
+  const snappedTop = Math.round(top)
+
+  const updates: Partial<Record<string, number>> = {
+    left: snappedLeft,
+    top: snappedTop
+  }
+
+  if (!isTextbox) {
+    if (effectiveWidth > 0) {
+      updates.scaleX = Math.max(1, Math.round(effectiveWidth * scaleX)) / effectiveWidth
+    }
+
+    if (effectiveHeight > 0) {
+      updates.scaleY = Math.max(1, Math.round(effectiveHeight * scaleY)) / effectiveHeight
+    }
+  }
+
+  object.set(updates)
+  object.setCoords()
+}
+
+/**
  * Возвращает bounding box объекта с учётом трансформации и округлением до целых пикселей.
  */
 export const getObjectBounds = ({
@@ -198,17 +244,14 @@ export const getObjectBounds = ({
       height = 0
     } = rect
 
-    const rawRight = rawLeft + width
-    const rawBottom = rawTop + height
-
-    const left = Math.round(rawLeft)
-    const top = Math.round(rawTop)
-    const right = Math.round(rawRight)
-    const bottom = Math.round(rawBottom)
-    const widthEven = right - left
-    const heightEven = bottom - top
-    const centerX = left + (widthEven / 2)
-    const centerY = top + (heightEven / 2)
+    const left = rawLeft
+    const top = rawTop
+    const roundedWidth = Math.round(width)
+    const roundedHeight = Math.round(height)
+    const right = left + roundedWidth
+    const bottom = top + roundedHeight
+    const centerX = left + (roundedWidth / 2)
+    const centerY = top + (roundedHeight / 2)
 
     return {
       left,
