@@ -12,13 +12,15 @@ import { ImageEditor } from '..'
 import {
   GUIDE_COLOR,
   GUIDE_WIDTH,
-  SCALE_SNAP_STEP,
   MOVE_SNAP_STEP,
-  SNAP_THRESHOLD
+  SNAP_THRESHOLD,
+  SPACING_CONTEXT_SWITCH_DISTANCE,
+  SPACING_SNAP_HOLD_MARGIN
 } from './constants'
 import {
   calculateSnap,
-  calculateSpacingSnap
+  calculateSpacingSnap,
+  type SpacingContextByAxis
 } from './calculations'
 import { drawSpacingGuide } from './renderer'
 import type {
@@ -92,6 +94,14 @@ export default class SnappingManager {
   private spacingPatterns: { vertical: SpacingPattern[]; horizontal: SpacingPattern[] } = {
     vertical: [],
     horizontal: []
+  }
+
+  /**
+   * Сохраненный контекст равноудалённого прилипания по осям.
+   */
+  private spacingContexts: SpacingContextByAxis = {
+    vertical: null,
+    horizontal: null
   }
 
   /**
@@ -202,6 +212,7 @@ export default class SnappingManager {
    */
   private _handleMouseDown(event: MouseEventInfo): void {
     const { target } = event
+    this._clearSpacingContexts()
 
     if (!target) {
       this._clearAnchors()
@@ -218,12 +229,14 @@ export default class SnappingManager {
     const { target, e } = event
 
     if (!target) {
+      this._clearSpacingContexts()
       this._clearGuides()
       return
     }
 
     const isCtrlPressed = Boolean(e?.ctrlKey)
     if (isCtrlPressed) {
+      this._clearSpacingContexts()
       this._clearGuides()
       SnappingManager._applyMovementStep({ target })
       return
@@ -237,6 +250,7 @@ export default class SnappingManager {
 
     let activeBounds = getObjectBounds({ object: target })
     if (!activeBounds) {
+      this._clearSpacingContexts()
       this._clearGuides()
       return
     }
@@ -263,13 +277,22 @@ export default class SnappingManager {
     }
 
     const candidateBounds = this._resolveCurrentTargetBounds({ activeObject: target })
+    const hasActiveSpacingContext = Boolean(
+      this.spacingContexts.vertical || this.spacingContexts.horizontal
+    )
+    const spacingThreshold = hasActiveSpacingContext
+      ? (SNAP_THRESHOLD + SPACING_SNAP_HOLD_MARGIN) / zoom
+      : threshold
 
     const spacingResult = calculateSpacingSnap({
       activeBounds,
       candidates: candidateBounds,
-      threshold,
-      spacingPatterns: this.spacingPatterns
+      threshold: spacingThreshold,
+      spacingPatterns: this.spacingPatterns,
+      previousContexts: this.spacingContexts,
+      switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
     })
+    this.spacingContexts = spacingResult.contexts
 
     if (spacingResult.deltaX !== 0 || spacingResult.deltaY !== 0) {
       const { left = 0, top = 0 } = target
@@ -293,12 +316,17 @@ export default class SnappingManager {
       activeBounds: finalBounds,
       candidates: candidateBounds,
       threshold,
-      spacingPatterns: this.spacingPatterns
+      spacingPatterns: this.spacingPatterns,
+      previousContexts: this.spacingContexts,
+      switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
     })
+    this.spacingContexts = visualSpacingResult.contexts
+    const isSpacingPositionExact = visualSpacingResult.deltaX === 0
+      && visualSpacingResult.deltaY === 0
 
     this._applyGuides({
       guides: visualSnapResult.guides,
-      spacingGuides: visualSpacingResult.guides
+      spacingGuides: isSpacingPositionExact ? visualSpacingResult.guides : []
     })
   }
 
@@ -744,6 +772,17 @@ export default class SnappingManager {
     this.anchors = { vertical: [], horizontal: [] }
     this.spacingPatterns = { vertical: [], horizontal: [] }
     this.cachedTargetBounds = []
+    this._clearSpacingContexts()
+  }
+
+  /**
+   * Сбрасывает сохраненный контекст выбора равноудалённых направляющих.
+   */
+  private _clearSpacingContexts(): void {
+    this.spacingContexts = {
+      vertical: null,
+      horizontal: null
+    }
   }
 
   /**
@@ -1227,7 +1266,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Применяет шаг масштабирования, округляя scaleX/scaleY к сетке SCALE_SNAP_STEP.
+   * Округляет масштаб объекта так, чтобы его визуальный размер в пикселях был целым числом (минимум 1).
    */
   private static _applyScalingStep({
     target,
@@ -1240,8 +1279,34 @@ export default class SnappingManager {
       scaleX: rawScaleX = 1,
       scaleY: rawScaleY = 1
     } = target
-    const snappedScaleX = SnappingManager._snapScaleToStep({ value: rawScaleX })
-    const snappedScaleY = SnappingManager._snapScaleToStep({ value: rawScaleY })
+    const { width: effectiveWidth, height: effectiveHeight } = SnappingManager._resolveEffectiveDimensions({ target })
+    const isUniform = rawScaleX === rawScaleY
+
+    let snappedScaleX = rawScaleX
+    let snappedScaleY = rawScaleY
+
+    if (isUniform) {
+      const candidateFromWidth = effectiveWidth > 0
+        ? Math.max(1, Math.round(effectiveWidth * rawScaleX)) / effectiveWidth
+        : rawScaleX
+      const candidateFromHeight = effectiveHeight > 0
+        ? Math.max(1, Math.round(effectiveHeight * rawScaleY)) / effectiveHeight
+        : rawScaleY
+      const errorX = Math.abs(candidateFromWidth - rawScaleX)
+      const errorY = Math.abs(candidateFromHeight - rawScaleY)
+      const uniformScale = errorX <= errorY ? candidateFromWidth : candidateFromHeight
+
+      snappedScaleX = uniformScale
+      snappedScaleY = uniformScale
+    } else {
+      snappedScaleX = effectiveWidth > 0
+        ? Math.max(1, Math.round(effectiveWidth * rawScaleX)) / effectiveWidth
+        : rawScaleX
+      snappedScaleY = effectiveHeight > 0
+        ? Math.max(1, Math.round(effectiveHeight * rawScaleY)) / effectiveHeight
+        : rawScaleY
+    }
+
     const isAlreadySnapped = snappedScaleX === rawScaleX && snappedScaleY === rawScaleY
 
     if (isAlreadySnapped) return
@@ -1260,42 +1325,25 @@ export default class SnappingManager {
   }
 
   /**
-   * Округляет scale до шага SCALE_SNAP_STEP, не допуская нулевого масштаба.
+   * Возвращает эффективные размеры объекта (без масштаба), включая strokeWidth если он масштабируется вместе с объектом.
    */
-  private static _snapScaleToStep({ value }: { value: number }): number {
-    const step = Math.abs(SCALE_SNAP_STEP)
-    if (step === 0) return value
+  private static _resolveEffectiveDimensions({ target }: { target: FabricObject }): { width: number; height: number } {
+    if (target instanceof Textbox) {
+      return SnappingManager._resolveBaseDimensions({ target })
+    }
 
-    const precision = SnappingManager._resolveStepPrecision({ step })
-    const factor = 10 ** precision
-    const scaledStep = Math.round(step * factor)
-    if (scaledStep <= 0) return value
+    const {
+      width = 0,
+      height = 0,
+      strokeWidth = 0,
+      strokeUniform = false
+    } = target
+    const strokeContribution = strokeUniform ? 0 : strokeWidth
 
-    const scaledValue = Math.round(value * factor)
-    const snappedScaledValue = Math.round(scaledValue / scaledStep) * scaledStep
-    const snappedValue = snappedScaledValue / factor
-    const normalizedValue = Number(snappedValue.toFixed(precision))
-
-    if (normalizedValue !== 0) return normalizedValue
-    if (value === 0) return step
-
-    if (value > 0) return step
-
-    return -step
-  }
-
-  /**
-   * Определяет количество знаков после запятой у шага.
-   */
-  private static _resolveStepPrecision({ step }: { step: number }): number {
-    const stepString = step.toString()
-    const dotIndex = stepString.indexOf('.')
-
-    if (dotIndex === -1) return 0
-
-    const decimalPart = stepString.slice(dotIndex + 1)
-
-    return decimalPart.length
+    return {
+      width: width + strokeContribution,
+      height: height + strokeContribution
+    }
   }
 
   /**

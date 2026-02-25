@@ -198,17 +198,14 @@ export const getObjectBounds = ({
       height = 0
     } = rect
 
-    const rawRight = rawLeft + width
-    const rawBottom = rawTop + height
-
     const left = Math.round(rawLeft)
     const top = Math.round(rawTop)
-    const right = Math.round(rawRight)
-    const bottom = Math.round(rawBottom)
-    const widthEven = right - left
-    const heightEven = bottom - top
-    const centerX = left + (widthEven / 2)
-    const centerY = top + (heightEven / 2)
+    const roundedWidth = Math.round(width)
+    const roundedHeight = Math.round(height)
+    const right = left + roundedWidth
+    const bottom = top + roundedHeight
+    const centerX = left + (roundedWidth / 2)
+    const centerY = top + (roundedHeight / 2)
 
     return {
       left,
