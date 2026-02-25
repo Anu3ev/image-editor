@@ -462,6 +462,49 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
   }
 }
 
+/**
+ * Создаёт мок объекта для тестирования snapObjectToPixelGrid.
+ */
+export const createPixelGridObject = ({
+  left = 0,
+  top = 0,
+  width = 100,
+  height = 100,
+  scaleX = 1,
+  scaleY = 1,
+  strokeWidth = 0,
+  strokeUniform = true,
+  type = 'Rect'
+}: {
+  left?: number
+  top?: number
+  width?: number
+  height?: number
+  scaleX?: number
+  scaleY?: number
+  strokeWidth?: number
+  strokeUniform?: boolean
+  type?: string
+} = {}) => {
+  const obj: any = {
+    left,
+    top,
+    width,
+    height,
+    scaleX,
+    scaleY,
+    strokeWidth,
+    strokeUniform,
+    type,
+    set: jest.fn((props: Record<string, unknown>) => {
+      Object.assign(obj, props)
+    }),
+    setCoords: jest.fn()
+  }
+
+  return obj
+}
+
 // Создаёт примитивный FabricObject-стаб с управляемыми координатами.
 export const createBoundsObject = ({
   left,

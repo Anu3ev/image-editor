@@ -1,5 +1,5 @@
-import { getObjectBounds } from '../../../../src/editor/utils/geometry'
-import { createBoundsObject } from '../../../test-utils/editor-helpers'
+import { getObjectBounds, snapObjectToPixelGrid } from '../../../../src/editor/utils/geometry'
+import { createBoundsObject, createPixelGridObject } from '../../../test-utils/editor-helpers'
 
 describe('getObjectBounds', () => {
   it('возвращает null для null-объекта', () => {
@@ -81,5 +81,133 @@ describe('getObjectBounds', () => {
     }
 
     expect(getObjectBounds({ object: obj })).toBeNull()
+  })
+})
+
+describe('snapObjectToPixelGrid', () => {
+  it('округляет дробные left и top до целых', () => {
+    const obj = createPixelGridObject({ left: 164.2, top: 87.7 })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    expect(obj.left).toBe(164)
+    expect(obj.top).toBe(88)
+  })
+
+  it('пересчитывает scaleX/scaleY для целых визуальных размеров', () => {
+    const obj = createPixelGridObject({
+      width: 150,
+      height: 200,
+      scaleX: 0.337,
+      scaleY: 0.437
+    })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    const visualWidth = obj.width * obj.scaleX
+    const visualHeight = obj.height * obj.scaleY
+
+    expect(visualWidth).toBeCloseTo(Math.round(visualWidth), 10)
+    expect(visualHeight).toBeCloseTo(Math.round(visualHeight), 10)
+  })
+
+  it('не меняет scale для Textbox', () => {
+    const obj = createPixelGridObject({
+      left: 10.3,
+      top: 20.7,
+      width: 150,
+      height: 80,
+      scaleX: 0.337,
+      scaleY: 0.437,
+      type: 'Textbox'
+    })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    expect(obj.left).toBe(10)
+    expect(obj.top).toBe(21)
+    expect(obj.scaleX).toBe(0.337)
+    expect(obj.scaleY).toBe(0.437)
+  })
+
+  it('учитывает strokeWidth при strokeUniform=false', () => {
+    const obj = createPixelGridObject({
+      width: 100,
+      height: 100,
+      scaleX: 0.33,
+      scaleY: 0.43,
+      strokeWidth: 2,
+      strokeUniform: false
+    })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    const effectiveWidth = 100 + 2
+    const effectiveHeight = 100 + 2
+    const visualWidth = effectiveWidth * obj.scaleX
+    const visualHeight = effectiveHeight * obj.scaleY
+
+    expect(Math.round(visualWidth)).toBe(visualWidth)
+    expect(Math.round(visualHeight)).toBe(visualHeight)
+  })
+
+  it('не учитывает strokeWidth при strokeUniform=true', () => {
+    const obj = createPixelGridObject({
+      width: 100,
+      height: 100,
+      scaleX: 0.337,
+      scaleY: 0.437,
+      strokeWidth: 4,
+      strokeUniform: true
+    })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    const visualWidth = 100 * obj.scaleX
+    const visualHeight = 100 * obj.scaleY
+
+    expect(Math.round(visualWidth)).toBe(visualWidth)
+    expect(Math.round(visualHeight)).toBe(visualHeight)
+  })
+
+  it('не уменьшает визуальный размер ниже 1px', () => {
+    const obj = createPixelGridObject({
+      width: 100,
+      height: 100,
+      scaleX: 0.001,
+      scaleY: 0.002
+    })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    const visualWidth = obj.width * obj.scaleX
+    const visualHeight = obj.height * obj.scaleY
+
+    expect(visualWidth).toBeGreaterThanOrEqual(1)
+    expect(visualHeight).toBeGreaterThanOrEqual(1)
+  })
+
+  it('вызывает setCoords после снапа', () => {
+    const obj = createPixelGridObject({ left: 10.5, top: 20.5 })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    expect(obj.setCoords).toHaveBeenCalled()
+  })
+
+  it('не трогает scale если визуальные размеры уже целые', () => {
+    const obj = createPixelGridObject({
+      left: 100,
+      top: 200,
+      width: 100,
+      height: 100,
+      scaleX: 0.5,
+      scaleY: 0.5
+    })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    expect(obj.scaleX).toBe(0.5)
+    expect(obj.scaleY).toBe(0.5)
   })
 })
