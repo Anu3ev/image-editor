@@ -294,7 +294,9 @@ export default class SnappingManager {
     })
     this.spacingContexts = spacingResult.contexts
 
-    if (spacingResult.deltaX !== 0 || spacingResult.deltaY !== 0) {
+    const hasSpacingSnap = spacingResult.deltaX !== 0 || spacingResult.deltaY !== 0
+
+    if (hasSpacingSnap) {
       const { left = 0, top = 0 } = target
       target.set({
         left: left + spacingResult.deltaX,
@@ -304,7 +306,9 @@ export default class SnappingManager {
       activeBounds = getObjectBounds({ object: target }) ?? activeBounds
     }
 
-    SnappingManager._applyMovementStep({ target })
+    if (!hasSpacingSnap) {
+      SnappingManager._applyMovementStep({ target })
+    }
 
     const finalBounds = getObjectBounds({ object: target }) ?? activeBounds
     const visualSnapResult = calculateSnap({

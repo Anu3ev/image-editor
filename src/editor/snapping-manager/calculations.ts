@@ -1,4 +1,4 @@
-import { MOVE_SNAP_STEP } from './constants'
+import { CENTERING_STEP, MOVE_SNAP_STEP } from './constants'
 import {
   MAX_DISPLAY_DISTANCE_DIFF,
   resolveCommonDisplayDistance
@@ -971,7 +971,7 @@ export const calculateVerticalSpacing = ({
           beforeEdge: prevBottom,
           afterEdge: nextTop,
           threshold,
-          step: MOVE_SNAP_STEP
+          step: CENTERING_STEP
         })
 
         if (centered) {
@@ -1037,7 +1037,7 @@ export const calculateVerticalSpacing = ({
       distance: refDistance
     } = pattern
 
-    const isRefAligned = isStepAligned({ value: refDistance, step: MOVE_SNAP_STEP })
+    const isRefAligned = isStepAligned({ value: refDistance, step: CENTERING_STEP })
 
     if (!isRefAligned) continue
 
@@ -1243,7 +1243,7 @@ export const calculateHorizontalSpacing = ({
           beforeEdge: prevRight,
           afterEdge: nextLeft,
           threshold,
-          step: MOVE_SNAP_STEP
+          step: CENTERING_STEP
         })
 
         if (centered) {
@@ -1309,7 +1309,7 @@ export const calculateHorizontalSpacing = ({
       distance: refDistance
     } = pattern
 
-    const isRefAligned = isStepAligned({ value: refDistance, step: MOVE_SNAP_STEP })
+    const isRefAligned = isStepAligned({ value: refDistance, step: CENTERING_STEP })
 
     if (!isRefAligned) continue
 

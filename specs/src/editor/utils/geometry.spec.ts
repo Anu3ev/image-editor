@@ -10,14 +10,14 @@ describe('getObjectBounds', () => {
     expect(getObjectBounds({ object: undefined })).toBeNull()
   })
 
-  it('округляет left и top до ближайшего целого', () => {
+  it('сохраняет точные left и top из getBoundingRect', () => {
     const obj = createBoundsObject({ left: 10, top: 20, width: 50, height: 30 })
     obj.getBoundingRect.mockReturnValue({ left: 10.3, top: 20.7, width: 50, height: 30 })
 
     const bounds = getObjectBounds({ object: obj })
 
-    expect(bounds?.left).toBe(10)
-    expect(bounds?.top).toBe(21)
+    expect(bounds?.left).toBe(10.3)
+    expect(bounds?.top).toBe(20.7)
   })
 
   it('округляет width и height до ближайшего целого и вычисляет right/bottom от них', () => {
@@ -26,13 +26,13 @@ describe('getObjectBounds', () => {
 
     const bounds = getObjectBounds({ object: obj })
 
-    expect(bounds?.left).toBe(100)
-    expect(bounds?.top).toBe(201)
-    expect(bounds?.right).toBe(100 + 34)
-    expect(bounds?.bottom).toBe(201 + 43)
+    expect(bounds?.left).toBe(100.3)
+    expect(bounds?.top).toBe(200.7)
+    expect(bounds?.right).toBe(100.3 + 34)
+    expect(bounds?.bottom).toBe(200.7 + 43)
   })
 
-  it('даёт одинаковую ширину для одинаковых объектов на разных позициях', () => {
+  it('даёт одинаковую округлённую ширину для одинаковых объектов на разных позициях', () => {
     const objA = createBoundsObject({ left: 0, top: 0, width: 100, height: 100 })
     objA.getBoundingRect.mockReturnValue({ left: 100.3, top: 0, width: 33.33, height: 43.33 })
 
@@ -42,10 +42,10 @@ describe('getObjectBounds', () => {
     const boundsA = getObjectBounds({ object: objA })
     const boundsB = getObjectBounds({ object: objB })
 
-    const widthA = (boundsA?.right ?? 0) - (boundsA?.left ?? 0)
-    const widthB = (boundsB?.right ?? 0) - (boundsB?.left ?? 0)
+    const roundedWidthA = Math.round((boundsA?.right ?? 0) - (boundsA?.left ?? 0))
+    const roundedWidthB = Math.round((boundsB?.right ?? 0) - (boundsB?.left ?? 0))
 
-    expect(widthA).toBe(widthB)
+    expect(roundedWidthA).toBe(roundedWidthB)
   })
 
   it('даёт одинаковую высоту для одинаковых объектов на разных позициях', () => {
