@@ -449,16 +449,41 @@
                 Figures
               </div>
 
-              <div class="d-flex gap-2">
-                <button class="btn btn-outline-primary btn-sm w-100" id="add-rect-btn">
-                  Add Rectangle
+              <div class="shape-picker">
+                <button
+                  class="btn btn-outline-primary btn-sm w-100"
+                  id="add-shape-btn"
+                  aria-controls="shape-picker-menu"
+                  aria-expanded="false"
+                  type="button"
+                >
+                  Add Shape
                 </button>
-                <button class="btn btn-outline-primary btn-sm w-100" id="add-circle-btn">
-                  Add Circle
-                </button>
-                <button class="btn btn-outline-primary btn-sm w-100" id="add-triangle-btn">
-                  Add Triangle
-                </button>
+
+                <div id="shape-picker-menu" class="shape-picker-menu" role="menu" aria-label="Shape presets">
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="circle">Circle</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="triangle">Triangle</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="square">Square</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="diamond">Diamond</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="pentagon">Pentagon</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="hexagon">Hexagon</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="star">Star</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="sparkle">Sparkle</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="heart">Heart</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="arrow-right-fat">Arrow Right Bold</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="arrow-up-fat">Arrow Up Bold</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="arrow-right">Arrow Right</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="arrow-down-fat">Arrow Down Bold</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="arrow-up-down">Arrow Up Down</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="arrow-left-right">Arrow Left Right</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="drop">Drop</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="cross">Cross</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="gear">Gear</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="badge">Badge</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="bookmark">Bookmark</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="tag">Tag</button>
+                  <button class="btn btn-outline-secondary btn-sm shape-preset-btn" type="button" data-shape-preset="moon">Moon</button>
+                </div>
               </div>
             </div>
 

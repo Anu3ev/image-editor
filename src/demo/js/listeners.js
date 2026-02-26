@@ -52,9 +52,9 @@ import {
   // Элемент для отображения размера текущего объекта
   currentObjectDataNode,
   // Добавление фигур
-  addRectBtn,
-  addCircleBtn,
-  addTriangleBtn,
+  addShapeBtn,
+  shapePickerMenu,
+  shapePresetButtons,
   // Текстовые контролы
   addTextBtn,
   textContentInput,
@@ -1166,19 +1166,50 @@ export default (editorInstance) => {
     saveResult(editorInstance)
   })
 
-  // Добавление прямоугольника
-  addRectBtn.addEventListener('click', () => {
-    editorInstance.shapeManager.addRectangle()
+  const setShapeMenuOpen = ({ isOpen }) => {
+    if (!shapePickerMenu || !addShapeBtn) return
+    shapePickerMenu.classList.toggle('is-open', isOpen)
+    addShapeBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false')
+  }
+
+  const closeShapeMenu = () => {
+    setShapeMenuOpen({ isOpen: false })
+  }
+
+  addShapeBtn?.addEventListener('click', (event) => {
+    event.preventDefault()
+    const isOpen = Boolean(shapePickerMenu?.classList.contains('is-open'))
+    setShapeMenuOpen({ isOpen: !isOpen })
   })
 
-  // Добавление круга
-  addCircleBtn.addEventListener('click', () => {
-    editorInstance.shapeManager.addCircle()
+  shapePresetButtons.forEach((button) => {
+    button.addEventListener('click', async(event) => {
+      event.preventDefault()
+      const presetKey = button.dataset.shapePreset
+      if (!presetKey) return
+
+      await editorInstance.shapeManager.add({
+        presetKey
+      })
+
+      closeShapeMenu()
+    })
   })
 
-  // Добавление треугольника
-  addTriangleBtn.addEventListener('click', () => {
-    editorInstance.shapeManager.addTriangle()
+  document.addEventListener('click', (event) => {
+    if (!shapePickerMenu || !addShapeBtn) return
+    if (!shapePickerMenu.classList.contains('is-open')) return
+    const { target } = event
+    if (!(target instanceof Element)) return
+    if (shapePickerMenu.contains(target)) return
+    if (addShapeBtn.contains(target)) return
+
+    closeShapeMenu()
+  })
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return
+    closeShapeMenu()
   })
 
   // Undo

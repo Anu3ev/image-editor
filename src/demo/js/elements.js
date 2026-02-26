@@ -70,9 +70,9 @@ export const canvasDisplaySizeNode = document.getElementById('canvas-display-siz
 export const currentObjectDataNode = document.getElementById('current-object-data')
 
 // Добавление фигур
-export const addRectBtn = document.getElementById('add-rect-btn')
-export const addCircleBtn = document.getElementById('add-circle-btn')
-export const addTriangleBtn = document.getElementById('add-triangle-btn')
+export const addShapeBtn = document.getElementById('add-shape-btn')
+export const shapePickerMenu = document.getElementById('shape-picker-menu')
+export const shapePresetButtons = Array.from(document.querySelectorAll('[data-shape-preset]'))
 
 // Текстовые контролы
 export const addTextBtn = document.getElementById('add-text-btn')
