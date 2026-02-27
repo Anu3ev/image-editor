@@ -271,10 +271,10 @@ class Listeners {
    */
   handleObjectModifiedHistory({ target }: { target?: FabricObject } = {}): void {
     const { historyManager, textManager } = this.editor
-    const targetWithNoopTransform = target as FabricObject & {
+    const targetWithNoopTransform = target as (FabricObject & {
       shapeScalingNoopTransform?: boolean
-    }
-    if (targetWithNoopTransform.shapeScalingNoopTransform) {
+    }) | undefined
+    if (targetWithNoopTransform?.shapeScalingNoopTransform) {
       targetWithNoopTransform.shapeScalingNoopTransform = false
       return
     }
