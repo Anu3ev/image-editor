@@ -105,6 +105,7 @@ export type ShapeGroupMetadata = {
   shapeStrokeDashArray?: number[] | null
   shapeOpacity?: number
   shapeRounding?: number
+  shapeCanRound?: boolean
 }
 
 export type ShapeGroup = Group & Partial<ShapeGroupMetadata>
@@ -179,6 +180,10 @@ export type ShapeLayoutInput = {
 export type ShapeScalingState = {
   baseWidth: number
   baseHeight: number
+  lastAllowedScaleX: number
+  lastAllowedScaleY: number
+  lastAllowedLeft: number
+  lastAllowedTop: number
 }
 
 export type ShapeEditingOptions = {

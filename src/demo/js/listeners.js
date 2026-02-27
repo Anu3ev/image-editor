@@ -587,6 +587,7 @@ export default (editorInstance) => {
   const syncShapeControls = (shapeGroup) => {
     if (!shapeGroup) {
       setShapeControlsEnabled(false)
+      shapeRoundingInput.disabled = false
       return
     }
 
@@ -619,8 +620,10 @@ export default (editorInstance) => {
     const rounding = typeof shapeGroup.shapeRounding === 'number'
       ? Math.max(0, Math.round(shapeGroup.shapeRounding))
       : 0
+    const canRound = shapeGroup.shapeCanRound !== false
+    shapeRoundingInput.disabled = !canRound
     shapeRoundingInput.value = rounding
-    shapeRoundingValue.textContent = `${rounding}px`
+    shapeRoundingValue.textContent = canRound ? `${rounding}px` : 'N/A'
   }
 
   const applyShapeFill = ({ fill, withoutSave = false }) => {

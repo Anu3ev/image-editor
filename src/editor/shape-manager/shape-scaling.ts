@@ -63,17 +63,66 @@ export default class ShapeScalingController {
     if (!isShapeGroup(target)) return
 
     const group = target
-    this._ensureScalingState({ group })
+    const state = this._ensureScalingState({ group })
     const { text } = getShapeNodes({ group })
 
     if (!text) return
 
-    const scaleX = Math.abs(group.scaleX ?? 1) || 1
-    const scaleY = Math.abs(group.scaleY ?? 1) || 1
+    const padding = ShapeScalingController._resolvePadding({ group })
+    const scaleXRaw = group.scaleX ?? 1
+    const scaleYRaw = group.scaleY ?? 1
+    const scaleX = Math.abs(scaleXRaw) || 1
+    const scaleY = Math.abs(scaleYRaw) || 1
+    const nextWidth = Math.max(MIN_SIZE, state.baseWidth * scaleX)
+    const nextHeight = Math.max(MIN_SIZE, state.baseHeight * scaleY)
+    const wouldFillTextFrame = isShapeTextFrameFilled({
+      text,
+      width: nextWidth,
+      height: nextHeight,
+      padding
+    })
+    const isScalingDownX = scaleX < state.lastAllowedScaleX - SCALE_EPSILON
+    const isScalingDownY = scaleY < state.lastAllowedScaleY - SCALE_EPSILON
+    const shouldBlockScaling = wouldFillTextFrame && (isScalingDownX || isScalingDownY)
+    const currentLeft = group.left ?? 0
+    const currentTop = group.top ?? 0
+
+    if (shouldBlockScaling) {
+      const nextScaleX = isScalingDownX
+        ? ShapeScalingController._applyScaleMagnitude({
+          originalScale: scaleXRaw,
+          magnitude: state.lastAllowedScaleX
+        })
+        : scaleXRaw
+      const nextScaleY = isScalingDownY
+        ? ShapeScalingController._applyScaleMagnitude({
+          originalScale: scaleYRaw,
+          magnitude: state.lastAllowedScaleY
+        })
+        : scaleYRaw
+
+      group.set({
+        scaleX: nextScaleX,
+        scaleY: nextScaleY,
+        left: state.lastAllowedLeft,
+        top: state.lastAllowedTop
+      })
+      group.setCoords()
+    }
+
+    if (!shouldBlockScaling) {
+      state.lastAllowedScaleX = scaleX
+      state.lastAllowedScaleY = scaleY
+      state.lastAllowedLeft = currentLeft
+      state.lastAllowedTop = currentTop
+    }
+
+    const appliedScaleX = Math.abs(group.scaleX ?? 1) || 1
+    const appliedScaleY = Math.abs(group.scaleY ?? 1) || 1
 
     text.set({
-      scaleX: 1 / scaleX,
-      scaleY: 1 / scaleY
+      scaleX: 1 / appliedScaleX,
+      scaleY: 1 / appliedScaleY
     })
 
     text.setCoords()
@@ -181,7 +230,11 @@ export default class ShapeScalingController {
     if (!state) {
       state = {
         baseWidth: Math.max(MIN_SIZE, group.shapeBaseWidth ?? group.width ?? MIN_SIZE),
-        baseHeight: Math.max(MIN_SIZE, group.shapeBaseHeight ?? group.height ?? MIN_SIZE)
+        baseHeight: Math.max(MIN_SIZE, group.shapeBaseHeight ?? group.height ?? MIN_SIZE),
+        lastAllowedScaleX: 1,
+        lastAllowedScaleY: 1,
+        lastAllowedLeft: group.left ?? 0,
+        lastAllowedTop: group.top ?? 0
       }
 
       this.scalingState.set(group, state)
@@ -200,5 +253,20 @@ export default class ShapeScalingController {
       bottom: group.shapePaddingBottom ?? 0.2,
       left: group.shapePaddingLeft ?? 0.2
     }
+  }
+
+  /**
+   * Возвращает масштаб с ограничением минимального значения по модулю.
+   */
+  private static _applyScaleMagnitude({
+    originalScale,
+    magnitude
+  }: {
+    originalScale: number
+    magnitude: number
+  }): number {
+    const safeMagnitude = Math.max(SCALE_EPSILON, magnitude)
+    if (originalScale >= 0) return safeMagnitude
+    return -safeMagnitude
   }
 }

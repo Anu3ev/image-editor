@@ -17,6 +17,7 @@ import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN,
   getShapePreset,
+  isShapePresetRoundable,
   resolvePresetKeyForRounding,
   resolveShapePadding
 } from './shape-presets'
@@ -179,6 +180,9 @@ export default class ShapeManager {
     const group = this._createShapeGroup({
       id: id ?? `shape-${nanoid()}`,
       presetKey: effectivePreset.key,
+      presetCanRound: isShapePresetRoundable({
+        preset: effectivePreset
+      }),
       shape,
       text: textNode,
       width,
@@ -357,6 +361,9 @@ export default class ShapeManager {
     const updatedGroup = this._createShapeGroup({
       id: id ?? `shape-${nanoid()}`,
       presetKey: effectivePreset.key,
+      presetCanRound: isShapePresetRoundable({
+        preset: effectivePreset
+      }),
       shape,
       text: existingTextNode,
       width,
@@ -653,6 +660,7 @@ export default class ShapeManager {
     if (!group) return null
 
     const normalizedRounding = Math.max(0, rounding)
+    if (group.shapeCanRound === false) return group
     const presetKey = group.shapePresetKey ?? DEFAULT_SHAPE_PRESET_KEY
 
     return this.update({
@@ -904,6 +912,7 @@ export default class ShapeManager {
   private _createShapeGroup({
     id,
     presetKey,
+    presetCanRound,
     shape,
     text,
     width,
@@ -916,6 +925,7 @@ export default class ShapeManager {
   }: {
     id: string
     presetKey: string
+    presetCanRound: boolean
     shape: ShapeNode
     text: ShapeTextNode
     width: number
@@ -955,7 +965,8 @@ export default class ShapeManager {
       shapeStrokeWidth: style.strokeWidth,
       shapeStrokeDashArray: strokeDashArray,
       shapeOpacity: style.opacity,
-      shapeRounding: Math.max(0, rounding ?? 0)
+      shapeRounding: Math.max(0, rounding ?? 0),
+      shapeCanRound: presetCanRound
     })
 
     applyGroupInteractivity({ group })
@@ -997,7 +1008,7 @@ export default class ShapeManager {
       text: text ?? style.text ?? '',
       align,
       autoExpand: false,
-      splitByGrapheme: true,
+      splitByGrapheme: false,
       width: Math.max(1, width),
       left: 0,
       top: 0
@@ -1015,7 +1026,7 @@ export default class ShapeManager {
 
     textbox.set({
       shapeNodeType: 'text',
-      splitByGrapheme: true
+      splitByGrapheme: false
     })
 
     this.editingController.prepareTextNode({
@@ -1059,7 +1070,7 @@ export default class ShapeManager {
     }
 
     styleUpdates.autoExpand = false
-    styleUpdates.splitByGrapheme = true
+    styleUpdates.splitByGrapheme = false
 
     const hasUpdates = Object.keys(styleUpdates).length > 0
     if (!hasUpdates) return

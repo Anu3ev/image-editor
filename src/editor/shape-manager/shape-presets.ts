@@ -536,3 +536,40 @@ export const resolveShapePadding = ({
     left: overridePadding?.left ?? presetPadding.left ?? DEFAULT_SHAPE_PADDING.left
   }
 }
+
+/**
+ * Проверяет, поддерживает ли пресет скругление углов.
+ */
+export const isShapePresetRoundable = ({
+  preset
+}: {
+  preset: ShapePreset
+}): boolean => {
+  if (preset.type === 'rect') return true
+  if (preset.type === 'triangle') return true
+  if (preset.type === 'polygon') return true
+  if (preset.type === 'polyline') return true
+  if (preset.type === 'ellipse') return false
+  if (preset.type === 'svg') return false
+
+  return hasLinearPathCommandsOnly({
+    path: preset.path
+  })
+}
+
+/**
+ * Проверяет, содержит ли path только линейные команды.
+ */
+function hasLinearPathCommandsOnly({ path }: { path: string }): boolean {
+  const commands = path.match(/[a-zA-Z]/g) ?? []
+  const linearCommands = new Set(['M', 'L', 'H', 'V', 'Z'])
+
+  for (let index = 0; index < commands.length; index += 1) {
+    const command = commands[index].toUpperCase()
+    if (!linearCommands.has(command)) {
+      return false
+    }
+  }
+
+  return commands.length > 0
+}

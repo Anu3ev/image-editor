@@ -8,7 +8,16 @@ import {
 
 const MIN_TEXT_FRAME_SIZE = 1
 const TEXT_FRAME_FILL_EPSILON = 0.5
-const MIN_VERTICAL_SPACE_RATIO = 0.1
+const MAX_HORIZONTAL_PADDING_PX = 12
+const MAX_VERTICAL_PADDING_PX = 12
+const MAX_PADDING_RATIO = 0.45
+const MAX_HEIGHT_RESIZE_ITERATIONS = 8
+
+type TextboxMeasurementState = {
+  autoExpand?: boolean
+  splitByGrapheme?: boolean
+  width?: number
+}
 
 /**
  * Применяет layout для композиции shape + text.
@@ -48,6 +57,10 @@ export const applyShapeTextLayout = ({
     height: safeHeight,
     padding: normalizedPadding
   })
+  const splitByGrapheme = resolveSplitByGraphemeForFrame({
+    text,
+    frameWidth: frame.width
+  })
 
   text.set({
     autoExpand: false,
@@ -64,7 +77,7 @@ export const applyShapeTextLayout = ({
     top: frame.top,
     originX: 'left',
     originY: 'top',
-    splitByGrapheme: true
+    splitByGrapheme
   })
 
   text.initDimensions()
@@ -152,28 +165,29 @@ export const resolveRequiredShapeHeightForText = ({
   const normalizedPadding = normalizePadding({
     padding
   })
-  const frame = createTextFrame({
-    width: safeWidth,
-    height: safeHeight,
-    padding: normalizedPadding
-  })
-  const measuredHeight = measureTextboxHeightForFrame({
-    text,
-    frameWidth: frame.width
-  })
-  const frameHeight = frame.height
+  let nextHeight = safeHeight
 
-  if (measuredHeight <= frameHeight + TEXT_FRAME_FILL_EPSILON) {
-    return safeHeight
+  for (let iteration = 0; iteration < MAX_HEIGHT_RESIZE_ITERATIONS; iteration += 1) {
+    const frame = createTextFrame({
+      width: safeWidth,
+      height: nextHeight,
+      padding: normalizedPadding
+    })
+
+    const measuredHeight = measureTextboxHeightForFrame({
+      text,
+      frameWidth: frame.width
+    })
+
+    if (measuredHeight <= frame.height + TEXT_FRAME_FILL_EPSILON) {
+      return nextHeight
+    }
+
+    const missingHeight = measuredHeight - frame.height
+    nextHeight = Math.max(nextHeight + missingHeight, nextHeight * 1.05)
   }
 
-  const verticalSpaceRatio = Math.max(
-    MIN_VERTICAL_SPACE_RATIO,
-    1 - normalizedPadding.top - normalizedPadding.bottom
-  )
-
-  const requiredHeight = measuredHeight / verticalSpaceRatio
-  return Math.max(safeHeight, requiredHeight)
+  return nextHeight
 }
 
 /**
@@ -209,7 +223,7 @@ function normalizePadding({ padding }: { padding: ShapePadding }): ShapePadding 
  * Ограничивает значение padding в безопасном диапазоне.
  */
 function clampPaddingValue({ value }: { value: number }): number {
-  return Math.min(Math.max(value, 0), 0.45)
+  return Math.min(Math.max(value, 0), MAX_PADDING_RATIO)
 }
 
 /**
@@ -229,18 +243,31 @@ function createTextFrame({
   width: number
   height: number
 } {
-  const left = -width / 2 + width * padding.left
-  const top = -height / 2 + height * padding.top
+  const leftPadding = resolvePaddingPixels({
+    size: width,
+    ratio: padding.left,
+    axis: 'horizontal'
+  })
+  const rightPadding = resolvePaddingPixels({
+    size: width,
+    ratio: padding.right,
+    axis: 'horizontal'
+  })
+  const topPadding = resolvePaddingPixels({
+    size: height,
+    ratio: padding.top,
+    axis: 'vertical'
+  })
+  const bottomPadding = resolvePaddingPixels({
+    size: height,
+    ratio: padding.bottom,
+    axis: 'vertical'
+  })
 
-  const frameWidth = Math.max(
-    MIN_TEXT_FRAME_SIZE,
-    width * (1 - padding.left - padding.right)
-  )
-
-  const frameHeight = Math.max(
-    MIN_TEXT_FRAME_SIZE,
-    height * (1 - padding.top - padding.bottom)
-  )
+  const left = -width / 2 + leftPadding
+  const top = -height / 2 + topPadding
+  const frameWidth = Math.max(MIN_TEXT_FRAME_SIZE, width - leftPadding - rightPadding)
+  const frameHeight = Math.max(MIN_TEXT_FRAME_SIZE, height - topPadding - bottomPadding)
 
   return {
     left,
@@ -280,15 +307,27 @@ function measureTextboxHeightForFrame({
   text: ShapeLayoutInput['text']
   frameWidth: number
 }): number {
+  const previousState = captureTextboxMeasurementState({ text })
+  const splitByGrapheme = resolveSplitByGraphemeForFrame({
+    text,
+    frameWidth
+  })
+
   text.set({
     autoExpand: false,
     width: Math.max(MIN_TEXT_FRAME_SIZE, frameWidth),
-    splitByGrapheme: true
+    splitByGrapheme
   })
 
   text.initDimensions()
+  const measuredHeight = getTextboxHeight({ text })
 
-  return getTextboxHeight({ text })
+  restoreTextboxMeasurementState({
+    text,
+    state: previousState
+  })
+
+  return measuredHeight
 }
 
 /**
@@ -311,4 +350,129 @@ function resolveVerticalTop({
   if (alignV === 'bottom') return frameTop + freeSpace
 
   return frameTop + freeSpace / 2
+}
+
+/**
+ * Возвращает реальный padding в пикселях с ограничением по максимуму.
+ */
+function resolvePaddingPixels({
+  size,
+  ratio,
+  axis
+}: {
+  size: number
+  ratio: number
+  axis: 'horizontal' | 'vertical'
+}): number {
+  const maxPadding = axis === 'horizontal'
+    ? MAX_HORIZONTAL_PADDING_PX
+    : MAX_VERTICAL_PADDING_PX
+  const relativePadding = size * ratio
+
+  return Math.max(0, Math.min(relativePadding, maxPadding))
+}
+
+/**
+ * Определяет, нужен ли fallback на splitByGrapheme для длинных слов без пробелов.
+ */
+function resolveSplitByGraphemeForFrame({
+  text,
+  frameWidth
+}: {
+  text: ShapeLayoutInput['text']
+  frameWidth: number
+}): boolean {
+  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
+  const previousState = captureTextboxMeasurementState({ text })
+
+  text.set({
+    autoExpand: false,
+    width: safeFrameWidth,
+    splitByGrapheme: false
+  })
+  text.initDimensions()
+
+  const dynamicMinWidth = getTextboxDynamicMinWidth({ text })
+  const shouldSplitByGrapheme = dynamicMinWidth > safeFrameWidth + TEXT_FRAME_FILL_EPSILON
+
+  restoreTextboxMeasurementState({
+    text,
+    state: previousState
+  })
+
+  return shouldSplitByGrapheme
+}
+
+/**
+ * Возвращает текущее состояние textbox для временных измерений.
+ */
+function captureTextboxMeasurementState({
+  text
+}: {
+  text: ShapeLayoutInput['text']
+}): TextboxMeasurementState {
+  const {
+    autoExpand,
+    splitByGrapheme,
+    width
+  } = text
+
+  return {
+    autoExpand,
+    splitByGrapheme,
+    width: typeof width === 'number' ? width : undefined
+  }
+}
+
+/**
+ * Восстанавливает состояние textbox после временных измерений.
+ */
+function restoreTextboxMeasurementState({
+  text,
+  state
+}: {
+  text: ShapeLayoutInput['text']
+  state: TextboxMeasurementState
+}): void {
+  const {
+    autoExpand,
+    splitByGrapheme,
+    width
+  } = state
+
+  const updates: TextboxMeasurementState = {}
+  if (autoExpand !== undefined) {
+    updates.autoExpand = autoExpand
+  }
+
+  if (splitByGrapheme !== undefined) {
+    updates.splitByGrapheme = splitByGrapheme
+  }
+
+  if (typeof width === 'number') {
+    updates.width = width
+  }
+
+  const hasUpdates = Object.keys(updates).length > 0
+  if (!hasUpdates) return
+
+  text.set(updates)
+  text.initDimensions()
+}
+
+/**
+ * Возвращает dynamicMinWidth textbox для проверки неразрывных слов.
+ */
+function getTextboxDynamicMinWidth({
+  text
+}: {
+  text: ShapeLayoutInput['text']
+}): number {
+  const { dynamicMinWidth } = text
+
+  if (typeof dynamicMinWidth === 'number' && Number.isFinite(dynamicMinWidth)) {
+    return dynamicMinWidth
+  }
+
+  return 0
 }
