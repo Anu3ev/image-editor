@@ -3,7 +3,10 @@ import {
   FabricObject,
   Transform
 } from 'fabric'
-import { applyShapeTextLayout } from './shape-layout'
+import {
+  applyShapeTextLayout,
+  isShapeTextFrameFilled
+} from './shape-layout'
 import {
   ShapeGroup,
   ShapePadding,
@@ -98,8 +101,8 @@ export default class ShapeScalingController {
     const baseWidth = state?.baseWidth ?? Math.max(MIN_SIZE, group.shapeBaseWidth ?? group.width ?? MIN_SIZE)
     const baseHeight = state?.baseHeight ?? Math.max(MIN_SIZE, group.shapeBaseHeight ?? group.height ?? MIN_SIZE)
 
-    const width = Math.max(MIN_SIZE, baseWidth * scaleX)
-    const height = Math.max(MIN_SIZE, baseHeight * scaleY)
+    let width = Math.max(MIN_SIZE, baseWidth * scaleX)
+    let height = Math.max(MIN_SIZE, baseHeight * scaleY)
 
     const {
       shape,
@@ -115,6 +118,22 @@ export default class ShapeScalingController {
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
     const padding = ShapeScalingController._resolvePadding({ group })
+    const frameWasFilled = isShapeTextFrameFilled({
+      text,
+      width: baseWidth,
+      height: baseHeight,
+      padding
+    })
+    const isScalingDownX = scaleX < 1 - SCALE_EPSILON
+    const isScalingDownY = scaleY < 1 - SCALE_EPSILON
+
+    if (frameWasFilled && isScalingDownX) {
+      width = Math.max(width, baseWidth)
+    }
+
+    if (frameWasFilled && isScalingDownY) {
+      height = Math.max(height, baseHeight)
+    }
 
     applyShapeTextLayout({
       group,

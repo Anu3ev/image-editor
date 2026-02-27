@@ -412,14 +412,10 @@ const shapePresetsList: ShapePreset[] = [
   },
   {
     key: 'badge',
-    type: 'svg',
+    type: 'path',
     width: DEFAULT_SHAPE_SIZE,
     height: DEFAULT_SHAPE_SIZE,
-    svg: `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-        <path d="M24 6 H76 L94 24 V76 L76 94 H24 L6 76 V24 Z" />
-      </svg>
-    `,
+    path: 'M24 6 H76 L94 24 V76 L76 94 H24 L6 76 V24 Z',
     textPadding: {
       top: 0.24,
       right: 0.24,

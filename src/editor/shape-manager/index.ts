@@ -67,7 +67,7 @@ type ShapeCanvasEvent = {
   target?: FabricObject | null
   e?: Event | MouseEvent
   subTargets?: FabricObject[]
-  transform?: import('fabric').Transform
+  transform?: import('fabric').Transform | null
 }
 
 /**
@@ -172,7 +172,8 @@ export default class ShapeManager {
       text,
       textStyle,
       width,
-      align: horizontalAlign
+      align: horizontalAlign,
+      opacity: style.opacity
     })
 
     const group = this._createShapeGroup({
@@ -485,7 +486,10 @@ export default class ShapeManager {
     const group = this._resolveShapeGroup({ target })
     if (!group) return null
 
-    const { shape } = getShapeNodes({ group })
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
     if (!shape) return null
 
     this._beginMutation()
@@ -512,6 +516,14 @@ export default class ShapeManager {
         group.shapeStrokeDashArray = dash
       }
 
+      if (text) {
+        this._applyCurrentLayout({
+          group,
+          shape,
+          text
+        })
+      }
+
       group.setCoords()
       this.editor.canvas.requestRenderAll()
     } finally {
@@ -536,7 +548,10 @@ export default class ShapeManager {
     const group = this._resolveShapeGroup({ target })
     if (!group) return null
 
-    const { shape } = getShapeNodes({ group })
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
     if (!shape) return null
 
     this._beginMutation()
@@ -546,6 +561,11 @@ export default class ShapeManager {
         shape,
         style: { opacity }
       })
+
+      if (text) {
+        text.set({ opacity })
+        text.setCoords()
+      }
 
       group.shapeOpacity = opacity
       group.setCoords()
@@ -632,47 +652,17 @@ export default class ShapeManager {
     const group = this._resolveShapeGroup({ target })
     if (!group) return null
 
+    const normalizedRounding = Math.max(0, rounding)
     const presetKey = group.shapePresetKey ?? DEFAULT_SHAPE_PRESET_KEY
-    const preset = getShapePreset({ presetKey })
-    if (!preset) return null
 
-    if (preset.type !== 'rect') {
-      group.shapeRounding = Math.max(0, rounding)
-      return group
-    }
-
-    const {
-      shape,
-      text
-    } = getShapeNodes({ group })
-
-    if (!shape || !text) return null
-
-    const dimensions = this._resolveCurrentDimensions({ group })
-    const padding = this._resolveGroupPadding({ group })
-
-    this._beginMutation()
-
-    try {
-      group.shapeRounding = Math.max(0, rounding)
-
-      applyShapeTextLayout({
-        group,
-        shape,
-        text,
-        width: dimensions.width,
-        height: dimensions.height,
-        alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
-        alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
-        padding
-      })
-
-      this.editor.canvas.requestRenderAll()
-    } finally {
-      this._endMutation({ withoutSave })
-    }
-
-    return group
+    return this.update({
+      target: group,
+      presetKey,
+      options: {
+        rounding: normalizedRounding,
+        withoutSave
+      }
+    })
   }
 
   /**
@@ -827,6 +817,7 @@ export default class ShapeManager {
     canvas.off('object:modified', this._handleObjectModified)
     canvas.off('mouse:down', this._handleMouseDown)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
+    canvas.off('text:changed', this._handleTextChanged)
   }
 
   /**
@@ -839,6 +830,7 @@ export default class ShapeManager {
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('mouse:down', this._handleMouseDown)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
+    canvas.on('text:changed', this._handleTextChanged)
   }
 
   /**
@@ -875,6 +867,35 @@ export default class ShapeManager {
     event: ShapeCanvasEvent
   ): void => {
     this.editingController.handleTextEditingExited(event)
+  }
+
+  /**
+   * Обновляет layout shape-композиции при вводе текста.
+   */
+  private _handleTextChanged = (
+    event: ShapeCanvasEvent
+  ): void => {
+    const { target } = event
+    if (!(target instanceof Textbox)) return
+
+    const textNode = target as ShapeTextNode
+    const { group } = textNode
+    if (!isShapeGroup(group)) return
+
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
+
+    if (!shape || !text) return
+
+    this._applyCurrentLayout({
+      group,
+      shape,
+      text
+    })
+
+    this.editor.canvas.requestRenderAll()
   }
 
   /**
@@ -961,12 +982,14 @@ export default class ShapeManager {
     text,
     textStyle,
     width,
-    align
+    align,
+    opacity
   }: {
     text?: string
     textStyle?: TextStyleOptions
     width: number
     align: ShapeHorizontalAlign
+    opacity?: number
   }): ShapeTextNode {
     const style = textStyle ?? {}
     const updates: TextStyleOptions = {
@@ -974,9 +997,14 @@ export default class ShapeManager {
       text: text ?? style.text ?? '',
       align,
       autoExpand: false,
+      splitByGrapheme: true,
       width: Math.max(1, width),
       left: 0,
       top: 0
+    }
+
+    if (typeof opacity === 'number' && style.opacity === undefined) {
+      updates.opacity = opacity
     }
 
     const textbox = this.editor.textManager.addText(updates, {
@@ -986,7 +1014,8 @@ export default class ShapeManager {
     }) as ShapeTextNode
 
     textbox.set({
-      shapeNodeType: 'text'
+      shapeNodeType: 'text',
+      splitByGrapheme: true
     })
 
     this.editingController.prepareTextNode({
@@ -1030,6 +1059,7 @@ export default class ShapeManager {
     }
 
     styleUpdates.autoExpand = false
+    styleUpdates.splitByGrapheme = true
 
     const hasUpdates = Object.keys(styleUpdates).length > 0
     if (!hasUpdates) return
@@ -1074,6 +1104,39 @@ export default class ShapeManager {
       bottom: group.shapePaddingBottom ?? 0.2,
       left: group.shapePaddingLeft ?? 0.2
     }
+  }
+
+  /**
+   * Применяет актуальный layout для shape-группы.
+   */
+  private _applyCurrentLayout({
+    group,
+    shape,
+    text,
+    width,
+    height
+  }: {
+    group: ShapeGroupLike
+    shape: ShapeNode
+    text: ShapeTextNode
+    width?: number
+    height?: number
+  }): void {
+    const dimensions = this._resolveCurrentDimensions({ group })
+    const resolvedWidth = Math.max(1, width ?? dimensions.width)
+    const resolvedHeight = Math.max(1, height ?? dimensions.height)
+    const padding = this._resolveGroupPadding({ group })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: resolvedWidth,
+      height: resolvedHeight,
+      alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+      alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
+      padding
+    })
   }
 
   /**

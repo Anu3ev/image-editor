@@ -7,6 +7,8 @@ import {
 } from './types'
 
 const MIN_TEXT_FRAME_SIZE = 1
+const TEXT_FRAME_FILL_EPSILON = 0.5
+const MIN_VERTICAL_SPACE_RATIO = 0.1
 
 /**
  * Применяет layout для композиции shape + text.
@@ -22,16 +24,23 @@ export const applyShapeTextLayout = ({
   padding
 }: ShapeLayoutInput): void => {
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
-  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
   const normalizedPadding = normalizePadding({
     padding
   })
+  const minHeight = resolveRequiredShapeHeightForText({
+    text,
+    width: safeWidth,
+    height,
+    padding: normalizedPadding
+  })
+  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, minHeight)
 
   resizeShapeNode({
     shape,
     width: safeWidth,
     height: safeHeight,
-    rounding: group.shapeRounding
+    rounding: group.shapeRounding,
+    strokeWidth: group.shapeStrokeWidth
   })
 
   const frame = createTextFrame({
@@ -54,7 +63,8 @@ export const applyShapeTextLayout = ({
     left: frame.left,
     top: frame.top,
     originX: 'left',
-    originY: 'top'
+    originY: 'top',
+    splitByGrapheme: true
   })
 
   text.initDimensions()
@@ -88,6 +98,82 @@ export const applyShapeTextLayout = ({
 
   group.triggerLayout()
   group.setCoords()
+}
+
+/**
+ * Возвращает true, если текст заполняет всю доступную высоту фрейма.
+ */
+export const isShapeTextFrameFilled = ({
+  text,
+  width,
+  height,
+  padding
+}: {
+  text: ShapeLayoutInput['text']
+  width: number
+  height: number
+  padding: ShapePadding
+}): boolean => {
+  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
+  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  const normalizedPadding = normalizePadding({
+    padding
+  })
+  const frame = createTextFrame({
+    width: safeWidth,
+    height: safeHeight,
+    padding: normalizedPadding
+  })
+
+  const measuredHeight = measureTextboxHeightForFrame({
+    text,
+    frameWidth: frame.width
+  })
+
+  return measuredHeight >= frame.height - TEXT_FRAME_FILL_EPSILON
+}
+
+/**
+ * Возвращает минимальную высоту shape, чтобы текст помещался в текстовый фрейм.
+ */
+export const resolveRequiredShapeHeightForText = ({
+  text,
+  width,
+  height,
+  padding
+}: {
+  text: ShapeLayoutInput['text']
+  width: number
+  height: number
+  padding: ShapePadding
+}): number => {
+  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
+  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  const normalizedPadding = normalizePadding({
+    padding
+  })
+  const frame = createTextFrame({
+    width: safeWidth,
+    height: safeHeight,
+    padding: normalizedPadding
+  })
+  const measuredHeight = measureTextboxHeightForFrame({
+    text,
+    frameWidth: frame.width
+  })
+  const frameHeight = frame.height
+
+  if (measuredHeight <= frameHeight + TEXT_FRAME_FILL_EPSILON) {
+    return safeHeight
+  }
+
+  const verticalSpaceRatio = Math.max(
+    MIN_VERTICAL_SPACE_RATIO,
+    1 - normalizedPadding.top - normalizedPadding.bottom
+  )
+
+  const requiredHeight = measuredHeight / verticalSpaceRatio
+  return Math.max(safeHeight, requiredHeight)
 }
 
 /**
@@ -185,6 +271,27 @@ function getTextboxHeight({ text }: { text: ShapeLayoutInput['text'] }): number 
 }
 
 /**
+ * Измеряет высоту текста в рамках переданной ширины текстового фрейма.
+ */
+function measureTextboxHeightForFrame({
+  text,
+  frameWidth
+}: {
+  text: ShapeLayoutInput['text']
+  frameWidth: number
+}): number {
+  text.set({
+    autoExpand: false,
+    width: Math.max(MIN_TEXT_FRAME_SIZE, frameWidth),
+    splitByGrapheme: true
+  })
+
+  text.initDimensions()
+
+  return getTextboxHeight({ text })
+}
+
+/**
  * Вычисляет верхнюю координату текста по вертикальному выравниванию.
  */
 function resolveVerticalTop({
@@ -198,7 +305,7 @@ function resolveVerticalTop({
   frameTop: number
   textHeight: number
 }): number {
-  const freeSpace = frameHeight - textHeight
+  const freeSpace = Math.max(0, frameHeight - textHeight)
 
   if (alignV === 'top') return frameTop
   if (alignV === 'bottom') return frameTop + freeSpace
