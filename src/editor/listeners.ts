@@ -87,7 +87,7 @@ class Listeners {
 
   handleSpaceKeyUpBound: (e: KeyboardEvent) => void
 
-  handleObjectModifiedHistoryBound: () => void
+  handleObjectModifiedHistoryBound: ({ target }: { target?: FabricObject }) => void
 
   handleObjectRotatingHistoryBound: () => void
 
@@ -269,8 +269,15 @@ class Listeners {
    * Обработчики для сохранения состояния редактора в истории.
    * Срабатывают при изменении объектов (перемещение, изменение размера и т.д.).
    */
-  handleObjectModifiedHistory(): void {
+  handleObjectModifiedHistory({ target }: { target?: FabricObject } = {}): void {
     const { historyManager, textManager } = this.editor
+    const targetWithNoopTransform = target as FabricObject & {
+      shapeScalingNoopTransform?: boolean
+    }
+    if (targetWithNoopTransform.shapeScalingNoopTransform) {
+      targetWithNoopTransform.shapeScalingNoopTransform = false
+      return
+    }
     if (historyManager.skipHistory) return
     if (textManager.isTextEditingActive) return
 

@@ -106,6 +106,7 @@ export type ShapeGroupMetadata = {
   shapeOpacity?: number
   shapeRounding?: number
   shapeCanRound?: boolean
+  shapeScalingNoopTransform?: boolean
 }
 
 export type ShapeGroup = Group & Partial<ShapeGroupMetadata>
@@ -180,6 +181,19 @@ export type ShapeLayoutInput = {
 export type ShapeScalingState = {
   baseWidth: number
   baseHeight: number
+  cannotScaleDownAtStart: boolean
+  blockedScaleAttempt: boolean
+  frameFilledAtStart: boolean
+  startLeft: number
+  startTop: number
+  startScaleX: number
+  startScaleY: number
+  startTransformOriginX: string | number | null
+  startTransformOriginY: string | number | null
+  startTransformCorner: string | null
+  crossedOppositeCorner: boolean
+  lastAllowedFlipX: boolean
+  lastAllowedFlipY: boolean
   lastAllowedScaleX: number
   lastAllowedScaleY: number
   lastAllowedLeft: number

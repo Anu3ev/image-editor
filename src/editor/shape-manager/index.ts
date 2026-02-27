@@ -71,6 +71,11 @@ type ShapeCanvasEvent = {
   transform?: import('fabric').Transform | null
 }
 
+type ShapeGroupCenter = {
+  x: number
+  y: number
+}
+
 /**
  * Менеджер фигур и композитных объектов "фигура + текст".
  */
@@ -90,6 +95,11 @@ export default class ShapeManager {
    */
   private editingController: ShapeEditingController
 
+  /**
+   * Центры shape-групп на время редактирования текста.
+   */
+  private editingCenters: WeakMap<ShapeGroup, ShapeGroupCenter>
+
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.scalingController = new ShapeScalingController({
@@ -98,6 +108,7 @@ export default class ShapeManager {
     this.editingController = new ShapeEditingController({
       canvas: editor.canvas
     })
+    this.editingCenters = new WeakMap()
 
     this._bindEvents()
   }
@@ -824,6 +835,7 @@ export default class ShapeManager {
     canvas.off('object:scaling', this._handleObjectScaling)
     canvas.off('object:modified', this._handleObjectModified)
     canvas.off('mouse:down', this._handleMouseDown)
+    canvas.off('text:editing:entered', this._handleTextEditingEntered)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:changed', this._handleTextChanged)
   }
@@ -837,6 +849,7 @@ export default class ShapeManager {
     canvas.on('object:scaling', this._handleObjectScaling)
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('mouse:down', this._handleMouseDown)
+    canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
     canvas.on('text:changed', this._handleTextChanged)
   }
@@ -874,7 +887,42 @@ export default class ShapeManager {
   private _handleTextEditingExited = (
     event: ShapeCanvasEvent
   ): void => {
+    const { target } = event
+    if (target instanceof Textbox) {
+      const textNode = target as ShapeTextNode
+      const { group } = textNode
+      if (isShapeGroup(group)) {
+        this.editingCenters.delete(group)
+      }
+    }
+
     this.editingController.handleTextEditingExited(event)
+  }
+
+  /**
+   * Обработчик входа в режим редактирования текста.
+   */
+  private _handleTextEditingEntered = (
+    event: ShapeCanvasEvent
+  ): void => {
+    const { target } = event
+    if (target instanceof Textbox) {
+      const textNode = target as ShapeTextNode
+      const { group } = textNode
+      if (isShapeGroup(group)) {
+        this._detachShapeGroupAutoLayout({
+          group
+        })
+
+        const center = group.getCenterPoint()
+        this.editingCenters.set(group, {
+          x: center.x,
+          y: center.y
+        })
+      }
+    }
+
+    this.editingController.handleTextEditingEntered(event)
   }
 
   /**
@@ -897,10 +945,18 @@ export default class ShapeManager {
 
     if (!shape || !text) return
 
+    this._detachShapeGroupAutoLayout({
+      group
+    })
+    const center = this._resolveEditingCenter({
+      group
+    })
+
     this._applyCurrentLayout({
       group,
       shape,
-      text
+      text,
+      center
     })
 
     this.editor.canvas.requestRenderAll()
@@ -942,6 +998,8 @@ export default class ShapeManager {
       originY: 'center',
       left: 0,
       top: 0,
+      lockScalingFlip: true,
+      centeredScaling: false,
       objectCaching: false
     }) as ShapeGroup
 
@@ -981,6 +1039,10 @@ export default class ShapeManager {
       alignH,
       alignV,
       padding
+    })
+
+    this._detachShapeGroupAutoLayout({
+      group
     })
 
     return group
@@ -1124,12 +1186,14 @@ export default class ShapeManager {
     group,
     shape,
     text,
+    center,
     width,
     height
   }: {
     group: ShapeGroupLike
     shape: ShapeNode
     text: ShapeTextNode
+    center?: ShapeGroupCenter
     width?: number
     height?: number
   }): void {
@@ -1137,6 +1201,11 @@ export default class ShapeManager {
     const resolvedWidth = Math.max(1, width ?? dimensions.width)
     const resolvedHeight = Math.max(1, height ?? dimensions.height)
     const padding = this._resolveGroupPadding({ group })
+    const currentCenter = group.getCenterPoint()
+    const stableCenter = center ?? {
+      x: currentCenter.x,
+      y: currentCenter.y
+    }
 
     applyShapeTextLayout({
       group,
@@ -1147,6 +1216,51 @@ export default class ShapeManager {
       alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
       alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
       padding
+    })
+
+    group.set({
+      left: stableCenter.x,
+      top: stableCenter.y
+    })
+    group.setCoords()
+  }
+
+  /**
+   * Возвращает стабильный центр группы для текущего редактирования текста.
+   */
+  private _resolveEditingCenter({ group }: { group: ShapeGroup }): ShapeGroupCenter {
+    const storedCenter = this.editingCenters.get(group)
+    if (storedCenter) return storedCenter
+
+    const center = group.getCenterPoint()
+    return {
+      x: center.x,
+      y: center.y
+    }
+  }
+
+  /**
+   * Отключает встроенный fit-content layout группы, чтобы shape-композиция управлялась только ShapeManager.
+   */
+  private _detachShapeGroupAutoLayout({ group }: { group: ShapeGroupLike }): void {
+    const groupWithLayoutManager = group as ShapeGroupLike & {
+      layoutManager?: {
+        unsubscribeTargets?: (options: {
+          target: Group
+          targets: FabricObject[]
+        }) => void
+      }
+    }
+
+    const { layoutManager } = groupWithLayoutManager
+    if (!layoutManager || typeof layoutManager.unsubscribeTargets !== 'function') return
+
+    const targets = group.getObjects()
+    if (targets.length === 0) return
+
+    layoutManager.unsubscribeTargets({
+      target: group,
+      targets
     })
   }
 

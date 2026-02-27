@@ -19,6 +19,19 @@ type TextboxMeasurementState = {
   width?: number
 }
 
+type ShapeTextFrame = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
+
+type ShapeTextFrameLayout = {
+  frame: ShapeTextFrame
+  splitByGrapheme: boolean
+  textTop: number
+}
+
 /**
  * Применяет layout для композиции shape + text.
  */
@@ -52,14 +65,16 @@ export const applyShapeTextLayout = ({
     strokeWidth: group.shapeStrokeWidth
   })
 
-  const frame = createTextFrame({
+  const {
+    frame,
+    splitByGrapheme,
+    textTop
+  } = resolveShapeTextFrameLayout({
+    text,
     width: safeWidth,
     height: safeHeight,
+    alignV,
     padding: normalizedPadding
-  })
-  const splitByGrapheme = resolveSplitByGraphemeForFrame({
-    text,
-    frameWidth: frame.width
   })
 
   text.set({
@@ -74,23 +89,13 @@ export const applyShapeTextLayout = ({
     flipX: false,
     flipY: false,
     left: frame.left,
-    top: frame.top,
+    top: textTop,
     originX: 'left',
     originY: 'top',
     splitByGrapheme
   })
 
   text.initDimensions()
-
-  const measuredHeight = getTextboxHeight({ text })
-  const top = resolveVerticalTop({
-    alignV,
-    frameHeight: frame.height,
-    frameTop: frame.top,
-    textHeight: measuredHeight
-  })
-
-  text.set({ top })
 
   text.setCoords()
   shape.setCoords()
@@ -105,12 +110,63 @@ export const applyShapeTextLayout = ({
   group.shapeAlignVertical = alignV
 
   group.set({
+    width: safeWidth,
+    height: safeHeight,
     scaleX: 1,
     scaleY: 1
   })
 
-  group.triggerLayout()
+  group.set('dirty', true)
   group.setCoords()
+}
+
+/**
+ * Вычисляет текстовый фрейм, режим переноса и вертикальную позицию текста для переданных размеров шейпа.
+ */
+export const resolveShapeTextFrameLayout = ({
+  text,
+  width,
+  height,
+  alignV,
+  padding
+}: {
+  text: ShapeLayoutInput['text']
+  width: number
+  height: number
+  alignV: ShapeVerticalAlign
+  padding: ShapePadding
+}): ShapeTextFrameLayout => {
+  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
+  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  const normalizedPadding = normalizePadding({
+    padding
+  })
+  const frame = createTextFrame({
+    width: safeWidth,
+    height: safeHeight,
+    padding: normalizedPadding
+  })
+  const splitByGrapheme = resolveSplitByGraphemeForFrame({
+    text,
+    frameWidth: frame.width
+  })
+  const measuredHeight = measureTextboxHeightForFrame({
+    text,
+    frameWidth: frame.width,
+    splitByGrapheme
+  })
+  const textTop = resolveVerticalTop({
+    alignV,
+    frameHeight: frame.height,
+    frameTop: frame.top,
+    textHeight: measuredHeight
+  })
+
+  return {
+    frame,
+    splitByGrapheme,
+    textTop
+  }
 }
 
 /**
@@ -237,12 +293,7 @@ function createTextFrame({
   width: number
   height: number
   padding: ShapePadding
-}): {
-  left: number
-  top: number
-  width: number
-  height: number
-} {
+}): ShapeTextFrame {
   const leftPadding = resolvePaddingPixels({
     size: width,
     ratio: padding.left,
@@ -302,21 +353,24 @@ function getTextboxHeight({ text }: { text: ShapeLayoutInput['text'] }): number 
  */
 function measureTextboxHeightForFrame({
   text,
-  frameWidth
+  frameWidth,
+  splitByGrapheme
 }: {
   text: ShapeLayoutInput['text']
   frameWidth: number
+  splitByGrapheme?: boolean
 }): number {
   const previousState = captureTextboxMeasurementState({ text })
-  const splitByGrapheme = resolveSplitByGraphemeForFrame({
-    text,
-    frameWidth
-  })
+  const resolvedSplitByGrapheme = splitByGrapheme
+    ?? resolveSplitByGraphemeForFrame({
+      text,
+      frameWidth
+    })
 
   text.set({
     autoExpand: false,
     width: Math.max(MIN_TEXT_FRAME_SIZE, frameWidth),
-    splitByGrapheme
+    splitByGrapheme: resolvedSplitByGrapheme
   })
 
   text.initDimensions()
