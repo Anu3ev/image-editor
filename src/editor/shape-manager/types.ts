@@ -93,6 +93,8 @@ export type ShapeGroupMetadata = {
   shapePresetKey: string
   shapeBaseWidth: number
   shapeBaseHeight: number
+  shapeManualBaseWidth: number
+  shapeManualBaseHeight: number
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
   shapePaddingTop: number

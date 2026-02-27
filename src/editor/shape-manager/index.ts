@@ -76,6 +76,11 @@ type ShapeGroupCenter = {
   y: number
 }
 
+type ShapeGroupDimensions = {
+  width: number
+  height: number
+}
+
 /**
  * Менеджер фигур и композитных объектов "фигура + текст".
  */
@@ -305,6 +310,8 @@ export default class ShapeManager {
       options,
       fallback: currentGroup
     })
+    const manualWidth = Math.max(1, rawWidth ?? currentGroup.shapeManualBaseWidth ?? width)
+    const manualHeight = Math.max(1, rawHeight ?? currentGroup.shapeManualBaseHeight ?? height)
 
     const center = currentGroup.getCenterPoint()
     const {
@@ -379,6 +386,8 @@ export default class ShapeManager {
       text: existingTextNode,
       width,
       height,
+      manualWidth,
+      manualHeight,
       alignH: horizontalAlign,
       alignV: verticalAlign,
       padding,
@@ -951,12 +960,17 @@ export default class ShapeManager {
     const center = this._resolveEditingCenter({
       group
     })
+    const manualDimensions = this._resolveManualDimensions({
+      group
+    })
 
     this._applyCurrentLayout({
       group,
       shape,
       text,
-      center
+      center,
+      width: manualDimensions.width,
+      height: manualDimensions.height
     })
 
     this.editor.canvas.requestRenderAll()
@@ -973,6 +987,8 @@ export default class ShapeManager {
     text,
     width,
     height,
+    manualWidth,
+    manualHeight,
     alignH,
     alignV,
     padding,
@@ -986,6 +1002,8 @@ export default class ShapeManager {
     text: ShapeTextNode
     width: number
     height: number
+    manualWidth?: number
+    manualHeight?: number
     alignH: ShapeHorizontalAlign
     alignV: ShapeVerticalAlign
     padding: ShapePadding
@@ -1012,6 +1030,8 @@ export default class ShapeManager {
       shapePresetKey: presetKey,
       shapeBaseWidth: width,
       shapeBaseHeight: height,
+      shapeManualBaseWidth: Math.max(1, manualWidth ?? width),
+      shapeManualBaseHeight: Math.max(1, manualHeight ?? height),
       shapeAlignHorizontal: alignH,
       shapeAlignVertical: alignV,
       shapePaddingTop: padding.top,
@@ -1159,6 +1179,26 @@ export default class ShapeManager {
     const height = Math.max(
       1,
       (group.shapeBaseHeight ?? group.height ?? 1) * (Math.abs(group.scaleY ?? 1) || 1)
+    )
+
+    return {
+      width,
+      height
+    }
+  }
+
+  /**
+   * Возвращает ручные базовые размеры shape-группы.
+   */
+  private _resolveManualDimensions({ group }: { group: ShapeGroupLike }): ShapeGroupDimensions {
+    const width = Math.max(
+      1,
+      group.shapeManualBaseWidth ?? group.shapeBaseWidth ?? group.width ?? 1
+    )
+
+    const height = Math.max(
+      1,
+      group.shapeManualBaseHeight ?? group.shapeBaseHeight ?? group.height ?? 1
     )
 
     return {

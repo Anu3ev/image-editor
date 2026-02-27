@@ -54,6 +54,8 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'shapePresetKey',
   'shapeBaseWidth',
   'shapeBaseHeight',
+  'shapeManualBaseWidth',
+  'shapeManualBaseHeight',
   'shapeAlignHorizontal',
   'shapeAlignVertical',
   'shapePaddingTop',

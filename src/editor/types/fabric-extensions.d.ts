@@ -277,6 +277,16 @@ declare module 'fabric' {
     shapeBaseHeight?: number;
 
     /**
+     * Ручная базовая ширина фигуры, заданная пользователем.
+     */
+    shapeManualBaseWidth?: number;
+
+    /**
+     * Ручная базовая высота фигуры, заданная пользователем.
+     */
+    shapeManualBaseHeight?: number;
+
+    /**
      * Горизонтальное выравнивание текста внутри фигуры.
      */
     shapeAlignHorizontal?: 'left' | 'center' | 'right';

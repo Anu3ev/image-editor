@@ -301,6 +301,9 @@ export default class ShapeScalingController {
       })
     }
 
+    group.shapeManualBaseWidth = width
+    group.shapeManualBaseHeight = height
+
     applyShapeTextLayout({
       group,
       shape,
