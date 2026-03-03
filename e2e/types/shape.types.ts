@@ -55,6 +55,29 @@ export interface ShapeStrokeParams {
   dash?: number[] | null
 }
 
+/** Параметры обновления shape через модель (подмножество ShapeUpdateOptions) */
+export interface ShapeUpdateParams {
+  presetKey?: ShapePresetKey
+  options?: {
+    width?: number
+    height?: number
+    text?: string
+    fill?: string
+    stroke?: string | null
+    strokeWidth?: number
+    opacity?: number
+    rounding?: number
+    alignH?: ShapeHorizontalAlign
+    alignV?: ShapeVerticalAlign
+  }
+}
+
+/** Параметры выравнивания текста внутри shape */
+export interface ShapeTextAlignParams {
+  horizontal?: ShapeHorizontalAlign
+  vertical?: ShapeVerticalAlign
+}
+
 /** Расширенная информация о shape-группе */
 export interface ShapeObjectInfo extends EditorObjectInfo {
   shapeComposite: boolean

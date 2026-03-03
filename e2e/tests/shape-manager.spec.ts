@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/editor.fixture'
-import type { ShapePresetKey } from '../types'
+import type { ShapePresetKey, ShapeHorizontalAlign, ShapeVerticalAlign } from '../types'
 
 test.describe('Добавление фигур', () => {
   test('добавляет круг с дефолтными параметрами', async({ editorModel, shapes }) => {
@@ -135,6 +135,162 @@ test.describe('Свойства фигур', () => {
     await test.step('Проверить значение rounding', async() => {
       const shapeObjects = await shapes.getShapeObjects()
       expect(shapeObjects[0].shapeRounding).toBe(20)
+    })
+  })
+})
+
+test.describe('Обновление фигур (update)', () => {
+  test('update меняет пресет фигуры', async({ shapes }) => {
+    await test.step('Добавить круг', () => shapes.add({ presetKey: 'circle' }))
+
+    const updated = await test.step('Сменить пресет на star', () => shapes.update({ presetKey: 'star', objectIndex: 0 }))
+
+    await test.step('Проверить новый пресет', () => {
+      expect(updated).not.toBeNull()
+      expect(updated?.shapePresetKey).toBe('star')
+    })
+  })
+
+  test('update сохраняет позицию фигуры', async({ shapes }) => {
+    const original = await test.step('Добавить круг с позицией', async() => {
+      const result = await shapes.add({ presetKey: 'circle', options: { left: 100, top: 150 } })
+      return shapes.checkCreation({ shape: result, presetKey: 'circle' })
+    })
+
+    const updated = await test.step('Сменить пресет на square', () => shapes.update({ presetKey: 'square', objectIndex: 0 }))
+
+    await test.step('Проверить что позиция сохранена', () => {
+      expect(updated).not.toBeNull()
+      expect(updated?.shapePresetKey).toBe('square')
+      expect(updated?.left).toBeCloseTo(original.left, 0)
+      expect(updated?.top).toBeCloseTo(original.top, 0)
+    })
+  })
+
+  test('update с невалидным пресетом возвращает null', async({ shapes }) => {
+    await test.step('Добавить круг', () => shapes.add({ presetKey: 'circle' }))
+
+    const updated = await test.step('Попытаться сменить на несуществующий пресет', () => {
+      return shapes.update({ presetKey: 'nonexistent-preset' as any, objectIndex: 0 })
+    })
+
+    await test.step('Проверить что вернулся null', () => {
+      expect(updated).toBeNull()
+    })
+  })
+})
+
+test.describe('Выравнивание текста (setTextAlign)', () => {
+  const horizontalAligns: ShapeHorizontalAlign[] = ['left', 'center', 'right']
+  const verticalAligns: ShapeVerticalAlign[] = ['top', 'middle', 'bottom']
+
+  test('setTextAlign меняет горизонтальное выравнивание', async({ shapes }) => {
+    await test.step('Добавить фигуру с текстом', () => shapes.add({ presetKey: 'square', options: { text: 'Тест' } }))
+
+    const result = await test.step('Установить left', () => shapes.setTextAlign({ horizontal: 'left', objectIndex: 0 }))
+
+    await test.step('Проверить выравнивание', () => {
+      expect(result).not.toBeNull()
+      expect(result?.shapeAlignHorizontal).toBe('left')
+    })
+  })
+
+  test('setTextAlign меняет вертикальное выравнивание', async({ shapes }) => {
+    await test.step('Добавить фигуру с текстом', () => shapes.add({ presetKey: 'square', options: { text: 'Тест' } }))
+
+    const result = await test.step('Установить bottom', () => shapes.setTextAlign({ vertical: 'bottom', objectIndex: 0 }))
+
+    await test.step('Проверить выравнивание', () => {
+      expect(result).not.toBeNull()
+      expect(result?.shapeAlignVertical).toBe('bottom')
+    })
+  })
+
+  for (const h of horizontalAligns) {
+    for (const v of verticalAligns) {
+      test(`setTextAlign применяет комбинацию ${h}/${v}`, async({ shapes }) => {
+        await test.step('Добавить фигуру с текстом', () => shapes.add({ presetKey: 'square', options: { text: 'Тест' } }))
+
+        const result = await test.step(`Установить ${h}/${v}`, () => shapes.setTextAlign({ horizontal: h, vertical: v, objectIndex: 0 }))
+
+        expect(result).not.toBeNull()
+        expect(result?.shapeAlignHorizontal).toBe(h)
+        expect(result?.shapeAlignVertical).toBe(v)
+      })
+    }
+  }
+})
+
+test.describe('Граничные случаи', () => {
+  test('add с неизвестным presetKey возвращает null', async({ editorModel, shapes }) => {
+    const shape = await test.step('Добавить с невалидным пресетом', () => shapes.add({ presetKey: 'nonexistent-preset' as any }))
+
+    await test.step('Проверить что shape не создан', () => {
+      expect(shape).toBeNull()
+    })
+
+    await test.step('Canvas остался пустым', () => editorModel.checkObjectCount({ count: 0 }))
+  })
+
+  test('setRounding не влияет на non-roundable пресет (circle)', async({ shapes }) => {
+    await test.step('Добавить круг', () => shapes.add({ presetKey: 'circle' }))
+
+    const before = await test.step('Запомнить rounding до операции', async() => {
+      const objects = await shapes.getShapeObjects()
+      return objects[0].shapeRounding
+    })
+
+    await test.step('Попытаться установить скругление', () => shapes.setRounding({ rounding: 50, objectIndex: 0 }))
+
+    await test.step('Проверить что rounding не изменился', async() => {
+      const objects = await shapes.getShapeObjects()
+      expect(objects[0].shapeRounding).toBe(before)
+    })
+  })
+
+  test('setRounding не влияет на non-roundable пресет (heart)', async({ shapes }) => {
+    await test.step('Добавить сердце', () => shapes.add({ presetKey: 'heart' }))
+
+    const before = await test.step('Запомнить rounding до операции', async() => {
+      const objects = await shapes.getShapeObjects()
+      return objects[0].shapeRounding
+    })
+
+    await test.step('Попытаться установить скругление', () => shapes.setRounding({ rounding: 30, objectIndex: 0 }))
+
+    await test.step('Проверить что rounding не изменился', async() => {
+      const objects = await shapes.getShapeObjects()
+      expect(objects[0].shapeRounding).toBe(before)
+    })
+  })
+
+  test('setStroke с dash устанавливает пунктирную обводку', async({ shapes }) => {
+    await test.step('Добавить прямоугольник', () => shapes.add({ presetKey: 'square' }))
+
+    await test.step('Установить обводку с dash', () => {
+      return shapes.setStroke({ stroke: '#ff0000', strokeWidth: 2, dash: [5, 3], objectIndex: 0 })
+    })
+
+    await test.step('Проверить обводку', async() => {
+      const objects = await shapes.getShapeObjects()
+      expect(objects[0].shapeStroke).toBe('#ff0000')
+      expect(objects[0].shapeStrokeWidth).toBe(2)
+    })
+  })
+
+  test('операции работают через active object без указания objectIndex', async({ editorModel, shapes }) => {
+    await test.step('Добавить круг (он станет активным)', () => shapes.add({ presetKey: 'circle' }))
+
+    await test.step('Проверить что есть активный объект', async() => {
+      const active = await editorModel.getActiveObject()
+      expect(active).not.toBeNull()
+    })
+
+    await test.step('Установить заливку без objectIndex', () => shapes.setFill({ fill: '#123456' }))
+
+    await test.step('Проверить что заливка применена', async() => {
+      const objects = await shapes.getShapeObjects()
+      expect(objects[0].shapeFill).toBe('#123456')
     })
   })
 })

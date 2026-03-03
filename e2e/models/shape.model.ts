@@ -3,7 +3,9 @@ import { type Page, expect } from '@playwright/test'
 import type {
   ShapeObjectInfo,
   ShapeAddParams,
+  ShapeUpdateParams,
   ShapeStrokeParams,
+  ShapeTextAlignParams,
   ShapePresetKey,
   ObjectTargetParams
 } from '../types'
@@ -67,6 +69,28 @@ export class ShapeModel {
       const w = window as any
       const target = w.__resolveTarget(objectIndex, id)
       await w.editor.shapeManager.setRounding({ target, rounding })
+    }, params)
+  }
+
+  /** Обновляет shape — меняет пресет, размеры, стили. Сохраняет позицию и текст */
+  async update(params: ShapeUpdateParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
+    return this.page.evaluate(async({ presetKey, options, objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      const result = await w.editor.shapeManager.update({ target, presetKey, options })
+      if (!result) return null
+      return w.__serializeShapeObject(result)
+    }, params)
+  }
+
+  /** Устанавливает выравнивание текста внутри shape */
+  async setTextAlign(params: ShapeTextAlignParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
+    return this.page.evaluate(({ horizontal, vertical, objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      const result = w.editor.shapeManager.setTextAlign({ target, horizontal, vertical })
+      if (!result) return null
+      return w.__serializeShapeObject(result)
     }, params)
   }
 
