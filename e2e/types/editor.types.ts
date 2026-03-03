@@ -34,3 +34,9 @@ export interface MontageAreaInfo {
   left: number
   top: number
 }
+
+/** Параметры для идентификации целевого объекта в моделях */
+export interface ObjectTargetParams {
+  objectIndex?: number
+  id?: string
+}

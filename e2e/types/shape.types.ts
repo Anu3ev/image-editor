@@ -50,9 +50,9 @@ export interface ShapeAddParams {
 
 /** Параметры обводки shape */
 export interface ShapeStrokeParams {
-  color?: string
-  width?: number
-  dashArray?: number[] | null
+  stroke?: string | null
+  strokeWidth?: number
+  dash?: number[] | null
 }
 
 /** Расширенная информация о shape-группе */
