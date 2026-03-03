@@ -7,6 +7,8 @@ import type {
   ShapeStrokeParams,
   ShapeTextAlignParams,
   ShapePresetKey,
+  ShapeHorizontalAlign,
+  ShapeVerticalAlign,
   ObjectTargetParams
 } from '../types'
 
@@ -121,6 +123,58 @@ export class ShapeModel {
     }
 
     return results
+  }
+
+  /** Возвращает первый shape-объект на canvas */
+  async getFirstShape(): Promise<ShapeObjectInfo> {
+    const objects = await this.getShapeObjects()
+    expect(objects.length, 'на canvas должен быть хотя бы один shape').toBeGreaterThan(0)
+    return objects[0]
+  }
+
+  /**
+   * Проверяет что update вернул корректный результат.
+   * Возвращает гарантированно не-null ShapeObjectInfo
+   */
+  checkUpdate(params: { shape: ShapeObjectInfo | null, presetKey: ShapePresetKey }): ShapeObjectInfo {
+    const { shape, presetKey } = params
+
+    expect(shape, 'update должен вернуть объект').not.toBeNull()
+    expect(shape?.shapePresetKey, 'presetKey должен смениться').toBe(presetKey)
+
+    return shape as ShapeObjectInfo
+  }
+
+  /**
+   * Проверяет что setTextAlign вернул корректный результат.
+   * Возвращает гарантированно не-null ShapeObjectInfo
+   */
+  checkTextAlign(
+    params: { shape: ShapeObjectInfo | null, horizontal?: ShapeHorizontalAlign, vertical?: ShapeVerticalAlign }
+  ): ShapeObjectInfo {
+    const { shape, horizontal, vertical } = params
+
+    expect(shape, 'setTextAlign должен вернуть объект').not.toBeNull()
+
+    if (horizontal) {
+      expect(shape?.shapeAlignHorizontal, 'горизонтальное выравнивание должно совпадать').toBe(horizontal)
+    }
+
+    if (vertical) {
+      expect(shape?.shapeAlignVertical, 'вертикальное выравнивание должно совпадать').toBe(vertical)
+    }
+
+    return shape as ShapeObjectInfo
+  }
+
+  /**
+   * Удаляет shape и проверяет успешность удаления.
+   * Возвращает true если удаление подтверждено
+   */
+  async checkRemoval(params: ObjectTargetParams = {}): Promise<boolean> {
+    const removed = await this.remove(params)
+    expect(removed, 'shape должен быть удалён').toBe(true)
+    return removed
   }
 
   /** Возвращает список shape-объектов на canvas */

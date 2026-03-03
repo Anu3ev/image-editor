@@ -72,10 +72,7 @@ test.describe('Удаление фигур', () => {
       await editorModel.checkObjectCount({ count: 1 })
     })
 
-    await test.step('Удалить фигуру', async() => {
-      const removed = await shapes.remove({ objectIndex: 0 })
-      expect(removed).toBe(true)
-    })
+    await test.step('Удалить фигуру', () => shapes.checkRemoval({ objectIndex: 0 }))
 
     await test.step('Canvas пуст', () => editorModel.checkObjectCount({ count: 0 }))
   })
@@ -83,10 +80,7 @@ test.describe('Удаление фигур', () => {
   test('удаляет одну фигуру из нескольких', async({ editorModel, shapes }) => {
     await test.step('Добавить 3 фигуры', () => shapes.addMultiple({ presets: ['circle', 'square', 'triangle'] }))
 
-    await test.step('Удалить вторую фигуру', async() => {
-      const removed = await shapes.remove({ objectIndex: 1 })
-      expect(removed).toBe(true)
-    })
+    await test.step('Удалить вторую фигуру', () => shapes.checkRemoval({ objectIndex: 1 }))
 
     await test.step('Осталось 2 фигуры', () => editorModel.checkObjectCount({ count: 2 }))
   })
@@ -99,8 +93,8 @@ test.describe('Свойства фигур', () => {
     await test.step('Установить зелёную заливку', () => shapes.setFill({ fill: '#00ff00', objectIndex: 0 }))
 
     await test.step('Проверить значение fill', async() => {
-      const shapeObjects = await shapes.getShapeObjects()
-      expect(shapeObjects[0].shapeFill).toBe('#00ff00')
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeFill).toBe('#00ff00')
     })
   })
 
@@ -110,9 +104,9 @@ test.describe('Свойства фигур', () => {
     await test.step('Установить синюю обводку шириной 3', () => shapes.setStroke({ stroke: '#0000ff', strokeWidth: 3, objectIndex: 0 }))
 
     await test.step('Проверить значения stroke', async() => {
-      const shapeObjects = await shapes.getShapeObjects()
-      expect(shapeObjects[0].shapeStroke).toBe('#0000ff')
-      expect(shapeObjects[0].shapeStrokeWidth).toBe(3)
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeStroke).toBe('#0000ff')
+      expect(shape.shapeStrokeWidth).toBe(3)
     })
   })
 
@@ -122,8 +116,8 @@ test.describe('Свойства фигур', () => {
     await test.step('Установить прозрачность 0.3', () => shapes.setOpacity({ opacity: 0.3, objectIndex: 0 }))
 
     await test.step('Проверить значение opacity', async() => {
-      const shapeObjects = await shapes.getShapeObjects()
-      expect(shapeObjects[0].shapeOpacity).toBe(0.3)
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeOpacity).toBe(0.3)
     })
   })
 
@@ -133,8 +127,8 @@ test.describe('Свойства фигур', () => {
     await test.step('Установить скругление 20', () => shapes.setRounding({ rounding: 20, objectIndex: 0 }))
 
     await test.step('Проверить значение rounding', async() => {
-      const shapeObjects = await shapes.getShapeObjects()
-      expect(shapeObjects[0].shapeRounding).toBe(20)
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(20)
     })
   })
 })
@@ -145,10 +139,7 @@ test.describe('Обновление фигур (update)', () => {
 
     const updated = await test.step('Сменить пресет на star', () => shapes.update({ presetKey: 'star', objectIndex: 0 }))
 
-    await test.step('Проверить новый пресет', () => {
-      expect(updated).not.toBeNull()
-      expect(updated?.shapePresetKey).toBe('star')
-    })
+    await test.step('Проверить новый пресет', () => shapes.checkUpdate({ shape: updated, presetKey: 'star' }))
   })
 
   test('update сохраняет позицию фигуры', async({ shapes }) => {
@@ -157,13 +148,12 @@ test.describe('Обновление фигур (update)', () => {
       return shapes.checkCreation({ shape: result, presetKey: 'circle' })
     })
 
-    const updated = await test.step('Сменить пресет на square', () => shapes.update({ presetKey: 'square', objectIndex: 0 }))
+    const updatedRaw = await test.step('Сменить пресет на square', () => shapes.update({ presetKey: 'square', objectIndex: 0 }))
 
     await test.step('Проверить что позиция сохранена', () => {
-      expect(updated).not.toBeNull()
-      expect(updated?.shapePresetKey).toBe('square')
-      expect(updated?.left).toBeCloseTo(original.left, 0)
-      expect(updated?.top).toBeCloseTo(original.top, 0)
+      const updated = shapes.checkUpdate({ shape: updatedRaw, presetKey: 'square' })
+      expect(updated.left).toBeCloseTo(original.left, 0)
+      expect(updated.top).toBeCloseTo(original.top, 0)
     })
   })
 
@@ -189,10 +179,7 @@ test.describe('Выравнивание текста (setTextAlign)', () => {
 
     const result = await test.step('Установить left', () => shapes.setTextAlign({ horizontal: 'left', objectIndex: 0 }))
 
-    await test.step('Проверить выравнивание', () => {
-      expect(result).not.toBeNull()
-      expect(result?.shapeAlignHorizontal).toBe('left')
-    })
+    await test.step('Проверить выравнивание', () => shapes.checkTextAlign({ shape: result, horizontal: 'left' }))
   })
 
   test('setTextAlign меняет вертикальное выравнивание', async({ shapes }) => {
@@ -200,10 +187,7 @@ test.describe('Выравнивание текста (setTextAlign)', () => {
 
     const result = await test.step('Установить bottom', () => shapes.setTextAlign({ vertical: 'bottom', objectIndex: 0 }))
 
-    await test.step('Проверить выравнивание', () => {
-      expect(result).not.toBeNull()
-      expect(result?.shapeAlignVertical).toBe('bottom')
-    })
+    await test.step('Проверить выравнивание', () => shapes.checkTextAlign({ shape: result, vertical: 'bottom' }))
   })
 
   for (const h of horizontalAligns) {
@@ -213,9 +197,7 @@ test.describe('Выравнивание текста (setTextAlign)', () => {
 
         const result = await test.step(`Установить ${h}/${v}`, () => shapes.setTextAlign({ horizontal: h, vertical: v, objectIndex: 0 }))
 
-        expect(result).not.toBeNull()
-        expect(result?.shapeAlignHorizontal).toBe(h)
-        expect(result?.shapeAlignVertical).toBe(v)
+        shapes.checkTextAlign({ shape: result, horizontal: h, vertical: v })
       })
     }
   }
@@ -236,15 +218,15 @@ test.describe('Граничные случаи', () => {
     await test.step('Добавить круг', () => shapes.add({ presetKey: 'circle' }))
 
     const before = await test.step('Запомнить rounding до операции', async() => {
-      const objects = await shapes.getShapeObjects()
-      return objects[0].shapeRounding
+      const shape = await shapes.getFirstShape()
+      return shape.shapeRounding
     })
 
     await test.step('Попытаться установить скругление', () => shapes.setRounding({ rounding: 50, objectIndex: 0 }))
 
     await test.step('Проверить что rounding не изменился', async() => {
-      const objects = await shapes.getShapeObjects()
-      expect(objects[0].shapeRounding).toBe(before)
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(before)
     })
   })
 
@@ -252,15 +234,15 @@ test.describe('Граничные случаи', () => {
     await test.step('Добавить сердце', () => shapes.add({ presetKey: 'heart' }))
 
     const before = await test.step('Запомнить rounding до операции', async() => {
-      const objects = await shapes.getShapeObjects()
-      return objects[0].shapeRounding
+      const shape = await shapes.getFirstShape()
+      return shape.shapeRounding
     })
 
     await test.step('Попытаться установить скругление', () => shapes.setRounding({ rounding: 30, objectIndex: 0 }))
 
     await test.step('Проверить что rounding не изменился', async() => {
-      const objects = await shapes.getShapeObjects()
-      expect(objects[0].shapeRounding).toBe(before)
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(before)
     })
   })
 
@@ -272,9 +254,9 @@ test.describe('Граничные случаи', () => {
     })
 
     await test.step('Проверить обводку', async() => {
-      const objects = await shapes.getShapeObjects()
-      expect(objects[0].shapeStroke).toBe('#ff0000')
-      expect(objects[0].shapeStrokeWidth).toBe(2)
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeStroke).toBe('#ff0000')
+      expect(shape.shapeStrokeWidth).toBe(2)
     })
   })
 
@@ -289,8 +271,8 @@ test.describe('Граничные случаи', () => {
     await test.step('Установить заливку без objectIndex', () => shapes.setFill({ fill: '#123456' }))
 
     await test.step('Проверить что заливка применена', async() => {
-      const objects = await shapes.getShapeObjects()
-      expect(objects[0].shapeFill).toBe('#123456')
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeFill).toBe('#123456')
     })
   })
 })
