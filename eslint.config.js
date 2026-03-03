@@ -342,13 +342,14 @@ export default [
       'block-scoped-var': 1,
       'import/no-webpack-loader-syntax': 1,
       'no-return-assign': 1,
-      'no-await-in-loop': 1,
+      'no-await-in-loop': 0,
       'import/no-extraneous-dependencies': 1,
       'default-param-last': 1,
       'no-eval': 1,
       'import/no-mutable-exports': 1,
       'no-promise-executor-return': 1,
-      'func-names': 0
+      'func-names': 0,
+      'arrow-body-style': 0
     }
   },
   {

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Page } from '@playwright/test'
+import { type Page, expect } from '@playwright/test'
 import type { EditorObjectInfo, CanvasStateInfo, MontageAreaInfo } from '../types'
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
@@ -100,6 +100,12 @@ export class EditorModel {
       if (!obj) return null
       return w.__serializeEditorObject(obj)
     })
+  }
+
+  /** Проверяет что количество пользовательских объектов на canvas равно ожидаемому */
+  async checkObjectCount(params: { count: number }): Promise<void> {
+    const objects = await this.getObjects()
+    expect(objects, `ожидается ${params.count} объектов на canvas`).toHaveLength(params.count)
   }
 
   /** Возвращает информацию о montage area */

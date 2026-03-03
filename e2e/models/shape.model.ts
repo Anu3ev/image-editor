@@ -1,9 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import type { Page } from '@playwright/test'
+import { type Page, expect } from '@playwright/test'
 import type {
   ShapeObjectInfo,
   ShapeAddParams,
   ShapeStrokeParams,
+  ShapePresetKey,
   ObjectTargetParams
 } from '../types'
 
@@ -67,6 +68,35 @@ export class ShapeModel {
       const target = w.__resolveTarget(objectIndex, id)
       await w.editor.shapeManager.setRounding({ target, rounding })
     }, params)
+  }
+
+  /**
+   * Проверяет что shape создан корректно.
+   * Возвращает гарантированно не-null ShapeObjectInfo
+   */
+  checkCreation(params: { shape: ShapeObjectInfo | null, presetKey?: ShapePresetKey }): ShapeObjectInfo {
+    const { shape, presetKey } = params
+
+    expect(shape, 'shape должен быть создан').not.toBeNull()
+    expect(shape?.shapeComposite, 'shape должен быть композитным').toBe(true)
+
+    if (presetKey) {
+      expect(shape?.shapePresetKey, 'presetKey должен совпадать').toBe(presetKey)
+    }
+
+    return shape as ShapeObjectInfo
+  }
+
+  /** Добавляет несколько shape по списку пресетов, возвращает массив созданных объектов */
+  async addMultiple(params: { presets: ShapePresetKey[] }): Promise<ShapeObjectInfo[]> {
+    const results: ShapeObjectInfo[] = []
+
+    for (const presetKey of params.presets) {
+      const shape = await this.add({ presetKey })
+      if (shape) results.push(shape)
+    }
+
+    return results
   }
 
   /** Возвращает список shape-объектов на canvas */

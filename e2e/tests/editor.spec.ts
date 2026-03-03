@@ -2,19 +2,25 @@ import { test, expect } from '../fixtures/editor.fixture'
 
 test.describe('Инициализация редактора', () => {
   test('canvas создан и доступен', async({ editorModel }) => {
-    const state = await editorModel.getCanvasState()
-    expect(state.width).toBeGreaterThan(0)
-    expect(state.height).toBeGreaterThan(0)
+    const state = await test.step('Получить состояние canvas', () => editorModel.getCanvasState())
+
+    await test.step('Проверить размеры', () => {
+      expect(state.width).toBeGreaterThan(0)
+      expect(state.height).toBeGreaterThan(0)
+    })
   })
 
   test('montage area существует с корректными размерами', async({ editorModel }) => {
-    const montageArea = await editorModel.getMontageArea()
-    expect(montageArea.width).toBe(512)
-    expect(montageArea.height).toBe(512)
+    const montageArea = await test.step('Получить montage area', () => editorModel.getMontageArea())
+
+    await test.step('Проверить размеры 512×512', () => {
+      expect(montageArea.width).toBe(512)
+      expect(montageArea.height).toBe(512)
+    })
   })
 
   test('все менеджеры доступны на инстансе редактора', async({ editorModel }) => {
-    const managers = await editorModel.page.evaluate(() => {
+    const managers = await test.step('Получить доступность менеджеров', () => editorModel.page.evaluate(() => {
       const e = (window as any).editor
       return {
         canvasManager: Boolean(e.canvasManager),
@@ -37,11 +43,13 @@ test.describe('Инициализация редактора', () => {
         imageManager: Boolean(e.imageManager),
         errorManager: Boolean(e.errorManager)
       }
-    })
+    }))
 
-    for (const [name, exists] of Object.entries(managers)) {
-      expect(exists, `${name} должен быть доступен`).toBe(true)
-    }
+    await test.step('Проверить что все менеджеры доступны', () => {
+      for (const [name, exists] of Object.entries(managers)) {
+        expect(exists, `${name} должен быть доступен`).toBe(true)
+      }
+    })
   })
 })
 
@@ -57,8 +65,11 @@ test.describe('Состояние canvas после инициализации',
   })
 
   test('zoom соответствует дефолтному значению', async({ editorModel }) => {
-    const state = await editorModel.getCanvasState()
-    expect(state.zoom).toBeGreaterThan(0)
-    expect(state.zoom).toBeLessThanOrEqual(1)
+    const state = await test.step('Получить состояние canvas', () => editorModel.getCanvasState())
+
+    await test.step('Проверить zoom в допустимом диапазоне', () => {
+      expect(state.zoom).toBeGreaterThan(0)
+      expect(state.zoom).toBeLessThanOrEqual(1)
+    })
   })
 })
