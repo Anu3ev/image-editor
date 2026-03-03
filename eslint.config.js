@@ -429,5 +429,11 @@ export default [
       'max-classes-per-file': 'off',
       'semi-style': ['error', 'last']
     }
+  },
+  {
+    files: ['e2e/**/*'],
+    rules: {
+      'import/no-extraneous-dependencies': ['error', { devDependencies: true }]
+    }
   }
 ]
