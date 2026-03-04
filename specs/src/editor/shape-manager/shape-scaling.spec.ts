@@ -219,6 +219,142 @@ describe('shape-scaling', () => {
     expect(group.shapeManualBaseHeight).toBe(250)
   })
 
+  it('масштабирует shapeRounding пропорционально при равномерном увеличении', () => {
+    const {
+      controller,
+      group
+    } = createScalingSetup()
+
+    group.shapeRounding = 50
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.scaleX = 2
+    group.scaleY = 2
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    expect(group.shapeRounding).toBe(100)
+  })
+
+  it('масштабирует shapeRounding пропорционально при уменьшении', () => {
+    const {
+      controller,
+      group
+    } = createScalingSetup()
+
+    group.shapeRounding = 80
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.scaleX = 0.5
+    group.scaleY = 0.5
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    expect(group.shapeRounding).toBe(40)
+  })
+
+  it('при непропорциональном масштабировании использует min(scaleX, scaleY) для rounding', () => {
+    const {
+      controller,
+      group
+    } = createScalingSetup()
+
+    group.shapeRounding = 50
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.scaleX = 3
+    group.scaleY = 2
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    expect(group.shapeRounding).toBe(100)
+  })
+
+  it('не меняет shapeRounding если он равен 0', () => {
+    const {
+      controller,
+      group
+    } = createScalingSetup()
+
+    group.shapeRounding = 0
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.scaleX = 3
+    group.scaleY = 3
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    expect(group.shapeRounding).toBe(0)
+  })
+
   it('при заполненном фрейме не даёт уменьшить базовые размеры ниже текущих', () => {
     const {
       controller,
