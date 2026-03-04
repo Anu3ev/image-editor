@@ -203,6 +203,52 @@ test.describe('Выравнивание текста (setTextAlign)', () => {
   }
 })
 
+test.describe('Масштабирование скругления', () => {
+  test('скругление масштабируется пропорционально при равномерном увеличении', async({ shapes }) => {
+    await test.step('Добавить прямоугольник со скруглением 50', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setRounding({ rounding: 50, objectIndex: 0 })
+    })
+
+    await test.step('Увеличить фигуру в 2 раза', () => shapes.simulateScale({ scaleX: 2, scaleY: 2, objectIndex: 0 }))
+
+    await test.step('Проверить что скругление удвоилось', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(100)
+    })
+  })
+
+  test('скругление масштабируется пропорционально при уменьшении', async({ shapes }) => {
+    await test.step('Добавить прямоугольник со скруглением 80', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setRounding({ rounding: 80, objectIndex: 0 })
+    })
+
+    await test.step('Уменьшить фигуру в 2 раза', () => shapes.simulateScale({ scaleX: 0.5, scaleY: 0.5, objectIndex: 0 }))
+
+    await test.step('Проверить что скругление уменьшилось вдвое', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(40)
+    })
+  })
+
+  test('скругление масштабируется по минимальному scale при непропорциональном масштабировании', async({ shapes }) => {
+    await test.step('Добавить прямоугольник со скруглением 50', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setRounding({ rounding: 50, objectIndex: 0 })
+    })
+
+    await test.step('Масштабировать непропорционально (3x ширина, 2x высота)', () => {
+      return shapes.simulateScale({ scaleX: 3, scaleY: 2, objectIndex: 0 })
+    })
+
+    await test.step('Проверить что скругление масштабировалось по min(3, 2) = 2', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(100)
+    })
+  })
+})
+
 test.describe('Граничные случаи', () => {
   test('add с неизвестным presetKey возвращает null', async({ editorModel, shapes }) => {
     const shape = await test.step('Добавить с невалидным пресетом', () => shapes.add({ presetKey: 'nonexistent-preset' as any }))

@@ -304,6 +304,11 @@ export default class ShapeScalingController {
     group.shapeManualBaseWidth = width
     group.shapeManualBaseHeight = height
 
+    const baseRounding = state?.baseRounding ?? Math.max(0, group.shapeRounding ?? 0)
+    const roundingScale = Math.min(allowedScaleX, allowedScaleY)
+    const scaledRounding = Math.max(0, baseRounding * roundingScale)
+    group.shapeRounding = scaledRounding
+
     applyShapeTextLayout({
       group,
       shape,
@@ -408,6 +413,7 @@ export default class ShapeScalingController {
       state = {
         baseWidth,
         baseHeight,
+        baseRounding: Math.max(0, group.shapeRounding ?? 0),
         cannotScaleDownAtStart: frameFilledAtStart || wouldFillAfterMinimalDownscale,
         blockedScaleAttempt: false,
         frameFilledAtStart,

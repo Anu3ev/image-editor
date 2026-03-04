@@ -74,6 +74,19 @@ export class ShapeModel {
     }, params)
   }
 
+  /** Имитирует масштабирование shape и запекание результата через object:modified */
+  async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
+    await this.page.evaluate(({ scaleX, scaleY, objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      if (!target) return
+
+      target.set({ scaleX, scaleY })
+      target.setCoords()
+      w.editor.canvas.fire('object:modified', { target })
+    }, params)
+  }
+
   /** Обновляет shape — меняет пресет, размеры, стили. Сохраняет позицию и текст */
   async update(params: ShapeUpdateParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     return this.page.evaluate(async({ presetKey, options, objectIndex, id }) => {

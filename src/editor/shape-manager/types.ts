@@ -183,6 +183,7 @@ export type ShapeLayoutInput = {
 export type ShapeScalingState = {
   baseWidth: number
   baseHeight: number
+  baseRounding: number
   cannotScaleDownAtStart: boolean
   blockedScaleAttempt: boolean
   frameFilledAtStart: boolean
