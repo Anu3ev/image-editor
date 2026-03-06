@@ -1,19 +1,17 @@
-import ShapeScalingController from '../../../../src/editor/shape-manager/shape-scaling'
+import { Point } from 'fabric'
 import {
   applyShapeTextLayout,
   isShapeTextFrameFilled,
   resolveShapeTextFrameLayout
 } from '../../../../src/editor/shape-manager/shape-layout'
+import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
 import {
-  getShapeNodes,
   isShapeGroup
 } from '../../../../src/editor/shape-manager/shape-utils'
 import {
-  createMockCanvas,
-  createMockShapeGroup,
-  createMockShapeNode,
-  createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+  createShapeScalingSetup,
+  mockShapeGroupPositionByOrigin
+} from '../../../test-utils/shape-scaling-helpers'
 
 jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
@@ -30,6 +28,10 @@ jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
   }))
 }))
 
+jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
+  resizeShapeNode: jest.fn()
+}))
+
 jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
   getShapeNodes: jest.fn(),
   isShapeGroup: jest.fn()
@@ -39,7 +41,7 @@ describe('shape-scaling', () => {
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
   const isShapeTextFrameFilledMock = isShapeTextFrameFilled as jest.Mock
   const resolveShapeTextFrameLayoutMock = resolveShapeTextFrameLayout as jest.Mock
-  const getShapeNodesMock = getShapeNodes as jest.Mock
+  const resizeShapeNodeMock = resizeShapeNode as jest.Mock
   const isShapeGroupMock = isShapeGroup as jest.Mock
 
   beforeEach(() => {
@@ -52,7 +54,7 @@ describe('shape-scaling', () => {
       controller,
       canvas,
       group
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(true)
 
@@ -97,7 +99,7 @@ describe('shape-scaling', () => {
     const {
       controller,
       group
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
 
@@ -135,7 +137,7 @@ describe('shape-scaling', () => {
       canvas,
       group,
       text
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
     resolveShapeTextFrameLayoutMock.mockReturnValue({
@@ -180,7 +182,7 @@ describe('shape-scaling', () => {
       controller,
       group,
       text
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
 
@@ -223,7 +225,7 @@ describe('shape-scaling', () => {
     const {
       controller,
       group
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     group.shapeRounding = 50
     isShapeTextFrameFilledMock.mockReturnValue(false)
@@ -257,7 +259,7 @@ describe('shape-scaling', () => {
     const {
       controller,
       group
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     group.shapeRounding = 80
     isShapeTextFrameFilledMock.mockReturnValue(false)
@@ -291,7 +293,7 @@ describe('shape-scaling', () => {
     const {
       controller,
       group
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     group.shapeRounding = 50
     isShapeTextFrameFilledMock.mockReturnValue(false)
@@ -325,7 +327,7 @@ describe('shape-scaling', () => {
     const {
       controller,
       group
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     group.shapeRounding = 0
     isShapeTextFrameFilledMock.mockReturnValue(false)
@@ -359,7 +361,7 @@ describe('shape-scaling', () => {
     const {
       controller,
       group
-    } = createScalingSetup()
+    } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock
       .mockReturnValueOnce(false)
@@ -393,46 +395,123 @@ describe('shape-scaling', () => {
     expect(layoutCall.width).toBeGreaterThanOrEqual(200)
     expect(layoutCall.height).toBeGreaterThanOrEqual(200)
   })
+
+  it('фиксирует anchor в live-режиме и восстанавливает позицию через setPositionByOrigin', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    mockShapeGroupPositionByOrigin({ group })
+
+    group.getCenterPoint = jest.fn(() => new Point(480, 420)) as never
+    group.scaleX = 1.4
+    group.scaleY = 1.3
+    group.left = 530
+    group.top = 490
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    expect(group.setPositionByOrigin).toHaveBeenCalledWith(expect.objectContaining({
+      x: 480,
+      y: 420
+    }), 'left', 'top')
+    expect(group.left).toBe(480)
+    expect(group.top).toBe(420)
+  })
+
+  it('компенсирует live-геометрию shape с учетом немасштабируемой обводки', () => {
+    const {
+      controller,
+      group,
+      shape
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    group.shapeStrokeWidth = 10
+    group.scaleX = 2
+    group.scaleY = 2
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    const resizeCall = resizeShapeNodeMock.mock.calls.at(-1)?.[0]
+    expect(resizeCall).toEqual(expect.objectContaining({
+      shape,
+      strokeWidth: 10
+    }))
+    expect(resizeCall.width).toBeCloseTo(205, 4)
+    expect(resizeCall.height).toBeCloseTo(205, 4)
+  })
+
+  it('восстанавливает anchor на object:modified и не даёт прыжка позиции', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    mockShapeGroupPositionByOrigin({ group })
+
+    group.getCenterPoint = jest.fn(() => new Point(480, 420)) as never
+    group.scaleX = 1.5
+    group.scaleY = 1.25
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    const callsAfterScaling = group.setPositionByOrigin.mock.calls.length
+    group.left = 700
+    group.top = 700
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    expect(group.setPositionByOrigin.mock.calls.length).toBeGreaterThan(callsAfterScaling)
+    expect(group.setPositionByOrigin).toHaveBeenLastCalledWith(expect.objectContaining({
+      x: 480,
+      y: 420
+    }), 'left', 'top')
+    expect(group.left).toBe(480)
+    expect(group.top).toBe(420)
+  })
 })
-
-function createScalingSetup(): {
-  controller: ShapeScalingController
-  canvas: ReturnType<typeof createMockCanvas>
-  group: ReturnType<typeof createMockShapeGroup>
-  text: ReturnType<typeof createMockShapeTextbox>
-} {
-  const canvas = createMockCanvas()
-  const shape = createMockShapeNode({
-    width: 200,
-    height: 200
-  })
-  const text = createMockShapeTextbox({
-    text: 'test text',
-    width: 200,
-    fontSize: 30
-  })
-  const group = createMockShapeGroup({
-    shape,
-    text,
-    left: 480,
-    top: 420,
-    width: 200,
-    height: 200
-  })
-
-  const getShapeNodesMock = getShapeNodes as jest.Mock
-  getShapeNodesMock.mockReturnValue({
-    shape,
-    text
-  })
-
-  return {
-    controller: new ShapeScalingController({
-      canvas: canvas as never
-    }),
-    canvas,
-    group,
-    text
-  }
-}
-
