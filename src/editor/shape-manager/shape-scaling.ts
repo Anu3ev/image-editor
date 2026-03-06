@@ -1,6 +1,7 @@
 import {
   Canvas,
   FabricObject,
+  Point,
   Transform
 } from 'fabric'
 import {
@@ -8,10 +9,13 @@ import {
   isShapeTextFrameFilled,
   resolveShapeTextFrameLayout
 } from './shape-layout'
+import { resizeShapeNode } from './shape-factory'
 import {
   ShapeGroup,
   ShapePadding,
-  ShapeScalingState
+  ShapeScalingState,
+  ShapeTransformOriginX,
+  ShapeTransformOriginY
 } from './types'
 import {
   getShapeNodes,
@@ -29,7 +33,7 @@ const SIZE_EPSILON = 0.5
 
 type ShapeScalingEvent = {
   target?: FabricObject | null
-  transform?: Transform
+  transform?: Transform | null
 }
 
 type ShapeModifiedEvent = {
@@ -68,9 +72,12 @@ export default class ShapeScalingController {
     if (!isShapeGroup(target)) return
 
     const group = target
-    const { text } = getShapeNodes({ group })
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
 
-    if (!text) return
+    if (!shape || !text) return
 
     group.set({
       lockScalingFlip: true,
@@ -131,6 +138,8 @@ export default class ShapeScalingController {
     const currentTop = group.top ?? 0
     const currentFlipX = Boolean(group.flipX)
     const currentFlipY = Boolean(group.flipY)
+    const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
+    const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
     if (shouldBlockScaling) {
       state.blockedScaleAttempt = shouldHandleAsNoop
@@ -155,39 +164,24 @@ export default class ShapeScalingController {
         left: nextLeft,
         top: nextTop
       })
-      group.setCoords()
 
-      if (shouldHandleAsNoop) {
-        text.set({
-          scaleX: 1 / Math.max(SCALE_EPSILON, state.startScaleX),
-          scaleY: 1 / Math.max(SCALE_EPSILON, state.startScaleY)
-        })
-        text.setCoords()
-        this.canvas.requestRenderAll()
-        return
-      }
-    }
-
-    if (!shouldBlockScaling) {
-      state.blockedScaleAttempt = false
-      group.shapeScalingNoopTransform = false
-      state.lastAllowedScaleX = scaleX
-      state.lastAllowedScaleY = scaleY
-      state.lastAllowedLeft = currentLeft
-      state.lastAllowedTop = currentTop
-      state.lastAllowedFlipX = currentFlipX
-      state.lastAllowedFlipY = currentFlipY
+      this._restoreScalingAnchorPosition({
+        group,
+        state
+      })
     }
 
     const appliedScaleX = Math.abs(group.scaleX ?? 1) || 1
     const appliedScaleY = Math.abs(group.scaleY ?? 1) || 1
-    const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
-    const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const previewWidth = Math.max(MIN_SIZE, state.baseWidth * appliedScaleX)
     const previewHeight = Math.max(MIN_SIZE, state.baseHeight * appliedScaleY)
 
-    this._applyLiveTextLayout({
+    this._applyLivePreviewLayout({
+      group,
+      shape,
       text,
+      baseWidth: state.baseWidth,
+      baseHeight: state.baseHeight,
       width: previewWidth,
       height: previewHeight,
       padding,
@@ -196,6 +190,22 @@ export default class ShapeScalingController {
       scaleX: appliedScaleX,
       scaleY: appliedScaleY
     })
+
+    this._restoreScalingAnchorPosition({
+      group,
+      state
+    })
+
+    if (!shouldBlockScaling) {
+      state.blockedScaleAttempt = false
+      group.shapeScalingNoopTransform = false
+      state.lastAllowedScaleX = scaleX
+      state.lastAllowedScaleY = scaleY
+      state.lastAllowedLeft = group.left ?? currentLeft
+      state.lastAllowedTop = group.top ?? currentTop
+      state.lastAllowedFlipX = currentFlipX
+      state.lastAllowedFlipY = currentFlipY
+    }
 
     this.canvas.requestRenderAll()
   }
@@ -222,9 +232,15 @@ export default class ShapeScalingController {
     const hasBlockedScaleAttempt = Boolean(state?.blockedScaleAttempt)
 
     if (hasBlockedScaleAttempt && state) {
+      const {
+        shape,
+        text
+      } = getShapeNodes({ group })
+
       this._restoreGroupTransformOnly({
         group,
-        text: getShapeNodes({ group }).text,
+        shape,
+        text,
         state
       })
 
@@ -330,6 +346,13 @@ export default class ShapeScalingController {
       scaleY: 1
     })
 
+    if (state) {
+      this._restoreScalingAnchorPosition({
+        group,
+        state
+      })
+    }
+
     group.setCoords()
     text.setCoords()
     shape.setCoords()
@@ -359,7 +382,7 @@ export default class ShapeScalingController {
     group: ShapeGroup
     text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
     padding: ShapePadding
-    transform?: Transform
+    transform?: Transform | null
   }): ShapeScalingState {
     let state = this.scalingState.get(group)
 
@@ -386,15 +409,20 @@ export default class ShapeScalingController {
       const startScaleY = Math.abs(originalScaleY ?? group.scaleY ?? 1) || 1
       const startLeft = originalLeft ?? group.left ?? 0
       const startTop = originalTop ?? group.top ?? 0
-      const startTransformOriginX = ShapeScalingController._resolveTransformOriginValue({
+      const startTransformOriginX = ShapeScalingController._resolveTransformOriginXValue({
         value: transform?.original?.originX ?? transform?.originX
       })
-      const startTransformOriginY = ShapeScalingController._resolveTransformOriginValue({
+      const startTransformOriginY = ShapeScalingController._resolveTransformOriginYValue({
         value: transform?.original?.originY ?? transform?.originY
       })
       const startTransformCorner = typeof transform?.corner === 'string'
         ? transform.corner
         : null
+      const scalingAnchorPoint = ShapeScalingController._resolveScalingAnchorPoint({
+        group,
+        originX: startTransformOriginX,
+        originY: startTransformOriginY
+      })
       const frameFilledAtStart = isShapeTextFrameFilled({
         text,
         width: baseWidth,
@@ -424,6 +452,10 @@ export default class ShapeScalingController {
         startTransformOriginX,
         startTransformOriginY,
         startTransformCorner,
+        scalingAnchorX: scalingAnchorPoint?.x ?? null,
+        scalingAnchorY: scalingAnchorPoint?.y ?? null,
+        scalingAnchorOriginX: startTransformOriginX,
+        scalingAnchorOriginY: startTransformOriginY,
         crossedOppositeCorner: false,
         lastAllowedFlipX: Boolean(group.flipX),
         lastAllowedFlipY: Boolean(group.flipY),
@@ -458,7 +490,7 @@ export default class ShapeScalingController {
     transform,
     key
   }: {
-    transform?: Transform
+    transform?: Transform | null
     key: 'left' | 'top' | 'scaleX' | 'scaleY'
   }): number | null {
     const original = transform?.original
@@ -487,17 +519,70 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Нормализует origin-значение transform к string/number/null.
+   * Нормализует horizontal origin-значение transform.
    */
-  private static _resolveTransformOriginValue({
+  private static _resolveTransformOriginXValue({
     value
   }: {
     value: unknown
-  }): string | number | null {
-    if (typeof value === 'string') return value
+  }): ShapeTransformOriginX | null {
+    if (value === 'left' || value === 'center' || value === 'right') {
+      return value
+    }
+
     if (typeof value === 'number' && Number.isFinite(value)) return value
 
     return null
+  }
+
+  /**
+   * Нормализует vertical origin-значение transform.
+   */
+  private static _resolveTransformOriginYValue({
+    value
+  }: {
+    value: unknown
+  }): ShapeTransformOriginY | null {
+    if (value === 'top' || value === 'center' || value === 'bottom') {
+      return value
+    }
+
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+
+    return null
+  }
+
+  /**
+   * Возвращает anchor-точку активного transform в координатах canvas.
+   */
+  private static _resolveScalingAnchorPoint({
+    group,
+    originX,
+    originY
+  }: {
+    group: ShapeGroup
+    originX: ShapeTransformOriginX | null
+    originY: ShapeTransformOriginY | null
+  }): Point | null {
+    if (originX === null || originY === null) return null
+
+    const groupWithTransformApi = group as ShapeGroup & {
+      getRelativeCenterPoint?: () => Point
+      translateToOriginPoint?: (
+        point: Point,
+        nextOriginX: ShapeTransformOriginX,
+        nextOriginY: ShapeTransformOriginY
+      ) => Point
+    }
+    const centerPoint = typeof groupWithTransformApi.getRelativeCenterPoint === 'function'
+      ? groupWithTransformApi.getRelativeCenterPoint()
+      : group.getCenterPoint()
+
+    if (typeof groupWithTransformApi.translateToOriginPoint !== 'function') {
+      return centerPoint
+    }
+
+    return groupWithTransformApi.translateToOriginPoint(centerPoint, originX, originY)
   }
 
   /**
@@ -508,15 +593,15 @@ export default class ShapeScalingController {
     transform
   }: {
     state: ShapeScalingState
-    transform?: Transform
+    transform?: Transform | null
   }): boolean {
     if (!transform) return false
     if (state.startTransformOriginX === null && state.startTransformOriginY === null) return false
 
-    const originX = ShapeScalingController._resolveTransformOriginValue({
+    const originX = ShapeScalingController._resolveTransformOriginXValue({
       value: transform.originX
     })
-    const originY = ShapeScalingController._resolveTransformOriginValue({
+    const originY = ShapeScalingController._resolveTransformOriginYValue({
       value: transform.originY
     })
 
@@ -531,12 +616,125 @@ export default class ShapeScalingController {
     transform
   }: {
     state: ShapeScalingState
-    transform?: Transform
+    transform?: Transform | null
   }): boolean {
     if (!transform) return false
     if (!state.startTransformCorner) return false
 
     return transform.corner !== state.startTransformCorner
+  }
+
+  /**
+   * Применяет live-preview shape-композиции во время drag.
+   */
+  private _applyLivePreviewLayout({
+    group,
+    shape,
+    text,
+    baseWidth,
+    baseHeight,
+    width,
+    height,
+    padding,
+    alignH,
+    alignV,
+    scaleX,
+    scaleY
+  }: {
+    group: ShapeGroup
+    shape: NonNullable<ReturnType<typeof getShapeNodes>['shape']>
+    text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
+    baseWidth: number
+    baseHeight: number
+    width: number
+    height: number
+    padding: ShapePadding
+    alignH: ShapeGroup['shapeAlignHorizontal']
+    alignV: ShapeGroup['shapeAlignVertical']
+    scaleX: number
+    scaleY: number
+  }): void {
+    this._applyLiveShapeGeometry({
+      group,
+      shape,
+      baseWidth,
+      baseHeight,
+      scaleX,
+      scaleY
+    })
+
+    this._applyLiveTextLayout({
+      text,
+      width,
+      height,
+      padding,
+      alignH,
+      alignV,
+      scaleX,
+      scaleY
+    })
+  }
+
+  /**
+   * Компенсирует геометрию shape-ноды во время drag для strokeUniform.
+   */
+  private _applyLiveShapeGeometry({
+    group,
+    shape,
+    baseWidth,
+    baseHeight,
+    scaleX,
+    scaleY
+  }: {
+    group: ShapeGroup
+    shape: NonNullable<ReturnType<typeof getShapeNodes>['shape']>
+    baseWidth: number
+    baseHeight: number
+    scaleX: number
+    scaleY: number
+  }): void {
+    const strokeWidth = Math.max(0, group.shapeStrokeWidth ?? 0)
+    const previewShapeWidth = ShapeScalingController._resolveLiveShapeOuterSize({
+      baseSize: baseWidth,
+      scale: scaleX,
+      strokeWidth
+    })
+    const previewShapeHeight = ShapeScalingController._resolveLiveShapeOuterSize({
+      baseSize: baseHeight,
+      scale: scaleY,
+      strokeWidth
+    })
+
+    resizeShapeNode({
+      shape,
+      width: previewShapeWidth,
+      height: previewShapeHeight,
+      rounding: group.shapeRounding,
+      strokeWidth
+    })
+  }
+
+  /**
+   * Возвращает локальный размер shape-ноды для live-preview с фиксированным stroke.
+   */
+  private static _resolveLiveShapeOuterSize({
+    baseSize,
+    scale,
+    strokeWidth
+  }: {
+    baseSize: number
+    scale: number
+    strokeWidth: number
+  }): number {
+    const safeScale = Math.max(SCALE_EPSILON, Math.abs(scale) || 1)
+    const safeStrokeWidth = Math.max(0, strokeWidth)
+
+    if (safeStrokeWidth <= 0) return Math.max(MIN_SIZE, baseSize)
+
+    return Math.max(
+      MIN_SIZE,
+      baseSize + safeStrokeWidth - (safeStrokeWidth / safeScale)
+    )
   }
 
   /**
@@ -595,6 +793,41 @@ export default class ShapeScalingController {
   }
 
   /**
+   * Возвращает группу в сохраненную anchor-позицию для текущего drag.
+   */
+  private _restoreScalingAnchorPosition({
+    group,
+    state
+  }: {
+    group: ShapeGroup
+    state: ShapeScalingState
+  }): void {
+    const {
+      scalingAnchorX,
+      scalingAnchorY,
+      scalingAnchorOriginX,
+      scalingAnchorOriginY
+    } = state
+
+    if (
+      scalingAnchorX === null
+      || scalingAnchorY === null
+      || scalingAnchorOriginX === null
+      || scalingAnchorOriginY === null
+    ) {
+      group.setCoords()
+      return
+    }
+
+    group.setPositionByOrigin(
+      new Point(scalingAnchorX, scalingAnchorY),
+      scalingAnchorOriginX,
+      scalingAnchorOriginY
+    )
+    group.setCoords()
+  }
+
+  /**
    * Восстанавливает стабильное состояние объекта, когда масштабирование не привело к изменению размеров.
    */
   private _restoreShapeStateWithoutResize({
@@ -632,6 +865,14 @@ export default class ShapeScalingController {
       padding
     })
 
+    resizeShapeNode({
+      shape,
+      width: baseWidth,
+      height: baseHeight,
+      rounding: group.shapeRounding,
+      strokeWidth: group.shapeStrokeWidth
+    })
+
     text.set({
       autoExpand: false,
       textAlign: horizontalAlign,
@@ -657,7 +898,11 @@ export default class ShapeScalingController {
       scaleX: 1,
       scaleY: 1
     })
-    group.setCoords()
+
+    this._restoreScalingAnchorPosition({
+      group,
+      state
+    })
   }
 
   /**
@@ -665,13 +910,26 @@ export default class ShapeScalingController {
    */
   private _restoreGroupTransformOnly({
     group,
+    shape,
     text,
     state
   }: {
     group: ShapeGroup
+    shape: NonNullable<ReturnType<typeof getShapeNodes>['shape']> | null
     text: NonNullable<ReturnType<typeof getShapeNodes>['text']> | null
     state: ShapeScalingState
   }): void {
+    if (shape) {
+      resizeShapeNode({
+        shape,
+        width: state.baseWidth,
+        height: state.baseHeight,
+        rounding: group.shapeRounding,
+        strokeWidth: group.shapeStrokeWidth
+      })
+      shape.setCoords()
+    }
+
     if (text) {
       text.set({
         scaleX: 1 / Math.max(SCALE_EPSILON, state.startScaleX),
@@ -688,6 +946,10 @@ export default class ShapeScalingController {
       scaleX: state.startScaleX,
       scaleY: state.startScaleY
     })
-    group.setCoords()
+
+    this._restoreScalingAnchorPosition({
+      group,
+      state
+    })
   }
 }

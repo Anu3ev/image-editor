@@ -9,6 +9,10 @@ export type ShapeVerticalAlign = 'top' | 'middle' | 'bottom'
 
 export type ShapeNodeType = 'shape' | 'text'
 
+export type ShapeTransformOriginX = 'left' | 'center' | 'right' | number
+
+export type ShapeTransformOriginY = 'top' | 'center' | 'bottom' | number
+
 export type ShapePoint = {
   x: number
   y: number
@@ -191,9 +195,13 @@ export type ShapeScalingState = {
   startTop: number
   startScaleX: number
   startScaleY: number
-  startTransformOriginX: string | number | null
-  startTransformOriginY: string | number | null
+  startTransformOriginX: ShapeTransformOriginX | null
+  startTransformOriginY: ShapeTransformOriginY | null
   startTransformCorner: string | null
+  scalingAnchorX: number | null
+  scalingAnchorY: number | null
+  scalingAnchorOriginX: ShapeTransformOriginX | null
+  scalingAnchorOriginY: ShapeTransformOriginY | null
   crossedOppositeCorner: boolean
   lastAllowedFlipX: boolean
   lastAllowedFlipY: boolean
