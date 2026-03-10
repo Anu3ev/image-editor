@@ -49,7 +49,26 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'radiusTopLeft',
   'radiusTopRight',
   'radiusBottomRight',
-  'radiusBottomLeft'
+  'radiusBottomLeft',
+  'shapeComposite',
+  'shapePresetKey',
+  'shapeBaseWidth',
+  'shapeBaseHeight',
+  'shapeManualBaseWidth',
+  'shapeManualBaseHeight',
+  'shapeAlignHorizontal',
+  'shapeAlignVertical',
+  'shapePaddingTop',
+  'shapePaddingRight',
+  'shapePaddingBottom',
+  'shapePaddingLeft',
+  'shapeFill',
+  'shapeStroke',
+  'shapeStrokeWidth',
+  'shapeStrokeDashArray',
+  'shapeOpacity',
+  'shapeRounding',
+  'shapeNodeType'
 ] as const
 
 export type CanvasFullState = {

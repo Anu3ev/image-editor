@@ -70,9 +70,22 @@ export const canvasDisplaySizeNode = document.getElementById('canvas-display-siz
 export const currentObjectDataNode = document.getElementById('current-object-data')
 
 // Добавление фигур
-export const addRectBtn = document.getElementById('add-rect-btn')
-export const addCircleBtn = document.getElementById('add-circle-btn')
-export const addTriangleBtn = document.getElementById('add-triangle-btn')
+export const addShapeBtn = document.getElementById('add-shape-btn')
+export const shapePickerMenu = document.getElementById('shape-picker-menu')
+export const shapePresetButtons = Array.from(document.querySelectorAll('[data-shape-preset]'))
+export const replaceShapeBtn = document.getElementById('replace-shape-btn')
+export const replaceShapeMenu = document.getElementById('replace-shape-menu')
+export const replaceShapePresetButtons = Array.from(document.querySelectorAll('[data-replace-shape-preset]'))
+export const shapeFillInput = document.getElementById('shape-fill-color')
+export const shapeFillPalette = document.getElementById('shape-fill-palette')
+export const shapeStrokeInput = document.getElementById('shape-stroke-color')
+export const shapeStrokePalette = document.getElementById('shape-stroke-palette')
+export const shapeStrokeWidthInput = document.getElementById('shape-stroke-width')
+export const shapeStrokeWidthValue = document.getElementById('shape-stroke-width-value')
+export const shapeOpacityInput = document.getElementById('shape-opacity')
+export const shapeOpacityValue = document.getElementById('shape-opacity-value')
+export const shapeRoundingInput = document.getElementById('shape-rounding')
+export const shapeRoundingValue = document.getElementById('shape-rounding-value')
 
 // Текстовые контролы
 export const addTextBtn = document.getElementById('add-text-btn')

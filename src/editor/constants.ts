@@ -38,7 +38,26 @@ export const CLIPBOARD_CLONE_OBJECT_KEYS = [
   'radiusTopRight',
   'radiusBottomRight',
   'radiusBottomLeft',
-  'lineFontDefaults'
+  'lineFontDefaults',
+  'shapeComposite',
+  'shapePresetKey',
+  'shapeBaseWidth',
+  'shapeBaseHeight',
+  'shapeManualBaseWidth',
+  'shapeManualBaseHeight',
+  'shapeAlignHorizontal',
+  'shapeAlignVertical',
+  'shapePaddingTop',
+  'shapePaddingRight',
+  'shapePaddingBottom',
+  'shapePaddingLeft',
+  'shapeFill',
+  'shapeStroke',
+  'shapeStrokeWidth',
+  'shapeStrokeDashArray',
+  'shapeOpacity',
+  'shapeRounding',
+  'shapeNodeType'
 ]
 
 /**

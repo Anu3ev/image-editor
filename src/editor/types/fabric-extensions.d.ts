@@ -255,6 +255,101 @@ declare module 'fabric' {
      * Сериализованные пользовательские данные в виде строки JSON.
      */
     _serializedCustomData?: string;
+
+    /**
+     * Флаг составного объекта shape + text.
+     */
+    shapeComposite?: boolean;
+
+    /**
+     * Ключ пресета фигуры.
+     */
+    shapePresetKey?: string;
+
+    /**
+     * Базовая ширина фигуры в локальных координатах группы.
+     */
+    shapeBaseWidth?: number;
+
+    /**
+     * Базовая высота фигуры в локальных координатах группы.
+     */
+    shapeBaseHeight?: number;
+
+    /**
+     * Ручная базовая ширина фигуры, заданная пользователем.
+     */
+    shapeManualBaseWidth?: number;
+
+    /**
+     * Ручная базовая высота фигуры, заданная пользователем.
+     */
+    shapeManualBaseHeight?: number;
+
+    /**
+     * Горизонтальное выравнивание текста внутри фигуры.
+     */
+    shapeAlignHorizontal?: 'left' | 'center' | 'right';
+
+    /**
+     * Вертикальное выравнивание текста внутри фигуры.
+     */
+    shapeAlignVertical?: 'top' | 'middle' | 'bottom';
+
+    /**
+     * Верхний отступ текстовой области внутри фигуры (0..1).
+     */
+    shapePaddingTop?: number;
+
+    /**
+     * Правый отступ текстовой области внутри фигуры (0..1).
+     */
+    shapePaddingRight?: number;
+
+    /**
+     * Нижний отступ текстовой области внутри фигуры (0..1).
+     */
+    shapePaddingBottom?: number;
+
+    /**
+     * Левый отступ текстовой области внутри фигуры (0..1).
+     */
+    shapePaddingLeft?: number;
+
+    /**
+     * Цвет заливки фигуры.
+     */
+    shapeFill?: string;
+
+    /**
+     * Цвет обводки фигуры.
+     */
+    shapeStroke?: string | null;
+
+    /**
+     * Толщина обводки фигуры.
+     */
+    shapeStrokeWidth?: number;
+
+    /**
+     * Паттерн пунктирной обводки фигуры.
+     */
+    shapeStrokeDashArray?: number[] | null;
+
+    /**
+     * Прозрачность фигуры.
+     */
+    shapeOpacity?: number;
+
+    /**
+     * Скругление фигуры (поддерживается не для всех типов фигур).
+     */
+    shapeRounding?: number;
+
+    /**
+     * Роль объекта внутри shape-группы.
+     */
+    shapeNodeType?: 'shape' | 'text';
   }
 
   interface RectProps {

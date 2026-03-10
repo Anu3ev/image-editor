@@ -111,6 +111,6 @@
     "moduleResolution": "node",                     /* Specify how TypeScript looks up a file from a given module specifier. */
     "allowSyntheticDefaultImports": true             /* Allow 'import x from y' when a module doesn't have a default export. */
   },
-  "include": ["src/**/*", "docs/demo", "jest.config.ts", "specs/**/*"],                     // Папки/файлы, включаемые в компиляцию
+  "include": ["src/**/*", "docs/demo", "jest.config.ts", "specs/**/*", "e2e/**/*"],         // Папки/файлы, включаемые в компиляцию
   "exclude": ["node_modules", "dist"]
 }

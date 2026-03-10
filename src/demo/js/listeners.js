@@ -52,9 +52,22 @@ import {
   // Элемент для отображения размера текущего объекта
   currentObjectDataNode,
   // Добавление фигур
-  addRectBtn,
-  addCircleBtn,
-  addTriangleBtn,
+  addShapeBtn,
+  shapePickerMenu,
+  shapePresetButtons,
+  replaceShapeBtn,
+  replaceShapeMenu,
+  replaceShapePresetButtons,
+  shapeFillInput,
+  shapeFillPalette,
+  shapeStrokeInput,
+  shapeStrokePalette,
+  shapeStrokeWidthInput,
+  shapeStrokeWidthValue,
+  shapeOpacityInput,
+  shapeOpacityValue,
+  shapeRoundingInput,
+  shapeRoundingValue,
   // Текстовые контролы
   addTextBtn,
   textContentInput,
@@ -204,14 +217,64 @@ export default (editorInstance) => {
     '#7c3aed',
     '#111827'
   ]
+  const SHAPE_FILL_PALETTE = [
+    '#B0B5BF',
+    '#111827',
+    '#ffffff',
+    '#ef4444',
+    '#f97316',
+    '#eab308',
+    '#22c55e',
+    '#06b6d4',
+    '#3b82f6',
+    '#a855f7'
+  ]
+  const SHAPE_STROKE_PALETTE = [
+    '#000000',
+    '#ffffff',
+    '#ef4444',
+    '#f97316',
+    '#eab308',
+    '#22c55e',
+    '#0ea5e9',
+    '#2563eb',
+    '#7c3aed',
+    '#6b7280'
+  ]
   const ALIGN_SEQUENCE = ['left', 'center', 'right', 'justify']
 
   let isSyncingControls = false
   let textColorButtons = []
   let textStrokeButtons = []
+  let shapeFillButtons = []
+  let shapeStrokeButtons = []
   const getStrokeWidthFromInput = () => {
     const rawWidth = Number(textStrokeWidthInput.value)
     return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+  }
+
+  const getShapeStrokeWidthFromInput = () => {
+    const rawWidth = Number(shapeStrokeWidthInput.value)
+    return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+  }
+
+  const isShapeGroupObject = (object) => {
+    if (!object) return false
+    if (object.type !== 'group') return false
+
+    return Boolean(object.shapeComposite)
+  }
+
+  const getActiveShape = () => {
+    const activeObject = editorInstance.canvas.getActiveObject()
+    if (!activeObject) return null
+
+    if (isShapeGroupObject(activeObject)) return activeObject
+
+    const parentGroup = activeObject.group
+    if (isShapeGroupObject(parentGroup)) return parentGroup
+
+    return null
   }
 
   const parseNumberInput = ({
@@ -284,6 +347,34 @@ export default (editorInstance) => {
     textStrokeWidthInput.value = normalized
     textStrokeWidthValue.textContent = normalized > 0 ? `${normalized}px` : 'Off'
     setStrokeControlsEnabled(normalized > 0)
+  }
+
+  const setShapeStrokeControlsEnabled = (enabled) => {
+    shapeStrokeInput.disabled = !enabled
+    shapeStrokeButtons.forEach((btn) => {
+      btn.disabled = !enabled
+    })
+  }
+
+  const setShapeStrokeWidthUI = (width) => {
+    const normalized = Math.max(0, Math.round(width))
+    shapeStrokeWidthInput.value = normalized
+    shapeStrokeWidthValue.textContent = normalized > 0 ? `${normalized}px` : '0px'
+    setShapeStrokeControlsEnabled(normalized > 0 && !shapeStrokeWidthInput.disabled)
+  }
+
+  const setShapeControlsEnabled = (enabled) => {
+    shapeFillInput.disabled = false
+    shapeStrokeWidthInput.disabled = false
+    shapeOpacityInput.disabled = false
+    shapeRoundingInput.disabled = false
+    replaceShapeBtn.disabled = !enabled
+    shapeFillButtons.forEach((btn) => {
+      btn.disabled = false
+    })
+
+    const strokeWidth = getShapeStrokeWidthFromInput()
+    setShapeStrokeControlsEnabled(strokeWidth > 0)
   }
 
   const ACTIVE_OBJECT_JSON_SPACES = 2
@@ -493,6 +584,154 @@ export default (editorInstance) => {
     return firstValue
   }
 
+  const syncShapeControls = (shapeGroup) => {
+    if (!shapeGroup) {
+      setShapeControlsEnabled(false)
+      shapeRoundingInput.disabled = false
+      return
+    }
+
+    setShapeControlsEnabled(true)
+
+    const fill = typeof shapeGroup.shapeFill === 'string'
+      ? normalizeColor(shapeGroup.shapeFill, shapeFillInput.value)
+      : normalizeColor(shapeFillInput.value, '#B0B5BF')
+    shapeFillInput.value = fill
+    setPaletteSelection(shapeFillButtons, fill)
+
+    const stroke = typeof shapeGroup.shapeStroke === 'string'
+      ? normalizeColor(shapeGroup.shapeStroke, shapeStrokeInput.value)
+      : normalizeColor(shapeStrokeInput.value, '#000000')
+    shapeStrokeInput.value = stroke
+    setPaletteSelection(shapeStrokeButtons, stroke)
+
+    const strokeWidth = typeof shapeGroup.shapeStrokeWidth === 'number'
+      ? Math.max(0, Math.round(shapeGroup.shapeStrokeWidth))
+      : 0
+    setShapeStrokeWidthUI(strokeWidth)
+
+    const opacityPercent = Math.max(
+      0,
+      Math.min(100, Math.round((shapeGroup.shapeOpacity ?? 1) * 100))
+    )
+    shapeOpacityInput.value = opacityPercent
+    shapeOpacityValue.textContent = `${opacityPercent}%`
+
+    const rounding = typeof shapeGroup.shapeRounding === 'number'
+      ? Math.max(0, Math.round(shapeGroup.shapeRounding))
+      : 0
+    const canRound = shapeGroup.shapeCanRound !== false
+    shapeRoundingInput.disabled = !canRound
+    shapeRoundingInput.value = rounding
+    shapeRoundingValue.textContent = canRound ? `${rounding}px` : 'N/A'
+  }
+
+  const applyShapeFill = ({ fill, withoutSave = false }) => {
+    const shapeGroup = getActiveShape()
+    if (!shapeGroup) return
+
+    const updated = editorInstance.shapeManager.setFill({
+      target: shapeGroup,
+      fill,
+      withoutSave
+    })
+
+    if (updated) {
+      syncShapeControls(updated)
+    }
+  }
+
+  const applyShapeStroke = ({
+    stroke,
+    strokeWidth,
+    withoutSave = false
+  }) => {
+    const shapeGroup = getActiveShape()
+    if (!shapeGroup) return
+
+    const updated = editorInstance.shapeManager.setStroke({
+      target: shapeGroup,
+      stroke,
+      strokeWidth,
+      withoutSave
+    })
+
+    if (updated) {
+      syncShapeControls(updated)
+    }
+  }
+
+  const applyShapeOpacity = ({ opacity, withoutSave = false }) => {
+    const shapeGroup = getActiveShape()
+    if (!shapeGroup) return
+
+    const updated = editorInstance.shapeManager.setOpacity({
+      target: shapeGroup,
+      opacity,
+      withoutSave
+    })
+
+    if (updated) {
+      syncShapeControls(updated)
+    }
+  }
+
+  const applyShapeRounding = async({
+    rounding,
+    withoutSave = false
+  }) => {
+    const shapeGroup = getActiveShape()
+    if (!shapeGroup) return
+
+    const updated = await editorInstance.shapeManager.setRounding({
+      target: shapeGroup,
+      rounding,
+      withoutSave
+    })
+
+    if (updated) {
+      syncShapeControls(updated)
+    }
+  }
+
+  const getShapeOpacityPercentFromInput = () => parseNumberInput({
+    input: shapeOpacityInput,
+    min: 0,
+    max: 100,
+    fallback: 100
+  })
+
+  const getShapeRoundingFromInput = () => parseNumberInput({
+    input: shapeRoundingInput,
+    min: 0,
+    max: 100,
+    fallback: 0
+  })
+
+  const getShapeOptionsFromControls = () => {
+    const fill = normalizeColor(shapeFillInput.value, '#B0B5BF')
+    const stroke = normalizeColor(shapeStrokeInput.value, '#000000')
+    const strokeWidth = getShapeStrokeWidthFromInput()
+    const opacityPercent = getShapeOpacityPercentFromInput()
+    const rounding = getShapeRoundingFromInput()
+
+    shapeFillInput.value = fill
+    shapeStrokeInput.value = stroke
+    shapeOpacityValue.textContent = `${opacityPercent}%`
+    shapeRoundingValue.textContent = `${rounding}px`
+
+    setPaletteSelection(shapeFillButtons, fill)
+    setPaletteSelection(shapeStrokeButtons, stroke)
+
+    return {
+      fill,
+      stroke,
+      strokeWidth,
+      opacity: opacityPercent / 100,
+      rounding
+    }
+  }
+
   const syncTextControls = (textbox) => {
     if (!textbox) return
 
@@ -673,6 +912,8 @@ export default (editorInstance) => {
 
   textColorButtons = renderPalette(textColorPalette, TEXT_FILL_PALETTE)
   textStrokeButtons = renderPalette(textStrokePalette, TEXT_STROKE_PALETTE)
+  shapeFillButtons = renderPalette(shapeFillPalette, SHAPE_FILL_PALETTE)
+  shapeStrokeButtons = renderPalette(shapeStrokePalette, SHAPE_STROKE_PALETTE)
 
   initFontOptions()
   updateAlignButtonDisplay(textAlignToggle.dataset.align ?? 'left')
@@ -682,12 +923,18 @@ export default (editorInstance) => {
   }
 
   setStrokeWidthUI(Number(textStrokeWidthInput.value) || 0)
+  setShapeStrokeWidthUI(Number(shapeStrokeWidthInput.value) || 0)
   textOpacityValue.textContent = `${textOpacityInput.value}%`
+  shapeOpacityValue.textContent = `${shapeOpacityInput.value}%`
   textBackgroundOpacityValue.textContent = `${textBackgroundOpacityInput.value}%`
+  shapeRoundingValue.textContent = `${shapeRoundingInput.value}px`
   setBackgroundControlsEnabled(Boolean(textBackgroundEnabledCheckbox.checked))
+  setShapeControlsEnabled(Boolean(getActiveShape()))
 
   setPaletteSelection(textColorButtons, textColorInput.value)
   setPaletteSelection(textStrokeButtons, textStrokeColorInput.value)
+  setPaletteSelection(shapeFillButtons, shapeFillInput.value)
+  setPaletteSelection(shapeStrokeButtons, shapeStrokeInput.value)
 
   const toggleButtons = [textBoldBtn, textItalicBtn, textUnderlineBtn, textUppercaseBtn, textStrikeBtn]
   toggleButtons.forEach((btn) => {
@@ -721,13 +968,38 @@ export default (editorInstance) => {
     })
   })
 
+  shapeFillButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const color = normalizeColor(btn.dataset.color, shapeFillInput.value)
+      shapeFillInput.value = color
+      setPaletteSelection(shapeFillButtons, color)
+      applyShapeFill({ fill: color })
+    })
+  })
+
+  shapeStrokeButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const color = normalizeColor(btn.dataset.color, shapeStrokeInput.value)
+      const strokeWidth = getShapeStrokeWidthFromInput()
+      shapeStrokeInput.value = color
+      setPaletteSelection(shapeStrokeButtons, color)
+      applyShapeStroke({
+        stroke: color,
+        strokeWidth
+      })
+    })
+  })
+
   const handleSelectionChange = (event) => {
     const eventTarget = event?.target
     const explicitTextbox = eventTarget && isTextboxObject(eventTarget) ? eventTarget : null
     const textObject = explicitTextbox ?? getActiveText()
+    const shapeGroup = getActiveShape()
     if (textObject) {
       syncTextControls(textObject)
     }
+
+    syncShapeControls(shapeGroup)
   }
 
   addTextBtn.addEventListener('click', () => {
@@ -865,6 +1137,25 @@ export default (editorInstance) => {
     applyTextStyle({ strokeColor: color })
   })
 
+  shapeFillInput.addEventListener('input', (e) => {
+    const color = normalizeColor(e.target.value, shapeFillInput.value)
+    e.target.value = color
+    setPaletteSelection(shapeFillButtons, color)
+    applyShapeFill({ fill: color })
+  })
+
+  shapeStrokeInput.addEventListener('input', (e) => {
+    const color = normalizeColor(e.target.value, shapeStrokeInput.value)
+    const strokeWidth = getShapeStrokeWidthFromInput()
+    e.target.value = color
+    setPaletteSelection(shapeStrokeButtons, color)
+    applyShapeStroke({
+      stroke: color,
+      strokeWidth,
+      withoutSave: true
+    })
+  })
+
   textStrokeWidthInput.addEventListener('input', (e) => {
     const rawWidth = Number(e.target.value)
     const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
@@ -895,6 +1186,27 @@ export default (editorInstance) => {
     })
   })
 
+  shapeStrokeWidthInput.addEventListener('input', (e) => {
+    const rawWidth = Number(e.target.value)
+    const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+    setShapeStrokeWidthUI(width)
+    applyShapeStroke({
+      stroke: normalizeColor(shapeStrokeInput.value, '#000000'),
+      strokeWidth: width,
+      withoutSave: true
+    })
+  })
+
+  shapeStrokeWidthInput.addEventListener('change', (e) => {
+    const rawWidth = Number(e.target.value)
+    const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+    setShapeStrokeWidthUI(width)
+    applyShapeStroke({
+      stroke: normalizeColor(shapeStrokeInput.value, '#000000'),
+      strokeWidth: width
+    })
+  })
+
   textOpacityInput.addEventListener('input', (e) => {
     const rawOpacity = Number(e.target.value)
     const opacityPercent = Math.max(0, Math.min(100, Number.isNaN(rawOpacity) ? 0 : rawOpacity))
@@ -911,6 +1223,36 @@ export default (editorInstance) => {
     textOpacityValue.textContent = `${opacityPercent}%`
     if (!getActiveText()) return
     applyTextStyle({ opacity: opacityPercent / 100 })
+  })
+
+  shapeOpacityInput.addEventListener('input', () => {
+    const opacityPercent = getShapeOpacityPercentFromInput()
+    shapeOpacityValue.textContent = `${opacityPercent}%`
+    applyShapeOpacity({
+      opacity: opacityPercent / 100,
+      withoutSave: true
+    })
+  })
+
+  shapeOpacityInput.addEventListener('change', () => {
+    const opacityPercent = getShapeOpacityPercentFromInput()
+    shapeOpacityValue.textContent = `${opacityPercent}%`
+    applyShapeOpacity({ opacity: opacityPercent / 100 })
+  })
+
+  shapeRoundingInput.addEventListener('input', async() => {
+    const rounding = getShapeRoundingFromInput()
+    shapeRoundingValue.textContent = `${rounding}px`
+    await applyShapeRounding({
+      rounding,
+      withoutSave: true
+    })
+  })
+
+  shapeRoundingInput.addEventListener('change', async() => {
+    const rounding = getShapeRoundingFromInput()
+    shapeRoundingValue.textContent = `${rounding}px`
+    await applyShapeRounding({ rounding })
   })
 
   const getBackgroundStyleFromInputs = () => {
@@ -1166,19 +1508,133 @@ export default (editorInstance) => {
     saveResult(editorInstance)
   })
 
-  // Добавление прямоугольника
-  addRectBtn.addEventListener('click', () => {
-    editorInstance.shapeManager.addRectangle()
+  const setPickerMenuOpen = ({
+    menu,
+    triggerButton,
+    isOpen
+  }) => {
+    if (!menu || !triggerButton) return
+    menu.classList.toggle('is-open', isOpen)
+    triggerButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false')
+  }
+
+  const setShapeMenuOpen = ({ isOpen }) => {
+    setPickerMenuOpen({
+      menu: shapePickerMenu,
+      triggerButton: addShapeBtn,
+      isOpen
+    })
+  }
+
+  const setReplaceShapeMenuOpen = ({ isOpen }) => {
+    setPickerMenuOpen({
+      menu: replaceShapeMenu,
+      triggerButton: replaceShapeBtn,
+      isOpen
+    })
+  }
+
+  const closeShapeMenu = () => {
+    setShapeMenuOpen({ isOpen: false })
+  }
+
+  const closeReplaceShapeMenu = () => {
+    setReplaceShapeMenuOpen({ isOpen: false })
+  }
+
+  const closeShapePickerMenus = () => {
+    closeShapeMenu()
+    closeReplaceShapeMenu()
+  }
+
+  const isClickInsideShapeMenu = ({
+    menu,
+    triggerButton,
+    target
+  }) => {
+    if (!menu || !triggerButton) return false
+    if (!(target instanceof Element)) return false
+    if (menu.contains(target)) return true
+    if (triggerButton.contains(target)) return true
+
+    return false
+  }
+
+  addShapeBtn?.addEventListener('click', (event) => {
+    event.preventDefault()
+    const isOpen = Boolean(shapePickerMenu?.classList.contains('is-open'))
+    if (!isOpen) {
+      closeReplaceShapeMenu()
+    }
+    setShapeMenuOpen({ isOpen: !isOpen })
   })
 
-  // Добавление круга
-  addCircleBtn.addEventListener('click', () => {
-    editorInstance.shapeManager.addCircle()
+  replaceShapeBtn?.addEventListener('click', (event) => {
+    event.preventDefault()
+    if (replaceShapeBtn.disabled) return
+
+    const isOpen = Boolean(replaceShapeMenu?.classList.contains('is-open'))
+    if (!isOpen) {
+      closeShapeMenu()
+    }
+    setReplaceShapeMenuOpen({ isOpen: !isOpen })
   })
 
-  // Добавление треугольника
-  addTriangleBtn.addEventListener('click', () => {
-    editorInstance.shapeManager.addTriangle()
+  shapePresetButtons.forEach((button) => {
+    button.addEventListener('click', async(event) => {
+      event.preventDefault()
+      const presetKey = button.dataset.shapePreset
+      if (!presetKey) return
+
+      const options = getShapeOptionsFromControls()
+      await editorInstance.shapeManager.add({
+        presetKey,
+        options
+      })
+    })
+  })
+
+  replaceShapePresetButtons.forEach((button) => {
+    button.addEventListener('click', async(event) => {
+      event.preventDefault()
+      const presetKey = button.dataset.replaceShapePreset
+      if (!presetKey) return
+
+      const activeShape = getActiveShape()
+      if (!activeShape) return
+
+      const updatedShape = await editorInstance.shapeManager.update({
+        target: activeShape,
+        presetKey
+      })
+
+      if (updatedShape) {
+        syncShapeControls(updatedShape)
+      }
+    })
+  })
+
+  document.addEventListener('click', (event) => {
+    const { target } = event
+    const isInsideAddMenu = isClickInsideShapeMenu({
+      menu: shapePickerMenu,
+      triggerButton: addShapeBtn,
+      target
+    })
+    const isInsideReplaceMenu = isClickInsideShapeMenu({
+      menu: replaceShapeMenu,
+      triggerButton: replaceShapeBtn,
+      target
+    })
+
+    if (isInsideAddMenu || isInsideReplaceMenu) return
+
+    closeShapePickerMenus()
+  })
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return
+    closeShapePickerMenus()
   })
 
   // Undo
@@ -1210,6 +1666,11 @@ export default (editorInstance) => {
     currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
     if (event?.target && event.target === getActiveText()) {
       syncTextControls(event.target)
+    }
+
+    const activeShape = getActiveShape()
+    if (activeShape) {
+      syncShapeControls(activeShape)
     }
 
     if (activeObjectJsonInput) {

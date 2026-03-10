@@ -50,6 +50,15 @@ export class Rect {
   get(key: string) {
     return this.props[key]
   }
+
+  set(props: Record<string, any>) {
+    Object.assign(this.props, props)
+    Object.assign(this, props)
+  }
+
+  setCoords() {
+    // noop in mock
+  }
 }
 
 export class ActiveSelection {
@@ -120,6 +129,14 @@ export class Group {
 
   constructor(objects: any[] = [], public options: any = {}) {
     this._objects = objects
+
+    for (let index = 0; index < this._objects.length; index += 1) {
+      const object = this._objects[index]
+      if (object && typeof object === 'object') {
+        object.group = this
+      }
+    }
+
     Object.assign(this, options)
   }
 
@@ -130,11 +147,36 @@ export class Group {
   removeAll() {
     const objects = [...this._objects]
     this._objects = []
+
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index]
+      if (object && typeof object === 'object' && object.group === this) {
+        object.group = null
+      }
+    }
+
     return objects
   }
 
   set(props: any) {
     Object.assign(this, props)
+  }
+
+  setCoords() {
+    // noop in mock
+  }
+
+  getCenterPoint() {
+    return new Point(this.left ?? 0, this.top ?? 0)
+  }
+
+  setPositionByOrigin(
+    point: { x: number; y: number },
+    _originX: 'left' | 'center' | 'right',
+    _originY: 'top' | 'center' | 'bottom'
+  ) {
+    this.left = point.x
+    this.top = point.y
   }
 
   async clone() {
@@ -262,6 +304,18 @@ export class FabricObject {
 }
 
 export class InteractiveFabricObject extends FabricObject {}
+
+export class Circle extends FabricObject {}
+
+export class Triangle extends FabricObject {}
+
+export class Ellipse extends FabricObject {}
+
+export class Path extends FabricObject {}
+
+export class Polygon extends FabricObject {}
+
+export class Polyline extends FabricObject {}
 
 export class Textbox extends FabricObject {
   public text?: string
@@ -565,10 +619,21 @@ export const loadSVGFromURL = jest.fn(async(_url: string) => ({
   options: {}
 }))
 
+export const loadSVGFromString = jest.fn(async(_svg: string) => ({
+  objects: [],
+  options: {}
+}))
+
 export default {
   Canvas,
   Pattern,
   Rect,
+  Circle,
+  Triangle,
+  Ellipse,
+  Path,
+  Polygon,
+  Polyline,
   ActiveSelection,
   Group,
   FabricObject,
@@ -580,5 +645,6 @@ export default {
   Color,
   classRegistry,
   util,
-  loadSVGFromURL
+  loadSVGFromURL,
+  loadSVGFromString
 }
