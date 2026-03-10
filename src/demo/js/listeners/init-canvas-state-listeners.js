@@ -35,6 +35,7 @@ export default ({
   } = serializationControls
   const {
     getActiveText,
+    getActiveTextTarget,
     syncTextControls,
     isTextboxObject
   } = textApi
@@ -79,7 +80,7 @@ export default ({
   const handleSelectionChange = (event) => {
     const eventTarget = event?.target
     const explicitTextbox = eventTarget && isTextboxObject(eventTarget) ? eventTarget : null
-    const textObject = explicitTextbox ?? getActiveText()
+    const textObject = explicitTextbox ?? getActiveTextTarget()
     const shapeGroup = getActiveShape()
 
     if (textObject) {
@@ -141,11 +142,12 @@ export default ({
       }
     })
 
-    editorInstance.canvas.on('object:modified', (event) => {
+    editorInstance.canvas.on('object:modified', () => {
       syncCurrentObjectData()
 
-      if (event?.target && event.target === getActiveText()) {
-        syncTextControls(event.target)
+      const activeTextTarget = getActiveTextTarget()
+      if (activeTextTarget) {
+        syncTextControls(activeTextTarget)
       }
 
       const activeShape = getActiveShape()

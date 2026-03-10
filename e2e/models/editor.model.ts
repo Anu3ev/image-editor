@@ -3,15 +3,19 @@ import { type Page, expect } from '@playwright/test'
 import type { EditorObjectInfo, CanvasStateInfo, MontageAreaInfo } from '../types'
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
+import { HistoryModel } from './history.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
 
   readonly canvas: CanvasModel
 
+  readonly history: HistoryModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
+    this.history = new HistoryModel(page)
   }
 
   /** Ожидает полной инициализации редактора */

@@ -170,6 +170,210 @@ describe('shape-manager', () => {
     expect((group as { shapeOpacity?: number }).shapeOpacity).toBe(0.4)
   })
 
+  it('getTextNode возвращает текстовый узел shape-группы по прямому target', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const expectedTextNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    const resolvedTextNode = manager.getTextNode({
+      target: group
+    })
+
+    expect(resolvedTextNode).toBe(expectedTextNode)
+  })
+
+  it('getTextNode находит shape-группу по активному дочернему тексту', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    editor.canvas.setActiveObject(textNode)
+
+    const resolvedTextNode = manager.getTextNode()
+
+    expect(resolvedTextNode).toBe(textNode)
+  })
+
+  it('updateTextStyle применяет стиль к тексту внутри шейпа и не меняет shape style path', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = manager.getTextNode({
+      target: group
+    })
+    const saveStateMock = editor.historyManager.saveState as jest.Mock
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    const initialShapeStyleCalls = applyShapeStyleMock.mock.calls.length
+
+    saveStateMock.mockClear()
+    applyShapeTextLayoutMock.mockClear()
+
+    manager.updateTextStyle({
+      target: group,
+      style: {
+        fill: '#ff0000',
+        stroke: '#00ff00',
+        strokeWidth: 3,
+        fontWeight: 'bold',
+        align: 'left'
+      }
+    })
+
+    expect(updateTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      target: textNode,
+      style: expect.objectContaining({
+        fill: '#ff0000',
+        stroke: '#00ff00',
+        strokeWidth: 3,
+        fontWeight: 'bold',
+        align: 'left'
+      })
+    }))
+    expect(textNode.fill).toBe('#ff0000')
+    expect(textNode.stroke).toBe('#00ff00')
+    expect(textNode.strokeWidth).toBe(3)
+    expect(textNode.fontWeight).toBe('bold')
+    expect(textNode.textAlign).toBe('left')
+    expect(applyShapeStyleMock).toHaveBeenCalledTimes(initialShapeStyleCalls)
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      group,
+      text: textNode,
+      alignH: 'left'
+    }))
+    expect(saveStateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('updateTextStyle с withoutSave не сохраняет history state', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+    const saveStateMock = editor.historyManager.saveState as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    saveStateMock.mockClear()
+
+    manager.updateTextStyle({
+      target: group,
+      style: {
+        fill: '#123456'
+      },
+      withoutSave: true
+    })
+
+    expect(saveStateMock).not.toHaveBeenCalled()
+  })
+
+  it('setTextAlign обновляет textAlign и передаёт layout новые horizontal и vertical значения', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+    const saveStateMock = editor.historyManager.saveState as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    saveStateMock.mockClear()
+    applyShapeTextLayoutMock.mockClear()
+
+    manager.setTextAlign({
+      target: group,
+      horizontal: 'right',
+      vertical: 'bottom'
+    })
+
+    expect(textNode.textAlign).toBe('right')
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      group,
+      text: textNode,
+      alignH: 'right',
+      alignV: 'bottom'
+    }))
+    expect(saveStateMock).toHaveBeenCalledTimes(1)
+  })
+
   it('setRounding не вызывает update для non-roundable шейпа', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -345,4 +549,36 @@ function getCanvasHandler({
   }
 
   return null
+}
+
+/**
+ * Применяет text style к mock textbox в shape unit-тестах.
+ */
+function applyTextStyleToShapeText({
+  target,
+  style
+}: {
+  target: {
+    set: (updates: Record<string, unknown>) => void
+    autoExpand?: boolean
+  }
+  style: Record<string, unknown>
+}): void {
+  const nextStyle: Record<string, unknown> = {}
+  const styleKeys = Object.keys(style)
+
+  for (let index = 0; index < styleKeys.length; index += 1) {
+    const key = styleKeys[index]
+    const value = style[key]
+
+    if (key === 'align') {
+      nextStyle.textAlign = value
+      continue
+    }
+
+    nextStyle[key] = value
+  }
+
+  target.set(nextStyle)
+  target.autoExpand = false
 }

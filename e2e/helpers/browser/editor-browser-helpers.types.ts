@@ -41,6 +41,19 @@ export type BrowserSerializableObject = BrowserObject & {
   shapeStrokeWidth?: unknown
   shapeOpacity?: unknown
   shapeRounding?: unknown
+  text?: unknown
+  textAlign?: unknown
+  fontFamily?: unknown
+  fontSize?: unknown
+  fontWeight?: unknown
+  fontStyle?: unknown
+  underline?: unknown
+  linethrough?: unknown
+  uppercase?: unknown
+  isEditing?: unknown
+  evented?: unknown
+  lockMovementX?: unknown
+  lockMovementY?: unknown
 }
 
 export type BrowserSerializer = (obj: unknown) => Record<string, unknown>
@@ -69,7 +82,9 @@ export interface BrowserEditorWindow extends Window {
   }
   __serializeEditorObject: BrowserSerializer
   __serializeShapeObject?: BrowserSerializer
+  __serializeShapeTextObject?: BrowserSerializer
   __resolveShapeNode?: (group: unknown) => BrowserObject | null
+  __resolveCanvasObject?: (objectIndex?: number, id?: string) => unknown
   __serializeShapeScaleSnapshot?: BrowserSerializer
   __resolveTarget?: (objectIndex?: number, id?: string) => unknown
 }

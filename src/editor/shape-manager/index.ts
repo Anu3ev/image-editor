@@ -605,6 +605,84 @@ export default class ShapeManager {
   }
 
   /**
+   * Возвращает текстовый узел внутри shape-группы.
+   */
+  public getTextNode({
+    target
+  }: {
+    target?: ShapeReference
+  } = {}): ShapeTextNode | null {
+    const group = this._resolveShapeGroup({ target })
+    if (!group) return null
+
+    const { text } = getShapeNodes({ group })
+    if (!text) return null
+
+    return text
+  }
+
+  /**
+   * Обновляет стиль текста внутри shape-группы и пересчитывает layout композиции.
+   */
+  public updateTextStyle({
+    target,
+    style = {},
+    withoutSave
+  }: {
+    target?: ShapeReference
+    style?: TextStyleOptions
+    withoutSave?: boolean
+  } = {}): ShapeGroup | null {
+    const group = this._resolveShapeGroup({ target })
+    if (!group) return null
+
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
+
+    if (!shape || !text) return null
+
+    const hasStyleUpdates = Object.keys(style).length > 0
+    if (!hasStyleUpdates) return group
+
+    const manualDimensions = this._resolveManualDimensions({ group })
+    const center = group.getCenterPoint()
+    const alignH = style.align === 'left' || style.align === 'center' || style.align === 'right'
+      ? style.align
+      : group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
+
+    this._beginMutation()
+
+    try {
+      this._applyTextUpdates({
+        textNode: text,
+        textStyle: style,
+        align: alignH
+      })
+
+      this._applyCurrentLayout({
+        group,
+        shape,
+        text,
+        center: {
+          x: center.x,
+          y: center.y
+        },
+        width: manualDimensions.width,
+        height: manualDimensions.height,
+        alignH
+      })
+
+      this.editor.canvas.requestRenderAll()
+    } finally {
+      this._endMutation({ withoutSave })
+    }
+
+    return group
+  }
+
+  /**
    * Обновляет горизонтальное и вертикальное выравнивание текста внутри shape-группы.
    */
   public setTextAlign({
@@ -1228,7 +1306,9 @@ export default class ShapeManager {
     text,
     center,
     width,
-    height
+    height,
+    alignH,
+    alignV
   }: {
     group: ShapeGroupLike
     shape: ShapeNode
@@ -1236,6 +1316,8 @@ export default class ShapeManager {
     center?: ShapeGroupCenter
     width?: number
     height?: number
+    alignH?: ShapeHorizontalAlign
+    alignV?: ShapeVerticalAlign
   }): void {
     const dimensions = this._resolveCurrentDimensions({ group })
     const resolvedWidth = Math.max(1, width ?? dimensions.width)
@@ -1253,8 +1335,8 @@ export default class ShapeManager {
       text,
       width: resolvedWidth,
       height: resolvedHeight,
-      alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
-      alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
+      alignH: alignH ?? group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+      alignV: alignV ?? group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
       padding
     })
 
@@ -1421,8 +1503,14 @@ export default class ShapeManager {
 
     if (!target) {
       const active = this.editor.canvas.getActiveObject()
-      if (!isShapeGroup(active)) return null
-      return active
+      if (isShapeGroup(active)) return active
+
+      const activeGroup = active?.group
+      if (activeGroup && isShapeGroup(activeGroup)) {
+        return activeGroup
+      }
+
+      return null
     }
 
     if (typeof target === 'string') {
@@ -1436,8 +1524,11 @@ export default class ShapeManager {
       }
     }
 
-    if (target instanceof FabricObject && isShapeGroup(target)) {
-      return target
+    if (target instanceof FabricObject) {
+      if (isShapeGroup(target)) return target
+
+      const { group } = target
+      if (group && isShapeGroup(group)) return group
     }
 
     return null

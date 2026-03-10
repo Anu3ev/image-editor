@@ -219,6 +219,27 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Возвращает canvas-объект по индексу или id.
+   */
+  function resolveCanvasObject({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
+    const objects = browserWindow.editor.canvasManager.getObjects()
+    if (!Array.isArray(objects)) return undefined
+
+    if (typeof id === 'string') {
+      for (let index = 0; index < objects.length; index += 1) {
+        const object = toBrowserObject({ value: objects[index] }) as BrowserSerializableObject
+        if (object.id === id) return objects[index]
+      }
+
+      return undefined
+    }
+
+    if (objectIndex === undefined) return undefined
+
+    return objects[objectIndex]
+  }
+
+  /**
    * Сериализует общий editor-объект.
    */
   const serializeEditorObject: BrowserSerializer = (obj: unknown) => {
@@ -296,6 +317,69 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Сериализует текстовый узел внутри shape-группы.
+   */
+  const serializeShapeTextObject: BrowserSerializer = (obj: unknown) => {
+    const textObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
+
+    return {
+      ...serializeEditorObject(obj),
+      text: resolveString({
+        value: textObject.text,
+        defaultValue: ''
+      }),
+      textAlign: resolveString({
+        value: textObject.textAlign,
+        defaultValue: 'center'
+      }),
+      fontFamily: resolveString({
+        value: textObject.fontFamily,
+        defaultValue: ''
+      }),
+      fontSize: resolveNumber({
+        value: textObject.fontSize,
+        defaultValue: 0
+      }),
+      fontWeight: resolveString({
+        value: textObject.fontWeight,
+        defaultValue: 'normal'
+      }),
+      fontStyle: resolveString({
+        value: textObject.fontStyle,
+        defaultValue: 'normal'
+      }),
+      underline: resolveBoolean({
+        value: textObject.underline,
+        defaultValue: false
+      }),
+      linethrough: resolveBoolean({
+        value: textObject.linethrough,
+        defaultValue: false
+      }),
+      uppercase: resolveBoolean({
+        value: textObject.uppercase,
+        defaultValue: false
+      }),
+      isEditing: resolveBoolean({
+        value: textObject.isEditing,
+        defaultValue: false
+      }),
+      evented: resolveBoolean({
+        value: textObject.evented,
+        defaultValue: true
+      }),
+      lockMovementX: resolveBoolean({
+        value: textObject.lockMovementX,
+        defaultValue: false
+      }),
+      lockMovementY: resolveBoolean({
+        value: textObject.lockMovementY,
+        defaultValue: false
+      })
+    }
+  }
+
+  /**
    * Сериализует snapshot масштабирования shape-группы.
    */
   const serializeShapeScaleSnapshot: BrowserSerializer = (obj: unknown) => {
@@ -364,6 +448,7 @@ export function installEditorBrowserHelpers(): void {
   function installBrowserSerializers(): void {
     browserWindow.__serializeEditorObject = serializeEditorObject
     browserWindow.__serializeShapeObject = serializeShapeObject
+    browserWindow.__serializeShapeTextObject = serializeShapeTextObject
     browserWindow.__serializeShapeScaleSnapshot = serializeShapeScaleSnapshot
   }
 
@@ -373,6 +458,10 @@ export function installEditorBrowserHelpers(): void {
   function installBrowserResolvers(): void {
     browserWindow.__resolveShapeNode = (group: unknown) => resolveShapeNode({ group })
     browserWindow.__resolveTarget = (objectIndex?: number, id?: string) => resolveTarget({ objectIndex, id })
+    browserWindow.__resolveCanvasObject = (
+      objectIndex?: number,
+      id?: string
+    ) => resolveCanvasObject({ objectIndex, id })
   }
 
   installBrowserSerializers()

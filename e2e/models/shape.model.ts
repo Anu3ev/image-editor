@@ -2,10 +2,12 @@
 import { type Page, expect } from '@playwright/test'
 import type {
   ShapeObjectInfo,
+  ShapeTextInfo,
   ShapeAddParams,
   ShapeUpdateParams,
   ShapeStrokeParams,
   ShapeTextAlignParams,
+  ShapeTextStyleParams,
   ShapeScaleStepParams,
   ShapeScaleSnapshot,
   ShapePresetKey,
@@ -186,6 +188,102 @@ export class ShapeModel {
       const result = w.editor.shapeManager.setTextAlign({ target, horizontal, vertical })
       if (!result) return null
       return w.__serializeShapeObject(result)
+    }, params)
+  }
+
+  /** Обновляет стиль текста внутри shape и возвращает снимок текстового узла */
+  async updateTextStyle(
+    params: { style: ShapeTextStyleParams } & ObjectTargetParams
+  ): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ style, objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      const result = w.editor.shapeManager.updateTextStyle({ target, style })
+      if (!result) return null
+
+      const textNode = w.editor.shapeManager.getTextNode({ target: result })
+      if (!textNode) return null
+
+      return w.__serializeShapeTextObject(textNode)
+    }, params)
+  }
+
+  /** Возвращает текстовый узел внутри shape */
+  async getTextNode(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      const textNode = w.editor.shapeManager.getTextNode({ target })
+      if (!textNode) return null
+
+      return w.__serializeShapeTextObject(textNode)
+    }, params)
+  }
+
+  /** Делает shape активным объектом canvas */
+  async select(params: ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      w.editor.canvas.setActiveObject(target)
+      return w.__serializeShapeObject(target)
+    }, params)
+  }
+
+  /** Включает режим редактирования текста внутри shape */
+  async enterTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      const textNode = w.editor.shapeManager.getTextNode({ target })
+      if (!textNode) return null
+
+      w.editor.canvas.setActiveObject(textNode)
+      textNode.isEditing = true
+      textNode.enterEditing()
+      textNode.selectAll()
+      w.editor.canvas.fire('text:editing:entered', {
+        target: textNode
+      })
+
+      return w.__serializeShapeTextObject(textNode)
+    }, params)
+  }
+
+  /** Меняет текст активного text-edit внутри shape */
+  async updateEditingText(params: { text: string } & ObjectTargetParams): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ text, objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      const textNode = w.editor.shapeManager.getTextNode({ target })
+      if (!textNode) return null
+
+      textNode.set({ text })
+      w.editor.canvas.fire('text:changed', {
+        target: textNode
+      })
+
+      return w.__serializeShapeTextObject(textNode)
+    }, params)
+  }
+
+  /** Завершает редактирование текста внутри shape */
+  async exitTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      const textNode = w.editor.shapeManager.getTextNode({ target })
+      if (!textNode) return null
+
+      textNode.exitEditing()
+      textNode.isEditing = false
+      w.editor.canvas.fire('text:editing:exited', {
+        target: textNode
+      })
+
+      return w.__serializeShapeTextObject(textNode)
     }, params)
   }
 
