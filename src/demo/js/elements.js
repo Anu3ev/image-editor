@@ -1,170 +1,255 @@
-// Получение всех элементов управления
+const chooseImageBtn = document.getElementById('choose-images-btn')
+const saveCanvasBtn = document.getElementById('save-canvas')
+const fileInput = document.getElementById('file-input')
+const clearBtn = document.getElementById('clear-btn')
+const bringToFrontBtn = document.getElementById('bring-to-front-btn')
+const bringForwardBtn = document.getElementById('bring-object-forward')
+const sendToBackBtn = document.getElementById('send-to-back-btn')
+const sendBackwardsBtn = document.getElementById('send-object-backwards')
+const copyBtn = document.getElementById('copy-btn')
+const pasteBtn = document.getElementById('paste-btn')
+const rotateRightBtn = document.getElementById('rotate-plus-90-btn')
+const rotateLeftBtn = document.getElementById('rotate-minus-90-btn')
+const flipXBtn = document.getElementById('flip-x-btn')
+const flipYBtn = document.getElementById('flip-y-btn')
+const selectAllBtn = document.getElementById('select-all-btn')
+const deleteSelectedBtn = document.getElementById('delete-selected-btn')
+const groupBtn = document.getElementById('group-btn')
+const ungroupBtn = document.getElementById('ungroup-btn')
+const zoomInBtn = document.getElementById('zoom-in-btn')
+const zoomOutBtn = document.getElementById('zoom-out-btn')
+const resetZoomBtn = document.getElementById('reset-zoom-btn')
+const setDefaultScaleBtn = document.getElementById('set-default-scale-btn')
+const imageFitContainBtn = document.getElementById('fit-contain-btn')
+const imageFitCoverBtn = document.getElementById('fit-cover-btn')
+const resetFit = document.getElementById('reset-fit-btn')
+const scaleCanvasToImageBtn = document.getElementById('scale-canvas-btn')
 
-// Кнопка выбора изображения
-export const chooseImageBtn = document.getElementById('choose-images-btn')
-// Кнопка сохранения
-export const saveCanvasBtn = document.getElementById('save-canvas')
-// Инпут для загрузки файла
-export const fileInput = document.getElementById('file-input')
-// Очистить
-export const clearBtn = document.getElementById('clear-btn')
+const canvasResolutionNode = document.getElementById('canvas-resolution')
+const montageAreaResolutionNode = document.getElementById('montage-area-resolution')
+const canvasDisplaySizeNode = document.getElementById('canvas-display-size')
+const currentObjectDataNode = document.getElementById('current-object-data')
+const canvasZoomNode = document.getElementById('canvas-zoom')
 
-// Bring to front
-export const bringToFrontBtn = document.getElementById('bring-to-front-btn')
+const addShapeBtn = document.getElementById('add-shape-btn')
+const shapePickerMenu = document.getElementById('shape-picker-menu')
+const shapePresetButtons = Array.from(document.querySelectorAll('[data-shape-preset]'))
+const replaceShapeBtn = document.getElementById('replace-shape-btn')
+const replaceShapeMenu = document.getElementById('replace-shape-menu')
+const replaceShapePresetButtons = Array.from(document.querySelectorAll('[data-replace-shape-preset]'))
+const shapeFillInput = document.getElementById('shape-fill-color')
+const shapeFillPalette = document.getElementById('shape-fill-palette')
+const shapeStrokeInput = document.getElementById('shape-stroke-color')
+const shapeStrokePalette = document.getElementById('shape-stroke-palette')
+const shapeStrokeWidthInput = document.getElementById('shape-stroke-width')
+const shapeStrokeWidthValue = document.getElementById('shape-stroke-width-value')
+const shapeOpacityInput = document.getElementById('shape-opacity')
+const shapeOpacityValue = document.getElementById('shape-opacity-value')
+const shapeRoundingInput = document.getElementById('shape-rounding')
+const shapeRoundingValue = document.getElementById('shape-rounding-value')
 
-// Bring forward
-export const bringForwardBtn = document.getElementById('bring-object-forward')
+const addTextBtn = document.getElementById('add-text-btn')
+const textContentInput = document.getElementById('text-content')
+const textFontFamilySelect = document.getElementById('text-font-family')
+const textFontSizeInput = document.getElementById('text-font-size')
+const textBoldBtn = document.getElementById('text-bold-btn')
+const textItalicBtn = document.getElementById('text-italic-btn')
+const textUnderlineBtn = document.getElementById('text-underline-btn')
+const textUppercaseBtn = document.getElementById('text-uppercase-btn')
+const textStrikeBtn = document.getElementById('text-strike-btn')
+const textAlignToggle = document.getElementById('text-align-toggle')
+const textColorInput = document.getElementById('text-color')
+const textColorPalette = document.getElementById('text-color-palette')
+const textStrokeColorInput = document.getElementById('text-stroke-color')
+const textStrokePalette = document.getElementById('text-stroke-palette')
+const textStrokeWidthInput = document.getElementById('text-stroke-width')
+const textStrokeWidthValue = document.getElementById('text-stroke-width-value')
+const textOpacityInput = document.getElementById('text-opacity')
+const textOpacityValue = document.getElementById('text-opacity-value')
+const textBackgroundEnabledCheckbox = document.getElementById('text-background-enabled')
+const textBackgroundColorInput = document.getElementById('text-background-color')
+const textBackgroundOpacityInput = document.getElementById('text-background-opacity')
+const textBackgroundOpacityValue = document.getElementById('text-background-opacity-value')
+const textPaddingTopInput = document.getElementById('text-padding-top')
+const textPaddingRightInput = document.getElementById('text-padding-right')
+const textPaddingBottomInput = document.getElementById('text-padding-bottom')
+const textPaddingLeftInput = document.getElementById('text-padding-left')
+const textRadiusTopLeftInput = document.getElementById('text-radius-top-left')
+const textRadiusTopRightInput = document.getElementById('text-radius-top-right')
+const textRadiusBottomRightInput = document.getElementById('text-radius-bottom-right')
+const textRadiusBottomLeftInput = document.getElementById('text-radius-bottom-left')
 
-// Send to back
-export const sendToBackBtn = document.getElementById('send-to-back-btn')
+const montageWidthInput = document.getElementById('montage-width-input')
+const montageHeightInput = document.getElementById('montage-height-input')
+const applyMontageResolutionBtn = document.getElementById('apply-montage-resolution-btn')
 
-// Send backwards
-export const sendBackwardsBtn = document.getElementById('send-object-backwards')
+const serializeTemplateBtn = document.getElementById('serialize-template-btn')
+const applyTemplateBtn = document.getElementById('apply-template-btn')
+const templateJsonInput = document.getElementById('template-json-input')
+const serializeTemplateWithBackgroundCheckbox = document.getElementById('serialize-with-background')
+const loadActiveObjectBtn = document.getElementById('load-active-object-btn')
+const activeObjectJsonInput = document.getElementById('active-object-json')
+const saveActiveObjectBtn = document.getElementById('save-active-object-btn')
 
-// Копировать-вставить
-export const copyBtn = document.getElementById('copy-btn')
-export const pasteBtn = document.getElementById('paste-btn')
+const undoBtn = document.getElementById('undo-btn')
+const redoBtn = document.getElementById('redo-btn')
 
-// Поворот объекта
-export const rotateRightBtn = document.getElementById('rotate-plus-90-btn')
-export const rotateLeftBtn = document.getElementById('rotate-minus-90-btn')
+const backgroundTypeSelect = document.getElementById('background-type')
+const colorBackgroundControls = document.getElementById('color-background-controls')
+const gradientBackgroundControls = document.getElementById('gradient-background-controls')
+const imageBackgroundControls = document.getElementById('image-background-controls')
+const backgroundColorInput = document.getElementById('background-color')
+const setColorBackgroundBtn = document.getElementById('set-color-background-btn')
+const gradientTypeSelect = document.getElementById('gradient-type')
+const linearGradientControls = document.getElementById('linear-gradient-controls')
+const radialGradientControls = document.getElementById('radial-gradient-controls')
+const gradientStopsContainer = document.getElementById('gradient-stops-container')
+const addGradientStopBtn = document.getElementById('add-gradient-stop-btn')
+const gradientAngleInput = document.getElementById('gradient-angle')
+const gradientAngleValue = document.getElementById('gradient-angle-value')
+const gradientCenterXInput = document.getElementById('gradient-center-x')
+const gradientCenterXValue = document.getElementById('gradient-center-x-value')
+const gradientCenterYInput = document.getElementById('gradient-center-y')
+const gradientCenterYValue = document.getElementById('gradient-center-y-value')
+const gradientRadiusInput = document.getElementById('gradient-radius')
+const gradientRadiusValue = document.getElementById('gradient-radius-value')
+const setGradientBackgroundBtn = document.getElementById('set-gradient-background-btn')
+const backgroundImageInput = document.getElementById('background-image-input')
+const setImageBackgroundBtn = document.getElementById('set-image-background-btn')
+const removeBackgroundBtn = document.getElementById('remove-background-btn')
 
-// Flip
-export const flipXBtn = document.getElementById('flip-x-btn')
-export const flipYBtn = document.getElementById('flip-y-btn')
+export const toolbarControls = {
+  chooseImageBtn,
+  saveCanvasBtn,
+  fileInput,
+  clearBtn,
+  bringToFrontBtn,
+  bringForwardBtn,
+  sendToBackBtn,
+  sendBackwardsBtn,
+  copyBtn,
+  pasteBtn,
+  rotateRightBtn,
+  rotateLeftBtn,
+  flipXBtn,
+  flipYBtn,
+  selectAllBtn,
+  deleteSelectedBtn,
+  groupBtn,
+  ungroupBtn,
+  zoomInBtn,
+  zoomOutBtn,
+  resetZoomBtn,
+  setDefaultScaleBtn,
+  imageFitContainBtn,
+  imageFitCoverBtn,
+  resetFit,
+  scaleCanvasToImageBtn
+}
 
-// Select all
-export const selectAllBtn = document.getElementById('select-all-btn')
+export const canvasInfoControls = {
+  canvasResolutionNode,
+  montageAreaResolutionNode,
+  canvasDisplaySizeNode,
+  currentObjectDataNode,
+  canvasZoomNode
+}
 
-// Удалить объект
-export const deleteSelectedBtn = document.getElementById('delete-selected-btn')
+export const shapeControls = {
+  addShapeBtn,
+  shapePickerMenu,
+  shapePresetButtons,
+  replaceShapeBtn,
+  replaceShapeMenu,
+  replaceShapePresetButtons,
+  shapeFillInput,
+  shapeFillPalette,
+  shapeStrokeInput,
+  shapeStrokePalette,
+  shapeStrokeWidthInput,
+  shapeStrokeWidthValue,
+  shapeOpacityInput,
+  shapeOpacityValue,
+  shapeRoundingInput,
+  shapeRoundingValue
+}
 
-// Сгруппировать/разгруппировать выделенные объекты
-export const groupBtn = document.getElementById('group-btn')
-export const ungroupBtn = document.getElementById('ungroup-btn')
+export const textControls = {
+  addTextBtn,
+  textContentInput,
+  textFontFamilySelect,
+  textFontSizeInput,
+  textBoldBtn,
+  textItalicBtn,
+  textUnderlineBtn,
+  textUppercaseBtn,
+  textStrikeBtn,
+  textAlignToggle,
+  textColorInput,
+  textColorPalette,
+  textStrokeColorInput,
+  textStrokePalette,
+  textStrokeWidthInput,
+  textStrokeWidthValue,
+  textOpacityInput,
+  textOpacityValue,
+  textBackgroundEnabledCheckbox,
+  textBackgroundColorInput,
+  textBackgroundOpacityInput,
+  textBackgroundOpacityValue,
+  textPaddingTopInput,
+  textPaddingRightInput,
+  textPaddingBottomInput,
+  textPaddingLeftInput,
+  textRadiusTopLeftInput,
+  textRadiusTopRightInput,
+  textRadiusBottomRightInput,
+  textRadiusBottomLeftInput
+}
 
-// Zoom
-export const zoomInBtn = document.getElementById('zoom-in-btn')
-export const zoomOutBtn = document.getElementById('zoom-out-btn')
-export const resetZoomBtn = document.getElementById('reset-zoom-btn')
-export const setDefaultScaleBtn = document.getElementById('set-default-scale-btn')
+export const montageControls = {
+  montageWidthInput,
+  montageHeightInput,
+  applyMontageResolutionBtn
+}
 
-// Image fit
-export const imageFitContainBtn = document.getElementById('fit-contain-btn')
-export const imageFitCoverBtn = document.getElementById('fit-cover-btn')
+export const serializationControls = {
+  serializeTemplateBtn,
+  applyTemplateBtn,
+  templateJsonInput,
+  serializeTemplateWithBackgroundCheckbox,
+  loadActiveObjectBtn,
+  activeObjectJsonInput,
+  saveActiveObjectBtn
+}
 
-// Сброс масштаба
-export const resetFit = document.getElementById('reset-fit-btn')
+export const historyControls = {
+  undoBtn,
+  redoBtn
+}
 
-// Scale canvas
-export const scaleCanvasToImageBtn = document.getElementById('scale-canvas-btn')
-
-// Элемент для отображения разрешения канваса
-export const canvasResolutionNode = document.getElementById('canvas-resolution')
-
-export const montageAreaResolutionNode = document.getElementById('montage-area-resolution')
-
-// Элемент для отображения размера канваса
-export const canvasDisplaySizeNode = document.getElementById('canvas-display-size')
-// Элемент для отображения размера текущего объекта
-export const currentObjectDataNode = document.getElementById('current-object-data')
-
-// Добавление фигур
-export const addShapeBtn = document.getElementById('add-shape-btn')
-export const shapePickerMenu = document.getElementById('shape-picker-menu')
-export const shapePresetButtons = Array.from(document.querySelectorAll('[data-shape-preset]'))
-export const replaceShapeBtn = document.getElementById('replace-shape-btn')
-export const replaceShapeMenu = document.getElementById('replace-shape-menu')
-export const replaceShapePresetButtons = Array.from(document.querySelectorAll('[data-replace-shape-preset]'))
-export const shapeFillInput = document.getElementById('shape-fill-color')
-export const shapeFillPalette = document.getElementById('shape-fill-palette')
-export const shapeStrokeInput = document.getElementById('shape-stroke-color')
-export const shapeStrokePalette = document.getElementById('shape-stroke-palette')
-export const shapeStrokeWidthInput = document.getElementById('shape-stroke-width')
-export const shapeStrokeWidthValue = document.getElementById('shape-stroke-width-value')
-export const shapeOpacityInput = document.getElementById('shape-opacity')
-export const shapeOpacityValue = document.getElementById('shape-opacity-value')
-export const shapeRoundingInput = document.getElementById('shape-rounding')
-export const shapeRoundingValue = document.getElementById('shape-rounding-value')
-
-// Текстовые контролы
-export const addTextBtn = document.getElementById('add-text-btn')
-export const textContentInput = document.getElementById('text-content')
-export const textFontFamilySelect = document.getElementById('text-font-family')
-export const textFontSizeInput = document.getElementById('text-font-size')
-export const textBoldBtn = document.getElementById('text-bold-btn')
-export const textItalicBtn = document.getElementById('text-italic-btn')
-export const textUnderlineBtn = document.getElementById('text-underline-btn')
-export const textUppercaseBtn = document.getElementById('text-uppercase-btn')
-export const textStrikeBtn = document.getElementById('text-strike-btn')
-export const textAlignToggle = document.getElementById('text-align-toggle')
-export const textColorInput = document.getElementById('text-color')
-export const textColorPalette = document.getElementById('text-color-palette')
-export const textStrokeColorInput = document.getElementById('text-stroke-color')
-export const textStrokePalette = document.getElementById('text-stroke-palette')
-export const textStrokeWidthInput = document.getElementById('text-stroke-width')
-export const textStrokeWidthValue = document.getElementById('text-stroke-width-value')
-export const textOpacityInput = document.getElementById('text-opacity')
-export const textOpacityValue = document.getElementById('text-opacity-value')
-export const textBackgroundEnabledCheckbox = document.getElementById('text-background-enabled')
-export const textBackgroundColorInput = document.getElementById('text-background-color')
-export const textBackgroundOpacityInput = document.getElementById('text-background-opacity')
-export const textBackgroundOpacityValue = document.getElementById('text-background-opacity-value')
-export const textPaddingTopInput = document.getElementById('text-padding-top')
-export const textPaddingRightInput = document.getElementById('text-padding-right')
-export const textPaddingBottomInput = document.getElementById('text-padding-bottom')
-export const textPaddingLeftInput = document.getElementById('text-padding-left')
-export const textRadiusTopLeftInput = document.getElementById('text-radius-top-left')
-export const textRadiusTopRightInput = document.getElementById('text-radius-top-right')
-export const textRadiusBottomRightInput = document.getElementById('text-radius-bottom-right')
-export const textRadiusBottomLeftInput = document.getElementById('text-radius-bottom-left')
-
-// Montage resolution controls
-export const montageWidthInput = document.getElementById('montage-width-input')
-export const montageHeightInput = document.getElementById('montage-height-input')
-export const applyMontageResolutionBtn = document.getElementById('apply-montage-resolution-btn')
-
-// Template controls
-export const serializeTemplateBtn = document.getElementById('serialize-template-btn')
-export const applyTemplateBtn = document.getElementById('apply-template-btn')
-export const templateJsonInput = document.getElementById('template-json-input')
-export const serializeTemplateWithBackgroundCheckbox = document.getElementById('serialize-with-background')
-export const loadActiveObjectBtn = document.getElementById('load-active-object-btn')
-export const activeObjectJsonInput = document.getElementById('active-object-json')
-export const saveActiveObjectBtn = document.getElementById('save-active-object-btn')
-
-// State controls
-export const undoBtn = document.getElementById('undo-btn')
-export const redoBtn = document.getElementById('redo-btn')
-
-// Background controls
-export const backgroundTypeSelect = document.getElementById('background-type')
-export const colorBackgroundControls = document.getElementById('color-background-controls')
-export const gradientBackgroundControls = document.getElementById('gradient-background-controls')
-export const imageBackgroundControls = document.getElementById('image-background-controls')
-export const backgroundColorInput = document.getElementById('background-color')
-export const setColorBackgroundBtn = document.getElementById('set-color-background-btn')
-
-// Gradient controls
-export const gradientTypeSelect = document.getElementById('gradient-type')
-export const linearGradientControls = document.getElementById('linear-gradient-controls')
-export const radialGradientControls = document.getElementById('radial-gradient-controls')
-export const gradientStopsContainer = document.getElementById('gradient-stops-container')
-export const addGradientStopBtn = document.getElementById('add-gradient-stop-btn')
-
-// Linear gradient controls
-export const gradientAngleInput = document.getElementById('gradient-angle')
-export const gradientAngleValue = document.getElementById('gradient-angle-value')
-
-// Radial gradient controls
-export const gradientCenterXInput = document.getElementById('gradient-center-x')
-export const gradientCenterXValue = document.getElementById('gradient-center-x-value')
-export const gradientCenterYInput = document.getElementById('gradient-center-y')
-export const gradientCenterYValue = document.getElementById('gradient-center-y-value')
-export const gradientRadiusInput = document.getElementById('gradient-radius')
-export const gradientRadiusValue = document.getElementById('gradient-radius-value')
-
-export const setGradientBackgroundBtn = document.getElementById('set-gradient-background-btn')
-export const backgroundImageInput = document.getElementById('background-image-input')
-export const setImageBackgroundBtn = document.getElementById('set-image-background-btn')
-export const removeBackgroundBtn = document.getElementById('remove-background-btn')
+export const backgroundControls = {
+  backgroundTypeSelect,
+  colorBackgroundControls,
+  gradientBackgroundControls,
+  imageBackgroundControls,
+  backgroundColorInput,
+  setColorBackgroundBtn,
+  gradientTypeSelect,
+  linearGradientControls,
+  radialGradientControls,
+  gradientStopsContainer,
+  addGradientStopBtn,
+  gradientAngleInput,
+  gradientAngleValue,
+  gradientCenterXInput,
+  gradientCenterXValue,
+  gradientCenterYInput,
+  gradientCenterYValue,
+  gradientRadiusInput,
+  gradientRadiusValue,
+  setGradientBackgroundBtn,
+  backgroundImageInput,
+  setImageBackgroundBtn,
+  removeBackgroundBtn
+}
