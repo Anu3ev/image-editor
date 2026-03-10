@@ -3,81 +3,27 @@ import {
   Canvas,
   FabricObject,
   FabricImage,
-  Rect,
-  Textbox
+  Rect
 } from 'fabric'
 import { create as diffPatchCreate } from 'jsondiffpatch'
 import type { DiffPatcher, Delta } from 'jsondiffpatch'
 import { nanoid } from 'nanoid'
 import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
+import { OBJECT_SERIALIZATION_PROPS } from './constants'
+import {
+  areStatesEqual,
+  prepareStatesForDiff
+} from './diff-normalization'
+import {
+  applyCustomDataFromState,
+  createLoadSafeState
+} from './load-state'
+import { withNormalizedInteractivityForSnapshot } from './snapshot-interactivity'
+import type { CanvasFullState } from './types'
 
-export const OBJECT_SERIALIZATION_PROPS = [
-  'id',
-  'backgroundId',
-  'customData',
-  'backgroundType',
-  'format',
-  'contentType',
-  'width',
-  'height',
-  'locked',
-  'editable',
-  'evented',
-  'selectable',
-  'lockMovementX',
-  'lockMovementY',
-  'lockRotation',
-  'lockScalingX',
-  'lockScalingY',
-  'lockSkewingX',
-  'lockSkewingY',
-  'styles',
-  'lineFontDefaults',
-  'textCaseRaw',
-  'uppercase',
-  'autoExpand',
-  'linethrough',
-  'underline',
-  'fontStyle',
-  'fontWeight',
-  'backgroundOpacity',
-  'paddingTop',
-  'paddingRight',
-  'paddingBottom',
-  'paddingLeft',
-  'radiusTopLeft',
-  'radiusTopRight',
-  'radiusBottomRight',
-  'radiusBottomLeft',
-  'shapeComposite',
-  'shapePresetKey',
-  'shapeBaseWidth',
-  'shapeBaseHeight',
-  'shapeManualBaseWidth',
-  'shapeManualBaseHeight',
-  'shapeAlignHorizontal',
-  'shapeAlignVertical',
-  'shapePaddingTop',
-  'shapePaddingRight',
-  'shapePaddingBottom',
-  'shapePaddingLeft',
-  'shapeFill',
-  'shapeStroke',
-  'shapeStrokeWidth',
-  'shapeStrokeDashArray',
-  'shapeOpacity',
-  'shapeRounding',
-  'shapeNodeType'
-] as const
-
-export type CanvasFullState = {
-  clipPath: object | null
-  height: number
-  width: number
-  objects: FabricObject[]
-  version: string
-}
+export { OBJECT_SERIALIZATION_PROPS } from './constants'
+export type { CanvasFullState } from './types'
 
 export default class HistoryManager {
   /**
@@ -359,7 +305,10 @@ export default class HistoryManager {
    * Возвращает текущее состояние канваса с учётом временной разблокировки объектов.
    */
   private _captureCurrentState(): CanvasFullState {
-    return this._withTemporaryUnlock(this._serializeCanvasState.bind(this))
+    return withNormalizedInteractivityForSnapshot({
+      canvas: this.canvas,
+      callback: () => this._serializeCanvasState()
+    })
   }
 
   /**
@@ -471,9 +420,10 @@ export default class HistoryManager {
 
     try {
       // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
-      const currentStateObj = this._withTemporaryUnlock(
-        () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
-      )
+      const currentStateObj = withNormalizedInteractivityForSnapshot({
+        canvas: this.canvas,
+        callback: () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
+      })
 
       console.timeEnd('saveState')
 
@@ -493,7 +443,7 @@ export default class HistoryManager {
       const {
         prevState: normalizedPrevState,
         nextState: normalizedCurrentState
-      } = HistoryManager._prepareStatesForDiff({
+      } = prepareStatesForDiff({
         prevState,
         nextState: currentStateObj as CanvasFullState
       })
@@ -508,7 +458,7 @@ export default class HistoryManager {
         return
       }
 
-      const statesEqual = HistoryManager._areStatesEqual({
+      const statesEqual = areStatesEqual({
         prevState: normalizedPrevState,
         nextState: normalizedCurrentState
       })
@@ -553,401 +503,6 @@ export default class HistoryManager {
   }
 
   /**
-   * Подготавливает состояния для расчёта diff: нормализует технические изменения
-   * и компенсирует смещения при ресайзе окна.
-   */
-  private static _prepareStatesForDiff({
-    prevState,
-    nextState
-  }: {
-    prevState: CanvasFullState
-    nextState: CanvasFullState
-  }): { prevState: CanvasFullState; nextState: CanvasFullState } {
-    const normalizedPrevState = HistoryManager._cloneState({ state: prevState })
-    const normalizedNextState = HistoryManager._cloneState({ state: nextState })
-
-    HistoryManager._normalizeTextBackground({ objects: normalizedPrevState.objects })
-    HistoryManager._normalizeTextBackground({ objects: normalizedNextState.objects })
-    HistoryManager._normalizeCanvasSize({
-      prevState: normalizedPrevState,
-      nextState: normalizedNextState
-    })
-    HistoryManager._normalizeTranslation({
-      prevState: normalizedPrevState,
-      nextState: normalizedNextState
-    })
-
-    return {
-      prevState: normalizedPrevState,
-      nextState: normalizedNextState
-    }
-  }
-
-  /**
-   * Делает глубокую копию состояния канваса.
-   * @param state - исходное состояние
-   */
-  private static _cloneState({ state }: { state: CanvasFullState }): CanvasFullState {
-    return JSON.parse(JSON.stringify(state)) as CanvasFullState
-  }
-
-  /**
-   * Проверяет, равны ли два состояния после нормализации с учётом устойчивого порядка ключей.
-   * @param prevState - предыдущее состояние
-   * @param nextState - следующее состояние
-   */
-  private static _areStatesEqual({
-    prevState,
-    nextState
-  }: {
-    prevState: CanvasFullState
-    nextState: CanvasFullState
-  }): boolean {
-    const prevStable = HistoryManager._stableStringify({ value: prevState })
-    const nextStable = HistoryManager._stableStringify({ value: nextState })
-    return prevStable === nextStable
-  }
-
-  /**
-   * Делает устойчивую сериализацию значения с сортировкой ключей объектов.
-   * @param value - значение для сериализации
-   */
-  private static _stableStringify({ value }: { value: unknown }): string {
-    /**
-     * Нормализует значение для стабильной сериализации.
-     * @param value - исходное значение
-     */
-    const normalizeValue = ({ value: rawValue }: { value: unknown }): unknown => {
-      if (Array.isArray(rawValue)) {
-        const normalizedArray: unknown[] = []
-
-        for (let index = 0; index < rawValue.length; index += 1) {
-          normalizedArray.push(normalizeValue({ value: rawValue[index] }))
-        }
-
-        return normalizedArray
-      }
-
-      if (rawValue && typeof rawValue === 'object') {
-        const normalizedObject: Record<string, unknown> = {}
-        const keys = Object.keys(rawValue).sort()
-
-        for (let index = 0; index < keys.length; index += 1) {
-          const key = keys[index]
-          normalizedObject[key] = normalizeValue({
-            value: (rawValue as Record<string, unknown>)[key]
-          })
-        }
-
-        return normalizedObject
-      }
-
-      return rawValue
-    }
-
-    return JSON.stringify(normalizeValue({ value }))
-  }
-
-  /**
-   * Нормализует backgroundColor у текстовых объектов без фона, чтобы избежать шумовых диффов.
-   * @param objects - список объектов канваса
-   */
-  private static _normalizeTextBackground({ objects }: { objects: FabricObject[] }): void {
-    for (let index = 0; index < objects.length; index += 1) {
-      const object = objects[index] as FabricObject & {
-        type?: string
-        backgroundOpacity?: number
-        backgroundColor?: string | null
-        textBackgroundColor?: string | null
-      }
-      const {
-        type,
-        backgroundOpacity: rawBackgroundOpacity,
-        backgroundColor: rawBackgroundColor,
-        textBackgroundColor: rawTextBackgroundColor
-      } = object
-      const backgroundOpacity = typeof rawBackgroundOpacity === 'number' ? rawBackgroundOpacity : 0
-      const backgroundColor = typeof rawBackgroundColor === 'string' ? rawBackgroundColor : ''
-      const textBackgroundColor = typeof rawTextBackgroundColor === 'string' ? rawTextBackgroundColor : ''
-      const isTextObject = type === 'textbox'
-        || type === 'i-text'
-        || type === 'text'
-        || type === 'background-textbox'
-      const hasBackgroundColor = backgroundColor.length > 0 || textBackgroundColor.length > 0
-
-      if (!isTextObject) continue
-      if (backgroundOpacity > 0 && hasBackgroundColor) continue
-
-      object.backgroundColor = null
-      object.textBackgroundColor = null
-    }
-  }
-
-  /**
-   * Игнорирует изменения размеров канваса, если размер монтажной области не менялся.
-   * Это устраняет диффы от ресайза окна без влияния на историю документа.
-   */
-  private static _normalizeCanvasSize({
-    prevState,
-    nextState
-  }: {
-    prevState: CanvasFullState
-    nextState: CanvasFullState
-  }): void {
-    const { width: prevWidth, height: prevHeight, objects: prevObjects } = prevState
-    const { objects: nextObjects } = nextState
-    const {
-      width: prevMontageWidth,
-      height: prevMontageHeight
-    } = HistoryManager._getMontageAreaSize({ objects: prevObjects })
-
-    const {
-      width: nextMontageWidth,
-      height: nextMontageHeight
-    } = HistoryManager._getMontageAreaSize({ objects: nextObjects })
-    const montageSizeChanged = prevMontageWidth !== nextMontageWidth
-      || prevMontageHeight !== nextMontageHeight
-
-    if (montageSizeChanged) return
-
-    nextState.width = prevWidth
-    nextState.height = prevHeight
-  }
-
-  /**
-   * Компенсирует смещение монтажной области, чтобы не сохранять ресайз как изменение истории.
-   */
-  private static _normalizeTranslation({
-    prevState,
-    nextState
-  }: {
-    prevState: CanvasFullState
-    nextState: CanvasFullState
-  }): void {
-    const { objects: prevObjects, clipPath: prevClipPath } = prevState
-    const { objects: nextObjects, clipPath: nextClipPath } = nextState
-    const {
-      left: prevMontageLeft,
-      top: prevMontageTop
-    } = HistoryManager._getMontageAreaPosition({ objects: prevObjects })
-
-    const {
-      left: nextMontageLeft,
-      top: nextMontageTop
-    } = HistoryManager._getMontageAreaPosition({ objects: nextObjects })
-
-    const deltaX = nextMontageLeft - prevMontageLeft
-    const deltaY = nextMontageTop - prevMontageTop
-
-    if (deltaX === 0 && deltaY === 0) return
-
-    const montageObject = HistoryManager._getObjectById({
-      objects: nextObjects,
-      id: 'montage-area'
-    })
-
-    if (montageObject) {
-      montageObject.left = prevMontageLeft
-      montageObject.top = prevMontageTop
-    }
-
-    const prevClipPathPosition = HistoryManager._getClipPathPosition({ clipPath: prevClipPath })
-
-    if (prevClipPathPosition && nextClipPath && typeof nextClipPath === 'object') {
-      const { left, top } = prevClipPathPosition
-      const clipPathObject = nextClipPath as { left?: number; top?: number }
-
-      clipPathObject.left = left
-      clipPathObject.top = top
-    }
-
-    const ignoredIds = HistoryManager._getTranslationIgnoredIds()
-
-    for (let index = 0; index < nextObjects.length; index += 1) {
-      const object = nextObjects[index] as FabricObject & { id?: string }
-      const { id } = object
-
-      if (id && ignoredIds.has(id)) continue
-
-      if (typeof object.left === 'number') {
-        object.left -= deltaX
-      }
-
-      if (typeof object.top === 'number') {
-        object.top -= deltaY
-      }
-    }
-  }
-
-  /**
-   * Возвращает позицию clipPath из состояния, если она доступна.
-   */
-  private static _getClipPathPosition({
-    clipPath
-  }: {
-    clipPath: object | null
-  }): { left: number; top: number } | null {
-    if (!clipPath || typeof clipPath !== 'object') return null
-
-    const { left, top } = clipPath as { left?: number; top?: number }
-
-    if (typeof left !== 'number' || typeof top !== 'number') return null
-
-    return { left, top }
-  }
-
-  /**
-   * Возвращает позицию монтажной области из списка объектов.
-   */
-  private static _getMontageAreaPosition({
-    objects
-  }: {
-    objects: FabricObject[]
-  }): { left: number; top: number } {
-    const montageObject = HistoryManager._getObjectById({
-      objects,
-      id: 'montage-area'
-    })
-
-    if (!montageObject) {
-      return { left: 0, top: 0 }
-    }
-
-    const { left = 0, top = 0 } = montageObject
-    return { left, top }
-  }
-
-  /**
-   * Возвращает размеры монтажной области из списка объектов.
-   */
-  private static _getMontageAreaSize({
-    objects
-  }: {
-    objects: FabricObject[]
-  }): { width: number; height: number } {
-    const montageObject = HistoryManager._getObjectById({
-      objects,
-      id: 'montage-area'
-    })
-
-    if (!montageObject) {
-      return { width: 0, height: 0 }
-    }
-
-    const { width = 0, height = 0 } = montageObject
-    return { width, height }
-  }
-
-  /**
-   * Находит объект по id в массиве объектов канваса.
-   */
-  private static _getObjectById({
-    objects,
-    id
-  }: {
-    objects: FabricObject[]
-    id: string
-  }): FabricObject | null {
-    for (let index = 0; index < objects.length; index += 1) {
-      const object = objects[index] as FabricObject & { id?: string }
-
-      if (object.id === id) return object
-    }
-
-    return null
-  }
-
-  /**
-   * Возвращает набор id объектов, которые не должны сдвигаться при нормализации.
-   */
-  private static _getTranslationIgnoredIds(): Set<string> {
-    return new Set(['montage-area', 'overlay-mask', 'background'])
-  }
-
-  /**
-   * Создаёт безопасную копию состояния для загрузки в canvas.
-   * customData сериализуется, чтобы Fabric не обрабатывал её как параметры объекта.
-   *
-   * @param state - полное состояние канваса
-   */
-  private static _createLoadSafeState({ state }: { state: CanvasFullState }): CanvasFullState {
-    const clonedState = JSON.parse(JSON.stringify(state)) as CanvasFullState
-    const { objects = [] } = clonedState
-
-    for (let index = 0; index < objects.length; index += 1) {
-      const object = objects[index]
-      const { customData } = object
-
-      if (!customData || typeof customData !== 'object') continue
-
-      object.customData = JSON.stringify(customData)
-    }
-
-    return clonedState
-  }
-
-  /**
-   * Восстанавливает customData на объектах канваса из состояния истории.
-   * Нужна, чтобы в истории всегда сохранялся объект, а не строка.
-   *
-   * @param state - исходное состояние с object customData
-   * @param canvas - канвас, в который загружены объекты
-   */
-  private static _applyCustomDataFromState({
-    state,
-    canvas
-  }: {
-    state: CanvasFullState
-    canvas: Canvas
-  }): void {
-    const { objects: stateObjects = [] } = state
-    const customDataById = new Map<string, object>()
-    const customDataByIndex = new Map<number, object>()
-
-    for (let index = 0; index < stateObjects.length; index += 1) {
-      const stateObject = stateObjects[index]
-      const { customData, id } = stateObject
-
-      if (!customData || typeof customData !== 'object') continue
-
-      if (typeof id === 'string') {
-        customDataById.set(id, customData)
-        continue
-      }
-
-      customDataByIndex.set(index, customData)
-    }
-
-    const canvasObjects = canvas.getObjects?.() ?? []
-
-    for (let index = 0; index < canvasObjects.length; index += 1) {
-      const canvasObject = canvasObjects[index]
-      const { id } = canvasObject
-      let customData: object | undefined
-
-      if (typeof id === 'string') {
-        customData = customDataById.get(id)
-      }
-
-      if (!customData) {
-        customData = customDataByIndex.get(index)
-      }
-
-      if (!customData) continue
-
-      canvasObject.customData = HistoryManager._cloneCustomData({ customData })
-    }
-  }
-
-  /**
-   * Делает глубокую копию customData, чтобы избежать общих ссылок со state.
-   * @param customData - пользовательские данные объекта
-   */
-  private static _cloneCustomData({ customData }: { customData: object }): object {
-    return JSON.parse(JSON.stringify(customData)) as object
-  }
-
-  /**
    * Функция загрузки состояния в канвас.
    * @param fullState - полное состояние канваса
    * @fires editor:history-state-loaded
@@ -963,10 +518,10 @@ export default class HistoryManager {
     // Сбрасываем overlay, так как он может задваиваться при загрузке состояния
     interactionBlocker.overlayMask = null
 
-    const safeState = HistoryManager._createLoadSafeState({ state: fullState })
+    const safeState = createLoadSafeState({ state: fullState })
 
     await canvas.loadFromJSON(safeState)
-    HistoryManager._applyCustomDataFromState({ state: fullState, canvas })
+    applyCustomDataFromState({ state: fullState, canvas })
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
     const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area') as Rect | undefined
@@ -1104,58 +659,6 @@ export default class HistoryManager {
       })
     } finally {
       this.resumeHistory()
-    }
-  }
-
-  private _withTemporaryUnlock<T>(callback: () => T): T {
-    const modified: Array<{
-      object: FabricObject & {
-        locked?: boolean
-        lockMovementX?: boolean
-        lockMovementY?: boolean
-        type?: string
-      }
-      lockMovementX?: boolean
-      lockMovementY?: boolean
-      selectable?: boolean
-    }> = []
-
-    const objects = this.canvas.getObjects?.() ?? []
-
-    objects.forEach((object) => {
-      const type = typeof object.type === 'string' ? object.type.toLowerCase() : ''
-      const isTextObject = type === 'textbox'
-        || type === 'i-text'
-        || typeof (object as Textbox).isEditing === 'boolean'
-        || type === 'background-textbox'
-      if (!isTextObject) return
-
-      if (object.locked) return
-
-      const lockMovementX = Boolean(object.lockMovementX)
-      const lockMovementY = Boolean(object.lockMovementY)
-      if (!lockMovementX && !lockMovementY) return
-
-      modified.push({
-        object,
-        lockMovementX: object.lockMovementX,
-        lockMovementY: object.lockMovementY,
-        selectable: object.selectable
-      })
-
-      object.lockMovementX = false
-      object.lockMovementY = false
-      object.selectable = true
-    })
-
-    try {
-      return callback()
-    } finally {
-      modified.forEach(({ object, lockMovementX, lockMovementY, selectable }) => {
-        object.lockMovementX = lockMovementX
-        object.lockMovementY = lockMovementY
-        object.selectable = selectable
-      })
     }
   }
 }
