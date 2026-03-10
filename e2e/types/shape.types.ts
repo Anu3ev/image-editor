@@ -31,6 +31,21 @@ export type ShapeScaleOriginX = 'left' | 'center' | 'right'
 export type ShapeScaleOriginY = 'top' | 'center' | 'bottom'
 export type ShapeScaleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
+/** Параметры стилизации текста внутри shape */
+export interface ShapeTextStyleParams {
+  text?: string
+  fill?: string
+  stroke?: string | null
+  strokeWidth?: number
+  fontSize?: number
+  fontWeight?: string
+  fontStyle?: string
+  underline?: boolean
+  linethrough?: boolean
+  opacity?: number
+  align?: ShapeHorizontalAlign
+}
+
 /** Параметры добавления shape через модель (подмножество ShapeAddOptions) */
 export interface ShapeAddParams {
   presetKey?: ShapePresetKey
@@ -79,6 +94,21 @@ export interface ShapeUpdateParams {
 export interface ShapeTextAlignParams {
   horizontal?: ShapeHorizontalAlign
   vertical?: ShapeVerticalAlign
+}
+
+/** Сериализованная информация о текстовом узле внутри shape */
+export interface ShapeTextInfo extends EditorObjectInfo {
+  text: string
+  textAlign: ShapeHorizontalAlign
+  fontSize: number
+  fontWeight: string
+  fontStyle: string
+  underline: boolean
+  linethrough: boolean
+  isEditing: boolean
+  evented: boolean
+  lockMovementX: boolean
+  lockMovementY: boolean
 }
 
 /** Параметры одного шага интерактивного масштабирования */
