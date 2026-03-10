@@ -149,6 +149,16 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
+   * Возвращает текстовый target для UI: обычный textbox или текст внутри активного shape.
+   */
+  const getActiveTextTarget = () => {
+    const activeText = getActiveText()
+    if (activeText) return activeText
+
+    return editorInstance.shapeManager.getTextNode()
+  }
+
+  /**
    * Проверяет, считается ли значение жирным начертанием.
    */
   const isBoldValue = (value) => {
@@ -432,17 +442,69 @@ export default ({ editorInstance, controls }) => {
   const applyTextStyle = ({ style, options = {} }) => {
     if (isSyncingControls) return
 
-    const target = getActiveText()
-    if (!target) return
+    const activeText = getActiveText()
+    if (activeText) {
+      const updated = editorInstance.textManager.updateText({
+        target: activeText,
+        style,
+        ...options
+      })
+      if (!updated) return
 
-    const updated = editorInstance.textManager.updateText({
-      target,
+      syncTextControls(updated)
+      return
+    }
+
+    const updatedShape = editorInstance.shapeManager.updateTextStyle({
       style,
       ...options
     })
-    if (!updated) return
+    if (!updatedShape) return
 
-    syncTextControls(updated)
+    const updatedText = editorInstance.shapeManager.getTextNode({
+      target: updatedShape
+    })
+    if (!updatedText) return
+
+    syncTextControls(updatedText)
+  }
+
+  /**
+   * Применяет горизонтальное выравнивание к активному тексту или тексту внутри активного shape.
+   */
+  const applyTextAlign = ({ align }) => {
+    const activeText = getActiveText()
+    if (activeText) {
+      applyTextStyle({ style: { align } })
+      return
+    }
+
+    const updatedShape = editorInstance.shapeManager.setTextAlign({
+      horizontal: align
+    })
+    if (!updatedShape) return
+
+    const updatedText = editorInstance.shapeManager.getTextNode({
+      target: updatedShape
+    })
+    if (!updatedText) return
+
+    syncTextControls(updatedText)
+  }
+
+  /**
+   * Возвращает последовательность align-значений для текущего активного target.
+   */
+  const getAlignSequenceForActiveTarget = () => {
+    const activeText = getActiveText()
+    if (activeText) return ALIGN_SEQUENCE
+
+    const activeShapeText = editorInstance.shapeManager.getTextNode()
+    if (activeShapeText) {
+      return ['left', 'center', 'right']
+    }
+
+    return ALIGN_SEQUENCE
   }
 
   /**
@@ -621,7 +683,7 @@ export default ({ editorInstance, controls }) => {
         })
         textColorInput.value = color
         setPaletteSelection({ buttons: fillButtons, color })
-        if (!getActiveText()) return
+        if (!getActiveTextTarget()) return
 
         applyTextStyle({ style: { color } })
       })
@@ -638,9 +700,14 @@ export default ({ editorInstance, controls }) => {
         setPaletteSelection({ buttons: strokeButtons, color })
 
         const width = getStrokeWidthFromInput()
-        if (!getActiveText() || width <= 0) return
+        if (!getActiveTextTarget() || width <= 0) return
 
-        applyTextStyle({ style: { strokeColor: color } })
+        applyTextStyle({
+          style: {
+            strokeColor: color,
+            strokeWidth: width
+          }
+        })
       })
     }
   }
@@ -658,7 +725,7 @@ export default ({ editorInstance, controls }) => {
 
     textContentInput.addEventListener('input', (event) => {
       if (isSyncingControls) return
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       applyTextStyle({
         style: { text: event.target.value },
@@ -667,14 +734,14 @@ export default ({ editorInstance, controls }) => {
     })
 
     textContentInput.addEventListener('change', (event) => {
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
       applyTextStyle({ style: { text: event.target.value } })
     })
 
     textFontFamilySelect.addEventListener('change', (event) => {
       const { value: family } = event.target
       ensureFontOption({ family })
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       applyTextStyle({ style: { fontFamily: family } })
     })
@@ -683,7 +750,7 @@ export default ({ editorInstance, controls }) => {
       const rawValue = Number(event.target.value)
       const value = Math.max(1, Number.isNaN(rawValue) ? 1 : Math.round(rawValue))
       event.target.value = value
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       applyTextStyle({ style: { fontSize: value } })
     })
@@ -705,20 +772,21 @@ export default ({ editorInstance, controls }) => {
       button.addEventListener('click', () => {
         const nextState = !isButtonActive(button)
         setToggleActive({ button, isActive: nextState })
-        if (!getActiveText()) return
+        if (!getActiveTextTarget()) return
 
         applyTextStyle({ style: { [key]: nextState } })
       })
     }
 
     textAlignToggle.addEventListener('click', () => {
+      const alignSequence = getAlignSequenceForActiveTarget()
       const currentAlign = textAlignToggle.dataset.align ?? 'left'
-      const currentIndex = ALIGN_SEQUENCE.indexOf(currentAlign)
-      const nextAlign = ALIGN_SEQUENCE[(currentIndex + 1) % ALIGN_SEQUENCE.length]
+      const currentIndex = alignSequence.indexOf(currentAlign)
+      const nextAlign = alignSequence[(currentIndex + 1) % alignSequence.length]
       updateAlignButtonDisplay({ align: nextAlign })
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
-      applyTextStyle({ style: { align: nextAlign } })
+      applyTextAlign({ align: nextAlign })
     })
   }
 
@@ -733,7 +801,7 @@ export default ({ editorInstance, controls }) => {
       })
       event.target.value = color
       setPaletteSelection({ buttons: textColorButtons, color })
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       applyTextStyle({ style: { color } })
     })
@@ -747,16 +815,21 @@ export default ({ editorInstance, controls }) => {
       setPaletteSelection({ buttons: textStrokeButtons, color })
 
       const width = getStrokeWidthFromInput()
-      if (!getActiveText() || width <= 0) return
+      if (!getActiveTextTarget() || width <= 0) return
 
-      applyTextStyle({ style: { strokeColor: color } })
+      applyTextStyle({
+        style: {
+          strokeColor: color,
+          strokeWidth: width
+        }
+      })
     })
 
     textStrokeWidthInput.addEventListener('input', (event) => {
       const rawWidth = Number(event.target.value)
       const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
       setStrokeWidthUI({ width })
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       if (width === 0) {
         applyTextStyle({
@@ -779,7 +852,7 @@ export default ({ editorInstance, controls }) => {
       const rawWidth = Number(event.target.value)
       const width = Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
       setStrokeWidthUI({ width })
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       if (width === 0) {
         applyTextStyle({ style: { strokeWidth: 0 } })
@@ -799,7 +872,7 @@ export default ({ editorInstance, controls }) => {
       const opacityPercent = Math.max(0, Math.min(100, Number.isNaN(rawOpacity) ? 0 : rawOpacity))
       event.target.value = opacityPercent
       textOpacityValue.textContent = `${opacityPercent}%`
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       applyTextStyle({
         style: { opacity: opacityPercent / 100 },
@@ -812,7 +885,7 @@ export default ({ editorInstance, controls }) => {
       const opacityPercent = Math.max(0, Math.min(100, Number.isNaN(rawOpacity) ? 0 : rawOpacity))
       event.target.value = opacityPercent
       textOpacityValue.textContent = `${opacityPercent}%`
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       applyTextStyle({ style: { opacity: opacityPercent / 100 } })
     })
@@ -825,7 +898,7 @@ export default ({ editorInstance, controls }) => {
     textBackgroundEnabledCheckbox.addEventListener('change', () => {
       const enabled = Boolean(textBackgroundEnabledCheckbox.checked)
       setBackgroundControlsEnabled({ enabled })
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
 
       if (!enabled) {
         applyTextStyle({ style: { backgroundColor: '' } })
@@ -841,7 +914,7 @@ export default ({ editorInstance, controls }) => {
         fallback: textBackgroundColorInput.value
       })
       event.target.value = color
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
       if (!textBackgroundEnabledCheckbox.checked) return
 
       applyTextStyle({ style: { backgroundColor: color } })
@@ -855,7 +928,7 @@ export default ({ editorInstance, controls }) => {
         fallback: 100
       })
       textBackgroundOpacityValue.textContent = `${opacityPercent}%`
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
       if (!textBackgroundEnabledCheckbox.checked) return
 
       applyTextStyle({
@@ -872,7 +945,7 @@ export default ({ editorInstance, controls }) => {
         fallback: 100
       })
       textBackgroundOpacityValue.textContent = `${opacityPercent}%`
-      if (!getActiveText()) return
+      if (!getActiveTextTarget()) return
       if (!textBackgroundEnabledCheckbox.checked) return
 
       applyTextStyle({ style: { backgroundOpacity: opacityPercent / 100 } })
@@ -893,7 +966,7 @@ export default ({ editorInstance, controls }) => {
     for (const { input, key } of paddingInputs) {
       input.addEventListener('input', () => {
         const value = parseNumberInput({ input, min: 0, fallback: 0 })
-        if (!getActiveText()) return
+        if (!getActiveTextTarget()) return
         if (!textBackgroundEnabledCheckbox.checked) return
 
         applyTextStyle({
@@ -904,7 +977,7 @@ export default ({ editorInstance, controls }) => {
 
       input.addEventListener('change', () => {
         const value = parseNumberInput({ input, min: 0, fallback: 0 })
-        if (!getActiveText()) return
+        if (!getActiveTextTarget()) return
         if (!textBackgroundEnabledCheckbox.checked) return
 
         applyTextStyle({ style: { [key]: value } })
@@ -926,7 +999,7 @@ export default ({ editorInstance, controls }) => {
     for (const { input, key } of radiusInputs) {
       input.addEventListener('input', () => {
         const value = parseNumberInput({ input, min: 0, fallback: 0 })
-        if (!getActiveText()) return
+        if (!getActiveTextTarget()) return
         if (!textBackgroundEnabledCheckbox.checked) return
 
         applyTextStyle({
@@ -937,7 +1010,7 @@ export default ({ editorInstance, controls }) => {
 
       input.addEventListener('change', () => {
         const value = parseNumberInput({ input, min: 0, fallback: 0 })
-        if (!getActiveText()) return
+        if (!getActiveTextTarget()) return
         if (!textBackgroundEnabledCheckbox.checked) return
 
         applyTextStyle({ style: { [key]: value } })
@@ -956,6 +1029,7 @@ export default ({ editorInstance, controls }) => {
 
   return {
     getActiveText,
+    getActiveTextTarget,
     syncTextControls,
     isTextboxObject
   }
