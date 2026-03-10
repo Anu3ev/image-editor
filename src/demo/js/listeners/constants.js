@@ -1,3 +1,4 @@
+/** Палитра быстрых цветов заливки для текстовых объектов demo-редактора. */
 export const TEXT_FILL_PALETTE = [
   '#000000',
   '#ffffff',
@@ -11,6 +12,7 @@ export const TEXT_FILL_PALETTE = [
   '#f472b6'
 ]
 
+/** Палитра быстрых цветов обводки для текстовых объектов demo-редактора. */
 export const TEXT_STROKE_PALETTE = [
   '#000000',
   '#ffffff',
@@ -24,6 +26,7 @@ export const TEXT_STROKE_PALETTE = [
   '#111827'
 ]
 
+/** Палитра быстрых цветов заливки для shape-объектов demo-редактора. */
 export const SHAPE_FILL_PALETTE = [
   '#B0B5BF',
   '#111827',
@@ -37,6 +40,7 @@ export const SHAPE_FILL_PALETTE = [
   '#a855f7'
 ]
 
+/** Палитра быстрых цветов обводки для shape-объектов demo-редактора. */
 export const SHAPE_STROKE_PALETTE = [
   '#000000',
   '#ffffff',
@@ -50,10 +54,17 @@ export const SHAPE_STROKE_PALETTE = [
   '#6b7280'
 ]
 
+/** Последовательность значений выравнивания текста для циклического переключения кнопкой. */
 export const ALIGN_SEQUENCE = ['left', 'center', 'right', 'justify']
+/** Количество пробелов при сериализации JSON активного объекта. */
 export const ACTIVE_OBJECT_JSON_SPACES = 2
+/** Текст по умолчанию для создания нового текстового объекта. */
 export const DEFAULT_TEXT_VALUE = 'Новый текст'
 
+/**
+ * Список дополнительных свойств Fabric-объектов, которые нужно сохранять
+ * при сериализации активного объекта и шаблонов demo-редактора.
+ */
 export const OBJECT_SERIALIZATION_PROPS = [
   'id',
   'backgroundId',
