@@ -1,7 +1,6 @@
 import { nanoid } from 'nanoid'
-import HistoryManager, {
-  type CanvasFullState
-} from '../../../../src/editor/history-manager'
+import type { CanvasFullState } from '../../../../src/editor/history-manager'
+import { prepareStatesForDiff } from '../../../../src/editor/history-manager/diff-normalization'
 import { createHistoryManagerTestSetup } from '../../../test-utils/editor-helpers'
 
 // Мокаем nanoid для предсказуемых ID в тестах
@@ -446,13 +445,10 @@ describe('HistoryManager', () => {
       historyManager.saveState()
       historyManager.saveState()
 
-      const normalized = (HistoryManager as any)._prepareStatesForDiff({
+      const normalized = prepareStatesForDiff({
         prevState: baseState,
         nextState
-      }) as {
-        prevState: CanvasFullState
-        nextState: CanvasFullState
-      }
+      })
       const { prevState: normalizedPrevState, nextState: normalizedNextState } = normalized
       const [prevTextObject] = normalizedPrevState.objects
       const [nextTextObject] = normalizedNextState.objects
