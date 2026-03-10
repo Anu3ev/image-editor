@@ -34,14 +34,16 @@ export type ShapeScaleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 
 /** Параметры стилизации текста внутри shape */
 export interface ShapeTextStyleParams {
   text?: string
-  fill?: string
-  stroke?: string | null
+  fontFamily?: string
+  color?: string
+  strokeColor?: string
   strokeWidth?: number
   fontSize?: number
-  fontWeight?: string
-  fontStyle?: string
+  bold?: boolean
+  italic?: boolean
   underline?: boolean
-  linethrough?: boolean
+  strikethrough?: boolean
+  uppercase?: boolean
   opacity?: number
   align?: ShapeHorizontalAlign
 }
@@ -99,12 +101,14 @@ export interface ShapeTextAlignParams {
 /** Сериализованная информация о текстовом узле внутри shape */
 export interface ShapeTextInfo extends EditorObjectInfo {
   text: string
+  fontFamily: string
   textAlign: ShapeHorizontalAlign
   fontSize: number
   fontWeight: string
   fontStyle: string
   underline: boolean
   linethrough: boolean
+  uppercase: boolean
   isEditing: boolean
   evented: boolean
   lockMovementX: boolean

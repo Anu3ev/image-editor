@@ -332,6 +332,10 @@ export function installEditorBrowserHelpers(): void {
         value: textObject.textAlign,
         defaultValue: 'center'
       }),
+      fontFamily: resolveString({
+        value: textObject.fontFamily,
+        defaultValue: ''
+      }),
       fontSize: resolveNumber({
         value: textObject.fontSize,
         defaultValue: 0
@@ -350,6 +354,10 @@ export function installEditorBrowserHelpers(): void {
       }),
       linethrough: resolveBoolean({
         value: textObject.linethrough,
+        defaultValue: false
+      }),
+      uppercase: resolveBoolean({
+        value: textObject.uppercase,
         defaultValue: false
       }),
       isEditing: resolveBoolean({

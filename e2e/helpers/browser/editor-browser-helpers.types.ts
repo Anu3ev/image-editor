@@ -43,11 +43,13 @@ export type BrowserSerializableObject = BrowserObject & {
   shapeRounding?: unknown
   text?: unknown
   textAlign?: unknown
+  fontFamily?: unknown
   fontSize?: unknown
   fontWeight?: unknown
   fontStyle?: unknown
   underline?: unknown
   linethrough?: unknown
+  uppercase?: unknown
   isEditing?: unknown
   evented?: unknown
   lockMovementX?: unknown

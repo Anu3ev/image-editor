@@ -230,9 +230,9 @@ test.describe('Текст внутри шейпа', () => {
       const textNode = await shapes.updateTextStyle({
         objectIndex: 0,
         style: {
-          fill: '#ff0055',
+          color: '#ff0055',
           fontSize: 54,
-          fontWeight: 'bold',
+          bold: true,
           underline: true
         }
       })
@@ -254,13 +254,65 @@ test.describe('Текст внутри шейпа', () => {
     })
   })
 
+  test('меняет шрифт текста внутри шейпа', async({ shapes }) => {
+    await test.step('Установить новый fontFamily', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          fontFamily: 'Oswald'
+        }
+      })
+    })
+
+    await test.step('Проверить fontFamily', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.fontFamily).toBe('Oswald')
+    })
+  })
+
+  test('меняет размер шрифта текста внутри шейпа', async({ shapes }) => {
+    await test.step('Установить новый fontSize', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          fontSize: 72
+        }
+      })
+    })
+
+    await test.step('Проверить fontSize', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.fontSize).toBe(72)
+      expect(textNode?.isEditing).toBe(false)
+    })
+  })
+
+  test('меняет цвет текста внутри шейпа', async({ shapes }) => {
+    await test.step('Установить новый color', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          color: '#00bb88'
+        }
+      })
+    })
+
+    await test.step('Проверить fill текста', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.fill).toBe('#00bb88')
+    })
+  })
+
   test('применяет цвет обводки текста внутри шейпа сразу без дополнительного изменения толщины', async({ shapes }) => {
     await test.step('Сначала задать толщину и стартовый цвет обводки', async() => {
       await shapes.updateTextStyle({
         objectIndex: 0,
         style: {
           strokeWidth: 3,
-          stroke: '#ff0000'
+          strokeColor: '#ff0000'
         }
       })
     })
@@ -269,7 +321,7 @@ test.describe('Текст внутри шейпа', () => {
       await shapes.updateTextStyle({
         objectIndex: 0,
         style: {
-          stroke: '#00aa44'
+          strokeColor: '#00aa44'
         }
       })
     })
@@ -280,6 +332,23 @@ test.describe('Текст внутри шейпа', () => {
       expect(textNode?.stroke).toBe('#00aa44')
       expect(textNode?.strokeWidth).toBe(3)
       expect(textNode?.isEditing).toBe(false)
+    })
+  })
+
+  test('меняет только толщину обводки текста внутри шейпа', async({ shapes }) => {
+    await test.step('Установить strokeWidth без изменения цвета', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          strokeWidth: 4
+        }
+      })
+    })
+
+    await test.step('Проверить strokeWidth', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.strokeWidth).toBe(4)
     })
   })
 
@@ -297,7 +366,7 @@ test.describe('Текст внутри шейпа', () => {
       await shapes.updateTextStyle({
         objectIndex: 0,
         style: {
-          stroke: '#0044ff'
+          strokeColor: '#0044ff'
         }
       })
     })
@@ -307,6 +376,108 @@ test.describe('Текст внутри шейпа', () => {
 
       expect(textNode?.strokeWidth).toBe(5)
       expect(textNode?.stroke).toBe('#0044ff')
+    })
+  })
+
+  test('меняет жирность текста внутри шейпа', async({ shapes }) => {
+    await test.step('Включить bold', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          bold: true
+        }
+      })
+    })
+
+    await test.step('Проверить fontWeight', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.fontWeight).toBe('bold')
+    })
+  })
+
+  test('меняет начертание текста внутри шейпа', async({ shapes }) => {
+    await test.step('Включить italic', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          italic: true
+        }
+      })
+    })
+
+    await test.step('Проверить fontStyle', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.fontStyle).toBe('italic')
+    })
+  })
+
+  test('включает подчёркивание текста внутри шейпа', async({ shapes }) => {
+    await test.step('Включить underline', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          underline: true
+        }
+      })
+    })
+
+    await test.step('Проверить underline', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.underline).toBe(true)
+    })
+  })
+
+  test('включает зачёркивание текста внутри шейпа', async({ shapes }) => {
+    await test.step('Включить strikethrough', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          strikethrough: true
+        }
+      })
+    })
+
+    await test.step('Проверить linethrough', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.linethrough).toBe(true)
+    })
+  })
+
+  test('включает и выключает uppercase для текста внутри шейпа без потери исходного текста', async({ shapes }) => {
+    await test.step('Включить uppercase', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          uppercase: true
+        }
+      })
+    })
+
+    await test.step('Проверить текст в верхнем регистре', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.uppercase).toBe(true)
+      expect(textNode?.text).toBe('ИСХОДНЫЙ ТЕКСТ')
+    })
+
+    await test.step('Выключить uppercase', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          uppercase: false
+        }
+      })
+    })
+
+    await test.step('Проверить возврат исходного текста', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.uppercase).toBe(false)
+      expect(textNode?.text).toBe('Исходный текст')
     })
   })
 
@@ -325,6 +496,120 @@ test.describe('Текст внутри шейпа', () => {
         expect(shape?.shapeAlignHorizontal).toBe(horizontal)
         expect(textNode?.textAlign).toBe(horizontal)
       }
+    })
+  })
+
+  test('меняет прозрачность текста внутри шейпа', async({ shapes }) => {
+    await test.step('Установить opacity для текста', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          opacity: 0.35
+        }
+      })
+    })
+
+    await test.step('Проверить opacity текста', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.opacity).toBe(0.35)
+    })
+  })
+
+  test('применяет несколько стилей к тексту внутри шейпа одним обновлением', async({ shapes }) => {
+    await test.step('Применить комплексное обновление text style', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          fontFamily: 'Roboto',
+          fontSize: 66,
+          color: '#6633ff',
+          strokeColor: '#111111',
+          strokeWidth: 2,
+          bold: true,
+          italic: true,
+          underline: true,
+          strikethrough: true,
+          uppercase: true,
+          opacity: 0.55
+        }
+      })
+    })
+
+    await test.step('Проверить что все свойства применились', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.fontFamily).toBe('Roboto')
+      expect(textNode?.fontSize).toBe(66)
+      expect(textNode?.fill).toBe('#6633ff')
+      expect(textNode?.stroke).toBe('#111111')
+      expect(textNode?.strokeWidth).toBe(2)
+      expect(textNode?.fontWeight).toBe('bold')
+      expect(textNode?.fontStyle).toBe('italic')
+      expect(textNode?.underline).toBe(true)
+      expect(textNode?.linethrough).toBe(true)
+      expect(textNode?.uppercase).toBe(true)
+      expect(textNode?.text).toBe('ИСХОДНЫЙ ТЕКСТ')
+      expect(textNode?.opacity).toBe(0.55)
+    })
+  })
+
+  test('сохраняет ранее применённые стили при последовательных обновлениях текста внутри шейпа', async({ shapes }) => {
+    await test.step('Применить цвет текста', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          color: '#ff7700'
+        }
+      })
+    })
+
+    await test.step('Применить размер шрифта', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          fontSize: 60
+        }
+      })
+    })
+
+    await test.step('Применить bold', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          bold: true
+        }
+      })
+    })
+
+    await test.step('Применить обводку', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          strokeColor: '#0033cc',
+          strokeWidth: 3
+        }
+      })
+    })
+
+    await test.step('Применить выравнивание', async() => {
+      await shapes.setTextAlign({
+        objectIndex: 0,
+        horizontal: 'right'
+      })
+    })
+
+    await test.step('Проверить что прежние стили не потерялись', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+      const shape = await shapes.getFirstShape()
+
+      expect(textNode?.fill).toBe('#ff7700')
+      expect(textNode?.fontSize).toBe(60)
+      expect(textNode?.fontWeight).toBe('bold')
+      expect(textNode?.stroke).toBe('#0033cc')
+      expect(textNode?.strokeWidth).toBe(3)
+      expect(textNode?.textAlign).toBe('right')
+      expect(shape.shapeAlignHorizontal).toBe('right')
     })
   })
 
@@ -419,8 +704,8 @@ test.describe('Текст внутри шейпа', () => {
       await shapes.updateTextStyle({
         objectIndex: 0,
         style: {
-          fill: '#aa00ff',
-          fontStyle: 'italic'
+          color: '#aa00ff',
+          italic: true
         }
       })
     })
