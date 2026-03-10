@@ -3,6 +3,7 @@ import { EditorModel } from '../models/editor.model'
 import { ShapeModel } from '../models/shape.model'
 import { CanvasModel } from '../models/canvas.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
+import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 
 interface EditorFixtures {
   editorModel: EditorModel
@@ -13,7 +14,7 @@ interface EditorFixtures {
 export const test = base.extend<EditorFixtures>({
   editorModel: async({ page }, use) => {
     const model = new EditorModel(page)
-    await model.injectBrowserHelpers()
+    await injectEditorBrowserHelpers({ page })
     await page.goto('/')
     await bypassCertificateWarning({ page })
     await model.waitForReady()

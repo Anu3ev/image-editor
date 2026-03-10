@@ -1,5 +1,15 @@
 import { test, expect } from '../fixtures/editor.fixture'
-import type { ShapePresetKey, ShapeHorizontalAlign, ShapeVerticalAlign } from '../types'
+import type {
+  ShapePresetKey,
+  ShapeHorizontalAlign,
+  ShapeVerticalAlign,
+  ShapeScaleSnapshot
+} from '../types'
+import {
+  SHAPE_SCALING_LIVE_REVERSE_STEPS,
+  SHAPE_SCALING_STROKE_WIDTH,
+  SHAPE_SCALING_TOLERANCE
+} from '../fixtures/data/shape-scaling.data'
 
 test.describe('Добавление фигур', () => {
   test('добавляет круг с дефолтными параметрами', async({ editorModel, shapes }) => {
@@ -245,6 +255,157 @@ test.describe('Масштабирование скругления', () => {
     await test.step('Проверить что скругление масштабировалось по min(3, 2) = 2', async() => {
       const shape = await shapes.getFirstShape()
       expect(shape.shapeRounding).toBe(100)
+    })
+  })
+})
+
+test.describe('Интерактивное масштабирование shape с обводкой', () => {
+  test('стабильно масштабируется при быстрых реверсах без дрейфа и прыжка', async({ shapes }) => {
+    const liveSnapshots: ShapeScaleSnapshot[] = []
+
+    await test.step('Добавить квадрат и включить обводку', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setStroke({
+        stroke: '#0a84ff',
+        strokeWidth: SHAPE_SCALING_STROKE_WIDTH,
+        objectIndex: 0
+      })
+    })
+
+    await test.step('Выполнить live-scale с быстрыми реверсами', async() => {
+      for (let index = 0; index < SHAPE_SCALING_LIVE_REVERSE_STEPS.length; index += 1) {
+        const {
+          scaleX,
+          scaleY
+        } = SHAPE_SCALING_LIVE_REVERSE_STEPS[index]
+        const snapshot = await shapes.simulateScaleStep({
+          scaleX,
+          scaleY,
+          corner: 'br',
+          originX: 'left',
+          originY: 'top',
+          objectIndex: 0
+        })
+
+        liveSnapshots.push(shapes.checkScaleSnapshot({
+          snapshot,
+          message: `должен существовать live snapshot для шага #${index + 1}`
+        }))
+      }
+    })
+
+    await test.step('Проверить что anchor стабилен во время drag', () => {
+      const firstLiveSnapshot = shapes.checkScaleSnapshot({
+        snapshot: liveSnapshots[0] ?? null,
+        message: 'должен существовать первый live snapshot для проверки anchor'
+      })
+
+      for (let index = 0; index < liveSnapshots.length; index += 1) {
+        const snapshot = liveSnapshots[index]
+        const leftDiff = Math.abs(snapshot.groupBoundsLeft - firstLiveSnapshot.groupBoundsLeft)
+        const topDiff = Math.abs(snapshot.groupBoundsTop - firstLiveSnapshot.groupBoundsTop)
+
+        expect(leftDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+        expect(topDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+      }
+
+      for (let index = 1; index < liveSnapshots.length; index += 1) {
+        const previous = liveSnapshots[index - 1]
+        const current = liveSnapshots[index]
+        const leftStepDiff = Math.abs(current.groupBoundsLeft - previous.groupBoundsLeft)
+        const topStepDiff = Math.abs(current.groupBoundsTop - previous.groupBoundsTop)
+
+        expect(leftStepDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+        expect(topStepDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+      }
+    })
+
+    await test.step('Проверить что масштаб идёт в сторону активного угла', () => {
+      for (let index = 1; index < liveSnapshots.length; index += 1) {
+        const previousSnapshot = liveSnapshots[index - 1]
+        const currentSnapshot = liveSnapshots[index]
+        const previousStep = SHAPE_SCALING_LIVE_REVERSE_STEPS[index - 1]
+        const currentStep = SHAPE_SCALING_LIVE_REVERSE_STEPS[index]
+        const deltaScaleX = currentStep.scaleX - previousStep.scaleX
+        const deltaScaleY = currentStep.scaleY - previousStep.scaleY
+
+        if (deltaScaleX > 0) {
+          expect(currentSnapshot.groupBoundsRight)
+            .toBeGreaterThan(previousSnapshot.groupBoundsRight - SHAPE_SCALING_TOLERANCE.direction)
+        }
+
+        if (deltaScaleX < 0) {
+          expect(currentSnapshot.groupBoundsRight)
+            .toBeLessThan(previousSnapshot.groupBoundsRight + SHAPE_SCALING_TOLERANCE.direction)
+        }
+
+        if (deltaScaleY > 0) {
+          expect(currentSnapshot.groupBoundsBottom)
+            .toBeGreaterThan(previousSnapshot.groupBoundsBottom - SHAPE_SCALING_TOLERANCE.direction)
+        }
+
+        if (deltaScaleY < 0) {
+          expect(currentSnapshot.groupBoundsBottom)
+            .toBeLessThan(previousSnapshot.groupBoundsBottom + SHAPE_SCALING_TOLERANCE.direction)
+        }
+      }
+    })
+
+    await test.step('Проверить постоянство обводки и совпадение shape с bbox в live-режиме', () => {
+      for (let index = 0; index < liveSnapshots.length; index += 1) {
+        const snapshot = liveSnapshots[index]
+        expect(snapshot.shapeStrokeWidth).toBe(SHAPE_SCALING_STROKE_WIDTH)
+        expect(snapshot.shapeStrokeUniform).toBe(true)
+
+        expect(snapshot.shapeBoundsWidth).not.toBeNull()
+        expect(snapshot.shapeBoundsHeight).not.toBeNull()
+
+        if (snapshot.shapeBoundsWidth !== null) {
+          const widthDiff = Math.abs(snapshot.groupBoundsWidth - snapshot.shapeBoundsWidth)
+          expect(widthDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.bbox)
+        }
+
+        if (snapshot.shapeBoundsHeight !== null) {
+          const heightDiff = Math.abs(snapshot.groupBoundsHeight - snapshot.shapeBoundsHeight)
+          expect(heightDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.bbox)
+        }
+      }
+    })
+
+    const snapshotBeforeMouseUp = shapes.checkScaleSnapshot({
+      snapshot: liveSnapshots[liveSnapshots.length - 1] ?? null,
+      message: 'должен существовать последний live snapshot перед mouseup'
+    })
+
+    const finalSnapshot = await test.step('Завершить drag и получить финальный snapshot', async() => {
+      const snapshot = await shapes.finishScale({
+        objectIndex: 0
+      })
+
+      return shapes.checkScaleSnapshot({
+        snapshot,
+        message: 'должен существовать финальный snapshot после object:modified'
+      })
+    })
+
+    await test.step('Проверить отсутствие прыжка на mouseup', () => {
+      const leftJump = Math.abs(finalSnapshot.groupBoundsLeft - snapshotBeforeMouseUp.groupBoundsLeft)
+      const topJump = Math.abs(finalSnapshot.groupBoundsTop - snapshotBeforeMouseUp.groupBoundsTop)
+      const rightJump = Math.abs(finalSnapshot.groupBoundsRight - snapshotBeforeMouseUp.groupBoundsRight)
+      const bottomJump = Math.abs(finalSnapshot.groupBoundsBottom - snapshotBeforeMouseUp.groupBoundsBottom)
+
+      expect(leftJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(topJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(rightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(bottomJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+    })
+
+    await test.step('Проверить что после bake масштаб сброшен и обводка сохранена', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.scaleX).toBe(1)
+      expect(shape.scaleY).toBe(1)
+      expect(finalSnapshot.shapeStrokeWidth).toBe(SHAPE_SCALING_STROKE_WIDTH)
+      expect(finalSnapshot.shapeStrokeUniform).toBe(true)
     })
   })
 })

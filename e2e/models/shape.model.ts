@@ -6,6 +6,8 @@ import type {
   ShapeUpdateParams,
   ShapeStrokeParams,
   ShapeTextAlignParams,
+  ShapeScaleStepParams,
+  ShapeScaleSnapshot,
   ShapePresetKey,
   ShapeHorizontalAlign,
   ShapeVerticalAlign,
@@ -76,14 +78,92 @@ export class ShapeModel {
 
   /** Имитирует масштабирование shape и запекание результата через object:modified */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
-    await this.page.evaluate(({ scaleX, scaleY, objectIndex, id }) => {
+    const {
+      scaleX,
+      scaleY,
+      objectIndex,
+      id
+    } = params
+
+    await this.simulateScaleStep({
+      scaleX,
+      scaleY,
+      objectIndex,
+      id
+    })
+    await this.finishScale({
+      objectIndex,
+      id
+    })
+  }
+
+  /** Выполняет один live-шаг интерактивного масштабирования и возвращает snapshot состояния */
+  async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot | null> {
+    return this.page.evaluate((payload) => {
+      const {
+        scaleX,
+        scaleY,
+        corner = 'br',
+        originX = 'left',
+        originY = 'top',
+        objectIndex,
+        id
+      } = payload
       const w = window as any
       const target = w.__resolveTarget(objectIndex, id)
-      if (!target) return
+      if (!target) return null
 
-      target.set({ scaleX, scaleY })
+      const left = typeof target.left === 'number' ? target.left : 0
+      const top = typeof target.top === 'number' ? target.top : 0
+
+      target.set({
+        scaleX,
+        scaleY
+      })
       target.setCoords()
-      w.editor.canvas.fire('object:modified', { target })
+
+      w.editor.canvas.fire('object:scaling', {
+        target,
+        transform: {
+          original: {
+            scaleX: 1,
+            scaleY: 1,
+            left,
+            top
+          },
+          corner,
+          originX,
+          originY
+        }
+      })
+
+      return w.__serializeShapeScaleSnapshot(target)
+    }, params)
+  }
+
+  /** Завершает интерактивное масштабирование через object:modified и возвращает snapshot состояния */
+  async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      if (!target) return null
+
+      w.editor.canvas.fire('object:modified', {
+        target
+      })
+
+      return w.__serializeShapeScaleSnapshot(target)
+    }, params)
+  }
+
+  /** Возвращает текущий snapshot состояния shape-группы для проверок live-scale */
+  async getScaleSnapshot(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const w = window as any
+      const target = w.__resolveTarget(objectIndex, id)
+      if (!target) return null
+
+      return w.__serializeShapeScaleSnapshot(target)
     }, params)
   }
 
@@ -178,6 +258,21 @@ export class ShapeModel {
     }
 
     return shape as ShapeObjectInfo
+  }
+
+  /**
+   * Проверяет что snapshot live-scale получен корректно.
+   * Возвращает гарантированно не-null ShapeScaleSnapshot
+   */
+  checkScaleSnapshot(params: { snapshot: ShapeScaleSnapshot | null, message: string }): ShapeScaleSnapshot {
+    const {
+      snapshot,
+      message
+    } = params
+
+    expect(snapshot, message).not.toBeNull()
+
+    return snapshot as ShapeScaleSnapshot
   }
 
   /**
