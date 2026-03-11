@@ -250,7 +250,7 @@ test.describe('Текст внутри шейпа', () => {
       expect(textNode?.underline).toBe(true)
       expect(textNode?.isEditing).toBe(false)
       expect(activeObject?.id).toBe(shape.id)
-      expect(activeObject?.type).toBe('group')
+      expect(activeObject?.type).toBe('shape-group')
     })
   })
 
@@ -633,7 +633,7 @@ test.describe('Текст внутри шейпа', () => {
       const textNode = await shapes.getTextNode({ objectIndex: 0 })
 
       expect(activeObject?.id).toBe(shape.id)
-      expect(activeObject?.type).toBe('group')
+      expect(activeObject?.type).toBe('shape-group')
       expect(textNode?.isEditing).toBe(false)
     })
   })

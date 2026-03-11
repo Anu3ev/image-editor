@@ -1,5 +1,6 @@
 import { Group } from 'fabric'
 import ShapeEditingController from '../../../../src/editor/shape-manager/shape-editing'
+import * as shapeRuntime from '../../../../src/editor/shape-manager/shape-runtime'
 import {
   getShapeNodes,
   isShapeGroup,
@@ -18,22 +19,71 @@ jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
   resolveShapeGroupFromTarget: jest.fn()
 }))
 
-describe('shape-editing', () => {
+const isShapeGroupMock = isShapeGroup as jest.Mock
+
+type EditingSetup = {
+  controller: ShapeEditingController
+  canvas: ReturnType<typeof createMockCanvas>
+  group: ReturnType<typeof createMockShapeGroup>
+  text: ReturnType<typeof createMockShapeTextbox>
+}
+
+/**
+ * Создаёт базовый набор объектов для тестов контроллера редактирования shape-текста.
+ */
+function createEditingSetup(): EditingSetup {
+  const canvas = createMockCanvas()
+  const shape = createMockShapeNode()
+  const text = createMockShapeTextbox({
+    text: 'shape text'
+  })
+  const group = createMockShapeGroup({
+    shape,
+    text
+  })
+  const groupWithMeta = group as ReturnType<typeof createMockShapeGroup> & {
+    hoverCursor?: string
+    moveCursor?: string
+    lockMovementX?: boolean
+    lockMovementY?: boolean
+    selectable?: boolean
+    evented?: boolean
+  }
+
   const getShapeNodesMock = getShapeNodes as jest.Mock
-  const isShapeGroupMock = isShapeGroup as jest.Mock
+  const localIsShapeGroupMock = isShapeGroup as jest.Mock
   const resolveShapeGroupFromTargetMock = resolveShapeGroupFromTarget as jest.Mock
 
+  getShapeNodesMock.mockReturnValue({
+    shape,
+    text
+  })
+  localIsShapeGroupMock.mockImplementation((target: { shapeComposite?: boolean }) => target?.shapeComposite === true)
+  resolveShapeGroupFromTargetMock.mockImplementation(() => group)
+
+  const controller = new ShapeEditingController({
+    canvas: canvas as never
+  })
+
+  return {
+    controller,
+    canvas,
+    group: groupWithMeta,
+    text
+  }
+}
+
+describe('shape-editing', () => {
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
   it('prepareTextNode переводит текст в базовый режим без интерактивности', () => {
     const {
-      controller,
       text
     } = createEditingSetup()
 
-    controller.prepareTextNode({
+    shapeRuntime.prepareShapeTextNode({
       text
     })
 
@@ -53,7 +103,7 @@ describe('shape-editing', () => {
       text
     } = createEditingSetup()
 
-    const prepareSpy = jest.spyOn(controller, 'prepareTextNode')
+    const prepareSpy = jest.spyOn(shapeRuntime, 'prepareShapeTextNode')
 
     controller.handleMouseDown({
       target: group,
@@ -203,50 +253,3 @@ describe('shape-editing', () => {
     expect(plainText.selectable).not.toBe(false)
   })
 })
-
-function createEditingSetup(): {
-  controller: ShapeEditingController
-  canvas: ReturnType<typeof createMockCanvas>
-  group: ReturnType<typeof createMockShapeGroup>
-  text: ReturnType<typeof createMockShapeTextbox>
-} {
-  const canvas = createMockCanvas()
-  const shape = createMockShapeNode()
-  const text = createMockShapeTextbox({
-    text: 'shape text'
-  })
-  const group = createMockShapeGroup({
-    shape,
-    text
-  })
-  const groupWithMeta = group as ReturnType<typeof createMockShapeGroup> & {
-    hoverCursor?: string
-    moveCursor?: string
-    lockMovementX?: boolean
-    lockMovementY?: boolean
-    selectable?: boolean
-    evented?: boolean
-  }
-
-  const getShapeNodesMock = getShapeNodes as jest.Mock
-  const isShapeGroupMock = isShapeGroup as jest.Mock
-  const resolveShapeGroupFromTargetMock = resolveShapeGroupFromTarget as jest.Mock
-
-  getShapeNodesMock.mockReturnValue({
-    shape,
-    text
-  })
-  isShapeGroupMock.mockImplementation((target: { shapeComposite?: boolean }) => target?.shapeComposite === true)
-  resolveShapeGroupFromTargetMock.mockImplementation(() => group)
-
-  const controller = new ShapeEditingController({
-    canvas: canvas as never
-  })
-
-  return {
-    controller,
-    canvas,
-    group: groupWithMeta,
-    text
-  }
-}

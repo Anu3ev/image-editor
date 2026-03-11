@@ -1,5 +1,6 @@
 import { Rect } from 'fabric'
 import { ImageEditor } from '../index'
+import { addRectangleToCanvas } from '../utils/primitive-shapes'
 
 export default class InteractionBlocker {
   /**
@@ -36,16 +37,20 @@ export default class InteractionBlocker {
 
     historyManager.suspendHistory()
 
-    this.overlayMask = this.editor.shapeManager.addRectangle({
-      fill: overlayMaskColor,
-      selectable: false,
-      evented: true,
-      hoverCursor: 'not-allowed',
-      hasBorders: false,
-      hasControls: false,
-      visible: false,
-      id: 'overlay-mask'
-    }, { withoutSelection: true })
+    this.overlayMask = addRectangleToCanvas({
+      canvas: this.editor.canvas,
+      options: {
+        fill: overlayMaskColor,
+        selectable: false,
+        evented: true,
+        hoverCursor: 'not-allowed',
+        hasBorders: false,
+        hasControls: false,
+        visible: false,
+        id: 'overlay-mask'
+      },
+      flags: { withoutSelection: true }
+    })
 
     historyManager.resumeHistory()
   }

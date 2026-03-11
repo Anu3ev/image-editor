@@ -28,6 +28,7 @@ import TextManager from './text-manager'
 import TemplateManager from './template-manager'
 import SnappingManager from './snapping-manager'
 import MeasurementManager from './measurement-manager'
+import { addRectangleToCanvas } from './utils/primitive-shapes'
 
 import type { ImportImageOptions } from './image-manager'
 
@@ -347,22 +348,26 @@ export class ImageEditor {
       montageAreaHeight
     } = this.options
 
-    this.montageArea = this.shapeManager.addRectangle({
-      width: montageAreaWidth,
-      height: montageAreaHeight,
-      fill: ImageEditor._createMosaicPattern(),
-      stroke: null,
-      strokeWidth: 0,
-      selectable: false,
-      hasBorders: false,
-      hasControls: false,
-      evented: false,
-      id: 'montage-area',
-      originX: 'center',
-      originY: 'center',
-      objectCaching: false,
-      noScaleCache: true
-    }, { withoutSelection: true })
+    this.montageArea = addRectangleToCanvas({
+      canvas: this.canvas,
+      options: {
+        width: montageAreaWidth,
+        height: montageAreaHeight,
+        fill: ImageEditor._createMosaicPattern(),
+        stroke: null,
+        strokeWidth: 0,
+        selectable: false,
+        hasBorders: false,
+        hasControls: false,
+        evented: false,
+        id: 'montage-area',
+        originX: 'center',
+        originY: 'center',
+        objectCaching: false,
+        noScaleCache: true
+      },
+      flags: { withoutSelection: true }
+    })
   }
 
   /**
@@ -374,19 +379,26 @@ export class ImageEditor {
       montageAreaHeight
     } = this.options
 
-    this.canvas.clipPath = this.shapeManager.addRectangle({
-      id: 'area-clip',
-      width: montageAreaWidth,
-      height: montageAreaHeight,
-      stroke: null,
-      strokeWidth: 0,
-      hasBorders: false,
-      hasControls: false,
-      selectable: false,
-      evented: false,
-      originX: 'center',
-      originY: 'center'
-    }, { withoutSelection: true, withoutAdding: true })
+    this.canvas.clipPath = addRectangleToCanvas({
+      canvas: this.canvas,
+      options: {
+        id: 'area-clip',
+        width: montageAreaWidth,
+        height: montageAreaHeight,
+        stroke: null,
+        strokeWidth: 0,
+        hasBorders: false,
+        hasControls: false,
+        selectable: false,
+        evented: false,
+        originX: 'center',
+        originY: 'center'
+      },
+      flags: {
+        withoutSelection: true,
+        withoutAdding: true
+      }
+    })
   }
 
   /**

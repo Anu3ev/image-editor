@@ -1,16 +1,10 @@
 import {
-  Circle,
-  CircleProps,
   FabricObject,
   Group,
-  Rect,
-  RectProps,
-  Textbox,
-  Triangle
+  Textbox
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
-import { snapObjectToPixelGrid } from '../utils/geometry'
 import type { TextStyleOptions } from '../text-manager'
 import {
   DEFAULT_SHAPE_PRESET_KEY,
@@ -32,10 +26,18 @@ import {
 import ShapeScalingController from './shape-scaling'
 import ShapeEditingController from './shape-editing'
 import {
+  registerShapeGroup,
+  ShapeGroupObject
+} from './shape-group'
+import {
   applyGroupInteractivity,
   getShapeNodes,
   isShapeGroup
 } from './shape-utils'
+import {
+  detachShapeGroupAutoLayout,
+  prepareShapeTextNode
+} from './shape-runtime'
 import {
   ShapeAddOptions,
   ShapeGroup,
@@ -50,11 +52,6 @@ import {
   ShapeVerticalAlign,
   ShapeVisualStyle
 } from './types'
-
-type BasicShapeCreationFlags = {
-  withoutSelection?: boolean
-  withoutAdding?: boolean
-}
 
 type ShapeReference = ShapeGroup | FabricObject | string | null | undefined
 
@@ -107,6 +104,7 @@ export default class ShapeManager {
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
+    registerShapeGroup()
     this.scalingController = new ShapeScalingController({
       canvas: editor.canvas
     })
@@ -772,148 +770,6 @@ export default class ShapeManager {
   }
 
   /**
-   * Добавляет прямоугольник.
-   */
-  public addRectangle(
-    {
-      id = `rect-${nanoid()}`,
-      left,
-      top,
-      width = 100,
-      height = 100,
-      fill = 'blue',
-      ...rest
-    }: Partial<RectProps> = {},
-    {
-      withoutSelection,
-      withoutAdding
-    }: BasicShapeCreationFlags = {}
-  ): Rect {
-    const { canvas } = this.editor
-
-    const rect = new Rect({
-      id,
-      left,
-      top,
-      width,
-      height,
-      fill,
-      ...rest
-    })
-
-    if (!left && !top) {
-      canvas.centerObject(rect)
-    }
-
-    snapObjectToPixelGrid({ object: rect })
-
-    if (withoutAdding) return rect
-
-    canvas.add(rect)
-
-    if (!withoutSelection) {
-      canvas.setActiveObject(rect)
-    }
-
-    canvas.renderAll()
-    return rect
-  }
-
-  /**
-   * Добавляет круг.
-   */
-  public addCircle(
-    {
-      id = `circle-${nanoid()}`,
-      left,
-      top,
-      radius = 50,
-      fill = 'green',
-      ...rest
-    }: Partial<CircleProps> = {},
-    {
-      withoutSelection,
-      withoutAdding
-    }: BasicShapeCreationFlags = {}
-  ): Circle {
-    const { canvas } = this.editor
-
-    const circle = new Circle({
-      id,
-      left,
-      top,
-      fill,
-      radius,
-      ...rest
-    })
-
-    if (!left && !top) {
-      canvas.centerObject(circle)
-    }
-
-    snapObjectToPixelGrid({ object: circle })
-
-    if (withoutAdding) return circle
-
-    canvas.add(circle)
-
-    if (!withoutSelection) {
-      canvas.setActiveObject(circle)
-    }
-
-    canvas.renderAll()
-    return circle
-  }
-
-  /**
-   * Добавляет треугольник.
-   */
-  public addTriangle(
-    {
-      id = `triangle-${nanoid()}`,
-      left,
-      top,
-      width = 100,
-      height = 100,
-      fill = 'yellow',
-      ...rest
-    }: Partial<FabricObject> = {},
-    {
-      withoutSelection,
-      withoutAdding
-    }: BasicShapeCreationFlags = {}
-  ): Triangle {
-    const { canvas } = this.editor
-
-    const triangle = new Triangle({
-      id,
-      left,
-      top,
-      fill,
-      width,
-      height,
-      ...rest
-    })
-
-    if (!left && !top) {
-      canvas.centerObject(triangle)
-    }
-
-    snapObjectToPixelGrid({ object: triangle })
-
-    if (withoutAdding) return triangle
-
-    canvas.add(triangle)
-
-    if (!withoutSelection) {
-      canvas.setActiveObject(triangle)
-    }
-
-    canvas.renderAll()
-    return triangle
-  }
-
-  /**
    * Уничтожает менеджер и снимает подписки.
    */
   public destroy(): void {
@@ -1088,7 +944,7 @@ export default class ShapeManager {
     style: ShapeVisualStyle
     rounding?: number
   }): ShapeGroup {
-    const group = new Group([shape, text], {
+    const group = new ShapeGroupObject([shape, text], {
       id,
       originX: 'center',
       originY: 'center',
@@ -1125,8 +981,10 @@ export default class ShapeManager {
       shapeCanRound: presetCanRound
     })
 
+    group.rehydrateRuntimeState()
+
     applyGroupInteractivity({ group })
-    this.editingController.prepareTextNode({ text })
+    prepareShapeTextNode({ text })
 
     applyShapeTextLayout({
       group,
@@ -1189,9 +1047,7 @@ export default class ShapeManager {
       splitByGrapheme: false
     })
 
-    this.editingController.prepareTextNode({
-      text: textbox
-    })
+    prepareShapeTextNode({ text: textbox })
 
     return textbox
   }
@@ -1365,24 +1221,8 @@ export default class ShapeManager {
    * Отключает встроенный fit-content layout группы, чтобы shape-композиция управлялась только ShapeManager.
    */
   private _detachShapeGroupAutoLayout({ group }: { group: ShapeGroupLike }): void {
-    const groupWithLayoutManager = group as ShapeGroupLike & {
-      layoutManager?: {
-        unsubscribeTargets?: (options: {
-          target: Group
-          targets: FabricObject[]
-        }) => void
-      }
-    }
-
-    const { layoutManager } = groupWithLayoutManager
-    if (!layoutManager || typeof layoutManager.unsubscribeTargets !== 'function') return
-
-    const targets = group.getObjects()
-    if (targets.length === 0) return
-
-    layoutManager.unsubscribeTargets({
-      target: group,
-      targets
+    detachShapeGroupAutoLayout({
+      group
     })
   }
 
