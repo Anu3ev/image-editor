@@ -122,12 +122,23 @@ export default class ShapeScalingController {
       height: nextHeight,
       padding
     })
+    // Определяем, приведёт ли следующий размер к необходимости разбиения по графемам
+    // (т.е. когда одна буква/слово уже не помещается в доступную ширину фрейма).
+    const { splitByGrapheme: wouldRequireGrapheme } = resolveShapeTextFrameLayout({
+      text,
+      width: nextWidth,
+      height: nextHeight,
+      alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
+      padding
+    })
     const isScalingDownX = scaleX < state.lastAllowedScaleX - SCALE_EPSILON
     const isScalingDownY = scaleY < state.lastAllowedScaleY - SCALE_EPSILON
     const isBelowStartScaleX = scaleX < state.startScaleX - SCALE_EPSILON
     const isBelowStartScaleY = scaleY < state.startScaleY - SCALE_EPSILON
     const shouldBlockByStart = state.cannotScaleDownAtStart && (isBelowStartScaleX || isBelowStartScaleY)
-    const shouldBlockByText = wouldFillTextFrame && (isScalingDownX || isScalingDownY)
+    // Блокируем уменьшение, если текст заполнит фрейм по высоте или если
+    // потребуется принудительный перенос по графемам (символы слишком широки).
+    const shouldBlockByText = (wouldFillTextFrame || wouldRequireGrapheme) && (isScalingDownX || isScalingDownY)
     const shouldBlockByCornerCross = state.crossedOppositeCorner
     const shouldBlockScaling = shouldBlockByStart || shouldBlockByText || shouldBlockByCornerCross
     const isStateAtStart = ShapeScalingController._isStateAtStart({
