@@ -11,7 +11,9 @@ export class CanvasModel {
   /** Устанавливает разрешение montage area */
   async setMontageResolution(params: { width?: number, height?: number }): Promise<void> {
     await this.page.evaluate(({ width, height }) => {
-      const { canvasManager } = (window as any).editor
+      const { editor } = window as any
+      const { canvasManager } = editor
+
       if (width !== undefined) canvasManager.setResolutionWidth(width)
       if (height !== undefined) canvasManager.setResolutionHeight(height)
     }, params)
@@ -20,7 +22,8 @@ export class CanvasModel {
   /** Очищает canvas от всех пользовательских объектов */
   async clearCanvas(): Promise<void> {
     await this.page.evaluate(() => {
-      (window as any).editor.canvasManager.clearCanvas()
+      const { editor } = window as any
+      editor.canvasManager.clearCanvas()
     })
   }
 }

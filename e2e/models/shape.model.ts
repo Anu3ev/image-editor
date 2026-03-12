@@ -13,7 +13,9 @@ import type {
   ShapePresetKey,
   ShapeHorizontalAlign,
   ShapeVerticalAlign,
-  ObjectTargetParams
+  ObjectTargetParams,
+  ShapeTextSelectionParams,
+  ShapeTextSelectionStyleInfo
 } from '../types'
 
 export class ShapeModel {
@@ -26,55 +28,79 @@ export class ShapeModel {
   /** Добавляет shape на canvas и возвращает информацию о созданном объекте */
   async add(params: ShapeAddParams = {}): Promise<ShapeObjectInfo | null> {
     return this.page.evaluate(async(p) => {
-      const w = window as any
-      const shape = await w.editor.shapeManager.add(p)
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const shape = await editor.shapeManager.add(p)
       if (!shape) return null
-      return w.__serializeShapeObject(shape)
+      return helpers.serializeShapeObject(shape)
     }, params)
   }
 
   /** Удаляет shape. По умолчанию — активный объект */
   async remove(params: ObjectTargetParams = {}): Promise<boolean> {
     return this.page.evaluate(({ objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      return w.editor.shapeManager.remove({ target })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      return editor.shapeManager.remove({ target })
     }, params)
   }
 
   /** Устанавливает заливку shape. По умолчанию — для активного объекта */
   async setFill(params: { fill: string } & ObjectTargetParams): Promise<void> {
     await this.page.evaluate(({ fill, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      w.editor.shapeManager.setFill({ target, fill })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      editor.shapeManager.setFill({ target, fill })
     }, params)
   }
 
   /** Устанавливает обводку shape. По умолчанию — для активного объекта */
   async setStroke(params: ShapeStrokeParams & ObjectTargetParams = {}): Promise<void> {
     await this.page.evaluate(({ stroke, strokeWidth, dash, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      w.editor.shapeManager.setStroke({ target, stroke, strokeWidth, dash })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      editor.shapeManager.setStroke({ target, stroke, strokeWidth, dash })
     }, params)
   }
 
   /** Устанавливает прозрачность shape. По умолчанию — для активного объекта */
   async setOpacity(params: { opacity: number } & ObjectTargetParams): Promise<void> {
     await this.page.evaluate(({ opacity, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      w.editor.shapeManager.setOpacity({ target, opacity })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      editor.shapeManager.setOpacity({ target, opacity })
     }, params)
   }
 
   /** Устанавливает скругление shape. По умолчанию — для активного объекта */
   async setRounding(params: { rounding: number } & ObjectTargetParams): Promise<void> {
     await this.page.evaluate(async({ rounding, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      await w.editor.shapeManager.setRounding({ target, rounding })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      await editor.shapeManager.setRounding({ target, rounding })
     }, params)
   }
 
@@ -111,8 +137,13 @@ export class ShapeModel {
         objectIndex,
         id
       } = payload
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
+
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
       if (!target) return null
 
       const left = typeof target.left === 'number' ? target.left : 0
@@ -124,7 +155,7 @@ export class ShapeModel {
       })
       target.setCoords()
 
-      w.editor.canvas.fire('object:scaling', {
+      editor.canvas.fire('object:scaling', {
         target,
         transform: {
           original: {
@@ -139,55 +170,68 @@ export class ShapeModel {
         }
       })
 
-      return w.__serializeShapeScaleSnapshot(target)
+      return helpers.serializeShapeScaleSnapshot(target)
     }, params)
   }
 
   /** Завершает интерактивное масштабирование через object:modified и возвращает snapshot состояния */
   async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
       if (!target) return null
 
-      w.editor.canvas.fire('object:modified', {
+      editor.canvas.fire('object:modified', {
         target
       })
 
-      return w.__serializeShapeScaleSnapshot(target)
+      return helpers.serializeShapeScaleSnapshot(target)
     }, params)
   }
 
   /** Возвращает текущий snapshot состояния shape-группы для проверок live-scale */
   async getScaleSnapshot(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
+      const { __editorHelpers: helpers } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
       if (!target) return null
 
-      return w.__serializeShapeScaleSnapshot(target)
+      return helpers.serializeShapeScaleSnapshot(target)
     }, params)
   }
 
   /** Обновляет shape — меняет пресет, размеры, стили. Сохраняет позицию и текст */
   async update(params: ShapeUpdateParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     return this.page.evaluate(async({ presetKey, options, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      const result = await w.editor.shapeManager.update({ target, presetKey, options })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const result = await editor.shapeManager.update({ target, presetKey, options })
       if (!result) return null
-      return w.__serializeShapeObject(result)
+      return helpers.serializeShapeObject(result)
     }, params)
   }
 
   /** Устанавливает выравнивание текста внутри shape */
   async setTextAlign(params: ShapeTextAlignParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     return this.page.evaluate(({ horizontal, vertical, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      const result = w.editor.shapeManager.setTextAlign({ target, horizontal, vertical })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const result = editor.shapeManager.setTextAlign({ target, horizontal, vertical })
       if (!result) return null
-      return w.__serializeShapeObject(result)
+      return helpers.serializeShapeObject(result)
     }, params)
   }
 
@@ -196,94 +240,150 @@ export class ShapeModel {
     params: { style: ShapeTextStyleParams } & ObjectTargetParams
   ): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ style, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      const result = w.editor.shapeManager.updateTextStyle({ target, style })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const result = editor.shapeManager.updateTextStyle({ target, style })
       if (!result) return null
 
-      const textNode = w.editor.shapeManager.getTextNode({ target: result })
+      const textNode = editor.shapeManager.getTextNode({ target: result })
       if (!textNode) return null
 
-      return w.__serializeShapeTextObject(textNode)
+      return helpers.serializeShapeTextObject(textNode)
     }, params)
   }
 
   /** Возвращает текстовый узел внутри shape */
   async getTextNode(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      const textNode = w.editor.shapeManager.getTextNode({ target })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const textNode = editor.shapeManager.getTextNode({ target })
       if (!textNode) return null
 
-      return w.__serializeShapeTextObject(textNode)
+      return helpers.serializeShapeTextObject(textNode)
     }, params)
   }
 
   /** Делает shape активным объектом canvas */
   async select(params: ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveCanvasObject(objectIndex, id)
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
-      w.editor.canvas.setActiveObject(target)
-      return w.__serializeShapeObject(target)
+      editor.canvas.setActiveObject(target)
+      return helpers.serializeShapeObject(target)
     }, params)
   }
 
   /** Включает режим редактирования текста внутри shape */
   async enterTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      const textNode = w.editor.shapeManager.getTextNode({ target })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const textNode = editor.shapeManager.getTextNode({ target })
       if (!textNode) return null
 
-      w.editor.canvas.setActiveObject(textNode)
+      editor.canvas.setActiveObject(textNode)
       textNode.isEditing = true
       textNode.enterEditing()
       textNode.selectAll()
-      w.editor.canvas.fire('text:editing:entered', {
+      editor.canvas.fire('text:editing:entered', {
         target: textNode
       })
 
-      return w.__serializeShapeTextObject(textNode)
+      return helpers.serializeShapeTextObject(textNode)
     }, params)
   }
 
   /** Меняет текст активного text-edit внутри shape */
   async updateEditingText(params: { text: string } & ObjectTargetParams): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ text, objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      const textNode = w.editor.shapeManager.getTextNode({ target })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const textNode = editor.shapeManager.getTextNode({ target })
       if (!textNode) return null
 
       textNode.set({ text })
-      w.editor.canvas.fire('text:changed', {
+      editor.canvas.fire('text:changed', {
         target: textNode
       })
 
-      return w.__serializeShapeTextObject(textNode)
+      return helpers.serializeShapeTextObject(textNode)
     }, params)
   }
 
   /** Завершает редактирование текста внутри shape */
   async exitTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
-      const w = window as any
-      const target = w.__resolveTarget(objectIndex, id)
-      const textNode = w.editor.shapeManager.getTextNode({ target })
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const textNode = editor.shapeManager.getTextNode({ target })
       if (!textNode) return null
 
       textNode.exitEditing()
       textNode.isEditing = false
-      w.editor.canvas.fire('text:editing:exited', {
+      editor.canvas.fire('text:editing:exited', {
         target: textNode
       })
 
-      return w.__serializeShapeTextObject(textNode)
+      return helpers.serializeShapeTextObject(textNode)
+    }, params)
+  }
+
+  /** Устанавливает диапазон выделения текста внутри shape в режиме editing. */
+  async setTextSelection(
+    params: ShapeTextSelectionParams & ObjectTargetParams
+  ): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ start, end, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const textNode = editor.shapeManager.getTextNode({ target })
+      if (!textNode) return null
+
+      textNode.selectionStart = start
+      textNode.selectionEnd = end
+
+      return helpers.serializeShapeTextObject(textNode)
+    }, params)
+  }
+
+  /** Возвращает стиль текущего или явного выделенного диапазона текста внутри shape. */
+  async getSelectionStyles(
+    params: Partial<ShapeTextSelectionParams> & ObjectTargetParams = {}
+  ): Promise<ShapeTextSelectionStyleInfo | null> {
+    return this.page.evaluate((payload) => {
+      const { __editorHelpers: helpers } = window as any
+
+      return helpers.getShapeTextSelectionStyles(payload)
     }, params)
   }
 
@@ -386,10 +486,14 @@ export class ShapeModel {
   /** Возвращает список shape-объектов на canvas */
   async getShapeObjects(): Promise<ShapeObjectInfo[]> {
     return this.page.evaluate(() => {
-      const w = window as any
-      return w.editor.canvasManager.getObjects()
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      return editor.canvasManager.getObjects()
         .filter((obj: any) => Boolean(obj.shapeComposite))
-        .map(w.__serializeShapeObject)
+        .map(helpers.serializeShapeObject)
     })
   }
 }

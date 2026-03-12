@@ -40,3 +40,22 @@ export interface ObjectTargetParams {
   objectIndex?: number
   id?: string
 }
+
+/** Параметры сериализации шаблона из текущего выделения */
+export interface SerializeTemplateParams {
+  templateId?: string
+  previewId?: string
+  withBackground?: boolean
+}
+
+/** Минимальное описание объекта шаблона для e2e */
+export interface TemplateObjectData {
+  [key: string]: unknown
+}
+
+/** Минимальное описание шаблона для e2e */
+export interface TemplateDefinition {
+  id: string
+  meta: Record<string, unknown>
+  objects: TemplateObjectData[]
+}

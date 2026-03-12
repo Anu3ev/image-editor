@@ -48,6 +48,24 @@ export interface ShapeTextStyleParams {
   align?: ShapeHorizontalAlign
 }
 
+/** Параметры выделения диапазона текста внутри shape в режиме editing */
+export interface ShapeTextSelectionParams {
+  start: number
+  end: number
+}
+
+/** Сериализованный стиль выделенного диапазона текста внутри shape */
+export interface ShapeTextSelectionStyleInfo {
+  fill: string | null
+  stroke: string | null
+  strokeWidth: number | null
+  fontSize: number | null
+  fontWeight: string | null
+  fontStyle: string | null
+  underline: boolean | null
+  linethrough: boolean | null
+}
+
 /** Параметры добавления shape через модель (подмножество ShapeAddOptions) */
 export interface ShapeAddParams {
   presetKey?: ShapePresetKey
@@ -113,6 +131,8 @@ export interface ShapeTextInfo extends EditorObjectInfo {
   evented: boolean
   lockMovementX: boolean
   lockMovementY: boolean
+  selectionStart: number
+  selectionEnd: number
 }
 
 /** Параметры одного шага интерактивного масштабирования */
