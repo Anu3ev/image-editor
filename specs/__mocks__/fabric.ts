@@ -611,6 +611,7 @@ export const util = {
     const Cls = classRegistry.getClass(obj.type)
     return Cls ? new Cls(obj.text ?? '', obj) : obj
   }),
+  enlivenObjectEnlivables: async(options: any) => options,
   groupSVGElements: jest.fn((objects: any[], options: any = {}) => new Group(objects, options))
 }
 
