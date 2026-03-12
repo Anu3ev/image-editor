@@ -131,6 +131,57 @@ describe('shape-scaling', () => {
     expect(group.shapeScalingNoopTransform).toBe(true)
   })
 
+  it('блокирует уменьшение когда следующий layout требует splitByGrapheme', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    // frame по высоте не заполнен, но следующий layout вернёт splitByGrapheme=true
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveShapeTextFrameLayoutMock.mockReturnValueOnce({
+      frame: {
+        left: -60,
+        top: -40,
+        width: 120,
+        height: 120
+      },
+      splitByGrapheme: true,
+      textTop: -20
+    })
+
+    group.scaleX = 0.8
+    group.scaleY = 0.8
+    group.left = 480
+    group.top = 420
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    expect(group.shapeScalingNoopTransform).toBe(true)
+    expect(group.scaleX).toBe(1)
+    expect(group.scaleY).toBe(1)
+    expect(group.left).toBe(480)
+    expect(group.top).toBe(420)
+
+    // При modified ничего не применится к layout
+    controller.handleObjectModified({ target: group })
+    expect(canvas.requestRenderAll).toHaveBeenCalled()
+  })
+
   it('обновляет текстовый layout в live-режиме во время scaling', () => {
     const {
       controller,

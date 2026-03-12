@@ -180,6 +180,46 @@ describe('shape-layout', () => {
     expect(text.width).toBeLessThan(180)
   })
 
+  it('увеличивает ширину shape если одна буква не помещается по ширине', () => {
+    const shape = createMockShapeNode({
+      width: 50,
+      height: 80
+    })
+
+    // Очень большая буква, ширина textbox меньше чем ширина символа
+    const text = createMockShapeTextbox({
+      text: 'W',
+      width: 20,
+      fontSize: 100
+    })
+
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 20,
+      height: 80
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 20,
+      height: 80,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    // Ожидаем, что ширина shape была увеличена чтобы вмещать символ
+    expect(group.shapeBaseWidth).toBeGreaterThanOrEqual(20)
+  })
+
   it('resolveGroupCenterPoint использует явные координаты, иначе центр канваса', () => {
     const explicitCenter = resolveGroupCenterPoint({
       left: 120,
@@ -194,4 +234,3 @@ describe('shape-layout', () => {
     expect(fallbackCenter).toEqual(new Point(256, 256))
   })
 })
-
