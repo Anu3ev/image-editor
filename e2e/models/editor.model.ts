@@ -4,6 +4,8 @@ import type { EditorObjectInfo, CanvasStateInfo, MontageAreaInfo } from '../type
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
+import { ClipboardModel } from './clipboard.model'
+import { TemplateModel } from './template.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -12,10 +14,16 @@ export class EditorModel {
 
   readonly history: HistoryModel
 
+  readonly clipboard: ClipboardModel
+
+  readonly template: TemplateModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
     this.history = new HistoryModel(page)
+    this.clipboard = new ClipboardModel(page)
+    this.template = new TemplateModel(page)
   }
 
   /** Ожидает полной инициализации редактора */
@@ -42,18 +50,27 @@ export class EditorModel {
   /** Возвращает список пользовательских объектов canvas (без служебных) */
   async getObjects(): Promise<EditorObjectInfo[]> {
     return this.page.evaluate(() => {
-      const w = window as any
-      return w.editor.canvasManager.getObjects().map(w.__serializeEditorObject)
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      return editor.canvasManager.getObjects().map(helpers.serializeEditorObject)
     })
   }
 
   /** Возвращает текущий активный (выделенный) объект или null */
   async getActiveObject(): Promise<EditorObjectInfo | null> {
     return this.page.evaluate(() => {
-      const w = window as any
-      const obj = w.editor.canvas.getActiveObject()
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const obj = editor.canvas.getActiveObject()
       if (!obj) return null
-      return w.__serializeEditorObject(obj)
+
+      return helpers.serializeEditorObject(obj)
     })
   }
 
@@ -67,6 +84,7 @@ export class EditorModel {
   async getMontageArea(): Promise<MontageAreaInfo> {
     return this.page.evaluate(() => {
       const { montageArea } = (window as any).editor
+
       return {
         width: montageArea.width,
         height: montageArea.height,

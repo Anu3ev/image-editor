@@ -722,7 +722,7 @@ class Listeners {
     const isCtrlPressed = Boolean(e && (e.ctrlKey || e.metaKey))
 
     if (isCtrlPressed) return
-    if (!target || target instanceof Textbox) return
+    if (!target || target instanceof Textbox || Boolean(target.shapeComposite)) return
     this.editor.transformManager.resetObject({ object: target })
   }
 

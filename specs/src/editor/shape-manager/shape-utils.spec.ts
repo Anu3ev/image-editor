@@ -1,4 +1,5 @@
 import { Group, Textbox } from 'fabric'
+import { ShapeGroupObject } from '../../../../src/editor/shape-manager/shape-group'
 import {
   applyGroupInteractivity,
   getShapeNode,
@@ -9,7 +10,8 @@ import {
 } from '../../../../src/editor/shape-manager/shape-utils'
 
 describe('shape-utils', () => {
-  it('isShapeGroup возвращает true только для shapeComposite Group', () => {
+  it('isShapeGroup возвращает true для ShapeGroupObject и legacy shapeComposite Group', () => {
+    const shapeGroupObject = new ShapeGroupObject([], {})
     const group = new Group([], {
       shapeComposite: true
     }) as Group & {
@@ -17,6 +19,7 @@ describe('shape-utils', () => {
     }
     const regularGroup = new Group([], {})
 
+    expect(isShapeGroup(shapeGroupObject)).toBe(true)
     expect(isShapeGroup(group)).toBe(true)
     expect(isShapeGroup(regularGroup)).toBe(false)
   })

@@ -1,6 +1,7 @@
 import { Canvas, Pattern } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../../../src/editor'
+import { addRectangleToCanvas } from '../../../src/editor/utils/primitive-shapes'
 import { basicOptions, createFullOptions, createEditorWithMocks } from '../../test-utils/editor-helpers'
 
 // Мокируем сторонние зависимости редактора (не fabric)
@@ -32,11 +33,15 @@ jest.mock('../../../src/editor/selection-manager')
 jest.mock('../../../src/editor/deletion-manager')
 jest.mock('../../../src/editor/error-manager')
 jest.mock('../../../src/editor/zoom-manager')
+jest.mock('../../../src/editor/utils/primitive-shapes', () => ({
+  addRectangleToCanvas: jest.fn()
+}))
 
 describe('ImageEditor', () => {
   // Моки для зависимостей
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
   const mockRect = {}
+  const addRectangleToCanvasMock = addRectangleToCanvas as jest.Mock
 
   // Базовые опции/хелперы теперь импортируются из test-utils/editor-helpers
 
@@ -437,18 +442,19 @@ describe('ImageEditor', () => {
   })
 
   describe('_createMontageArea (приватный метод)', () => {
-    it('создает прямоугольник с ожидаемыми параметрами через ShapeManager', () => {
+    it('создает прямоугольник с ожидаемыми параметрами через addRectangleToCanvas', () => {
+      const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockResolvedValue()
       const editor = new ImageEditor('test-canvas', createFullOptions())
+      const editorWithCanvas = editor as any
+      editorWithCanvas.canvas = new Canvas('test-canvas', {}) as any
+      addRectangleToCanvasMock.mockReturnValue(mockRect)
+      initSpy.mockRestore()
 
-      // Мокируем только метод ShapeManager.addRectangle
-      const mockAddRectangle = jest.fn().mockReturnValue(mockRect)
-      editor.shapeManager = {
-        addRectangle: mockAddRectangle
-      } as any;
-      (editor as any)._createMontageArea()
+      editorWithCanvas._createMontageArea()
 
-      expect(mockAddRectangle).toHaveBeenCalledWith(
-        expect.objectContaining({
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith({
+        canvas: editorWithCanvas.canvas,
+        options: expect.objectContaining({
           width: basicOptions.montageAreaWidth,
           height: basicOptions.montageAreaHeight,
           selectable: false,
@@ -463,28 +469,28 @@ describe('ImageEditor', () => {
           objectCaching: false,
           noScaleCache: true
         }),
-        { withoutSelection: true }
-      )
+        flags: { withoutSelection: true }
+      })
       expect(editor.montageArea).toBe(mockRect)
     })
   })
 
   describe('_createClippingArea (приватный метод)', () => {
-    it('создает clipPath через ShapeManager с ожидаемыми параметрами', () => {
-      const editor = new ImageEditor('test-canvas', createFullOptions());
+    it('создает clipPath через addRectangleToCanvas с ожидаемыми параметрами', () => {
+      const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockResolvedValue()
+      const editor = new ImageEditor('test-canvas', createFullOptions())
+      const editorWithCanvas = editor as any
 
       // Устанавливаем canvas
-      (editor as any).canvas = new Canvas('test-canvas', {}) as any
+      editorWithCanvas.canvas = new Canvas('test-canvas', {}) as any
 
-      // Мокируем только метод ShapeManager.addRectangle
-      const mockAddRectangle = jest.fn().mockReturnValue(mockRect)
-      editor.shapeManager = {
-        addRectangle: mockAddRectangle
-      } as any;
-      (editor as any)._createClippingArea()
+      addRectangleToCanvasMock.mockReturnValue(mockRect)
+      initSpy.mockRestore()
+      editorWithCanvas._createClippingArea()
 
-      expect(mockAddRectangle).toHaveBeenCalledWith(
-        expect.objectContaining({
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith({
+        canvas: editorWithCanvas.canvas,
+        options: expect.objectContaining({
           id: 'area-clip',
           width: basicOptions.montageAreaWidth,
           height: basicOptions.montageAreaHeight,
@@ -497,8 +503,8 @@ describe('ImageEditor', () => {
           hasBorders: false,
           hasControls: false
         }),
-        { withoutSelection: true, withoutAdding: true }
-      )
+        flags: { withoutSelection: true, withoutAdding: true }
+      })
       expect((editor.canvas as any).clipPath).toBe(mockRect)
     })
   })

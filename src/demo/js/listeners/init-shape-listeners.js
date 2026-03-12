@@ -106,7 +106,7 @@ export default ({ editorInstance, controls }) => {
    */
   const isShapeGroupObject = (object) => {
     if (!object) return false
-    if (object.type !== 'group') return false
+    if (object.type !== 'shape-group') return false
 
     return Boolean(object.shapeComposite)
   }

@@ -4,6 +4,8 @@ import { EditorModel } from '../models/editor.model'
 import { ShapeModel } from '../models/shape.model'
 import { CanvasModel } from '../models/canvas.model'
 import { HistoryModel } from '../models/history.model'
+import { ClipboardModel } from '../models/clipboard.model'
+import { TemplateModel } from '../models/template.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
@@ -13,6 +15,8 @@ interface EditorFixtures {
   shapes: ShapeModel
   canvas: CanvasModel
   history: HistoryModel
+  clipboard: ClipboardModel
+  template: TemplateModel
 }
 
 interface EditorInternalFixtures {
@@ -48,6 +52,14 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   history: async({ editorModel }, use) => {
     await use(editorModel.history)
+  },
+
+  clipboard: async({ editorModel }, use) => {
+    await use(editorModel.clipboard)
+  },
+
+  template: async({ editorModel }, use) => {
+    await use(editorModel.template)
   }
 })
 

@@ -12,6 +12,7 @@ import {
   isShapeGroup,
   resolveShapeGroupFromTarget
 } from './shape-utils'
+import { prepareShapeTextNode } from './shape-runtime'
 
 type ShapeMouseDownEvent = {
   target?: FabricObject | null
@@ -54,21 +55,6 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Переводит текстовый узел в базовый режим (без выделения и без событий).
-   */
-  public prepareTextNode({ text }: { text: ShapeTextNode }): void {
-    text.set({
-      hasBorders: false,
-      hasControls: false,
-      evented: false,
-      selectable: false,
-      editable: true,
-      shapeNodeType: 'text'
-    })
-    text.setCoords()
-  }
-
-  /**
    * Обрабатывает клик по shape-группе и переводит текст в режим редактирования по повторному клику.
    */
   public handleMouseDown = (
@@ -99,7 +85,7 @@ export default class ShapeEditingController {
 
     if (!isGroupSelected) {
       if (!text.isEditing) {
-        this.prepareTextNode({ text })
+        prepareShapeTextNode({ text })
       }
       return
     }
@@ -144,7 +130,7 @@ export default class ShapeEditingController {
       group,
       text
     })
-    this.prepareTextNode({ text })
+    prepareShapeTextNode({ text })
 
     if (this.canvas.getActiveObject() === text) {
       this.canvas.setActiveObject(group)

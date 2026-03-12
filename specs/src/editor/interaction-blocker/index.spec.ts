@@ -1,4 +1,11 @@
 import InteractionBlocker from '../../../../src/editor/interaction-blocker'
+import { addRectangleToCanvas } from '../../../../src/editor/utils/primitive-shapes'
+
+jest.mock('../../../../src/editor/utils/primitive-shapes', () => ({
+  addRectangleToCanvas: jest.fn()
+}))
+
+const addRectangleToCanvasMock = addRectangleToCanvas as jest.Mock
 
 type InteractionBlockerTestSetup = {
   interactionBlocker: InteractionBlocker
@@ -83,11 +90,10 @@ const createInteractionBlockerTestSetup = (): InteractionBlockerTestSetup => {
     },
     options: {
       overlayMaskColor: 'rgba(0,0,0,0.5)'
-    },
-    shapeManager: {
-      addRectangle: jest.fn(() => overlayMask)
     }
   }
+
+  addRectangleToCanvasMock.mockReturnValue(overlayMask)
 
   const interactionBlocker = new InteractionBlocker({ editor: mockEditor as never })
 

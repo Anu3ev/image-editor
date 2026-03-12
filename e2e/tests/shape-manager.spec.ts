@@ -250,7 +250,7 @@ test.describe('Текст внутри шейпа', () => {
       expect(textNode?.underline).toBe(true)
       expect(textNode?.isEditing).toBe(false)
       expect(activeObject?.id).toBe(shape.id)
-      expect(activeObject?.type).toBe('group')
+      expect(activeObject?.type).toBe('shape-group')
     })
   })
 
@@ -633,7 +633,7 @@ test.describe('Текст внутри шейпа', () => {
       const textNode = await shapes.getTextNode({ objectIndex: 0 })
 
       expect(activeObject?.id).toBe(shape.id)
-      expect(activeObject?.type).toBe('group')
+      expect(activeObject?.type).toBe('shape-group')
       expect(textNode?.isEditing).toBe(false)
     })
   })
@@ -751,6 +751,307 @@ test.describe('Текст внутри шейпа', () => {
       expect(textNode?.text).toBe('Текст после editing')
       expect(textNode?.textAlign).toBe('right')
       expect(textNode?.isEditing).toBe(false)
+    })
+  })
+})
+
+test.describe('Частичные стили текста внутри шейпа', () => {
+  test.beforeEach(async({ shapes }) => {
+    await shapes.add({
+      presetKey: 'square',
+      options: {
+        text: 'Alpha Beta Gamma'
+      }
+    })
+  })
+
+  test('частичное изменение цвета текста внутри шейпа применяется сразу в режиме редактирования', async({ shapes }) => {
+    await test.step('Войти в режим редактирования и выделить слово Beta', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 6, end: 10 })
+    })
+
+    await test.step('Применить частичный цвет к выделению', async() => {
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          color: '#ff0055'
+        }
+      })
+    })
+
+    await test.step('Проверить стиль выделенного диапазона без выхода из editing', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+      const selectionStyle = await shapes.getSelectionStyles({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(textNode?.selectionStart).toBe(6)
+      expect(textNode?.selectionEnd).toBe(10)
+      expect(selectionStyle?.fill).toBe('#ff0055')
+    })
+  })
+
+  test('undo и redo после частичного изменения стиля сохраняют рабочее редактирование текста внутри шейпа', async({ history, shapes }) => {
+    await test.step('Применить частичный стиль к слову Beta и зафиксировать состояние', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 6, end: 10 })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          color: '#00aa44',
+          bold: true
+        }
+      })
+      await shapes.exitTextEditing({ objectIndex: 0 })
+      await history.flushPendingSave()
+    })
+
+    await test.step('Сделать undo и проверить откат', async() => {
+      await history.undo()
+
+      const selectedShape = await shapes.select({ objectIndex: 0 })
+
+      expect(selectedShape).not.toBeNull()
+
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 6, end: 10 })
+
+      const selectionStyle = await shapes.getSelectionStyles({ objectIndex: 0 })
+
+      expect(selectionStyle?.fill).not.toBe('#00aa44')
+      expect(selectionStyle?.fontWeight).not.toBe('bold')
+
+      await shapes.exitTextEditing({ objectIndex: 0 })
+    })
+
+    await test.step('Сделать redo и проверить возврат стиля и интерактивности', async() => {
+      await history.redo()
+
+      const selectedShape = await shapes.select({ objectIndex: 0 })
+
+      expect(selectedShape).not.toBeNull()
+
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 6, end: 10 })
+
+      const selectionStyle = await shapes.getSelectionStyles({ objectIndex: 0 })
+
+      expect(selectionStyle?.fill).toBe('#00aa44')
+      expect(selectionStyle?.fontWeight).toBe('bold')
+
+      await shapes.exitTextEditing({ objectIndex: 0 })
+    })
+  })
+
+  test('частичный стиль затрагивает только выделенный диапазон текста внутри шейпа', async({ shapes }) => {
+    await test.step('Открыть редактирование и применить стиль только к слову Beta', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 6, end: 10 })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          color: '#3366ff',
+          italic: true
+        }
+      })
+    })
+
+    await test.step('Проверить что слово Alpha осталось без нового стиля', async() => {
+      await shapes.setTextSelection({ objectIndex: 0, start: 0, end: 5 })
+      const alphaStyle = await shapes.getSelectionStyles({ objectIndex: 0 })
+
+      expect(alphaStyle?.fill).not.toBe('#3366ff')
+      expect(alphaStyle?.fontStyle).not.toBe('italic')
+    })
+
+    await test.step('Проверить что слово Beta сохранило частичный стиль', async() => {
+      await shapes.setTextSelection({ objectIndex: 0, start: 6, end: 10 })
+      const betaStyle = await shapes.getSelectionStyles({ objectIndex: 0 })
+
+      expect(betaStyle?.fill).toBe('#3366ff')
+      expect(betaStyle?.fontStyle).toBe('italic')
+    })
+  })
+
+  // eslint-disable-next-line max-len
+  test('после частичной стилизации и выхода из editing активным объектом снова становится shape-group', async({ editorModel, history, shapes }) => {
+    const shape = await test.step('Получить исходный shape', () => shapes.getFirstShape())
+
+    await test.step('Применить частичный стиль в режиме редактирования', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 6, end: 10 })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          strokeColor: '#111111',
+          strokeWidth: 2,
+          underline: true
+        }
+      })
+      await shapes.exitTextEditing({ objectIndex: 0 })
+      await history.flushPendingSave()
+    })
+
+    await test.step('Проверить возврат активного объекта на shape-group', async() => {
+      const activeObject = await editorModel.getActiveObject()
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(activeObject?.id).toBe(shape.id)
+      expect(activeObject?.type).toBe('shape-group')
+      expect(textNode?.isEditing).toBe(false)
+    })
+  })
+})
+
+test.describe('Восстановление shape runtime после copy/paste и шаблонов', () => {
+  test('после copy/paste частичный стиль текста внутри вставленного шейпа применяется сразу', async({ clipboard, editorModel, shapes }) => {
+    await test.step('Добавить исходный шейп и скопировать его', async() => {
+      await shapes.add({
+        presetKey: 'square',
+        options: {
+          text: 'Copy Beta Value'
+        }
+      })
+      await shapes.select({ objectIndex: 0 })
+      await clipboard.copy()
+      await clipboard.waitForClipboardReady()
+    })
+
+    await test.step('Вставить шейп из буфера обмена', async() => {
+      const pasted = await clipboard.paste()
+
+      expect(pasted).toBe(true)
+      await editorModel.checkObjectCount({ count: 2 })
+    })
+
+    await test.step('Открыть текст вставленного шейпа и применить частичный стиль', async() => {
+      await shapes.enterTextEditing({ objectIndex: 1 })
+      await shapes.setTextSelection({ objectIndex: 1, start: 5, end: 9 })
+      await shapes.updateTextStyle({
+        objectIndex: 1,
+        style: {
+          color: '#6633ff',
+          italic: true
+        }
+      })
+    })
+
+    await test.step('Проверить стиль выделенного диапазона без выхода из editing', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 1 })
+      const selectionStyle = await shapes.getSelectionStyles({ objectIndex: 1 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(selectionStyle?.fill).toBe('#6633ff')
+      expect(selectionStyle?.fontStyle).toBe('italic')
+    })
+  })
+
+  test('после applyTemplate частичный стиль текста внутри шейпа применяется сразу', async({ shapes, template }) => {
+    await test.step('Создать шейп и сериализовать его в шаблон', async() => {
+      await shapes.add({
+        presetKey: 'square',
+        options: {
+          text: 'Template Beta Value'
+        }
+      })
+      await shapes.select({ objectIndex: 0 })
+    })
+
+    const serializedTemplate = await test.step('Сериализовать текущее выделение', () => template.serializeSelection())
+
+    await test.step('Удалить исходный шейп и применить шаблон', async() => {
+      await shapes.remove({ objectIndex: 0 })
+
+      expect(serializedTemplate).not.toBeNull()
+      const insertedCount = await template.applyTemplate({
+        template: serializedTemplate!
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    await test.step('Открыть текст шейпа из шаблона и применить частичный стиль', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 9, end: 13 })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          color: '#ff6600',
+          underline: true
+        }
+      })
+    })
+
+    await test.step('Проверить немедленное применение стиля в editing', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+      const selectionStyle = await shapes.getSelectionStyles({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(selectionStyle?.fill).toBe('#ff6600')
+      expect(selectionStyle?.underline).toBe(true)
+    })
+  })
+
+  // eslint-disable-next-line max-len
+  test('после applyTemplate, undo и redo частичная стилизация текста внутри шейпа продолжает работать', async({ history, shapes, template }) => {
+    await test.step('Создать shape и сохранить его как шаблон', async() => {
+      await shapes.add({
+        presetKey: 'square',
+        options: {
+          text: 'Undo Beta Redo'
+        }
+      })
+      await shapes.select({ objectIndex: 0 })
+    })
+
+    const serializedTemplate = await test.step('Сериализовать shape в шаблон', () => template.serializeSelection())
+
+    await test.step('Удалить исходный shape и применить шаблон', async() => {
+      await shapes.remove({ objectIndex: 0 })
+      expect(serializedTemplate).not.toBeNull()
+
+      const insertedCount = await template.applyTemplate({
+        template: serializedTemplate!
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    await test.step('Применить частичный стиль и зафиксировать состояние в history', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 5, end: 9 })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          color: '#0099ff'
+        }
+      })
+      await shapes.exitTextEditing({ objectIndex: 0 })
+      await history.flushPendingSave()
+    })
+
+    await test.step('Сделать undo и redo', async() => {
+      await history.undo()
+      await history.redo()
+    })
+
+    await test.step('После redo снова применить частичный стиль без выхода из editing', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({ objectIndex: 0, start: 10, end: 14 })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: {
+          italic: true,
+          underline: true
+        }
+      })
+
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+      const selectionStyle = await shapes.getSelectionStyles({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(selectionStyle?.fontStyle).toBe('italic')
+      expect(selectionStyle?.underline).toBe(true)
     })
   })
 })

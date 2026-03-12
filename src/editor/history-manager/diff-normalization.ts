@@ -191,8 +191,6 @@ export function normalizeTextBackground({ objects }: { objects: FabricObject[] }
     const backgroundColor = typeof rawBackgroundColor === 'string' ? rawBackgroundColor : ''
     const textBackgroundColor = typeof rawTextBackgroundColor === 'string' ? rawTextBackgroundColor : ''
     const isTextObject = type === 'textbox'
-      || type === 'i-text'
-      || type === 'text'
       || type === 'background-textbox'
     const hasBackgroundColor = backgroundColor.length > 0 || textBackgroundColor.length > 0
 

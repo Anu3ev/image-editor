@@ -54,9 +54,41 @@ export type BrowserSerializableObject = BrowserObject & {
   evented?: unknown
   lockMovementX?: unknown
   lockMovementY?: unknown
+  selectionStart?: unknown
+  selectionEnd?: unknown
+  getSelectionStyles?: (...args: unknown[]) => unknown
+}
+
+export type BrowserTextSelectionStyleInfo = {
+  fill: string | null
+  stroke: string | null
+  strokeWidth: number | null
+  fontSize: number | null
+  fontWeight: string | null
+  fontStyle: string | null
+  underline: boolean | null
+  linethrough: boolean | null
+}
+
+export type BrowserTextSelectionStyleParams = {
+  objectIndex?: number
+  id?: string
+  start?: number
+  end?: number
 }
 
 export type BrowserSerializer = (obj: unknown) => Record<string, unknown>
+
+export interface BrowserEditorHelpers {
+  serializeEditorObject: BrowserSerializer
+  serializeShapeObject: BrowserSerializer
+  serializeShapeTextObject: BrowserSerializer
+  serializeShapeScaleSnapshot: BrowserSerializer
+  resolveShapeNode: (group: unknown) => BrowserObject | null
+  resolveTarget: (objectIndex?: number, id?: string) => unknown
+  resolveCanvasObject: (objectIndex?: number, id?: string) => unknown
+  getShapeTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
+}
 
 export interface BoundsInfo {
   left: number
@@ -80,11 +112,5 @@ export interface BrowserEditorWindow extends Window {
       getObjects: () => unknown
     }
   }
-  __serializeEditorObject: BrowserSerializer
-  __serializeShapeObject?: BrowserSerializer
-  __serializeShapeTextObject?: BrowserSerializer
-  __resolveShapeNode?: (group: unknown) => BrowserObject | null
-  __resolveCanvasObject?: (objectIndex?: number, id?: string) => unknown
-  __serializeShapeScaleSnapshot?: BrowserSerializer
-  __resolveTarget?: (objectIndex?: number, id?: string) => unknown
+  __editorHelpers: BrowserEditorHelpers
 }

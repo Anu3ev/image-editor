@@ -1,4 +1,5 @@
 import type {
+  BrowserEditorHelpers,
   BoundsInfo,
   BrowserBoundedObject,
   BrowserEditorWindow,
@@ -7,6 +8,8 @@ import type {
   BrowserSerializableObject,
   BrowserSerializer,
   BrowserShapeNodeObject,
+  BrowserTextSelectionStyleInfo,
+  BrowserTextSelectionStyleParams,
   NullableBoundsInfo
 } from './editor-browser-helpers.types'
 
@@ -59,39 +62,19 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает boolean или defaultValue.
-   */
-  function resolveBoolean({ value, defaultValue }: { value: unknown, defaultValue: boolean }): boolean {
-    if (typeof value === 'boolean') return value
-
-    return defaultValue
-  }
-
-  /**
-   * Возвращает строку или defaultValue.
-   */
-  function resolveString({ value, defaultValue }: { value: unknown, defaultValue: string }): string {
-    if (typeof value === 'string') return value
-
-    return defaultValue
-  }
-
-  /**
-   * Преобразует undefined/null в null, остальные значения оставляет как есть.
-   */
-  function resolveNullableValue({ value }: { value: unknown }): unknown | null {
-    if (value === undefined || value === null) {
-      return null
-    }
-
-    return value
-  }
-
-  /**
    * Возвращает boolean-значение или null.
    */
   function resolveNullableBoolean({ value }: { value: unknown }): boolean | null {
     if (typeof value === 'boolean') return value
+
+    return null
+  }
+
+  /**
+   * Возвращает строку или null.
+   */
+  function resolveNullableString({ value }: { value: unknown }): string | null {
+    if (typeof value === 'string') return value
 
     return null
   }
@@ -102,6 +85,7 @@ export function installEditorBrowserHelpers(): void {
   function getGroupObjects({ group }: { group: unknown }): BrowserObject[] {
     const groupNode = toBrowserObject({ value: group }) as BrowserGroupObject
     const rawObjects = groupNode.getObjects()
+
     if (!Array.isArray(rawObjects)) {
       return []
     }
@@ -120,6 +104,7 @@ export function installEditorBrowserHelpers(): void {
   function getBoundingRect({ target }: { target: unknown }): BrowserObject | null {
     const canvasObject = toBrowserObject({ value: target }) as BrowserBoundedObject
     const bounds = canvasObject.getBoundingRect()
+
     return toBrowserObject({ value: bounds })
   }
 
@@ -189,6 +174,7 @@ export function installEditorBrowserHelpers(): void {
 
     for (let index = 0; index < objects.length; index += 1) {
       const shapeNode = objects[index]
+
       if (resolveShapeNodeType({ value: shapeNode }) === 'shape') {
         return shapeNode
       }
@@ -196,6 +182,7 @@ export function installEditorBrowserHelpers(): void {
 
     for (let index = 0; index < objects.length; index += 1) {
       const shapeNode = objects[index]
+
       if (resolveShapeNodeType({ value: shapeNode }) !== 'text') {
         return shapeNode
       }
@@ -255,32 +242,14 @@ export function installEditorBrowserHelpers(): void {
       scaleX: editorObject.scaleX,
       scaleY: editorObject.scaleY,
       angle: editorObject.angle,
-      fill: resolveNullableValue({ value: editorObject.fill }),
-      stroke: resolveNullableValue({ value: editorObject.stroke }),
-      strokeWidth: resolveNumber({
-        value: editorObject.strokeWidth,
-        defaultValue: 0
-      }),
-      opacity: resolveNumber({
-        value: editorObject.opacity,
-        defaultValue: 1
-      }),
-      visible: resolveBoolean({
-        value: editorObject.visible,
-        defaultValue: true
-      }),
-      selectable: resolveBoolean({
-        value: editorObject.selectable,
-        defaultValue: true
-      }),
-      flipX: resolveBoolean({
-        value: editorObject.flipX,
-        defaultValue: false
-      }),
-      flipY: resolveBoolean({
-        value: editorObject.flipY,
-        defaultValue: false
-      })
+      fill: editorObject.fill ?? null,
+      stroke: editorObject.stroke ?? null,
+      strokeWidth: editorObject.strokeWidth ?? 0,
+      opacity: editorObject.opacity ?? 1,
+      visible: editorObject.visible ?? true,
+      selectable: editorObject.selectable ?? true,
+      flipX: editorObject.flipX ?? false,
+      flipY: editorObject.flipY ?? false
     }
   }
 
@@ -292,22 +261,10 @@ export function installEditorBrowserHelpers(): void {
 
     return {
       ...serializeEditorObject(obj),
-      shapeComposite: resolveBoolean({
-        value: shapeObject.shapeComposite,
-        defaultValue: false
-      }),
-      shapePresetKey: resolveString({
-        value: shapeObject.shapePresetKey,
-        defaultValue: ''
-      }),
-      shapeAlignHorizontal: resolveString({
-        value: shapeObject.shapeAlignHorizontal,
-        defaultValue: 'center'
-      }),
-      shapeAlignVertical: resolveString({
-        value: shapeObject.shapeAlignVertical,
-        defaultValue: 'middle'
-      }),
+      shapeComposite: shapeObject.shapeComposite ?? false,
+      shapePresetKey: shapeObject.shapePresetKey ?? '',
+      shapeAlignHorizontal: shapeObject.shapeAlignHorizontal ?? 'center',
+      shapeAlignVertical: shapeObject.shapeAlignVertical ?? 'middle',
       shapeFill: shapeObject.shapeFill,
       shapeStroke: shapeObject.shapeStroke,
       shapeStrokeWidth: shapeObject.shapeStrokeWidth,
@@ -324,59 +281,117 @@ export function installEditorBrowserHelpers(): void {
 
     return {
       ...serializeEditorObject(obj),
-      text: resolveString({
-        value: textObject.text,
-        defaultValue: ''
-      }),
-      textAlign: resolveString({
-        value: textObject.textAlign,
-        defaultValue: 'center'
-      }),
-      fontFamily: resolveString({
-        value: textObject.fontFamily,
-        defaultValue: ''
-      }),
-      fontSize: resolveNumber({
-        value: textObject.fontSize,
-        defaultValue: 0
-      }),
-      fontWeight: resolveString({
-        value: textObject.fontWeight,
-        defaultValue: 'normal'
-      }),
-      fontStyle: resolveString({
-        value: textObject.fontStyle,
-        defaultValue: 'normal'
-      }),
-      underline: resolveBoolean({
-        value: textObject.underline,
-        defaultValue: false
-      }),
-      linethrough: resolveBoolean({
-        value: textObject.linethrough,
-        defaultValue: false
-      }),
-      uppercase: resolveBoolean({
-        value: textObject.uppercase,
-        defaultValue: false
-      }),
-      isEditing: resolveBoolean({
-        value: textObject.isEditing,
-        defaultValue: false
-      }),
-      evented: resolveBoolean({
-        value: textObject.evented,
-        defaultValue: true
-      }),
-      lockMovementX: resolveBoolean({
-        value: textObject.lockMovementX,
-        defaultValue: false
-      }),
-      lockMovementY: resolveBoolean({
-        value: textObject.lockMovementY,
-        defaultValue: false
-      })
+      text: textObject.text ?? '',
+      textAlign: textObject.textAlign ?? 'center',
+      fontFamily: textObject.fontFamily ?? '',
+      fontSize: textObject.fontSize ?? 0,
+      fontWeight: textObject.fontWeight ?? 'normal',
+      fontStyle: textObject.fontStyle ?? 'normal',
+      underline: textObject.underline ?? false,
+      linethrough: textObject.linethrough ?? false,
+      uppercase: textObject.uppercase ?? false,
+      isEditing: textObject.isEditing ?? false,
+      evented: textObject.evented ?? true,
+      lockMovementX: textObject.lockMovementX ?? false,
+      lockMovementY: textObject.lockMovementY ?? false,
+      selectionStart: textObject.selectionStart ?? 0,
+      selectionEnd: textObject.selectionEnd ?? 0
     }
+  }
+
+  /**
+   * Возвращает текстовый узел внутри shape-группы по target-параметрам.
+   */
+  function resolveShapeTextNode({
+    objectIndex,
+    id
+  }: BrowserTextSelectionStyleParams): BrowserSerializableObject | null {
+    const target = resolveTarget({ objectIndex, id })
+
+    return browserWindow.editor.shapeManager.getTextNode({ target }) as BrowserSerializableObject | null
+  }
+
+  /**
+   * Возвращает диапазон выделения текста: явный или текущий в textbox.
+   */
+  function resolveTextSelectionRange({
+    textNode,
+    start,
+    end
+  }: {
+    textNode: BrowserSerializableObject
+    start?: number
+    end?: number
+  }): {
+    start: number
+    end: number
+  } {
+    const selectionStart = typeof start === 'number'
+      ? start
+      : resolveNumber({
+        value: textNode.selectionStart,
+        defaultValue: 0
+      })
+
+    const selectionEnd = typeof end === 'number'
+      ? end
+      : resolveNumber({
+        value: textNode.selectionEnd,
+        defaultValue: selectionStart
+      })
+
+    return {
+      start: selectionStart,
+      end: selectionEnd
+    }
+  }
+
+  /**
+   * Сериализует первый стиль выделенного диапазона текста в plain-object для e2e assertion.
+   */
+  function serializeTextSelectionStyle({
+    style
+  }: {
+    style: BrowserObject
+  }): BrowserTextSelectionStyleInfo {
+    return {
+      fill: resolveNullableString({ value: style.fill }),
+      stroke: resolveNullableString({ value: style.stroke }),
+      strokeWidth: resolveNullableNumber({ value: style.strokeWidth }),
+      fontSize: resolveNullableNumber({ value: style.fontSize }),
+      fontWeight: resolveNullableString({ value: style.fontWeight }),
+      fontStyle: resolveNullableString({ value: style.fontStyle }),
+      underline: resolveNullableBoolean({ value: style.underline }),
+      linethrough: resolveNullableBoolean({ value: style.linethrough })
+    }
+  }
+
+  /**
+   * Возвращает сериализованный стиль выделенного диапазона текста внутри shape.
+   */
+  function getShapeTextSelectionStyles({
+    objectIndex,
+    id,
+    start,
+    end
+  }: BrowserTextSelectionStyleParams): BrowserTextSelectionStyleInfo | null {
+    const textNode = resolveShapeTextNode({ objectIndex, id })
+    if (!textNode) return null
+
+    const selectionRange = resolveTextSelectionRange({
+      textNode,
+      start,
+      end
+    })
+    const rawStyles = typeof textNode.getSelectionStyles === 'function'
+      ? textNode.getSelectionStyles(selectionRange.start, selectionRange.end, true)
+      : []
+
+    if (!Array.isArray(rawStyles) || rawStyles.length === 0) return null
+
+    const firstStyle = toBrowserObject({ value: rawStyles[0] })
+
+    return serializeTextSelectionStyle({ style: firstStyle })
   }
 
   /**
@@ -401,30 +416,12 @@ export function installEditorBrowserHelpers(): void {
     })
 
     return {
-      left: resolveNumber({
-        value: groupObject.left,
-        defaultValue: 0
-      }),
-      top: resolveNumber({
-        value: groupObject.top,
-        defaultValue: 0
-      }),
-      width: resolveNumber({
-        value: groupObject.width,
-        defaultValue: 0
-      }),
-      height: resolveNumber({
-        value: groupObject.height,
-        defaultValue: 0
-      }),
-      scaleX: resolveNumber({
-        value: groupObject.scaleX,
-        defaultValue: 1
-      }),
-      scaleY: resolveNumber({
-        value: groupObject.scaleY,
-        defaultValue: 1
-      }),
+      left: groupObject.left ?? 0,
+      top: groupObject.top ?? 0,
+      width: groupObject.width ?? 0,
+      height: groupObject.height ?? 0,
+      scaleX: groupObject.scaleX ?? 1,
+      scaleY: groupObject.scaleY ?? 1,
       shapeStrokeUniform: resolveNullableBoolean({ value: shapeNodeObject.strokeUniform }),
       shapeStrokeWidth: resolveNullableNumber({ value: shapeNodeObject.strokeWidth }),
       groupBoundsLeft: groupBoundsInfo.left,
@@ -443,27 +440,30 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Регистрирует serializer-хелперы на window.
+   * Регистрирует browser-side хелперы на window для вызова из page.evaluate().
    */
-  function installBrowserSerializers(): void {
-    browserWindow.__serializeEditorObject = serializeEditorObject
-    browserWindow.__serializeShapeObject = serializeShapeObject
-    browserWindow.__serializeShapeTextObject = serializeShapeTextObject
-    browserWindow.__serializeShapeScaleSnapshot = serializeShapeScaleSnapshot
+  function installBrowserHelpers(): void {
+    const editorHelpers: BrowserEditorHelpers = {
+      serializeEditorObject,
+      serializeShapeObject,
+      serializeShapeTextObject,
+      serializeShapeScaleSnapshot,
+      resolveShapeNode(group: unknown) {
+        return resolveShapeNode({ group })
+      },
+      resolveTarget(objectIndex?: number, id?: string) {
+        return resolveTarget({ objectIndex, id })
+      },
+      resolveCanvasObject(objectIndex?: number, id?: string) {
+        return resolveCanvasObject({ objectIndex, id })
+      },
+      getShapeTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
+        return getShapeTextSelectionStyles(params)
+      }
+    }
+
+    browserWindow.__editorHelpers = editorHelpers
   }
 
-  /**
-   * Регистрирует resolver-хелперы на window.
-   */
-  function installBrowserResolvers(): void {
-    browserWindow.__resolveShapeNode = (group: unknown) => resolveShapeNode({ group })
-    browserWindow.__resolveTarget = (objectIndex?: number, id?: string) => resolveTarget({ objectIndex, id })
-    browserWindow.__resolveCanvasObject = (
-      objectIndex?: number,
-      id?: string
-    ) => resolveCanvasObject({ objectIndex, id })
-  }
-
-  installBrowserSerializers()
-  installBrowserResolvers()
+  installBrowserHelpers()
 }

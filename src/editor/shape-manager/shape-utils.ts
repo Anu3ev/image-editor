@@ -1,4 +1,6 @@
 import { FabricObject, Group, Textbox } from 'fabric'
+import { ShapeGroupObject } from './shape-group'
+import { applyShapeGroupInteractivity } from './shape-runtime'
 import {
   ShapeGroup,
   ShapeGroupLike,
@@ -11,8 +13,8 @@ import {
  */
 export const isShapeGroup = (
   object?: FabricObject | Group | null
-): object is ShapeGroup => object instanceof Group
-  && object.shapeComposite === true
+): object is ShapeGroup => object instanceof ShapeGroupObject
+  || (object instanceof Group && object.shapeComposite === true)
 
 /**
  * Возвращает shape-группу из target/subTarget.
@@ -98,17 +100,5 @@ export const getShapeNodes = ({ group }: { group: ShapeGroupLike }): {
  * Включает интерактивность группы и sub-target клики.
  */
 export const applyGroupInteractivity = ({ group }: { group: ShapeGroupLike }): void => {
-  const groupWithInteractive = group as Group & {
-    interactive?: boolean
-    setInteractive?: (value: boolean) => void
-  }
-
-  if (typeof groupWithInteractive.setInteractive === 'function') {
-    groupWithInteractive.setInteractive(true)
-  }
-
-  groupWithInteractive.set({
-    interactive: true,
-    subTargetCheck: true
-  })
+  applyShapeGroupInteractivity({ group })
 }

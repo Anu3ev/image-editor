@@ -10,10 +10,15 @@ import {
   mockQuerySelector
 } from '../../../test-utils/editor-helpers'
 import {
+  createMockShapeNode,
+  createMockShapeTextbox,
+} from '../../../test-utils/shape-helpers'
+import {
   enableCanvasFireHandlers,
   installExternalImagePastePendingDefer
 } from '../../../test-utils/clipboard-manager-helpers'
 import ClipboardManager from '../../../../src/editor/clipboard-manager'
+import { ShapeGroupObject } from '../../../../src/editor/shape-manager/shape-group'
 
 describe('ClipboardManager', () => {
   const ASYNC_DELAY = 10
@@ -303,6 +308,41 @@ describe('ClipboardManager', () => {
         fromInternalClipboard: true,
         clipboardObject: mockGroup,
         object: expect.any(ActiveSelection)
+      })
+    })
+
+    it('должен вставить shape-group из внутреннего буфера без потери runtime-свойств', async() => {
+      const sourceGroup = new ShapeGroupObject([
+        createMockShapeNode() as never,
+        createMockShapeTextbox({ text: 'source text' })
+      ], {
+        left: 10,
+        top: 20,
+        shapePresetKey: 'square'
+      })
+      const pastedGroup = new ShapeGroupObject([
+        createMockShapeNode() as never,
+        createMockShapeTextbox({ text: 'pasted text' })
+      ], {
+        left: 10,
+        top: 20,
+        shapePresetKey: 'square'
+      })
+
+      sourceGroup.clone = jest.fn().mockResolvedValue(pastedGroup) as never
+      clipboardManager.clipboard = sourceGroup
+
+      const result = await clipboardManager.paste()
+
+      expect(result).toBe(true)
+      expect(mockCanvas.add).toHaveBeenCalledWith(pastedGroup)
+      expect(pastedGroup.shapeComposite).toBe(true)
+      expect(pastedGroup.interactive).toBe(true)
+      expect(pastedGroup.subTargetCheck).toBe(true)
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
+        fromInternalClipboard: true,
+        clipboardObject: sourceGroup,
+        object: pastedGroup
       })
     })
 
