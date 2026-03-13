@@ -2,6 +2,8 @@ import { Point } from 'fabric'
 import {
   applyShapeTextLayout,
   isShapeTextFrameFilled,
+  resolveMinimumShapeWidthForText,
+  resolveRequiredShapeHeightForText,
   resolveShapeTextFrameLayout
 } from '../../../../src/editor/shape-manager/shape-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
@@ -10,12 +12,15 @@ import {
 } from '../../../../src/editor/shape-manager/shape-utils'
 import {
   createShapeScalingSetup,
+  createShapeScalingTransform,
   mockShapeGroupPositionByOrigin
 } from '../../../test-utils/shape-scaling-helpers'
 
 jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
   isShapeTextFrameFilled: jest.fn(),
+  resolveMinimumShapeWidthForText: jest.fn(() => 100),
+  resolveRequiredShapeHeightForText: jest.fn(({ height }: { height: number }) => height),
   resolveShapeTextFrameLayout: jest.fn(() => ({
     frame: {
       left: -60,
@@ -40,6 +45,8 @@ jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
 describe('shape-scaling', () => {
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
   const isShapeTextFrameFilledMock = isShapeTextFrameFilled as jest.Mock
+  const resolveMinimumShapeWidthForTextMock = resolveMinimumShapeWidthForText as jest.Mock
+  const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
   const resolveShapeTextFrameLayoutMock = resolveShapeTextFrameLayout as jest.Mock
   const resizeShapeNodeMock = resizeShapeNode as jest.Mock
   const isShapeGroupMock = isShapeGroup as jest.Mock
@@ -47,6 +54,8 @@ describe('shape-scaling', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     isShapeGroupMock.mockImplementation((target: { shapeComposite?: boolean }) => target?.shapeComposite === true)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => height)
   })
 
   it('блокирует уменьшение заполненного текстом шейпа как noop (без изменения размеров)', () => {
@@ -131,6 +140,49 @@ describe('shape-scaling', () => {
     expect(group.shapeScalingNoopTransform).toBe(true)
   })
 
+  it('не блокирует уменьшение когда следующий layout требует splitByGrapheme', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveShapeTextFrameLayoutMock.mockReturnValueOnce({
+      frame: {
+        left: -60,
+        top: -40,
+        width: 120,
+        height: 120
+      },
+      splitByGrapheme: true,
+      textTop: -20
+    })
+
+    group.scaleX = 0.8
+    group.scaleY = 0.8
+    group.left = 480
+    group.top = 420
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    expect(group.shapeScalingNoopTransform).toBe(false)
+    expect(group.scaleX).toBe(0.8)
+    expect(group.scaleY).toBe(0.8)
+  })
+
   it('обновляет текстовый layout в live-режиме во время scaling', () => {
     const {
       controller,
@@ -175,6 +227,93 @@ describe('shape-scaling', () => {
     expect(text.scaleX).toBeCloseTo(1 / 1.5, 4)
     expect(text.scaleY).toBeCloseTo(0.5, 4)
     expect(canvas.requestRenderAll).toHaveBeenCalled()
+  })
+
+  it('синхронизирует высоту группы с live-preview высотой текста при переносе строк', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockReturnValue(360)
+
+    group.scaleX = 0.5
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+
+    expect(group.width).toBe(200)
+    expect(group.height).toBe(360)
+  })
+
+  it('после упора в минимальную ширину позволяет снова растягивать объект в той же drag-сессии', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+      getScenePoint: jest.Mock
+      getZoom: jest.Mock
+    }
+
+    canvasWithTransform.getScenePoint = jest.fn(() => ({
+      x: -10,
+      y: 0,
+      rotate: jest.fn(() => new Point(-10, 0)),
+      subtract: jest.fn(() => new Point(-10, 0))
+    }))
+    canvasWithTransform.getZoom = jest.fn(() => 1)
+    group.canvas = canvasWithTransform as never
+    group.getRelativeCenterPoint = jest.fn(() => new Point(0, 0)) as never
+    group.translateToGivenOrigin = jest.fn((point: Point) => point) as never
+    group.controls = {
+      br: {
+        offsetX: 0,
+        offsetY: 0
+      }
+    } as never
+
+    group.scaleX = 1
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+
+    canvasWithTransform._currentTransform = {
+      ...createShapeScalingTransform(),
+      target: group,
+      action: 'scaleX',
+      signX: 1
+    }
+
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+
+    expect(group.scaleX).toBeCloseTo(0.5, 4)
+    expect(group.shapeScalingNoopTransform).toBe(false)
+
+    group.scaleX = 0.9
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+
+    expect(group.scaleX).toBeCloseTo(0.9, 4)
+    expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
   it('запекает размеры после разрешенного scaling и сбрасывает scale у группы/текста', () => {
@@ -263,6 +402,7 @@ describe('shape-scaling', () => {
 
     group.shapeRounding = 80
     isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(1)
 
     group.scaleX = 0.5
     group.scaleY = 0.5
@@ -357,7 +497,7 @@ describe('shape-scaling', () => {
     expect(group.shapeRounding).toBe(0)
   })
 
-  it('при заполненном фрейме не даёт уменьшить базовые размеры ниже текущих', () => {
+  it('при заполненном фрейме не даёт уменьшить базовую высоту ниже текущей', () => {
     const {
       controller,
       group
@@ -392,8 +532,101 @@ describe('shape-scaling', () => {
     })
 
     const layoutCall = applyShapeTextLayoutMock.mock.calls[0]?.[0]
-    expect(layoutCall.width).toBeGreaterThanOrEqual(200)
+    expect(layoutCall.width).toBe(140)
     expect(layoutCall.height).toBeGreaterThanOrEqual(200)
+  })
+
+  it('сохраняет одинаковую минимальную ширину после повторных циклов shrink-expand-shrink', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+      getScenePoint: jest.Mock
+      getZoom: jest.Mock
+    }
+    const minimumWidthTransform = {
+      ...createShapeScalingTransform(),
+      target: group,
+      action: 'scaleX',
+      signX: 1
+    } as never
+
+    canvasWithTransform.getScenePoint = jest.fn(() => ({
+      x: -10,
+      y: 0,
+      rotate: jest.fn(() => new Point(-10, 0)),
+      subtract: jest.fn(() => new Point(-10, 0))
+    }))
+    canvasWithTransform.getZoom = jest.fn(() => 1)
+    group.canvas = canvasWithTransform as never
+    group.getRelativeCenterPoint = jest.fn(() => new Point(0, 0)) as never
+    group.translateToGivenOrigin = jest.fn((point: Point) => point) as never
+    group.controls = {
+      br: {
+        offsetX: 0,
+        offsetY: 0
+      }
+    } as never
+
+    group.scaleX = 1
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+    canvasWithTransform._currentTransform = minimumWidthTransform
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: minimumWidthTransform
+    })
+
+    group.scaleX = 2
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+    controller.handleObjectModified({
+      target: group
+    })
+
+    group.scaleX = 1
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+    canvasWithTransform._currentTransform = minimumWidthTransform
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: minimumWidthTransform
+    })
+
+    const firstShrinkCall = applyShapeTextLayoutMock.mock.calls[0]?.[0]
+    const expandCall = applyShapeTextLayoutMock.mock.calls[1]?.[0]
+    const secondShrinkCall = applyShapeTextLayoutMock.mock.calls[2]?.[0]
+
+    expect(firstShrinkCall.width).toBe(100)
+    expect(expandCall.width).toBe(200)
+    expect(secondShrinkCall.width).toBe(100)
   })
 
   it('фиксирует anchor в live-режиме и восстанавливает позицию через setPositionByOrigin', () => {

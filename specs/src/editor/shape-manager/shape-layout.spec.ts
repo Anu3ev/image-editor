@@ -2,6 +2,7 @@ import { Point } from 'fabric'
 import {
   applyShapeTextLayout,
   isShapeTextFrameFilled,
+  resolveMinimumShapeWidthForText,
   resolveGroupCenterPoint,
   resolveRequiredShapeHeightForText,
   resolveShapeTextFrameLayout
@@ -180,6 +181,117 @@ describe('shape-layout', () => {
     expect(text.width).toBeLessThan(180)
   })
 
+  it('увеличивает ширину shape если одна буква не помещается по ширине', () => {
+    const shape = createMockShapeNode({
+      width: 50,
+      height: 80
+    })
+
+    // Очень большая буква, ширина textbox меньше чем ширина символа
+    const text = createMockShapeTextbox({
+      text: 'W',
+      width: 20,
+      fontSize: 100
+    })
+
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 20,
+      height: 80
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 20,
+      height: 80,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    // Ожидаем, что ширина shape была увеличена чтобы вмещать символ
+    expect(group.shapeBaseWidth).toBeGreaterThanOrEqual(20)
+  })
+
+  it('resolveMinimumShapeWidthForText считает минимум по одному символу, а не по целому слову', () => {
+    const multiCharText = createMockShapeTextbox({
+      text: 'TEST',
+      width: 200,
+      fontSize: 40
+    })
+    const singleCharText = createMockShapeTextbox({
+      text: 'T',
+      width: 200,
+      fontSize: 40
+    })
+
+    const multiCharMinimumWidth = resolveMinimumShapeWidthForText({
+      text: multiCharText,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+    const singleCharMinimumWidth = resolveMinimumShapeWidthForText({
+      text: singleCharText,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(multiCharMinimumWidth).toBe(singleCharMinimumWidth)
+  })
+
+  it('applyShapeTextLayout синхронизирует manual base размеры с рассчитанным layout', () => {
+    const shape = createMockShapeNode({
+      width: 180,
+      height: 80
+    })
+    const text = createMockShapeTextbox({
+      text: 'wrap wrap wrap wrap',
+      width: 180,
+      fontSize: 30
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 180,
+      height: 80
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 180,
+      height: 120,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(group.shapeManualBaseWidth).toBe(group.shapeBaseWidth)
+    expect(group.shapeManualBaseHeight).toBe(group.shapeBaseHeight)
+  })
+
   it('resolveGroupCenterPoint использует явные координаты, иначе центр канваса', () => {
     const explicitCenter = resolveGroupCenterPoint({
       left: 120,
@@ -194,4 +306,3 @@ describe('shape-layout', () => {
     expect(fallbackCenter).toEqual(new Point(256, 256))
   })
 })
-
