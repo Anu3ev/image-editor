@@ -51,12 +51,11 @@ export const applyShapeTextLayout = ({
   const normalizedPadding = normalizePadding({
     padding
   })
-  const minWidth = resolveRequiredShapeWidthForText({
+  const minWidth = resolveMinimumShapeWidthForText({
     text,
-    width,
     padding: normalizedPadding
   })
-  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, minWidth)
+  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width, minWidth)
   const minHeight = resolveRequiredShapeHeightForText({
     text,
     width: safeWidth,
@@ -110,6 +109,8 @@ export const applyShapeTextLayout = ({
 
   group.shapeBaseWidth = safeWidth
   group.shapeBaseHeight = safeHeight
+  group.shapeManualBaseWidth = safeWidth
+  group.shapeManualBaseHeight = safeHeight
   group.shapePaddingTop = normalizedPadding.top
   group.shapePaddingRight = normalizedPadding.right
   group.shapePaddingBottom = normalizedPadding.bottom
@@ -126,6 +127,29 @@ export const applyShapeTextLayout = ({
 
   group.set('dirty', true)
   group.setCoords()
+}
+
+/**
+ * Возвращает минимальную ширину shape, при которой в текстовом фрейме помещается один символ.
+ */
+export const resolveMinimumShapeWidthForText = ({
+  text,
+  padding
+}: {
+  text: ShapeLayoutInput['text']
+  padding: ShapePadding
+}): number => {
+  const normalizedPadding = normalizePadding({
+    padding
+  })
+  const minimumFrameWidth = resolveMinimumTextFrameWidth({
+    text
+  })
+
+  return resolveShapeWidthForFrameWidth({
+    frameWidth: minimumFrameWidth,
+    padding: normalizedPadding
+  })
 }
 
 /**
@@ -255,47 +279,29 @@ export const resolveRequiredShapeHeightForText = ({
 }
 
 /**
- * Возвращает минимальную ширину shape, при которой текст не выходит за пределы текстового фрейма.
+ * Возвращает минимальную ширину shape для переданной минимальной ширины текстового фрейма.
  */
-function resolveRequiredShapeWidthForText({
-  text,
-  width,
+function resolveShapeWidthForFrameWidth({
+  frameWidth,
   padding
 }: {
-  text: ShapeLayoutInput['text']
-  width: number
+  frameWidth: number
   padding: ShapePadding
 }): number {
-  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
-  const normalizedPadding = normalizePadding({
-    padding
-  })
-  const currentFrameWidth = resolveTextFrameWidth({
-    width: safeWidth,
-    padding: normalizedPadding
-  })
-  const requiredFrameWidth = resolveRequiredTextFrameWidth({
-    text,
-    frameWidth: currentFrameWidth
-  })
-
-  if (requiredFrameWidth <= currentFrameWidth + TEXT_FRAME_FILL_EPSILON) {
-    return safeWidth
-  }
-
-  let nextWidth = safeWidth
+  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
+  let nextWidth = safeFrameWidth
 
   for (let iteration = 0; iteration < MAX_WIDTH_RESIZE_ITERATIONS; iteration += 1) {
     const nextFrameWidth = resolveTextFrameWidth({
       width: nextWidth,
-      padding: normalizedPadding
+      padding
     })
 
-    if (nextFrameWidth >= requiredFrameWidth - TEXT_FRAME_FILL_EPSILON) {
+    if (nextFrameWidth >= safeFrameWidth - TEXT_FRAME_FILL_EPSILON) {
       return nextWidth
     }
 
-    const missingWidth = requiredFrameWidth - nextFrameWidth
+    const missingWidth = safeFrameWidth - nextFrameWidth
     nextWidth = Math.max(nextWidth + missingWidth, nextWidth * 1.05)
   }
 
@@ -465,37 +471,20 @@ function measureTextboxHeightForFrame({
 }
 
 /**
- * Возвращает требуемую ширину текстового фрейма, если даже перенос по символам не устраняет горизонтальный overflow.
+ * Возвращает минимальную ширину текстового фрейма, достаточную для отображения одного символа.
  */
-function resolveRequiredTextFrameWidth({
-  text,
-  frameWidth
+function resolveMinimumTextFrameWidth({
+  text
 }: {
   text: ShapeLayoutInput['text']
-  frameWidth: number
 }): number {
-  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
-  const longestWordWidth = measureTextboxLongestLineWidthForFrame({
+  const minimumFrameWidth = measureTextboxLongestLineWidthForFrame({
     text,
-    frameWidth: safeFrameWidth,
-    splitByGrapheme: false
-  })
-
-  if (longestWordWidth <= safeFrameWidth + TEXT_FRAME_FILL_EPSILON) {
-    return safeFrameWidth
-  }
-
-  const longestGraphemeLineWidth = measureTextboxLongestLineWidthForFrame({
-    text,
-    frameWidth: safeFrameWidth,
+    frameWidth: MIN_TEXT_FRAME_SIZE,
     splitByGrapheme: true
   })
 
-  if (longestGraphemeLineWidth <= safeFrameWidth + TEXT_FRAME_FILL_EPSILON) {
-    return safeFrameWidth
-  }
-
-  return longestGraphemeLineWidth
+  return Math.max(MIN_TEXT_FRAME_SIZE, minimumFrameWidth)
 }
 
 /**
