@@ -2,6 +2,8 @@ import { Point } from 'fabric'
 import {
   applyShapeTextLayout,
   isShapeTextFrameFilled,
+  resolveMinimumShapeWidthForText,
+  resolveRequiredShapeHeightForText,
   resolveShapeTextFrameLayout
 } from '../../../../src/editor/shape-manager/shape-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
@@ -16,6 +18,8 @@ import {
 jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
   isShapeTextFrameFilled: jest.fn(),
+  resolveMinimumShapeWidthForText: jest.fn(() => 100),
+  resolveRequiredShapeHeightForText: jest.fn(({ height }: { height: number }) => height),
   resolveShapeTextFrameLayout: jest.fn(() => ({
     frame: {
       left: -60,
@@ -40,6 +44,8 @@ jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
 describe('shape-scaling', () => {
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
   const isShapeTextFrameFilledMock = isShapeTextFrameFilled as jest.Mock
+  const resolveMinimumShapeWidthForTextMock = resolveMinimumShapeWidthForText as jest.Mock
+  const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
   const resolveShapeTextFrameLayoutMock = resolveShapeTextFrameLayout as jest.Mock
   const resizeShapeNodeMock = resizeShapeNode as jest.Mock
   const isShapeGroupMock = isShapeGroup as jest.Mock
@@ -47,6 +53,8 @@ describe('shape-scaling', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     isShapeGroupMock.mockImplementation((target: { shapeComposite?: boolean }) => target?.shapeComposite === true)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => height)
   })
 
   it('блокирует уменьшение заполненного текстом шейпа как noop (без изменения размеров)', () => {
@@ -131,14 +139,12 @@ describe('shape-scaling', () => {
     expect(group.shapeScalingNoopTransform).toBe(true)
   })
 
-  it('блокирует уменьшение когда следующий layout требует splitByGrapheme', () => {
+  it('не блокирует уменьшение когда следующий layout требует splitByGrapheme', () => {
     const {
       controller,
-      canvas,
       group
     } = createShapeScalingSetup()
 
-    // frame по высоте не заполнен, но следующий layout вернёт splitByGrapheme=true
     isShapeTextFrameFilledMock.mockReturnValue(false)
     resolveShapeTextFrameLayoutMock.mockReturnValueOnce({
       frame: {
@@ -171,15 +177,9 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    expect(group.shapeScalingNoopTransform).toBe(true)
-    expect(group.scaleX).toBe(1)
-    expect(group.scaleY).toBe(1)
-    expect(group.left).toBe(480)
-    expect(group.top).toBe(420)
-
-    // При modified ничего не применится к layout
-    controller.handleObjectModified({ target: group })
-    expect(canvas.requestRenderAll).toHaveBeenCalled()
+    expect(group.shapeScalingNoopTransform).toBe(false)
+    expect(group.scaleX).toBe(0.8)
+    expect(group.scaleY).toBe(0.8)
   })
 
   it('обновляет текстовый layout в live-режиме во время scaling', () => {
@@ -314,6 +314,7 @@ describe('shape-scaling', () => {
 
     group.shapeRounding = 80
     isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(1)
 
     group.scaleX = 0.5
     group.scaleY = 0.5
@@ -408,7 +409,7 @@ describe('shape-scaling', () => {
     expect(group.shapeRounding).toBe(0)
   })
 
-  it('при заполненном фрейме не даёт уменьшить базовые размеры ниже текущих', () => {
+  it('при заполненном фрейме не даёт уменьшить базовую высоту ниже текущей', () => {
     const {
       controller,
       group
@@ -443,7 +444,7 @@ describe('shape-scaling', () => {
     })
 
     const layoutCall = applyShapeTextLayoutMock.mock.calls[0]?.[0]
-    expect(layoutCall.width).toBeGreaterThanOrEqual(200)
+    expect(layoutCall.width).toBe(140)
     expect(layoutCall.height).toBeGreaterThanOrEqual(200)
   })
 
