@@ -12,6 +12,7 @@ import {
 } from '../../../../src/editor/shape-manager/shape-utils'
 import {
   createShapeScalingSetup,
+  createShapeScalingTransform,
   mockShapeGroupPositionByOrigin
 } from '../../../test-utils/shape-scaling-helpers'
 
@@ -226,6 +227,93 @@ describe('shape-scaling', () => {
     expect(text.scaleX).toBeCloseTo(1 / 1.5, 4)
     expect(text.scaleY).toBeCloseTo(0.5, 4)
     expect(canvas.requestRenderAll).toHaveBeenCalled()
+  })
+
+  it('синхронизирует высоту группы с live-preview высотой текста при переносе строк', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockReturnValue(360)
+
+    group.scaleX = 0.5
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+
+    expect(group.width).toBe(200)
+    expect(group.height).toBe(360)
+  })
+
+  it('после упора в минимальную ширину позволяет снова растягивать объект в той же drag-сессии', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+      getScenePoint: jest.Mock
+      getZoom: jest.Mock
+    }
+
+    canvasWithTransform.getScenePoint = jest.fn(() => ({
+      x: -10,
+      y: 0,
+      rotate: jest.fn(() => new Point(-10, 0)),
+      subtract: jest.fn(() => new Point(-10, 0))
+    }))
+    canvasWithTransform.getZoom = jest.fn(() => 1)
+    group.canvas = canvasWithTransform as never
+    group.getRelativeCenterPoint = jest.fn(() => new Point(0, 0)) as never
+    group.translateToGivenOrigin = jest.fn((point: Point) => point) as never
+    group.controls = {
+      br: {
+        offsetX: 0,
+        offsetY: 0
+      }
+    } as never
+
+    group.scaleX = 1
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+
+    canvasWithTransform._currentTransform = {
+      ...createShapeScalingTransform(),
+      target: group,
+      action: 'scaleX',
+      signX: 1
+    }
+
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+
+    expect(group.scaleX).toBeCloseTo(0.5, 4)
+    expect(group.shapeScalingNoopTransform).toBe(false)
+
+    group.scaleX = 0.9
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+
+    expect(group.scaleX).toBeCloseTo(0.9, 4)
+    expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
   it('запекает размеры после разрешенного scaling и сбрасывает scale у группы/текста', () => {
@@ -446,6 +534,99 @@ describe('shape-scaling', () => {
     const layoutCall = applyShapeTextLayoutMock.mock.calls[0]?.[0]
     expect(layoutCall.width).toBe(140)
     expect(layoutCall.height).toBeGreaterThanOrEqual(200)
+  })
+
+  it('сохраняет одинаковую минимальную ширину после повторных циклов shrink-expand-shrink', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+      getScenePoint: jest.Mock
+      getZoom: jest.Mock
+    }
+    const minimumWidthTransform = {
+      ...createShapeScalingTransform(),
+      target: group,
+      action: 'scaleX',
+      signX: 1
+    } as never
+
+    canvasWithTransform.getScenePoint = jest.fn(() => ({
+      x: -10,
+      y: 0,
+      rotate: jest.fn(() => new Point(-10, 0)),
+      subtract: jest.fn(() => new Point(-10, 0))
+    }))
+    canvasWithTransform.getZoom = jest.fn(() => 1)
+    group.canvas = canvasWithTransform as never
+    group.getRelativeCenterPoint = jest.fn(() => new Point(0, 0)) as never
+    group.translateToGivenOrigin = jest.fn((point: Point) => point) as never
+    group.controls = {
+      br: {
+        offsetX: 0,
+        offsetY: 0
+      }
+    } as never
+
+    group.scaleX = 1
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+    canvasWithTransform._currentTransform = minimumWidthTransform
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: minimumWidthTransform
+    })
+
+    group.scaleX = 2
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+    controller.handleObjectModified({
+      target: group
+    })
+
+    group.scaleX = 1
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: createShapeScalingTransform()
+    })
+    canvasWithTransform._currentTransform = minimumWidthTransform
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: minimumWidthTransform
+    })
+
+    const firstShrinkCall = applyShapeTextLayoutMock.mock.calls[0]?.[0]
+    const expandCall = applyShapeTextLayoutMock.mock.calls[1]?.[0]
+    const secondShrinkCall = applyShapeTextLayoutMock.mock.calls[2]?.[0]
+
+    expect(firstShrinkCall.width).toBe(100)
+    expect(expandCall.width).toBe(200)
+    expect(secondShrinkCall.width).toBe(100)
   })
 
   it('фиксирует anchor в live-режиме и восстанавливает позицию через setPositionByOrigin', () => {
