@@ -192,6 +192,24 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Выбирает текстовый узел внутри композитной группы.
+   */
+  function resolveTextNode({ group }: { group: unknown }): BrowserObject | null {
+    const objects = getGroupObjects({ group })
+    if (!objects.length) return null
+
+    for (let index = 0; index < objects.length; index += 1) {
+      const textNode = objects[index]
+
+      if (resolveShapeNodeType({ value: textNode }) === 'text') {
+        return textNode
+      }
+    }
+
+    return null
+  }
+
+  /**
    * Возвращает id или объект canvas по индексу.
    */
   function resolveTarget({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
@@ -400,12 +418,15 @@ export function installEditorBrowserHelpers(): void {
   const serializeShapeScaleSnapshot: BrowserSerializer = (obj: unknown) => {
     const groupObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
     const shapeNode = resolveShapeNode({ group: obj })
+    const textNode = resolveTextNode({ group: obj })
     const shapeNodeObject = toBrowserObject({ value: shapeNode }) as BrowserShapeNodeObject
 
     const groupBounds = getBoundingRect({ target: obj })
     const shapeBounds = getBoundingRect({ target: shapeNode })
+    const textBounds = getBoundingRect({ target: textNode })
     const groupBoundsInfo = createBoundsInfo({ bounds: groupBounds })
     const shapeBoundsInfo = createNullableBoundsInfo({ bounds: shapeBounds })
+    const textBoundsInfo = createNullableBoundsInfo({ bounds: textBounds })
     const shapeBoundsRight = sumNullableNumbers({
       first: shapeBoundsInfo.left,
       second: shapeBoundsInfo.width
@@ -413,6 +434,14 @@ export function installEditorBrowserHelpers(): void {
     const shapeBoundsBottom = sumNullableNumbers({
       first: shapeBoundsInfo.top,
       second: shapeBoundsInfo.height
+    })
+    const textBoundsRight = sumNullableNumbers({
+      first: textBoundsInfo.left,
+      second: textBoundsInfo.width
+    })
+    const textBoundsBottom = sumNullableNumbers({
+      first: textBoundsInfo.top,
+      second: textBoundsInfo.height
     })
 
     return {
@@ -435,7 +464,13 @@ export function installEditorBrowserHelpers(): void {
       shapeBoundsWidth: shapeBoundsInfo.width,
       shapeBoundsHeight: shapeBoundsInfo.height,
       shapeBoundsRight,
-      shapeBoundsBottom
+      shapeBoundsBottom,
+      textBoundsLeft: textBoundsInfo.left,
+      textBoundsTop: textBoundsInfo.top,
+      textBoundsWidth: textBoundsInfo.width,
+      textBoundsHeight: textBoundsInfo.height,
+      textBoundsRight,
+      textBoundsBottom
     }
   }
 

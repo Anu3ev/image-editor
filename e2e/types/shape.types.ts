@@ -76,6 +76,7 @@ export interface ShapeAddParams {
     width?: number
     height?: number
     text?: string
+    textStyle?: ShapeTextStyleParams
     fill?: string
     stroke?: string | null
     strokeWidth?: number
@@ -144,6 +145,14 @@ export interface ShapeScaleStepParams extends ObjectTargetParams {
   originY?: ShapeScaleOriginY
 }
 
+/** Параметры live-scale шага с последующим mouse:move для сценариев clamp на minimum width. */
+export interface ShapeScaleMouseMoveStepParams extends ShapeScaleStepParams {
+  pointerX: number
+  pointerY: number
+  action?: 'scaleX'
+  signX?: number
+}
+
 /** Снимок состояния shape-группы во время/после масштабирования */
 export interface ShapeScaleSnapshot {
   left: number
@@ -166,6 +175,12 @@ export interface ShapeScaleSnapshot {
   shapeBoundsHeight: number | null
   shapeBoundsRight: number | null
   shapeBoundsBottom: number | null
+  textBoundsLeft: number | null
+  textBoundsTop: number | null
+  textBoundsWidth: number | null
+  textBoundsHeight: number | null
+  textBoundsRight: number | null
+  textBoundsBottom: number | null
 }
 
 /** Расширенная информация о shape-группе */

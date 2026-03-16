@@ -9,6 +9,7 @@ import type {
   ShapeTextAlignParams,
   ShapeTextStyleParams,
   ShapeScaleStepParams,
+  ShapeScaleMouseMoveStepParams,
   ShapeScaleSnapshot,
   ShapePresetKey,
   ShapeHorizontalAlign,
@@ -104,6 +105,74 @@ export class ShapeModel {
     }, params)
   }
 
+  /** Добавляет shape с текстом и начальными текстовыми стилями. */
+  async addShapeWithText(
+    params: { presetKey?: ShapePresetKey, text?: string, fontSize?: number } = {}
+  ): Promise<ShapeObjectInfo> {
+    const {
+      presetKey = 'square',
+      text = 'TEST',
+      fontSize = 72
+    } = params
+
+    const shape = await this.add({
+      presetKey,
+      options: {
+        text,
+        textStyle: {
+          fontSize
+        }
+      }
+    })
+    return this.checkCreation({
+      shape,
+      presetKey
+    })
+  }
+
+  /** Сжимает shape до minimum width в live drag-сессии и возвращает проверенный snapshot. */
+  async shrinkToMinimumWidth(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
+    const {
+      objectIndex,
+      id
+    } = params
+
+    const snapshot = await this.simulateScaleMouseMoveStep({
+      scaleX: 0.2,
+      scaleY: 1,
+      pointerX: -20,
+      pointerY: 0,
+      corner: 'mr',
+      originX: 'left',
+      originY: 'center',
+      objectIndex,
+      id
+    })
+
+    return snapshot
+  }
+
+  /** Масштабирует shape по горизонтали за правую ручку и возвращает live snapshot. */
+  async scaleHorizontallyFromRight(
+    params: { scaleX: number } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scaleX,
+      objectIndex,
+      id
+    } = params
+
+    return this.simulateScaleStep({
+      scaleX,
+      scaleY: 1,
+      corner: 'mr',
+      originX: 'left',
+      originY: 'center',
+      objectIndex,
+      id
+    })
+  }
+
   /** Имитирует масштабирование shape и запекание результата через object:modified */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
     const {
@@ -125,9 +194,9 @@ export class ShapeModel {
     })
   }
 
-  /** Выполняет один live-шаг интерактивного масштабирования и возвращает snapshot состояния */
-  async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot | null> {
-    return this.page.evaluate((payload) => {
+  /** Выполняет один live-шаг интерактивного масштабирования, fail-fast проверяет snapshot и возвращает его. */
+  async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
+    const snapshot = await this.page.evaluate((payload) => {
       const {
         scaleX,
         scaleY,
@@ -172,11 +241,83 @@ export class ShapeModel {
 
       return helpers.serializeShapeScaleSnapshot(target)
     }, params)
+
+    expect(snapshot, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
+
+    return snapshot as ShapeScaleSnapshot
   }
 
-  /** Завершает интерактивное масштабирование через object:modified и возвращает snapshot состояния */
-  async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+  /** Выполняет live-scale шаг с mouse:move для clamp-сценариев, fail-fast проверяет snapshot и возвращает его. */
+  async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
+    const snapshot = await this.page.evaluate((payload) => {
+      const {
+        scaleX,
+        scaleY,
+        pointerX,
+        pointerY,
+        action = 'scaleX',
+        signX = 1,
+        corner = 'br',
+        originX = 'left',
+        originY = 'top',
+        objectIndex,
+        id
+      } = payload
+
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      if (!target) return null
+
+      const left = typeof target.left === 'number' ? target.left : 0
+      const top = typeof target.top === 'number' ? target.top : 0
+      const transform = {
+        target,
+        action,
+        signX,
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left,
+          top
+        },
+        corner,
+        originX,
+        originY
+      }
+
+      target.set({
+        scaleX,
+        scaleY
+      })
+      target.setCoords()
+
+      editor.canvas._currentTransform = transform
+      editor.canvas.fire('object:scaling', {
+        target,
+        transform
+      })
+      editor.canvas.fire('mouse:move', {
+        e: new PointerEvent('pointermove', {
+          clientX: pointerX,
+          clientY: pointerY
+        })
+      })
+
+      return helpers.serializeShapeScaleSnapshot(target)
+    }, params)
+
+    expect(snapshot, 'должен существовать live snapshot после mouse:move clamp').not.toBeNull()
+
+    return snapshot as ShapeScaleSnapshot
+  }
+
+  /** Завершает интерактивное масштабирование через object:modified, fail-fast проверяет snapshot и возвращает его. */
+  async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
+    const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -191,11 +332,15 @@ export class ShapeModel {
 
       return helpers.serializeShapeScaleSnapshot(target)
     }, params)
+
+    expect(snapshot, 'должен существовать snapshot после завершения масштабирования').not.toBeNull()
+
+    return snapshot as ShapeScaleSnapshot
   }
 
-  /** Возвращает текущий snapshot состояния shape-группы для проверок live-scale */
-  async getScaleSnapshot(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+  /** Возвращает текущий snapshot состояния shape-группы, fail-fast проверяет его наличие. */
+  async getScaleSnapshot(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
+    const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const { __editorHelpers: helpers } = window as any
 
       const target = helpers.resolveTarget(objectIndex, id)
@@ -203,6 +348,10 @@ export class ShapeModel {
 
       return helpers.serializeShapeScaleSnapshot(target)
     }, params)
+
+    expect(snapshot, 'должен существовать текущий snapshot масштабируемого shape').not.toBeNull()
+
+    return snapshot as ShapeScaleSnapshot
   }
 
   /** Обновляет shape — меняет пресет, размеры, стили. Сохраняет позицию и текст */
@@ -458,19 +607,48 @@ export class ShapeModel {
     return shape as ShapeObjectInfo
   }
 
-  /**
-   * Проверяет что snapshot live-scale получен корректно.
-   * Возвращает гарантированно не-null ShapeScaleSnapshot
-   */
-  checkScaleSnapshot(params: { snapshot: ShapeScaleSnapshot | null, message: string }): ShapeScaleSnapshot {
+  /** Проверяет, что bounds shape- или text-узла остаются внутри bounds группы. */
+  checkNodeInsideGroup(params: {
+    snapshot: ShapeScaleSnapshot
+    kind: 'shape' | 'text'
+    tolerance?: number
+  }): {
+    left: number
+    top: number
+    right: number
+    bottom: number
+  } {
     const {
       snapshot,
-      message
+      kind,
+      tolerance = 1.5
     } = params
 
-    expect(snapshot, message).not.toBeNull()
+    const left = kind === 'shape' ? snapshot.shapeBoundsLeft : snapshot.textBoundsLeft
+    const top = kind === 'shape' ? snapshot.shapeBoundsTop : snapshot.textBoundsTop
+    const right = kind === 'shape' ? snapshot.shapeBoundsRight : snapshot.textBoundsRight
+    const bottom = kind === 'shape' ? snapshot.shapeBoundsBottom : snapshot.textBoundsBottom
 
-    return snapshot as ShapeScaleSnapshot
+    expect(left, `${kind} bounds left должен существовать`).not.toBeNull()
+    expect(top, `${kind} bounds top должен существовать`).not.toBeNull()
+    expect(right, `${kind} bounds right должен существовать`).not.toBeNull()
+    expect(bottom, `${kind} bounds bottom должен существовать`).not.toBeNull()
+
+    if (left === null || top === null || right === null || bottom === null) {
+      throw new Error(`${kind} bounds должны существовать`)
+    }
+
+    expect(left).toBeGreaterThanOrEqual(snapshot.groupBoundsLeft - tolerance)
+    expect(top).toBeGreaterThanOrEqual(snapshot.groupBoundsTop - tolerance)
+    expect(right).toBeLessThanOrEqual(snapshot.groupBoundsRight + tolerance)
+    expect(bottom).toBeLessThanOrEqual(snapshot.groupBoundsBottom + tolerance)
+
+    return {
+      left,
+      top,
+      right,
+      bottom
+    }
   }
 
   /**
