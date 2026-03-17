@@ -777,6 +777,7 @@ export default class ShapeManager {
 
     canvas.off('object:scaling', this._handleObjectScaling)
     canvas.off('object:modified', this._handleObjectModified)
+    canvas.off('mouse:move', this._handleMouseMove)
     canvas.off('mouse:down', this._handleMouseDown)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
@@ -791,6 +792,7 @@ export default class ShapeManager {
 
     canvas.on('object:scaling', this._handleObjectScaling)
     canvas.on('object:modified', this._handleObjectModified)
+    canvas.on('mouse:move', this._handleMouseMove)
     canvas.on('mouse:down', this._handleMouseDown)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
@@ -813,6 +815,15 @@ export default class ShapeManager {
     event: ShapeCanvasEvent
   ): void => {
     this.scalingController.handleObjectModified(event)
+  }
+
+  /**
+   * Обновляет live-scaling shape-групп на кадрах, где Fabric не эмитит object:scaling.
+   */
+  private _handleMouseMove = (
+    event: ShapeCanvasEvent
+  ): void => {
+    this.scalingController.handleCanvasMouseMove(event)
   }
 
   /**

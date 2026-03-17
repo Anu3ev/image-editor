@@ -6,7 +6,8 @@ import {
 } from 'fabric'
 import {
   applyShapeTextLayout,
-  isShapeTextFrameFilled,
+  resolveMinimumShapeWidthForText,
+  resolveRequiredShapeHeightForText,
   resolveShapeTextFrameLayout
 } from './shape-layout'
 import { resizeShapeNode } from './shape-factory'
@@ -38,6 +39,35 @@ type ShapeScalingEvent = {
 
 type ShapeModifiedEvent = {
   target?: FabricObject | null
+  e?: Event | MouseEvent | PointerEvent | TouchEvent
+  transform?: Transform | null
+}
+
+type ShapeScalingDecision = {
+  appliedScaleX: number
+  appliedScaleY: number
+  previewWidth: number
+  previewHeight: number
+  shouldBlockScaling: boolean
+  shouldHandleAsNoop: boolean
+  shouldPersistAsLastAllowed: boolean
+}
+
+type ShapeScalingBlockState = {
+  shouldBlockScaling: boolean
+  shouldHandleAsNoop: boolean
+  clampedScaleX: number | null
+  clampedScaleY: number | null
+  shouldPersistAsLastAllowed: boolean
+}
+
+type ShapePreviewDimensions = {
+  previewWidth: number
+  previewHeight: number
+}
+
+type CanvasWithCurrentTransform = Canvas & {
+  _currentTransform?: Transform | null
 }
 
 /**
@@ -91,12 +121,86 @@ export default class ShapeScalingController {
       padding,
       transform
     })
+    const currentLeft = group.left ?? 0
+    const currentTop = group.top ?? 0
+    const currentFlipX = Boolean(group.flipX)
+    const currentFlipY = Boolean(group.flipY)
+    const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
+    const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
+    const scalingDecision = this._resolveScalingDecision({
+      group,
+      text,
+      padding,
+      state,
+      transform
+    })
+
+    if (scalingDecision.shouldBlockScaling) {
+      this._applyBlockedScalingState({
+        group,
+        state,
+        shouldHandleAsNoop: scalingDecision.shouldHandleAsNoop,
+        scaleX: scalingDecision.appliedScaleX,
+        scaleY: scalingDecision.appliedScaleY
+      })
+    }
+
+    this._applyLivePreviewLayout({
+      group,
+      shape,
+      text,
+      width: scalingDecision.previewWidth,
+      height: scalingDecision.previewHeight,
+      padding,
+      alignH,
+      alignV,
+      scaleX: scalingDecision.appliedScaleX,
+      scaleY: scalingDecision.appliedScaleY
+    })
+
+    this._restoreScalingAnchorPosition({
+      group,
+      state
+    })
+
+    if (!scalingDecision.shouldBlockScaling || scalingDecision.shouldPersistAsLastAllowed) {
+      this._storeLastAllowedTransform({
+        group,
+        state,
+        scaleX: group.scaleX ?? 1,
+        scaleY: group.scaleY ?? 1,
+        currentLeft,
+        currentTop,
+        currentFlipX,
+        currentFlipY
+      })
+    }
+
+    this.canvas.requestRenderAll()
+  }
+
+  /**
+   * Вычисляет итоговое решение для текущего шага scaling: блокировку, preview-размеры и применённый scale.
+   */
+  private _resolveScalingDecision({
+    group,
+    text,
+    padding,
+    state,
+    transform
+  }: {
+    group: ShapeGroup
+    text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
+    padding: ShapePadding
+    state: ShapeScalingState
+    transform?: Transform | null
+  }): ShapeScalingDecision {
+    // Сначала нормализуем текущий transform и фиксируем состояние, после которого drag больше нельзя продолжать в обратную сторону.
     const scaleXRaw = group.scaleX ?? 1
     const scaleYRaw = group.scaleY ?? 1
     const scaleX = Math.abs(scaleXRaw) || 1
     const scaleY = Math.abs(scaleYRaw) || 1
     const hasNegativeScale = scaleXRaw < 0 || scaleYRaw < 0
-    const hitScaleBoundary = scaleXRaw <= SCALE_EPSILON || scaleYRaw <= SCALE_EPSILON
     const hasTransformOriginChange = ShapeScalingController._isTransformOriginChanged({
       state,
       transform
@@ -105,90 +209,343 @@ export default class ShapeScalingController {
       state,
       transform
     })
-    const shouldMarkCornerCrossing = hitScaleBoundary
-      || hasNegativeScale
-      || hasTransformOriginChange
-      || hasTransformCornerChange
 
-    if (shouldMarkCornerCrossing) {
+    if (hasNegativeScale || hasTransformOriginChange || hasTransformCornerChange) {
       state.crossedOppositeCorner = true
     }
 
+    // Дальше определяем, можно ли применять этот шаг scaling, или нужно откатиться к последнему допустимому состоянию.
+    const blockState = this._resolveScalingBlockState({
+      text,
+      padding,
+      state,
+      transform,
+      scaleX,
+      scaleY
+    })
+
+    // После решения о блокировке считаем именно те размеры preview, которые реально будут применены в этом кадре drag.
+    const blockedScaleX = blockState.shouldHandleAsNoop
+      ? state.startScaleX
+      : blockState.clampedScaleX ?? state.lastAllowedScaleX
+    const blockedScaleY = blockState.shouldHandleAsNoop
+      ? state.startScaleY
+      : blockState.clampedScaleY ?? state.lastAllowedScaleY
+
+    const appliedScaleX = Math.abs(blockState.shouldBlockScaling ? blockedScaleX : group.scaleX ?? 1) || 1
+    const appliedScaleY = Math.abs(blockState.shouldBlockScaling ? blockedScaleY : group.scaleY ?? 1) || 1
+
+    const previewDimensions = this._resolvePreviewDimensions({
+      text,
+      padding,
+      state,
+      appliedScaleX,
+      appliedScaleY
+    })
+
+    return {
+      appliedScaleX,
+      appliedScaleY,
+      previewWidth: previewDimensions.previewWidth,
+      previewHeight: previewDimensions.previewHeight,
+      shouldBlockScaling: blockState.shouldBlockScaling,
+      shouldHandleAsNoop: blockState.shouldHandleAsNoop,
+      shouldPersistAsLastAllowed: blockState.shouldPersistAsLastAllowed
+    }
+  }
+
+  /**
+   * Определяет, можно ли продолжать текущий шаг scaling без выхода за доменные ограничения shape.
+   */
+  private _resolveScalingBlockState({
+    text,
+    padding,
+    state,
+    transform,
+    scaleX,
+    scaleY
+  }: {
+    text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
+    padding: ShapePadding
+    state: ShapeScalingState
+    transform?: Transform | null
+    scaleX: number
+    scaleY: number
+  }): ShapeScalingBlockState {
     const nextWidth = Math.max(MIN_SIZE, state.baseWidth * scaleX)
     const nextHeight = Math.max(MIN_SIZE, state.baseHeight * scaleY)
-    const wouldFillTextFrame = isShapeTextFrameFilled({
+    const corner = typeof transform?.corner === 'string' ? transform.corner : ''
+    const action = transform?.action ?? ''
+    const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
+    const minimumWidth = resolveMinimumShapeWidthForText({
       text,
-      width: nextWidth,
-      height: nextHeight,
       padding
     })
+    const minimumHeight = isVerticalScaleAction
+      ? this._resolveMinimumHeightForVerticalScaling({
+        text,
+        width: nextWidth,
+        padding
+      })
+      : nextHeight
+    const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
+    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
     const isScalingDownX = scaleX < state.lastAllowedScaleX - SCALE_EPSILON
     const isScalingDownY = scaleY < state.lastAllowedScaleY - SCALE_EPSILON
-    const isBelowStartScaleX = scaleX < state.startScaleX - SCALE_EPSILON
     const isBelowStartScaleY = scaleY < state.startScaleY - SCALE_EPSILON
-    const shouldBlockByStart = state.cannotScaleDownAtStart && (isBelowStartScaleX || isBelowStartScaleY)
-    const shouldBlockByText = wouldFillTextFrame && (isScalingDownX || isScalingDownY)
-    const shouldBlockByCornerCross = state.crossedOppositeCorner
-    const shouldBlockScaling = shouldBlockByStart || shouldBlockByText || shouldBlockByCornerCross
-    const isStateAtStart = ShapeScalingController._isStateAtStart({
+    const shouldBlockByStart = isVerticalScaleAction
+      && state.cannotScaleDownAtStart
+      && isBelowStartScaleY
+    const shouldClampByMinimumWidth = isScalingDownX && nextWidth < minimumWidth + SCALE_EPSILON
+    const shouldClampByMinimumHeight = isVerticalScaleAction
+      && isScalingDownY
+      && nextHeight < minimumHeight + SCALE_EPSILON
+    const shouldBlockScaling = shouldBlockByStart
+      || shouldClampByMinimumWidth
+      || shouldClampByMinimumHeight
+      || state.crossedOppositeCorner
+    const clampedScaleX = shouldClampByMinimumWidth ? minimumScaleX : null
+    const clampedScaleY = shouldClampByMinimumHeight ? minimumScaleY : null
+    const shouldHandleAsNoop = shouldBlockByStart || (
+      ShapeScalingController._isStateAtStart({
+        state
+      })
+      && shouldBlockScaling
+    )
+
+    return {
+      shouldBlockScaling,
+      shouldHandleAsNoop,
+      clampedScaleX,
+      clampedScaleY,
+      shouldPersistAsLastAllowed: (clampedScaleX !== null || clampedScaleY !== null) && !shouldHandleAsNoop
+    }
+  }
+
+  /**
+   * Возвращает preview-размеры shape для текущего live-scale с учетом переноса текста по строкам.
+   */
+  private _resolvePreviewDimensions({
+    text,
+    padding,
+    state,
+    appliedScaleX,
+    appliedScaleY
+  }: {
+    text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
+    padding: ShapePadding
+    state: ShapeScalingState
+    appliedScaleX: number
+    appliedScaleY: number
+  }): ShapePreviewDimensions {
+    const previewWidth = Math.max(MIN_SIZE, state.baseWidth * appliedScaleX)
+    const scaledPreviewHeight = Math.max(MIN_SIZE, state.baseHeight * appliedScaleY)
+    const previewHeight = Math.max(
+      scaledPreviewHeight,
+      resolveRequiredShapeHeightForText({
+        text,
+        width: previewWidth,
+        height: scaledPreviewHeight,
+        padding
+      })
+    )
+
+    return {
+      previewWidth,
+      previewHeight
+    }
+  }
+
+  /**
+   * Возвращает group в последнюю допустимую трансформацию, если текущий шаг scaling заблокирован.
+   */
+  private _applyBlockedScalingState({
+    group,
+    state,
+    shouldHandleAsNoop,
+    scaleX,
+    scaleY
+  }: {
+    group: ShapeGroup
+    state: ShapeScalingState
+    shouldHandleAsNoop: boolean
+    scaleX: number
+    scaleY: number
+  }): void {
+    state.blockedScaleAttempt = shouldHandleAsNoop
+    group.shapeScalingNoopTransform = shouldHandleAsNoop
+
+    const nextScaleX = shouldHandleAsNoop ? state.startScaleX : scaleX
+    const nextScaleY = shouldHandleAsNoop ? state.startScaleY : scaleY
+    const nextLeft = shouldHandleAsNoop ? state.startLeft : state.lastAllowedLeft
+    const nextTop = shouldHandleAsNoop ? state.startTop : state.lastAllowedTop
+
+    if (shouldHandleAsNoop) {
+      state.lastAllowedScaleX = state.startScaleX
+      state.lastAllowedScaleY = state.startScaleY
+      state.lastAllowedLeft = state.startLeft
+      state.lastAllowedTop = state.startTop
+    }
+
+    group.set({
+      flipX: state.lastAllowedFlipX,
+      flipY: state.lastAllowedFlipY,
+      scaleX: nextScaleX,
+      scaleY: nextScaleY,
+      left: nextLeft,
+      top: nextTop
+    })
+
+    this._restoreScalingAnchorPosition({
+      group,
       state
     })
-    const shouldHandleAsNoop = shouldBlockByStart || (isStateAtStart && shouldBlockScaling)
-    const currentLeft = group.left ?? 0
-    const currentTop = group.top ?? 0
-    const currentFlipX = Boolean(group.flipX)
-    const currentFlipY = Boolean(group.flipY)
+  }
+
+  /**
+   * Поддерживает live-clamp minimum boundary на кадрах, где Fabric перестал эмитить object:scaling.
+   */
+  public handleCanvasMouseMove = (event: ShapeModifiedEvent): void => {
+    const canvas = this.canvas as CanvasWithCurrentTransform
+    const transform = canvas._currentTransform
+    if (!transform) return
+
+    const { target } = transform
+    if (!isShapeGroup(target)) return
+
+    const action = transform.action ?? ''
+    const corner = typeof transform.corner === 'string' ? transform.corner : ''
+    const isHorizontalScaleAction = action === 'scaleX' || corner === 'ml' || corner === 'mr'
+    const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
+    if (!isHorizontalScaleAction && !isVerticalScaleAction) return
+
+    const group = target
+    const state = this.scalingState.get(group)
+    if (!state) return
+
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
+
+    if (!shape || !text) return
+
+    const padding = ShapeScalingController._resolvePadding({ group })
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
-    if (shouldBlockScaling) {
-      state.blockedScaleAttempt = shouldHandleAsNoop
-      group.shapeScalingNoopTransform = shouldHandleAsNoop
-      const nextScaleX = shouldHandleAsNoop ? state.startScaleX : state.lastAllowedScaleX
-      const nextScaleY = shouldHandleAsNoop ? state.startScaleY : state.lastAllowedScaleY
-      const nextLeft = shouldHandleAsNoop ? state.startLeft : state.lastAllowedLeft
-      const nextTop = shouldHandleAsNoop ? state.startTop : state.lastAllowedTop
+    if (isHorizontalScaleAction) {
+      const minimumWidth = resolveMinimumShapeWidthForText({
+        text,
+        padding
+      })
+      const shouldClampWidthToMinimum = this._shouldClampWidthToMinimum({
+        event: {
+          ...event,
+          transform
+        },
+        group,
+        minimumWidth,
+        state
+      })
+      if (!shouldClampWidthToMinimum) return
 
-      if (shouldHandleAsNoop) {
-        state.lastAllowedScaleX = state.startScaleX
-        state.lastAllowedScaleY = state.startScaleY
-        state.lastAllowedLeft = state.startLeft
-        state.lastAllowedTop = state.startTop
-      }
+      const currentScaleY = Math.abs(group.scaleY ?? state.lastAllowedScaleY ?? 1) || 1
+      const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
+      const previewDimensions = this._resolvePreviewDimensions({
+        text,
+        padding,
+        state,
+        appliedScaleX: minimumScaleX,
+        appliedScaleY: currentScaleY
+      })
 
-      group.set({
-        flipX: state.lastAllowedFlipX,
-        flipY: state.lastAllowedFlipY,
-        scaleX: nextScaleX,
-        scaleY: nextScaleY,
-        left: nextLeft,
-        top: nextTop
+      this._applyBlockedScalingState({
+        group,
+        state,
+        shouldHandleAsNoop: false,
+        scaleX: minimumScaleX,
+        scaleY: currentScaleY
+      })
+
+      this._applyLivePreviewLayout({
+        group,
+        shape,
+        text,
+        width: previewDimensions.previewWidth,
+        height: previewDimensions.previewHeight,
+        padding,
+        alignH,
+        alignV,
+        scaleX: minimumScaleX,
+        scaleY: currentScaleY
       })
 
       this._restoreScalingAnchorPosition({
         group,
         state
       })
+
+      this._storeLastAllowedTransform({
+        group,
+        state,
+        scaleX: minimumScaleX,
+        scaleY: currentScaleY,
+        currentLeft: state.lastAllowedLeft,
+        currentTop: state.lastAllowedTop,
+        currentFlipX: state.lastAllowedFlipX,
+        currentFlipY: state.lastAllowedFlipY
+      })
+
+      this.canvas.requestRenderAll()
+      return
     }
 
-    const appliedScaleX = Math.abs(group.scaleX ?? 1) || 1
-    const appliedScaleY = Math.abs(group.scaleY ?? 1) || 1
-    const previewWidth = Math.max(MIN_SIZE, state.baseWidth * appliedScaleX)
-    const previewHeight = Math.max(MIN_SIZE, state.baseHeight * appliedScaleY)
+    const currentScaleX = Math.abs(group.scaleX ?? state.lastAllowedScaleX ?? 1) || 1
+    const minimumHeight = this._resolveMinimumHeightForVerticalScaling({
+      text,
+      width: Math.max(MIN_SIZE, state.baseWidth * currentScaleX),
+      padding
+    })
+    const shouldClampHeightToMinimum = this._shouldClampHeightToMinimum({
+      event: {
+        ...event,
+        transform
+      },
+      group,
+      minimumHeight,
+      state
+    })
+    if (!shouldClampHeightToMinimum) return
+
+    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
+    const previewDimensions = this._resolvePreviewDimensions({
+      text,
+      padding,
+      state,
+      appliedScaleX: currentScaleX,
+      appliedScaleY: minimumScaleY
+    })
+
+    this._applyBlockedScalingState({
+      group,
+      state,
+      shouldHandleAsNoop: false,
+      scaleX: currentScaleX,
+      scaleY: minimumScaleY
+    })
 
     this._applyLivePreviewLayout({
       group,
       shape,
       text,
-      baseWidth: state.baseWidth,
-      baseHeight: state.baseHeight,
-      width: previewWidth,
-      height: previewHeight,
+      width: previewDimensions.previewWidth,
+      height: previewDimensions.previewHeight,
       padding,
       alignH,
       alignV,
-      scaleX: appliedScaleX,
-      scaleY: appliedScaleY
+      scaleX: currentScaleX,
+      scaleY: minimumScaleY
     })
 
     this._restoreScalingAnchorPosition({
@@ -196,18 +553,50 @@ export default class ShapeScalingController {
       state
     })
 
-    if (!shouldBlockScaling) {
-      state.blockedScaleAttempt = false
-      group.shapeScalingNoopTransform = false
-      state.lastAllowedScaleX = scaleX
-      state.lastAllowedScaleY = scaleY
-      state.lastAllowedLeft = group.left ?? currentLeft
-      state.lastAllowedTop = group.top ?? currentTop
-      state.lastAllowedFlipX = currentFlipX
-      state.lastAllowedFlipY = currentFlipY
-    }
+    this._storeLastAllowedTransform({
+      group,
+      state,
+      scaleX: currentScaleX,
+      scaleY: minimumScaleY,
+      currentLeft: state.lastAllowedLeft,
+      currentTop: state.lastAllowedTop,
+      currentFlipX: state.lastAllowedFlipX,
+      currentFlipY: state.lastAllowedFlipY
+    })
 
     this.canvas.requestRenderAll()
+  }
+
+  /**
+   * Сохраняет последнюю допустимую трансформацию текущего drag, к которой можно безопасно вернуться.
+   */
+  private _storeLastAllowedTransform({
+    group,
+    state,
+    scaleX,
+    scaleY,
+    currentLeft,
+    currentTop,
+    currentFlipX,
+    currentFlipY
+  }: {
+    group: ShapeGroup
+    state: ShapeScalingState
+    scaleX: number
+    scaleY: number
+    currentLeft: number
+    currentTop: number
+    currentFlipX: boolean
+    currentFlipY: boolean
+  }): void {
+    state.blockedScaleAttempt = false
+    group.shapeScalingNoopTransform = false
+    state.lastAllowedScaleX = Math.abs(scaleX) || 1
+    state.lastAllowedScaleY = Math.abs(scaleY) || 1
+    state.lastAllowedLeft = group.left ?? currentLeft
+    state.lastAllowedTop = group.top ?? currentTop
+    state.lastAllowedFlipX = currentFlipX
+    state.lastAllowedFlipY = currentFlipY
   }
 
   /**
@@ -227,8 +616,14 @@ export default class ShapeScalingController {
 
     if (!hasScaleChange && !hasScalingState) return
 
-    const baseWidth = state?.baseWidth ?? Math.max(MIN_SIZE, group.shapeBaseWidth ?? group.width ?? MIN_SIZE)
-    const baseHeight = state?.baseHeight ?? Math.max(MIN_SIZE, group.shapeBaseHeight ?? group.height ?? MIN_SIZE)
+    const baseWidth = state?.baseWidth ?? Math.max(
+      MIN_SIZE,
+      group.shapeManualBaseWidth ?? group.shapeBaseWidth ?? group.width ?? MIN_SIZE
+    )
+    const baseHeight = state?.baseHeight ?? Math.max(
+      MIN_SIZE,
+      group.shapeManualBaseHeight ?? group.shapeBaseHeight ?? group.height ?? MIN_SIZE
+    )
     const hasBlockedScaleAttempt = Boolean(state?.blockedScaleAttempt)
 
     if (hasBlockedScaleAttempt && state) {
@@ -250,17 +645,6 @@ export default class ShapeScalingController {
       return
     }
 
-    const allowedScaleX = state?.lastAllowedScaleX ?? scaleX
-    const allowedScaleY = state?.lastAllowedScaleY ?? scaleY
-    const widthByAllowedScale = Math.max(MIN_SIZE, baseWidth * allowedScaleX)
-    const heightByAllowedScale = Math.max(MIN_SIZE, baseHeight * allowedScaleY)
-    const hasWidthChange = Math.abs(widthByAllowedScale - baseWidth) > SIZE_EPSILON
-    const hasHeightChange = Math.abs(heightByAllowedScale - baseHeight) > SIZE_EPSILON
-    const hasDimensionChange = hasWidthChange || hasHeightChange
-
-    let width = widthByAllowedScale
-    let height = heightByAllowedScale
-
     const {
       shape,
       text
@@ -275,6 +659,49 @@ export default class ShapeScalingController {
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
     const padding = ShapeScalingController._resolvePadding({ group })
+    const minimumWidth = resolveMinimumShapeWidthForText({
+      text,
+      padding
+    })
+
+    let allowedScaleX = state?.lastAllowedScaleX ?? scaleX
+    let allowedScaleY = state?.lastAllowedScaleY ?? scaleY
+    const shouldClampWidthToMinimum = this._shouldClampWidthToMinimum({
+      event,
+      group,
+      minimumWidth,
+      state
+    })
+
+    if (shouldClampWidthToMinimum) {
+      allowedScaleX = Math.max(MIN_SIZE / baseWidth, minimumWidth / baseWidth)
+    }
+
+    const minimumHeight = this._resolveMinimumHeightForVerticalScaling({
+      text,
+      width: Math.max(MIN_SIZE, baseWidth * allowedScaleX),
+      padding
+    })
+    const shouldClampHeightToMinimum = this._shouldClampHeightToMinimum({
+      event,
+      group,
+      minimumHeight,
+      state
+    })
+
+    if (shouldClampHeightToMinimum) {
+      allowedScaleY = Math.max(MIN_SIZE / baseHeight, minimumHeight / baseHeight)
+    }
+
+    const widthByAllowedScale = Math.max(MIN_SIZE, baseWidth * allowedScaleX)
+    const heightByAllowedScale = Math.max(MIN_SIZE, baseHeight * allowedScaleY)
+    const hasWidthChange = Math.abs(widthByAllowedScale - baseWidth) > SIZE_EPSILON
+    const hasHeightChange = Math.abs(heightByAllowedScale - baseHeight) > SIZE_EPSILON
+    const hasDimensionChange = hasWidthChange || hasHeightChange
+
+    const width = widthByAllowedScale
+    const height = heightByAllowedScale
+
     if (!hasDimensionChange && state) {
       this._restoreShapeStateWithoutResize({
         group,
@@ -291,23 +718,6 @@ export default class ShapeScalingController {
       this.scalingState.delete(group)
       this.canvas.requestRenderAll()
       return
-    }
-
-    const frameWasFilled = isShapeTextFrameFilled({
-      text,
-      width: baseWidth,
-      height: baseHeight,
-      padding
-    })
-    const isScalingDownX = allowedScaleX < 1 - SCALE_EPSILON
-    const isScalingDownY = allowedScaleY < 1 - SCALE_EPSILON
-
-    if (frameWasFilled && isScalingDownX) {
-      width = Math.max(width, baseWidth)
-    }
-
-    if (frameWasFilled && isScalingDownY) {
-      height = Math.max(height, baseHeight)
     }
 
     if (state) {
@@ -364,6 +774,96 @@ export default class ShapeScalingController {
   }
 
   /**
+   * Возвращает true, если указатель уже дошёл до горизонтального origin,
+   * а ширину нужно зафиксировать на minimum boundary.
+   */
+  private _shouldClampWidthToMinimum({
+    event,
+    group,
+    minimumWidth,
+    state
+  }: {
+    event: ShapeModifiedEvent
+    group: ShapeGroup
+    minimumWidth: number
+    state?: ShapeScalingState
+  }): boolean {
+    if (!state) return false
+
+    const { transform } = event
+    if (!transform) return false
+
+    const action = transform.action ?? ''
+    if (action !== 'scaleX') return false
+
+    const transformWithSign = transform as Transform & {
+      signX?: number
+    }
+    const { signX } = transformWithSign
+    if (typeof signX !== 'number' || !Number.isFinite(signX)) return false
+
+    const localPoint = this._resolveLocalPointerForTransform({
+      event,
+      group,
+      transform
+    })
+    if (!localPoint) return false
+
+    const pointerReachedOrPassedOriginX = (localPoint.x * signX) <= 0
+    if (!pointerReachedOrPassedOriginX) return false
+
+    const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
+
+    return state.lastAllowedScaleX > minimumScaleX + SCALE_EPSILON
+  }
+
+  /**
+   * Возвращает true, если указатель уже дошёл до vertical origin,
+   * а высоту нужно зафиксировать на minimum boundary.
+   */
+  private _shouldClampHeightToMinimum({
+    event,
+    group,
+    minimumHeight,
+    state
+  }: {
+    event: ShapeModifiedEvent
+    group: ShapeGroup
+    minimumHeight: number
+    state?: ShapeScalingState
+  }): boolean {
+    if (!state) return false
+
+    const { transform } = event
+    if (!transform) return false
+
+    const action = transform.action ?? ''
+    const corner = typeof transform.corner === 'string' ? transform.corner : ''
+    const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
+    if (!isVerticalScaleAction) return false
+
+    const transformWithSign = transform as Transform & {
+      signY?: number
+    }
+    const { signY } = transformWithSign
+    if (typeof signY !== 'number' || !Number.isFinite(signY)) return false
+
+    const localPoint = this._resolveLocalPointerForTransform({
+      event,
+      group,
+      transform
+    })
+    if (!localPoint) return false
+
+    const pointerReachedOrPassedOriginY = (localPoint.y * signY) <= 0
+    if (!pointerReachedOrPassedOriginY) return false
+
+    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
+
+    return state.lastAllowedScaleY > minimumScaleY + SCALE_EPSILON
+  }
+
+  /**
    * Очищает состояние масштабирования для переданной shape-группы.
    */
   public clearState({ group }: { group: ShapeGroup }): void {
@@ -387,8 +887,14 @@ export default class ShapeScalingController {
     let state = this.scalingState.get(group)
 
     if (!state) {
-      const baseWidth = Math.max(MIN_SIZE, group.shapeBaseWidth ?? group.width ?? MIN_SIZE)
-      const baseHeight = Math.max(MIN_SIZE, group.shapeBaseHeight ?? group.height ?? MIN_SIZE)
+      const baseWidth = Math.max(
+        MIN_SIZE,
+        group.shapeManualBaseWidth ?? group.shapeBaseWidth ?? group.width ?? MIN_SIZE
+      )
+      const baseHeight = Math.max(
+        MIN_SIZE,
+        group.shapeManualBaseHeight ?? group.shapeBaseHeight ?? group.height ?? MIN_SIZE
+      )
       const originalScaleX = ShapeScalingController._resolveTransformOriginalNumber({
         transform,
         key: 'scaleX'
@@ -423,18 +929,9 @@ export default class ShapeScalingController {
         originX: startTransformOriginX,
         originY: startTransformOriginY
       })
-      const frameFilledAtStart = isShapeTextFrameFilled({
+      const minimumHeightAtStart = this._resolveMinimumHeightForVerticalScaling({
         text,
         width: baseWidth,
-        height: baseHeight,
-        padding
-      })
-      const widthAfterMinimalDownscale = Math.max(MIN_SIZE, baseWidth - 1)
-      const heightAfterMinimalDownscale = Math.max(MIN_SIZE, baseHeight - 1)
-      const wouldFillAfterMinimalDownscale = isShapeTextFrameFilled({
-        text,
-        width: widthAfterMinimalDownscale,
-        height: heightAfterMinimalDownscale,
         padding
       })
 
@@ -442,9 +939,8 @@ export default class ShapeScalingController {
         baseWidth,
         baseHeight,
         baseRounding: Math.max(0, group.shapeRounding ?? 0),
-        cannotScaleDownAtStart: frameFilledAtStart || wouldFillAfterMinimalDownscale,
+        cannotScaleDownAtStart: minimumHeightAtStart >= baseHeight - SCALE_EPSILON,
         blockedScaleAttempt: false,
-        frameFilledAtStart,
         startLeft,
         startTop,
         startScaleX,
@@ -469,6 +965,26 @@ export default class ShapeScalingController {
     }
 
     return state
+  }
+
+  /**
+   * Возвращает minimum height для vertical scaling без изменения layout-контракта.
+   */
+  private _resolveMinimumHeightForVerticalScaling({
+    text,
+    width,
+    padding
+  }: {
+    text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
+    width: number
+    padding: ShapePadding
+  }): number {
+    return resolveRequiredShapeHeightForText({
+      text,
+      width,
+      height: MIN_SIZE,
+      padding
+    })
   }
 
   /**
@@ -553,6 +1069,61 @@ export default class ShapeScalingController {
   }
 
   /**
+   * Пересчитывает pointer из canvas-события в локальные координаты активного scale-transform.
+   */
+  private _resolveLocalPointerForTransform({
+    event,
+    group,
+    transform
+  }: {
+    event: ShapeModifiedEvent
+    group: ShapeGroup
+    transform: Transform
+  }): Point | null {
+    const { e } = event
+    if (!e) return null
+
+    const canvas = group.canvas ?? this.canvas
+    if (!canvas) return null
+
+    const pointer = canvas.getScenePoint(e as MouseEvent | PointerEvent | TouchEvent)
+    const centerPoint = group.getRelativeCenterPoint()
+    const originPoint = group.translateToGivenOrigin(
+      centerPoint,
+      'center',
+      'center',
+      transform.originX,
+      transform.originY
+    )
+    const angle = group.angle ?? 0
+    const normalizedPointer = angle === 0
+      ? pointer
+      : pointer.rotate((-angle * Math.PI) / 180, centerPoint)
+    const localPoint = normalizedPointer.subtract(originPoint)
+    const control = group.controls[transform.corner]
+    const zoom = canvas.getZoom() || 1
+    const padding = (group.padding ?? 0) / zoom
+
+    if (localPoint.x >= padding) {
+      localPoint.x -= padding
+    }
+    if (localPoint.x <= -padding) {
+      localPoint.x += padding
+    }
+    if (localPoint.y >= padding) {
+      localPoint.y -= padding
+    }
+    if (localPoint.y <= -padding) {
+      localPoint.y += padding
+    }
+
+    localPoint.x -= control?.offsetX ?? 0
+    localPoint.y -= control?.offsetY ?? 0
+
+    return localPoint
+  }
+
+  /**
    * Возвращает anchor-точку активного transform в координатах canvas.
    */
   private static _resolveScalingAnchorPoint({
@@ -631,8 +1202,6 @@ export default class ShapeScalingController {
     group,
     shape,
     text,
-    baseWidth,
-    baseHeight,
     width,
     height,
     padding,
@@ -644,8 +1213,6 @@ export default class ShapeScalingController {
     group: ShapeGroup
     shape: NonNullable<ReturnType<typeof getShapeNodes>['shape']>
     text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
-    baseWidth: number
-    baseHeight: number
     width: number
     height: number
     padding: ShapePadding
@@ -654,11 +1221,20 @@ export default class ShapeScalingController {
     scaleX: number
     scaleY: number
   }): void {
+    const safeScaleX = Math.max(SCALE_EPSILON, Math.abs(scaleX) || 1)
+    const safeScaleY = Math.max(SCALE_EPSILON, Math.abs(scaleY) || 1)
+
+    group.set({
+      width: width / safeScaleX,
+      height: height / safeScaleY,
+      dirty: true
+    })
+
     this._applyLiveShapeGeometry({
       group,
       shape,
-      baseWidth,
-      baseHeight,
+      width,
+      height,
       scaleX,
       scaleY
     })
@@ -681,26 +1257,26 @@ export default class ShapeScalingController {
   private _applyLiveShapeGeometry({
     group,
     shape,
-    baseWidth,
-    baseHeight,
+    width,
+    height,
     scaleX,
     scaleY
   }: {
     group: ShapeGroup
     shape: NonNullable<ReturnType<typeof getShapeNodes>['shape']>
-    baseWidth: number
-    baseHeight: number
+    width: number
+    height: number
     scaleX: number
     scaleY: number
   }): void {
     const strokeWidth = Math.max(0, group.shapeStrokeWidth ?? 0)
     const previewShapeWidth = ShapeScalingController._resolveLiveShapeOuterSize({
-      baseSize: baseWidth,
+      size: width,
       scale: scaleX,
       strokeWidth
     })
     const previewShapeHeight = ShapeScalingController._resolveLiveShapeOuterSize({
-      baseSize: baseHeight,
+      size: height,
       scale: scaleY,
       strokeWidth
     })
@@ -718,22 +1294,22 @@ export default class ShapeScalingController {
    * Возвращает локальный размер shape-ноды для live-preview с фиксированным stroke.
    */
   private static _resolveLiveShapeOuterSize({
-    baseSize,
+    size,
     scale,
     strokeWidth
   }: {
-    baseSize: number
+    size: number
     scale: number
     strokeWidth: number
   }): number {
     const safeScale = Math.max(SCALE_EPSILON, Math.abs(scale) || 1)
     const safeStrokeWidth = Math.max(0, strokeWidth)
 
-    if (safeStrokeWidth <= 0) return Math.max(MIN_SIZE, baseSize)
+    if (safeStrokeWidth <= 0) return Math.max(MIN_SIZE, size / safeScale)
 
     return Math.max(
       MIN_SIZE,
-      baseSize + safeStrokeWidth - (safeStrokeWidth / safeScale)
+      (size / safeScale) + safeStrokeWidth - (safeStrokeWidth / safeScale)
     )
   }
 
@@ -851,44 +1427,16 @@ export default class ShapeScalingController {
     alignV: ShapeGroup['shapeAlignVertical']
     padding: ShapePadding
   }): void {
-    const horizontalAlign = alignH ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
-    const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
-    const {
-      frame,
-      splitByGrapheme,
-      textTop
-    } = resolveShapeTextFrameLayout({
+    applyShapeTextLayout({
+      group,
+      shape,
       text,
       width: baseWidth,
       height: baseHeight,
-      alignV: verticalAlign,
+      alignH,
+      alignV,
       padding
     })
-
-    resizeShapeNode({
-      shape,
-      width: baseWidth,
-      height: baseHeight,
-      rounding: group.shapeRounding,
-      strokeWidth: group.shapeStrokeWidth
-    })
-
-    text.set({
-      autoExpand: false,
-      textAlign: horizontalAlign,
-      width: frame.width,
-      splitByGrapheme,
-      left: frame.left,
-      top: textTop,
-      originX: 'left',
-      originY: 'top',
-      scaleX: 1,
-      scaleY: 1
-    })
-
-    text.initDimensions()
-    text.setCoords()
-    shape.setCoords()
 
     group.set({
       left: state.lastAllowedLeft,
@@ -939,6 +1487,8 @@ export default class ShapeScalingController {
     }
 
     group.set({
+      width: state.baseWidth,
+      height: state.baseHeight,
       left: state.startLeft,
       top: state.startTop,
       flipX: state.lastAllowedFlipX,

@@ -50,12 +50,14 @@ export type BrowserSerializableObject = BrowserObject & {
   underline?: unknown
   linethrough?: unknown
   uppercase?: unknown
+  splitByGrapheme?: unknown
   isEditing?: unknown
   evented?: unknown
   lockMovementX?: unknown
   lockMovementY?: unknown
   selectionStart?: unknown
   selectionEnd?: unknown
+  textLines?: unknown
   getSelectionStyles?: (...args: unknown[]) => unknown
 }
 
