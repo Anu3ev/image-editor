@@ -1,15 +1,15 @@
-import { test, expect } from '../fixtures/editor.fixture'
+import { test, expect } from '../../fixtures/editor.fixture'
 import type {
   ShapePresetKey,
   ShapeHorizontalAlign,
   ShapeVerticalAlign,
   ShapeScaleSnapshot
-} from '../types'
+} from '../../types'
 import {
   SHAPE_SCALING_LIVE_REVERSE_STEPS,
   SHAPE_SCALING_STROKE_WIDTH,
   SHAPE_SCALING_TOLERANCE
-} from '../fixtures/data/shape-scaling.data'
+} from '../../fixtures/data/shape-scaling.data'
 
 test.describe('Добавление фигур', () => {
   test('добавляет круг с дефолтными параметрами', async({ editorModel, shapes }) => {

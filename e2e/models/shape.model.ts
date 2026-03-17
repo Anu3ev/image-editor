@@ -130,6 +130,24 @@ export class ShapeModel {
     })
   }
 
+  /** Добавляет shape с пустым текстом. */
+  async addEmptyTextShape(
+    params: { presetKey?: ShapePresetKey } = {}
+  ): Promise<ShapeObjectInfo> {
+    const { presetKey = 'square' } = params
+    const shape = await this.add({
+      presetKey,
+      options: {
+        text: ''
+      }
+    })
+
+    return this.checkCreation({
+      shape,
+      presetKey
+    })
+  }
+
   /** Сжимает shape до minimum width в live drag-сессии и возвращает проверенный snapshot. */
   async shrinkToMinimumWidth(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
     const {
@@ -168,6 +186,48 @@ export class ShapeModel {
       corner: 'mr',
       originX: 'left',
       originY: 'center',
+      objectIndex,
+      id
+    })
+  }
+
+  /** Масштабирует shape по вертикали за нижнюю ручку и возвращает live snapshot. */
+  async scaleVerticallyFromBottom(
+    params: { scaleY: number } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scaleY,
+      objectIndex,
+      id
+    } = params
+
+    return this.simulateScaleStep({
+      scaleX: 1,
+      scaleY,
+      corner: 'mb',
+      originX: 'center',
+      originY: 'top',
+      objectIndex,
+      id
+    })
+  }
+
+  /** Масштабирует shape по вертикали за верхнюю ручку и возвращает live snapshot. */
+  async scaleVerticallyFromTop(
+    params: { scaleY: number } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scaleY,
+      objectIndex,
+      id
+    } = params
+
+    return this.simulateScaleStep({
+      scaleX: 1,
+      scaleY,
+      corner: 'mt',
+      originX: 'center',
+      originY: 'bottom',
       objectIndex,
       id
     })
@@ -217,11 +277,13 @@ export class ShapeModel {
 
       const left = typeof target.left === 'number' ? target.left : 0
       const top = typeof target.top === 'number' ? target.top : 0
+      const anchorPoint = target.getPointByOrigin(originX, originY)
 
       target.set({
         scaleX,
         scaleY
       })
+      target.setPositionByOrigin(anchorPoint, originX, originY)
       target.setCoords()
 
       editor.canvas.fire('object:scaling', {
@@ -247,7 +309,7 @@ export class ShapeModel {
     return snapshot as ShapeScaleSnapshot
   }
 
-  /** Выполняет live-scale шаг с mouse:move для clamp-сценариев, fail-fast проверяет snapshot и возвращает его. */
+  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -257,6 +319,7 @@ export class ShapeModel {
         pointerY,
         action = 'scaleX',
         signX = 1,
+        signY = 1,
         corner = 'br',
         originX = 'left',
         originY = 'top',
@@ -274,10 +337,12 @@ export class ShapeModel {
 
       const left = typeof target.left === 'number' ? target.left : 0
       const top = typeof target.top === 'number' ? target.top : 0
+      const anchorPoint = target.getPointByOrigin(originX, originY)
       const transform = {
         target,
         action,
         signX,
+        signY,
         original: {
           scaleX: 1,
           scaleY: 1,
@@ -293,19 +358,32 @@ export class ShapeModel {
         scaleX,
         scaleY
       })
+      target.setPositionByOrigin(anchorPoint, originX, originY)
       target.setCoords()
 
-      editor.canvas._currentTransform = transform
-      editor.canvas.fire('object:scaling', {
-        target,
-        transform
-      })
-      editor.canvas.fire('mouse:move', {
-        e: new PointerEvent('pointermove', {
-          clientX: pointerX,
-          clientY: pointerY
+      const PointCtor = anchorPoint.constructor as new(x: number, y: number) => {
+        subtract: (point: { x: number, y: number }) => unknown
+      }
+      const scenePoint = new PointCtor(anchorPoint.x + pointerX, anchorPoint.y + pointerY)
+      const originalGetScenePoint = editor.canvas.getScenePoint.bind(editor.canvas)
+
+      try {
+        editor.canvas.getScenePoint = () => scenePoint
+        editor.canvas._currentTransform = transform
+        editor.canvas.fire('object:scaling', {
+          target,
+          transform
         })
-      })
+        editor.canvas.fire('mouse:move', {
+          e: new PointerEvent('pointermove', {
+            clientX: pointerX,
+            clientY: pointerY
+          })
+        })
+      } finally {
+        editor.canvas.getScenePoint = originalGetScenePoint
+        editor.canvas._currentTransform = null
+      }
 
       return helpers.serializeShapeScaleSnapshot(target)
     }, params)
@@ -313,6 +391,47 @@ export class ShapeModel {
     expect(snapshot, 'должен существовать live snapshot после mouse:move clamp').not.toBeNull()
 
     return snapshot as ShapeScaleSnapshot
+  }
+
+  /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */
+  async shrinkToMinimumHeight(
+    params: ({ edge?: 'top' | 'bottom' } & ObjectTargetParams) = {}
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      edge = 'bottom',
+      objectIndex,
+      id
+    } = params
+
+    if (edge === 'top') {
+      return this.simulateScaleMouseMoveStep({
+        scaleX: 1,
+        scaleY: 0.2,
+        pointerX: 0,
+        pointerY: 20,
+        action: 'scaleY',
+        signY: -1,
+        corner: 'mt',
+        originX: 'center',
+        originY: 'bottom',
+        objectIndex,
+        id
+      })
+    }
+
+    return this.simulateScaleMouseMoveStep({
+      scaleX: 1,
+      scaleY: 0.2,
+      pointerX: 0,
+      pointerY: -20,
+      action: 'scaleY',
+      signY: 1,
+      corner: 'mb',
+      originX: 'center',
+      originY: 'top',
+      objectIndex,
+      id
+    })
   }
 
   /** Завершает интерактивное масштабирование через object:modified, fail-fast проверяет snapshot и возвращает его. */

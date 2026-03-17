@@ -80,6 +80,15 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Возвращает количество визуальных строк textbox.
+   */
+  function resolveTextLineCount({ value }: { value: unknown }): number {
+    if (!Array.isArray(value)) return 0
+
+    return value.length
+  }
+
+  /**
    * Возвращает дочерние canvas-объекты группы.
    */
   function getGroupObjects({ group }: { group: unknown }): BrowserObject[] {
@@ -308,10 +317,12 @@ export function installEditorBrowserHelpers(): void {
       underline: textObject.underline ?? false,
       linethrough: textObject.linethrough ?? false,
       uppercase: textObject.uppercase ?? false,
+      splitByGrapheme: textObject.splitByGrapheme ?? false,
       isEditing: textObject.isEditing ?? false,
       evented: textObject.evented ?? true,
       lockMovementX: textObject.lockMovementX ?? false,
       lockMovementY: textObject.lockMovementY ?? false,
+      lineCount: resolveTextLineCount({ value: textObject.textLines }),
       selectionStart: textObject.selectionStart ?? 0,
       selectionEnd: textObject.selectionEnd ?? 0
     }

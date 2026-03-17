@@ -132,8 +132,10 @@ export interface ShapeTextInfo extends EditorObjectInfo {
   evented: boolean
   lockMovementX: boolean
   lockMovementY: boolean
+  lineCount: number
   selectionStart: number
   selectionEnd: number
+  splitByGrapheme: boolean
 }
 
 /** Параметры одного шага интерактивного масштабирования */
@@ -145,12 +147,13 @@ export interface ShapeScaleStepParams extends ObjectTargetParams {
   originY?: ShapeScaleOriginY
 }
 
-/** Параметры live-scale шага с последующим mouse:move для сценариев clamp на minimum width. */
+/** Параметры live-scale шага с synthetic mouse:move относительно активного transform. */
 export interface ShapeScaleMouseMoveStepParams extends ShapeScaleStepParams {
   pointerX: number
   pointerY: number
-  action?: 'scaleX'
+  action?: 'scaleX' | 'scaleY'
   signX?: number
+  signY?: number
 }
 
 /** Снимок состояния shape-группы во время/после масштабирования */
