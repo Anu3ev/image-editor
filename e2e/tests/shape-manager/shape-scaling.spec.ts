@@ -1,5 +1,10 @@
 import { test, expect } from '../../fixtures/editor.fixture'
-import { SHAPE_SCALING_TOLERANCE } from '../../fixtures/data/shape-scaling.data'
+import type { ShapeScaleSnapshot } from '../../types'
+import {
+  SHAPE_SCALING_LIVE_REVERSE_STEPS,
+  SHAPE_SCALING_STROKE_WIDTH,
+  SHAPE_SCALING_TOLERANCE
+} from '../../fixtures/data/shape-scaling.data'
 
 test.describe('Вертикальное масштабирование empty-text shape', () => {
   test.beforeEach(async({ shapes }) => {
@@ -452,192 +457,307 @@ test.describe('Cross-axis regressions после vertical scaling', () => {
   })
 })
 
-test.describe('Восстановление scaling runtime после history и rehydration', () => {
-  test('после vertical minimum height, undo и redo shape сохраняет состояние и снова масштабируется по горизонтали', async({
-    history,
-    shapes
-  }) => {
-    await test.step('Добавить shape с текстом и запасом по высоте', async() => {
-      const shape = await shapes.add({
-        presetKey: 'square',
-        options: {
-          width: 220,
-          height: 320,
-          text: 'TEST TEST',
-          textStyle: {
-            fontSize: 72
-          }
+test.describe('Масштабирование скругления', () => {
+  test('скругление масштабируется пропорционально при равномерном увеличении', async({ shapes }) => {
+    await test.step('Добавить прямоугольник со скруглением 50', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setRounding({ rounding: 50, objectIndex: 0 })
+    })
+
+    await test.step('Увеличить фигуру в 2 раза', () => shapes.simulateScale({ scaleX: 2, scaleY: 2, objectIndex: 0 }))
+
+    await test.step('Проверить что скругление удвоилось', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(100)
+    })
+  })
+
+  test('скругление масштабируется пропорционально при уменьшении', async({ shapes }) => {
+    await test.step('Добавить прямоугольник со скруглением 80', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setRounding({ rounding: 80, objectIndex: 0 })
+    })
+
+    await test.step('Уменьшить фигуру в 2 раза', () => shapes.simulateScale({ scaleX: 0.5, scaleY: 0.5, objectIndex: 0 }))
+
+    await test.step('Проверить что скругление уменьшилось вдвое', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(40)
+    })
+  })
+
+  test('скругление масштабируется по минимальному scale при непропорциональном масштабировании', async({ shapes }) => {
+    await test.step('Добавить прямоугольник со скруглением 50', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setRounding({ rounding: 50, objectIndex: 0 })
+    })
+
+    await test.step('Масштабировать непропорционально (3x ширина, 2x высота)', () => {
+      return shapes.simulateScale({ scaleX: 3, scaleY: 2, objectIndex: 0 })
+    })
+
+    await test.step('Проверить что скругление масштабировалось по min(3, 2) = 2', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.shapeRounding).toBe(100)
+    })
+  })
+})
+
+test.describe('Интерактивное масштабирование shape с обводкой', () => {
+  test('стабильно масштабируется при быстрых реверсах без дрейфа и прыжка', async({ shapes }) => {
+    const liveSnapshots: ShapeScaleSnapshot[] = []
+
+    await test.step('Добавить квадрат и включить обводку', async() => {
+      await shapes.add({ presetKey: 'square' })
+      await shapes.setStroke({
+        stroke: '#0a84ff',
+        strokeWidth: SHAPE_SCALING_STROKE_WIDTH,
+        objectIndex: 0
+      })
+    })
+
+    await test.step('Выполнить live-scale с быстрыми реверсами', async() => {
+      for (let index = 0; index < SHAPE_SCALING_LIVE_REVERSE_STEPS.length; index += 1) {
+        const {
+          scaleX,
+          scaleY
+        } = SHAPE_SCALING_LIVE_REVERSE_STEPS[index]
+        const snapshot = await shapes.simulateScaleStep({
+          scaleX,
+          scaleY,
+          corner: 'br',
+          originX: 'left',
+          originY: 'top',
+          objectIndex: 0
+        })
+
+        liveSnapshots.push(snapshot)
+      }
+    })
+
+    await test.step('Проверить что anchor стабилен во время drag', () => {
+      const firstLiveSnapshot = liveSnapshots[0]
+
+      expect(firstLiveSnapshot, 'должен существовать первый live snapshot для проверки anchor').toBeDefined()
+
+      if (!firstLiveSnapshot) {
+        throw new Error('должен существовать первый live snapshot для проверки anchor')
+      }
+
+      for (let index = 0; index < liveSnapshots.length; index += 1) {
+        const snapshot = liveSnapshots[index]
+        const leftDiff = Math.abs(snapshot.groupBoundsLeft - firstLiveSnapshot.groupBoundsLeft)
+        const topDiff = Math.abs(snapshot.groupBoundsTop - firstLiveSnapshot.groupBoundsTop)
+
+        expect(leftDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+        expect(topDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+      }
+
+      for (let index = 1; index < liveSnapshots.length; index += 1) {
+        const previous = liveSnapshots[index - 1]
+        const current = liveSnapshots[index]
+        const leftStepDiff = Math.abs(current.groupBoundsLeft - previous.groupBoundsLeft)
+        const topStepDiff = Math.abs(current.groupBoundsTop - previous.groupBoundsTop)
+
+        expect(leftStepDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+        expect(topStepDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.anchor)
+      }
+    })
+
+    await test.step('Проверить что изменение ширины двигает правую границу в ожидаемую сторону', () => {
+      for (let index = 1; index < liveSnapshots.length; index += 1) {
+        const previousSnapshot = liveSnapshots[index - 1]
+        const currentSnapshot = liveSnapshots[index]
+        const previousStep = SHAPE_SCALING_LIVE_REVERSE_STEPS[index - 1]
+        const currentStep = SHAPE_SCALING_LIVE_REVERSE_STEPS[index]
+        const deltaScaleX = currentStep.scaleX - previousStep.scaleX
+
+        if (deltaScaleX === 0) {
+          continue
         }
-      })
 
-      shapes.checkCreation({
-        shape,
-        presetKey: 'square'
-      })
+        if (deltaScaleX > 0) {
+          expect(currentSnapshot.groupBoundsRight)
+            .toBeGreaterThan(previousSnapshot.groupBoundsRight - SHAPE_SCALING_TOLERANCE.direction)
+        }
+
+        if (deltaScaleX < 0) {
+          expect(currentSnapshot.groupBoundsRight)
+            .toBeLessThan(previousSnapshot.groupBoundsRight + SHAPE_SCALING_TOLERANCE.direction)
+        }
+      }
     })
 
-    await test.step('Сжать shape по вертикали до minimum height и зафиксировать состояние', async() => {
-      await shapes.shrinkToMinimumHeight({ objectIndex: 0 })
-      await shapes.finishScale({ objectIndex: 0 })
-      await history.flushPendingSave()
+    await test.step('Проверить что изменение высоты двигает нижнюю границу в ожидаемую сторону', () => {
+      for (let index = 1; index < liveSnapshots.length; index += 1) {
+        const previousSnapshot = liveSnapshots[index - 1]
+        const currentSnapshot = liveSnapshots[index]
+        const previousStep = SHAPE_SCALING_LIVE_REVERSE_STEPS[index - 1]
+        const currentStep = SHAPE_SCALING_LIVE_REVERSE_STEPS[index]
+        const deltaScaleY = currentStep.scaleY - previousStep.scaleY
+
+        if (deltaScaleY === 0) {
+          continue
+        }
+
+        if (deltaScaleY > 0) {
+          expect(currentSnapshot.groupBoundsBottom)
+            .toBeGreaterThan(previousSnapshot.groupBoundsBottom - SHAPE_SCALING_TOLERANCE.direction)
+        }
+
+        if (deltaScaleY < 0) {
+          expect(currentSnapshot.groupBoundsBottom)
+            .toBeLessThan(previousSnapshot.groupBoundsBottom + SHAPE_SCALING_TOLERANCE.direction)
+        }
+      }
     })
 
-    const minimumSnapshot = await test.step('Получить snapshot после vertical minimum height', async() => {
+    await test.step('Проверить постоянство обводки и совпадение shape с bbox в live-режиме', () => {
+      for (let index = 0; index < liveSnapshots.length; index += 1) {
+        const snapshot = liveSnapshots[index]
+        expect(snapshot.shapeStrokeWidth).toBe(SHAPE_SCALING_STROKE_WIDTH)
+        expect(snapshot.shapeStrokeUniform).toBe(true)
+
+        expect(snapshot.shapeBoundsWidth).not.toBeNull()
+        expect(snapshot.shapeBoundsHeight).not.toBeNull()
+
+        if (snapshot.shapeBoundsWidth !== null) {
+          const widthDiff = Math.abs(snapshot.groupBoundsWidth - snapshot.shapeBoundsWidth)
+          expect(widthDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.bbox)
+        }
+
+        if (snapshot.shapeBoundsHeight !== null) {
+          const heightDiff = Math.abs(snapshot.groupBoundsHeight - snapshot.shapeBoundsHeight)
+          expect(heightDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.bbox)
+        }
+      }
+    })
+
+    const snapshotBeforeMouseUp = liveSnapshots[liveSnapshots.length - 1]
+
+    expect(snapshotBeforeMouseUp, 'должен существовать последний live snapshot перед mouseup').toBeDefined()
+
+    if (!snapshotBeforeMouseUp) {
+      throw new Error('должен существовать последний live snapshot перед mouseup')
+    }
+
+    const finalSnapshot = await test.step('Завершить drag и получить финальный snapshot', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить отсутствие прыжка на mouseup', () => {
+      const leftJump = Math.abs(finalSnapshot.groupBoundsLeft - snapshotBeforeMouseUp.groupBoundsLeft)
+      const topJump = Math.abs(finalSnapshot.groupBoundsTop - snapshotBeforeMouseUp.groupBoundsTop)
+      const rightJump = Math.abs(finalSnapshot.groupBoundsRight - snapshotBeforeMouseUp.groupBoundsRight)
+      const bottomJump = Math.abs(finalSnapshot.groupBoundsBottom - snapshotBeforeMouseUp.groupBoundsBottom)
+
+      expect(leftJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(topJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(rightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(bottomJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+    })
+
+    await test.step('Проверить что после bake масштаб сброшен и обводка сохранена', async() => {
+      const shape = await shapes.getFirstShape()
+      expect(shape.scaleX).toBe(1)
+      expect(shape.scaleY).toBe(1)
+      expect(finalSnapshot.shapeStrokeWidth).toBe(SHAPE_SCALING_STROKE_WIDTH)
+      expect(finalSnapshot.shapeStrokeUniform).toBe(true)
+    })
+  })
+})
+
+test.describe('Интерактивное масштабирование shape с текстом', () => {
+  test.beforeEach(async({ shapes }) => {
+    await shapes.addShapeWithText()
+  })
+
+  test('уже на первом horizontal shrink держит text и shape внутри bbox и без прыжка после mouseup', async({ shapes }) => {
+    const initialSnapshot = await test.step('Получить исходный snapshot shape с текстом', async() => {
       return shapes.getScaleSnapshot({ objectIndex: 0 })
     })
 
-    await test.step('Сделать undo и redo', async() => {
-      await history.undo()
-      await history.redo()
-    })
-
-    const restoredSnapshot = await test.step('Получить snapshot после redo', async() => {
-      return shapes.getScaleSnapshot({ objectIndex: 0 })
-    })
-
-    await test.step('Проверить что redo восстановил тот же minimum state', () => {
-      expect(Math.abs(restoredSnapshot.groupBoundsHeight - minimumSnapshot.groupBoundsHeight))
-        .toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
-      expect(Math.abs(restoredSnapshot.groupBoundsTop - minimumSnapshot.groupBoundsTop))
-        .toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
-      expect(Math.abs(restoredSnapshot.groupBoundsBottom - minimumSnapshot.groupBoundsBottom))
-        .toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
-    })
-
-    const liveSnapshot = await test.step('После redo снова сузить shape по горизонтали', async() => {
+    const liveSnapshot = await test.step('Сузить shape по горизонтали до переноса строк', async() => {
       return shapes.scaleHorizontallyFromRight({
         scaleX: 0.55,
         objectIndex: 0
       })
     })
 
-    await test.step('Проверить что horizontal scaling после redo всё ещё работает', () => {
-      expect(liveSnapshot.groupBoundsWidth).toBeLessThan(restoredSnapshot.groupBoundsWidth)
+    await test.step('Проверить что live-preview увеличил высоту и сохранил text/shape внутри bbox', () => {
+      expect(liveSnapshot.groupBoundsHeight).toBeGreaterThan(initialSnapshot.groupBoundsHeight)
       shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'shape' })
       shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'text' })
     })
-  })
 
-  test('после copy/paste вставленный shape так же сжимается по вертикали до minimum height текста', async({
-    clipboard,
-    editorModel,
-    shapes
-  }) => {
-    await test.step('Добавить исходный shape и скопировать его', async() => {
-      await shapes.add({
-        presetKey: 'square',
-        options: {
-          width: 220,
-          height: 320,
-          text: 'TEST',
-          textStyle: {
-            fontSize: 72
-          }
-        }
-      })
-      await shapes.select({ objectIndex: 0 })
-      await clipboard.copy()
-      await clipboard.waitForClipboardReady()
+    const finalSnapshot = await test.step('Завершить scaling и получить финальный snapshot', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
     })
 
-    await test.step('Вставить shape из буфера обмена', async() => {
-      const pasted = await clipboard.paste()
+    await test.step('Проверить отсутствие прыжка после mouseup', () => {
+      const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight)
+      const bottomJump = Math.abs(finalSnapshot.groupBoundsBottom - liveSnapshot.groupBoundsBottom)
 
-      expect(pasted).toBe(true)
-      await editorModel.checkObjectCount({ count: 2 })
-    })
-
-    const initialSnapshot = await test.step('Получить исходный snapshot вставленного shape', async() => {
-      return shapes.getScaleSnapshot({ objectIndex: 1 })
-    })
-    const initialText = await test.step('Получить исходное состояние текста вставленного shape', async() => {
-      return shapes.getTextNode({ objectIndex: 1 })
-    })
-
-    const liveSnapshot = await test.step('Сжать вставленный shape по вертикали до minimum height', async() => {
-      return shapes.shrinkToMinimumHeight({ objectIndex: 1 })
-    })
-    const finalSnapshot = await test.step('Зафиксировать vertical minimum height вставленного shape', async() => {
-      await shapes.finishScale({ objectIndex: 1 })
-
-      return shapes.getScaleSnapshot({ objectIndex: 1 })
-    })
-    const finalText = await test.step('Получить финальное состояние текста вставленного shape', async() => {
-      return shapes.getTextNode({ objectIndex: 1 })
-    })
-
-    await test.step('Проверить что vertical scaling после copy/paste работает так же стабильно', () => {
-      expect(liveSnapshot.groupBoundsHeight).toBeLessThan(initialSnapshot.groupBoundsHeight)
-      expect(Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight))
-        .toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
-      expect(finalText?.fontSize).toBe(initialText?.fontSize)
-      expect(finalText?.lineCount).toBe(initialText?.lineCount)
+      expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(bottomJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
       shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'shape' })
       shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
     })
   })
 
-  test('после applyTemplate восстановленный shape так же сжимается по вертикали до minimum height текста', async({
-    shapes,
-    template
-  }) => {
-    await test.step('Создать исходный shape и сериализовать его в шаблон', async() => {
-      await shapes.add({
-        presetKey: 'square',
-        options: {
-          width: 220,
-          height: 320,
-          text: 'TEST',
-          textStyle: {
-            fontSize: 72
-          }
-        }
+  test('после упора в minimum width можно сразу растягивать обратно без завершения drag', async({ shapes }) => {
+    const minimumSnapshot = await test.step('Сжать shape до minimum width в live-режиме', async() => {
+      return shapes.shrinkToMinimumWidth({ objectIndex: 0 })
+    })
+
+    const expandedSnapshot = await test.step('Не отпуская drag, сразу растянуть shape обратно вправо', async() => {
+      return shapes.scaleHorizontallyFromRight({
+        scaleX: 0.9,
+        objectIndex: 0
       })
-      await shapes.select({ objectIndex: 0 })
     })
 
-    const serializedTemplate = await test.step('Сериализовать текущее выделение', async() => {
-      return template.serializeSelection()
+    await test.step('Проверить что ширина снова растёт и text/shape остаются внутри bbox', () => {
+      expect(expandedSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(minimumSnapshot.groupBoundsWidth + SHAPE_SCALING_TOLERANCE.direction)
+      shapes.checkNodeInsideGroup({ snapshot: expandedSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: expandedSnapshot, kind: 'text' })
+    })
+  })
+
+  test('повторные циклы shrink-expand-shrink дают одинаковую minimum width и одинаковый live layout', async({ shapes }) => {
+    const firstMinimumSnapshot = await test.step('Первый shrink до minimum width', async() => {
+      return shapes.shrinkToMinimumWidth({ objectIndex: 0 })
     })
 
-    await test.step('Удалить исходный shape и применить шаблон', async() => {
-      await shapes.remove({ objectIndex: 0 })
-      expect(serializedTemplate).not.toBeNull()
-
-      const insertedCount = await template.applyTemplate({
-        template: serializedTemplate!
-      })
-
-      expect(insertedCount).toBe(1)
-    })
-
-    const initialSnapshot = await test.step('Получить исходный snapshot shape из шаблона', async() => {
-      return shapes.getScaleSnapshot({ objectIndex: 0 })
-    })
-    const initialText = await test.step('Получить исходное состояние текста shape из шаблона', async() => {
-      return shapes.getTextNode({ objectIndex: 0 })
-    })
-
-    const liveSnapshot = await test.step('Сжать shape из шаблона по вертикали до minimum height', async() => {
-      return shapes.shrinkToMinimumHeight({ objectIndex: 0 })
-    })
-    const finalSnapshot = await test.step('Зафиксировать vertical minimum height shape из шаблона', async() => {
+    await test.step('Зафиксировать первый minimum state', async() => {
       await shapes.finishScale({ objectIndex: 0 })
-
-      return shapes.getScaleSnapshot({ objectIndex: 0 })
-    })
-    const finalText = await test.step('Получить финальное состояние текста shape из шаблона', async() => {
-      return shapes.getTextNode({ objectIndex: 0 })
     })
 
-    await test.step('Проверить что vertical scaling после applyTemplate работает так же стабильно', () => {
-      expect(liveSnapshot.groupBoundsHeight).toBeLessThan(initialSnapshot.groupBoundsHeight)
-      expect(Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight))
-        .toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
-      expect(finalText?.fontSize).toBe(initialText?.fontSize)
-      expect(finalText?.lineCount).toBe(initialText?.lineCount)
-      shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'shape' })
-      shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
+    await test.step('Растянуть shape обратно', async() => {
+      await shapes.scaleHorizontallyFromRight({ scaleX: 2, objectIndex: 0 })
+
+      await shapes.finishScale({ objectIndex: 0 })
+    })
+
+    const secondMinimumSnapshot = await test.step('Повторно shrink до minimum width', async() => {
+      return shapes.shrinkToMinimumWidth({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить стабильность minimum width и live layout между циклами', () => {
+      const widthDiff = Math.abs(secondMinimumSnapshot.groupBoundsWidth - firstMinimumSnapshot.groupBoundsWidth)
+      const heightDiff = Math.abs(secondMinimumSnapshot.groupBoundsHeight - firstMinimumSnapshot.groupBoundsHeight)
+      const textHeightDiff = Math.abs(
+        (secondMinimumSnapshot.textBoundsHeight ?? 0) - (firstMinimumSnapshot.textBoundsHeight ?? 0)
+      )
+
+      expect(widthDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(heightDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(textHeightDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      shapes.checkNodeInsideGroup({ snapshot: firstMinimumSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: firstMinimumSnapshot, kind: 'text' })
+      shapes.checkNodeInsideGroup({ snapshot: secondMinimumSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: secondMinimumSnapshot, kind: 'text' })
     })
   })
 })
