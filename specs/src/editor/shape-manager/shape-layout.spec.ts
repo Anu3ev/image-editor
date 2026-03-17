@@ -255,6 +255,122 @@ describe('shape-layout', () => {
     expect(multiCharMinimumWidth).toBe(singleCharMinimumWidth)
   })
 
+  it('resolveMinimumShapeWidthForText возвращает 1px для пустого текста', () => {
+    const text = createMockShapeTextbox({
+      text: ''
+    })
+
+    const minimumWidth = resolveMinimumShapeWidthForText({
+      text,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(minimumWidth).toBe(1)
+  })
+
+  it('resolveMinimumShapeWidthForText возвращает 1px для текста из пробелов', () => {
+    const text = createMockShapeTextbox({
+      text: '   '
+    })
+
+    const minimumWidth = resolveMinimumShapeWidthForText({
+      text,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(minimumWidth).toBe(1)
+  })
+
+  it('resolveRequiredShapeHeightForText возвращает safeHeight для пустого текста', () => {
+    const text = createMockShapeTextbox({
+      text: ''
+    })
+
+    const nextHeight = resolveRequiredShapeHeightForText({
+      text,
+      width: 120,
+      height: 80,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(nextHeight).toBe(80)
+  })
+
+  it('resolveRequiredShapeHeightForText возвращает safeHeight для текста из пробелов', () => {
+    const text = createMockShapeTextbox({
+      text: ' \n  '
+    })
+
+    const nextHeight = resolveRequiredShapeHeightForText({
+      text,
+      width: 120,
+      height: 80,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(nextHeight).toBe(80)
+  })
+
+  it('isShapeTextFrameFilled возвращает false для пустого текста', () => {
+    const text = createMockShapeTextbox({
+      text: ''
+    })
+
+    const filled = isShapeTextFrameFilled({
+      text,
+      width: 120,
+      height: 80,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(filled).toBe(false)
+  })
+
+  it('isShapeTextFrameFilled возвращает false для текста из пробелов', () => {
+    const text = createMockShapeTextbox({
+      text: '  '
+    })
+
+    const filled = isShapeTextFrameFilled({
+      text,
+      width: 120,
+      height: 80,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(filled).toBe(false)
+  })
+
   it('applyShapeTextLayout синхронизирует manual base размеры с рассчитанным layout', () => {
     const shape = createMockShapeNode({
       width: 180,
@@ -290,6 +406,44 @@ describe('shape-layout', () => {
 
     expect(group.shapeManualBaseWidth).toBe(group.shapeBaseWidth)
     expect(group.shapeManualBaseHeight).toBe(group.shapeBaseHeight)
+  })
+
+  it('applyShapeTextLayout не схлопывает empty-text shape до 1px по высоте', () => {
+    const shape = createMockShapeNode({
+      width: 180,
+      height: 80
+    })
+    const text = createMockShapeTextbox({
+      text: '',
+      width: 180,
+      fontSize: 30
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 180,
+      height: 80
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 180,
+      height: 80,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(group.shapeBaseHeight).toBe(80)
+    expect(group.shapeManualBaseHeight).toBe(80)
+    expect(group.height).toBe(80)
   })
 
   it('resolveGroupCenterPoint использует явные координаты, иначе центр канваса', () => {

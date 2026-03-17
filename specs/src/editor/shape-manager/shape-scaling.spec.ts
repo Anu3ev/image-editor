@@ -13,6 +13,7 @@ import {
 import {
   createShapeScalingSetup,
   createShapeScalingTransform,
+  mockShapeScalingLocalPointer,
   mockShapeGroupPositionByOrigin
 } from '../../../test-utils/shape-scaling-helpers'
 
@@ -58,16 +59,20 @@ describe('shape-scaling', () => {
     resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => height)
   })
 
-  it('блокирует уменьшение заполненного текстом шейпа как noop (без изменения размеров)', () => {
+  it('обрабатывает vertical shrink как noop, если shape уже стоит на minimum height в начале drag', () => {
     const {
       controller,
       canvas,
       group
     } = createShapeScalingSetup()
 
-    isShapeTextFrameFilledMock.mockReturnValue(true)
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 200
 
-    group.scaleX = 0.8
+      return height
+    })
+
     group.scaleY = 0.8
     group.left = 480
     group.top = 420
@@ -75,15 +80,12 @@ describe('shape-scaling', () => {
     controller.handleObjectScaling({
       target: group,
       transform: {
-        original: {
-          scaleX: 1,
-          scaleY: 1,
-          left: 480,
-          top: 420
-        },
-        corner: 'br',
-        originX: 'left',
-        originY: 'top'
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
       } as never
     })
 
@@ -316,6 +318,480 @@ describe('shape-scaling', () => {
     expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
+  it('в live-режиме зажимает vertical shrink на minimum height текста, если Fabric пропустил scaling-кадр', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 80
+
+      return height
+    })
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+    }
+
+    mockShapeScalingLocalPointer({
+      canvas: canvasWithTransform,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    canvasWithTransform._currentTransform = {
+      ...createShapeScalingTransform({
+        corner: 'mb',
+        originX: 'center',
+        originY: 'top'
+      }),
+      target: group,
+      action: 'scaleY',
+      signY: 1
+    }
+
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+
+    expect(group.scaleY).toBeCloseTo(0.4, 4)
+    expect((group.height ?? 0) * (group.scaleY ?? 1)).toBeCloseTo(80, 4)
+    expect(group.shapeScalingNoopTransform).toBe(false)
+  })
+
+  it('при vertical shrink компенсирует text.scaleY и не уменьшает визуальный размер текста', () => {
+    const {
+      controller,
+      text,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveShapeTextFrameLayoutMock.mockReturnValue({
+      frame: {
+        left: -60,
+        top: -40,
+        width: 120,
+        height: 80
+      },
+      splitByGrapheme: false,
+      textTop: -20
+    })
+
+    group.scaleX = 1
+    group.scaleY = 0.5
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    expect(text.scaleX).toBeCloseTo(1, 4)
+    expect(text.scaleY).toBeCloseTo(2, 4)
+  })
+
+  it('на object:modified запекает vertical shrink в minimum height текста, даже если lastAllowedScaleY устарел', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 80
+
+      return height
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    group.scaleY = 0.9
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY',
+        signY: 1
+      } as never
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 200,
+      height: 80
+    }))
+    expect(group.scaleY).toBe(1)
+  })
+
+  it('в live-режиме зажимает vertical shrink пустого shape на 1px', () => {
+    const {
+      controller,
+      canvas,
+      group,
+      text
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    text.set({
+      text: ''
+    })
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 1
+
+      return height
+    })
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+    }
+
+    mockShapeScalingLocalPointer({
+      canvas: canvasWithTransform,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    canvasWithTransform._currentTransform = {
+      ...createShapeScalingTransform({
+        corner: 'mb',
+        originX: 'center',
+        originY: 'top'
+      }),
+      target: group,
+      action: 'scaleY',
+      signY: 1
+    }
+
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+
+    expect(group.scaleY).toBeCloseTo(0.005, 4)
+    expect((group.height ?? 0) * (group.scaleY ?? 1)).toBeCloseTo(1, 4)
+    expect(group.shapeScalingNoopTransform).toBe(false)
+  })
+
+  it('на object:modified запекает vertical shrink пустого shape в 1px', () => {
+    const {
+      controller,
+      canvas,
+      group,
+      text
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    text.set({
+      text: ''
+    })
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 1
+
+      return height
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    group.scaleY = 0.8
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY',
+        signY: 1
+      } as never
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 200,
+      height: 1
+    }))
+    expect(group.scaleY).toBe(1)
+  })
+
+  it('horizontal scaling не блокируется из-за vertical minimum на старте drag', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 200
+
+      return height
+    })
+
+    group.scaleX = 0.8
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(group.shapeScalingNoopTransform).toBe(false)
+    expect(group.scaleX).toBe(0.8)
+  })
+
+  it('после vertical shrink до minimum height horizontal scaling продолжает работать', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 80
+
+      return height
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    group.scaleY = 0.5
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY',
+        signY: 1
+      } as never
+    })
+
+    group.scaleX = 0.8
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(group.shapeScalingNoopTransform).toBe(false)
+    expect(group.scaleX).toBe(0.8)
+  })
+
+  it('minimum height для vertical clamp считает от текущей width', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ width, height }: {
+      width: number
+      height: number
+    }) => {
+      if (height === 1) {
+        return width <= 140 ? 90 : 80
+      }
+
+      return height
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    group.scaleX = 0.7
+    group.scaleY = 0.9
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY',
+        signY: 1
+      } as never
+    })
+
+    expect(resolveRequiredShapeHeightForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 140,
+      height: 1
+    }))
+  })
+
+  it('при отсутствии изменения размеров на object:modified восстанавливает text-shape через applyShapeTextLayout', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.scaleX = 1.001
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 200,
+      height: 200
+    }))
+    expect(group.scaleX).toBe(1)
+    expect(group.scaleY).toBe(1)
+  })
+
   it('запекает размеры после разрешенного scaling и сбрасывает scale у группы/текста', () => {
     const {
       controller,
@@ -497,43 +973,109 @@ describe('shape-scaling', () => {
     expect(group.shapeRounding).toBe(0)
   })
 
-  it('при заполненном фрейме не даёт уменьшить базовую высоту ниже текущей', () => {
+  it('после minimum width и minimum height horizontal scaling обратно вширь продолжает работать', () => {
     const {
       controller,
+      canvas,
       group
     } = createShapeScalingSetup()
 
-    isShapeTextFrameFilledMock
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true)
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 80
 
-    group.scaleX = 0.7
+      return height
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'mr',
+      localPoint: new Point(-10, 0)
+    })
+
+    group.scaleX = 0.8
     group.scaleY = 0.8
 
     controller.handleObjectScaling({
       target: group,
       transform: {
-        original: {
-          scaleX: 1,
-          scaleY: 1,
-          left: 480,
-          top: 420
-        },
-        corner: 'br',
-        originX: 'left',
-        originY: 'top'
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
       } as never
     })
 
     controller.handleObjectModified({
-      target: group
+      target: group,
+      e: {} as PointerEvent,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX',
+        signX: 1
+      } as never
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls[0]?.[0]
-    expect(layoutCall.width).toBe(140)
-    expect(layoutCall.height).toBeGreaterThanOrEqual(200)
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    group.scaleX = 1
+    group.scaleY = 0.8
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY',
+        signY: 1
+      } as never
+    })
+
+    group.scaleX = 1.2
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(group.shapeScalingNoopTransform).toBe(false)
+    expect(group.scaleX).toBe(1.2)
   })
 
   it('сохраняет одинаковую минимальную ширину после повторных циклов shrink-expand-shrink', () => {

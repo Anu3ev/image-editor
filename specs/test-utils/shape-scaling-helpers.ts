@@ -127,3 +127,39 @@ export const mockShapeGroupPositionByOrigin = ({
     group.top = nextTop
   }) as never
 }
+
+/**
+ * Подменяет canvas/group API так, чтобы scaling controller получил заданную локальную pointer-точку transform.
+ */
+export const mockShapeScalingLocalPointer = ({
+  canvas,
+  group,
+  corner,
+  localPoint
+}: {
+  canvas: ShapeScalingTestSetup['canvas'] & {
+    getScenePoint?: jest.Mock
+    getZoom?: jest.Mock
+  }
+  group: ShapeScalingTestSetup['group']
+  corner: string
+  localPoint: Point
+}): void => {
+  canvas.getScenePoint = jest.fn(() => ({
+    x: localPoint.x,
+    y: localPoint.y,
+    rotate: jest.fn(() => new Point(localPoint.x, localPoint.y)),
+    subtract: jest.fn(() => new Point(localPoint.x, localPoint.y))
+  })) as never
+  canvas.getZoom = jest.fn(() => 1) as never
+
+  group.canvas = canvas as never
+  group.getRelativeCenterPoint = jest.fn(() => new Point(0, 0)) as never
+  group.translateToGivenOrigin = jest.fn(() => new Point(0, 0)) as never
+  group.controls = {
+    [corner]: {
+      offsetX: 0,
+      offsetY: 0
+    }
+  } as never
+}
