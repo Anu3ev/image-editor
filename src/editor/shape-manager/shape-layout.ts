@@ -139,6 +139,10 @@ export const resolveMinimumShapeWidthForText = ({
   text: ShapeLayoutInput['text']
   padding: ShapePadding
 }): number => {
+  if (!hasShapeTextContent({
+    text
+  })) return MIN_TEXT_FRAME_SIZE
+
   const normalizedPadding = normalizePadding({
     padding
   })
@@ -215,6 +219,10 @@ export const isShapeTextFrameFilled = ({
   height: number
   padding: ShapePadding
 }): boolean => {
+  if (!hasShapeTextContent({
+    text
+  })) return false
+
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
   const normalizedPadding = normalizePadding({
@@ -236,6 +244,7 @@ export const isShapeTextFrameFilled = ({
 
 /**
  * Возвращает минимальную высоту shape, чтобы текст помещался в текстовый фрейм.
+ * Для пустого текста высота не раздувается и остается равной переданному safe-height.
  */
 export const resolveRequiredShapeHeightForText = ({
   text,
@@ -248,8 +257,12 @@ export const resolveRequiredShapeHeightForText = ({
   height: number
   padding: ShapePadding
 }): number => {
-  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  if (!hasShapeTextContent({
+    text
+  })) return safeHeight
+
+  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   const normalizedPadding = normalizePadding({
     padding
   })
@@ -335,6 +348,19 @@ function normalizePadding({ padding }: { padding: ShapePadding }): ShapePadding 
     bottom: clampPaddingValue({ value: padding.bottom }),
     left: clampPaddingValue({ value: padding.left })
   }
+}
+
+/**
+ * Возвращает true, если textbox содержит видимый текстовый контент.
+ */
+function hasShapeTextContent({
+  text
+}: {
+  text: ShapeLayoutInput['text']
+}): boolean {
+  const rawText = text.text ?? ''
+
+  return rawText.trim().length > 0
 }
 
 /**

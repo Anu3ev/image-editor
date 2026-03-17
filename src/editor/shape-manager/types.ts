@@ -190,7 +190,6 @@ export type ShapeScalingState = {
   baseRounding: number
   cannotScaleDownAtStart: boolean
   blockedScaleAttempt: boolean
-  frameFilledAtStart: boolean
   startLeft: number
   startTop: number
   startScaleX: number
