@@ -125,6 +125,8 @@ export class Group {
 
   height = 100
 
+  controls: Record<string, unknown> = {}
+
   _objects: any[] = []
 
   constructor(objects: any[] = [], public options: any = {}) {

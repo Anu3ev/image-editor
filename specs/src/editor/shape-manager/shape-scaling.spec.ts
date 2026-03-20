@@ -139,7 +139,7 @@ describe('shape-scaling', () => {
     expect(group.scaleY).toBe(1)
     expect(group.flipX).toBe(false)
     expect(group.flipY).toBe(false)
-    expect(group.shapeScalingNoopTransform).toBe(true)
+    expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
   it('не блокирует уменьшение когда следующий layout требует splitByGrapheme', () => {

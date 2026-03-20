@@ -1,5 +1,5 @@
 import { Point } from 'fabric'
-import ShapeScalingController from '../../src/editor/shape-manager/shape-scaling'
+import ShapeScalingController from '../../src/editor/shape-manager/scaling/shape-scaling'
 import { getShapeNodes } from '../../src/editor/shape-manager/shape-utils'
 import {
   createMockCanvas,

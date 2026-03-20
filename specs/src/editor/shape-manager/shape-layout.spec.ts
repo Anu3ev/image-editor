@@ -371,7 +371,7 @@ describe('shape-layout', () => {
     expect(filled).toBe(false)
   })
 
-  it('applyShapeTextLayout синхронизирует manual base размеры с рассчитанным layout', () => {
+  it('applyShapeTextLayout сохраняет manual base размеры отдельно от рассчитанного layout', () => {
     const shape = createMockShapeNode({
       width: 180,
       height: 80
@@ -404,8 +404,10 @@ describe('shape-layout', () => {
       }
     })
 
-    expect(group.shapeManualBaseWidth).toBe(group.shapeBaseWidth)
-    expect(group.shapeManualBaseHeight).toBe(group.shapeBaseHeight)
+    expect(group.shapeBaseWidth).toBe(180)
+    expect(group.shapeBaseHeight).toBe(120)
+    expect(group.shapeManualBaseWidth).toBe(180)
+    expect(group.shapeManualBaseHeight).toBe(80)
   })
 
   it('applyShapeTextLayout не схлопывает empty-text shape до 1px по высоте', () => {
