@@ -48,17 +48,16 @@ type ShapeScalingDecision = {
   appliedScaleY: number
   previewWidth: number
   previewHeight: number
-  shouldBlockScaling: boolean
   shouldHandleAsNoop: boolean
-  shouldPersistAsLastAllowed: boolean
+  shouldRestoreLastAllowedTransform: boolean
 }
 
 type ShapeScalingBlockState = {
-  shouldBlockScaling: boolean
   shouldHandleAsNoop: boolean
+  shouldRestoreLastAllowedTransform: boolean
   clampedScaleX: number | null
   clampedScaleY: number | null
-  shouldPersistAsLastAllowed: boolean
+  resolvedMinimumHeight: number | null
 }
 
 type ShapePreviewDimensions = {
@@ -134,9 +133,15 @@ export default class ShapeScalingController {
       state,
       transform
     })
+    const currentScaleX = Math.abs(group.scaleX ?? 1) || 1
+    const currentScaleY = Math.abs(group.scaleY ?? 1) || 1
+    const shouldApplyResolvedTransform = scalingDecision.shouldHandleAsNoop
+      || scalingDecision.shouldRestoreLastAllowedTransform
+      || Math.abs(scalingDecision.appliedScaleX - currentScaleX) > SCALE_EPSILON
+      || Math.abs(scalingDecision.appliedScaleY - currentScaleY) > SCALE_EPSILON
 
-    if (scalingDecision.shouldBlockScaling) {
-      this._applyBlockedScalingState({
+    if (shouldApplyResolvedTransform) {
+      this._applyResolvedScalingState({
         group,
         state,
         shouldHandleAsNoop: scalingDecision.shouldHandleAsNoop,
@@ -163,7 +168,7 @@ export default class ShapeScalingController {
       state
     })
 
-    if (!scalingDecision.shouldBlockScaling || scalingDecision.shouldPersistAsLastAllowed) {
+    if (!scalingDecision.shouldHandleAsNoop && !scalingDecision.shouldRestoreLastAllowedTransform) {
       this._storeLastAllowedTransform({
         group,
         state,
@@ -225,22 +230,32 @@ export default class ShapeScalingController {
     })
 
     // После решения о блокировке считаем именно те размеры preview, которые реально будут применены в этом кадре drag.
-    const blockedScaleX = blockState.shouldHandleAsNoop
-      ? state.startScaleX
-      : blockState.clampedScaleX ?? state.lastAllowedScaleX
-    const blockedScaleY = blockState.shouldHandleAsNoop
-      ? state.startScaleY
-      : blockState.clampedScaleY ?? state.lastAllowedScaleY
+    const currentScaleX = Math.abs(group.scaleX ?? 1) || 1
+    const currentScaleY = Math.abs(group.scaleY ?? 1) || 1
+    let appliedScaleX = blockState.clampedScaleX ?? currentScaleX
+    let appliedScaleY = blockState.clampedScaleY ?? currentScaleY
 
-    const appliedScaleX = Math.abs(blockState.shouldBlockScaling ? blockedScaleX : group.scaleX ?? 1) || 1
-    const appliedScaleY = Math.abs(blockState.shouldBlockScaling ? blockedScaleY : group.scaleY ?? 1) || 1
+    if (blockState.shouldRestoreLastAllowedTransform) {
+      appliedScaleX = state.lastAllowedScaleX
+      appliedScaleY = state.lastAllowedScaleY
+    }
+
+    if (blockState.shouldHandleAsNoop) {
+      appliedScaleX = state.startScaleX
+      appliedScaleY = state.startScaleY
+    }
+
+    const shouldReuseResolvedMinimumHeight = !blockState.shouldHandleAsNoop
+      && !blockState.shouldRestoreLastAllowedTransform
+      && blockState.clampedScaleX === null
 
     const previewDimensions = this._resolvePreviewDimensions({
       text,
       padding,
       state,
       appliedScaleX,
-      appliedScaleY
+      appliedScaleY,
+      minimumHeight: shouldReuseResolvedMinimumHeight ? blockState.resolvedMinimumHeight : null
     })
 
     return {
@@ -248,9 +263,8 @@ export default class ShapeScalingController {
       appliedScaleY,
       previewWidth: previewDimensions.previewWidth,
       previewHeight: previewDimensions.previewHeight,
-      shouldBlockScaling: blockState.shouldBlockScaling,
       shouldHandleAsNoop: blockState.shouldHandleAsNoop,
-      shouldPersistAsLastAllowed: blockState.shouldPersistAsLastAllowed
+      shouldRestoreLastAllowedTransform: blockState.shouldRestoreLastAllowedTransform
     }
   }
 
@@ -274,51 +288,62 @@ export default class ShapeScalingController {
   }): ShapeScalingBlockState {
     const nextWidth = Math.max(MIN_SIZE, state.baseWidth * scaleX)
     const nextHeight = Math.max(MIN_SIZE, state.baseHeight * scaleY)
-    const corner = typeof transform?.corner === 'string' ? transform.corner : ''
-    const action = transform?.action ?? ''
-    const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
-    const minimumWidth = resolveMinimumShapeWidthForText({
-      text,
-      padding
+    const isScalingDownX = scaleX < state.lastAllowedScaleX - SCALE_EPSILON
+    const isScalingDownY = scaleY < state.lastAllowedScaleY - SCALE_EPSILON
+    const isBelowStartScaleY = scaleY < state.startScaleY - SCALE_EPSILON
+    const {
+      canScaleHeight,
+      canScaleWidth,
+      isVerticalOnlyScale
+    } = ShapeScalingController._resolveScaleActionAxes({
+      transform
     })
-    const minimumHeight = isVerticalScaleAction
+    const shouldCheckMinimumWidth = canScaleWidth && isScalingDownX
+    const shouldCheckMinimumHeight = canScaleHeight && isScalingDownY
+    const minimumWidth = shouldCheckMinimumWidth
+      ? resolveMinimumShapeWidthForText({
+        text,
+        padding
+      })
+      : null
+    const minimumHeight = shouldCheckMinimumHeight
       ? this._resolveMinimumHeightForVerticalScaling({
         text,
         width: nextWidth,
         padding
       })
-      : nextHeight
-    const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
-    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
-    const isScalingDownX = scaleX < state.lastAllowedScaleX - SCALE_EPSILON
-    const isScalingDownY = scaleY < state.lastAllowedScaleY - SCALE_EPSILON
-    const isBelowStartScaleY = scaleY < state.startScaleY - SCALE_EPSILON
-    const shouldBlockByStart = isVerticalScaleAction
+      : null
+    const shouldBlockByStart = isVerticalOnlyScale
       && state.cannotScaleDownAtStart
       && isBelowStartScaleY
-    const shouldClampByMinimumWidth = isScalingDownX && nextWidth < minimumWidth + SCALE_EPSILON
-    const shouldClampByMinimumHeight = isVerticalScaleAction
-      && isScalingDownY
+    const shouldClampByMinimumWidth = minimumWidth !== null
+      && nextWidth < minimumWidth + SCALE_EPSILON
+    const shouldClampByMinimumHeight = minimumHeight !== null
       && nextHeight < minimumHeight + SCALE_EPSILON
-    const shouldBlockScaling = shouldBlockByStart
+    const shouldRestoreLastAllowedTransform = state.crossedOppositeCorner
+    const clampedScaleX = shouldClampByMinimumWidth && minimumWidth !== null
+      ? Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
+      : null
+    const clampedScaleY = shouldClampByMinimumHeight && minimumHeight !== null
+      ? Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
+      : null
+    const hasConstraintViolation = shouldBlockByStart
       || shouldClampByMinimumWidth
       || shouldClampByMinimumHeight
-      || state.crossedOppositeCorner
-    const clampedScaleX = shouldClampByMinimumWidth ? minimumScaleX : null
-    const clampedScaleY = shouldClampByMinimumHeight ? minimumScaleY : null
+      || shouldRestoreLastAllowedTransform
     const shouldHandleAsNoop = shouldBlockByStart || (
       ShapeScalingController._isStateAtStart({
         state
       })
-      && shouldBlockScaling
+      && hasConstraintViolation
     )
 
     return {
-      shouldBlockScaling,
       shouldHandleAsNoop,
+      shouldRestoreLastAllowedTransform,
       clampedScaleX,
       clampedScaleY,
-      shouldPersistAsLastAllowed: (clampedScaleX !== null || clampedScaleY !== null) && !shouldHandleAsNoop
+      resolvedMinimumHeight: minimumHeight
     }
   }
 
@@ -330,24 +355,27 @@ export default class ShapeScalingController {
     padding,
     state,
     appliedScaleX,
-    appliedScaleY
+    appliedScaleY,
+    minimumHeight
   }: {
     text: NonNullable<ReturnType<typeof getShapeNodes>['text']>
     padding: ShapePadding
     state: ShapeScalingState
     appliedScaleX: number
     appliedScaleY: number
+    minimumHeight?: number | null
   }): ShapePreviewDimensions {
     const previewWidth = Math.max(MIN_SIZE, state.baseWidth * appliedScaleX)
     const scaledPreviewHeight = Math.max(MIN_SIZE, state.baseHeight * appliedScaleY)
+    const resolvedMinimumHeight = minimumHeight ?? resolveRequiredShapeHeightForText({
+      text,
+      width: previewWidth,
+      height: scaledPreviewHeight,
+      padding
+    })
     const previewHeight = Math.max(
       scaledPreviewHeight,
-      resolveRequiredShapeHeightForText({
-        text,
-        width: previewWidth,
-        height: scaledPreviewHeight,
-        padding
-      })
+      resolvedMinimumHeight
     )
 
     return {
@@ -357,9 +385,9 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Возвращает group в последнюю допустимую трансформацию, если текущий шаг scaling заблокирован.
+   * Применяет скорректированное состояние transform, когда текущий drag нужно ограничить или откатить.
    */
-  private _applyBlockedScalingState({
+  private _applyResolvedScalingState({
     group,
     state,
     shouldHandleAsNoop,
@@ -413,11 +441,13 @@ export default class ShapeScalingController {
     const { target } = transform
     if (!isShapeGroup(target)) return
 
-    const action = transform.action ?? ''
-    const corner = typeof transform.corner === 'string' ? transform.corner : ''
-    const isHorizontalScaleAction = action === 'scaleX' || corner === 'ml' || corner === 'mr'
-    const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
-    if (!isHorizontalScaleAction && !isVerticalScaleAction) return
+    const {
+      canScaleHeight,
+      canScaleWidth
+    } = ShapeScalingController._resolveScaleActionAxes({
+      transform
+    })
+    if (!canScaleWidth && !canScaleHeight) return
 
     const group = target
     const state = this.scalingState.get(group)
@@ -433,106 +463,71 @@ export default class ShapeScalingController {
     const padding = ShapeScalingController._resolvePadding({ group })
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
+    const currentScaleX = Math.abs(group.scaleX ?? state.lastAllowedScaleX ?? 1) || 1
+    const currentScaleY = Math.abs(group.scaleY ?? state.lastAllowedScaleY ?? 1) || 1
+    const eventWithTransform = {
+      ...event,
+      transform
+    }
+    let nextScaleX = currentScaleX
+    let nextScaleY = currentScaleY
+    let resolvedMinimumHeight: number | null = null
+    let didClampWidth = false
+    let shouldApplyClamp = false
 
-    if (isHorizontalScaleAction) {
+    const pointerReachedOrPassedOriginX = canScaleWidth && this._hasPointerReachedScaleOrigin({
+      event: eventWithTransform,
+      group,
+      axis: 'x'
+    })
+    if (pointerReachedOrPassedOriginX) {
       const minimumWidth = resolveMinimumShapeWidthForText({
         text,
         padding
       })
-      const shouldClampWidthToMinimum = this._shouldClampWidthToMinimum({
-        event: {
-          ...event,
-          transform
-        },
-        group,
-        minimumWidth,
-        state
-      })
-      if (!shouldClampWidthToMinimum) return
-
-      const currentScaleY = Math.abs(group.scaleY ?? state.lastAllowedScaleY ?? 1) || 1
       const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
-      const previewDimensions = this._resolvePreviewDimensions({
-        text,
-        padding,
-        state,
-        appliedScaleX: minimumScaleX,
-        appliedScaleY: currentScaleY
-      })
-
-      this._applyBlockedScalingState({
-        group,
-        state,
-        shouldHandleAsNoop: false,
-        scaleX: minimumScaleX,
-        scaleY: currentScaleY
-      })
-
-      this._applyLivePreviewLayout({
-        group,
-        shape,
-        text,
-        width: previewDimensions.previewWidth,
-        height: previewDimensions.previewHeight,
-        padding,
-        alignH,
-        alignV,
-        scaleX: minimumScaleX,
-        scaleY: currentScaleY
-      })
-
-      this._restoreScalingAnchorPosition({
-        group,
-        state
-      })
-
-      this._storeLastAllowedTransform({
-        group,
-        state,
-        scaleX: minimumScaleX,
-        scaleY: currentScaleY,
-        currentLeft: state.lastAllowedLeft,
-        currentTop: state.lastAllowedTop,
-        currentFlipX: state.lastAllowedFlipX,
-        currentFlipY: state.lastAllowedFlipY
-      })
-
-      this.canvas.requestRenderAll()
-      return
+      if (state.lastAllowedScaleX > minimumScaleX + SCALE_EPSILON) {
+        nextScaleX = minimumScaleX
+        didClampWidth = true
+        shouldApplyClamp = true
+      }
     }
 
-    const currentScaleX = Math.abs(group.scaleX ?? state.lastAllowedScaleX ?? 1) || 1
-    const minimumHeight = this._resolveMinimumHeightForVerticalScaling({
-      text,
-      width: Math.max(MIN_SIZE, state.baseWidth * currentScaleX),
-      padding
-    })
-    const shouldClampHeightToMinimum = this._shouldClampHeightToMinimum({
-      event: {
-        ...event,
-        transform
-      },
+    const pointerReachedOrPassedOriginY = canScaleHeight && this._hasPointerReachedScaleOrigin({
+      event: eventWithTransform,
       group,
-      minimumHeight,
-      state
+      axis: 'y'
     })
-    if (!shouldClampHeightToMinimum) return
+    if (pointerReachedOrPassedOriginY) {
+      resolvedMinimumHeight = this._resolveMinimumHeightForVerticalScaling({
+        text,
+        width: Math.max(MIN_SIZE, state.baseWidth * nextScaleX),
+        padding
+      })
+      const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, resolvedMinimumHeight / state.baseHeight)
+      if (state.lastAllowedScaleY > minimumScaleY + SCALE_EPSILON) {
+        nextScaleY = minimumScaleY
+        shouldApplyClamp = true
+      }
+    }
 
-    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
+    if (!shouldApplyClamp) return
+
     const previewDimensions = this._resolvePreviewDimensions({
       text,
       padding,
       state,
-      appliedScaleX: currentScaleX,
-      appliedScaleY: minimumScaleY
+      appliedScaleX: nextScaleX,
+      appliedScaleY: nextScaleY,
+      minimumHeight: didClampWidth ? null : resolvedMinimumHeight
     })
 
-    this._applyBlockedScalingState({
+    this._applyResolvedScalingState({
       group,
       state,
       shouldHandleAsNoop: false,
-      scaleX: currentScaleX,
-      scaleY: minimumScaleY
+      scaleX: nextScaleX,
+      scaleY: nextScaleY
     })
 
     this._applyLivePreviewLayout({
@@ -544,8 +539,8 @@ export default class ShapeScalingController {
       padding,
       alignH,
       alignV,
-      scaleX: currentScaleX,
-      scaleY: minimumScaleY
+      scaleX: nextScaleX,
+      scaleY: nextScaleY
     })
 
     this._restoreScalingAnchorPosition({
@@ -556,8 +551,8 @@ export default class ShapeScalingController {
     this._storeLastAllowedTransform({
       group,
       state,
-      scaleX: currentScaleX,
-      scaleY: minimumScaleY,
+      scaleX: nextScaleX,
+      scaleY: nextScaleY,
       currentLeft: state.lastAllowedLeft,
       currentTop: state.lastAllowedTop,
       currentFlipX: state.lastAllowedFlipX,
@@ -793,23 +788,16 @@ export default class ShapeScalingController {
     const { transform } = event
     if (!transform) return false
 
-    const action = transform.action ?? ''
-    if (action !== 'scaleX') return false
-
-    const transformWithSign = transform as Transform & {
-      signX?: number
-    }
-    const { signX } = transformWithSign
-    if (typeof signX !== 'number' || !Number.isFinite(signX)) return false
-
-    const localPoint = this._resolveLocalPointerForTransform({
-      event,
-      group,
+    const { canScaleWidth } = ShapeScalingController._resolveScaleActionAxes({
       transform
     })
-    if (!localPoint) return false
+    if (!canScaleWidth) return false
 
-    const pointerReachedOrPassedOriginX = (localPoint.x * signX) <= 0
+    const pointerReachedOrPassedOriginX = this._hasPointerReachedScaleOrigin({
+      event,
+      group,
+      axis: 'x'
+    })
     if (!pointerReachedOrPassedOriginX) return false
 
     const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
@@ -837,16 +825,46 @@ export default class ShapeScalingController {
     const { transform } = event
     if (!transform) return false
 
-    const action = transform.action ?? ''
-    const corner = typeof transform.corner === 'string' ? transform.corner : ''
-    const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
-    if (!isVerticalScaleAction) return false
+    const { canScaleHeight } = ShapeScalingController._resolveScaleActionAxes({
+      transform
+    })
+    if (!canScaleHeight) return false
+
+    const pointerReachedOrPassedOriginY = this._hasPointerReachedScaleOrigin({
+      event,
+      group,
+      axis: 'y'
+    })
+    if (!pointerReachedOrPassedOriginY) return false
+
+    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
+
+    return state.lastAllowedScaleY > minimumScaleY + SCALE_EPSILON
+  }
+
+  /**
+   * Возвращает true, если pointer уже дошёл до origin активного scale-transform по переданной оси.
+   */
+  private _hasPointerReachedScaleOrigin({
+    event,
+    group,
+    axis
+  }: {
+    event: ShapeModifiedEvent
+    group: ShapeGroup
+    axis: 'x' | 'y'
+  }): boolean {
+    const { transform } = event
+    if (!transform) return false
 
     const transformWithSign = transform as Transform & {
+      signX?: number
       signY?: number
     }
-    const { signY } = transformWithSign
-    if (typeof signY !== 'number' || !Number.isFinite(signY)) return false
+    const sign = axis === 'x'
+      ? transformWithSign.signX
+      : transformWithSign.signY
+    if (typeof sign !== 'number' || !Number.isFinite(sign)) return false
 
     const localPoint = this._resolveLocalPointerForTransform({
       event,
@@ -855,12 +873,11 @@ export default class ShapeScalingController {
     })
     if (!localPoint) return false
 
-    const pointerReachedOrPassedOriginY = (localPoint.y * signY) <= 0
-    if (!pointerReachedOrPassedOriginY) return false
+    const pointCoordinate = axis === 'x'
+      ? localPoint.x
+      : localPoint.y
 
-    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
-
-    return state.lastAllowedScaleY > minimumScaleY + SCALE_EPSILON
+    return (pointCoordinate * sign) <= 0
   }
 
   /**
@@ -1066,6 +1083,36 @@ export default class ShapeScalingController {
     if (typeof value === 'number' && Number.isFinite(value)) return value
 
     return null
+  }
+
+  /**
+   * Возвращает, какие оси реально участвуют в текущем scale-transform.
+   */
+  private static _resolveScaleActionAxes({
+    transform
+  }: {
+    transform?: Transform | null
+  }): {
+    canScaleWidth: boolean
+    canScaleHeight: boolean
+    isVerticalOnlyScale: boolean
+  } {
+    const action = transform?.action ?? ''
+    const corner = typeof transform?.corner === 'string' ? transform.corner : ''
+    const isCornerScaleAction = corner === 'tl'
+      || corner === 'tr'
+      || corner === 'bl'
+      || corner === 'br'
+    const isHorizontalScaleAction = action === 'scaleX' || corner === 'ml' || corner === 'mr'
+    const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
+    const canScaleWidth = isHorizontalScaleAction || isCornerScaleAction
+    const canScaleHeight = isVerticalScaleAction || isCornerScaleAction
+
+    return {
+      canScaleWidth,
+      canScaleHeight,
+      isVerticalOnlyScale: canScaleHeight && !canScaleWidth
+    }
   }
 
   /**

@@ -1,5 +1,6 @@
 import {
   Control,
+  controlsUtils,
   type Transform
 } from 'fabric'
 import type { ShapeGroupLike } from './types'
@@ -7,7 +8,8 @@ import type { ShapeGroupLike } from './types'
 const SHAPE_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
 
 type ShapeCornerTransform = Transform & {
-  shapeOriginalUniformScaling?: boolean
+  signX?: number
+  signY?: number
 }
 
 type ShapeCornerControl = Control & {
@@ -15,73 +17,100 @@ type ShapeCornerControl = Control & {
 }
 
 /**
- * Переводит текущий drag shape-угла в свободный corner resize,
- * не меняя поведение остальных объектов на canvas.
+ * Возвращает true, если transform использует центр объекта как anchor.
  */
-const enableShapeCornerFreeScaling = ({
+const isCenteredTransform = ({
   transform
 }: {
   transform: Transform
-}): void => {
-  const { target } = transform
-  const { canvas } = target
-  if (!canvas) return
+}): boolean => {
+  const { originX, originY } = transform
 
-  const shapeTransform = transform as ShapeCornerTransform
-  shapeTransform.shapeOriginalUniformScaling = canvas.uniformScaling
-  canvas.uniformScaling = false
+  return (originX === 'center' || originX === 0.5) && (originY === 'center' || originY === 0.5)
 }
 
 /**
- * Восстанавливает глобальный uniformScaling canvas после завершения drag shape-угла.
+ * Выполняет свободный corner resize shape по двум осям независимо.
+ * Если одна ось дошла до origin и flip запрещён, вторая продолжает обновляться.
  */
-const restoreShapeCornerScalingMode = ({
-  transform
+const scaleShapeFromCorner = ({
+  transform,
+  x,
+  y
 }: {
   transform: Transform
-}): void => {
-  const { target } = transform
-  const { canvas } = target
-  if (!canvas) return
-
+  x: number
+  y: number
+}): boolean => {
   const shapeTransform = transform as ShapeCornerTransform
-  const { shapeOriginalUniformScaling } = shapeTransform
-  if (shapeOriginalUniformScaling === undefined) return
+  const { target } = shapeTransform
+  const { scaleX: currentScaleX = 1, scaleY: currentScaleY = 1 } = target
+  const localPoint = controlsUtils.getLocalPoint(
+    shapeTransform,
+    shapeTransform.originX,
+    shapeTransform.originY,
+    x,
+    y
+  )
+  const nextSignX = Math.sign(localPoint.x || shapeTransform.signX || 1)
+  const nextSignY = Math.sign(localPoint.y || shapeTransform.signY || 1)
 
-  canvas.uniformScaling = shapeOriginalUniformScaling
-  shapeTransform.shapeOriginalUniformScaling = undefined
+  if (shapeTransform.signX === undefined) {
+    shapeTransform.signX = nextSignX
+  }
+  if (shapeTransform.signY === undefined) {
+    shapeTransform.signY = nextSignY
+  }
+
+  const dimensions = target._getTransformedDimensions()
+  let nextScaleX = Math.abs((localPoint.x * currentScaleX) / dimensions.x)
+  let nextScaleY = Math.abs((localPoint.y * currentScaleY) / dimensions.y)
+
+  if (isCenteredTransform({ transform: shapeTransform })) {
+    nextScaleX *= 2
+    nextScaleY *= 2
+  }
+
+  const canScaleX = !target.lockScalingX && (!target.lockScalingFlip || shapeTransform.signX === nextSignX)
+  const canScaleY = !target.lockScalingY && (!target.lockScalingFlip || shapeTransform.signY === nextSignY)
+
+  if (canScaleX) {
+    target.set('scaleX', nextScaleX)
+  }
+  if (canScaleY) {
+    target.set('scaleY', nextScaleY)
+  }
+
+  return currentScaleX !== target.scaleX || currentScaleY !== target.scaleY
 }
 
 /**
- * Создаёт corner control для shape, который использует свободный diagonal resize на время текущего drag.
+ * Возвращает Fabric-compatible handler для свободного diagonal resize shape.
+ */
+const createShapeCornerFreeScaleActionHandler = (): NonNullable<Control['actionHandler']> => {
+  return controlsUtils.wrapWithFireEvent(
+    'scaling',
+    controlsUtils.wrapWithFixedAnchor((_eventData, transform, x, y) => {
+      return scaleShapeFromCorner({
+        transform,
+        x,
+        y
+      })
+    })
+  )
+}
+
+/**
+ * Создаёт corner control для shape со свободным diagonal resize без глобального uniformScaling.
  */
 const createShapeCornerFreeScaleControl = ({
   control
 }: {
   control: Control
 }): Control => {
-  const { mouseDownHandler: originalMouseDownHandler, mouseUpHandler: originalMouseUpHandler } = control
-
   const nextControl = new Control({
     ...control,
-    mouseDownHandler: (eventData, transform, x, y) => {
-      enableShapeCornerFreeScaling({
-        transform
-      })
-
-      if (!originalMouseDownHandler) return false
-
-      return originalMouseDownHandler(eventData, transform, x, y)
-    },
-    mouseUpHandler: (eventData, transform, x, y) => {
-      restoreShapeCornerScalingMode({
-        transform
-      })
-
-      if (!originalMouseUpHandler) return false
-
-      return originalMouseUpHandler(eventData, transform, x, y)
-    }
+    actionHandler: createShapeCornerFreeScaleActionHandler()
   })
 
   const shapeCornerControl = nextControl as ShapeCornerControl
