@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import path from 'path'
-import babel from 'vite-plugin-babel'
 import { analyzer } from 'vite-bundle-analyzer'
 
 /**
@@ -33,23 +32,14 @@ export default defineConfig({
   },
 
   plugins: [
-    babel({
-      babelConfig: {
-        babelrc: false,
-        configFile: false,
-        presets: [
-          ['@babel/preset-env', {
-            modules: false,
-            targets: { esmodules: true }
-          }]
-        ]
-      }
-    }),
     analyzer({
-      open: true,
+      analyzerMode: 'static',
       gzipSize: true,
       brotliSize: true,
-      defaultSizes: 'parsed'
+      openAnalyzer: true,
+      gzipOptions: {},
+      brotliOptions: {},
+      defaultSizes: 'stat'
     })
   ]
 })

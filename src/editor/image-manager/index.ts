@@ -191,7 +191,7 @@ export default class ImageManager {
   /**
    * Проверяет, что src является blob/data URL.
    */
-  static private _isBlobOrDataUrl({ src }: { src: string }): boolean {
+  private static _isBlobOrDataUrl({ src }: { src: string }): boolean {
     if (src.startsWith('blob:')) return true
     if (src.startsWith('data:')) return true
 
