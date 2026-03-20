@@ -327,19 +327,9 @@ export default class ShapeScalingController {
     const clampedScaleY = shouldClampByMinimumHeight && minimumHeight !== null
       ? Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
       : null
-    const hasConstraintViolation = shouldBlockByStart
-      || shouldClampByMinimumWidth
-      || shouldClampByMinimumHeight
-      || shouldRestoreLastAllowedTransform
-    const shouldHandleAsNoop = shouldBlockByStart || (
-      ShapeScalingController._isStateAtStart({
-        state
-      })
-      && hasConstraintViolation
-    )
 
     return {
-      shouldHandleAsNoop,
+      shouldHandleAsNoop: shouldBlockByStart,
       shouldRestoreLastAllowedTransform,
       clampedScaleX,
       clampedScaleY,
@@ -1033,22 +1023,6 @@ export default class ShapeScalingController {
     if (typeof value !== 'number' || !Number.isFinite(value)) return null
 
     return value
-  }
-
-  /**
-   * Возвращает true, если последняя разрешенная трансформация совпадает со стартовой.
-   */
-  private static _isStateAtStart({
-    state
-  }: {
-    state: ShapeScalingState
-  }): boolean {
-    const isSameScaleX = Math.abs(state.lastAllowedScaleX - state.startScaleX) <= SCALE_EPSILON
-    const isSameScaleY = Math.abs(state.lastAllowedScaleY - state.startScaleY) <= SCALE_EPSILON
-    const isSameLeft = Math.abs(state.lastAllowedLeft - state.startLeft) <= SIZE_EPSILON
-    const isSameTop = Math.abs(state.lastAllowedTop - state.startTop) <= SIZE_EPSILON
-
-    return isSameScaleX && isSameScaleY && isSameLeft && isSameTop
   }
 
   /**
