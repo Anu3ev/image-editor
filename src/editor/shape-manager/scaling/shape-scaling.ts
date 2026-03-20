@@ -1088,7 +1088,8 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Восстанавливает стабильное состояние объекта, когда масштабирование не привело к изменению размеров.
+   * Восстанавливает стабильное состояние объекта, когда масштабирование не привело к изменению ручных размеров,
+   * сохраняя текущий laid-out размер shape после auto-fit текста.
    */
   private _restoreShapeStateWithoutResize({
     group,
@@ -1111,12 +1112,21 @@ export default class ShapeScalingController {
     alignV: ShapeGroup['shapeAlignVertical']
     padding: ShapePadding
   }): void {
+    const layoutWidth = Math.max(
+      MIN_SIZE,
+      group.shapeBaseWidth ?? group.width ?? baseWidth
+    )
+    const layoutHeight = Math.max(
+      MIN_SIZE,
+      group.shapeBaseHeight ?? group.height ?? baseHeight
+    )
+
     applyShapeTextLayout({
       group,
       shape,
       text,
-      width: baseWidth,
-      height: baseHeight,
+      width: layoutWidth,
+      height: layoutHeight,
       alignH,
       alignV,
       padding
@@ -1138,7 +1148,8 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Восстанавливает transform группы без пересчета layout, если масштабирование было полностью заблокировано.
+   * Восстанавливает transform группы без пересчета layout, если масштабирование было полностью заблокировано,
+   * возвращая текущий laid-out размер, а не ручную базовую высоту/ширину.
    */
   private _restoreGroupTransformOnly({
     group,
@@ -1151,11 +1162,20 @@ export default class ShapeScalingController {
     text: ShapeTextNode | null
     state: ShapeScalingState
   }): void {
+    const layoutWidth = Math.max(
+      MIN_SIZE,
+      group.shapeBaseWidth ?? group.width ?? state.baseWidth
+    )
+    const layoutHeight = Math.max(
+      MIN_SIZE,
+      group.shapeBaseHeight ?? group.height ?? state.baseHeight
+    )
+
     if (shape) {
       resizeShapeNode({
         shape,
-        width: state.baseWidth,
-        height: state.baseHeight,
+        width: layoutWidth,
+        height: layoutHeight,
         rounding: group.shapeRounding,
         strokeWidth: group.shapeStrokeWidth
       })
@@ -1171,8 +1191,8 @@ export default class ShapeScalingController {
     }
 
     group.set({
-      width: state.baseWidth,
-      height: state.baseHeight,
+      width: layoutWidth,
+      height: layoutHeight,
       left: state.startLeft,
       top: state.startTop,
       flipX: state.lastAllowedFlipX,
