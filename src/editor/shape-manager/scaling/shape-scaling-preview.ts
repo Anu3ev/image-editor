@@ -1,11 +1,11 @@
 import {
   resolveShapeTextFrameLayout
-} from './shape-layout'
-import { resizeShapeNode } from './shape-factory'
+} from '../shape-layout'
+import { resizeShapeNode } from '../shape-factory'
 import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN
-} from './shape-presets'
+} from '../shape-presets'
 import type {
   ShapeGroup,
   ShapeHorizontalAlign,
@@ -13,7 +13,7 @@ import type {
   ShapePadding,
   ShapeTextNode,
   ShapeVerticalAlign
-} from './types'
+} from '../types'
 
 type ShapeScalingPreviewOptions = {
   group: ShapeGroup

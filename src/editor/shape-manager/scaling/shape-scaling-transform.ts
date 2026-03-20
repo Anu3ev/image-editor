@@ -8,7 +8,7 @@ import type {
   ShapeScalingState,
   ShapeTransformOriginX,
   ShapeTransformOriginY
-} from './types'
+} from '../types'
 
 type ShapeTransformOriginalNumberKey = 'left' | 'top' | 'scaleX' | 'scaleY'
 

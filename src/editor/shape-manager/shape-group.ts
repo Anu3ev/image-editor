@@ -15,7 +15,7 @@ import {
   getShapeRuntimeTextNode,
   prepareShapeTextNode
 } from './shape-runtime'
-import { applyShapeCornerFreeScaleControls } from './shape-controls'
+import { applyShapeCornerFreeScaleControls } from './scaling/shape-controls'
 import type {
   ShapeGroupLike,
   ShapeGroupMetadata

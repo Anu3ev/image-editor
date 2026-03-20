@@ -3,7 +3,7 @@ import {
   controlsUtils,
   type Transform
 } from 'fabric'
-import type { ShapeGroupLike } from './types'
+import type { ShapeGroupLike } from '../types'
 
 const SHAPE_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
 

@@ -8,23 +8,23 @@ import {
   applyShapeTextLayout,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText
-} from './shape-layout'
-import { resizeShapeNode } from './shape-factory'
+} from '../shape-layout'
+import { resizeShapeNode } from '../shape-factory'
 import {
   ShapeGroup,
   ShapePadding,
   ShapeScalingState,
   ShapeNode,
   ShapeTextNode
-} from './types'
+} from '../types'
 import {
   getShapeNodes,
   isShapeGroup
-} from './shape-utils'
+} from '../shape-utils'
 import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN
-} from './shape-presets'
+} from '../shape-presets'
 import {
   isShapeTransformCornerChanged,
   isShapeTransformOriginChanged,
