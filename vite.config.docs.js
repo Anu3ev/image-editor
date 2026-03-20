@@ -42,6 +42,10 @@ export default defineConfig({
             }
             return content
           }
+        },
+        {
+          src: 'src/demo/js/listeners/*.js',
+          dest: './js/listeners'
         }
       ]
     })
