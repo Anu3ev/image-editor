@@ -34,6 +34,7 @@ const SIZE_EPSILON = 0.5
 
 type ShapeScalingEvent = {
   target?: FabricObject | null
+  e?: Event | MouseEvent | PointerEvent | TouchEvent
   transform?: Transform | null
 }
 
@@ -120,6 +121,11 @@ export default class ShapeScalingController {
       padding,
       transform
     })
+    const { isCornerScaleAction } = ShapeScalingController._resolveScaleActionAxes({
+      transform
+    })
+    const isShiftPressed = Boolean(event.e && 'shiftKey' in event.e && event.e.shiftKey)
+    state.isProportionalScaling = isCornerScaleAction && isShiftPressed
     const currentLeft = group.left ?? 0
     const currentTop = group.top ?? 0
     const currentFlipX = Boolean(group.flipX)
@@ -291,6 +297,7 @@ export default class ShapeScalingController {
       baseWidth,
       cannotScaleDownAtStart,
       crossedOppositeCorner,
+      isProportionalScaling,
       lastAllowedScaleX,
       lastAllowedScaleY,
       startScaleY
@@ -327,15 +334,23 @@ export default class ShapeScalingController {
     const shouldHandleAsNoop = isVerticalOnlyScale
       && cannotScaleDownAtStart
       && isBelowStartScaleY
+    const hasMinimumConstraintViolation = (
+      minimumWidth !== null
+      && attemptedWidth < minimumWidth + SCALE_EPSILON
+    ) || (
+      minimumHeight !== null
+      && attemptedHeight < minimumHeight + SCALE_EPSILON
+    )
     const shouldRestoreLastAllowedTransform = crossedOppositeCorner
+      || (isProportionalScaling && hasMinimumConstraintViolation)
 
     let clampedScaleX: number | null = null
-    if (minimumWidth !== null && attemptedWidth < minimumWidth + SCALE_EPSILON) {
+    if (!isProportionalScaling && minimumWidth !== null && attemptedWidth < minimumWidth + SCALE_EPSILON) {
       clampedScaleX = Math.max(MIN_SIZE / baseWidth, minimumWidth / baseWidth)
     }
 
     let clampedScaleY: number | null = null
-    if (minimumHeight !== null && attemptedHeight < minimumHeight + SCALE_EPSILON) {
+    if (!isProportionalScaling && minimumHeight !== null && attemptedHeight < minimumHeight + SCALE_EPSILON) {
       clampedScaleY = Math.max(MIN_SIZE / baseHeight, minimumHeight / baseHeight)
     }
 
@@ -453,6 +468,7 @@ export default class ShapeScalingController {
     const group = target
     const state = this.scalingState.get(group)
     if (!state) return
+    if (state.isProportionalScaling) return
 
     const {
       shape,
@@ -662,31 +678,33 @@ export default class ShapeScalingController {
 
     let allowedScaleX = state?.lastAllowedScaleX ?? scaleX
     let allowedScaleY = state?.lastAllowedScaleY ?? scaleY
-    const shouldClampWidthToMinimum = this._shouldClampWidthToMinimum({
-      event,
-      group,
-      minimumWidth,
-      state
-    })
+    if (!state?.isProportionalScaling) {
+      const shouldClampWidthToMinimum = this._shouldClampWidthToMinimum({
+        event,
+        group,
+        minimumWidth,
+        state
+      })
 
-    if (shouldClampWidthToMinimum) {
-      allowedScaleX = Math.max(MIN_SIZE / baseWidth, minimumWidth / baseWidth)
-    }
+      if (shouldClampWidthToMinimum) {
+        allowedScaleX = Math.max(MIN_SIZE / baseWidth, minimumWidth / baseWidth)
+      }
 
-    const minimumHeight = this._resolveMinimumHeightForVerticalScaling({
-      text,
-      width: Math.max(MIN_SIZE, baseWidth * allowedScaleX),
-      padding
-    })
-    const shouldClampHeightToMinimum = this._shouldClampHeightToMinimum({
-      event,
-      group,
-      minimumHeight,
-      state
-    })
+      const minimumHeight = this._resolveMinimumHeightForVerticalScaling({
+        text,
+        width: Math.max(MIN_SIZE, baseWidth * allowedScaleX),
+        padding
+      })
+      const shouldClampHeightToMinimum = this._shouldClampHeightToMinimum({
+        event,
+        group,
+        minimumHeight,
+        state
+      })
 
-    if (shouldClampHeightToMinimum) {
-      allowedScaleY = Math.max(MIN_SIZE / baseHeight, minimumHeight / baseHeight)
+      if (shouldClampHeightToMinimum) {
+        allowedScaleY = Math.max(MIN_SIZE / baseHeight, minimumHeight / baseHeight)
+      }
     }
 
     const widthByAllowedScale = Math.max(MIN_SIZE, baseWidth * allowedScaleX)
@@ -958,6 +976,7 @@ export default class ShapeScalingController {
         baseHeight,
         baseRounding: Math.max(0, group.shapeRounding ?? 0),
         cannotScaleDownAtStart: minimumHeightAtStart >= baseHeight - SCALE_EPSILON,
+        isProportionalScaling: false,
         blockedScaleAttempt: false,
         startLeft,
         startTop,
@@ -1080,6 +1099,7 @@ export default class ShapeScalingController {
   }): {
     canScaleWidth: boolean
     canScaleHeight: boolean
+    isCornerScaleAction: boolean
     isVerticalOnlyScale: boolean
   } {
     const action = transform?.action ?? ''
@@ -1096,6 +1116,7 @@ export default class ShapeScalingController {
     return {
       canScaleWidth,
       canScaleHeight,
+      isCornerScaleAction,
       isVerticalOnlyScale: canScaleHeight && !canScaleWidth
     }
   }

@@ -85,10 +85,11 @@ const scaleShapeFromCorner = ({
 }
 
 /**
- * Возвращает Fabric-compatible handler для свободного diagonal resize shape.
+ * Возвращает Fabric-compatible handler для diagonal resize shape:
+ * свободный по умолчанию и пропорциональный при зажатом Shift.
  */
 const createShapeCornerFreeScaleActionHandler = (): NonNullable<Control['actionHandler']> => {
-  return controlsUtils.wrapWithFireEvent(
+  const freeScaleHandler = controlsUtils.wrapWithFireEvent(
     'scaling',
     controlsUtils.wrapWithFixedAnchor((_eventData, transform, x, y) => {
       return scaleShapeFromCorner({
@@ -98,6 +99,24 @@ const createShapeCornerFreeScaleActionHandler = (): NonNullable<Control['actionH
       })
     })
   )
+
+  return (eventData, transform, x, y) => {
+    const { canvas } = transform.target
+    const isProportionalResize = Boolean(eventData.shiftKey)
+
+    if (!canvas || !isProportionalResize) {
+      return freeScaleHandler(eventData, transform, x, y)
+    }
+
+    const { uniformScaling: previousUniformScaling } = canvas
+    canvas.uniformScaling = false
+
+    try {
+      return controlsUtils.scalingEqually(eventData, transform, x, y)
+    } finally {
+      canvas.uniformScaling = previousUniformScaling
+    }
+  }
 }
 
 /**
