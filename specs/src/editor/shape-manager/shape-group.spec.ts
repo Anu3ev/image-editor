@@ -1,4 +1,4 @@
-import { Textbox, classRegistry, util } from 'fabric'
+import { Control, Textbox, classRegistry, util } from 'fabric'
 import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/shape-group'
 import {
   createMockShapeGroup,
@@ -53,6 +53,33 @@ describe('shape-group', () => {
     group.rehydrateRuntimeState()
 
     expect(group.shapeCanRound).toBe(true)
+  })
+
+  it('rehydrateRuntimeState применяет shape-specific corner controls через общий runtime pipeline', () => {
+    const shape = createMockShapeNode()
+    const text = createMockShapeTextbox({ text: 'shape text' })
+    const group = new ShapeGroupObject([shape as never, text], {
+      shapePresetKey: 'square'
+    })
+    const topLeftControl = new Control({
+      actionHandler: jest.fn()
+    })
+    const middleLeftControl = new Control({
+      actionHandler: jest.fn()
+    })
+
+    group.controls = {
+      tl: topLeftControl,
+      ml: middleLeftControl
+    } as never
+
+    group.rehydrateRuntimeState()
+
+    expect(group.controls.tl).not.toBe(topLeftControl)
+    expect((group.controls.tl as Control & {
+      shapeFreeScaleCornerControl?: boolean
+    }).shapeFreeScaleCornerControl).toBe(true)
+    expect(group.controls.ml).toBe(middleLeftControl)
   })
 
   it('fromObject восстанавливает ShapeGroupObject и подписывает targets на layout manager', async() => {

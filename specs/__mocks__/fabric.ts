@@ -61,6 +61,18 @@ export class Rect {
   }
 }
 
+export class Control {
+  actionHandler?: (...args: unknown[]) => unknown
+
+  offsetX = 0
+
+  offsetY = 0
+
+  constructor(options: Record<string, unknown> = {}) {
+    Object.assign(this, options)
+  }
+}
+
 export class ActiveSelection {
   type = 'activeSelection'
 
@@ -509,7 +521,11 @@ export class Textbox extends FabricObject {
 
 export const controlsUtils = {
   createObjectDefaultControls: jest.fn(() => ({})),
-  createTextboxDefaultControls: jest.fn(() => ({}))
+  createTextboxDefaultControls: jest.fn(() => ({})),
+  wrapWithFireEvent: jest.fn((_eventName: string, handler: unknown) => handler),
+  wrapWithFixedAnchor: jest.fn((handler: unknown) => handler),
+  scalingEqually: jest.fn(() => true),
+  getLocalPoint: jest.fn((_transform, _originX, _originY, x: number, y: number) => new Point(x, y))
 }
 
 export class Gradient {
