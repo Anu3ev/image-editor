@@ -94,7 +94,7 @@ describe('shape-controls', () => {
     expect(group.controls.tr).toBe(wrappedTopRightControl)
   })
 
-  it('corner control при зажатом Shift использует proportional scaling и восстанавливает uniformScaling canvas', () => {
+  it('corner control при зажатом Shift сохраняет пропорции и восстанавливает uniformScaling canvas', () => {
     const group = createMockShapeGroup({
       shape: createMockShapeNode(),
       text: createMockShapeTextbox()
@@ -105,7 +105,14 @@ describe('shape-controls', () => {
     const target = {
       canvas,
       scaleX: 1,
-      scaleY: 1
+      scaleY: 1,
+      set: jest.fn((key: string, value: number) => {
+        target[key as 'scaleX' | 'scaleY'] = value
+      }),
+      _getTransformedDimensions: jest.fn(() => ({
+        x: 100,
+        y: 100
+      }))
     }
 
     group.controls = {
@@ -119,34 +126,53 @@ describe('shape-controls', () => {
     })
 
     const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
-    scalingEquallyMock.mockReturnValueOnce('proportional-scaling-result')
+    scalingEquallyMock.mockImplementationOnce((eventData, transform) => {
+      transform.target.set('scaleX', 0.4)
+      transform.target.set('scaleY', 0.4)
+
+      return {
+        eventData,
+        mode: 'proportional-scaling-result'
+      }
+    })
 
     const result = actionHandler(
       {
         shiftKey: true
       },
       {
-        target
+        target,
+        originX: 'left',
+        originY: 'top'
       },
       10,
       20
     )
 
-    expect(result).toBe('proportional-scaling-result')
+    expect(result).toEqual({
+      eventData: {
+        shiftKey: true
+      },
+      mode: 'proportional-scaling-result'
+    })
     expect(scalingEquallyMock).toHaveBeenCalledWith(
       {
         shiftKey: true
       },
       {
-        target
+        target,
+        originX: 'left',
+        originY: 'top'
       },
       10,
       20
     )
+    expect(target.scaleX).toBeCloseTo(0.4, 4)
+    expect(target.scaleY).toBeCloseTo(0.4, 4)
     expect(canvas.uniformScaling).toBe(true)
   })
 
-  it('corner control без Shift остаётся в free-scale режиме и не вызывает proportional scaling', () => {
+  it('corner control без Shift переводит пропорциональный объект в непропорциональный free-scale режим', () => {
     const group = createMockShapeGroup({
       shape: createMockShapeNode(),
       text: createMockShapeTextbox()
@@ -198,5 +224,132 @@ describe('shape-controls', () => {
     expect(scalingEquallyMock).not.toHaveBeenCalled()
     expect(target.scaleX).toBeCloseTo(0.5, 4)
     expect(target.scaleY).toBeCloseTo(0.25, 4)
+    expect(target.scaleX).not.toBeCloseTo(target.scaleY, 4)
+  })
+
+  it('при lockScalingFlip продолжает обновлять scaleY, когда scaleX упёрся в opposite corner', () => {
+    const group = createMockShapeGroup({
+      shape: createMockShapeNode(),
+      text: createMockShapeTextbox()
+    })
+    const target = {
+      canvas: {
+        uniformScaling: true
+      },
+      scaleX: 1,
+      scaleY: 1,
+      lockScalingX: false,
+      lockScalingY: false,
+      lockScalingFlip: true,
+      set: jest.fn((key: string, value: number) => {
+        target[key as 'scaleX' | 'scaleY'] = value
+      }),
+      _getTransformedDimensions: jest.fn(() => ({
+        x: 100,
+        y: 100
+      }))
+    }
+
+    group.controls = {
+      tl: new Control({
+        actionHandler: jest.fn()
+      })
+    } as never
+
+    applyShapeCornerFreeScaleControls({
+      group
+    })
+
+    const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
+    const transform = {
+      target,
+      originX: 'left',
+      originY: 'top'
+    }
+
+    actionHandler(
+      {
+        shiftKey: false
+      },
+      transform,
+      50,
+      50
+    )
+
+    const result = actionHandler(
+      {
+        shiftKey: false
+      },
+      transform,
+      -50,
+      25
+    )
+
+    expect(result).toBe(true)
+    expect(target.scaleX).toBeCloseTo(0.5, 4)
+    expect(target.scaleY).toBeCloseTo(0.125, 4)
+  })
+
+  it('при lockScalingFlip продолжает обновлять scaleX, когда scaleY упёрся в opposite corner', () => {
+    const group = createMockShapeGroup({
+      shape: createMockShapeNode(),
+      text: createMockShapeTextbox()
+    })
+    const target = {
+      canvas: {
+        uniformScaling: true
+      },
+      scaleX: 1,
+      scaleY: 1,
+      lockScalingX: false,
+      lockScalingY: false,
+      lockScalingFlip: true,
+      set: jest.fn((key: string, value: number) => {
+        target[key as 'scaleX' | 'scaleY'] = value
+      }),
+      _getTransformedDimensions: jest.fn(() => ({
+        x: 100,
+        y: 100
+      }))
+    }
+
+    group.controls = {
+      tl: new Control({
+        actionHandler: jest.fn()
+      })
+    } as never
+
+    applyShapeCornerFreeScaleControls({
+      group
+    })
+
+    const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
+    const transform = {
+      target,
+      originX: 'left',
+      originY: 'top'
+    }
+
+    actionHandler(
+      {
+        shiftKey: false
+      },
+      transform,
+      50,
+      50
+    )
+
+    const result = actionHandler(
+      {
+        shiftKey: false
+      },
+      transform,
+      25,
+      -50
+    )
+
+    expect(result).toBe(true)
+    expect(target.scaleX).toBeCloseTo(0.125, 4)
+    expect(target.scaleY).toBeCloseTo(0.5, 4)
   })
 })
