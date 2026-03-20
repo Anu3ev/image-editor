@@ -286,11 +286,22 @@ export default class ShapeScalingController {
     scaleX: number
     scaleY: number
   }): ShapeScalingBlockState {
-    const nextWidth = Math.max(MIN_SIZE, state.baseWidth * scaleX)
-    const nextHeight = Math.max(MIN_SIZE, state.baseHeight * scaleY)
-    const isScalingDownX = scaleX < state.lastAllowedScaleX - SCALE_EPSILON
-    const isScalingDownY = scaleY < state.lastAllowedScaleY - SCALE_EPSILON
-    const isBelowStartScaleY = scaleY < state.startScaleY - SCALE_EPSILON
+    const {
+      baseHeight,
+      baseWidth,
+      cannotScaleDownAtStart,
+      crossedOppositeCorner,
+      lastAllowedScaleX,
+      lastAllowedScaleY,
+      startScaleY
+    } = state
+
+    const attemptedWidth = Math.max(MIN_SIZE, baseWidth * scaleX)
+    const attemptedHeight = Math.max(MIN_SIZE, baseHeight * scaleY)
+    const isShrinkingX = scaleX < lastAllowedScaleX - SCALE_EPSILON
+    const isShrinkingY = scaleY < lastAllowedScaleY - SCALE_EPSILON
+    const isBelowStartScaleY = scaleY < startScaleY - SCALE_EPSILON
+
     const {
       canScaleHeight,
       canScaleWidth,
@@ -298,38 +309,38 @@ export default class ShapeScalingController {
     } = ShapeScalingController._resolveScaleActionAxes({
       transform
     })
-    const shouldCheckMinimumWidth = canScaleWidth && isScalingDownX
-    const shouldCheckMinimumHeight = canScaleHeight && isScalingDownY
-    const minimumWidth = shouldCheckMinimumWidth
+
+    const minimumWidth = canScaleWidth && isShrinkingX
       ? resolveMinimumShapeWidthForText({
         text,
         padding
       })
       : null
-    const minimumHeight = shouldCheckMinimumHeight
+    const minimumHeight = canScaleHeight && isShrinkingY
       ? this._resolveMinimumHeightForVerticalScaling({
         text,
-        width: nextWidth,
+        width: attemptedWidth,
         padding
       })
       : null
-    const shouldBlockByStart = isVerticalOnlyScale
-      && state.cannotScaleDownAtStart
+
+    const shouldHandleAsNoop = isVerticalOnlyScale
+      && cannotScaleDownAtStart
       && isBelowStartScaleY
-    const shouldClampByMinimumWidth = minimumWidth !== null
-      && nextWidth < minimumWidth + SCALE_EPSILON
-    const shouldClampByMinimumHeight = minimumHeight !== null
-      && nextHeight < minimumHeight + SCALE_EPSILON
-    const shouldRestoreLastAllowedTransform = state.crossedOppositeCorner
-    const clampedScaleX = shouldClampByMinimumWidth && minimumWidth !== null
-      ? Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
-      : null
-    const clampedScaleY = shouldClampByMinimumHeight && minimumHeight !== null
-      ? Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
-      : null
+    const shouldRestoreLastAllowedTransform = crossedOppositeCorner
+
+    let clampedScaleX: number | null = null
+    if (minimumWidth !== null && attemptedWidth < minimumWidth + SCALE_EPSILON) {
+      clampedScaleX = Math.max(MIN_SIZE / baseWidth, minimumWidth / baseWidth)
+    }
+
+    let clampedScaleY: number | null = null
+    if (minimumHeight !== null && attemptedHeight < minimumHeight + SCALE_EPSILON) {
+      clampedScaleY = Math.max(MIN_SIZE / baseHeight, minimumHeight / baseHeight)
+    }
 
     return {
-      shouldHandleAsNoop: shouldBlockByStart,
+      shouldHandleAsNoop,
       shouldRestoreLastAllowedTransform,
       clampedScaleX,
       clampedScaleY,
