@@ -107,17 +107,27 @@ export class ShapeModel {
 
   /** Добавляет shape с текстом и начальными текстовыми стилями. */
   async addShapeWithText(
-    params: { presetKey?: ShapePresetKey, text?: string, fontSize?: number } = {}
+    params: {
+      presetKey?: ShapePresetKey
+      text?: string
+      fontSize?: number
+      width?: number
+      height?: number
+    } = {}
   ): Promise<ShapeObjectInfo> {
     const {
       presetKey = 'square',
       text = 'TEST',
-      fontSize = 72
+      fontSize = 72,
+      width,
+      height
     } = params
 
     const shape = await this.add({
       presetKey,
       options: {
+        width,
+        height,
         text,
         textStyle: {
           fontSize
@@ -228,6 +238,56 @@ export class ShapeModel {
       corner: 'mt',
       originX: 'center',
       originY: 'bottom',
+      objectIndex,
+      id
+    })
+  }
+
+  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. */
+  async scaleDiagonally(
+    params: {
+      scaleX: number
+      scaleY: number
+      corner: 'tl' | 'tr' | 'bl' | 'br'
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scaleX,
+      scaleY,
+      corner,
+      objectIndex,
+      id
+    } = params
+
+    const originByCorner = {
+      tl: {
+        originX: 'right' as const,
+        originY: 'bottom' as const
+      },
+      tr: {
+        originX: 'left' as const,
+        originY: 'bottom' as const
+      },
+      bl: {
+        originX: 'right' as const,
+        originY: 'top' as const
+      },
+      br: {
+        originX: 'left' as const,
+        originY: 'top' as const
+      }
+    }
+    const {
+      originX,
+      originY
+    } = originByCorner[corner]
+
+    return this.simulateScaleStep({
+      scaleX,
+      scaleY,
+      corner,
+      originX,
+      originY,
       objectIndex,
       id
     })
