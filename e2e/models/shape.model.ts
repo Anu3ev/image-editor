@@ -107,17 +107,27 @@ export class ShapeModel {
 
   /** Добавляет shape с текстом и начальными текстовыми стилями. */
   async addShapeWithText(
-    params: { presetKey?: ShapePresetKey, text?: string, fontSize?: number } = {}
+    params: {
+      presetKey?: ShapePresetKey
+      text?: string
+      fontSize?: number
+      width?: number
+      height?: number
+    } = {}
   ): Promise<ShapeObjectInfo> {
     const {
       presetKey = 'square',
       text = 'TEST',
-      fontSize = 72
+      fontSize = 72,
+      width,
+      height
     } = params
 
     const shape = await this.add({
       presetKey,
       options: {
+        width,
+        height,
         text,
         textStyle: {
           fontSize
@@ -233,6 +243,83 @@ export class ShapeModel {
     })
   }
 
+  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает proportional drag через Shift. */
+  async scaleDiagonally(
+    params: {
+      scaleX: number
+      scaleY: number
+      corner: 'tl' | 'tr' | 'bl' | 'br'
+      shiftKey?: boolean
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scaleX,
+      scaleY,
+      corner,
+      shiftKey,
+      objectIndex,
+      id
+    } = params
+
+    const originByCorner = {
+      tl: {
+        originX: 'right' as const,
+        originY: 'bottom' as const
+      },
+      tr: {
+        originX: 'left' as const,
+        originY: 'bottom' as const
+      },
+      bl: {
+        originX: 'right' as const,
+        originY: 'top' as const
+      },
+      br: {
+        originX: 'left' as const,
+        originY: 'top' as const
+      }
+    }
+    const {
+      originX,
+      originY
+    } = originByCorner[corner]
+
+    return this.simulateScaleStep({
+      scaleX,
+      scaleY,
+      corner,
+      originX,
+      originY,
+      shiftKey,
+      objectIndex,
+      id
+    })
+  }
+
+  /** Масштабирует shape по диагонали пропорционально за угловую ручку и возвращает live snapshot. */
+  async scaleDiagonallyProportionally(
+    params: {
+      scale: number
+      corner: 'tl' | 'tr' | 'bl' | 'br'
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scale,
+      corner,
+      objectIndex,
+      id
+    } = params
+
+    return this.scaleDiagonally({
+      scaleX: scale,
+      scaleY: scale,
+      corner,
+      shiftKey: true,
+      objectIndex,
+      id
+    })
+  }
+
   /** Имитирует масштабирование shape и запекание результата через object:modified */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
     const {
@@ -254,7 +341,7 @@ export class ShapeModel {
     })
   }
 
-  /** Выполняет один live-шаг интерактивного масштабирования, fail-fast проверяет snapshot и возвращает его. */
+  /** Выполняет один live-шаг интерактивного масштабирования, при необходимости с зажатым Shift, и возвращает проверенный snapshot. */
   async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -263,6 +350,7 @@ export class ShapeModel {
         corner = 'br',
         originX = 'left',
         originY = 'top',
+        shiftKey = false,
         objectIndex,
         id
       } = payload
@@ -288,6 +376,9 @@ export class ShapeModel {
 
       editor.canvas.fire('object:scaling', {
         target,
+        e: {
+          shiftKey
+        },
         transform: {
           original: {
             scaleX: 1,
@@ -309,7 +400,7 @@ export class ShapeModel {
     return snapshot as ShapeScaleSnapshot
   }
 
-  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев. */
+  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев и при необходимости передаёт состояние Shift. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -323,6 +414,7 @@ export class ShapeModel {
         corner = 'br',
         originX = 'left',
         originY = 'top',
+        shiftKey = false,
         objectIndex,
         id
       } = payload
@@ -372,6 +464,9 @@ export class ShapeModel {
         editor.canvas._currentTransform = transform
         editor.canvas.fire('object:scaling', {
           target,
+          e: {
+            shiftKey
+          },
           transform
         })
         editor.canvas.fire('mouse:move', {

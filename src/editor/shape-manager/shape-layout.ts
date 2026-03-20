@@ -36,7 +36,8 @@ type ShapeTextFrameLayout = {
 }
 
 /**
- * Применяет layout для композиции shape + text.
+ * Применяет layout для композиции shape + text,
+ * сохраняя ручные базовые размеры отдельно от фактического auto-fit размера.
  */
 export const applyShapeTextLayout = ({
   group,
@@ -51,6 +52,14 @@ export const applyShapeTextLayout = ({
   const normalizedPadding = normalizePadding({
     padding
   })
+  const manualBaseWidth = Math.max(
+    MIN_TEXT_FRAME_SIZE,
+    group.shapeManualBaseWidth ?? width
+  )
+  const manualBaseHeight = Math.max(
+    MIN_TEXT_FRAME_SIZE,
+    group.shapeManualBaseHeight ?? height
+  )
   const minWidth = resolveMinimumShapeWidthForText({
     text,
     padding: normalizedPadding
@@ -109,8 +118,8 @@ export const applyShapeTextLayout = ({
 
   group.shapeBaseWidth = safeWidth
   group.shapeBaseHeight = safeHeight
-  group.shapeManualBaseWidth = safeWidth
-  group.shapeManualBaseHeight = safeHeight
+  group.shapeManualBaseWidth = manualBaseWidth
+  group.shapeManualBaseHeight = manualBaseHeight
   group.shapePaddingTop = normalizedPadding.top
   group.shapePaddingRight = normalizedPadding.right
   group.shapePaddingBottom = normalizedPadding.bottom

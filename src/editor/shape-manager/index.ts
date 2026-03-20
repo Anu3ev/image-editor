@@ -23,7 +23,7 @@ import {
   applyShapeTextLayout,
   resolveGroupCenterPoint
 } from './shape-layout'
-import ShapeScalingController from './shape-scaling'
+import ShapeScalingController from './scaling/shape-scaling'
 import ShapeEditingController from './shape-editing'
 import {
   registerShapeGroup,

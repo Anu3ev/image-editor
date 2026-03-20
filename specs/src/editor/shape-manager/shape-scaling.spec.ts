@@ -139,7 +139,7 @@ describe('shape-scaling', () => {
     expect(group.scaleY).toBe(1)
     expect(group.flipX).toBe(false)
     expect(group.flipY).toBe(false)
-    expect(group.shapeScalingNoopTransform).toBe(true)
+    expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
   it('не блокирует уменьшение когда следующий layout требует splitByGrapheme', () => {
@@ -183,6 +183,41 @@ describe('shape-scaling', () => {
     expect(group.shapeScalingNoopTransform).toBe(false)
     expect(group.scaleX).toBe(0.8)
     expect(group.scaleY).toBe(0.8)
+  })
+
+  it('при proportional corner scaling по Shift откатывает весь transform к последнему допустимому состоянию', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    group.scaleX = 0.4
+    group.scaleY = 0.4
+
+    controller.handleObjectScaling({
+      target: group,
+      e: {
+        shiftKey: true
+      } as never,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    expect(group.scaleX).toBe(1)
+    expect(group.scaleY).toBe(1)
+    expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
   it('обновляет текстовый layout в live-режиме во время scaling', () => {
@@ -692,6 +727,55 @@ describe('shape-scaling', () => {
 
     expect(group.shapeScalingNoopTransform).toBe(false)
     expect(group.scaleX).toBe(0.8)
+  })
+
+  it('при заблокированном vertical shrink восстанавливает текущую laid-out height, а не manual base height', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 180
+
+      return height
+    })
+
+    group.shapeBaseWidth = 60
+    group.shapeBaseHeight = 180
+    group.shapeManualBaseWidth = 60
+    group.shapeManualBaseHeight = 80
+    group.width = 60
+    group.height = 180
+    group.scaleY = 0.8
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    expect(group.shapeScalingNoopTransform).toBe(true)
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    expect(applyShapeTextLayoutMock).not.toHaveBeenCalled()
+    expect(resizeShapeNodeMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      width: 60,
+      height: 180
+    }))
+    expect(group.height).toBe(180)
+    expect(group.shapeManualBaseHeight).toBe(80)
+    expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
   it('minimum height для vertical clamp считает от текущей width', () => {

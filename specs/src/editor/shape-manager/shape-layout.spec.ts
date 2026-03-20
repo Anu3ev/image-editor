@@ -371,7 +371,7 @@ describe('shape-layout', () => {
     expect(filled).toBe(false)
   })
 
-  it('applyShapeTextLayout синхронизирует manual base размеры с рассчитанным layout', () => {
+  it('applyShapeTextLayout сохраняет manual base размеры отдельно от рассчитанного layout', () => {
     const shape = createMockShapeNode({
       width: 180,
       height: 80
@@ -404,8 +404,69 @@ describe('shape-layout', () => {
       }
     })
 
-    expect(group.shapeManualBaseWidth).toBe(group.shapeBaseWidth)
-    expect(group.shapeManualBaseHeight).toBe(group.shapeBaseHeight)
+    expect(group.shapeBaseWidth).toBe(180)
+    expect(group.shapeBaseHeight).toBe(120)
+    expect(group.shapeManualBaseWidth).toBe(180)
+    expect(group.shapeManualBaseHeight).toBe(80)
+  })
+
+  it('после narrow layout с переносом строк и обратного расширения возвращает actual height к manual base height', () => {
+    const shape = createMockShapeNode({
+      width: 180,
+      height: 80
+    })
+    const text = createMockShapeTextbox({
+      text: 'TEST',
+      width: 180,
+      fontSize: 48
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 180,
+      height: 80
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 60,
+      height: 80,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(group.shapeBaseHeight).toBeGreaterThan(80)
+    expect(group.shapeManualBaseHeight).toBe(80)
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 180,
+      height: 80,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      }
+    })
+
+    expect(group.shapeBaseWidth).toBe(180)
+    expect(group.shapeBaseHeight).toBe(80)
+    expect(group.shapeManualBaseWidth).toBe(180)
+    expect(group.shapeManualBaseHeight).toBe(80)
+    expect(group.height).toBe(80)
   })
 
   it('applyShapeTextLayout не схлопывает empty-text shape до 1px по высоте', () => {

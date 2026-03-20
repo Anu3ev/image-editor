@@ -457,6 +457,383 @@ test.describe('Cross-axis regressions после vertical scaling', () => {
   })
 })
 
+test.describe('Диагональное масштабирование shape с текстом', () => {
+  test('при диагональном drag с Shift квадратный shape остаётся пропорциональным', async({
+    shapes
+  }) => {
+    await test.step('Добавить квадратный shape с текстом', async() => {
+      await shapes.addShapeWithText({
+        presetKey: 'square',
+        width: 220,
+        height: 220,
+        text: 'TEST',
+        fontSize: 72
+      })
+    })
+
+    const initialSnapshot = await test.step('Получить исходный snapshot квадратного shape', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+
+    const liveSnapshot = await test.step('Масштабировать shape по диагонали пропорционально с Shift', async() => {
+      return shapes.scaleDiagonallyProportionally({
+        scale: 1.4,
+        corner: 'br',
+        objectIndex: 0
+      })
+    })
+
+    await test.step('Проверить что ширина и высота выросли одинаково уже в live-режиме', () => {
+      const proportionalDiff = Math.abs(liveSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsHeight)
+
+      expect(liveSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_SCALING_TOLERANCE.direction)
+      expect(liveSnapshot.groupBoundsHeight)
+        .toBeGreaterThan(initialSnapshot.groupBoundsHeight + SHAPE_SCALING_TOLERANCE.direction)
+      expect(proportionalDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'text' })
+    })
+
+    const finalSnapshot = await test.step('Завершить proportional scaling и получить финальный snapshot', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить что после mouseup shape остался пропорциональным', async() => {
+      const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsWidth)
+      const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight)
+      const proportionalDiff = Math.abs(finalSnapshot.groupBoundsWidth - finalSnapshot.groupBoundsHeight)
+      const shape = await shapes.getFirstShape()
+
+      expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(proportionalDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(Math.abs(shape.width - shape.height)).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(shape.scaleX).toBe(1)
+      expect(shape.scaleY).toBe(1)
+    })
+  })
+
+  test('corner scaling без Shift может сделать пропорциональный shape непропорциональным', async({
+    shapes
+  }) => {
+    await test.step('Добавить пропорциональный square shape с текстом', async() => {
+      await shapes.addShapeWithText({
+        presetKey: 'square',
+        width: 220,
+        height: 220,
+        text: 'TEST',
+        fontSize: 72
+      })
+    })
+
+    const initialSnapshot = await test.step('Получить исходный snapshot пропорционального shape', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+
+    const liveSnapshot = await test.step('Масштабировать shape по диагонали без Shift', async() => {
+      return shapes.scaleDiagonally({
+        scaleX: 1.4,
+        scaleY: 0.7,
+        corner: 'br',
+        objectIndex: 0
+      })
+    })
+
+    await test.step('Проверить что shape стал непропорциональным уже в live-режиме', () => {
+      expect(liveSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_SCALING_TOLERANCE.direction)
+      expect(liveSnapshot.groupBoundsHeight)
+        .toBeLessThan(initialSnapshot.groupBoundsHeight - SHAPE_SCALING_TOLERANCE.direction)
+      expect(Math.abs(liveSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsHeight))
+        .toBeGreaterThan(SHAPE_SCALING_TOLERANCE.direction)
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'text' })
+    })
+
+    const finalSnapshot = await test.step('Завершить diagonal scaling и получить финальный snapshot', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить что непропорциональный результат запёкся без прыжка', async() => {
+      const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsWidth)
+      const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight)
+      const shape = await shapes.getFirstShape()
+
+      expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(Math.abs(shape.width - shape.height)).toBeGreaterThan(SHAPE_SCALING_TOLERANCE.direction)
+      expect(shape.scaleX).toBe(1)
+      expect(shape.scaleY).toBe(1)
+    })
+  })
+
+  test('диагональный shrink у single-line текста сразу даёт перенос и увеличивает высоту в live-режиме', async({
+    shapes
+  }) => {
+    await test.step('Добавить shape с текстом в одну строку и минимальной высотой', async() => {
+      await shapes.addShapeWithText({
+        presetKey: 'square',
+        width: 220,
+        height: 120,
+        text: 'TEST',
+        fontSize: 72
+      })
+    })
+
+    const initialSnapshot = await test.step('Получить исходный snapshot', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+    const initialText = await test.step('Получить исходный text snapshot', async() => {
+      return shapes.getTextNode({ objectIndex: 0 })
+    })
+
+    const liveSnapshot = await test.step('Сжать shape по диагонали за верхний правый угол', async() => {
+      return shapes.scaleDiagonally({
+        scaleX: 0.45,
+        scaleY: 0.6,
+        corner: 'tr',
+        objectIndex: 0
+      })
+    })
+    const liveText = await test.step('Получить live-состояние текста после diagonal shrink', async() => {
+      return shapes.getTextNode({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить что текст начал переноситься, а высота shape выросла', () => {
+      expect(liveSnapshot.groupBoundsWidth)
+        .toBeLessThan(initialSnapshot.groupBoundsWidth - SHAPE_SCALING_TOLERANCE.direction)
+      expect(liveSnapshot.groupBoundsHeight)
+        .toBeGreaterThan(initialSnapshot.groupBoundsHeight + SHAPE_SCALING_TOLERANCE.direction)
+      expect(liveText?.lineCount).toBeGreaterThan(initialText?.lineCount ?? 0)
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'text' })
+    })
+
+    const finalSnapshot = await test.step('Завершить diagonal scaling и получить финальный snapshot', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить отсутствие прыжка после mouseup', () => {
+      const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsWidth)
+      const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight)
+
+      expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
+    })
+  })
+
+  test('после horizontal wrap и обратного расширения высота возвращается к исходному single-line минимуму', async({
+    shapes
+  }) => {
+    await test.step('Добавить shape с single-line текстом и минимальной высотой', async() => {
+      await shapes.addShapeWithText({
+        presetKey: 'square',
+        width: 220,
+        height: 120,
+        text: 'TEST',
+        fontSize: 72
+      })
+    })
+
+    const initialSnapshot = await test.step('Получить исходный snapshot', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+    const initialText = await test.step('Получить исходное состояние текста', async() => {
+      return shapes.getTextNode({ objectIndex: 0 })
+    })
+
+    await test.step('Сузить shape по горизонтали до переноса строк и зафиксировать состояние', async() => {
+      await shapes.scaleHorizontallyFromRight({
+        scaleX: 0.3,
+        objectIndex: 0
+      })
+      await shapes.finishScale({ objectIndex: 0 })
+    })
+
+    const wrappedSnapshot = await test.step('Получить snapshot после horizontal wrap', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+    const wrappedText = await test.step('Получить состояние текста после horizontal wrap', async() => {
+      return shapes.getTextNode({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить что narrow state действительно увеличил высоту и lineCount', () => {
+      expect(wrappedSnapshot.groupBoundsHeight)
+        .toBeGreaterThan(initialSnapshot.groupBoundsHeight + SHAPE_SCALING_TOLERANCE.direction)
+      expect(wrappedText?.lineCount).toBeGreaterThan(initialText?.lineCount ?? 0)
+    })
+
+    await test.step('Расширить shape обратно и зафиксировать состояние', async() => {
+      await shapes.scaleHorizontallyFromRight({
+        scaleX: 4.5,
+        objectIndex: 0
+      })
+      await shapes.finishScale({ objectIndex: 0 })
+    })
+
+    const expandedSnapshot = await test.step('Получить snapshot после обратного расширения', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+    const expandedText = await test.step('Получить состояние текста после обратного расширения', async() => {
+      return shapes.getTextNode({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить возврат к исходной высоте и single-line layout', () => {
+      const heightDiff = Math.abs(expandedSnapshot.groupBoundsHeight - initialSnapshot.groupBoundsHeight)
+
+      expect(expandedSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(wrappedSnapshot.groupBoundsWidth + SHAPE_SCALING_TOLERANCE.direction)
+      expect(heightDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(expandedText?.lineCount).toBe(initialText?.lineCount)
+      shapes.checkNodeInsideGroup({ snapshot: expandedSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: expandedSnapshot, kind: 'text' })
+    })
+  })
+
+  test('если двухстрочный текст уже упёрся в minimum height, диагональный shrink сразу продолжает переносить текст', async({
+    shapes
+  }) => {
+    await test.step('Добавить shape с двухстрочным текстом', async() => {
+      await shapes.addShapeWithText({
+        presetKey: 'square',
+        width: 220,
+        height: 220,
+        text: 'TEST\nTEST',
+        fontSize: 48
+      })
+    })
+
+    await test.step('Сжать shape по вертикали до minimum height и зафиксировать fitted state', async() => {
+      await shapes.shrinkToMinimumHeight({ objectIndex: 0 })
+      await shapes.finishScale({ objectIndex: 0 })
+    })
+
+    const initialSnapshot = await test.step('Получить snapshot fitted two-line shape', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+    const initialText = await test.step('Получить состояние fitted two-line текста', async() => {
+      return shapes.getTextNode({ objectIndex: 0 })
+    })
+
+    const liveSnapshot = await test.step('Сжать shape по диагонали за верхний правый угол', async() => {
+      return shapes.scaleDiagonally({
+        scaleX: 0.6,
+        scaleY: 0.8,
+        corner: 'tr',
+        objectIndex: 0
+      })
+    })
+    const liveText = await test.step('Получить live-состояние текста после diagonal shrink', async() => {
+      return shapes.getTextNode({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить что dead zone отсутствует: текст сразу переносится дальше, а высота растёт', () => {
+      expect(liveSnapshot.groupBoundsWidth)
+        .toBeLessThan(initialSnapshot.groupBoundsWidth - SHAPE_SCALING_TOLERANCE.direction)
+      expect(liveSnapshot.groupBoundsHeight)
+        .toBeGreaterThan(initialSnapshot.groupBoundsHeight + SHAPE_SCALING_TOLERANCE.direction)
+      expect(liveText?.lineCount).toBeGreaterThan(initialText?.lineCount ?? 0)
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'text' })
+    })
+  })
+})
+
+test.describe('Диагональное масштабирование empty-text shape', () => {
+  test.beforeEach(async({ shapes }) => {
+    await shapes.addEmptyTextShape()
+  })
+
+  test('после сжатия почти до вертикальной линии можно продолжать менять высоту в той же drag-сессии', async({
+    shapes
+  }) => {
+    const nearVerticalLineSnapshot = await test.step('Почти схлопнуть ширину shape диагональным drag', async() => {
+      return shapes.scaleDiagonally({
+        scaleX: 0.01,
+        scaleY: 0.8,
+        corner: 'br',
+        objectIndex: 0
+      })
+    })
+
+    const tallerSnapshot = await test.step('Не отпуская drag, продолжить тянуть shape по высоте', async() => {
+      return shapes.scaleDiagonally({
+        scaleX: 0.01,
+        scaleY: 1.4,
+        corner: 'br',
+        objectIndex: 0
+      })
+    })
+
+    await test.step('Проверить что высота продолжает меняться даже при почти нулевой ширине', () => {
+      const widthDrift = Math.abs(tallerSnapshot.groupBoundsWidth - nearVerticalLineSnapshot.groupBoundsWidth)
+
+      expect(tallerSnapshot.groupBoundsHeight)
+        .toBeGreaterThan(nearVerticalLineSnapshot.groupBoundsHeight + SHAPE_SCALING_TOLERANCE.direction)
+      expect(widthDrift).toBeLessThanOrEqual(2)
+      shapes.checkNodeInsideGroup({ snapshot: tallerSnapshot, kind: 'shape' })
+    })
+
+    const finalSnapshot = await test.step('Завершить drag и получить финальный snapshot', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить отсутствие прыжка после mouseup', () => {
+      const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - tallerSnapshot.groupBoundsWidth)
+      const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - tallerSnapshot.groupBoundsHeight)
+
+      expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+    })
+  })
+
+  test('после сжатия почти до горизонтальной линии можно продолжать менять ширину в той же drag-сессии', async({
+    shapes
+  }) => {
+    const nearHorizontalLineSnapshot = await test.step('Почти схлопнуть высоту shape диагональным drag', async() => {
+      return shapes.scaleDiagonally({
+        scaleX: 0.8,
+        scaleY: 0.01,
+        corner: 'br',
+        objectIndex: 0
+      })
+    })
+
+    const widerSnapshot = await test.step('Не отпуская drag, продолжить тянуть shape по ширине', async() => {
+      return shapes.scaleDiagonally({
+        scaleX: 1.4,
+        scaleY: 0.01,
+        corner: 'br',
+        objectIndex: 0
+      })
+    })
+
+    await test.step('Проверить что ширина продолжает меняться даже при почти нулевой высоте', () => {
+      const heightDrift = Math.abs(widerSnapshot.groupBoundsHeight - nearHorizontalLineSnapshot.groupBoundsHeight)
+
+      expect(widerSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(nearHorizontalLineSnapshot.groupBoundsWidth + SHAPE_SCALING_TOLERANCE.direction)
+      expect(heightDrift).toBeLessThanOrEqual(2)
+      shapes.checkNodeInsideGroup({ snapshot: widerSnapshot, kind: 'shape' })
+    })
+
+    const finalSnapshot = await test.step('Завершить drag и получить финальный snapshot', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить отсутствие прыжка после mouseup', () => {
+      const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - widerSnapshot.groupBoundsWidth)
+      const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - widerSnapshot.groupBoundsHeight)
+
+      expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+    })
+  })
+})
+
 test.describe('Масштабирование скругления', () => {
   test('скругление масштабируется пропорционально при равномерном увеличении', async({ shapes }) => {
     await test.step('Добавить прямоугольник со скруглением 50', async() => {

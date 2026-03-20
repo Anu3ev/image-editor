@@ -15,6 +15,7 @@ import {
   getShapeRuntimeTextNode,
   prepareShapeTextNode
 } from './shape-runtime'
+import { applyShapeCornerFreeScaleControls } from './scaling/shape-controls'
 import type {
   ShapeGroupLike,
   ShapeGroupMetadata
@@ -114,7 +115,8 @@ export class ShapeGroupObject extends Group {
   }
 
   /**
-   * Восстанавливает runtime-инварианты composite shape после create/clone/deserialize.
+   * Восстанавливает runtime-инварианты composite shape после create/clone/deserialize,
+   * включая shape-specific corner resize.
    */
   public rehydrateRuntimeState(): void {
     this.set({
@@ -124,6 +126,9 @@ export class ShapeGroupObject extends Group {
 
     this._syncRoundability()
     applyShapeGroupInteractivity({
+      group: this as ShapeGroupLike
+    })
+    applyShapeCornerFreeScaleControls({
       group: this as ShapeGroupLike
     })
 
