@@ -21,9 +21,10 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js and auth
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 20
+          cache: npm
           registry-url: https://registry.npmjs.org
           scope: '@anu3ev'
           always-auth: true
