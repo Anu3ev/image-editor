@@ -243,18 +243,20 @@ export class ShapeModel {
     })
   }
 
-  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. */
+  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает proportional drag через Shift. */
   async scaleDiagonally(
     params: {
       scaleX: number
       scaleY: number
       corner: 'tl' | 'tr' | 'bl' | 'br'
+      shiftKey?: boolean
     } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     const {
       scaleX,
       scaleY,
       corner,
+      shiftKey,
       objectIndex,
       id
     } = params
@@ -288,6 +290,31 @@ export class ShapeModel {
       corner,
       originX,
       originY,
+      shiftKey,
+      objectIndex,
+      id
+    })
+  }
+
+  /** Масштабирует shape по диагонали пропорционально за угловую ручку и возвращает live snapshot. */
+  async scaleDiagonallyProportionally(
+    params: {
+      scale: number
+      corner: 'tl' | 'tr' | 'bl' | 'br'
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scale,
+      corner,
+      objectIndex,
+      id
+    } = params
+
+    return this.scaleDiagonally({
+      scaleX: scale,
+      scaleY: scale,
+      corner,
+      shiftKey: true,
       objectIndex,
       id
     })
@@ -314,7 +341,7 @@ export class ShapeModel {
     })
   }
 
-  /** Выполняет один live-шаг интерактивного масштабирования, fail-fast проверяет snapshot и возвращает его. */
+  /** Выполняет один live-шаг интерактивного масштабирования, при необходимости с зажатым Shift, и возвращает проверенный snapshot. */
   async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -323,6 +350,7 @@ export class ShapeModel {
         corner = 'br',
         originX = 'left',
         originY = 'top',
+        shiftKey = false,
         objectIndex,
         id
       } = payload
@@ -348,6 +376,9 @@ export class ShapeModel {
 
       editor.canvas.fire('object:scaling', {
         target,
+        e: {
+          shiftKey
+        },
         transform: {
           original: {
             scaleX: 1,
@@ -369,7 +400,7 @@ export class ShapeModel {
     return snapshot as ShapeScaleSnapshot
   }
 
-  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев. */
+  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев и при необходимости передаёт состояние Shift. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -383,6 +414,7 @@ export class ShapeModel {
         corner = 'br',
         originX = 'left',
         originY = 'top',
+        shiftKey = false,
         objectIndex,
         id
       } = payload
@@ -432,6 +464,9 @@ export class ShapeModel {
         editor.canvas._currentTransform = transform
         editor.canvas.fire('object:scaling', {
           target,
+          e: {
+            shiftKey
+          },
           transform
         })
         editor.canvas.fire('mouse:move', {
