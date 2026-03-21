@@ -6,6 +6,7 @@ import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
 import { ClipboardModel } from './clipboard.model'
 import { TemplateModel } from './template.model'
+import { TextModel } from './text.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -18,12 +19,15 @@ export class EditorModel {
 
   readonly template: TemplateModel
 
+  readonly text: TextModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
     this.history = new HistoryModel(page)
     this.clipboard = new ClipboardModel(page)
     this.template = new TemplateModel(page)
+    this.text = new TextModel(page)
   }
 
   /** Ожидает полной инициализации редактора */

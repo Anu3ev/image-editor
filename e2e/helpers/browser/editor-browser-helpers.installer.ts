@@ -5,6 +5,7 @@ import type {
   BrowserEditorWindow,
   BrowserGroupObject,
   BrowserObject,
+  BrowserOriginPointObject,
   BrowserSerializableObject,
   BrowserSerializer,
   BrowserShapeNodeObject,
@@ -17,7 +18,7 @@ import type {
  * Устанавливает browser-side хелперы на window редактора.
  */
 export function installEditorBrowserHelpers(): void {
-  const browserWindow = window as BrowserEditorWindow
+  const browserWindow = window as unknown as BrowserEditorWindow
 
   /**
    * Безопасно приводит unknown-значение к plain-object.
@@ -162,6 +163,24 @@ export function installEditorBrowserHelpers(): void {
       top,
       width,
       height
+    }
+  }
+
+  /**
+   * Преобразует point-like объект в набор координат с fallback в 0.
+   */
+  function createPointInfo({ point }: { point: unknown }): { x: number, y: number } {
+    const pointObject = toBrowserObject({ value: point })
+
+    return {
+      x: resolveNumber({
+        value: pointObject.x,
+        defaultValue: 0
+      }),
+      y: resolveNumber({
+        value: pointObject.y,
+        defaultValue: 0
+      })
     }
   }
 
@@ -329,6 +348,76 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Сериализует standalone text-объект.
+   */
+  const serializeTextObject: BrowserSerializer = (obj: unknown) => {
+    const textObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
+    const backgroundColor = resolveNullableString({ value: textObject.backgroundColor })
+
+    return {
+      ...serializeEditorObject(obj),
+      text: textObject.text ?? '',
+      textAlign: textObject.textAlign ?? 'left',
+      fontFamily: textObject.fontFamily ?? '',
+      fontSize: textObject.fontSize ?? 0,
+      fontWeight: textObject.fontWeight ?? 'normal',
+      fontStyle: textObject.fontStyle ?? 'normal',
+      underline: textObject.underline ?? false,
+      linethrough: textObject.linethrough ?? false,
+      uppercase: textObject.uppercase ?? false,
+      lineHeight: resolveNumber({
+        value: textObject.lineHeight,
+        defaultValue: 1
+      }),
+      lineCount: resolveTextLineCount({ value: textObject.textLines }),
+      isEditing: textObject.isEditing ?? false,
+      evented: textObject.evented ?? true,
+      lockMovementX: textObject.lockMovementX ?? false,
+      lockMovementY: textObject.lockMovementY ?? false,
+      selectionStart: textObject.selectionStart ?? 0,
+      selectionEnd: textObject.selectionEnd ?? 0,
+      backgroundColor: backgroundColor && backgroundColor.length > 0 ? backgroundColor : null,
+      backgroundOpacity: resolveNumber({
+        value: textObject.backgroundOpacity,
+        defaultValue: 1
+      }),
+      autoExpand: textObject.autoExpand ?? true,
+      paddingTop: resolveNumber({
+        value: textObject.paddingTop,
+        defaultValue: 0
+      }),
+      paddingRight: resolveNumber({
+        value: textObject.paddingRight,
+        defaultValue: 0
+      }),
+      paddingBottom: resolveNumber({
+        value: textObject.paddingBottom,
+        defaultValue: 0
+      }),
+      paddingLeft: resolveNumber({
+        value: textObject.paddingLeft,
+        defaultValue: 0
+      }),
+      radiusTopLeft: resolveNumber({
+        value: textObject.radiusTopLeft,
+        defaultValue: 0
+      }),
+      radiusTopRight: resolveNumber({
+        value: textObject.radiusTopRight,
+        defaultValue: 0
+      }),
+      radiusBottomRight: resolveNumber({
+        value: textObject.radiusBottomRight,
+        defaultValue: 0
+      }),
+      radiusBottomLeft: resolveNumber({
+        value: textObject.radiusBottomLeft,
+        defaultValue: 0
+      })
+    }
+  }
+
+  /**
    * Возвращает текстовый узел внутри shape-группы по target-параметрам.
    */
   function resolveShapeTextNode({
@@ -338,6 +427,19 @@ export function installEditorBrowserHelpers(): void {
     const target = resolveTarget({ objectIndex, id })
 
     return browserWindow.editor.shapeManager.getTextNode({ target }) as BrowserSerializableObject | null
+  }
+
+  /**
+   * Возвращает текстовый объект canvas по target-параметрам.
+   */
+  function resolveCanvasTextNode({
+    objectIndex,
+    id
+  }: BrowserTextSelectionStyleParams): BrowserSerializableObject | null {
+    const target = resolveCanvasObject({ objectIndex, id })
+    if (!target) return null
+
+    return target as BrowserSerializableObject
   }
 
   /**
@@ -393,6 +495,34 @@ export function installEditorBrowserHelpers(): void {
       underline: resolveNullableBoolean({ value: style.underline }),
       linethrough: resolveNullableBoolean({ value: style.linethrough })
     }
+  }
+
+  /**
+   * Возвращает сериализованный стиль выделенного диапазона отдельного текстового объекта.
+   */
+  function getTextSelectionStyles({
+    objectIndex,
+    id,
+    start,
+    end
+  }: BrowserTextSelectionStyleParams): BrowserTextSelectionStyleInfo | null {
+    const textNode = resolveCanvasTextNode({ objectIndex, id })
+    if (!textNode) return null
+
+    const selectionRange = resolveTextSelectionRange({
+      textNode,
+      start,
+      end
+    })
+    const rawStyles = typeof textNode.getSelectionStyles === 'function'
+      ? textNode.getSelectionStyles(selectionRange.start, selectionRange.end, true)
+      : []
+
+    if (!Array.isArray(rawStyles) || rawStyles.length === 0) return null
+
+    const firstStyle = toBrowserObject({ value: rawStyles[0] })
+
+    return serializeTextSelectionStyle({ style: firstStyle })
   }
 
   /**
@@ -486,6 +616,51 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Сериализует snapshot standalone text-объекта во время/после horizontal resize.
+   */
+  const serializeTextResizeSnapshot: BrowserSerializer = (obj: unknown) => {
+    const textObject = toBrowserObject({ value: obj }) as BrowserOriginPointObject
+    const bounds = createBoundsInfo({
+      bounds: getBoundingRect({ target: obj })
+    })
+    const leftTop = createPointInfo({
+      point: textObject.getPointByOrigin('left', 'top')
+    })
+    const leftCenter = createPointInfo({
+      point: textObject.getPointByOrigin('left', 'center')
+    })
+    const rightTop = createPointInfo({
+      point: textObject.getPointByOrigin('right', 'top')
+    })
+    const rightCenter = createPointInfo({
+      point: textObject.getPointByOrigin('right', 'center')
+    })
+    const rightBottom = createPointInfo({
+      point: textObject.getPointByOrigin('right', 'bottom')
+    })
+
+    return {
+      ...serializeTextObject(obj),
+      boundsLeft: bounds.left,
+      boundsTop: bounds.top,
+      boundsWidth: bounds.width,
+      boundsHeight: bounds.height,
+      boundsRight: bounds.right,
+      boundsBottom: bounds.bottom,
+      leftTopX: leftTop.x,
+      leftTopY: leftTop.y,
+      leftCenterX: leftCenter.x,
+      leftCenterY: leftCenter.y,
+      rightTopX: rightTop.x,
+      rightTopY: rightTop.y,
+      rightCenterX: rightCenter.x,
+      rightCenterY: rightCenter.y,
+      rightBottomX: rightBottom.x,
+      rightBottomY: rightBottom.y
+    }
+  }
+
+  /**
    * Регистрирует browser-side хелперы на window для вызова из page.evaluate().
    */
   function installBrowserHelpers(): void {
@@ -494,6 +669,8 @@ export function installEditorBrowserHelpers(): void {
       serializeShapeObject,
       serializeShapeTextObject,
       serializeShapeScaleSnapshot,
+      serializeTextObject,
+      serializeTextResizeSnapshot,
       resolveShapeNode(group: unknown) {
         return resolveShapeNode({ group })
       },
@@ -502,6 +679,9 @@ export function installEditorBrowserHelpers(): void {
       },
       resolveCanvasObject(objectIndex?: number, id?: string) {
         return resolveCanvasObject({ objectIndex, id })
+      },
+      getTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
+        return getTextSelectionStyles(params)
       },
       getShapeTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
         return getShapeTextSelectionStyles(params)
