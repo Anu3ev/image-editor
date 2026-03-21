@@ -7,17 +7,21 @@ test.describe('Перетаскивание объекта с прилипани
     shapes,
     snapping
   }) => {
-    const montageArea = await editorModel.getMontageArea()
+    const montageBounds = await editorModel.getMontageAreaBounds()
+    const shapeWidth = 80
+    const shapeHeight = 80
+    const initialBoundsLeft = montageBounds.left + 160
+    const initialBoundsTop = montageBounds.top + 140
 
     await test.step('Добавить объект для перетаскивания', async() => {
-      const shape = await shapes.add({
+      const shape = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: montageArea.left + 160,
-          top: montageArea.top + 180,
-          width: 80,
-          height: 80,
+          left: initialBoundsLeft,
+          top: initialBoundsTop,
+          width: shapeWidth,
+          height: shapeHeight,
           text: ''
         }
       })
@@ -28,24 +32,32 @@ test.describe('Перетаскивание объекта с прилипани
       })
     })
 
+    const initialSnapshot = await test.step('Получить исходные границы объекта перед перетаскиванием', async() => {
+      return snapping.getObjectSnapshot({ id: 'active-shape' })
+    })
+    let dragStartSnapshot = initialSnapshot
+
     await test.step('Подвести объект почти вплотную к левому краю монтажной области', async() => {
-      await snapping.startObjectDrag({ id: 'active-shape' })
+      dragStartSnapshot = await snapping.startObjectDrag({ id: 'active-shape' })
       await snapping.dragObjectBoundsTo({
         id: 'active-shape',
-        left: montageArea.left + 3,
-        top: montageArea.top + 183
+        left: montageBounds.left + 3,
+        top: dragStartSnapshot.boundsTop
       })
     })
 
     await test.step('Проверить что объект встал ровно по левому краю и появилась вертикальная направляющая', async() => {
       const snapshot = await snapping.getObjectSnapshot({ id: 'active-shape' })
       const guideState = await snapping.getGuideState()
+      const horizontalGuides = guideState.guides.filter((guide) => guide.type === 'horizontal')
 
-      expect(snapshot.boundsLeft).toBeCloseTo(montageArea.left, 1)
+      expect(snapshot.boundsLeft).toBeCloseTo(montageBounds.left, 1)
+      expect(snapshot.top).toBeCloseTo(dragStartSnapshot.top, 1)
+      expect(horizontalGuides).toHaveLength(0)
       expect(guideState.guides).toEqual(expect.arrayContaining([
         expect.objectContaining({
           type: 'vertical',
-          position: montageArea.left
+          position: montageBounds.left
         })
       ]))
     })
@@ -56,18 +68,21 @@ test.describe('Перетаскивание объекта с прилипани
     shapes,
     snapping
   }) => {
-    const montageArea = await editorModel.getMontageArea()
-    const montageCenterX = montageArea.left + (montageArea.width / 2)
+    const montageBounds = await editorModel.getMontageAreaBounds()
+    const shapeWidth = 80
+    const shapeHeight = 80
+    const initialBoundsLeft = montageBounds.left + 100
+    const initialBoundsTop = montageBounds.top + 140
 
     await test.step('Добавить объект для проверки центрирования', async() => {
-      const shape = await shapes.add({
+      const shape = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'centered-shape',
-          left: montageArea.left + 100,
-          top: montageArea.top + 220,
-          width: 80,
-          height: 80,
+          left: initialBoundsLeft,
+          top: initialBoundsTop,
+          width: shapeWidth,
+          height: shapeHeight,
           text: ''
         }
       })
@@ -81,52 +96,59 @@ test.describe('Перетаскивание объекта с прилипани
     const initialSnapshot = await test.step('Получить размеры объекта перед перетаскиванием', async() => {
       return snapping.getObjectSnapshot({ id: 'centered-shape' })
     })
+    let dragStartSnapshot = initialSnapshot
 
     await test.step('Подвести объект почти к вертикальному центру монтажной области', async() => {
-      await snapping.startObjectDrag({ id: 'centered-shape' })
+      dragStartSnapshot = await snapping.startObjectDrag({ id: 'centered-shape' })
       await snapping.dragObjectCenterTo({
         id: 'centered-shape',
-        centerX: montageCenterX + 3,
-        centerY: initialSnapshot.centerY + 3
+        centerX: montageBounds.centerX + 3,
+        centerY: dragStartSnapshot.centerY
       })
     })
 
     await test.step('Проверить что объект выровнялся по центру и появилась центральная направляющая', async() => {
       const snapshot = await snapping.getObjectSnapshot({ id: 'centered-shape' })
       const guideState = await snapping.getGuideState()
+      const horizontalGuides = guideState.guides.filter((guide) => guide.type === 'horizontal')
 
-      expect(snapshot.centerX).toBeCloseTo(montageCenterX, 1)
+      expect(snapshot.centerX).toBeCloseTo(montageBounds.centerX, 1)
+      expect(snapshot.top).toBeCloseTo(dragStartSnapshot.top, 1)
+      expect(horizontalGuides).toHaveLength(0)
       expect(guideState.guides).toEqual(expect.arrayContaining([
         expect.objectContaining({
           type: 'vertical',
-          position: montageCenterX
+          position: montageBounds.centerX
         })
       ]))
     })
   })
 
   test('при перетаскивании рядом с другим объектом объект прилипает к его левому краю', async({
+    editorModel,
     shapes,
     snapping
   }) => {
+    const montageBounds = await editorModel.getMontageAreaBounds()
+
     await test.step('Добавить опорный и перетаскиваемый объекты', async() => {
-      const reference = await shapes.add({
+      const reference = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'reference-shape',
-          left: 220,
-          top: 180,
+          left: montageBounds.left + 80,
+          top: montageBounds.top + 120,
           width: 100,
           height: 100,
           text: ''
         }
       })
-      const active = await shapes.add({
+      const active = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: 420,
-          top: 180,
+          left: montageBounds.left + 280,
+          top: montageBounds.top + 120,
           width: 100,
           height: 100,
           text: ''
@@ -165,27 +187,30 @@ test.describe('Перетаскивание объекта с прилипани
   })
 
   test('при перетаскивании рядом с другим объектом объект выравнивается по его центру', async({
+    editorModel,
     shapes,
     snapping
   }) => {
+    const montageBounds = await editorModel.getMontageAreaBounds()
+
     await test.step('Добавить опорный и перетаскиваемый объекты разной ширины', async() => {
-      const reference = await shapes.add({
+      const reference = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'reference-shape',
-          left: 220,
-          top: 330,
+          left: montageBounds.left + 80,
+          top: montageBounds.top + 220,
           width: 100,
           height: 100,
           text: ''
         }
       })
-      const active = await shapes.add({
+      const active = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: 430,
-          top: 330,
+          left: montageBounds.left + 300,
+          top: montageBounds.top + 220,
           width: 60,
           height: 60,
           text: ''
@@ -227,38 +252,41 @@ test.describe('Перетаскивание объекта с прилипани
   })
 
   test('между двумя объектами появляется равноудалённость и объект встаёт на одинаковое расстояние от обоих', async({
+    editorModel,
     shapes,
     snapping
   }) => {
+    const montageBounds = await editorModel.getMontageAreaBounds()
+
     await test.step('Добавить левый, правый и перемещаемый объекты', async() => {
-      const left = await shapes.add({
+      const left = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'left-shape',
-          left: 100,
-          top: 500,
+          left: montageBounds.left + 60,
+          top: montageBounds.top + 300,
           width: 60,
           height: 60,
           text: ''
         }
       })
-      const right = await shapes.add({
+      const right = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'right-shape',
-          left: 320,
-          top: 500,
+          left: montageBounds.left + 280,
+          top: montageBounds.top + 300,
           width: 60,
           height: 60,
           text: ''
         }
       })
-      const active = await shapes.add({
+      const active = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: 250,
-          top: 500,
+          left: montageBounds.left + 210,
+          top: montageBounds.top + 300,
           width: 40,
           height: 40,
           text: ''
@@ -298,38 +326,41 @@ test.describe('Перетаскивание объекта с прилипани
   })
 
   test('после небольшого продолжения перетаскивания равноудалённость удерживается', async({
+    editorModel,
     shapes,
     snapping
   }) => {
+    const montageBounds = await editorModel.getMontageAreaBounds()
+
     await test.step('Подготовить три объекта в одну линию', async() => {
-      const left = await shapes.add({
+      const left = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'left-shape',
-          left: 100,
-          top: 620,
+          left: montageBounds.left + 60,
+          top: montageBounds.top + 360,
           width: 60,
           height: 60,
           text: ''
         }
       })
-      const right = await shapes.add({
+      const right = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'right-shape',
-          left: 320,
-          top: 620,
+          left: montageBounds.left + 280,
+          top: montageBounds.top + 360,
           width: 60,
           height: 60,
           text: ''
         }
       })
-      const active = await shapes.add({
+      const active = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: 250,
-          top: 620,
+          left: montageBounds.left + 210,
+          top: montageBounds.top + 360,
           width: 40,
           height: 40,
           text: ''
@@ -370,38 +401,41 @@ test.describe('Перетаскивание объекта с прилипани
   })
 
   test('после выхода за пределы удержания равноудалённость отпускается', async({
+    editorModel,
     shapes,
     snapping
   }) => {
+    const montageBounds = await editorModel.getMontageAreaBounds()
+
     await test.step('Подготовить три объекта в одну линию', async() => {
-      const left = await shapes.add({
+      const left = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'left-shape',
-          left: 100,
-          top: 740,
+          left: montageBounds.left + 60,
+          top: montageBounds.top + 420,
           width: 60,
           height: 60,
           text: ''
         }
       })
-      const right = await shapes.add({
+      const right = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'right-shape',
-          left: 320,
-          top: 740,
+          left: montageBounds.left + 280,
+          top: montageBounds.top + 420,
           width: 60,
           height: 60,
           text: ''
         }
       })
-      const active = await shapes.add({
+      const active = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: 250,
-          top: 740,
+          left: montageBounds.left + 210,
+          top: montageBounds.top + 420,
           width: 40,
           height: 40,
           text: ''
@@ -448,27 +482,30 @@ test.describe('Перетаскивание объекта с прилипани
   })
 
   test('после завершения перетаскивания направляющие исчезают, а объект остаётся в новой позиции', async({
+    editorModel,
     shapes,
     snapping
   }) => {
+    const montageBounds = await editorModel.getMontageAreaBounds()
+
     await test.step('Добавить опорный и перетаскиваемый объекты', async() => {
-      const reference = await shapes.add({
+      const reference = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'reference-shape',
-          left: 220,
-          top: 860,
+          left: montageBounds.left + 80,
+          top: montageBounds.top + 220,
           width: 100,
           height: 100,
           text: ''
         }
       })
-      const active = await shapes.add({
+      const active = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: 420,
-          top: 860,
+          left: montageBounds.left + 280,
+          top: montageBounds.top + 220,
           width: 100,
           height: 100,
           text: ''
@@ -501,27 +538,30 @@ test.describe('Перетаскивание объекта с прилипани
   })
 
   test('при перетаскивании с Ctrl объект не прилипает к направляющим', async({
+    editorModel,
     shapes,
     snapping
   }) => {
+    const montageBounds = await editorModel.getMontageAreaBounds()
+
     await test.step('Добавить опорный и перетаскиваемый объекты', async() => {
-      const reference = await shapes.add({
+      const reference = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'reference-shape',
-          left: 220,
-          top: 980,
+          left: montageBounds.left + 80,
+          top: montageBounds.top + 220,
           width: 100,
           height: 100,
           text: ''
         }
       })
-      const active = await shapes.add({
+      const active = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: 420,
-          top: 980,
+          left: montageBounds.left + 280,
+          top: montageBounds.top + 220,
           width: 100,
           height: 100,
           text: ''
@@ -549,7 +589,7 @@ test.describe('Перетаскивание объекта с прилипани
       const snapshot = await snapping.getObjectSnapshot({ id: 'active-shape' })
       const guideState = await snapping.getGuideState()
 
-      expect(snapshot.boundsLeft).toBe(requestedLeft)
+      expect(Math.abs(snapshot.boundsLeft - requestedLeft)).toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
       expect(snapshot.boundsLeft).not.toBe(referenceSnapshot.boundsLeft)
       expect(guideState.guides).toHaveLength(0)
       expect(guideState.spacingGuides).toHaveLength(0)

@@ -4,6 +4,7 @@ import type {
   ShapeObjectInfo,
   ShapeTextInfo,
   ShapeAddParams,
+  ShapeAddAtBoundsParams,
   ShapeUpdateParams,
   ShapeStrokeParams,
   ShapeTextAlignParams,
@@ -38,6 +39,31 @@ export class ShapeModel {
       if (!shape) return null
       return helpers.serializeShapeObject(shape)
     }, params)
+  }
+
+  /** Добавляет shape так, чтобы `left/top` задавали левый верхний угол bounding box. */
+  async addAtBounds(params: ShapeAddAtBoundsParams): Promise<ShapeObjectInfo | null> {
+    const {
+      options: {
+        left,
+        top,
+        width,
+        height,
+        ...rest
+      },
+      ...shapeParams
+    } = params
+
+    return this.add({
+      ...shapeParams,
+      options: {
+        ...rest,
+        width,
+        height,
+        left: left + (width / 2),
+        top: top + (height / 2)
+      }
+    })
   }
 
   /** Удаляет shape. По умолчанию — активный объект */

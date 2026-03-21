@@ -226,7 +226,7 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его перемещении.
    */
   private _handleObjectMoving(event: TransformEvent): void {
-    const { target, e } = event
+    const { target, e, transform } = event
 
     if (!target) {
       this._clearSpacingContexts()
@@ -238,11 +238,13 @@ export default class SnappingManager {
     if (isCtrlPressed) {
       this._clearSpacingContexts()
       this._clearGuides()
-      SnappingManager._applyMovementStep({ target })
       return
     }
 
-    SnappingManager._applyMovementStep({ target })
+    SnappingManager._applyMovementStep({
+      target,
+      transform
+    })
 
     if (!this.anchors.vertical.length && !this.anchors.horizontal.length) {
       this._cacheAnchors({ activeObject: target })
@@ -307,7 +309,10 @@ export default class SnappingManager {
     }
 
     if (!hasSpacingSnap) {
-      SnappingManager._applyMovementStep({ target })
+      SnappingManager._applyMovementStep({
+        target,
+        transform
+      })
     }
 
     const finalBounds = getObjectBounds({ object: target }) ?? activeBounds
@@ -1254,18 +1259,37 @@ export default class SnappingManager {
   /**
    * Применяет шаг перемещения, округляя координаты объекта к сетке MOVE_SNAP_STEP.
    */
-  private static _applyMovementStep({ target }: { target: FabricObject }): void {
+  private static _applyMovementStep({
+    target,
+    transform
+  }: {
+    target: FabricObject
+    transform?: Transform | null
+  }): void {
     const { left = 0, top = 0 } = target
     const snappedLeft = Math.round(left / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
     const snappedTop = Math.round(top / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
-    const isAlreadySnapped = snappedLeft === left && snappedTop === top
+    const originalLeft = typeof transform?.original?.left === 'number'
+      ? transform.original.left
+      : null
+    const originalTop = typeof transform?.original?.top === 'number'
+      ? transform.original.top
+      : null
+    const shouldSnapX = originalLeft === null || originalLeft !== left
+    const shouldSnapY = originalTop === null || originalTop !== top
+    const updates: Partial<Record<'left' | 'top', number>> = {}
 
-    if (isAlreadySnapped) return
+    if (shouldSnapX && snappedLeft !== left) {
+      updates.left = snappedLeft
+    }
 
-    target.set({
-      left: snappedLeft,
-      top: snappedTop
-    })
+    if (shouldSnapY && snappedTop !== top) {
+      updates.top = snappedTop
+    }
+
+    if (!('left' in updates) && !('top' in updates)) return
+
+    target.set(updates)
     target.setCoords()
   }
 

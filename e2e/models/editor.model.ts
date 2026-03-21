@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type Page, expect } from '@playwright/test'
-import type { EditorObjectInfo, CanvasStateInfo, MontageAreaInfo } from '../types'
+import type {
+  EditorObjectInfo,
+  CanvasStateInfo,
+  MontageAreaInfo,
+  MontageAreaBoundsInfo
+} from '../types'
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
@@ -98,6 +103,31 @@ export class EditorModel {
         height: montageArea.height,
         left: montageArea.left,
         top: montageArea.top
+      }
+    })
+  }
+
+  /** Возвращает границы montage area в координатах canvas-сцены. */
+  async getMontageAreaBounds(): Promise<MontageAreaBoundsInfo> {
+    return this.page.evaluate(() => {
+      const { montageArea } = (window as any).editor
+
+      montageArea.setCoords()
+      const bounds = montageArea.getBoundingRect(false, true)
+      const left = typeof bounds.left === 'number' ? bounds.left : 0
+      const top = typeof bounds.top === 'number' ? bounds.top : 0
+      const width = typeof bounds.width === 'number' ? bounds.width : 0
+      const height = typeof bounds.height === 'number' ? bounds.height : 0
+
+      return {
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        centerX: left + (width / 2),
+        centerY: top + (height / 2)
       }
     })
   }
