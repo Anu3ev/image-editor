@@ -1,6 +1,7 @@
 import { Rect, FabricImage, Gradient, FabricObject } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import { addRectangleToCanvas } from '../utils/primitive-shapes'
 
 export type SetColorOptions = {
   color: string
@@ -415,16 +416,20 @@ export default class BackgroundManager {
    * @param color - Цвет фона в формате HEX (например, "#FF0000")
    */
   private _createColorBackground(color: string): void {
-    this.backgroundObject = this.editor.shapeManager.addRectangle({
-      fill: color,
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-      id: 'background',
-      backgroundType: 'color',
-      backgroundId: `background-${nanoid()}`
-    }, { withoutSelection: true })
+    this.backgroundObject = addRectangleToCanvas({
+      canvas: this.editor.canvas,
+      options: {
+        fill: color,
+        selectable: false,
+        evented: false,
+        hasBorders: false,
+        hasControls: false,
+        id: 'background',
+        backgroundType: 'color',
+        backgroundId: `background-${nanoid()}`
+      },
+      flags: { withoutSelection: true }
+    })
 
     this.refresh()
   }
@@ -435,16 +440,20 @@ export default class BackgroundManager {
    */
   private _createGradientBackground(gradient: GradientBackground): void {
     // Сначала создаем прямоугольник без градиента
-    this.backgroundObject = this.editor.shapeManager.addRectangle({
-      fill: '#ffffff', // временный цвет
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-      id: 'background',
-      backgroundType: 'gradient',
-      backgroundId: `background-${nanoid()}`
-    }, { withoutSelection: true })
+    this.backgroundObject = addRectangleToCanvas({
+      canvas: this.editor.canvas,
+      options: {
+        fill: '#ffffff',
+        selectable: false,
+        evented: false,
+        hasBorders: false,
+        hasControls: false,
+        id: 'background',
+        backgroundType: 'gradient',
+        backgroundId: `background-${nanoid()}`
+      },
+      flags: { withoutSelection: true }
+    })
 
     this.refresh()
 

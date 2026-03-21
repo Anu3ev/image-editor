@@ -22,6 +22,36 @@ body {
     gap: 8px;
   }
 
+  .shape-picker {
+    position: relative;
+  }
+
+  .shape-picker-menu {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    width: 100%;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    padding: 8px;
+    z-index: 10;
+    max-height: 260px;
+    overflow-y: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .shape-picker-menu.is-open {
+    display: grid;
+  }
+
+  .shape-preset-btn {
+    text-align: left;
+  }
+
   h3, h4, hr {
     margin: 0;
     padding: 0;
@@ -32,7 +62,8 @@ body {
   }
 }
 
-.text-controls .palette-swatch {
+.text-controls .palette-swatch,
+.shape-controls .palette-swatch {
   width: 20px;
   height: 20px;
   border-radius: 4px;
@@ -42,12 +73,14 @@ body {
   cursor: pointer;
 }
 
-.text-controls .palette-swatch.active {
+.text-controls .palette-swatch.active,
+.shape-controls .palette-swatch.active {
   outline: 2px solid #0d6efd;
   outline-offset: 1px;
 }
 
-.text-controls .palette-swatch:disabled {
+.text-controls .palette-swatch:disabled,
+.shape-controls .palette-swatch:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }

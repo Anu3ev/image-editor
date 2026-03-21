@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import path from 'path'
-import babel from 'vite-plugin-babel'
 
 export default defineConfig({
   base: './',
@@ -24,15 +23,6 @@ export default defineConfig({
     }
   },
   plugins: [
-    babel({
-      babelConfig: {
-        babelrc: false,
-        configFile: false,
-        presets: [
-          ['@babel/preset-env', { modules: false, targets: { esmodules: true } }]
-        ]
-      }
-    }),
     viteStaticCopy({
       targets: [
         // Копируем из src/demo в выходную папку
@@ -52,6 +42,10 @@ export default defineConfig({
             }
             return content
           }
+        },
+        {
+          src: 'src/demo/js/listeners/*.js',
+          dest: './js/listeners'
         }
       ]
     })

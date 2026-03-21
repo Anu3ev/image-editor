@@ -1,6 +1,7 @@
 import { GUIDE_COLOR, GUIDE_WIDTH } from './constants'
 import type { SpacingGuide } from './types'
 import { drawGuideLabel } from '../utils/render-utils'
+import { resolveDisplayDistance } from '../utils/distance'
 
 /**
  * Отрисовывает линии и бейджи для равноудалённых интервалов.
@@ -23,7 +24,7 @@ export const drawSpacingGuide = ({
     activeEnd,
     distance
   } = guide
-  const distanceLabel = Math.round(distance).toString()
+  const distanceLabel = resolveDisplayDistance({ distance }).toString()
 
   context.beginPath()
   if (type === 'vertical') {

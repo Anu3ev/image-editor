@@ -28,6 +28,7 @@ import TextManager from './text-manager'
 import TemplateManager from './template-manager'
 import SnappingManager from './snapping-manager'
 import MeasurementManager from './measurement-manager'
+import { addRectangleToCanvas } from './utils/primitive-shapes'
 
 import type { ImportImageOptions } from './image-manager'
 
@@ -211,7 +212,6 @@ export class ImageEditor {
     this.options = options
     this.containerId = canvasId
     this.editorId = `${canvasId}-${nanoid()}`
-    this.clipboard = null
 
     this.init()
   }
@@ -230,7 +230,7 @@ export class ImageEditor {
       canvasCSSWidth,
       canvasCSSHeight,
       initialImage,
-      initialStateJSON,
+      initialState,
       scaleType,
       showRotationAngle,
       _onReadyCallback
@@ -286,7 +286,38 @@ export class ImageEditor {
     // Загружаем шрифты после того как редактор получил размеры
     await this.fontManager.loadFonts()
 
-    if (initialImage?.source) {
+    if (initialState) {
+      this.historyManager.suspendHistory()
+
+      try {
+        const preparedState = await this.imageManager.prepareInitialState({
+          state: initialState as CanvasFullState
+        })
+
+        await this.historyManager.loadStateFromFullState(preparedState)
+      } catch (error) {
+        if (initialImage?.source) {
+          const {
+            source,
+            scale = `image-${scaleType}`,
+            withoutSave = true,
+            ...rest
+          } = initialImage as ImportImageOptions
+
+          await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
+        }
+
+        this.errorManager.emitError({
+          origin: 'ImageEditor',
+          method: 'init',
+          code: 'INITIAL_STATE_LOAD_FAILED',
+          message: 'Не удалось загрузить состояние редактора. Попытка импортировать начальное изображение.',
+          data: error as Error
+        })
+      } finally {
+        this.historyManager.resumeHistory()
+      }
+    } else if (initialImage?.source) {
       const {
         source,
         scale = `image-${scaleType}`,
@@ -295,10 +326,6 @@ export class ImageEditor {
       } = initialImage as ImportImageOptions
 
       await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
-    }
-
-    if (initialStateJSON) {
-      this.historyManager.loadStateFromFullState(initialStateJSON as CanvasFullState)
     }
 
     this.historyManager.saveState()
@@ -321,22 +348,26 @@ export class ImageEditor {
       montageAreaHeight
     } = this.options
 
-    this.montageArea = this.shapeManager.addRectangle({
-      width: montageAreaWidth,
-      height: montageAreaHeight,
-      fill: ImageEditor._createMosaicPattern(),
-      stroke: null,
-      strokeWidth: 0,
-      selectable: false,
-      hasBorders: false,
-      hasControls: false,
-      evented: false,
-      id: 'montage-area',
-      originX: 'center',
-      originY: 'center',
-      objectCaching: false,
-      noScaleCache: true
-    }, { withoutSelection: true })
+    this.montageArea = addRectangleToCanvas({
+      canvas: this.canvas,
+      options: {
+        width: montageAreaWidth,
+        height: montageAreaHeight,
+        fill: ImageEditor._createMosaicPattern(),
+        stroke: null,
+        strokeWidth: 0,
+        selectable: false,
+        hasBorders: false,
+        hasControls: false,
+        evented: false,
+        id: 'montage-area',
+        originX: 'center',
+        originY: 'center',
+        objectCaching: false,
+        noScaleCache: true
+      },
+      flags: { withoutSelection: true }
+    })
   }
 
   /**
@@ -348,19 +379,26 @@ export class ImageEditor {
       montageAreaHeight
     } = this.options
 
-    this.canvas.clipPath = this.shapeManager.addRectangle({
-      id: 'area-clip',
-      width: montageAreaWidth,
-      height: montageAreaHeight,
-      stroke: null,
-      strokeWidth: 0,
-      hasBorders: false,
-      hasControls: false,
-      selectable: false,
-      evented: false,
-      originX: 'center',
-      originY: 'center'
-    }, { withoutSelection: true, withoutAdding: true })
+    this.canvas.clipPath = addRectangleToCanvas({
+      canvas: this.canvas,
+      options: {
+        id: 'area-clip',
+        width: montageAreaWidth,
+        height: montageAreaHeight,
+        stroke: null,
+        strokeWidth: 0,
+        hasBorders: false,
+        hasControls: false,
+        selectable: false,
+        evented: false,
+        originX: 'center',
+        originY: 'center'
+      },
+      flags: {
+        withoutSelection: true,
+        withoutAdding: true
+      }
+    })
   }
 
   /**
@@ -373,6 +411,7 @@ export class ImageEditor {
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
     this.textManager?.destroy()
+    this.selectionManager.destroy()
     this.canvas.dispose()
     this.workerManager.worker.terminate()
     this.imageManager.revokeBlobUrls()

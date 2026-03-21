@@ -1,6 +1,7 @@
 import { Canvas, Pattern } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../../../src/editor'
+import { addRectangleToCanvas } from '../../../src/editor/utils/primitive-shapes'
 import { basicOptions, createFullOptions, createEditorWithMocks } from '../../test-utils/editor-helpers'
 
 // Мокируем сторонние зависимости редактора (не fabric)
@@ -11,7 +12,15 @@ jest.mock('../../../src/editor/worker-manager')
 jest.mock('../../../src/editor/customized-controls')
 jest.mock('../../../src/editor/ui/toolbar-manager')
 jest.mock('../../../src/editor/history-manager')
-jest.mock('../../../src/editor/image-manager')
+jest.mock('../../../src/editor/image-manager', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    importImage: jest.fn().mockResolvedValue(undefined),
+    prepareInitialState: jest.fn().mockImplementation(async({ state }) => state),
+    calculateScaleFactor: jest.fn().mockReturnValue(1),
+    revokeBlobUrls: jest.fn()
+  }))
+}))
 jest.mock('../../../src/editor/canvas-manager')
 jest.mock('../../../src/editor/transform-manager')
 jest.mock('../../../src/editor/interaction-blocker')
@@ -24,11 +33,15 @@ jest.mock('../../../src/editor/selection-manager')
 jest.mock('../../../src/editor/deletion-manager')
 jest.mock('../../../src/editor/error-manager')
 jest.mock('../../../src/editor/zoom-manager')
+jest.mock('../../../src/editor/utils/primitive-shapes', () => ({
+  addRectangleToCanvas: jest.fn()
+}))
 
 describe('ImageEditor', () => {
   // Моки для зависимостей
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
   const mockRect = {}
+  const addRectangleToCanvasMock = addRectangleToCanvas as jest.Mock
 
   // Базовые опции/хелперы теперь импортируются из test-utils/editor-helpers
 
@@ -57,7 +70,6 @@ describe('ImageEditor', () => {
       expect(editor.containerId).toBe(canvasId)
       expect(editor.options).toBe(options)
       expect(editor.editorId).toBe(`${canvasId}-test-id-123`)
-      expect(editor.clipboard).toBeNull()
       expect(mockNanoid).toHaveBeenCalledTimes(1)
     })
 
@@ -183,12 +195,190 @@ describe('ImageEditor', () => {
 
     it('должен загрузить начальное состояние если оно предоставлено', async() => {
       const editor = createEditorWithMocks({
-        initialStateJSON: { test: 'state' }
+        initialState: { test: 'state' }
       })
 
       await editor.init()
 
       expect(editor.historyManager.loadStateFromFullState).toHaveBeenCalledWith({ test: 'state' })
+    })
+
+    it('должен подготовить initialState через imageManager.prepareInitialState перед загрузкой в историю', async() => {
+      const initialState = { test: 'state' }
+      const preparedState = { prepared: true }
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const prepareInitialState = jest.fn().mockResolvedValue(preparedState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage: jest.fn().mockResolvedValue(undefined),
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const loadStateFromFullState = jest.fn().mockResolvedValue(undefined)
+      const suspendHistory = jest.fn()
+      const resumeHistory = jest.fn()
+      const saveState = jest.fn()
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState,
+        suspendHistory,
+        resumeHistory,
+        saveState
+      }))
+
+      const editor = createEditorWithMocks({ initialState })
+      await editor.init()
+
+      expect(prepareInitialState).toHaveBeenCalledWith({ state: initialState })
+      expect(loadStateFromFullState).toHaveBeenCalledWith(preparedState)
+      expect(suspendHistory).toHaveBeenCalled()
+      expect(resumeHistory).toHaveBeenCalled()
+    })
+
+    it('должен делать fallback на initialImage, если загрузка initialState завершилась ошибкой', async() => {
+      const initialState = { test: 'state' }
+      const loadError = new Error('load failed')
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const importImage = jest.fn().mockResolvedValue(undefined)
+      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage,
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const suspendHistory = jest.fn()
+      const resumeHistory = jest.fn()
+      const saveState = jest.fn()
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState: jest.fn().mockRejectedValue(loadError),
+        suspendHistory,
+        resumeHistory,
+        saveState
+      }))
+
+      const ErrorManagerMock = jest.requireMock('../../../src/editor/error-manager').default as jest.Mock
+      const emitError = jest.fn()
+
+      ErrorManagerMock.mockImplementationOnce(() => ({
+        emitError,
+        emitWarning: jest.fn(),
+        cleanBuffer: jest.fn()
+      }))
+
+      const editor = createEditorWithMocks({
+        initialState,
+        scaleType: 'contain',
+        initialImage: { source: 'test-image.jpg' }
+      })
+
+      await editor.init()
+
+      expect(prepareInitialState).toHaveBeenCalledWith({ state: initialState })
+      expect(importImage).toHaveBeenCalledWith({
+        source: 'test-image.jpg',
+        scale: 'image-contain',
+        withoutSave: true
+      })
+
+      expect(emitError).toHaveBeenCalledWith(expect.objectContaining({
+        origin: 'ImageEditor',
+        method: 'init',
+        code: 'INITIAL_STATE_LOAD_FAILED'
+      }))
+
+      expect(suspendHistory).toHaveBeenCalled()
+      expect(resumeHistory).toHaveBeenCalled()
+    })
+
+    it('не должен импортировать initialImage, если initialState загрузился успешно', async() => {
+      const initialState = { test: 'state' }
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const importImage = jest.fn().mockResolvedValue(undefined)
+      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage,
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const loadStateFromFullState = jest.fn().mockResolvedValue(undefined)
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState,
+        suspendHistory: jest.fn(),
+        resumeHistory: jest.fn(),
+        saveState: jest.fn()
+      }))
+
+      const editor = createEditorWithMocks({
+        initialState,
+        initialImage: { source: 'test-image.jpg' }
+      })
+
+      await editor.init()
+
+      expect(loadStateFromFullState).toHaveBeenCalledWith(initialState)
+      expect(importImage).not.toHaveBeenCalled()
+    })
+
+    it('не должен делать fallback на initialImage, если initialState загрузился с ошибкой и initialImage не задан', async() => {
+      const initialState = { test: 'state' }
+      const loadError = new Error('load failed')
+
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const importImage = jest.fn().mockResolvedValue(undefined)
+      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+
+      ImageManagerMock.mockImplementationOnce(() => ({
+        importImage,
+        prepareInitialState,
+        calculateScaleFactor: jest.fn().mockReturnValue(1),
+        revokeBlobUrls: jest.fn()
+      }))
+
+      const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
+      const suspendHistory = jest.fn()
+      const resumeHistory = jest.fn()
+
+      HistoryManagerMock.mockImplementationOnce(() => ({
+        loadStateFromFullState: jest.fn().mockRejectedValue(loadError),
+        suspendHistory,
+        resumeHistory,
+        saveState: jest.fn()
+      }))
+
+      const ErrorManagerMock = jest.requireMock('../../../src/editor/error-manager').default as jest.Mock
+      const emitError = jest.fn()
+
+      ErrorManagerMock.mockImplementationOnce(() => ({
+        emitError,
+        emitWarning: jest.fn(),
+        cleanBuffer: jest.fn()
+      }))
+
+      const editor = createEditorWithMocks({ initialState })
+      await editor.init()
+
+      expect(importImage).not.toHaveBeenCalled()
+      expect(emitError).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'INITIAL_STATE_LOAD_FAILED'
+      }))
+      expect(suspendHistory).toHaveBeenCalled()
+      expect(resumeHistory).toHaveBeenCalled()
     })
 
     it('должен вызвать колбэк готовности если он предоставлен', async() => {
@@ -233,6 +423,7 @@ describe('ImageEditor', () => {
       const editor = {
         listeners: { destroy: mockDestroy },
         toolbar: { destroy: mockDestroy },
+        selectionManager: { destroy: mockDestroy },
         canvas: { dispose: mockDispose },
         workerManager: { worker: { terminate: mockTerminate } },
         imageManager: { revokeBlobUrls: mockRevokeBlobUrls },
@@ -242,7 +433,7 @@ describe('ImageEditor', () => {
 
       editor.destroy()
 
-      expect(mockDestroy).toHaveBeenCalledTimes(2) // listeners + toolbar
+      expect(mockDestroy).toHaveBeenCalledTimes(3) // listeners + toolbar + selectionManager
       expect(mockDispose).toHaveBeenCalled()
       expect(mockTerminate).toHaveBeenCalled()
       expect(mockRevokeBlobUrls).toHaveBeenCalled()
@@ -251,18 +442,19 @@ describe('ImageEditor', () => {
   })
 
   describe('_createMontageArea (приватный метод)', () => {
-    it('создает прямоугольник с ожидаемыми параметрами через ShapeManager', () => {
+    it('создает прямоугольник с ожидаемыми параметрами через addRectangleToCanvas', () => {
+      const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockResolvedValue()
       const editor = new ImageEditor('test-canvas', createFullOptions())
+      const editorWithCanvas = editor as any
+      editorWithCanvas.canvas = new Canvas('test-canvas', {}) as any
+      addRectangleToCanvasMock.mockReturnValue(mockRect)
+      initSpy.mockRestore()
 
-      // Мокируем только метод ShapeManager.addRectangle
-      const mockAddRectangle = jest.fn().mockReturnValue(mockRect)
-      editor.shapeManager = {
-        addRectangle: mockAddRectangle
-      } as any;
-      (editor as any)._createMontageArea()
+      editorWithCanvas._createMontageArea()
 
-      expect(mockAddRectangle).toHaveBeenCalledWith(
-        expect.objectContaining({
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith({
+        canvas: editorWithCanvas.canvas,
+        options: expect.objectContaining({
           width: basicOptions.montageAreaWidth,
           height: basicOptions.montageAreaHeight,
           selectable: false,
@@ -277,28 +469,28 @@ describe('ImageEditor', () => {
           objectCaching: false,
           noScaleCache: true
         }),
-        { withoutSelection: true }
-      )
+        flags: { withoutSelection: true }
+      })
       expect(editor.montageArea).toBe(mockRect)
     })
   })
 
   describe('_createClippingArea (приватный метод)', () => {
-    it('создает clipPath через ShapeManager с ожидаемыми параметрами', () => {
-      const editor = new ImageEditor('test-canvas', createFullOptions());
+    it('создает clipPath через addRectangleToCanvas с ожидаемыми параметрами', () => {
+      const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockResolvedValue()
+      const editor = new ImageEditor('test-canvas', createFullOptions())
+      const editorWithCanvas = editor as any
 
       // Устанавливаем canvas
-      (editor as any).canvas = new Canvas('test-canvas', {}) as any
+      editorWithCanvas.canvas = new Canvas('test-canvas', {}) as any
 
-      // Мокируем только метод ShapeManager.addRectangle
-      const mockAddRectangle = jest.fn().mockReturnValue(mockRect)
-      editor.shapeManager = {
-        addRectangle: mockAddRectangle
-      } as any;
-      (editor as any)._createClippingArea()
+      addRectangleToCanvasMock.mockReturnValue(mockRect)
+      initSpy.mockRestore()
+      editorWithCanvas._createClippingArea()
 
-      expect(mockAddRectangle).toHaveBeenCalledWith(
-        expect.objectContaining({
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith({
+        canvas: editorWithCanvas.canvas,
+        options: expect.objectContaining({
           id: 'area-clip',
           width: basicOptions.montageAreaWidth,
           height: basicOptions.montageAreaHeight,
@@ -311,8 +503,8 @@ describe('ImageEditor', () => {
           hasBorders: false,
           hasControls: false
         }),
-        { withoutSelection: true, withoutAdding: true }
-      )
+        flags: { withoutSelection: true, withoutAdding: true }
+      })
       expect((editor.canvas as any).clipPath).toBe(mockRect)
     })
   })

@@ -1,8 +1,12 @@
 import { nanoid } from 'nanoid'
-import HistoryManager, {
-  type CanvasFullState
-} from '../../../../src/editor/history-manager'
+import type { CanvasFullState } from '../../../../src/editor/history-manager'
+import { prepareStatesForDiff } from '../../../../src/editor/history-manager/diff-normalization'
 import { createHistoryManagerTestSetup } from '../../../test-utils/editor-helpers'
+import {
+  createSnapshotShapeGroup,
+  createSnapshotTextObject,
+  serializeSnapshotShapeGroupState
+} from '../../../test-utils/history-helpers'
 
 // Мокаем nanoid для предсказуемых ID в тестах
 jest.mock('nanoid')
@@ -446,13 +450,10 @@ describe('HistoryManager', () => {
       historyManager.saveState()
       historyManager.saveState()
 
-      const normalized = (HistoryManager as any)._prepareStatesForDiff({
+      const normalized = prepareStatesForDiff({
         prevState: baseState,
         nextState
-      }) as {
-        prevState: CanvasFullState
-        nextState: CanvasFullState
-      }
+      })
       const { prevState: normalizedPrevState, nextState: normalizedNextState } = normalized
       const [prevTextObject] = normalizedPrevState.objects
       const [nextTextObject] = normalizedNextState.objects
@@ -646,6 +647,58 @@ describe('HistoryManager', () => {
       const savedTextbox = historyManager.baseState?.objects?.[0] as any
       expect(savedTextbox.lockMovementX).toBe(true)
       expect(savedTextbox.lockMovementY).toBe(true)
+    })
+
+    it('не сохраняет временную интерактивность shape-группы во время редактирования текста', () => {
+      const {
+        historyManager,
+        mockCanvas,
+        setCanvasObjects
+      } = createHistoryManagerTestSetup()
+      const text = createSnapshotTextObject({
+        id: 'shape-text-1',
+        isEditing: true,
+        selectable: false,
+        evented: false,
+        lockMovementX: true,
+        lockMovementY: true
+      })
+      const group = createSnapshotShapeGroup({
+        id: 'shape-1',
+        childObjects: [text],
+        selectable: false,
+        evented: true,
+        lockMovementX: true,
+        lockMovementY: true
+      })
+
+      setCanvasObjects([group])
+
+      mockCanvas.toDatalessObject.mockImplementation(() => createState({
+        objects: [serializeSnapshotShapeGroupState({
+          group,
+          text
+        })] as any[]
+      }))
+
+      historyManager.saveState()
+
+      const [savedGroup] = historyManager.baseState?.objects as Array<Record<string, unknown>>
+      const [savedText] = (savedGroup.objects as Array<Record<string, unknown>>)
+
+      expect(savedGroup.selectable).toBe(true)
+      expect(savedGroup.lockMovementX).toBe(false)
+      expect(savedGroup.lockMovementY).toBe(false)
+      expect(savedText.selectable).toBe(false)
+      expect(savedText.evented).toBe(false)
+      expect(savedText.lockMovementX).toBe(false)
+      expect(savedText.lockMovementY).toBe(false)
+
+      expect(group.selectable).toBe(false)
+      expect(group.lockMovementX).toBe(true)
+      expect(group.lockMovementY).toBe(true)
+      expect(text.lockMovementX).toBe(true)
+      expect(text.lockMovementY).toBe(true)
     })
 
     it('удаляет redo-ветку после отката и сохранения нового состояния', async() => {
@@ -988,6 +1041,101 @@ describe('HistoryManager', () => {
     })
   })
 
+  describe('deferred save при блокировке UI', () => {
+    it('не сохраняет состояние во время блокировки UI и сохраняет после flush', () => {
+      const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
+      const baseState = createState({ objects: [{ id: 'object-1', left: 0 }] as any[] })
+      const nextState = createState({ objects: [{ id: 'object-1', left: 20 }] as any[] })
+
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      mockEditor.interactionBlocker.isBlocked = false
+      historyManager.saveState()
+
+      mockEditor.interactionBlocker.isBlocked = true
+      historyManager.saveState()
+
+      expect(historyManager.patches).toHaveLength(0)
+      expect(historyManager.currentIndex).toBe(0)
+      expect(historyManager.totalChangesCount).toBe(0)
+      expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(1)
+
+      mockEditor.interactionBlocker.isBlocked = false
+      const isFlushed = historyManager.flushDeferredSaveAfterUnblock()
+
+      expect(isFlushed).toBe(true)
+      expect(historyManager.patches).toHaveLength(1)
+      expect(historyManager.currentIndex).toBe(1)
+      expect(historyManager.totalChangesCount).toBe(1)
+      expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(2)
+    })
+
+    it('схлопывает множественные saveState во время блокировки в один flush', () => {
+      const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
+      const baseState = createState({ objects: [{ id: 'object-1', left: 0 }] as any[] })
+      const nextState = createState({ objects: [{ id: 'object-1', left: 30 }] as any[] })
+
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      mockEditor.interactionBlocker.isBlocked = false
+      historyManager.saveState()
+
+      mockEditor.interactionBlocker.isBlocked = true
+      historyManager.saveState()
+      historyManager.saveState()
+      historyManager.saveState()
+
+      expect(historyManager.patches).toHaveLength(0)
+      expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(1)
+
+      mockEditor.interactionBlocker.isBlocked = false
+
+      const firstFlush = historyManager.flushDeferredSaveAfterUnblock()
+      const secondFlush = historyManager.flushDeferredSaveAfterUnblock()
+
+      expect(firstFlush).toBe(true)
+      expect(secondFlush).toBe(false)
+      expect(historyManager.patches).toHaveLength(1)
+      expect(historyManager.currentIndex).toBe(1)
+      expect(historyManager.totalChangesCount).toBe(1)
+      expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(2)
+    })
+
+    it('не сбрасывает отложенное сохранение если flush вызван при suspendHistory', () => {
+      const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
+      const baseState = createState({ objects: [{ id: 'object-1', left: 0 }] as any[] })
+      const nextState = createState({ objects: [{ id: 'object-1', left: 15 }] as any[] })
+
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+
+      mockEditor.interactionBlocker.isBlocked = false
+      historyManager.saveState()
+
+      mockEditor.interactionBlocker.isBlocked = true
+      historyManager.saveState()
+
+      mockEditor.interactionBlocker.isBlocked = false
+      historyManager.suspendHistory()
+
+      const suspendedFlush = historyManager.flushDeferredSaveAfterUnblock()
+
+      historyManager.resumeHistory()
+      const resumedFlush = historyManager.flushDeferredSaveAfterUnblock()
+
+      expect(suspendedFlush).toBe(false)
+      expect(resumedFlush).toBe(true)
+      expect(historyManager.patches).toHaveLength(1)
+      expect(historyManager.currentIndex).toBe(1)
+      expect(historyManager.totalChangesCount).toBe(1)
+    })
+  })
+
   describe('undo/redo', () => {
     it('ничего не делает если undo вызывается без истории', async() => {
       const { historyManager, mockEditor } = createHistoryManagerTestSetup()
@@ -1216,6 +1364,67 @@ describe('HistoryManager', () => {
 
       await historyManager.redo()
       expect(historyManager.currentIndex).toBe(2)
+    })
+
+    it('undo и redo после редактирования текста shape не делают группу невыделяемой', async() => {
+      const {
+        historyManager,
+        mockCanvas,
+        getCanvasObjects,
+        setCanvasObjects
+      } = createHistoryManagerTestSetup()
+      const text = createSnapshotTextObject({
+        id: 'shape-text-1',
+        text: 'shape text',
+        selectable: false,
+        evented: false
+      })
+      const group = createSnapshotShapeGroup({
+        id: 'shape-1',
+        childObjects: [text],
+        selectable: true,
+        evented: true,
+        lockMovementX: false,
+        lockMovementY: false
+      })
+
+      setCanvasObjects([group])
+
+      mockCanvas.toDatalessObject.mockImplementation(() => createState({
+        objects: [serializeSnapshotShapeGroupState({
+          group,
+          text
+        })] as any[]
+      }))
+
+      historyManager.saveState()
+
+      text.text = 'shape text updated'
+
+      historyManager.saveState()
+
+      await historyManager.undo()
+
+      const [groupAfterUndo] = getCanvasObjects() as Array<Record<string, unknown>>
+
+      expect(groupAfterUndo.selectable).toBe(true)
+      expect(groupAfterUndo.evented).toBe(true)
+      expect(groupAfterUndo.lockMovementX).toBe(false)
+      expect(groupAfterUndo.lockMovementY).toBe(false)
+
+      await historyManager.redo()
+
+      const [groupAfterRedo] = getCanvasObjects() as Array<Record<string, unknown>>
+      const [textAfterRedo] = groupAfterRedo.objects as Array<Record<string, unknown>>
+
+      expect(groupAfterRedo.selectable).toBe(true)
+      expect(groupAfterRedo.evented).toBe(true)
+      expect(groupAfterRedo.lockMovementX).toBe(false)
+      expect(groupAfterRedo.lockMovementY).toBe(false)
+      expect(textAfterRedo.selectable).toBe(false)
+      expect(textAfterRedo.evented).toBe(false)
+      expect(textAfterRedo.lockMovementX).toBe(false)
+      expect(textAfterRedo.lockMovementY).toBe(false)
     })
 
     it('ничего не делает если redo вызывается без доступных состояний', async() => {
@@ -1473,7 +1682,7 @@ describe('HistoryManager', () => {
       historyManager.saveState()
 
       // Циклическое тестирование
-      for (let i = 0; i < 3; i++) {
+      for (let i = 0; i < 3; i += 1) {
         await historyManager.undo()
         expect(historyManager.currentIndex).toBe(0)
 

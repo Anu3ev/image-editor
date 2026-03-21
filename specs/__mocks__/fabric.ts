@@ -50,6 +50,27 @@ export class Rect {
   get(key: string) {
     return this.props[key]
   }
+
+  set(props: Record<string, any>) {
+    Object.assign(this.props, props)
+    Object.assign(this, props)
+  }
+
+  setCoords() {
+    // noop in mock
+  }
+}
+
+export class Control {
+  actionHandler?: (...args: unknown[]) => unknown
+
+  offsetX = 0
+
+  offsetY = 0
+
+  constructor(options: Record<string, unknown> = {}) {
+    Object.assign(this, options)
+  }
 }
 
 export class ActiveSelection {
@@ -72,8 +93,12 @@ export class ActiveSelection {
     this.objects.forEach(callback)
   }
 
-  set(props: any) {
-    Object.assign(this, props)
+  set(key: string | Record<string, any>, value?: any) {
+    if (typeof key === 'string') {
+      (this as any)[key] = value
+      return
+    }
+    Object.assign(this, key)
   }
 
   async clone() {
@@ -112,10 +137,20 @@ export class Group {
 
   height = 100
 
+  controls: Record<string, unknown> = {}
+
   _objects: any[] = []
 
   constructor(objects: any[] = [], public options: any = {}) {
     this._objects = objects
+
+    for (let index = 0; index < this._objects.length; index += 1) {
+      const object = this._objects[index]
+      if (object && typeof object === 'object') {
+        object.group = this
+      }
+    }
+
     Object.assign(this, options)
   }
 
@@ -126,11 +161,36 @@ export class Group {
   removeAll() {
     const objects = [...this._objects]
     this._objects = []
+
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index]
+      if (object && typeof object === 'object' && object.group === this) {
+        object.group = null
+      }
+    }
+
     return objects
   }
 
   set(props: any) {
     Object.assign(this, props)
+  }
+
+  setCoords() {
+    // noop in mock
+  }
+
+  getCenterPoint() {
+    return new Point(this.left ?? 0, this.top ?? 0)
+  }
+
+  setPositionByOrigin(
+    point: { x: number; y: number },
+    _originX: 'left' | 'center' | 'right',
+    _originY: 'top' | 'center' | 'bottom'
+  ) {
+    this.left = point.x
+    this.top = point.y
   }
 
   async clone() {
@@ -149,6 +209,106 @@ export class FabricObject {
     Object.assign(this, options)
   }
 
+  set(key: string | Record<string, any>, value?: any) {
+    if (typeof key === 'string') {
+      (this as any)[key] = value
+      return
+    }
+    Object.assign(this, key)
+  }
+
+  /**
+   * Возвращает относительную точку центра объекта.
+   */
+  public getRelativeCenterPoint() {
+    const {
+      left = 0,
+      top = 0,
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1
+    } = this as any
+    const resolvedWidth = width * scaleX
+    const resolvedHeight = height * scaleY
+
+    return new Point(left + (resolvedWidth / 2), top + (resolvedHeight / 2))
+  }
+
+  /**
+   * Переводит точку из центра в координаты origin объекта.
+   */
+  public translateToOriginPoint(
+    point: { x: number; y: number },
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
+  ) {
+    const {
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1
+    } = this as any
+    const resolvedWidth = width * scaleX
+    const resolvedHeight = height * scaleY
+
+    let nextX = point.x
+    let nextY = point.y
+
+    if (originX === 'left') {
+      nextX -= resolvedWidth / 2
+    }
+    if (originX === 'right') {
+      nextX += resolvedWidth / 2
+    }
+    if (originY === 'top') {
+      nextY -= resolvedHeight / 2
+    }
+    if (originY === 'bottom') {
+      nextY += resolvedHeight / 2
+    }
+
+    return new Point(nextX, nextY)
+  }
+
+  /**
+   * Устанавливает позицию объекта по заданному origin.
+   */
+  public setPositionByOrigin(
+    point: { x: number; y: number },
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
+  ) {
+    const {
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1
+    } = this as any
+    const resolvedWidth = width * scaleX
+    const resolvedHeight = height * scaleY
+
+    let nextLeft = point.x
+    let nextTop = point.y
+
+    if (originX === 'center') {
+      nextLeft -= resolvedWidth / 2
+    }
+    if (originX === 'right') {
+      nextLeft -= resolvedWidth
+    }
+    if (originY === 'center') {
+      nextTop -= resolvedHeight / 2
+    }
+    if (originY === 'bottom') {
+      nextTop -= resolvedHeight
+    }
+
+    const target = this as any
+    target.left = nextLeft
+    target.top = nextTop
+  }
+
   _getTransformedDimensions(options: { width?: number; height?: number } = {}) {
     const width = options.width ?? 0
     const height = options.height ?? 0
@@ -158,6 +318,18 @@ export class FabricObject {
 }
 
 export class InteractiveFabricObject extends FabricObject {}
+
+export class Circle extends FabricObject {}
+
+export class Triangle extends FabricObject {}
+
+export class Ellipse extends FabricObject {}
+
+export class Path extends FabricObject {}
+
+export class Polygon extends FabricObject {}
+
+export class Polyline extends FabricObject {}
 
 export class Textbox extends FabricObject {
   public text?: string
@@ -349,7 +521,11 @@ export class Textbox extends FabricObject {
 
 export const controlsUtils = {
   createObjectDefaultControls: jest.fn(() => ({})),
-  createTextboxDefaultControls: jest.fn(() => ({}))
+  createTextboxDefaultControls: jest.fn(() => ({})),
+  wrapWithFireEvent: jest.fn((_eventName: string, handler: unknown) => handler),
+  wrapWithFixedAnchor: jest.fn((handler: unknown) => handler),
+  scalingEqually: jest.fn(() => true),
+  getLocalPoint: jest.fn((_transform, _originX, _originY, x: number, y: number) => new Point(x, y))
 }
 
 export class Gradient {
@@ -377,8 +553,22 @@ export class FabricImage {
     Object.assign(this, options)
   }
 
-  set(props: any) {
-    Object.assign(this, props)
+  set(key: string | Record<string, any>, value?: any) {
+    if (typeof key === 'string') {
+      (this as any)[key] = value
+      return
+    }
+    Object.assign(this, key)
+  }
+
+  getElement(): HTMLImageElement | HTMLCanvasElement {
+    const element = (this as any).element
+    if (element) {
+      return element
+    }
+    const img = new Image()
+    img.src = (this as any).src || ''
+    return img
   }
 
   static fromURL(url: string, options?: any): Promise<FabricImage> {
@@ -438,13 +628,31 @@ export const util = {
   enlivenObjects: async(objects: any[]) => objects.map((obj) => {
     const Cls = classRegistry.getClass(obj.type)
     return Cls ? new Cls(obj.text ?? '', obj) : obj
-  })
+  }),
+  enlivenObjectEnlivables: async(options: any) => options,
+  groupSVGElements: jest.fn((objects: any[], options: any = {}) => new Group(objects, options))
 }
+
+export const loadSVGFromURL = jest.fn(async(_url: string) => ({
+  objects: [],
+  options: {}
+}))
+
+export const loadSVGFromString = jest.fn(async(_svg: string) => ({
+  objects: [],
+  options: {}
+}))
 
 export default {
   Canvas,
   Pattern,
   Rect,
+  Circle,
+  Triangle,
+  Ellipse,
+  Path,
+  Polygon,
+  Polyline,
   ActiveSelection,
   Group,
   FabricObject,
@@ -455,5 +663,7 @@ export default {
   controlsUtils,
   Color,
   classRegistry,
-  util
+  util,
+  loadSVGFromURL,
+  loadSVGFromString
 }

@@ -12,6 +12,7 @@ import {
   shouldIgnoreObject
 } from '../utils/object-filter'
 import { drawGuideLabel } from '../utils/render-utils'
+import { resolveDisplayDistance } from '../utils/distance'
 import {
   MEASUREMENT_COLOR,
   MEASUREMENT_LINE_WIDTH
@@ -657,7 +658,7 @@ export default class MeasurementManager {
         axis,
         start,
         end,
-        text: Math.round(distance).toString(),
+        text: resolveDisplayDistance({ distance }).toString(),
         zoom,
         color: MEASUREMENT_COLOR,
         lineWidth: MEASUREMENT_LINE_WIDTH,

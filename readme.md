@@ -175,6 +175,71 @@ editor.textManager.updateText({
 })
 ```
 
+### Working with Shapes
+
+`ShapeManager` works with composite objects: an outer shape plus an inner text node that stay in sync during layout, scaling, history restore, copy/paste, and template rehydration.
+
+Built-in preset keys: `circle`, `triangle`, `square`, `diamond`, `pentagon`, `hexagon`, `star`, `sparkle`, `heart`, `arrow-right-fat`, `arrow-up-fat`, `arrow-right`, `arrow-down-fat`, `arrow-up-down`, `arrow-left-right`, `drop`, `cross`, `gear`, `badge`, `bookmark`, `tag`, `moon`.
+
+```javascript
+// Create a shape group with text
+const badge = await editor.shapeManager.add({
+  presetKey: 'badge',
+  options: {
+    id: 'promo-badge',
+    width: 220,
+    height: 160,
+    text: 'SALE',
+    fill: '#111827',
+    stroke: '#f59e0b',
+    strokeWidth: 6,
+    textStyle: {
+      fontSize: 34,
+      color: '#ffffff',
+      bold: true
+    },
+    alignH: 'center',
+    alignV: 'middle'
+  }
+})
+
+// Update shape-only styling
+editor.shapeManager.setOpacity({
+  target: badge,
+  opacity: 0.9
+})
+
+editor.shapeManager.setStroke({
+  target: badge,
+  stroke: '#22c55e',
+  strokeWidth: 4,
+  dash: [12, 6]
+})
+
+// Update inner text with layout-aware recalculation
+editor.shapeManager.updateTextStyle({
+  target: 'promo-badge',
+  style: {
+    text: 'LIMITED',
+    uppercase: true,
+    fontSize: 30,
+    color: '#f9fafb'
+  }
+})
+
+// Swap preset while preserving text, transforms, and metadata
+await editor.shapeManager.update({
+  target: badge,
+  presetKey: 'tag',
+  options: {
+    fill: '#dc2626',
+    width: 240
+  }
+})
+```
+
+All mutating `ShapeManager` methods save to history by default. Pass `withoutSave: true` for internal or batched updates.
+
 ### Configuring Fonts
 
 By default the editor ships with a curated Google Fonts collection (Latin + Cyrillic coverage).
@@ -242,7 +307,7 @@ The editor follows a modular architecture with specialized managers:
 - **`ClipboardManager`** - Copy/paste with system clipboard integration
 - **`GroupingManager`** - Object grouping and ungrouping operations
 - **`DeletionManager`** - Object deletion with group handling
-- **`ShapeManager`** - Shape creation (rectangles, circles, triangles)
+- **`ShapeManager`** - Preset-based shape groups with inner text, layout, scaling, and style controls
 - **`ObjectLockManager`** - Object locking and unlocking functionality
 - **`SnappingManager`** - Alignment guides and equal-spacing snaps while moving objects
 - **`MeasurementManager`** - ALT-triggered distance guides to hovered objects or the montage area
@@ -350,6 +415,71 @@ editor.layerManager.bringToFront(object)
 editor.layerManager.sendBackwards(object)
 editor.layerManager.bringForward(object)
 ```
+
+#### Shape Management
+```javascript
+// Add a new shape group
+const shape = await editor.shapeManager.add({
+  presetKey: 'hexagon',
+  options: {
+    text: 'Hello',
+    fill: '#2563eb',
+    width: 220,
+    height: 180
+  }
+})
+
+// Rebuild the same shape group with another preset
+await editor.shapeManager.update({
+  target: shape,
+  presetKey: 'diamond',
+  options: {
+    text: 'Updated',
+    alignH: 'center',
+    alignV: 'middle'
+  }
+})
+
+// Shape-only styling
+editor.shapeManager.setFill({ target: shape, fill: '#7c3aed' })
+editor.shapeManager.setStroke({ target: shape, stroke: '#111827', strokeWidth: 3 })
+editor.shapeManager.setOpacity({ target: shape, opacity: 0.85 })
+
+// Text styling inside the shape
+editor.shapeManager.updateTextStyle({
+  target: shape,
+  style: {
+    fontSize: 28,
+    color: '#ffffff',
+    bold: true
+  }
+})
+
+editor.shapeManager.setTextAlign({
+  target: shape,
+  horizontal: 'center',
+  vertical: 'middle'
+})
+
+await editor.shapeManager.setRounding({
+  target: shape,
+  rounding: 20
+})
+
+editor.shapeManager.remove({ target: shape })
+```
+
+`target` can be omitted to use the active shape group. You can also pass the shape group itself, an inner Fabric object from that group, or the group's `id` string.
+
+`ShapeManager` public methods:
+- `add()` creates a new shape group from a preset and optional text/style overrides.
+- `update()` swaps the preset while preserving existing text, transforms, and object metadata.
+- `remove()` deletes the shape group from canvas.
+- `setFill()`, `setStroke()`, and `setOpacity()` update the visual style of the outer shape node.
+- `getTextNode()` returns the inner `Textbox` so it can be inspected or passed into other APIs.
+- `updateTextStyle()` applies `TextManager`-style updates to the inner text and recalculates the group layout.
+- `setTextAlign()` changes horizontal and vertical alignment inside the shape bounds.
+- `setRounding()` enables or updates corner rounding for roundable presets.
 
 #### Alignment & Guides
 - Objects snap to montage area edges/centers and nearby objects while dragging, with guides for matches and equal spacing.

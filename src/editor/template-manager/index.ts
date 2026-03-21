@@ -16,6 +16,7 @@ import {
   calculateNormalizedCenter,
   denormalizeCenter,
   resolveNormalizedCenter,
+  snapObjectToPixelGrid,
   toNumber,
   type Dimensions
 } from '../utils/geometry'
@@ -167,11 +168,9 @@ export default class TemplateManager {
    * Применяет шаблон к монтажной области без очистки текущих объектов.
    * @param options
    * @param options.template - описание шаблона
-   * @param options.data - данные для заполнения текстов по customData.templateField
    */
   public async applyTemplate({
-    template,
-    data
+    template
   }: ApplyTemplateOptions): Promise<FabricObject[] | null> {
     const {
       canvas,
@@ -258,6 +257,8 @@ export default class TemplateManager {
           montageArea,
           useRelativePositions
         })
+
+        snapObjectToPixelGrid({ object })
 
         object.set({
           id: `${object.type}-${nanoid()}`,
