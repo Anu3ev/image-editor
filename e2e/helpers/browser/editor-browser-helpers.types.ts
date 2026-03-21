@@ -8,6 +8,10 @@ export type BrowserBoundedObject = BrowserObject & {
   getBoundingRect: () => unknown
 }
 
+export type BrowserOriginPointObject = BrowserBoundedObject & {
+  getPointByOrigin: (originX: string, originY: string) => unknown
+}
+
 export type BrowserShapeNodeObject = BrowserObject & {
   shapeNodeType?: string
   strokeUniform?: unknown
@@ -47,9 +51,11 @@ export type BrowserSerializableObject = BrowserObject & {
   fontSize?: unknown
   fontWeight?: unknown
   fontStyle?: unknown
+  lineHeight?: unknown
   underline?: unknown
   linethrough?: unknown
   uppercase?: unknown
+  autoExpand?: unknown
   splitByGrapheme?: unknown
   isEditing?: unknown
   evented?: unknown
@@ -58,6 +64,16 @@ export type BrowserSerializableObject = BrowserObject & {
   selectionStart?: unknown
   selectionEnd?: unknown
   textLines?: unknown
+  backgroundColor?: unknown
+  backgroundOpacity?: unknown
+  paddingTop?: unknown
+  paddingRight?: unknown
+  paddingBottom?: unknown
+  paddingLeft?: unknown
+  radiusTopLeft?: unknown
+  radiusTopRight?: unknown
+  radiusBottomRight?: unknown
+  radiusBottomLeft?: unknown
   getSelectionStyles?: (...args: unknown[]) => unknown
 }
 
@@ -86,6 +102,8 @@ export interface BrowserEditorHelpers {
   serializeShapeObject: BrowserSerializer
   serializeShapeTextObject: BrowserSerializer
   serializeShapeScaleSnapshot: BrowserSerializer
+  serializeTextObject: BrowserSerializer
+  serializeTextResizeSnapshot: BrowserSerializer
   resolveShapeNode: (group: unknown) => BrowserObject | null
   resolveTarget: (objectIndex?: number, id?: string) => unknown
   resolveCanvasObject: (objectIndex?: number, id?: string) => unknown
@@ -112,6 +130,9 @@ export interface BrowserEditorWindow extends Window {
   editor: {
     canvasManager: {
       getObjects: () => unknown
+    }
+    shapeManager: {
+      getTextNode: (params: { target: unknown }) => unknown
     }
   }
   __editorHelpers: BrowserEditorHelpers
