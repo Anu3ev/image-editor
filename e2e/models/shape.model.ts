@@ -12,6 +12,7 @@ import type {
   ShapeScaleStepParams,
   ShapeScaleMouseMoveStepParams,
   ShapeScaleSnapshot,
+  ShapeScaleCorner,
   ShapePresetKey,
   ShapeHorizontalAlign,
   ShapeVerticalAlign,
@@ -23,8 +24,19 @@ import type {
 export class ShapeModel {
   private readonly page: Page
 
+  private activeScaleInteraction: {
+    point: {
+      x: number
+      y: number
+    }
+    corner: ShapeScaleCorner
+    objectIndex?: number
+    id?: string
+  } | null
+
   constructor(page: Page) {
     this.page = page
+    this.activeScaleInteraction = null
   }
 
   /** Добавляет shape на canvas и возвращает информацию о созданном объекте */
@@ -217,7 +229,7 @@ export class ShapeModel {
       id
     } = params
 
-    return this.simulateScaleStep({
+    return this._performInteractiveScaleStep({
       scaleX,
       scaleY: 1,
       corner: 'mr',
@@ -240,7 +252,7 @@ export class ShapeModel {
       id
     } = params
 
-    return this.simulateScaleStep({
+    return this._performInteractiveScaleStep({
       scaleX: 1,
       scaleY,
       corner: 'mb',
@@ -263,7 +275,7 @@ export class ShapeModel {
       id
     } = params
 
-    return this.simulateScaleStep({
+    return this._performInteractiveScaleStep({
       scaleX: 1,
       scaleY,
       corner: 'mt',
@@ -318,7 +330,7 @@ export class ShapeModel {
       originY
     } = originByCorner[corner]
 
-    return this.simulateScaleStep({
+    return this._performInteractiveScaleStep({
       scaleX,
       scaleY,
       corner,
@@ -353,6 +365,171 @@ export class ShapeModel {
       objectIndex,
       id
     })
+  }
+
+  private async _performInteractiveScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
+    await this._startScaleInteractionIfNeeded(params)
+
+    const result = await this.page.evaluate((payload) => {
+      const {
+        scaleX,
+        scaleY,
+        corner = 'br',
+        shiftKey = false,
+        ctrlKey = false,
+        objectIndex,
+        id
+      } = payload
+
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      const transform = editor.canvas._currentTransform
+      if (!transform || transform.target !== target) return null
+
+      const activeCorner = typeof transform.corner === 'string' && transform.corner
+        ? transform.corner
+        : corner
+      const activeOriginX = typeof transform.originX === 'string'
+        ? transform.originX
+        : 'left'
+      const activeOriginY = typeof transform.originY === 'string'
+        ? transform.originY
+        : 'top'
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const settleStep = 0.75
+      const anchorPoint = target.getPointByOrigin(activeOriginX, activeOriginY)
+      const previousLeft = typeof target.left === 'number' ? target.left : 0
+      const previousTop = typeof target.top === 'number' ? target.top : 0
+      const previousScaleX = typeof target.scaleX === 'number' ? target.scaleX : 1
+      const previousScaleY = typeof target.scaleY === 'number' ? target.scaleY : 1
+
+      target.set({
+        scaleX,
+        scaleY
+      })
+      target.setPositionByOrigin(anchorPoint, activeOriginX, activeOriginY)
+      target.setCoords()
+
+      const control = target.oCoords?.[activeCorner]
+      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') {
+        target.set({
+          left: previousLeft,
+          top: previousTop,
+          scaleX: previousScaleX,
+          scaleY: previousScaleY
+        })
+        target.setCoords()
+
+        return null
+      }
+
+      const point = {
+        x: rect.left + control.x,
+        y: rect.top + control.y
+      }
+
+      target.set({
+        left: previousLeft,
+        top: previousTop,
+        scaleX: previousScaleX,
+        scaleY: previousScaleY
+      })
+      target.setCoords()
+
+      editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: point.x,
+        clientY: point.y,
+        shiftKey,
+        ctrlKey
+      }))
+
+      if (!ctrlKey) {
+        target.setCoords()
+
+        const settledControl = target.oCoords?.[activeCorner]
+        if (settledControl && typeof settledControl.x === 'number' && typeof settledControl.y === 'number') {
+          let settleDeltaX = 0
+          if (activeCorner.includes('l')) {
+            settleDeltaX = -settleStep
+          }
+          if (activeCorner.includes('r')) {
+            settleDeltaX = settleStep
+          }
+
+          let settleDeltaY = 0
+          if (activeCorner.includes('t')) {
+            settleDeltaY = -settleStep
+          }
+          if (activeCorner.includes('b')) {
+            settleDeltaY = settleStep
+          }
+
+          const settlePoint = {
+            x: rect.left + settledControl.x + settleDeltaX,
+            y: rect.top + settledControl.y + settleDeltaY
+          }
+
+          editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+            bubbles: true,
+            button: 0,
+            buttons: 1,
+            clientX: settlePoint.x,
+            clientY: settlePoint.y,
+            shiftKey,
+            ctrlKey
+          }))
+        }
+      }
+
+      target.setCoords()
+      const finalControl = target.oCoords?.[activeCorner]
+      const finalPoint = finalControl && typeof finalControl.x === 'number' && typeof finalControl.y === 'number'
+        ? {
+          x: rect.left + finalControl.x,
+          y: rect.top + finalControl.y
+        }
+        : point
+
+      return {
+        point: finalPoint,
+        snapshot: helpers.serializeShapeScaleSnapshot(target)
+      }
+    }, params)
+
+    expect(result, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
+
+    await this._waitForCanvasRender()
+
+    const {
+      point,
+      snapshot
+    } = result as {
+      point: {
+        x: number
+        y: number
+      }
+      snapshot: ShapeScaleSnapshot
+    }
+
+    expect(snapshot, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
+
+    this.activeScaleInteraction = {
+      point,
+      corner: params.corner ?? 'br',
+      objectIndex: params.objectIndex,
+      id: params.id
+    }
+
+    return snapshot
   }
 
   /** Имитирует масштабирование shape и запекание результата через object:modified */
@@ -568,8 +745,67 @@ export class ShapeModel {
     })
   }
 
-  /** Завершает интерактивное масштабирование через object:modified, fail-fast проверяет snapshot и возвращает его. */
+  /** Завершает активное интерактивное масштабирование через реальный mouseup, а для synthetic-сценариев остаётся на object:modified. */
   async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
+    if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
+      const {
+        point,
+        corner,
+        objectIndex,
+        id
+      } = this.activeScaleInteraction
+      const snapshot = await this.page.evaluate((payload) => {
+        const {
+          point: interactionPoint,
+          corner: controlCorner,
+          objectIndex: targetObjectIndex,
+          id: targetId
+        } = payload
+        const {
+          editor,
+          __editorHelpers: helpers
+        } = window as any
+
+        const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
+        if (!target) return null
+
+        target.setCoords()
+
+        const currentControl = target.oCoords?.[controlCorner]
+        const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+        const releasePoint = currentControl
+          && typeof currentControl.x === 'number'
+          && typeof currentControl.y === 'number'
+          ? {
+            x: rect.left + currentControl.x,
+            y: rect.top + currentControl.y
+          }
+          : interactionPoint
+
+        editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
+          bubbles: true,
+          button: 0,
+          buttons: 0,
+          clientX: releasePoint.x,
+          clientY: releasePoint.y
+        }))
+
+        return helpers.serializeShapeScaleSnapshot(target)
+      }, {
+        point,
+        corner,
+        objectIndex,
+        id
+      })
+
+      await this._waitForCanvasRender()
+      this.activeScaleInteraction = null
+
+      expect(snapshot, 'должен существовать snapshot после завершения масштабирования').not.toBeNull()
+
+      return snapshot as ShapeScaleSnapshot
+    }
+
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
@@ -589,6 +825,130 @@ export class ShapeModel {
     expect(snapshot, 'должен существовать snapshot после завершения масштабирования').not.toBeNull()
 
     return snapshot as ShapeScaleSnapshot
+  }
+
+  private async _startScaleInteractionIfNeeded(params: ShapeScaleStepParams): Promise<void> {
+    const {
+      corner = 'br',
+      objectIndex,
+      id,
+      shiftKey = false,
+      ctrlKey = false
+    } = params
+
+    if (this.activeScaleInteraction) {
+      expect(
+        this._matchesActiveScaleTarget({
+          objectIndex,
+          id
+        }),
+        'нельзя продолжать активную drag-сессию масштабирования для другого объекта'
+      ).toBe(true)
+      expect(
+        this.activeScaleInteraction.corner,
+        'нельзя продолжать активную drag-сессию масштабирования через другую ручку'
+      ).toBe(corner)
+
+      return
+    }
+
+    const point = await this.page.evaluate((payload) => {
+      const {
+        corner: controlCorner,
+        objectIndex: targetObjectIndex,
+        id: targetId,
+        shiftKey: isShiftKeyPressed,
+        ctrlKey: isCtrlKeyPressed
+      } = payload
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
+      if (!target) return null
+
+      editor.canvas.setActiveObject(target)
+      target.setCoords()
+      editor.canvas.renderAll()
+
+      const control = target.oCoords?.[controlCorner]
+      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') {
+        return null
+      }
+
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const pointInfo = {
+        x: rect.left + control.x,
+        y: rect.top + control.y
+      }
+
+      editor.canvas.__onMouseDown(new MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: pointInfo.x,
+        clientY: pointInfo.y,
+        shiftKey: isShiftKeyPressed,
+        ctrlKey: isCtrlKeyPressed
+      }))
+
+      const transform = editor.canvas._currentTransform
+      if (!transform || transform.target !== target) {
+        return null
+      }
+
+      return pointInfo
+    }, {
+      corner,
+      objectIndex,
+      id,
+      shiftKey,
+      ctrlKey
+    })
+
+    expect(point, 'должна существовать стартовая точка для интерактивного масштабирования').not.toBeNull()
+
+    await this._waitForCanvasRender()
+
+    this.activeScaleInteraction = {
+      point: point as {
+        x: number
+        y: number
+      },
+      corner,
+      objectIndex,
+      id
+    }
+  }
+
+  private _matchesActiveScaleTarget(params: ObjectTargetParams): boolean {
+    if (!this.activeScaleInteraction) return false
+
+    const {
+      objectIndex,
+      id
+    } = params
+
+    if (typeof id === 'string') {
+      return this.activeScaleInteraction.id === id
+    }
+
+    if (typeof objectIndex === 'number') {
+      return this.activeScaleInteraction.objectIndex === objectIndex
+    }
+
+    return true
+  }
+
+  private async _waitForCanvasRender(): Promise<void> {
+    await this.page.evaluate(async() => {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+    })
   }
 
   /** Возвращает текущий snapshot состояния shape-группы, fail-fast проверяет его наличие. */

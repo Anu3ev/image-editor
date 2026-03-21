@@ -7,17 +7,21 @@ test.describe('Масштабирование объекта с прилипан
     shapes,
     snapping
   }) => {
-    const montageArea = await editorModel.getMontageArea()
+    const montageBounds = await editorModel.getMontageAreaBounds()
+    const shapeWidth = 80
+    const shapeHeight = 80
+    const initialBoundsLeft = montageBounds.left + 100
+    const initialBoundsTop = montageBounds.top + 140
 
     await test.step('Добавить объект для горизонтального масштабирования', async() => {
-      const shape = await shapes.add({
+      const shape = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: montageArea.left + 180,
-          top: montageArea.top + 180,
-          width: 80,
-          height: 80,
+          left: initialBoundsLeft,
+          top: initialBoundsTop,
+          width: shapeWidth,
+          height: shapeHeight,
           text: ''
         }
       })
@@ -32,7 +36,7 @@ test.describe('Масштабирование объекта с прилипан
       return shapes.getScaleSnapshot({ id: 'active-shape' })
     })
 
-    const desiredWidth = montageArea.left + montageArea.width - initialSnapshot.groupBoundsLeft
+    const desiredWidth = montageBounds.right - initialSnapshot.groupBoundsLeft
     const requestedScaleX = (desiredWidth - 3) / initialSnapshot.groupBoundsWidth
 
     await test.step('Растянуть объект почти до правой границы монтажной области', async() => {
@@ -45,7 +49,7 @@ test.describe('Масштабирование объекта с прилипан
     await test.step('Проверить что правая граница прилипла к направляющей', async() => {
       const snapshot = await shapes.getScaleSnapshot({ id: 'active-shape' })
       const guideState = await snapping.getGuideState()
-      const montageRight = montageArea.left + montageArea.width
+      const montageRight = montageBounds.right
 
       expect(Math.abs(snapshot.groupBoundsRight - montageRight)).toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
       expect(guideState.guides).toEqual(expect.arrayContaining([
@@ -62,17 +66,21 @@ test.describe('Масштабирование объекта с прилипан
     shapes,
     snapping
   }) => {
-    const montageArea = await editorModel.getMontageArea()
+    const montageBounds = await editorModel.getMontageAreaBounds()
+    const shapeWidth = 80
+    const shapeHeight = 80
+    const initialBoundsLeft = montageBounds.left + 100
+    const initialBoundsTop = montageBounds.top + 140
 
     await test.step('Добавить объект для вертикального масштабирования', async() => {
-      const shape = await shapes.add({
+      const shape = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: montageArea.left + 180,
-          top: montageArea.top + 180,
-          width: 80,
-          height: 80,
+          left: initialBoundsLeft,
+          top: initialBoundsTop,
+          width: shapeWidth,
+          height: shapeHeight,
           text: ''
         }
       })
@@ -87,7 +95,7 @@ test.describe('Масштабирование объекта с прилипан
       return shapes.getScaleSnapshot({ id: 'active-shape' })
     })
 
-    const desiredHeight = montageArea.top + montageArea.height - initialSnapshot.groupBoundsTop
+    const desiredHeight = montageBounds.bottom - initialSnapshot.groupBoundsTop
     const requestedScaleY = (desiredHeight - 3) / initialSnapshot.groupBoundsHeight
 
     await test.step('Растянуть объект почти до нижней границы монтажной области', async() => {
@@ -100,7 +108,7 @@ test.describe('Масштабирование объекта с прилипан
     await test.step('Проверить что нижняя граница прилипла к направляющей', async() => {
       const snapshot = await shapes.getScaleSnapshot({ id: 'active-shape' })
       const guideState = await snapping.getGuideState()
-      const montageBottom = montageArea.top + montageArea.height
+      const montageBottom = montageBounds.bottom
 
       expect(Math.abs(snapshot.groupBoundsBottom - montageBottom)).toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
       expect(guideState.guides).toEqual(expect.arrayContaining([
@@ -117,17 +125,21 @@ test.describe('Масштабирование объекта с прилипан
     shapes,
     snapping
   }) => {
-    const montageArea = await editorModel.getMontageArea()
+    const montageBounds = await editorModel.getMontageAreaBounds()
+    const shapeWidth = 80
+    const shapeHeight = 80
+    const initialBoundsLeft = montageBounds.left + 100
+    const initialBoundsTop = montageBounds.top + 140
 
     await test.step('Добавить объект для диагонального масштабирования', async() => {
-      const shape = await shapes.add({
+      const shape = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: montageArea.left + 180,
-          top: montageArea.top + 180,
-          width: 80,
-          height: 80,
+          left: initialBoundsLeft,
+          top: initialBoundsTop,
+          width: shapeWidth,
+          height: shapeHeight,
           text: ''
         }
       })
@@ -142,7 +154,7 @@ test.describe('Масштабирование объекта с прилипан
       return shapes.getScaleSnapshot({ id: 'active-shape' })
     })
 
-    const desiredWidth = montageArea.left + montageArea.width - initialSnapshot.groupBoundsLeft
+    const desiredWidth = montageBounds.right - initialSnapshot.groupBoundsLeft
     const requestedScale = (desiredWidth - 3) / initialSnapshot.groupBoundsWidth
 
     await test.step('Растянуть объект за правый нижний угол почти до вертикальной направляющей', async() => {
@@ -157,7 +169,7 @@ test.describe('Масштабирование объекта с прилипан
     await test.step('Проверить что верхний левый угол остался на месте, а правая граница прилипла', async() => {
       const snapshot = await shapes.getScaleSnapshot({ id: 'active-shape' })
       const guideState = await snapping.getGuideState()
-      const montageRight = montageArea.left + montageArea.width
+      const montageRight = montageBounds.right
 
       expect(Math.abs(snapshot.groupBoundsLeft - initialSnapshot.groupBoundsLeft))
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
@@ -178,17 +190,21 @@ test.describe('Масштабирование объекта с прилипан
     shapes,
     snapping
   }) => {
-    const montageArea = await editorModel.getMontageArea()
+    const montageBounds = await editorModel.getMontageAreaBounds()
+    const shapeWidth = 80
+    const shapeHeight = 80
+    const initialBoundsLeft = montageBounds.left + 100
+    const initialBoundsTop = montageBounds.top + 140
 
     await test.step('Добавить объект для проверки масштабирования с Ctrl', async() => {
-      const shape = await shapes.add({
+      const shape = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: montageArea.left + 180,
-          top: montageArea.top + 180,
-          width: 80,
-          height: 80,
+          left: initialBoundsLeft,
+          top: initialBoundsTop,
+          width: shapeWidth,
+          height: shapeHeight,
           text: ''
         }
       })
@@ -203,7 +219,7 @@ test.describe('Масштабирование объекта с прилипан
       return shapes.getScaleSnapshot({ id: 'active-shape' })
     })
 
-    const desiredWidth = montageArea.left + montageArea.width - initialSnapshot.groupBoundsLeft
+    const desiredWidth = montageBounds.right - initialSnapshot.groupBoundsLeft
     const requestedScaleX = (desiredWidth - 3) / initialSnapshot.groupBoundsWidth
     const expectedRightBeforeSnap = initialSnapshot.groupBoundsLeft
       + (initialSnapshot.groupBoundsWidth * requestedScaleX)
@@ -219,7 +235,7 @@ test.describe('Масштабирование объекта с прилипан
     await test.step('Проверить что объект не прилип к направляющей и направляющие не показаны', async() => {
       const snapshot = await shapes.getScaleSnapshot({ id: 'active-shape' })
       const guideState = await snapping.getGuideState()
-      const montageRight = montageArea.left + montageArea.width
+      const montageRight = montageBounds.right
 
       expect(Math.abs(snapshot.groupBoundsRight - expectedRightBeforeSnap))
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
@@ -235,17 +251,21 @@ test.describe('Масштабирование объекта с прилипан
     shapes,
     snapping
   }) => {
-    const montageArea = await editorModel.getMontageArea()
+    const montageBounds = await editorModel.getMontageAreaBounds()
+    const shapeWidth = 80
+    const shapeHeight = 80
+    const initialBoundsLeft = montageBounds.left + 100
+    const initialBoundsTop = montageBounds.top + 140
 
     await test.step('Добавить объект для масштабирования', async() => {
-      const shape = await shapes.add({
+      const shape = await shapes.addAtBounds({
         presetKey: 'square',
         options: {
           id: 'active-shape',
-          left: montageArea.left + 180,
-          top: montageArea.top + 180,
-          width: 80,
-          height: 80,
+          left: initialBoundsLeft,
+          top: initialBoundsTop,
+          width: shapeWidth,
+          height: shapeHeight,
           text: ''
         }
       })
@@ -260,7 +280,7 @@ test.describe('Масштабирование объекта с прилипан
       return shapes.getScaleSnapshot({ id: 'active-shape' })
     })
 
-    const desiredWidth = montageArea.left + montageArea.width - initialSnapshot.groupBoundsLeft
+    const desiredWidth = montageBounds.right - initialSnapshot.groupBoundsLeft
     const requestedScaleX = (desiredWidth - 3) / initialSnapshot.groupBoundsWidth
 
     await test.step('Растянуть объект до прилипания по правой границе', async() => {
@@ -272,9 +292,9 @@ test.describe('Масштабирование объекта с прилипан
 
     await test.step('Завершить масштабирование и проверить очистку направляющих', async() => {
       await shapes.finishScale({ id: 'active-shape' })
-      const guideState = await snapping.finishPointerInteraction()
+      const guideState = await snapping.getGuideState()
       const snapshot = await shapes.getScaleSnapshot({ id: 'active-shape' })
-      const montageRight = montageArea.left + montageArea.width
+      const montageRight = montageBounds.right
 
       expect(guideState.guides).toHaveLength(0)
       expect(guideState.spacingGuides).toHaveLength(0)
