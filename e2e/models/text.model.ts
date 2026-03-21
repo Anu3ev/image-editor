@@ -321,6 +321,7 @@ export class TextModel {
     const {
       width,
       originY = 'top',
+      ctrlKey,
       objectIndex,
       id
     } = params
@@ -330,6 +331,7 @@ export class TextModel {
       corner: 'mr',
       originX: 'left',
       originY,
+      ctrlKey,
       objectIndex,
       id
     })
@@ -340,6 +342,7 @@ export class TextModel {
     const {
       width,
       originY = 'top',
+      ctrlKey,
       objectIndex,
       id
     } = params
@@ -349,6 +352,7 @@ export class TextModel {
       corner: 'ml',
       originX: 'right',
       originY,
+      ctrlKey,
       objectIndex,
       id
     })
@@ -394,6 +398,7 @@ export class TextModel {
         corner,
         originX,
         originY,
+        ctrlKey = false,
         objectIndex,
         id
       } = payload
@@ -418,6 +423,9 @@ export class TextModel {
 
       editor.canvas.fire('object:resizing', {
         target,
+        e: {
+          ctrlKey
+        },
         transform: {
           corner,
           originX,

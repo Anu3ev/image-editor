@@ -146,6 +146,7 @@ export interface ShapeScaleStepParams extends ObjectTargetParams {
   originX?: ShapeScaleOriginX
   originY?: ShapeScaleOriginY
   shiftKey?: boolean
+  ctrlKey?: boolean
 }
 
 /** Параметры live-scale шага с synthetic mouse:move относительно активного transform. */

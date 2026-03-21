@@ -7,6 +7,7 @@ import { HistoryModel } from './history.model'
 import { ClipboardModel } from './clipboard.model'
 import { TemplateModel } from './template.model'
 import { TextModel } from './text.model'
+import { SnappingModel } from './snapping.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -21,6 +22,8 @@ export class EditorModel {
 
   readonly text: TextModel
 
+  readonly snapping: SnappingModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -28,6 +31,7 @@ export class EditorModel {
     this.clipboard = new ClipboardModel(page)
     this.template = new TemplateModel(page)
     this.text = new TextModel(page)
+    this.snapping = new SnappingModel(page)
   }
 
   /** Ожидает полной инициализации редактора */

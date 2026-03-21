@@ -48,7 +48,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       return editor.shapeManager.remove({ target })
     }, params)
   }
@@ -61,7 +61,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       editor.shapeManager.setFill({ target, fill })
     }, params)
   }
@@ -74,7 +74,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       editor.shapeManager.setStroke({ target, stroke, strokeWidth, dash })
     }, params)
   }
@@ -87,7 +87,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       editor.shapeManager.setOpacity({ target, opacity })
     }, params)
   }
@@ -100,7 +100,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       await editor.shapeManager.setRounding({ target, rounding })
     }, params)
   }
@@ -182,10 +182,11 @@ export class ShapeModel {
 
   /** Масштабирует shape по горизонтали за правую ручку и возвращает live snapshot. */
   async scaleHorizontallyFromRight(
-    params: { scaleX: number } & ObjectTargetParams
+    params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     const {
       scaleX,
+      ctrlKey,
       objectIndex,
       id
     } = params
@@ -196,6 +197,7 @@ export class ShapeModel {
       corner: 'mr',
       originX: 'left',
       originY: 'center',
+      ctrlKey,
       objectIndex,
       id
     })
@@ -203,10 +205,11 @@ export class ShapeModel {
 
   /** Масштабирует shape по вертикали за нижнюю ручку и возвращает live snapshot. */
   async scaleVerticallyFromBottom(
-    params: { scaleY: number } & ObjectTargetParams
+    params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     const {
       scaleY,
+      ctrlKey,
       objectIndex,
       id
     } = params
@@ -217,6 +220,7 @@ export class ShapeModel {
       corner: 'mb',
       originX: 'center',
       originY: 'top',
+      ctrlKey,
       objectIndex,
       id
     })
@@ -224,10 +228,11 @@ export class ShapeModel {
 
   /** Масштабирует shape по вертикали за верхнюю ручку и возвращает live snapshot. */
   async scaleVerticallyFromTop(
-    params: { scaleY: number } & ObjectTargetParams
+    params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     const {
       scaleY,
+      ctrlKey,
       objectIndex,
       id
     } = params
@@ -238,18 +243,20 @@ export class ShapeModel {
       corner: 'mt',
       originX: 'center',
       originY: 'bottom',
+      ctrlKey,
       objectIndex,
       id
     })
   }
 
-  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает proportional drag через Shift. */
+  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает proportional drag через Shift и отключение snap через Ctrl. */
   async scaleDiagonally(
     params: {
       scaleX: number
       scaleY: number
       corner: 'tl' | 'tr' | 'bl' | 'br'
       shiftKey?: boolean
+      ctrlKey?: boolean
     } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     const {
@@ -257,6 +264,7 @@ export class ShapeModel {
       scaleY,
       corner,
       shiftKey,
+      ctrlKey,
       objectIndex,
       id
     } = params
@@ -291,6 +299,7 @@ export class ShapeModel {
       originX,
       originY,
       shiftKey,
+      ctrlKey,
       objectIndex,
       id
     })
@@ -341,7 +350,7 @@ export class ShapeModel {
     })
   }
 
-  /** Выполняет один live-шаг интерактивного масштабирования, при необходимости с зажатым Shift, и возвращает проверенный snapshot. */
+  /** Выполняет один live-шаг интерактивного масштабирования, при необходимости с зажатыми Shift/Ctrl, и возвращает проверенный snapshot. */
   async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -351,6 +360,7 @@ export class ShapeModel {
         originX = 'left',
         originY = 'top',
         shiftKey = false,
+        ctrlKey = false,
         objectIndex,
         id
       } = payload
@@ -360,7 +370,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
       const left = typeof target.left === 'number' ? target.left : 0
@@ -377,7 +387,8 @@ export class ShapeModel {
       editor.canvas.fire('object:scaling', {
         target,
         e: {
-          shiftKey
+          shiftKey,
+          ctrlKey
         },
         transform: {
           original: {
@@ -400,7 +411,7 @@ export class ShapeModel {
     return snapshot as ShapeScaleSnapshot
   }
 
-  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев и при необходимости передаёт состояние Shift. */
+  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев и при необходимости передаёт состояние Shift/Ctrl. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -415,6 +426,7 @@ export class ShapeModel {
         originX = 'left',
         originY = 'top',
         shiftKey = false,
+        ctrlKey = false,
         objectIndex,
         id
       } = payload
@@ -424,7 +436,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
       const left = typeof target.left === 'number' ? target.left : 0
@@ -465,7 +477,8 @@ export class ShapeModel {
         editor.canvas.fire('object:scaling', {
           target,
           e: {
-            shiftKey
+            shiftKey,
+            ctrlKey
           },
           transform
         })
@@ -537,7 +550,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
       editor.canvas.fire('object:modified', {
@@ -557,7 +570,7 @@ export class ShapeModel {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const { __editorHelpers: helpers } = window as any
 
-      const target = helpers.resolveTarget(objectIndex, id)
+      const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
       return helpers.serializeShapeScaleSnapshot(target)

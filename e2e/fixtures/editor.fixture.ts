@@ -7,6 +7,7 @@ import { HistoryModel } from '../models/history.model'
 import { ClipboardModel } from '../models/clipboard.model'
 import { TemplateModel } from '../models/template.model'
 import { TextModel } from '../models/text.model'
+import { SnappingModel } from '../models/snapping.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
@@ -19,6 +20,7 @@ interface EditorFixtures {
   clipboard: ClipboardModel
   template: TemplateModel
   text: TextModel
+  snapping: SnappingModel
 }
 
 interface EditorInternalFixtures {
@@ -66,6 +68,10 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   text: async({ editorModel }, use) => {
     await use(editorModel.text)
+  },
+
+  snapping: async({ editorModel }, use) => {
+    await use(editorModel.snapping)
   }
 })
 
