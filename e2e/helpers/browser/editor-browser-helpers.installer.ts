@@ -362,11 +362,20 @@ export function installEditorBrowserHelpers(): void {
       fontSize: textObject.fontSize ?? 0,
       fontWeight: textObject.fontWeight ?? 'normal',
       fontStyle: textObject.fontStyle ?? 'normal',
+      underline: textObject.underline ?? false,
+      linethrough: textObject.linethrough ?? false,
+      uppercase: textObject.uppercase ?? false,
       lineHeight: resolveNumber({
         value: textObject.lineHeight,
         defaultValue: 1
       }),
       lineCount: resolveTextLineCount({ value: textObject.textLines }),
+      isEditing: textObject.isEditing ?? false,
+      evented: textObject.evented ?? true,
+      lockMovementX: textObject.lockMovementX ?? false,
+      lockMovementY: textObject.lockMovementY ?? false,
+      selectionStart: textObject.selectionStart ?? 0,
+      selectionEnd: textObject.selectionEnd ?? 0,
       backgroundColor: backgroundColor && backgroundColor.length > 0 ? backgroundColor : null,
       backgroundOpacity: resolveNumber({
         value: textObject.backgroundOpacity,
@@ -418,6 +427,19 @@ export function installEditorBrowserHelpers(): void {
     const target = resolveTarget({ objectIndex, id })
 
     return browserWindow.editor.shapeManager.getTextNode({ target }) as BrowserSerializableObject | null
+  }
+
+  /**
+   * Возвращает текстовый объект canvas по target-параметрам.
+   */
+  function resolveCanvasTextNode({
+    objectIndex,
+    id
+  }: BrowserTextSelectionStyleParams): BrowserSerializableObject | null {
+    const target = resolveCanvasObject({ objectIndex, id })
+    if (!target) return null
+
+    return target as BrowserSerializableObject
   }
 
   /**
@@ -473,6 +495,34 @@ export function installEditorBrowserHelpers(): void {
       underline: resolveNullableBoolean({ value: style.underline }),
       linethrough: resolveNullableBoolean({ value: style.linethrough })
     }
+  }
+
+  /**
+   * Возвращает сериализованный стиль выделенного диапазона отдельного текстового объекта.
+   */
+  function getTextSelectionStyles({
+    objectIndex,
+    id,
+    start,
+    end
+  }: BrowserTextSelectionStyleParams): BrowserTextSelectionStyleInfo | null {
+    const textNode = resolveCanvasTextNode({ objectIndex, id })
+    if (!textNode) return null
+
+    const selectionRange = resolveTextSelectionRange({
+      textNode,
+      start,
+      end
+    })
+    const rawStyles = typeof textNode.getSelectionStyles === 'function'
+      ? textNode.getSelectionStyles(selectionRange.start, selectionRange.end, true)
+      : []
+
+    if (!Array.isArray(rawStyles) || rawStyles.length === 0) return null
+
+    const firstStyle = toBrowserObject({ value: rawStyles[0] })
+
+    return serializeTextSelectionStyle({ style: firstStyle })
   }
 
   /**
@@ -629,6 +679,9 @@ export function installEditorBrowserHelpers(): void {
       },
       resolveCanvasObject(objectIndex?: number, id?: string) {
         return resolveCanvasObject({ objectIndex, id })
+      },
+      getTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
+        return getTextSelectionStyles(params)
       },
       getShapeTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
         return getShapeTextSelectionStyles(params)

@@ -107,6 +107,7 @@ export interface BrowserEditorHelpers {
   resolveShapeNode: (group: unknown) => BrowserObject | null
   resolveTarget: (objectIndex?: number, id?: string) => unknown
   resolveCanvasObject: (objectIndex?: number, id?: string) => unknown
+  getTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
   getShapeTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
 }
 

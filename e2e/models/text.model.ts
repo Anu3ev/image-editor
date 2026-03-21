@@ -3,6 +3,7 @@ import { type Page, expect } from '@playwright/test'
 import type {
   ObjectTargetParams,
   TextAddParams,
+  TextEditingUpdateParams,
   TextObjectInfo,
   TextRangeStyleParams,
   TextResizeFromLeftParams,
@@ -10,7 +11,10 @@ import type {
   TextResizeSnapshot,
   TextResizeStepParams,
   TextRotateParams,
-  TextTemplateApplyParams
+  TextSelectionParams,
+  TextSelectionStyleInfo,
+  TextTemplateApplyParams,
+  TextUpdateStyleParams
 } from '../types'
 import {
   TEXT_RESIZING_REGRESSION_ADD_OPTIONS,
@@ -26,7 +30,7 @@ export class TextModel {
     this.page = page
   }
 
-  /** Добавляет standalone text-объект на canvas. */
+  /** Добавляет текстовый объект на canvas. */
   async add(params: TextAddParams = {}): Promise<TextObjectInfo | null> {
     return this.page.evaluate((payload) => {
       const {
@@ -40,7 +44,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Добавляет regression text-объект в том же состоянии, что и новый standalone объект. */
+  /** Добавляет regression text-объект в том же состоянии, что и новый отдельный текстовый объект. */
   async addRegressionText(params: { left?: number, top?: number } = {}): Promise<TextObjectInfo> {
     const textObject = await this.page.evaluate((payload) => {
       const {
@@ -83,7 +87,7 @@ export class TextModel {
     return this.checkCreation({ textObject })
   }
 
-  /** Применяет regression template standalone text-объекта и возвращает вставленный text. */
+  /** Применяет regression template текстового объекта и возвращает вставленный объект. */
   async applyRegressionTemplate(): Promise<TextObjectInfo> {
     const textObject = await this.applyTemplate({
       template: TEXT_RESIZING_REGRESSION_TEMPLATE
@@ -92,7 +96,7 @@ export class TextModel {
     return this.checkCreation({ textObject })
   }
 
-  /** Применяет text-only template и возвращает первый вставленный standalone text-объект. */
+  /** Применяет text-only template и возвращает первый вставленный текстовый объект. */
   async applyTemplate(params: TextTemplateApplyParams): Promise<TextObjectInfo | null> {
     return this.page.evaluate(async({ template }) => {
       const {
@@ -112,7 +116,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Возвращает standalone text-объект по id или индексу canvas. */
+  /** Возвращает текстовый объект по id или индексу canvas. */
   async getObject(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -126,7 +130,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Делает standalone text активным объектом canvas. */
+  /** Делает текстовый объект активным объектом canvas. */
   async select(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -143,7 +147,120 @@ export class TextModel {
     }, params)
   }
 
-  /** Поворачивает standalone text-объект на заданный угол. */
+  /** Обновляет стиль текстового объекта через публичный API TextManager. */
+  async updateStyle(params: TextUpdateStyleParams): Promise<TextObjectInfo | null> {
+    return this.page.evaluate(({ style, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const result = editor.textManager.updateText({
+        target,
+        style
+      })
+      if (!result) return null
+
+      return helpers.serializeTextObject(result)
+    }, params)
+  }
+
+  /** Включает режим редактирования текста у отдельного текстового объекта. */
+  async enterTextEditing(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      editor.canvas.setActiveObject(target)
+      target.isEditing = true
+      target.enterEditing()
+      target.selectAll()
+      editor.canvas.fire('text:editing:entered', {
+        target
+      })
+
+      return helpers.serializeTextObject(target)
+    }, params)
+  }
+
+  /** Меняет текст в активном режиме редактирования текстового объекта. */
+  async updateEditingText(params: TextEditingUpdateParams): Promise<TextObjectInfo | null> {
+    return this.page.evaluate(({ text, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.set({ text })
+      editor.canvas.fire('text:changed', {
+        target
+      })
+
+      return helpers.serializeTextObject(target)
+    }, params)
+  }
+
+  /** Завершает режим редактирования текстового объекта. */
+  async exitTextEditing(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.exitEditing()
+      target.isEditing = false
+      editor.canvas.fire('text:editing:exited', {
+        target
+      })
+
+      return helpers.serializeTextObject(target)
+    }, params)
+  }
+
+  /** Устанавливает диапазон выделения текста в режиме редактирования. */
+  async setTextSelection(params: TextSelectionParams): Promise<TextObjectInfo | null> {
+    return this.page.evaluate(({ start, end, objectIndex, id }) => {
+      const {
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.selectionStart = start
+      target.selectionEnd = end
+
+      return helpers.serializeTextObject(target)
+    }, params)
+  }
+
+  /** Возвращает стиль текущего или явного выделенного диапазона текста. */
+  async getSelectionStyles(
+    params: Partial<TextSelectionParams> & ObjectTargetParams = {}
+  ): Promise<TextSelectionStyleInfo | null> {
+    return this.page.evaluate((payload) => {
+      const {
+        __editorHelpers: helpers
+      } = window as any
+
+      return helpers.getTextSelectionStyles(payload)
+    }, params)
+  }
+
+  /** Поворачивает текстовый объект на заданный угол. */
   async rotate(params: TextRotateParams): Promise<TextObjectInfo | null> {
     return this.page.evaluate(({ angle, objectIndex, id }) => {
       const {
@@ -162,7 +279,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Применяет inline-стиль к диапазону standalone text-объекта. */
+  /** Применяет inline-стиль к диапазону текстового объекта. */
   async setRangeStyle(params: TextRangeStyleParams): Promise<TextObjectInfo | null> {
     return this.page.evaluate(({ start, end, style, objectIndex, id }) => {
       const {
@@ -181,7 +298,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Возвращает текущий resize snapshot standalone text-объекта. */
+  /** Возвращает текущее состояние resize текстового объекта. */
   async getResizeSnapshot(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -194,12 +311,12 @@ export class TextModel {
       return helpers.serializeTextResizeSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должен существовать resize snapshot standalone text-объекта').not.toBeNull()
+    expect(snapshot, 'должно существовать состояние resize текстового объекта').not.toBeNull()
 
     return snapshot as TextResizeSnapshot
   }
 
-  /** Выполняет live horizontal resize standalone text справа до заданной внутренней ширины. */
+  /** Выполняет live horizontal resize текстового объекта справа до заданной внутренней ширины. */
   async resizeFromRightToWidth(params: TextResizeFromRightParams): Promise<TextResizeSnapshot> {
     const {
       width,
@@ -218,7 +335,7 @@ export class TextModel {
     })
   }
 
-  /** Выполняет live horizontal resize standalone text слева до заданной внутренней ширины. */
+  /** Выполняет live horizontal resize текстового объекта слева до заданной внутренней ширины. */
   async resizeFromLeftToWidth(params: TextResizeFromLeftParams): Promise<TextResizeSnapshot> {
     const {
       width,
@@ -237,7 +354,7 @@ export class TextModel {
     })
   }
 
-  /** Завершает интерактивный resize standalone text через object:modified. */
+  /** Завершает интерактивный resize текстового объекта через object:modified. */
   async finishResize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -255,21 +372,21 @@ export class TextModel {
       return helpers.serializeTextResizeSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должен существовать snapshot после завершения standalone text resize').not.toBeNull()
+    expect(snapshot, 'должно существовать состояние после завершения resize текстового объекта').not.toBeNull()
 
     return snapshot as TextResizeSnapshot
   }
 
-  /** Проверяет что standalone text был создан и возвращает non-null объект. */
+  /** Проверяет что текстовый объект был создан и возвращает non-null объект. */
   checkCreation(params: { textObject: TextObjectInfo | null }): TextObjectInfo {
     const { textObject } = params
 
-    expect(textObject, 'standalone text-объект должен быть создан').not.toBeNull()
+    expect(textObject, 'текстовый объект должен быть создан').not.toBeNull()
 
     return textObject as TextObjectInfo
   }
 
-  /** Выполняет один live-шаг horizontal resize standalone text с теми же предусловиями, что и Fabric. */
+  /** Выполняет один live-шаг horizontal resize текстового объекта с теми же предусловиями, что и Fabric. */
   private async simulateResizeStep(params: TextResizeStepParams): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -311,7 +428,7 @@ export class TextModel {
       return helpers.serializeTextResizeSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должен существовать live snapshot standalone text resize').not.toBeNull()
+    expect(snapshot, 'должно существовать состояние live resize текстового объекта').not.toBeNull()
 
     return snapshot as TextResizeSnapshot
   }

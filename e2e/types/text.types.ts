@@ -8,26 +8,25 @@ export type TextHorizontalAlign = 'left' | 'center' | 'right'
 export type TextResizeOriginX = 'left' | 'right'
 export type TextResizeOriginY = 'top' | 'center' | 'bottom'
 
-/** Параметры добавления standalone text-объекта через e2e-модель. */
-export interface TextAddParams {
-  id?: string
+/** Параметры стилизации отдельного текстового объекта. */
+export interface TextStyleParams {
   text?: string
-  left?: number
-  top?: number
-  width?: number
-  angle?: number
-  autoExpand?: boolean
   fontFamily?: string
+  color?: string
+  strokeColor?: string
+  strokeWidth?: number
   fontSize?: number
   bold?: boolean
   italic?: boolean
   underline?: boolean
   strikethrough?: boolean
+  uppercase?: boolean
+  opacity?: number
   align?: TextHorizontalAlign
-  color?: string
   backgroundColor?: string
   backgroundOpacity?: number
   lineHeight?: number
+  autoExpand?: boolean
   paddingTop?: number
   paddingRight?: number
   paddingBottom?: number
@@ -36,6 +35,15 @@ export interface TextAddParams {
   radiusTopRight?: number
   radiusBottomRight?: number
   radiusBottomLeft?: number
+}
+
+/** Параметры добавления текстового объекта через e2e-модель. */
+export interface TextAddParams extends TextStyleParams {
+  id?: string
+  left?: number
+  top?: number
+  width?: number
+  angle?: number
 }
 
 /** Частичный inline-стиль текста для диапазона или line defaults. */
@@ -58,8 +66,17 @@ export interface TextObjectInfo extends EditorObjectInfo {
   fontSize: number
   fontWeight: string
   fontStyle: string
+  underline: boolean
+  linethrough: boolean
+  uppercase: boolean
   lineHeight: number
   lineCount: number
+  isEditing: boolean
+  evented: boolean
+  lockMovementX: boolean
+  lockMovementY: boolean
+  selectionStart: number
+  selectionEnd: number
   backgroundColor: string | null
   backgroundOpacity: number
   autoExpand: boolean
@@ -93,6 +110,11 @@ export interface TextResizeSnapshot extends TextObjectInfo {
   rightBottomY: number
 }
 
+/** Параметры обновления стиля текстового объекта через TextManager. */
+export interface TextUpdateStyleParams extends ObjectTargetParams {
+  style: TextStyleParams
+}
+
 /** Параметры применения inline-стиля к диапазону standalone text. */
 export interface TextRangeStyleParams extends ObjectTargetParams {
   start: number
@@ -100,9 +122,32 @@ export interface TextRangeStyleParams extends ObjectTargetParams {
   style: TextInlineStyle
 }
 
+/** Параметры выделения диапазона в режиме редактирования текста. */
+export interface TextSelectionParams extends ObjectTargetParams {
+  start: number
+  end: number
+}
+
+/** Сериализованный стиль выделенного диапазона текстового объекта. */
+export interface TextSelectionStyleInfo {
+  fill: string | null
+  stroke: string | null
+  strokeWidth: number | null
+  fontSize: number | null
+  fontWeight: string | null
+  fontStyle: string | null
+  underline: boolean | null
+  linethrough: boolean | null
+}
+
 /** Параметры установки угла поворота standalone text. */
 export interface TextRotateParams extends ObjectTargetParams {
   angle: number
+}
+
+/** Параметры изменения текста в режиме редактирования. */
+export interface TextEditingUpdateParams extends ObjectTargetParams {
+  text: string
 }
 
 /** Параметры одного live-шагa horizontal resize standalone text. */

@@ -4,8 +4,8 @@ import {
   TEXT_RESIZING_TOLERANCE
 } from '../../fixtures/data/text-resizing.data'
 
-test.describe('Горизонтальный ресайз текстового объекта как отдельного объекта канваса', () => {
-  test.describe('объект создан напрямую через TextManager', () => {
+test.describe('Горизонтальный ресайз текстового объекта', () => {
+  test.describe('объект создан напрямую', () => {
     test.beforeEach(async({ text }) => {
       await text.addRegressionText()
     })
