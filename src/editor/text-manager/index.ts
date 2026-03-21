@@ -1291,6 +1291,10 @@ export default class TextManager {
 
     if (totalPadding !== 0) {
       const { width: previousWidth = 0 } = target
+      const anchorOriginX = transform?.originX ?? target.originX ?? 'left'
+      const anchorOriginY = transform?.originY ?? target.originY ?? 'top'
+      const anchorPoint = target.getPointByOrigin(anchorOriginX, anchorOriginY)
+
       // Fabric рассчитывает новую ширину на основе положения курсора.
       // Так как контролы отрисовываются с учетом паддингов (через _getTransformedDimensions),
       // рассчитанная ширина включает в себя паддинги.
@@ -1300,27 +1304,10 @@ export default class TextManager {
       if (previousWidth !== nextWidth) {
         target.set({ width: nextWidth })
 
-        // Проверяем, какая ширина реально применилась
         const { width: finalWidth = 0 } = target
-        const widthDiff = previousWidth - finalWidth
-
-        if (widthDiff !== 0 && transform && transform.corner === 'ml') {
-          // Корректируем позицию только при ресайзе за левый край (ml).
-          // При ресайзе за правый край (mr) Fabric корректно держит левую границу (origin),
-          // и так как мы уменьшаем ширину справа, визуально всё выглядит верно.
-          // А при ресайзе слева (ml) Fabric сдвигает origin влево на величину "грязной" ширины.
-          // Так как мы уменьшили ширину на паддинг, нам нужно вернуть origin вправо на эту разницу.
-          const angle = target.angle ?? 0
-          const rad = (angle * Math.PI) / 180
-          const cos = Math.cos(rad)
-          const sin = Math.sin(rad)
-          const scaleX = target.scaleX ?? 1
-          const shift = widthDiff * scaleX
-
-          target.set({
-            left: (target.left ?? 0) + shift * cos,
-            top: (target.top ?? 0) + shift * sin
-          })
+        if (previousWidth !== finalWidth) {
+          target.setPositionByOrigin(anchorPoint, anchorOriginX, anchorOriginY)
+          target.setCoords()
         }
       }
     }

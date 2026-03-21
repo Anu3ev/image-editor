@@ -953,6 +953,63 @@ export const createTextManagerTestSetup = (
   }
 }
 
+/**
+ * Создаёт template-подобный background-textbox с разными стилями по строкам и фоновыми отступами.
+ * Используется для тестов reflow/resizing регрессии.
+ */
+export const createTemplateLikeTextbox = ({
+  textManager,
+  left = 281,
+  top = 352
+}: {
+  textManager: TextManager
+  left?: number
+  top?: number
+}): BackgroundTextbox => {
+  const textbox = textManager.addText({
+    text: '69\nЧасов музыки',
+    autoExpand: false,
+    fontFamily: 'Exo 2',
+    fontSize: 36,
+    bold: true,
+    lineHeight: 1.16,
+    align: 'center',
+    color: '#333333',
+    backgroundColor: '#EBE4ED',
+    backgroundOpacity: 1,
+    paddingTop: 21,
+    paddingRight: 12,
+    paddingBottom: 30,
+    paddingLeft: 12,
+    radiusTopLeft: 24,
+    radiusTopRight: 24,
+    radiusBottomRight: 24,
+    radiusBottomLeft: 24,
+    width: 333,
+    left,
+    top
+  }) as BackgroundTextbox
+
+  const textValue = textbox.text ?? ''
+  const secondLineStart = textValue.indexOf('\n') + 1
+
+  textbox.setSelectionStyles({
+    fontFamily: 'Open Sans',
+    fontSize: 24,
+    fill: '#333333',
+    fontWeight: 'normal'
+  }, secondLineStart, textValue.length)
+  textbox.lineFontDefaults = {
+    1: {
+      fontFamily: 'Open Sans',
+      fontSize: 24
+    }
+  }
+  textbox.setCoords()
+
+  return textbox
+}
+
 export type FontManagerTestSetupOptions = {
   fonts?: EditorFontDefinition[]
   existingFontFaces?: Array<Record<string, any>>

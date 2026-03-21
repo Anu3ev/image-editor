@@ -1,6 +1,9 @@
 import { ActiveSelection } from 'fabric'
 import { nanoid } from 'nanoid'
-import { createTextManagerTestSetup } from '../../../test-utils/editor-helpers'
+import {
+  createTemplateLikeTextbox,
+  createTextManagerTestSetup
+} from '../../../test-utils/editor-helpers'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../../../../src/editor/constants'
 
@@ -1255,7 +1258,11 @@ describe('TextManager', () => {
 
       canvas.fire('object:resizing', {
         target: textbox,
-        transform: { corner: 'ml' }
+        transform: {
+          corner: 'ml',
+          originX: 'right',
+          originY: 'top'
+        }
       })
 
       // Ожидаемое поведение:
@@ -1293,7 +1300,11 @@ describe('TextManager', () => {
 
       canvas.fire('object:resizing', {
         target: textbox,
-        transform: { corner: 'mr' }
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
       })
 
       // Ожидаемое поведение:
@@ -1302,6 +1313,198 @@ describe('TextManager', () => {
 
       expect(textbox.width).toBe(130)
       expect(textbox.left).toBe(100)
+    })
+
+    it('сохраняет top-left anchor для template-подобного объекта при переносе строк через mr', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = createTemplateLikeTextbox({ textManager })
+      const beforeAnchor = textbox.getPointByOrigin('left', 'top')
+
+      textbox.set({ width: 149 })
+      textbox.setPositionByOrigin(beforeAnchor, 'left', 'top')
+      textbox.setCoords()
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
+      })
+
+      const afterAnchor = textbox.getPointByOrigin('left', 'top')
+
+      expect(textbox.width).toBe(125)
+      expect(afterAnchor.x).toBeCloseTo(beforeAnchor.x, 5)
+      expect(afterAnchor.y).toBeCloseTo(beforeAnchor.y, 5)
+    })
+
+    it('сохраняет right-top anchor для template-подобного объекта при переносе строк через ml', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = createTemplateLikeTextbox({ textManager })
+      const beforeAnchor = textbox.getPointByOrigin('right', 'top')
+
+      textbox.set({ width: 149 })
+      textbox.setPositionByOrigin(beforeAnchor, 'right', 'top')
+      textbox.setCoords()
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'ml',
+          originX: 'right',
+          originY: 'top'
+        }
+      })
+
+      const afterAnchor = textbox.getPointByOrigin('right', 'top')
+
+      expect(textbox.width).toBe(125)
+      expect(afterAnchor.x).toBeCloseTo(beforeAnchor.x, 5)
+      expect(afterAnchor.y).toBeCloseTo(beforeAnchor.y, 5)
+    })
+
+    it('сохраняет right-center anchor для template-подобного объекта при переносе строк через ml', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = createTemplateLikeTextbox({ textManager })
+      const beforeAnchor = textbox.getPointByOrigin('right', 'center')
+
+      textbox.set({ width: 149 })
+      textbox.setPositionByOrigin(beforeAnchor, 'right', 'center')
+      textbox.setCoords()
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'ml',
+          originX: 'right',
+          originY: 'center'
+        }
+      })
+
+      const afterAnchor = textbox.getPointByOrigin('right', 'center')
+
+      expect(textbox.width).toBe(125)
+      expect(afterAnchor.x).toBeCloseTo(beforeAnchor.x, 5)
+      expect(afterAnchor.y).toBeCloseTo(beforeAnchor.y, 5)
+    })
+
+    it('сохраняет right-bottom anchor для template-подобного объекта при переносе строк через ml', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = createTemplateLikeTextbox({ textManager })
+      const beforeAnchor = textbox.getPointByOrigin('right', 'bottom')
+
+      textbox.set({ width: 149 })
+      textbox.setPositionByOrigin(beforeAnchor, 'right', 'bottom')
+      textbox.setCoords()
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'ml',
+          originX: 'right',
+          originY: 'bottom'
+        }
+      })
+
+      const afterAnchor = textbox.getPointByOrigin('right', 'bottom')
+
+      expect(textbox.width).toBe(125)
+      expect(afterAnchor.x).toBeCloseTo(beforeAnchor.x, 5)
+      expect(afterAnchor.y).toBeCloseTo(beforeAnchor.y, 5)
+    })
+
+    it('сохраняет anchor для повернутого template-подобного объекта при переносе строк через ml', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const textbox = createTemplateLikeTextbox({ textManager })
+
+      textbox.set({ angle: 18 })
+      textbox.setCoords()
+
+      const beforeAnchor = textbox.getPointByOrigin('right', 'center')
+
+      textbox.set({ width: 149 })
+      textbox.setPositionByOrigin(beforeAnchor, 'right', 'center')
+      textbox.setCoords()
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'ml',
+          originX: 'right',
+          originY: 'center'
+        }
+      })
+
+      const afterAnchor = textbox.getPointByOrigin('right', 'center')
+
+      expect(textbox.width).toBe(125)
+      expect(afterAnchor.x).toBeCloseTo(beforeAnchor.x, 5)
+      expect(afterAnchor.y).toBeCloseTo(beforeAnchor.y, 5)
+    })
+
+    it('одинаково сохраняет anchor у обычного и template-подобного объектов при mr resize', () => {
+      const { textManager, canvas } = createTextManagerTestSetup()
+      const plainTextbox = textManager.addText({
+        text: '69\nЧасов музыки',
+        autoExpand: false,
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        bold: true,
+        lineHeight: 1.16,
+        align: 'center',
+        color: '#333333',
+        backgroundColor: '#EBE4ED',
+        backgroundOpacity: 1,
+        paddingTop: 21,
+        paddingRight: 12,
+        paddingBottom: 30,
+        paddingLeft: 12,
+        radiusTopLeft: 24,
+        radiusTopRight: 24,
+        radiusBottomRight: 24,
+        radiusBottomLeft: 24,
+        width: 333,
+        left: 281,
+        top: 352
+      })
+      const templateLikeTextbox = createTemplateLikeTextbox({ textManager, left: 281, top: 460 })
+      const plainBeforeAnchor = plainTextbox.getPointByOrigin('left', 'top')
+      const templateBeforeAnchor = templateLikeTextbox.getPointByOrigin('left', 'top')
+
+      plainTextbox.set({ width: 149 })
+      plainTextbox.setPositionByOrigin(plainBeforeAnchor, 'left', 'top')
+      plainTextbox.setCoords()
+
+      templateLikeTextbox.set({ width: 149 })
+      templateLikeTextbox.setPositionByOrigin(templateBeforeAnchor, 'left', 'top')
+      templateLikeTextbox.setCoords()
+
+      canvas.fire('object:resizing', {
+        target: plainTextbox,
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
+      })
+      canvas.fire('object:resizing', {
+        target: templateLikeTextbox,
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
+      })
+
+      const plainAfterAnchor = plainTextbox.getPointByOrigin('left', 'top')
+      const templateAfterAnchor = templateLikeTextbox.getPointByOrigin('left', 'top')
+
+      expect(plainAfterAnchor.x).toBeCloseTo(plainBeforeAnchor.x, 5)
+      expect(plainAfterAnchor.y).toBeCloseTo(plainBeforeAnchor.y, 5)
+      expect(templateAfterAnchor.x).toBeCloseTo(templateBeforeAnchor.x, 5)
+      expect(templateAfterAnchor.y).toBeCloseTo(templateBeforeAnchor.y, 5)
     })
 
     it('вызывает snappingManager.applyTextResizingSnap при изменении размера', () => {
