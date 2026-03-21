@@ -35,6 +35,18 @@ export interface MontageAreaInfo {
   top: number
 }
 
+/** Границы montage area в координатах canvas-сцены. */
+export interface MontageAreaBoundsInfo {
+  left: number
+  top: number
+  width: number
+  height: number
+  right: number
+  bottom: number
+  centerX: number
+  centerY: number
+}
+
 /** Параметры для идентификации целевого объекта в моделях */
 export interface ObjectTargetParams {
   objectIndex?: number

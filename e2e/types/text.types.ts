@@ -156,18 +156,21 @@ export interface TextResizeStepParams extends ObjectTargetParams {
   corner: 'ml' | 'mr'
   originX: TextResizeOriginX
   originY: TextResizeOriginY
+  ctrlKey?: boolean
 }
 
 /** Параметры resize слева для standalone text. */
 export interface TextResizeFromLeftParams extends ObjectTargetParams {
   width: number
   originY?: TextResizeOriginY
+  ctrlKey?: boolean
 }
 
 /** Параметры resize справа для standalone text. */
 export interface TextResizeFromRightParams extends ObjectTargetParams {
   width: number
   originY?: TextResizeOriginY
+  ctrlKey?: boolean
 }
 
 /** Параметры применения text-only template через standalone text-модель. */

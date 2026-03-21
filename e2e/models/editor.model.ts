@@ -1,12 +1,18 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type Page, expect } from '@playwright/test'
-import type { EditorObjectInfo, CanvasStateInfo, MontageAreaInfo } from '../types'
+import type {
+  EditorObjectInfo,
+  CanvasStateInfo,
+  MontageAreaInfo,
+  MontageAreaBoundsInfo
+} from '../types'
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
 import { ClipboardModel } from './clipboard.model'
 import { TemplateModel } from './template.model'
 import { TextModel } from './text.model'
+import { SnappingModel } from './snapping.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -21,6 +27,8 @@ export class EditorModel {
 
   readonly text: TextModel
 
+  readonly snapping: SnappingModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -28,6 +36,7 @@ export class EditorModel {
     this.clipboard = new ClipboardModel(page)
     this.template = new TemplateModel(page)
     this.text = new TextModel(page)
+    this.snapping = new SnappingModel(page)
   }
 
   /** Ожидает полной инициализации редактора */
@@ -94,6 +103,31 @@ export class EditorModel {
         height: montageArea.height,
         left: montageArea.left,
         top: montageArea.top
+      }
+    })
+  }
+
+  /** Возвращает границы montage area в координатах canvas-сцены. */
+  async getMontageAreaBounds(): Promise<MontageAreaBoundsInfo> {
+    return this.page.evaluate(() => {
+      const { montageArea } = (window as any).editor
+
+      montageArea.setCoords()
+      const bounds = montageArea.getBoundingRect(false, true)
+      const left = typeof bounds.left === 'number' ? bounds.left : 0
+      const top = typeof bounds.top === 'number' ? bounds.top : 0
+      const width = typeof bounds.width === 'number' ? bounds.width : 0
+      const height = typeof bounds.height === 'number' ? bounds.height : 0
+
+      return {
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        centerX: left + (width / 2),
+        centerY: top + (height / 2)
       }
     })
   }

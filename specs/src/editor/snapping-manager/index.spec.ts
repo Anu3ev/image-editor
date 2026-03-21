@@ -11,6 +11,7 @@ import {
   SPACING_SNAP_HOLD_MARGIN
 } from '../../../../src/editor/snapping-manager/constants'
 import type { Bounds, SpacingPattern } from '../../../../src/editor/snapping-manager/types'
+import { resolveDisplayDistance } from '../../../../src/editor/utils/distance'
 import { getObjectBounds } from '../../../../src/editor/utils/geometry'
 import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/editor-helpers'
 
@@ -229,7 +230,7 @@ describe('SnappingManager', () => {
     expect(active.setCoords).toHaveBeenCalled()
   })
 
-  it('округляет координаты до шага MOVE_SNAP_STEP при перемещении с CTRL', () => {
+  it('не округляет координаты при перемещении с CTRL', () => {
     const { editor } = createSnappingTestContext()
     const active = createBoundsObject({ left: 21.6, top: 33.3, width: 30, height: 30, id: 'active' })
 
@@ -240,9 +241,9 @@ describe('SnappingManager', () => {
       e: { ctrlKey: true }
     })
 
-    expect(active.left).toBe(Math.round(21.6 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
-    expect(active.top).toBe(Math.round(33.3 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
-    expect(active.setCoords).toHaveBeenCalled()
+    expect(active.left).toBe(21.6)
+    expect(active.top).toBe(33.3)
+    expect(active.setCoords).not.toHaveBeenCalled()
   })
 
   it('показывает равноудалённость, если половина свободного зазора не кратна шагу', () => {
@@ -1248,7 +1249,6 @@ describe('SnappingManager', () => {
 
       expect(remainder).toBe(0)
 
-      const { resolveDisplayDistance } = require('../../../../src/editor/utils/distance')
       const displayLeft = resolveDisplayDistance({ distance: gapLeft })
       const displayRight = resolveDisplayDistance({ distance: gapRight })
 

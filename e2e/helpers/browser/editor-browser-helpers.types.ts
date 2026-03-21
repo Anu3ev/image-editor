@@ -88,6 +88,26 @@ export type BrowserTextSelectionStyleInfo = {
   linethrough: boolean | null
 }
 
+export type BrowserSnappingGuideInfo = {
+  type: 'vertical' | 'horizontal'
+  position: number
+}
+
+export type BrowserSnappingSpacingGuideInfo = {
+  type: 'vertical' | 'horizontal'
+  axis: number
+  refStart: number
+  refEnd: number
+  activeStart: number
+  activeEnd: number
+  distance: number
+}
+
+export type BrowserSnappingGuideState = {
+  guides: BrowserSnappingGuideInfo[]
+  spacingGuides: BrowserSnappingSpacingGuideInfo[]
+}
+
 export type BrowserTextSelectionStyleParams = {
   objectIndex?: number
   id?: string
@@ -104,9 +124,11 @@ export interface BrowserEditorHelpers {
   serializeShapeScaleSnapshot: BrowserSerializer
   serializeTextObject: BrowserSerializer
   serializeTextResizeSnapshot: BrowserSerializer
+  serializeSnappingObjectSnapshot: BrowserSerializer
   resolveShapeNode: (group: unknown) => BrowserObject | null
   resolveTarget: (objectIndex?: number, id?: string) => unknown
   resolveCanvasObject: (objectIndex?: number, id?: string) => unknown
+  getSnappingGuideState: () => BrowserSnappingGuideState
   getTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
   getShapeTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
 }
@@ -135,6 +157,7 @@ export interface BrowserEditorWindow extends Window {
     shapeManager: {
       getTextNode: (params: { target: unknown }) => unknown
     }
+    snappingManager: unknown
   }
   __editorHelpers: BrowserEditorHelpers
 }

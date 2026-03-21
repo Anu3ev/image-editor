@@ -185,6 +185,102 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Возвращает список обычных направляющих SnappingManager в сериализованном виде.
+   */
+  function resolveSnappingGuides(): Array<{
+    type: 'vertical' | 'horizontal'
+    position: number
+  }> {
+    const editorObject = toBrowserObject({ value: browserWindow.editor })
+    const snappingManager = toBrowserObject({ value: editorObject.snappingManager })
+    const rawGuides = Array.isArray(snappingManager.activeGuides)
+      ? snappingManager.activeGuides
+      : []
+    const guides: Array<{
+      type: 'vertical' | 'horizontal'
+      position: number
+    }> = []
+
+    for (let index = 0; index < rawGuides.length; index += 1) {
+      const guide = toBrowserObject({ value: rawGuides[index] })
+      const type = guide.type === 'horizontal' ? 'horizontal' : 'vertical'
+
+      guides.push({
+        type,
+        position: resolveNumber({
+          value: guide.position,
+          defaultValue: 0
+        })
+      })
+    }
+
+    return guides
+  }
+
+  /**
+   * Возвращает список направляющих равноудалённости SnappingManager в сериализованном виде.
+   */
+  function resolveSnappingSpacingGuides(): Array<{
+    type: 'vertical' | 'horizontal'
+    axis: number
+    refStart: number
+    refEnd: number
+    activeStart: number
+    activeEnd: number
+    distance: number
+  }> {
+    const editorObject = toBrowserObject({ value: browserWindow.editor })
+    const snappingManager = toBrowserObject({ value: editorObject.snappingManager })
+    const rawGuides = Array.isArray(snappingManager.activeSpacingGuides)
+      ? snappingManager.activeSpacingGuides
+      : []
+    const guides: Array<{
+      type: 'vertical' | 'horizontal'
+      axis: number
+      refStart: number
+      refEnd: number
+      activeStart: number
+      activeEnd: number
+      distance: number
+    }> = []
+
+    for (let index = 0; index < rawGuides.length; index += 1) {
+      const guide = toBrowserObject({ value: rawGuides[index] })
+      const type = guide.type === 'horizontal' ? 'horizontal' : 'vertical'
+
+      guides.push({
+        type,
+        axis: resolveNumber({
+          value: guide.axis,
+          defaultValue: 0
+        }),
+        refStart: resolveNumber({
+          value: guide.refStart,
+          defaultValue: 0
+        }),
+        refEnd: resolveNumber({
+          value: guide.refEnd,
+          defaultValue: 0
+        }),
+        activeStart: resolveNumber({
+          value: guide.activeStart,
+          defaultValue: 0
+        }),
+        activeEnd: resolveNumber({
+          value: guide.activeEnd,
+          defaultValue: 0
+        }),
+        distance: resolveNumber({
+          value: guide.distance,
+          defaultValue: 0
+        })
+      })
+    }
+
+    return guides
+  }
+
+  /**
    * Складывает два nullable-числа. Если хотя бы одно null — возвращает null.
    */
   function sumNullableNumbers({ first, second }: { first: number | null, second: number | null }): number | null {
@@ -616,6 +712,27 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Сериализует объект canvas вместе с актуальным bounding box для snapping-assertions.
+   */
+  const serializeSnappingObjectSnapshot: BrowserSerializer = (obj: unknown) => {
+    const bounds = createBoundsInfo({
+      bounds: getBoundingRect({ target: obj })
+    })
+
+    return {
+      ...serializeEditorObject(obj),
+      boundsLeft: bounds.left,
+      boundsTop: bounds.top,
+      boundsWidth: bounds.width,
+      boundsHeight: bounds.height,
+      boundsRight: bounds.right,
+      boundsBottom: bounds.bottom,
+      centerX: bounds.left + (bounds.width / 2),
+      centerY: bounds.top + (bounds.height / 2)
+    }
+  }
+
+  /**
    * Сериализует snapshot standalone text-объекта во время/после horizontal resize.
    */
   const serializeTextResizeSnapshot: BrowserSerializer = (obj: unknown) => {
@@ -671,6 +788,7 @@ export function installEditorBrowserHelpers(): void {
       serializeShapeScaleSnapshot,
       serializeTextObject,
       serializeTextResizeSnapshot,
+      serializeSnappingObjectSnapshot,
       resolveShapeNode(group: unknown) {
         return resolveShapeNode({ group })
       },
@@ -679,6 +797,12 @@ export function installEditorBrowserHelpers(): void {
       },
       resolveCanvasObject(objectIndex?: number, id?: string) {
         return resolveCanvasObject({ objectIndex, id })
+      },
+      getSnappingGuideState() {
+        return {
+          guides: resolveSnappingGuides(),
+          spacingGuides: resolveSnappingSpacingGuides()
+        }
       },
       getTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
         return getTextSelectionStyles(params)

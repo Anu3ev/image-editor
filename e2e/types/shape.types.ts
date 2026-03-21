@@ -87,6 +87,27 @@ export interface ShapeAddParams {
   }
 }
 
+/** Параметры добавления shape по границам bounding box, а не по центру объекта. */
+export interface ShapeAddAtBoundsParams {
+  presetKey?: ShapePresetKey
+  options: {
+    id?: string
+    left: number
+    top: number
+    width: number
+    height: number
+    text?: string
+    textStyle?: ShapeTextStyleParams
+    fill?: string
+    stroke?: string | null
+    strokeWidth?: number
+    opacity?: number
+    rounding?: number
+    alignH?: ShapeHorizontalAlign
+    alignV?: ShapeVerticalAlign
+  }
+}
+
 /** Параметры обводки shape */
 export interface ShapeStrokeParams {
   stroke?: string | null
@@ -146,6 +167,7 @@ export interface ShapeScaleStepParams extends ObjectTargetParams {
   originX?: ShapeScaleOriginX
   originY?: ShapeScaleOriginY
   shiftKey?: boolean
+  ctrlKey?: boolean
 }
 
 /** Параметры live-scale шага с synthetic mouse:move относительно активного transform. */
