@@ -1160,12 +1160,9 @@ export class ShapeModel {
       if (!textNode) return null
 
       editor.canvas.setActiveObject(textNode)
-      textNode.isEditing = true
       textNode.enterEditing()
       textNode.selectAll()
-      editor.canvas.fire('text:editing:entered', {
-        target: textNode
-      })
+      editor.canvas.requestRenderAll()
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
@@ -1183,10 +1180,20 @@ export class ShapeModel {
       const textNode = editor.shapeManager.getTextNode({ target })
       if (!textNode) return null
 
-      textNode.set({ text })
-      editor.canvas.fire('text:changed', {
-        target: textNode
-      })
+      const { hiddenTextarea } = textNode
+
+      if (hiddenTextarea instanceof HTMLTextAreaElement) {
+        hiddenTextarea.value = text
+        hiddenTextarea.selectionStart = text.length
+        hiddenTextarea.selectionEnd = text.length
+        hiddenTextarea.dispatchEvent(new Event('input', { bubbles: true }))
+      } else {
+        textNode.set({ text })
+        editor.canvas.fire('text:changed', {
+          target: textNode
+        })
+        editor.canvas.requestRenderAll()
+      }
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
@@ -1229,10 +1236,7 @@ export class ShapeModel {
       if (!textNode) return null
 
       textNode.exitEditing()
-      textNode.isEditing = false
-      editor.canvas.fire('text:editing:exited', {
-        target: textNode
-      })
+      editor.canvas.requestRenderAll()
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
