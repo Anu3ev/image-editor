@@ -1095,6 +1095,30 @@ export class ShapeModel {
     }, params)
   }
 
+  /** Обновляет стиль текста внутри фигуры, пока открыт режим редактирования. */
+  async updateTextStyleInEditing(
+    params: { style: ShapeTextStyleParams } & ObjectTargetParams
+  ): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ style, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const textNode = editor.shapeManager.getTextNode({ target })
+      if (!textNode) return null
+
+      const result = editor.textManager.updateText({
+        target: textNode,
+        style
+      })
+      if (!result) return null
+
+      return helpers.serializeShapeTextObject(result)
+    }, params)
+  }
+
   /** Завершает редактирование текста внутри shape */
   async exitTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
