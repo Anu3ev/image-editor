@@ -6,6 +6,7 @@ import {
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 import type { TextStyleOptions } from '../text-manager'
+import type { BeforeTextUpdatedPayload } from '../text-manager/types'
 import {
   DEFAULT_SHAPE_PRESET_KEY,
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
@@ -102,6 +103,11 @@ export default class ShapeManager {
    */
   private editingCenters: WeakMap<ShapeGroup, ShapeGroupCenter>
 
+  /**
+   * Текстовые узлы, которые ShapeManager обновляет сам и уже синхронизирует вручную.
+   */
+  private internalTextUpdates: WeakSet<ShapeTextNode>
+
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     registerShapeGroup()
@@ -112,6 +118,7 @@ export default class ShapeManager {
       canvas: editor.canvas
     })
     this.editingCenters = new WeakMap()
+    this.internalTextUpdates = new WeakSet()
 
     this._bindEvents()
   }
@@ -646,9 +653,10 @@ export default class ShapeManager {
 
     const manualDimensions = this._resolveManualDimensions({ group })
     const center = group.getCenterPoint()
-    const alignH = style.align === 'left' || style.align === 'center' || style.align === 'right'
-      ? style.align
-      : group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
+    const alignH = this._resolveShapeTextHorizontalAlign({
+      group,
+      textStyle: style
+    })
 
     this._beginMutation()
 
@@ -782,6 +790,7 @@ export default class ShapeManager {
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:changed', this._handleTextChanged)
+    canvas.off('editor:before:text-updated', this._handleBeforeTextUpdated)
   }
 
   /**
@@ -797,6 +806,7 @@ export default class ShapeManager {
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
     canvas.on('text:changed', this._handleTextChanged)
+    canvas.on('editor:before:text-updated', this._handleBeforeTextUpdated)
   }
 
   /**
@@ -889,36 +899,30 @@ export default class ShapeManager {
     if (!(target instanceof Textbox)) return
 
     const textNode = target as ShapeTextNode
-    const { group } = textNode
-    if (!isShapeGroup(group)) return
-
-    const {
-      shape,
-      text
-    } = getShapeNodes({ group })
-
-    if (!shape || !text) return
-
-    this._detachShapeGroupAutoLayout({
-      group
+    const wasSynchronized = this._syncShapeTextLayoutAfterTextMutation({
+      textNode
     })
-    const center = this._resolveEditingCenter({
-      group
-    })
-    const manualDimensions = this._resolveManualDimensions({
-      group
-    })
-
-    this._applyCurrentLayout({
-      group,
-      shape,
-      text,
-      center,
-      width: manualDimensions.width,
-      height: manualDimensions.height
-    })
+    if (!wasSynchronized) return
 
     this.editor.canvas.requestRenderAll()
+  }
+
+  /**
+   * Синхронизирует shape-layout до фиксации программного обновления текста в истории.
+   */
+  private _handleBeforeTextUpdated = (
+    event: BeforeTextUpdatedPayload
+  ): void => {
+    const { textbox, style } = event
+    if (!(textbox instanceof Textbox)) return
+
+    const textNode = textbox as ShapeTextNode
+    if (this.internalTextUpdates.has(textNode)) return
+
+    this._syncShapeTextLayoutAfterTextMutation({
+      textNode,
+      textStyle: style
+    })
   }
 
   /**
@@ -1102,12 +1106,18 @@ export default class ShapeManager {
     const hasUpdates = Object.keys(styleUpdates).length > 0
     if (!hasUpdates) return
 
-    this.editor.textManager.updateText({
-      target: textNode,
-      style: styleUpdates,
-      skipRender: true,
-      withoutSave: true
-    })
+    this.internalTextUpdates.add(textNode)
+
+    try {
+      this.editor.textManager.updateText({
+        target: textNode,
+        style: styleUpdates,
+        skipRender: true,
+        withoutSave: true
+      })
+    } finally {
+      this.internalTextUpdates.delete(textNode)
+    }
 
     textNode.autoExpand = false
   }
@@ -1165,6 +1175,25 @@ export default class ShapeManager {
   }
 
   /**
+   * Возвращает актуальное горизонтальное выравнивание текста для shape-группы.
+   */
+  private _resolveShapeTextHorizontalAlign({
+    group,
+    textStyle
+  }: {
+    group: ShapeGroupLike
+    textStyle?: TextStyleOptions
+  }): ShapeHorizontalAlign {
+    const align = textStyle?.align
+
+    if (align === 'left' || align === 'center' || align === 'right') {
+      return align
+    }
+
+    return group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
+  }
+
+  /**
    * Применяет актуальный layout для shape-группы.
    */
   private _applyCurrentLayout({
@@ -1212,6 +1241,54 @@ export default class ShapeManager {
       top: stableCenter.y
     })
     group.setCoords()
+  }
+
+  /**
+   * Синхронизирует layout shape-группы после изменения вложенного текстового узла.
+   */
+  private _syncShapeTextLayoutAfterTextMutation({
+    textNode,
+    textStyle
+  }: {
+    textNode: ShapeTextNode
+    textStyle?: TextStyleOptions
+  }): boolean {
+    const { group } = textNode
+    if (!isShapeGroup(group)) return false
+
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
+
+    if (!shape || !text) return false
+
+    this._detachShapeGroupAutoLayout({
+      group
+    })
+
+    const center = this._resolveEditingCenter({
+      group
+    })
+    const manualDimensions = this._resolveManualDimensions({
+      group
+    })
+    const alignH = this._resolveShapeTextHorizontalAlign({
+      group,
+      textStyle
+    })
+
+    this._applyCurrentLayout({
+      group,
+      shape,
+      text,
+      center,
+      width: manualDimensions.width,
+      height: manualDimensions.height,
+      alignH
+    })
+
+    return true
   }
 
   /**

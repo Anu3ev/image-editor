@@ -1,6 +1,10 @@
 import { FabricObject, FabricImage, Point } from 'fabric'
 import { ImageEditor } from '../index'
 import { GroupedObjectsData, UngroupedObjectsData } from '../grouping-manager'
+import type {
+  BeforeTextUpdatedPayload,
+  TextUpdatedPayload
+} from '../text-manager/types'
 
 /**
  * Параметры события editor:canvas-exported
@@ -260,6 +264,17 @@ declare module 'fabric' {
      * Срабатывает после загрузки состояния канваса (из JSON истории).
      */
     'editor:history-state-loaded': HistoryStateLoadedPayload
+
+    /**
+     * Срабатывает до фиксации программного обновления текста в истории.
+     * Позволяет aggregate-владельцам синхронизировать производное состояние.
+     */
+    'editor:before:text-updated': BeforeTextUpdatedPayload
+
+    /**
+     * Срабатывает после завершения программного обновления текста.
+     */
+    'editor:text-updated': TextUpdatedPayload
 
     /**
      * Срабатывает после успешного выполнения операции отмены (undo).
