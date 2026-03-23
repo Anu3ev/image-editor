@@ -1,4 +1,4 @@
-import { Group } from 'fabric'
+import { Group, Textbox } from 'fabric'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import {
   applyShapeStyle,
@@ -8,8 +8,10 @@ import {
   applyShapeTextLayout
 } from '../../../../src/editor/shape-manager/shape-layout'
 import {
+  applyTextStyleToShapeText,
   createShapeManagerEditorStub,
-  createMockShapeNode
+  createMockShapeNode,
+  getCanvasHandler
 } from '../../../test-utils/shape-helpers'
 
 jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
@@ -63,7 +65,8 @@ describe('shape-manager', () => {
       'mouse:down',
       'text:editing:entered',
       'text:editing:exited',
-      'text:changed'
+      'text:changed',
+      'editor:before:text-updated'
     ]))
 
     manager.destroy()
@@ -75,7 +78,8 @@ describe('shape-manager', () => {
       'mouse:down',
       'text:editing:entered',
       'text:editing:exited',
-      'text:changed'
+      'text:changed',
+      'editor:before:text-updated'
     ]))
   })
 
@@ -476,6 +480,180 @@ describe('shape-manager', () => {
     expect(editor.historyManager.saveState).toHaveBeenCalled()
   })
 
+  it('при программном изменении текста внутри фигуры сохраняет её положение во время редактирования', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const beforeTextUpdatedHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:before:text-updated'
+    })
+    const textNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+
+    if (!enteredHandler || !beforeTextUpdatedHandler || !textNode) {
+      throw new Error('shape manager handlers should be registered')
+    }
+
+    group.left = 459
+    group.top = 412
+
+    enteredHandler({
+      target: textNode
+    })
+
+    group.left = 489
+    group.top = 430
+
+    applyShapeTextLayoutMock.mockClear()
+    const requestRenderAllMock = editor.canvas.requestRenderAll as jest.Mock
+    requestRenderAllMock.mockClear()
+
+    beforeTextUpdatedHandler({
+      textbox: textNode,
+      target: textNode,
+      style: {
+        fontSize: 120
+      },
+      options: {
+        withoutSave: true,
+        skipRender: true
+      },
+      updates: {
+        fontSize: 120
+      }
+    })
+
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      group,
+      text: textNode
+    }))
+    expect(group.left).toBe(459)
+    expect(group.top).toBe(412)
+    expect(requestRenderAllMock).not.toHaveBeenCalled()
+  })
+
+  it('не перестраивает фигуру при программном изменении обычного текста', () => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const beforeTextUpdatedHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:before:text-updated'
+    })
+
+    if (!beforeTextUpdatedHandler) {
+      throw new Error('shape manager before update handler should be registered')
+    }
+
+    const textbox = new Textbox('plain text', {
+      fontSize: 32
+    })
+
+    beforeTextUpdatedHandler({
+      textbox,
+      target: textbox,
+      style: {
+        fontSize: 64
+      },
+      options: {
+        withoutSave: true,
+        skipRender: true
+      },
+      updates: {
+        fontSize: 64
+      }
+    })
+
+    expect(applyShapeTextLayoutMock).not.toHaveBeenCalled()
+    expect(editor.canvas.requestRenderAll).not.toHaveBeenCalled()
+    expect(manager).toBeInstanceOf(ShapeManager)
+  })
+
+  it('при обновлении текста через фигуру пересчитывает её layout один раз', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+
+    updateTextMock.mockImplementation(({
+      target,
+      style
+    }: {
+      target: {
+        set: (updates: Record<string, unknown>) => void
+        autoExpand?: boolean
+      }
+      style: Record<string, unknown>
+    }) => {
+      applyTextStyleToShapeText({
+        target,
+        style
+      })
+
+      const beforeTextUpdatedHandler = getCanvasHandler({
+        canvas: editor.canvas,
+        eventName: 'editor:before:text-updated'
+      })
+
+      if (!beforeTextUpdatedHandler) {
+        throw new Error('shape manager before update handler should be registered')
+      }
+
+      beforeTextUpdatedHandler({
+        textbox: target,
+        target,
+        style,
+        options: {
+          withoutSave: true,
+          skipRender: true
+        },
+        updates: style
+      })
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    applyShapeTextLayoutMock.mockClear()
+
+    manager.updateTextStyle({
+      target: group,
+      style: {
+        fontSize: 96
+      }
+    })
+
+    expect(updateTextMock).toHaveBeenCalledTimes(1)
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(1)
+  })
+
   it('text:changed пересчитывает layout, сохраняя стабильный центр группы', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -525,60 +703,3 @@ describe('shape-manager', () => {
     expect(group.top).toBe(412)
   })
 })
-
-function getCanvasHandler({
-  canvas,
-  eventName
-}: {
-  canvas: {
-    on: jest.Mock
-  }
-  eventName: string
-}): ((payload: unknown) => void) | null {
-  const calls = canvas.on.mock.calls
-
-  for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
-    const [
-      currentEventName,
-      handler
-    ] = calls[callIndex]
-
-    if (currentEventName === eventName && typeof handler === 'function') {
-      return handler
-    }
-  }
-
-  return null
-}
-
-/**
- * Применяет text style к mock textbox в shape unit-тестах.
- */
-function applyTextStyleToShapeText({
-  target,
-  style
-}: {
-  target: {
-    set: (updates: Record<string, unknown>) => void
-    autoExpand?: boolean
-  }
-  style: Record<string, unknown>
-}): void {
-  const nextStyle: Record<string, unknown> = {}
-  const styleKeys = Object.keys(style)
-
-  for (let index = 0; index < styleKeys.length; index += 1) {
-    const key = styleKeys[index]
-    const value = style[key]
-
-    if (key === 'align') {
-      nextStyle.textAlign = value
-      continue
-    }
-
-    nextStyle[key] = value
-  }
-
-  target.set(nextStyle)
-  target.autoExpand = false
-}

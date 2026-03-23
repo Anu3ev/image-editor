@@ -117,6 +117,100 @@ export const createMockShapeNode = ({
 }
 
 /**
+ * Эмулирует перенос текста, близкий к поведению Textbox: по словам, а при splitByGrapheme по символам.
+ */
+function measureTextbox({
+  text,
+  width,
+  fontSize,
+  lineHeight,
+  splitByGrapheme
+}: {
+  text: string
+  width: number
+  fontSize: number
+  lineHeight: number
+  splitByGrapheme: boolean
+}): {
+  lines: number
+  dynamicMinWidth: number
+} {
+  if (!text) {
+    return {
+      lines: 0,
+      dynamicMinWidth: 0
+    }
+  }
+
+  const safeWidth = Math.max(1, width)
+  const charWidth = Math.max(1, fontSize * CHAR_WIDTH_RATIO)
+  const spaceWidth = Math.max(1, fontSize * SPACE_WIDTH_RATIO)
+  const paragraphs = text.split('\n')
+  let lineCount = 0
+  let maxUnbreakableWidth = 0
+
+  for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
+    const paragraph = paragraphs[paragraphIndex]
+
+    if (!paragraph) {
+      lineCount += 1
+      continue
+    }
+
+    if (splitByGrapheme) {
+      const charsPerLine = Math.max(1, Math.floor(safeWidth / charWidth))
+      lineCount += Math.ceil(paragraph.length / charsPerLine)
+      maxUnbreakableWidth = Math.max(maxUnbreakableWidth, charWidth)
+      continue
+    }
+
+    const words = paragraph.split(/\s+/).filter(Boolean)
+    if (words.length === 0) {
+      lineCount += 1
+      continue
+    }
+
+    let currentLineWidth = 0
+    for (let wordIndex = 0; wordIndex < words.length; wordIndex += 1) {
+      const word = words[wordIndex]
+      const wordWidth = word.length * charWidth
+      maxUnbreakableWidth = Math.max(maxUnbreakableWidth, wordWidth)
+
+      if (currentLineWidth === 0) {
+        currentLineWidth = wordWidth
+        continue
+      }
+
+      if (currentLineWidth + spaceWidth + wordWidth <= safeWidth) {
+        currentLineWidth += spaceWidth + wordWidth
+        continue
+      }
+
+      lineCount += 1
+      currentLineWidth = wordWidth
+    }
+
+    lineCount += 1
+  }
+
+  const minHeight = lineCount > 0
+    ? lineCount * fontSize * lineHeight
+    : 0
+
+  if (!Number.isFinite(minHeight)) {
+    return {
+      lines: 0,
+      dynamicMinWidth: 0
+    }
+  }
+
+  return {
+    lines: lineCount,
+    dynamicMinWidth: maxUnbreakableWidth
+  }
+}
+
+/**
  * Создаёт textbox-узел со стабильным расчётом переносов и высоты.
  */
 export const createMockShapeTextbox = ({
@@ -292,95 +386,61 @@ export const createShapeManagerEditorStub = ({
 }
 
 /**
- * Эмулирует перенос текста, близкий к поведению Textbox: по словам, а при splitByGrapheme по символам.
+ * Возвращает зарегистрированный canvas-handler по имени события.
  */
-function measureTextbox({
-  text,
-  width,
-  fontSize,
-  lineHeight,
-  splitByGrapheme
+export const getCanvasHandler = <TPayload = unknown>({
+  canvas,
+  eventName
 }: {
-  text: string
-  width: number
-  fontSize: number
-  lineHeight: number
-  splitByGrapheme: boolean
-}): {
-  lines: number
-  dynamicMinWidth: number
-} {
-  if (!text) {
-    return {
-      lines: 0,
-      dynamicMinWidth: 0
+  canvas: {
+    on: jest.Mock
+  }
+  eventName: string
+}): ((payload: TPayload) => void) | null => {
+  const calls = canvas.on.mock.calls
+
+  for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
+    const [
+      currentEventName,
+      handler
+    ] = calls[callIndex]
+
+    if (currentEventName === eventName && typeof handler === 'function') {
+      return handler as (payload: TPayload) => void
     }
   }
 
-  const safeWidth = Math.max(1, width)
-  const charWidth = Math.max(1, fontSize * CHAR_WIDTH_RATIO)
-  const spaceWidth = Math.max(1, fontSize * SPACE_WIDTH_RATIO)
-  const paragraphs = text.split('\n')
-  let lineCount = 0
-  let maxUnbreakableWidth = 0
+  return null
+}
 
-  for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
-    const paragraph = paragraphs[paragraphIndex]
+/**
+ * Применяет text style к mock textbox в shape unit-тестах.
+ */
+export const applyTextStyleToShapeText = ({
+  target,
+  style
+}: {
+  target: {
+    set: (updates: Record<string, unknown>) => void
+    autoExpand?: boolean
+  }
+  style: Record<string, unknown>
+}): void => {
+  const nextStyle: Record<string, unknown> = {}
+  const styleKeys = Object.keys(style)
 
-    if (!paragraph) {
-      lineCount += 1
+  for (let index = 0; index < styleKeys.length; index += 1) {
+    const key = styleKeys[index]
+    const value = style[key]
+
+    if (key === 'align') {
+      nextStyle.textAlign = value
       continue
     }
 
-    if (splitByGrapheme) {
-      const charsPerLine = Math.max(1, Math.floor(safeWidth / charWidth))
-      lineCount += Math.ceil(paragraph.length / charsPerLine)
-      maxUnbreakableWidth = Math.max(maxUnbreakableWidth, charWidth)
-      continue
-    }
-
-    const words = paragraph.split(/\s+/).filter(Boolean)
-    if (words.length === 0) {
-      lineCount += 1
-      continue
-    }
-
-    let currentLineWidth = 0
-    for (let wordIndex = 0; wordIndex < words.length; wordIndex += 1) {
-      const word = words[wordIndex]
-      const wordWidth = word.length * charWidth
-      maxUnbreakableWidth = Math.max(maxUnbreakableWidth, wordWidth)
-
-      if (currentLineWidth === 0) {
-        currentLineWidth = wordWidth
-        continue
-      }
-
-      if (currentLineWidth + spaceWidth + wordWidth <= safeWidth) {
-        currentLineWidth += spaceWidth + wordWidth
-        continue
-      }
-
-      lineCount += 1
-      currentLineWidth = wordWidth
-    }
-
-    lineCount += 1
+    nextStyle[key] = value
   }
 
-  const minHeight = lineCount > 0
-    ? lineCount * fontSize * lineHeight
-    : 0
-
-  if (!Number.isFinite(minHeight)) {
-    return {
-      lines: 0,
-      dynamicMinWidth: 0
-    }
-  }
-
-  return {
-    lines: lineCount,
-    dynamicMinWidth: maxUnbreakableWidth
-  }
+  target.set(nextStyle)
+  target.autoExpand = false
 }
