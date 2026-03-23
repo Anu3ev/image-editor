@@ -44,6 +44,7 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     await bypassCertificateWarning({ page })
     await model.waitForReady()
     await use(model)
+    await model.shapes.finishScaleIfActive()
   },
 
   shapes: async({ editorModel }, use) => {
