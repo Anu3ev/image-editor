@@ -155,6 +155,74 @@ describe('TextManager', () => {
       expect(historyManager.totalChangesCount).toBe(2)
     })
 
+    it('сначала даёт подписчикам синхронизировать изменение текста, а потом сохраняет итоговое состояние', () => {
+      const {
+        canvas,
+        historyManager,
+        textManager
+      } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'до обновления',
+        left: 40,
+        top: 60
+      })
+      const lifecycle: string[] = []
+      const originalSaveState = historyManager.saveState.bind(historyManager)
+
+      canvas.on('editor:before:text-updated', ({ textbox: eventTextbox }) => {
+        lifecycle.push('before')
+        eventTextbox.set({
+          left: 123
+        })
+      })
+      canvas.on('editor:text-updated', () => {
+        lifecycle.push('after')
+      })
+
+      canvas.requestRenderAll.mockClear()
+      canvas.requestRenderAll.mockImplementation(() => {
+        lifecycle.push('render')
+      })
+
+      const saveSpy = jest.spyOn(historyManager, 'saveState').mockImplementation(() => {
+        lifecycle.push('save')
+        originalSaveState()
+      })
+
+      canvas.fire.mockClear()
+
+      textManager.updateText({
+        target: textbox,
+        style: {
+          fontSize: 80
+        }
+      })
+
+      expect(lifecycle).toEqual([
+        'before',
+        'render',
+        'save',
+        'after'
+      ])
+
+      const [beforeEventName, beforePayload] = canvas.fire.mock.calls[0]
+      const [afterEventName, afterPayload] = canvas.fire.mock.calls[1]
+
+      expect(beforeEventName).toBe('editor:before:text-updated')
+      expect(beforePayload.selectionRange).toBeUndefined()
+      expect(beforePayload.selectionStyles).toBeUndefined()
+      expect(afterEventName).toBe('editor:text-updated')
+      expect(afterPayload.after).toEqual(expect.objectContaining({
+        fontSize: 80,
+        left: 123
+      }))
+
+      const state = historyManager.getFullState()
+
+      expect(state.objects?.[0]?.left).toBe(123)
+      expect(saveSpy).toHaveBeenCalledTimes(1)
+    })
+
     it('применяет стили только к выделенному тексту и сообщает информацию о выделении', () => {
       const {
         canvas,
@@ -222,10 +290,20 @@ describe('TextManager', () => {
         })
       })
 
-      const [eventName, payload] = canvas.fire.mock.calls[0]
-      expect(eventName).toBe('editor:text-updated')
-      expect(payload.selectionRange).toEqual({ start: 10, end: 15 })
-      expect(payload.selectionStyles).toMatchObject({
+      const [beforeEventName, beforePayload] = canvas.fire.mock.calls[0]
+      const [afterEventName, afterPayload] = canvas.fire.mock.calls[1]
+
+      expect(beforeEventName).toBe('editor:before:text-updated')
+      expect(beforePayload.selectionRange).toEqual({ start: 10, end: 15 })
+      expect(beforePayload.selectionStyles).toMatchObject({
+        fontWeight: 'bold',
+        fontStyle: 'italic',
+        fill: '#ff0000'
+      })
+
+      expect(afterEventName).toBe('editor:text-updated')
+      expect(afterPayload.selectionRange).toEqual({ start: 10, end: 15 })
+      expect(afterPayload.selectionStyles).toMatchObject({
         fontWeight: 'bold',
         fontStyle: 'italic',
         fill: '#ff0000'

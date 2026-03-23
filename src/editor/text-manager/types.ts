@@ -73,6 +73,40 @@ export type UpdateOptions = {
   selectionRange?: TextSelectionRange | null
 }
 
+/**
+ * Общая часть payload editor-level событий перед и после обновления текста.
+ */
+export type TextUpdateLifecyclePayload = {
+  textbox: EditorTextbox
+  target?: TextReference
+  style: TextStyleOptions
+  options: {
+    withoutSave: boolean
+    skipRender: boolean
+  }
+  updates: Partial<BackgroundTextboxProps>
+  selectionRange?: TextSelectionRange
+  selectionStyles?: Partial<TextboxProps>
+}
+
+/**
+ * Payload события, которое эмитится до фиксации текстового обновления в истории.
+ */
+export type BeforeTextUpdatedPayload = TextUpdateLifecyclePayload
+
+/**
+ * Снимок состояния текстового объекта для lifecycle payload текстовых событий.
+ */
+export type TextboxSnapshot = Record<string, unknown>
+
+/**
+ * Payload финального события после текстового обновления.
+ */
+export type TextUpdatedPayload = TextUpdateLifecyclePayload & {
+  before: TextboxSnapshot
+  after: TextboxSnapshot
+}
+
 export type PaddingValues = {
   bottom: number
   left: number
@@ -106,8 +140,6 @@ export type ScalingState = {
   baseRadii: CornerRadiiValues
   hasWidthChange: boolean
 }
-
-export type TextboxSnapshot = Record<string, unknown>
 
 export type TextEditingAnchor = {
   originY: EditorTextbox['originY']

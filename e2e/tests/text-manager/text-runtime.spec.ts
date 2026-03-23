@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 
-test.describe('Редактирование и восстановление текстового объекта', () => {
+test.describe('Редактирование текста и история объекта', () => {
   test.describe('изменение текста и история', () => {
     test.beforeEach(async({ text }) => {
       const textObject = await text.add({
@@ -10,7 +10,7 @@ test.describe('Редактирование и восстановление те
       text.checkCreation({ textObject })
     })
 
-    test('после выхода из режима редактирования объект остаётся выбранным и готовым к следующему действию', async({
+    test('после выхода из режима редактирования текста объект остаётся выбранным и готовым к следующему действию', async({
       editorModel,
       history,
       text
@@ -20,7 +20,7 @@ test.describe('Редактирование и восстановление те
         return text.checkCreation({ textObject: currentTextObject })
       })
 
-      await test.step('Изменить текст через режим редактирования', async() => {
+      await test.step('Изменить текст в режиме редактирования текста', async() => {
         await text.enterTextEditing({ objectIndex: 0 })
         await text.updateEditingText({
           objectIndex: 0,
@@ -30,7 +30,7 @@ test.describe('Редактирование и восстановление те
         await history.flushPendingSave()
       })
 
-      await test.step('Проверить что текстовый объект остался активным после выхода из редактирования', async() => {
+      await test.step('Проверить что текстовый объект остался активным после выхода из режима редактирования текста', async() => {
         const updatedTextObject = await text.getObject({ objectIndex: 0 })
         const activeObject = await editorModel.getActiveObject()
 
@@ -40,7 +40,7 @@ test.describe('Редактирование и восстановление те
         expect(activeObject?.type).toBe('background-textbox')
       })
 
-      await test.step('Проверить что после редактирования можно сразу применить стиль', async() => {
+      await test.step('Проверить что после изменения текста можно сразу применить стиль', async() => {
         await text.updateStyle({
           objectIndex: 0,
           style: {
@@ -60,7 +60,7 @@ test.describe('Редактирование и восстановление те
       history,
       text
     }) => {
-      await test.step('Изменить текст через режим редактирования и сохранить это в history', async() => {
+      await test.step('Изменить текст в режиме редактирования текста и сохранить это в history', async() => {
         await text.enterTextEditing({ objectIndex: 0 })
         await text.updateEditingText({
           objectIndex: 0,
@@ -88,7 +88,7 @@ test.describe('Редактирование и восстановление те
       history,
       text
     }) => {
-      await test.step('Изменить текст через режим редактирования и сохранить это в history', async() => {
+      await test.step('Изменить текст в режиме редактирования текста и сохранить это в history', async() => {
         await text.enterTextEditing({ objectIndex: 0 })
         await text.updateEditingText({
           objectIndex: 0,
@@ -120,7 +120,7 @@ test.describe('Редактирование и восстановление те
     })
   })
 
-  test.describe('частичные стили внутри текста', () => {
+  test.describe('Частичные стили внутри текста', () => {
     test.beforeEach(async({ text }) => {
       const textObject = await text.add({
         text: 'Alpha Beta Gamma'
@@ -129,10 +129,10 @@ test.describe('Редактирование и восстановление те
       text.checkCreation({ textObject })
     })
 
-    test('частичный стиль применяется только к выделенному слову в режиме редактирования', async({
+    test('частичный стиль применяется только к выделенному слову в режиме редактирования текста', async({
       text
     }) => {
-      await test.step('Войти в режим редактирования и выделить слово Beta', async() => {
+      await test.step('Войти в режим редактирования текста и выделить слово Beta', async() => {
         await text.enterTextEditing({ objectIndex: 0 })
         await text.setTextSelection({
           objectIndex: 0,
@@ -180,7 +180,7 @@ test.describe('Редактирование и восстановление те
       })
     })
 
-    test('после частичной стилизации и выхода из редактирования объект остаётся тем же активным объектом', async({
+    test('после частичной стилизации и выхода из режима редактирования текста объект остаётся тем же активным объектом', async({
       editorModel,
       history,
       text
@@ -190,7 +190,7 @@ test.describe('Редактирование и восстановление те
         return text.checkCreation({ textObject: currentTextObject })
       })
 
-      await test.step('Применить частичный стиль в режиме редактирования', async() => {
+      await test.step('Применить частичный стиль в режиме редактирования текста', async() => {
         await text.enterTextEditing({ objectIndex: 0 })
         await text.setTextSelection({
           objectIndex: 0,
@@ -220,8 +220,8 @@ test.describe('Редактирование и восстановление те
     })
   })
 
-  test.describe('вставка из буфера обмена и объекты из шаблона', () => {
-    test('после copy/paste вставленный текстовый объект можно сразу частично стилизовать', async({
+  test.describe('Вставка из буфера обмена и объекты из шаблона', () => {
+    test('после копирования и вставки новый текстовый объект можно сразу частично стилизовать', async({
       clipboard,
       editorModel,
       text
@@ -276,7 +276,7 @@ test.describe('Редактирование и восстановление те
         await text.applyRegressionTemplate()
       })
 
-      await test.step('Изменить текст объекта из шаблона через режим редактирования', async() => {
+      await test.step('Изменить текст объекта из шаблона в режиме редактирования текста', async() => {
         await text.enterTextEditing({ objectIndex: 0 })
         await text.updateEditingText({
           objectIndex: 0,

@@ -10,7 +10,7 @@ test.describe('Изменение текстового объекта', () => {
     text.checkCreation({ textObject })
   })
 
-  test('обновляет стиль текстового объекта без входа в режим редактирования', async({
+  test('обновляет стиль текстового объекта без входа в режим редактирования текста', async({
     editorModel,
     text
   }) => {
@@ -37,7 +37,7 @@ test.describe('Изменение текстового объекта', () => {
       expect(updatedTextObject).not.toBeNull()
     })
 
-    await test.step('Проверить что стиль обновился без входа в редактирование', async() => {
+    await test.step('Проверить что стиль обновился без входа в режим редактирования текста', async() => {
       const updatedTextObject = await text.getObject({ objectIndex: 0 })
       const activeObject = await editorModel.getActiveObject()
 

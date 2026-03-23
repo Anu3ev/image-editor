@@ -43,11 +43,13 @@ import {
   roundTextboxDimensions
 } from './geometry'
 import type {
+  BeforeTextUpdatedPayload,
   CornerRadiiValues,
   EditorTextbox,
   LineFontDefaultUpdate,
   PaddingValues,
   ScalingState,
+  TextUpdatedPayload,
   TextCreationFlags,
   TextEditingAnchor,
   TextReference,
@@ -270,6 +272,8 @@ export default class TextManager {
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
    * @param options.selectionRange — внешний диапазон выделения для применения стилей
+   * @fires editor:before:text-updated
+   * @fires editor:text-updated
    */
   public updateText({
     target,
@@ -679,32 +683,43 @@ export default class TextManager {
     }
 
     textbox.setCoords()
+    const eventOptions = {
+      withoutSave: Boolean(withoutSave),
+      skipRender: Boolean(skipRender)
+    }
+
+    const hasSelectionStyles = Boolean(selectionRange) && Object.keys(selectionStyles).length > 0
+
+    const beforeTextUpdatedPayload: BeforeTextUpdatedPayload = {
+      textbox,
+      target,
+      style,
+      options: eventOptions,
+      updates,
+      selectionRange: selectionRange ?? undefined,
+      selectionStyles: hasSelectionStyles ? selectionStyles : undefined
+    }
+
+    canvas.fire('editor:before:text-updated', beforeTextUpdatedPayload)
 
     if (!skipRender) {
       canvas.requestRenderAll()
     }
+
+    const afterState = TextManager._getSnapshot(textbox)
 
     historyManager.resumeHistory()
     if (!withoutSave) {
       historyManager.saveState()
     }
 
-    const afterState = TextManager._getSnapshot(textbox)
-
-    canvas.fire('editor:text-updated', {
-      textbox,
-      target,
-      style,
-      options: {
-        withoutSave: Boolean(withoutSave),
-        skipRender: Boolean(skipRender)
-      },
-      updates,
+    const textUpdatedPayload: TextUpdatedPayload = {
+      ...beforeTextUpdatedPayload,
       before: beforeState,
-      after: afterState,
-      selectionRange: selectionRange ?? undefined,
-      selectionStyles: selectionRange && Object.keys(selectionStyles).length ? selectionStyles : undefined
-    })
+      after: afterState
+    }
+
+    canvas.fire('editor:text-updated', textUpdatedPayload)
 
     return textbox
   }

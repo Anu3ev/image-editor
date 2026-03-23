@@ -497,7 +497,17 @@ export default ({ editorInstance, controls }) => {
    */
   const getAlignSequenceForActiveTarget = () => {
     const activeText = getActiveText()
-    if (activeText) return ALIGN_SEQUENCE
+    if (activeText) {
+      const activeShapeText = editorInstance.shapeManager.getTextNode({
+        target: activeText
+      })
+
+      if (activeShapeText) {
+        return ['left', 'center', 'right']
+      }
+
+      return ALIGN_SEQUENCE
+    }
 
     const activeShapeText = editorInstance.shapeManager.getTextNode()
     if (activeShapeText) {

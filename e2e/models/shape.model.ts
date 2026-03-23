@@ -29,6 +29,7 @@ export class ShapeModel {
       x: number
       y: number
     }
+    mode: 'interactive' | 'synthetic-mouse-move'
     corner: ShapeScaleCorner
     objectIndex?: number
     id?: string
@@ -429,7 +430,7 @@ export class ShapeModel {
         return null
       }
 
-      const point = {
+      const controlPoint = {
         x: rect.left + control.x,
         y: rect.top + control.y
       }
@@ -446,8 +447,8 @@ export class ShapeModel {
         bubbles: true,
         button: 0,
         buttons: 1,
-        clientX: point.x,
-        clientY: point.y,
+        clientX: controlPoint.x,
+        clientY: controlPoint.y,
         shiftKey,
         ctrlKey
       }))
@@ -497,7 +498,7 @@ export class ShapeModel {
           x: rect.left + finalControl.x,
           y: rect.top + finalControl.y
         }
-        : point
+        : controlPoint
 
       return {
         point: finalPoint,
@@ -524,6 +525,7 @@ export class ShapeModel {
 
     this.activeScaleInteraction = {
       point,
+      mode: 'interactive',
       corner: params.corner ?? 'br',
       objectIndex: params.objectIndex,
       id: params.id
@@ -616,7 +618,9 @@ export class ShapeModel {
 
   /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев и при необходимости передаёт состояние Shift/Ctrl. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
-    const snapshot = await this.page.evaluate((payload) => {
+    await this._startScaleInteractionIfNeeded(params)
+
+    const result = await this.page.evaluate((payload) => {
       const {
         scaleX,
         scaleY,
@@ -642,30 +646,56 @@ export class ShapeModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
-      const left = typeof target.left === 'number' ? target.left : 0
-      const top = typeof target.top === 'number' ? target.top : 0
-      const anchorPoint = target.getPointByOrigin(originX, originY)
-      const transform = {
-        target,
-        action,
-        signX,
-        signY,
-        original: {
-          scaleX: 1,
-          scaleY: 1,
-          left,
-          top
-        },
-        corner,
-        originX,
-        originY
-      }
+      const transform = editor.canvas._currentTransform
+      if (!transform || transform.target !== target) return null
+
+      const activeCorner = typeof transform.corner === 'string' && transform.corner
+        ? transform.corner
+        : corner
+      const activeOriginX = typeof transform.originX === 'string'
+        ? transform.originX
+        : originX
+      const activeOriginY = typeof transform.originY === 'string'
+        ? transform.originY
+        : originY
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const anchorPoint = target.getPointByOrigin(activeOriginX, activeOriginY)
+      const previousLeft = typeof target.left === 'number' ? target.left : 0
+      const previousTop = typeof target.top === 'number' ? target.top : 0
+      const previousScaleX = typeof target.scaleX === 'number' ? target.scaleX : 1
+      const previousScaleY = typeof target.scaleY === 'number' ? target.scaleY : 1
 
       target.set({
         scaleX,
         scaleY
       })
-      target.setPositionByOrigin(anchorPoint, originX, originY)
+      target.setPositionByOrigin(anchorPoint, activeOriginX, activeOriginY)
+      target.setCoords()
+
+      const control = target.oCoords?.[activeCorner]
+      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') {
+        target.set({
+          left: previousLeft,
+          top: previousTop,
+          scaleX: previousScaleX,
+          scaleY: previousScaleY
+        })
+        target.setCoords()
+
+        return null
+      }
+
+      const controlPoint = {
+        x: rect.left + control.x,
+        y: rect.top + control.y
+      }
+
+      target.set({
+        left: previousLeft,
+        top: previousTop,
+        scaleX: previousScaleX,
+        scaleY: previousScaleY
+      })
       target.setCoords()
 
       const PointCtor = anchorPoint.constructor as new(x: number, y: number) => {
@@ -673,10 +703,15 @@ export class ShapeModel {
       }
       const scenePoint = new PointCtor(anchorPoint.x + pointerX, anchorPoint.y + pointerY)
       const originalGetScenePoint = editor.canvas.getScenePoint.bind(editor.canvas)
+      const previousAction = transform.action
+      const previousSignX = transform.signX
+      const previousSignY = transform.signY
 
       try {
+        transform.action = action
+        transform.signX = signX
+        transform.signY = signY
         editor.canvas.getScenePoint = () => scenePoint
-        editor.canvas._currentTransform = transform
         editor.canvas.fire('object:scaling', {
           target,
           e: {
@@ -693,15 +728,52 @@ export class ShapeModel {
         })
       } finally {
         editor.canvas.getScenePoint = originalGetScenePoint
-        editor.canvas._currentTransform = null
+        transform.action = previousAction
+        transform.signX = previousSignX
+        transform.signY = previousSignY
       }
 
-      return helpers.serializeShapeScaleSnapshot(target)
+      target.setCoords()
+      const finalControl = target.oCoords?.[activeCorner]
+      const finalPoint = finalControl && typeof finalControl.x === 'number' && typeof finalControl.y === 'number'
+        ? {
+          x: rect.left + finalControl.x,
+          y: rect.top + finalControl.y
+        }
+        : controlPoint
+
+      return {
+        point: finalPoint,
+        snapshot: helpers.serializeShapeScaleSnapshot(target)
+      }
     }, params)
+
+    expect(result, 'должен существовать live snapshot после mouse:move clamp').not.toBeNull()
+
+    await this._waitForCanvasRender()
+
+    const {
+      point,
+      snapshot
+    } = result as {
+      point: {
+        x: number
+        y: number
+      }
+      snapshot: ShapeScaleSnapshot
+    }
 
     expect(snapshot, 'должен существовать live snapshot после mouse:move clamp').not.toBeNull()
 
-    return snapshot as ShapeScaleSnapshot
+    this.activeScaleInteraction = {
+      point,
+      mode: 'synthetic-mouse-move',
+      corner: params.corner ?? 'br',
+      objectIndex: params.objectIndex,
+      id: params.id
+    }
+
+    return snapshot
   }
 
   /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */
@@ -750,6 +822,7 @@ export class ShapeModel {
     if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
       const {
         point,
+        mode,
         corner,
         objectIndex,
         id
@@ -757,6 +830,7 @@ export class ShapeModel {
       const snapshot = await this.page.evaluate((payload) => {
         const {
           point: interactionPoint,
+          mode: interactionMode,
           corner: controlCorner,
           objectIndex: targetObjectIndex,
           id: targetId
@@ -790,9 +864,16 @@ export class ShapeModel {
           clientY: releasePoint.y
         }))
 
+        if (interactionMode === 'synthetic-mouse-move') {
+          editor.canvas.fire('object:modified', {
+            target
+          })
+        }
+
         return helpers.serializeShapeScaleSnapshot(target)
       }, {
         point,
+        mode,
         corner,
         objectIndex,
         id
@@ -825,6 +906,21 @@ export class ShapeModel {
     expect(snapshot, 'должен существовать snapshot после завершения масштабирования').not.toBeNull()
 
     return snapshot as ShapeScaleSnapshot
+  }
+
+  /** Завершает активное интерактивное масштабирование, если drag-сессия ещё открыта. */
+  async finishScaleIfActive(): Promise<ShapeScaleSnapshot | null> {
+    if (!this.activeScaleInteraction) return null
+
+    const {
+      objectIndex,
+      id
+    } = this.activeScaleInteraction
+
+    return this.finishScale({
+      objectIndex,
+      id
+    })
   }
 
   private async _startScaleInteractionIfNeeded(params: ShapeScaleStepParams): Promise<void> {
@@ -916,6 +1012,7 @@ export class ShapeModel {
         x: number
         y: number
       },
+      mode: 'interactive',
       corner,
       objectIndex,
       id
@@ -1092,6 +1189,30 @@ export class ShapeModel {
       })
 
       return helpers.serializeShapeTextObject(textNode)
+    }, params)
+  }
+
+  /** Обновляет стиль текста внутри фигуры, пока открыт режим редактирования. */
+  async updateTextStyleInEditing(
+    params: { style: ShapeTextStyleParams } & ObjectTargetParams
+  ): Promise<ShapeTextInfo | null> {
+    return this.page.evaluate(({ style, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveTarget(objectIndex, id)
+      const textNode = editor.shapeManager.getTextNode({ target })
+      if (!textNode) return null
+
+      const result = editor.textManager.updateText({
+        target: textNode,
+        style
+      })
+      if (!result) return null
+
+      return helpers.serializeShapeTextObject(result)
     }, params)
   }
 
