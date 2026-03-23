@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite'
 import path from 'path'
-import babel from 'vite-plugin-babel'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
 /**
@@ -16,19 +15,6 @@ export default defineConfig(({ command }) => {
     root: 'src/demo',
 
     plugins: [
-      babel({
-        babelConfig: {
-          babelrc: false,
-          configFile: false,
-          presets: [
-            ['@babel/preset-env', {
-              modules: false,
-              targets: { esmodules: true }
-            }]
-          ]
-        }
-      }),
-
       basicSsl({
         name: 'fabric-image-editor',
         certDir: 'certs',
