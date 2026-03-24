@@ -140,70 +140,101 @@ export const applyShapeTextLayout = ({
 
 /**
  * Возвращает целевую ширину shape для режима shapeTextAutoExpand,
- * измеряя текст на максимально допустимой ширине монтажной области.
+ * измеряя текст на максимально допустимой ширине монтажной области и не позволяя сужаться ниже ручной базовой ширины.
  */
 export const resolveShapeTextAutoExpandWidthForText = ({
   text,
   currentWidth,
+  minimumWidth,
   padding,
   strokeWidth,
   montageAreaWidth
 }: {
   text: ShapeLayoutInput['text']
   currentWidth: number
+  minimumWidth: number
   padding: ShapePadding
   strokeWidth?: number
   montageAreaWidth: number
 }): number => {
   const safeCurrentWidth = Math.max(MIN_TEXT_FRAME_SIZE, currentWidth)
-  if (!hasShapeTextContent({ text })) return safeCurrentWidth
+  const safeMinimumWidth = Math.max(MIN_TEXT_FRAME_SIZE, minimumWidth)
+  if (!hasShapeTextContent({ text })) return safeMinimumWidth
 
   const safeMontageAreaWidth = Number.isFinite(montageAreaWidth) && montageAreaWidth > 0
     ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth)
-    : safeCurrentWidth
+    : Math.max(safeCurrentWidth, safeMinimumWidth)
   const safeStrokeWidth = Math.max(0, strokeWidth ?? 0)
+  const effectiveMaxShapeWidth = Math.max(safeMinimumWidth, safeMontageAreaWidth)
 
-  if (safeStrokeWidth >= safeMontageAreaWidth) {
-    return safeCurrentWidth
+  if (safeStrokeWidth >= effectiveMaxShapeWidth) {
+    return Math.max(safeCurrentWidth, safeMinimumWidth)
   }
 
   const normalizedPadding = normalizePadding({ padding })
-  const maxShapeWidth = safeMontageAreaWidth
+  const maxShapeWidth = effectiveMaxShapeWidth
   const maxFrameWidth = resolveTextFrameWidth({
     width: maxShapeWidth,
     padding: normalizedPadding
   })
-  const explicitLineCount = getExplicitTextboxLineCount({ text })
-  const splitByGrapheme = resolveSplitByGraphemeForFrame({
+  const maxMeasurement = measureTextboxLayoutForFrame({
     text,
     frameWidth: maxFrameWidth
   })
-  const previousState = captureTextboxMeasurementState({ text })
 
-  text.set({
-    autoExpand: false,
-    width: maxFrameWidth,
-    splitByGrapheme
-  })
-  text.initDimensions()
+  if (maxMeasurement.hasWrappedLines) return maxShapeWidth
 
-  const hasWrappedLines = getRenderedTextboxLineCount({ text }) > explicitLineCount
-  const longestLineWidth = getTextboxLongestLineWidth({ text })
-
-  restoreTextboxMeasurementState({
-    text,
-    state: previousState
-  })
-
-  if (hasWrappedLines) return maxShapeWidth
-
-  return Math.min(
+  const requiredFrameWidth = Math.max(
+    MIN_TEXT_FRAME_SIZE,
+    maxMeasurement.longestLineWidth
+  )
+  let nextWidth = Math.min(
     maxShapeWidth,
-    resolveShapeWidthForFrameWidth({
-      frameWidth: longestLineWidth,
+    Math.max(
+      safeMinimumWidth,
+      resolveShapeWidthForFrameWidth({
+        frameWidth: requiredFrameWidth,
+        padding: normalizedPadding
+      })
+    )
+  )
+
+  for (let iteration = 0; iteration < MAX_WIDTH_RESIZE_ITERATIONS; iteration += 1) {
+    const nextFrameWidth = resolveTextFrameWidth({
+      width: nextWidth,
       padding: normalizedPadding
     })
-  )
+    const validation = measureTextboxLayoutForFrame({
+      text,
+      frameWidth: nextFrameWidth
+    })
+    const isWideEnough = nextFrameWidth >= requiredFrameWidth - TEXT_FRAME_FILL_EPSILON
+
+    if (!validation.hasWrappedLines && isWideEnough) {
+      return nextWidth
+    }
+
+    if (nextWidth >= maxShapeWidth - TEXT_FRAME_FILL_EPSILON) {
+      return maxShapeWidth
+    }
+
+    const nextTargetFrameWidth = validation.hasWrappedLines
+      ? Math.max(requiredFrameWidth + 1, nextFrameWidth + 1)
+      : requiredFrameWidth
+
+    nextWidth = Math.min(
+      maxShapeWidth,
+      Math.max(
+        nextWidth + 1,
+        resolveShapeWidthForFrameWidth({
+          frameWidth: nextTargetFrameWidth,
+          padding: normalizedPadding
+        })
+      )
+    )
+  }
+
+  return nextWidth
 }
 
 /**
@@ -535,6 +566,49 @@ function getTextboxHeight({ text }: { text: ShapeLayoutInput['text'] }): number 
   }
 
   return MIN_TEXT_FRAME_SIZE
+}
+
+/**
+ * Измеряет ширину самой длинной строки и факт автопереноса для переданной ширины текстового фрейма.
+ */
+function measureTextboxLayoutForFrame({
+  text,
+  frameWidth
+}: {
+  text: ShapeLayoutInput['text']
+  frameWidth: number
+}): {
+  hasWrappedLines: boolean
+  longestLineWidth: number
+} {
+  const explicitLineCount = getExplicitTextboxLineCount({ text })
+  const splitByGrapheme = resolveSplitByGraphemeForFrame({
+    text,
+    frameWidth
+  })
+  const previousState = captureTextboxMeasurementState({ text })
+
+  text.set({
+    autoExpand: false,
+    width: Math.max(MIN_TEXT_FRAME_SIZE, frameWidth),
+    splitByGrapheme
+  })
+  text.initDimensions()
+
+  const hasWrappedLines = getRenderedTextboxLineCount({ text }) > explicitLineCount
+  const longestLineWidth = Math.ceil(
+    getTextboxLongestLineWidth({ text })
+  )
+
+  restoreTextboxMeasurementState({
+    text,
+    state: previousState
+  })
+
+  return {
+    hasWrappedLines,
+    longestLineWidth
+  }
 }
 
 /**

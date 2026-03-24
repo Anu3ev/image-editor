@@ -200,6 +200,7 @@ export default class ShapeManager {
       layoutWidth = this._resolveAutoExpandShapeWidth({
         text: textNode,
         currentWidth: baseWidth,
+        minimumWidth: baseWidth,
         padding,
         strokeWidth: style.strokeWidth
       })
@@ -416,6 +417,7 @@ export default class ShapeManager {
         layoutWidth = this._resolveAutoExpandShapeWidth({
           text: existingTextNode,
           currentWidth: currentDimensions.width,
+          minimumWidth: manualWidth,
           padding,
           strokeWidth: style.strokeWidth
         })
@@ -1255,25 +1257,34 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает ширину shape для режима shapeTextAutoExpand с учетом ограничений монтажной области.
+   * Возвращает ширину shape для режима shapeTextAutoExpand с учетом ограничений монтажной области и ручной базовой ширины как нижней границы.
    */
   private _resolveAutoExpandShapeWidth({
     text,
     currentWidth,
+    minimumWidth,
     padding,
     strokeWidth
   }: {
     text: ShapeTextNode
     currentWidth: number
+    minimumWidth: number
     padding: ShapePadding
     strokeWidth?: number
   }): number {
     const montageAreaWidth = this._resolveMontageAreaWidth()
-    if (!montageAreaWidth) return Math.max(1, currentWidth)
+    if (!montageAreaWidth) {
+      return Math.max(
+        1,
+        currentWidth,
+        minimumWidth
+      )
+    }
 
     return resolveShapeTextAutoExpandWidthForText({
       text,
       currentWidth,
+      minimumWidth,
       padding,
       strokeWidth,
       montageAreaWidth
@@ -1322,6 +1333,7 @@ export default class ShapeManager {
     alignV?: ShapeVerticalAlign
   }): void {
     const currentDimensions = this._resolveCurrentDimensions({ group })
+    const manualDimensions = this._resolveManualDimensions({ group })
     const padding = this._resolveGroupPadding({ group })
     let resolvedWidth = currentDimensions.width
 
@@ -1331,11 +1343,12 @@ export default class ShapeManager {
       resolvedWidth = this._resolveAutoExpandShapeWidth({
         text,
         currentWidth: currentDimensions.width,
+        minimumWidth: manualDimensions.width,
         padding,
         strokeWidth: group.shapeStrokeWidth
       })
     } else {
-      resolvedWidth = this._resolveManualDimensions({ group }).width
+      resolvedWidth = manualDimensions.width
     }
 
     const resolvedHeight = Math.max(1, height ?? currentDimensions.height)
