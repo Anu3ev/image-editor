@@ -22,6 +22,7 @@ import {
 } from './shape-factory'
 import {
   applyShapeTextLayout,
+  resolveShapeTextAutoExpandWidthForText,
   resolveGroupCenterPoint
 } from './shape-layout'
 import ShapeScalingController from './scaling/shape-scaling'
@@ -48,6 +49,7 @@ import {
   ShapePadding,
   ShapeStrokeOptions,
   ShapeTextAlignOptions,
+  ShapeTextStyleOptions,
   ShapeTextNode,
   ShapeUpdateOptions,
   ShapeVerticalAlign,
@@ -139,6 +141,7 @@ export default class ShapeManager {
     const {
       width: rawWidth,
       height: rawHeight,
+      shapeTextAutoExpand,
       left,
       top,
       text,
@@ -162,8 +165,9 @@ export default class ShapeManager {
       presetKey: effectivePresetKey
     }) ?? basePreset
 
-    const width = Math.max(1, rawWidth ?? effectivePreset.width)
+    const baseWidth = Math.max(1, rawWidth ?? effectivePreset.width)
     const height = Math.max(1, rawHeight ?? effectivePreset.height)
+    const isShapeTextAutoExpandEnabled = shapeTextAutoExpand !== false
 
     const horizontalAlign = this._resolveHorizontalAlign({
       explicitAlign: alignH,
@@ -182,20 +186,31 @@ export default class ShapeManager {
       fallback: null
     })
 
-    const shape = await createShapeNode({
-      preset: effectivePreset,
-      width,
-      height,
-      style,
-      rounding
-    })
-
     const textNode = this._createTextNode({
       text,
       textStyle,
-      width,
+      width: baseWidth,
       align: horizontalAlign,
       opacity: style.opacity
+    })
+
+    let layoutWidth = baseWidth
+
+    if (isShapeTextAutoExpandEnabled && rawWidth === undefined) {
+      layoutWidth = this._resolveAutoExpandShapeWidth({
+        text: textNode,
+        currentWidth: baseWidth,
+        padding,
+        strokeWidth: style.strokeWidth
+      })
+    }
+
+    const shape = await createShapeNode({
+      preset: effectivePreset,
+      width: layoutWidth,
+      height,
+      style,
+      rounding
     })
 
     const group = this._createShapeGroup({
@@ -206,8 +221,10 @@ export default class ShapeManager {
       }),
       shape,
       text: textNode,
-      width,
+      width: layoutWidth,
       height,
+      manualWidth: baseWidth,
+      shapeTextAutoExpand: isShapeTextAutoExpandEnabled,
       alignH: horizontalAlign,
       alignV: verticalAlign,
       padding,
@@ -265,6 +282,7 @@ export default class ShapeManager {
     const {
       width: rawWidth,
       height: rawHeight,
+      shapeTextAutoExpand,
       text,
       textStyle,
       alignH,
@@ -279,8 +297,13 @@ export default class ShapeManager {
       group: currentGroup
     })
 
-    const width = Math.max(1, rawWidth ?? currentDimensions.width)
     const height = Math.max(1, rawHeight ?? currentDimensions.height)
+    const currentShapeTextAutoExpand = this._isShapeTextAutoExpandEnabled({
+      group: currentGroup
+    })
+    const nextShapeTextAutoExpand = shapeTextAutoExpand !== undefined
+      ? shapeTextAutoExpand !== false
+      : currentShapeTextAutoExpand
 
     const effectiveRounding = rounding ?? currentGroup.shapeRounding ?? 0
     const effectivePresetKey = resolvePresetKeyForRounding({
@@ -315,7 +338,20 @@ export default class ShapeManager {
       options,
       fallback: currentGroup
     })
-    const manualWidth = Math.max(1, rawWidth ?? currentGroup.shapeManualBaseWidth ?? width)
+
+    let manualWidth = Math.max(
+      1,
+      currentGroup.shapeManualBaseWidth ?? currentDimensions.width
+    )
+
+    if (rawWidth !== undefined) {
+      manualWidth = Math.max(1, rawWidth)
+    }
+
+    if (rawWidth === undefined && currentShapeTextAutoExpand && !nextShapeTextAutoExpand) {
+      manualWidth = Math.max(1, currentDimensions.width)
+    }
+
     const manualHeight = Math.max(1, rawHeight ?? currentGroup.shapeManualBaseHeight ?? height)
 
     const center = currentGroup.getCenterPoint()
@@ -373,9 +409,24 @@ export default class ShapeManager {
       align: horizontalAlign
     })
 
+    let layoutWidth = Math.max(1, rawWidth ?? currentDimensions.width)
+
+    if (rawWidth === undefined) {
+      if (nextShapeTextAutoExpand) {
+        layoutWidth = this._resolveAutoExpandShapeWidth({
+          text: existingTextNode,
+          currentWidth: currentDimensions.width,
+          padding,
+          strokeWidth: style.strokeWidth
+        })
+      } else {
+        layoutWidth = manualWidth
+      }
+    }
+
     const shape = await createShapeNode({
       preset: effectivePreset,
-      width,
+      width: layoutWidth,
       height,
       style,
       rounding: effectiveRounding
@@ -389,10 +440,11 @@ export default class ShapeManager {
       }),
       shape,
       text: existingTextNode,
-      width,
+      width: layoutWidth,
       height,
       manualWidth,
       manualHeight,
+      shapeTextAutoExpand: nextShapeTextAutoExpand,
       alignH: horizontalAlign,
       alignV: verticalAlign,
       padding,
@@ -627,7 +679,8 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет стиль текста внутри shape-группы и пересчитывает layout композиции.
+   * Обновляет стиль текста внутри shape-группы и пересчитывает layout композиции,
+   * не переключая shape-level режим shapeTextAutoExpand.
    */
   public updateTextStyle({
     target,
@@ -635,7 +688,7 @@ export default class ShapeManager {
     withoutSave
   }: {
     target?: ShapeReference
-    style?: TextStyleOptions
+    style?: ShapeTextStyleOptions
     withoutSave?: boolean
   } = {}): ShapeGroup | null {
     const group = this._resolveShapeGroup({ target })
@@ -675,7 +728,6 @@ export default class ShapeManager {
           x: center.x,
           y: center.y
         },
-        width: manualDimensions.width,
         height: manualDimensions.height,
         alignH
       })
@@ -938,6 +990,7 @@ export default class ShapeManager {
     height,
     manualWidth,
     manualHeight,
+    shapeTextAutoExpand,
     alignH,
     alignV,
     padding,
@@ -953,6 +1006,7 @@ export default class ShapeManager {
     height: number
     manualWidth?: number
     manualHeight?: number
+    shapeTextAutoExpand: boolean
     alignH: ShapeHorizontalAlign
     alignV: ShapeVerticalAlign
     padding: ShapePadding
@@ -968,7 +1022,7 @@ export default class ShapeManager {
       lockScalingFlip: true,
       centeredScaling: false,
       objectCaching: false
-    }) as ShapeGroup
+    }) as ShapeGroupObject & ShapeGroup
 
     const strokeDashArray = style.strokeDashArray
       ? style.strokeDashArray.slice()
@@ -981,6 +1035,7 @@ export default class ShapeManager {
       shapeBaseHeight: height,
       shapeManualBaseWidth: Math.max(1, manualWidth ?? width),
       shapeManualBaseHeight: Math.max(1, manualHeight ?? height),
+      shapeTextAutoExpand,
       shapeAlignHorizontal: alignH,
       shapeAlignVertical: alignV,
       shapePaddingTop: padding.top,
@@ -1030,7 +1085,7 @@ export default class ShapeManager {
     opacity
   }: {
     text?: string
-    textStyle?: TextStyleOptions
+    textStyle?: ShapeTextStyleOptions
     width: number
     align: ShapeHorizontalAlign
     opacity?: number
@@ -1078,13 +1133,13 @@ export default class ShapeManager {
   }: {
     textNode: ShapeTextNode
     text?: string
-    textStyle?: TextStyleOptions
+    textStyle?: ShapeTextStyleOptions
     align?: ShapeHorizontalAlign
   }): void {
     const styleUpdates: TextStyleOptions = {}
 
     if (textStyle) {
-      const keys = Object.keys(textStyle) as Array<keyof TextStyleOptions>
+      const keys = Object.keys(textStyle) as Array<keyof ShapeTextStyleOptions>
 
       for (let index = 0; index < keys.length; index += 1) {
         const key = keys[index]
@@ -1175,6 +1230,57 @@ export default class ShapeManager {
   }
 
   /**
+   * Возвращает true, если у shape-группы включен режим расширения по тексту.
+   */
+  private _isShapeTextAutoExpandEnabled({ group }: { group: ShapeGroupLike }): boolean {
+    return group.shapeTextAutoExpand !== false
+  }
+
+  /**
+   * Возвращает ширину монтажной области в canvas-координатах.
+   */
+  private _resolveMontageAreaWidth(): number | null {
+    const { montageArea } = this.editor
+    if (!montageArea) return null
+
+    montageArea.setCoords()
+    const montageBounds = montageArea.getBoundingRect()
+    const montageWidth = montageBounds.width ?? 0
+
+    if (!Number.isFinite(montageWidth) || montageWidth <= 0) {
+      return null
+    }
+
+    return montageWidth
+  }
+
+  /**
+   * Возвращает ширину shape для режима shapeTextAutoExpand с учетом ограничений монтажной области.
+   */
+  private _resolveAutoExpandShapeWidth({
+    text,
+    currentWidth,
+    padding,
+    strokeWidth
+  }: {
+    text: ShapeTextNode
+    currentWidth: number
+    padding: ShapePadding
+    strokeWidth?: number
+  }): number {
+    const montageAreaWidth = this._resolveMontageAreaWidth()
+    if (!montageAreaWidth) return Math.max(1, currentWidth)
+
+    return resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth,
+      padding,
+      strokeWidth,
+      montageAreaWidth
+    })
+  }
+
+  /**
    * Возвращает актуальное горизонтальное выравнивание текста для shape-группы.
    */
   private _resolveShapeTextHorizontalAlign({
@@ -1182,7 +1288,7 @@ export default class ShapeManager {
     textStyle
   }: {
     group: ShapeGroupLike
-    textStyle?: TextStyleOptions
+    textStyle?: ShapeTextStyleOptions
   }): ShapeHorizontalAlign {
     const align = textStyle?.align
 
@@ -1215,10 +1321,24 @@ export default class ShapeManager {
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
   }): void {
-    const dimensions = this._resolveCurrentDimensions({ group })
-    const resolvedWidth = Math.max(1, width ?? dimensions.width)
-    const resolvedHeight = Math.max(1, height ?? dimensions.height)
+    const currentDimensions = this._resolveCurrentDimensions({ group })
     const padding = this._resolveGroupPadding({ group })
+    let resolvedWidth = currentDimensions.width
+
+    if (width !== undefined) {
+      resolvedWidth = Math.max(1, width)
+    } else if (this._isShapeTextAutoExpandEnabled({ group })) {
+      resolvedWidth = this._resolveAutoExpandShapeWidth({
+        text,
+        currentWidth: currentDimensions.width,
+        padding,
+        strokeWidth: group.shapeStrokeWidth
+      })
+    } else {
+      resolvedWidth = this._resolveManualDimensions({ group }).width
+    }
+
+    const resolvedHeight = Math.max(1, height ?? currentDimensions.height)
     const currentCenter = group.getCenterPoint()
     const stableCenter = center ?? {
       x: currentCenter.x,
@@ -1251,7 +1371,7 @@ export default class ShapeManager {
     textStyle
   }: {
     textNode: ShapeTextNode
-    textStyle?: TextStyleOptions
+    textStyle?: ShapeTextStyleOptions
   }): boolean {
     const { group } = textNode
     if (!isShapeGroup(group)) return false
@@ -1283,7 +1403,6 @@ export default class ShapeManager {
       shape,
       text,
       center,
-      width: manualDimensions.width,
       height: manualDimensions.height,
       alignH
     })
@@ -1322,7 +1441,7 @@ export default class ShapeManager {
     textStyle
   }: {
     explicitAlign?: ShapeHorizontalAlign
-    textStyle?: TextStyleOptions
+    textStyle?: ShapeTextStyleOptions
   }): ShapeHorizontalAlign {
     if (explicitAlign) return explicitAlign
 

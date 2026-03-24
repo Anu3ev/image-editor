@@ -405,6 +405,7 @@ export function installEditorBrowserHelpers(): void {
       ...serializeEditorObject(obj),
       shapeComposite: shapeObject.shapeComposite ?? false,
       shapePresetKey: shapeObject.shapePresetKey ?? '',
+      shapeTextAutoExpand: shapeObject.shapeTextAutoExpand ?? true,
       shapeAlignHorizontal: shapeObject.shapeAlignHorizontal ?? 'center',
       shapeAlignVertical: shapeObject.shapeAlignVertical ?? 'middle',
       shapeFill: shapeObject.shapeFill,

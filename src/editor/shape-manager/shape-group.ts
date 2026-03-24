@@ -124,6 +124,10 @@ export class ShapeGroupObject extends Group {
       shapeComposite: true
     })
 
+    if (this.shapeTextAutoExpand === undefined) {
+      this.shapeTextAutoExpand = true
+    }
+
     this._syncRoundability()
     applyShapeGroupInteractivity({
       group: this as ShapeGroupLike

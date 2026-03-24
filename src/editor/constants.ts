@@ -63,6 +63,7 @@ export const CLIPBOARD_CLONE_OBJECT_KEYS = [
   'shapeBaseHeight',
   'shapeManualBaseWidth',
   'shapeManualBaseHeight',
+  'shapeTextAutoExpand',
   'shapeAlignHorizontal',
   'shapeAlignVertical',
   'shapePaddingTop',

@@ -139,6 +139,74 @@ export const applyShapeTextLayout = ({
 }
 
 /**
+ * Возвращает целевую ширину shape для режима shapeTextAutoExpand,
+ * измеряя текст на максимально допустимой ширине монтажной области.
+ */
+export const resolveShapeTextAutoExpandWidthForText = ({
+  text,
+  currentWidth,
+  padding,
+  strokeWidth,
+  montageAreaWidth
+}: {
+  text: ShapeLayoutInput['text']
+  currentWidth: number
+  padding: ShapePadding
+  strokeWidth?: number
+  montageAreaWidth: number
+}): number => {
+  const safeCurrentWidth = Math.max(MIN_TEXT_FRAME_SIZE, currentWidth)
+  if (!hasShapeTextContent({ text })) return safeCurrentWidth
+
+  const safeMontageAreaWidth = Number.isFinite(montageAreaWidth) && montageAreaWidth > 0
+    ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth)
+    : safeCurrentWidth
+  const safeStrokeWidth = Math.max(0, strokeWidth ?? 0)
+
+  if (safeStrokeWidth >= safeMontageAreaWidth) {
+    return safeCurrentWidth
+  }
+
+  const normalizedPadding = normalizePadding({ padding })
+  const maxShapeWidth = safeMontageAreaWidth
+  const maxFrameWidth = resolveTextFrameWidth({
+    width: maxShapeWidth,
+    padding: normalizedPadding
+  })
+  const explicitLineCount = getExplicitTextboxLineCount({ text })
+  const splitByGrapheme = resolveSplitByGraphemeForFrame({
+    text,
+    frameWidth: maxFrameWidth
+  })
+  const previousState = captureTextboxMeasurementState({ text })
+
+  text.set({
+    autoExpand: false,
+    width: maxFrameWidth,
+    splitByGrapheme
+  })
+  text.initDimensions()
+
+  const hasWrappedLines = getRenderedTextboxLineCount({ text }) > explicitLineCount
+  const longestLineWidth = getTextboxLongestLineWidth({ text })
+
+  restoreTextboxMeasurementState({
+    text,
+    state: previousState
+  })
+
+  if (hasWrappedLines) return maxShapeWidth
+
+  return Math.min(
+    maxShapeWidth,
+    resolveShapeWidthForFrameWidth({
+      frameWidth: longestLineWidth,
+      padding: normalizedPadding
+    })
+  )
+}
+
+/**
  * Возвращает минимальную ширину shape, при которой в текстовом фрейме помещается один символ.
  */
 export const resolveMinimumShapeWidthForText = ({
@@ -634,24 +702,53 @@ function getTextboxLongestLineWidth({
 }: {
   text: ShapeLayoutInput['text']
 }): number {
+  const lineCount = getRenderedTextboxLineCount({ text })
+
+  if (lineCount > 0) {
+    return measureLongestRenderedLineWidth({
+      text,
+      lineCount
+    })
+  }
+
+  const rawText = text.text ?? ''
+  const explicitLineCount = Math.max(rawText.split('\n').length, 1)
+
+  return measureLongestRenderedLineWidth({
+    text,
+    lineCount: explicitLineCount
+  })
+}
+
+/**
+ * Возвращает количество явных строк в исходном тексте до автопереноса.
+ */
+function getExplicitTextboxLineCount({
+  text
+}: {
+  text: ShapeLayoutInput['text']
+}): number {
+  const rawText = text.text ?? ''
+  return Math.max(rawText.split('\n').length, 1)
+}
+
+/**
+ * Возвращает количество реально отрисованных строк textbox.
+ */
+function getRenderedTextboxLineCount({
+  text
+}: {
+  text: ShapeLayoutInput['text']
+}): number {
   const textbox = text as ShapeLayoutInput['text'] & {
     textLines?: string[]
   }
 
-  if (Array.isArray(textbox.textLines) && textbox.textLines.length > 0) {
-    return measureLongestRenderedLineWidth({
-      text,
-      lineCount: textbox.textLines.length
-    })
+  if (Array.isArray(textbox.textLines)) {
+    return textbox.textLines.length
   }
 
-  const rawText = textbox.text ?? ''
-  const lineCount = Math.max(rawText.split('\n').length, 1)
-
-  return measureLongestRenderedLineWidth({
-    text,
-    lineCount
-  })
+  return 0
 }
 
 /**
