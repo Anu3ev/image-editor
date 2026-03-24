@@ -11,13 +11,14 @@ import {
 } from '../../../test-utils/editor-helpers'
 import {
   createMockShapeNode,
-  createMockShapeTextbox,
+  createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
 import {
   enableCanvasFireHandlers,
   installExternalImagePastePendingDefer
 } from '../../../test-utils/clipboard-manager-helpers'
 import ClipboardManager from '../../../../src/editor/clipboard-manager'
+import { CLIPBOARD_CLONE_OBJECT_KEYS } from '../../../../src/editor/constants'
 import { ShapeGroupObject } from '../../../../src/editor/shape-manager/shape-group'
 
 describe('ClipboardManager', () => {
@@ -45,6 +46,10 @@ describe('ClipboardManager', () => {
     it('должен инициализировать ClipboardManager с правильными параметрами', () => {
       expect(clipboardManager.editor).toBe(mockEditor)
       expect(clipboardManager.clipboard).toBeNull()
+    })
+
+    it('список свойств для clipboard cloning включает режим авторасширения текста у фигуры', () => {
+      expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeTextAutoExpand')
     })
   })
 
@@ -826,6 +831,23 @@ describe('ClipboardManager', () => {
   })
 
   describe('копирование текстовых объектов с кастомными свойствами', () => {
+    it('shapeTextAutoExpand корректно копируется во внутренний буфер фигуры', async() => {
+      const shapeGroup = createMockFabricObject({
+        type: 'shape-group',
+        id: 'shape-1',
+        shapeComposite: true,
+        shapeTextAutoExpand: false
+      })
+
+      mockCanvas.getActiveObject.mockReturnValue(shapeGroup)
+
+      clipboardManager.copy()
+      await new Promise(process.nextTick)
+
+      expect(clipboardManager.clipboard).toBeTruthy()
+      expect(clipboardManager.clipboard?.shapeTextAutoExpand).toBe(false)
+    })
+
     describe('textCaseRaw и uppercase при копировании', () => {
       it('textCaseRaw корректно копируется в клон', async() => {
         const textbox = createMockFabricObject({

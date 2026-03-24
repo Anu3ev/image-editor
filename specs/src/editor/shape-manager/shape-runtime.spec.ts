@@ -33,6 +33,8 @@ describe('shape-runtime', () => {
   it('prepareShapeTextNode переводит textbox в базовый неинтерактивный режим', () => {
     const text = createMockShapeTextbox({ text: 'hello' })
 
+    text.autoExpand = true
+
     prepareShapeTextNode({ text })
 
     expect(text.hasBorders).toBe(false)
@@ -40,6 +42,7 @@ describe('shape-runtime', () => {
     expect(text.evented).toBe(false)
     expect(text.selectable).toBe(false)
     expect(text.editable).toBe(true)
+    expect(text.autoExpand).toBe(false)
     expect(text.shapeNodeType).toBe('text')
     expect(text.setCoords).toHaveBeenCalled()
   })

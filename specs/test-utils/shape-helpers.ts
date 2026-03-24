@@ -61,6 +61,12 @@ type MockShapeGroup = Group & {
   shapeScalingNoopTransform?: boolean
 }
 
+type RenderedTextboxLayout = {
+  dynamicMinWidth: number
+  lineWidths: number[]
+  lines: string[]
+}
+
 /**
  * Создаёт минимальный canvas-стаб для shape-тестов.
  */
@@ -211,6 +217,97 @@ function measureTextbox({
 }
 
 /**
+ * Эмулирует перенос строк для shape-textbox в тестах auto-expand helper'а.
+ */
+export function measureRenderedTextboxLayout({
+  text,
+  frameWidth,
+  fontSize,
+  splitByGrapheme
+}: {
+  text: string
+  frameWidth: number
+  fontSize: number
+  splitByGrapheme: boolean
+}): RenderedTextboxLayout {
+  if (!text) {
+    return {
+      dynamicMinWidth: 0,
+      lineWidths: [],
+      lines: []
+    }
+  }
+
+  const charWidth = Math.max(1, fontSize * CHAR_WIDTH_RATIO)
+  const spaceWidth = Math.max(1, fontSize * SPACE_WIDTH_RATIO)
+  const paragraphs = text.split('\n')
+  const lineWidths: number[] = []
+  const lines: string[] = []
+  let dynamicMinWidth = 0
+
+  for (let paragraphIndex = 0; paragraphIndex < paragraphs.length; paragraphIndex += 1) {
+    const paragraph = paragraphs[paragraphIndex]
+
+    if (!paragraph) {
+      lines.push('')
+      lineWidths.push(0)
+      continue
+    }
+
+    if (splitByGrapheme) {
+      const charsPerLine = Math.max(1, Math.floor(frameWidth / charWidth))
+
+      for (let start = 0; start < paragraph.length; start += charsPerLine) {
+        const chunk = paragraph.slice(start, start + charsPerLine)
+        lines.push(chunk)
+        lineWidths.push(chunk.length * charWidth)
+      }
+
+      dynamicMinWidth = Math.max(dynamicMinWidth, charWidth)
+      continue
+    }
+
+    const words = paragraph.split(/\s+/).filter(Boolean)
+
+    if (!words.length) {
+      lines.push('')
+      lineWidths.push(0)
+      continue
+    }
+
+    let currentLine = words[0]
+    let currentWidth = words[0].length * charWidth
+    dynamicMinWidth = Math.max(dynamicMinWidth, currentWidth)
+
+    for (let wordIndex = 1; wordIndex < words.length; wordIndex += 1) {
+      const word = words[wordIndex]
+      const wordWidth = word.length * charWidth
+      dynamicMinWidth = Math.max(dynamicMinWidth, wordWidth)
+
+      if (currentWidth + spaceWidth + wordWidth <= frameWidth) {
+        currentLine += ` ${word}`
+        currentWidth += spaceWidth + wordWidth
+        continue
+      }
+
+      lines.push(currentLine)
+      lineWidths.push(currentWidth)
+      currentLine = word
+      currentWidth = wordWidth
+    }
+
+    lines.push(currentLine)
+    lineWidths.push(currentWidth)
+  }
+
+  return {
+    dynamicMinWidth,
+    lineWidths,
+    lines
+  }
+}
+
+/**
  * Создаёт textbox-узел со стабильным расчётом переносов и высоты.
  */
 export const createMockShapeTextbox = ({
@@ -278,6 +375,53 @@ export const createMockShapeTextbox = ({
 
   textbox.calcTextHeight = jest.fn(() => Number(textbox.height) || 0) as never
   textbox.calcTextWidth = jest.fn(() => Number(textbox.width) || 0) as never
+
+  textbox.initDimensions()
+
+  return textbox
+}
+
+/**
+ * Создаёт textbox с предсказуемым переносом строк для тестов auto-expand helper'а.
+ */
+export function createMeasuredAutoExpandTextbox({
+  text,
+  width,
+  fontSize = 48,
+  lineHeight = 1.16
+}: {
+  text: string
+  width: number
+  fontSize?: number
+  lineHeight?: number
+}): MockShapeTextbox {
+  const textbox = createMockShapeTextbox({
+    text,
+    width,
+    fontSize,
+    lineHeight
+  })
+  let renderedLayout: RenderedTextboxLayout = {
+    dynamicMinWidth: 0,
+    lineWidths: [],
+    lines: []
+  }
+
+  textbox.getLineWidth = jest.fn((lineIndex: number) => renderedLayout.lineWidths[lineIndex] ?? 0) as never
+  textbox.initDimensions = jest.fn(() => {
+    renderedLayout = measureRenderedTextboxLayout({
+      text: textbox.text ?? '',
+      frameWidth: Math.max(1, Number(textbox.width) || 1),
+      fontSize: Number(textbox.fontSize) || fontSize,
+      splitByGrapheme: Boolean(textbox.splitByGrapheme)
+    })
+
+    textbox.dynamicMinWidth = renderedLayout.dynamicMinWidth
+    textbox.textLines = renderedLayout.lines
+    textbox.height = renderedLayout.lines.length > 0
+      ? renderedLayout.lines.length * (Number(textbox.fontSize) || fontSize) * (Number(textbox.lineHeight) || lineHeight)
+      : 0
+  }) as never
 
   textbox.initDimensions()
 
@@ -358,14 +502,20 @@ export const createMockShapeGroup = ({
 }
 
 /**
- * Создаёт редактор-стаб для unit-тестов ShapeManager.
+ * Создаёт редактор-стаб для unit-тестов ShapeManager,
+ * при необходимости сразу добавляя монтажную область для веток auto-expand.
  */
 export const createShapeManagerEditorStub = ({
-  canvas
+  canvas,
+  montageAreaWidth
 }: {
   canvas?: MockCanvas
+  montageAreaWidth?: number
 } = {}) => {
   const resolvedCanvas = canvas ?? createMockCanvas()
+  const resolvedMontageAreaWidth = Number.isFinite(montageAreaWidth)
+    ? Math.max(1, Number(montageAreaWidth))
+    : null
 
   return {
     canvas: resolvedCanvas,
@@ -381,7 +531,15 @@ export const createShapeManagerEditorStub = ({
       suspendHistory: jest.fn(),
       resumeHistory: jest.fn(),
       saveState: jest.fn()
-    }
+    },
+    montageArea: resolvedMontageAreaWidth
+      ? {
+        setCoords: jest.fn(),
+        getBoundingRect: jest.fn(() => ({
+          width: resolvedMontageAreaWidth
+        }))
+      }
+      : undefined
   }
 }
 

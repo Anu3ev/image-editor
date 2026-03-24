@@ -17,7 +17,7 @@ const config: Config.InitialOptions = {
     'json'
   ],
   transform: {
-    '\\.ts$': ['ts-jest', {
+    '\\.[jt]s$': ['ts-jest', {
       diagnostics: false
     }]
   },
