@@ -76,6 +76,8 @@ const replaceShapeMenu = document.getElementById('replace-shape-menu')
 const replaceShapePresetButtons = Array.from(document.querySelectorAll('[data-replace-shape-preset]'))
 /** Input выбора цвета заливки активной фигуры. */
 const shapeFillInput = document.getElementById('shape-fill-color')
+/** Чекбокс режима auto expand для текста внутри shape. */
+const shapeTextAutoExpandCheckbox = document.getElementById('shape-text-auto-expand')
 /** Контейнер палитры быстрых цветов заливки фигуры. */
 const shapeFillPalette = document.getElementById('shape-fill-palette')
 /** Input выбора цвета обводки активной фигуры. */
@@ -277,6 +279,7 @@ export const shapeControls = {
   replaceShapeBtn,
   replaceShapeMenu,
   replaceShapePresetButtons,
+  shapeTextAutoExpandCheckbox,
   shapeFillInput,
   shapeFillPalette,
   shapeStrokeInput,
