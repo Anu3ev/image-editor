@@ -169,6 +169,39 @@ export default class ShapeEditingController {
   }
 
   /**
+   * Возвращает стабильные interactive-флаги shape-группы,
+   * игнорируя временный режим редактирования текста.
+   */
+  public resolveGroupInteractionState({
+    group
+  }: {
+    group: ShapeGroup
+  }): {
+    selectable: boolean
+    evented: boolean
+    lockMovementX: boolean
+    lockMovementY: boolean
+  } {
+    const storedState = this.editingInteractionState.get(group)
+
+    if (storedState) {
+      return {
+        selectable: storedState.groupSelectable,
+        evented: storedState.groupEvented,
+        lockMovementX: storedState.groupLockMovementX,
+        lockMovementY: storedState.groupLockMovementY
+      }
+    }
+
+    return {
+      selectable: group.selectable !== false,
+      evented: group.evented !== false,
+      lockMovementX: Boolean(group.lockMovementX),
+      lockMovementY: Boolean(group.lockMovementY)
+    }
+  }
+
+  /**
    * Фиксирует и временно отключает drag/selection у shape-группы на время редактирования текста.
    */
   private _enterTextEditingInteractionMode({

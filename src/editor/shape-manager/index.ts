@@ -354,25 +354,30 @@ export default class ShapeManager {
     }
 
     const manualHeight = Math.max(1, rawHeight ?? currentGroup.shapeManualBaseHeight ?? height)
+    const interactionState = this.editingController.resolveGroupInteractionState({
+      group: currentGroup
+    })
 
     const center = currentGroup.getCenterPoint()
     const {
       id,
       angle = 0,
       customData,
-      evented = true,
       flipX = false,
       flipY = false,
-      lockMovementX = false,
-      lockMovementY = false,
       lockRotation = false,
       lockScalingX = false,
       lockScalingY = false,
       lockSkewingX = false,
       lockSkewingY = false,
-      locked = false,
-      selectable = true
+      locked = false
     } = currentGroup
+    const {
+      selectable,
+      evented,
+      lockMovementX,
+      lockMovementY
+    } = interactionState
 
     const { text: currentTextNode } = getShapeNodes({
       group: currentGroup
