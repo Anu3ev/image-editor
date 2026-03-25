@@ -1,5 +1,4 @@
 import { util } from 'fabric'
-import TemplateManager from '../../../../src/editor/template-manager'
 import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/shape-group'
 import {
   createMockShapeNode,
@@ -47,6 +46,32 @@ describe('TemplateManager', () => {
     expect(editor.historyManager.suspendHistory).toHaveBeenCalled()
     expect(editor.historyManager.resumeHistory).toHaveBeenCalled()
     expect(editor.historyManager.saveState).toHaveBeenCalled()
+  })
+
+  it('applyTemplate сохраняет shapeTextAutoExpand у материализованной фигуры', async() => {
+    const {
+      manager
+    } = createTemplateManagerTestSetup()
+    const text = createMockShapeTextbox({ text: 'Template text' })
+    const group = new ShapeGroupObject([
+      createMockShapeNode() as never,
+      text
+    ], {
+      left: 100,
+      top: 100,
+      shapePresetKey: 'square',
+      shapeTextAutoExpand: false
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([group])
+
+    const result = await manager.applyTemplate({
+      template: createShapeTemplateDefinition()
+    })
+
+    expect(result).toEqual([group])
+    expect(group.shapeTextAutoExpand).toBe(false)
+    expect(text.autoExpand).toBe(false)
   })
 
   it('applyTemplate применяет background object через backgroundManager отдельно от content objects', async() => {

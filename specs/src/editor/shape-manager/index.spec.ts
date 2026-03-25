@@ -5,7 +5,8 @@ import {
   createShapeNode
 } from '../../../../src/editor/shape-manager/shape-factory'
 import {
-  applyShapeTextLayout
+  applyShapeTextLayout,
+  resolveShapeTextAutoExpandWidthForText
 } from '../../../../src/editor/shape-manager/shape-layout'
 import {
   applyTextStyleToShapeText,
@@ -22,6 +23,13 @@ jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
 
 jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
+  resolveShapeTextAutoExpandWidthForText: jest.fn(({
+    currentWidth,
+    minimumWidth
+  }: {
+    currentWidth: number
+    minimumWidth: number
+  }) => Math.max(currentWidth, minimumWidth)),
   resolveGroupCenterPoint: jest.fn(({
     left,
     top,
@@ -46,10 +54,18 @@ describe('shape-manager', () => {
   const createShapeNodeMock = createShapeNode as jest.Mock
   const applyShapeStyleMock = applyShapeStyle as jest.Mock
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
+  const resolveShapeTextAutoExpandWidthForTextMock = resolveShapeTextAutoExpandWidthForText as jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
     createShapeNodeMock.mockImplementation(async() => createMockShapeNode())
+    resolveShapeTextAutoExpandWidthForTextMock.mockImplementation(({
+      currentWidth,
+      minimumWidth
+    }: {
+      currentWidth: number
+      minimumWidth: number
+    }) => Math.max(currentWidth, minimumWidth))
   })
 
   it('подписывается на canvas-события при создании и снимает подписки при destroy', () => {
@@ -116,6 +132,88 @@ describe('shape-manager', () => {
     expect(editor.historyManager.suspendHistory).toHaveBeenCalledTimes(1)
     expect(editor.historyManager.resumeHistory).toHaveBeenCalledTimes(1)
     expect(editor.historyManager.saveState).toHaveBeenCalledTimes(1)
+  })
+
+  it('при добавлении шейпа режим авторасширения текста включён по умолчанию', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeTextAutoExpand).toBe(true)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      minimumWidth: group.shapeManualBaseWidth,
+      montageAreaWidth: 400
+    }))
+  })
+
+  it('при добавлении шейпа с явной шириной считает её ручной базовой шириной и сразу расширяет объект по тексту', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(280)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        width: 220,
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeTextAutoExpand).toBe(true)
+    expect(group.shapeManualBaseWidth).toBe(220)
+    expect(group.shapeBaseWidth).toBe(280)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 220,
+      minimumWidth: 220,
+      montageAreaWidth: 400
+    }))
+  })
+
+  it('при добавлении шейпа сохраняет выключенный режим авторасширения, если он передан явно', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        shapeTextAutoExpand: false
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeTextAutoExpand).toBe(false)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
   })
 
   it('add с withoutAdding не добавляет объект на canvas и не трогает историю', async() => {
@@ -296,6 +394,87 @@ describe('shape-manager', () => {
     expect(saveStateMock).toHaveBeenCalledTimes(1)
   })
 
+  it('изменение стиля текста не переключает режим авторасширения шейпа', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        shapeTextAutoExpand: false
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+
+    manager.updateTextStyle({
+      target: group,
+      style: {
+        fill: '#ff0000'
+      }
+    })
+
+    expect(group.shapeTextAutoExpand).toBe(false)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
+  })
+
+  it('изменение стиля текста при авторасширении берёт нижнюю границу из ручной базовой ширины', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    group.shapeBaseWidth = 240
+    group.width = 240
+    group.shapeManualBaseWidth = 180
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(220)
+
+    manager.updateTextStyle({
+      target: group,
+      style: {
+        fontSize: 96
+      }
+    })
+
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 240,
+      minimumWidth: 180,
+      montageAreaWidth: 400
+    }))
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 220
+    }))
+  })
+
   it('updateTextStyle с withoutSave не сохраняет history state', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -453,6 +632,227 @@ describe('shape-manager', () => {
 
     const updatedTextNode = updatedGroup?.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
     expect(updatedTextNode).toBe(originalTextNode)
+  })
+
+  it('явное изменение ширины обновляет ручную базовую ширину и сразу пересчитывает текущую ширину по тексту', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const initialWidth = group.shapeBaseWidth
+
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(320)
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        width: 260
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapeTextAutoExpand).toBe(true)
+    expect(updatedGroup?.shapeManualBaseWidth).toBe(260)
+    expect(updatedGroup?.shapeBaseWidth).toBe(320)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: initialWidth,
+      minimumWidth: 260,
+      montageAreaWidth: 400
+    }))
+  })
+
+  it('при выключении авторасширения без явной ширины фиксирует текущую ширину шейпа', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    group.shapeBaseWidth = 260
+    group.width = 260
+    group.shapeManualBaseWidth = 180
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        shapeTextAutoExpand: false
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapeTextAutoExpand).toBe(false)
+    expect(updatedGroup?.shapeManualBaseWidth).toBe(260)
+    expect(updatedGroup?.shapeBaseWidth).toBe(260)
+  })
+
+  it('при повторном включении авторасширения пересчитывает ширину по тексту, но не опускается ниже ручной базы', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        shapeTextAutoExpand: false
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    group.shapeBaseWidth = 220
+    group.width = 220
+    group.shapeManualBaseWidth = 180
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(240)
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        shapeTextAutoExpand: true
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapeTextAutoExpand).toBe(true)
+    expect(updatedGroup?.shapeManualBaseWidth).toBe(180)
+    expect(updatedGroup?.shapeBaseWidth).toBe(240)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 220,
+      minimumWidth: 180,
+      montageAreaWidth: 400
+    }))
+  })
+
+  it('обновление шейпа во время редактирования текста не делает его невыделяемым', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!enteredHandler || !textNode) {
+      throw new Error('shape manager editing handler should be registered')
+    }
+
+    group.selectable = true
+    group.evented = true
+    group.lockMovementX = false
+    group.lockMovementY = false
+
+    enteredHandler({
+      target: textNode
+    })
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        shapeTextAutoExpand: false
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.selectable).toBe(true)
+    expect(updatedGroup?.evented).toBe(true)
+    expect(updatedGroup?.lockMovementX).toBe(false)
+    expect(updatedGroup?.lockMovementY).toBe(false)
+  })
+
+  it('обновление шейпа во время редактирования сохраняет реальные ограничения перемещения и выделения', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!enteredHandler || !textNode) {
+      throw new Error('shape manager editing handler should be registered')
+    }
+
+    group.selectable = false
+    group.evented = false
+    group.lockMovementX = true
+    group.lockMovementY = false
+
+    enteredHandler({
+      target: textNode
+    })
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        shapeTextAutoExpand: false
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.selectable).toBe(false)
+    expect(updatedGroup?.evented).toBe(false)
+    expect(updatedGroup?.lockMovementX).toBe(true)
+    expect(updatedGroup?.lockMovementY).toBe(false)
   })
 
   it('remove удаляет shape-группу и сохраняет history state', async() => {
@@ -701,5 +1101,55 @@ describe('shape-manager', () => {
     expect(applyShapeTextLayoutMock).toHaveBeenCalled()
     expect(group.left).toBe(459)
     expect(group.top).toBe(412)
+  })
+
+  it('при вводе текста не сужает шейп уже ширины, с которой он был добавлен', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const changedHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:changed'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!changedHandler || !textNode) {
+      throw new Error('shape manager change handler should be registered')
+    }
+
+    group.shapeBaseWidth = 260
+    group.width = 260
+    group.shapeManualBaseWidth = 180
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(210)
+
+    changedHandler({
+      target: textNode
+    })
+
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 260,
+      minimumWidth: 180,
+      montageAreaWidth: 400
+    }))
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 210
+    }))
   })
 })

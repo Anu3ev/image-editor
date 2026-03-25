@@ -37,6 +37,7 @@ export const prepareShapeTextNode = ({ text }: { text: ShapeTextNode }): void =>
     evented: false,
     selectable: false,
     editable: true,
+    autoExpand: false,
     shapeNodeType: 'text'
   })
   text.setCoords()

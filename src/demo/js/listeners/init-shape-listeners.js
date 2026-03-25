@@ -33,6 +33,7 @@ import {
  *   type?: string,
  *   group?: ShapeObject | null,
  *   shapeComposite?: unknown,
+ *   shapeTextAutoExpand?: boolean,
  *   shapeFill?: string,
  *   shapeStroke?: string,
  *   shapeStrokeWidth?: number,
@@ -50,6 +51,7 @@ import {
  *   replaceShapeBtn: HTMLButtonElement,
  *   replaceShapeMenu: ShapeMenuElement | null,
  *   replaceShapePresetButtons: ShapeButtonElement[],
+ *   shapeTextAutoExpandCheckbox: HTMLInputElement,
  *   shapeFillInput: ShapeInputElement,
  *   shapeFillPalette: HTMLElement,
  *   shapeStrokeInput: ShapeInputElement,
@@ -75,6 +77,7 @@ export default ({ editorInstance, controls }) => {
     replaceShapeBtn,
     replaceShapeMenu,
     replaceShapePresetButtons,
+    shapeTextAutoExpandCheckbox,
     shapeFillInput,
     shapeFillPalette,
     shapeStrokeInput,
@@ -199,6 +202,7 @@ export default ({ editorInstance, controls }) => {
     }
 
     setShapeControlsEnabled({ enabled: true })
+    shapeTextAutoExpandCheckbox.checked = shapeGroup.shapeTextAutoExpand !== false
 
     const fill = typeof shapeGroup.shapeFill === 'string'
       ? normalizeColor({ color: shapeGroup.shapeFill, fallback: shapeFillInput.value })
@@ -303,6 +307,28 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
+   * Применяет режим shapeTextAutoExpand к активной фигуре.
+   */
+  const applyShapeTextAutoExpand = async({ shapeTextAutoExpand, withoutSave = false }) => {
+    const shapeGroup = getActiveShape()
+    if (!shapeGroup) return
+
+    const updated = await editorInstance.shapeManager.update({
+      target: shapeGroup,
+      options: {
+        shapeTextAutoExpand,
+        withoutSave
+      }
+    })
+    if (!updated) {
+      syncShapeControls(getActiveShape())
+      return
+    }
+
+    syncShapeControls(updated)
+  }
+
+  /**
    * Собирает опции фигуры из текущих контролов.
    */
   const getShapeOptionsFromControls = () => {
@@ -324,7 +350,8 @@ export default ({ editorInstance, controls }) => {
       stroke,
       strokeWidth,
       opacity: opacityPercent / 100,
-      rounding
+      rounding,
+      shapeTextAutoExpand: shapeTextAutoExpandCheckbox.checked
     }
   }
 
@@ -578,6 +605,12 @@ export default ({ editorInstance, controls }) => {
       const rounding = getShapeRoundingFromInput()
       shapeRoundingValue.textContent = `${rounding}px`
       await applyShapeRounding({ rounding })
+    })
+
+    shapeTextAutoExpandCheckbox.addEventListener('change', async() => {
+      await applyShapeTextAutoExpand({
+        shapeTextAutoExpand: shapeTextAutoExpandCheckbox.checked
+      })
     })
   }
 

@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid'
 import type { CanvasFullState } from '../../../../src/editor/history-manager'
+import { OBJECT_SERIALIZATION_PROPS } from '../../../../src/editor/history-manager/constants'
 import { prepareStatesForDiff } from '../../../../src/editor/history-manager/diff-normalization'
 import { createHistoryManagerTestSetup } from '../../../test-utils/editor-helpers'
 import {
@@ -29,6 +30,10 @@ describe('HistoryManager', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     mockNanoid.mockImplementation(() => 'patch-id')
+  })
+
+  it('history serialization включает режим авторасширения текста у фигуры', () => {
+    expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeTextAutoExpand')
   })
 
   describe('constructor и базовые аксессоры', () => {

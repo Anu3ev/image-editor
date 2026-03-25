@@ -78,6 +78,20 @@ type ShapePreviewDimensions = {
   previewHeight: number
 }
 
+type ShapeScalingStartDimensions = {
+  startWidth: number
+  startHeight: number
+  startManualBaseWidth: number
+  startManualBaseHeight: number
+  canScaleWidth: boolean
+  canScaleHeight: boolean
+}
+
+type ShapeScalingManualBaseDimensions = {
+  width: number
+  height: number
+}
+
 type CanvasWithCurrentTransform = Canvas & {
   _currentTransform?: Transform | null
 }
@@ -307,8 +321,8 @@ export default class ShapeScalingController {
     scaleY: number
   }): ShapeScalingConstraintState {
     const {
-      baseHeight,
-      baseWidth,
+      startHeight,
+      startWidth,
       cannotScaleDownAtStart,
       crossedOppositeCorner,
       isProportionalScaling,
@@ -317,8 +331,8 @@ export default class ShapeScalingController {
       startScaleY
     } = state
 
-    const attemptedWidth = Math.max(MIN_SIZE, baseWidth * scaleX)
-    const attemptedHeight = Math.max(MIN_SIZE, baseHeight * scaleY)
+    const attemptedWidth = Math.max(MIN_SIZE, startWidth * scaleX)
+    const attemptedHeight = Math.max(MIN_SIZE, startHeight * scaleY)
     const isShrinkingX = scaleX < lastAllowedScaleX - SCALE_EPSILON
     const isShrinkingY = scaleY < lastAllowedScaleY - SCALE_EPSILON
     const isBelowStartScaleY = scaleY < startScaleY - SCALE_EPSILON
@@ -359,12 +373,12 @@ export default class ShapeScalingController {
 
     let clampedScaleX: number | null = null
     if (!isProportionalScaling && minimumWidth !== null && attemptedWidth < minimumWidth + SCALE_EPSILON) {
-      clampedScaleX = Math.max(MIN_SIZE / baseWidth, minimumWidth / baseWidth)
+      clampedScaleX = Math.max(MIN_SIZE / startWidth, minimumWidth / startWidth)
     }
 
     let clampedScaleY: number | null = null
     if (!isProportionalScaling && minimumHeight !== null && attemptedHeight < minimumHeight + SCALE_EPSILON) {
-      clampedScaleY = Math.max(MIN_SIZE / baseHeight, minimumHeight / baseHeight)
+      clampedScaleY = Math.max(MIN_SIZE / startHeight, minimumHeight / startHeight)
     }
 
     return {
@@ -394,8 +408,12 @@ export default class ShapeScalingController {
     appliedScaleY: number
     minimumHeight?: number | null
   }): ShapePreviewDimensions {
-    const previewWidth = Math.max(MIN_SIZE, state.baseWidth * appliedScaleX)
-    const scaledPreviewHeight = Math.max(MIN_SIZE, state.baseHeight * appliedScaleY)
+    const previewWidth = state.canScaleWidth
+      ? Math.max(MIN_SIZE, state.startWidth * appliedScaleX)
+      : state.startWidth
+    const scaledPreviewHeight = state.canScaleHeight
+      ? Math.max(MIN_SIZE, state.startHeight * appliedScaleY)
+      : state.startManualBaseHeight
     const resolvedMinimumHeight = minimumHeight ?? resolveRequiredShapeHeightForText({
       text,
       width: previewWidth,
@@ -515,7 +533,7 @@ export default class ShapeScalingController {
         text,
         padding
       })
-      const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
+      const minimumScaleX = Math.max(MIN_SIZE / state.startWidth, minimumWidth / state.startWidth)
       if (state.lastAllowedScaleX > minimumScaleX + SCALE_EPSILON) {
         nextScaleX = minimumScaleX
         didClampWidth = true
@@ -531,10 +549,10 @@ export default class ShapeScalingController {
     if (pointerReachedOrPassedOriginY) {
       resolvedMinimumHeight = this._resolveMinimumTextFitHeight({
         text,
-        width: Math.max(MIN_SIZE, state.baseWidth * nextScaleX),
+        width: Math.max(MIN_SIZE, state.startWidth * nextScaleX),
         padding
       })
-      const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, resolvedMinimumHeight / state.baseHeight)
+      const minimumScaleY = Math.max(MIN_SIZE / state.startHeight, resolvedMinimumHeight / state.startHeight)
       if (state.lastAllowedScaleY > minimumScaleY + SCALE_EPSILON) {
         nextScaleY = minimumScaleY
         shouldApplyClamp = true
@@ -643,13 +661,21 @@ export default class ShapeScalingController {
 
     if (!hasScaleChange && !hasScalingState) return
 
-    const baseWidth = state?.baseWidth ?? Math.max(
+    const startWidth = state?.startWidth ?? Math.max(
       MIN_SIZE,
-      group.shapeManualBaseWidth ?? group.shapeBaseWidth ?? group.width ?? MIN_SIZE
+      group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? MIN_SIZE
     )
-    const baseHeight = state?.baseHeight ?? Math.max(
+    const startHeight = state?.startHeight ?? Math.max(
       MIN_SIZE,
-      group.shapeManualBaseHeight ?? group.shapeBaseHeight ?? group.height ?? MIN_SIZE
+      group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
+    )
+    const startManualBaseWidth = state?.startManualBaseWidth ?? Math.max(
+      MIN_SIZE,
+      group.shapeManualBaseWidth ?? startWidth
+    )
+    const startManualBaseHeight = state?.startManualBaseHeight ?? Math.max(
+      MIN_SIZE,
+      group.shapeManualBaseHeight ?? startHeight
     )
     const hasBlockedScaleAttempt = Boolean(state?.blockedScaleAttempt)
 
@@ -686,6 +712,17 @@ export default class ShapeScalingController {
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
     const padding = ShapeScalingController._resolvePadding({ group })
+    const resolvedAxes = event.transform
+      ? resolveShapeScaleActionAxes({
+        transform: event.transform
+      })
+      : null
+    const canScaleWidth = state?.canScaleWidth
+      ?? resolvedAxes?.canScaleWidth
+      ?? (Math.abs(scaleX - 1) > SCALE_EPSILON)
+    const canScaleHeight = state?.canScaleHeight
+      ?? resolvedAxes?.canScaleHeight
+      ?? (Math.abs(scaleY - 1) > SCALE_EPSILON)
     const minimumWidth = resolveMinimumShapeWidthForText({
       text,
       padding
@@ -702,12 +739,12 @@ export default class ShapeScalingController {
       })
 
       if (shouldClampWidthToMinimum) {
-        allowedScaleX = Math.max(MIN_SIZE / baseWidth, minimumWidth / baseWidth)
+        allowedScaleX = Math.max(MIN_SIZE / startWidth, minimumWidth / startWidth)
       }
 
       const minimumHeight = this._resolveMinimumTextFitHeight({
         text,
-        width: Math.max(MIN_SIZE, baseWidth * allowedScaleX),
+        width: Math.max(MIN_SIZE, startWidth * allowedScaleX),
         padding
       })
       const shouldClampHeightToMinimum = this._shouldClampHeightToMinimum({
@@ -718,14 +755,18 @@ export default class ShapeScalingController {
       })
 
       if (shouldClampHeightToMinimum) {
-        allowedScaleY = Math.max(MIN_SIZE / baseHeight, minimumHeight / baseHeight)
+        allowedScaleY = Math.max(MIN_SIZE / startHeight, minimumHeight / startHeight)
       }
     }
 
-    const widthByAllowedScale = Math.max(MIN_SIZE, baseWidth * allowedScaleX)
-    const heightByAllowedScale = Math.max(MIN_SIZE, baseHeight * allowedScaleY)
-    const hasWidthChange = Math.abs(widthByAllowedScale - baseWidth) > SIZE_EPSILON
-    const hasHeightChange = Math.abs(heightByAllowedScale - baseHeight) > SIZE_EPSILON
+    const widthByAllowedScale = canScaleWidth
+      ? Math.max(MIN_SIZE, startWidth * allowedScaleX)
+      : startWidth
+    const heightByAllowedScale = canScaleHeight
+      ? Math.max(MIN_SIZE, startHeight * allowedScaleY)
+      : startManualBaseHeight
+    const hasWidthChange = Math.abs(widthByAllowedScale - startWidth) > SIZE_EPSILON
+    const hasHeightChange = Math.abs(heightByAllowedScale - startHeight) > SIZE_EPSILON
     const hasDimensionChange = hasWidthChange || hasHeightChange
 
     const width = widthByAllowedScale
@@ -737,8 +778,8 @@ export default class ShapeScalingController {
         shape,
         text,
         state,
-        baseWidth,
-        baseHeight,
+        startWidth,
+        startHeight,
         alignH,
         alignV,
         padding
@@ -756,8 +797,17 @@ export default class ShapeScalingController {
       })
     }
 
-    group.shapeManualBaseWidth = width
-    group.shapeManualBaseHeight = height
+    const nextManualBaseDimensions = this._resolveNextManualBaseDimensionsAfterScaling({
+      startManualBaseWidth,
+      startManualBaseHeight,
+      canScaleWidth,
+      canScaleHeight,
+      finalWidth: width,
+      finalHeight: height
+    })
+
+    group.shapeManualBaseWidth = nextManualBaseDimensions.width
+    group.shapeManualBaseHeight = nextManualBaseDimensions.height
 
     const baseRounding = state?.baseRounding ?? Math.max(0, group.shapeRounding ?? 0)
     const roundingScale = Math.min(allowedScaleX, allowedScaleY)
@@ -834,7 +884,7 @@ export default class ShapeScalingController {
     })
     if (!pointerReachedOrPassedOriginX) return false
 
-    const minimumScaleX = Math.max(MIN_SIZE / state.baseWidth, minimumWidth / state.baseWidth)
+    const minimumScaleX = Math.max(MIN_SIZE / state.startWidth, minimumWidth / state.startWidth)
 
     return state.lastAllowedScaleX > minimumScaleX + SCALE_EPSILON
   }
@@ -871,7 +921,7 @@ export default class ShapeScalingController {
     })
     if (!pointerReachedOrPassedOriginY) return false
 
-    const minimumScaleY = Math.max(MIN_SIZE / state.baseHeight, minimumHeight / state.baseHeight)
+    const minimumScaleY = Math.max(MIN_SIZE / state.startHeight, minimumHeight / state.startHeight)
 
     return state.lastAllowedScaleY > minimumScaleY + SCALE_EPSILON
   }
@@ -939,14 +989,10 @@ export default class ShapeScalingController {
     let state = this.scalingState.get(group)
 
     if (!state) {
-      const baseWidth = Math.max(
-        MIN_SIZE,
-        group.shapeManualBaseWidth ?? group.shapeBaseWidth ?? group.width ?? MIN_SIZE
-      )
-      const baseHeight = Math.max(
-        MIN_SIZE,
-        group.shapeManualBaseHeight ?? group.shapeBaseHeight ?? group.height ?? MIN_SIZE
-      )
+      const startDimensions = this._resolveScalingStartDimensions({
+        group,
+        transform
+      })
       const originalScaleX = resolveShapeTransformOriginalNumber({
         transform,
         key: 'scaleX'
@@ -983,15 +1029,19 @@ export default class ShapeScalingController {
       })
       const minimumHeightAtStart = this._resolveMinimumTextFitHeight({
         text,
-        width: baseWidth,
+        width: startDimensions.startWidth,
         padding
       })
 
       state = {
-        baseWidth,
-        baseHeight,
+        startWidth: startDimensions.startWidth,
+        startHeight: startDimensions.startHeight,
+        startManualBaseWidth: startDimensions.startManualBaseWidth,
+        startManualBaseHeight: startDimensions.startManualBaseHeight,
+        canScaleWidth: startDimensions.canScaleWidth,
+        canScaleHeight: startDimensions.canScaleHeight,
         baseRounding: Math.max(0, group.shapeRounding ?? 0),
-        cannotScaleDownAtStart: minimumHeightAtStart >= baseHeight - SCALE_EPSILON,
+        cannotScaleDownAtStart: minimumHeightAtStart >= startDimensions.startHeight - SCALE_EPSILON,
         isProportionalScaling: false,
         blockedScaleAttempt: false,
         startLeft,
@@ -1096,8 +1146,8 @@ export default class ShapeScalingController {
     shape,
     text,
     state,
-    baseWidth,
-    baseHeight,
+    startWidth,
+    startHeight,
     alignH,
     alignV,
     padding
@@ -1106,19 +1156,19 @@ export default class ShapeScalingController {
     shape: ShapeNode
     text: ShapeTextNode
     state: ShapeScalingState
-    baseWidth: number
-    baseHeight: number
+    startWidth: number
+    startHeight: number
     alignH: ShapeGroup['shapeAlignHorizontal']
     alignV: ShapeGroup['shapeAlignVertical']
     padding: ShapePadding
   }): void {
     const layoutWidth = Math.max(
       MIN_SIZE,
-      group.shapeBaseWidth ?? group.width ?? baseWidth
+      group.shapeBaseWidth ?? group.width ?? startWidth
     )
     const layoutHeight = Math.max(
       MIN_SIZE,
-      group.shapeBaseHeight ?? group.height ?? baseHeight
+      group.shapeBaseHeight ?? group.height ?? startHeight
     )
 
     applyShapeTextLayout({
@@ -1164,11 +1214,11 @@ export default class ShapeScalingController {
   }): void {
     const layoutWidth = Math.max(
       MIN_SIZE,
-      group.shapeBaseWidth ?? group.width ?? state.baseWidth
+      group.shapeBaseWidth ?? group.width ?? state.startWidth
     )
     const layoutHeight = Math.max(
       MIN_SIZE,
-      group.shapeBaseHeight ?? group.height ?? state.baseHeight
+      group.shapeBaseHeight ?? group.height ?? state.startHeight
     )
 
     if (shape) {
@@ -1205,5 +1255,82 @@ export default class ShapeScalingController {
       group,
       state
     })
+  }
+
+  /**
+   * Возвращает стартовые размеры drag-сессии: текущий laid-out размер shape и ручные базовые размеры.
+   */
+  private _resolveScalingStartDimensions({
+    group,
+    transform
+  }: {
+    group: ShapeGroup
+    transform?: Transform | null
+  }): ShapeScalingStartDimensions {
+    const {
+      canScaleWidth,
+      canScaleHeight
+    } = resolveShapeScaleActionAxes({
+      transform
+    })
+    const startWidth = Math.max(
+      MIN_SIZE,
+      group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? MIN_SIZE
+    )
+    const startHeight = Math.max(
+      MIN_SIZE,
+      group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
+    )
+    const startManualBaseWidth = Math.max(
+      MIN_SIZE,
+      group.shapeManualBaseWidth ?? startWidth
+    )
+    const startManualBaseHeight = Math.max(
+      MIN_SIZE,
+      group.shapeManualBaseHeight ?? startHeight
+    )
+
+    return {
+      startWidth,
+      startHeight,
+      startManualBaseWidth,
+      startManualBaseHeight,
+      canScaleWidth,
+      canScaleHeight
+    }
+  }
+
+  /**
+   * Возвращает, какие ручные базовые размеры нужно сохранить после завершения скейлинга.
+   */
+  private _resolveNextManualBaseDimensionsAfterScaling({
+    startManualBaseWidth,
+    startManualBaseHeight,
+    canScaleWidth,
+    canScaleHeight,
+    finalWidth,
+    finalHeight
+  }: {
+    startManualBaseWidth: number
+    startManualBaseHeight: number
+    canScaleWidth: boolean
+    canScaleHeight: boolean
+    finalWidth: number
+    finalHeight: number
+  }): ShapeScalingManualBaseDimensions {
+    let nextManualBaseWidth = startManualBaseWidth
+    if (canScaleWidth) {
+      nextManualBaseWidth = finalWidth
+    }
+
+    let nextManualBaseHeight = startManualBaseHeight
+    if (canScaleHeight) {
+      nextManualBaseHeight = finalHeight
+    }
+
+    return {
+      width: nextManualBaseWidth,
+      height: nextManualBaseHeight
+    }
   }
 }

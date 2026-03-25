@@ -5,13 +5,16 @@ import {
   resolveMinimumShapeWidthForText,
   resolveGroupCenterPoint,
   resolveRequiredShapeHeightForText,
+  resolveShapeTextAutoExpandWidthForText,
   resolveShapeTextFrameLayout
 } from '../../../../src/editor/shape-manager/shape-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
 import {
+  createMeasuredAutoExpandTextbox,
   createMockShapeGroup,
   createMockShapeNode,
-  createMockShapeTextbox
+  createMockShapeTextbox,
+  measureRenderedTextboxLayout
 } from '../../../test-utils/shape-helpers'
 
 jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
@@ -289,6 +292,124 @@ describe('shape-layout', () => {
     })
 
     expect(minimumWidth).toBe(1)
+  })
+
+  it('при пустом тексте возвращает ручную базовую ширину', () => {
+    const text = createMeasuredAutoExpandTextbox({
+      text: '',
+      width: 240
+    })
+
+    const nextWidth = resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth: 240,
+      minimumWidth: 180,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      },
+      montageAreaWidth: 400
+    })
+
+    expect(nextWidth).toBe(180)
+  })
+
+  it('не сужает шейп ниже ручной базовой ширины, если текст стал короче', () => {
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST',
+      width: 240
+    })
+
+    const nextWidth = resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth: 240,
+      minimumWidth: 180,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      },
+      montageAreaWidth: 400
+    })
+
+    expect(nextWidth).toBe(180)
+  })
+
+  it('если текст не помещается даже на максимальной ширине, возвращает максимально доступную ширину', () => {
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'SUPERCALIFRAGILISTICEXPIALIDOCIOUS',
+      width: 120
+    })
+
+    const nextWidth = resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth: 120,
+      minimumWidth: 80,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      },
+      montageAreaWidth: 120
+    })
+
+    expect(nextWidth).toBe(120)
+  })
+
+  it('подбирает ширину без временного переноса строки на следующую строку', () => {
+    const padding = {
+      top: 0.2,
+      right: 0.2,
+      bottom: 0.2,
+      left: 0.2
+    }
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST TEST',
+      width: 160
+    })
+
+    const nextWidth = resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth: 160,
+      minimumWidth: 120,
+      padding,
+      montageAreaWidth: 400
+    })
+    const frameWidth = Math.max(1, nextWidth - Math.min(nextWidth * 0.2, 12) - Math.min(nextWidth * 0.2, 12))
+    const validation = measureRenderedTextboxLayout({
+      text: text.text ?? '',
+      frameWidth,
+      fontSize: Number(text.fontSize) || 48,
+      splitByGrapheme: false
+    })
+
+    expect(validation.lines).toHaveLength(1)
+  })
+
+  it('если ручная базовая ширина уже больше монтажной области, не сужает шейп обратно', () => {
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST',
+      width: 240
+    })
+
+    const nextWidth = resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth: 240,
+      minimumWidth: 220,
+      padding: {
+        top: 0.2,
+        right: 0.2,
+        bottom: 0.2,
+        left: 0.2
+      },
+      montageAreaWidth: 160
+    })
+
+    expect(nextWidth).toBe(220)
   })
 
   it('resolveRequiredShapeHeightForText возвращает safeHeight для пустого текста', () => {

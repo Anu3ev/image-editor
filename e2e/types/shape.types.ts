@@ -75,6 +75,7 @@ export interface ShapeAddParams {
     top?: number
     width?: number
     height?: number
+    shapeTextAutoExpand?: boolean
     text?: string
     textStyle?: ShapeTextStyleParams
     fill?: string
@@ -96,6 +97,7 @@ export interface ShapeAddAtBoundsParams {
     top: number
     width: number
     height: number
+    shapeTextAutoExpand?: boolean
     text?: string
     textStyle?: ShapeTextStyleParams
     fill?: string
@@ -121,6 +123,7 @@ export interface ShapeUpdateParams {
   options?: {
     width?: number
     height?: number
+    shapeTextAutoExpand?: boolean
     text?: string
     fill?: string
     stroke?: string | null
@@ -213,6 +216,7 @@ export interface ShapeScaleSnapshot {
 export interface ShapeObjectInfo extends EditorObjectInfo {
   shapeComposite: boolean
   shapePresetKey: string
+  shapeTextAutoExpand?: boolean
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
   shapeFill?: string

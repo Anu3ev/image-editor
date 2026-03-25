@@ -178,12 +178,9 @@ export class TextModel {
       if (!target) return null
 
       editor.canvas.setActiveObject(target)
-      target.isEditing = true
       target.enterEditing()
       target.selectAll()
-      editor.canvas.fire('text:editing:entered', {
-        target
-      })
+      editor.canvas.requestRenderAll()
 
       return helpers.serializeTextObject(target)
     }, params)
@@ -200,10 +197,20 @@ export class TextModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
-      target.set({ text })
-      editor.canvas.fire('text:changed', {
-        target
-      })
+      const { hiddenTextarea } = target
+
+      if (hiddenTextarea instanceof HTMLTextAreaElement) {
+        hiddenTextarea.value = text
+        hiddenTextarea.selectionStart = text.length
+        hiddenTextarea.selectionEnd = text.length
+        hiddenTextarea.dispatchEvent(new Event('input', { bubbles: true }))
+      } else {
+        target.set({ text })
+        editor.canvas.fire('text:changed', {
+          target
+        })
+        editor.canvas.requestRenderAll()
+      }
 
       return helpers.serializeTextObject(target)
     }, params)
@@ -221,10 +228,7 @@ export class TextModel {
       if (!target) return null
 
       target.exitEditing()
-      target.isEditing = false
-      editor.canvas.fire('text:editing:exited', {
-        target
-      })
+      editor.canvas.requestRenderAll()
 
       return helpers.serializeTextObject(target)
     }, params)

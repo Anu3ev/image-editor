@@ -287,6 +287,11 @@ declare module 'fabric' {
     shapeManualBaseHeight?: number;
 
     /**
+     * Режим автоматического расширения ширины текста внутри фигуры.
+     */
+    shapeTextAutoExpand?: boolean;
+
+    /**
      * Горизонтальное выравнивание текста внутри фигуры.
      */
     shapeAlignHorizontal?: 'left' | 'center' | 'right';

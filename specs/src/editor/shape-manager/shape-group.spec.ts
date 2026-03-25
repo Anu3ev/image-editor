@@ -1,7 +1,6 @@
 import { Control, Textbox, classRegistry, util } from 'fabric'
 import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/shape-group'
 import {
-  createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
@@ -37,8 +36,10 @@ describe('shape-group', () => {
     expect(group.interactive).toBe(true)
     expect(group.subTargetCheck).toBe(true)
     expect(group.shapeCanRound).toBe(true)
+    expect(group.shapeTextAutoExpand).toBe(true)
     expect(text.selectable).toBe(false)
     expect(text.evented).toBe(false)
+    expect(text.autoExpand).toBe(false)
   })
 
   it('rehydrateRuntimeState не перезаписывает уже заданный shapeCanRound', () => {
@@ -122,11 +123,38 @@ describe('shape-group', () => {
     jest.spyOn(util, 'enlivenObjectEnlivables').mockResolvedValue({})
 
     const serialized = createSerializedShapeGroup()
-    const { layoutManager: _layoutManager, ...serializedWithoutLayout } = serialized
+    delete (serialized as { layoutManager?: unknown }).layoutManager
 
-    const group = await ShapeGroupObject.fromObject(serializedWithoutLayout)
+    const group = await ShapeGroupObject.fromObject(serialized)
 
     expect(group).toBeInstanceOf(ShapeGroupObject)
     expect(group.layoutManager).toBeInstanceOf(MockLayoutManager)
+  })
+
+  it('fromObject сохраняет выключенный режим авторасширения и приводит textbox к runtime-инварианту', async() => {
+    registerShapeGroup()
+    const textNode = createMockShapeTextbox({ text: 'Shape text' })
+
+    textNode.autoExpand = true
+
+    jest.spyOn(util, 'enlivenObjects')
+      .mockResolvedValue([
+        createMockShapeNode() as never,
+        textNode
+      ])
+    jest.spyOn(util, 'enlivenObjectEnlivables').mockResolvedValue({})
+
+    const serialized = {
+      ...createSerializedShapeGroup(),
+      shapeTextAutoExpand: false
+    }
+
+    const group = await ShapeGroupObject.fromObject(serialized)
+    const restoredTextNode = group.getObjects()[1] as Textbox
+
+    expect(group.shapeTextAutoExpand).toBe(false)
+    expect(restoredTextNode.autoExpand).toBe(false)
+    expect(restoredTextNode.selectable).toBe(false)
+    expect(restoredTextNode.evented).toBe(false)
   })
 })

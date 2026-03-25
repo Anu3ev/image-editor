@@ -33,6 +33,12 @@ export type ShapeVisualStyle = {
   opacity?: number
 }
 
+/**
+ * Публичные текстовые стили shape-группы.
+ * Режим shapeTextAutoExpand управляется только на уровне shape API.
+ */
+export type ShapeTextStyleOptions = Omit<TextStyleOptions, 'autoExpand'>
+
 export type ShapePresetBase = {
   key: string
   type: ShapePresetType
@@ -99,6 +105,7 @@ export type ShapeGroupMetadata = {
   shapeBaseHeight: number
   shapeManualBaseWidth: number
   shapeManualBaseHeight: number
+  shapeTextAutoExpand: boolean
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
   shapePaddingTop: number
@@ -131,8 +138,9 @@ export type ShapeAddOptions = ShapeVisualStyle & ShapeCreationFlags & {
   top?: number
   width?: number
   height?: number
+  shapeTextAutoExpand?: boolean
   text?: string
-  textStyle?: TextStyleOptions
+  textStyle?: ShapeTextStyleOptions
   alignH?: ShapeHorizontalAlign
   alignV?: ShapeVerticalAlign
   rounding?: number
@@ -142,8 +150,9 @@ export type ShapeAddOptions = ShapeVisualStyle & ShapeCreationFlags & {
 export type ShapeUpdateOptions = ShapeVisualStyle & {
   width?: number
   height?: number
+  shapeTextAutoExpand?: boolean
   text?: string
-  textStyle?: TextStyleOptions
+  textStyle?: ShapeTextStyleOptions
   alignH?: ShapeHorizontalAlign
   alignV?: ShapeVerticalAlign
   rounding?: number
@@ -185,8 +194,12 @@ export type ShapeLayoutInput = {
 }
 
 export type ShapeScalingState = {
-  baseWidth: number
-  baseHeight: number
+  startWidth: number
+  startHeight: number
+  startManualBaseWidth: number
+  startManualBaseHeight: number
+  canScaleWidth: boolean
+  canScaleHeight: boolean
   baseRounding: number
   cannotScaleDownAtStart: boolean
   isProportionalScaling: boolean

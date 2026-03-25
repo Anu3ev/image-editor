@@ -38,6 +38,7 @@ export type BrowserSerializableObject = BrowserObject & {
   flipY?: unknown
   shapeComposite?: unknown
   shapePresetKey?: unknown
+  shapeTextAutoExpand?: unknown
   shapeAlignHorizontal?: unknown
   shapeAlignVertical?: unknown
   shapeFill?: unknown
