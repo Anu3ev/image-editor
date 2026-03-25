@@ -57,6 +57,25 @@ describe('shape-scaling', () => {
     isShapeGroupMock.mockImplementation((target: { shapeComposite?: boolean }) => target?.shapeComposite === true)
     resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
     resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => height)
+    applyShapeTextLayoutMock.mockImplementation(({
+      group,
+      width,
+      height
+    }: {
+      group: {
+        width?: number
+        height?: number
+        shapeBaseWidth?: number
+        shapeBaseHeight?: number
+      }
+      width: number
+      height: number
+    }) => {
+      group.width = width
+      group.height = height
+      group.shapeBaseWidth = width
+      group.shapeBaseHeight = height
+    })
   })
 
   it('обрабатывает vertical shrink как noop, если shape уже стоит на minimum height в начале drag', () => {
@@ -776,6 +795,81 @@ describe('shape-scaling', () => {
     expect(group.height).toBe(180)
     expect(group.shapeManualBaseHeight).toBe(80)
     expect(group.shapeScalingNoopTransform).toBe(false)
+  })
+
+  it('при vertical scaling сохраняет текущую ширину, если она уже больше ручной базовой', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.shapeBaseWidth = 209
+    group.shapeBaseHeight = 320
+    group.shapeManualBaseWidth = 200
+    group.shapeManualBaseHeight = 320
+    group.width = 209
+    group.height = 320
+    group.scaleY = 0.8
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    expect(group.width).toBe(209)
+    expect(group.shapeManualBaseWidth).toBe(200)
+  })
+
+  it('при vertical scaling на object:modified не переписывает ручную базовую ширину текущей шириной', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.shapeBaseWidth = 209
+    group.shapeBaseHeight = 320
+    group.shapeManualBaseWidth = 200
+    group.shapeManualBaseHeight = 320
+    group.width = 209
+    group.height = 320
+    group.scaleY = 0.5
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 209,
+      height: 160
+    }))
+    expect(group.shapeManualBaseWidth).toBe(200)
+    expect(group.shapeManualBaseHeight).toBe(160)
+    expect(group.shapeBaseWidth).toBe(209)
   })
 
   it('minimum height для vertical clamp считает от текущей width', () => {
