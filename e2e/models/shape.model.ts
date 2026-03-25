@@ -1310,6 +1310,20 @@ export class ShapeModel {
     return objects[0]
   }
 
+  /** Возвращает shape-объект по id или индексу canvas. */
+  async getObject(params: ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
+    return this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      return helpers.serializeShapeObject(target)
+    }, params)
+  }
+
   /**
    * Проверяет что update вернул корректный результат.
    * Возвращает гарантированно не-null ShapeObjectInfo
