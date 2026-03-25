@@ -127,6 +127,8 @@ export default class ShapeManager {
 
   /**
    * Добавляет shape-композицию (фигура + текст) по presetKey.
+   * При shapeTextAutoExpand=true явная width задаёт ручную базовую ширину,
+   * но текущая ширина может быть больше неё, если этого требует текст.
    */
   public async add({
     presetKey = DEFAULT_SHAPE_PRESET_KEY,
@@ -165,8 +167,8 @@ export default class ShapeManager {
       presetKey: effectivePresetKey
     }) ?? basePreset
 
-    const baseWidth = Math.max(1, rawWidth ?? effectivePreset.width)
-    const height = Math.max(1, rawHeight ?? effectivePreset.height)
+    const manualWidth = Math.max(1, rawWidth ?? effectivePreset.width)
+    const manualHeight = Math.max(1, rawHeight ?? effectivePreset.height)
     const isShapeTextAutoExpandEnabled = shapeTextAutoExpand !== false
 
     const horizontalAlign = this._resolveHorizontalAlign({
@@ -189,27 +191,24 @@ export default class ShapeManager {
     const textNode = this._createTextNode({
       text,
       textStyle,
-      width: baseWidth,
+      width: manualWidth,
       align: horizontalAlign,
       opacity: style.opacity
     })
 
-    let layoutWidth = baseWidth
-
-    if (isShapeTextAutoExpandEnabled && rawWidth === undefined) {
-      layoutWidth = this._resolveAutoExpandShapeWidth({
-        text: textNode,
-        currentWidth: baseWidth,
-        minimumWidth: baseWidth,
-        padding,
-        strokeWidth: style.strokeWidth
-      })
-    }
+    const layoutWidth = this._resolveShapeLayoutWidth({
+      text: textNode,
+      currentWidth: manualWidth,
+      manualWidth,
+      shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
+      padding,
+      strokeWidth: style.strokeWidth
+    })
 
     const shape = await createShapeNode({
       preset: effectivePreset,
       width: layoutWidth,
-      height,
+      height: manualHeight,
       style,
       rounding
     })
@@ -223,8 +222,9 @@ export default class ShapeManager {
       shape,
       text: textNode,
       width: layoutWidth,
-      height,
-      manualWidth: baseWidth,
+      height: manualHeight,
+      manualWidth,
+      manualHeight,
       shapeTextAutoExpand: isShapeTextAutoExpandEnabled,
       alignH: horizontalAlign,
       alignV: verticalAlign,
@@ -263,6 +263,8 @@ export default class ShapeManager {
 
   /**
    * Обновляет пресет фигуры у существующей shape-группы с сохранением текста и трансформаций.
+   * При shapeTextAutoExpand=true явная width обновляет ручную базовую ширину,
+   * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
    */
   public async update({
     target,
@@ -415,21 +417,14 @@ export default class ShapeManager {
       align: horizontalAlign
     })
 
-    let layoutWidth = Math.max(1, rawWidth ?? currentDimensions.width)
-
-    if (rawWidth === undefined) {
-      if (nextShapeTextAutoExpand) {
-        layoutWidth = this._resolveAutoExpandShapeWidth({
-          text: existingTextNode,
-          currentWidth: currentDimensions.width,
-          minimumWidth: manualWidth,
-          padding,
-          strokeWidth: style.strokeWidth
-        })
-      } else {
-        layoutWidth = manualWidth
-      }
-    }
+    const layoutWidth = this._resolveShapeLayoutWidth({
+      text: existingTextNode,
+      currentWidth: currentDimensions.width,
+      manualWidth,
+      shapeTextAutoExpandEnabled: nextShapeTextAutoExpand,
+      padding,
+      strokeWidth: style.strokeWidth
+    })
 
     const shape = await createShapeNode({
       preset: effectivePreset,
@@ -1297,6 +1292,37 @@ export default class ShapeManager {
   }
 
   /**
+   * Возвращает текущую ширину shape-группы из режима shapeTextAutoExpand и ручной базовой ширины.
+   */
+  private _resolveShapeLayoutWidth({
+    text,
+    currentWidth,
+    manualWidth,
+    shapeTextAutoExpandEnabled,
+    padding,
+    strokeWidth
+  }: {
+    text: ShapeTextNode
+    currentWidth: number
+    manualWidth: number
+    shapeTextAutoExpandEnabled: boolean
+    padding: ShapePadding
+    strokeWidth?: number
+  }): number {
+    if (!shapeTextAutoExpandEnabled) {
+      return Math.max(1, manualWidth)
+    }
+
+    return this._resolveAutoExpandShapeWidth({
+      text,
+      currentWidth,
+      minimumWidth: manualWidth,
+      padding,
+      strokeWidth
+    })
+  }
+
+  /**
    * Возвращает актуальное горизонтальное выравнивание текста для shape-группы.
    */
   private _resolveShapeTextHorizontalAlign({
@@ -1344,16 +1370,15 @@ export default class ShapeManager {
 
     if (width !== undefined) {
       resolvedWidth = Math.max(1, width)
-    } else if (this._isShapeTextAutoExpandEnabled({ group })) {
-      resolvedWidth = this._resolveAutoExpandShapeWidth({
+    } else {
+      resolvedWidth = this._resolveShapeLayoutWidth({
         text,
         currentWidth: currentDimensions.width,
-        minimumWidth: manualDimensions.width,
+        manualWidth: manualDimensions.width,
+        shapeTextAutoExpandEnabled: this._isShapeTextAutoExpandEnabled({ group }),
         padding,
         strokeWidth: group.shapeStrokeWidth
       })
-    } else {
-      resolvedWidth = manualDimensions.width
     }
 
     const resolvedHeight = Math.max(1, height ?? currentDimensions.height)

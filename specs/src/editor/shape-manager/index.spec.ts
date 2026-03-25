@@ -160,6 +160,38 @@ describe('shape-manager', () => {
     }))
   })
 
+  it('при добавлении шейпа с явной шириной считает её ручной базовой шириной и сразу расширяет объект по тексту', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(280)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        width: 220,
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeTextAutoExpand).toBe(true)
+    expect(group.shapeManualBaseWidth).toBe(220)
+    expect(group.shapeBaseWidth).toBe(280)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 220,
+      minimumWidth: 220,
+      montageAreaWidth: 400
+    }))
+  })
+
   it('при добавлении шейпа сохраняет выключенный режим авторасширения, если он передан явно', async() => {
     const editor = createShapeManagerEditorStub({
       montageAreaWidth: 400
@@ -602,7 +634,7 @@ describe('shape-manager', () => {
     expect(updatedTextNode).toBe(originalTextNode)
   })
 
-  it('явное изменение ширины обновляет ручную базовую ширину и не перетирается авторасширением', async() => {
+  it('явное изменение ширины обновляет ручную базовую ширину и сразу пересчитывает текущую ширину по тексту', async() => {
     const editor = createShapeManagerEditorStub({
       montageAreaWidth: 400
     })
@@ -620,7 +652,10 @@ describe('shape-manager', () => {
       throw new Error('shape group should be created')
     }
 
+    const initialWidth = group.shapeBaseWidth
+
     resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(320)
 
     const updatedGroup = await manager.update({
       target: group,
@@ -632,8 +667,12 @@ describe('shape-manager', () => {
     expect(updatedGroup).not.toBeNull()
     expect(updatedGroup?.shapeTextAutoExpand).toBe(true)
     expect(updatedGroup?.shapeManualBaseWidth).toBe(260)
-    expect(updatedGroup?.shapeBaseWidth).toBe(260)
-    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
+    expect(updatedGroup?.shapeBaseWidth).toBe(320)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: initialWidth,
+      minimumWidth: 260,
+      montageAreaWidth: 400
+    }))
   })
 
   it('при выключении авторасширения без явной ширины фиксирует текущую ширину шейпа', async() => {

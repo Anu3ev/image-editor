@@ -28,6 +28,41 @@ test.describe('Авторасширение текста внутри фигур
       })
     })
 
+    // eslint-disable-next-line max-len
+    test('если добавить шейп с явно заданной шириной и текстом длиннее этой ширины, то сработает авторасширение, и шейп займёт ширину текста', async({
+      shapes
+    }) => {
+      const createdShape = await test.step('Добавить фигуру с длинным текстом и явной базовой шириной', async() => {
+        return shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+            id: 'shape-auto-expand-on-create',
+            text: SHAPE_AUTO_EXPAND_LONG_TEXT
+          }
+        })
+      })
+
+      shapes.checkCreation({
+        shape: createdShape,
+        presetKey: 'square'
+      })
+
+      const createdText = await test.step('Получить состояние текста сразу после добавления', () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-on-create' })
+      })
+      const createdSnapshot = await test.step('Получить ширину фигуры сразу после добавления', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-on-create' })
+      })
+
+      await test.step('Проверить что фигура сразу расширилась под длинный текст', () => {
+        expect(createdShape?.shapeTextAutoExpand).toBe(true)
+        expect(createdText?.lineCount).toBe(1)
+        expect(createdSnapshot.groupBoundsWidth)
+          .toBeGreaterThan((SHAPE_AUTO_EXPAND_BASE_OPTIONS.width ?? 0) + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      })
+    })
+
     test('при начале ввода текста не сужает фигуру уже ширины, с которой она была добавлена', async({ shapes }) => {
       const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
         return shapes.getScaleSnapshot({ id: 'shape-auto-expand-default' })
@@ -248,6 +283,120 @@ test.describe('Авторасширение текста внутри фигур
     })
   })
 
+  test('при выключении авторасширения уже уложенный текст не перепрыгивает на следующую строку', async({
+    shapes
+  }) => {
+    const createdShape = await test.step('Добавить фигуру с длинным текстом и включённым авторасширением', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+          id: 'shape-auto-expand-turn-off',
+          text: SHAPE_AUTO_EXPAND_LONG_TEXT
+        }
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'square'
+    })
+
+    const initialText = await test.step('Получить состояние текста до выключения режима', () => {
+      return shapes.getTextNode({ id: 'shape-auto-expand-turn-off' })
+    })
+    const initialSnapshot = await test.step('Получить ширину фигуры до выключения режима', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-turn-off' })
+    })
+
+    await test.step('Выключить авторасширение у текущей фигуры', async() => {
+      const updatedShape = await shapes.update({
+        id: 'shape-auto-expand-turn-off',
+        options: {
+          shapeTextAutoExpand: false
+        }
+      })
+
+      expect(updatedShape).not.toBeNull()
+    })
+
+    const updatedShape = await test.step('Получить состояние фигуры после выключения режима', () => {
+      return shapes.getObject({ id: 'shape-auto-expand-turn-off' })
+    })
+    const updatedText = await test.step('Получить состояние текста после выключения режима', () => {
+      return shapes.getTextNode({ id: 'shape-auto-expand-turn-off' })
+    })
+    const updatedSnapshot = await test.step('Получить ширину фигуры после выключения режима', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-turn-off' })
+    })
+
+    await test.step('Проверить что текст и ширина остались прежними', () => {
+      expect(initialText?.lineCount).toBe(1)
+      expect(updatedShape?.shapeTextAutoExpand).toBe(false)
+      expect(updatedText?.lineCount).toBe(1)
+      expect(Math.abs(updatedSnapshot.groupBoundsWidth - initialSnapshot.groupBoundsWidth))
+        .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+    })
+  })
+
+  test('после выключения авторасширения новый текст начинает переноситься вместо расширения фигуры', async({
+    shapes
+  }) => {
+    const createdShape = await test.step('Добавить фигуру с длинным текстом и включённым авторасширением', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+          id: 'shape-auto-expand-stop-growing',
+          text: SHAPE_AUTO_EXPAND_LONG_TEXT
+        }
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'square'
+    })
+
+    await test.step('Выключить авторасширение у текущей фигуры', async() => {
+      const updatedShape = await shapes.update({
+        id: 'shape-auto-expand-stop-growing',
+        options: {
+          shapeTextAutoExpand: false
+        }
+      })
+
+      expect(updatedShape).not.toBeNull()
+    })
+
+    const disabledSnapshot = await test.step('Получить ширину фигуры сразу после выключения режима', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-stop-growing' })
+    })
+
+    await test.step('Открыть редактирование и дописать текст после выключения режима', async() => {
+      await shapes.enterTextEditing({ id: 'shape-auto-expand-stop-growing' })
+      await shapes.updateEditingText({
+        id: 'shape-auto-expand-stop-growing',
+        text: SHAPE_AUTO_EXPAND_VERY_LONG_TEXT
+      })
+    })
+
+    const updatedText = await test.step('Получить состояние текста после нового ввода', () => {
+      return shapes.getTextNode({ id: 'shape-auto-expand-stop-growing' })
+    })
+    const updatedSnapshot = await test.step('Получить ширину фигуры после нового ввода', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-stop-growing' })
+    })
+
+    await test.step('Проверить что фигура больше не расширяется, а текст переносится', () => {
+      expect(updatedText?.lineCount).toBeGreaterThan(1)
+      expect(Math.abs(updatedSnapshot.groupBoundsWidth - disabledSnapshot.groupBoundsWidth))
+        .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      expect(updatedSnapshot.groupBoundsHeight)
+        .toBeGreaterThanOrEqual(disabledSnapshot.groupBoundsHeight)
+    })
+  })
+
   test.describe('когда режим shapeTextAutoExpand выключен явно', () => {
     test.beforeEach(async({ shapes }) => {
       const shape = await shapes.add({
@@ -416,6 +565,13 @@ test.describe('Авторасширение текста внутри фигур
       presetKey: 'square'
     })
 
+    const initialText = await test.step('Получить состояние текста до начала редактирования', () => {
+      return shapes.getTextNode({ id: 'shape-editing-auto-expand' })
+    })
+    const initialSnapshot = await test.step('Получить ширину фигуры до начала редактирования', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-editing-auto-expand' })
+    })
+
     await test.step('Открыть режим редактирования текста', async() => {
       await shapes.enterTextEditing({ id: 'shape-editing-auto-expand' })
     })
@@ -449,6 +605,9 @@ test.describe('Авторасширение текста внутри фигур
     })
 
     await test.step('Проверить что фигура осталась выделяемой', () => {
+      expect(initialText?.lineCount).toBe(1)
+      expect(initialSnapshot.groupBoundsWidth)
+        .toBeGreaterThan((SHAPE_AUTO_EXPAND_BASE_OPTIONS.width ?? 0) + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
       expect(currentShape?.shapeTextAutoExpand).toBe(false)
       expect(currentShape?.selectable).toBe(true)
       expect(activeObject?.type).toBe('shape-group')
