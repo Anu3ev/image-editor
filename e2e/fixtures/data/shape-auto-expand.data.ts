@@ -28,6 +28,20 @@ export const SHAPE_AUTO_EXPAND_LONGER_TEXT = 'TEST TEST TEST'
 /** Очень длинный текст для сценариев с уже расширенной ручной базой. */
 export const SHAPE_AUTO_EXPAND_VERY_LONG_TEXT = 'TEST TEST TEST TEST'
 
+/** Базовая ширина для atomic update-сценариев с явной ручной базой. */
+export const SHAPE_AUTO_EXPAND_ATOMIC_UPDATE_WIDTH = 220
+
+const SHAPE_AUTO_EXPAND_LIMIT_TEXT_FRAGMENT = 'один два три четыре пять шесть семь восемь девять десять '
+
+/** Очень длинный текст, который должен упереться в ширину монтажной области. */
+export const SHAPE_AUTO_EXPAND_LIMIT_TEXT = SHAPE_AUTO_EXPAND_LIMIT_TEXT_FRAGMENT.repeat(10).trim()
+
+/** Уменьшенное разрешение монтажной области для проверки упора в максимальную ширину фигуры. */
+export const SHAPE_AUTO_EXPAND_LIMIT_RESOLUTION = {
+  width: 320,
+  height: 480
+}
+
 /** Последовательность ввода около границы переноса строки. */
 export const SHAPE_AUTO_EXPAND_TYPING_SEQUENCE = [
   'TEST',

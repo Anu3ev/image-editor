@@ -1,6 +1,9 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
+  SHAPE_AUTO_EXPAND_ATOMIC_UPDATE_WIDTH,
   SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+  SHAPE_AUTO_EXPAND_LIMIT_RESOLUTION,
+  SHAPE_AUTO_EXPAND_LIMIT_TEXT,
   SHAPE_AUTO_EXPAND_LONGER_TEXT,
   SHAPE_AUTO_EXPAND_LONG_TEXT,
   SHAPE_AUTO_EXPAND_RESIZE_SCALE_X,
@@ -60,6 +63,42 @@ test.describe('Авторасширение текста внутри фигур
         expect(createdText?.lineCount).toBe(1)
         expect(createdSnapshot.groupBoundsWidth)
           .toBeGreaterThan((SHAPE_AUTO_EXPAND_BASE_OPTIONS.width ?? 0) + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      })
+    })
+
+    test('update с явной шириной и длинным текстом сразу расширяет фигуру, когда авторасширение включено', async({
+      shapes
+    }) => {
+      const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-default' })
+      })
+
+      await test.step('Одним update задать новую базовую ширину и длинный текст', async() => {
+        const updatedShape = await shapes.update({
+          id: 'shape-auto-expand-default',
+          options: {
+            width: SHAPE_AUTO_EXPAND_ATOMIC_UPDATE_WIDTH,
+            text: SHAPE_AUTO_EXPAND_LONG_TEXT,
+            shapeTextAutoExpand: true
+          }
+        })
+
+        expect(updatedShape).not.toBeNull()
+      })
+
+      const updatedText = await test.step('Получить состояние текста после update', () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-default' })
+      })
+      const updatedSnapshot = await test.step('Получить ширину фигуры после update', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-default' })
+      })
+
+      await test.step('Проверить что фигура сразу расширилась под текст без промежуточного переноса', () => {
+        expect(updatedText?.lineCount).toBe(1)
+        expect(updatedSnapshot.groupBoundsWidth)
+          .toBeGreaterThan(SHAPE_AUTO_EXPAND_ATOMIC_UPDATE_WIDTH + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(updatedSnapshot.groupBoundsWidth)
+          .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
       })
     })
 
@@ -283,6 +322,68 @@ test.describe('Авторасширение текста внутри фигур
     })
   })
 
+  test('если текст упирается в ширину монтажной области, фигура остаётся внутри неё, а текст начинает переноситься', async({
+    canvas,
+    editorModel,
+    shapes
+  }) => {
+    await test.step('Уменьшить монтажную область для сценария с ограничением максимальной ширины', async() => {
+      await canvas.setMontageResolution(SHAPE_AUTO_EXPAND_LIMIT_RESOLUTION)
+    })
+
+    const createdShape = await test.step('Добавить фигуру с коротким текстом по центру монтажной области', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'shape-auto-expand-limit',
+          width: 140,
+          height: 180,
+          text: 'Текст',
+          textStyle: {
+            fontSize: 32
+          }
+        }
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'square'
+    })
+
+    const initialSnapshot = await test.step('Получить исходную геометрию фигуры', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-limit' })
+    })
+    const montageBounds = await test.step('Получить границы монтажной области', () => {
+      return editorModel.getMontageAreaBounds()
+    })
+
+    await test.step('Ввести текст, который должен уткнуться в максимальную ширину', async() => {
+      await shapes.enterTextEditing({ id: 'shape-auto-expand-limit' })
+      await shapes.updateEditingText({
+        id: 'shape-auto-expand-limit',
+        text: SHAPE_AUTO_EXPAND_LIMIT_TEXT
+      })
+    })
+
+    const limitedText = await test.step('Получить состояние текста после упора в ширину', () => {
+      return shapes.getTextNode({ id: 'shape-auto-expand-limit' })
+    })
+    const limitedSnapshot = await test.step('Получить геометрию фигуры после упора в ширину', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-limit' })
+    })
+
+    await test.step('Проверить что фигура не вышла за монтажную область и текст начал переноситься', () => {
+      expect(limitedSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      expect(limitedSnapshot.groupBoundsLeft)
+        .toBeGreaterThanOrEqual(montageBounds.left - SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      expect(limitedSnapshot.groupBoundsRight)
+        .toBeLessThanOrEqual(montageBounds.right + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      expect(limitedText?.lineCount).toBeGreaterThan(1)
+    })
+  })
+
   test('при выключении авторасширения уже уложенный текст не перепрыгивает на следующую строку', async({
     shapes
   }) => {
@@ -444,6 +545,44 @@ test.describe('Авторасширение текста внутри фигур
           .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
         expect(wrappedSnapshot.groupBoundsHeight)
           .toBeGreaterThan(initialSnapshot.groupBoundsHeight)
+      })
+    })
+
+    test('update с явной шириной и длинным текстом сразу переносит текст, когда авторасширение выключено', async({
+      shapes
+    }) => {
+      const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-disabled' })
+      })
+
+      await test.step('Одним update задать явную ширину и длинный текст при выключенном авторасширении', async() => {
+        const updatedShape = await shapes.update({
+          id: 'shape-auto-expand-disabled',
+          options: {
+            width: SHAPE_AUTO_EXPAND_ATOMIC_UPDATE_WIDTH,
+            text: SHAPE_AUTO_EXPAND_LONG_TEXT,
+            shapeTextAutoExpand: false
+          }
+        })
+
+        expect(updatedShape).not.toBeNull()
+      })
+
+      const updatedShape = await test.step('Получить состояние фигуры после update', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-disabled' })
+      })
+      const updatedText = await test.step('Получить состояние текста после update', () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-disabled' })
+      })
+      const updatedSnapshot = await test.step('Получить ширину фигуры после update', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-disabled' })
+      })
+
+      await test.step('Проверить что ширина не раздулась, а текст перенёсся сразу', () => {
+        expect(updatedShape?.shapeTextAutoExpand).toBe(false)
+        expect(updatedText?.lineCount).toBeGreaterThan(1)
+        expect(Math.abs(updatedSnapshot.groupBoundsWidth - initialSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
       })
     })
 
@@ -613,6 +752,85 @@ test.describe('Авторасширение текста внутри фигур
       expect(activeObject?.type).toBe('shape-group')
       expect(selectedActiveObject?.type).toBe('shape-group')
       expect(selectedActiveObject?.id).toBe('shape-editing-auto-expand')
+    })
+  })
+
+  test('включение авторасширения во время редактирования текста не ломает выделение фигуры', async({
+    editorModel,
+    shapes
+  }) => {
+    const createdShape = await test.step('Добавить фигуру с выключенным авторасширением и длинным текстом', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+          id: 'shape-editing-enable-auto-expand',
+          text: SHAPE_AUTO_EXPAND_LONG_TEXT,
+          shapeTextAutoExpand: false
+        }
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'square'
+    })
+
+    const wrappedText = await test.step('Получить состояние текста до включения режима', () => {
+      return shapes.getTextNode({ id: 'shape-editing-enable-auto-expand' })
+    })
+    const wrappedSnapshot = await test.step('Получить ширину фигуры до включения режима', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-editing-enable-auto-expand' })
+    })
+
+    await test.step('Открыть режим редактирования текста', async() => {
+      await shapes.enterTextEditing({ id: 'shape-editing-enable-auto-expand' })
+    })
+
+    await test.step('Включить авторасширение у редактируемой фигуры', async() => {
+      const updatedShape = await shapes.update({
+        id: 'shape-editing-enable-auto-expand',
+        options: {
+          shapeTextAutoExpand: true
+        }
+      })
+
+      expect(updatedShape).not.toBeNull()
+    })
+
+    const currentShape = await test.step('Получить состояние фигуры после включения режима', () => {
+      return shapes.getObject({ id: 'shape-editing-enable-auto-expand' })
+    })
+    const currentText = await test.step('Получить состояние текста после включения режима', () => {
+      return shapes.getTextNode({ id: 'shape-editing-enable-auto-expand' })
+    })
+    const currentSnapshot = await test.step('Получить ширину фигуры после включения режима', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-editing-enable-auto-expand' })
+    })
+    const activeObject = await test.step('Получить активный объект после обновления', () => {
+      return editorModel.getActiveObject()
+    })
+
+    await test.step('Снова выбрать фигуру как активную', async() => {
+      const selectedShape = await shapes.select({ id: 'shape-editing-enable-auto-expand' })
+
+      expect(selectedShape).not.toBeNull()
+    })
+
+    const selectedActiveObject = await test.step('Получить активный объект после повторного выбора', () => {
+      return editorModel.getActiveObject()
+    })
+
+    await test.step('Проверить что фигура осталась выделяемой и собрала текст в одну строку', () => {
+      expect(wrappedText?.lineCount).toBeGreaterThan(1)
+      expect(currentShape?.shapeTextAutoExpand).toBe(true)
+      expect(currentShape?.selectable).toBe(true)
+      expect(currentText?.lineCount).toBe(1)
+      expect(currentSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(wrappedSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      expect(activeObject?.type).toBe('shape-group')
+      expect(selectedActiveObject?.type).toBe('shape-group')
+      expect(selectedActiveObject?.id).toBe('shape-editing-enable-auto-expand')
     })
   })
 
@@ -805,6 +1023,80 @@ test.describe('Авторасширение текста внутри фигур
         expect(pastedText?.lineCount).toBeGreaterThan(1)
         expect(Math.abs(pastedSnapshot.groupBoundsWidth - pastedInitialSnapshot.groupBoundsWidth))
           .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      })
+    })
+
+    test('после копирования фигура с уже расширенной шириной не откатывается к базовой при вертикальном сжатии', async({
+      clipboard,
+      editorModel,
+      shapes
+    }) => {
+      const sourceShape = await test.step('Добавить фигуру, которая сразу расширится под текст', async() => {
+        return shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+            id: 'shape-copy-expanded-width-source',
+            text: SHAPE_AUTO_EXPAND_LONG_TEXT
+          }
+        })
+      })
+
+      shapes.checkCreation({
+        shape: sourceShape,
+        presetKey: 'square'
+      })
+
+      await test.step('Скопировать исходную фигуру', async() => {
+        await shapes.select({ id: 'shape-copy-expanded-width-source' })
+        await clipboard.copy()
+        await clipboard.waitForClipboardReady()
+      })
+
+      const pastedShapeId = await test.step('Вставить копию и определить новую фигуру', async() => {
+        const pasted = await clipboard.paste()
+
+        expect(pasted).toBe(true)
+        await editorModel.checkObjectCount({ count: 2 })
+
+        const objects = await shapes.getShapeObjects()
+        const duplicatedShape = objects.find((shape) => shape.id !== 'shape-copy-expanded-width-source')
+
+        expect(duplicatedShape).toBeDefined()
+        expect(duplicatedShape?.id).toBeDefined()
+
+        return duplicatedShape?.id as string
+      })
+
+      const initialText = await test.step('Получить состояние текста во вставленной фигуре', () => {
+        return shapes.getTextNode({ id: pastedShapeId })
+      })
+      const initialSnapshot = await test.step('Получить исходную ширину вставленной фигуры', () => {
+        return shapes.getScaleSnapshot({ id: pastedShapeId })
+      })
+
+      const liveSnapshot = await test.step('Сжать вставленную фигуру по высоте до упора в текст', async() => {
+        return shapes.shrinkToMinimumHeight({ id: pastedShapeId })
+      })
+      const finalSnapshot = await test.step('Зафиксировать итоговое состояние после вертикального сжатия', async() => {
+        await shapes.finishScale({ id: pastedShapeId })
+
+        return shapes.getScaleSnapshot({ id: pastedShapeId })
+      })
+      const finalText = await test.step('Получить состояние текста после вертикального сжатия', () => {
+        return shapes.getTextNode({ id: pastedShapeId })
+      })
+
+      await test.step('Проверить что ширина не откатилась к базовой, а текст остался в одну строку', () => {
+        expect(initialText?.lineCount).toBe(1)
+        expect(initialSnapshot.groupBoundsWidth)
+          .toBeGreaterThan((SHAPE_AUTO_EXPAND_BASE_OPTIONS.width ?? 0) + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(Math.abs(liveSnapshot.groupBoundsWidth - initialSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(Math.abs(finalSnapshot.groupBoundsWidth - initialSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(finalSnapshot.groupBoundsHeight).toBeLessThan(initialSnapshot.groupBoundsHeight)
+        expect(finalText?.lineCount).toBe(1)
       })
     })
 
