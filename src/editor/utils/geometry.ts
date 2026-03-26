@@ -56,122 +56,80 @@ export const normalizeStoredValue = ({
 }
 
 /**
- * Вычисляет центр объекта в нормализованных координатах (0..1), используя сохранённые или фактические позиции.
+ * Возвращает нормализованную placement-точку объекта (0..1).
  */
-export const resolveNormalizedCenter = ({
+export const resolveNormalizedPlacement = ({
   object,
   baseWidth,
   baseHeight,
-  useRelativePositions,
-  centerKeys
+  useRelativePositions
 }: {
   object: FabricObject
   baseWidth: number
   baseHeight: number
   useRelativePositions: boolean
-  centerKeys: { x: string; y: string }
 }): { x: number; y: number } => {
-  const objectRecord = object as Record<string, unknown>
-  const hasStoredCenter = typeof objectRecord[centerKeys.x] === 'number'
-    && typeof objectRecord[centerKeys.y] === 'number'
-
-  if (hasStoredCenter) {
-    return {
-      x: normalizeStoredValue({
-        value: objectRecord[centerKeys.x],
-        dimension: baseWidth,
-        useRelativePositions
-      }),
-      y: normalizeStoredValue({
-        value: objectRecord[centerKeys.y],
-        dimension: baseHeight,
-        useRelativePositions
-      })
-    }
-  }
-
-  const { left, top, width, height } = object
-
-  const normalizedLeft = normalizeStoredValue({
-    value: left,
-    dimension: baseWidth,
-    useRelativePositions
-  })
-  const normalizedTop = normalizeStoredValue({
-    value: top,
-    dimension: baseHeight,
-    useRelativePositions
-  })
-  const normalizedWidth = toNumber({ value: width }) / (baseWidth || 1)
-  const normalizedHeight = toNumber({ value: height }) / (baseHeight || 1)
-
   return {
-    x: normalizedLeft + (normalizedWidth / 2),
-    y: normalizedTop + (normalizedHeight / 2)
+    x: normalizeStoredValue({
+      value: object.left,
+      dimension: baseWidth,
+      useRelativePositions
+    }),
+    y: normalizeStoredValue({
+      value: object.top,
+      dimension: baseHeight,
+      useRelativePositions
+    })
   }
 }
 
 /**
- * Преобразует нормализованный центр (0..1) обратно в абсолютные координаты на полотне.
+ * Преобразует нормализованную placement-точку (0..1) обратно в абсолютные координаты на полотне.
  */
-export const denormalizeCenter = ({
+export const denormalizePlacement = ({
   normalizedX,
   normalizedY,
-  bounds,
-  targetSize,
-  montageArea
+  bounds
 }: {
   normalizedX: number
   normalizedY: number
   bounds: { left: number; top: number; width: number; height: number }
-  targetSize: Dimensions
-  montageArea: FabricObject | null
 }): Point => {
-  const { left, top, width, height } = bounds
+  const {
+    left,
+    top,
+    width,
+    height
+  } = bounds
 
-  if (!montageArea) {
-    const { width: targetWidth, height: targetHeight } = targetSize
-    const x = left + normalizedX * (targetWidth || width)
-    const y = top + normalizedY * (targetHeight || height)
-
-    return new Point(x, y)
-  }
-
-  // КЛЮЧ: денормализуем относительно левого верхнего угла bounds
-  const absoluteX = left + (normalizedX * width)
-  const absoluteY = top + (normalizedY * height)
-
-  return new Point(absoluteX, absoluteY)
+  return new Point(
+    left + (normalizedX * width),
+    top + (normalizedY * height)
+  )
 }
 
 /**
- * Рассчитывает нормализованный центр объекта (0..1) относительно монтажной области.
+ * Рассчитывает нормализованную placement-точку объекта (0..1) относительно bounds.
  */
-export const calculateNormalizedCenter = ({
+export const calculateNormalizedPlacement = ({
   object,
-  montageArea,
   bounds
 }: {
   object: FabricObject
-  montageArea: FabricObject | null
   bounds: { left: number; top: number; width: number; height: number } | null
 }): { x: number; y: number } | null => {
-  if (!montageArea || !bounds) return null
+  if (!bounds) return null
 
   try {
-    const centerPoint = object.getCenterPoint()
+    const originX = object.originX ?? 'center'
+    const originY = object.originY ?? 'center'
+    const placementPoint = object.getPointByOrigin(originX, originY)
 
     const { left, top, width, height } = bounds
 
-    const offsetX = centerPoint.x - left
-    const offsetY = centerPoint.y - top
-
-    const normalizedX = offsetX / width
-    const normalizedY = offsetY / height
-
     return {
-      x: normalizedX,
-      y: normalizedY
+      x: (placementPoint.x - left) / width,
+      y: (placementPoint.y - top) / height
     }
   } catch {
     return null

@@ -176,6 +176,8 @@ export default ({
 
       editorInstance.canvasManager.setResolutionWidth(width, { withoutSave: true })
       editorInstance.canvasManager.setResolutionHeight(height, { withoutSave: true })
+      editorInstance.canvasManager.updateCanvas()
+      editorInstance.zoomManager.calculateAndApplyDefaultZoom()
       editorInstance.historyManager.saveState()
     })
   }

@@ -138,6 +138,15 @@ const textbox = editor.textManager.addText({
   color: '#1f2933'
 })
 
+// Placement uses Fabric semantics: left/top + originX/originY
+editor.textManager.addText({
+  text: 'Pinned to montage top-left',
+  left: 0,
+  top: 0,
+  originX: 'left',
+  originY: 'top'
+})
+
 // Update existing text
 editor.textManager.updateText({
   target: textbox,
@@ -187,6 +196,10 @@ const badge = await editor.shapeManager.add({
   presetKey: 'badge',
   options: {
     id: 'promo-badge',
+    left: 0,
+    top: 0,
+    originX: 'left',
+    originY: 'top',
     width: 220,
     height: 160,
     text: 'SALE',

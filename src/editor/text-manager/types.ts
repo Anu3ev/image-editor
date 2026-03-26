@@ -140,9 +140,3 @@ export type ScalingState = {
   baseRadii: CornerRadiiValues
   hasWidthChange: boolean
 }
-
-export type TextEditingAnchor = {
-  originY: EditorTextbox['originY']
-  x: number
-  y: number
-}

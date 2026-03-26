@@ -3,7 +3,6 @@ import {
   Canvas,
   FabricObject,
   IEvent,
-  Point,
   Textbox,
   TextboxProps,
   Transform,
@@ -11,6 +10,7 @@ import {
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import type { ObjectPlacement } from '../canvas-manager'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
 import {
@@ -51,7 +51,6 @@ import type {
   ScalingState,
   TextUpdatedPayload,
   TextCreationFlags,
-  TextEditingAnchor,
   TextReference,
   TextStyleOptions,
   TextboxSnapshot,
@@ -97,9 +96,9 @@ export default class TextManager {
   private scalingState: WeakMap<EditorTextbox, ScalingState>
 
   /**
-   * Вертикальная опорная точка текстового объекта на момент входа в редактирование.
+   * Placement текстового объекта на момент входа в редактирование.
    */
-  private editingAnchorState?: WeakMap<EditorTextbox, TextEditingAnchor>
+  private editingPlacementState?: WeakMap<EditorTextbox, ObjectPlacement>
 
   /**
    * Хранилище для защиты от повторной синхронизации lineFontDefaults.
@@ -117,7 +116,7 @@ export default class TextManager {
     this.canvas = editor.canvas
     this.fonts = editor.options.fonts ?? []
     this.scalingState = new WeakMap()
-    this.editingAnchorState = new WeakMap()
+    this.editingPlacementState = new WeakMap()
     this.lineDefaultsSyncing = new WeakSet()
     this.isTextEditingActive = false
 
@@ -127,6 +126,8 @@ export default class TextManager {
 
   /**
    * Добавляет новый текстовый объект на канвас.
+   * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
+   * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
    * @param options — настройки текста
    * @param flags — флаги поведения
    */
@@ -226,6 +227,20 @@ export default class TextManager {
 
     if (rest.left === undefined && rest.top === undefined) {
       canvasManager.centerObjectToMontageArea({ object: textbox })
+    } else {
+      const placement = canvasManager.resolveObjectPlacement({
+        object: textbox,
+        left: rest.left,
+        top: rest.top,
+        originX: rest.originX,
+        originY: rest.originY,
+        fallbackPoint: canvasManager.getMontageAreaSceneCenter()
+      })
+
+      canvasManager.applyObjectPlacement({
+        object: textbox,
+        placement
+      })
     }
 
     if (!withoutAdding) {
@@ -272,6 +287,7 @@ export default class TextManager {
    * @param options — настройки обновления
    * @param options.target — объект, его id или активный объект (если не передан)
    * @param options.style — стиль, который нужно применить
+   * `style.left/top/originX/originY` трактуются как placement-контракт объекта в scene coordinates.
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
    * @param options.selectionRange — внешний диапазон выделения для применения стилей
@@ -288,19 +304,15 @@ export default class TextManager {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
 
-    const { text: currentText = '' } = textbox
+    const {
+      text: currentText = ''
+    } = textbox
     const { historyManager } = this.editor
+    const { canvasManager } = this.editor
     const { canvas } = this
     historyManager.suspendHistory()
 
     const beforeState = TextManager._getSnapshot(textbox)
-    const anchorOriginY = textbox.originY ?? 'top'
-    const anchorPoint = textbox.getPointByOrigin('center', anchorOriginY)
-    const anchorSnapshot: TextEditingAnchor = {
-      originY: anchorOriginY,
-      x: anchorPoint.x,
-      y: anchorPoint.y
-    }
 
     const {
       text,
@@ -327,10 +339,21 @@ export default class TextManager {
       radiusTopRight,
       radiusBottomRight,
       radiusBottomLeft,
+      left,
+      top,
+      originX,
+      originY,
       ...rest
     } = style
 
     const updates: Partial<BackgroundTextboxProps> = { ...rest }
+    const placement = canvasManager.resolveObjectPlacement({
+      object: textbox,
+      left,
+      top,
+      originX,
+      originY
+    })
     const selectionRange = selectionRangeOverride !== undefined
       ? clampSelectionRange({
         text: currentText,
@@ -670,7 +693,7 @@ export default class TextManager {
 
     if (shouldAutoExpand) {
       geometryAdjusted = this._autoExpandTextboxWidth(textbox, {
-        anchor: anchorSnapshot
+        placement
       })
       if (geometryAdjusted) {
         textbox.dirty = true
@@ -683,6 +706,13 @@ export default class TextManager {
 
     if (dimensionsRounded) {
       textbox.dirty = true
+    }
+
+    if (!geometryAdjusted) {
+      canvasManager.applyObjectPlacement({
+        object: textbox,
+        placement
+      })
     }
 
     textbox.setCoords()
@@ -801,16 +831,13 @@ export default class TextManager {
     this.isTextEditingActive = true
     const { target } = event
     if (!TextManager._isTextbox(target)) return
-    const { historyManager } = this.editor
+    const {
+      canvasManager,
+      historyManager
+    } = this.editor
     historyManager.beginAction({ reason: 'text-edit' })
-    const originY = target.originY ?? 'top'
-    const originPoint = target.getPointByOrigin('center', originY)
-    const anchorState = this._ensureEditingAnchorState()
-    anchorState.set(target, {
-      originY,
-      x: originPoint.x,
-      y: originPoint.y
-    })
+    const placementState = this._ensureEditingPlacementState()
+    placementState.set(target, canvasManager.getObjectPlacement({ object: target }))
   }
 
   /**
@@ -821,10 +848,12 @@ export default class TextManager {
     if (!TextManager._isTextbox(target)) return
     if (this.lineDefaultsSyncing.has(target)) return
 
+    const { canvasManager } = this.editor
     const { text = '', uppercase, autoExpand } = target
     const isUppercase = Boolean(uppercase)
     const isAutoExpandEnabled = autoExpand !== false
     const normalizedRaw = text.toLocaleLowerCase()
+    const placement = this.editingPlacementState?.get(target) ?? canvasManager.getObjectPlacement({ object: target })
 
     if (isUppercase) {
       const uppercased = toUpperCaseSafe({ value: normalizedRaw })
@@ -845,13 +874,22 @@ export default class TextManager {
     let geometryAdjusted = false
 
     if (isAutoExpandEnabled) {
-      geometryAdjusted = this._autoExpandTextboxWidth(target)
+      geometryAdjusted = this._autoExpandTextboxWidth(target, {
+        placement
+      })
     }
 
     let dimensionsRounded = false
 
     if (!geometryAdjusted) {
       dimensionsRounded = roundTextboxDimensions({ textbox: target })
+    }
+
+    if (!geometryAdjusted) {
+      canvasManager.applyObjectPlacement({
+        object: target,
+        placement
+      })
     }
 
     if (geometryAdjusted || dimensionsRounded) {
@@ -1165,7 +1203,7 @@ export default class TextManager {
    */
   private _autoExpandTextboxWidth(
     textbox: EditorTextbox,
-    { anchor }: { anchor?: TextEditingAnchor } = {}
+    { placement }: { placement?: ObjectPlacement } = {}
   ): boolean {
     const { canvasManager, montageArea } = this.editor
     if (!montageArea) return false
@@ -1179,8 +1217,6 @@ export default class TextManager {
     } = canvasManager.getMontageAreaSceneBounds()
     if (!Number.isFinite(montageWidth) || montageWidth <= 0) return false
 
-    const storedAnchor = anchor ?? this.editingAnchorState?.get(textbox)
-    const anchorOriginY = storedAnchor?.originY ?? textbox.originY ?? 'top'
     const scaleX = Math.abs(textbox.scaleX ?? 1) || 1
     const paddingLeft = textbox.paddingLeft ?? 0
     const paddingRight = textbox.paddingRight ?? 0
@@ -1228,9 +1264,11 @@ export default class TextManager {
       geometryChanged = true
     }
 
-    if (storedAnchor) {
-      textbox.setPositionByOrigin(new Point(storedAnchor.x, storedAnchor.y), 'center', anchorOriginY)
-      geometryChanged = true
+    if (placement) {
+      canvasManager.applyObjectPlacement({
+        object: textbox,
+        placement
+      })
     }
 
     const positionAdjusted = clampTextboxToMontage({
@@ -1248,7 +1286,7 @@ export default class TextManager {
   private _handleTextEditingExited = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
-    this.editingAnchorState?.delete(target)
+    this.editingPlacementState?.delete(target)
 
     // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
     const currentText = target.text ?? ''
@@ -1712,14 +1750,14 @@ export default class TextManager {
   }
 
   /**
-   * Возвращает хранилище якорей редактирования, создавая его при необходимости.
+   * Возвращает хранилище placement-состояния на время редактирования.
    */
-  private _ensureEditingAnchorState(): WeakMap<EditorTextbox, TextEditingAnchor> {
-    if (!this.editingAnchorState) {
-      this.editingAnchorState = new WeakMap()
+  private _ensureEditingPlacementState(): WeakMap<EditorTextbox, ObjectPlacement> {
+    if (!this.editingPlacementState) {
+      this.editingPlacementState = new WeakMap()
     }
 
-    return this.editingAnchorState
+    return this.editingPlacementState
   }
 
   /**

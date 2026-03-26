@@ -10,6 +10,8 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'contentType',
   'width',
   'height',
+  'originX',
+  'originY',
   'locked',
   'editable',
   'evented',

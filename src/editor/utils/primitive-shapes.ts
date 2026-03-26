@@ -39,7 +39,7 @@ function finalizePrimitiveShape<T extends FabricObject>({
     withoutAdding
   } = flags
 
-  if (!left && !top) {
+  if (left === undefined && top === undefined) {
     const resolvedCenterPoint = centerPoint ?? canvas.getCenterPoint()
 
     object.setPositionByOrigin(resolvedCenterPoint, 'center', 'center')

@@ -13,6 +13,10 @@ export type ShapeTransformOriginX = 'left' | 'center' | 'right' | number
 
 export type ShapeTransformOriginY = 'top' | 'center' | 'bottom' | number
 
+export type ShapePlacementOriginX = Group['originX']
+
+export type ShapePlacementOriginY = Group['originY']
+
 export type ShapePoint = {
   x: number
   y: number
@@ -136,6 +140,8 @@ export type ShapeAddOptions = ShapeVisualStyle & ShapeCreationFlags & {
   id?: string
   left?: number
   top?: number
+  originX?: ShapePlacementOriginX
+  originY?: ShapePlacementOriginY
   width?: number
   height?: number
   shapeTextAutoExpand?: boolean
@@ -148,6 +154,10 @@ export type ShapeAddOptions = ShapeVisualStyle & ShapeCreationFlags & {
 }
 
 export type ShapeUpdateOptions = ShapeVisualStyle & {
+  left?: number
+  top?: number
+  originX?: ShapePlacementOriginX
+  originY?: ShapePlacementOriginY
   width?: number
   height?: number
   shapeTextAutoExpand?: boolean

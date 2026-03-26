@@ -36,6 +36,13 @@ type MontageAreaSceneBounds = {
   center: Point
 }
 
+export type ObjectPlacement = {
+  left: number
+  top: number
+  originX: FabricObject['originX']
+  originY: FabricObject['originY']
+}
+
 // Вспомогательные функции для тестирования
 export const clampValue = (value: number, min: number, max: number): number => Math.max(Math.min(value, max), min)
 
@@ -139,6 +146,89 @@ export default class CanvasManager {
       height: montageArea.height,
       center
     }
+  }
+
+  /**
+   * Возвращает текущее placement-состояние объекта в scene coordinates.
+   * В editor-level контракте `left/top + originX/originY` являются source of truth
+   * для позиционирования объекта относительно монтажной области.
+   */
+  public getObjectPlacement({
+    object,
+    originX,
+    originY
+  }: {
+    object: FabricObject
+    originX?: FabricObject['originX']
+    originY?: FabricObject['originY']
+  }): ObjectPlacement {
+    const resolvedOriginX = originX ?? object.originX ?? 'center'
+    const resolvedOriginY = originY ?? object.originY ?? 'center'
+    const point = object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
+
+    return {
+      left: point.x,
+      top: point.y,
+      originX: resolvedOriginX,
+      originY: resolvedOriginY
+    }
+  }
+
+  /**
+   * Собирает целевой placement объекта из explicit `left/top/originX/originY`.
+   * Если координата не передана, используется текущая точка объекта по effective origin
+   * либо переданный fallbackPoint.
+   */
+  public resolveObjectPlacement({
+    object,
+    left,
+    top,
+    originX,
+    originY,
+    fallbackPoint
+  }: {
+    object: FabricObject
+    left?: number
+    top?: number
+    originX?: FabricObject['originX']
+    originY?: FabricObject['originY']
+    fallbackPoint?: Point
+  }): ObjectPlacement {
+    const resolvedOriginX = originX ?? object.originX ?? 'center'
+    const resolvedOriginY = originY ?? object.originY ?? 'center'
+    const basePoint = fallbackPoint ?? object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
+
+    return {
+      left: left ?? basePoint.x,
+      top: top ?? basePoint.y,
+      originX: resolvedOriginX,
+      originY: resolvedOriginY
+    }
+  }
+
+  /**
+   * Применяет placement-контракт к объекту и делает origin частью persisted scene state.
+   */
+  public applyObjectPlacement({
+    object,
+    placement
+  }: {
+    object: FabricObject
+    placement: ObjectPlacement
+  }): void {
+    const {
+      left,
+      top,
+      originX,
+      originY
+    } = placement
+
+    object.set({
+      originX,
+      originY
+    })
+    object.setPositionByOrigin(new Point(left, top), originX, originY)
+    object.setCoords()
   }
 
   /**
