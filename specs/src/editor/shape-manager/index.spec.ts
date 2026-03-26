@@ -134,6 +134,36 @@ describe('shape-manager', () => {
     expect(editor.historyManager.saveState).toHaveBeenCalledTimes(1)
   })
 
+  it('ставит шейп в переданную точку и не тянет его в центр', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        left: 320,
+        top: 280,
+        originX: 'right',
+        originY: 'bottom'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const anchor = group.getPointByOrigin('right', 'bottom')
+
+    expect(group.originX).toBe('right')
+    expect(group.originY).toBe('bottom')
+    expect(anchor.x).toBe(320)
+    expect(anchor.y).toBe(280)
+    expect(editor.canvasManager.centerObjectToMontageArea).not.toHaveBeenCalled()
+  })
+
   it('при добавлении шейпа режим авторасширения текста включён по умолчанию', async() => {
     const editor = createShapeManagerEditorStub({
       montageAreaWidth: 400
@@ -632,6 +662,47 @@ describe('shape-manager', () => {
 
     const updatedTextNode = updatedGroup?.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
     expect(updatedTextNode).toBe(originalTextNode)
+  })
+
+  it('после обновления шейп остаётся на той же точке позиционирования', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        width: 180,
+        left: 320,
+        top: 280,
+        originX: 'right',
+        originY: 'bottom'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const anchorBefore = group.getPointByOrigin('right', 'bottom')
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        width: 260
+      }
+    })
+
+    if (!updatedGroup) {
+      throw new Error('shape group should be updated')
+    }
+
+    const anchorAfter = updatedGroup.getPointByOrigin('right', 'bottom')
+
+    expect(updatedGroup.originX).toBe('right')
+    expect(updatedGroup.originY).toBe('bottom')
+    expect(anchorAfter.x).toBe(anchorBefore.x)
+    expect(anchorAfter.y).toBe(anchorBefore.y)
   })
 
   it('явное изменение ширины обновляет ручную базовую ширину и сразу пересчитывает текущую ширину по тексту', async() => {

@@ -183,6 +183,14 @@ describe('CanvasManager', () => {
       }))
     })
 
+    it('пересчитывает defaultZoom после изменения ширины монтажной области', () => {
+      jest.clearAllMocks()
+
+      canvasManager.setResolutionWidth(500)
+
+      expect(mockEditor.zoomManager.calculateAndApplyDefaultZoom).toHaveBeenCalledTimes(1)
+    })
+
     it('ограничивает ширину минимальным значением', () => {
       canvasManager.setResolutionWidth(10) // меньше CANVAS_MIN_WIDTH
 
@@ -239,6 +247,14 @@ describe('CanvasManager', () => {
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:resolution-height-changed', expect.objectContaining({
         height: 400
       }))
+    })
+
+    it('пересчитывает defaultZoom после изменения высоты монтажной области', () => {
+      jest.clearAllMocks()
+
+      canvasManager.setResolutionHeight(400)
+
+      expect(mockEditor.zoomManager.calculateAndApplyDefaultZoom).toHaveBeenCalledTimes(1)
     })
 
     it('сохраняет пропорции при установке preserveProportional', () => {

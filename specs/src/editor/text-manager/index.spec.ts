@@ -704,6 +704,35 @@ describe('TextManager', () => {
       lineWidthSpy.mockRestore()
     })
 
+    it('updateText сохраняет правый нижний угол при изменении ширины', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120,
+        left: 260,
+        top: 180,
+        originX: 'right',
+        originY: 'bottom'
+      })
+      const anchorBefore = textbox.getPointByOrigin('right', 'bottom')
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
+
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'Longer text' },
+        withoutSave: true
+      })
+
+      const anchorAfter = textbox.getPointByOrigin('right', 'bottom')
+
+      expect(textbox.width).toBe(260)
+      expect(anchorAfter.x).toBe(anchorBefore.x)
+      expect(anchorAfter.y).toBe(anchorBefore.y)
+
+      lineWidthSpy.mockRestore()
+    })
+
     it('updateText уменьшает ширину при сокращении текста', () => {
       const { textManager } = createTextManagerTestSetup()
 
@@ -805,6 +834,33 @@ describe('TextManager', () => {
 
       expect(textbox.width).toBe(240)
       expect(textbox.top).toBe(70)
+
+      lineWidthSpy.mockRestore()
+    })
+
+    it('text:changed сохраняет правый нижний угол при редактировании', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 100,
+        left: 260,
+        top: 180,
+        originX: 'right',
+        originY: 'bottom'
+      })
+      const anchorBefore = textbox.getPointByOrigin('right', 'bottom')
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(240)
+
+      canvas.fire('text:editing:entered', { target: textbox })
+      textbox.text = 'Longer text'
+      canvas.fire('text:changed', { target: textbox })
+
+      const anchorAfter = textbox.getPointByOrigin('right', 'bottom')
+
+      expect(textbox.width).toBe(240)
+      expect(anchorAfter.x).toBe(anchorBefore.x)
+      expect(anchorAfter.y).toBe(anchorBefore.y)
 
       lineWidthSpy.mockRestore()
     })
