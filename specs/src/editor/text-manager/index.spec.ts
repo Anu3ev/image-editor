@@ -4,8 +4,14 @@ import {
   createTemplateLikeTextbox,
   createTextManagerTestSetup
 } from '../../../test-utils/editor-helpers'
+import {
+  createMockShapeGroup,
+  createMockShapeNode,
+  createMockShapeTextbox
+} from '../../../test-utils/shape-helpers'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../../../../src/editor/constants'
+import * as textGeometry from '../../../../src/editor/text-manager/geometry'
 
 jest.mock('nanoid')
 
@@ -71,6 +77,27 @@ describe('TextManager', () => {
       const textbox = textManager.addText({ text: 'Без авто', autoExpand: false })
 
       expect(textbox.autoExpand).toBe(false)
+    })
+
+    it('сразу расширяет длинный текст при создании, если переносы появились уже на create-path', () => {
+      const { textManager } = createTextManagerTestSetup()
+      const roundDimensionsSpy = jest.spyOn(textGeometry, 'roundTextboxDimensions').mockImplementation(({ textbox }) => {
+        textbox.textLines = ['Привет,', 'Fabric!']
+        return false
+      })
+      const getLineWidthSpy = jest.spyOn(BackgroundTextbox.prototype, 'getLineWidth').mockReturnValue(240)
+
+      try {
+        const textbox = textManager.addText({
+          text: 'Привет, Fabric!',
+          width: 120
+        })
+
+        expect(textbox.width).toBe(240)
+      } finally {
+        roundDimensionsSpy.mockRestore()
+        getLineWidthSpy.mockRestore()
+      }
     })
   })
 
@@ -1310,6 +1337,145 @@ describe('TextManager', () => {
         expect(textbox.scaleX).toBe(1)
         expect(textbox.scaleY).toBe(1)
       })
+    })
+  })
+
+  describe('масштабирование текстового объекта', () => {
+    it('после ручного сужения не расширяет текст обратно при скейлинге по вертикали', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Привет, Fabric Fabric!',
+        width: 240
+      })
+
+      textbox.set({
+        width: 120,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
+      })
+
+      textbox.set({
+        scaleX: 1,
+        scaleY: 1.5
+      })
+
+      canvas.fire('object:scaling', {
+        target: textbox,
+        transform: {
+          corner: 'mb',
+          action: 'scaleY',
+          originX: 'left',
+          originY: 'top',
+          scaleX: 1,
+          scaleY: 1.5,
+          original: {
+            width: 120,
+            height: textbox.height,
+            left: textbox.left,
+            top: textbox.top,
+            scaleX: 1,
+            scaleY: 1
+          }
+        }
+      })
+
+      canvas.fire('object:modified', { target: textbox })
+
+      expect(textbox.autoExpand).toBe(false)
+      expect(textbox.width).toBe(120)
+      expect(textbox.fontSize).toBe(72)
+    })
+
+    it('после ручного сужения сохраняет новую ширину при скейлинге по диагонали', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Привет, Fabric Fabric!',
+        width: 240
+      })
+
+      textbox.set({
+        width: 120,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
+      })
+
+      textbox.set({
+        scaleX: 1.5,
+        scaleY: 1.5
+      })
+
+      canvas.fire('object:scaling', {
+        target: textbox,
+        transform: {
+          corner: 'br',
+          action: 'scale',
+          originX: 'left',
+          originY: 'top',
+          scaleX: 1.5,
+          scaleY: 1.5,
+          original: {
+            width: 120,
+            height: textbox.height,
+            left: textbox.left,
+            top: textbox.top,
+            scaleX: 1,
+            scaleY: 1
+          }
+        }
+      })
+
+      canvas.fire('object:modified', { target: textbox })
+
+      expect(textbox.autoExpand).toBe(false)
+      expect(textbox.width).toBe(180)
+      expect(textbox.fontSize).toBe(72)
+    })
+
+    it('не включает standalone авторасширение у текста внутри фигуры', () => {
+      const { canvas, editor } = createTextManagerTestSetup()
+      const shape = createMockShapeNode()
+      const text = createMockShapeTextbox({
+        text: 'Short',
+        width: 120
+      })
+
+      createMockShapeGroup({
+        shape,
+        text
+      })
+
+      text.autoExpand = true
+      text.text = 'Longer text'
+      text.getLineWidth = jest.fn(() => 240) as never
+
+      canvas.fire('text:changed', {
+        target: text
+      })
+
+      expect(text.width).toBe(120)
+      expect(editor.canvasManager.applyObjectPlacement).not.toHaveBeenCalled()
     })
   })
 

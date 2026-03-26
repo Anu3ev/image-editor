@@ -169,6 +169,33 @@ describe('Listeners', () => {
       await listeners.handleUndoRedoEvent(eRedo)
       expect(editor.historyManager.redo).toHaveBeenCalled()
     })
+
+    it('не делает undo и redo когда редактор заблокирован', async() => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { undoRedoByHotKeys: true } })
+
+      editor.interactionBlocker.isBlocked = true
+      listeners.isUndoRedoKeyPressed = true
+
+      const undoPreventDefault = jest.fn()
+      const undoEvent = keyDown({ ctrlKey: true, metaKey: false, code: 'KeyZ', repeat: false })
+      Object.defineProperty(undoEvent, 'preventDefault', { value: undoPreventDefault })
+
+      await listeners.handleUndoRedoEvent(undoEvent)
+
+      expect(undoPreventDefault).toHaveBeenCalled()
+      expect(listeners.isUndoRedoKeyPressed).toBe(false)
+      expect(editor.historyManager.undo).not.toHaveBeenCalled()
+
+      const redoPreventDefault = jest.fn()
+      const redoEvent = keyDown({ ctrlKey: true, metaKey: false, code: 'KeyY', repeat: false })
+      Object.defineProperty(redoEvent, 'preventDefault', { value: redoPreventDefault })
+
+      await listeners.handleUndoRedoEvent(redoEvent)
+
+      expect(redoPreventDefault).toHaveBeenCalled()
+      expect(editor.historyManager.redo).not.toHaveBeenCalled()
+    })
   })
 
   describe('space & drag', () => {

@@ -14,6 +14,7 @@ import type { Bounds, SpacingPattern } from '../../../../src/editor/snapping-man
 import { resolveDisplayDistance } from '../../../../src/editor/utils/distance'
 import { getObjectBounds } from '../../../../src/editor/utils/geometry'
 import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/editor-helpers'
+import { createMockFabricImage } from '../../../test-utils/image-manager-helpers'
 
 type OriginX = 'left' | 'center' | 'right'
 type OriginY = 'top' | 'center' | 'bottom'
@@ -885,6 +886,49 @@ describe('SnappingManager', () => {
   })
 
   describe('pixel-snap масштабирования', () => {
+    it('не округляет масштаб изображения при скейлинге', () => {
+      const { editor, objects } = createSnappingTestContext()
+      const active = createMockFabricImage({ width: 100, height: 100 }) as any
+
+      active.left = 100
+      active.top = 100
+      active.scaleX = 0.337
+      active.scaleY = 1
+      active.originX = 'left'
+      active.originY = 'top'
+      active.strokeWidth = 0
+      active.strokeUniform = true
+      active.visible = true
+      active.set = jest.fn((props: Record<string, unknown>) => {
+        Object.assign(active, props)
+      })
+      active.setCoords = jest.fn()
+      active.getBoundingRect = jest.fn(() => ({
+        left: active.left,
+        top: active.top,
+        width: (active.width ?? 0) * (active.scaleX ?? 1),
+        height: (active.height ?? 0) * (active.scaleY ?? 1)
+      }))
+      objects.push(active)
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState.anchors = { vertical: [], horizontal: [] }
+      const transform = {
+        corner: 'mr',
+        action: 'scaleX',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.337,
+        scaleY: 1
+      }
+
+      snappingManagerState._handleObjectScaling({ target: active, transform })
+
+      expect(active.scaleX).toBe(0.337)
+      expect(transform.scaleX).toBe(0.337)
+    })
+
     it('округляет scaleX так, чтобы визуальная ширина была целым числом', () => {
       const { editor, objects } = createSnappingTestContext()
       const active = createScalingObject({
