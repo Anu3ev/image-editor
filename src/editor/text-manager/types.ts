@@ -132,7 +132,6 @@ export type LineFontDefaultUpdate = {
 
 export type ScalingState = {
   baseWidth: number
-  baseLeft: number
   baseFontSize: number
   baseStyles: TextboxStyles
   baseLineFontDefaults?: LineFontDefaults
