@@ -85,6 +85,24 @@ describe('BackgroundManager', () => {
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
+    it('при создании объект цветового фона сразу получает размеры и позицию монтажной области', () => {
+      const mockBackground = createMockBackgroundRect({ fill: '#ff0000' })
+      addRectangleToCanvasMock.mockReturnValue(mockBackground)
+
+      backgroundManager.setColorBackground({ color: '#ff0000' })
+
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith(expect.objectContaining({
+        options: expect.objectContaining({
+          width: mockMontageArea.width,
+          height: mockMontageArea.height,
+          left: mockMontageArea.left,
+          top: mockMontageArea.top,
+          originX: 'center',
+          originY: 'center'
+        })
+      }))
+    })
+
     it('не должен изменять фон если цвет тот же', () => {
       const mockBackground = createMockBackgroundRect({
         fill: '#ff0000',
@@ -233,6 +251,52 @@ describe('BackgroundManager', () => {
       }))
       expect(mockBackground.setCoords).toHaveBeenCalled()
       expect(mockCanvas.requestRenderAll).toHaveBeenCalled()
+    })
+
+    it('при обновлении объект цветового фона берёт размеры монтажной области напрямую', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'color'
+      })
+      backgroundManager.backgroundObject = mockBackground
+
+      mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground])
+      mockCanvas.indexOf.mockImplementation((obj: any) => {
+        if (obj === mockMontageArea) return 0
+        if (obj === mockBackground) return 1
+        return -1
+      })
+
+      backgroundManager.refresh()
+
+      expect(mockEditor.transformManager.fitObject).not.toHaveBeenCalled()
+      expect(mockBackground.set).toHaveBeenCalledWith(expect.objectContaining({
+        width: mockMontageArea.width,
+        height: mockMontageArea.height,
+        left: mockMontageArea.left,
+        top: mockMontageArea.top
+      }))
+    })
+
+    it('при обновлении фоновое изображение заполняет монтажную область по cover', () => {
+      const mockBackground = createMockBackgroundImage({
+        backgroundType: 'image'
+      })
+      backgroundManager.backgroundObject = mockBackground
+
+      mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground])
+      mockCanvas.indexOf.mockImplementation((obj: any) => {
+        if (obj === mockMontageArea) return 0
+        if (obj === mockBackground) return 1
+        return -1
+      })
+
+      backgroundManager.refresh()
+
+      expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
+        object: mockBackground,
+        withoutSave: true,
+        type: 'cover'
+      })
     })
 
     it('не должен делать ничего если нет монтажной области или фона', () => {
@@ -410,6 +474,34 @@ describe('BackgroundManager', () => {
 
   // Дополнительные тесты для градиентов и edge cases
   describe('gradient background', () => {
+    it('при создании объект градиентного фона сразу получает размеры и позицию монтажной области', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'linear', coords: {}, colorStops: [] }
+      })
+      const gradient = {
+        type: 'linear' as const,
+        angle: 90,
+        startColor: '#ff0000',
+        endColor: '#0000ff'
+      }
+
+      addRectangleToCanvasMock.mockReturnValue(mockBackground)
+
+      backgroundManager.setGradientBackground({ gradient })
+
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith(expect.objectContaining({
+        options: expect.objectContaining({
+          width: mockMontageArea.width,
+          height: mockMontageArea.height,
+          left: mockMontageArea.left,
+          top: mockMontageArea.top,
+          originX: 'center',
+          originY: 'center'
+        })
+      }))
+    })
+
     it('должен создать градиентный фон', () => {
       const mockBackground = createMockBackgroundRect({
         backgroundType: 'gradient',

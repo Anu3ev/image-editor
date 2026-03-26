@@ -123,6 +123,43 @@ describe('InteractionBlocker', () => {
     jest.clearAllMocks()
   })
 
+  it('объект overlay повторяет размеры и позицию монтажной области', () => {
+    const { interactionBlocker } = createInteractionBlockerTestSetup()
+
+    interactionBlocker.ensureOverlay()
+
+    expect(interactionBlocker.overlayMask?.set).toHaveBeenCalledWith(expect.objectContaining({
+      width: 400,
+      height: 300,
+      left: 200,
+      top: 150,
+      originX: 'center',
+      originY: 'center',
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      flipX: false,
+      flipY: false
+    }))
+    expect(interactionBlocker.overlayMask?.visible).toBe(false)
+    expect(interactionBlocker.overlayMask?.setCoords).toHaveBeenCalled()
+  })
+
+  it('при блокировке редактора объект overlay появляется поверх монтажной области и отключает интерактивность', () => {
+    const { interactionBlocker, mockEditor } = createInteractionBlockerTestSetup()
+
+    interactionBlocker.block()
+
+    expect(interactionBlocker.isBlocked).toBe(true)
+    expect(interactionBlocker.overlayMask?.visible).toBe(true)
+    expect(mockEditor.canvas.selection).toBe(false)
+    expect(mockEditor.canvas.skipTargetFind).toBe(true)
+    expect(mockEditor.canvas.upperCanvasEl.style.pointerEvents).toBe('none')
+    expect(mockEditor.canvas.lowerCanvasEl.style.pointerEvents).toBe('none')
+    expect(mockEditor.canvasManager.getObjects().every((object) => !object.evented && !object.selectable)).toBe(true)
+    expect(mockEditor.layerManager.bringToFront).toHaveBeenCalledWith(interactionBlocker.overlayMask, { withoutSave: true })
+  })
+
   it('вызывает flushDeferredSaveAfterUnblock после unblock', () => {
     const { interactionBlocker, mockEditor } = createInteractionBlockerTestSetup()
     jest.clearAllMocks()

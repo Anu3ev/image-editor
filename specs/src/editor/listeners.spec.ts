@@ -373,6 +373,26 @@ describe('Listeners', () => {
       expect(stopPropagation).toHaveBeenCalled()
     })
 
+    it('Ctrl/Cmd + wheel сначала отключает browser zoom, потом передаёт управление редактору', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
+      const preventDefault = jest.fn()
+      const stopPropagation = jest.fn()
+      const evt = wheel({ metaKey: true, deltaY: -100 })
+      Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
+      Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
+
+      listeners.handleCanvasWheelZoom(evt)
+
+      const zoomCallOrder = editor.zoomManager.handleMouseWheelZoom.mock.invocationCallOrder[0]
+
+      expect(preventDefault).toHaveBeenCalledTimes(1)
+      expect(stopPropagation).toHaveBeenCalledTimes(1)
+      expect(editor.zoomManager.handleMouseWheelZoom).toHaveBeenCalledTimes(1)
+      expect(preventDefault.mock.invocationCallOrder[0]).toBeLessThan(zoomCallOrder)
+      expect(stopPropagation.mock.invocationCallOrder[0]).toBeLessThan(zoomCallOrder)
+    })
+
     it('mouse wheel не зумит без ctrl/meta', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
