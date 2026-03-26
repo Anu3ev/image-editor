@@ -812,6 +812,21 @@ export default class TextManager {
   }
 
   /**
+   * Возвращает true для текстового узла, чей layout и placement принадлежат shape-композиции.
+   * Для таких textbox TextManager должен сохранять текстовые семантики,
+   * но не применять standalone geometry/placement-логику поверх ShapeManager.
+   */
+  private static _isShapeOwnedTextbox(object?: FabricObject | null): object is EditorTextbox {
+    if (!TextManager._isTextbox(object)) return false
+
+    const group = object.group as (FabricObject & {
+      shapeComposite?: boolean
+    }) | undefined
+
+    return object.shapeNodeType === 'text' && group?.shapeComposite === true
+  }
+
+  /**
    * Вешает обработчики событий Fabric для работы с текстом.
    */
   private _bindEvents(): void {
@@ -826,6 +841,8 @@ export default class TextManager {
 
   /**
    * Обработчик входа в режим редактирования текста.
+   * Для текста внутри shape-композиций action истории сохраняется,
+   * но placement-снимок не создаётся: layout такого узла принадлежит ShapeManager.
    */
   private _handleTextEditingEntered = (event: IEvent): void => {
     this.isTextEditingActive = true
@@ -836,24 +853,32 @@ export default class TextManager {
       historyManager
     } = this.editor
     historyManager.beginAction({ reason: 'text-edit' })
+    if (TextManager._isShapeOwnedTextbox(target)) return
+
     const placementState = this._ensureEditingPlacementState()
     placementState.set(target, canvasManager.getObjectPlacement({ object: target }))
   }
 
   /**
-   * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
+   * Реагирует на изменение текста в режиме редактирования.
+   * Для standalone-textbox дополнительно удерживает geometry/placement.
+   * Для текста внутри shape-композиций ограничивается текстовыми семантиками,
+   * не вмешиваясь в layout, которым владеет ShapeManager.
    */
   private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
     if (this.lineDefaultsSyncing.has(target)) return
 
+    const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
     const { canvasManager } = this.editor
     const { text = '', uppercase, autoExpand } = target
     const isUppercase = Boolean(uppercase)
     const isAutoExpandEnabled = autoExpand !== false
     const normalizedRaw = text.toLocaleLowerCase()
-    const placement = this.editingPlacementState?.get(target) ?? canvasManager.getObjectPlacement({ object: target })
+    const placement = isShapeOwnedTextbox
+      ? null
+      : this.editingPlacementState?.get(target) ?? canvasManager.getObjectPlacement({ object: target })
 
     if (isUppercase) {
       const uppercased = toUpperCaseSafe({ value: normalizedRaw })
@@ -867,8 +892,13 @@ export default class TextManager {
       target.textCaseRaw = text
     }
 
-    if (autoExpand === undefined) {
+    if (!isShapeOwnedTextbox && autoExpand === undefined) {
       target.autoExpand = true
+    }
+
+    if (isShapeOwnedTextbox) {
+      this._syncLineFontDefaultsOnTextChanged({ textbox: target })
+      return
     }
 
     let geometryAdjusted = false
@@ -1282,10 +1312,13 @@ export default class TextManager {
 
   /**
    * Обработчик выхода из режима редактирования текста.
+   * Для текста внутри shape-композиций завершает history-action,
+   * но не применяет standalone geometry cleanup поверх shape-layout.
    */
   private _handleTextEditingExited = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
+    const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
     this.editingPlacementState?.delete(target)
 
     // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
@@ -1302,20 +1335,22 @@ export default class TextManager {
       target.textCaseRaw = currentText
     }
 
-    const dimensionsRoundedAfterEditing = roundTextboxDimensions({ textbox: target })
+    if (!isShapeOwnedTextbox) {
+      const dimensionsRoundedAfterEditing = roundTextboxDimensions({ textbox: target })
 
-    if (dimensionsRoundedAfterEditing) {
-      target.setCoords()
-      target.dirty = true
-      this.canvas.requestRenderAll()
-    }
+      if (dimensionsRoundedAfterEditing) {
+        target.setCoords()
+        target.dirty = true
+        this.canvas.requestRenderAll()
+      }
 
-    // Сбрасываем lock-свойства после выхода из режима редактирования
-    if (!target.locked) {
-      target.set({
-        lockMovementX: false,
-        lockMovementY: false
-      })
+      // Сбрасываем lock-свойства после выхода из режима редактирования
+      if (!target.locked) {
+        target.set({
+          lockMovementX: false,
+          lockMovementY: false
+        })
+      }
     }
 
     const { historyManager } = this.editor
@@ -1338,6 +1373,7 @@ export default class TextManager {
   private _handleObjectResizing = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
     const { target, transform, e } = event
     if (!TextManager._isTextbox(target)) return
+    if (TextManager._isShapeOwnedTextbox(target)) return
 
     const {
       paddingLeft = 0,
@@ -1388,6 +1424,7 @@ export default class TextManager {
       return
     }
     if (!TextManager._isTextbox(target)) return
+    if (TextManager._isShapeOwnedTextbox(target)) return
     if (!transform) return
 
     target.isScaling = true
@@ -1701,6 +1738,7 @@ export default class TextManager {
     }
 
     if (!TextManager._isTextbox(target)) return
+    if (TextManager._isShapeOwnedTextbox(target)) return
 
     target.isScaling = false
 
