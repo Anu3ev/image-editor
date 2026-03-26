@@ -391,12 +391,21 @@ class Listeners {
    * @param event.ctrlKey — зажата ли клавиша Ctrl
    * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
    * @param event.code — код клавиши
+   * При активном interactionBlocker hotkeys не обрабатываются,
+   * потому что блокировка редактора должна выключать пользовательскую интерактивность.
    */
   async handleUndoRedoEvent(event:KeyboardEvent): Promise<void> {
     const { ctrlKey, metaKey, code, repeat } = event
 
     if (this._shouldIgnoreKeyboardEvent(event)) return
     if ((!ctrlKey && !metaKey) || repeat) return
+    if (code !== 'KeyZ' && code !== 'KeyY') return
+
+    if (this.editor.interactionBlocker.isBlocked) {
+      event.preventDefault()
+      this.isUndoRedoKeyPressed = false
+      return
+    }
 
     // Если это Mac, то не смотрим на флаг isUndoRedoKeyPressed, потому что macos не даёт эмитить keyup события при удерживании Meta.
     const isMac = /Mac/i.test(navigator.userAgent)
