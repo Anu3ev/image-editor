@@ -228,6 +228,8 @@ export default class ImageManager {
    * 'image-cover' - скейлит картинку, чтобы она вписалась в монтажную область
    * 'scale-montage' - Обновляет backstore-резолюцию монтажной области (масштабирует
    * экспортный размер канваса под размер изображения)
+   * Импортированное изображение материализуется с `originX: 'left'` и `originY: 'top'`,
+   * чтобы `left/top` оставались placement-точкой верхнего левого угла объекта.
    * @param options.withoutSave - Не сохранять в историю изменений
    * @returns возвращает Promise с объектом изображения или null в случае ошибки
    */
@@ -370,10 +372,14 @@ export default class ImageManager {
         }
       }
 
-      img.set('id', `${img.type}-${nanoid()}`)
-      img.set('format', format)
-      img.set('contentType', contentType)
-      img.set('customData', customData || null)
+      img.set({
+        id: `${img.type}-${nanoid()}`,
+        format,
+        contentType,
+        customData: customData || null,
+        originX: 'left',
+        originY: 'top'
+      })
 
       // Растягиваем монтажную область под изображение или наоборот
       if (scale === 'scale-montage') {
