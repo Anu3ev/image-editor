@@ -236,7 +236,7 @@ export default class ShapeManager {
     const center = resolveGroupCenterPoint({
       left,
       top,
-      canvasCenter: this.editor.canvas.getCenterPoint()
+      canvasCenter: this.editor.canvasManager.getMontageAreaSceneCenter()
     })
 
     group.setPositionByOrigin(center, 'center', 'center')
@@ -1239,15 +1239,13 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает ширину монтажной области в canvas-координатах.
+   * Возвращает ширину монтажной области в scene coordinates.
    */
   private _resolveMontageAreaWidth(): number | null {
-    const { montageArea } = this.editor
+    const { canvasManager, montageArea } = this.editor
     if (!montageArea) return null
 
-    montageArea.setCoords()
-    const montageBounds = montageArea.getBoundingRect()
-    const montageWidth = montageBounds.width ?? 0
+    const { width: montageWidth } = canvasManager.getMontageAreaSceneBounds()
 
     if (!Number.isFinite(montageWidth) || montageWidth <= 0) {
       return null

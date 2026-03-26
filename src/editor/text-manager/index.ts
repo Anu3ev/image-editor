@@ -161,7 +161,10 @@ export default class TextManager {
     }: TextStyleOptions = {},
     { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
   ): EditorTextbox {
-    const { historyManager } = this.editor
+    const {
+      canvasManager,
+      historyManager
+    } = this.editor
     const { canvas } = this
     historyManager.suspendHistory()
 
@@ -222,7 +225,7 @@ export default class TextManager {
     }
 
     if (rest.left === undefined && rest.top === undefined) {
-      canvas.centerObject(textbox)
+      canvasManager.centerObjectToMontageArea({ object: textbox })
     }
 
     if (!withoutAdding) {
@@ -1164,15 +1167,16 @@ export default class TextManager {
     textbox: EditorTextbox,
     { anchor }: { anchor?: TextEditingAnchor } = {}
   ): boolean {
-    const { montageArea } = this.editor
+    const { canvasManager, montageArea } = this.editor
     if (!montageArea) return false
 
     const textValue = typeof textbox.text === 'string' ? textbox.text : ''
     if (!textValue.length) return false
 
-    montageArea.setCoords()
-    const montageBounds = montageArea.getBoundingRect(false, true)
-    const montageWidth = montageBounds.width ?? 0
+    const {
+      left: montageLeft,
+      width: montageWidth
+    } = canvasManager.getMontageAreaSceneBounds()
     if (!Number.isFinite(montageWidth) || montageWidth <= 0) return false
 
     const storedAnchor = anchor ?? this.editingAnchorState?.get(textbox)
@@ -1231,8 +1235,8 @@ export default class TextManager {
 
     const positionAdjusted = clampTextboxToMontage({
       textbox,
-      montageLeft: montageBounds.left ?? 0,
-      montageRight: (montageBounds.left ?? 0) + montageWidth
+      montageLeft,
+      montageRight: montageLeft + montageWidth
     })
 
     return geometryChanged || positionAdjusted

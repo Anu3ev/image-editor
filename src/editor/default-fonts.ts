@@ -120,26 +120,6 @@ export const defaultFonts: EditorFontDefinition[] = [
     }
   },
   {
-    family: 'Merriweather',
-    source: 'url(https://fonts.gstatic.com/s/merriweather/v33/u-4t0qyriQwlOrhSvowK_l5UcA6ht3ZEqezpPbXEE5pRlK3G.woff2) format("woff2")',
-    descriptors: {
-      style: 'normal',
-      weight: '300 900',
-      display: 'swap',
-      unicodeRange: CYRILLIC_RANGE
-    }
-  },
-  {
-    family: 'Merriweather',
-    source: 'url(https://fonts.gstatic.com/s/merriweather/v33/u-4t0qyriQwlOrhSvowK_l5UcA6ht3ZEqezpPbXEE55RlA.woff2) format("woff2")',
-    descriptors: {
-      style: 'normal',
-      weight: '300 900',
-      display: 'swap',
-      unicodeRange: LATIN_RANGE
-    }
-  },
-  {
     family: 'Caveat',
     source: 'url(https://fonts.gstatic.com/s/caveat/v23/Wnz6HAc5bAfYB2Q7YjYYmg8.woff2) format("woff2")',
     descriptors: {

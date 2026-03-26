@@ -82,49 +82,6 @@ export function getObjectById({
 }
 
 /**
- * Возвращает набор id объектов, которые не должны сдвигаться при нормализации.
- */
-export function getTranslationIgnoredIds(): Set<string> {
-  return new Set(['montage-area', 'overlay-mask', 'background'])
-}
-
-/**
- * Возвращает позицию clipPath из состояния, если она доступна.
- */
-export function getClipPathPosition({
-  clipPath
-}: {
-  clipPath: object | null
-}): { left: number; top: number } | null {
-  if (!clipPath || typeof clipPath !== 'object') return null
-
-  const { left, top } = clipPath as { left?: number; top?: number }
-  if (typeof left !== 'number' || typeof top !== 'number') return null
-
-  return { left, top }
-}
-
-/**
- * Возвращает позицию монтажной области из списка объектов.
- */
-export function getMontageAreaPosition({
-  objects
-}: {
-  objects: FabricObject[]
-}): { left: number; top: number } {
-  const montageObject = getObjectById({
-    objects,
-    id: 'montage-area'
-  })
-  if (!montageObject) {
-    return { left: 0, top: 0 }
-  }
-
-  const { left = 0, top = 0 } = montageObject
-  return { left, top }
-}
-
-/**
  * Возвращает размеры монтажной области из списка объектов.
  */
 export function getMontageAreaSize({
@@ -233,68 +190,8 @@ export function normalizeCanvasSize({
 }
 
 /**
- * Компенсирует смещение монтажной области, чтобы не сохранять ресайз как изменение history.
- */
-export function normalizeTranslation({
-  prevState,
-  nextState
-}: {
-  prevState: CanvasFullState
-  nextState: CanvasFullState
-}): void {
-  const { objects: prevObjects, clipPath: prevClipPath } = prevState
-  const { objects: nextObjects, clipPath: nextClipPath } = nextState
-  const {
-    left: prevMontageLeft,
-    top: prevMontageTop
-  } = getMontageAreaPosition({ objects: prevObjects })
-  const {
-    left: nextMontageLeft,
-    top: nextMontageTop
-  } = getMontageAreaPosition({ objects: nextObjects })
-
-  const deltaX = nextMontageLeft - prevMontageLeft
-  const deltaY = nextMontageTop - prevMontageTop
-  if (deltaX === 0 && deltaY === 0) return
-
-  const montageObject = getObjectById({
-    objects: nextObjects,
-    id: 'montage-area'
-  })
-  if (montageObject) {
-    montageObject.left = prevMontageLeft
-    montageObject.top = prevMontageTop
-  }
-
-  const prevClipPathPosition = getClipPathPosition({ clipPath: prevClipPath })
-  if (prevClipPathPosition && nextClipPath && typeof nextClipPath === 'object') {
-    const { left, top } = prevClipPathPosition
-    const clipPathObject = nextClipPath as { left?: number; top?: number }
-
-    clipPathObject.left = left
-    clipPathObject.top = top
-  }
-
-  const ignoredIds = getTranslationIgnoredIds()
-  for (let index = 0; index < nextObjects.length; index += 1) {
-    const object = nextObjects[index] as FabricObject & { id?: string }
-    const { id } = object
-
-    if (id && ignoredIds.has(id)) continue
-
-    if (typeof object.left === 'number') {
-      object.left -= deltaX
-    }
-
-    if (typeof object.top === 'number') {
-      object.top -= deltaY
-    }
-  }
-}
-
-/**
- * Подготавливает состояния для расчёта diff: нормализует технические изменения
- * и компенсирует смещения при ресайзе окна.
+ * Подготавливает состояния для расчёта diff: нормализует только технический шум,
+ * который не относится к persisted scene state.
  */
 export function prepareStatesForDiff({
   prevState,
@@ -309,10 +206,6 @@ export function prepareStatesForDiff({
   normalizeTextBackground({ objects: normalizedPrevState.objects })
   normalizeTextBackground({ objects: normalizedNextState.objects })
   normalizeCanvasSize({
-    prevState: normalizedPrevState,
-    nextState: normalizedNextState
-  })
-  normalizeTranslation({
     prevState: normalizedPrevState,
     nextState: normalizedNextState
   })

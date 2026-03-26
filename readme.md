@@ -131,7 +131,7 @@ Offsets in `colorStops` use percentages from 0 to 100 and are normalized for Fab
 // Add a text layer with custom style
 const textbox = editor.textManager.addText({
   text: 'Привет, Fabric!',
-  fontFamily: 'Merriweather',
+  fontFamily: 'Cormorant',
   fontSize: 64,
   bold: true,
   align: 'center',

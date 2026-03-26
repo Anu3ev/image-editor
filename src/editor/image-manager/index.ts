@@ -245,7 +245,14 @@ export default class ImageManager {
 
     if (!source) return null
 
-    const { canvas, montageArea, transformManager, historyManager, errorManager } = this.editor
+    const {
+      canvas,
+      canvasManager,
+      montageArea,
+      transformManager,
+      historyManager,
+      errorManager
+    } = this.editor
 
     const contentType = await this.getContentType(source)
     const format = this.getFormatFromContentType(contentType)
@@ -409,7 +416,7 @@ export default class ImageManager {
 
       // Добавляем изображение, центрируем его и перерисовываем канвас
       canvas.add(img)
-      canvas.centerObject(img)
+      canvasManager.centerObjectToMontageArea({ object: img })
 
       if (!withoutSelection) {
         canvas.setActiveObject(img)
@@ -552,7 +559,13 @@ export default class ImageManager {
       exportAsBlob = false
     } = options
 
-    const { canvas, montageArea, workerManager, interactionBlocker } = this.editor
+    const {
+      canvas,
+      canvasManager,
+      montageArea,
+      workerManager,
+      interactionBlocker
+    } = this.editor
 
     try {
       const isPDF = contentType === 'application/pdf'
@@ -561,11 +574,13 @@ export default class ImageManager {
 
       const format = this.getFormatFromContentType(adjustedContentType)
 
-      // Пересчитываем координаты монтажной области:
-      montageArea.setCoords()
-
-      // Получаем координаты монтажной области.
-      const { left, top, width, height } = montageArea.getBoundingRect()
+      // Экспорт режет сцену по каноническим bounds монтажной области, а не по текущему viewport.
+      const {
+        left,
+        top,
+        width,
+        height
+      } = canvasManager.getMontageAreaSceneBounds()
 
       // Создаем клон канваса
       const tmpCanvas = await canvas.clone(['id', 'format', 'locked'])

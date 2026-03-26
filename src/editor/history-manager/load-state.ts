@@ -13,7 +13,9 @@ export function cloneCustomData({ customData }: { customData: object }): object 
  */
 export function createLoadSafeState({ state }: { state: CanvasFullState }): CanvasFullState {
   const clonedState = JSON.parse(JSON.stringify(state)) as CanvasFullState
-  const { objects = [] } = clonedState
+  const objects = (clonedState.objects ?? []).filter((object) => object.id !== 'overlay-mask')
+
+  clonedState.objects = objects
 
   for (let index = 0; index < objects.length; index += 1) {
     const object = objects[index]

@@ -3,6 +3,7 @@ import {
   Circle,
   CircleProps,
   FabricObject,
+  Point,
   Rect,
   RectProps,
   Triangle
@@ -23,12 +24,14 @@ function finalizePrimitiveShape<T extends FabricObject>({
   object,
   left,
   top,
+  centerPoint,
   flags
 }: {
   canvas: Canvas
   object: T
   left?: number
   top?: number
+  centerPoint?: Point
   flags: PrimitiveShapeFlags
 }): T {
   const {
@@ -37,7 +40,10 @@ function finalizePrimitiveShape<T extends FabricObject>({
   } = flags
 
   if (!left && !top) {
-    canvas.centerObject(object)
+    const resolvedCenterPoint = centerPoint ?? canvas.getCenterPoint()
+
+    object.setPositionByOrigin(resolvedCenterPoint, 'center', 'center')
+    object.setCoords()
   }
 
   snapObjectToPixelGrid({ object })
@@ -60,10 +66,12 @@ function finalizePrimitiveShape<T extends FabricObject>({
 export const addRectangleToCanvas = ({
   canvas,
   options = {},
+  centerPoint,
   flags = {}
 }: {
   canvas: Canvas
   options?: Partial<RectProps>
+  centerPoint?: Point
   flags?: PrimitiveShapeFlags
 }): Rect => {
   const {
@@ -90,6 +98,7 @@ export const addRectangleToCanvas = ({
     object: rect,
     left,
     top,
+    centerPoint,
     flags
   })
 }
@@ -100,10 +109,12 @@ export const addRectangleToCanvas = ({
 export const addCircleToCanvas = ({
   canvas,
   options = {},
+  centerPoint,
   flags = {}
 }: {
   canvas: Canvas
   options?: Partial<CircleProps>
+  centerPoint?: Point
   flags?: PrimitiveShapeFlags
 }): Circle => {
   const {
@@ -128,6 +139,7 @@ export const addCircleToCanvas = ({
     object: circle,
     left,
     top,
+    centerPoint,
     flags
   })
 }
@@ -138,10 +150,12 @@ export const addCircleToCanvas = ({
 export const addTriangleToCanvas = ({
   canvas,
   options = {},
+  centerPoint,
   flags = {}
 }: {
   canvas: Canvas
   options?: Partial<FabricObject>
+  centerPoint?: Point
   flags?: PrimitiveShapeFlags
 }): Triangle => {
   const {
@@ -168,6 +182,7 @@ export const addTriangleToCanvas = ({
     object: triangle,
     left,
     top,
+    centerPoint,
     flags
   })
 }
