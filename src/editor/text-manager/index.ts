@@ -689,6 +689,7 @@ export default class TextManager {
     })
     const { autoExpand: storedAutoExpand } = textbox
     const hasAutoExpandUpdate = autoExpand !== undefined
+    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
     const resolvedAutoExpand = autoExpand ?? storedAutoExpand
     const isAutoExpandEnabled = resolvedAutoExpand !== false
 
@@ -697,7 +698,6 @@ export default class TextManager {
     } else if (storedAutoExpand === undefined) {
       textbox.autoExpand = true
     }
-    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
     const shouldAutoExpand = isAutoExpandEnabled
       && !hasExplicitWidthUpdate
       && (hasTextUpdate || uppercaseChanged || hasLayoutUpdates)
@@ -1468,11 +1468,14 @@ export default class TextManager {
    * Корректирует ширину, вычитая паддинги, так как Fabric при изменении ширины
    * устанавливает значение, включающее визуальные отступы.
    * Также корректирует позицию при ресайзе слева, чтобы компенсировать смещение.
+   * Любой ручной horizontal resize переводит textbox в fixed-width режим.
    */
   private _handleObjectResizing = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
     const { target, transform, e } = event
     if (!TextManager._isTextbox(target)) return
     if (TextManager._isShapeOwnedTextbox(target)) return
+
+    target.autoExpand = false
 
     const {
       paddingLeft = 0,
@@ -1515,6 +1518,7 @@ export default class TextManager {
    * Обрабатывает масштабирование текстового объекта: пересчитывает ширину, кегль и паддинги/радиусы.
    * Для autoExpand-текста при scale по диагонали или по вертикали ширина
    * измеряется от текущего содержимого без soft-wrap переносов.
+   * Горизонтальный scale трактуется как явная фиксация ширины и выключает autoExpand.
    * Для ActiveSelection с текстом блокирует горизонтальное масштабирование.
    */
   private _handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
@@ -1647,6 +1651,10 @@ export default class TextManager {
       transform.scaleX = 1
       transform.scaleY = 1
       return
+    }
+
+    if (isHorizontalHandle && widthChanged) {
+      target.autoExpand = false
     }
 
     if (nextStyles) {
