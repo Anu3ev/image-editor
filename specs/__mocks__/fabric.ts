@@ -1,7 +1,26 @@
 // Minimal manual mock for fabric to be used in tests via moduleNameMapper.
 // We don't emulate full FabricJS, only the pieces the tests interact with.
 
+export class Point {
+  public x: number
+
+  public y: number
+
+  constructor(x: number, y: number) {
+    this.x = x
+    this.y = y
+  }
+
+  scalarAdd(value: number) {
+    return new Point(this.x + value, this.y + value)
+  }
+}
+
 export class Canvas {
+  public el: any
+
+  public options: any
+
   public clipPath: any = null
 
   public dispose = jest.fn()
@@ -20,7 +39,12 @@ export class Canvas {
 
   public requestRenderAll = jest.fn()
 
-  constructor(public el: any, public options: any) {}
+  public getViewportPoint = jest.fn().mockReturnValue(new Point(0, 0))
+
+  constructor(el: any, options: any) {
+    this.el = el
+    this.options = options
+  }
 
   // Define as prototype method to allow spying via jest.spyOn(Canvas.prototype, 'fire')
   public fire(_event: any, _payload?: any) {
@@ -29,14 +53,10 @@ export class Canvas {
 }
 
 export class Pattern {
-  constructor(public options: any) {}
-}
+  public options: any
 
-export class Point {
-  constructor(public x: number, public y: number) {}
-
-  scalarAdd(value: number) {
-    return new Point(this.x + value, this.y + value)
+  constructor(options: any) {
+    this.options = options
   }
 }
 
@@ -45,6 +65,7 @@ export class Rect {
 
   constructor(options: Record<string, any>) {
     this.props = { ...options }
+    Object.assign(this, options)
   }
 
   get(key: string) {
@@ -58,6 +79,55 @@ export class Rect {
 
   setCoords() {
     // noop in mock
+  }
+
+  getPointByOrigin(originX: 'left' | 'center' | 'right', originY: 'top' | 'center' | 'bottom') {
+    const width = (this as any).width ?? 0
+    const height = (this as any).height ?? 0
+    let x = (this as any).left ?? 0
+    let y = (this as any).top ?? 0
+
+    if (originX === 'center') {
+      x += width / 2
+    } else if (originX === 'right') {
+      x += width
+    }
+
+    if (originY === 'center') {
+      y += height / 2
+    } else if (originY === 'bottom') {
+      y += height
+    }
+
+    return new Point(x, y)
+  }
+
+  setPositionByOrigin(
+    point: { x: number; y: number },
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
+  ) {
+    const width = (this as any).width ?? 0
+    const height = (this as any).height ?? 0
+    let left = point.x
+    let top = point.y
+
+    if (originX === 'center') {
+      left -= width / 2
+    } else if (originX === 'right') {
+      left -= width
+    }
+
+    if (originY === 'center') {
+      top -= height / 2
+    } else if (originY === 'bottom') {
+      top -= height
+    }
+
+    this.set({
+      left,
+      top
+    })
   }
 }
 
@@ -181,16 +251,54 @@ export class Group {
   }
 
   getCenterPoint() {
-    return new Point(this.left ?? 0, this.top ?? 0)
+    return this.getPointByOrigin('center', 'center')
+  }
+
+  getPointByOrigin(originX: 'left' | 'center' | 'right', originY: 'top' | 'center' | 'bottom') {
+    const width = (this.width ?? 0) * ((this as any).scaleX ?? 1)
+    const height = (this.height ?? 0) * ((this as any).scaleY ?? 1)
+    let x = this.left ?? 0
+    let y = this.top ?? 0
+
+    if (originX === 'center') {
+      x += width / 2
+    } else if (originX === 'right') {
+      x += width
+    }
+
+    if (originY === 'center') {
+      y += height / 2
+    } else if (originY === 'bottom') {
+      y += height
+    }
+
+    return new Point(x, y)
   }
 
   setPositionByOrigin(
     point: { x: number; y: number },
-    _originX: 'left' | 'center' | 'right',
-    _originY: 'top' | 'center' | 'bottom'
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
   ) {
-    this.left = point.x
-    this.top = point.y
+    const width = (this.width ?? 0) * ((this as any).scaleX ?? 1)
+    const height = (this.height ?? 0) * ((this as any).scaleY ?? 1)
+    let nextLeft = point.x
+    let nextTop = point.y
+
+    if (originX === 'center') {
+      nextLeft -= width / 2
+    } else if (originX === 'right') {
+      nextLeft -= width
+    }
+
+    if (originY === 'center') {
+      nextTop -= height / 2
+    } else if (originY === 'bottom') {
+      nextTop -= height
+    }
+
+    this.left = nextLeft
+    this.top = nextTop
   }
 
   async clone() {
@@ -215,6 +323,10 @@ export class FabricObject {
       return
     }
     Object.assign(this, key)
+  }
+
+  setCoords() {
+    // noop in mock
   }
 
   /**
@@ -269,6 +381,40 @@ export class FabricObject {
     }
 
     return new Point(nextX, nextY)
+  }
+
+  public getPointByOrigin(
+    originX: 'left' | 'center' | 'right',
+    originY: 'top' | 'center' | 'bottom'
+  ) {
+    const {
+      left = 0,
+      top = 0,
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1
+    } = this as any
+    const resolvedWidth = width * scaleX
+    const resolvedHeight = height * scaleY
+
+    let x = left
+    let y = top
+
+    if (originX === 'center') {
+      x += resolvedWidth / 2
+    }
+    if (originX === 'right') {
+      x += resolvedWidth
+    }
+    if (originY === 'center') {
+      y += resolvedHeight / 2
+    }
+    if (originY === 'bottom') {
+      y += resolvedHeight
+    }
+
+    return new Point(x, y)
   }
 
   /**

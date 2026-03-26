@@ -95,6 +95,7 @@ describe('shape-scaling', () => {
     group.scaleY = 0.8
     group.left = 480
     group.top = 420
+    const initialAnchor = group.getPointByOrigin('center', 'top')
 
     controller.handleObjectScaling({
       target: group,
@@ -112,7 +113,7 @@ describe('shape-scaling', () => {
     expect(group.scaleX).toBe(1)
     expect(group.scaleY).toBe(1)
     expect(group.left).toBe(480)
-    expect(group.top).toBe(420)
+    expect(group.getPointByOrigin('center', 'top')).toEqual(initialAnchor)
 
     controller.handleObjectModified({
       target: group
@@ -1363,6 +1364,7 @@ describe('shape-scaling', () => {
     group.scaleY = 1.3
     group.left = 530
     group.top = 490
+    const initialAnchor = group.getPointByOrigin('left', 'top')
 
     controller.handleObjectScaling({
       target: group,
@@ -1380,11 +1382,11 @@ describe('shape-scaling', () => {
     })
 
     expect(group.setPositionByOrigin).toHaveBeenCalledWith(expect.objectContaining({
-      x: 480,
-      y: 420
+      x: initialAnchor.x,
+      y: initialAnchor.y
     }), 'left', 'top')
-    expect(group.left).toBe(480)
-    expect(group.top).toBe(420)
+    expect(group.left).toBe(initialAnchor.x)
+    expect(group.top).toBe(initialAnchor.y)
   })
 
   it('компенсирует live-геометрию shape с учетом немасштабируемой обводки', () => {
@@ -1435,6 +1437,7 @@ describe('shape-scaling', () => {
     group.getCenterPoint = jest.fn(() => new Point(480, 420)) as never
     group.scaleX = 1.5
     group.scaleY = 1.25
+    const initialAnchor = group.getPointByOrigin('left', 'top')
 
     controller.handleObjectScaling({
       target: group,
@@ -1461,10 +1464,10 @@ describe('shape-scaling', () => {
 
     expect(group.setPositionByOrigin.mock.calls.length).toBeGreaterThan(callsAfterScaling)
     expect(group.setPositionByOrigin).toHaveBeenLastCalledWith(expect.objectContaining({
-      x: 480,
-      y: 420
+      x: initialAnchor.x,
+      y: initialAnchor.y
     }), 'left', 'top')
-    expect(group.left).toBe(480)
-    expect(group.top).toBe(420)
+    expect(group.left).toBe(initialAnchor.x)
+    expect(group.top).toBe(initialAnchor.y)
   })
 })

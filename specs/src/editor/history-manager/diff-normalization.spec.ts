@@ -172,7 +172,7 @@ describe('history-manager/diff-normalization', () => {
     expect(normalized.nextState.height).toBe(600)
   })
 
-  it('prepareStatesForDiff игнорирует одинаковый сдвиг монтажной области и пользовательского объекта', () => {
+  it('prepareStatesForDiff не компенсирует scene translation монтажной области и пользовательского объекта', () => {
     const prevState = createHistoryCanvasState({
       overrides: {
         objects: [
@@ -220,11 +220,11 @@ describe('history-manager/diff-normalization', () => {
     })
     const [, normalizedObject] = normalized.nextState.objects as Array<Record<string, unknown>>
 
-    expect(normalizedObject.left).toBe(120)
-    expect(normalizedObject.top).toBe(70)
+    expect(normalizedObject.left).toBe(160)
+    expect(normalizedObject.top).toBe(110)
   })
 
-  it('prepareStatesForDiff сохраняет реальное изменение объекта поверх общего сдвига', () => {
+  it('prepareStatesForDiff сохраняет все scene translations как часть diff', () => {
     const prevState = createHistoryCanvasState({
       overrides: {
         objects: [
@@ -272,7 +272,7 @@ describe('history-manager/diff-normalization', () => {
     })
     const [, normalizedObject] = normalized.nextState.objects as Array<Record<string, unknown>>
 
-    expect(normalizedObject.left).toBe(125)
-    expect(normalizedObject.top).toBe(78)
+    expect(normalizedObject.left).toBe(165)
+    expect(normalizedObject.top).toBe(118)
   })
 })

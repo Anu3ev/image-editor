@@ -306,7 +306,7 @@ describe('HistoryManager', () => {
       expect(totalChangesCount).toBe(1)
     })
 
-    it('не сохраняет дифф при смещении монтажной области и объектов на одинаковую дельту', () => {
+    it('сохраняет scene translation как реальное изменение состояния', () => {
       const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
       const baseState = createState({
         clipPath: {
@@ -361,7 +361,7 @@ describe('HistoryManager', () => {
 
       const { patches } = historyManager
 
-      expect(patches).toHaveLength(0)
+      expect(patches).toHaveLength(1)
     })
 
     it('сохраняет дифф если при смещении есть реальные изменения объекта', () => {

@@ -2,10 +2,12 @@ import { Point } from 'fabric'
 import CanvasManager, {
   clampValue,
   calculateProportionalDimension,
-  calculateCanvasCenterPoint,
   isImageObject
 } from '../../../../src/editor/canvas-manager'
-import { createManagerTestMocks } from '../../../test-utils/editor-helpers'
+import {
+  createManagerTestMocks,
+  createMockFabricObject
+} from '../../../test-utils/editor-helpers'
 import {
   CANVAS_MIN_WIDTH,
   CANVAS_MIN_HEIGHT,
@@ -52,12 +54,14 @@ describe('CanvasManager', () => {
       })
     })
 
-    describe('calculateCanvasCenterPoint', () => {
-      it('вычисляет центральную точку канваса', () => {
-        const testWidth = 800
-        const testHeight = 600
-        const center = calculateCanvasCenterPoint(testWidth, testHeight)
-        expect(center).toEqual(new Point(testWidth / 2, testHeight / 2))
+    describe('getMontageAreaCanonicalSceneCenter', () => {
+      it('вычисляет канонический центр монтажной области от её размеров', () => {
+        mockMontageArea.width = 800
+        mockMontageArea.height = 600
+
+        const center = canvasManager.getMontageAreaCanonicalSceneCenter()
+
+        expect(center).toEqual(new Point(400, 300))
       })
     })
 
@@ -172,7 +176,8 @@ describe('CanvasManager', () => {
       canvasManager.setResolutionWidth(500)
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({ width: 500 })
-      expect(mockCanvas.clipPath.set).toHaveBeenCalledWith({ width: 500 })
+      expect(mockCanvas.clipPath.set).toHaveBeenCalledWith(expect.objectContaining({ width: 500 }))
+      expect(mockCanvas.clipPath.setCoords).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:resolution-width-changed', expect.objectContaining({
         width: 500
       }))
@@ -197,7 +202,10 @@ describe('CanvasManager', () => {
 
       // Ожидаемая новая высота: (mockMontageArea.height / mockMontageArea.width) * newWidth
       const expectedHeight = (mockMontageArea.height / mockMontageArea.width) * 800
-      expect(setResolutionHeightSpy).toHaveBeenCalledWith(expectedHeight)
+      expect(setResolutionHeightSpy).toHaveBeenCalledWith(expectedHeight, expect.objectContaining({
+        withoutSave: undefined,
+        adaptCanvasToContainer: undefined
+      }))
     })
 
     it('не сохраняет состояние при withoutSave: true', () => {
@@ -226,7 +234,8 @@ describe('CanvasManager', () => {
       canvasManager.setResolutionHeight(400)
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({ height: 400 })
-      expect(mockCanvas.clipPath.set).toHaveBeenCalledWith({ height: 400 })
+      expect(mockCanvas.clipPath.set).toHaveBeenCalledWith(expect.objectContaining({ height: 400 }))
+      expect(mockCanvas.clipPath.setCoords).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:resolution-height-changed', expect.objectContaining({
         height: 400
       }))
@@ -239,7 +248,10 @@ describe('CanvasManager', () => {
 
       // Ожидаемая новая ширина: (mockMontageArea.width / mockMontageArea.height) * newHeight
       const expectedWidth = (mockMontageArea.width / mockMontageArea.height) * 600
-      expect(setResolutionWidthSpy).toHaveBeenCalledWith(expectedWidth)
+      expect(setResolutionWidthSpy).toHaveBeenCalledWith(expectedWidth, expect.objectContaining({
+        withoutSave: undefined,
+        adaptCanvasToContainer: undefined
+      }))
     })
 
     it('ограничивает высоту минимальным значением', () => {
@@ -269,61 +281,67 @@ describe('CanvasManager', () => {
     })
   })
 
-  describe('centerMontageArea', () => {
-    it('центрирует монтажную область', () => {
-      canvasManager.centerMontageArea()
+  describe('placeMontageAreaAtCanonicalScenePosition', () => {
+    it('приводит монтажную область и clipPath к каноническому scene-placement', () => {
+      mockMontageArea.width = 800
+      mockMontageArea.height = 600
 
-      // Получаем размеры из моков канваса
-      const canvasWidth = mockCanvas.getWidth() // 800
-      const canvasHeight = mockCanvas.getHeight() // 600
-      const expectedLeft = canvasWidth / 2 // 400
-      const expectedTop = canvasHeight / 2 // 300
+      canvasManager.placeMontageAreaAtCanonicalScenePosition()
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({
-        left: expectedLeft,
-        top: expectedTop
+        left: 400,
+        top: 300
       })
-      expect(mockCanvas.clipPath.set).toHaveBeenCalledWith({
-        left: expectedLeft,
-        top: expectedTop
-      })
-      expect(mockCanvas.setViewportTransform).toHaveBeenCalled()
-      expect(mockCanvas.renderAll).toHaveBeenCalledTimes(2)
+      expect(mockCanvas.clipPath.set).toHaveBeenCalledWith(expect.objectContaining({
+        left: 400,
+        top: 300,
+        width: 800,
+        height: 600
+      }))
+      expect(mockCanvas.clipPath.setCoords).toHaveBeenCalled()
     })
   })
 
-  describe('getObjectDefaultCoords', () => {
-    it('возвращает координаты переданного объекта', () => {
-      const mockObject = { width: 100, height: 80 }
+  describe('getObjectPlacement', () => {
+    it('возвращает placement объекта по effective origin', () => {
+      const mockObject = {
+        left: 10,
+        top: 20,
+        originX: 'left',
+        originY: 'top',
+        getPointByOrigin: jest.fn(() => new Point(10, 20))
+      }
 
-      const coords = canvasManager.getObjectDefaultCoords(mockObject as any)
+      const placement = canvasManager.getObjectPlacement({ object: mockObject as any })
 
-      // (100 - 100*1) / 2 = 0
-      expect(coords).toEqual({ left: 0, top: 0 })
-    })
-
-    it('возвращает координаты активного объекта если объект не передан', () => {
-      const activeObject = { width: 200, height: 150 }
-      mockCanvas.getActiveObject.mockReturnValue(activeObject)
-
-      const coords = canvasManager.getObjectDefaultCoords(undefined as any)
-
-      // (200 - 200*1) / 2 = 0
-      expect(coords).toEqual({ left: 0, top: 0 })
-    })
-
-    it('выдаёт ошибку и возвращает {0,0} если нет объекта', () => {
-      mockCanvas.getActiveObject.mockReturnValue(null)
-
-      const coords = canvasManager.getObjectDefaultCoords(undefined as any)
-
-      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
-        origin: 'CanvasManager',
-        method: 'getObjectDefaultCoords',
-        code: 'NO_ACTIVE_OBJECT',
-        message: 'Не выбран объект для получения координат'
+      expect(placement).toEqual({
+        left: 10,
+        top: 20,
+        originX: 'left',
+        originY: 'top'
       })
-      expect(coords).toEqual({ left: 0, top: 0 })
+    })
+
+    it('может пересчитать placement для другого origin без мутации объекта', () => {
+      const mockObject = {
+        originX: 'center',
+        originY: 'center',
+        getPointByOrigin: jest.fn(() => new Point(120, 85))
+      }
+
+      const placement = canvasManager.getObjectPlacement({
+        object: mockObject as any,
+        originX: 'right',
+        originY: 'bottom'
+      })
+
+      expect(mockObject.getPointByOrigin).toHaveBeenCalledWith('right', 'bottom')
+      expect(placement).toEqual({
+        left: 120,
+        top: 85,
+        originX: 'right',
+        originY: 'bottom'
+      })
     })
   })
 
@@ -389,18 +407,24 @@ describe('CanvasManager', () => {
     })
 
     it('масштабирует монтажную область под изображение', () => {
-      const mockImage = { type: 'image', width: 600, height: 400 }
+      const mockImage = createMockFabricObject({
+        type: 'image',
+        width: 600,
+        height: 400,
+        setPositionByOrigin: jest.fn()
+      })
       mockCanvas.getActiveObject.mockReturnValue(mockImage)
 
       const setResolutionWidthSpy = jest.spyOn(canvasManager, 'setResolutionWidth')
       const setResolutionHeightSpy = jest.spyOn(canvasManager, 'setResolutionHeight')
+      const centerObjectSpy = jest.spyOn(canvasManager, 'centerObjectToMontageArea')
 
       canvasManager.scaleMontageAreaToImage({})
 
       expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockImage.width, { withoutSave: true })
       expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockImage.height, { withoutSave: true })
       expect(mockEditor.transformManager.resetObject).toHaveBeenCalledWith({ object: mockImage, withoutSave: true })
-      expect(mockCanvas.centerObject).toHaveBeenCalledWith(mockImage)
+      expect(centerObjectSpy).toHaveBeenCalledWith({ object: mockImage as any })
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:montage-area-scaled-to-image', expect.objectContaining({
         object: mockImage,
         width: mockImage.width,
@@ -409,7 +433,12 @@ describe('CanvasManager', () => {
     })
 
     it('сохраняет пропорции при preserveAspectRatio: true', () => {
-      const mockImage = { type: 'image', width: 800, height: 600 }
+      const mockImage = createMockFabricObject({
+        type: 'image',
+        width: 800,
+        height: 600,
+        setPositionByOrigin: jest.fn()
+      })
 
       const setResolutionWidthSpy = jest.spyOn(canvasManager, 'setResolutionWidth')
       const setResolutionHeightSpy = jest.spyOn(canvasManager, 'setResolutionHeight')
@@ -612,63 +641,44 @@ describe('CanvasManager', () => {
   })
 
   describe('updateCanvas', () => {
-    it('обновляет размеры канваса без изменения позиций объектов', () => {
-      const setResolutionWidthSpy = jest.spyOn(canvasManager, 'setResolutionWidth')
-      const setResolutionHeightSpy = jest.spyOn(canvasManager, 'setResolutionHeight')
-      const centerMontageAreaSpy = jest.spyOn(canvasManager, 'centerMontageArea')
-
-      // Мокаем объекты на канвасе
-      const objects = [
-        { id: 'montage-area', left: 200, top: 150, set: jest.fn(), setCoords: jest.fn() },
-        { id: 'user-object', left: 300, top: 250, set: jest.fn(), setCoords: jest.fn() }
-      ]
-      mockCanvas.getObjects.mockReturnValue(objects)
+    it('обновляет camera-state и derived-слои без смещения пользовательских объектов', () => {
+      const adaptCanvasToContainerSpy = jest.spyOn(canvasManager, 'adaptCanvasToContainer')
+      const placeMontageSpy = jest.spyOn(canvasManager, 'placeMontageAreaAtCanonicalScenePosition')
+      const centerViewportSpy = jest.spyOn(canvasManager, 'centerViewportToMontageArea')
+      const refreshDerivedSpy = jest.spyOn(canvasManager, 'refreshMontageDerivedState')
+      const userObject = { id: 'user-object', set: jest.fn(), setCoords: jest.fn() }
 
       canvasManager.updateCanvas()
 
-      expect(setResolutionWidthSpy).toHaveBeenCalledWith(mockMontageArea.width, { adaptCanvasToContainer: true, withoutSave: true })
-      expect(setResolutionHeightSpy).toHaveBeenCalledWith(mockMontageArea.height, { adaptCanvasToContainer: true, withoutSave: true })
-      expect(centerMontageAreaSpy).toHaveBeenCalled()
+      expect(adaptCanvasToContainerSpy).toHaveBeenCalled()
+      expect(placeMontageSpy).toHaveBeenCalled()
+      expect(mockEditor.zoomManager.updateDefaultZoom).toHaveBeenCalled()
+      expect(centerViewportSpy).toHaveBeenCalled()
+      expect(refreshDerivedSpy).toHaveBeenCalled()
+      expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalled()
+      expect(userObject.set).not.toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:canvas-updated', {
         width: mockMontageArea.width,
         height: mockMontageArea.height
       })
     })
 
-    it('корректно смещает объекты при изменении позиции монтажной области', () => {
-      // Мокаем изменение позиции монтажной области
-      const oldLeft = 100
-      const oldTop = 50
-      mockMontageArea.left = oldLeft
-      mockMontageArea.top = oldTop
-
-      const userObject = {
-        id: 'user-object',
-        left: 300,
-        top: 250,
-        set: jest.fn(),
-        setCoords: jest.fn()
-      }
-
-      mockCanvas.getObjects.mockReturnValue([mockMontageArea, userObject])
-
-      // Симулируем изменение позиции монтажной области после centerMontageArea
-      jest.spyOn(canvasManager, 'centerMontageArea').mockImplementation(() => {
-        mockMontageArea.left = 400 // новая позиция
-        mockMontageArea.top = 300 // новая позиция
-      })
+    it('приводит монтажную область к каноническому placement вместо физического ресентра по canvas', () => {
+      mockMontageArea.width = 500
+      mockMontageArea.height = 350
 
       canvasManager.updateCanvas()
 
-      // Проверяем, что объект сместился на дельту изменения монтажной области
-      const deltaX = 400 - oldLeft // 300
-      const deltaY = 300 - oldTop // 250
-
-      expect(userObject.set).toHaveBeenCalledWith({
-        left: userObject.left + deltaX, // 300 + 300 = 600
-        top: userObject.top + deltaY // 250 + 250 = 500
+      expect(mockMontageArea.set).toHaveBeenCalledWith({
+        left: 250,
+        top: 175
       })
-      expect(userObject.setCoords).toHaveBeenCalled()
+      expect(mockCanvas.clipPath.set).toHaveBeenCalledWith(expect.objectContaining({
+        left: 250,
+        top: 175,
+        width: 500,
+        height: 350
+      }))
     })
   })
 })

@@ -20,6 +20,7 @@ describe('TextManager', () => {
   describe('addText', () => {
     it('создаёт текстовый объект, центрирует, выделяет и сохраняет историю', () => {
       const {
+        editor,
         canvas,
         historyManager,
         textManager,
@@ -33,7 +34,7 @@ describe('TextManager', () => {
 
       // Проверяем вызов saveState через подсчет изменений в истории
       expect(canvas.add).toHaveBeenCalledWith(textbox)
-      expect(canvas.centerObject).toHaveBeenCalledWith(textbox)
+      expect(editor.canvasManager.centerObjectToMontageArea).toHaveBeenCalledWith({ object: textbox })
       expect(canvas.setActiveObject).toHaveBeenCalledWith(textbox)
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
 
@@ -653,8 +654,14 @@ describe('TextManager', () => {
     it('updateText увеличивает ширину и не сдвигает объект по Y', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Short', width: 120 })
-      textbox.set({ top: 80, left: 40 })
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120,
+        left: 40,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
 
@@ -673,8 +680,14 @@ describe('TextManager', () => {
     it('updateText уменьшает ширину при сокращении текста', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Longer text', width: 300 })
-      textbox.set({ top: 80, left: 40 })
+      const textbox = textManager.addText({
+        text: 'Longer text',
+        width: 300,
+        left: 40,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(120)
 
@@ -693,8 +706,14 @@ describe('TextManager', () => {
     it('не уменьшает ширину при автоматическом переносе строки', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Long text', width: 200 })
-      textbox.set({ top: 80, left: 40 })
+      const textbox = textManager.addText({
+        text: 'Long text',
+        width: 200,
+        left: 40,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const initSpy = jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
         textbox.textLines = ['line-1', 'line-2']
@@ -717,8 +736,14 @@ describe('TextManager', () => {
     it('не сдвигает объект по X при ширине больше или равной монтажной области', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Wide text', width: 400 })
-      textbox.set({ top: 80, left: -50 })
+      const textbox = textManager.addText({
+        text: 'Wide text',
+        width: 400,
+        left: -50,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(400)
 
@@ -736,8 +761,14 @@ describe('TextManager', () => {
     it('text:changed сохраняет вертикальную позицию при редактировании', () => {
       const { canvas, textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Short', width: 100 })
-      textbox.set({ top: 70, left: 30 })
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 100,
+        left: 30,
+        top: 70,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(240)
 

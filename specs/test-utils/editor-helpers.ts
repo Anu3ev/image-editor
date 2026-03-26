@@ -8,6 +8,9 @@ import type { EditorFontDefinition } from '../../src/editor/types/font'
 
 export type AnyFn = (...args: any[]) => any
 
+type PlacementOriginX = 'left' | 'center' | 'right'
+type PlacementOriginY = 'top' | 'center' | 'bottom'
+
 /**
  * Делает устойчивую сериализацию значения с сортировкой ключей объектов.
  * @param value - значение для сериализации
@@ -91,6 +94,16 @@ export const createFullOptions = (partialOptions: Partial<CanvasOptions> = {}): 
 // Лёгкий стаб Canvas для юнит-тестов слушателей
 export const createCanvasStub = () => {
   const handlers: Record<string, AnyFn[]> = {}
+  const clipPath = {
+    left: 100,
+    top: 50,
+    width: 400,
+    height: 300,
+    set: jest.fn((updates: Record<string, unknown>) => {
+      Object.assign(clipPath, updates)
+    }),
+    setCoords: jest.fn()
+  }
   const canvas = {
     on: jest.fn((evt: string, fn: AnyFn) => {
       handlers[evt] = handlers[evt] || []
@@ -119,17 +132,18 @@ export const createCanvasStub = () => {
     zoomToPoint: jest.fn(),
     getCenterPoint: jest.fn().mockReturnValue({ x: 400, y: 300 }),
     getPointer: jest.fn().mockReturnValue({ x: 0, y: 0 }),
+    getViewportPoint: jest.fn().mockReturnValue({ x: 0, y: 0 }),
     clear: jest.fn(),
     add: jest.fn(),
     remove: jest.fn(),
     getObjects: jest.fn().mockReturnValue([]),
-    clipPath: {
-      set: jest.fn()
-    },
+    clipPath,
     editorContainer: null as HTMLElement | null,
     wrapperEl: {
       parentNode: null as HTMLElement | null,
-      style: {}
+      style: {},
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
     },
     lowerCanvasEl: { style: {} },
     upperCanvasEl: { style: {} },
@@ -138,9 +152,230 @@ export const createCanvasStub = () => {
   return canvas as any
 }
 
+/**
+ * Возвращает координаты точки объекта для заданного origin в тестовом окружении.
+ */
+const getObjectPointByOrigin = ({
+  object,
+  originX,
+  originY
+}: {
+  object: Record<string, any>
+  originX: PlacementOriginX
+  originY: PlacementOriginY
+}) => {
+  if (typeof object.getPointByOrigin === 'function') {
+    return object.getPointByOrigin(originX, originY)
+  }
+
+  const width = (object.width ?? 0) * (object.scaleX ?? 1)
+  const height = (object.height ?? 0) * (object.scaleY ?? 1)
+  let x = object.left ?? 0
+  let y = object.top ?? 0
+
+  if (originX === 'center') {
+    x += width / 2
+  } else if (originX === 'right') {
+    x += width
+  }
+
+  if (originY === 'center') {
+    y += height / 2
+  } else if (originY === 'bottom') {
+    y += height
+  }
+
+  return new Point(x, y)
+}
+
+/**
+ * Применяет позицию объекта по origin в тестовом окружении.
+ */
+const setObjectPositionByOrigin = ({
+  object,
+  left,
+  top,
+  originX,
+  originY
+}: {
+  object: Record<string, any>
+  left: number
+  top: number
+  originX: PlacementOriginX
+  originY: PlacementOriginY
+}) => {
+  if (typeof object.setPositionByOrigin === 'function') {
+    object.setPositionByOrigin(new Point(left, top), originX, originY)
+  } else if (typeof object.set === 'function') {
+    object.set({
+      left,
+      top,
+      originX,
+      originY
+    })
+  } else {
+    object.left = left
+    object.top = top
+    object.originX = originX
+    object.originY = originY
+  }
+
+  if (typeof object.setCoords === 'function') {
+    object.setCoords()
+  }
+}
+
+/**
+ * Создаёт canvasManager-стаб, который уважает placement-контракт редактора.
+ */
+const createCanvasManagerTestStub = ({
+  canvas,
+  montageArea,
+  getObjects = () => []
+}: {
+  canvas: Record<string, any>
+  montageArea: Record<string, any>
+  getObjects?: () => Array<Record<string, any>>
+}) => {
+  const getMontageAreaSceneCenter = jest.fn(() => {
+    const fallbackCenter = canvas.getCenterPoint?.() ?? { x: 0, y: 0 }
+
+    return new Point(
+      montageArea.left ?? fallbackCenter.x,
+      montageArea.top ?? fallbackCenter.y
+    )
+  })
+
+  return {
+    updateCanvas: jest.fn(),
+    centerViewportToMontageArea: jest.fn(),
+    getObjects: jest.fn(() => getObjects()),
+    getMontageAreaSceneCenter,
+    getObjectPlacement: jest.fn(({
+      object,
+      originX,
+      originY
+    }: {
+      object: Record<string, any>
+      originX?: PlacementOriginX
+      originY?: PlacementOriginY
+    }) => {
+      const resolvedOriginX = originX ?? object.originX ?? 'center'
+      const resolvedOriginY = originY ?? object.originY ?? 'center'
+      const point = getObjectPointByOrigin({
+        object,
+        originX: resolvedOriginX,
+        originY: resolvedOriginY
+      })
+
+      return {
+        left: point.x,
+        top: point.y,
+        originX: resolvedOriginX,
+        originY: resolvedOriginY
+      }
+    }),
+    getMontageAreaSceneBounds: jest.fn(() => {
+      const center = getMontageAreaSceneCenter()
+      const width = montageArea.width ?? 0
+      const height = montageArea.height ?? 0
+
+      return {
+        left: center.x - width / 2,
+        top: center.y - height / 2,
+        right: center.x + width / 2,
+        bottom: center.y + height / 2,
+        width,
+        height,
+        center
+      }
+    }),
+    centerObjectToMontageArea: jest.fn(({ object }: { object: Record<string, any> }) => {
+      if (typeof canvas.centerObject === 'function') {
+        canvas.centerObject(object)
+      } else {
+        const center = getMontageAreaSceneCenter()
+        setObjectPositionByOrigin({
+          object,
+          left: center.x,
+          top: center.y,
+          originX: 'center',
+          originY: 'center'
+        })
+      }
+
+      if (typeof object.setCoords === 'function') {
+        object.setCoords()
+      }
+    }),
+    resolveObjectPlacement: jest.fn(({
+      object,
+      left,
+      top,
+      originX,
+      originY,
+      fallbackPoint
+    }: {
+      object: Record<string, any>
+      left?: number
+      top?: number
+      originX?: PlacementOriginX
+      originY?: PlacementOriginY
+      fallbackPoint?: Point
+    }) => {
+      const resolvedOriginX = originX ?? object.originX ?? 'center'
+      const resolvedOriginY = originY ?? object.originY ?? 'center'
+      const basePoint = fallbackPoint ?? getObjectPointByOrigin({
+        object,
+        originX: resolvedOriginX,
+        originY: resolvedOriginY
+      })
+
+      return {
+        left: left ?? basePoint.x,
+        top: top ?? basePoint.y,
+        originX: resolvedOriginX,
+        originY: resolvedOriginY
+      }
+    }),
+    applyObjectPlacement: jest.fn(({
+      object,
+      placement
+    }: {
+      object: Record<string, any>
+      placement: {
+        left: number
+        top: number
+        originX: PlacementOriginX
+        originY: PlacementOriginY
+      }
+    }) => {
+      setObjectPositionByOrigin({
+        object,
+        left: placement.left,
+        top: placement.top,
+        originX: placement.originX,
+        originY: placement.originY
+      })
+    })
+  }
+}
+
 // Стаб редактора для Listeners (без реального ImageEditor)
 export const createEditorStub = () => {
   const canvas = createCanvasStub()
+  const montageArea = {
+    width: 400,
+    height: 300,
+    left: 100,
+    top: 50,
+    set: jest.fn((updates: Record<string, unknown>) => {
+      Object.assign(montageArea, updates)
+    }),
+    setCoords: jest.fn(),
+    id: 'montage-area'
+  }
+
   return {
     canvas,
     historyManager: {
@@ -161,11 +396,14 @@ export const createEditorStub = () => {
       refresh: jest.fn()
     },
     canvasManager: {
-      updateCanvas: jest.fn(),
-      getObjects: jest.fn().mockReturnValue([
-        { set: jest.fn() },
-        { set: jest.fn() }
-      ])
+      ...createCanvasManagerTestStub({
+        canvas,
+        montageArea,
+        getObjects: () => [
+          { set: jest.fn() },
+          { set: jest.fn() }
+        ]
+      })
     },
     transformManager: {
       resetObject: jest.fn(),
@@ -178,6 +416,7 @@ export const createEditorStub = () => {
       handleMouseWheelZoom: jest.fn(),
       resetZoom: jest.fn(),
       calculateAndApplyDefaultZoom: jest.fn(),
+      updateDefaultZoom: jest.fn(),
       defaultZoom: 0.8,
       minZoom: 0.1,
       maxZoom: 2
@@ -214,15 +453,7 @@ export const createEditorStub = () => {
     shapeManager: {
       addRectangle: jest.fn()
     },
-    montageArea: {
-      width: 400,
-      height: 300,
-      left: 100,
-      top: 50,
-      set: jest.fn(),
-      setCoords: jest.fn(),
-      id: 'montage-area'
-    },
+    montageArea,
     options: {
       editorContainer: null as HTMLElement | null,
       canvasBackstoreWidth: null,
@@ -273,11 +504,11 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   editor.backgroundManager = {
     backgroundObject: null,
     refresh: jest.fn()
-  } as any;
+  } as any
 
   editor.shapeManager = {
     addRectangle: jest.fn()
-  } as any;
+  } as any
 
   editor.panConstraintManager = {
     updateBounds: jest.fn(),
@@ -285,7 +516,7 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
     isPanAllowed: jest.fn().mockReturnValue(true),
     constrainPan: jest.fn((x, y) => ({ x, y })),
     getCurrentOffset: jest.fn().mockReturnValue({ x: 0, y: 0 })
-  } as any;
+  } as any
 
   editor.zoomManager = {
     calculateAndApplyDefaultZoom: jest.fn(),
@@ -412,7 +643,9 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
     height: 300,
     left: 100,
     top: 50,
-    set: jest.fn(),
+    set: jest.fn((updates: Record<string, unknown>) => {
+      Object.assign(mockMontageArea, updates)
+    }),
     setCoords: jest.fn(),
     getBoundingRect: jest.fn().mockReturnValue({
       left: 100,
@@ -435,6 +668,8 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
       parentNode: mockContainer,
       style: {},
       appendChild: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
       getBoundingClientRect: jest.fn().mockReturnValue({
         left: 0,
         top: 0,
@@ -453,6 +688,12 @@ export const createManagerTestMocks = (containerWidth = 800, containerHeight = 6
       editorContainer: mockContainer
     }
   }
+
+  mockEditor.canvasManager = createCanvasManagerTestStub({
+    canvas: mockCanvas,
+    montageArea: mockMontageArea,
+    getObjects: () => mockCanvas.getObjects()
+  })
 
   return {
     mockContainer,
@@ -686,16 +927,32 @@ export const createHistoryManagerTestSetup = (
   const mockEditor = {
     canvas: mockCanvas,
     canvasManager: {
-      updateCanvas: jest.fn()
+      updateCanvas: jest.fn(),
+      placeMontageAreaAtCanonicalScenePosition: jest.fn(),
+      refreshMontageDerivedState: jest.fn(),
+      centerViewportToMontageArea: jest.fn()
     },
     interactionBlocker: {
       overlayMask: { id: 'overlay-mask', visible: true } as any,
-      refresh: jest.fn()
+      refresh: jest.fn(),
+      ensureOverlay: jest.fn().mockImplementation(() => {
+        mockEditor.interactionBlocker.overlayMask = {
+          id: 'overlay-mask',
+          visible: false
+        }
+      })
     },
     backgroundManager: {
       removeBackground: jest.fn(),
       backgroundObject: null,
       refresh: jest.fn()
+    },
+    zoomManager: {
+      calculateAndApplyDefaultZoom: jest.fn(),
+      updateDefaultZoom: jest.fn()
+    },
+    panConstraintManager: {
+      updateBounds: jest.fn()
     },
     montageArea: {
       id: 'montage-area',
@@ -897,15 +1154,32 @@ export const createTextManagerTestSetup = (
     })
   } as any
 
+  const montageArea = {
+    id: 'montage-area',
+    width: 400,
+    height: 300,
+    left: 200,
+    top: 150,
+    setCoords: jest.fn(),
+    getBoundingRect: jest.fn(() => ({
+      left: 0,
+      top: 0,
+      width: 400,
+      height: 300
+    }))
+  }
+
   const editor = {
     canvas,
     options: {
       fonts,
       maxHistoryLength
     },
-    canvasManager: {
-      updateCanvas: jest.fn()
-    },
+    canvasManager: createCanvasManagerTestStub({
+      canvas,
+      montageArea,
+      getObjects: () => objects
+    }),
     interactionBlocker: {
       overlayMask: null,
       refresh: jest.fn(),
@@ -916,20 +1190,7 @@ export const createTextManagerTestSetup = (
       removeBackground: jest.fn(),
       refresh: jest.fn()
     },
-    montageArea: {
-      id: 'montage-area',
-      width: 400,
-      height: 300,
-      left: 200,
-      top: 150,
-      setCoords: jest.fn(),
-      getBoundingRect: jest.fn(() => ({
-        left: 0,
-        top: 0,
-        width: 400,
-        height: 300
-      }))
-    },
+    montageArea,
     errorManager: {
       emitError: jest.fn()
     },
@@ -1114,6 +1375,7 @@ export const createMockFabricObject = (props: any = {}) => {
       cloned.set = jest.fn().mockImplementation((newProps) => {
         Object.assign(cloned, newProps)
       })
+      cloned.setCoords = jest.fn()
       cloned.toObject = jest.fn().mockReturnValue({ ...props })
       cloned.toCanvasElement = jest.fn().mockReturnValue({
         toDataURL: () => 'data:image/png;base64,mockData'
@@ -1123,6 +1385,7 @@ export const createMockFabricObject = (props: any = {}) => {
     set: jest.fn().mockImplementation((newProps) => {
       Object.assign(mockObject, newProps)
     }),
+    setCoords: jest.fn(),
     toObject: jest.fn().mockReturnValue(props),
     toCanvasElement: jest.fn().mockReturnValue({
       toDataURL: () => 'data:image/png;base64,mockData'

@@ -33,7 +33,8 @@ describe('primitive-shapes', () => {
     })
 
     expect(rect.get('id')).toBe('rect-generated-id')
-    expect(canvas.centerObject).toHaveBeenCalledWith(rect)
+    expect((rect as { left?: number }).left).toBe(300)
+    expect((rect as { top?: number }).top).toBe(250)
     expect(snapObjectToPixelGridMock).toHaveBeenCalledWith({ object: rect })
     expect(canvas.add).toHaveBeenCalledWith(rect)
     expect(canvas.setActiveObject).toHaveBeenCalledWith(rect)
@@ -69,7 +70,8 @@ describe('primitive-shapes', () => {
     })
 
     expect(circle.id).toBe('circle-generated-id')
-    expect(canvas.centerObject).not.toHaveBeenCalled()
+    expect(circle.left).toBe(10)
+    expect(circle.top).toBe(20)
     expect(canvas.add).toHaveBeenCalledWith(circle)
     expect(canvas.renderAll).toHaveBeenCalled()
   })

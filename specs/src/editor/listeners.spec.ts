@@ -6,7 +6,6 @@ import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../te
 // Shared event lists to avoid duplication in assertions
 const OPTIONAL_CANVAS_EVENTS = [
   'mouse:down', 'mouse:move', 'mouse:up',
-  'mouse:wheel',
   'mouse:dblclick'
 ]
 
@@ -33,7 +32,7 @@ const ALL_EXPECTED_CANVAS_EVENTS = [
 ]
 
 const DISABLED_OPTIONAL_CANVAS_EVENTS = [
-  'mouse:wheel', 'mouse:dblclick', 'mouse:down', 'mouse:move', 'mouse:up'
+  'mouse:dblclick', 'mouse:down', 'mouse:move', 'mouse:up'
 ]
 
 const getOnEvents = (editor: ReturnType<typeof createEditorStub>) => (editor.canvas.on as jest.Mock).mock.calls.map((c) => c[0])
@@ -69,6 +68,10 @@ describe('Listeners', () => {
       expect(onCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
 
       // DOM bindings
+      expect(editor.canvas.wrapperEl.addEventListener).toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+        capture: true,
+        passive: false
+      })
       expect(addWin).toHaveBeenCalledWith('resize', listeners.handleContainerResizeBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('keydown', listeners.handleCopyEventBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('paste', listeners.handlePasteEventBound, { capture: true })
@@ -101,6 +104,10 @@ describe('Listeners', () => {
       }
 
       // DOM addEventListener не должен быть вызван для опциональных обработчиков
+      expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+        capture: true,
+        passive: false
+      })
       expect(addWin).not.toHaveBeenCalledWith('resize', listeners.handleContainerResizeBound, { capture: true })
       expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleCopyEventBound, { capture: true })
       expect(addDoc).not.toHaveBeenCalledWith('paste', listeners.handlePasteEventBound, { capture: true })
@@ -332,7 +339,7 @@ describe('Listeners', () => {
       // Рассчитываем ожидаемое значение через ту же функцию, что и в коде
       const expectedScale = listeners._calculateAdaptiveZoomStep(-100)
 
-      listeners.handleMouseWheelZoom(ptr(evt))
+      listeners.handleCanvasWheelZoom(evt)
 
       expect(editor.zoomManager.handleMouseWheelZoom).toHaveBeenCalledWith(expectedScale, evt)
       expect(preventDefault).toHaveBeenCalled()
@@ -347,8 +354,8 @@ describe('Listeners', () => {
       const evt = wheel({ ctrlKey: false, deltaY: -100 })
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
-      listeners.handleMouseWheelZoom(ptr(evt))
-      expect(editor.zoomManager.zoom).not.toHaveBeenCalled()
+      listeners.handleCanvasWheelZoom(evt)
+      expect(editor.zoomManager.handleMouseWheelZoom).not.toHaveBeenCalled()
       expect(preventDefault).not.toHaveBeenCalled()
       expect(stopPropagation).not.toHaveBeenCalled()
     })
@@ -479,6 +486,9 @@ describe('Listeners', () => {
       // canvas .off for main groups
       const offCalls = (editor.canvas.off as jest.Mock).mock.calls.map((c) => c[0])
       expect(offCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
+      expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+        capture: true
+      })
 
       expect(remDoc).toHaveBeenCalled()
       expect(remWin).toHaveBeenCalled()

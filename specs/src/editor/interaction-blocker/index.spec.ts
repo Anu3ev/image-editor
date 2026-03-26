@@ -20,6 +20,7 @@ type InteractionBlockerTestSetup = {
       upperCanvasEl: { style: Record<string, string> }
     }
     canvasManager: {
+      getMontageAreaSceneBounds: jest.Mock
       getObjects: jest.Mock
     }
     historyManager: {
@@ -55,7 +56,8 @@ const createInteractionBlockerTestSetup = (): InteractionBlockerTestSetup => {
   const overlayMask = {
     id: 'overlay-mask',
     visible: false,
-    set: jest.fn()
+    set: jest.fn(),
+    setCoords: jest.fn()
   }
 
   const mockEditor = {
@@ -69,6 +71,18 @@ const createInteractionBlockerTestSetup = (): InteractionBlockerTestSetup => {
       upperCanvasEl: { style: {} }
     },
     canvasManager: {
+      getMontageAreaSceneBounds: jest.fn(() => ({
+        left: 0,
+        top: 0,
+        right: 400,
+        bottom: 300,
+        width: 400,
+        height: 300,
+        center: {
+          x: 200,
+          y: 150
+        }
+      })),
       getObjects: jest.fn(() => canvasObjects)
     },
     historyManager: {
@@ -96,6 +110,7 @@ const createInteractionBlockerTestSetup = (): InteractionBlockerTestSetup => {
   addRectangleToCanvasMock.mockReturnValue(overlayMask)
 
   const interactionBlocker = new InteractionBlocker({ editor: mockEditor as never })
+  interactionBlocker.overlayMask = overlayMask as never
 
   return {
     interactionBlocker,

@@ -1,9 +1,7 @@
-import { Point } from 'fabric'
 import {
   applyShapeTextLayout,
   isShapeTextFrameFilled,
   resolveMinimumShapeWidthForText,
-  resolveGroupCenterPoint,
   resolveRequiredShapeHeightForText,
   resolveShapeTextAutoExpandWidthForText,
   resolveShapeTextFrameLayout
@@ -626,19 +624,5 @@ describe('shape-layout', () => {
     expect(group.shapeBaseHeight).toBe(80)
     expect(group.shapeManualBaseHeight).toBe(80)
     expect(group.height).toBe(80)
-  })
-
-  it('resolveGroupCenterPoint использует явные координаты, иначе центр канваса', () => {
-    const explicitCenter = resolveGroupCenterPoint({
-      left: 120,
-      top: 85,
-      canvasCenter: new Point(256, 256)
-    })
-    const fallbackCenter = resolveGroupCenterPoint({
-      canvasCenter: new Point(256, 256)
-    })
-
-    expect(explicitCenter).toEqual(new Point(120, 85))
-    expect(fallbackCenter).toEqual(new Point(256, 256))
   })
 })
