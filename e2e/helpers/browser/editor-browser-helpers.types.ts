@@ -67,6 +67,7 @@ export type BrowserSerializableObject = BrowserObject & {
   textLines?: unknown
   backgroundColor?: unknown
   backgroundOpacity?: unknown
+  backgroundType?: unknown
   paddingTop?: unknown
   paddingRight?: unknown
   paddingBottom?: unknown
@@ -120,12 +121,14 @@ export type BrowserSerializer = (obj: unknown) => Record<string, unknown>
 
 export interface BrowserEditorHelpers {
   serializeEditorObject: BrowserSerializer
+  serializeBackgroundObject: BrowserSerializer
   serializeShapeObject: BrowserSerializer
   serializeShapeTextObject: BrowserSerializer
   serializeShapeScaleSnapshot: BrowserSerializer
   serializeTextObject: BrowserSerializer
   serializeTextResizeSnapshot: BrowserSerializer
   serializeSnappingObjectSnapshot: BrowserSerializer
+  getInteractionBlockerState: () => Record<string, unknown>
   resolveShapeNode: (group: unknown) => BrowserObject | null
   resolveTarget: (objectIndex?: number, id?: string) => unknown
   resolveCanvasObject: (objectIndex?: number, id?: string) => unknown
@@ -152,8 +155,27 @@ export interface NullableBoundsInfo {
 
 export interface BrowserEditorWindow extends Window {
   editor: {
+    canvas: {
+      upperCanvasEl: {
+        style: {
+          pointerEvents: string
+        }
+      }
+      lowerCanvasEl: {
+        style: {
+          pointerEvents: string
+        }
+      }
+    }
     canvasManager: {
       getObjects: () => unknown
+    }
+    backgroundManager: {
+      backgroundObject: unknown
+    }
+    interactionBlocker: {
+      isBlocked: boolean
+      overlayMask: unknown
     }
     shapeManager: {
       getTextNode: (params: { target: unknown }) => unknown

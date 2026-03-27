@@ -396,6 +396,38 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Сериализует background-объект редактора вместе с bounding box.
+   */
+  const serializeBackgroundObject: BrowserSerializer = (obj: unknown) => {
+    const backgroundObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
+    const bounds = createBoundsInfo({
+      bounds: getBoundingRect({ target: obj })
+    })
+    const { fill } = backgroundObject
+    const fillObject = toBrowserObject({ value: fill })
+    const hasGradientFill = Boolean(
+      fill
+      && typeof fill === 'object'
+      && fillObject.type
+      && ['linear', 'radial'].includes(String(fillObject.type))
+    )
+
+    return {
+      ...serializeEditorObject(obj),
+      backgroundType: backgroundObject.backgroundType ?? 'unknown',
+      hasGradientFill,
+      boundsLeft: bounds.left,
+      boundsTop: bounds.top,
+      boundsWidth: bounds.width,
+      boundsHeight: bounds.height,
+      boundsRight: bounds.right,
+      boundsBottom: bounds.bottom,
+      boundsCenterX: bounds.left + (bounds.width / 2),
+      boundsCenterY: bounds.top + (bounds.height / 2)
+    }
+  }
+
+  /**
    * Сериализует shape-объект.
    */
   const serializeShapeObject: BrowserSerializer = (obj: unknown) => {
@@ -734,6 +766,43 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Возвращает сериализованное состояние interaction blocker и маски блокировки.
+   */
+  function getInteractionBlockerState(): Record<string, unknown> {
+    const { interactionBlocker, canvas } = browserWindow.editor
+    const { overlayMask } = interactionBlocker
+    const bounds = overlayMask
+      ? createBoundsInfo({
+        bounds: getBoundingRect({ target: overlayMask })
+      })
+      : {
+        left: 0,
+        top: 0,
+        width: 0,
+        height: 0,
+        right: 0,
+        bottom: 0
+      }
+
+    return {
+      isBlocked: Boolean(interactionBlocker.isBlocked),
+      overlayExists: Boolean(overlayMask),
+      overlayVisible: Boolean(toBrowserObject({ value: overlayMask }).visible),
+      overlayFill: resolveNullableString({ value: toBrowserObject({ value: overlayMask }).fill }),
+      upperCanvasPointerEvents: canvas.upperCanvasEl.style.pointerEvents,
+      lowerCanvasPointerEvents: canvas.lowerCanvasEl.style.pointerEvents,
+      boundsLeft: bounds.left,
+      boundsTop: bounds.top,
+      boundsWidth: bounds.width,
+      boundsHeight: bounds.height,
+      boundsRight: bounds.right,
+      boundsBottom: bounds.bottom,
+      boundsCenterX: bounds.left + (bounds.width / 2),
+      boundsCenterY: bounds.top + (bounds.height / 2)
+    }
+  }
+
+  /**
    * Сериализует snapshot standalone text-объекта во время/после horizontal resize.
    */
   const serializeTextResizeSnapshot: BrowserSerializer = (obj: unknown) => {
@@ -784,12 +853,16 @@ export function installEditorBrowserHelpers(): void {
   function installBrowserHelpers(): void {
     const editorHelpers: BrowserEditorHelpers = {
       serializeEditorObject,
+      serializeBackgroundObject,
       serializeShapeObject,
       serializeShapeTextObject,
       serializeShapeScaleSnapshot,
       serializeTextObject,
       serializeTextResizeSnapshot,
       serializeSnappingObjectSnapshot,
+      getInteractionBlockerState() {
+        return getInteractionBlockerState()
+      },
       resolveShapeNode(group: unknown) {
         return resolveShapeNode({ group })
       },

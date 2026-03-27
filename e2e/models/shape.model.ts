@@ -1147,6 +1147,44 @@ export class ShapeModel {
     }, params)
   }
 
+  /** Кликает по фигуре на canvas через реальные координаты viewport. */
+  async clickOnCanvas(params: ObjectTargetParams = {}): Promise<void> {
+    const point = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+      const centerPoint = target.getCenterPoint()
+      const sceneCenterX = typeof centerPoint.x === 'number' ? centerPoint.x : 0
+      const sceneCenterY = typeof centerPoint.y === 'number' ? centerPoint.y : 0
+      const viewportTransform = Array.isArray(editor.canvas.viewportTransform)
+        ? editor.canvas.viewportTransform
+        : [1, 0, 0, 1, 0, 0]
+      const viewportX = (viewportTransform[0] * sceneCenterX)
+        + (viewportTransform[2] * sceneCenterY)
+        + viewportTransform[4]
+      const viewportY = (viewportTransform[1] * sceneCenterX)
+        + (viewportTransform[3] * sceneCenterY)
+        + viewportTransform[5]
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + viewportX,
+        y: canvasRect.top + viewportY
+      }
+    }, params)
+
+    expect(point, 'для клика по фигуре должны существовать координаты на canvas').not.toBeNull()
+
+    await this.page.mouse.click(point!.x, point!.y)
+    await this._waitForCanvasRender()
+  }
+
   /** Включает режим редактирования текста внутри shape */
   async enterTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {

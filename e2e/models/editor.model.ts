@@ -13,6 +13,8 @@ import { ClipboardModel } from './clipboard.model'
 import { TemplateModel } from './template.model'
 import { TextModel } from './text.model'
 import { SnappingModel } from './snapping.model'
+import { BackgroundModel } from './background.model'
+import { InteractionBlockerModel } from './interaction-blocker.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -29,6 +31,10 @@ export class EditorModel {
 
   readonly snapping: SnappingModel
 
+  readonly background: BackgroundModel
+
+  readonly interactionBlocker: InteractionBlockerModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -37,6 +43,8 @@ export class EditorModel {
     this.template = new TemplateModel(page)
     this.text = new TextModel(page)
     this.snapping = new SnappingModel(page)
+    this.background = new BackgroundModel(page)
+    this.interactionBlocker = new InteractionBlockerModel(page)
   }
 
   /** Ожидает полной инициализации редактора */
@@ -130,5 +138,78 @@ export class EditorModel {
         centerY: top + (height / 2)
       }
     })
+  }
+
+  /** Отправляет в редактор hotkey undo через DOM-событие документа. */
+  async pressUndoHotkey(): Promise<void> {
+    await this.page.evaluate(async() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'z',
+        code: 'KeyZ',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      }))
+      document.dispatchEvent(new KeyboardEvent('keyup', {
+        key: 'z',
+        code: 'KeyZ',
+        ctrlKey: true,
+        bubbles: true
+      }))
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+    })
+  }
+
+  /** Отправляет в редактор hotkey redo через DOM-событие документа. */
+  async pressRedoHotkey(): Promise<void> {
+    await this.page.evaluate(async() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'y',
+        code: 'KeyY',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      }))
+      document.dispatchEvent(new KeyboardEvent('keyup', {
+        key: 'y',
+        code: 'KeyY',
+        ctrlKey: true,
+        bubbles: true
+      }))
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+    })
+  }
+
+  /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
+  async zoomByCtrlWheel(params: { deltaY: number }): Promise<void> {
+    await this.page.evaluate(async({ deltaY }) => {
+      const { editor } = window as any
+      const rect = editor.canvas.wrapperEl.getBoundingClientRect()
+
+      editor.canvas.wrapperEl.dispatchEvent(new WheelEvent('wheel', {
+        deltaY,
+        ctrlKey: true,
+        clientX: rect.left + (rect.width / 2),
+        clientY: rect.top + (rect.height / 2),
+        bubbles: true,
+        cancelable: true
+      }))
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+    }, params)
   }
 }
