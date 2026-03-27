@@ -46,7 +46,7 @@ export default defineConfig(({ command }) => {
   return {
     ...baseConfig,
     build: {
-      target: 'es2015',
+      target: 'es2022',
       sourcemap: true,
       minify: false,
       watch: {},
