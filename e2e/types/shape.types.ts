@@ -73,6 +73,8 @@ export interface ShapeAddParams {
     id?: string
     left?: number
     top?: number
+    originX?: ShapeScaleOriginX
+    originY?: ShapeScaleOriginY
     width?: number
     height?: number
     shapeTextAutoExpand?: boolean

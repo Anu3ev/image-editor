@@ -1,5 +1,10 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import type { TextHorizontalAlign } from '../../types'
+import {
+  TEXT_RIGHT_BOTTOM_ADD_OPTIONS,
+  TEXT_RIGHT_BOTTOM_EDITED_TEXT,
+  TEXT_RIGHT_BOTTOM_UPDATED_STYLE
+} from '../../fixtures/data/object-placement.data'
 
 test.describe('Изменение текстового объекта', () => {
   test.beforeEach(async({ text }) => {
@@ -180,6 +185,61 @@ test.describe('Изменение текстового объекта', () => {
       expect(updatedTextObject?.backgroundOpacity).toBe(0.9)
       expect(updatedTextObject?.fontSize).toBe(60)
       expect(updatedTextObject?.fontStyle).toBe('italic')
+    })
+  })
+})
+
+test.describe('Позиционирование текстового объекта', () => {
+  test.beforeEach(async({ text }) => {
+    const textObject = await text.add(TEXT_RIGHT_BOTTOM_ADD_OPTIONS)
+
+    text.checkCreation({ textObject })
+  })
+
+  test('обновление текста с правым нижним позиционированием не сдвигает объект', async({ text }) => {
+    const initialSnapshot = await test.step('Получить исходное положение текста', () => {
+      return text.getResizeSnapshot({ id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id })
+    })
+
+    await test.step('Обновить стиль текста', async() => {
+      const updatedTextObject = await text.updateStyle({
+        id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id,
+        style: TEXT_RIGHT_BOTTOM_UPDATED_STYLE
+      })
+
+      expect(updatedTextObject?.fontSize).toBe(TEXT_RIGHT_BOTTOM_UPDATED_STYLE.fontSize)
+      expect(updatedTextObject?.fontWeight).toBe('bold')
+    })
+
+    await test.step('Проверить что правая нижняя точка осталась на месте', async() => {
+      const updatedSnapshot = await text.getResizeSnapshot({ id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id })
+
+      expect(updatedSnapshot.rightBottomX).toBeCloseTo(initialSnapshot.rightBottomX, 1)
+      expect(updatedSnapshot.rightBottomY).toBeCloseTo(initialSnapshot.rightBottomY, 1)
+    })
+  })
+
+  test('ввод текста с правым нижним позиционированием не сдвигает объект', async({ text }) => {
+    const initialSnapshot = await test.step('Получить исходное положение текста', () => {
+      return text.getResizeSnapshot({ id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id })
+    })
+
+    await test.step('Открыть редактирование и ввести более длинный текст', async() => {
+      await text.enterTextEditing({ id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id })
+      await text.updateEditingText({
+        id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id,
+        text: TEXT_RIGHT_BOTTOM_EDITED_TEXT
+      })
+    })
+
+    await test.step('Проверить что правая нижняя точка не сдвинулась', async() => {
+      const currentTextObject = await text.getObject({ id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id })
+      const updatedSnapshot = await text.getResizeSnapshot({ id: TEXT_RIGHT_BOTTOM_ADD_OPTIONS.id })
+
+      expect(currentTextObject?.isEditing).toBe(true)
+      expect(currentTextObject?.text).toBe(TEXT_RIGHT_BOTTOM_EDITED_TEXT)
+      expect(updatedSnapshot.rightBottomX).toBeCloseTo(initialSnapshot.rightBottomX, 1)
+      expect(updatedSnapshot.rightBottomY).toBeCloseTo(initialSnapshot.rightBottomY, 1)
     })
   })
 })

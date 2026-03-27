@@ -1,4 +1,8 @@
 import { test, expect } from '../../fixtures/editor.fixture'
+import {
+  SHAPE_LEFT_TOP_ADD_OPTIONS,
+  SHAPE_RIGHT_BOTTOM_ADD_OPTIONS
+} from '../../fixtures/data/object-placement.data'
 
 test.describe('Top-level ShapeManager API', () => {
   test('update меняет пресет фигуры', async({ shapes }) => {
@@ -95,6 +99,69 @@ test.describe('Top-level ShapeManager API', () => {
       expect(activeObject?.type).toBe('shape-group')
       expect(activeObject?.id).toBe('shape-without-selection-second')
       expect(firstShape?.shapeFill).toBe('#123456')
+    })
+  })
+
+  test('создание фигуры с top/left позиционированием ставит её в переданную точку', async({ shapes }) => {
+    const createdShape = await test.step('Добавить фигуру с явным top/left позиционированием', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: SHAPE_LEFT_TOP_ADD_OPTIONS
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'square'
+    })
+
+    await test.step('Проверить что левая верхняя точка фигуры совпала с переданной', async() => {
+      const snapshot = await shapes.getScaleSnapshot({ id: SHAPE_LEFT_TOP_ADD_OPTIONS.id })
+
+      expect(snapshot.groupBoundsLeft).toBeCloseTo(SHAPE_LEFT_TOP_ADD_OPTIONS.left, 1)
+      expect(snapshot.groupBoundsTop).toBeCloseTo(SHAPE_LEFT_TOP_ADD_OPTIONS.top, 1)
+    })
+  })
+
+  test('после обновления фигуры её правая нижняя точка остаётся на месте', async({ shapes }) => {
+    const createdShape = await test.step('Добавить фигуру с правым нижним позиционированием', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: SHAPE_RIGHT_BOTTOM_ADD_OPTIONS
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'square'
+    })
+
+    const initialSnapshot = await test.step('Получить исходное положение фигуры', () => {
+      return shapes.getScaleSnapshot({ id: SHAPE_RIGHT_BOTTOM_ADD_OPTIONS.id })
+    })
+
+    await test.step('Обновить фигуру и сменить пресет', async() => {
+      const updatedShape = await shapes.update({
+        id: SHAPE_RIGHT_BOTTOM_ADD_OPTIONS.id,
+        presetKey: 'star',
+        options: {
+          width: 210,
+          height: 140,
+          fill: '#ff7700'
+        }
+      })
+
+      shapes.checkUpdate({
+        shape: updatedShape,
+        presetKey: 'star'
+      })
+    })
+
+    await test.step('Проверить что правая нижняя точка не сдвинулась', async() => {
+      const updatedSnapshot = await shapes.getScaleSnapshot({ id: SHAPE_RIGHT_BOTTOM_ADD_OPTIONS.id })
+
+      expect(updatedSnapshot.groupBoundsRight).toBeCloseTo(initialSnapshot.groupBoundsRight, 1)
+      expect(updatedSnapshot.groupBoundsBottom).toBeCloseTo(initialSnapshot.groupBoundsBottom, 1)
     })
   })
 })
