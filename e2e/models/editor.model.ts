@@ -4,7 +4,8 @@ import type {
   EditorObjectInfo,
   CanvasStateInfo,
   MontageAreaInfo,
-  MontageAreaBoundsInfo
+  MontageAreaBoundsInfo,
+  MontageAreaViewportBoundsInfo
 } from '../types'
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
@@ -144,6 +145,60 @@ export class EditorModel {
     })
   }
 
+  /** Возвращает положение монтажной области в viewport-координатах canvas. */
+  async getMontageAreaViewportBounds(): Promise<MontageAreaViewportBoundsInfo> {
+    const viewportBounds = await this.page.evaluate(() => {
+      const { editor } = (window as any)
+      const {
+        canvas,
+        montageArea
+      } = editor
+
+      montageArea.setCoords()
+
+      const tl = montageArea.oCoords?.tl
+      const tr = montageArea.oCoords?.tr
+      const br = montageArea.oCoords?.br
+      const bl = montageArea.oCoords?.bl
+
+      if (!tl || !tr || !br || !bl) return null
+
+      const montageLeft = Math.min(tl.x, tr.x, br.x, bl.x)
+      const montageTop = Math.min(tl.y, tr.y, br.y, bl.y)
+      const montageRight = Math.max(tl.x, tr.x, br.x, bl.x)
+      const montageBottom = Math.max(tl.y, tr.y, br.y, bl.y)
+      const montageWidth = montageRight - montageLeft
+      const montageHeight = montageBottom - montageTop
+      const viewportLeft = 0
+      const viewportTop = 0
+      const viewportWidth = canvas.getWidth()
+      const viewportHeight = canvas.getHeight()
+
+      return {
+        montageLeft,
+        montageTop,
+        montageWidth,
+        montageHeight,
+        montageRight,
+        montageBottom,
+        montageCenterX: montageLeft + (montageWidth / 2),
+        montageCenterY: montageTop + (montageHeight / 2),
+        viewportLeft,
+        viewportTop,
+        viewportWidth,
+        viewportHeight,
+        viewportRight: viewportLeft + viewportWidth,
+        viewportBottom: viewportTop + viewportHeight,
+        viewportCenterX: viewportLeft + (viewportWidth / 2),
+        viewportCenterY: viewportTop + (viewportHeight / 2)
+      }
+    })
+
+    expect(viewportBounds, 'должны существовать viewport-границы монтажной области').not.toBeNull()
+
+    return viewportBounds as MontageAreaViewportBoundsInfo
+  }
+
   /** Меняет размер окна браузера и ждёт, пока редактор завершит реакцию на resize. */
   async resizeViewport(params: { width: number, height: number }): Promise<void> {
     const {
@@ -156,12 +211,13 @@ export class EditorModel {
       height
     })
 
-    await this.page.waitForFunction(({ nextWidth, nextHeight }) => {
-      return window.innerWidth === nextWidth && window.innerHeight === nextHeight
-    }, {
-      nextWidth: width,
-      nextHeight: height
-    })
+    await this.page.waitForFunction(
+      ({ nextWidth, nextHeight }) => window.innerWidth === nextWidth && window.innerHeight === nextHeight,
+      {
+        nextWidth: width,
+        nextHeight: height
+      }
+    )
 
     await this.page.evaluate(async() => {
       await new Promise<void>((resolve) => {

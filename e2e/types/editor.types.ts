@@ -47,6 +47,26 @@ export interface MontageAreaBoundsInfo {
   centerY: number
 }
 
+/** Границы монтажной области и canvas-вьюпорта в клиентских координатах браузера. */
+export interface MontageAreaViewportBoundsInfo {
+  montageLeft: number
+  montageTop: number
+  montageWidth: number
+  montageHeight: number
+  montageRight: number
+  montageBottom: number
+  montageCenterX: number
+  montageCenterY: number
+  viewportLeft: number
+  viewportTop: number
+  viewportWidth: number
+  viewportHeight: number
+  viewportRight: number
+  viewportBottom: number
+  viewportCenterX: number
+  viewportCenterY: number
+}
+
 /** Параметры для идентификации целевого объекта в моделях */
 export interface ObjectTargetParams {
   objectIndex?: number

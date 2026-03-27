@@ -1,5 +1,11 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
+  BROWSER_RESIZE_CENTER_TOLERANCE,
+  BROWSER_RESIZE_NARROW_VIEWPORT,
+  BROWSER_RESIZE_TOLERANCE,
+  BROWSER_RESIZE_WIDE_VIEWPORT
+} from '../../fixtures/data/browser-resize.data'
+import {
   CANVAS_RESOLUTION_LARGE_SIZE,
   CANVAS_RESOLUTION_SHAPE_OPTIONS,
   CANVAS_RESOLUTION_TEXT_OPTIONS,
@@ -177,6 +183,84 @@ test.describe('Изменение монтажной области', () => {
       expect(currentCanvasState.zoom).toBeLessThan(initialCanvasState.zoom)
       expect(montageBounds.width * currentCanvasState.zoom).toBeLessThan(currentCanvasState.width)
       expect(montageBounds.height * currentCanvasState.zoom).toBeLessThan(currentCanvasState.height)
+    })
+  })
+
+  test('после сужения окна браузера монтажная область остаётся центрированной и полностью видимой', async({
+    editorModel
+  }) => {
+    await test.step('Сузить окно браузера', async() => {
+      await editorModel.resizeViewport(BROWSER_RESIZE_NARROW_VIEWPORT)
+    })
+
+    await test.step('Проверить что монтажная область осталась целиком внутри canvas и по центру', async() => {
+      const viewportBounds = await editorModel.getMontageAreaViewportBounds()
+
+      expect(viewportBounds.montageLeft).toBeGreaterThanOrEqual(viewportBounds.viewportLeft - BROWSER_RESIZE_TOLERANCE)
+      expect(viewportBounds.montageTop).toBeGreaterThanOrEqual(viewportBounds.viewportTop - BROWSER_RESIZE_TOLERANCE)
+      expect(viewportBounds.montageRight).toBeLessThanOrEqual(viewportBounds.viewportRight + BROWSER_RESIZE_TOLERANCE)
+      expect(viewportBounds.montageBottom).toBeLessThanOrEqual(viewportBounds.viewportBottom + BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(viewportBounds.montageCenterX - viewportBounds.viewportCenterX))
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
+      expect(Math.abs(viewportBounds.montageCenterY - viewportBounds.viewportCenterY))
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
+    })
+  })
+
+  test('после расширения окна браузера монтажная область остаётся центрированной и полностью видимой', async({
+    editorModel
+  }) => {
+    await test.step('Расширить окно браузера', async() => {
+      await editorModel.resizeViewport(BROWSER_RESIZE_WIDE_VIEWPORT)
+    })
+
+    await test.step('Проверить что монтажная область осталась целиком внутри canvas и по центру', async() => {
+      const viewportBounds = await editorModel.getMontageAreaViewportBounds()
+
+      expect(viewportBounds.montageLeft).toBeGreaterThanOrEqual(viewportBounds.viewportLeft - BROWSER_RESIZE_TOLERANCE)
+      expect(viewportBounds.montageTop).toBeGreaterThanOrEqual(viewportBounds.viewportTop - BROWSER_RESIZE_TOLERANCE)
+      expect(viewportBounds.montageRight).toBeLessThanOrEqual(viewportBounds.viewportRight + BROWSER_RESIZE_TOLERANCE)
+      expect(viewportBounds.montageBottom).toBeLessThanOrEqual(viewportBounds.viewportBottom + BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(viewportBounds.montageCenterX - viewportBounds.viewportCenterX))
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
+      expect(Math.abs(viewportBounds.montageCenterY - viewportBounds.viewportCenterY))
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
+    })
+  })
+
+  test('после нескольких ресайзов окна монтажная область возвращается в то же положение без накопления смещения', async({
+    editorModel
+  }) => {
+    const firstNarrowViewportBounds = await test.step('Сузить окно браузера и получить первое положение монтажной области', async() => {
+      await editorModel.resizeViewport(BROWSER_RESIZE_NARROW_VIEWPORT)
+
+      return editorModel.getMontageAreaViewportBounds()
+    })
+
+    await test.step('Расширить окно браузера', async() => {
+      await editorModel.resizeViewport(BROWSER_RESIZE_WIDE_VIEWPORT)
+    })
+
+    const secondNarrowViewportBounds = await test.step(
+      'Снова сузить окно браузера и получить второе положение монтажной области',
+      async() => {
+        await editorModel.resizeViewport(BROWSER_RESIZE_NARROW_VIEWPORT)
+
+        return editorModel.getMontageAreaViewportBounds()
+      }
+    )
+
+    await test.step('Проверить что повторный ресайз не накопил смещение монтажной области', () => {
+      expect(Math.abs(secondNarrowViewportBounds.montageLeft - firstNarrowViewportBounds.montageLeft))
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
+      expect(Math.abs(secondNarrowViewportBounds.montageTop - firstNarrowViewportBounds.montageTop))
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
+      expect(
+        Math.abs(secondNarrowViewportBounds.montageCenterX - firstNarrowViewportBounds.montageCenterX)
+      )
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
+      expect(Math.abs(secondNarrowViewportBounds.montageCenterY - firstNarrowViewportBounds.montageCenterY))
+        .toBeLessThanOrEqual(BROWSER_RESIZE_CENTER_TOLERANCE)
     })
   })
 })

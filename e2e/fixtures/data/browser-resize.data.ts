@@ -15,3 +15,6 @@ export const BROWSER_RESIZE_TOLERANCE = 1
 
 /** Допуск для сценариев cover-фона после ресайза окна. */
 export const BROWSER_RESIZE_COVER_TOLERANCE = 1.5
+
+/** Допуск для проверки центрирования монтажной области после ресайза окна. */
+export const BROWSER_RESIZE_CENTER_TOLERANCE = 2
