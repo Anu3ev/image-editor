@@ -121,10 +121,15 @@ export interface ShapeStrokeParams {
 export interface ShapeUpdateParams {
   presetKey?: ShapePresetKey
   options?: {
+    left?: number
+    top?: number
+    originX?: ShapeScaleOriginX
+    originY?: ShapeScaleOriginY
     width?: number
     height?: number
     shapeTextAutoExpand?: boolean
     text?: string
+    textStyle?: ShapeTextStyleParams
     fill?: string
     stroke?: string | null
     strokeWidth?: number
@@ -132,6 +137,7 @@ export interface ShapeUpdateParams {
     rounding?: number
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
+    withoutSelection?: boolean
   }
 }
 

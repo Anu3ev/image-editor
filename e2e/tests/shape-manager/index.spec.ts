@@ -51,4 +51,50 @@ test.describe('Top-level ShapeManager API', () => {
       expect(shape.shapeFill).toBe('#123456')
     })
   })
+
+  test('update с флагом withoutSelection не перехватывает выделение другой фигуры', async({ editorModel, shapes }) => {
+    await test.step('Добавить две фигуры', async() => {
+      await shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'shape-without-selection-first',
+          fill: '#cccccc'
+        }
+      })
+      await shapes.add({
+        presetKey: 'circle',
+        options: {
+          id: 'shape-without-selection-second',
+          fill: '#00aa44'
+        }
+      })
+    })
+
+    await test.step('Явно выделить вторую фигуру', async() => {
+      const selectedShape = await shapes.select({ id: 'shape-without-selection-second' })
+
+      expect(selectedShape?.id).toBe('shape-without-selection-second')
+    })
+
+    await test.step('Обновить первую фигуру с флагом withoutSelection', async() => {
+      const updatedShape = await shapes.update({
+        id: 'shape-without-selection-first',
+        options: {
+          fill: '#123456',
+          withoutSelection: true
+        }
+      })
+
+      expect(updatedShape?.shapeFill).toBe('#123456')
+    })
+
+    await test.step('Проверить что активной осталась вторая фигура', async() => {
+      const activeObject = await editorModel.getActiveObject()
+      const firstShape = await shapes.getObject({ id: 'shape-without-selection-first' })
+
+      expect(activeObject?.type).toBe('shape-group')
+      expect(activeObject?.id).toBe('shape-without-selection-second')
+      expect(firstShape?.shapeFill).toBe('#123456')
+    })
+  })
 })
