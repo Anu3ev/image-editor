@@ -274,6 +274,7 @@ export default class ShapeManager {
    * При shapeTextAutoExpand=true явная width обновляет ручную базовую ширину,
    * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
    * Если переданы `left/top/originX/originY`, они становятся новым placement-контрактом группы.
+   * Если текст внутри фигуры уже редактируется, update сохраняет этот режим на новой группе.
    */
   public async update({
     target,
@@ -405,6 +406,7 @@ export default class ShapeManager {
     })
 
     if (!currentTextNode) return null
+    const isTextEditing = Boolean(currentTextNode.isEditing)
 
     const detachedObjects = currentGroup.removeAll() as ShapeNode[]
     const existingTextNode = this._findTextNode({
@@ -505,7 +507,15 @@ export default class ShapeManager {
       this.editor.canvas.remove(currentGroup)
       this.editor.canvas.add(updatedGroup)
 
-      if (!withoutSelection) {
+      if (isTextEditing) {
+        this.editingPlacements.delete(currentGroup)
+        this.editingPlacements.set(updatedGroup, placement)
+
+        this.editingController.preserveTextEditingAfterGroupUpdate({
+          previousGroup: currentGroup,
+          nextGroup: updatedGroup
+        })
+      } else if (!withoutSelection) {
         this.editor.canvas.setActiveObject(updatedGroup)
       }
 

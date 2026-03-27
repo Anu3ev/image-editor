@@ -140,6 +140,25 @@ export default class ShapeEditingController {
   }
 
   /**
+   * Сохраняет активное редактирование текста при замене shape-группы новым инстансом.
+   */
+  public preserveTextEditingAfterGroupUpdate({
+    previousGroup,
+    nextGroup
+  }: {
+    previousGroup: ShapeGroup
+    nextGroup: ShapeGroup
+  }): void {
+    const storedState = this.editingInteractionState.get(previousGroup)
+    if (!storedState) return
+
+    this.editingInteractionState.set(nextGroup, storedState)
+    this.editingInteractionState.delete(previousGroup)
+
+    this.enterTextEditing({ group: nextGroup })
+  }
+
+  /**
    * Включает текстовый режим редактирования для выбранной shape-группы.
    */
   public enterTextEditing({ group }: { group: ShapeGroup }): void {

@@ -729,29 +729,33 @@ test.describe('Авторасширение текста внутри фигур
     const currentShape = await test.step('Получить состояние фигуры после обновления', () => {
       return shapes.getObject({ id: 'shape-editing-auto-expand' })
     })
+    const currentText = await test.step('Получить состояние текста после обновления', () => {
+      return shapes.getTextNode({ id: 'shape-editing-auto-expand' })
+    })
     const activeObject = await test.step('Получить активный объект после обновления', () => {
       return editorModel.getActiveObject()
     })
 
-    await test.step('Снова выбрать фигуру как активную', async() => {
-      const selectedShape = await shapes.select({ id: 'shape-editing-auto-expand' })
+    await test.step('Завершить редактирование текста', async() => {
+      const textAfterExit = await shapes.exitTextEditing({ id: 'shape-editing-auto-expand' })
 
-      expect(selectedShape).not.toBeNull()
+      expect(textAfterExit).not.toBeNull()
     })
 
-    const selectedActiveObject = await test.step('Получить активный объект после повторного выбора', () => {
+    const activeShapeAfterEditing = await test.step('Получить активный объект после завершения редактирования', () => {
       return editorModel.getActiveObject()
     })
 
-    await test.step('Проверить что фигура осталась выделяемой', () => {
+    await test.step('Проверить что редактирование сохранилось и после него фигура снова выделяется', () => {
       expect(initialText?.lineCount).toBe(1)
       expect(initialSnapshot.groupBoundsWidth)
         .toBeGreaterThan((SHAPE_AUTO_EXPAND_BASE_OPTIONS.width ?? 0) + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
       expect(currentShape?.shapeTextAutoExpand).toBe(false)
-      expect(currentShape?.selectable).toBe(true)
-      expect(activeObject?.type).toBe('shape-group')
-      expect(selectedActiveObject?.type).toBe('shape-group')
-      expect(selectedActiveObject?.id).toBe('shape-editing-auto-expand')
+      expect(currentText?.isEditing).toBe(true)
+      expect(activeObject?.type).toBe(currentText?.type)
+      expect(activeObject?.id).toBe(currentText?.id)
+      expect(activeShapeAfterEditing?.type).toBe('shape-group')
+      expect(activeShapeAfterEditing?.id).toBe('shape-editing-auto-expand')
     })
   })
 
@@ -811,26 +815,27 @@ test.describe('Авторасширение текста внутри фигур
       return editorModel.getActiveObject()
     })
 
-    await test.step('Снова выбрать фигуру как активную', async() => {
-      const selectedShape = await shapes.select({ id: 'shape-editing-enable-auto-expand' })
+    await test.step('Завершить редактирование текста', async() => {
+      const textAfterExit = await shapes.exitTextEditing({ id: 'shape-editing-enable-auto-expand' })
 
-      expect(selectedShape).not.toBeNull()
+      expect(textAfterExit).not.toBeNull()
     })
 
-    const selectedActiveObject = await test.step('Получить активный объект после повторного выбора', () => {
+    const activeShapeAfterEditing = await test.step('Получить активный объект после завершения редактирования', () => {
       return editorModel.getActiveObject()
     })
 
-    await test.step('Проверить что фигура осталась выделяемой и собрала текст в одну строку', () => {
+    await test.step('Проверить что редактирование сохранилось, текст перестроился и после него фигура снова выделяется', () => {
       expect(wrappedText?.lineCount).toBeGreaterThan(1)
       expect(currentShape?.shapeTextAutoExpand).toBe(true)
-      expect(currentShape?.selectable).toBe(true)
+      expect(currentText?.isEditing).toBe(true)
       expect(currentText?.lineCount).toBe(1)
       expect(currentSnapshot.groupBoundsWidth)
         .toBeGreaterThan(wrappedSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
-      expect(activeObject?.type).toBe('shape-group')
-      expect(selectedActiveObject?.type).toBe('shape-group')
-      expect(selectedActiveObject?.id).toBe('shape-editing-enable-auto-expand')
+      expect(activeObject?.type).toBe(currentText?.type)
+      expect(activeObject?.id).toBe(currentText?.id)
+      expect(activeShapeAfterEditing?.type).toBe('shape-group')
+      expect(activeShapeAfterEditing?.id).toBe('shape-editing-enable-auto-expand')
     })
   })
 
