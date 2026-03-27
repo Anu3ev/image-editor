@@ -22,8 +22,33 @@ export default class InteractionBlocker {
     this.editor = editor
     this.isBlocked = false
     this.overlayMask = null
+  }
 
-    this._createOverlay()
+  /**
+   * Возвращает каноническую геометрию overlay для текущей монтажной области.
+   * Overlay является derived/runtime слоем и должен совпадать с montageArea
+   * в scene coordinates, не сохраняя своё независимое положение.
+   */
+  private _getOverlayGeometry(): Pick<
+  Rect,
+  'width' | 'height' | 'left' | 'top' | 'originX' | 'originY' | 'scaleX' | 'scaleY' | 'angle' | 'flipX' | 'flipY'
+  > {
+    const { canvasManager } = this.editor
+    const montageBounds = canvasManager.getMontageAreaSceneBounds()
+
+    return {
+      width: montageBounds.width,
+      height: montageBounds.height,
+      left: montageBounds.center.x,
+      top: montageBounds.center.y,
+      originX: 'center',
+      originY: 'center',
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      flipX: false,
+      flipY: false
+    }
   }
 
   /**
@@ -40,12 +65,14 @@ export default class InteractionBlocker {
     this.overlayMask = addRectangleToCanvas({
       canvas: this.editor.canvas,
       options: {
+        ...this._getOverlayGeometry(),
         fill: overlayMaskColor,
         selectable: false,
         evented: true,
         hoverCursor: 'not-allowed',
         hasBorders: false,
         hasControls: false,
+        excludeFromExport: true,
         visible: false,
         id: 'overlay-mask'
       },
@@ -56,21 +83,33 @@ export default class InteractionBlocker {
   }
 
   /**
+   * Гарантирует наличие overlay и синхронизирует его с текущей монтажной областью.
+   * Overlay является runtime-слоем и не должен зависеть от persisted-state или порядка load-path.
+   */
+  public ensureOverlay(): void {
+    if (!this.overlayMask) {
+      this._createOverlay()
+    }
+
+    if (!this.overlayMask) return
+
+    this.overlayMask.set(this._getOverlayGeometry())
+    this.overlayMask.visible = this.isBlocked
+    this.overlayMask.setCoords()
+  }
+
+  /**
    * Обновляет размеры и позицию overlay, выносит его на передний план
    */
   public refresh(): void {
-    const { canvas, montageArea, historyManager } = this.editor
+    const { canvas, historyManager } = this.editor
 
-    if (!montageArea || !this.overlayMask) return
+    if (!this.overlayMask) return
 
     historyManager.suspendHistory()
 
-    // получаем в экранных координатах то, что отображает монтажную зону
-    montageArea.setCoords()
-    const { left, top, width, height } = montageArea.getBoundingRect()
-
-    // обновляем размеры и позицию overlay
-    this.overlayMask.set({ left, top, width, height })
+    this.overlayMask.set(this._getOverlayGeometry())
+    this.overlayMask.setCoords()
     canvas.discardActiveObject()
 
     this.editor.layerManager.bringToFront(this.overlayMask, { withoutSave: true })
@@ -84,6 +123,8 @@ export default class InteractionBlocker {
    * - делает видимым overlayMask поверх всех объектов в монтажной области
    */
   public block(): void {
+    this.ensureOverlay()
+
     if (this.isBlocked || !this.overlayMask) return
 
     const { canvas, canvasManager, historyManager } = this.editor

@@ -52,6 +52,26 @@ export default class ZoomManager {
   }
 
   /**
+   * Вычисляет defaultZoom для текущих размеров контейнера и монтажной области.
+   * defaultZoom является derived camera-state и должен пересчитываться каждый раз,
+   * когда меняется viewport контейнера или размер montageArea.
+   * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
+   * @private
+   */
+  private _calculateDefaultZoom(scale: number): number {
+    const { canvas, montageArea } = this.editor
+
+    const container = canvas.editorContainer
+    const containerWidth = container.clientWidth || canvas.getWidth()
+    const containerHeight = container.clientHeight || canvas.getHeight()
+
+    const scaleX = (containerWidth / montageArea.width) * scale
+    const scaleY = (containerHeight / montageArea.height) * scale
+
+    return this._normalizeDefaultZoom(Math.min(scaleX, scaleY))
+  }
+
+  /**
    * Вспомогательный метод для вычисления размеров масштабированной монтажной области
    * @param zoom - Масштаб для расчета
    * @returns Размеры масштабированной монтажной области
@@ -67,6 +87,7 @@ export default class ZoomManager {
 
   /**
    * Ограничивает координаты курсора видимыми границами монтажной области
+   * в viewport coordinates, потому что zoomToPoint работает именно в этой плоскости.
    * @param event - Событие колеса мыши
    * @returns Ограниченные координаты в canvas-пространстве
    * @private
@@ -74,7 +95,7 @@ export default class ZoomManager {
   private _getClampedPointerCoordinates(event: WheelEvent): { x: number; y: number } {
     const { canvas, montageArea } = this.editor
 
-    const canvasPointer = canvas.getPointer(event, true)
+    const viewportPointer = canvas.getViewportPoint(event)
     const vpt = canvas.viewportTransform
     const zoom = canvas.getZoom()
 
@@ -88,8 +109,8 @@ export default class ZoomManager {
     const montageCanvasMinY = montageMinY * zoom + vpt[5]
     const montageCanvasMaxY = montageMaxY * zoom + vpt[5]
 
-    const clampedCanvasX = Math.max(montageCanvasMinX, Math.min(montageCanvasMaxX, canvasPointer.x))
-    const clampedCanvasY = Math.max(montageCanvasMinY, Math.min(montageCanvasMaxY, canvasPointer.y))
+    const clampedCanvasX = Math.max(montageCanvasMinX, Math.min(montageCanvasMaxX, viewportPointer.x))
+    const clampedCanvasY = Math.max(montageCanvasMinY, Math.min(montageCanvasMaxY, viewportPointer.y))
 
     return {
       x: clampedCanvasX,
@@ -117,6 +138,10 @@ export default class ZoomManager {
    * Вычисляет целевую позицию viewport для центрирования монтажной области
    * @param zoom - Текущий зум
    * @returns Целевые координаты viewport transform
+   *
+   * Camera-state должен жить только в viewportTransform. MontageArea здесь выступает
+   * стабильной scene-опорой, а не объектом, который нужно физически двигать по сцене
+   * при resize контейнера или reset зума.
    * @private
    */
   private _calculateTargetViewportPosition(zoom: number): { x: number; y: number } {
@@ -298,32 +323,28 @@ export default class ZoomManager {
   }
 
   /**
-   * Метод рассчитывает и применяет зум по умолчанию для монтажной области редактора.
-   * Зум рассчитывается исходя из размеров контейнера редактора и текущих размеров монтажной области.
-   * Расчёт происходит таким образом, чтобы монтажная область визуально целиком помещалась в контейнер редактора.
-   * Если scale не передан, то используется значение из options.defaultScale.
+   * Пересчитывает defaultZoom для текущих размеров контейнера и монтажной области.
+   * Метод обновляет только derived camera-state и не меняет текущий viewport.
+   * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
+   * @returns Новое значение defaultZoom
+   */
+  public updateDefaultZoom(scale: number = this.options.defaultScale): number {
+    this.defaultZoom = this._calculateDefaultZoom(scale)
+
+    return this.defaultZoom
+  }
+
+  /**
+   * Пересчитывает и сразу применяет defaultZoom для текущей монтажной области.
+   * Используется когда меняется размер montageArea и текущий camera-state нужно
+   * нормализовать к новому fit-состоянию.
    * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
    */
   public calculateAndApplyDefaultZoom(scale: number = this.options.defaultScale): void {
-    const { canvas } = this.editor
-
-    const container = canvas.editorContainer
-    const containerWidth = container.clientWidth || canvas.getWidth()
-    const containerHeight = container.clientHeight || canvas.getHeight()
-
-    const { width: montageWidth, height: montageHeight } = this.editor.montageArea
-
-    const scaleX = (containerWidth / montageWidth) * scale
-    const scaleY = (containerHeight / montageHeight) * scale
-
-    // выбираем меньший зум, чтобы монтажная область целиком помещалась
-    this.defaultZoom = this._normalizeDefaultZoom(Math.min(scaleX, scaleY))
+    this.updateDefaultZoom(scale)
 
     // применяем дефолтный зум
     this.setZoom()
-
-    // обновляем границы перетаскивания
-    this.editor.panConstraintManager.updateBounds()
   }
 
   /**
@@ -332,6 +353,9 @@ export default class ZoomManager {
    * - При zoom-out (уменьшении): зум к текущему центру монтажной области
    * - При zoom-in (увеличении): зум к позиции курсора (ограниченной границами монтажной области)
    * - Если zoom < defaultZoom или монтажная область помещается во viewport - зум к центру монтажной области
+   *
+   * Важный контракт: wheel-zoom работает только через viewportTransform.
+   * Scene state монтажной области и объектов остаётся стабильным.
    * @param scale - Шаг зума
    * @param event - Событие колеса мыши
    * @fires editor:zoom-changed
@@ -420,13 +444,19 @@ export default class ZoomManager {
 
   /**
    * Установка зума
+   * После применения зума viewport заново центрируется на монтажной области,
+   * чтобы reset/default zoom работали относительно стабильных scene coordinates.
    * @param zoom - Зум
    * @fires editor:zoom-changed
    */
   public setZoom(zoom: number = this.defaultZoom): void {
     const { minZoom, maxZoom } = this
-    const { canvas } = this.editor
-    const centerPoint = new Point(canvas.getCenterPoint())
+    const {
+      canvas,
+      canvasManager,
+      montageArea
+    } = this.editor
+    const centerPoint = new Point(montageArea.left, montageArea.top)
 
     let newZoom = zoom
 
@@ -434,6 +464,7 @@ export default class ZoomManager {
     if (zoom < minZoom) newZoom = minZoom
 
     canvas.zoomToPoint(centerPoint, newZoom)
+    canvasManager.centerViewportToMontageArea()
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),
@@ -446,13 +477,19 @@ export default class ZoomManager {
 
   /**
    * Сброс зума
+   * Сбрасывает зум и возвращает viewport к центру монтажной области.
    * @fires editor:zoom-changed
    */
   public resetZoom(): void {
-    const { canvas } = this.editor
-    const centerPoint = new Point(canvas.getCenterPoint())
+    const {
+      canvas,
+      canvasManager,
+      montageArea
+    } = this.editor
+    const centerPoint = new Point(montageArea.left, montageArea.top)
 
     canvas.zoomToPoint(centerPoint, this.defaultZoom)
+    canvasManager.centerViewportToMontageArea()
 
     this.editor.canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),

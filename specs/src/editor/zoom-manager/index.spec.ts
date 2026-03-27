@@ -83,8 +83,7 @@ describe('ZoomManager', () => {
       zoomManager.calculateAndApplyDefaultZoom()
 
       expect(zoomManager.defaultZoom).toBe(1.6)
-      expect(setZoomSpy).toHaveBeenCalled()
-      expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalled()
+      expect(setZoomSpy).toHaveBeenCalledWith()
     })
 
     it('должен использовать переданный scale параметр', () => {
@@ -169,6 +168,7 @@ describe('ZoomManager', () => {
         zoom: 1.5,
         point: expect.any(Point)
       })
+      expect(mockEditor.canvasManager.centerViewportToMontageArea).toHaveBeenCalled()
       expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalled()
     })
 
@@ -205,6 +205,7 @@ describe('ZoomManager', () => {
         currentZoom: 0.8,
         point: expect.any(Point)
       })
+      expect(mockEditor.canvasManager.centerViewportToMontageArea).toHaveBeenCalled()
       expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalled()
     })
   })
@@ -247,7 +248,7 @@ describe('ZoomManager', () => {
       mockCanvas.getWidth.mockReturnValue(800)
       mockCanvas.getHeight.mockReturnValue(600)
       mockCanvas.viewportTransform = [2, 0, 0, 2, 50, 100]
-      mockCanvas.getPointer.mockReturnValue({ x: 400, y: 300 })
+      mockCanvas.getViewportPoint.mockReturnValue({ x: 400, y: 300 })
 
       const mockEvent = new WheelEvent('wheel', { deltaY: -100 })
       const zoomSpy = jest.spyOn(zoomManager, 'zoom')
@@ -265,7 +266,7 @@ describe('ZoomManager', () => {
       mockCanvas.getWidth.mockReturnValue(800)
       mockCanvas.getHeight.mockReturnValue(600)
       mockCanvas.viewportTransform = [2, 0, 0, 2, 0, 0]
-      mockCanvas.getPointer.mockReturnValue({ x: 1000, y: 1000 })
+      mockCanvas.getViewportPoint.mockReturnValue({ x: 1000, y: 1000 })
 
       const mockEvent = new WheelEvent('wheel', { deltaY: -100 })
       const zoomSpy = jest.spyOn(zoomManager, 'zoom')

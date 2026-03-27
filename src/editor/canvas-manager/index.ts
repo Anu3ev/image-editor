@@ -1,4 +1,4 @@
-import { FabricObject, Point, ActiveSelection } from 'fabric'
+import { FabricObject, Point } from 'fabric'
 import { ImageEditor } from '../index'
 
 import {
@@ -26,12 +26,27 @@ export interface ScaleMontageAreaToImageOptions {
   withoutSave?: boolean
 }
 
+type MontageAreaSceneBounds = {
+  left: number
+  top: number
+  right: number
+  bottom: number
+  width: number
+  height: number
+  center: Point
+}
+
+export type ObjectPlacement = {
+  left: number
+  top: number
+  originX: FabricObject['originX']
+  originY: FabricObject['originY']
+}
+
 // Вспомогательные функции для тестирования
 export const clampValue = (value: number, min: number, max: number): number => Math.max(Math.min(value, max), min)
 
 export const calculateProportionalDimension = (base: number, factor: number): number => base * factor
-
-export const calculateCanvasCenterPoint = (width: number, height: number): Point => new Point(width / 2, height / 2)
 
 export function isImageObject(
   object: FabricObject | null | undefined
@@ -66,34 +81,221 @@ export default class CanvasManager {
   /**
    * Возвращает центральную точку текущей видимой области канваса.
    * Если точка находится за пределами монтажной области, она проецируется на ближайшую границу монтажной области.
+   * Scene coordinates монтажной области здесь считаются каноническими, а viewportTransform
+   * выступает единственным camera-state для pan/zoom и визуального центрирования.
    */
   public getVisibleCenterPoint(): Point {
-    const { canvas, montageArea } = this.editor
+    const { canvas } = this.editor
     const zoom = canvas.getZoom()
     const vpt = canvas.viewportTransform
     const width = canvas.getWidth()
     const height = canvas.getHeight()
+    const montageBounds = this.getMontageAreaSceneBounds()
 
     // Рассчитываем центр вьюпорта в координатах канваса
     const viewportCenterX = (width / 2 - vpt[4]) / zoom
     const viewportCenterY = (height / 2 - vpt[5]) / zoom
 
-    // Ограничиваем точку границами монтажной области
-    const halfWidth = montageArea.width / 2
-    const halfHeight = montageArea.height / 2
-
     const clampedX = clampValue(
       viewportCenterX,
-      montageArea.left - halfWidth,
-      montageArea.left + halfWidth
+      montageBounds.left,
+      montageBounds.right
     )
     const clampedY = clampValue(
       viewportCenterY,
-      montageArea.top - halfHeight,
-      montageArea.top + halfHeight
+      montageBounds.top,
+      montageBounds.bottom
     )
 
     return new Point(clampedX, clampedY)
+  }
+
+  /**
+   * Возвращает текущий центр монтажной области в scene coordinates.
+   */
+  public getMontageAreaSceneCenter(): Point {
+    const { montageArea } = this.editor
+    return new Point(montageArea.left, montageArea.top)
+  }
+
+  /**
+   * Возвращает канонический центр монтажной области в scene coordinates.
+   * Каноническая модель держит top-left монтажной области в точке (0, 0),
+   * поэтому центр определяется только её размером.
+   */
+  public getMontageAreaCanonicalSceneCenter(): Point {
+    const { montageArea } = this.editor
+    return new Point(montageArea.width / 2, montageArea.height / 2)
+  }
+
+  /**
+   * Возвращает границы монтажной области в scene coordinates.
+   */
+  public getMontageAreaSceneBounds(): MontageAreaSceneBounds {
+    const { montageArea } = this.editor
+    const center = this.getMontageAreaSceneCenter()
+    const halfWidth = montageArea.width / 2
+    const halfHeight = montageArea.height / 2
+
+    return {
+      left: center.x - halfWidth,
+      top: center.y - halfHeight,
+      right: center.x + halfWidth,
+      bottom: center.y + halfHeight,
+      width: montageArea.width,
+      height: montageArea.height,
+      center
+    }
+  }
+
+  /**
+   * Возвращает текущее placement-состояние объекта в scene coordinates.
+   * В editor-level контракте `left/top + originX/originY` являются source of truth
+   * для позиционирования объекта относительно монтажной области.
+   */
+  public getObjectPlacement({
+    object,
+    originX,
+    originY
+  }: {
+    object: FabricObject
+    originX?: FabricObject['originX']
+    originY?: FabricObject['originY']
+  }): ObjectPlacement {
+    const resolvedOriginX = originX ?? object.originX ?? 'center'
+    const resolvedOriginY = originY ?? object.originY ?? 'center'
+    const point = object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
+
+    return {
+      left: point.x,
+      top: point.y,
+      originX: resolvedOriginX,
+      originY: resolvedOriginY
+    }
+  }
+
+  /**
+   * Собирает целевой placement объекта из explicit `left/top/originX/originY`.
+   * Если координата не передана, используется текущая точка объекта по effective origin
+   * либо переданный fallbackPoint.
+   */
+  public resolveObjectPlacement({
+    object,
+    left,
+    top,
+    originX,
+    originY,
+    fallbackPoint
+  }: {
+    object: FabricObject
+    left?: number
+    top?: number
+    originX?: FabricObject['originX']
+    originY?: FabricObject['originY']
+    fallbackPoint?: Point
+  }): ObjectPlacement {
+    const resolvedOriginX = originX ?? object.originX ?? 'center'
+    const resolvedOriginY = originY ?? object.originY ?? 'center'
+    const basePoint = fallbackPoint ?? object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
+
+    return {
+      left: left ?? basePoint.x,
+      top: top ?? basePoint.y,
+      originX: resolvedOriginX,
+      originY: resolvedOriginY
+    }
+  }
+
+  /**
+   * Применяет placement-контракт к объекту и делает origin частью persisted scene state.
+   */
+  public applyObjectPlacement({
+    object,
+    placement
+  }: {
+    object: FabricObject
+    placement: ObjectPlacement
+  }): void {
+    const {
+      left,
+      top,
+      originX,
+      originY
+    } = placement
+
+    object.set({
+      originX,
+      originY
+    })
+    object.setPositionByOrigin(new Point(left, top), originX, originY)
+    object.setCoords()
+  }
+
+  /**
+   * Центрирует объект относительно монтажной области в scene coordinates.
+   */
+  public centerObjectToMontageArea({ object }: { object: FabricObject }): void {
+    const montageCenter = this.getMontageAreaSceneCenter()
+
+    object.setPositionByOrigin(montageCenter, 'center', 'center')
+    object.setCoords()
+  }
+
+  /**
+   * Синхронизирует clipPath с текущей геометрией монтажной области.
+   * clipPath является derived state и не должен жить своей persisted-позицией.
+   */
+  public syncClipPathWithMontageArea(): void {
+    const {
+      canvas,
+      montageArea
+    } = this.editor
+    const { clipPath } = canvas
+
+    if (!clipPath) return
+
+    clipPath.set({
+      left: montageArea.left,
+      top: montageArea.top,
+      width: montageArea.width,
+      height: montageArea.height,
+      originX: montageArea.originX,
+      originY: montageArea.originY
+    })
+    clipPath.setCoords()
+  }
+
+  /**
+   * Приводит montageArea и clipPath к каноническому scene-placement.
+   * В канонической модели top-left монтажной области всегда равен (0, 0),
+   * а её центр определяется только текущими width и height.
+   */
+  public placeMontageAreaAtCanonicalScenePosition(): void {
+    const { montageArea } = this.editor
+    const canonicalCenter = this.getMontageAreaCanonicalSceneCenter()
+
+    montageArea.set({
+      left: canonicalCenter.x,
+      top: canonicalCenter.y
+    })
+    montageArea.setCoords()
+
+    this.syncClipPathWithMontageArea()
+  }
+
+  /**
+   * Обновляет derived-слои, которые завязаны на монтажную область и текущий viewport.
+   */
+  public refreshMontageDerivedState(): void {
+    const { backgroundManager, interactionBlocker } = this.editor
+
+    if (backgroundManager.backgroundObject) {
+      backgroundManager.refresh()
+    }
+
+    if (interactionBlocker.isBlocked) {
+      interactionBlocker.refresh()
+    }
   }
 
   /**
@@ -103,6 +305,8 @@ export default class CanvasManager {
    * @param options.preserveProportional - Сохранить пропорции
    * @param options.withoutSave - Не сохранять состояние
    * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
+   * При изменении размеров монтажной области редактор пересчитывает defaultZoom
+   * и нормализует текущий camera-state к новому fit-состоянию.
    * @fires editor:resolution-width-changed
    */
   public setResolutionWidth(
@@ -132,23 +336,22 @@ export default class CanvasManager {
 
     // Обновляем размеры montageArea и clipPath
     montageArea.set({ width: adjustedWidth })
-    canvas.clipPath?.set({ width: adjustedWidth })
+    this.placeMontageAreaAtCanonicalScenePosition()
 
     // Если нужно сохранить пропорции, вычисляем новую высоту
     if (preserveProportional) {
       const factor = adjustedWidth / montageAreaWidth
       const newHeight = calculateProportionalDimension(montageAreaHeight, factor)
-      this.setResolutionHeight(newHeight)
+      this.setResolutionHeight(newHeight, {
+        withoutSave,
+        adaptCanvasToContainer
+      })
 
       return
     }
 
-    const { left, top } = this.getObjectDefaultCoords(montageArea)
-
-    const currentZoom = canvas.getZoom()
-    canvas.setViewportTransform([currentZoom, 0, 0, currentZoom, left, top])
-
-    this.centerMontageArea()
+    this.editor.zoomManager.calculateAndApplyDefaultZoom()
+    this.refreshMontageDerivedState()
 
     if (!withoutSave) {
       this.editor.historyManager.saveState()
@@ -172,6 +375,8 @@ export default class CanvasManager {
    * @param options.preserveProportional - Сохранить пропорции
    * @param options.withoutSave - Не сохранять состояние
    * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
+   * При изменении размеров монтажной области редактор пересчитывает defaultZoom
+   * и нормализует текущий camera-state к новому fit-состоянию.
    * @fires editor:resolution-height-changed
    */
   public setResolutionHeight(
@@ -200,24 +405,23 @@ export default class CanvasManager {
 
     // Обновляем размеры montageArea и clipPath
     montageArea.set({ height: adjustedHeight })
-    canvas.clipPath?.set({ height: adjustedHeight })
+    this.placeMontageAreaAtCanonicalScenePosition()
 
     // Если нужно сохранить пропорции, вычисляем новую ширину
     if (preserveProportional) {
       const factor = adjustedHeight / montageAreaHeight
       const newWidth = calculateProportionalDimension(montageAreaWidth, factor)
 
-      this.setResolutionWidth(newWidth)
+      this.setResolutionWidth(newWidth, {
+        withoutSave,
+        adaptCanvasToContainer
+      })
 
       return
     }
 
-    const { left, top } = this.getObjectDefaultCoords(montageArea)
-
-    const currentZoom = canvas.getZoom()
-    canvas.setViewportTransform([currentZoom, 0, 0, currentZoom, left, top])
-
-    this.centerMontageArea()
+    this.editor.zoomManager.calculateAndApplyDefaultZoom()
+    this.refreshMontageDerivedState()
 
     if (!withoutSave) {
       this.editor.historyManager.saveState()
@@ -235,69 +439,25 @@ export default class CanvasManager {
   }
 
   /**
-   * Центрирует монтажную область и ClipPath точно по центру канваса
-   * и устанавливает правильный viewportTransform.
+   * Центрирует viewport на монтажной области, не меняя scene coordinates.
+   * Метод отвечает только за camera-state через viewportTransform.
    */
-  public centerMontageArea(): void {
-    const { canvas, montageArea } = this.editor
-
-    const canvasWidth = canvas.getWidth()
-    const canvasHeight = canvas.getHeight()
-
-    const currentZoom = canvas.getZoom()
-
-    const centerCanvasPoint = calculateCanvasCenterPoint(canvasWidth, canvasHeight)
-
-    // Устанавливаем origin монтажной области в центр канваса без зума
-    montageArea.set({
-      left: canvasWidth / 2,
-      top: canvasHeight / 2
-    })
-
-    canvas.clipPath?.set({
-      left: canvasWidth / 2,
-      top: canvasHeight / 2
-    })
-
-    canvas.renderAll()
-
-    // Заново устанавливаем viewportTransform, чтобы монтажная область была точно по центру с учётом зума
-    const vpt = canvas.viewportTransform
-    vpt[4] = canvasWidth / 2 - centerCanvasPoint.x * currentZoom
-    vpt[5] = canvasHeight / 2 - centerCanvasPoint.y * currentZoom
-
-    canvas.setViewportTransform(vpt)
-    canvas.renderAll()
-  }
-
-  /**
-   * Метод для получения координат объекта с учетом текущего зума
-   * @param object - объект, координаты которого нужно получить
-   * @returns координаты объекта
-   */
-  public getObjectDefaultCoords(object: FabricObject): { left: number, top: number } {
+  public centerViewportToMontageArea(): void {
     const { canvas } = this.editor
-
-    const activeObject = object || canvas.getActiveObject()
-
-    if (!activeObject) {
-      this.editor.errorManager.emitError({
-        origin: 'CanvasManager',
-        method: 'getObjectDefaultCoords',
-        code: 'NO_ACTIVE_OBJECT',
-        message: 'Не выбран объект для получения координат'
-      })
-
-      return { left: 0, top: 0 }
-    }
-
-    const { width, height } = activeObject
-
     const currentZoom = canvas.getZoom()
-    const left = (width - (width * currentZoom)) / 2
-    const top = (height - (height * currentZoom)) / 2
+    const montageCenter = this.getMontageAreaSceneCenter()
+    const viewportWidth = canvas.getWidth()
+    const viewportHeight = canvas.getHeight()
 
-    return { left, top }
+    canvas.setViewportTransform([
+      currentZoom,
+      0,
+      0,
+      currentZoom,
+      viewportWidth / 2 - montageCenter.x * currentZoom,
+      viewportHeight / 2 - montageCenter.y * currentZoom
+    ])
+    canvas.renderAll()
   }
 
   /**
@@ -343,71 +503,27 @@ export default class CanvasManager {
 
   /**
    * Обновляет размеры канваса без изменения позиций объектов.
-   * Используется при resize окна браузера для сохранения расположения объектов.
+   * Используется при resize окна браузера.
+   *
+   * В camera-only модели resize контейнера меняет только размеры canvas и viewportTransform.
+   * Scene coordinates пользовательских объектов и montageArea при этом остаются стабильными,
+   * а defaultZoom пересчитывается как derived camera-state для нового viewport.
    * @fires editor:canvas-updated
    */
   public updateCanvas(): void {
     const {
       canvas,
-      montageArea,
       montageArea: {
         width: montageAreaWidth,
         height: montageAreaHeight
       }
     } = this.editor
 
-    // Сохраняем старую позицию монтажной области
-    const oldMontageLeft = montageArea.left
-    const oldMontageTop = montageArea.top
-
-    // Заново адаптируем канвас к контейнеру
-    this.setResolutionWidth(montageAreaWidth, { adaptCanvasToContainer: true, withoutSave: true })
-    this.setResolutionHeight(montageAreaHeight, { adaptCanvasToContainer: true, withoutSave: true })
-
-    // Центрируем монтажную область
-    this.centerMontageArea()
-
-    // Рассчитываем смещение монтажной области
-    const deltaX = montageArea.left - oldMontageLeft
-    const deltaY = montageArea.top - oldMontageTop
-
-    // Смещаем все объекты на ту же дельту, что и монтажная область
-    if (deltaX !== 0 || deltaY !== 0) {
-      const activeObject = canvas.getActiveObject()
-      const selectedObjects: FabricObject[] = []
-
-      // Если есть активное выделение, сохраняем список выделенных объектов
-      if (activeObject?.type === 'activeselection') {
-        const activeSelection = activeObject as ActiveSelection
-        selectedObjects.push(...activeSelection.getObjects())
-        canvas.discardActiveObject() // Снимаем выделение перед перемещением
-      }
-
-      canvas.getObjects().forEach((obj) => {
-        // Пропускаем служебные объекты
-        if (obj.id === 'montage-area' || obj.id === 'overlay-mask' || obj.id === 'background') return
-
-        obj.set({
-          left: obj.left + deltaX,
-          top: obj.top + deltaY
-        })
-        obj.setCoords()
-      })
-
-      // Восстанавливаем выделение если оно было
-      if (selectedObjects.length > 0) {
-        if (selectedObjects.length === 1) {
-          canvas.setActiveObject(selectedObjects[0])
-        } else {
-          const newSelection = new ActiveSelection(selectedObjects, {
-            canvas
-          })
-          canvas.setActiveObject(newSelection)
-        }
-      }
-    }
-
-    canvas.renderAll()
+    this.adaptCanvasToContainer()
+    this.placeMontageAreaAtCanonicalScenePosition()
+    this.editor.zoomManager.updateDefaultZoom()
+    this.centerViewportToMontageArea()
+    this.refreshMontageDerivedState()
 
     canvas.fire('editor:canvas-updated', {
       width: montageAreaWidth,
@@ -590,11 +706,7 @@ export default class CanvasManager {
     const {
       canvas,
       montageArea,
-      transformManager,
-      options: {
-        montageAreaWidth: initialMontageAreaWidth,
-        montageAreaHeight: initialMontageAreaHeight
-      }
+      transformManager
     } = this.editor
 
     const image = object || canvas.getActiveObject()
@@ -624,18 +736,8 @@ export default class CanvasManager {
     this.setResolutionWidth(newCanvasWidth, { withoutSave: true })
     this.setResolutionHeight(newCanvasHeight, { withoutSave: true })
 
-    // Обновляем позицию и размеры фона после изменения размеров монтажной области
-    if (this.editor.backgroundManager.backgroundObject) {
-      this.editor.backgroundManager.refresh()
-    }
-
-    // Если изображение больше монтажной области, то устанавливаем зум по умолчанию
-    if (imageWidth > initialMontageAreaWidth || imageHeight > initialMontageAreaHeight) {
-      this.editor.zoomManager.calculateAndApplyDefaultZoom()
-    }
-
     transformManager.resetObject({ object: image, withoutSave: true })
-    canvas.centerObject(image)
+    this.centerObjectToMontageArea({ object: image })
     canvas.renderAll()
 
     if (!withoutSave) {

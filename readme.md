@@ -131,11 +131,20 @@ Offsets in `colorStops` use percentages from 0 to 100 and are normalized for Fab
 // Add a text layer with custom style
 const textbox = editor.textManager.addText({
   text: 'Привет, Fabric!',
-  fontFamily: 'Merriweather',
+  fontFamily: 'Cormorant',
   fontSize: 64,
   bold: true,
   align: 'center',
   color: '#1f2933'
+})
+
+// Placement uses Fabric semantics: left/top + originX/originY
+editor.textManager.addText({
+  text: 'Pinned to montage top-left',
+  left: 0,
+  top: 0,
+  originX: 'left',
+  originY: 'top'
 })
 
 // Update existing text
@@ -187,6 +196,10 @@ const badge = await editor.shapeManager.add({
   presetKey: 'badge',
   options: {
     id: 'promo-badge',
+    left: 0,
+    top: 0,
+    originX: 'left',
+    originY: 'top',
     width: 220,
     height: 160,
     text: 'SALE',

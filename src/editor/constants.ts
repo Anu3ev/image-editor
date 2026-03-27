@@ -28,6 +28,8 @@ export const CLIPBOARD_CLONE_OBJECT_KEYS = [
   'contentType',
   'width',
   'height',
+  'originX',
+  'originY',
   'locked',
   'editable',
   'evented',

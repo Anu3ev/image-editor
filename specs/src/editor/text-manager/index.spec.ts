@@ -4,8 +4,14 @@ import {
   createTemplateLikeTextbox,
   createTextManagerTestSetup
 } from '../../../test-utils/editor-helpers'
+import {
+  createMockShapeGroup,
+  createMockShapeNode,
+  createMockShapeTextbox
+} from '../../../test-utils/shape-helpers'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../../../../src/editor/constants'
+import * as textGeometry from '../../../../src/editor/text-manager/geometry'
 
 jest.mock('nanoid')
 
@@ -20,6 +26,7 @@ describe('TextManager', () => {
   describe('addText', () => {
     it('создаёт текстовый объект, центрирует, выделяет и сохраняет историю', () => {
       const {
+        editor,
         canvas,
         historyManager,
         textManager,
@@ -33,7 +40,7 @@ describe('TextManager', () => {
 
       // Проверяем вызов saveState через подсчет изменений в истории
       expect(canvas.add).toHaveBeenCalledWith(textbox)
-      expect(canvas.centerObject).toHaveBeenCalledWith(textbox)
+      expect(editor.canvasManager.centerObjectToMontageArea).toHaveBeenCalledWith({ object: textbox })
       expect(canvas.setActiveObject).toHaveBeenCalledWith(textbox)
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
 
@@ -70,6 +77,27 @@ describe('TextManager', () => {
       const textbox = textManager.addText({ text: 'Без авто', autoExpand: false })
 
       expect(textbox.autoExpand).toBe(false)
+    })
+
+    it('сразу расширяет длинный текст при создании, если переносы появились уже на create-path', () => {
+      const { textManager } = createTextManagerTestSetup()
+      const roundDimensionsSpy = jest.spyOn(textGeometry, 'roundTextboxDimensions').mockImplementation(({ textbox }) => {
+        textbox.textLines = ['Привет,', 'Fabric!']
+        return false
+      })
+      const getLineWidthSpy = jest.spyOn(BackgroundTextbox.prototype, 'getLineWidth').mockReturnValue(240)
+
+      try {
+        const textbox = textManager.addText({
+          text: 'Привет, Fabric!',
+          width: 120
+        })
+
+        expect(textbox.width).toBe(240)
+      } finally {
+        roundDimensionsSpy.mockRestore()
+        getLineWidthSpy.mockRestore()
+      }
     })
   })
 
@@ -653,8 +681,14 @@ describe('TextManager', () => {
     it('updateText увеличивает ширину и не сдвигает объект по Y', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Short', width: 120 })
-      textbox.set({ top: 80, left: 40 })
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120,
+        left: 40,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
 
@@ -670,11 +704,46 @@ describe('TextManager', () => {
       lineWidthSpy.mockRestore()
     })
 
+    it('updateText сохраняет правый нижний угол при изменении ширины', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120,
+        left: 260,
+        top: 180,
+        originX: 'right',
+        originY: 'bottom'
+      })
+      const anchorBefore = textbox.getPointByOrigin('right', 'bottom')
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
+
+      textManager.updateText({
+        target: textbox,
+        style: { text: 'Longer text' },
+        withoutSave: true
+      })
+
+      const anchorAfter = textbox.getPointByOrigin('right', 'bottom')
+
+      expect(textbox.width).toBe(260)
+      expect(anchorAfter.x).toBe(anchorBefore.x)
+      expect(anchorAfter.y).toBe(anchorBefore.y)
+
+      lineWidthSpy.mockRestore()
+    })
+
     it('updateText уменьшает ширину при сокращении текста', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Longer text', width: 300 })
-      textbox.set({ top: 80, left: 40 })
+      const textbox = textManager.addText({
+        text: 'Longer text',
+        width: 300,
+        left: 40,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(120)
 
@@ -693,8 +762,14 @@ describe('TextManager', () => {
     it('не уменьшает ширину при автоматическом переносе строки', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Long text', width: 200 })
-      textbox.set({ top: 80, left: 40 })
+      const textbox = textManager.addText({
+        text: 'Long text',
+        width: 200,
+        left: 40,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const initSpy = jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
         textbox.textLines = ['line-1', 'line-2']
@@ -717,8 +792,14 @@ describe('TextManager', () => {
     it('не сдвигает объект по X при ширине больше или равной монтажной области', () => {
       const { textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Wide text', width: 400 })
-      textbox.set({ top: 80, left: -50 })
+      const textbox = textManager.addText({
+        text: 'Wide text',
+        width: 400,
+        left: -50,
+        top: 80,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(400)
 
@@ -736,8 +817,14 @@ describe('TextManager', () => {
     it('text:changed сохраняет вертикальную позицию при редактировании', () => {
       const { canvas, textManager } = createTextManagerTestSetup()
 
-      const textbox = textManager.addText({ text: 'Short', width: 100 })
-      textbox.set({ top: 70, left: 30 })
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 100,
+        left: 30,
+        top: 70,
+        originX: 'left',
+        originY: 'top'
+      })
 
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(240)
 
@@ -747,6 +834,33 @@ describe('TextManager', () => {
 
       expect(textbox.width).toBe(240)
       expect(textbox.top).toBe(70)
+
+      lineWidthSpy.mockRestore()
+    })
+
+    it('text:changed сохраняет правый нижний угол при редактировании', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 100,
+        left: 260,
+        top: 180,
+        originX: 'right',
+        originY: 'bottom'
+      })
+      const anchorBefore = textbox.getPointByOrigin('right', 'bottom')
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(240)
+
+      canvas.fire('text:editing:entered', { target: textbox })
+      textbox.text = 'Longer text'
+      canvas.fire('text:changed', { target: textbox })
+
+      const anchorAfter = textbox.getPointByOrigin('right', 'bottom')
+
+      expect(textbox.width).toBe(240)
+      expect(anchorAfter.x).toBe(anchorBefore.x)
+      expect(anchorAfter.y).toBe(anchorBefore.y)
 
       lineWidthSpy.mockRestore()
     })
@@ -1279,6 +1393,145 @@ describe('TextManager', () => {
         expect(textbox.scaleX).toBe(1)
         expect(textbox.scaleY).toBe(1)
       })
+    })
+  })
+
+  describe('масштабирование текстового объекта', () => {
+    it('после ручного сужения не расширяет текст обратно при скейлинге по вертикали', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Привет, Fabric Fabric!',
+        width: 240
+      })
+
+      textbox.set({
+        width: 120,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
+      })
+
+      textbox.set({
+        scaleX: 1,
+        scaleY: 1.5
+      })
+
+      canvas.fire('object:scaling', {
+        target: textbox,
+        transform: {
+          corner: 'mb',
+          action: 'scaleY',
+          originX: 'left',
+          originY: 'top',
+          scaleX: 1,
+          scaleY: 1.5,
+          original: {
+            width: 120,
+            height: textbox.height,
+            left: textbox.left,
+            top: textbox.top,
+            scaleX: 1,
+            scaleY: 1
+          }
+        }
+      })
+
+      canvas.fire('object:modified', { target: textbox })
+
+      expect(textbox.autoExpand).toBe(false)
+      expect(textbox.width).toBe(120)
+      expect(textbox.fontSize).toBe(72)
+    })
+
+    it('после ручного сужения сохраняет новую ширину при скейлинге по диагонали', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Привет, Fabric Fabric!',
+        width: 240
+      })
+
+      textbox.set({
+        width: 120,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+
+      canvas.fire('object:resizing', {
+        target: textbox,
+        transform: {
+          corner: 'mr',
+          originX: 'left',
+          originY: 'top'
+        }
+      })
+
+      textbox.set({
+        scaleX: 1.5,
+        scaleY: 1.5
+      })
+
+      canvas.fire('object:scaling', {
+        target: textbox,
+        transform: {
+          corner: 'br',
+          action: 'scale',
+          originX: 'left',
+          originY: 'top',
+          scaleX: 1.5,
+          scaleY: 1.5,
+          original: {
+            width: 120,
+            height: textbox.height,
+            left: textbox.left,
+            top: textbox.top,
+            scaleX: 1,
+            scaleY: 1
+          }
+        }
+      })
+
+      canvas.fire('object:modified', { target: textbox })
+
+      expect(textbox.autoExpand).toBe(false)
+      expect(textbox.width).toBe(180)
+      expect(textbox.fontSize).toBe(72)
+    })
+
+    it('не включает standalone авторасширение у текста внутри фигуры', () => {
+      const { canvas, editor } = createTextManagerTestSetup()
+      const shape = createMockShapeNode()
+      const text = createMockShapeTextbox({
+        text: 'Short',
+        width: 120
+      })
+
+      createMockShapeGroup({
+        shape,
+        text
+      })
+
+      text.autoExpand = true
+      text.text = 'Longer text'
+      text.getLineWidth = jest.fn(() => 240) as never
+
+      canvas.fire('text:changed', {
+        target: text
+      })
+
+      expect(text.width).toBe(120)
+      expect(editor.canvasManager.applyObjectPlacement).not.toHaveBeenCalled()
     })
   })
 

@@ -11,6 +11,8 @@ export interface PanBounds {
 /**
  * Менеджер для управления границами перетаскивания канваса.
  * Ограничивает расстояние, на которое можно переместить канвас при зажатой клавише Space.
+ * Pan относится только к camera-state и должен изменять исключительно viewportTransform.
+ * MontageArea выступает стабильной сценической опорой, а не движущейся частью resize/pan-логики.
  */
 export default class PanConstraintManager {
   /**
@@ -32,6 +34,8 @@ export default class PanConstraintManager {
    * Границы зависят от соотношения currentZoom к defaultZoom.
    * Если currentZoom <= defaultZoom, перетаскивание блокируется.
    * Если currentZoom > defaultZoom, границы рассчитываются как ~50% размера монтажной области.
+   * Расчёт опирается на scene coordinates монтажной области и не должен вызывать
+   * никаких изменений scene state сам по себе.
    *
    * @returns Объект с границами перетаскивания
    */
@@ -83,6 +87,8 @@ export default class PanConstraintManager {
   /**
    * Ограничивает координаты viewportTransform границами.
    * Координаты vpt[4] и vpt[5] представляют смещение канваса.
+   * Метод работает только в плоскости camera-state и не должен компенсировать
+   * или маскировать смещения scene state.
    *
    * @param vptX - текущее смещение по X из viewportTransform[4]
    * @param vptY - текущее смещение по Y из viewportTransform[5]

@@ -257,7 +257,7 @@ describe('TransformManager', () => {
         flipY: false,
         angle: 0
       })
-      expect(mockCanvas.centerObject).toHaveBeenCalledWith(mockObject)
+      expect(mockEditor.canvasManager.centerObjectToMontageArea).toHaveBeenCalledWith({ object: mockObject })
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
@@ -324,5 +324,4 @@ describe('TransformManager', () => {
       expect(resetObjectSpy).toHaveBeenCalledWith({ object: obj2 })
     })
   })
-
 })

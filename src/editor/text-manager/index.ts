@@ -3,7 +3,6 @@ import {
   Canvas,
   FabricObject,
   IEvent,
-  Point,
   Textbox,
   TextboxProps,
   Transform,
@@ -11,6 +10,7 @@ import {
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import type { ObjectPlacement } from '../canvas-manager'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
 import {
@@ -51,7 +51,6 @@ import type {
   ScalingState,
   TextUpdatedPayload,
   TextCreationFlags,
-  TextEditingAnchor,
   TextReference,
   TextStyleOptions,
   TextboxSnapshot,
@@ -97,9 +96,9 @@ export default class TextManager {
   private scalingState: WeakMap<EditorTextbox, ScalingState>
 
   /**
-   * Вертикальная опорная точка текстового объекта на момент входа в редактирование.
+   * Placement текстового объекта на момент входа в редактирование.
    */
-  private editingAnchorState?: WeakMap<EditorTextbox, TextEditingAnchor>
+  private editingPlacementState?: WeakMap<EditorTextbox, ObjectPlacement>
 
   /**
    * Хранилище для защиты от повторной синхронизации lineFontDefaults.
@@ -117,7 +116,7 @@ export default class TextManager {
     this.canvas = editor.canvas
     this.fonts = editor.options.fonts ?? []
     this.scalingState = new WeakMap()
-    this.editingAnchorState = new WeakMap()
+    this.editingPlacementState = new WeakMap()
     this.lineDefaultsSyncing = new WeakSet()
     this.isTextEditingActive = false
 
@@ -127,6 +126,8 @@ export default class TextManager {
 
   /**
    * Добавляет новый текстовый объект на канвас.
+   * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
+   * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
    * @param options — настройки текста
    * @param flags — флаги поведения
    */
@@ -161,7 +162,10 @@ export default class TextManager {
     }: TextStyleOptions = {},
     { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
   ): EditorTextbox {
-    const { historyManager } = this.editor
+    const {
+      canvasManager,
+      historyManager
+    } = this.editor
     const { canvas } = this
     historyManager.suspendHistory()
 
@@ -204,6 +208,7 @@ export default class TextManager {
     const textbox = new BackgroundTextbox(text, finalOptions)
     const isAutoExpandEnabled = autoExpand !== false
     textbox.autoExpand = isAutoExpandEnabled
+    const hasExplicitPlacement = rest.left !== undefined || rest.top !== undefined
 
     // textCaseRaw хранит исходную строку без применения uppercase
     textbox.textCaseRaw = textbox.text ?? ''
@@ -221,8 +226,33 @@ export default class TextManager {
       textbox.dirty = true
     }
 
-    if (rest.left === undefined && rest.top === undefined) {
-      canvas.centerObject(textbox)
+    let placement: ObjectPlacement | undefined
+
+    if (hasExplicitPlacement) {
+      placement = canvasManager.resolveObjectPlacement({
+        object: textbox,
+        left: rest.left,
+        top: rest.top,
+        originX: rest.originX,
+        originY: rest.originY,
+        fallbackPoint: canvasManager.getMontageAreaSceneCenter()
+      })
+    }
+
+    const shouldAutoExpandOnCreate = isAutoExpandEnabled
+      && TextManager._hasWrappedLinesBeyondExplicitBreaks(textbox)
+
+    if (hasExplicitPlacement || shouldAutoExpandOnCreate) {
+      this._normalizeTextboxAfterContentChange({
+        textbox,
+        placement,
+        shouldAutoExpand: shouldAutoExpandOnCreate,
+        clampToMontage: hasExplicitPlacement
+      })
+    }
+
+    if (!placement) {
+      canvasManager.centerObjectToMontageArea({ object: textbox })
     }
 
     if (!withoutAdding) {
@@ -269,6 +299,7 @@ export default class TextManager {
    * @param options — настройки обновления
    * @param options.target — объект, его id или активный объект (если не передан)
    * @param options.style — стиль, который нужно применить
+   * `style.left/top/originX/originY` трактуются как placement-контракт объекта в scene coordinates.
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
    * @param options.selectionRange — внешний диапазон выделения для применения стилей
@@ -285,19 +316,15 @@ export default class TextManager {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
 
-    const { text: currentText = '' } = textbox
+    const {
+      text: currentText = ''
+    } = textbox
     const { historyManager } = this.editor
+    const { canvasManager } = this.editor
     const { canvas } = this
     historyManager.suspendHistory()
 
     const beforeState = TextManager._getSnapshot(textbox)
-    const anchorOriginY = textbox.originY ?? 'top'
-    const anchorPoint = textbox.getPointByOrigin('center', anchorOriginY)
-    const anchorSnapshot: TextEditingAnchor = {
-      originY: anchorOriginY,
-      x: anchorPoint.x,
-      y: anchorPoint.y
-    }
 
     const {
       text,
@@ -324,10 +351,21 @@ export default class TextManager {
       radiusTopRight,
       radiusBottomRight,
       radiusBottomLeft,
+      left,
+      top,
+      originX,
+      originY,
       ...rest
     } = style
 
     const updates: Partial<BackgroundTextboxProps> = { ...rest }
+    const placement = canvasManager.resolveObjectPlacement({
+      object: textbox,
+      left,
+      top,
+      originX,
+      originY
+    })
     const selectionRange = selectionRangeOverride !== undefined
       ? clampSelectionRange({
         text: currentText,
@@ -651,6 +689,7 @@ export default class TextManager {
     })
     const { autoExpand: storedAutoExpand } = textbox
     const hasAutoExpandUpdate = autoExpand !== undefined
+    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
     const resolvedAutoExpand = autoExpand ?? storedAutoExpand
     const isAutoExpandEnabled = resolvedAutoExpand !== false
 
@@ -659,28 +698,14 @@ export default class TextManager {
     } else if (storedAutoExpand === undefined) {
       textbox.autoExpand = true
     }
-    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
     const shouldAutoExpand = isAutoExpandEnabled
       && !hasExplicitWidthUpdate
       && (hasTextUpdate || uppercaseChanged || hasLayoutUpdates)
-    let geometryAdjusted = false
-
-    if (shouldAutoExpand) {
-      geometryAdjusted = this._autoExpandTextboxWidth(textbox, {
-        anchor: anchorSnapshot
-      })
-      if (geometryAdjusted) {
-        textbox.dirty = true
-      }
-    }
-
-    const dimensionsRounded = geometryAdjusted
-      ? false
-      : roundTextboxDimensions({ textbox })
-
-    if (dimensionsRounded) {
-      textbox.dirty = true
-    }
+    this._normalizeTextboxAfterContentChange({
+      textbox,
+      placement,
+      shouldAutoExpand
+    })
 
     textbox.setCoords()
     const eventOptions = {
@@ -779,6 +804,137 @@ export default class TextManager {
   }
 
   /**
+   * Возвращает true для текстового узла, чей layout и placement принадлежат shape-композиции.
+   * Для таких textbox TextManager должен сохранять текстовые семантики,
+   * но не применять standalone geometry/placement-логику поверх ShapeManager.
+   */
+  private static _isShapeOwnedTextbox(object?: FabricObject | null): object is EditorTextbox {
+    if (!TextManager._isTextbox(object)) return false
+
+    const group = object.group as (FabricObject & {
+      shapeComposite?: boolean
+    }) | undefined
+
+    return object.shapeNodeType === 'text' && group?.shapeComposite === true
+  }
+
+  /**
+   * Возвращает true, если textbox уже на create-path получил лишние переносы
+   * относительно явных `\n` и должен сразу получить autoExpand-ширину.
+   */
+  private static _hasWrappedLinesBeyondExplicitBreaks(textbox: EditorTextbox): boolean {
+    const textValue = typeof textbox.text === 'string' ? textbox.text : ''
+    if (!textValue.length) return false
+
+    const explicitLineCount = textValue.split('\n').length
+    const textboxWithLines = textbox as EditorTextbox & {
+      textLines?: string[]
+    }
+    const { textLines } = textboxWithLines
+
+    return Array.isArray(textLines) && textLines.length > explicitLineCount
+  }
+
+  /**
+   * Нормализует standalone-геометрию текстового объекта после layout-изменений.
+   * При включённом autoExpand пересчитывает ширину по фактической ширине текста.
+   * В остальных случаях только округляет размеры и восстанавливает placement.
+   */
+  private _normalizeTextboxAfterContentChange(
+    {
+      textbox,
+      placement,
+      shouldAutoExpand,
+      clampToMontage = true
+    }: {
+      textbox: EditorTextbox
+      placement?: ObjectPlacement | null
+      shouldAutoExpand: boolean
+      clampToMontage?: boolean
+    }
+  ): boolean {
+    let geometryAdjusted = false
+
+    if (shouldAutoExpand) {
+      geometryAdjusted = this._autoExpandTextboxWidth(textbox, {
+        placement: placement ?? undefined,
+        clampToMontage
+      })
+    }
+
+    let dimensionsRounded = false
+    if (!geometryAdjusted) {
+      dimensionsRounded = roundTextboxDimensions({ textbox })
+    }
+
+    let placementApplied = false
+    if (!geometryAdjusted && placement) {
+      this.editor.canvasManager.applyObjectPlacement({
+        object: textbox,
+        placement
+      })
+      placementApplied = true
+    }
+
+    if (geometryAdjusted || dimensionsRounded) {
+      textbox.dirty = true
+    }
+
+    if (geometryAdjusted || dimensionsRounded || placementApplied) {
+      textbox.setCoords()
+    }
+
+    return geometryAdjusted || dimensionsRounded
+  }
+
+  /**
+   * Измеряет ширину текста по явным строкам без soft-wrap переносов.
+   * Нужен для scale-path с autoExpand, чтобы width не зависела
+   * от промежуточного wrapping-состояния во время drag.
+   */
+  private _getTextboxUnwrappedWidth({ textbox }: { textbox: EditorTextbox }): number | null {
+    const textValue = typeof textbox.text === 'string' ? textbox.text : ''
+    if (!textValue.length) return null
+
+    textbox.initDimensions()
+
+    const textboxWithInternals = textbox as EditorTextbox & {
+      _textLines?: string[][]
+      _unwrappedTextLines?: string[][]
+      __lineWidths?: number[]
+      __charBounds?: unknown[]
+    }
+    const {
+      _textLines: wrappedTextLines,
+      _unwrappedTextLines: unwrappedTextLines,
+      __lineWidths: lineWidths,
+      __charBounds: charBounds
+    } = textboxWithInternals
+
+    if (!Array.isArray(unwrappedTextLines) || unwrappedTextLines.length === 0) {
+      const measuredWidth = Math.ceil(getLongestLineWidth({ textbox, text: textValue }))
+      if (!Number.isFinite(measuredWidth)) return null
+
+      return Math.max(measuredWidth, textbox.minWidth ?? 1)
+    }
+
+    textboxWithInternals._textLines = unwrappedTextLines
+    textboxWithInternals.__lineWidths = []
+    textboxWithInternals.__charBounds = []
+
+    try {
+      const measuredWidth = Math.ceil(textbox.calcTextWidth())
+      if (!Number.isFinite(measuredWidth)) return null
+
+      return Math.max(measuredWidth, textbox.minWidth ?? 1)
+    } finally {
+      textboxWithInternals._textLines = wrappedTextLines
+      textboxWithInternals.__lineWidths = lineWidths ?? []
+      textboxWithInternals.__charBounds = charBounds ?? []
+    }
+  }
+
+  /**
    * Вешает обработчики событий Fabric для работы с текстом.
    */
   private _bindEvents(): void {
@@ -793,35 +949,43 @@ export default class TextManager {
 
   /**
    * Обработчик входа в режим редактирования текста.
+   * Для текста внутри shape-композиций action истории сохраняется,
+   * но placement-снимок не создаётся: layout такого узла принадлежит ShapeManager.
    */
   private _handleTextEditingEntered = (event: IEvent): void => {
     this.isTextEditingActive = true
     const { target } = event
     if (!TextManager._isTextbox(target)) return
-    const { historyManager } = this.editor
+    const {
+      canvasManager,
+      historyManager
+    } = this.editor
     historyManager.beginAction({ reason: 'text-edit' })
-    const originY = target.originY ?? 'top'
-    const originPoint = target.getPointByOrigin('center', originY)
-    const anchorState = this._ensureEditingAnchorState()
-    anchorState.set(target, {
-      originY,
-      x: originPoint.x,
-      y: originPoint.y
-    })
+    if (TextManager._isShapeOwnedTextbox(target)) return
+
+    const placementState = this._ensureEditingPlacementState()
+    placementState.set(target, canvasManager.getObjectPlacement({ object: target }))
   }
 
   /**
-   * Реагирует на изменение текста в режиме редактирования: синхронизирует textCaseRaw и uppercase.
+   * Реагирует на изменение текста в режиме редактирования.
+   * Для standalone-textbox дополнительно удерживает geometry/placement.
+   * Для текста внутри shape-композиций ограничивается текстовыми семантиками,
+   * не вмешиваясь в layout, которым владеет ShapeManager.
    */
   private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
     if (this.lineDefaultsSyncing.has(target)) return
 
+    const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
     const { text = '', uppercase, autoExpand } = target
     const isUppercase = Boolean(uppercase)
     const isAutoExpandEnabled = autoExpand !== false
     const normalizedRaw = text.toLocaleLowerCase()
+    const placement = isShapeOwnedTextbox
+      ? null
+      : this.editingPlacementState?.get(target) ?? this.editor.canvasManager.getObjectPlacement({ object: target })
 
     if (isUppercase) {
       const uppercased = toUpperCaseSafe({ value: normalizedRaw })
@@ -835,26 +999,20 @@ export default class TextManager {
       target.textCaseRaw = text
     }
 
-    if (autoExpand === undefined) {
+    if (!isShapeOwnedTextbox && autoExpand === undefined) {
       target.autoExpand = true
     }
 
-    let geometryAdjusted = false
-
-    if (isAutoExpandEnabled) {
-      geometryAdjusted = this._autoExpandTextboxWidth(target)
+    if (isShapeOwnedTextbox) {
+      this._syncLineFontDefaultsOnTextChanged({ textbox: target })
+      return
     }
 
-    let dimensionsRounded = false
-
-    if (!geometryAdjusted) {
-      dimensionsRounded = roundTextboxDimensions({ textbox: target })
-    }
-
-    if (geometryAdjusted || dimensionsRounded) {
-      target.setCoords()
-      target.dirty = true
-    }
+    this._normalizeTextboxAfterContentChange({
+      textbox: target,
+      placement,
+      shouldAutoExpand: isAutoExpandEnabled
+    })
 
     this._syncLineFontDefaultsOnTextChanged({ textbox: target })
   }
@@ -1158,25 +1316,32 @@ export default class TextManager {
 
   /**
    * Автоматически увеличивает ширину текстового объекта до ширины текста,
-   * но не шире монтажной области, и удерживает объект в её пределах.
+   * но не шире монтажной области. При переданном placement дополнительно
+   * восстанавливает placement-контракт и при необходимости удерживает объект
+   * в пределах монтажной области.
    */
   private _autoExpandTextboxWidth(
     textbox: EditorTextbox,
-    { anchor }: { anchor?: TextEditingAnchor } = {}
+    {
+      placement,
+      clampToMontage = true
+    }: {
+      placement?: ObjectPlacement
+      clampToMontage?: boolean
+    } = {}
   ): boolean {
-    const { montageArea } = this.editor
+    const { canvasManager, montageArea } = this.editor
     if (!montageArea) return false
 
     const textValue = typeof textbox.text === 'string' ? textbox.text : ''
     if (!textValue.length) return false
 
-    montageArea.setCoords()
-    const montageBounds = montageArea.getBoundingRect(false, true)
-    const montageWidth = montageBounds.width ?? 0
+    const {
+      left: montageLeft,
+      width: montageWidth
+    } = canvasManager.getMontageAreaSceneBounds()
     if (!Number.isFinite(montageWidth) || montageWidth <= 0) return false
 
-    const storedAnchor = anchor ?? this.editingAnchorState?.get(textbox)
-    const anchorOriginY = storedAnchor?.originY ?? textbox.originY ?? 'top'
     const scaleX = Math.abs(textbox.scaleX ?? 1) || 1
     const paddingLeft = textbox.paddingLeft ?? 0
     const paddingRight = textbox.paddingRight ?? 0
@@ -1224,27 +1389,36 @@ export default class TextManager {
       geometryChanged = true
     }
 
-    if (storedAnchor) {
-      textbox.setPositionByOrigin(new Point(storedAnchor.x, storedAnchor.y), 'center', anchorOriginY)
-      geometryChanged = true
+    if (placement) {
+      canvasManager.applyObjectPlacement({
+        object: textbox,
+        placement
+      })
     }
 
-    const positionAdjusted = clampTextboxToMontage({
-      textbox,
-      montageLeft: montageBounds.left ?? 0,
-      montageRight: (montageBounds.left ?? 0) + montageWidth
-    })
+    let positionAdjusted = false
+
+    if (clampToMontage) {
+      positionAdjusted = clampTextboxToMontage({
+        textbox,
+        montageLeft,
+        montageRight: montageLeft + montageWidth
+      })
+    }
 
     return geometryChanged || positionAdjusted
   }
 
   /**
    * Обработчик выхода из режима редактирования текста.
+   * Для текста внутри shape-композиций завершает history-action,
+   * но не применяет standalone geometry cleanup поверх shape-layout.
    */
   private _handleTextEditingExited = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
-    this.editingAnchorState?.delete(target)
+    const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
+    this.editingPlacementState?.delete(target)
 
     // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
     const currentText = target.text ?? ''
@@ -1260,20 +1434,22 @@ export default class TextManager {
       target.textCaseRaw = currentText
     }
 
-    const dimensionsRoundedAfterEditing = roundTextboxDimensions({ textbox: target })
+    if (!isShapeOwnedTextbox) {
+      const dimensionsRoundedAfterEditing = roundTextboxDimensions({ textbox: target })
 
-    if (dimensionsRoundedAfterEditing) {
-      target.setCoords()
-      target.dirty = true
-      this.canvas.requestRenderAll()
-    }
+      if (dimensionsRoundedAfterEditing) {
+        target.setCoords()
+        target.dirty = true
+        this.canvas.requestRenderAll()
+      }
 
-    // Сбрасываем lock-свойства после выхода из режима редактирования
-    if (!target.locked) {
-      target.set({
-        lockMovementX: false,
-        lockMovementY: false
-      })
+      // Сбрасываем lock-свойства после выхода из режима редактирования
+      if (!target.locked) {
+        target.set({
+          lockMovementX: false,
+          lockMovementY: false
+        })
+      }
     }
 
     const { historyManager } = this.editor
@@ -1292,10 +1468,14 @@ export default class TextManager {
    * Корректирует ширину, вычитая паддинги, так как Fabric при изменении ширины
    * устанавливает значение, включающее визуальные отступы.
    * Также корректирует позицию при ресайзе слева, чтобы компенсировать смещение.
+   * Любой ручной horizontal resize переводит textbox в fixed-width режим.
    */
   private _handleObjectResizing = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
     const { target, transform, e } = event
     if (!TextManager._isTextbox(target)) return
+    if (TextManager._isShapeOwnedTextbox(target)) return
+
+    target.autoExpand = false
 
     const {
       paddingLeft = 0,
@@ -1336,6 +1516,9 @@ export default class TextManager {
 
   /**
    * Обрабатывает масштабирование текстового объекта: пересчитывает ширину, кегль и паддинги/радиусы.
+   * Для autoExpand-текста при scale по диагонали или по вертикали ширина
+   * измеряется от текущего содержимого без soft-wrap переносов.
+   * Горизонтальный scale трактуется как явная фиксация ширины и выключает autoExpand.
    * Для ActiveSelection с текстом блокирует горизонтальное масштабирование.
    */
   private _handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
@@ -1346,14 +1529,15 @@ export default class TextManager {
       return
     }
     if (!TextManager._isTextbox(target)) return
+    if (TextManager._isShapeOwnedTextbox(target)) return
     if (!transform) return
 
+    const { canvasManager } = this.editor
     target.isScaling = true
 
     const state = this._ensureScalingState(target)
     const {
       baseWidth: stateBaseWidth,
-      baseLeft: stateBaseLeft,
       baseFontSize,
       basePadding,
       baseRadii,
@@ -1361,9 +1545,7 @@ export default class TextManager {
       baseLineFontDefaults
     } = state
     const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
-    const originalLeft = typeof transform.original?.left === 'number' ? transform.original.left : undefined
     const baseWidth = originalWidth ?? stateBaseWidth
-    const baseLeft = originalLeft ?? stateBaseLeft
 
     const corner = transform.corner ?? ''
     const action = transform.action ?? ''
@@ -1389,8 +1571,7 @@ export default class TextManager {
       radiusBottomRight = 0,
       radiusBottomLeft = 0,
       fontSize: currentFontSize,
-      width: currentWidthProp,
-      originX: targetOriginX = 'left'
+      width: currentWidthProp
     } = target
     const shouldScalePadding = isCornerHandle || isVerticalHandle
     const shouldScaleRadii = isCornerHandle || isVerticalHandle
@@ -1447,10 +1628,11 @@ export default class TextManager {
         scale: heightScale
       })
     }
-
-    const originX = transform.originX ?? targetOriginX ?? 'left'
-    const rightEdge = baseLeft + baseWidth
-    const centerX = baseLeft + (baseWidth / 2)
+    const scalingPlacement = canvasManager.getObjectPlacement({
+      object: target,
+      originX: transform.originX ?? target.originX,
+      originY: transform.originY ?? target.originY
+    })
 
     const currentWidth = currentWidthProp ?? baseWidth
     const widthChanged = roundedNextWidth !== currentWidth
@@ -1469,6 +1651,10 @@ export default class TextManager {
       transform.scaleX = 1
       transform.scaleY = 1
       return
+    }
+
+    if (isHorizontalHandle && widthChanged) {
+      target.autoExpand = false
     }
 
     if (nextStyles) {
@@ -1494,26 +1680,35 @@ export default class TextManager {
       scaleY: 1
     })
 
+    let widthAdjustedOnScale = false
+    if (shouldScaleFontSize && target.autoExpand !== false) {
+      const unwrappedWidth = this._getTextboxUnwrappedWidth({ textbox: target })
+
+      if (
+        unwrappedWidth !== null
+        && Math.abs((target.width ?? 0) - unwrappedWidth) > DIMENSION_EPSILON
+      ) {
+        target.set({ width: unwrappedWidth })
+        target.initDimensions()
+        widthAdjustedOnScale = true
+      }
+    } else {
+      target.initDimensions()
+    }
+
     const dimensionsRoundedOnScale = roundTextboxDimensions({ textbox: target })
 
-    if (dimensionsRoundedOnScale) {
+    if (dimensionsRoundedOnScale || widthAdjustedOnScale) {
       target.dirty = true
     }
 
+    canvasManager.applyObjectPlacement({
+      object: target,
+      placement: scalingPlacement
+    })
+
     const appliedWidth = target.width ?? roundedNextWidth
     const widthActuallyChanged = appliedWidth !== currentWidth
-
-    let adjustedLeft = baseLeft
-    if (widthActuallyChanged && (isHorizontalHandle || isCornerHandle)) {
-      if (originX === 'right') {
-        adjustedLeft = rightEdge - appliedWidth
-      } else if (originX === 'center') {
-        adjustedLeft = centerX - (appliedWidth / 2)
-      }
-    }
-
-    target.set({ left: adjustedLeft })
-    state.baseLeft = adjustedLeft
 
     transform.scaleX = 1
     transform.scaleY = 1
@@ -1524,7 +1719,8 @@ export default class TextManager {
       original.scaleY = 1
       original.width = appliedWidth
       original.height = target.height
-      original.left = adjustedLeft
+      original.left = target.left
+      original.top = target.top
     }
 
     target.setCoords()
@@ -1552,6 +1748,7 @@ export default class TextManager {
       || fontSizeChanged
       || paddingChanged
       || radiusChanged
+      || widthAdjustedOnScale
       || dimensionsRoundedOnScale
   }
 
@@ -1641,7 +1838,6 @@ export default class TextManager {
           }
 
           obj.set(nextObjectUpdates)
-
           roundTextboxDimensions({ textbox: obj })
         }
 
@@ -1659,6 +1855,7 @@ export default class TextManager {
     }
 
     if (!TextManager._isTextbox(target)) return
+    if (TextManager._isShapeOwnedTextbox(target)) return
 
     target.isScaling = false
 
@@ -1708,14 +1905,14 @@ export default class TextManager {
   }
 
   /**
-   * Возвращает хранилище якорей редактирования, создавая его при необходимости.
+   * Возвращает хранилище placement-состояния на время редактирования.
    */
-  private _ensureEditingAnchorState(): WeakMap<EditorTextbox, TextEditingAnchor> {
-    if (!this.editingAnchorState) {
-      this.editingAnchorState = new WeakMap()
+  private _ensureEditingPlacementState(): WeakMap<EditorTextbox, ObjectPlacement> {
+    if (!this.editingPlacementState) {
+      this.editingPlacementState = new WeakMap()
     }
 
-    return this.editingAnchorState
+    return this.editingPlacementState
   }
 
   /**
@@ -1726,7 +1923,6 @@ export default class TextManager {
 
     if (!state) {
       const baseWidth = textbox.width ?? textbox.calcTextWidth()
-      const baseLeft = textbox.left ?? 0
       const baseFontSize = textbox.fontSize ?? 16
       const { styles: textboxStyles = {} } = textbox
       const { lineFontDefaults } = textbox
@@ -1746,7 +1942,6 @@ export default class TextManager {
       state = {
         baseWidth,
         baseFontSize,
-        baseLeft,
         basePadding: {
           top: paddingTop,
           right: paddingRight,

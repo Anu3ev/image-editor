@@ -505,6 +505,9 @@ export default class HistoryManager {
   /**
    * Функция загрузки состояния в канвас.
    * @param fullState - полное состояние канваса
+   * Состояние должно быть сохранено уже в канонической scene model.
+   * После десериализации редактор синхронизирует derived geometry и camera-state
+   * с текущим viewport контейнера, не восстанавливая legacy placement.
    * @fires editor:history-state-loaded
    */
   public async loadStateFromFullState(fullState: CanvasFullState): Promise<void> {
@@ -512,8 +515,19 @@ export default class HistoryManager {
 
     console.log('loadStateFromFullState fullState', fullState)
 
-    const { canvas, canvasManager, interactionBlocker, backgroundManager } = this.editor
+    const {
+      canvas,
+      canvasManager,
+      interactionBlocker,
+      backgroundManager,
+      zoomManager,
+      panConstraintManager
+    } = this.editor
     const { width: oldCanvasStateWidth, height: oldCanvasStateHeight } = canvas
+    const {
+      width: previousMontageWidth,
+      height: previousMontageHeight
+    } = this.editor.montageArea
 
     // Сбрасываем overlay, так как он может задваиваться при загрузке состояния
     interactionBlocker.overlayMask = null
@@ -525,20 +539,16 @@ export default class HistoryManager {
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
     const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area') as Rect | undefined
+    let montageSizeChanged = false
+    let canvasSizeChanged = false
+
     if (loadedMontage) {
       this.editor.montageArea = loadedMontage
-
-      // Если размеры канваса изменились (был ресайз), адаптируем только канвас, а не объекты
-      if (oldCanvasStateWidth !== canvas.getWidth() || oldCanvasStateHeight !== canvas.getHeight()) {
-        canvasManager.updateCanvas()
-      }
-    }
-
-    const loadedOverlayMask = canvas.getObjects().find((obj) => obj.id === 'overlay-mask')
-
-    if (loadedOverlayMask) {
-      interactionBlocker.overlayMask = loadedOverlayMask as Rect
-      interactionBlocker.overlayMask.visible = false
+      canvasManager.placeMontageAreaAtCanonicalScenePosition()
+      montageSizeChanged = loadedMontage.width !== previousMontageWidth
+        || loadedMontage.height !== previousMontageHeight
+      canvasSizeChanged = oldCanvasStateWidth !== canvas.getWidth()
+        || oldCanvasStateHeight !== canvas.getHeight()
     }
 
     const loadedBackgroundObject = canvas.getObjects().find((obj) => obj.id === 'background')
@@ -547,7 +557,22 @@ export default class HistoryManager {
       backgroundManager.removeBackground({ withoutSave: true })
     } else {
       backgroundManager.backgroundObject = loadedBackgroundObject as Rect | FabricImage
-      backgroundManager.refresh()
+    }
+
+    if (loadedMontage) {
+      interactionBlocker.ensureOverlay()
+
+      if (canvasSizeChanged) {
+        canvasManager.updateCanvas()
+      } else if (montageSizeChanged) {
+        zoomManager.calculateAndApplyDefaultZoom()
+        canvasManager.refreshMontageDerivedState()
+      } else {
+        zoomManager.updateDefaultZoom()
+        canvasManager.centerViewportToMontageArea()
+        canvasManager.refreshMontageDerivedState()
+        panConstraintManager.updateBounds()
+      }
     }
 
     canvas.renderAll()

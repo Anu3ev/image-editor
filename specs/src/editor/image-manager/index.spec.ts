@@ -204,6 +204,17 @@ describe('ImageManager', () => {
       expect(image.customData).toBeNull()
     })
 
+    it('импортированное изображение создаётся с верхней левой точкой позиционирования', async() => {
+      const image = createMockFabricImage({ width: 200, height: 150 })
+      mockFabricImageFromURL(image)
+
+      const file = new File(['mock'], 'image.png', { type: 'image/png' })
+      const result = await imageManager.importImage({ source: file, withoutAdding: true })
+
+      expect(result?.image.originX).toBe('left')
+      expect(result?.image.originY).toBe('top')
+    })
+
     it('imports image from URL and uses fetch', async() => {
       jest.spyOn(imageManager, 'getContentType').mockResolvedValue('image/png')
       const image = createMockFabricImage({ width: 200, height: 150 })

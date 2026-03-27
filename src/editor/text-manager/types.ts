@@ -132,17 +132,10 @@ export type LineFontDefaultUpdate = {
 
 export type ScalingState = {
   baseWidth: number
-  baseLeft: number
   baseFontSize: number
   baseStyles: TextboxStyles
   baseLineFontDefaults?: LineFontDefaults
   basePadding: PaddingValues
   baseRadii: CornerRadiiValues
   hasWidthChange: boolean
-}
-
-export type TextEditingAnchor = {
-  originY: EditorTextbox['originY']
-  x: number
-  y: number
 }

@@ -1,4 +1,4 @@
-import { Canvas, Pattern, Rect, CanvasOptions } from 'fabric'
+import { Canvas, Pattern, Point, Rect, CanvasOptions } from 'fabric'
 import { nanoid } from 'nanoid'
 
 import Listeners from './listeners'
@@ -271,6 +271,7 @@ export class ImageEditor {
 
     this._createMontageArea()
     this._createClippingArea()
+    this.interactionBlocker.ensureOverlay()
 
     this.listeners = new Listeners({ editor: this, options: this.options })
 
@@ -347,9 +348,11 @@ export class ImageEditor {
       montageAreaWidth,
       montageAreaHeight
     } = this.options
+    const centerPoint = new Point(montageAreaWidth / 2, montageAreaHeight / 2)
 
     this.montageArea = addRectangleToCanvas({
       canvas: this.canvas,
+      centerPoint,
       options: {
         width: montageAreaWidth,
         height: montageAreaHeight,
@@ -378,9 +381,11 @@ export class ImageEditor {
       montageAreaWidth,
       montageAreaHeight
     } = this.options
+    const centerPoint = new Point(montageAreaWidth / 2, montageAreaHeight / 2)
 
     this.canvas.clipPath = addRectangleToCanvas({
       canvas: this.canvas,
+      centerPoint,
       options: {
         id: 'area-clip',
         width: montageAreaWidth,

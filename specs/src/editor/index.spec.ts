@@ -1,4 +1,4 @@
-import { Canvas, Pattern } from 'fabric'
+import { Canvas, Pattern, Point } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../../../src/editor'
 import { addRectangleToCanvas } from '../../../src/editor/utils/primitive-shapes'
@@ -454,6 +454,10 @@ describe('ImageEditor', () => {
 
       expect(addRectangleToCanvasMock).toHaveBeenCalledWith({
         canvas: editorWithCanvas.canvas,
+        centerPoint: new Point(
+          basicOptions.montageAreaWidth / 2,
+          basicOptions.montageAreaHeight / 2
+        ),
         options: expect.objectContaining({
           width: basicOptions.montageAreaWidth,
           height: basicOptions.montageAreaHeight,
@@ -490,6 +494,10 @@ describe('ImageEditor', () => {
 
       expect(addRectangleToCanvasMock).toHaveBeenCalledWith({
         canvas: editorWithCanvas.canvas,
+        centerPoint: new Point(
+          basicOptions.montageAreaWidth / 2,
+          basicOptions.montageAreaHeight / 2
+        ),
         options: expect.objectContaining({
           id: 'area-clip',
           width: basicOptions.montageAreaWidth,

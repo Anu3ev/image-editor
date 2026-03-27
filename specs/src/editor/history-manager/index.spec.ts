@@ -306,7 +306,7 @@ describe('HistoryManager', () => {
       expect(totalChangesCount).toBe(1)
     })
 
-    it('не сохраняет дифф при смещении монтажной области и объектов на одинаковую дельту', () => {
+    it('сохраняет scene translation как реальное изменение состояния', () => {
       const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
       const baseState = createState({
         clipPath: {
@@ -361,7 +361,7 @@ describe('HistoryManager', () => {
 
       const { patches } = historyManager
 
-      expect(patches).toHaveLength(0)
+      expect(patches).toHaveLength(1)
     })
 
     it('сохраняет дифф если при смещении есть реальные изменения объекта', () => {
@@ -1044,6 +1044,29 @@ describe('HistoryManager', () => {
 
       expect(mockEditor.canvasManager.updateCanvas).toHaveBeenCalled()
     })
+
+    it('при загрузке состояния с новой resolution пересчитывает defaultZoom', async() => {
+      const { historyManager, mockEditor } = createHistoryManagerTestSetup({
+        initialCanvasWidth: 800,
+        initialCanvasHeight: 600
+      })
+      const state = createState({
+        width: 800,
+        height: 600,
+        objects: [
+          { id: 'montage-area', type: 'rect', width: 600, height: 300 }
+        ] as any[]
+      })
+
+      jest.clearAllMocks()
+
+      await historyManager.loadStateFromFullState(state)
+
+      expect(mockEditor.zoomManager.calculateAndApplyDefaultZoom).toHaveBeenCalledTimes(1)
+      expect(mockEditor.zoomManager.updateDefaultZoom).not.toHaveBeenCalled()
+      expect(mockEditor.canvasManager.refreshMontageDerivedState).toHaveBeenCalledTimes(1)
+      expect(mockEditor.canvasManager.updateCanvas).not.toHaveBeenCalled()
+    })
   })
 
   describe('deferred save при блокировке UI', () => {
@@ -1297,6 +1320,44 @@ describe('HistoryManager', () => {
 
       await historyManager.undo()
       expect(historyManager.currentIndex).toBe(0)
+    })
+
+    it('undo после изменения resolution пересчитывает defaultZoom', async() => {
+      const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
+      const baseState = createState({
+        width: 800,
+        height: 600,
+        objects: [
+          { id: 'montage-area', type: 'rect', width: 400, height: 300 }
+        ] as any[]
+      })
+      const nextState = createState({
+        width: 800,
+        height: 600,
+        objects: [
+          { id: 'montage-area', type: 'rect', width: 600, height: 300 }
+        ] as any[]
+      })
+
+      mockCanvas.toDatalessObject
+        .mockReturnValueOnce(baseState)
+        .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(nextState)
+        .mockReturnValueOnce(baseState)
+
+      historyManager.saveState()
+      historyManager.saveState()
+      mockEditor.montageArea.width = 600
+      mockEditor.montageArea.height = 300
+
+      jest.clearAllMocks()
+
+      await historyManager.undo()
+
+      expect(mockEditor.zoomManager.calculateAndApplyDefaultZoom).toHaveBeenCalledTimes(1)
+      expect(mockEditor.zoomManager.updateDefaultZoom).not.toHaveBeenCalled()
+      expect(mockEditor.canvasManager.refreshMontageDerivedState).toHaveBeenCalledTimes(1)
+      expect(mockEditor.canvasManager.updateCanvas).not.toHaveBeenCalled()
     })
 
     it('повторяет действие и генерирует событие redo', async() => {

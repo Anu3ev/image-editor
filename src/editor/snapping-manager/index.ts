@@ -1,7 +1,9 @@
 import {
   BasicTransformEvent,
   Canvas,
+  FabricImage,
   FabricObject,
+  Point,
   Textbox,
   Transform,
   TPointerEvent,
@@ -350,16 +352,21 @@ export default class SnappingManager {
       return
     }
 
+    const shouldApplyPixelScalingStep = SnappingManager._shouldApplyPixelScalingStep({
+      target
+    })
     const isCtrlPressed = Boolean(e?.ctrlKey)
     if (isCtrlPressed) {
       this._clearGuides()
-      SnappingManager._applyScalingStep({ target, transform })
-      SnappingManager._applyMovementStep({ target })
+      if (shouldApplyPixelScalingStep) {
+        SnappingManager._applyScalingStep({ target, transform })
+      }
       return
     }
 
-    SnappingManager._applyScalingStep({ target, transform })
-    SnappingManager._applyMovementStep({ target })
+    if (shouldApplyPixelScalingStep) {
+      SnappingManager._applyScalingStep({ target, transform })
+    }
 
     const {
       shouldSnapX,
@@ -529,8 +536,11 @@ export default class SnappingManager {
     }
 
     if (hasScaleUpdates) {
-      const centerPoint = target.getRelativeCenterPoint()
-      const anchorPoint = target.translateToOriginPoint(centerPoint, originX, originY)
+      const anchorPlacement = this.editor.canvasManager.getObjectPlacement({
+        object: target,
+        originX,
+        originY
+      })
       const updates: Partial<FabricObject> = {}
 
       if (nextScaleX !== null) {
@@ -545,13 +555,18 @@ export default class SnappingManager {
 
       if (Object.keys(updates).length) {
         target.set(updates)
-        target.setPositionByOrigin(anchorPoint, originX, originY)
+        target.setPositionByOrigin(
+          new Point(anchorPlacement.left, anchorPlacement.top),
+          originX,
+          originY
+        )
         target.setCoords()
       }
     }
 
-    SnappingManager._applyScalingStep({ target, transform })
-    SnappingManager._applyMovementStep({ target })
+    if (shouldApplyPixelScalingStep) {
+      SnappingManager._applyScalingStep({ target, transform })
+    }
 
     this._applyGuides({
       guides,
@@ -658,10 +673,18 @@ export default class SnappingManager {
 
     const { width: currentWidth = 0 } = target
     if (nextWidth !== currentWidth) {
-      const centerPoint = target.getRelativeCenterPoint()
-      const anchorPoint = target.translateToOriginPoint(centerPoint, originX, originY)
+      const anchorPlacement = this.editor.canvasManager.getObjectPlacement({
+        object: target,
+        originX,
+        originY
+      })
+
       target.set({ width: nextWidth })
-      target.setPositionByOrigin(anchorPoint, originX, originY)
+      target.setPositionByOrigin(
+        new Point(anchorPlacement.left, anchorPlacement.top),
+        originX,
+        originY
+      )
       target.setCoords()
     }
 
@@ -1254,6 +1277,15 @@ export default class SnappingManager {
     if (!Number.isFinite(rawWidth) || rawWidth <= 0) return null
 
     return Math.max(1, Math.round(rawWidth))
+  }
+
+  /**
+   * Возвращает true, если live-scaling объекта нужно округлять до целого пиксельного размера.
+   * Для изображений сохраняем нативное поведение Fabric без дополнительной квантизации,
+   * иначе scale начинает визуально расходиться с положением курсора.
+   */
+  private static _shouldApplyPixelScalingStep({ target }: { target: FabricObject }): boolean {
+    return !(target instanceof FabricImage)
   }
 
   /**

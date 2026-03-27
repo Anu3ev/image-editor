@@ -5,6 +5,8 @@ import type {
 } from './editor.types'
 
 export type TextHorizontalAlign = 'left' | 'center' | 'right'
+export type TextPlacementOriginX = 'left' | 'center' | 'right'
+export type TextPlacementOriginY = 'top' | 'center' | 'bottom'
 export type TextResizeOriginX = 'left' | 'right'
 export type TextResizeOriginY = 'top' | 'center' | 'bottom'
 
@@ -42,6 +44,8 @@ export interface TextAddParams extends TextStyleParams {
   id?: string
   left?: number
   top?: number
+  originX?: TextPlacementOriginX
+  originY?: TextPlacementOriginY
   width?: number
   angle?: number
 }

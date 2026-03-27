@@ -61,7 +61,7 @@ describe('BackgroundManager', () => {
 
       expect(addRectangleToCanvasMock).toHaveBeenCalledWith({
         canvas: mockEditor.canvas,
-        options: {
+        options: expect.objectContaining({
           fill: '#ff0000',
           selectable: false,
           evented: false,
@@ -70,7 +70,7 @@ describe('BackgroundManager', () => {
           id: 'background',
           backgroundType: 'color',
           backgroundId: expect.stringMatching(/^background-/)
-        },
+        }),
         flags: { withoutSelection: true }
       })
 
@@ -83,6 +83,24 @@ describe('BackgroundManager', () => {
         withoutSave: false
       })
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
+    })
+
+    it('при создании объект цветового фона сразу получает размеры и позицию монтажной области', () => {
+      const mockBackground = createMockBackgroundRect({ fill: '#ff0000' })
+      addRectangleToCanvasMock.mockReturnValue(mockBackground)
+
+      backgroundManager.setColorBackground({ color: '#ff0000' })
+
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith(expect.objectContaining({
+        options: expect.objectContaining({
+          width: mockMontageArea.width,
+          height: mockMontageArea.height,
+          left: mockMontageArea.left,
+          top: mockMontageArea.top,
+          originX: 'center',
+          originY: 'center'
+        })
+      }))
     })
 
     it('не должен изменять фон если цвет тот же', () => {
@@ -223,13 +241,62 @@ describe('BackgroundManager', () => {
 
       backgroundManager.refresh()
 
-      // Проверяем, что вызывается fitObject для фона
+      expect(mockBackground.set).toHaveBeenCalledWith(expect.objectContaining({
+        width: mockMontageArea.width,
+        height: mockMontageArea.height,
+        left: mockMontageArea.left,
+        top: mockMontageArea.top,
+        originX: 'center',
+        originY: 'center'
+      }))
+      expect(mockBackground.setCoords).toHaveBeenCalled()
+      expect(mockCanvas.requestRenderAll).toHaveBeenCalled()
+    })
+
+    it('при обновлении объект цветового фона берёт размеры монтажной области напрямую', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'color'
+      })
+      backgroundManager.backgroundObject = mockBackground
+
+      mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground])
+      mockCanvas.indexOf.mockImplementation((obj: any) => {
+        if (obj === mockMontageArea) return 0
+        if (obj === mockBackground) return 1
+        return -1
+      })
+
+      backgroundManager.refresh()
+
+      expect(mockEditor.transformManager.fitObject).not.toHaveBeenCalled()
+      expect(mockBackground.set).toHaveBeenCalledWith(expect.objectContaining({
+        width: mockMontageArea.width,
+        height: mockMontageArea.height,
+        left: mockMontageArea.left,
+        top: mockMontageArea.top
+      }))
+    })
+
+    it('при обновлении фоновое изображение заполняет монтажную область по cover', () => {
+      const mockBackground = createMockBackgroundImage({
+        backgroundType: 'image'
+      })
+      backgroundManager.backgroundObject = mockBackground
+
+      mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground])
+      mockCanvas.indexOf.mockImplementation((obj: any) => {
+        if (obj === mockMontageArea) return 0
+        if (obj === mockBackground) return 1
+        return -1
+      })
+
+      backgroundManager.refresh()
+
       expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
         object: mockBackground,
         withoutSave: true,
         type: 'cover'
       })
-      expect(mockCanvas.requestRenderAll).toHaveBeenCalled()
     })
 
     it('не должен делать ничего если нет монтажной области или фона', () => {
@@ -255,6 +322,7 @@ describe('BackgroundManager', () => {
       backgroundManager.refresh()
 
       expect(mockCanvas.moveObjectTo).toHaveBeenCalledWith(mockBackground, 1)
+      expect(mockBackground.setCoords).toHaveBeenCalled()
     })
   })
 
@@ -406,6 +474,34 @@ describe('BackgroundManager', () => {
 
   // Дополнительные тесты для градиентов и edge cases
   describe('gradient background', () => {
+    it('при создании объект градиентного фона сразу получает размеры и позицию монтажной области', () => {
+      const mockBackground = createMockBackgroundRect({
+        backgroundType: 'gradient',
+        fill: { type: 'linear', coords: {}, colorStops: [] }
+      })
+      const gradient = {
+        type: 'linear' as const,
+        angle: 90,
+        startColor: '#ff0000',
+        endColor: '#0000ff'
+      }
+
+      addRectangleToCanvasMock.mockReturnValue(mockBackground)
+
+      backgroundManager.setGradientBackground({ gradient })
+
+      expect(addRectangleToCanvasMock).toHaveBeenCalledWith(expect.objectContaining({
+        options: expect.objectContaining({
+          width: mockMontageArea.width,
+          height: mockMontageArea.height,
+          left: mockMontageArea.left,
+          top: mockMontageArea.top,
+          originX: 'center',
+          originY: 'center'
+        })
+      }))
+    })
+
     it('должен создать градиентный фон', () => {
       const mockBackground = createMockBackgroundRect({
         backgroundType: 'gradient',
@@ -949,12 +1045,10 @@ describe('BackgroundManager', () => {
       backgroundManager.backgroundObject = mockBackground
 
       // Симулируем изменение размера монтажной области
-      mockMontageArea.getBoundingRect.mockReturnValue({
-        left: 200,
-        top: 100,
-        width: 600,
-        height: 450
-      })
+      mockMontageArea.left = 200
+      mockMontageArea.top = 100
+      mockMontageArea.width = 600
+      mockMontageArea.height = 450
 
       // Проверяем начальное состояние фона в canvas
       let objects = mockCanvas.getObjects()
@@ -966,12 +1060,15 @@ describe('BackgroundManager', () => {
       // Вызываем refresh
       backgroundManager.refresh()
 
-      // ОР: При вызове refresh должен быть вызван fitObject для фона
-      expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
-        object: mockBackground,
-        withoutSave: true,
-        type: 'cover'
-      })
+      expect(mockBackground.set).toHaveBeenCalledWith(expect.objectContaining({
+        left: 200,
+        top: 100,
+        width: 600,
+        height: 450,
+        originX: 'center',
+        originY: 'center'
+      }))
+      expect(mockBackground.setCoords).toHaveBeenCalled()
 
       // Проверяем что canvas обновился
       expect(mockCanvas.requestRenderAll).toHaveBeenCalled()

@@ -8,6 +8,9 @@ import { ClipboardModel } from '../models/clipboard.model'
 import { TemplateModel } from '../models/template.model'
 import { TextModel } from '../models/text.model'
 import { SnappingModel } from '../models/snapping.model'
+import { BackgroundModel } from '../models/background.model'
+import { InteractionBlockerModel } from '../models/interaction-blocker.model'
+import { ImageModel } from '../models/image.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
@@ -21,6 +24,9 @@ interface EditorFixtures {
   template: TemplateModel
   text: TextModel
   snapping: SnappingModel
+  background: BackgroundModel
+  interactionBlocker: InteractionBlockerModel
+  images: ImageModel
 }
 
 interface EditorInternalFixtures {
@@ -73,6 +79,18 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   snapping: async({ editorModel }, use) => {
     await use(editorModel.snapping)
+  },
+
+  background: async({ editorModel }, use) => {
+    await use(editorModel.background)
+  },
+
+  interactionBlocker: async({ editorModel }, use) => {
+    await use(editorModel.interactionBlocker)
+  },
+
+  images: async({ editorModel }, use) => {
+    await use(editorModel.images)
   }
 })
 

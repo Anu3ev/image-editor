@@ -5,6 +5,7 @@ import {
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
+import type { ObjectPlacement } from '../canvas-manager'
 import type { TextStyleOptions } from '../text-manager'
 import type { BeforeTextUpdatedPayload } from '../text-manager/types'
 import {
@@ -22,8 +23,7 @@ import {
 } from './shape-factory'
 import {
   applyShapeTextLayout,
-  resolveShapeTextAutoExpandWidthForText,
-  resolveGroupCenterPoint
+  resolveShapeTextAutoExpandWidthForText
 } from './shape-layout'
 import ShapeScalingController from './scaling/shape-scaling'
 import ShapeEditingController from './shape-editing'
@@ -71,11 +71,6 @@ type ShapeCanvasEvent = {
   transform?: import('fabric').Transform | null
 }
 
-type ShapeGroupCenter = {
-  x: number
-  y: number
-}
-
 type ShapeGroupDimensions = {
   width: number
   height: number
@@ -101,9 +96,9 @@ export default class ShapeManager {
   private editingController: ShapeEditingController
 
   /**
-   * Центры shape-групп на время редактирования текста.
+   * Placement shape-групп на время редактирования текста.
    */
-  private editingCenters: WeakMap<ShapeGroup, ShapeGroupCenter>
+  private editingPlacements: WeakMap<ShapeGroup, ObjectPlacement>
 
   /**
    * Текстовые узлы, которые ShapeManager обновляет сам и уже синхронизирует вручную.
@@ -119,7 +114,7 @@ export default class ShapeManager {
     this.editingController = new ShapeEditingController({
       canvas: editor.canvas
     })
-    this.editingCenters = new WeakMap()
+    this.editingPlacements = new WeakMap()
     this.internalTextUpdates = new WeakSet()
 
     this._bindEvents()
@@ -129,6 +124,8 @@ export default class ShapeManager {
    * Добавляет shape-композицию (фигура + текст) по presetKey.
    * При shapeTextAutoExpand=true явная width задаёт ручную базовую ширину,
    * но текущая ширина может быть больше неё, если этого требует текст.
+   * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
+   * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
    */
   public async add({
     presetKey = DEFAULT_SHAPE_PRESET_KEY,
@@ -146,6 +143,8 @@ export default class ShapeManager {
       shapeTextAutoExpand,
       left,
       top,
+      originX,
+      originY,
       text,
       textStyle,
       alignH,
@@ -233,14 +232,23 @@ export default class ShapeManager {
       rounding
     })
 
-    const center = resolveGroupCenterPoint({
-      left,
-      top,
-      canvasCenter: this.editor.canvas.getCenterPoint()
-    })
+    if (left === undefined && top === undefined) {
+      this.editor.canvasManager.centerObjectToMontageArea({ object: group })
+    } else {
+      const placement = this.editor.canvasManager.resolveObjectPlacement({
+        object: group,
+        left,
+        top,
+        originX,
+        originY,
+        fallbackPoint: this.editor.canvasManager.getMontageAreaSceneCenter()
+      })
 
-    group.setPositionByOrigin(center, 'center', 'center')
-    group.setCoords()
+      this.editor.canvasManager.applyObjectPlacement({
+        object: group,
+        placement
+      })
+    }
 
     if (withoutAdding) return group
 
@@ -265,6 +273,8 @@ export default class ShapeManager {
    * Обновляет пресет фигуры у существующей shape-группы с сохранением текста и трансформаций.
    * При shapeTextAutoExpand=true явная width обновляет ручную базовую ширину,
    * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
+   * Если переданы `left/top/originX/originY`, они становятся новым placement-контрактом группы.
+   * Сохраняет тот же instance группы и при необходимости заменяет только внутренний shape-узел.
    */
   public async update({
     target,
@@ -283,6 +293,10 @@ export default class ShapeManager {
     if (!basePreset) return null
 
     const {
+      left,
+      top,
+      originX,
+      originY,
       width: rawWidth,
       height: rawHeight,
       shapeTextAutoExpand,
@@ -295,6 +309,13 @@ export default class ShapeManager {
       withoutSelection,
       withoutSave
     } = options
+    const placement = this.editor.canvasManager.resolveObjectPlacement({
+      object: currentGroup,
+      left,
+      top,
+      originX,
+      originY
+    })
 
     const currentDimensions = this._resolveCurrentDimensions({
       group: currentGroup
@@ -356,46 +377,16 @@ export default class ShapeManager {
     }
 
     const manualHeight = Math.max(1, rawHeight ?? currentGroup.shapeManualBaseHeight ?? height)
-    const interactionState = this.editingController.resolveGroupInteractionState({
+    const {
+      shape: currentShapeNode,
+      text: currentTextNode
+    } = getShapeNodes({
       group: currentGroup
     })
 
-    const center = currentGroup.getCenterPoint()
-    const {
-      id,
-      angle = 0,
-      customData,
-      flipX = false,
-      flipY = false,
-      lockRotation = false,
-      lockScalingX = false,
-      lockScalingY = false,
-      lockSkewingX = false,
-      lockSkewingY = false,
-      locked = false
-    } = currentGroup
-    const {
-      selectable,
-      evented,
-      lockMovementX,
-      lockMovementY
-    } = interactionState
+    if (!currentShapeNode || !currentTextNode) return null
 
-    const { text: currentTextNode } = getShapeNodes({
-      group: currentGroup
-    })
-
-    if (!currentTextNode) return null
-
-    const detachedObjects = currentGroup.removeAll() as ShapeNode[]
-    const existingTextNode = this._findTextNode({
-      objects: detachedObjects,
-      fallback: currentTextNode
-    })
-
-    if (!existingTextNode) return null
-
-    existingTextNode.set({
+    const textLayoutState = {
       angle: 0,
       skewX: 0,
       skewY: 0,
@@ -408,17 +399,28 @@ export default class ShapeManager {
       top: 0,
       originX: 'left',
       originY: 'top'
+    } as const
+
+    const stagedTextNode = this._createTextNode({
+      text: currentTextNode.textCaseRaw ?? currentTextNode.text ?? '',
+      textStyle: this._resolveCurrentTextStyle({
+        textNode: currentTextNode
+      }),
+      width: Math.max(1, currentTextNode.width ?? currentDimensions.width),
+      align: horizontalAlign
     })
 
+    stagedTextNode.set(textLayoutState)
+
     this._applyTextUpdates({
-      textNode: existingTextNode,
+      textNode: stagedTextNode,
       text,
       textStyle,
       align: horizontalAlign
     })
 
     const layoutWidth = this._resolveShapeLayoutWidth({
-      text: existingTextNode,
+      text: stagedTextNode,
       currentWidth: currentDimensions.width,
       manualWidth,
       shapeTextAutoExpandEnabled: nextShapeTextAutoExpand,
@@ -433,59 +435,73 @@ export default class ShapeManager {
       style,
       rounding: effectiveRounding
     })
+    const currentObjects = currentGroup.getObjects()
+    const currentShapeIndex = currentObjects.indexOf(currentShapeNode)
+    if (currentShapeIndex < 0) return null
 
-    const updatedGroup = this._createShapeGroup({
-      id: id ?? `shape-${nanoid()}`,
-      presetKey: effectivePreset.key,
-      presetCanRound: isShapePresetRoundable({
-        preset: effectivePreset
-      }),
-      shape,
-      text: existingTextNode,
-      width: layoutWidth,
-      height,
-      manualWidth,
-      manualHeight,
-      shapeTextAutoExpand: nextShapeTextAutoExpand,
-      alignH: horizontalAlign,
-      alignV: verticalAlign,
-      padding,
-      style,
-      rounding: effectiveRounding
-    })
+    const applyUpdateToCurrentGroup = (): void => {
+      this._detachShapeGroupAutoLayout({
+        group: currentGroup
+      })
 
-    updatedGroup.set({
-      angle,
-      customData,
-      evented,
-      flipX,
-      flipY,
-      lockMovementX,
-      lockMovementY,
-      lockRotation,
-      lockScalingX,
-      lockScalingY,
-      lockSkewingX,
-      lockSkewingY,
-      locked,
-      selectable
-    })
+      currentTextNode.set(textLayoutState)
+      this._applyTextUpdates({
+        textNode: currentTextNode,
+        text,
+        textStyle,
+        align: horizontalAlign
+      })
 
-    updatedGroup.setPositionByOrigin(center, 'center', 'center')
-    updatedGroup.setCoords()
+      currentGroup.remove(currentShapeNode)
+      currentGroup.insertAt(currentShapeIndex, shape)
+
+      this._applyShapeGroupMetadata({
+        group: currentGroup,
+        presetKey: effectivePreset.key,
+        presetCanRound: isShapePresetRoundable({
+          preset: effectivePreset
+        }),
+        width: layoutWidth,
+        height,
+        manualWidth,
+        manualHeight,
+        shapeTextAutoExpand: nextShapeTextAutoExpand,
+        alignH: horizontalAlign,
+        alignV: verticalAlign,
+        padding,
+        style,
+        rounding: effectiveRounding
+      })
+
+      this._applyCurrentLayout({
+        group: currentGroup,
+        shape,
+        text: currentTextNode,
+        placement,
+        width: layoutWidth,
+        height,
+        alignH: horizontalAlign,
+        alignV: verticalAlign
+      })
+
+      if (currentTextNode.isEditing) {
+        this.editingPlacements.set(currentGroup, placement)
+      }
+    }
 
     const wasOnCanvas = this._isOnCanvas({ object: currentGroup })
-
-    if (!wasOnCanvas) return updatedGroup
+    if (!wasOnCanvas) {
+      applyUpdateToCurrentGroup()
+      return currentGroup
+    }
 
     this._beginMutation()
 
     try {
-      this.editor.canvas.remove(currentGroup)
-      this.editor.canvas.add(updatedGroup)
+      applyUpdateToCurrentGroup()
 
-      if (!withoutSelection) {
-        this.editor.canvas.setActiveObject(updatedGroup)
+      if (!currentTextNode.isEditing && !withoutSelection) {
+        this.editor.canvas.setActiveObject(currentGroup)
       }
 
       this.editor.canvas.requestRenderAll()
@@ -493,7 +509,7 @@ export default class ShapeManager {
       this._endMutation({ withoutSave })
     }
 
-    return updatedGroup
+    return currentGroup
   }
 
   /**
@@ -707,7 +723,7 @@ export default class ShapeManager {
     if (!hasStyleUpdates) return group
 
     const manualDimensions = this._resolveManualDimensions({ group })
-    const center = group.getCenterPoint()
+    const placement = this.editor.canvasManager.getObjectPlacement({ object: group })
     const alignH = this._resolveShapeTextHorizontalAlign({
       group,
       textStyle: style
@@ -726,10 +742,7 @@ export default class ShapeManager {
         group,
         shape,
         text,
-        center: {
-          x: center.x,
-          y: center.y
-        },
+        placement,
         height: manualDimensions.height,
         alignH
       })
@@ -773,8 +786,6 @@ export default class ShapeManager {
       ?? group.shapeAlignVertical
       ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
-    const padding = this._resolveGroupPadding({ group })
-
     this._beginMutation()
 
     try {
@@ -783,15 +794,14 @@ export default class ShapeManager {
         align: alignH
       })
 
-      applyShapeTextLayout({
+      this._applyCurrentLayout({
         group,
         shape,
         text,
-        width: dimensions.width,
         height: dimensions.height,
+        width: dimensions.width,
         alignH,
-        alignV,
-        padding
+        alignV
       })
 
       this.editor.canvas.requestRenderAll()
@@ -910,7 +920,7 @@ export default class ShapeManager {
       const textNode = target as ShapeTextNode
       const { group } = textNode
       if (isShapeGroup(group)) {
-        this.editingCenters.delete(group)
+        this.editingPlacements.delete(group)
       }
     }
 
@@ -931,12 +941,10 @@ export default class ShapeManager {
         this._detachShapeGroupAutoLayout({
           group
         })
-
-        const center = group.getCenterPoint()
-        this.editingCenters.set(group, {
-          x: center.x,
-          y: center.y
-        })
+        this.editingPlacements.set(
+          group,
+          this.editor.canvasManager.getObjectPlacement({ object: group })
+        )
       }
     }
 
@@ -1026,6 +1034,77 @@ export default class ShapeManager {
       objectCaching: false
     }) as ShapeGroupObject & ShapeGroup
 
+    this._applyShapeGroupMetadata({
+      group,
+      presetKey,
+      presetCanRound,
+      width,
+      height,
+      manualWidth,
+      manualHeight,
+      shapeTextAutoExpand,
+      alignH,
+      alignV,
+      padding,
+      style,
+      rounding
+    })
+
+    group.rehydrateRuntimeState()
+
+    applyGroupInteractivity({ group })
+    prepareShapeTextNode({ text })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width,
+      height,
+      alignH,
+      alignV,
+      padding
+    })
+
+    this._detachShapeGroupAutoLayout({
+      group
+    })
+
+    return group
+  }
+
+  /**
+   * Применяет к shape-группе сохраняемое доменное состояние без пересоздания внешнего объекта.
+   */
+  private _applyShapeGroupMetadata({
+    group,
+    presetKey,
+    presetCanRound,
+    width,
+    height,
+    manualWidth,
+    manualHeight,
+    shapeTextAutoExpand,
+    alignH,
+    alignV,
+    padding,
+    style,
+    rounding
+  }: {
+    group: ShapeGroupLike
+    presetKey: string
+    presetCanRound: boolean
+    width: number
+    height: number
+    manualWidth?: number
+    manualHeight?: number
+    shapeTextAutoExpand: boolean
+    alignH: ShapeHorizontalAlign
+    alignV: ShapeVerticalAlign
+    padding: ShapePadding
+    style: ShapeVisualStyle
+    rounding?: number
+  }): void {
     const strokeDashArray = style.strokeDashArray
       ? style.strokeDashArray.slice()
       : style.strokeDashArray ?? null
@@ -1052,28 +1131,6 @@ export default class ShapeManager {
       shapeRounding: Math.max(0, rounding ?? 0),
       shapeCanRound: presetCanRound
     })
-
-    group.rehydrateRuntimeState()
-
-    applyGroupInteractivity({ group })
-    prepareShapeTextNode({ text })
-
-    applyShapeTextLayout({
-      group,
-      shape,
-      text,
-      width,
-      height,
-      alignH,
-      alignV,
-      padding
-    })
-
-    this._detachShapeGroupAutoLayout({
-      group
-    })
-
-    return group
   }
 
   /**
@@ -1180,6 +1237,78 @@ export default class ShapeManager {
   }
 
   /**
+   * Возвращает текущее состояние текстового узла в виде style-объекта для staged update.
+   */
+  private _resolveCurrentTextStyle({ textNode }: { textNode: ShapeTextNode }): TextStyleOptions {
+    const {
+      backgroundColor,
+      backgroundOpacity,
+      fill,
+      fontFamily,
+      fontSize,
+      fontStyle,
+      fontWeight,
+      lineFontDefaults,
+      linethrough,
+      opacity,
+      paddingBottom,
+      paddingLeft,
+      paddingRight,
+      paddingTop,
+      radiusBottomLeft,
+      radiusBottomRight,
+      radiusTopLeft,
+      radiusTopRight,
+      stroke,
+      strokeWidth,
+      styles,
+      textAlign,
+      underline,
+      uppercase
+    } = textNode
+    const align = textAlign === 'justify'
+      ? textAlign
+      : this._resolveShapeTextHorizontalAlign({
+        group: textNode.group as ShapeGroupLike,
+        textStyle: {
+          align: textAlign
+        }
+      })
+
+    return {
+      align,
+      backgroundColor: typeof backgroundColor === 'string' ? backgroundColor : undefined,
+      backgroundOpacity,
+      bold: fontWeight === 'bold',
+      color: typeof fill === 'string' ? fill : undefined,
+      fontFamily,
+      fontSize,
+      italic: fontStyle === 'italic',
+      lineFontDefaults: lineFontDefaults
+        ? JSON.parse(JSON.stringify(lineFontDefaults)) as TextStyleOptions['lineFontDefaults']
+        : undefined,
+      opacity,
+      paddingBottom,
+      paddingLeft,
+      paddingRight,
+      paddingTop,
+      radiusBottomLeft,
+      radiusBottomRight,
+      radiusTopLeft,
+      radiusTopRight,
+      splitByGrapheme: false,
+      strokeColor: typeof stroke === 'string' ? stroke : undefined,
+      strokeWidth,
+      strikethrough: Boolean(linethrough),
+      styles: styles
+        ? JSON.parse(JSON.stringify(styles)) as TextStyleOptions['styles']
+        : undefined,
+      underline: Boolean(underline),
+      uppercase: Boolean(uppercase)
+    }
+  }
+
+  /**
    * Возвращает текущие визуальные размеры shape-группы.
    */
   private _resolveCurrentDimensions({ group }: { group: ShapeGroupLike }): { width: number; height: number } {
@@ -1239,15 +1368,13 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает ширину монтажной области в canvas-координатах.
+   * Возвращает ширину монтажной области в scene coordinates.
    */
   private _resolveMontageAreaWidth(): number | null {
-    const { montageArea } = this.editor
+    const { canvasManager, montageArea } = this.editor
     if (!montageArea) return null
 
-    montageArea.setCoords()
-    const montageBounds = montageArea.getBoundingRect()
-    const montageWidth = montageBounds.width ?? 0
+    const { width: montageWidth } = canvasManager.getMontageAreaSceneBounds()
 
     if (!Number.isFinite(montageWidth) || montageWidth <= 0) {
       return null
@@ -1348,7 +1475,7 @@ export default class ShapeManager {
     group,
     shape,
     text,
-    center,
+    placement,
     width,
     height,
     alignH,
@@ -1357,7 +1484,7 @@ export default class ShapeManager {
     group: ShapeGroupLike
     shape: ShapeNode
     text: ShapeTextNode
-    center?: ShapeGroupCenter
+    placement?: ObjectPlacement
     width?: number
     height?: number
     alignH?: ShapeHorizontalAlign
@@ -1382,11 +1509,7 @@ export default class ShapeManager {
     }
 
     const resolvedHeight = Math.max(1, height ?? currentDimensions.height)
-    const currentCenter = group.getCenterPoint()
-    const stableCenter = center ?? {
-      x: currentCenter.x,
-      y: currentCenter.y
-    }
+    const stablePlacement = placement ?? this.editor.canvasManager.getObjectPlacement({ object: group })
 
     applyShapeTextLayout({
       group,
@@ -1399,11 +1522,10 @@ export default class ShapeManager {
       padding
     })
 
-    group.set({
-      left: stableCenter.x,
-      top: stableCenter.y
+    this.editor.canvasManager.applyObjectPlacement({
+      object: group,
+      placement: stablePlacement
     })
-    group.setCoords()
   }
 
   /**
@@ -1430,7 +1552,7 @@ export default class ShapeManager {
       group
     })
 
-    const center = this._resolveEditingCenter({
+    const placement = this._resolveEditingPlacement({
       group
     })
     const manualDimensions = this._resolveManualDimensions({
@@ -1445,7 +1567,7 @@ export default class ShapeManager {
       group,
       shape,
       text,
-      center,
+      placement,
       height: manualDimensions.height,
       alignH
     })
@@ -1454,17 +1576,13 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает стабильный центр группы для текущего редактирования текста.
+   * Возвращает стабильный placement группы для текущего редактирования текста.
    */
-  private _resolveEditingCenter({ group }: { group: ShapeGroup }): ShapeGroupCenter {
-    const storedCenter = this.editingCenters.get(group)
-    if (storedCenter) return storedCenter
+  private _resolveEditingPlacement({ group }: { group: ShapeGroup }): ObjectPlacement {
+    const storedPlacement = this.editingPlacements.get(group)
+    if (storedPlacement) return storedPlacement
 
-    const center = group.getCenterPoint()
-    return {
-      x: center.x,
-      y: center.y
-    }
+    return this.editor.canvasManager.getObjectPlacement({ object: group })
   }
 
   /**
@@ -1528,30 +1646,6 @@ export default class ShapeManager {
       strokeDashArray: dashArray ?? null,
       opacity: opacity ?? fallback?.shapeOpacity ?? DEFAULT_SHAPE_OPACITY
     }
-  }
-
-  /**
-   * Возвращает текстовый узел из массива объектов.
-   */
-  private _findTextNode({
-    objects,
-    fallback
-  }: {
-    objects: ShapeNode[]
-    fallback?: ShapeTextNode | null
-  }): ShapeTextNode | null {
-    for (let index = 0; index < objects.length; index += 1) {
-      const object = objects[index]
-      if (object instanceof Textbox) {
-        return object as ShapeTextNode
-      }
-    }
-
-    if (fallback instanceof Textbox) {
-      return fallback as ShapeTextNode
-    }
-
-    return null
   }
 
   /**

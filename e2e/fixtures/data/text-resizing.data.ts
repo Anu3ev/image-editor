@@ -14,6 +14,18 @@ export const TEXT_RESIZING_TOLERANCE = {
 /** Целевая внутренняя ширина текста для reflow-сценариев resize. */
 export const TEXT_RESIZING_REGRESSION_WIDTH = 125
 
+/** Целевая внутренняя ширина текста для сценариев со скейлингом после ручного сужения. */
+export const TEXT_SCALING_REGRESSION_WIDTH = 180
+
+/** Коэффициент вертикального скейлинга для проверки сохранения ручной ширины. */
+export const TEXT_VERTICAL_SCALING_FACTOR = 1.6
+
+/** Коэффициенты диагонального скейлинга для проверки новой базовой ширины. */
+export const TEXT_DIAGONAL_SCALING_FACTORS = {
+  scaleX: 1.35,
+  scaleY: 1.35
+}
+
 /** Конфигурация standalone text-объекта, воспроизводящая resize/reflow регрессию. */
 export const TEXT_RESIZING_REGRESSION_ADD_OPTIONS: TextAddParams = {
   text: '69\nЧасов музыки',

@@ -1,6 +1,4 @@
 /* eslint-disable no-use-before-define, @typescript-eslint/no-use-before-define */
-
-import { Point } from 'fabric'
 import { resizeShapeNode } from './shape-factory'
 import {
   ShapeLayoutInput,
@@ -427,23 +425,6 @@ function resolveShapeWidthForFrameWidth({
   }
 
   return nextWidth
-}
-
-/**
- * Возвращает центр для размещения группы на канвасе.
- */
-export function resolveGroupCenterPoint({
-  left,
-  top,
-  canvasCenter
-}: {
-  left?: number
-  top?: number
-  canvasCenter: Point
-}): Point {
-  if (typeof left === 'number' && typeof top === 'number') return new Point(left, top)
-
-  return canvasCenter
 }
 
 /**

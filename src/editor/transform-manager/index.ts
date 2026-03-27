@@ -206,7 +206,10 @@ export default class TransformManager {
    * @private
    */
   private _fitSingleObject(obj: FabricObject, type: 'contain' | 'cover'): void {
-    const { canvas, montageArea } = this.editor
+    const {
+      canvasManager,
+      montageArea
+    } = this.editor
 
     const { width, height, scaleX = 1, scaleY = 1, angle = 0 } = obj
 
@@ -240,7 +243,7 @@ export default class TransformManager {
       scaleY: scaleY * scaleFactor
     })
 
-    canvas.centerObject(obj)
+    canvasManager.centerObjectToMontageArea({ object: obj })
   }
 
   /**
@@ -263,6 +266,7 @@ export default class TransformManager {
   public resetObject({ object, alwaysFitObject = false, withoutSave = false }: ResetObjectOptions = {}): void {
     const {
       canvas,
+      canvasManager,
       montageArea,
       imageManager,
       historyManager,
@@ -310,7 +314,7 @@ export default class TransformManager {
     }
 
     currentObject.set({ flipX: false, flipY: false, angle: 0 })
-    canvas.centerObject(currentObject)
+    canvasManager.centerObjectToMontageArea({ object: currentObject })
     canvas.renderAll()
 
     historyManager.resumeHistory()

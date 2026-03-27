@@ -109,7 +109,7 @@ class Listeners {
 
   handleCanvasDragEndBound: () => void
 
-  handleMouseWheelZoomBound: (options: TPointerEventInfo<WheelEvent>) => void
+  handleCanvasWheelZoomBound: (event: WheelEvent) => void
 
   handleResetObjectFitBound: (options: TPointerEventInfo<TPointerEvent>) => void
 
@@ -178,7 +178,7 @@ class Listeners {
     this.handleCanvasDragStartBound = this.handleCanvasDragStart.bind(this)
     this.handleCanvasDraggingBound = this.handleCanvasDragging.bind(this)
     this.handleCanvasDragEndBound = this.handleCanvasDragEnd.bind(this)
-    this.handleMouseWheelZoomBound = this.handleMouseWheelZoom.bind(this)
+    this.handleCanvasWheelZoomBound = this.handleCanvasWheelZoom.bind(this)
     this.handleResetObjectFitBound = this.handleResetObjectFit.bind(this)
 
     this.init()
@@ -210,7 +210,10 @@ class Listeners {
     }
 
     if (mouseWheelZooming) {
-      this.canvas.on('mouse:wheel', this.handleMouseWheelZoomBound)
+      this.canvas.wrapperEl.addEventListener('wheel', this.handleCanvasWheelZoomBound, {
+        capture: true,
+        passive: false
+      })
     }
 
     if (resetObjectFitByDoubleClick) {
@@ -348,11 +351,11 @@ class Listeners {
 
   /**
    * Обработчик изменения размеров окна браузера.
-   * Адаптирует канвас к размерам контейнера, сохраняя позиции объектов.
+   * Адаптирует canvas camera-state к размерам контейнера.
+   * Derived-слои, завязанные на montageArea и viewport, синхронизируются внутри CanvasManager.
    */
   handleContainerResize(): void {
     this.editor.canvasManager.updateCanvas()
-    this.editor.backgroundManager.refresh()
   }
 
   /**
@@ -388,12 +391,21 @@ class Listeners {
    * @param event.ctrlKey — зажата ли клавиша Ctrl
    * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
    * @param event.code — код клавиши
+   * При активном interactionBlocker hotkeys не обрабатываются,
+   * потому что блокировка редактора должна выключать пользовательскую интерактивность.
    */
   async handleUndoRedoEvent(event:KeyboardEvent): Promise<void> {
     const { ctrlKey, metaKey, code, repeat } = event
 
     if (this._shouldIgnoreKeyboardEvent(event)) return
     if ((!ctrlKey && !metaKey) || repeat) return
+    if (code !== 'KeyZ' && code !== 'KeyY') return
+
+    if (this.editor.interactionBlocker.isBlocked) {
+      event.preventDefault()
+      this.isUndoRedoKeyPressed = false
+      return
+    }
 
     // Если это Mac, то не смотрим на флаг isUndoRedoKeyPressed, потому что macos не даёт эмитить keyup события при удерживании Meta.
     const isMac = /Mac/i.test(navigator.userAgent)
@@ -696,21 +708,21 @@ class Listeners {
   }
 
   /**
-   * Обработчик зума колесиком мыши. Работает при зажатом Ctrl или Cmd.
-   * @param options
-   * @param options.e - объект события
+   * Обработчик `Ctrl/Cmd + wheel` на DOM-границе канваса.
+   * Здесь событие отменяется до всплытия в браузер, чтобы page zoom
+   * не перехватывал управление у редактора.
    */
-  handleMouseWheelZoom({ e: event }:TPointerEventInfo<WheelEvent>): void {
+  handleCanvasWheelZoom(event: WheelEvent): void {
     if (!event.ctrlKey && !event.metaKey) return
+
+    event.preventDefault()
+    event.stopPropagation()
 
     // Адаптивный conversionFactor в зависимости от размера монтажной области
     // Чем больше монтажная область, тем плавнее (меньше) шаг зума
     const scaleAdjustment = this._calculateAdaptiveZoomStep(event.deltaY)
 
     this.editor.zoomManager.handleMouseWheelZoom(scaleAdjustment, event)
-
-    event.preventDefault()
-    event.stopPropagation()
   }
 
   /**
@@ -830,7 +842,9 @@ class Listeners {
       document.removeEventListener('keyup', this.handleSpaceKeyUpBound, { capture: true })
     }
     if (this.options.mouseWheelZooming) {
-      this.canvas.off('mouse:wheel', this.handleMouseWheelZoomBound)
+      this.canvas.wrapperEl.removeEventListener('wheel', this.handleCanvasWheelZoomBound, {
+        capture: true
+      })
     }
     if (this.options.resetObjectFitByDoubleClick) {
       this.canvas.off('mouse:dblclick', this.handleResetObjectFitBound)

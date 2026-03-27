@@ -13,9 +13,9 @@ import { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import { OBJECT_SERIALIZATION_PROPS } from '../history-manager'
 import {
-  calculateNormalizedCenter,
-  denormalizeCenter,
-  resolveNormalizedCenter,
+  calculateNormalizedPlacement,
+  denormalizePlacement,
+  resolveNormalizedPlacement,
   snapObjectToPixelGrid,
   toNumber,
   type Dimensions
@@ -49,8 +49,6 @@ export type TemplateMeta = {
   [key: string]: unknown
 }
 
-const TEMPLATE_CENTER_X_KEY = '_templateCenterX'
-const TEMPLATE_CENTER_Y_KEY = '_templateCenterY'
 const TEMPLATE_ANCHOR_X_KEY = '_templateAnchorX'
 const TEMPLATE_ANCHOR_Y_KEY = '_templateAnchorY'
 
@@ -143,8 +141,7 @@ export default class TemplateManager {
         object,
         bounds: referenceBounds,
         baseWidth,
-        baseHeight,
-        montageArea: montageArea ?? null
+        baseHeight
       }))
 
     const templateMeta: TemplateMeta = {
@@ -251,10 +248,8 @@ export default class TemplateManager {
           object,
           scale,
           bounds: montageBounds,
-          targetSize,
           baseWidth: meta.baseWidth,
           baseHeight: meta.baseHeight,
-          montageArea,
           useRelativePositions
         })
 
@@ -585,31 +580,23 @@ export default class TemplateManager {
     object,
     scale,
     bounds,
-    targetSize,
     baseWidth,
     baseHeight,
-    montageArea,
     useRelativePositions
   }: {
     object: FabricObject
     scale: number
     bounds: Bounds
-    targetSize: Dimensions
     baseWidth: number
     baseHeight: number
-    montageArea: FabricObject | null
     useRelativePositions: boolean
   }): void {
     const objectRecord = object as Record<string, unknown>
-    const { x: normalizedX, y: normalizedY } = resolveNormalizedCenter({
+    const { x: normalizedX, y: normalizedY } = resolveNormalizedPlacement({
       object,
       baseWidth,
       baseHeight,
-      useRelativePositions,
-      centerKeys: {
-        x: TEMPLATE_CENTER_X_KEY,
-        y: TEMPLATE_CENTER_Y_KEY
-      }
+      useRelativePositions
     })
     const { scaleX, scaleY } = object
     const currentScaleX = toNumber({ value: scaleX, fallback: 1 })
@@ -625,28 +612,25 @@ export default class TemplateManager {
       anchorY: TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_Y_KEY)
     })
 
-    const absoluteCenter = denormalizeCenter({
+    const absolutePlacement = denormalizePlacement({
       normalizedX,
       normalizedY,
-      bounds: positioningBounds,
-      targetSize,
-      montageArea
+      bounds: positioningBounds
     })
 
     const nextScaleX = currentScaleX * scale
     const nextScaleY = currentScaleY * scale
+    const originX = object.originX ?? 'center'
+    const originY = object.originY ?? 'center'
 
     object.set({
       scaleX: nextScaleX,
       scaleY: nextScaleY
     })
 
-    // Перемещаем объект в денормализованный центр и очищаем временные поля центра
-    object.setPositionByOrigin(absoluteCenter, 'center', 'center')
+    object.setPositionByOrigin(absolutePlacement, originX, originY)
     object.setCoords()
 
-    delete objectRecord[TEMPLATE_CENTER_X_KEY]
-    delete objectRecord[TEMPLATE_CENTER_Y_KEY]
     delete objectRecord[TEMPLATE_ANCHOR_X_KEY]
     delete objectRecord[TEMPLATE_ANCHOR_Y_KEY]
   }
@@ -703,7 +687,7 @@ export default class TemplateManager {
     return 'start'
   }
 
-  private static _detectAnchor({ start, end }: { center: number; start: number; end: number }): TemplateAnchor {
+  private static _detectAnchor({ start, end }: { start: number; end: number }): TemplateAnchor {
     const touchesStart = start <= 0.05
     const touchesEnd = end >= 0.95
     const exceedsStart = start < 0
@@ -811,38 +795,23 @@ export default class TemplateManager {
       fallback: 0
     })
     const {
-      width: storedWidth = 0,
-      scaleX: rawScaleX = 1,
-      strokeWidth: rawStrokeWidth = 0
+      width: storedWidth = 0
     } = object
     const normalizedBaseWidth = toNumber({ value: baseWidth, fallback: 0 })
-    const rawPadding = object as Partial<Record<string, unknown>>
-    const paddingLeft = toNumber({ value: rawPadding.paddingLeft, fallback: 0 })
-    const paddingRight = toNumber({ value: rawPadding.paddingRight, fallback: 0 })
-    const scaleX = toNumber({ value: rawScaleX, fallback: 1 })
-    const strokeWidth = toNumber({ value: rawStrokeWidth, fallback: 0 }) * scaleX
     const textWidth = toNumber({ value: storedWidth, fallback: 0 })
-    const textWidthScaled = textWidth * scaleX
-    const paddingLeftScaled = paddingLeft * scaleX
-    const paddingRightScaled = paddingRight * scaleX
-    const initialDisplayWidth = textWidthScaled + paddingLeftScaled + paddingRightScaled + strokeWidth
     if (!montageAreaWidth || !textWidth || !normalizedBaseWidth) return
 
     object.setCoords()
     const objectRecord = object as Record<string, unknown>
-    const normalizedCenterValue = objectRecord[TEMPLATE_CENTER_X_KEY]
-    const normalizedCenter = typeof normalizedCenterValue === 'number'
-      ? normalizedCenterValue
-      : null
     const anchorX = TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_X_KEY)
-    const initialWidthNormalized = initialDisplayWidth / normalizedBaseWidth
-    const leftNormalized = normalizedCenter !== null
-      ? normalizedCenter - (initialWidthNormalized / 2)
+    const storedPlacementX = typeof objectRecord.left === 'number'
+      ? objectRecord.left
       : null
-    const rightNormalized = normalizedCenter !== null
-      ? normalizedCenter + (initialWidthNormalized / 2)
-      : null
-    const originalCenter = object.getCenterPoint()
+    const originX = object.originX ?? 'center'
+    const originY = object.originY ?? 'center'
+    const originalPlacement = object.getPointByOrigin(originX, originY)
+    const originalRect = object.getBoundingRect(false, true)
+    const originalRight = originalRect.left + originalRect.width
 
     object.set('width', montageAreaWidth)
     object.initDimensions()
@@ -855,23 +824,22 @@ export default class TemplateManager {
 
     object.set('width', nextWidth)
     object.initDimensions()
-    object.setPositionByOrigin(originalCenter, 'center', 'center')
+    object.setPositionByOrigin(originalPlacement, originX, originY)
     object.setCoords()
 
-    const finalDisplayWidth = (nextWidth * scaleX) + paddingLeftScaled + paddingRightScaled + strokeWidth
-    const nextWidthNormalized = finalDisplayWidth / normalizedBaseWidth
-    let nextCenterNormalized = normalizedCenter
+    if (storedPlacementX === null) return
 
-    if (anchorX === 'start' && leftNormalized !== null) {
-      nextCenterNormalized = Math.max(0, leftNormalized) + (nextWidthNormalized / 2)
-    } else if (anchorX === 'end' && rightNormalized !== null) {
-      const safeRight = Math.min(1, rightNormalized)
-      nextCenterNormalized = safeRight - (nextWidthNormalized / 2)
+    const finalRect = object.getBoundingRect(false, true)
+    const finalRight = finalRect.left + finalRect.width
+    let nextPlacementX = storedPlacementX
+
+    if (anchorX === 'start') {
+      nextPlacementX += (originalRect.left - finalRect.left) / normalizedBaseWidth
+    } else if (anchorX === 'end') {
+      nextPlacementX += (originalRight - finalRight) / normalizedBaseWidth
     }
 
-    if (typeof nextCenterNormalized === 'number') {
-      objectRecord[TEMPLATE_CENTER_X_KEY] = nextCenterNormalized
-    }
+    objectRecord.left = nextPlacementX
   }
 
   /**
@@ -909,14 +877,12 @@ export default class TemplateManager {
     object,
     bounds,
     baseWidth,
-    baseHeight,
-    montageArea
+    baseHeight
   }: {
     object: FabricObject
     bounds: Bounds | null
     baseWidth: number
     baseHeight: number
-    montageArea: FabricObject | null
   }): TemplateObjectData {
     const serialized = object.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as TemplateObjectData
 
@@ -942,17 +908,18 @@ export default class TemplateManager {
     const safeWidth = baseWidth || boundsWidth || 1
     const safeHeight = baseHeight || boundsHeight || 1
 
-    const normalizedCenter = calculateNormalizedCenter({
+    const normalizedPlacement = calculateNormalizedPlacement({
       object,
-      montageArea,
       bounds
     })
 
-    const centerForAnchor = normalizedCenter ?? (() => {
-      const centerPoint = object.getCenterPoint()
+    const placementForStorage = normalizedPlacement ?? (() => {
+      const originX = object.originX ?? 'center'
+      const originY = object.originY ?? 'center'
+      const placementPoint = object.getPointByOrigin(originX, originY)
       return {
-        x: (centerPoint.x - boundsLeft) / safeWidth,
-        y: (centerPoint.y - boundsTop) / safeHeight
+        x: (placementPoint.x - boundsLeft) / safeWidth,
+        y: (placementPoint.y - boundsTop) / safeHeight
       }
     })()
 
@@ -961,21 +928,17 @@ export default class TemplateManager {
     const normalizedRight = normalizedLeft + (rect.width / safeWidth)
     const normalizedBottom = normalizedTop + (rect.height / safeHeight)
 
-    serialized[TEMPLATE_CENTER_X_KEY] = centerForAnchor.x
-    serialized[TEMPLATE_CENTER_Y_KEY] = centerForAnchor.y
     serialized[TEMPLATE_ANCHOR_X_KEY] = TemplateManager._detectAnchor({
-      center: centerForAnchor.x,
       start: normalizedLeft,
       end: normalizedRight
     })
     serialized[TEMPLATE_ANCHOR_Y_KEY] = TemplateManager._detectAnchor({
-      center: centerForAnchor.y,
       start: normalizedTop,
       end: normalizedBottom
     })
 
-    serialized.left = normalizedLeft
-    serialized.top = normalizedTop
+    serialized.left = placementForStorage.x
+    serialized.top = placementForStorage.y
 
     return serialized
   }

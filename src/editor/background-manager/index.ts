@@ -102,6 +102,57 @@ export default class BackgroundManager {
   }
 
   /**
+   * Возвращает каноническую геометрию background-rect для текущей монтажной области.
+   * Цветовой и градиентный фон должны совпадать с montageArea напрямую,
+   * а не проходить через generic fit/crop-логику.
+   */
+  private _getMontageBackgroundRectOptions(): Pick<
+  Rect,
+  'width' | 'height' | 'left' | 'top' | 'originX' | 'originY' | 'scaleX' | 'scaleY' | 'angle' | 'flipX' | 'flipY'
+  > {
+    const { canvasManager } = this.editor
+    const montageBounds = canvasManager.getMontageAreaSceneBounds()
+
+    return {
+      width: montageBounds.width,
+      height: montageBounds.height,
+      left: montageBounds.center.x,
+      top: montageBounds.center.y,
+      originX: 'center',
+      originY: 'center',
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      flipX: false,
+      flipY: false
+    }
+  }
+
+  /**
+   * Синхронизирует геометрию background с монтажной областью.
+   * Цветовой и градиентный background совпадают с montageArea напрямую,
+   * image background продолжает использовать cover-fit относительно montageArea.
+   */
+  private _syncBackgroundGeometry(): void {
+    const { backgroundObject } = this
+
+    if (!backgroundObject) return
+
+    if (backgroundObject.backgroundType === 'image') {
+      this.editor.transformManager.fitObject({
+        object: backgroundObject,
+        withoutSave: true,
+        type: 'cover'
+      })
+
+      return
+    }
+
+    backgroundObject.set(this._getMontageBackgroundRectOptions())
+    backgroundObject.setCoords()
+  }
+
+  /**
    * Устанавливает фон сплошного цвета.
    * @param options - Опции для установки цвета фона
    * @param options.color - Цвет фона в формате HEX (например, "#FF0000")
@@ -387,14 +438,17 @@ export default class BackgroundManager {
    * Обновляет размеры и позицию фона согласно монтажной области.
    */
   public refresh(): void {
-    const { canvas, montageArea, historyManager } = this.editor
+    const {
+      canvas,
+      montageArea,
+      historyManager
+    } = this.editor
 
     if (!montageArea || !this.backgroundObject) return
 
     historyManager.suspendHistory()
 
-    // Вписываем фон в монтажную область
-    this.editor.transformManager.fitObject({ object: this.backgroundObject, withoutSave: true, type: 'cover' })
+    this._syncBackgroundGeometry()
 
     // Проверяем, находится ли фон в правильной позиции (сразу после montageArea)
     const objects = canvas.getObjects()
@@ -419,6 +473,7 @@ export default class BackgroundManager {
     this.backgroundObject = addRectangleToCanvas({
       canvas: this.editor.canvas,
       options: {
+        ...this._getMontageBackgroundRectOptions(),
         fill: color,
         selectable: false,
         evented: false,
@@ -443,6 +498,7 @@ export default class BackgroundManager {
     this.backgroundObject = addRectangleToCanvas({
       canvas: this.editor.canvas,
       options: {
+        ...this._getMontageBackgroundRectOptions(),
         fill: '#ffffff',
         selectable: false,
         evented: false,
