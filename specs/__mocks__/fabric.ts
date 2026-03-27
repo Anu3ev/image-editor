@@ -211,8 +211,8 @@ export class Group {
 
   _objects: any[] = []
 
-  constructor(objects: any[] = [], public options: any = {}) {
-    this._objects = objects
+  constructor(objects: any[] | undefined, public options: any = {}) {
+    this._objects = objects ?? []
 
     for (let index = 0; index < this._objects.length; index += 1) {
       const object = this._objects[index]
@@ -226,6 +226,53 @@ export class Group {
 
   getObjects() {
     return this._objects
+  }
+
+  add(...objects: any[]) {
+    this._objects.push(...objects)
+
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index]
+      if (object && typeof object === 'object') {
+        object.group = this
+      }
+    }
+
+    return this._objects.length
+  }
+
+  insertAt(index: number, ...objects: any[]) {
+    this._objects.splice(index, 0, ...objects)
+
+    for (let indexOffset = 0; indexOffset < objects.length; indexOffset += 1) {
+      const object = objects[indexOffset]
+      if (object && typeof object === 'object') {
+        object.group = this
+      }
+    }
+
+    return this._objects.length
+  }
+
+  remove(...objects: any[]) {
+    const removed: any[] = []
+
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index]
+      const objectIndex = this._objects.indexOf(object)
+      if (objectIndex < 0) {
+        continue
+      }
+
+      this._objects.splice(objectIndex, 1)
+      removed.push(object)
+
+      if (object && typeof object === 'object' && object.group === this) {
+        object.group = null
+      }
+    }
+
+    return removed
   }
 
   removeAll() {
@@ -709,9 +756,8 @@ export class FabricImage {
 
   getElement(): HTMLImageElement | HTMLCanvasElement {
     const element = (this as any).element
-    if (element) {
-      return element
-    }
+    if (element) return element
+
     const img = new Image()
     img.src = (this as any).src || ''
     return img

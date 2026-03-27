@@ -495,21 +495,21 @@ export const createMockShapeGroup = ({
     originX: PlacementOriginX,
     originY: PlacementOriginY
   ) => {
-    const width = (group.width ?? 0) * (group.scaleX ?? 1)
-    const height = (group.height ?? 0) * (group.scaleY ?? 1)
+    const groupWidth = (group.width ?? 0) * (group.scaleX ?? 1)
+    const groupHeight = (group.height ?? 0) * (group.scaleY ?? 1)
     let nextX = point.x
     let nextY = point.y
 
     if (originX === 'left') {
-      nextX -= width / 2
+      nextX -= groupWidth / 2
     } else if (originX === 'right') {
-      nextX += width / 2
+      nextX += groupWidth / 2
     }
 
     if (originY === 'top') {
-      nextY -= height / 2
+      nextY -= groupHeight / 2
     } else if (originY === 'bottom') {
-      nextY += height / 2
+      nextY += groupHeight / 2
     }
 
     return new Point(nextX, nextY)
@@ -520,21 +520,21 @@ export const createMockShapeGroup = ({
     originX: GroupOrigin,
     originY: GroupOrigin
   ) => {
-    const width = (group.width ?? 0) * (group.scaleX ?? 1)
-    const height = (group.height ?? 0) * (group.scaleY ?? 1)
+    const groupWidth = (group.width ?? 0) * (group.scaleX ?? 1)
+    const groupHeight = (group.height ?? 0) * (group.scaleY ?? 1)
     let nextLeft = point.x
     let nextTop = point.y
 
     if (originX === 'left') {
-      nextLeft += width / 2
+      nextLeft += groupWidth / 2
     } else if (originX === 'right') {
-      nextLeft -= width / 2
+      nextLeft -= groupWidth / 2
     }
 
     if (originY === 'top') {
-      nextTop += height / 2
+      nextTop += groupHeight / 2
     } else if (originY === 'bottom') {
-      nextTop -= height / 2
+      nextTop -= groupHeight / 2
     }
 
     group.left = nextLeft
@@ -544,21 +544,21 @@ export const createMockShapeGroup = ({
     originX: PlacementOriginX,
     originY: PlacementOriginY
   ) => {
-    const width = (group.width ?? 0) * (group.scaleX ?? 1)
-    const height = (group.height ?? 0) * (group.scaleY ?? 1)
+    const groupWidth = (group.width ?? 0) * (group.scaleX ?? 1)
+    const groupHeight = (group.height ?? 0) * (group.scaleY ?? 1)
     let x = group.left ?? 0
     let y = group.top ?? 0
 
     if (originX === 'left') {
-      x -= width / 2
+      x -= groupWidth / 2
     } else if (originX === 'right') {
-      x += width / 2
+      x += groupWidth / 2
     }
 
     if (originY === 'top') {
-      y -= height / 2
+      y -= groupHeight / 2
     } else if (originY === 'bottom') {
-      y += height / 2
+      y += groupHeight / 2
     }
 
     return new Point(x, y)

@@ -149,34 +149,7 @@ describe('shape-editing', () => {
     expect(canvas.requestRenderAll).toHaveBeenCalled()
   })
 
-  it('вне режима редактирования возвращает текущие флаги интерактивности группы', () => {
-    const {
-      controller,
-      group
-    } = createShapeEditingSetup({
-      getShapeNodesMock: getShapeNodes as jest.Mock,
-      isShapeGroupMock,
-      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
-    })
-
-    group.selectable = false
-    group.evented = false
-    group.lockMovementX = true
-    group.lockMovementY = false
-
-    const interactionState = controller.resolveGroupInteractionState({
-      group
-    })
-
-    expect(interactionState).toEqual({
-      selectable: false,
-      evented: false,
-      lockMovementX: true,
-      lockMovementY: false
-    })
-  })
-
-  it('во время редактирования возвращает исходные флаги интерактивности группы, а не временные', () => {
+  it('после выхода из редактирования возвращает исходные ограничения группы, а не временный текстовый режим', () => {
     const {
       controller,
       group,
@@ -191,6 +164,10 @@ describe('shape-editing', () => {
     group.evented = false
     group.lockMovementX = false
     group.lockMovementY = false
+    group.hoverCursor = 'move'
+    group.moveCursor = 'move'
+    text.lockMovementX = false
+    text.lockMovementY = false
 
     controller.handleTextEditingEntered({
       target: text
@@ -199,16 +176,18 @@ describe('shape-editing', () => {
     expect(group.evented).toBe(true)
     expect(group.lockMovementY).toBe(true)
 
-    const interactionState = controller.resolveGroupInteractionState({
-      group
+    controller.handleTextEditingExited({
+      target: text
     })
 
-    expect(interactionState).toEqual({
-      selectable: false,
-      evented: false,
-      lockMovementX: false,
-      lockMovementY: false
-    })
+    expect(group.selectable).toBe(false)
+    expect(group.evented).toBe(false)
+    expect(group.lockMovementX).toBe(false)
+    expect(group.lockMovementY).toBe(false)
+    expect(group.hoverCursor).toBe('move')
+    expect(group.moveCursor).toBe('move')
+    expect(text.lockMovementX).toBe(false)
+    expect(text.lockMovementY).toBe(false)
   })
 
   it('после выхода из editing восстанавливает интерактивность и возвращает active object на группу', () => {

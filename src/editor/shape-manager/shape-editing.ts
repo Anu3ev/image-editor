@@ -140,25 +140,6 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Сохраняет активное редактирование текста при замене shape-группы новым инстансом.
-   */
-  public preserveTextEditingAfterGroupUpdate({
-    previousGroup,
-    nextGroup
-  }: {
-    previousGroup: ShapeGroup
-    nextGroup: ShapeGroup
-  }): void {
-    const storedState = this.editingInteractionState.get(previousGroup)
-    if (!storedState) return
-
-    this.editingInteractionState.set(nextGroup, storedState)
-    this.editingInteractionState.delete(previousGroup)
-
-    this.enterTextEditing({ group: nextGroup })
-  }
-
-  /**
    * Включает текстовый режим редактирования для выбранной shape-группы.
    */
   public enterTextEditing({ group }: { group: ShapeGroup }): void {
@@ -185,39 +166,6 @@ export default class ShapeEditingController {
     }
 
     this.canvas.requestRenderAll()
-  }
-
-  /**
-   * Возвращает стабильные interactive-флаги shape-группы,
-   * игнорируя временный режим редактирования текста.
-   */
-  public resolveGroupInteractionState({
-    group
-  }: {
-    group: ShapeGroup
-  }): {
-    selectable: boolean
-    evented: boolean
-    lockMovementX: boolean
-    lockMovementY: boolean
-  } {
-    const storedState = this.editingInteractionState.get(group)
-
-    if (storedState) {
-      return {
-        selectable: storedState.groupSelectable,
-        evented: storedState.groupEvented,
-        lockMovementX: storedState.groupLockMovementX,
-        lockMovementY: storedState.groupLockMovementY
-      }
-    }
-
-    return {
-      selectable: group.selectable !== false,
-      evented: group.evented !== false,
-      lockMovementX: Boolean(group.lockMovementX),
-      lockMovementY: Boolean(group.lockMovementY)
-    }
   }
 
   /**

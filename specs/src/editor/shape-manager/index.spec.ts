@@ -619,7 +619,7 @@ describe('shape-manager', () => {
     expect(updateSpy).not.toHaveBeenCalled()
   })
 
-  it('update пересобирает shape и сохраняет существующий текстовый узел', async() => {
+  it('update сохраняет тот же instance фигуры и существующий текстовый узел', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -649,6 +649,8 @@ describe('shape-manager', () => {
     }
 
     const originalTextNode = originalGroup.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    editor.canvas.add.mockClear()
+    editor.canvas.remove.mockClear()
 
     const updatedGroup = await manager.update({
       target: originalGroup,
@@ -656,12 +658,151 @@ describe('shape-manager', () => {
     })
 
     expect(updatedGroup).not.toBeNull()
-    expect(updatedGroup).not.toBe(originalGroup)
-    expect(editor.canvas.remove).toHaveBeenCalledWith(originalGroup)
-    expect(editor.canvas.add).toHaveBeenCalledWith(updatedGroup)
+    expect(updatedGroup).toBe(originalGroup)
+    expect(editor.canvas.remove).not.toHaveBeenCalledWith(originalGroup)
+    expect(editor.canvas.add).not.toHaveBeenCalledWith(updatedGroup)
 
+    const updatedShapeNode = updatedGroup?.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'shape')
     const updatedTextNode = updatedGroup?.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    expect(updatedShapeNode).toBe(secondShape)
     expect(updatedTextNode).toBe(originalTextNode)
+  })
+
+  it('обновление ещё не добавленной фигуры не трогает canvas и историю', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const firstShape = createMockShapeNode({
+      width: 180,
+      height: 180
+    })
+    const secondShape = createMockShapeNode({
+      width: 220,
+      height: 220
+    })
+
+    createShapeNodeMock
+      .mockResolvedValueOnce(firstShape)
+      .mockResolvedValueOnce(secondShape)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        withoutAdding: true
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const originalTextNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    editor.canvas.add.mockClear()
+    editor.canvas.remove.mockClear()
+    editor.canvas.setActiveObject.mockClear()
+    editor.canvas.requestRenderAll.mockClear()
+    editor.historyManager.suspendHistory.mockClear()
+    editor.historyManager.resumeHistory.mockClear()
+    editor.historyManager.saveState.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: group,
+      presetKey: 'circle'
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup).toBe(group)
+    expect(updatedGroup?.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'shape')).toBe(secondShape)
+    expect(updatedGroup?.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')).toBe(originalTextNode)
+    expect(editor.canvas.add).not.toHaveBeenCalled()
+    expect(editor.canvas.remove).not.toHaveBeenCalled()
+    expect(editor.canvas.setActiveObject).not.toHaveBeenCalled()
+    expect(editor.canvas.requestRenderAll).not.toHaveBeenCalled()
+    expect(editor.historyManager.suspendHistory).not.toHaveBeenCalled()
+    expect(editor.historyManager.resumeHistory).not.toHaveBeenCalled()
+    expect(editor.historyManager.saveState).not.toHaveBeenCalled()
+  })
+
+  it('если обновление не удалось, фигура остаётся в исходном состоянии', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+    const firstShape = createMockShapeNode({
+      width: 180,
+      height: 180
+    })
+    const updateError = new Error('shape update failed')
+
+    updateTextMock.mockImplementation(({
+      target,
+      style
+    }: {
+      target: {
+        set: (updates: Record<string, unknown>) => void
+        autoExpand?: boolean
+      }
+      style: Record<string, unknown>
+    }) => {
+      applyTextStyleToShapeText({
+        target,
+        style
+      })
+    })
+
+    createShapeNodeMock
+      .mockResolvedValueOnce(firstShape)
+      .mockRejectedValueOnce(updateError)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const originalShapeNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'shape')
+    const originalTextNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    const originalText = (originalTextNode as Textbox | undefined)?.text
+    const originalPresetKey = group.shapePresetKey
+    const originalManualBaseWidth = group.shapeManualBaseWidth
+
+    editor.canvas.add.mockClear()
+    editor.canvas.remove.mockClear()
+    editor.canvas.requestRenderAll.mockClear()
+    editor.historyManager.suspendHistory.mockClear()
+    editor.historyManager.resumeHistory.mockClear()
+    editor.historyManager.saveState.mockClear()
+    updateTextMock.mockClear()
+
+    await expect(manager.update({
+      target: group,
+      presetKey: 'circle',
+      options: {
+        text: 'updated shape text',
+        width: 260
+      }
+    })).rejects.toThrow(updateError)
+
+    expect(group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'shape')).toBe(originalShapeNode)
+    expect(group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')).toBe(originalTextNode)
+    expect((originalTextNode as Textbox | undefined)?.text).toBe(originalText)
+    expect(group.shapePresetKey).toBe(originalPresetKey)
+    expect(group.shapeManualBaseWidth).toBe(originalManualBaseWidth)
+    expect(editor.canvas.add).not.toHaveBeenCalled()
+    expect(editor.canvas.remove).not.toHaveBeenCalled()
+    expect(editor.canvas.requestRenderAll).not.toHaveBeenCalled()
+    expect(editor.historyManager.suspendHistory).not.toHaveBeenCalled()
+    expect(editor.historyManager.resumeHistory).not.toHaveBeenCalled()
+    expect(editor.historyManager.saveState).not.toHaveBeenCalled()
+    expect(updateTextMock).toHaveBeenCalledTimes(1)
   })
 
   it('после обновления шейп остаётся на той же точке позиционирования', async() => {
@@ -824,7 +965,7 @@ describe('shape-manager', () => {
     }))
   })
 
-  it('обновление шейпа во время редактирования текста не делает его невыделяемым', async() => {
+  it('обновление шейпа во время редактирования оставляет фигуру в режиме редактирования текста', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -869,10 +1010,10 @@ describe('shape-manager', () => {
     })
 
     expect(updatedGroup).not.toBeNull()
-    expect(updatedGroup?.selectable).toBe(true)
+    expect(updatedGroup?.selectable).toBe(false)
     expect(updatedGroup?.evented).toBe(true)
-    expect(updatedGroup?.lockMovementX).toBe(false)
-    expect(updatedGroup?.lockMovementY).toBe(false)
+    expect(updatedGroup?.lockMovementX).toBe(true)
+    expect(updatedGroup?.lockMovementY).toBe(true)
   })
 
   it('обновление шейпа во время редактирования сохраняет реальные ограничения перемещения и выделения', async() => {
@@ -921,9 +1062,47 @@ describe('shape-manager', () => {
 
     expect(updatedGroup).not.toBeNull()
     expect(updatedGroup?.selectable).toBe(false)
-    expect(updatedGroup?.evented).toBe(false)
+    expect(updatedGroup?.evented).toBe(true)
     expect(updatedGroup?.lockMovementX).toBe(true)
-    expect(updatedGroup?.lockMovementY).toBe(false)
+    expect(updatedGroup?.lockMovementY).toBe(true)
+  })
+
+  it('с флагом withoutSelection обновление не перехватывает текущее выделение', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const firstGroup = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'first shape'
+      }
+    })
+    const secondGroup = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'second shape'
+      }
+    })
+
+    if (!firstGroup || !secondGroup) {
+      throw new Error('shape groups should be created')
+    }
+
+    const setActiveObjectMock = editor.canvas.setActiveObject as jest.Mock
+    setActiveObjectMock.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: firstGroup,
+      options: {
+        width: 260,
+        withoutSelection: true
+      }
+    })
+
+    expect(updatedGroup).toBe(firstGroup)
+    expect(editor.canvas.getActiveObject()).toBe(secondGroup)
+    expect(setActiveObjectMock).not.toHaveBeenCalledWith(firstGroup)
   })
 
   it('remove удаляет shape-группу и сохраняет history state', async() => {
@@ -1017,6 +1196,77 @@ describe('shape-manager', () => {
     expect(group.left).toBe(459)
     expect(group.top).toBe(412)
     expect(requestRenderAllMock).not.toHaveBeenCalled()
+  })
+
+  it('во время редактирования после перемещения фигуры следующие изменения текста удерживают новую позицию', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const beforeTextUpdatedHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:before:text-updated'
+    })
+    const textNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+
+    if (!enteredHandler || !beforeTextUpdatedHandler || !textNode) {
+      throw new Error('shape manager handlers should be registered')
+    }
+
+    textNode.enterEditing()
+    enteredHandler({
+      target: textNode
+    })
+
+    await manager.update({
+      target: group,
+      options: {
+        left: 320,
+        top: 280,
+        originX: 'right',
+        originY: 'bottom'
+      }
+    })
+
+    group.left = 470
+    group.top = 420
+
+    beforeTextUpdatedHandler({
+      textbox: textNode,
+      target: textNode,
+      style: {
+        fontSize: 120
+      },
+      options: {
+        withoutSave: true,
+        skipRender: true
+      },
+      updates: {
+        fontSize: 120
+      }
+    })
+
+    const updatedAnchor = group.getPointByOrigin('right', 'bottom')
+
+    expect(group.originX).toBe('right')
+    expect(group.originY).toBe('bottom')
+    expect(updatedAnchor.x).toBe(320)
+    expect(updatedAnchor.y).toBe(280)
   })
 
   it('не перестраивает фигуру при программном изменении обычного текста', () => {
