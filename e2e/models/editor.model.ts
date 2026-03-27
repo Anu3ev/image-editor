@@ -144,6 +144,34 @@ export class EditorModel {
     })
   }
 
+  /** Меняет размер окна браузера и ждёт, пока редактор завершит реакцию на resize. */
+  async resizeViewport(params: { width: number, height: number }): Promise<void> {
+    const {
+      width,
+      height
+    } = params
+
+    await this.page.setViewportSize({
+      width,
+      height
+    })
+
+    await this.page.waitForFunction(({ nextWidth, nextHeight }) => {
+      return window.innerWidth === nextWidth && window.innerHeight === nextHeight
+    }, {
+      nextWidth: width,
+      nextHeight: height
+    })
+
+    await this.page.evaluate(async() => {
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+    })
+  }
+
   /** Отправляет в редактор hotkey undo через DOM-событие документа. */
   async pressUndoHotkey(): Promise<void> {
     await this.page.evaluate(async() => {

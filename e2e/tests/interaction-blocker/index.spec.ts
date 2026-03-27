@@ -1,5 +1,10 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
+  BROWSER_RESIZE_NARROW_VIEWPORT,
+  BROWSER_RESIZE_TOLERANCE,
+  BROWSER_RESIZE_WIDE_VIEWPORT
+} from '../../fixtures/data/browser-resize.data'
+import {
   BLOCKER_SHAPE_OPTIONS,
   BLOCKER_UPDATED_FILL,
   BLOCKER_UPDATED_RESOLUTION
@@ -106,6 +111,86 @@ test.describe('Блокировка редактора', () => {
       expect(Math.abs(blockerState.boundsTop - montageBounds.top)).toBeLessThanOrEqual(1)
       expect(Math.abs(blockerState.boundsWidth - montageBounds.width)).toBeLessThanOrEqual(1)
       expect(Math.abs(blockerState.boundsHeight - montageBounds.height)).toBeLessThanOrEqual(1)
+    })
+  })
+
+  test('после сужения окна браузера маска блокировки остаётся ровно на монтажной области', async({
+    editorModel,
+    interactionBlocker
+  }) => {
+    await test.step('Заблокировать редактор', async() => {
+      await interactionBlocker.block()
+    })
+
+    await test.step('Сузить окно браузера', async() => {
+      await editorModel.resizeViewport(BROWSER_RESIZE_NARROW_VIEWPORT)
+    })
+
+    await test.step('Проверить что маска блокировки осталась на монтажной области', async() => {
+      const montageBounds = await editorModel.getMontageAreaBounds()
+      const blockerState = await interactionBlocker.getState()
+
+      expect(blockerState.overlayVisible).toBe(true)
+      expect(Math.abs(blockerState.boundsLeft - montageBounds.left)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsTop - montageBounds.top)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsWidth - montageBounds.width)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsHeight - montageBounds.height)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+    })
+  })
+
+  test('после расширения окна браузера маска блокировки не смещается относительно монтажной области', async({
+    editorModel,
+    interactionBlocker
+  }) => {
+    await test.step('Заблокировать редактор', async() => {
+      await interactionBlocker.block()
+    })
+
+    await test.step('Расширить окно браузера', async() => {
+      await editorModel.resizeViewport(BROWSER_RESIZE_WIDE_VIEWPORT)
+    })
+
+    await test.step('Проверить что блокирующий слой остался на монтажной области', async() => {
+      const montageBounds = await editorModel.getMontageAreaBounds()
+      const blockerState = await interactionBlocker.getState()
+
+      expect(blockerState.overlayVisible).toBe(true)
+      expect(Math.abs(blockerState.boundsLeft - montageBounds.left)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsTop - montageBounds.top)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsWidth - montageBounds.width)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsHeight - montageBounds.height)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+    })
+  })
+
+  test('после сужения и повторного расширения окна заблокированная монтажная область всё ещё не даёт выделять объекты внутри неё', async({
+    editorModel,
+    interactionBlocker,
+    shapes
+  }) => {
+    await test.step('Заблокировать редактор', async() => {
+      await interactionBlocker.block()
+    })
+
+    await test.step('Сузить и снова расширить окно браузера', async() => {
+      await editorModel.resizeViewport(BROWSER_RESIZE_NARROW_VIEWPORT)
+      await editorModel.resizeViewport(BROWSER_RESIZE_WIDE_VIEWPORT)
+    })
+
+    await test.step('Кликнуть по фигуре внутри монтажной области', async() => {
+      await shapes.clickOnCanvas({ id: BLOCKER_SHAPE_OPTIONS.id })
+    })
+
+    await test.step('Проверить что выделение не появилось и маска осталась на монтажной области', async() => {
+      const activeObject = await editorModel.getActiveObject()
+      const montageBounds = await editorModel.getMontageAreaBounds()
+      const blockerState = await interactionBlocker.getState()
+
+      expect(activeObject).toBeNull()
+      expect(blockerState.overlayVisible).toBe(true)
+      expect(Math.abs(blockerState.boundsLeft - montageBounds.left)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsTop - montageBounds.top)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsWidth - montageBounds.width)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
+      expect(Math.abs(blockerState.boundsHeight - montageBounds.height)).toBeLessThanOrEqual(BROWSER_RESIZE_TOLERANCE)
     })
   })
 })
