@@ -15,6 +15,7 @@ import { TextModel } from './text.model'
 import { SnappingModel } from './snapping.model'
 import { BackgroundModel } from './background.model'
 import { InteractionBlockerModel } from './interaction-blocker.model'
+import { ImageModel } from './image.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -35,6 +36,8 @@ export class EditorModel {
 
   readonly interactionBlocker: InteractionBlockerModel
 
+  readonly images: ImageModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -45,6 +48,7 @@ export class EditorModel {
     this.snapping = new SnappingModel(page)
     this.background = new BackgroundModel(page)
     this.interactionBlocker = new InteractionBlockerModel(page)
+    this.images = new ImageModel(page)
   }
 
   /** Ожидает полной инициализации редактора */

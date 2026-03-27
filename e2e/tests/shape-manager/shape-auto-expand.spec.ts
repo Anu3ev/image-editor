@@ -682,6 +682,70 @@ test.describe('Авторасширение текста внутри фигур
           .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
       })
     })
+
+    test('после скейлинга, undo и redo выключенный режим авторасширения не включается при новом вводе', async({
+      history,
+      shapes
+    }) => {
+      const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-disabled' })
+      })
+
+      await test.step('Растянуть фигуру по ширине и сохранить это состояние в истории', async() => {
+        await shapes.scaleHorizontallyFromRight({
+          id: 'shape-auto-expand-disabled',
+          scaleX: SHAPE_AUTO_EXPAND_RESIZE_SCALE_X
+        })
+        await shapes.finishScale({ id: 'shape-auto-expand-disabled' })
+        await history.flushPendingSave()
+      })
+
+      const resizedSnapshot = await test.step('Получить ширину после ручного скейлинга', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-disabled' })
+      })
+
+      await test.step('Сделать undo и redo', async() => {
+        await history.undo()
+        await history.redo()
+      })
+
+      const redoneShape = await test.step('Получить состояние фигуры после redo', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-disabled' })
+      })
+      const redoneSnapshot = await test.step('Получить ширину фигуры после redo', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-disabled' })
+      })
+
+      await test.step('После redo ввести длинный текст', async() => {
+        await shapes.enterTextEditing({ id: 'shape-auto-expand-disabled' })
+        await shapes.updateEditingText({
+          id: 'shape-auto-expand-disabled',
+          text: SHAPE_AUTO_EXPAND_VERY_LONG_TEXT
+        })
+      })
+
+      const updatedShape = await test.step('Получить состояние фигуры после нового ввода', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-disabled' })
+      })
+      const updatedText = await test.step('Получить состояние текста после нового ввода', () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-disabled' })
+      })
+      const updatedSnapshot = await test.step('Получить ширину фигуры после нового ввода', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-disabled' })
+      })
+
+      await test.step('Проверить что после redo режим не включился заново и ширина осталась ручной', () => {
+        expect(resizedSnapshot.groupBoundsWidth)
+          .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(redoneShape?.shapeTextAutoExpand).toBe(false)
+        expect(Math.abs(redoneSnapshot.groupBoundsWidth - resizedSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(updatedShape?.shapeTextAutoExpand).toBe(false)
+        expect(updatedText?.lineCount).toBeGreaterThan(1)
+        expect(Math.abs(updatedSnapshot.groupBoundsWidth - redoneSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      })
+    })
   })
 
   test('выключение авторасширения во время редактирования текста не ломает выделение фигуры', async({

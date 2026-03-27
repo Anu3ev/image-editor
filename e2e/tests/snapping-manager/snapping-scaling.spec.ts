@@ -1,4 +1,8 @@
 import { test, expect } from '../../fixtures/editor.fixture'
+import {
+  IMAGE_BASE_SIZE,
+  IMAGE_SCALING_FACTOR
+} from '../../fixtures/data/image.data'
 import { SNAPPING_TOLERANCE } from '../../fixtures/data/snapping.data'
 
 test.describe('Масштабирование объекта с прилипаниями', () => {
@@ -243,6 +247,42 @@ test.describe('Масштабирование объекта с прилипан
         .toBeGreaterThan(SNAPPING_TOLERANCE.position)
       expect(guideState.guides).toHaveLength(0)
       expect(guideState.spacingGuides).toHaveLength(0)
+    })
+  })
+
+  test('при скейлинге изображения его левая верхняя точка остаётся на месте', async({
+    images
+  }) => {
+    const importedImage = await test.step('Импортировать изображение для скейлинга', async() => {
+      return images.addFilledImage(IMAGE_BASE_SIZE)
+    })
+
+    const createdImage = await test.step('Проверить что изображение было добавлено', () => {
+      return images.checkCreation({ imageObject: importedImage })
+    })
+
+    const initialSnapshot = await test.step('Получить исходную геометрию изображения', async() => {
+      return images.getSnapshot({ id: createdImage.id })
+    })
+
+    await test.step('Масштабировать изображение вправо с дробным коэффициентом', async() => {
+      await images.scaleHorizontallyFromRight({
+        id: createdImage.id,
+        scaleX: IMAGE_SCALING_FACTOR
+      })
+    })
+
+    const finalSnapshot = await test.step('Завершить скейлинг и получить итоговую геометрию', async() => {
+      await images.finishScale({ id: createdImage.id })
+      return images.getSnapshot({ id: createdImage.id })
+    })
+
+    await test.step('Проверить что левая верхняя точка не сдвинулась', () => {
+      expect(Math.abs(finalSnapshot.boundsLeft - initialSnapshot.boundsLeft))
+        .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
+      expect(Math.abs(finalSnapshot.boundsTop - initialSnapshot.boundsTop))
+        .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
+      expect(finalSnapshot.boundsWidth).toBeLessThan(initialSnapshot.boundsWidth)
     })
   })
 
