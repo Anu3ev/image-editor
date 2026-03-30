@@ -3,7 +3,6 @@ import {
   Canvas,
   FabricImage,
   FabricObject,
-  Point,
   Textbox,
   Transform,
   TPointerEvent,
@@ -555,12 +554,10 @@ export default class SnappingManager {
 
       if (Object.keys(updates).length) {
         target.set(updates)
-        target.setPositionByOrigin(
-          new Point(anchorPlacement.left, anchorPlacement.top),
-          originX,
-          originY
-        )
-        target.setCoords()
+        this.editor.canvasManager.applyObjectPlacement({
+          object: target,
+          placement: anchorPlacement
+        })
       }
     }
 
@@ -680,12 +677,10 @@ export default class SnappingManager {
       })
 
       target.set({ width: nextWidth })
-      target.setPositionByOrigin(
-        new Point(anchorPlacement.left, anchorPlacement.top),
-        originX,
-        originY
-      )
-      target.setCoords()
+      this.editor.canvasManager.applyObjectPlacement({
+        object: target,
+        placement: anchorPlacement
+      })
     }
 
     this._applyGuides({

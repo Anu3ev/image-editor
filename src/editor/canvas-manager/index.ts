@@ -164,7 +164,10 @@ export default class CanvasManager {
   }): ObjectPlacement {
     const resolvedOriginX = originX ?? object.originX ?? 'center'
     const resolvedOriginY = originY ?? object.originY ?? 'center'
-    const point = object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
+    const relativePoint = object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
+    const point = object.group
+      ? relativePoint.transform(object.group.calcTransformMatrix())
+      : relativePoint
 
     return {
       left: point.x,
@@ -196,11 +199,15 @@ export default class CanvasManager {
   }): ObjectPlacement {
     const resolvedOriginX = originX ?? object.originX ?? 'center'
     const resolvedOriginY = originY ?? object.originY ?? 'center'
-    const basePoint = fallbackPoint ?? object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
+    const currentPlacement = this.getObjectPlacement({
+      object,
+      originX: resolvedOriginX,
+      originY: resolvedOriginY
+    })
 
     return {
-      left: left ?? basePoint.x,
-      top: top ?? basePoint.y,
+      left: left ?? fallbackPoint?.x ?? currentPlacement.left,
+      top: top ?? fallbackPoint?.y ?? currentPlacement.top,
       originX: resolvedOriginX,
       originY: resolvedOriginY
     }
@@ -227,7 +234,7 @@ export default class CanvasManager {
       originX,
       originY
     })
-    object.setPositionByOrigin(new Point(left, top), originX, originY)
+    object.setXY(new Point(left, top), originX, originY)
     object.setCoords()
   }
 
