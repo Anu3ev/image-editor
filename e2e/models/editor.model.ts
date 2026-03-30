@@ -5,7 +5,9 @@ import type {
   CanvasStateInfo,
   MontageAreaInfo,
   MontageAreaBoundsInfo,
-  MontageAreaViewportBoundsInfo
+  MontageAreaViewportBoundsInfo,
+  ObjectTargetParams,
+  SnappingObjectSnapshot
 } from '../types'
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
@@ -100,10 +102,43 @@ export class EditorModel {
     })
   }
 
+  /** Возвращает snapshot объекта canvas с актуальным bounding box. */
+  async getObjectSnapshot(params: ObjectTargetParams = {}): Promise<SnappingObjectSnapshot> {
+    const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      return helpers.serializeSnappingObjectSnapshot(target)
+    }, params)
+
+    expect(snapshot, 'должен существовать snapshot объекта').not.toBeNull()
+
+    return snapshot as SnappingObjectSnapshot
+  }
+
   /** Проверяет что количество пользовательских объектов на canvas равно ожидаемому */
   async checkObjectCount(params: { count: number }): Promise<void> {
     const objects = await this.getObjects()
     expect(objects, `ожидается ${params.count} объектов на canvas`).toHaveLength(params.count)
+  }
+
+  /** Выделяет все пользовательские объекты на canvas через публичный API редактора. */
+  async selectAllObjects(): Promise<void> {
+    await this.page.evaluate(async() => {
+      const { editor } = window as any
+
+      editor.selectionManager.selectAll()
+
+      await new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve())
+        })
+      })
+    })
   }
 
   /** Возвращает информацию о montage area */

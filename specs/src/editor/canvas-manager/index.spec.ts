@@ -8,6 +8,7 @@ import {
   createManagerTestMocks,
   createMockFabricObject
 } from '../../../test-utils/editor-helpers'
+import { createPlacementSelection, createPlacementTestObject } from '../../../test-utils/placement-helpers'
 import {
   CANVAS_MIN_WIDTH,
   CANVAS_MIN_HEIGHT,
@@ -358,6 +359,91 @@ describe('CanvasManager', () => {
         originX: 'right',
         originY: 'bottom'
       })
+    })
+
+    it('возвращает координаты объекта на канвасе, даже если он находится в выделении из нескольких объектов', () => {
+      const object = createPlacementTestObject({
+        id: 'selected-object',
+        left: 20,
+        top: 40,
+        width: 80,
+        height: 60
+      })
+
+      createPlacementSelection({
+        objects: [object],
+        offsetX: 130,
+        offsetY: 70
+      })
+
+      const placement = canvasManager.getObjectPlacement({ object: object as any })
+
+      expect(placement).toEqual({
+        left: 150,
+        top: 110,
+        originX: 'left',
+        originY: 'top'
+      })
+    })
+  })
+
+  describe('resolveObjectPlacement', () => {
+    it('берёт текущую точку объекта на канвасе, если left/top не переданы', () => {
+      const object = createPlacementTestObject({
+        id: 'selected-object',
+        left: 20,
+        top: 40,
+        width: 80,
+        height: 60
+      })
+
+      createPlacementSelection({
+        objects: [object],
+        offsetX: 130,
+        offsetY: 70
+      })
+
+      const placement = canvasManager.resolveObjectPlacement({ object: object as any })
+
+      expect(placement).toEqual({
+        left: 150,
+        top: 110,
+        originX: 'left',
+        originY: 'top'
+      })
+    })
+  })
+
+  describe('applyObjectPlacement', () => {
+    it('ставит объект в нужную точку на канвасе с учётом origin', () => {
+      const object = createPlacementTestObject({
+        id: 'positioned-object',
+        left: 0,
+        top: 0,
+        width: 80,
+        height: 60
+      })
+
+      canvasManager.applyObjectPlacement({
+        object: object as any,
+        placement: {
+          left: 220,
+          top: 170,
+          originX: 'right',
+          originY: 'bottom'
+        }
+      })
+
+      expect(object.set).toHaveBeenCalledWith({
+        originX: 'right',
+        originY: 'bottom'
+      })
+      expect(object.setXY).toHaveBeenCalledWith(new Point(220, 170), 'right', 'bottom')
+      expect(object.left).toBe(220)
+      expect(object.top).toBe(170)
+      expect(object.originX).toBe('right')
+      expect(object.originY).toBe('bottom')
+      expect(object.setCoords).toHaveBeenCalled()
     })
   })
 

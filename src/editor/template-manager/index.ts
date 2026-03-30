@@ -13,7 +13,6 @@ import { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import { OBJECT_SERIALIZATION_PROPS } from '../history-manager'
 import {
-  calculateNormalizedPlacement,
   denormalizePlacement,
   resolveNormalizedPlacement,
   snapObjectToPixelGrid,
@@ -137,7 +136,7 @@ export default class TemplateManager {
     const baseHeight = baseSize.height
 
     const serializedObjects = serializableObjects
-      .map((object) => TemplateManager._serializeObject({
+      .map((object) => this._serializeObject({
         object,
         bounds: referenceBounds,
         baseWidth,
@@ -244,7 +243,7 @@ export default class TemplateManager {
           baseWidth: meta.baseWidth
         })
 
-        TemplateManager._transformObject({
+        this._transformObject({
           object,
           scale,
           bounds: montageBounds,
@@ -576,7 +575,7 @@ export default class TemplateManager {
   /**
    * Трансформирует объект в координаты целевой области.
    */
-  private static _transformObject({
+  private _transformObject({
     object,
     scale,
     bounds,
@@ -628,8 +627,15 @@ export default class TemplateManager {
       scaleY: nextScaleY
     })
 
-    object.setPositionByOrigin(absolutePlacement, originX, originY)
-    object.setCoords()
+    this.editor.canvasManager.applyObjectPlacement({
+      object,
+      placement: {
+        left: absolutePlacement.x,
+        top: absolutePlacement.y,
+        originX,
+        originY
+      }
+    })
 
     delete objectRecord[TEMPLATE_ANCHOR_X_KEY]
     delete objectRecord[TEMPLATE_ANCHOR_Y_KEY]
@@ -873,7 +879,7 @@ export default class TemplateManager {
   /**
    * Сериализует объект относительно монтажной области.
    */
-  private static _serializeObject({
+  private _serializeObject({
     object,
     bounds,
     baseWidth,
@@ -907,21 +913,11 @@ export default class TemplateManager {
     const rect = object.getBoundingRect(false, true)
     const safeWidth = baseWidth || boundsWidth || 1
     const safeHeight = baseHeight || boundsHeight || 1
-
-    const normalizedPlacement = calculateNormalizedPlacement({
-      object,
-      bounds
-    })
-
-    const placementForStorage = normalizedPlacement ?? (() => {
-      const originX = object.originX ?? 'center'
-      const originY = object.originY ?? 'center'
-      const placementPoint = object.getPointByOrigin(originX, originY)
-      return {
-        x: (placementPoint.x - boundsLeft) / safeWidth,
-        y: (placementPoint.y - boundsTop) / safeHeight
-      }
-    })()
+    const placement = this.editor.canvasManager.getObjectPlacement({ object })
+    const placementForStorage = {
+      x: (placement.left - boundsLeft) / safeWidth,
+      y: (placement.top - boundsTop) / safeHeight
+    }
 
     const normalizedLeft = (rect.left - boundsLeft) / safeWidth
     const normalizedTop = (rect.top - boundsTop) / safeHeight
