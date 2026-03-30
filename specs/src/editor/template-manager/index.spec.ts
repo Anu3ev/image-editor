@@ -1,13 +1,16 @@
-import { util } from 'fabric'
+import { Point, util } from 'fabric'
 import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/shape-group'
+import {
+  createPlacementSelection,
+  createPlacementTestObject,
+  createRevivedTemplateObject,
+  getScenePointByOrigin
+} from '../../../test-utils/placement-helpers'
 import {
   createMockShapeNode,
   createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
-import {
-  createShapeTemplateDefinition,
-  createTemplateManagerTestSetup
-} from '../../../test-utils/template-manager-helpers'
+import { createShapeTemplateDefinition, createTemplateManagerTestSetup } from '../../../test-utils/template-manager-helpers'
 
 describe('TemplateManager', () => {
   beforeEach(() => {
@@ -15,7 +18,7 @@ describe('TemplateManager', () => {
     jest.clearAllMocks()
   })
 
-  it('applyTemplate materialize shape-group и сохраняет его runtime state', async() => {
+  it('добавляет фигуру из шаблона как обычный объект на канвас', async() => {
     const {
       manager,
       editor
@@ -49,7 +52,7 @@ describe('TemplateManager', () => {
     expect(editor.historyManager.saveState).toHaveBeenCalled()
   })
 
-  it('applyTemplate сохраняет shapeTextAutoExpand у материализованной фигуры', async() => {
+  it('сохраняет auto-expand у текста внутри фигуры из шаблона', async() => {
     const {
       manager,
       editor
@@ -77,7 +80,7 @@ describe('TemplateManager', () => {
     expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
-  it('applyTemplate применяет background object через backgroundManager отдельно от content objects', async() => {
+  it('применяет фон из шаблона отдельно от остальных объектов', async() => {
     const {
       manager,
       editor
@@ -124,7 +127,7 @@ describe('TemplateManager', () => {
     expect(result).toEqual([contentObject])
   })
 
-  it('applyTemplate возвращает null и warning для пустого шаблона', async() => {
+  it('для пустого шаблона возвращает warning и не добавляет объекты', async() => {
     const {
       manager,
       editor
@@ -143,5 +146,223 @@ describe('TemplateManager', () => {
 
     expect(result).toBeNull()
     expect(editor.errorManager.emitWarning).toHaveBeenCalled()
+  })
+
+  it('при сохранении двух выделенных объектов не теряет их места на канвасе', () => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const leftObject = createPlacementTestObject({
+      id: 'left-object',
+      left: 20,
+      top: 40,
+      width: 80,
+      height: 60
+    })
+    const rightObject = createPlacementTestObject({
+      id: 'right-object',
+      left: 150,
+      top: 40,
+      width: 60,
+      height: 60
+    })
+    const selection = createPlacementSelection({
+      objects: [leftObject, rightObject],
+      offsetX: 130,
+      offsetY: 70
+    })
+
+    editor.canvas.getActiveObject.mockReturnValue(selection)
+
+    const template = manager.serializeSelection()
+
+    expect(template).not.toBeNull()
+
+    const serializedObjects = new Map(template?.objects.map((object) => [object.id, object]))
+
+    expect(serializedObjects.get('left-object')).toEqual(expect.objectContaining({
+      left: 0.125,
+      top: 0.2
+    }))
+    expect(serializedObjects.get('right-object')).toEqual(expect.objectContaining({
+      left: 0.45,
+      top: 0.2
+    }))
+  })
+
+  it('один и тот же объект сохраняется одинаково сам по себе и в выделении из нескольких объектов', () => {
+    const directSetup = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const directObject = createPlacementTestObject({
+      id: 'shared-object',
+      left: 150,
+      top: 110,
+      width: 80,
+      height: 60
+    })
+
+    directSetup.editor.canvas.getActiveObject.mockReturnValue(directObject)
+
+    const directTemplate = directSetup.manager.serializeSelection()
+
+    const selectionSetup = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const selectedObject = createPlacementTestObject({
+      id: 'shared-object',
+      left: 20,
+      top: 40,
+      width: 80,
+      height: 60
+    })
+    const siblingObject = createPlacementTestObject({
+      id: 'sibling-object',
+      left: 150,
+      top: 40,
+      width: 60,
+      height: 60
+    })
+    const selection = createPlacementSelection({
+      objects: [selectedObject, siblingObject],
+      offsetX: 130,
+      offsetY: 70
+    })
+
+    selectionSetup.editor.canvas.getActiveObject.mockReturnValue(selection)
+
+    const selectionTemplate = selectionSetup.manager.serializeSelection()
+    const directSerializedObject = directTemplate?.objects[0]
+    const selectedSerializedObject = selectionTemplate?.objects.find((object) => object.id === 'shared-object')
+
+    expect(selectedSerializedObject).toEqual(expect.objectContaining({
+      left: directSerializedObject?.left,
+      top: directSerializedObject?.top,
+      _templateAnchorX: directSerializedObject?._templateAnchorX,
+      _templateAnchorY: directSerializedObject?._templateAnchorY
+    }))
+  })
+
+  it('при сохранении объекта с нестандартным origin берёт его реальную точку, а не левый верхний угол', () => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const object = createPlacementTestObject({
+      id: 'origin-object',
+      left: 220,
+      top: 170,
+      width: 80,
+      height: 60,
+      originX: 'center',
+      originY: 'bottom'
+    })
+
+    editor.canvas.getActiveObject.mockReturnValue(object)
+
+    const template = manager.serializeSelection()
+    const serializedObject = template?.objects[0]
+
+    expect(serializedObject).toEqual(expect.objectContaining({
+      left: 0.3,
+      top: 0.4
+    }))
+  })
+
+  it('после сохранения в шаблон и повторного применения объекты остаются на своих местах на канвасе того же размера', async() => {
+    const sourceSetup = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const leftObject = createPlacementTestObject({
+      id: 'left-object',
+      left: 20,
+      top: 40,
+      width: 80,
+      height: 60
+    })
+    const rightObject = createPlacementTestObject({
+      id: 'right-object',
+      left: 150,
+      top: 40,
+      width: 60,
+      height: 60
+    })
+    const selection = createPlacementSelection({
+      objects: [leftObject, rightObject],
+      offsetX: 130,
+      offsetY: 70
+    })
+
+    sourceSetup.editor.canvas.getActiveObject.mockReturnValue(selection)
+
+    const template = sourceSetup.manager.serializeSelection()
+    const targetSetup = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const enlivenObjectsSpy = jest.spyOn(util, 'enlivenObjects')
+      .mockImplementation(async([serialized]) => [createRevivedTemplateObject({ serialized })] as never)
+
+    const insertedObjects = await targetSetup.manager.applyTemplate({
+      template: template as NonNullable<typeof template>
+    })
+
+    expect(enlivenObjectsSpy).toHaveBeenCalledTimes(2)
+    expect(insertedObjects).not.toBeNull()
+    expect(getScenePointByOrigin({ object: insertedObjects?.[0] as never })).toEqual(new Point(150, 110))
+    expect(getScenePointByOrigin({ object: insertedObjects?.[1] as never })).toEqual(new Point(280, 110))
+  })
+
+  it('после сохранения в шаблон и повторного применения объекты сохраняют относительное положение на канвасе другого размера', async() => {
+    const sourceSetup = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const leftObject = createPlacementTestObject({
+      id: 'left-object',
+      left: 20,
+      top: 40,
+      width: 80,
+      height: 60
+    })
+    const rightObject = createPlacementTestObject({
+      id: 'right-object',
+      left: 150,
+      top: 40,
+      width: 60,
+      height: 60
+    })
+    const selection = createPlacementSelection({
+      objects: [leftObject, rightObject],
+      offsetX: 130,
+      offsetY: 70
+    })
+
+    sourceSetup.editor.canvas.getActiveObject.mockReturnValue(selection)
+
+    const template = sourceSetup.manager.serializeSelection()
+    const targetSetup = createTemplateManagerTestSetup({
+      useRealCanvasManager: true,
+      montageBounds: {
+        left: 100,
+        top: 50,
+        width: 800,
+        height: 600
+      }
+    })
+
+    jest.spyOn(util, 'enlivenObjects')
+      .mockImplementation(async([serialized]) => [createRevivedTemplateObject({ serialized })] as never)
+
+    const insertedObjects = await targetSetup.manager.applyTemplate({
+      template: template as NonNullable<typeof template>
+    })
+
+    expect(insertedObjects).not.toBeNull()
+    expect(getScenePointByOrigin({ object: insertedObjects?.[0] as never })).toEqual(new Point(200, 170))
+    expect(getScenePointByOrigin({ object: insertedObjects?.[1] as never })).toEqual(new Point(460, 170))
   })
 })

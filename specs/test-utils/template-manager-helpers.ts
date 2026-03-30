@@ -1,7 +1,15 @@
+import CanvasManager from '../../src/editor/canvas-manager'
 import TemplateManager, { TemplateDefinition } from '../../src/editor/template-manager'
 import { createEditorStub } from './editor-helpers'
 
 type BaseEditorStub = ReturnType<typeof createEditorStub>
+
+type MontageBounds = {
+  left: number
+  top: number
+  width: number
+  height: number
+}
 
 type TemplateManagerEditorStub = BaseEditorStub & {
   montageArea: BaseEditorStub['montageArea'] & {
@@ -17,28 +25,53 @@ type TemplateManagerEditorStub = BaseEditorStub & {
 }
 
 /**
- * Создаёт test setup для unit-тестов TemplateManager.applyTemplate.
+ * Создаёт TemplateManager setup с настраиваемой монтажной областью и placement-стратегией.
  */
-export const createTemplateManagerTestSetup = (): {
-  manager: TemplateManager
-  editor: TemplateManagerEditorStub
-} => {
-  const editor = createEditorStub() as TemplateManagerEditorStub
-
-  editor.montageArea.getBoundingRect = jest.fn(() => ({
+export const createTemplateManagerTestSetup = ({
+  montageBounds = {
     left: 100,
     top: 50,
     width: 400,
     height: 300
+  },
+  useRealCanvasManager = false
+}: {
+  montageBounds?: MontageBounds
+  useRealCanvasManager?: boolean
+} = {}): {
+  manager: TemplateManager
+  editor: TemplateManagerEditorStub
+} => {
+  const {
+    left,
+    top,
+    width,
+    height
+  } = montageBounds
+  const editor = createEditorStub() as TemplateManagerEditorStub
+
+  editor.montageArea.getBoundingRect = jest.fn(() => ({
+    left,
+    top,
+    width,
+    height
   }))
-  editor.montageArea.getScaledWidth = jest.fn(() => 400)
-  editor.montageArea.getScaledHeight = jest.fn(() => 300)
+  editor.montageArea.width = width
+  editor.montageArea.height = height
+  editor.montageArea.left = left
+  editor.montageArea.top = top
+  editor.montageArea.getScaledWidth = jest.fn(() => width)
+  editor.montageArea.getScaledHeight = jest.fn(() => height)
 
   editor.backgroundManager = {
     ...editor.backgroundManager,
     setColorBackground: jest.fn(),
     setGradientBackground: jest.fn(),
     setImageBackground: jest.fn()
+  }
+
+  if (useRealCanvasManager) {
+    editor.canvasManager = new CanvasManager({ editor: editor as never }) as never
   }
 
   return {
