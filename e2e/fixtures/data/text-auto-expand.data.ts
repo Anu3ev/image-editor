@@ -24,6 +24,13 @@ export const TEXT_AUTO_EXPAND_LONGER_TEXT = 'один два три четыре
 /** Длинный текст, который должен уткнуться в ширину монтажной области и начать переноситься. */
 export const TEXT_AUTO_EXPAND_LIMIT_TEXT = 'один два три четыре пять шесть семь восемь девять десять '.repeat(10).trim()
 
+/** Базовый текстовый объект для скейлинга после упора в ширину монтажной области. */
+export const TEXT_AUTO_EXPAND_LIMIT_BASE_OPTIONS: TextAddParams = {
+  text: 'Текст',
+  width: 120,
+  fontSize: 32
+}
+
 /** Параметры объекта для проверки авторасширения при увеличении размера шрифта. */
 export const TEXT_AUTO_EXPAND_FONT_BASE_OPTIONS: TextAddParams = {
   text: 'Заголовок',
