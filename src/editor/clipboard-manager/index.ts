@@ -199,6 +199,28 @@ export default class ClipboardManager {
   }
 
   /**
+   * Нормализует текстовые объекты внутри clone перед добавлением на canvas.
+   */
+  private _commitStandaloneTextScaleOnClone({ clonedObject }: { clonedObject: FabricObject }): void {
+    const { textManager } = this.editor
+    if (!textManager) return
+
+    if (clonedObject instanceof ActiveSelection) {
+      clonedObject.forEachObject((object) => {
+        textManager.commitStandaloneTextScale({
+          target: object
+        })
+      })
+      clonedObject.setCoords()
+      return
+    }
+
+    textManager.commitStandaloneTextScale({
+      target: clonedObject
+    })
+  }
+
+  /**
    * Обработка импорта изображения из буфера обмена
    * @param source - источник изображения (data URL или URL)
    */
@@ -322,6 +344,10 @@ export default class ClipboardManager {
         left: clonedObject.left + 10,
         top: clonedObject.top + 10,
         evented: true
+      })
+
+      this._commitStandaloneTextScaleOnClone({
+        clonedObject
       })
 
       // Добавляем на canvas
@@ -448,6 +474,10 @@ export default class ClipboardManager {
         left: clonedObj.left + 10,
         top: clonedObj.top + 10,
         evented: true
+      })
+
+      this._commitStandaloneTextScaleOnClone({
+        clonedObject: clonedObj
       })
 
       // Добавляем клонированный объект на canvas

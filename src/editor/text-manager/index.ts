@@ -70,6 +70,13 @@ import {
 
 export type { TextStyleOptions } from './types'
 
+type TextScaleBaseState = Omit<ScalingState, 'hasWidthChange'>
+
+type CommitStandaloneTextScaleResult = {
+  appliedWidth: number
+  dimensionsRounded: boolean
+}
+
 /**
  * Менеджер текста для редактора.
  * Управляет добавлением и обновлением текстовых объектов, а также синхронизацией размера шрифта при трансформациях.
@@ -774,6 +781,47 @@ export default class TextManager {
   }
 
   /**
+   * Запекает текущий transient scale standalone-textbox в каноническую геометрию.
+   * Используется для live-scaling, history/template rehydration и групповых трансформаций.
+   */
+  public commitStandaloneTextScale(
+    {
+      target,
+      shouldDisableAutoExpandOnHorizontalChange = false
+    }: {
+      target?: FabricObject | null
+      shouldDisableAutoExpandOnHorizontalChange?: boolean
+    }
+  ): boolean {
+    if (!TextManager._isTextbox(target)) return false
+    if (TextManager._isShapeOwnedTextbox(target)) return false
+
+    const widthScale = Math.abs(target.scaleX ?? 1) || 1
+    const heightScale = Math.abs(target.scaleY ?? 1) || 1
+    const hasScaleChange = Math.abs(widthScale - 1) > DIMENSION_EPSILON
+      || Math.abs(heightScale - 1) > DIMENSION_EPSILON
+
+    if (!hasScaleChange) return false
+
+    const base = TextManager._captureTextScaleBase({ textbox: target })
+    const placement = this.editor.canvasManager.getObjectPlacement({ object: target })
+
+    this._commitStandaloneTextboxScale({
+      textbox: target,
+      base,
+      widthScale,
+      heightScale,
+      placement,
+      shouldScaleFontSize: true,
+      shouldScalePadding: true,
+      shouldScaleRadii: true,
+      shouldDisableAutoExpandOnHorizontalChange
+    })
+
+    return true
+  }
+
+  /**
    * Возвращает активный текст или ищет по id.
    */
   private _resolveTextObject(reference: TextReference): EditorTextbox | null {
@@ -833,6 +881,189 @@ export default class TextManager {
     const { textLines } = textboxWithLines
 
     return Array.isArray(textLines) && textLines.length > explicitLineCount
+  }
+
+  /**
+   * Снимает с textbox базовое состояние, относительно которого можно материализовать transient scale.
+   */
+  private static _captureTextScaleBase({ textbox }: { textbox: EditorTextbox }): TextScaleBaseState {
+    const baseWidth = textbox.width ?? textbox.calcTextWidth()
+    const baseFontSize = textbox.fontSize ?? 16
+    const { styles: textboxStyles = {} } = textbox
+    const { lineFontDefaults } = textbox
+    const {
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0
+    } = textbox
+    const {
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0
+    } = textbox
+
+    return {
+      baseWidth,
+      baseFontSize,
+      basePadding: {
+        top: paddingTop,
+        right: paddingRight,
+        bottom: paddingBottom,
+        left: paddingLeft
+      },
+      baseRadii: {
+        topLeft: radiusTopLeft,
+        topRight: radiusTopRight,
+        bottomRight: radiusBottomRight,
+        bottomLeft: radiusBottomLeft
+      },
+      baseStyles: JSON.parse(JSON.stringify(textboxStyles)) as TextboxStyles,
+      baseLineFontDefaults: cloneLineFontDefaults({ lineFontDefaults })
+    }
+  }
+
+  /**
+   * Материализует transient scale standalone-textbox в канонические width/font/padding/radius значения.
+   */
+  private _commitStandaloneTextboxScale(
+    {
+      textbox,
+      base,
+      widthScale,
+      heightScale,
+      placement,
+      shouldScaleFontSize,
+      shouldScalePadding,
+      shouldScaleRadii,
+      shouldDisableAutoExpandOnHorizontalChange = false
+    }: {
+      textbox: EditorTextbox
+      base: TextScaleBaseState
+      widthScale: number
+      heightScale: number
+      placement: ObjectPlacement
+      shouldScaleFontSize: boolean
+      shouldScalePadding: boolean
+      shouldScaleRadii: boolean
+      shouldDisableAutoExpandOnHorizontalChange?: boolean
+    }
+  ): CommitStandaloneTextScaleResult {
+    const {
+      baseWidth,
+      baseFontSize,
+      basePadding,
+      baseRadii,
+      baseStyles,
+      baseLineFontDefaults
+    } = base
+    const nextWidth = Math.max(1, baseWidth * widthScale)
+    const roundedNextWidth = Math.max(1, Math.round(nextWidth))
+    const nextFontSize = Math.max(1, baseFontSize * heightScale)
+    const hasBaseStyles = Object.keys(baseStyles).length > 0
+    let nextStyles: EditorTextbox['styles'] | undefined
+
+    if (shouldScaleFontSize && hasBaseStyles) {
+      const scaledStyles: TextboxStyles = {}
+
+      Object.entries(baseStyles).forEach(([lineIndex, lineStyles]) => {
+        if (!lineStyles) return
+
+        const scaledLineStyles: Record<string, TextboxProps> = {}
+        Object.entries(lineStyles as Record<string, TextboxProps>).forEach(([charIndex, charStyle]) => {
+          if (!charStyle) return
+
+          const nextCharStyle: TextboxProps = { ...charStyle }
+          if (typeof charStyle.fontSize === 'number') {
+            nextCharStyle.fontSize = Math.max(1, charStyle.fontSize * heightScale)
+          }
+
+          scaledLineStyles[charIndex] = nextCharStyle
+        })
+
+        if (Object.keys(scaledLineStyles).length) {
+          scaledStyles[lineIndex] = scaledLineStyles
+        }
+      })
+
+      if (Object.keys(scaledStyles).length) {
+        nextStyles = scaledStyles
+      }
+    }
+
+    let nextLineFontDefaults: LineFontDefaults | undefined
+    if (shouldScaleFontSize) {
+      nextLineFontDefaults = scaleLineFontDefaults({
+        lineFontDefaults: baseLineFontDefaults,
+        scale: heightScale
+      })
+    }
+
+    const nextPadding: PaddingValues = shouldScalePadding
+      ? {
+        top: Math.max(0, basePadding.top * heightScale),
+        right: Math.max(0, basePadding.right * heightScale),
+        bottom: Math.max(0, basePadding.bottom * heightScale),
+        left: Math.max(0, basePadding.left * heightScale)
+      }
+      : basePadding
+    const nextRadii: CornerRadiiValues = shouldScaleRadii
+      ? {
+        topLeft: Math.max(0, baseRadii.topLeft * heightScale),
+        topRight: Math.max(0, baseRadii.topRight * heightScale),
+        bottomRight: Math.max(0, baseRadii.bottomRight * heightScale),
+        bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
+      }
+      : baseRadii
+    const currentWidth = textbox.width ?? baseWidth
+    const widthChanged = roundedNextWidth !== currentWidth
+
+    if (shouldDisableAutoExpandOnHorizontalChange && widthChanged) {
+      textbox.autoExpand = false
+    }
+
+    if (nextStyles) {
+      textbox.styles = nextStyles
+    }
+
+    if (nextLineFontDefaults) {
+      textbox.lineFontDefaults = nextLineFontDefaults
+    }
+
+    textbox.set({
+      width: roundedNextWidth,
+      fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
+      paddingTop: nextPadding.top,
+      paddingRight: nextPadding.right,
+      paddingBottom: nextPadding.bottom,
+      paddingLeft: nextPadding.left,
+      radiusTopLeft: nextRadii.topLeft,
+      radiusTopRight: nextRadii.topRight,
+      radiusBottomRight: nextRadii.bottomRight,
+      radiusBottomLeft: nextRadii.bottomLeft,
+      scaleX: 1,
+      scaleY: 1
+    })
+
+    textbox.initDimensions()
+
+    const dimensionsRounded = roundTextboxDimensions({ textbox })
+
+    if (dimensionsRounded) {
+      textbox.dirty = true
+    }
+
+    this.editor.canvasManager.applyObjectPlacement({
+      object: textbox,
+      placement
+    })
+    textbox.setCoords()
+
+    return {
+      appliedWidth: textbox.width ?? roundedNextWidth,
+      dimensionsRounded
+    }
   }
 
   /**
@@ -1544,43 +1775,6 @@ export default class TextManager {
         bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
       }
       : baseRadii
-    const hasBaseStyles = Object.keys(baseStyles).length > 0
-    let nextStyles: EditorTextbox['styles'] | undefined
-    if (shouldScaleFontSize && hasBaseStyles) {
-      const scaledStyles: TextboxStyles = {}
-
-      Object.entries(baseStyles).forEach(([lineIndex, lineStyles]) => {
-        if (!lineStyles) return
-
-        const scaledLineStyles: Record<string, TextboxProps> = {}
-        Object.entries(lineStyles as Record<string, TextboxProps>).forEach(([charIndex, charStyle]) => {
-          if (!charStyle) return
-
-          const nextCharStyle: TextboxProps = { ...charStyle }
-          if (typeof charStyle.fontSize === 'number') {
-            nextCharStyle.fontSize = Math.max(1, charStyle.fontSize * heightScale)
-          }
-
-          scaledLineStyles[charIndex] = nextCharStyle
-        })
-
-        if (Object.keys(scaledLineStyles).length) {
-          scaledStyles[lineIndex] = scaledLineStyles
-        }
-      })
-
-      if (Object.keys(scaledStyles).length) {
-        nextStyles = scaledStyles
-      }
-    }
-
-    let nextLineFontDefaults: LineFontDefaults | undefined
-    if (shouldScaleFontSize) {
-      nextLineFontDefaults = scaleLineFontDefaults({
-        lineFontDefaults: baseLineFontDefaults,
-        scale: heightScale
-      })
-    }
     const scalingPlacement = canvasManager.getObjectPlacement({
       object: target,
       originX: transform.originX ?? target.originX,
@@ -1606,47 +1800,27 @@ export default class TextManager {
       return
     }
 
-    if (isHorizontalHandle && widthChanged) {
-      target.autoExpand = false
-    }
-
-    if (nextStyles) {
-      target.styles = nextStyles
-    }
-
-    if (nextLineFontDefaults) {
-      target.lineFontDefaults = nextLineFontDefaults
-    }
-
-    target.set({
-      width: roundedNextWidth,
-      fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
-      paddingTop: nextPadding.top,
-      paddingRight: nextPadding.right,
-      paddingBottom: nextPadding.bottom,
-      paddingLeft: nextPadding.left,
-      radiusTopLeft: nextRadii.topLeft,
-      radiusTopRight: nextRadii.topRight,
-      radiusBottomRight: nextRadii.bottomRight,
-      radiusBottomLeft: nextRadii.bottomLeft,
-      scaleX: 1,
-      scaleY: 1
+    const {
+      appliedWidth,
+      dimensionsRounded: dimensionsRoundedOnScale
+    } = this._commitStandaloneTextboxScale({
+      textbox: target,
+      base: {
+        baseWidth,
+        baseFontSize,
+        basePadding,
+        baseRadii,
+        baseStyles,
+        baseLineFontDefaults
+      },
+      widthScale,
+      heightScale,
+      placement: scalingPlacement,
+      shouldScaleFontSize,
+      shouldScalePadding,
+      shouldScaleRadii,
+      shouldDisableAutoExpandOnHorizontalChange: isHorizontalHandle
     })
-
-    target.initDimensions()
-
-    const dimensionsRoundedOnScale = roundTextboxDimensions({ textbox: target })
-
-    if (dimensionsRoundedOnScale) {
-      target.dirty = true
-    }
-
-    canvasManager.applyObjectPlacement({
-      object: target,
-      placement: scalingPlacement
-    })
-
-    const appliedWidth = target.width ?? roundedNextWidth
     const widthActuallyChanged = appliedWidth !== currentWidth
 
     transform.scaleX = 1
@@ -1662,27 +1836,15 @@ export default class TextManager {
       original.top = target.top
     }
 
-    target.setCoords()
     this.canvas.requestRenderAll()
 
-    state.baseWidth = appliedWidth
-    state.baseFontSize = target.fontSize ?? nextFontSize
-    state.baseStyles = JSON.parse(JSON.stringify(target.styles ?? {})) as TextboxStyles
-    state.baseLineFontDefaults = cloneLineFontDefaults({
-      lineFontDefaults: target.lineFontDefaults
-    })
-    state.basePadding = {
-      top: nextPadding.top,
-      right: nextPadding.right,
-      bottom: nextPadding.bottom,
-      left: nextPadding.left
-    }
-    state.baseRadii = {
-      topLeft: nextRadii.topLeft,
-      topRight: nextRadii.topRight,
-      bottomRight: nextRadii.bottomRight,
-      bottomLeft: nextRadii.bottomLeft
-    }
+    const nextBase = TextManager._captureTextScaleBase({ textbox: target })
+    state.baseWidth = nextBase.baseWidth
+    state.baseFontSize = nextBase.baseFontSize
+    state.baseStyles = nextBase.baseStyles
+    state.baseLineFontDefaults = nextBase.baseLineFontDefaults
+    state.basePadding = nextBase.basePadding
+    state.baseRadii = nextBase.baseRadii
     state.hasWidthChange = widthActuallyChanged
       || fontSizeChanged
       || paddingChanged
@@ -1708,76 +1870,7 @@ export default class TextManager {
       this.canvas.discardActiveObject()
 
       objects.forEach((obj) => {
-        if (TextManager._isTextbox(obj)) {
-          const sX = obj.scaleX ?? 1
-          const sY = obj.scaleY ?? 1
-
-          const newFontSize = (obj.fontSize ?? 16) * sY
-          const newWidth = (obj.width ?? 0) * sX
-
-          // Используем scaleY для отступов и радиусов
-          const scaleForProps = sY
-
-          const {
-            paddingTop = 0,
-            paddingRight = 0,
-            paddingBottom = 0,
-            paddingLeft = 0,
-            radiusTopLeft = 0,
-            radiusTopRight = 0,
-            radiusBottomRight = 0,
-            radiusBottomLeft = 0,
-            styles
-          } = obj
-
-          const nextPadding = {
-            paddingTop: Math.max(0, paddingTop * scaleForProps),
-            paddingRight: Math.max(0, paddingRight * scaleForProps),
-            paddingBottom: Math.max(0, paddingBottom * scaleForProps),
-            paddingLeft: Math.max(0, paddingLeft * scaleForProps)
-          }
-
-          const nextRadii = {
-            radiusTopLeft: Math.max(0, radiusTopLeft * scaleForProps),
-            radiusTopRight: Math.max(0, radiusTopRight * scaleForProps),
-            radiusBottomRight: Math.max(0, radiusBottomRight * scaleForProps),
-            radiusBottomLeft: Math.max(0, radiusBottomLeft * scaleForProps)
-          }
-
-          let nextStyles: TextboxStyles | undefined = styles
-          if (styles && Object.keys(styles).length > 0) {
-            nextStyles = JSON.parse(JSON.stringify(styles)) as TextboxStyles
-            Object.values(nextStyles).forEach((line) => {
-              Object.values(line).forEach((charStyle) => {
-                if (typeof charStyle.fontSize === 'number') {
-                  charStyle.fontSize = Math.max(1, charStyle.fontSize * scaleForProps)
-                }
-              })
-            })
-          }
-
-          const nextLineFontDefaults = scaleLineFontDefaults({
-            lineFontDefaults: obj.lineFontDefaults,
-            scale: scaleForProps
-          })
-
-          const nextObjectUpdates: Partial<EditorTextbox> = {
-            fontSize: newFontSize,
-            width: newWidth,
-            scaleX: 1,
-            scaleY: 1,
-            ...nextPadding,
-            ...nextRadii,
-            styles: nextStyles
-          }
-
-          if (nextLineFontDefaults) {
-            nextObjectUpdates.lineFontDefaults = nextLineFontDefaults
-          }
-
-          obj.set(nextObjectUpdates)
-          roundTextboxDimensions({ textbox: obj })
-        }
+        this.commitStandaloneTextScale({ target: obj })
 
         obj.setCoords()
       })
@@ -1860,40 +1953,10 @@ export default class TextManager {
     let state = this.scalingState.get(textbox)
 
     if (!state) {
-      const baseWidth = textbox.width ?? textbox.calcTextWidth()
-      const baseFontSize = textbox.fontSize ?? 16
-      const { styles: textboxStyles = {} } = textbox
-      const { lineFontDefaults } = textbox
-      const {
-        paddingTop = 0,
-        paddingRight = 0,
-        paddingBottom = 0,
-        paddingLeft = 0
-      } = textbox
-      const {
-        radiusTopLeft = 0,
-        radiusTopRight = 0,
-        radiusBottomRight = 0,
-        radiusBottomLeft = 0
-      } = textbox
+      const base = TextManager._captureTextScaleBase({ textbox })
       // Храним базовые размеры и стили для одного цикла масштабирования.
       state = {
-        baseWidth,
-        baseFontSize,
-        basePadding: {
-          top: paddingTop,
-          right: paddingRight,
-          bottom: paddingBottom,
-          left: paddingLeft
-        },
-        baseRadii: {
-          topLeft: radiusTopLeft,
-          topRight: radiusTopRight,
-          bottomRight: radiusBottomRight,
-          bottomLeft: radiusBottomLeft
-        },
-        baseStyles: JSON.parse(JSON.stringify(textboxStyles)) as TextboxStyles,
-        baseLineFontDefaults: cloneLineFontDefaults({ lineFontDefaults }),
+        ...base,
         hasWidthChange: false
       }
       this.scalingState.set(textbox, state)
