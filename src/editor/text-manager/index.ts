@@ -888,53 +888,6 @@ export default class TextManager {
   }
 
   /**
-   * Измеряет ширину текста по явным строкам без soft-wrap переносов.
-   * Нужен для scale-path с autoExpand, чтобы width не зависела
-   * от промежуточного wrapping-состояния во время drag.
-   */
-  private _getTextboxUnwrappedWidth({ textbox }: { textbox: EditorTextbox }): number | null {
-    const textValue = typeof textbox.text === 'string' ? textbox.text : ''
-    if (!textValue.length) return null
-
-    textbox.initDimensions()
-
-    const textboxWithInternals = textbox as EditorTextbox & {
-      _textLines?: string[][]
-      _unwrappedTextLines?: string[][]
-      __lineWidths?: number[]
-      __charBounds?: unknown[]
-    }
-    const {
-      _textLines: wrappedTextLines,
-      _unwrappedTextLines: unwrappedTextLines,
-      __lineWidths: lineWidths,
-      __charBounds: charBounds
-    } = textboxWithInternals
-
-    if (!Array.isArray(unwrappedTextLines) || unwrappedTextLines.length === 0) {
-      const measuredWidth = Math.ceil(getLongestLineWidth({ textbox, text: textValue }))
-      if (!Number.isFinite(measuredWidth)) return null
-
-      return Math.max(measuredWidth, textbox.minWidth ?? 1)
-    }
-
-    textboxWithInternals._textLines = unwrappedTextLines
-    textboxWithInternals.__lineWidths = []
-    textboxWithInternals.__charBounds = []
-
-    try {
-      const measuredWidth = Math.ceil(textbox.calcTextWidth())
-      if (!Number.isFinite(measuredWidth)) return null
-
-      return Math.max(measuredWidth, textbox.minWidth ?? 1)
-    } finally {
-      textboxWithInternals._textLines = wrappedTextLines
-      textboxWithInternals.__lineWidths = lineWidths ?? []
-      textboxWithInternals.__charBounds = charBounds ?? []
-    }
-  }
-
-  /**
    * Вешает обработчики событий Fabric для работы с текстом.
    */
   private _bindEvents(): void {
@@ -1516,8 +1469,8 @@ export default class TextManager {
 
   /**
    * Обрабатывает масштабирование текстового объекта: пересчитывает ширину, кегль и паддинги/радиусы.
-   * Для autoExpand-текста при scale по диагонали или по вертикали ширина
-   * измеряется от текущего содержимого без soft-wrap переносов.
+   * Во время scale ширина должна следовать transform пользователя и не должна
+   * повторно авторасширяться по содержимому.
    * Горизонтальный scale трактуется как явная фиксация ширины и выключает autoExpand.
    * Для ActiveSelection с текстом блокирует горизонтальное масштабирование.
    */
@@ -1680,25 +1633,11 @@ export default class TextManager {
       scaleY: 1
     })
 
-    let widthAdjustedOnScale = false
-    if (shouldScaleFontSize && target.autoExpand !== false) {
-      const unwrappedWidth = this._getTextboxUnwrappedWidth({ textbox: target })
-
-      if (
-        unwrappedWidth !== null
-        && Math.abs((target.width ?? 0) - unwrappedWidth) > DIMENSION_EPSILON
-      ) {
-        target.set({ width: unwrappedWidth })
-        target.initDimensions()
-        widthAdjustedOnScale = true
-      }
-    } else {
-      target.initDimensions()
-    }
+    target.initDimensions()
 
     const dimensionsRoundedOnScale = roundTextboxDimensions({ textbox: target })
 
-    if (dimensionsRoundedOnScale || widthAdjustedOnScale) {
+    if (dimensionsRoundedOnScale) {
       target.dirty = true
     }
 
@@ -1748,7 +1687,6 @@ export default class TextManager {
       || fontSizeChanged
       || paddingChanged
       || radiusChanged
-      || widthAdjustedOnScale
       || dimensionsRoundedOnScale
   }
 
