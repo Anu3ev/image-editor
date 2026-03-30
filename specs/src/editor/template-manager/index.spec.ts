@@ -43,6 +43,7 @@ describe('TemplateManager', () => {
     expect(group.shapeComposite).toBe(true)
     expect(text.selectable).toBe(false)
     expect(text.evented).toBe(false)
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
     expect(editor.historyManager.suspendHistory).toHaveBeenCalled()
     expect(editor.historyManager.resumeHistory).toHaveBeenCalled()
     expect(editor.historyManager.saveState).toHaveBeenCalled()
@@ -50,7 +51,8 @@ describe('TemplateManager', () => {
 
   it('applyTemplate сохраняет shapeTextAutoExpand у материализованной фигуры', async() => {
     const {
-      manager
+      manager,
+      editor
     } = createTemplateManagerTestSetup()
     const text = createMockShapeTextbox({ text: 'Template text' })
     const group = new ShapeGroupObject([
@@ -72,6 +74,7 @@ describe('TemplateManager', () => {
     expect(result).toEqual([group])
     expect(group.shapeTextAutoExpand).toBe(false)
     expect(text.autoExpand).toBe(false)
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
   it('applyTemplate применяет background object через backgroundManager отдельно от content objects', async() => {
@@ -116,6 +119,7 @@ describe('TemplateManager', () => {
       fromTemplate: true,
       withoutSave: true
     })
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
     expect(editor.canvas.add).toHaveBeenCalledWith(contentObject)
     expect(result).toEqual([contentObject])
   })
