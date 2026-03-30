@@ -490,7 +490,7 @@ export class TextModel {
     return textObject as TextObjectInfo
   }
 
-  /** Выполняет один live-шаг horizontal resize текстового объекта с теми же предусловиями, что и Fabric. */
+  /** Выполняет один live-шаг horizontal resize текстового объекта с теми же предусловиями и render-фазой, что и у Fabric. */
   private async simulateResizeStep(params: TextResizeStepParams): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -533,10 +533,15 @@ export class TextModel {
         }
       })
 
+      target.setCoords()
+      editor.canvas.renderAll()
+
       return helpers.serializeTextResizeSnapshot(target)
     }, params)
 
     expect(snapshot, 'должно существовать состояние live resize текстового объекта').not.toBeNull()
+
+    await this._waitForCanvasRender()
 
     return snapshot as TextResizeSnapshot
   }
