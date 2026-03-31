@@ -929,6 +929,44 @@ describe('SnappingManager', () => {
       expect(transform.scaleX).toBe(0.337)
     })
 
+    it('не округляет scale текстового объекта с фоном при скейлинге', () => {
+      const { editor } = createSnappingTestContext()
+      const active = createScalingObject({
+        left: 100,
+        top: 100,
+        width: 100,
+        height: 50,
+        scaleX: 0.337,
+        scaleY: 1,
+        originX: 'left',
+        originY: 'top'
+      }) as any
+
+      active.type = 'background-textbox'
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      const transform = {
+        corner: 'mr',
+        action: 'scaleX',
+        originX: 'left' as OriginX,
+        originY: 'top' as OriginY,
+        scaleX: 0.337,
+        scaleY: 1
+      }
+
+      snappingManagerState._handleObjectScaling({
+        target: active,
+        transform,
+        e: {
+          ctrlKey: true
+        }
+      })
+
+      expect(active.scaleX).toBe(0.337)
+      expect(transform.scaleX).toBe(0.337)
+    })
+
     it('округляет scaleX так, чтобы визуальная ширина была целым числом', () => {
       const { editor, objects } = createSnappingTestContext()
       const active = createScalingObject({

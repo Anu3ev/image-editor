@@ -508,6 +508,8 @@ export default class HistoryManager {
    * Состояние должно быть сохранено уже в канонической scene model.
    * После десериализации редактор синхронизирует derived geometry и camera-state
    * с текущим viewport контейнера, не восстанавливая legacy placement.
+   * Для standalone text после loadFromJSON дополнительно материализуется transient scale,
+   * чтобы дальнейшие resize/scale сценарии работали из единого persisted-контракта.
    * @fires editor:history-state-loaded
    */
   public async loadStateFromFullState(fullState: CanvasFullState): Promise<void> {
@@ -557,6 +559,15 @@ export default class HistoryManager {
       backgroundManager.removeBackground({ withoutSave: true })
     } else {
       backgroundManager.backgroundObject = loadedBackgroundObject as Rect | FabricImage
+    }
+
+    const { textManager } = this.editor
+    if (textManager) {
+      canvas.getObjects().forEach((object) => {
+        textManager.commitStandaloneTextScale({
+          target: object
+        })
+      })
     }
 
     if (loadedMontage) {

@@ -965,6 +965,45 @@ describe('HistoryManager', () => {
       expect(mockEditor.backgroundManager.removeBackground).toHaveBeenCalledWith({ withoutSave: true })
     })
 
+    it('текст из истории появляется сразу в итоговом размере', async() => {
+      const { historyManager, mockEditor } = createHistoryManagerTestSetup()
+      const commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+      const state = createState({
+        objects: [
+          { id: 'montage-area', type: 'rect' },
+          {
+            id: 'text-1',
+            type: 'background-textbox',
+            left: 0.25,
+            top: 0.2,
+            width: 137,
+            scaleX: 0.6,
+            scaleY: 1.4
+          },
+          {
+            id: 'rect-1',
+            type: 'rect',
+            left: 20,
+            top: 30,
+            width: 100,
+            height: 50
+          }
+        ] as any[]
+      })
+
+      await historyManager.loadStateFromFullState(state)
+
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: expect.objectContaining({
+          id: 'text-1',
+          type: 'background-textbox'
+        })
+      })
+      expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEditor.canvas.renderAll.mock.invocationCallOrder[0]
+      )
+    })
+
     it('обновляет canvas если размеры изменились', async() => {
       const { historyManager, mockEditor } = createHistoryManagerTestSetup({
         initialCanvasWidth: 800,

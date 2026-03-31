@@ -163,7 +163,9 @@ export default class TemplateManager {
   /**
    * Применяет шаблон к монтажной области без очистки текущих объектов.
    * @param options
-   * @param options.template - описание шаблона
+   * @param options.template - описание шаблона.
+   * Standalone text после rehydration приводится к канонической геометрии до добавления на canvas,
+   * чтобы template-path не оставлял смешанное width/scale состояние.
    */
   public async applyTemplate({
     template
@@ -250,6 +252,10 @@ export default class TemplateManager {
           baseWidth: meta.baseWidth,
           baseHeight: meta.baseHeight,
           useRelativePositions
+        })
+
+        this.editor.textManager?.commitStandaloneTextScale({
+          target: object
         })
 
         snapObjectToPixelGrid({ object })

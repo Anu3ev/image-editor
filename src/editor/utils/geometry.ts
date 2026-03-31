@@ -1,4 +1,4 @@
-import { Point, type FabricObject } from 'fabric'
+import { Point, Textbox, type FabricObject } from 'fabric'
 
 export type Dimensions = {
   width: number
@@ -138,6 +138,7 @@ export const calculateNormalizedPlacement = ({
 
 /**
  * Округляет позицию и масштаб объекта так, чтобы визуальные размеры и координаты были целыми пикселями.
+ * Для текста scale не квантизируется: канонической геометрией standalone-textbox владеет TextManager.
  */
 export const snapObjectToPixelGrid = ({
   object
@@ -155,7 +156,10 @@ export const snapObjectToPixelGrid = ({
     strokeUniform = false
   } = object
 
-  const isTextbox = object.type === 'Textbox'
+  const objectType = typeof object.type === 'string' ? object.type.toLowerCase() : ''
+  const isTextbox = object instanceof Textbox
+    || objectType === 'textbox'
+    || objectType === 'background-textbox'
   const strokeContribution = strokeUniform ? 0 : strokeWidth
   const effectiveWidth = width + strokeContribution
   const effectiveHeight = height + strokeContribution

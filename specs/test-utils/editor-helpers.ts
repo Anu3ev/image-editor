@@ -436,7 +436,8 @@ export const createEditorStub = () => {
       lockObject: jest.fn()
     },
     textManager: {
-      isTextEditingActive: false
+      isTextEditingActive: false,
+      commitStandaloneTextScale: jest.fn()
     },
     errorManager: {
       emitWarning: jest.fn(),
@@ -962,6 +963,9 @@ export const createHistoryManagerTestSetup = (
     errorManager: {
       emitError: jest.fn()
     },
+    textManager: {
+      commitStandaloneTextScale: jest.fn()
+    },
     options: {
       maxHistoryLength
     }
@@ -1215,6 +1219,74 @@ export const createTextManagerTestSetup = (
 }
 
 /**
+ * Создаёт template-подобный background-textbox, восстановленный не через addText, а напрямую.
+ * Используется в тестах template/history rehydration path.
+ */
+export const createRestoredTemplateLikeTextbox = ({
+  left = 0.25,
+  top = 0.2,
+  width = 137,
+  scaleX = 1,
+  scaleY = 1,
+  originX = 'left',
+  originY = 'top'
+}: {
+  left?: number
+  top?: number
+  width?: number
+  scaleX?: number
+  scaleY?: number
+  originX?: 'left' | 'center' | 'right'
+  originY?: 'top' | 'center' | 'bottom'
+} = {}): BackgroundTextbox => {
+  const textbox = new BackgroundTextbox('69\nЧасов музыки', {
+    width,
+    left,
+    top,
+    scaleX,
+    scaleY,
+    originX,
+    originY,
+    fontFamily: 'Exo 2',
+    fontSize: 36,
+    fontWeight: 'bold',
+    lineHeight: 1.16,
+    textAlign: 'center',
+    fill: '#333333',
+    backgroundColor: '#EBE4ED',
+    backgroundOpacity: 1,
+    autoExpand: false,
+    paddingTop: 21,
+    paddingRight: 12,
+    paddingBottom: 30,
+    paddingLeft: 12,
+    radiusTopLeft: 24,
+    radiusTopRight: 24,
+    radiusBottomRight: 24,
+    radiusBottomLeft: 24
+  })
+
+  const textValue = textbox.text ?? ''
+  const secondLineStart = textValue.indexOf('\n') + 1
+
+  textbox.setSelectionStyles({
+    fontFamily: 'Open Sans',
+    fontSize: 24,
+    fill: '#333333',
+    fontWeight: 'normal'
+  }, secondLineStart, textValue.length)
+  textbox.lineFontDefaults = {
+    1: {
+      fontFamily: 'Open Sans',
+      fontSize: 24
+    }
+  }
+  textbox.setCoords()
+
+  return textbox
+}
+
+/**
  * Создаёт template-подобный background-textbox с разными стилями по строкам и фоновыми отступами.
  * Используется для тестов reflow/resizing регрессии.
  */
@@ -1406,12 +1478,21 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
     cloned.set = jest.fn().mockImplementation((newProps) => {
       Object.assign(cloned, newProps)
     })
+    cloned.setCoords = jest.fn()
+    cloned.forEachObject = jest.fn().mockImplementation((callback) => {
+      clonedObjects.forEach(callback)
+    })
+    cloned.toObject = jest.fn().mockReturnValue(clonedProps)
+    cloned.toCanvasElement = jest.fn().mockReturnValue({
+      toDataURL: () => 'data:image/png;base64,mockData'
+    })
     return cloned
   })
 
   mockSelection.set = jest.fn().mockImplementation((newProps) => {
     Object.assign(mockSelection, newProps)
   })
+  mockSelection.setCoords = jest.fn()
 
   mockSelection.toObject = jest.fn().mockReturnValue(props)
   mockSelection.toCanvasElement = jest.fn().mockReturnValue({

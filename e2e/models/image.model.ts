@@ -5,6 +5,7 @@ import type {
   ObjectTargetParams,
   SnappingObjectSnapshot
 } from '../types'
+import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
 export class ImageModel {
   private readonly page: Page
@@ -174,7 +175,7 @@ export class ImageModel {
         id
       })
 
-      await this._waitForCanvasRender()
+      await waitForCanvasRender({ page: this.page })
       this.activeScaleInteraction = null
 
       expect(snapshot, 'должно существовать состояние после завершения scale изображения').not.toBeNull()
@@ -341,7 +342,7 @@ export class ImageModel {
 
     expect(result, 'должен существовать live snapshot после интерактивного scale изображения').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     const {
       point,
@@ -447,7 +448,7 @@ export class ImageModel {
 
     expect(point, 'должна существовать стартовая точка для интерактивного scale изображения').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     this.activeScaleInteraction = {
       point: point as {
@@ -479,13 +480,4 @@ export class ImageModel {
     return true
   }
 
-  private async _waitForCanvasRender(): Promise<void> {
-    await this.page.evaluate(async() => {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
-    })
-  }
 }

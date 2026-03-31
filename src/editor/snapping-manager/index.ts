@@ -1276,11 +1276,16 @@ export default class SnappingManager {
 
   /**
    * Возвращает true, если live-scaling объекта нужно округлять до целого пиксельного размера.
-   * Для изображений сохраняем нативное поведение Fabric без дополнительной квантизации,
-   * иначе scale начинает визуально расходиться с положением курсора.
+   * Для изображений и текста сохраняем их собственный runtime-контракт без дополнительной квантизации:
+   * изображения полагаются на нативное поведение Fabric, а текст материализует scale через TextManager.
    */
   private static _shouldApplyPixelScalingStep({ target }: { target: FabricObject }): boolean {
-    return !(target instanceof FabricImage)
+    const targetType = typeof target.type === 'string' ? target.type.toLowerCase() : ''
+    const isTextTarget = target instanceof Textbox
+      || targetType === 'textbox'
+      || targetType === 'background-textbox'
+
+    return !(target instanceof FabricImage) && !isTextTarget
   }
 
   /**

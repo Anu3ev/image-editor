@@ -9,6 +9,7 @@ import type {
   SnappingGuideState,
   SnappingObjectSnapshot
 } from '../types'
+import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
 type CanvasPagePoint = {
   x: number
@@ -99,7 +100,7 @@ export class SnappingModel {
 
     expect(dragStart, 'должна существовать стартовая pointer-точка для перетаскивания').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     const { x, y } = dragStart as CanvasPagePoint
     this.activePointerPagePoint = {
@@ -109,7 +110,7 @@ export class SnappingModel {
     await this._dispatchPointerDown({
       point: this.activePointerPagePoint
     })
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     const transformReady = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -211,20 +212,10 @@ export class SnappingModel {
     await this._dispatchPointerUp({
       point: this.activePointerPagePoint as CanvasPagePoint
     })
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
     this.activePointerPagePoint = null
 
     return this.getGuideState()
-  }
-
-  private async _waitForCanvasRender(): Promise<void> {
-    await this.page.evaluate(async() => {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
-    })
   }
 
   private async _getDragTransformInfo(params: ObjectTargetParams): Promise<DragTransformInfo> {
@@ -281,7 +272,7 @@ export class SnappingModel {
       point,
       ctrlKey
     })
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
     this.activePointerPagePoint = point
   }
 

@@ -1,4 +1,4 @@
-import { Point, util } from 'fabric'
+import { Point, Textbox, util } from 'fabric'
 import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/shape-group'
 import {
   createPlacementSelection,
@@ -6,6 +6,7 @@ import {
   createRevivedTemplateObject,
   getScenePointByOrigin
 } from '../../../test-utils/placement-helpers'
+import { createRestoredTemplateLikeTextbox } from '../../../test-utils/editor-helpers'
 import {
   createMockShapeNode,
   createMockShapeTextbox
@@ -77,6 +78,101 @@ describe('TemplateManager', () => {
     expect(result).toEqual([group])
     expect(group.shapeTextAutoExpand).toBe(false)
     expect(text.autoExpand).toBe(false)
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
+  it('текст из шаблона получает актуальный размер после прошлых трансформаций', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const textbox = new Textbox('Очень длинный текст для шаблона', {
+      left: 0.25,
+      top: 0.2,
+      width: 160,
+      scaleX: 0.6,
+      scaleY: 0.6,
+      originX: 'left',
+      originY: 'top'
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([textbox])
+
+    const result = await manager.applyTemplate({
+      template: {
+        id: 'template-with-text',
+        meta: {
+          baseWidth: 400,
+          baseHeight: 300,
+          positionsNormalized: true
+        },
+        objects: [{
+          type: 'textbox',
+          left: 0.25,
+          top: 0.2,
+          width: 160,
+          scaleX: 0.6,
+          scaleY: 0.6,
+          text: 'Очень длинный текст для шаблона'
+        }]
+      }
+    })
+
+    const commitStandaloneTextScaleMock = editor.textManager.commitStandaloneTextScale as jest.Mock
+
+    expect(result).toEqual([textbox])
+    expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+      target: textbox
+    })
+    expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+      editor.canvas.add.mock.invocationCallOrder[0]
+    )
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
+  it('текстовый объект с фоном из шаблона добавляется сразу в итоговом размере', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const textbox = createRestoredTemplateLikeTextbox({
+      left: 0.25,
+      top: 0.2,
+      scaleX: 0.6,
+      scaleY: 1.4
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([textbox])
+
+    const result = await manager.applyTemplate({
+      template: {
+        id: 'template-with-background-text',
+        meta: {
+          baseWidth: 400,
+          baseHeight: 300,
+          positionsNormalized: true
+        },
+        objects: [{
+          type: 'background-textbox',
+          left: 0.25,
+          top: 0.2,
+          width: 137,
+          scaleX: 0.6,
+          scaleY: 1.4,
+          text: '69\nЧасов музыки'
+        }]
+      }
+    })
+
+    const commitStandaloneTextScaleMock = editor.textManager.commitStandaloneTextScale as jest.Mock
+
+    expect(result).toEqual([textbox])
+    expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+      target: textbox
+    })
+    expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+      editor.canvas.add.mock.invocationCallOrder[0]
+    )
     expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
