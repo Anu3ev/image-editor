@@ -6,6 +6,7 @@ import {
   Textbox,
   TextboxProps,
   Transform,
+  controlsUtils,
   util
 } from 'fabric'
 import { nanoid } from 'nanoid'
@@ -20,7 +21,10 @@ import {
   type LineFontDefault,
   type LineFontDefaults
 } from './background-textbox'
-import { DIMENSION_EPSILON } from './constants'
+import {
+  DIMENSION_EPSILON,
+  MIN_TEXTBOX_FONT_SIZE
+} from './constants'
 import {
   applyLineDefaultUpdates,
   cloneLineFontDefaults,
@@ -49,6 +53,7 @@ import type {
   LineFontDefaultUpdate,
   PaddingValues,
   ScalingState,
+  TextScaleBaseState,
   TextUpdatedPayload,
   TextCreationFlags,
   TextReference,
@@ -70,12 +75,27 @@ import {
 
 export type { TextStyleOptions } from './types'
 
-type TextScaleBaseState = Omit<ScalingState, 'hasWidthChange'>
-
 type CommitStandaloneTextScaleResult = {
   appliedWidth: number
   dimensionsRounded: boolean
 }
+
+type CanvasWithCurrentTransform = Canvas & {
+  _currentTransform?: Transform | null
+}
+
+type TextScalingAxisState = {
+  isCornerHandle: boolean
+  isHorizontalHandle: boolean
+  isVerticalHandle: boolean
+}
+
+type TextScalingTransform = Transform & {
+  signX?: number
+  signY?: number
+}
+
+const SCALE_EPSILON = 0.0001
 
 /**
  * Менеджер текста для редактора.
@@ -775,6 +795,7 @@ export default class TextManager {
     canvas.off('object:scaling', this._handleObjectScaling)
     canvas.off('object:resizing', this._handleObjectResizing)
     canvas.off('object:modified', this._handleObjectModified)
+    canvas.off('mouse:move', this._handleMouseMove)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
     canvas.off('text:changed', this._handleTextChanged)
@@ -887,8 +908,8 @@ export default class TextManager {
    * Снимает с textbox базовое состояние, относительно которого можно материализовать transient scale.
    */
   private static _captureTextScaleBase({ textbox }: { textbox: EditorTextbox }): TextScaleBaseState {
-    const baseWidth = textbox.width ?? textbox.calcTextWidth()
-    const baseFontSize = textbox.fontSize ?? 16
+    const width = textbox.width ?? textbox.calcTextWidth()
+    const fontSize = textbox.fontSize ?? 16
     const { styles: textboxStyles = {} } = textbox
     const { lineFontDefaults } = textbox
     const {
@@ -905,27 +926,91 @@ export default class TextManager {
     } = textbox
 
     return {
-      baseWidth,
-      baseFontSize,
-      basePadding: {
+      width,
+      fontSize,
+      padding: {
         top: paddingTop,
         right: paddingRight,
         bottom: paddingBottom,
         left: paddingLeft
       },
-      baseRadii: {
+      radii: {
         topLeft: radiusTopLeft,
         topRight: radiusTopRight,
         bottomRight: radiusBottomRight,
         bottomLeft: radiusBottomLeft
       },
-      baseStyles: JSON.parse(JSON.stringify(textboxStyles)) as TextboxStyles,
-      baseLineFontDefaults: cloneLineFontDefaults({ lineFontDefaults })
+      styles: JSON.parse(JSON.stringify(textboxStyles)) as TextboxStyles,
+      lineFontDefaults: cloneLineFontDefaults({ lineFontDefaults })
+    }
+  }
+
+  /**
+   * Возвращает минимальные допустимые scale-значения для width, font-size и пропорционального drag.
+   */
+  private static _resolveMinimumScalingBounds(
+    { base }: { base: TextScaleBaseState }
+  ): {
+    fontScale: number
+    proportionalScale: number
+    widthScale: number
+  } {
+    const widthScale = 1 / Math.max(1, base.width)
+    const fontSizes: number[] = [base.fontSize]
+
+    Object.values(base.styles).forEach((lineStyles) => {
+      Object.values(lineStyles).forEach((charStyle) => {
+        const { fontSize } = charStyle
+        if (typeof fontSize !== 'number' || !Number.isFinite(fontSize) || fontSize <= 0) return
+
+        fontSizes.push(fontSize)
+      })
+    })
+
+    Object.values(base.lineFontDefaults ?? {}).forEach((lineDefault) => {
+      const { fontSize } = lineDefault
+      if (typeof fontSize !== 'number' || !Number.isFinite(fontSize) || fontSize <= 0) return
+
+      fontSizes.push(fontSize)
+    })
+
+    const fontScale = fontSizes.reduce((maxScale, fontSize) => {
+      const minimumFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, fontSize)
+
+      return Math.max(maxScale, minimumFontSize / fontSize)
+    }, 0)
+
+    return {
+      widthScale,
+      fontScale,
+      proportionalScale: Math.max(widthScale, fontScale)
+    }
+  }
+
+  /**
+   * Определяет, какие оси участвуют в текущем scale-transform текста.
+   */
+  private static _resolveScalingAxisState({ transform }: { transform: Transform }): TextScalingAxisState {
+    const { corner = '', action = '' } = transform
+    const isHorizontalHandle = corner === 'ml' || corner === 'mr' || action === 'scaleX'
+    const isVerticalHandle = corner === 'mt' || corner === 'mb' || action === 'scaleY'
+    const isCornerHandle = corner === 'tl'
+      || corner === 'tr'
+      || corner === 'bl'
+      || corner === 'br'
+      || action === 'scale'
+
+    return {
+      isCornerHandle,
+      isHorizontalHandle,
+      isVerticalHandle
     }
   }
 
   /**
    * Материализует transient scale standalone-textbox в канонические width/font/padding/radius значения.
+   * Для proportional live-scale может временно оставить дробные размеры,
+   * чтобы wrap считался по фактической геометрии текущего drag, а не по уже округлённой.
    */
   private _commitStandaloneTextboxScale(
     {
@@ -937,7 +1022,8 @@ export default class TextManager {
       shouldScaleFontSize,
       shouldScalePadding,
       shouldScaleRadii,
-      shouldDisableAutoExpandOnHorizontalChange = false
+      shouldDisableAutoExpandOnHorizontalChange = false,
+      shouldRoundDimensions = true
     }: {
       textbox: EditorTextbox
       base: TextScaleBaseState
@@ -948,19 +1034,22 @@ export default class TextManager {
       shouldScalePadding: boolean
       shouldScaleRadii: boolean
       shouldDisableAutoExpandOnHorizontalChange?: boolean
+      shouldRoundDimensions?: boolean
     }
   ): CommitStandaloneTextScaleResult {
     const {
-      baseWidth,
-      baseFontSize,
-      basePadding,
-      baseRadii,
-      baseStyles,
-      baseLineFontDefaults
+      width: baseWidth,
+      fontSize: baseFontSize,
+      padding: basePadding,
+      radii: baseRadii,
+      styles: baseStyles,
+      lineFontDefaults: baseLineFontDefaults
     } = base
     const nextWidth = Math.max(1, baseWidth * widthScale)
     const roundedNextWidth = Math.max(1, Math.round(nextWidth))
-    const nextFontSize = Math.max(1, baseFontSize * heightScale)
+    const committedWidth = shouldRoundDimensions ? roundedNextWidth : nextWidth
+    const minimumBaseFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, baseFontSize)
+    const nextFontSize = Math.max(minimumBaseFontSize, baseFontSize * heightScale)
     const hasBaseStyles = Object.keys(baseStyles).length > 0
     let nextStyles: EditorTextbox['styles'] | undefined
 
@@ -976,7 +1065,8 @@ export default class TextManager {
 
           const nextCharStyle: TextboxProps = { ...charStyle }
           if (typeof charStyle.fontSize === 'number') {
-            nextCharStyle.fontSize = Math.max(1, charStyle.fontSize * heightScale)
+            const minimumCharFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, charStyle.fontSize)
+            nextCharStyle.fontSize = Math.max(minimumCharFontSize, charStyle.fontSize * heightScale)
           }
 
           scaledLineStyles[charIndex] = nextCharStyle
@@ -1017,7 +1107,7 @@ export default class TextManager {
       }
       : baseRadii
     const currentWidth = textbox.width ?? baseWidth
-    const widthChanged = roundedNextWidth !== currentWidth
+    const widthChanged = Math.abs(committedWidth - currentWidth) > DIMENSION_EPSILON
 
     if (shouldDisableAutoExpandOnHorizontalChange && widthChanged) {
       textbox.autoExpand = false
@@ -1032,7 +1122,7 @@ export default class TextManager {
     }
 
     textbox.set({
-      width: roundedNextWidth,
+      width: committedWidth,
       fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
       paddingTop: nextPadding.top,
       paddingRight: nextPadding.right,
@@ -1046,9 +1136,19 @@ export default class TextManager {
       scaleY: 1
     })
 
-    textbox.initDimensions()
+    const previousShouldRoundDimensionsOnInit = textbox.shouldRoundDimensionsOnInit
 
-    const dimensionsRounded = roundTextboxDimensions({ textbox })
+    textbox.shouldRoundDimensionsOnInit = shouldRoundDimensions
+
+    try {
+      textbox.initDimensions()
+    } finally {
+      textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
+    }
+
+    const dimensionsRounded = shouldRoundDimensions
+      ? roundTextboxDimensions({ textbox })
+      : false
 
     if (dimensionsRounded) {
       textbox.dirty = true
@@ -1061,9 +1161,215 @@ export default class TextManager {
     textbox.setCoords()
 
     return {
-      appliedWidth: textbox.width ?? roundedNextWidth,
+      appliedWidth: textbox.width ?? committedWidth,
       dimensionsRounded
     }
+  }
+
+  /**
+   * Синхронизирует активный Fabric-transform с уже материализованной геометрией textbox.
+   * Следующий mousemove должен продолжить drag от текущего коммита, а не от старой transient scale.
+   */
+  private static _syncLiveScalingTransform(
+    {
+      textbox,
+      transform,
+      appliedWidth
+    }: {
+      textbox: EditorTextbox
+      transform: Transform
+      appliedWidth: number
+    }
+  ): void {
+    transform.scaleX = 1
+    transform.scaleY = 1
+
+    const { original } = transform
+    if (!original) return
+
+    original.scaleX = 1
+    original.scaleY = 1
+    original.width = appliedWidth
+    original.height = textbox.height
+    original.left = textbox.left
+    original.top = textbox.top
+  }
+
+  /**
+   * Вычисляет scale-шаг из текущего положения указателя относительно уже материализованной геометрии textbox.
+   */
+  private static _resolvePointerScalingStep(
+    {
+      textbox,
+      transform,
+      scenePoint
+    }: {
+      textbox: EditorTextbox
+      transform: Transform
+      scenePoint: { x: number, y: number }
+    }
+  ): {
+    passedOriginX: boolean
+    passedOriginY: boolean
+    stepScaleX: number
+    stepScaleY: number
+  } | null {
+    const dimensions = (textbox as EditorTextbox & {
+      _getTransformedDimensions: () => { x: number, y: number }
+    })._getTransformedDimensions()
+    const { x: dimensionsX, y: dimensionsY } = dimensions
+
+    if (dimensionsX <= 0 || dimensionsY <= 0) return null
+
+    const localPoint = controlsUtils.getLocalPoint(
+      transform,
+      transform.originX,
+      transform.originY,
+      scenePoint.x,
+      scenePoint.y
+    )
+    const scalingTransform = transform as TextScalingTransform
+    const passedOriginX = typeof scalingTransform.signX === 'number'
+      && (localPoint.x * scalingTransform.signX) <= 0
+    const passedOriginY = typeof scalingTransform.signY === 'number'
+      && (localPoint.y * scalingTransform.signY) <= 0
+    let stepScaleX = Math.abs(localPoint.x / dimensionsX)
+    let stepScaleY = Math.abs(localPoint.y / dimensionsY)
+    const isCenteredTransform = (transform.originX === 'center' || transform.originX === 0.5)
+      && (transform.originY === 'center' || transform.originY === 0.5)
+
+    if (isCenteredTransform) {
+      stepScaleX *= 2
+      stepScaleY *= 2
+    }
+
+    return {
+      passedOriginX,
+      passedOriginY,
+      stepScaleX,
+      stepScaleY
+    }
+  }
+
+  /**
+   * Обновляет live scaling state после успешного коммита шага drag.
+   */
+  private _updateScalingStateAfterLiveCommit(
+    {
+      textbox,
+      state,
+      appliedWidth,
+      previousFontSize,
+      previousPadding,
+      previousRadii,
+      previousWidth,
+      dimensionsRounded,
+      isCornerHandle,
+      isHorizontalHandle,
+      isVerticalHandle,
+      originX,
+      originY
+    }: {
+      textbox: EditorTextbox
+      state: ScalingState
+      appliedWidth: number
+      previousFontSize: number
+      previousPadding: PaddingValues
+      previousRadii: CornerRadiiValues
+      previousWidth: number
+      dimensionsRounded: boolean
+      isCornerHandle: boolean
+      isHorizontalHandle: boolean
+      isVerticalHandle: boolean
+      originX: FabricObject['originX']
+      originY: FabricObject['originY']
+    }
+  ): void {
+    const {
+      width: startWidth,
+      fontSize: startFontSize
+    } = state.startBase
+    const nextFontSize = textbox.fontSize ?? startFontSize
+    const nextPadding: PaddingValues = {
+      top: textbox.paddingTop ?? 0,
+      right: textbox.paddingRight ?? 0,
+      bottom: textbox.paddingBottom ?? 0,
+      left: textbox.paddingLeft ?? 0
+    }
+    const nextRadii: CornerRadiiValues = {
+      topLeft: textbox.radiusTopLeft ?? 0,
+      topRight: textbox.radiusTopRight ?? 0,
+      bottomRight: textbox.radiusBottomRight ?? 0,
+      bottomLeft: textbox.radiusBottomLeft ?? 0
+    }
+    const widthChanged = Math.abs(appliedWidth - previousWidth) > DIMENSION_EPSILON
+    const fontSizeChanged = Math.abs(nextFontSize - previousFontSize) > DIMENSION_EPSILON
+    const paddingChanged = Math.abs(nextPadding.top - previousPadding.top) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.right - previousPadding.right) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.bottom - previousPadding.bottom) > DIMENSION_EPSILON
+      || Math.abs(nextPadding.left - previousPadding.left) > DIMENSION_EPSILON
+    const radiusChanged = Math.abs(nextRadii.topLeft - previousRadii.topLeft) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.topRight - previousRadii.topRight) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.bottomRight - previousRadii.bottomRight) > DIMENSION_EPSILON
+      || Math.abs(nextRadii.bottomLeft - previousRadii.bottomLeft) > DIMENSION_EPSILON
+
+    let appliedWidthScale = state.lastAllowedScaleX
+    let appliedHeightScale = state.lastAllowedScaleY
+
+    if (isCornerHandle) {
+      const proportionalScale = nextFontSize / Math.max(1, startFontSize)
+      appliedWidthScale = proportionalScale
+      appliedHeightScale = proportionalScale
+    } else if (isHorizontalHandle) {
+      appliedWidthScale = appliedWidth / Math.max(1, startWidth)
+    } else if (isVerticalHandle) {
+      appliedHeightScale = nextFontSize / Math.max(1, startFontSize)
+    }
+
+    this._storeLastAllowedScalingState({
+      textbox,
+      state,
+      widthScale: appliedWidthScale,
+      heightScale: appliedHeightScale,
+      originX,
+      originY
+    })
+
+    state.hasScalingChange = state.hasScalingChange
+      || widthChanged
+      || fontSizeChanged
+      || paddingChanged
+      || radiusChanged
+      || dimensionsRounded
+  }
+
+  /**
+   * Сохраняет последнее допустимое состояние live-scale, к которому можно безопасно вернуться в текущем drag.
+   */
+  private _storeLastAllowedScalingState(
+    {
+      textbox,
+      state,
+      widthScale,
+      heightScale,
+      originX,
+      originY
+    }: {
+      textbox: EditorTextbox
+      state: ScalingState
+      widthScale: number
+      heightScale: number
+      originX: FabricObject['originX']
+      originY: FabricObject['originY']
+    }
+  ): void {
+    state.lastAllowedScaleX = widthScale
+    state.lastAllowedScaleY = heightScale
+    state.lastAllowedPlacement = this.editor.canvasManager.getObjectPlacement({
+      object: textbox,
+      originX,
+      originY
+    })
   }
 
   /**
@@ -1126,9 +1432,173 @@ export default class TextManager {
     canvas.on('object:scaling', this._handleObjectScaling)
     canvas.on('object:resizing', this._handleObjectResizing)
     canvas.on('object:modified', this._handleObjectModified)
+    canvas.on('mouse:move', this._handleMouseMove)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
     canvas.on('text:changed', this._handleTextChanged)
+  }
+
+  /**
+   * Доводит live-scale текста до текущего положения указателя на кадрах, где Fabric уже не эмитит object:scaling.
+   */
+  private _handleMouseMove = (event: IEvent<MouseEvent>): void => {
+    const canvas = this.canvas as CanvasWithCurrentTransform
+    const transform = canvas._currentTransform
+    if (!transform) return
+
+    const { target } = transform
+    if (!TextManager._isTextbox(target)) return
+    if (TextManager._isShapeOwnedTextbox(target)) return
+
+    const state = this.scalingState.get(target)
+    if (!state || !event.e) return
+
+    const {
+      isCornerHandle,
+      isHorizontalHandle,
+      isVerticalHandle
+    } = TextManager._resolveScalingAxisState({ transform })
+
+    if (!isHorizontalHandle && !isVerticalHandle && !isCornerHandle) return
+
+    const scenePoint = this.canvas.getScenePoint(event.e)
+    const pointerScalingStep = TextManager._resolvePointerScalingStep({
+      textbox: target,
+      transform,
+      scenePoint
+    })
+    if (!pointerScalingStep) return
+
+    const {
+      passedOriginX,
+      passedOriginY,
+      stepScaleX,
+      stepScaleY
+    } = pointerScalingStep
+    const scaleOriginX = transform.originX ?? target.originX ?? 'center'
+    const scaleOriginY = transform.originY ?? target.originY ?? 'center'
+    const placement = this.editor.canvasManager.getObjectPlacement({
+      object: target,
+      originX: scaleOriginX,
+      originY: scaleOriginY
+    })
+    const {
+      paddingTop = 0,
+      paddingRight = 0,
+      paddingBottom = 0,
+      paddingLeft = 0,
+      radiusTopLeft = 0,
+      radiusTopRight = 0,
+      radiusBottomRight = 0,
+      radiusBottomLeft = 0,
+      fontSize: currentFontSize,
+      width: currentWidthProp
+    } = target
+    const {
+      width: startWidth,
+      fontSize: startFontSize
+    } = state.startBase
+    const currentWidth = currentWidthProp ?? startWidth
+    const previousFontSize = currentFontSize ?? startFontSize
+    const previousPadding: PaddingValues = {
+      top: paddingTop,
+      right: paddingRight,
+      bottom: paddingBottom,
+      left: paddingLeft
+    }
+    const previousRadii: CornerRadiiValues = {
+      topLeft: radiusTopLeft,
+      topRight: radiusTopRight,
+      bottomRight: radiusBottomRight,
+      bottomLeft: radiusBottomLeft
+    }
+
+    let nextWidthScale = state.lastAllowedScaleX
+    let nextHeightScale = state.lastAllowedScaleY
+
+    if (isCornerHandle) {
+      const nextProportionalScale = Math.max(
+        state.minimumProportionalScale,
+        state.lastAllowedScaleX * Math.sqrt(stepScaleX * stepScaleY)
+      )
+      const clampedProportionalScale = passedOriginX || passedOriginY
+        ? state.minimumProportionalScale
+        : nextProportionalScale
+      const shouldSkipCommit = Math.abs(clampedProportionalScale - state.lastAllowedScaleX) <= SCALE_EPSILON
+
+      if (shouldSkipCommit) return
+
+      nextWidthScale = clampedProportionalScale
+      nextHeightScale = clampedProportionalScale
+    } else {
+      if (isHorizontalHandle) {
+        const nextRawWidthScale = state.lastAllowedScaleX * stepScaleX
+        const clampedWidthScale = passedOriginX
+          ? state.minimumWidthScale
+          : Math.max(state.minimumWidthScale, nextRawWidthScale)
+        const widthScaleChanged = Math.abs(clampedWidthScale - state.lastAllowedScaleX) > SCALE_EPSILON
+
+        if (widthScaleChanged) {
+          nextWidthScale = clampedWidthScale
+        }
+      }
+
+      if (isVerticalHandle) {
+        const nextRawHeightScale = state.lastAllowedScaleY * stepScaleY
+        const clampedHeightScale = passedOriginY
+          ? state.minimumFontScale
+          : Math.max(state.minimumFontScale, nextRawHeightScale)
+        const heightScaleChanged = Math.abs(clampedHeightScale - state.lastAllowedScaleY) > SCALE_EPSILON
+
+        if (heightScaleChanged) {
+          nextHeightScale = clampedHeightScale
+        }
+      }
+
+      const shouldSkipCommit = Math.abs(nextWidthScale - state.lastAllowedScaleX) <= SCALE_EPSILON
+        && Math.abs(nextHeightScale - state.lastAllowedScaleY) <= SCALE_EPSILON
+      if (shouldSkipCommit) return
+    }
+
+    const {
+      appliedWidth,
+      dimensionsRounded
+    } = this._commitStandaloneTextboxScale({
+      textbox: target,
+      base: state.startBase,
+      widthScale: nextWidthScale,
+      heightScale: nextHeightScale,
+      placement,
+      shouldScaleFontSize: isCornerHandle || isVerticalHandle,
+      shouldScalePadding: isCornerHandle || isVerticalHandle,
+      shouldScaleRadii: isCornerHandle || isVerticalHandle,
+      shouldDisableAutoExpandOnHorizontalChange: isHorizontalHandle,
+      shouldRoundDimensions: !isCornerHandle
+    })
+
+    TextManager._syncLiveScalingTransform({
+      textbox: target,
+      transform,
+      appliedWidth
+    })
+
+    this._updateScalingStateAfterLiveCommit({
+      textbox: target,
+      state,
+      appliedWidth,
+      previousFontSize,
+      previousPadding,
+      previousRadii,
+      previousWidth: currentWidth,
+      dimensionsRounded,
+      isCornerHandle,
+      isHorizontalHandle,
+      isVerticalHandle,
+      originX: scaleOriginX,
+      originY: scaleOriginY
+    })
+
+    this.canvas.requestRenderAll()
   }
 
   /**
@@ -1701,13 +2171,12 @@ export default class TextManager {
   /**
    * Обрабатывает масштабирование текстового объекта: пересчитывает ширину, кегль и паддинги/радиусы.
    * Во время scale ширина должна следовать transform пользователя и не должна
-   * повторно авторасширяться по содержимому.
+   * повторно авторасширяться по содержимому. Для corner-scale один и тот же
+   * накопленный коэффициент применяется и к ширине, и к текстовым метрикам.
    * Горизонтальный scale трактуется как явная фиксация ширины и выключает autoExpand.
    * Для ActiveSelection с текстом блокирует горизонтальное масштабирование.
    */
   private _handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
-    // При масштабировании текстовых объектов пересчитываем ширину/кегль и сбрасываем scale,
-    // чтобы Fabric не копил дробные значения и не ломал базовую геометрию.
     const { target, transform } = event
     if (target instanceof ActiveSelection) {
       return
@@ -1719,32 +2188,36 @@ export default class TextManager {
     const { canvasManager } = this.editor
     target.isScaling = true
 
-    const state = this._ensureScalingState(target)
+    const state = this._ensureScalingState({
+      textbox: target,
+      transform
+    })
+    const { startBase } = state
     const {
-      baseWidth: stateBaseWidth,
-      baseFontSize,
-      basePadding,
-      baseRadii,
-      baseStyles,
-      baseLineFontDefaults
-    } = state
-    const originalWidth = typeof transform.original?.width === 'number' ? transform.original.width : undefined
-    const baseWidth = originalWidth ?? stateBaseWidth
-
+      width: startWidth,
+      fontSize: startFontSize
+    } = startBase
+    const {
+      isCornerHandle,
+      isHorizontalHandle,
+      isVerticalHandle
+    } = TextManager._resolveScalingAxisState({ transform })
     const corner = transform.corner ?? ''
-    const action = transform.action ?? ''
-    const isHorizontalHandle = ['ml', 'mr'].includes(corner) || action === 'scaleX'
-    const isVerticalHandle = ['mt', 'mb'].includes(corner) || action === 'scaleY'
-    const isCornerHandle = ['tl', 'tr', 'bl', 'br'].includes(corner) || action === 'scale'
     const shouldScaleFontSize = isCornerHandle || isVerticalHandle
 
     if (!isHorizontalHandle && !isVerticalHandle && !isCornerHandle) return
 
-    const widthScale = Math.abs(target.scaleX ?? transform.scaleX ?? 1) || 1
-    const heightScale = Math.abs(target.scaleY ?? transform.scaleY ?? 1) || 1
-    const nextWidth = Math.max(1, baseWidth * widthScale)
-    const roundedNextWidth = Math.max(1, Math.round(nextWidth))
-    const nextFontSize = Math.max(1, baseFontSize * heightScale)
+    const rawScaleX = target.scaleX ?? transform.scaleX ?? 1
+    const rawScaleY = target.scaleY ?? transform.scaleY ?? 1
+    const stepScaleX = Math.abs(rawScaleX) || 1
+    const stepScaleY = Math.abs(rawScaleY) || 1
+    const scaleOriginX = transform.originX ?? target.originX ?? 'center'
+    const scaleOriginY = transform.originY ?? target.originY ?? 'center'
+    const scalingPlacement = canvasManager.getObjectPlacement({
+      object: target,
+      originX: scaleOriginX,
+      originY: scaleOriginY
+    })
     const {
       paddingTop = 0,
       paddingRight = 0,
@@ -1759,45 +2232,52 @@ export default class TextManager {
     } = target
     const shouldScalePadding = isCornerHandle || isVerticalHandle
     const shouldScaleRadii = isCornerHandle || isVerticalHandle
-    const nextPadding: PaddingValues = shouldScalePadding
-      ? {
-        top: Math.max(0, basePadding.top * heightScale),
-        right: Math.max(0, basePadding.right * heightScale),
-        bottom: Math.max(0, basePadding.bottom * heightScale),
-        left: Math.max(0, basePadding.left * heightScale)
-      }
-      : basePadding
-    const nextRadii: CornerRadiiValues = shouldScaleRadii
-      ? {
-        topLeft: Math.max(0, baseRadii.topLeft * heightScale),
-        topRight: Math.max(0, baseRadii.topRight * heightScale),
-        bottomRight: Math.max(0, baseRadii.bottomRight * heightScale),
-        bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
-      }
-      : baseRadii
-    const scalingPlacement = canvasManager.getObjectPlacement({
-      object: target,
-      originX: transform.originX ?? target.originX,
-      originY: transform.originY ?? target.originY
-    })
+    const currentWidth = currentWidthProp ?? startWidth
 
-    const currentWidth = currentWidthProp ?? baseWidth
-    const widthChanged = roundedNextWidth !== currentWidth
-    const fontSizeChanged = Math.abs(nextFontSize - (currentFontSize ?? baseFontSize)) > DIMENSION_EPSILON
-    const paddingChanged = Math.abs(nextPadding.top - paddingTop) > DIMENSION_EPSILON
-      || Math.abs(nextPadding.right - paddingRight) > DIMENSION_EPSILON
-      || Math.abs(nextPadding.bottom - paddingBottom) > DIMENSION_EPSILON
-      || Math.abs(nextPadding.left - paddingLeft) > DIMENSION_EPSILON
-    const radiusChanged = Math.abs(nextRadii.topLeft - radiusTopLeft) > DIMENSION_EPSILON
-      || Math.abs(nextRadii.topRight - radiusTopRight) > DIMENSION_EPSILON
-      || Math.abs(nextRadii.bottomRight - radiusBottomRight) > DIMENSION_EPSILON
-      || Math.abs(nextRadii.bottomLeft - radiusBottomLeft) > DIMENSION_EPSILON
+    let nextWidthScale = state.lastAllowedScaleX
+    let nextHeightScale = state.lastAllowedScaleY
+    let placement = scalingPlacement
+    let shouldStoreLastAllowedState = true
 
-    if (!widthChanged && !fontSizeChanged && !paddingChanged && !radiusChanged) {
-      target.set({ scaleX: 1, scaleY: 1 })
-      transform.scaleX = 1
-      transform.scaleY = 1
-      return
+    if (isCornerHandle) {
+      const proportionalStepScale = Math.sqrt(stepScaleX * stepScaleY)
+      const nextProportionalScale = state.lastAllowedScaleX * proportionalStepScale
+      const hasNegativeScale = rawScaleX < 0 || rawScaleY < 0
+      const hasTransformOriginChange = scaleOriginX !== state.startTransformOriginX
+        || scaleOriginY !== state.startTransformOriginY
+      const hasTransformCornerChange = corner !== state.startTransformCorner
+      const shouldRestoreLastAllowedState = hasNegativeScale
+        || hasTransformOriginChange
+        || hasTransformCornerChange
+
+      if (shouldRestoreLastAllowedState) {
+        nextWidthScale = state.lastAllowedScaleX
+        nextHeightScale = state.lastAllowedScaleY
+        placement = state.lastAllowedPlacement
+        shouldStoreLastAllowedState = false
+      } else {
+        const clampedProportionalScale = Math.max(
+          state.minimumProportionalScale,
+          nextProportionalScale
+        )
+
+        nextWidthScale = clampedProportionalScale
+        nextHeightScale = clampedProportionalScale
+      }
+    } else {
+      if (isHorizontalHandle) {
+        nextWidthScale = Math.max(
+          state.minimumWidthScale,
+          state.lastAllowedScaleX * stepScaleX
+        )
+      }
+
+      if (isVerticalHandle) {
+        nextHeightScale = Math.max(
+          state.minimumFontScale,
+          state.lastAllowedScaleY * stepScaleY
+        )
+      }
     }
 
     const {
@@ -1805,51 +2285,52 @@ export default class TextManager {
       dimensionsRounded: dimensionsRoundedOnScale
     } = this._commitStandaloneTextboxScale({
       textbox: target,
-      base: {
-        baseWidth,
-        baseFontSize,
-        basePadding,
-        baseRadii,
-        baseStyles,
-        baseLineFontDefaults
-      },
-      widthScale,
-      heightScale,
-      placement: scalingPlacement,
+      base: startBase,
+      widthScale: nextWidthScale,
+      heightScale: nextHeightScale,
+      placement,
       shouldScaleFontSize,
       shouldScalePadding,
       shouldScaleRadii,
-      shouldDisableAutoExpandOnHorizontalChange: isHorizontalHandle
+      shouldDisableAutoExpandOnHorizontalChange: isHorizontalHandle,
+      shouldRoundDimensions: !isCornerHandle
     })
-    const widthActuallyChanged = appliedWidth !== currentWidth
 
-    transform.scaleX = 1
-    transform.scaleY = 1
-
-    const { original } = transform
-    if (original) {
-      original.scaleX = 1
-      original.scaleY = 1
-      original.width = appliedWidth
-      original.height = target.height
-      original.left = target.left
-      original.top = target.top
-    }
+    TextManager._syncLiveScalingTransform({
+      textbox: target,
+      transform,
+      appliedWidth
+    })
 
     this.canvas.requestRenderAll()
 
-    const nextBase = TextManager._captureTextScaleBase({ textbox: target })
-    state.baseWidth = nextBase.baseWidth
-    state.baseFontSize = nextBase.baseFontSize
-    state.baseStyles = nextBase.baseStyles
-    state.baseLineFontDefaults = nextBase.baseLineFontDefaults
-    state.basePadding = nextBase.basePadding
-    state.baseRadii = nextBase.baseRadii
-    state.hasWidthChange = widthActuallyChanged
-      || fontSizeChanged
-      || paddingChanged
-      || radiusChanged
-      || dimensionsRoundedOnScale
+    if (!shouldStoreLastAllowedState) return
+
+    this._updateScalingStateAfterLiveCommit({
+      textbox: target,
+      state,
+      appliedWidth,
+      previousFontSize: currentFontSize ?? startFontSize,
+      previousPadding: {
+        top: paddingTop,
+        right: paddingRight,
+        bottom: paddingBottom,
+        left: paddingLeft
+      },
+      previousRadii: {
+        topLeft: radiusTopLeft,
+        topRight: radiusTopRight,
+        bottomRight: radiusBottomRight,
+        bottomLeft: radiusBottomLeft
+      },
+      previousWidth: currentWidth,
+      dimensionsRounded: dimensionsRoundedOnScale,
+      isCornerHandle,
+      isHorizontalHandle,
+      isVerticalHandle,
+      originX: scaleOriginX,
+      originY: scaleOriginY
+    })
   }
 
   /**
@@ -1892,13 +2373,17 @@ export default class TextManager {
 
     const state = this.scalingState.get(target)
     this.scalingState.delete(target)
-    if (!state?.hasWidthChange) return
+    if (!state?.hasScalingChange) return
 
     // После завершения трансформации фиксируем ширину, отступы, и размер шрифта через updateText,
     // чтобы излишние scaleX/scaleY не попадали в историю.
     const width = target.width ?? target.calcTextWidth()
-    const fontSize = target.fontSize ?? state?.baseFontSize ?? 16
-    const hasInlineStyles = Boolean(state.baseStyles && Object.keys(state.baseStyles).length)
+    const {
+      fontSize: startFontSize,
+      styles: startStyles
+    } = state.startBase
+    const fontSize = target.fontSize ?? startFontSize ?? 16
+    const hasInlineStyles = Object.keys(startStyles).length > 0
     const {
       paddingTop = 0,
       paddingRight = 0,
@@ -1947,17 +2432,48 @@ export default class TextManager {
   }
 
   /**
-   * Создаёт или возвращает сохранённое состояние для текущего цикла масштабирования текста.
+   * Создаёт или возвращает сохранённое состояние для текущего drag-цикла масштабирования текста.
+   * Базовая текстовая геометрия фиксируется один раз на старте, а live-кадры работают
+   * через накопленный scale и последнее допустимое placement.
    */
-  private _ensureScalingState(textbox: EditorTextbox): ScalingState {
+  private _ensureScalingState(
+    {
+      textbox,
+      transform
+    }: {
+      textbox: EditorTextbox
+      transform: Transform
+    }
+  ): ScalingState {
     let state = this.scalingState.get(textbox)
 
     if (!state) {
-      const base = TextManager._captureTextScaleBase({ textbox })
-      // Храним базовые размеры и стили для одного цикла масштабирования.
+      const startBase = TextManager._captureTextScaleBase({ textbox })
+      const minimumScalingBounds = TextManager._resolveMinimumScalingBounds({
+        base: startBase
+      })
+      const startTransformOriginX = transform.original?.originX ?? transform.originX ?? textbox.originX ?? 'center'
+      const startTransformOriginY = transform.original?.originY ?? transform.originY ?? textbox.originY ?? 'center'
+      const startTransformCorner = typeof transform.corner === 'string'
+        ? transform.corner
+        : null
+
       state = {
-        ...base,
-        hasWidthChange: false
+        startBase,
+        startTransformCorner,
+        startTransformOriginX,
+        startTransformOriginY,
+        lastAllowedScaleX: 1,
+        lastAllowedScaleY: 1,
+        lastAllowedPlacement: this.editor.canvasManager.getObjectPlacement({
+          object: textbox,
+          originX: startTransformOriginX,
+          originY: startTransformOriginY
+        }),
+        minimumWidthScale: minimumScalingBounds.widthScale,
+        minimumFontScale: minimumScalingBounds.fontScale,
+        minimumProportionalScale: minimumScalingBounds.proportionalScale,
+        hasScalingChange: false
       }
       this.scalingState.set(textbox, state)
     }

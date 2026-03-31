@@ -1,4 +1,9 @@
-import type { Textbox, TextboxProps } from 'fabric'
+import type {
+  FabricObject,
+  Textbox,
+  TextboxProps
+} from 'fabric'
+import type { ObjectPlacement } from '../canvas-manager'
 import type {
   BackgroundTextboxProps,
   LineFontDefaults
@@ -61,6 +66,7 @@ export type TextStyleOptions = {
 export type EditorTextbox = Textbox & Partial<BackgroundTextboxProps> & {
   autoExpand?: boolean
   __lineDefaultsPrevText?: string
+  shouldRoundDimensionsOnInit?: boolean
 }
 
 export type TextReference = string | EditorTextbox | null | undefined
@@ -130,12 +136,25 @@ export type LineFontDefaultUpdate = {
   stroke?: string | null
 }
 
+export type TextScaleBaseState = {
+  width: number
+  fontSize: number
+  styles: TextboxStyles
+  lineFontDefaults?: LineFontDefaults
+  padding: PaddingValues
+  radii: CornerRadiiValues
+}
+
 export type ScalingState = {
-  baseWidth: number
-  baseFontSize: number
-  baseStyles: TextboxStyles
-  baseLineFontDefaults?: LineFontDefaults
-  basePadding: PaddingValues
-  baseRadii: CornerRadiiValues
-  hasWidthChange: boolean
+  startBase: TextScaleBaseState
+  startTransformCorner: string | null
+  startTransformOriginX: FabricObject['originX'] | null
+  startTransformOriginY: FabricObject['originY'] | null
+  lastAllowedScaleX: number
+  lastAllowedScaleY: number
+  lastAllowedPlacement: ObjectPlacement
+  minimumWidthScale: number
+  minimumFontScale: number
+  minimumProportionalScale: number
+  hasScalingChange: boolean
 }

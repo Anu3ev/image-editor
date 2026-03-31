@@ -103,6 +103,8 @@ export class BackgroundTextbox extends Textbox {
 
   public lineFontDefaults?: LineFontDefaults
 
+  public shouldRoundDimensionsOnInit?: boolean
+
   public paddingBottom?: number
 
   public paddingLeft?: number
@@ -137,11 +139,14 @@ export class BackgroundTextbox extends Textbox {
   }
 
   /**
-   * Пересчитывает размеры текста и округляет их до целых значений.
+   * Пересчитывает размеры текста и при необходимости округляет их до целых значений.
    */
   public override initDimensions(): void {
     super.initDimensions()
-    this._roundDimensions()
+
+    if (this.shouldRoundDimensionsOnInit !== false) {
+      this._roundDimensions()
+    }
   }
 
   protected override _getLeftOffset(): number {

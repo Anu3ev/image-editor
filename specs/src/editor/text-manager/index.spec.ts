@@ -1675,6 +1675,8 @@ describe('TextManager', () => {
     })
 
     describe('когда текст уже упёрся в ширину монтажной области', () => {
+      const longestLineWidth = 760
+
       let canvas: ReturnType<typeof createTextManagerTestSetup>['canvas']
       let textManager: ReturnType<typeof createTextManagerTestSetup>['textManager']
       let textbox: BackgroundTextbox
@@ -1708,7 +1710,7 @@ describe('TextManager', () => {
           ]
           textbox.height = 96
         })
-        lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(760)
+        lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(longestLineWidth)
       })
 
       afterEach(() => {
@@ -1716,7 +1718,10 @@ describe('TextManager', () => {
         lineWidthSpy.mockRestore()
       })
 
-      it('при скейлинге по диагонали не раздувает текст по длине строки, если он уже упёрся в ширину монтажной области', () => {
+      it('при скейлинге по диагонали не растягивает текст до длины строки, если он уже упёрся в ширину монтажной области', () => {
+        const initialWidth = textbox.width ?? 0
+        const initialFontSize = textbox.fontSize ?? 0
+
         textbox.set({
           scaleX: 1.25,
           scaleY: 1.5
@@ -1742,9 +1747,13 @@ describe('TextManager', () => {
           }
         })
 
+        const widthScale = (textbox.width ?? 0) / initialWidth
+        const fontScale = (textbox.fontSize ?? 0) / initialFontSize
+
         expect(textbox.autoExpand).toBe(true)
-        expect(textbox.width).toBe(500)
-        expect(textbox.fontSize).toBe(72)
+        expect(textbox.width).toBeGreaterThan(initialWidth)
+        expect(textbox.width).toBeLessThan(longestLineWidth)
+        expect(widthScale).toBeCloseTo(fontScale, 5)
         expect(textbox.scaleX).toBe(1)
         expect(textbox.scaleY).toBe(1)
       })
@@ -1782,7 +1791,10 @@ describe('TextManager', () => {
         expect(textbox.scaleY).toBe(1)
       })
 
-      it('после завершения скейлинга оставляет ту же ширину, которая была во время перетаскивания', () => {
+      it('после завершения скейлинга сохраняет ту же ширину без заметного скачка', () => {
+        const initialWidth = textbox.width ?? 0
+        const initialFontSize = textbox.fontSize ?? 0
+
         textbox.set({
           scaleX: 1.25,
           scaleY: 1.5
@@ -1812,66 +1824,82 @@ describe('TextManager', () => {
 
         canvas.fire('object:modified', { target: textbox })
 
-        expect(widthDuringScaling).toBe(500)
+        const finalWidth = textbox.width ?? 0
+        const finalFontSize = textbox.fontSize ?? 0
+        const finalFontScale = finalFontSize / initialFontSize
+        const expectedWidthByFinalFontScale = initialWidth * finalFontScale
+
+        expect(widthDuringScaling).toBeGreaterThan(initialWidth)
+        expect(widthDuringScaling).toBeLessThan(longestLineWidth)
         expect(textbox.autoExpand).toBe(true)
-        expect(textbox.width).toBe(widthDuringScaling)
-        expect(textbox.fontSize).toBe(72)
+        expect(finalWidth).toBeCloseTo(widthDuringScaling ?? 0, 0)
+        expect(Math.abs(finalWidth - expectedWidthByFinalFontScale)).toBeLessThanOrEqual(1)
       })
     })
 
-    it('при скейлинге по диагонали не раздувает однострочный текст по длине строки, если он уже равен ширине монтажной области', () => {
-      const { canvas, textManager } = createTextManagerTestSetup()
-      const textbox = textManager.addText({
-        text: 'Очень длинный заголовок',
-        width: 400,
-        left: 40,
-        top: 60,
-        originX: 'left',
-        originY: 'top'
-      }) as BackgroundTextbox
+    it(
+      'при скейлинге по диагонали не растягивает однострочный текст до длины строки, если он уже упёрся в ширину монтажной области',
+      () => {
+        const { canvas, textManager } = createTextManagerTestSetup()
+        const textbox = textManager.addText({
+          text: 'Очень длинный заголовок',
+          width: 400,
+          left: 40,
+          top: 60,
+          originX: 'left',
+          originY: 'top'
+        }) as BackgroundTextbox
 
-      textbox.set({
-        autoExpand: true,
-        width: 400,
-        scaleX: 1.25,
-        scaleY: 1.5
-      })
-
-      const initDimensionsSpy = jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
-        textbox.textLines = ['Очень длинный заголовок']
-        textbox.height = 48
-      })
-      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(760)
-
-      try {
-        canvas.fire('object:scaling', {
-          target: textbox,
-          transform: {
-            corner: 'br',
-            action: 'scale',
-            originX: 'left',
-            originY: 'top',
-            scaleX: 1.25,
-            scaleY: 1.5,
-            original: {
-              width: 400,
-              height: textbox.height,
-              left: textbox.left,
-              top: textbox.top,
-              scaleX: 1,
-              scaleY: 1
-            }
-          }
+        textbox.set({
+          autoExpand: true,
+          width: 400,
+          scaleX: 1.25,
+          scaleY: 1.5
         })
+        const initialWidth = textbox.width ?? 0
+        const initialFontSize = textbox.fontSize ?? 0
+        const longestLineWidth = 760
 
-        expect(textbox.autoExpand).toBe(true)
-        expect(textbox.width).toBe(500)
-        expect(textbox.fontSize).toBe(72)
-      } finally {
-        initDimensionsSpy.mockRestore()
-        lineWidthSpy.mockRestore()
+        const initDimensionsSpy = jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+          textbox.textLines = ['Очень длинный заголовок']
+          textbox.height = 48
+        })
+        const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(longestLineWidth)
+
+        try {
+          canvas.fire('object:scaling', {
+            target: textbox,
+            transform: {
+              corner: 'br',
+              action: 'scale',
+              originX: 'left',
+              originY: 'top',
+              scaleX: 1.25,
+              scaleY: 1.5,
+              original: {
+                width: 400,
+                height: textbox.height,
+                left: textbox.left,
+                top: textbox.top,
+                scaleX: 1,
+                scaleY: 1
+              }
+            }
+          })
+
+          const widthScale = (textbox.width ?? 0) / initialWidth
+          const fontScale = (textbox.fontSize ?? 0) / initialFontSize
+
+          expect(textbox.autoExpand).toBe(true)
+          expect(textbox.width).toBeGreaterThan(initialWidth)
+          expect(textbox.width).toBeLessThan(longestLineWidth)
+          expect(widthScale).toBeCloseTo(fontScale, 5)
+        } finally {
+          initDimensionsSpy.mockRestore()
+          lineWidthSpy.mockRestore()
+        }
       }
-    })
+    )
 
     it('не включает standalone авторасширение у текста внутри фигуры', () => {
       const { canvas, editor } = createTextManagerTestSetup()
