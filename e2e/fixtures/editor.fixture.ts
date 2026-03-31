@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import { setTimeout as delay } from 'node:timers/promises'
 import { test as base } from '@playwright/test'
 import { EditorModel } from '../models/editor.model'
@@ -14,6 +15,10 @@ import { ImageModel } from '../models/image.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
+import {
+  E2E_EDITOR_FONTS,
+  E2E_EDITOR_FONT_FILES
+} from './data/editor-fonts.data'
 
 interface EditorFixtures {
   editorModel: EditorModel
@@ -45,8 +50,39 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   editorModel: async({ page }, use) => {
     const model = new EditorModel(page)
+
+    await page.addInitScript(({ fonts }) => {
+      window.__EDITOR_DEMO_INIT_OPTIONS = { fonts }
+    }, {
+      fonts: E2E_EDITOR_FONTS
+    })
+
+    await page.route('**/__e2e/fonts/**', async(route) => {
+      const requestUrl = new URL(route.request().url())
+      const fileName = requestUrl.pathname.replace('/__e2e/fonts/', '')
+
+      if (!E2E_EDITOR_FONT_FILES.has(fileName)) {
+        await route.abort()
+        return
+      }
+
+      const fileBody = await readFile(new URL(`../assets/fonts/${fileName}`, import.meta.url))
+
+      await route.fulfill({
+        body: fileBody,
+        contentType: 'font/woff2',
+        status: 200
+      })
+    })
+
+    await page.route('https://fonts.gstatic.com/**', async(route) => {
+      await route.abort()
+    })
+
     await injectEditorBrowserHelpers({ page })
-    await page.goto('/')
+    await page.goto('/', {
+      waitUntil: 'domcontentloaded'
+    })
     await bypassCertificateWarning({ page })
     await model.waitForReady()
     await use(model)

@@ -9,6 +9,7 @@ import type {
   ObjectTargetParams,
   SnappingObjectSnapshot
 } from '../types'
+import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 import { ShapeModel } from './shape.model'
 import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
@@ -54,12 +55,21 @@ export class EditorModel {
     this.images = new ImageModel(page)
   }
 
-  /** Ожидает полной инициализации редактора */
+  /** Ожидает финальное состояние редактора после завершения init(), а не раннее появление window.editor. */
   async waitForReady(): Promise<void> {
     await this.page.waitForFunction(() => {
       const { editor } = window as any
-      return Boolean(editor?.canvas && editor?.templateManager)
+
+      if (!editor?.canvas) return false
+      if (!editor.historyManager?.baseState) return false
+      if (!editor.listeners) return false
+      if (!editor.canvas.lowerCanvasEl?.isConnected) return false
+      if (!editor.canvas.upperCanvasEl?.isConnected) return false
+
+      return editor.canvas.getWidth() > 0 && editor.canvas.getHeight() > 0
     })
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Возвращает снимок текущего состояния canvas */
@@ -128,17 +138,13 @@ export class EditorModel {
 
   /** Выделяет все пользовательские объекты на canvas через публичный API редактора. */
   async selectAllObjects(): Promise<void> {
-    await this.page.evaluate(async() => {
+    await this.page.evaluate(() => {
       const { editor } = window as any
 
       editor.selectionManager.selectAll()
-
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
     })
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Возвращает информацию о montage area */
@@ -254,18 +260,12 @@ export class EditorModel {
       }
     )
 
-    await this.page.evaluate(async() => {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
-    })
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Отправляет в редактор hotkey undo через DOM-событие документа. */
   async pressUndoHotkey(): Promise<void> {
-    await this.page.evaluate(async() => {
+    await this.page.evaluate(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'z',
         code: 'KeyZ',
@@ -279,18 +279,14 @@ export class EditorModel {
         ctrlKey: true,
         bubbles: true
       }))
-
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
     })
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Отправляет в редактор hotkey redo через DOM-событие документа. */
   async pressRedoHotkey(): Promise<void> {
-    await this.page.evaluate(async() => {
+    await this.page.evaluate(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', {
         key: 'y',
         code: 'KeyY',
@@ -304,18 +300,14 @@ export class EditorModel {
         ctrlKey: true,
         bubbles: true
       }))
-
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
     })
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
   async zoomByCtrlWheel(params: { deltaY: number }): Promise<void> {
-    await this.page.evaluate(async({ deltaY }) => {
+    await this.page.evaluate(({ deltaY }) => {
       const { editor } = window as any
       const rect = editor.canvas.wrapperEl.getBoundingClientRect()
 
@@ -327,12 +319,8 @@ export class EditorModel {
         bubbles: true,
         cancelable: true
       }))
-
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
     }, params)
+
+    await waitForCanvasRender({ page: this.page })
   }
 }

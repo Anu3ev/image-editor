@@ -28,6 +28,7 @@ export default defineConfig({
         // Копируем из src/demo в выходную папку
         { src: 'src/demo/index.html', dest: '.' },
         { src: 'src/demo/style.css', dest: '.' },
+        { src: 'src/demo/vendor/*.css', dest: './vendor' },
         {
           src: 'src/demo/js/*.js',
           dest: './js',

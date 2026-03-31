@@ -20,6 +20,7 @@ import type {
   ShapeTextSelectionParams,
   ShapeTextSelectionStyleInfo
 } from '../types'
+import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
 export class ShapeModel {
   private readonly page: Page
@@ -508,7 +509,7 @@ export class ShapeModel {
 
     expect(result, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     const {
       point,
@@ -750,7 +751,7 @@ export class ShapeModel {
 
     expect(result, 'должен существовать live snapshot после mouse:move clamp').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     const {
       point,
@@ -879,7 +880,7 @@ export class ShapeModel {
         id
       })
 
-      await this._waitForCanvasRender()
+      await waitForCanvasRender({ page: this.page })
       this.activeScaleInteraction = null
 
       expect(snapshot, 'должен существовать snapshot после завершения масштабирования').not.toBeNull()
@@ -1005,7 +1006,7 @@ export class ShapeModel {
 
     expect(point, 'должна существовать стартовая точка для интерактивного масштабирования').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     this.activeScaleInteraction = {
       point: point as {
@@ -1036,16 +1037,6 @@ export class ShapeModel {
     }
 
     return true
-  }
-
-  private async _waitForCanvasRender(): Promise<void> {
-    await this.page.evaluate(async() => {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
-    })
   }
 
   /** Возвращает текущий snapshot состояния shape-группы, fail-fast проверяет его наличие. */
@@ -1182,7 +1173,7 @@ export class ShapeModel {
     expect(point, 'для клика по фигуре должны существовать координаты на canvas').not.toBeNull()
 
     await this.page.mouse.click(point!.x, point!.y)
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Включает режим редактирования текста внутри shape */

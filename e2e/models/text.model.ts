@@ -17,6 +17,7 @@ import type {
   TextTemplateApplyParams,
   TextUpdateStyleParams
 } from '../types'
+import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 import {
   TEXT_RESIZING_REGRESSION_ADD_OPTIONS,
   TEXT_RESIZING_REGRESSION_LINE_DEFAULTS,
@@ -44,7 +45,7 @@ export class TextModel {
       x: number
       y: number
     }
-    corner: 'mb' | 'br'
+    corner: 'mb' | 'br' | 'mr'
     objectIndex?: number
     id?: string
   } | null
@@ -486,7 +487,7 @@ export class TextModel {
         id
       })
 
-      await this._waitForCanvasRender()
+      await waitForCanvasRender({ page: this.page })
       this.activeResizeInteraction = null
 
       expect(snapshot, 'должно существовать состояние после завершения resize текстового объекта').not.toBeNull()
@@ -526,6 +527,27 @@ export class TextModel {
       scaleX: 1,
       scaleY,
       corner: 'br',
+      objectIndex,
+      id
+    })
+  }
+
+  /** Масштабирует текстовый объект по горизонтали за правую ручку. */
+  async scaleHorizontallyFromRight(
+    params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
+  ): Promise<TextResizeSnapshot> {
+    const {
+      scaleX,
+      ctrlKey,
+      objectIndex,
+      id
+    } = params
+
+    return this._performInteractiveScaleStep({
+      scaleX,
+      scaleY: 1,
+      corner: 'mr',
+      ctrlKey,
       objectIndex,
       id
     })
@@ -604,7 +626,7 @@ export class TextModel {
         id
       })
 
-      await this._waitForCanvasRender()
+      await waitForCanvasRender({ page: this.page })
       this.activeScaleInteraction = null
 
       expect(snapshot, 'должно существовать состояние после завершения scale текстового объекта').not.toBeNull()
@@ -625,6 +647,70 @@ export class TextModel {
     } = this.activeScaleInteraction
 
     return this.finishScale({
+      objectIndex,
+      id
+    })
+  }
+
+  /** Двигает указатель мыши в сторону от текстового объекта и возвращает его текущее состояние. */
+  async movePointerAwayFromObject(
+    params: {
+      offsetX?: number
+      offsetY?: number
+    } & ObjectTargetParams = {}
+  ): Promise<TextResizeSnapshot> {
+    const {
+      offsetX = 180,
+      offsetY = -120,
+      objectIndex,
+      id
+    } = params
+    const point = await this.page.evaluate(({ offsetX, offsetY, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+
+      const centerPoint = target.getCenterPoint()
+      const sceneCenterX = typeof centerPoint.x === 'number' ? centerPoint.x : 0
+      const sceneCenterY = typeof centerPoint.y === 'number' ? centerPoint.y : 0
+      const viewportTransform = Array.isArray(editor.canvas.viewportTransform)
+        ? editor.canvas.viewportTransform
+        : [1, 0, 0, 1, 0, 0]
+      const viewportX = (viewportTransform[0] * sceneCenterX)
+        + (viewportTransform[2] * sceneCenterY)
+        + viewportTransform[4]
+      const viewportY = (viewportTransform[1] * sceneCenterX)
+        + (viewportTransform[3] * sceneCenterY)
+        + viewportTransform[5]
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const minX = canvasRect.left + 10
+      const maxX = canvasRect.right - 10
+      const minY = canvasRect.top + 10
+      const maxY = canvasRect.bottom - 10
+
+      return {
+        x: Math.min(Math.max(canvasRect.left + viewportX + offsetX, minX), maxX),
+        y: Math.min(Math.max(canvasRect.top + viewportY + offsetY, minY), maxY)
+      }
+    }, {
+      offsetX,
+      offsetY,
+      objectIndex,
+      id
+    })
+
+    expect(point, 'для движения мыши в сторону от текста должны существовать координаты на canvas').not.toBeNull()
+
+    await this.page.mouse.move(point!.x, point!.y)
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getResizeSnapshot({
       objectIndex,
       id
     })
@@ -747,7 +833,7 @@ export class TextModel {
 
     expect(result, 'должно существовать состояние live resize текстового объекта').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     const {
       point,
@@ -891,7 +977,8 @@ export class TextModel {
     params: {
       scaleX: number
       scaleY: number
-      corner: 'mb' | 'br'
+      corner: 'mb' | 'br' | 'mr'
+      ctrlKey?: boolean
     } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
     await this._startScaleInteractionIfNeeded(params)
@@ -901,6 +988,7 @@ export class TextModel {
         scaleX,
         scaleY,
         corner,
+        ctrlKey = false,
         objectIndex,
         id
       } = payload
@@ -1021,7 +1109,8 @@ export class TextModel {
           button: 0,
           buttons: 1,
           clientX: controlPoint.x,
-          clientY: controlPoint.y
+          clientY: controlPoint.y,
+          ctrlKey
         }))
       }
 
@@ -1042,7 +1131,7 @@ export class TextModel {
 
     expect(result, 'должно существовать состояние live scale текстового объекта').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     const {
       point,
@@ -1090,7 +1179,7 @@ export class TextModel {
 
   private async _startScaleInteractionIfNeeded(
     params: {
-      corner: 'mb' | 'br'
+      corner: 'mb' | 'br' | 'mr'
     } & ObjectTargetParams
   ): Promise<void> {
     const {
@@ -1166,7 +1255,7 @@ export class TextModel {
 
     expect(point, 'должна существовать стартовая точка для интерактивного scale текста').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     this.activeScaleInteraction = {
       point: point as {
@@ -1276,7 +1365,7 @@ export class TextModel {
 
     expect(point, 'должна существовать стартовая точка для интерактивного resize текста').not.toBeNull()
 
-    await this._waitForCanvasRender()
+    await waitForCanvasRender({ page: this.page })
 
     this.activeResizeInteraction = {
       point: point as {
@@ -1329,13 +1418,4 @@ export class TextModel {
     return true
   }
 
-  private async _waitForCanvasRender(): Promise<void> {
-    await this.page.evaluate(async() => {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => resolve())
-        })
-      })
-    })
-  }
 }

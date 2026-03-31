@@ -26,6 +26,16 @@ export const TEXT_DIAGONAL_SCALING_FACTORS = {
   scaleY: 1.35
 }
 
+/** Коэффициент горизонтального скейлинга для проверки текущей базовой ширины. */
+export const TEXT_HORIZONTAL_SCALING_FACTOR = 1.35
+
+/** Последовательность сужения текста скейлингом для проверки плавного live-поведения. */
+export const TEXT_HORIZONTAL_SCALING_NARROW_STEPS = [
+  0.92,
+  0.62,
+  0.42
+]
+
 /** Конфигурация standalone text-объекта, воспроизводящая resize/reflow регрессию. */
 export const TEXT_RESIZING_REGRESSION_ADD_OPTIONS: TextAddParams = {
   text: '69\nЧасов музыки',
