@@ -28,26 +28,14 @@ test.describe('Горизонтальный ресайз текстового о
       text.checkCreation({ textObject })
     })
 
-    const referenceSnapshot = await test.step('Получить границы опорной фигуры и исходное состояние текста', async() => {
-      const reference = await snapping.getObjectSnapshot({ id: 'reference-shape' })
-      const textSnapshot = await text.getResizeSnapshot({ objectIndex: 1 })
-
-      return {
-        reference,
-        textSnapshot
-      }
+    const referenceSnapshot = await test.step('Получить границы опорной фигуры', async() => {
+      return snapping.getObjectSnapshot({ id: 'reference-shape' })
     })
 
-    const requestedWidth = referenceSnapshot.reference.boundsLeft
-      - referenceSnapshot.textSnapshot.boundsLeft
-      - referenceSnapshot.textSnapshot.paddingLeft
-      - referenceSnapshot.textSnapshot.paddingRight
-      - 3
-
     await test.step('Сузить текст почти до направляющей справа', async() => {
-      await text.resizeFromRightToWidth({
+      await text.resizeFromRightToGuide({
         objectIndex: 1,
-        width: requestedWidth
+        x: referenceSnapshot.boundsLeft
       })
     })
 
@@ -55,12 +43,12 @@ test.describe('Горизонтальный ресайз текстового о
       const snapshot = await text.getResizeSnapshot({ objectIndex: 1 })
       const guideState = await snapping.getGuideState()
 
-      expect(Math.abs(snapshot.boundsRight - referenceSnapshot.reference.boundsLeft))
+      expect(Math.abs(snapshot.boundsRight - referenceSnapshot.boundsLeft))
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
       expect(guideState.guides).toEqual(expect.arrayContaining([
         expect.objectContaining({
           type: 'vertical',
-          position: referenceSnapshot.reference.boundsLeft
+          position: referenceSnapshot.boundsLeft
         })
       ]))
     })
@@ -82,20 +70,10 @@ test.describe('Горизонтальный ресайз текстового о
       text.checkCreation({ textObject })
     })
 
-    const initialSnapshot = await test.step('Получить исходное состояние текста', async() => {
-      return text.getResizeSnapshot({ objectIndex: 0 })
-    })
-
-    const requestedWidth = initialSnapshot.boundsRight
-      - montageArea.left
-      - initialSnapshot.paddingLeft
-      - initialSnapshot.paddingRight
-      - 3
-
     await test.step('Сузить текст слева почти до направляющей монтажной области', async() => {
-      await text.resizeFromLeftToWidth({
+      await text.resizeFromLeftToGuide({
         objectIndex: 0,
-        width: requestedWidth
+        x: montageArea.left
       })
     })
 
@@ -149,16 +127,10 @@ test.describe('Горизонтальный ресайз текстового о
       }
     })
 
-    const requestedWidth = initialState.reference.boundsLeft
-      - initialState.textSnapshot.boundsLeft
-      - initialState.textSnapshot.paddingLeft
-      - initialState.textSnapshot.paddingRight
-      - 3
-
     await test.step('Сузить текст до состояния с переносом строк и прилипания к направляющей', async() => {
-      await text.resizeFromRightToWidth({
+      await text.resizeFromRightToGuide({
         objectIndex: 1,
-        width: requestedWidth
+        x: initialState.reference.boundsLeft
       })
     })
 
@@ -234,7 +206,7 @@ test.describe('Горизонтальный ресайз текстового о
         presetKey: 'square',
         options: {
           id: 'reference-shape',
-          left: 470,
+          left: 340,
           top: 220,
           width: 80,
           height: 80,
@@ -252,49 +224,38 @@ test.describe('Горизонтальный ресайз текстового о
       text.checkCreation({ textObject: templateTextObject })
     })
 
-    const referenceSnapshot = await test.step('Получить исходные состояния обоих текстовых объектов и опорной фигуры', async() => {
-      const reference = await snapping.getObjectSnapshot({ id: 'reference-shape' })
-      const directText = await text.getResizeSnapshot({ objectIndex: 1 })
-      const templateText = await text.getResizeSnapshot({ objectIndex: 2 })
-
-      return {
-        reference,
-        directText,
-        templateText
-      }
+    const referenceSnapshot = await test.step('Получить положение опорной фигуры', async() => {
+      return snapping.getObjectSnapshot({ id: 'reference-shape' })
     })
 
-    const directRequestedWidth = referenceSnapshot.reference.boundsLeft
-      - referenceSnapshot.directText.boundsLeft
-      - referenceSnapshot.directText.paddingLeft
-      - referenceSnapshot.directText.paddingRight
-      - 3
-    const templateRequestedWidth = referenceSnapshot.reference.boundsLeft
-      - referenceSnapshot.templateText.boundsLeft
-      - referenceSnapshot.templateText.paddingLeft
-      - referenceSnapshot.templateText.paddingRight
-      - 3
-
-    await test.step('Сузить оба текста почти до одной и той же направляющей', async() => {
-      await text.resizeFromRightToWidth({
+    const directSnappedSnapshot = await test.step('Сузить прямой текст почти до направляющей справа', async() => {
+      return text.resizeFromRightToGuide({
         objectIndex: 1,
-        width: directRequestedWidth
+        x: referenceSnapshot.boundsLeft
       })
-      await text.resizeFromRightToWidth({
+    })
+
+    await test.step('Завершить сужение прямого текста перед переходом ко второму объекту', async() => {
+      await text.finishResize({ objectIndex: 1 })
+    })
+
+    const templateSnappedSnapshot = await test.step('Сузить текст из шаблона почти до той же направляющей справа', async() => {
+      return text.resizeFromRightToGuide({
         objectIndex: 2,
-        width: templateRequestedWidth
+        x: referenceSnapshot.boundsLeft
       })
+    })
+
+    await test.step('Завершить сужение текста из шаблона', async() => {
+      await text.finishResize({ objectIndex: 2 })
     })
 
     await test.step('Проверить что оба текста одинаково прилипли к одной и той же направляющей', async() => {
-      const directSnapshot = await text.getResizeSnapshot({ objectIndex: 1 })
-      const templateSnapshot = await text.getResizeSnapshot({ objectIndex: 2 })
-
-      expect(Math.abs(directSnapshot.boundsRight - referenceSnapshot.reference.boundsLeft))
+      expect(Math.abs(directSnappedSnapshot.boundsRight - referenceSnapshot.boundsLeft))
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
-      expect(Math.abs(templateSnapshot.boundsRight - referenceSnapshot.reference.boundsLeft))
+      expect(Math.abs(templateSnappedSnapshot.boundsRight - referenceSnapshot.boundsLeft))
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
-      expect(Math.abs(directSnapshot.boundsRight - templateSnapshot.boundsRight))
+      expect(Math.abs(directSnappedSnapshot.boundsRight - templateSnappedSnapshot.boundsRight))
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
     })
   })

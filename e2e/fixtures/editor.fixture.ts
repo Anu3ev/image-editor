@@ -50,6 +50,8 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     await bypassCertificateWarning({ page })
     await model.waitForReady()
     await use(model)
+    await model.text.finishScaleIfActive()
+    await model.text.finishResizeIfActive()
     await model.shapes.finishScaleIfActive()
   },
 

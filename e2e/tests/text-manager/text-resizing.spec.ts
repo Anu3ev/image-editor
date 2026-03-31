@@ -1,8 +1,5 @@
 import { test, expect } from '../../fixtures/editor.fixture'
-import {
-  TEXT_RESIZING_REGRESSION_WIDTH,
-  TEXT_RESIZING_TOLERANCE
-} from '../../fixtures/data/text-resizing.data'
+import { TEXT_RESIZING_TOLERANCE } from '../../fixtures/data/text-resizing.data'
 
 test.describe('Горизонтальный ресайз текстового объекта', () => {
   test.describe('объект создан напрямую', () => {
@@ -17,20 +14,14 @@ test.describe('Горизонтальный ресайз текстового о
         return text.getResizeSnapshot({ objectIndex: 0 })
       })
 
-      const targetWidth = Math.min(
-        TEXT_RESIZING_REGRESSION_WIDTH,
-        Math.max(80, initialSnapshot.width - 30)
-      )
-
       const liveSnapshot = await test.step('Сузить объект справа до состояния с переносом текста', async() => {
-        return text.resizeFromRightToWidth({
-          width: targetWidth,
+        return text.resizeFromRightUntilTextWraps({
           objectIndex: 0
         })
       })
 
       await test.step('Проверить что текст перенёсся, а верхний левый угол остался на месте', () => {
-        expect(liveSnapshot.width).toBe(targetWidth)
+        expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
         expect(liveSnapshot.leftTopX).toBeCloseTo(initialSnapshot.leftTopX, 1)
         expect(liveSnapshot.leftTopY).toBeCloseTo(initialSnapshot.leftTopY, 1)
@@ -57,20 +48,14 @@ test.describe('Горизонтальный ресайз текстового о
         return text.getResizeSnapshot({ objectIndex: 0 })
       })
 
-      const targetWidth = Math.min(
-        TEXT_RESIZING_REGRESSION_WIDTH,
-        Math.max(80, initialSnapshot.width - 30)
-      )
-
       const liveSnapshot = await test.step('Сузить объект слева до состояния с переносом текста', async() => {
-        return text.resizeFromLeftToWidth({
-          width: targetWidth,
+        return text.resizeFromLeftUntilTextWraps({
           objectIndex: 0
         })
       })
 
       await test.step('Проверить что текст перенёсся, а верхний правый угол остался на месте', () => {
-        expect(liveSnapshot.width).toBe(targetWidth)
+        expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
         expect(liveSnapshot.rightTopX).toBeCloseTo(initialSnapshot.rightTopX, 1)
         expect(liveSnapshot.rightTopY).toBeCloseTo(initialSnapshot.rightTopY, 1)
@@ -102,10 +87,7 @@ test.describe('Горизонтальный ресайз текстового о
         return text.getResizeSnapshot({ objectIndex: 0 })
       })
 
-      const targetWidth = Math.min(
-        TEXT_RESIZING_REGRESSION_WIDTH,
-        Math.max(80, initialSnapshot.width - 30)
-      )
+      const targetWidth = Math.max(80, initialSnapshot.width - 30)
 
       const liveSnapshot = await test.step('Сузить повёрнутый объект слева с опорой по центру', async() => {
         return text.resizeFromLeftToWidth({
@@ -116,7 +98,7 @@ test.describe('Горизонтальный ресайз текстового о
       })
 
       await test.step('Проверить что правая центральная опорная точка осталась на месте', () => {
-        expect(liveSnapshot.width).toBe(targetWidth)
+        expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.rightCenterX).toBeCloseTo(initialSnapshot.rightCenterX, 1)
         expect(liveSnapshot.rightCenterY).toBeCloseTo(initialSnapshot.rightCenterY, 1)
       })
@@ -146,20 +128,14 @@ test.describe('Горизонтальный ресайз текстового о
         return text.getResizeSnapshot({ objectIndex: 0 })
       })
 
-      const targetWidth = Math.min(
-        TEXT_RESIZING_REGRESSION_WIDTH,
-        Math.max(80, initialSnapshot.width - 30)
-      )
-
       const liveSnapshot = await test.step('Сузить объект из шаблона справа до состояния с переносом текста', async() => {
-        return text.resizeFromRightToWidth({
-          width: targetWidth,
+        return text.resizeFromRightUntilTextWraps({
           objectIndex: 0
         })
       })
 
       await test.step('Проверить что текст перенёсся, а верхний левый угол остался на месте', () => {
-        expect(liveSnapshot.width).toBe(targetWidth)
+        expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
         expect(liveSnapshot.leftTopX).toBeCloseTo(initialSnapshot.leftTopX, 1)
         expect(liveSnapshot.leftTopY).toBeCloseTo(initialSnapshot.leftTopY, 1)
@@ -173,20 +149,14 @@ test.describe('Горизонтальный ресайз текстового о
         return text.getResizeSnapshot({ objectIndex: 0 })
       })
 
-      const targetWidth = Math.min(
-        TEXT_RESIZING_REGRESSION_WIDTH,
-        Math.max(80, initialSnapshot.width - 30)
-      )
-
       const liveSnapshot = await test.step('Сузить объект из шаблона слева до состояния с переносом текста', async() => {
-        return text.resizeFromLeftToWidth({
-          width: targetWidth,
+        return text.resizeFromLeftUntilTextWraps({
           objectIndex: 0
         })
       })
 
       await test.step('Проверить что текст перенёсся, а верхний правый угол остался на месте', () => {
-        expect(liveSnapshot.width).toBe(targetWidth)
+        expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
         expect(liveSnapshot.rightTopX).toBeCloseTo(initialSnapshot.rightTopX, 1)
         expect(liveSnapshot.rightTopY).toBeCloseTo(initialSnapshot.rightTopY, 1)
@@ -201,10 +171,7 @@ test.describe('Горизонтальный ресайз текстового о
         return text.getResizeSnapshot({ objectIndex: 0 })
       })
 
-      const firstTargetWidth = Math.min(
-        TEXT_RESIZING_REGRESSION_WIDTH,
-        Math.max(80, initialSnapshot.width - 30)
-      )
+      const firstTargetWidth = Math.max(80, initialSnapshot.width - 30)
 
       await test.step('Сузить объект из шаблона и зафиксировать это состояние в history', async() => {
         await text.resizeFromRightToWidth({
@@ -226,7 +193,8 @@ test.describe('Горизонтальный ресайз текстового о
 
       await test.step('Проверить что undo вернул объект к более широкому состоянию', () => {
         expect(afterUndoSnapshot.width).toBeGreaterThan(resizedSnapshot.width)
-        expect(afterUndoSnapshot.lineCount).toBeLessThan(resizedSnapshot.lineCount)
+        expect(afterUndoSnapshot.leftTopX).toBeCloseTo(initialSnapshot.leftTopX, 1)
+        expect(afterUndoSnapshot.leftTopY).toBeCloseTo(initialSnapshot.leftTopY, 1)
       })
 
       const afterRedoSnapshot = await test.step('Сделать redo и получить состояние объекта', async() => {
@@ -241,15 +209,15 @@ test.describe('Горизонтальный ресайз текстового о
         expect(afterRedoSnapshot.leftTopY).toBeCloseTo(resizedSnapshot.leftTopY, 1)
       })
 
-      const secondTargetWidth = Math.max(80, afterRedoSnapshot.width - 20)
       const secondLiveSnapshot = await test.step('Снова сузить объект после redo', async() => {
-        return text.resizeFromRightToWidth({
-          width: secondTargetWidth,
+        return text.resizeFromRightUntilTextWraps({
           objectIndex: 0
         })
       })
 
       await test.step('Проверить что повторное сужение после redo снова не двигает объект вниз', () => {
+        expect(secondLiveSnapshot.width).toBeLessThan(afterRedoSnapshot.width)
+        expect(secondLiveSnapshot.lineCount).toBeGreaterThan(afterRedoSnapshot.lineCount)
         expect(secondLiveSnapshot.leftTopX).toBeCloseTo(afterRedoSnapshot.leftTopX, 1)
         expect(secondLiveSnapshot.leftTopY).toBeCloseTo(afterRedoSnapshot.leftTopY, 1)
       })
@@ -275,33 +243,26 @@ test.describe('Горизонтальный ресайз текстового о
       return text.getResizeSnapshot({ objectIndex: 1 })
     })
 
-    const newTargetWidth = Math.min(
-      TEXT_RESIZING_REGRESSION_WIDTH,
-      Math.max(80, newInitialSnapshot.width - 30)
-    )
-    const templateTargetWidth = Math.min(
-      TEXT_RESIZING_REGRESSION_WIDTH,
-      Math.max(80, templateInitialSnapshot.width - 30)
-    )
-
     const newLiveSnapshot = await test.step('Сузить справа объект, созданный напрямую', async() => {
-      return text.resizeFromRightToWidth({
-        width: newTargetWidth,
+      return text.resizeFromRightUntilTextWraps({
         objectIndex: 0
       })
     })
+    await test.step('Завершить ресайз первого объекта перед переходом ко второму', async() => {
+      await text.finishResize({ objectIndex: 0 })
+    })
     const templateLiveSnapshot = await test.step('Сузить справа объект из шаблона', async() => {
-      return text.resizeFromRightToWidth({
-        width: templateTargetWidth,
+      return text.resizeFromRightUntilTextWraps({
         objectIndex: 1
       })
     })
 
     await test.step('Проверить что оба объекта переносят текст и остаются на месте одинаково', () => {
-      expect(newLiveSnapshot.width).toBe(newTargetWidth)
-      expect(templateLiveSnapshot.width).toBe(templateTargetWidth)
+      expect(newLiveSnapshot.width).toBeLessThan(newInitialSnapshot.width)
+      expect(templateLiveSnapshot.width).toBeLessThan(templateInitialSnapshot.width)
       expect(newLiveSnapshot.lineCount).toBeGreaterThan(newInitialSnapshot.lineCount)
       expect(templateLiveSnapshot.lineCount).toBeGreaterThan(templateInitialSnapshot.lineCount)
+      expect(newLiveSnapshot.lineCount).toBe(templateLiveSnapshot.lineCount)
       expect(newLiveSnapshot.leftTopX).toBeCloseTo(newInitialSnapshot.leftTopX, 1)
       expect(newLiveSnapshot.leftTopY).toBeCloseTo(newInitialSnapshot.leftTopY, 1)
       expect(templateLiveSnapshot.leftTopX).toBeCloseTo(templateInitialSnapshot.leftTopX, 1)

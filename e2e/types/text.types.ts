@@ -177,6 +177,12 @@ export interface TextResizeFromRightParams extends ObjectTargetParams {
   ctrlKey?: boolean
 }
 
+/** Параметры сужения standalone text до переноса текста на новую строку. */
+export interface TextResizeUntilWrapParams extends ObjectTargetParams {
+  originY?: TextResizeOriginY
+  ctrlKey?: boolean
+}
+
 /** Параметры применения text-only template через standalone text-модель. */
 export interface TextTemplateApplyParams {
   template: TemplateDefinition
