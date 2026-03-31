@@ -212,6 +212,41 @@ describe('ClipboardManager', () => {
         mockCanvas.add.mock.invocationCallOrder[0]
       )
     })
+
+    it('дублирует группу с текстом уже в итоговом размере', async() => {
+      const selection = createMockActiveSelection([
+        createMockFabricObject({
+          type: 'textbox',
+          id: 'text-1',
+          left: 40,
+          top: 20,
+          scaleX: 1.4,
+          scaleY: 0.8
+        }),
+        createMockFabricObject({
+          type: 'rect',
+          id: 'rect-1',
+          left: 80,
+          top: 20
+        })
+      ], {
+        left: 100,
+        top: 80
+      })
+      mockCanvas.getActiveObject.mockReturnValue(selection)
+
+      const result = await clipboardManager.copyPaste()
+
+      expect(result).toBe(true)
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: expect.objectContaining({
+          type: 'textbox'
+        })
+      })
+      expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
+    })
   })
 
   describe('paste', () => {
@@ -422,6 +457,40 @@ describe('ClipboardManager', () => {
         top: 30,
         scaleX: 0.7,
         scaleY: 1.2
+      })
+
+      const result = await clipboardManager.paste()
+
+      expect(result).toBe(true)
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: expect.objectContaining({
+          type: 'textbox'
+        })
+      })
+      expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
+    })
+
+    it('вставляет группу с текстом уже в итоговом размере', async() => {
+      clipboardManager.clipboard = createMockActiveSelection([
+        createMockFabricObject({
+          type: 'textbox',
+          id: 'text-1',
+          left: 40,
+          top: 20,
+          scaleX: 0.7,
+          scaleY: 1.2
+        }),
+        createMockFabricObject({
+          type: 'rect',
+          id: 'rect-1',
+          left: 90,
+          top: 20
+        })
+      ], {
+        left: 120,
+        top: 90
       })
 
       const result = await clipboardManager.paste()

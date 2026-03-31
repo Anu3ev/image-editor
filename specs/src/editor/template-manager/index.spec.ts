@@ -6,6 +6,7 @@ import {
   createRevivedTemplateObject,
   getScenePointByOrigin
 } from '../../../test-utils/placement-helpers'
+import { createRestoredTemplateLikeTextbox } from '../../../test-utils/editor-helpers'
 import {
   createMockShapeNode,
   createMockShapeTextbox
@@ -113,6 +114,52 @@ describe('TemplateManager', () => {
           scaleX: 0.6,
           scaleY: 0.6,
           text: 'Очень длинный текст для шаблона'
+        }]
+      }
+    })
+
+    const commitStandaloneTextScaleMock = editor.textManager.commitStandaloneTextScale as jest.Mock
+
+    expect(result).toEqual([textbox])
+    expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+      target: textbox
+    })
+    expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+      editor.canvas.add.mock.invocationCallOrder[0]
+    )
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
+  it('текстовый объект с фоном из шаблона добавляется сразу в итоговом размере', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const textbox = createRestoredTemplateLikeTextbox({
+      left: 0.25,
+      top: 0.2,
+      scaleX: 0.6,
+      scaleY: 1.4
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([textbox])
+
+    const result = await manager.applyTemplate({
+      template: {
+        id: 'template-with-background-text',
+        meta: {
+          baseWidth: 400,
+          baseHeight: 300,
+          positionsNormalized: true
+        },
+        objects: [{
+          type: 'background-textbox',
+          left: 0.25,
+          top: 0.2,
+          width: 137,
+          scaleX: 0.6,
+          scaleY: 1.4,
+          text: '69\nЧасов музыки'
         }]
       }
     })

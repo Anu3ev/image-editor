@@ -1,6 +1,7 @@
 import { ActiveSelection } from 'fabric'
 import { nanoid } from 'nanoid'
 import {
+  createRestoredTemplateLikeTextbox,
   createTemplateLikeTextbox,
   createTextManagerTestSetup
 } from '../../../test-utils/editor-helpers'
@@ -1397,6 +1398,170 @@ describe('TextManager', () => {
   })
 
   describe('масштабирование текстового объекта', () => {
+    describe('нормализация временного scale', () => {
+      it('текст после прошлых трансформаций сразу приходит в итоговом размере', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352,
+          scaleX: 0.5,
+          scaleY: 1.5,
+          originX: 'center',
+          originY: 'top'
+        })
+
+        textbox.styles = {
+          1: {
+            0: {
+              fontSize: 24,
+              fill: '#333333',
+              fontWeight: 'normal'
+            }
+          }
+        }
+        const beforeAnchor = textbox.getPointByOrigin('center', 'top')
+
+        const result = textManager.commitStandaloneTextScale({
+          target: textbox
+        })
+
+        const afterAnchor = textbox.getPointByOrigin('center', 'top')
+        const scaledSecondLineStyles = Object.values(textbox.styles?.[1] ?? {})
+
+        expect(result).toBe(true)
+        expect(textbox.width).toBe(69)
+        expect(textbox.fontSize).toBe(54)
+        expect(textbox.paddingTop).toBe(31.5)
+        expect(textbox.paddingRight).toBe(18)
+        expect(textbox.paddingBottom).toBe(45)
+        expect(textbox.paddingLeft).toBe(18)
+        expect(textbox.radiusTopLeft).toBe(36)
+        expect(textbox.radiusTopRight).toBe(36)
+        expect(textbox.radiusBottomRight).toBe(36)
+        expect(textbox.radiusBottomLeft).toBe(36)
+        expect(textbox.lineFontDefaults?.[1]?.fontSize).toBe(36)
+        expect(scaledSecondLineStyles).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              fontSize: 36
+            })
+          ])
+        )
+        expect(textbox.scaleX).toBe(1)
+        expect(textbox.scaleY).toBe(1)
+        expect(afterAnchor.x).toBeCloseTo(beforeAnchor.x, 5)
+        expect(afterAnchor.y).toBeCloseTo(beforeAnchor.y, 5)
+      })
+
+      it('повторная обработка не меняет текст, если размер уже итоговый', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352,
+          scaleX: 1,
+          scaleY: 1
+        })
+        const initialWidth = textbox.width
+        const initialFontSize = textbox.fontSize
+        const initialPaddingTop = textbox.paddingTop
+        const initialRadiusTopLeft = textbox.radiusTopLeft
+        const initialLineFontSize = textbox.lineFontDefaults?.[1]?.fontSize
+        const initialStyleFontSize = textbox.styles?.[1]?.[0]?.fontSize
+
+        const result = textManager.commitStandaloneTextScale({
+          target: textbox
+        })
+
+        expect(result).toBe(false)
+        expect(textbox.width).toBe(initialWidth)
+        expect(textbox.fontSize).toBe(initialFontSize)
+        expect(textbox.paddingTop).toBe(initialPaddingTop)
+        expect(textbox.radiusTopLeft).toBe(initialRadiusTopLeft)
+        expect(textbox.lineFontDefaults?.[1]?.fontSize).toBe(initialLineFontSize)
+        expect(textbox.styles?.[1]?.[0]?.fontSize).toBe(initialStyleFontSize)
+      })
+
+      it('текст внутри фигуры не пересчитывается отдельно от фигуры', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createMockShapeTextbox({
+          text: 'Text inside shape',
+          width: 180
+        })
+
+        textbox.set({
+          scaleX: 1.4,
+          scaleY: 0.8
+        })
+        textbox.group = {
+          shapeComposite: true
+        } as never
+
+        const result = textManager.commitStandaloneTextScale({
+          target: textbox
+        })
+
+        expect(result).toBe(false)
+        expect(textbox.scaleX).toBe(1.4)
+        expect(textbox.scaleY).toBe(0.8)
+      })
+
+      it('вертикальный scale не выключает autoExpand', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352,
+          scaleX: 1,
+          scaleY: 1.5
+        })
+
+        textbox.autoExpand = true
+
+        textManager.commitStandaloneTextScale({
+          target: textbox,
+          shouldDisableAutoExpandOnHorizontalChange: true
+        })
+
+        expect(textbox.autoExpand).toBe(true)
+      })
+
+      it('горизонтальное изменение не выключает autoExpand без явного запроса', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352,
+          scaleX: 1.25,
+          scaleY: 1
+        })
+
+        textbox.autoExpand = true
+
+        textManager.commitStandaloneTextScale({
+          target: textbox
+        })
+
+        expect(textbox.autoExpand).toBe(true)
+      })
+
+      it('горизонтальное изменение выключает autoExpand только когда этого ожидает сценарий', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352,
+          scaleX: 1.25,
+          scaleY: 1
+        })
+
+        textbox.autoExpand = true
+
+        textManager.commitStandaloneTextScale({
+          target: textbox,
+          shouldDisableAutoExpandOnHorizontalChange: true
+        })
+
+        expect(textbox.autoExpand).toBe(false)
+      })
+    })
+
     it('после ручного сужения не расширяет текст обратно при скейлинге по вертикали', () => {
       const { canvas, textManager } = createTextManagerTestSetup()
       const textbox = textManager.addText({

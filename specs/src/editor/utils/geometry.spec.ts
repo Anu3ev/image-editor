@@ -130,6 +130,25 @@ describe('snapObjectToPixelGrid', () => {
     expect(obj.scaleY).toBe(0.437)
   })
 
+  it('не меняет scale для background-textbox', () => {
+    const obj = createPixelGridObject({
+      left: 10.3,
+      top: 20.7,
+      width: 150,
+      height: 80,
+      scaleX: 0.337,
+      scaleY: 0.437,
+      type: 'background-textbox'
+    })
+
+    snapObjectToPixelGrid({ object: obj })
+
+    expect(obj.left).toBe(10)
+    expect(obj.top).toBe(21)
+    expect(obj.scaleX).toBe(0.337)
+    expect(obj.scaleY).toBe(0.437)
+  })
+
   it('учитывает strokeWidth при strokeUniform=false', () => {
     const obj = createPixelGridObject({
       width: 100,
