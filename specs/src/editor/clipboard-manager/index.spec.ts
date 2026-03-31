@@ -27,6 +27,7 @@ describe('ClipboardManager', () => {
   let mockEditor: any
   let clipboardManager: ClipboardManager
   let mockCanvas: any
+  let commitStandaloneTextScaleMock: jest.Mock
 
   beforeEach(() => {
     // Устанавливаем глобальные моки браузерных API
@@ -35,6 +36,7 @@ describe('ClipboardManager', () => {
     const mocks = createManagerTestMocks()
     mockEditor = mocks.mockEditor
     mockCanvas = mocks.mockCanvas
+    commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
 
     clipboardManager = new ClipboardManager({ editor: mockEditor })
 
@@ -185,6 +187,30 @@ describe('ClipboardManager', () => {
 
       expect(result).toBe(false)
       expect(mockCanvas.add).not.toHaveBeenCalled()
+    })
+
+    it('дублирует текст с уже актуальным размером после прошлых трансформаций', async() => {
+      const textbox = createMockFabricObject({
+        type: 'textbox',
+        id: 'scaled-text',
+        left: 40,
+        top: 20,
+        scaleX: 1.4,
+        scaleY: 0.8
+      })
+      mockCanvas.getActiveObject.mockReturnValue(textbox)
+
+      const result = await clipboardManager.copyPaste()
+
+      expect(result).toBe(true)
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: expect.objectContaining({
+          type: 'textbox'
+        })
+      })
+      expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
     })
   })
 
@@ -386,6 +412,29 @@ describe('ClipboardManager', () => {
       expect(result).toBe(false)
       expect(mockCanvas.add).not.toHaveBeenCalled()
       expect(mockCanvas.fire).not.toHaveBeenCalled()
+    })
+
+    it('вставляет текст из буфера с уже актуальным размером после прошлых трансформаций', async() => {
+      clipboardManager.clipboard = createMockFabricObject({
+        type: 'textbox',
+        id: 'clipboard-text',
+        left: 60,
+        top: 30,
+        scaleX: 0.7,
+        scaleY: 1.2
+      })
+
+      const result = await clipboardManager.paste()
+
+      expect(result).toBe(true)
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: expect.objectContaining({
+          type: 'textbox'
+        })
+      })
+      expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
     })
   })
 

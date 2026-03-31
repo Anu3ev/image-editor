@@ -436,7 +436,8 @@ export const createEditorStub = () => {
       lockObject: jest.fn()
     },
     textManager: {
-      isTextEditingActive: false
+      isTextEditingActive: false,
+      commitStandaloneTextScale: jest.fn()
     },
     errorManager: {
       emitWarning: jest.fn(),
@@ -1406,12 +1407,21 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
     cloned.set = jest.fn().mockImplementation((newProps) => {
       Object.assign(cloned, newProps)
     })
+    cloned.setCoords = jest.fn()
+    cloned.forEachObject = jest.fn().mockImplementation((callback) => {
+      clonedObjects.forEach(callback)
+    })
+    cloned.toObject = jest.fn().mockReturnValue(clonedProps)
+    cloned.toCanvasElement = jest.fn().mockReturnValue({
+      toDataURL: () => 'data:image/png;base64,mockData'
+    })
     return cloned
   })
 
   mockSelection.set = jest.fn().mockImplementation((newProps) => {
     Object.assign(mockSelection, newProps)
   })
+  mockSelection.setCoords = jest.fn()
 
   mockSelection.toObject = jest.fn().mockReturnValue(props)
   mockSelection.toCanvasElement = jest.fn().mockReturnValue({
