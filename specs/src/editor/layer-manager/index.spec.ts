@@ -41,6 +41,10 @@ describe('LayerManager', () => {
 
       layerManager.bringToFront()
 
+      expect(mockEditor.textManager.exitActiveTextEditing).toHaveBeenCalledTimes(1)
+      expect(mockEditor.textManager.exitActiveTextEditing.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.bringObjectToFront.mock.invocationCallOrder[0]
+      )
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.bringObjectToFront).toHaveBeenCalledWith(mockObject)
       expect(mockCanvas.renderAll).toHaveBeenCalled()
@@ -83,6 +87,7 @@ describe('LayerManager', () => {
 
       layerManager.bringToFront(undefined, { withoutSave: true })
 
+      expect(mockEditor.textManager.exitActiveTextEditing).not.toHaveBeenCalled()
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.bringObjectToFront).toHaveBeenCalledWith(mockObject)
       expect(mockCanvas.renderAll).toHaveBeenCalled()
@@ -102,6 +107,7 @@ describe('LayerManager', () => {
 
       layerManager.sendToBack()
 
+      expect(mockEditor.textManager.exitActiveTextEditing).toHaveBeenCalledTimes(1)
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockObject)
 
@@ -139,6 +145,7 @@ describe('LayerManager', () => {
 
       layerManager.bringForward()
 
+      expect(mockEditor.textManager.exitActiveTextEditing).toHaveBeenCalledTimes(1)
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.bringObjectForward).toHaveBeenCalledWith(mockObject)
       expect(mockCanvas.renderAll).toHaveBeenCalled()
@@ -167,6 +174,7 @@ describe('LayerManager', () => {
 
       layerManager.sendBackwards()
 
+      expect(mockEditor.textManager.exitActiveTextEditing).toHaveBeenCalledTimes(1)
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.sendObjectBackwards).toHaveBeenCalledWith(mockObject)
 

@@ -437,7 +437,8 @@ export const createEditorStub = () => {
     },
     textManager: {
       isTextEditingActive: false,
-      commitStandaloneTextScale: jest.fn()
+      commitStandaloneTextScale: jest.fn(),
+      exitActiveTextEditing: jest.fn().mockReturnValue(false)
     },
     errorManager: {
       emitWarning: jest.fn(),
@@ -1107,10 +1108,10 @@ export const createTextManagerTestSetup = (
     discardActiveObject: jest.fn(() => {
       if (activeObject && (activeObject as any).type === 'activeSelection') {
         const selection = activeObject as unknown as ActiveSelection
-        const objects = selection.getObjects()
+        const selectionObjects = selection.getObjects()
         const { scaleX = 1, scaleY = 1 } = selection
 
-        objects.forEach((obj: any) => {
+        selectionObjects.forEach((obj: any) => {
           const currentScaleX = obj.scaleX ?? 1
           const currentScaleY = obj.scaleY ?? 1
 
@@ -1472,7 +1473,7 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
   // Добавляем методы моков
   mockSelection.clone = jest.fn().mockImplementation(async() => {
     // Глубокое копирование для избежания shared references
-    const clonedObjects = objects.map(obj => ({ ...obj }))
+    const clonedObjects = objects.map((obj) => ({ ...obj }))
     const clonedProps = JSON.parse(JSON.stringify(props))
     const cloned = new ActiveSelection(clonedObjects, clonedProps) as any
     cloned.set = jest.fn().mockImplementation((newProps) => {

@@ -1056,6 +1056,56 @@ describe('TextManager', () => {
     })
   })
 
+  describe('exitActiveTextEditing', () => {
+    it('завершает редактирование активного текстового объекта и перерисовывает canvas', () => {
+      const {
+        canvas,
+        textManager
+      } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Редактируемый текст'
+      })
+
+      const exitEditingSpy = jest.fn(() => {
+        textbox.isEditing = false
+      })
+      Object.assign(textbox, {
+        exitEditing: exitEditingSpy
+      })
+
+      textbox.isEditing = true
+      canvas.requestRenderAll.mockClear()
+
+      const didExit = textManager.exitActiveTextEditing()
+
+      expect(didExit).toBe(true)
+      expect(exitEditingSpy).toHaveBeenCalledTimes(1)
+      expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
+    })
+
+    it('ничего не делает если активный объект не находится в режиме редактирования текста', () => {
+      const {
+        canvas,
+        textManager
+      } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Обычный текст'
+      })
+
+      const exitEditingSpy = jest.fn()
+      Object.assign(textbox, {
+        exitEditing: exitEditingSpy
+      })
+      canvas.requestRenderAll.mockClear()
+
+      const didExit = textManager.exitActiveTextEditing()
+
+      expect(didExit).toBe(false)
+      expect(exitEditingSpy).not.toHaveBeenCalled()
+      expect(canvas.requestRenderAll).not.toHaveBeenCalled()
+    })
+  })
+
   describe('округление размеров', () => {
     it('округляет ширину и высоту при создании текстового объекта', () => {
       const { textManager } = createTextManagerTestSetup()

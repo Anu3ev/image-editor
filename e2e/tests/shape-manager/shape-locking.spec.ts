@@ -196,6 +196,134 @@ test.describe('Блокировка фигуры с текстом', () => {
       expect(activeObject?.id).toBe(shape?.id)
     })
   })
+
+  test('после блокировки фигуры введённый текст не пропадает', async({
+    editorModel,
+    history,
+    shapes
+  }) => {
+    await test.step('Открыть редактирование текста и ввести новый текст', async() => {
+      await shapes.openTextEditingFromCanvas({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      await shapes.updateEditingText({
+        id: SHAPE_LOCKING_TARGET_ID,
+        text: 'Текст перед блокировкой'
+      })
+    })
+
+    await test.step('Заблокировать фигуру', async() => {
+      await editorModel.lockSelectedObject()
+      await history.flushPendingSave()
+    })
+
+    await test.step('Проверить что фигура заблокировалась, а введённый текст сохранился', async() => {
+      const shape = await shapes.getObject({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      const textNode = await shapes.getTextNode({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+
+      expect(shape?.locked).toBe(true)
+      expect(textNode?.isEditing).toBe(false)
+      expect(textNode?.text).toBe('Текст перед блокировкой')
+    })
+  })
+
+  test('после блокировки фигуры undo сначала снимает блокировку, а потом возвращает прежний текст', async({
+    editorModel,
+    history,
+    shapes
+  }) => {
+    await test.step('Открыть редактирование текста, изменить текст и заблокировать фигуру', async() => {
+      await shapes.openTextEditingFromCanvas({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      await shapes.updateEditingText({
+        id: SHAPE_LOCKING_TARGET_ID,
+        text: 'Текст перед блокировкой'
+      })
+      await editorModel.lockSelectedObject()
+      await history.flushPendingSave()
+    })
+
+    await test.step('Сделать первый undo и проверить что снялась только блокировка', async() => {
+      await history.undo()
+
+      const shape = await shapes.getObject({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      const textNode = await shapes.getTextNode({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+
+      expect(shape?.locked).toBe(false)
+      expect(textNode?.text).toBe('Текст перед блокировкой')
+    })
+
+    await test.step('Сделать второй undo и вернуть исходный текст', async() => {
+      await history.undo()
+
+      const shape = await shapes.getObject({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      const textNode = await shapes.getTextNode({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+
+      expect(shape?.locked).toBe(false)
+      expect(textNode?.text).toBe('Alpha Beta')
+    })
+  })
+
+  test('после undo и redo новый текст и блокировка возвращаются в том же порядке', async({
+    editorModel,
+    history,
+    shapes
+  }) => {
+    await test.step('Открыть редактирование текста, изменить текст и заблокировать фигуру', async() => {
+      await shapes.openTextEditingFromCanvas({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      await shapes.updateEditingText({
+        id: SHAPE_LOCKING_TARGET_ID,
+        text: 'Текст перед блокировкой'
+      })
+      await editorModel.lockSelectedObject()
+      await history.flushPendingSave()
+      await history.undo()
+      await history.undo()
+    })
+
+    await test.step('Первый redo должен вернуть новый текст без блокировки', async() => {
+      await history.redo()
+
+      const shape = await shapes.getObject({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      const textNode = await shapes.getTextNode({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+
+      expect(shape?.locked).toBe(false)
+      expect(textNode?.text).toBe('Текст перед блокировкой')
+    })
+
+    await test.step('Второй redo должен вернуть блокировку поверх нового текста', async() => {
+      await history.redo()
+
+      const shape = await shapes.getObject({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      const textNode = await shapes.getTextNode({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+
+      expect(shape?.locked).toBe(true)
+      expect(textNode?.text).toBe('Текст перед блокировкой')
+    })
+  })
 })
 
 test.describe('Заблокированная фигура после восстановления выделения', () => {
