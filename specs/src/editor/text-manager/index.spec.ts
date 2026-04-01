@@ -1029,6 +1029,7 @@ describe('TextManager', () => {
 
       const beginActionSpy = jest.spyOn(historyManager, 'beginAction').mockImplementation(() => {})
       const endActionSpy = jest.spyOn(historyManager, 'endAction').mockImplementation(() => {})
+      const stageStateSpy = jest.spyOn(historyManager, 'stageCurrentStateForPendingSave').mockImplementation(() => {})
       const scheduleSaveSpy = jest.spyOn(historyManager, 'scheduleSaveState').mockImplementation(() => {})
 
       const textbox = textManager.addText({ text: 'Редактирование' })
@@ -1041,13 +1042,16 @@ describe('TextManager', () => {
       canvas.fire('text:editing:exited', { target: textbox })
 
       expect(endActionSpy).toHaveBeenCalledWith({ reason: 'text-edit' })
+      expect(stageStateSpy).toHaveBeenCalledWith({ reason: 'text-edit' })
       expect(scheduleSaveSpy).toHaveBeenCalledWith({
         delayMs: TEXT_EDITING_DEBOUNCE_MS,
         reason: 'text-edit'
       })
+      expect(stageStateSpy.mock.invocationCallOrder[0]).toBeLessThan(scheduleSaveSpy.mock.invocationCallOrder[0])
 
       beginActionSpy.mockRestore()
       endActionSpy.mockRestore()
+      stageStateSpy.mockRestore()
       scheduleSaveSpy.mockRestore()
     })
   })
