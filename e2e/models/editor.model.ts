@@ -147,6 +147,69 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
+  /** Блокирует текущий выделенный объект через публичный API редактора. */
+  async lockSelectedObject(): Promise<void> {
+    await this.page.evaluate(() => {
+      const { editor } = window as any
+
+      editor.objectLockManager.lockObject()
+    })
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Разблокирует текущий выделенный объект через публичный API редактора. */
+  async unlockSelectedObject(): Promise<void> {
+    await this.page.evaluate(() => {
+      const { editor } = window as any
+
+      editor.objectLockManager.unlockObject()
+    })
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Отправляет keydown пробела и ждёт завершения реакции редактора. */
+  async pressSpaceKey(): Promise<void> {
+    await this.page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: ' ',
+        code: 'Space',
+        bubbles: true,
+        cancelable: true
+      }))
+    })
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Отправляет keyup пробела и ждёт завершения реакции редактора. */
+  async releaseSpaceKey(): Promise<void> {
+    await this.page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent('keyup', {
+        key: ' ',
+        code: 'Space',
+        bubbles: true,
+        cancelable: true
+      }))
+    })
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Возвращает текущее cursor-состояние верхнего canvas слоя. */
+  async getCanvasCursorState(): Promise<{
+    currentCursor: string
+  }> {
+    return this.page.evaluate(() => {
+      const { editor } = window as any
+
+      return {
+        currentCursor: editor.canvas.upperCanvasEl.style.cursor ?? ''
+      }
+    })
+  }
+
   /** Возвращает информацию о montage area */
   async getMontageArea(): Promise<MontageAreaInfo> {
     return this.page.evaluate(() => {

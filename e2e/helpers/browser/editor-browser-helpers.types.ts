@@ -34,6 +34,7 @@ export type BrowserSerializableObject = BrowserObject & {
   opacity?: unknown
   visible?: unknown
   selectable?: unknown
+  locked?: unknown
   flipX?: unknown
   flipY?: unknown
   shapeComposite?: unknown
