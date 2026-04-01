@@ -60,6 +60,12 @@ export class Pattern {
   }
 }
 
+export class FitContentLayout {
+  calcBoundingBox(_objects: unknown[], _context: unknown) {
+    return undefined
+  }
+}
+
 export class Rect {
   private props: Record<string, any>
 
@@ -851,6 +857,7 @@ export default {
   FabricImage,
   Gradient,
   Textbox,
+  FitContentLayout,
   InteractiveFabricObject,
   controlsUtils,
   Color,

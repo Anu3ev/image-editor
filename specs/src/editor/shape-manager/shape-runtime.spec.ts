@@ -30,7 +30,7 @@ describe('shape-runtime', () => {
     expect(group.subTargetCheck).toBe(true)
   })
 
-  it('prepareShapeTextNode переводит textbox в базовый неинтерактивный режим', () => {
+  it('prepareShapeTextNode для незаблокированного textbox переводит его в базовый неинтерактивный режим', () => {
     const text = createMockShapeTextbox({ text: 'hello' })
 
     text.autoExpand = true
@@ -41,10 +41,42 @@ describe('shape-runtime', () => {
     expect(text.hasControls).toBe(false)
     expect(text.evented).toBe(false)
     expect(text.selectable).toBe(false)
+    expect(text.lockMovementX).toBe(false)
+    expect(text.lockMovementY).toBe(false)
     expect(text.editable).toBe(true)
     expect(text.autoExpand).toBe(false)
     expect(text.shapeNodeType).toBe('text')
     expect(text.setCoords).toHaveBeenCalled()
+  })
+
+  it('prepareShapeTextNode делает внутренний textbox неeditable, если заблокирован сам текстовый узел', () => {
+    const text = createMockShapeTextbox({ text: 'hello' })
+
+    text.locked = true
+
+    prepareShapeTextNode({ text })
+
+    expect(text.lockMovementX).toBe(true)
+    expect(text.lockMovementY).toBe(true)
+    expect(text.editable).toBe(false)
+    expect(text.evented).toBe(false)
+    expect(text.selectable).toBe(false)
+  })
+
+  it('prepareShapeTextNode делает внутренний textbox неeditable, если заблокирована родительская shape-группа', () => {
+    const shape = createMockShapeNode()
+    const text = createMockShapeTextbox({ text: 'hello' })
+    const group = createMockShapeGroup({ shape, text })
+
+    group.locked = true
+
+    prepareShapeTextNode({ text })
+
+    expect(text.lockMovementX).toBe(true)
+    expect(text.lockMovementY).toBe(true)
+    expect(text.editable).toBe(false)
+    expect(text.evented).toBe(false)
+    expect(text.selectable).toBe(false)
   })
 
   it('detachShapeGroupAutoLayout отписывает все target objects от layout manager', () => {
