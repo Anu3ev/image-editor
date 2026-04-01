@@ -17,7 +17,7 @@ export const isShapeGroup = (
   || (object instanceof Group && object.shapeComposite === true)
 
 /**
- * Возвращает shape-группу из target/subTarget.
+ * Разрешает shape-группу из target, subTarget или внутреннего узла shape-композиции.
  */
 export const resolveShapeGroupFromTarget = ({
   target,
