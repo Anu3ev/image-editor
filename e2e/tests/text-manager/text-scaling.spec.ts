@@ -1,65 +1,329 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
   TEXT_DIAGONAL_SCALING_FACTORS,
+  TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR,
+  TEXT_DIAGONAL_REEXPAND_SCALING_FACTOR,
+  TEXT_DIAGONAL_RECOVERY_SCALING_FACTOR,
   TEXT_HORIZONTAL_SCALING_FACTOR,
   TEXT_HORIZONTAL_SCALING_NARROW_STEPS,
+  TEXT_MINIMUM_SCALING_ADD_OPTIONS,
+  TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION,
   TEXT_RESIZING_TOLERANCE,
-  TEXT_SCALING_REGRESSION_WIDTH,
-  TEXT_VERTICAL_SCALING_FACTOR
+  TEXT_SCALING_MINIMUM_FONT_SIZE,
+  TEXT_SCALING_REGRESSION_WIDTH
 } from '../../fixtures/data/text-resizing.data'
 
 test.describe('Скейлинг текстового объекта', () => {
-  test.beforeEach(async({ text }) => {
-    await text.addRegressionText()
+  test.describe('объект с одним размером шрифта', () => {
+    test.beforeEach(async({ text }) => {
+      const textObject = await text.add(TEXT_MINIMUM_SCALING_ADD_OPTIONS)
+
+      text.checkCreation({ textObject })
+    })
+
+    test('при быстром скейлинге по диагонали текст упирается в минимальный размер шрифта и дальше не сжимается', async({
+      text
+    }) => {
+      const initialSnapshot = await test.step('Получить исходное состояние текстового объекта', async() => {
+        return text.getResizeSnapshot({ objectIndex: 0 })
+      })
+
+      const minimumSnapshot = await test.step('Сжать текст по диагонали до упора в минимальный размер шрифта', async() => {
+        return text.shrinkDiagonallyToMinimumSize({ objectIndex: 0 })
+      })
+
+      const blockedSnapshot = await test.step('Попробовать ещё сильнее уменьшить текст, не отпуская мышь', async() => {
+        return text.scaleDiagonallyFromBottomRight({
+          objectIndex: 0,
+          scaleX: TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR,
+          scaleY: TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR
+        })
+      })
+
+      const finalSnapshot = await test.step('Завершить скейлинг и получить финальное состояние', async() => {
+        return text.finishScale({ objectIndex: 0 })
+      })
+
+      const expectedMinimumWidth = initialSnapshot.width
+        * (TEXT_SCALING_MINIMUM_FONT_SIZE / initialSnapshot.fontSize)
+
+      await test.step('Проверить что текст упёрся в минимум и больше не уменьшается', () => {
+        expect(minimumSnapshot.fontSize).toBe(TEXT_SCALING_MINIMUM_FONT_SIZE)
+        expect(Math.abs(minimumSnapshot.width - expectedMinimumWidth))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(blockedSnapshot.fontSize).toBe(TEXT_SCALING_MINIMUM_FONT_SIZE)
+        expect(Math.abs(blockedSnapshot.width - minimumSnapshot.width))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(Math.abs(finalSnapshot.width - minimumSnapshot.width))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(finalSnapshot.fontSize).toBe(TEXT_SCALING_MINIMUM_FONT_SIZE)
+        expect(finalSnapshot.scaleX).toBe(1)
+        expect(finalSnapshot.scaleY).toBe(1)
+      })
+    })
+
+    test('после упора в минимальный размер текст можно сразу тянуть обратно, не отпуская мышь', async({
+      text
+    }) => {
+      const minimumSnapshot = await test.step('Сжать текст по диагонали до упора в минимальный размер шрифта', async() => {
+        return text.shrinkDiagonallyToMinimumSize({ objectIndex: 0 })
+      })
+
+      const expandedSnapshot = await test.step('Не отпуская мышь, сразу потянуть текст обратно', async() => {
+        return text.scaleDiagonallyFromBottomRight({
+          objectIndex: 0,
+          scaleX: TEXT_DIAGONAL_RECOVERY_SCALING_FACTOR,
+          scaleY: TEXT_DIAGONAL_RECOVERY_SCALING_FACTOR
+        })
+      })
+
+      const finalSnapshot = await test.step('Завершить скейлинг и получить финальное состояние', async() => {
+        return text.finishScale({ objectIndex: 0 })
+      })
+
+      await test.step('Проверить что после упора в минимум текст снова начинает увеличиваться', () => {
+        expect(expandedSnapshot.width).toBeGreaterThan(minimumSnapshot.width + 1)
+        expect(expandedSnapshot.fontSize).toBeGreaterThan(minimumSnapshot.fontSize)
+        expect(Math.abs(finalSnapshot.width - expandedSnapshot.width))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(finalSnapshot.fontSize).toBeCloseTo(expandedSnapshot.fontSize, 5)
+      })
+    })
+
+    test('после повторного уменьшения по диагонали текст приходит к той же минимальной ширине и тому же размеру шрифта', async({
+      text
+    }) => {
+      const firstMinimumSnapshot = await test.step('Первый раз сжать текст до минимального размера', async() => {
+        return text.shrinkDiagonallyToMinimumSize({ objectIndex: 0 })
+      })
+
+      await test.step('Зафиксировать первое минимальное состояние', async() => {
+        await text.finishScale({ objectIndex: 0 })
+      })
+
+      const expandedSnapshot = await test.step('Повторно увеличить текст после фиксации минимального размера', async() => {
+        return text.scaleDiagonallyFromBottomRight({
+          objectIndex: 0,
+          scaleX: TEXT_DIAGONAL_REEXPAND_SCALING_FACTOR,
+          scaleY: TEXT_DIAGONAL_REEXPAND_SCALING_FACTOR
+        })
+      })
+
+      await test.step('Зафиксировать увеличенное состояние', async() => {
+        await text.finishScale({ objectIndex: 0 })
+      })
+
+      const secondMinimumSnapshot = await test.step('Повторно сжать текст до минимального размера', async() => {
+        return text.shrinkDiagonallyToMinimumSize({ objectIndex: 0 })
+      })
+
+      await test.step('Проверить что минимальная ширина и минимальный размер шрифта совпадают в обоих циклах', () => {
+        expect(expandedSnapshot.width).toBeGreaterThan(firstMinimumSnapshot.width + 1)
+        expect(expandedSnapshot.fontSize).toBeGreaterThan(firstMinimumSnapshot.fontSize)
+        expect(Math.abs(secondMinimumSnapshot.width - firstMinimumSnapshot.width))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(secondMinimumSnapshot.fontSize).toBe(firstMinimumSnapshot.fontSize)
+      })
+
+      await test.step('Завершить повторный скейлинг в минимальное состояние', async() => {
+        await text.finishScale({ objectIndex: 0 })
+      })
+    })
   })
 
-  test('после ручного сужения скейлинг по диагонали использует новую ширину как базовую', async({
-    text
-  }) => {
-    const initialSnapshot = await test.step('Получить исходное состояние текстового объекта', async() => {
-      return text.getResizeSnapshot({ objectIndex: 0 })
+  test.describe('объект с разными размерами строк', () => {
+    test.beforeEach(async({ text }) => {
+      await text.addRegressionText()
     })
 
-    const targetWidth = Math.min(
-      TEXT_SCALING_REGRESSION_WIDTH,
-      Math.max(80, initialSnapshot.width - 80)
-    )
-
-    await test.step('Сузить текстовый объект вручную и зафиксировать новую ширину', async() => {
-      await text.resizeFromRightToWidth({
-        objectIndex: 0,
-        width: targetWidth
+    test('после ручного сужения скейлинг по диагонали использует новую ширину как базовую', async({
+      text
+    }) => {
+      const initialSnapshot = await test.step('Получить исходное состояние текстового объекта', async() => {
+        return text.getResizeSnapshot({ objectIndex: 0 })
       })
-      await text.finishResize({ objectIndex: 0 })
-    })
 
-    const narrowedSnapshot = await test.step('Получить состояние после ручного сужения', async() => {
-      return text.getResizeSnapshot({ objectIndex: 0 })
-    })
+      const targetWidth = Math.min(
+        TEXT_SCALING_REGRESSION_WIDTH,
+        Math.max(80, initialSnapshot.width - 80)
+      )
 
-    await test.step('Масштабировать текстовый объект по диагонали', async() => {
-      await text.scaleDiagonallyFromBottomRight({
-        objectIndex: 0,
-        scaleX: TEXT_DIAGONAL_SCALING_FACTORS.scaleX,
-        scaleY: TEXT_DIAGONAL_SCALING_FACTORS.scaleY
+      await test.step('Сузить текстовый объект вручную и зафиксировать новую ширину', async() => {
+        await text.resizeFromRightToWidth({
+          objectIndex: 0,
+          width: targetWidth
+        })
+        await text.finishResize({ objectIndex: 0 })
+      })
+
+      const narrowedSnapshot = await test.step('Получить состояние после ручного сужения', async() => {
+        return text.getResizeSnapshot({ objectIndex: 0 })
+      })
+
+      await test.step('Масштабировать текстовый объект по диагонали', async() => {
+        await text.scaleDiagonallyFromBottomRight({
+          objectIndex: 0,
+          scaleX: TEXT_DIAGONAL_SCALING_FACTORS.scaleX,
+          scaleY: TEXT_DIAGONAL_SCALING_FACTORS.scaleY
+        })
+      })
+
+      const scaledSnapshot = await test.step('Завершить скейлинг и получить финальное состояние', async() => {
+        await text.finishScale({ objectIndex: 0 })
+        return text.getResizeSnapshot({ objectIndex: 0 })
+      })
+
+      const expectedWidthFromNewBase = narrowedSnapshot.width * TEXT_DIAGONAL_SCALING_FACTORS.scaleX
+      const expectedWidthFromOriginalBase = initialSnapshot.width * TEXT_DIAGONAL_SCALING_FACTORS.scaleX
+
+      await test.step('Проверить что новой базой стала вручную заданная ширина, а не исходная', () => {
+        expect(Math.abs(scaledSnapshot.width - expectedWidthFromNewBase))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(Math.abs(scaledSnapshot.width - expectedWidthFromOriginalBase)).toBeGreaterThan(20)
+        expect(scaledSnapshot.width).toBeGreaterThan(narrowedSnapshot.width + 1)
+        expect(scaledSnapshot.scaleX).toBe(1)
+        expect(scaledSnapshot.scaleY).toBe(1)
       })
     })
 
-    const scaledSnapshot = await test.step('Завершить скейлинг и получить финальное состояние', async() => {
-      await text.finishScale({ objectIndex: 0 })
-      return text.getResizeSnapshot({ objectIndex: 0 })
+    test('после скейлинга по диагонали текст с разными размерами строк сохраняет разницу между строками после mouseup', async({
+      text
+    }) => {
+      const initialSnapshot = await test.step('Получить исходное состояние текстового объекта', async() => {
+        return text.getResizeSnapshot({ objectIndex: 0 })
+      })
+
+      const initialSecondLineStyle = await test.step('Прочитать размер шрифта второй строки до скейлинга', async() => {
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          start: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.start,
+          end: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.end
+        })
+
+        const selectionStyle = await text.getSelectionStyles({ objectIndex: 0 })
+
+        await text.exitTextEditing({ objectIndex: 0 })
+
+        return selectionStyle
+      })
+
+      await test.step('Масштабировать текст по диагонали', async() => {
+        await text.scaleDiagonallyFromBottomRight({
+          objectIndex: 0,
+          scaleX: TEXT_DIAGONAL_SCALING_FACTORS.scaleX,
+          scaleY: TEXT_DIAGONAL_SCALING_FACTORS.scaleY
+        })
+      })
+
+      const finalSnapshot = await test.step('Завершить скейлинг и получить финальное состояние', async() => {
+        return text.finishScale({ objectIndex: 0 })
+      })
+
+      const finalSecondLineStyle = await test.step('Прочитать размер шрифта второй строки после завершения скейлинга', async() => {
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          start: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.start,
+          end: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.end
+        })
+
+        const selectionStyle = await text.getSelectionStyles({ objectIndex: 0 })
+
+        await text.exitTextEditing({ objectIndex: 0 })
+
+        return selectionStyle
+      })
+
+      await test.step('Проверить что относительная разница между строками сохраняется после mouseup', () => {
+        expect(initialSecondLineStyle?.fontSize).not.toBeNull()
+        expect(finalSecondLineStyle?.fontSize).not.toBeNull()
+
+        const initialSecondLineFontSize = initialSecondLineStyle?.fontSize ?? 0
+        const finalSecondLineFontSize = finalSecondLineStyle?.fontSize ?? 0
+        const initialRatio = initialSecondLineFontSize / initialSnapshot.fontSize
+        const finalRatio = finalSecondLineFontSize / finalSnapshot.fontSize
+
+        expect(finalSnapshot.fontSize).toBeGreaterThan(initialSnapshot.fontSize)
+        expect(finalSecondLineFontSize).toBeGreaterThan(initialSecondLineFontSize)
+        expect(finalSecondLineFontSize).toBeLessThan(finalSnapshot.fontSize)
+        expect(finalRatio).toBeCloseTo(initialRatio, 2)
+      })
     })
 
-    const expectedWidthFromNewBase = narrowedSnapshot.width * TEXT_DIAGONAL_SCALING_FACTORS.scaleX
-    const expectedWidthFromOriginalBase = initialSnapshot.width * TEXT_DIAGONAL_SCALING_FACTORS.scaleX
+    test('после undo и redo текст с разными размерами строк сохраняет размеры строк после диагонального скейлинга', async({
+      history,
+      text
+    }) => {
+      await test.step('Масштабировать текст по диагонали и сохранить это состояние в history', async() => {
+        await text.scaleDiagonallyFromBottomRight({
+          objectIndex: 0,
+          scaleX: TEXT_DIAGONAL_SCALING_FACTORS.scaleX,
+          scaleY: TEXT_DIAGONAL_SCALING_FACTORS.scaleY
+        })
+        await text.finishScale({ objectIndex: 0 })
+        await history.flushPendingSave()
+      })
 
-    await test.step('Проверить что новой базой стала вручную заданная ширина, а не исходная', () => {
-      expect(Math.abs(scaledSnapshot.width - expectedWidthFromNewBase))
-        .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
-      expect(Math.abs(scaledSnapshot.width - expectedWidthFromOriginalBase)).toBeGreaterThan(20)
-      expect(scaledSnapshot.width).toBeGreaterThan(narrowedSnapshot.width + 1)
-      expect(scaledSnapshot.scaleX).toBe(1)
-      expect(scaledSnapshot.scaleY).toBe(1)
+      const scaledSnapshot = await test.step('Получить состояние после диагонального скейлинга', async() => {
+        return text.getResizeSnapshot({ objectIndex: 0 })
+      })
+
+      const scaledSecondLineStyle = await test.step('Прочитать размер шрифта второй строки после скейлинга', async() => {
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          start: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.start,
+          end: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.end
+        })
+
+        const selectionStyle = await text.getSelectionStyles({ objectIndex: 0 })
+
+        await text.exitTextEditing({ objectIndex: 0 })
+
+        return selectionStyle
+      })
+
+      await test.step('Сделать undo и redo', async() => {
+        await history.undo()
+        await history.redo()
+      })
+
+      const redoneSnapshot = await test.step('Получить состояние после redo', async() => {
+        return text.getResizeSnapshot({ objectIndex: 0 })
+      })
+
+      const redoneSecondLineStyle = await test.step('Прочитать размер шрифта второй строки после redo', async() => {
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          start: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.start,
+          end: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.end
+        })
+
+        const selectionStyle = await text.getSelectionStyles({ objectIndex: 0 })
+
+        await text.exitTextEditing({ objectIndex: 0 })
+
+        return selectionStyle
+      })
+
+      await test.step('Проверить что redo возвращает те же размеры строк и ту же пропорцию между ними', () => {
+        expect(scaledSecondLineStyle?.fontSize).not.toBeNull()
+        expect(redoneSecondLineStyle?.fontSize).not.toBeNull()
+
+        const scaledSecondLineFontSize = scaledSecondLineStyle?.fontSize ?? 0
+        const redoneSecondLineFontSize = redoneSecondLineStyle?.fontSize ?? 0
+        const scaledRatio = scaledSecondLineFontSize / scaledSnapshot.fontSize
+        const redoneRatio = redoneSecondLineFontSize / redoneSnapshot.fontSize
+
+        expect(Math.abs(redoneSnapshot.fontSize - scaledSnapshot.fontSize))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(Math.abs(redoneSecondLineFontSize - scaledSecondLineFontSize))
+          .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+        expect(redoneSecondLineFontSize).toBeLessThan(redoneSnapshot.fontSize)
+        expect(redoneRatio).toBeCloseTo(scaledRatio, 2)
+      })
     })
   })
 

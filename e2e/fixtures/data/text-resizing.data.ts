@@ -36,6 +36,43 @@ export const TEXT_HORIZONTAL_SCALING_NARROW_STEPS = [
   0.42
 ]
 
+/** Минимальный размер шрифта при скейлинге standalone text. */
+export const TEXT_SCALING_MINIMUM_FONT_SIZE = 8
+
+/** Коэффициент для проверки дальнейшего сужения после упора в минимум в той же drag-сессии. */
+export const TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR = 0.05
+
+/** Коэффициент для возврата текста назад без завершения текущего диагонального скейлинга. */
+export const TEXT_DIAGONAL_RECOVERY_SCALING_FACTOR = 1.35
+
+/** Коэффициент для повторного увеличения текста после фиксации минимального размера. */
+export const TEXT_DIAGONAL_REEXPAND_SCALING_FACTOR = 1.5
+
+/** Конфигурация однострочного текста для проверки упора в минимум при диагональном скейлинге. */
+export const TEXT_MINIMUM_SCALING_ADD_OPTIONS: TextAddParams = {
+  text: 'TEST',
+  autoExpand: false,
+  fontFamily: 'Exo 2',
+  fontSize: 12,
+  bold: true,
+  lineHeight: 1.16,
+  align: 'center',
+  color: '#333333',
+  backgroundColor: '#EBE4ED',
+  backgroundOpacity: 1,
+  paddingTop: 21,
+  paddingRight: 12,
+  paddingBottom: 30,
+  paddingLeft: 12,
+  radiusTopLeft: 24,
+  radiusTopRight: 24,
+  radiusBottomRight: 24,
+  radiusBottomLeft: 24,
+  width: 120,
+  left: 281,
+  top: 352
+}
+
 /** Конфигурация standalone text-объекта, воспроизводящая resize/reflow регрессию. */
 export const TEXT_RESIZING_REGRESSION_ADD_OPTIONS: TextAddParams = {
   text: '69\nЧасов музыки',
@@ -75,6 +112,12 @@ export const TEXT_RESIZING_REGRESSION_LINE_DEFAULTS: TextLineDefaults = {
     fontFamily: 'Open Sans',
     fontSize: 24
   }
+}
+
+/** Диапазон второй строки regression text-объекта для проверки inline-стилей. */
+export const TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION = {
+  start: 3,
+  end: 15
 }
 
 /** Template JSON standalone text-объекта из регрессии resize/reflow. */
