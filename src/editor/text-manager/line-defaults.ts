@@ -7,7 +7,10 @@ import type {
   EditorTextbox,
   LineFontDefaultUpdate
 } from './types'
-import { DIMENSION_EPSILON } from './constants'
+import {
+  DIMENSION_EPSILON,
+  MIN_TEXTBOX_FONT_SIZE
+} from './constants'
 
 /**
  * Обновляет lineFontDefaults для указанных строк, изменяя только заданные поля.
@@ -273,7 +276,8 @@ export const cloneLineFontDefaults = ({
 }
 
 /**
- * Масштабирует fontSize в lineFontDefaults по заданному коэффициенту.
+ * Масштабирует fontSize в lineFontDefaults по заданному коэффициенту,
+ * не позволяя ему уйти ниже минимального размера текста.
  */
 export const scaleLineFontDefaults = ({
   lineFontDefaults,
@@ -299,7 +303,8 @@ export const scaleLineFontDefaults = ({
 
     const nextLineDefault: LineFontDefault = { ...lineDefault }
     if (typeof lineDefault.fontSize === 'number') {
-      nextLineDefault.fontSize = Math.max(1, lineDefault.fontSize * scale)
+      const minimumFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, lineDefault.fontSize)
+      nextLineDefault.fontSize = Math.max(minimumFontSize, lineDefault.fontSize * scale)
       hasScaledFontSize = true
     }
 

@@ -19,6 +19,7 @@ import type {
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 import {
+  TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR,
   TEXT_RESIZING_REGRESSION_ADD_OPTIONS,
   TEXT_RESIZING_REGRESSION_LINE_DEFAULTS,
   TEXT_RESIZING_REGRESSION_SECOND_LINE_STYLE,
@@ -573,6 +574,43 @@ export class TextModel {
     })
   }
 
+  /** Сжимает текст по диагонали до стабильного live-состояния, где дальше он уже не уменьшается. */
+  async shrinkDiagonallyToMinimumSize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
+    const {
+      objectIndex,
+      id
+    } = params
+    const initialShrinkScale = 0.2
+    const maximumAttempts = 5
+    const stabilityTolerance = 0.01
+
+    let currentSnapshot = await this.scaleDiagonallyFromBottomRight({
+      scaleX: initialShrinkScale,
+      scaleY: initialShrinkScale,
+      objectIndex,
+      id
+    })
+
+    for (let attempt = 0; attempt < maximumAttempts; attempt += 1) {
+      const nextSnapshot = await this.scaleDiagonallyFromBottomRight({
+        scaleX: TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR,
+        scaleY: TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR,
+        objectIndex,
+        id
+      })
+      const widthChange = Math.abs(nextSnapshot.width - currentSnapshot.width)
+      const fontSizeChange = Math.abs(nextSnapshot.fontSize - currentSnapshot.fontSize)
+
+      currentSnapshot = nextSnapshot
+
+      if (widthChange <= stabilityTolerance && fontSizeChange <= stabilityTolerance) {
+        return currentSnapshot
+      }
+    }
+
+    return currentSnapshot
+  }
+
   /** Завершает интерактивный scale текстового объекта через реальный mouseup. */
   async finishScale(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
@@ -665,13 +703,19 @@ export class TextModel {
       objectIndex,
       id
     } = params
-    const point = await this.page.evaluate(({ offsetX, offsetY, objectIndex, id }) => {
+    const point = await this.page.evaluate((payload) => {
+      const {
+        offsetX: pointerOffsetX,
+        offsetY: pointerOffsetY,
+        objectIndex: targetObjectIndex,
+        id: targetId
+      } = payload
       const {
         editor,
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
       if (!target) return null
 
       target.setCoords()
@@ -695,8 +739,8 @@ export class TextModel {
       const maxY = canvasRect.bottom - 10
 
       return {
-        x: Math.min(Math.max(canvasRect.left + viewportX + offsetX, minX), maxX),
-        y: Math.min(Math.max(canvasRect.top + viewportY + offsetY, minY), maxY)
+        x: Math.min(Math.max(canvasRect.left + viewportX + pointerOffsetX, minX), maxX),
+        y: Math.min(Math.max(canvasRect.top + viewportY + pointerOffsetY, minY), maxY)
       }
     }, {
       offsetX,
@@ -1417,5 +1461,4 @@ export class TextModel {
 
     return true
   }
-
 }
