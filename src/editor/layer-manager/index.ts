@@ -16,13 +16,24 @@ export default class LayerManager {
    * @param object
    * @param options
    * @param options.withoutSave - Не сохранять действие в истории изменений
+   * Если сохранение включено и в этот момент открыт text editing,
+   * менеджер сначала завершает редактирование, чтобы текст сохранился
+   * отдельным history-шагом до изменения слоя.
    * @fires editor:object-bring-to-front
    */
   public bringToFront(
     object?: FabricObject,
     { withoutSave }: { withoutSave?: boolean } = {}
   ): void {
-    const { canvas, historyManager } = this.editor
+    const {
+      canvas,
+      historyManager,
+      textManager
+    } = this.editor
+
+    if (!withoutSave) {
+      textManager.exitActiveTextEditing()
+    }
 
     historyManager.suspendHistory()
 
@@ -56,13 +67,24 @@ export default class LayerManager {
    * @param object
    * @param options
    * @param options.withoutSave - Не сохранять действие в истории изменений
+   * Если сохранение включено и в этот момент открыт text editing,
+   * менеджер сначала завершает редактирование, чтобы текст сохранился
+   * отдельным history-шагом до изменения слоя.
    * @fires editor:object-bring-forward
    */
   public bringForward(
     object?: FabricObject,
     { withoutSave }: { withoutSave?: boolean } = {}
   ): void {
-    const { canvas, historyManager } = this.editor
+    const {
+      canvas,
+      historyManager,
+      textManager
+    } = this.editor
+
+    if (!withoutSave) {
+      textManager.exitActiveTextEditing()
+    }
 
     historyManager.suspendHistory()
 
@@ -93,6 +115,9 @@ export default class LayerManager {
    * @param object
    * @param options
    * @param options.withoutSave - Не сохранять действие в истории изменений
+   * Если сохранение включено и в этот момент открыт text editing,
+   * менеджер сначала завершает редактирование, чтобы текст сохранился
+   * отдельным history-шагом до изменения слоя.
    * @fires editor:object-send-to-back
    */
   public sendToBack(
@@ -103,9 +128,14 @@ export default class LayerManager {
       canvas,
       montageArea,
       historyManager,
+      textManager,
       interactionBlocker: { overlayMask },
       backgroundManager: { backgroundObject }
     } = this.editor
+
+    if (!withoutSave) {
+      textManager.exitActiveTextEditing()
+    }
 
     historyManager.suspendHistory()
 
@@ -149,11 +179,14 @@ export default class LayerManager {
   }
 
   /**
-  * Отправить объект на один уровень ниже по оси Z
-  * @param object
-  * @param options
-  * @param options.withoutSave - Не сохранять действие в истории изменений
-  */
+   * Отправить объект на один уровень ниже по оси Z
+   * @param object
+   * @param options
+   * @param options.withoutSave - Не сохранять действие в истории изменений
+   * Если сохранение включено и в этот момент открыт text editing,
+   * менеджер сначала завершает редактирование, чтобы текст сохранился
+   * отдельным history-шагом до изменения слоя.
+   */
   public sendBackwards(
     object?: FabricObject,
     { withoutSave }: { withoutSave?: boolean } = {}
@@ -162,9 +195,14 @@ export default class LayerManager {
       canvas,
       montageArea,
       historyManager,
+      textManager,
       interactionBlocker: { overlayMask },
       backgroundManager: { backgroundObject }
     } = this.editor
+
+    if (!withoutSave) {
+      textManager.exitActiveTextEditing()
+    }
 
     historyManager.suspendHistory()
 

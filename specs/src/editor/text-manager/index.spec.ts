@@ -1029,6 +1029,7 @@ describe('TextManager', () => {
 
       const beginActionSpy = jest.spyOn(historyManager, 'beginAction').mockImplementation(() => {})
       const endActionSpy = jest.spyOn(historyManager, 'endAction').mockImplementation(() => {})
+      const stageStateSpy = jest.spyOn(historyManager, 'stageCurrentStateForPendingSave').mockImplementation(() => {})
       const scheduleSaveSpy = jest.spyOn(historyManager, 'scheduleSaveState').mockImplementation(() => {})
 
       const textbox = textManager.addText({ text: 'Редактирование' })
@@ -1041,14 +1042,67 @@ describe('TextManager', () => {
       canvas.fire('text:editing:exited', { target: textbox })
 
       expect(endActionSpy).toHaveBeenCalledWith({ reason: 'text-edit' })
+      expect(stageStateSpy).toHaveBeenCalledWith({ reason: 'text-edit' })
       expect(scheduleSaveSpy).toHaveBeenCalledWith({
         delayMs: TEXT_EDITING_DEBOUNCE_MS,
         reason: 'text-edit'
       })
+      expect(stageStateSpy.mock.invocationCallOrder[0]).toBeLessThan(scheduleSaveSpy.mock.invocationCallOrder[0])
 
       beginActionSpy.mockRestore()
       endActionSpy.mockRestore()
+      stageStateSpy.mockRestore()
       scheduleSaveSpy.mockRestore()
+    })
+  })
+
+  describe('exitActiveTextEditing', () => {
+    it('завершает редактирование активного текстового объекта и перерисовывает canvas', () => {
+      const {
+        canvas,
+        textManager
+      } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Редактируемый текст'
+      })
+
+      const exitEditingSpy = jest.fn(() => {
+        textbox.isEditing = false
+      })
+      Object.assign(textbox, {
+        exitEditing: exitEditingSpy
+      })
+
+      textbox.isEditing = true
+      canvas.requestRenderAll.mockClear()
+
+      const didExit = textManager.exitActiveTextEditing()
+
+      expect(didExit).toBe(true)
+      expect(exitEditingSpy).toHaveBeenCalledTimes(1)
+      expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
+    })
+
+    it('ничего не делает если активный объект не находится в режиме редактирования текста', () => {
+      const {
+        canvas,
+        textManager
+      } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'Обычный текст'
+      })
+
+      const exitEditingSpy = jest.fn()
+      Object.assign(textbox, {
+        exitEditing: exitEditingSpy
+      })
+      canvas.requestRenderAll.mockClear()
+
+      const didExit = textManager.exitActiveTextEditing()
+
+      expect(didExit).toBe(false)
+      expect(exitEditingSpy).not.toHaveBeenCalled()
+      expect(canvas.requestRenderAll).not.toHaveBeenCalled()
     })
   })
 

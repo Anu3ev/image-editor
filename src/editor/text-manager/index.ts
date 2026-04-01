@@ -766,6 +766,24 @@ export default class TextManager {
   }
 
   /**
+   * Завершает активное редактирование текста перед внешним прерывающим действием.
+   * Используется там, где следующее действие должно зафиксировать введённый текст
+   * отдельным history-шагом до собственной мутации.
+   */
+  public exitActiveTextEditing(): boolean {
+    const activeObject = this.canvas.getActiveObject()
+
+    if (!TextManager._isTextbox(activeObject)) return false
+
+    if (!activeObject.isEditing) return false
+
+    activeObject.exitEditing()
+    this.canvas.requestRenderAll()
+
+    return true
+  }
+
+  /**
    * Уничтожает менеджер и снимает слушатели.
    */
   public destroy(): void {
@@ -1434,6 +1452,7 @@ export default class TextManager {
     const { historyManager } = this.editor
 
     historyManager.endAction({ reason: 'text-edit' })
+    historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
 
     // Сохраняем состояние с небольшой задержкой, чтобы Fabric успел завершить все внутренние операции
     historyManager.scheduleSaveState({

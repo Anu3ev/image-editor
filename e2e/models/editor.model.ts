@@ -158,6 +158,17 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
+  /** Удаляет текущий выделенный объект через публичный API редактора. */
+  async deleteSelectedObject(): Promise<void> {
+    await this.page.evaluate(() => {
+      const { editor } = window as any
+
+      editor.deletionManager.deleteSelectedObjects()
+    })
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Разблокирует текущий выделенный объект через публичный API редактора. */
   async unlockSelectedObject(): Promise<void> {
     await this.page.evaluate(() => {

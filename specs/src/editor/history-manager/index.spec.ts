@@ -1204,6 +1204,155 @@ describe('HistoryManager', () => {
   })
 
   describe('undo/redo', () => {
+    it('сохраняет введённый текст отдельным шагом перед следующим действием над объектом', async() => {
+      const {
+        historyManager,
+        getCanvasObjects,
+        setCanvasObjects,
+        mockEditor
+      } = createHistoryManagerTestSetup()
+
+      mockEditor.textManager.isTextEditingActive = true
+
+      setCanvasObjects([{
+        id: 'text-1',
+        type: 'textbox',
+        text: 'до редактирования',
+        locked: false
+      }] as any[])
+      historyManager.saveState()
+
+      setCanvasObjects([{
+        id: 'text-1',
+        type: 'textbox',
+        text: 'после редактирования',
+        locked: false
+      }] as any[])
+      historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
+      historyManager.scheduleSaveState({
+        delayMs: 100,
+        reason: 'text-edit'
+      })
+
+      setCanvasObjects([{
+        id: 'text-1',
+        type: 'textbox',
+        text: 'после редактирования',
+        locked: true
+      }] as any[])
+      historyManager.saveState()
+
+      expect(historyManager.currentIndex).toBe(2)
+      expect(historyManager.totalChangesCount).toBe(2)
+      expect(mockEditor.textManager.isTextEditingActive).toBe(false)
+
+      await historyManager.undo()
+
+      expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+        text: 'после редактирования',
+        locked: false
+      }))
+
+      await historyManager.undo()
+
+      expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+        text: 'до редактирования',
+        locked: false
+      }))
+    })
+
+    it('не дублирует history-шаг после выхода из редактирования, если новых изменений не было', () => {
+      const {
+        historyManager,
+        getCanvasObjects,
+        setCanvasObjects,
+        mockEditor
+      } = createHistoryManagerTestSetup()
+
+      mockEditor.textManager.isTextEditingActive = true
+
+      setCanvasObjects([{
+        id: 'text-1',
+        type: 'textbox',
+        text: 'до редактирования'
+      }] as any[])
+      historyManager.saveState()
+
+      setCanvasObjects([{
+        id: 'text-1',
+        type: 'textbox',
+        text: 'после редактирования'
+      }] as any[])
+      historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
+      historyManager.scheduleSaveState({
+        delayMs: 100,
+        reason: 'text-edit'
+      })
+
+      const didFlush = historyManager.flushPendingSave({ reason: 'text-edit' })
+
+      expect(didFlush).toBe(true)
+      expect(historyManager.currentIndex).toBe(1)
+      expect(historyManager.totalChangesCount).toBe(1)
+      expect(mockEditor.textManager.isTextEditingActive).toBe(false)
+      expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+        text: 'после редактирования'
+      }))
+
+      historyManager.saveState()
+
+      expect(historyManager.currentIndex).toBe(1)
+      expect(historyManager.totalChangesCount).toBe(1)
+    })
+
+    it('сохраняет введённый текст отдельным шагом перед удалением объекта', async() => {
+      const {
+        historyManager,
+        getCanvasObjects,
+        setCanvasObjects,
+        mockEditor
+      } = createHistoryManagerTestSetup()
+
+      mockEditor.textManager.isTextEditingActive = true
+
+      setCanvasObjects([{
+        id: 'text-1',
+        type: 'textbox',
+        text: 'до редактирования'
+      }] as any[])
+      historyManager.saveState()
+
+      setCanvasObjects([{
+        id: 'text-1',
+        type: 'textbox',
+        text: 'после редактирования'
+      }] as any[])
+      historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
+      historyManager.scheduleSaveState({
+        delayMs: 100,
+        reason: 'text-edit'
+      })
+
+      setCanvasObjects([])
+      historyManager.saveState()
+
+      expect(historyManager.currentIndex).toBe(2)
+      expect(historyManager.totalChangesCount).toBe(2)
+      expect(mockEditor.textManager.isTextEditingActive).toBe(false)
+
+      await historyManager.undo()
+
+      expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+        text: 'после редактирования'
+      }))
+
+      await historyManager.undo()
+
+      expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+        text: 'до редактирования'
+      }))
+    })
+
     it('ничего не делает если undo вызывается без истории', async() => {
       const { historyManager, mockEditor } = createHistoryManagerTestSetup()
       const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')

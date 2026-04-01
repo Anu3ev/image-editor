@@ -102,6 +102,44 @@ test.describe('Текст внутри фигуры', () => {
     })
   })
 
+  test('после удаления фигуры undo сначала возвращает её с новым текстом, а потом с прежним текстом', async({
+    editorModel,
+    history,
+    shapes
+  }) => {
+    await test.step('Открыть редактирование текста, изменить текст и удалить фигуру', async() => {
+      await shapes.openTextEditingFromCanvas({ objectIndex: 0 })
+      await shapes.updateEditingText({
+        objectIndex: 0,
+        text: 'Текст перед удалением'
+      })
+      await editorModel.deleteSelectedObject()
+      await history.flushPendingSave()
+    })
+
+    await test.step('Проверить что фигура удалена', async() => {
+      await editorModel.checkObjectCount({ count: 0 })
+    })
+
+    await test.step('Первый undo должен вернуть фигуру уже с новым текстом', async() => {
+      await history.undo()
+
+      const shape = await shapes.getObject({ objectIndex: 0 })
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(shape).not.toBeNull()
+      expect(textNode?.text).toBe('Текст перед удалением')
+    })
+
+    await test.step('Второй undo должен вернуть прежний текст фигуры', async() => {
+      await history.undo()
+
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.text).toBe('Исходный текст')
+    })
+  })
+
   test('применяет цвет обводки текста внутри фигуры сразу без дополнительного изменения толщины', async({ shapes }) => {
     await test.step('Сначала задать толщину и стартовый цвет обводки', async() => {
       await shapes.updateTextStyle({

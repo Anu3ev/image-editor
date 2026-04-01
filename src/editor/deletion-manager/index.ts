@@ -58,6 +58,9 @@ export default class DeletionManager {
    * @param options.objects - массив объектов для удаления
    * @param options.withoutSave - Не сохранять состояние
    * @param options._isRecursiveCall - Внутренний параметр для рекурсивных вызовов
+   * Если удаление сохраняется в историю и в этот момент открыт text editing,
+   * менеджер сначала завершает редактирование, чтобы текст сохранился
+   * отдельным history-шагом до удаления.
    * @fires editor:objects-deleted
    */
   public deleteSelectedObjects({
@@ -65,7 +68,15 @@ export default class DeletionManager {
     withoutSave = false,
     _isRecursiveCall = false
   }: DeleteSelectedObjectsParams = {}): ObjectsDeletedPayload | null {
-    const { canvas, historyManager } = this.editor
+    const {
+      canvas,
+      historyManager,
+      textManager
+    } = this.editor
+
+    if (!_isRecursiveCall && !withoutSave) {
+      textManager.exitActiveTextEditing()
+    }
 
     // Получаем объекты для удаления
     const targetObjects = objects || canvas.getActiveObjects()
