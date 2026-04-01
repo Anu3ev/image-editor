@@ -1,5 +1,6 @@
 import { FabricObject, ActiveSelection, Group, Textbox } from 'fabric'
 import { ImageEditor } from '../index'
+import { resolveShapeGroupFromTarget } from '../shape-manager/shape-utils'
 
 type lockObjectOptions = {
   object?: FabricObject
@@ -23,7 +24,8 @@ export default class ObjectLockManager {
   }
 
   /**
-   * Блокирует объект (или группу объектов) на канвасе
+   * Блокирует объект (или группу объектов) на канвасе.
+   * Если передан внутренний объект shape-группы, блокировка применяется к владеющей группе.
    * @param options
    * @param options.object - объект, который нужно заблокировать
    * @param options.skipInnerObjects - не блокировать внутренние объекты
@@ -35,8 +37,10 @@ export default class ObjectLockManager {
   ): void {
     const { canvas, historyManager } = this.editor
 
-    const activeObject = object || canvas.getActiveObject()
-    if (!activeObject || activeObject.locked) return
+    const requestedObject = object || canvas.getActiveObject()
+    const targetObject = resolveShapeGroupFromTarget({ target: requestedObject }) ?? requestedObject
+
+    if (!targetObject || targetObject.locked) return
 
     const lockOptions = {
       lockMovementX: true,
@@ -50,19 +54,14 @@ export default class ObjectLockManager {
       locked: true
     }
 
-    activeObject.set(lockOptions)
+    const objectsToLock = skipInnerObjects
+      ? [targetObject]
+      : ObjectLockManager._collectLockTargets({ object: targetObject })
 
-    const shouldLockInnerObjects = !skipInnerObjects && ObjectLockManager._isGroupOrSelection(activeObject)
+    ObjectLockManager._exitEditingInTextboxes({ objects: objectsToLock })
 
-    if (shouldLockInnerObjects) {
-      (activeObject as Group | ActiveSelection).getObjects().forEach((obj) => {
-        obj.set(lockOptions)
-      })
-    }
-
-    // Если объект — текстовый блок в режиме редактирования, выходим из него перед блокировкой
-    if (activeObject instanceof Textbox && activeObject.isEditing) {
-      activeObject.exitEditing()
+    for (let index = 0; index < objectsToLock.length; index += 1) {
+      objectsToLock[index].set(lockOptions)
     }
 
     canvas.renderAll()
@@ -72,14 +71,15 @@ export default class ObjectLockManager {
     }
 
     canvas.fire('editor:object-locked', {
-      object: activeObject,
+      object: targetObject,
       skipInnerObjects,
       withoutSave
     })
   }
 
   /**
-   * Разблокирует объект (или группу объектов) на канвасе
+   * Разблокирует объект (или группу объектов) на канвасе.
+   * Если передан внутренний объект shape-группы, разблокировка применяется к владеющей группе.
    * @param options
    * @param options.object - объект, который нужно разблокировать
    * @param options.withoutSave - не сохранять состояние в истории изменений
@@ -88,8 +88,10 @@ export default class ObjectLockManager {
   unlockObject({ object, withoutSave }: unlockObjectOptions = {}): void {
     const { canvas, historyManager } = this.editor
 
-    const activeObject = object || canvas.getActiveObject()
-    if (!activeObject) return
+    const requestedObject = object || canvas.getActiveObject()
+    const targetObject = resolveShapeGroupFromTarget({ target: requestedObject }) ?? requestedObject
+
+    if (!targetObject) return
 
     const unlockOptions = {
       lockMovementX: false,
@@ -103,12 +105,10 @@ export default class ObjectLockManager {
       locked: false
     }
 
-    activeObject.set(unlockOptions)
+    const objectsToUnlock = ObjectLockManager._collectLockTargets({ object: targetObject })
 
-    if (ObjectLockManager._isGroupOrSelection(activeObject)) {
-      (activeObject as Group | ActiveSelection).getObjects().forEach((obj) => {
-        obj.set(unlockOptions)
-      })
+    for (let index = 0; index < objectsToUnlock.length; index += 1) {
+      objectsToUnlock[index].set(unlockOptions)
     }
 
     canvas.renderAll()
@@ -118,12 +118,51 @@ export default class ObjectLockManager {
     }
 
     canvas.fire('editor:object-unlocked', {
-      object: activeObject,
+      object: targetObject,
       withoutSave
     })
   }
 
   private static _isGroupOrSelection(object: FabricObject): boolean {
     return object instanceof ActiveSelection || object instanceof Group
+  }
+
+  /**
+   * Собирает объект и всех его вложенных потомков, чтобы lock-state применялся консистентно.
+   */
+  private static _collectLockTargets({ object }: { object: FabricObject }): FabricObject[] {
+    const lockTargets = [object]
+
+    if (!ObjectLockManager._isGroupOrSelection(object)) {
+      return lockTargets
+    }
+
+    const childObjects = (object as Group | ActiveSelection).getObjects()
+
+    for (let index = 0; index < childObjects.length; index += 1) {
+      const childObject = childObjects[index]
+      const nestedTargets = ObjectLockManager._collectLockTargets({ object: childObject })
+
+      for (let nestedIndex = 0; nestedIndex < nestedTargets.length; nestedIndex += 1) {
+        lockTargets.push(nestedTargets[nestedIndex])
+      }
+    }
+
+    return lockTargets
+  }
+
+  /**
+   * Завершает активное редактирование у всех текстовых объектов до применения lock-флагов.
+   */
+  private static _exitEditingInTextboxes({ objects }: { objects: FabricObject[] }): void {
+    for (let index = 0; index < objects.length; index += 1) {
+      const object = objects[index]
+
+      if (!(object instanceof Textbox) || !object.isEditing) {
+        continue
+      }
+
+      object.exitEditing()
+    }
   }
 }

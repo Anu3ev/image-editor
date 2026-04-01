@@ -28,17 +28,20 @@ export const applyShapeGroupInteractivity = ({ group }: { group: ShapeGroupLike 
 }
 
 /**
- * Переводит текстовый узел shape в базовый режим без выделения, drag-поведения и временных lock-флагов редактирования.
+ * Переводит текстовый узел shape в базовый режим без выделения и drag-поведения,
+ * сохраняя текущее locked-состояние.
  */
 export const prepareShapeTextNode = ({ text }: { text: ShapeTextNode }): void => {
+  const isLocked = Boolean(text.locked || text.group?.locked)
+
   text.set({
     hasBorders: false,
     hasControls: false,
     evented: false,
     selectable: false,
-    lockMovementX: false,
-    lockMovementY: false,
-    editable: true,
+    lockMovementX: isLocked,
+    lockMovementY: isLocked,
+    editable: !isLocked,
     autoExpand: false,
     shapeNodeType: 'text'
   })

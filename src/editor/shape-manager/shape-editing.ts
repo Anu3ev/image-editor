@@ -140,11 +140,19 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Включает текстовый режим редактирования для выбранной shape-группы.
+   * Включает текстовый режим редактирования для выбранной незаблокированной shape-группы.
    */
   public enterTextEditing({ group }: { group: ShapeGroup }): void {
     const { text } = getShapeNodes({ group })
     if (!text) return
+
+    const isLocked = Boolean(group.locked || text.locked)
+
+    if (isLocked) {
+      prepareShapeTextNode({ text })
+      this.canvas.requestRenderAll()
+      return
+    }
 
     this._enterTextEditingInteractionMode({
       group,

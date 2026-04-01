@@ -63,9 +63,14 @@ export default class ControlsCustomizer {
       // Для кнопки вращения ставим курсор grab
       control.cursorStyle = 'grab'
       control.mouseDownHandler = (_eventData, transform, _x, _y) => {
-        const obj = transform?.target
-        // Во время вращения ставим курсор grabbing
-        obj?.canvas?.setCursor('grabbing')
+        const target = transform?.target
+
+        if (!target || target.locked || target.lockRotation) {
+          return
+        }
+
+        // Во время реального вращения ставим курсор grabbing
+        target.canvas?.setCursor('grabbing')
       }
     })
   }

@@ -41,6 +41,92 @@ export class ShapeModel {
     this.activeScaleInteraction = null
   }
 
+  /** Возвращает viewport-координаты центра фигуры для реальных mouse-событий. */
+  private async _resolveTargetCenterPoint(params: ObjectTargetParams = {}): Promise<{ x: number, y: number }> {
+    const point = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+      const centerPoint = target.getCenterPoint()
+      const sceneCenterX = typeof centerPoint.x === 'number' ? centerPoint.x : 0
+      const sceneCenterY = typeof centerPoint.y === 'number' ? centerPoint.y : 0
+      const viewportTransform = Array.isArray(editor.canvas.viewportTransform)
+        ? editor.canvas.viewportTransform
+        : [1, 0, 0, 1, 0, 0]
+      const viewportX = (viewportTransform[0] * sceneCenterX)
+        + (viewportTransform[2] * sceneCenterY)
+        + viewportTransform[4]
+      const viewportY = (viewportTransform[1] * sceneCenterX)
+        + (viewportTransform[3] * sceneCenterY)
+        + viewportTransform[5]
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + viewportX,
+        y: canvasRect.top + viewportY
+      }
+    }, params)
+
+    expect(point, 'для взаимодействия с фигурой должны существовать координаты на canvas').not.toBeNull()
+
+    return point as {
+      x: number
+      y: number
+    }
+  }
+
+  /** Возвращает viewport-координаты control-handle фигуры для реальных mouse-событий. */
+  private async _resolveControlPoint(
+    {
+      corner,
+      ...targetParams
+    }: {
+      corner: 'mtr'
+    } & ObjectTargetParams
+  ): Promise<{ x: number, y: number }> {
+    const point = await this.page.evaluate(({ corner: controlCorner, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      editor.canvas.setActiveObject(target)
+      target.setCoords()
+      editor.canvas.renderAll()
+
+      const control = target.oCoords?.[controlCorner]
+      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') {
+        return null
+      }
+
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + control.x,
+        y: canvasRect.top + control.y
+      }
+    }, {
+      corner,
+      ...targetParams
+    })
+
+    expect(point, 'для взаимодействия с ручкой фигуры должны существовать координаты на canvas').not.toBeNull()
+
+    return point as {
+      x: number
+      y: number
+    }
+  }
+
   /** Добавляет shape на canvas и возвращает информацию о созданном объекте */
   async add(params: ShapeAddParams = {}): Promise<ShapeObjectInfo | null> {
     return this.page.evaluate(async(p) => {
@@ -1140,39 +1226,48 @@ export class ShapeModel {
 
   /** Кликает по фигуре на canvas через реальные координаты viewport. */
   async clickOnCanvas(params: ObjectTargetParams = {}): Promise<void> {
-    const point = await this.page.evaluate(({ objectIndex, id }) => {
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
+    const point = await this._resolveTargetCenterPoint(params)
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
-      if (!target) return null
+    await this.page.mouse.click(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
+  }
 
-      target.setCoords()
-      const centerPoint = target.getCenterPoint()
-      const sceneCenterX = typeof centerPoint.x === 'number' ? centerPoint.x : 0
-      const sceneCenterY = typeof centerPoint.y === 'number' ? centerPoint.y : 0
-      const viewportTransform = Array.isArray(editor.canvas.viewportTransform)
-        ? editor.canvas.viewportTransform
-        : [1, 0, 0, 1, 0, 0]
-      const viewportX = (viewportTransform[0] * sceneCenterX)
-        + (viewportTransform[2] * sceneCenterY)
-        + viewportTransform[4]
-      const viewportY = (viewportTransform[1] * sceneCenterX)
-        + (viewportTransform[3] * sceneCenterY)
-        + viewportTransform[5]
-      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+  /** Открывает редактирование текста внутри фигуры через реальный двойной клик по canvas. */
+  async openTextEditingFromCanvas(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
+    const point = await this._resolveTargetCenterPoint(params)
 
-      return {
-        x: canvasRect.left + viewportX,
-        y: canvasRect.top + viewportY
-      }
-    }, params)
+    await this.page.mouse.dblclick(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
 
-    expect(point, 'для клика по фигуре должны существовать координаты на canvas').not.toBeNull()
+    return this.getTextNode(params)
+  }
 
-    await this.page.mouse.click(point!.x, point!.y)
+  /** Наводит курсор на ручку поворота фигуры. */
+  async hoverRotateHandle(params: ObjectTargetParams = {}): Promise<void> {
+    const point = await this._resolveControlPoint({
+      corner: 'mtr',
+      ...params
+    })
+
+    await this.page.mouse.move(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Начинает взаимодействие с ручкой поворота фигуры. */
+  async startRotateFromHandle(params: ObjectTargetParams = {}): Promise<void> {
+    const point = await this._resolveControlPoint({
+      corner: 'mtr',
+      ...params
+    })
+
+    await this.page.mouse.move(point.x, point.y)
+    await this.page.mouse.down()
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Завершает текущее pointer-взаимодействие с canvas. */
+  async finishPointerInteraction(): Promise<void> {
+    await this.page.mouse.up()
     await waitForCanvasRender({ page: this.page })
   }
 

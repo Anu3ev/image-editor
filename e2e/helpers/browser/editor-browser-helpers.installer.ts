@@ -390,6 +390,7 @@ export function installEditorBrowserHelpers(): void {
       opacity: editorObject.opacity ?? 1,
       visible: editorObject.visible ?? true,
       selectable: editorObject.selectable ?? true,
+      locked: editorObject.locked ?? false,
       flipX: editorObject.flipX ?? false,
       flipY: editorObject.flipY ?? false
     }

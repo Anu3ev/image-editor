@@ -15,6 +15,7 @@ export interface EditorObjectInfo {
   opacity: number
   visible: boolean
   selectable: boolean
+  locked: boolean
   flipX: boolean
   flipY: boolean
 }

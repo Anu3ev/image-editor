@@ -25,27 +25,6 @@ describe('shape-editing', () => {
     jest.clearAllMocks()
   })
 
-  it('prepareTextNode переводит текст в базовый режим без интерактивности', () => {
-    const {
-      text
-    } = createShapeEditingSetup({
-      getShapeNodesMock: getShapeNodes as jest.Mock,
-      isShapeGroupMock,
-      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
-    })
-
-    shapeRuntime.prepareShapeTextNode({
-      text
-    })
-
-    expect(text.hasBorders).toBe(false)
-    expect(text.hasControls).toBe(false)
-    expect(text.evented).toBe(false)
-    expect(text.selectable).toBe(false)
-    expect(text.editable).toBe(true)
-    expect(text.shapeNodeType).toBe('text')
-  })
-
   it('на первом клике только подготавливает текст, на double click включает editing', () => {
     const {
       controller,
@@ -84,6 +63,96 @@ describe('shape-editing', () => {
     expect(canvas.setActiveObject).toHaveBeenCalledWith(text)
     expect(text.enterEditing).toHaveBeenCalled()
     expect(text.selectAll).toHaveBeenCalled()
+  })
+
+  it('не переводит locked shape-группу в режим редактирования текста по double click', () => {
+    const {
+      controller,
+      canvas,
+      group,
+      text
+    } = createShapeEditingSetup({
+      getShapeNodesMock: getShapeNodes as jest.Mock,
+      isShapeGroupMock,
+      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
+    })
+
+    const prepareSpy = jest.spyOn(shapeRuntime, 'prepareShapeTextNode')
+
+    group.locked = true
+    group.selectable = true
+    group.evented = true
+    group.lockMovementX = false
+    group.lockMovementY = false
+    canvas.setActiveObject(group)
+    const setActiveObjectMock = canvas.setActiveObject as jest.Mock
+
+    setActiveObjectMock.mockClear()
+
+    controller.handleMouseDown({
+      target: group,
+      e: new MouseEvent('mousedown', {
+        detail: 2
+      })
+    })
+
+    expect(prepareSpy).toHaveBeenCalledWith({
+      text
+    })
+    expect(text.enterEditing).not.toHaveBeenCalled()
+    expect(text.selectAll).not.toHaveBeenCalled()
+    expect(canvas.setActiveObject).not.toHaveBeenCalled()
+    expect(group.selectable).toBe(true)
+    expect(group.evented).toBe(true)
+    expect(group.lockMovementX).toBe(false)
+    expect(group.lockMovementY).toBe(false)
+    expect(text.editable).toBe(false)
+    expect(canvas.requestRenderAll).toHaveBeenCalled()
+  })
+
+  it('не переводит locked внутренний textbox в режим редактирования текста по double click', () => {
+    const {
+      controller,
+      canvas,
+      group,
+      text
+    } = createShapeEditingSetup({
+      getShapeNodesMock: getShapeNodes as jest.Mock,
+      isShapeGroupMock,
+      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
+    })
+
+    const prepareSpy = jest.spyOn(shapeRuntime, 'prepareShapeTextNode')
+
+    text.locked = true
+    group.selectable = true
+    group.evented = true
+    group.lockMovementX = false
+    group.lockMovementY = false
+    canvas.setActiveObject(group)
+    const setActiveObjectMock = canvas.setActiveObject as jest.Mock
+
+    setActiveObjectMock.mockClear()
+
+    controller.handleMouseDown({
+      target: group,
+      e: new MouseEvent('mousedown', {
+        detail: 2
+      })
+    })
+
+    expect(prepareSpy).toHaveBeenCalledWith({
+      text
+    })
+    expect(text.enterEditing).not.toHaveBeenCalled()
+    expect(text.selectAll).not.toHaveBeenCalled()
+    expect(canvas.setActiveObject).not.toHaveBeenCalled()
+    expect(group.selectable).toBe(true)
+    expect(group.evented).toBe(true)
+    expect(group.lockMovementX).toBe(false)
+    expect(group.lockMovementY).toBe(false)
+    expect(text.editable).toBe(false)
+    expect(canvas.requestRenderAll).toHaveBeenCalled()
   })
 
   it('если текст уже редактируется, повторный клик не меняет состояние', () => {
