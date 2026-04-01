@@ -1,8 +1,6 @@
 import {
-  ActiveSelection,
   Canvas,
   FabricObject,
-  Group,
   IEvent,
   Textbox,
   TextboxProps,

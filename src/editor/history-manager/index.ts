@@ -250,7 +250,7 @@ export default class HistoryManager {
     if (reason && this._pendingSaveReason !== reason) return false
 
     this._clearPendingSave()
-    this._finalizePendingSave()
+    this.saveState()
     return true
   }
 
@@ -354,13 +354,6 @@ export default class HistoryManager {
     this._pendingSaveTimeoutId = null
     this._pendingSaveReason = null
 
-    this._finalizePendingSave()
-  }
-
-  /**
-   * Завершает отложенное сохранение и применяет состояние.
-   */
-  private _finalizePendingSave(): void {
     this.saveState()
   }
 
