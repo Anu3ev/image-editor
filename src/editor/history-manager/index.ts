@@ -121,6 +121,17 @@ export default class HistoryManager {
   private _pendingSaveReason: string | null
 
   /**
+   * Снимок состояния, который уже завершил предыдущее действие,
+   * но ещё не был зафиксирован отдельным history-шагом.
+   */
+  private _pendingCommittedState: CanvasFullState | null
+
+  /**
+   * Причина staged-снимка состояния.
+   */
+  private _pendingCommittedStateReason: string | null
+
+  /**
    * Флаг отложенного сохранения во время блокировки UI.
    */
   private _hasDeferredSaveAfterUnblock: boolean
@@ -135,6 +146,8 @@ export default class HistoryManager {
     this._actionReason = null
     this._pendingSaveTimeoutId = null
     this._pendingSaveReason = null
+    this._pendingCommittedState = null
+    this._pendingCommittedStateReason = null
     this._hasDeferredSaveAfterUnblock = false
     this.baseState = null
     this.patches = []
@@ -229,14 +242,27 @@ export default class HistoryManager {
 
   /**
    * Принудительно сохраняет отложенное состояние.
+   * @param options - дополнительные условия flush
+   * @param options.reason - если передан, flush выполняется только для совпадающей причины
    */
-  public flushPendingSave(): boolean {
+  public flushPendingSave({ reason }: { reason?: string } = {}): boolean {
     if (this._pendingSaveTimeoutId === null) return false
+    if (reason && this._pendingSaveReason !== reason) return false
 
-    const pendingReason = this._pendingSaveReason
     this._clearPendingSave()
-    this._finalizePendingSave({ reason: pendingReason })
+    this._finalizePendingSave()
     return true
+  }
+
+  /**
+   * Запоминает текущее canonical-состояние как уже завершённую границу действия.
+   * Следующий saveState сначала сохранит этот снимок, а уже потом текущее состояние canvas.
+   */
+  public stageCurrentStateForPendingSave({ reason }: { reason: string }): void {
+    if (this.skipHistory) return
+
+    this._pendingCommittedState = this._captureCurrentState()
+    this._pendingCommittedStateReason = reason
   }
 
   /**
@@ -325,22 +351,16 @@ export default class HistoryManager {
   private _handlePendingSaveTimeout(): void {
     if (this._pendingSaveTimeoutId === null) return
 
-    const pendingReason = this._pendingSaveReason
     this._pendingSaveTimeoutId = null
     this._pendingSaveReason = null
 
-    this._finalizePendingSave({ reason: pendingReason })
+    this._finalizePendingSave()
   }
 
   /**
    * Завершает отложенное сохранение и применяет состояние.
-   * @param reason - причина сохранения
    */
-  private _finalizePendingSave({ reason }: { reason: string | null }): void {
-    if (reason === 'text-edit') {
-      this._deactivateTextEditing()
-    }
-
+  private _finalizePendingSave(): void {
     this.saveState()
   }
 
@@ -368,6 +388,33 @@ export default class HistoryManager {
   }
 
   /**
+   * Очищает staged boundary действия без сохранения.
+   */
+  private _clearPendingCommittedState(): void {
+    this._pendingCommittedState = null
+    this._pendingCommittedStateReason = null
+  }
+
+  /**
+   * Возвращает staged boundary действия и очищает его.
+   */
+  private _consumePendingCommittedState(
+    { reason }: { reason?: string } = {}
+  ): { state: CanvasFullState, reason: string | null } | null {
+    if (!this._pendingCommittedState) return null
+    if (reason && this._pendingCommittedStateReason !== reason) return null
+
+    const pendingCommittedState = {
+      state: this._pendingCommittedState,
+      reason: this._pendingCommittedStateReason
+    }
+
+    this._clearPendingCommittedState()
+
+    return pendingCommittedState
+  }
+
+  /**
    * Очищает состояние активного действия.
    */
   private _clearPendingAction(): void {
@@ -386,6 +433,7 @@ export default class HistoryManager {
     const actionReason = this._actionReason
 
     this._clearPendingSave()
+    this._clearPendingCommittedState()
     this._clearPendingAction()
 
     this.suspendHistory()
@@ -404,6 +452,82 @@ export default class HistoryManager {
   }
 
   /**
+   * Сохраняет уже сериализованное canonical-состояние в историю.
+   */
+  private _saveSerializedState({ currentStateObj }: { currentStateObj: CanvasFullState }): void {
+    // Если базовое состояние ещё не установлено, сохраняем полное состояние как базу
+    if (!this.baseState) {
+      this.baseState = currentStateObj
+      this.patches = []
+      this.currentIndex = 0
+      console.log('Базовое состояние сохранено.')
+      return
+    }
+
+    // Вычисляем diff между последним сохранённым полным состоянием и текущим состоянием.
+    // Последнее сохранённое полное состояние – это результат getFullState()
+    const prevState = this.getFullState()
+
+    const {
+      prevState: normalizedPrevState,
+      nextState: normalizedCurrentState
+    } = prepareStatesForDiff({
+      prevState,
+      nextState: currentStateObj
+    })
+    const diff = this.diffPatcher.diff(normalizedPrevState, normalizedCurrentState)
+
+    console.log('normalizedPrevState', normalizedPrevState)
+    console.log('normalizedCurrentState', normalizedCurrentState)
+
+    // Если изменений нет, не сохраняем новый шаг
+    if (!diff) {
+      console.log('Нет изменений для сохранения.')
+      return
+    }
+
+    const statesEqual = areStatesEqual({
+      prevState: normalizedPrevState,
+      nextState: normalizedCurrentState
+    })
+
+    if (statesEqual) {
+      console.log('statesEqual. Нет изменений для сохранения.')
+      return
+    }
+
+    console.log('baseState', this.baseState)
+
+    // Если мы уже сделали undo и сейчас добавляем новое состояние,
+    // удаляем «редо»-ветку
+    if (this.currentIndex < this.patches.length) {
+      this.patches.splice(this.currentIndex)
+    }
+
+    console.log('diff', diff)
+
+    this.totalChangesCount += 1
+
+    // Сохраняем дифф
+    this.patches.push({ id: nanoid(), diff })
+    this.currentIndex += 1
+
+    // Если история стала слишком длинной, сбрасываем её: делаем новое базовое состояние
+    if (this.patches.length > this.maxHistoryLength) {
+      // Обновляем базовое состояние, применяя самый старый дифф
+      // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
+      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as CanvasFullState
+      this.patches.shift() // Удаляем первый дифф
+      this.currentIndex -= 1 // Корректируем индекс
+
+      // Увеличиваем счётчик изменений, "свёрнутых" в базовое состояние
+      this.baseStateChangesCount += 1
+    }
+
+    console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
+  }
+
+  /**
    * Сохраняем текущее состояние в виде диффа от последнего сохранённого полного состояния.
    */
   public saveState(): void {
@@ -419,6 +543,25 @@ export default class HistoryManager {
     console.time('saveState')
 
     try {
+      const pendingCommittedState = this._consumePendingCommittedState()
+
+      if (pendingCommittedState) {
+        if (
+          this._pendingSaveTimeoutId !== null
+          && this._pendingSaveReason === pendingCommittedState.reason
+        ) {
+          this._clearPendingSave()
+        }
+
+        if (pendingCommittedState.reason === 'text-edit') {
+          this._deactivateTextEditing()
+        }
+
+        this._saveSerializedState({
+          currentStateObj: pendingCommittedState.state
+        })
+      }
+
       // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
       const currentStateObj = withNormalizedInteractivityForSnapshot({
         canvas: this.canvas,
@@ -427,76 +570,9 @@ export default class HistoryManager {
 
       console.timeEnd('saveState')
 
-      // Если базовое состояние ещё не установлено, сохраняем полное состояние как базу
-      if (!this.baseState) {
-        this.baseState = currentStateObj
-        this.patches = []
-        this.currentIndex = 0
-        console.log('Базовое состояние сохранено.')
-        return
-      }
-
-      // Вычисляем diff между последним сохранённым полным состоянием и текущим состоянием.
-      // Последнее сохранённое полное состояние – это результат getFullState()
-      const prevState = this.getFullState()
-
-      const {
-        prevState: normalizedPrevState,
-        nextState: normalizedCurrentState
-      } = prepareStatesForDiff({
-        prevState,
-        nextState: currentStateObj as CanvasFullState
+      this._saveSerializedState({
+        currentStateObj: currentStateObj as CanvasFullState
       })
-      const diff = this.diffPatcher.diff(normalizedPrevState, normalizedCurrentState)
-
-      console.log('normalizedPrevState', normalizedPrevState)
-      console.log('normalizedCurrentState', normalizedCurrentState)
-
-      // Если изменений нет, не сохраняем новый шаг
-      if (!diff) {
-        console.log('Нет изменений для сохранения.')
-        return
-      }
-
-      const statesEqual = areStatesEqual({
-        prevState: normalizedPrevState,
-        nextState: normalizedCurrentState
-      })
-
-      if (statesEqual) {
-        console.log('statesEqual. Нет изменений для сохранения.')
-        return
-      }
-
-      console.log('baseState', this.baseState)
-
-      // Если мы уже сделали undo и сейчас добавляем новое состояние,
-      // удаляем «редо»-ветку
-      if (this.currentIndex < this.patches.length) {
-        this.patches.splice(this.currentIndex)
-      }
-
-      console.log('diff', diff)
-
-      this.totalChangesCount += 1
-
-      // Сохраняем дифф
-      this.patches.push({ id: nanoid(), diff })
-      this.currentIndex += 1
-
-      // Если история стала слишком длинной, сбрасываем её: делаем новое базовое состояние
-      if (this.patches.length > this.maxHistoryLength) {
-        // Обновляем базовое состояние, применяя самый старый дифф
-        // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
-        this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as CanvasFullState
-        this.patches.shift() // Удаляем первый дифф
-        this.currentIndex -= 1 // Корректируем индекс
-
-        // Увеличиваем счётчик изменений, "свёрнутых" в базовое состояние
-        this.baseStateChangesCount += 1
-      }
-
-      console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
     } finally {
       this._isSavingState = false
     }

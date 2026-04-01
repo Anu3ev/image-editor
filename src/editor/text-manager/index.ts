@@ -1,6 +1,8 @@
 import {
+  ActiveSelection,
   Canvas,
   FabricObject,
+  Group,
   IEvent,
   Textbox,
   TextboxProps,
@@ -1434,6 +1436,7 @@ export default class TextManager {
     const { historyManager } = this.editor
 
     historyManager.endAction({ reason: 'text-edit' })
+    historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
 
     // Сохраняем состояние с небольшой задержкой, чтобы Fabric успел завершить все внутренние операции
     historyManager.scheduleSaveState({
