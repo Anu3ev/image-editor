@@ -15,7 +15,7 @@ import {
   getShapePreset,
   isShapePresetRoundable,
   resolvePresetKeyForRounding,
-  resolveShapePadding
+  resolveShapeTextInset
 } from './shape-presets'
 import {
   applyShapeStyle,
@@ -25,6 +25,14 @@ import {
   applyShapeTextLayout,
   resolveShapeTextAutoExpandWidthForText
 } from './shape-layout'
+import {
+  getShapePaddingChangeMap,
+  mergeShapePadding,
+  normalizeShapePadding,
+  resolveStoredUserShapePadding,
+  SHAPE_PADDING_MODE_USER,
+  sumShapePadding
+} from './shape-padding'
 import ShapeScalingController from './scaling/shape-scaling'
 import ShapeEditingController from './shape-editing'
 import {
@@ -47,6 +55,7 @@ import {
   ShapeHorizontalAlign,
   ShapeNode,
   ShapePadding,
+  ShapePaddingChangeMap,
   ShapeStrokeOptions,
   ShapeTextAlignOptions,
   ShapeTextStyleOptions,
@@ -177,9 +186,20 @@ export default class ShapeManager {
 
     const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
-    const padding = resolveShapePadding({
+    const userPadding = normalizeShapePadding({
+      padding: textPadding
+    })
+    const textInset = resolveShapeTextInset({
       preset: effectivePreset,
-      overridePadding: textPadding
+      width: manualWidth,
+      height: manualHeight
+    })
+    const padding = sumShapePadding({
+      base: textInset,
+      addition: userPadding
+    })
+    const changedPadding = getShapePaddingChangeMap({
+      padding: textPadding
     })
 
     const style = this._resolveShapeStyle({
@@ -227,7 +247,9 @@ export default class ShapeManager {
       shapeTextAutoExpand: isShapeTextAutoExpandEnabled,
       alignH: horizontalAlign,
       alignV: verticalAlign,
-      padding,
+      padding: userPadding,
+      textInset,
+      changedPadding,
       style,
       rounding
     })
@@ -347,15 +369,24 @@ export default class ShapeManager {
       ?? currentGroup.shapeAlignVertical
       ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
-    const currentPadding = this._resolveGroupPadding({
+    const currentUserPadding = this._resolveGroupUserPadding({
       group: currentGroup
     })
-
-    const paddingOverride = textPadding ?? currentPadding
-
-    const padding = resolveShapePadding({
+    const changedPadding = getShapePaddingChangeMap({
+      padding: textPadding
+    })
+    const nextUserPadding = mergeShapePadding({
+      base: currentUserPadding,
+      override: textPadding
+    })
+    const textInset = resolveShapeTextInset({
       preset: effectivePreset,
-      overridePadding: paddingOverride
+      width: currentDimensions.width,
+      height
+    })
+    const padding = sumShapePadding({
+      base: textInset,
+      addition: nextUserPadding
     })
 
     const style = this._resolveShapeStyle({
@@ -419,18 +450,28 @@ export default class ShapeManager {
       align: horizontalAlign
     })
 
-    const layoutWidth = this._resolveShapeLayoutWidth({
-      text: stagedTextNode,
-      currentWidth: currentDimensions.width,
-      manualWidth,
-      shapeTextAutoExpandEnabled: nextShapeTextAutoExpand,
-      padding,
-      strokeWidth: style.strokeWidth
-    })
+    const shouldPreventPaddingResize = textPadding !== undefined
+      && rawWidth === undefined
+      && rawHeight === undefined
+      && presetKey === undefined
+      && shapeTextAutoExpand === undefined
+      && rounding === undefined
+      && text === undefined
+      && !this._hasShapeTextSizeAffectingStyleChanges({ textStyle })
+    const resolvedLayoutWidth = shouldPreventPaddingResize
+      ? currentDimensions.width
+      : this._resolveShapeLayoutWidth({
+        text: stagedTextNode,
+        currentWidth: currentDimensions.width,
+        manualWidth,
+        shapeTextAutoExpandEnabled: nextShapeTextAutoExpand,
+        padding,
+        strokeWidth: style.strokeWidth
+      })
 
     const shape = await createShapeNode({
       preset: effectivePreset,
-      width: layoutWidth,
+      width: resolvedLayoutWidth,
       height,
       style,
       rounding: effectiveRounding
@@ -461,14 +502,14 @@ export default class ShapeManager {
         presetCanRound: isShapePresetRoundable({
           preset: effectivePreset
         }),
-        width: layoutWidth,
+        width: resolvedLayoutWidth,
         height,
         manualWidth,
         manualHeight,
         shapeTextAutoExpand: nextShapeTextAutoExpand,
         alignH: horizontalAlign,
         alignV: verticalAlign,
-        padding,
+        padding: nextUserPadding,
         style,
         rounding: effectiveRounding
       })
@@ -478,10 +519,13 @@ export default class ShapeManager {
         shape,
         text: currentTextNode,
         placement,
-        width: layoutWidth,
+        width: resolvedLayoutWidth,
         height,
         alignH: horizontalAlign,
-        alignV: verticalAlign
+        alignV: verticalAlign,
+        textInset,
+        allowHeightExpansion: !shouldPreventPaddingResize,
+        changedPadding
       })
 
       if (currentTextNode.isEditing) {
@@ -1004,6 +1048,8 @@ export default class ShapeManager {
     alignH,
     alignV,
     padding,
+    textInset,
+    changedPadding,
     style,
     rounding
   }: {
@@ -1020,6 +1066,8 @@ export default class ShapeManager {
     alignH: ShapeHorizontalAlign
     alignV: ShapeVerticalAlign
     padding: ShapePadding
+    textInset?: ShapePadding
+    changedPadding?: ShapePaddingChangeMap
     style: ShapeVisualStyle
     rounding?: number
   }): ShapeGroup {
@@ -1063,7 +1111,9 @@ export default class ShapeManager {
       height,
       alignH,
       alignV,
-      padding
+      padding,
+      textInset,
+      changedPadding
     })
 
     this._detachShapeGroupAutoLayout({
@@ -1119,6 +1169,7 @@ export default class ShapeManager {
       shapeTextAutoExpand,
       shapeAlignHorizontal: alignH,
       shapeAlignVertical: alignV,
+      shapePaddingMode: SHAPE_PADDING_MODE_USER,
       shapePaddingTop: padding.top,
       shapePaddingRight: padding.right,
       shapePaddingBottom: padding.bottom,
@@ -1349,15 +1400,60 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает текущие отступы текстовой области shape-группы.
+   * Возвращает пользовательские отступы текстовой области shape-группы.
    */
-  private _resolveGroupPadding({ group }: { group: ShapeGroupLike }): ShapePadding {
-    return {
-      top: group.shapePaddingTop ?? 0.2,
-      right: group.shapePaddingRight ?? 0.2,
-      bottom: group.shapePaddingBottom ?? 0.2,
-      left: group.shapePaddingLeft ?? 0.2
+  private _resolveGroupUserPadding({ group }: { group: ShapeGroupLike }): ShapePadding {
+    const width = Math.max(
+      1,
+      group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? 1
+    )
+    const height = Math.max(
+      1,
+      group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? 1
+    )
+    const textInset = this._resolveGroupTextInset({
+      group,
+      width,
+      height
+    })
+
+    return resolveStoredUserShapePadding({
+      padding: {
+        top: group.shapePaddingTop,
+        right: group.shapePaddingRight,
+        bottom: group.shapePaddingBottom,
+        left: group.shapePaddingLeft
+      },
+      width,
+      height,
+      mode: group.shapePaddingMode,
+      textInset
+    })
+  }
+
+  /**
+   * Возвращает derived inset пресета для текущих размеров группы.
+   */
+  private _resolveGroupTextInset({
+    group,
+    width,
+    height
+  }: {
+    group: ShapeGroupLike
+    width: number
+    height: number
+  }): ShapePadding {
+    const presetKey = group.shapePresetKey ?? DEFAULT_SHAPE_PRESET_KEY
+    const preset = getShapePreset({ presetKey })
+    if (!preset) {
+      return normalizeShapePadding({})
     }
+
+    return resolveShapeTextInset({
+      preset,
+      width,
+      height
+    })
   }
 
   /**
@@ -1479,7 +1575,10 @@ export default class ShapeManager {
     width,
     height,
     alignH,
-    alignV
+    alignV,
+    textInset,
+    allowHeightExpansion = true,
+    changedPadding
   }: {
     group: ShapeGroupLike
     shape: ShapeNode
@@ -1489,10 +1588,13 @@ export default class ShapeManager {
     height?: number
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
+    textInset?: ShapePadding
+    allowHeightExpansion?: boolean
+    changedPadding?: ShapePaddingChangeMap
   }): void {
     const currentDimensions = this._resolveCurrentDimensions({ group })
     const manualDimensions = this._resolveManualDimensions({ group })
-    const padding = this._resolveGroupPadding({ group })
+    const userPadding = this._resolveGroupUserPadding({ group })
     let resolvedWidth = currentDimensions.width
 
     if (width !== undefined) {
@@ -1503,12 +1605,24 @@ export default class ShapeManager {
         currentWidth: currentDimensions.width,
         manualWidth: manualDimensions.width,
         shapeTextAutoExpandEnabled: this._isShapeTextAutoExpandEnabled({ group }),
-        padding,
+        padding: sumShapePadding({
+          base: textInset ?? this._resolveGroupTextInset({
+            group,
+            width: resolvedWidth,
+            height: Math.max(1, height ?? currentDimensions.height)
+          }),
+          addition: userPadding
+        }),
         strokeWidth: group.shapeStrokeWidth
       })
     }
 
     const resolvedHeight = Math.max(1, height ?? currentDimensions.height)
+    const resolvedTextInset = textInset ?? this._resolveGroupTextInset({
+      group,
+      width: resolvedWidth,
+      height: resolvedHeight
+    })
     const stablePlacement = placement ?? this.editor.canvasManager.getObjectPlacement({ object: group })
 
     applyShapeTextLayout({
@@ -1519,7 +1633,10 @@ export default class ShapeManager {
       height: resolvedHeight,
       alignH: alignH ?? group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
       alignV: alignV ?? group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
-      padding
+      padding: userPadding,
+      textInset: resolvedTextInset,
+      allowHeightExpansion,
+      changedPadding
     })
 
     this.editor.canvasManager.applyObjectPlacement({
@@ -1612,6 +1729,38 @@ export default class ShapeManager {
     }
 
     return SHAPE_DEFAULT_HORIZONTAL_ALIGN
+  }
+
+  /**
+   * Возвращает true, если обновление textStyle может изменить размеры текстового layout.
+   */
+  private _hasShapeTextSizeAffectingStyleChanges({
+    textStyle
+  }: {
+    textStyle?: ShapeTextStyleOptions
+  }): boolean {
+    if (!textStyle) return false
+
+    const keys = Object.keys(textStyle) as Array<keyof ShapeTextStyleOptions>
+
+    for (let index = 0; index < keys.length; index += 1) {
+      const key = keys[index]
+      if (
+        key === 'align'
+        || key === 'color'
+        || key === 'strokeColor'
+        || key === 'strokeWidth'
+        || key === 'underline'
+        || key === 'strikethrough'
+        || key === 'opacity'
+      ) {
+        continue
+      }
+
+      return true
+    }
+
+    return false
   }
 
   /**

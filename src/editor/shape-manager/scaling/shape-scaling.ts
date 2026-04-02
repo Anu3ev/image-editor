@@ -9,6 +9,11 @@ import {
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText
 } from '../shape-layout'
+import {
+  normalizeShapePadding,
+  resolveStoredUserShapePadding,
+  sumShapePadding
+} from '../shape-padding'
 import { resizeShapeNode } from '../shape-factory'
 import {
   ShapeGroup,
@@ -22,8 +27,10 @@ import {
   isShapeGroup
 } from '../shape-utils'
 import {
+  getShapePreset,
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
-  SHAPE_DEFAULT_VERTICAL_ALIGN
+  SHAPE_DEFAULT_VERTICAL_ALIGN,
+  resolveShapeTextInset
 } from '../shape-presets'
 import {
   isShapeTransformCornerChanged,
@@ -140,7 +147,7 @@ export default class ShapeScalingController {
       centeredScaling: false
     })
 
-    const padding = ShapeScalingController._resolvePadding({ group })
+    const padding = ShapeScalingController._resolveEffectivePadding({ group })
     const state = this._ensureScalingState({
       group,
       text,
@@ -508,7 +515,7 @@ export default class ShapeScalingController {
 
     if (!shape || !text) return
 
-    const padding = ShapeScalingController._resolvePadding({ group })
+    const padding = ShapeScalingController._resolveEffectivePadding({ group })
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const currentScaleX = Math.abs(group.scaleX ?? state.lastAllowedScaleX ?? 1) || 1
@@ -711,7 +718,7 @@ export default class ShapeScalingController {
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
-    const padding = ShapeScalingController._resolvePadding({ group })
+    const padding = ShapeScalingController._resolveEffectivePadding({ group })
     const resolvedAxes = event.transform
       ? resolveShapeScaleActionAxes({
         transform: event.transform
@@ -782,7 +789,7 @@ export default class ShapeScalingController {
         startHeight,
         alignH,
         alignV,
-        padding
+        userPadding: ShapeScalingController._resolveUserPadding({ group })
       })
 
       this.scalingState.delete(group)
@@ -813,6 +820,12 @@ export default class ShapeScalingController {
     const roundingScale = Math.min(allowedScaleX, allowedScaleY)
     const scaledRounding = Math.max(0, baseRounding * roundingScale)
     group.shapeRounding = scaledRounding
+    const userPadding = ShapeScalingController._resolveUserPadding({ group })
+    const textInset = ShapeScalingController._resolveTextInset({
+      group,
+      width,
+      height
+    })
 
     applyShapeTextLayout({
       group,
@@ -822,7 +835,8 @@ export default class ShapeScalingController {
       height,
       alignH,
       alignV,
-      padding
+      padding: userPadding,
+      textInset
     })
 
     text.set({
@@ -1091,15 +1105,87 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Возвращает padding текстового фрейма из метаданных группы.
+   * Возвращает пользовательский padding текста из метаданных группы.
    */
-  private static _resolvePadding({ group }: { group: ShapeGroup }): ShapePadding {
-    return {
-      top: group.shapePaddingTop ?? 0.2,
-      right: group.shapePaddingRight ?? 0.2,
-      bottom: group.shapePaddingBottom ?? 0.2,
-      left: group.shapePaddingLeft ?? 0.2
+  private static _resolveUserPadding({ group }: { group: ShapeGroup }): ShapePadding {
+    const width = Math.max(
+      MIN_SIZE,
+      group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? MIN_SIZE
+    )
+    const height = Math.max(
+      MIN_SIZE,
+      group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
+    )
+    const textInset = ShapeScalingController._resolveTextInset({
+      group,
+      width,
+      height
+    })
+
+    return resolveStoredUserShapePadding({
+      padding: {
+        top: group.shapePaddingTop,
+        right: group.shapePaddingRight,
+        bottom: group.shapePaddingBottom,
+        left: group.shapePaddingLeft
+      },
+      width,
+      height,
+      mode: group.shapePaddingMode,
+      textInset
+    })
+  }
+
+  /**
+   * Возвращает derived inset пресета для текущих размеров shape-группы.
+   */
+  private static _resolveTextInset({
+    group,
+    width,
+    height
+  }: {
+    group: ShapeGroup
+    width: number
+    height: number
+  }): ShapePadding {
+    const presetKey = group.shapePresetKey ?? ''
+    const preset = presetKey
+      ? getShapePreset({ presetKey })
+      : null
+    if (!preset) {
+      return normalizeShapePadding({})
     }
+
+    return resolveShapeTextInset({
+      preset,
+      width,
+      height
+    })
+  }
+
+  /**
+   * Возвращает effective padding текста с учётом derived inset пресета.
+   */
+  private static _resolveEffectivePadding({ group }: { group: ShapeGroup }): ShapePadding {
+    const width = Math.max(
+      MIN_SIZE,
+      group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? MIN_SIZE
+    )
+    const height = Math.max(
+      MIN_SIZE,
+      group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
+    )
+    const userPadding = ShapeScalingController._resolveUserPadding({ group })
+    const textInset = ShapeScalingController._resolveTextInset({
+      group,
+      width,
+      height
+    })
+
+    return sumShapePadding({
+      base: textInset,
+      addition: userPadding
+    })
   }
 
   /**
@@ -1150,7 +1236,7 @@ export default class ShapeScalingController {
     startHeight,
     alignH,
     alignV,
-    padding
+    userPadding
   }: {
     group: ShapeGroup
     shape: ShapeNode
@@ -1160,7 +1246,7 @@ export default class ShapeScalingController {
     startHeight: number
     alignH: ShapeGroup['shapeAlignHorizontal']
     alignV: ShapeGroup['shapeAlignVertical']
-    padding: ShapePadding
+    userPadding: ShapePadding
   }): void {
     const layoutWidth = Math.max(
       MIN_SIZE,
@@ -1170,6 +1256,11 @@ export default class ShapeScalingController {
       MIN_SIZE,
       group.shapeBaseHeight ?? group.height ?? startHeight
     )
+    const textInset = ShapeScalingController._resolveTextInset({
+      group,
+      width: layoutWidth,
+      height: layoutHeight
+    })
 
     applyShapeTextLayout({
       group,
@@ -1179,7 +1270,8 @@ export default class ShapeScalingController {
       height: layoutHeight,
       alignH,
       alignV,
-      padding
+      padding: userPadding,
+      textInset
     })
 
     group.set({
