@@ -24,13 +24,13 @@ import {
 import {
   applyShapeTextLayout,
   resolveShapeTextAutoExpandWidthForText
-} from './shape-layout'
+} from './layout/shape-layout'
 import {
   getShapePaddingChangeMap,
   mergeShapePadding,
   normalizeShapeUserPadding,
   sumShapePadding
-} from './shape-padding'
+} from './layout/shape-padding'
 import ShapeScalingController from './scaling/shape-scaling'
 import ShapeEditingController from './shape-editing'
 import {

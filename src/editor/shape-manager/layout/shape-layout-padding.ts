@@ -6,7 +6,7 @@ import {
   ShapeLayoutInput,
   ShapePadding,
   ShapePaddingChangeMap
-} from './types'
+} from '../types'
 
 const TEXT_FRAME_FILL_EPSILON = 0.5
 const MAX_MIN_FRAME_WIDTH_SEARCH_ITERATIONS = 12

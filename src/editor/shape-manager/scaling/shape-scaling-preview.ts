@@ -1,6 +1,6 @@
 import {
   resolveShapeTextFrameLayout
-} from '../shape-layout'
+} from '../layout/shape-layout'
 import { resizeShapeNode } from '../shape-factory'
 import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,

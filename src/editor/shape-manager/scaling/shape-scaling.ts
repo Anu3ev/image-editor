@@ -8,11 +8,11 @@ import {
   applyShapeTextLayout,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText
-} from '../shape-layout'
+} from '../layout/shape-layout'
 import {
   normalizeShapeUserPadding,
   sumShapePadding
-} from '../shape-padding'
+} from '../layout/shape-padding'
 import { resizeShapeNode } from '../shape-factory'
 import {
   ShapeGroup,

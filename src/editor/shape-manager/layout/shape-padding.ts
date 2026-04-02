@@ -1,7 +1,7 @@
 import {
   ShapePadding,
   ShapePaddingChangeMap
-} from './types'
+} from '../types'
 
 /**
  * Минимальный размер текстового фрейма внутри фигуры.

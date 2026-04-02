@@ -11,7 +11,7 @@ import {
 } from './shape-presets'
 import {
   normalizeShapeUserPadding
-} from './shape-padding'
+} from './layout/shape-padding'
 import {
   applyShapeGroupInteractivity,
   detachShapeGroupAutoLayout,

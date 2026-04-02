@@ -1,5 +1,5 @@
 /* eslint-disable no-use-before-define, @typescript-eslint/no-use-before-define */
-import { resizeShapeNode } from './shape-factory'
+import { resizeShapeNode } from '../shape-factory'
 import {
   MIN_SHAPE_TEXT_FRAME_SIZE,
   normalizeShapePadding,
@@ -13,7 +13,7 @@ import {
   ShapeLayoutInput,
   ShapePadding,
   ShapeVerticalAlign
-} from './types'
+} from '../types'
 
 const MIN_TEXT_FRAME_SIZE = MIN_SHAPE_TEXT_FRAME_SIZE
 const TEXT_FRAME_FILL_EPSILON = 0.5
