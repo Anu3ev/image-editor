@@ -8,7 +8,7 @@ on:
     branches: [ master, main ]  # Проверяем качество только основных веток после мержа
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
   issues: write
   pull-requests: write
@@ -94,15 +94,15 @@ jobs:
           path: coverage/
           retention-days: 30
 
-      - name: "☁️ Upload unit coverage to Codecov"
-        if: always() && matrix.node-version == 20
-        uses: codecov/codecov-action@v5
+      - name: "🏷️ Update coverage badges"
+        if: always() && matrix.node-version == 20 && github.event_name == 'push'
+        uses: jpb06/coverage-badges-action@v1.4.9
         with:
-          files: ./coverage/lcov.info
-          flags: unit
-          name: unit-tests
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+          branches: master,main
+          coverage-summary-path: ./coverage/coverage-summary.json
+          commit-message: Update coverage badges [skip ci]
+          badges-labels-prefix: Unit coverage
+          badges-icon: jest
 
       - name: 💬 Update PR with Results
         if: always() && github.event.pull_request.number
