@@ -7,7 +7,7 @@ import {
 import {
   applyShapeTextLayout,
   resolveShapeTextAutoExpandWidthForText
-} from '../../../../src/editor/shape-manager/shape-layout'
+} from '../../../../src/editor/shape-manager/layout/shape-layout'
 import {
   applyTextStyleToShapeText,
   createShapeManagerEditorStub,
@@ -21,7 +21,7 @@ jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
   resizeShapeNode: jest.fn()
 }))
 
-jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
+jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
   resolveShapeTextAutoExpandWidthForText: jest.fn(({
     currentWidth,

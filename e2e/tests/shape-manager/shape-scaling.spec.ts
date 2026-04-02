@@ -738,7 +738,7 @@ test.describe('Скейлинг шейпа с текстом по диагона
 
     const liveSnapshot = await test.step('Сжать шейп по диагонали за верхний правый угол', async() => {
       return shapes.scaleDiagonally({
-        scaleX: 0.6,
+        scaleX: 0.5,
         scaleY: 0.8,
         corner: 'tr',
         objectIndex: 0

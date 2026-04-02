@@ -5,7 +5,7 @@ import {
   resolveRequiredShapeHeightForText,
   resolveShapeTextAutoExpandWidthForText,
   resolveShapeTextFrameLayout
-} from '../../../../src/editor/shape-manager/shape-layout'
+} from '../../../../src/editor/shape-manager/layout/shape-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
 import {
   createMeasuredAutoExpandTextbox,
@@ -20,6 +20,12 @@ jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
 }))
 
 describe('shape-layout', () => {
+  const textFramePadding = {
+    top: 12,
+    right: 12,
+    bottom: 12,
+    left: 12
+  }
   const resizeShapeNodeMock = resizeShapeNode as jest.Mock
 
   beforeEach(() => {
@@ -38,12 +44,7 @@ describe('shape-layout', () => {
       width: 180,
       height: 120,
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(layout.splitByGrapheme).toBe(false)
@@ -63,12 +64,7 @@ describe('shape-layout', () => {
       width: 120,
       height: 120,
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(layout.splitByGrapheme).toBe(true)
@@ -86,12 +82,7 @@ describe('shape-layout', () => {
       text,
       width: 120,
       height: 80,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(nextHeight).toBeGreaterThan(80)
@@ -115,24 +106,14 @@ describe('shape-layout', () => {
       text: filledText,
       width: 120,
       height: 90,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     const notFilled = isShapeTextFrameFilled({
       text: notFilledText,
       width: 120,
       height: 90,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(filled).toBe(true)
@@ -164,12 +145,7 @@ describe('shape-layout', () => {
       height: 80,
       alignH: 'center',
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(resizeShapeNodeMock).toHaveBeenCalledTimes(1)
@@ -210,12 +186,7 @@ describe('shape-layout', () => {
       height: 80,
       alignH: 'center',
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     // Ожидаем, что ширина shape была увеличена чтобы вмещать символ
@@ -236,21 +207,11 @@ describe('shape-layout', () => {
 
     const multiCharMinimumWidth = resolveMinimumShapeWidthForText({
       text: multiCharText,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
     const singleCharMinimumWidth = resolveMinimumShapeWidthForText({
       text: singleCharText,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(multiCharMinimumWidth).toBe(singleCharMinimumWidth)
@@ -263,12 +224,7 @@ describe('shape-layout', () => {
 
     const minimumWidth = resolveMinimumShapeWidthForText({
       text,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(minimumWidth).toBe(1)
@@ -281,12 +237,7 @@ describe('shape-layout', () => {
 
     const minimumWidth = resolveMinimumShapeWidthForText({
       text,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(minimumWidth).toBe(1)
@@ -302,12 +253,7 @@ describe('shape-layout', () => {
       text,
       currentWidth: 240,
       minimumWidth: 180,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      },
+      padding: textFramePadding,
       montageAreaWidth: 400
     })
 
@@ -324,12 +270,7 @@ describe('shape-layout', () => {
       text,
       currentWidth: 240,
       minimumWidth: 180,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      },
+      padding: textFramePadding,
       montageAreaWidth: 400
     })
 
@@ -346,12 +287,7 @@ describe('shape-layout', () => {
       text,
       currentWidth: 120,
       minimumWidth: 80,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      },
+      padding: textFramePadding,
       montageAreaWidth: 120
     })
 
@@ -359,12 +295,6 @@ describe('shape-layout', () => {
   })
 
   it('подбирает ширину без временного переноса строки на следующую строку', () => {
-    const padding = {
-      top: 0.2,
-      right: 0.2,
-      bottom: 0.2,
-      left: 0.2
-    }
     const text = createMeasuredAutoExpandTextbox({
       text: 'TEST TEST',
       width: 160
@@ -374,10 +304,10 @@ describe('shape-layout', () => {
       text,
       currentWidth: 160,
       minimumWidth: 120,
-      padding,
+      padding: textFramePadding,
       montageAreaWidth: 400
     })
-    const frameWidth = Math.max(1, nextWidth - Math.min(nextWidth * 0.2, 12) - Math.min(nextWidth * 0.2, 12))
+    const frameWidth = Math.max(1, nextWidth - textFramePadding.left - textFramePadding.right)
     const validation = measureRenderedTextboxLayout({
       text: text.text ?? '',
       frameWidth,
@@ -398,12 +328,7 @@ describe('shape-layout', () => {
       text,
       currentWidth: 240,
       minimumWidth: 220,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      },
+      padding: textFramePadding,
       montageAreaWidth: 160
     })
 
@@ -419,12 +344,7 @@ describe('shape-layout', () => {
       text,
       width: 120,
       height: 80,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(nextHeight).toBe(80)
@@ -439,12 +359,7 @@ describe('shape-layout', () => {
       text,
       width: 120,
       height: 80,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(nextHeight).toBe(80)
@@ -459,12 +374,7 @@ describe('shape-layout', () => {
       text,
       width: 120,
       height: 80,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(filled).toBe(false)
@@ -479,12 +389,7 @@ describe('shape-layout', () => {
       text,
       width: 120,
       height: 80,
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(filled).toBe(false)
@@ -515,12 +420,7 @@ describe('shape-layout', () => {
       height: 120,
       alignH: 'center',
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(group.shapeBaseWidth).toBe(180)
@@ -554,12 +454,7 @@ describe('shape-layout', () => {
       height: 80,
       alignH: 'center',
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(group.shapeBaseHeight).toBeGreaterThan(80)
@@ -573,12 +468,7 @@ describe('shape-layout', () => {
       height: 80,
       alignH: 'center',
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(group.shapeBaseWidth).toBe(180)
@@ -613,12 +503,7 @@ describe('shape-layout', () => {
       height: 80,
       alignH: 'center',
       alignV: 'middle',
-      padding: {
-        top: 0.2,
-        right: 0.2,
-        bottom: 0.2,
-        left: 0.2
-      }
+      padding: textFramePadding
     })
 
     expect(group.shapeBaseHeight).toBe(80)

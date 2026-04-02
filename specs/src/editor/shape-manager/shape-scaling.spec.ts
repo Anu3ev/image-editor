@@ -5,7 +5,7 @@ import {
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText,
   resolveShapeTextFrameLayout
-} from '../../../../src/editor/shape-manager/shape-layout'
+} from '../../../../src/editor/shape-manager/layout/shape-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
 import {
   isShapeGroup
@@ -17,7 +17,7 @@ import {
   mockShapeGroupPositionByOrigin
 } from '../../../test-utils/shape-scaling-helpers'
 
-jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
+jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
   isShapeTextFrameFilled: jest.fn(),
   resolveMinimumShapeWidthForText: jest.fn(() => 100),
