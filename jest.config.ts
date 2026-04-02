@@ -33,12 +33,12 @@ const config: Config.InitialOptions = {
     'node_modules/(?!(nanoid|fabric|jsondiffpatch|diff-match-patch)/)'
   ],
   setupFilesAfterEnv: ['<rootDir>/specs/setupTests.ts'],
-  // Настройка сбора покрытия для всех файлов проекта
+  // Настройка сбора покрытия только для editor-кода
   collectCoverageFrom: [
-    'src/**/*.{ts,js}',
-    '!src/**/*.d.ts',
-    '!src/**/*.test.ts',
-    '!src/**/*.spec.ts'
+    'src/editor/**/*.{ts,js}',
+    '!src/editor/**/*.d.ts',
+    '!src/editor/**/*.test.ts',
+    '!src/editor/**/*.spec.ts'
   ]
   // Убираем пороги покрытия чтобы низкое покрытие не считалось ошибкой
   // coverageThreshold: {
