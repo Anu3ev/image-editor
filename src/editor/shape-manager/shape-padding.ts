@@ -1,7 +1,6 @@
 import {
   ShapePadding,
-  ShapePaddingChangeMap,
-  ShapePaddingMode
+  ShapePaddingChangeMap
 } from './types'
 
 /**
@@ -9,20 +8,17 @@ import {
  */
 export const MIN_SHAPE_TEXT_FRAME_SIZE = 1
 
-/**
- * Актуальная persisted-модель shape padding: в группе хранятся только пользовательские px-значения.
- */
-export const SHAPE_PADDING_MODE_USER: ShapePaddingMode = 'user'
+function normalizeShapePaddingValue({ value }: { value?: number }): number {
+  if (!Number.isFinite(value)) return 0
 
-/**
- * Верхняя граница legacy ratio-padding из старого контракта сериализации.
- */
-export const LEGACY_MAX_SHAPE_PADDING_RATIO = 0.45
+  return Math.max(0, value ?? 0)
+}
 
-const LEGACY_MAX_HORIZONTAL_PADDING_PX = 12
-const LEGACY_MAX_VERTICAL_PADDING_PX = 12
+function normalizeShapeUserPaddingValue({ value }: { value?: number }): number {
+  if (!Number.isFinite(value)) return 0
 
-type ShapePaddingAxis = 'horizontal' | 'vertical'
+  return Math.max(0, Math.floor(value ?? 0))
+}
 
 /**
  * Возвращает padding в предсказуемом px-формате.
@@ -41,7 +37,23 @@ export function normalizeShapePadding({
 }
 
 /**
- * Мержит partial override в текущее padding-состояние.
+ * Нормализует пользовательский padding в целые пиксели.
+ */
+export function normalizeShapeUserPadding({
+  padding
+}: {
+  padding?: Partial<ShapePadding>
+}): ShapePadding {
+  return {
+    top: normalizeShapeUserPaddingValue({ value: padding?.top }),
+    right: normalizeShapeUserPaddingValue({ value: padding?.right }),
+    bottom: normalizeShapeUserPaddingValue({ value: padding?.bottom }),
+    left: normalizeShapeUserPaddingValue({ value: padding?.left })
+  }
+}
+
+/**
+ * Мержит partial override в текущее пользовательское padding-состояние.
  */
 export function mergeShapePadding({
   base,
@@ -52,12 +64,14 @@ export function mergeShapePadding({
 }): ShapePadding {
   if (!override) return base
 
-  return {
-    top: override.top ?? base.top,
-    right: override.right ?? base.right,
-    bottom: override.bottom ?? base.bottom,
-    left: override.left ?? base.left
-  }
+  return normalizeShapeUserPadding({
+    padding: {
+      top: override.top ?? base.top,
+      right: override.right ?? base.right,
+      bottom: override.bottom ?? base.bottom,
+      left: override.left ?? base.left
+    }
+  })
 }
 
 /**
@@ -106,136 +120,4 @@ export function getShapePaddingChangeMap({
   }
 
   return changedPadding
-}
-
-/**
- * Переводит legacy ratio-padding в пиксели по старым правилам.
- */
-export function resolveLegacyShapePaddingPixels({
-  value,
-  size,
-  axis
-}: {
-  value: number
-  size: number
-  axis: ShapePaddingAxis
-}): number {
-  const safeValue = Number.isFinite(value)
-    ? Math.min(Math.max(value, 0), LEGACY_MAX_SHAPE_PADDING_RATIO)
-    : 0
-  const safeSize = Number.isFinite(size) && size > 0
-    ? size
-    : 0
-  const maxPadding = axis === 'horizontal'
-    ? LEGACY_MAX_HORIZONTAL_PADDING_PX
-    : LEGACY_MAX_VERTICAL_PADDING_PX
-
-  return Math.max(0, Math.min(safeSize * safeValue, maxPadding))
-}
-
-/**
- * Нормализует padding из сериализованной группы и поддерживает legacy ratio-значения.
- */
-export function resolveStoredShapePadding({
-  padding,
-  width,
-  height
-}: {
-  padding?: Partial<ShapePadding>
-  width: number
-  height: number
-}): ShapePadding {
-  return {
-    top: resolveStoredShapePaddingValue({
-      value: padding?.top,
-      size: height,
-      axis: 'vertical'
-    }),
-    right: resolveStoredShapePaddingValue({
-      value: padding?.right,
-      size: width,
-      axis: 'horizontal'
-    }),
-    bottom: resolveStoredShapePaddingValue({
-      value: padding?.bottom,
-      size: height,
-      axis: 'vertical'
-    }),
-    left: resolveStoredShapePaddingValue({
-      value: padding?.left,
-      size: width,
-      axis: 'horizontal'
-    })
-  }
-}
-
-/**
- * Возвращает пользовательский padding из сериализованных данных группы.
- * Для новой модели поля уже хранят user-state. Для старой модели поле трактуется как total padding,
- * из которого нужно вычесть derived inset пресета.
- */
-export function resolveStoredUserShapePadding({
-  padding,
-  width,
-  height,
-  mode,
-  textInset
-}: {
-  padding?: Partial<ShapePadding>
-  width: number
-  height: number
-  mode?: ShapePaddingMode
-  textInset?: Partial<ShapePadding>
-}): ShapePadding {
-  const materializedPadding = resolveStoredShapePadding({
-    padding,
-    width,
-    height
-  })
-  if (mode === SHAPE_PADDING_MODE_USER) return materializedPadding
-
-  const normalizedInset = normalizeShapePadding({
-    padding: textInset
-  })
-
-  return {
-    top: Math.max(0, materializedPadding.top - normalizedInset.top),
-    right: Math.max(0, materializedPadding.right - normalizedInset.right),
-    bottom: Math.max(0, materializedPadding.bottom - normalizedInset.bottom),
-    left: Math.max(0, materializedPadding.left - normalizedInset.left)
-  }
-}
-
-/**
- * Ограничивает padding неотрицательными числами.
- */
-function normalizeShapePaddingValue({ value }: { value?: number }): number {
-  if (!Number.isFinite(value)) return 0
-
-  return Math.max(0, value ?? 0)
-}
-
-/**
- * Materialize legacy ratio-padding в px, новые значения оставляет без изменений.
- */
-function resolveStoredShapePaddingValue({
-  value,
-  size,
-  axis
-}: {
-  value?: number
-  size: number
-  axis: ShapePaddingAxis
-}): number {
-  const safeValue = normalizeShapePaddingValue({ value })
-
-  if (safeValue > 0 && safeValue < 1 && safeValue <= LEGACY_MAX_SHAPE_PADDING_RATIO) {
-    return resolveLegacyShapePaddingPixels({
-      value: safeValue,
-      size,
-      axis
-    })
-  }
-
-  return safeValue
 }

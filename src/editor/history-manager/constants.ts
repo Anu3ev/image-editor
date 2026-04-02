@@ -50,7 +50,6 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'shapeTextAutoExpand',
   'shapeAlignHorizontal',
   'shapeAlignVertical',
-  'shapePaddingMode',
   'shapePaddingTop',
   'shapePaddingRight',
   'shapePaddingBottom',

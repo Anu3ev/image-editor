@@ -10,8 +10,7 @@ import {
   resolveRequiredShapeHeightForText
 } from '../shape-layout'
 import {
-  normalizeShapePadding,
-  resolveStoredUserShapePadding,
+  normalizeShapeUserPadding,
   sumShapePadding
 } from '../shape-padding'
 import { resizeShapeNode } from '../shape-factory'
@@ -30,7 +29,7 @@ import {
   getShapePreset,
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN,
-  resolveShapeTextInset
+  resolveInternalShapeTextInset
 } from '../shape-presets'
 import {
   isShapeTransformCornerChanged,
@@ -147,11 +146,12 @@ export default class ShapeScalingController {
       centeredScaling: false
     })
 
-    const padding = ShapeScalingController._resolveEffectivePadding({ group })
+    const previewPadding = ShapeScalingController._resolveEffectivePadding({ group })
+    const constraintPadding = ShapeScalingController._resolveScalingConstraintPadding({ group })
     const state = this._ensureScalingState({
       group,
       text,
-      padding,
+      constraintPadding,
       transform
     })
     const { isCornerScaleAction } = resolveShapeScaleActionAxes({
@@ -168,7 +168,7 @@ export default class ShapeScalingController {
     const scalingDecision = this._resolveScalingDecision({
       group,
       text,
-      padding,
+      constraintPadding,
       state,
       transform
     })
@@ -195,7 +195,7 @@ export default class ShapeScalingController {
       text,
       width: scalingDecision.previewWidth,
       height: scalingDecision.previewHeight,
-      padding,
+      padding: previewPadding,
       alignH,
       alignV,
       scaleX: scalingDecision.appliedScaleX,
@@ -231,13 +231,13 @@ export default class ShapeScalingController {
   private _resolveScalingDecision({
     group,
     text,
-    padding,
+    constraintPadding,
     state,
     transform
   }: {
     group: ShapeGroup
     text: ShapeTextNode
-    padding: ShapePadding
+    constraintPadding: ShapePadding
     state: ShapeScalingState
     transform?: Transform | null
   }): ShapeScalingDecision {
@@ -263,7 +263,7 @@ export default class ShapeScalingController {
     // Дальше определяем, можно ли применять этот шаг scaling, или нужно откатиться к последнему допустимому состоянию.
     const constraintState = this._resolveScalingConstraintState({
       text,
-      padding,
+      constraintPadding,
       state,
       transform,
       scaleX,
@@ -292,7 +292,7 @@ export default class ShapeScalingController {
 
     const previewDimensions = this._resolvePreviewDimensions({
       text,
-      padding,
+      constraintPadding,
       state,
       appliedScaleX,
       appliedScaleY,
@@ -314,14 +314,14 @@ export default class ShapeScalingController {
    */
   private _resolveScalingConstraintState({
     text,
-    padding,
+    constraintPadding,
     state,
     transform,
     scaleX,
     scaleY
   }: {
     text: ShapeTextNode
-    padding: ShapePadding
+    constraintPadding: ShapePadding
     state: ShapeScalingState
     transform?: Transform | null
     scaleX: number
@@ -355,14 +355,14 @@ export default class ShapeScalingController {
     const minimumWidth = canScaleWidth && isShrinkingX
       ? resolveMinimumShapeWidthForText({
         text,
-        padding
+        padding: constraintPadding
       })
       : null
     const minimumHeight = canScaleHeight && isShrinkingY
       ? this._resolveMinimumTextFitHeight({
         text,
         width: attemptedWidth,
-        padding
+        padding: constraintPadding
       })
       : null
 
@@ -402,14 +402,14 @@ export default class ShapeScalingController {
    */
   private _resolvePreviewDimensions({
     text,
-    padding,
+    constraintPadding,
     state,
     appliedScaleX,
     appliedScaleY,
     minimumHeight
   }: {
     text: ShapeTextNode
-    padding: ShapePadding
+    constraintPadding: ShapePadding
     state: ShapeScalingState
     appliedScaleX: number
     appliedScaleY: number
@@ -425,7 +425,7 @@ export default class ShapeScalingController {
       text,
       width: previewWidth,
       height: scaledPreviewHeight,
-      padding
+      padding: constraintPadding
     })
     const previewHeight = Math.max(
       scaledPreviewHeight,
@@ -515,7 +515,8 @@ export default class ShapeScalingController {
 
     if (!shape || !text) return
 
-    const padding = ShapeScalingController._resolveEffectivePadding({ group })
+    const previewPadding = ShapeScalingController._resolveEffectivePadding({ group })
+    const constraintPadding = ShapeScalingController._resolveScalingConstraintPadding({ group })
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const currentScaleX = Math.abs(group.scaleX ?? state.lastAllowedScaleX ?? 1) || 1
@@ -538,7 +539,7 @@ export default class ShapeScalingController {
     if (pointerReachedOrPassedOriginX) {
       const minimumWidth = resolveMinimumShapeWidthForText({
         text,
-        padding
+        padding: constraintPadding
       })
       const minimumScaleX = Math.max(MIN_SIZE / state.startWidth, minimumWidth / state.startWidth)
       if (state.lastAllowedScaleX > minimumScaleX + SCALE_EPSILON) {
@@ -557,7 +558,7 @@ export default class ShapeScalingController {
       resolvedMinimumHeight = this._resolveMinimumTextFitHeight({
         text,
         width: Math.max(MIN_SIZE, state.startWidth * nextScaleX),
-        padding
+        padding: constraintPadding
       })
       const minimumScaleY = Math.max(MIN_SIZE / state.startHeight, resolvedMinimumHeight / state.startHeight)
       if (state.lastAllowedScaleY > minimumScaleY + SCALE_EPSILON) {
@@ -570,7 +571,7 @@ export default class ShapeScalingController {
 
     const previewDimensions = this._resolvePreviewDimensions({
       text,
-      padding,
+      constraintPadding,
       state,
       appliedScaleX: nextScaleX,
       appliedScaleY: nextScaleY,
@@ -591,7 +592,7 @@ export default class ShapeScalingController {
       text,
       width: previewDimensions.previewWidth,
       height: previewDimensions.previewHeight,
-      padding,
+      padding: previewPadding,
       alignH,
       alignV,
       scaleX: nextScaleX,
@@ -718,7 +719,7 @@ export default class ShapeScalingController {
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
-    const padding = ShapeScalingController._resolveEffectivePadding({ group })
+    const constraintPadding = ShapeScalingController._resolveScalingConstraintPadding({ group })
     const resolvedAxes = event.transform
       ? resolveShapeScaleActionAxes({
         transform: event.transform
@@ -732,7 +733,7 @@ export default class ShapeScalingController {
       ?? (Math.abs(scaleY - 1) > SCALE_EPSILON)
     const minimumWidth = resolveMinimumShapeWidthForText({
       text,
-      padding
+      padding: constraintPadding
     })
 
     let allowedScaleX = state?.lastAllowedScaleX ?? scaleX
@@ -752,7 +753,7 @@ export default class ShapeScalingController {
       const minimumHeight = this._resolveMinimumTextFitHeight({
         text,
         width: Math.max(MIN_SIZE, startWidth * allowedScaleX),
-        padding
+        padding: constraintPadding
       })
       const shouldClampHeightToMinimum = this._shouldClampHeightToMinimum({
         event,
@@ -821,7 +822,7 @@ export default class ShapeScalingController {
     const scaledRounding = Math.max(0, baseRounding * roundingScale)
     group.shapeRounding = scaledRounding
     const userPadding = ShapeScalingController._resolveUserPadding({ group })
-    const textInset = ShapeScalingController._resolveTextInset({
+    const internalShapeTextInset = ShapeScalingController._resolveInternalShapeTextInset({
       group,
       width,
       height
@@ -836,7 +837,7 @@ export default class ShapeScalingController {
       alignH,
       alignV,
       padding: userPadding,
-      textInset
+      internalShapeTextInset
     })
 
     text.set({
@@ -992,12 +993,12 @@ export default class ShapeScalingController {
   private _ensureScalingState({
     group,
     text,
-    padding,
+    constraintPadding,
     transform
   }: {
     group: ShapeGroup
     text: ShapeTextNode
-    padding: ShapePadding
+    constraintPadding: ShapePadding
     transform?: Transform | null
   }): ShapeScalingState {
     let state = this.scalingState.get(group)
@@ -1044,7 +1045,7 @@ export default class ShapeScalingController {
       const minimumHeightAtStart = this._resolveMinimumTextFitHeight({
         text,
         width: startDimensions.startWidth,
-        padding
+        padding: constraintPadding
       })
 
       state = {
@@ -1108,38 +1109,20 @@ export default class ShapeScalingController {
    * Возвращает пользовательский padding текста из метаданных группы.
    */
   private static _resolveUserPadding({ group }: { group: ShapeGroup }): ShapePadding {
-    const width = Math.max(
-      MIN_SIZE,
-      group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? MIN_SIZE
-    )
-    const height = Math.max(
-      MIN_SIZE,
-      group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
-    )
-    const textInset = ShapeScalingController._resolveTextInset({
-      group,
-      width,
-      height
-    })
-
-    return resolveStoredUserShapePadding({
+    return normalizeShapeUserPadding({
       padding: {
         top: group.shapePaddingTop,
         right: group.shapePaddingRight,
         bottom: group.shapePaddingBottom,
         left: group.shapePaddingLeft
-      },
-      width,
-      height,
-      mode: group.shapePaddingMode,
-      textInset
+      }
     })
   }
 
   /**
    * Возвращает derived inset пресета для текущих размеров shape-группы.
    */
-  private static _resolveTextInset({
+  private static _resolveInternalShapeTextInset({
     group,
     width,
     height
@@ -1153,10 +1136,15 @@ export default class ShapeScalingController {
       ? getShapePreset({ presetKey })
       : null
     if (!preset) {
-      return normalizeShapePadding({})
+      return {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      }
     }
 
-    return resolveShapeTextInset({
+    return resolveInternalShapeTextInset({
       preset,
       width,
       height
@@ -1176,15 +1164,36 @@ export default class ShapeScalingController {
       group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
     )
     const userPadding = ShapeScalingController._resolveUserPadding({ group })
-    const textInset = ShapeScalingController._resolveTextInset({
+    const internalShapeTextInset = ShapeScalingController._resolveInternalShapeTextInset({
       group,
       width,
       height
     })
 
     return sumShapePadding({
-      base: textInset,
+      base: internalShapeTextInset,
       addition: userPadding
+    })
+  }
+
+  /**
+   * Возвращает padding, который участвует в minimum-constraints во время scaling.
+   * Пользовательские отступы здесь игнорируются и при уменьшении шейпа могут быть съедены layout'ом.
+   */
+  private static _resolveScalingConstraintPadding({ group }: { group: ShapeGroup }): ShapePadding {
+    const width = Math.max(
+      MIN_SIZE,
+      group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? MIN_SIZE
+    )
+    const height = Math.max(
+      MIN_SIZE,
+      group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
+    )
+
+    return ShapeScalingController._resolveInternalShapeTextInset({
+      group,
+      width,
+      height
     })
   }
 
@@ -1256,7 +1265,7 @@ export default class ShapeScalingController {
       MIN_SIZE,
       group.shapeBaseHeight ?? group.height ?? startHeight
     )
-    const textInset = ShapeScalingController._resolveTextInset({
+    const internalShapeTextInset = ShapeScalingController._resolveInternalShapeTextInset({
       group,
       width: layoutWidth,
       height: layoutHeight
@@ -1271,7 +1280,7 @@ export default class ShapeScalingController {
       alignH,
       alignV,
       padding: userPadding,
-      textInset
+      internalShapeTextInset
     })
 
     group.set({

@@ -7,13 +7,10 @@ import {
 } from 'fabric'
 import {
   getShapePreset,
-  isShapePresetRoundable,
-  resolveShapeTextInset
+  isShapePresetRoundable
 } from './shape-presets'
 import {
-  normalizeShapePadding,
-  resolveStoredUserShapePadding,
-  SHAPE_PADDING_MODE_USER
+  normalizeShapeUserPadding
 } from './shape-padding'
 import {
   applyShapeGroupInteractivity,
@@ -134,39 +131,15 @@ export class ShapeGroupObject extends Group {
       this.shapeTextAutoExpand = true
     }
 
-    const width = Math.max(
-      1,
-      this.shapeBaseWidth ?? this.width ?? this.shapeManualBaseWidth ?? 1
-    )
-    const height = Math.max(
-      1,
-      this.shapeBaseHeight ?? this.height ?? this.shapeManualBaseHeight ?? 1
-    )
-    const presetKey = this.shapePresetKey ?? ''
-    const preset = presetKey
-      ? getShapePreset({ presetKey })
-      : null
-    const textInset = preset
-      ? resolveShapeTextInset({
-        preset,
-        width,
-        height
-      })
-      : normalizeShapePadding({})
-    const normalizedPadding = resolveStoredUserShapePadding({
+    const normalizedPadding = normalizeShapeUserPadding({
       padding: {
         top: this.shapePaddingTop,
         right: this.shapePaddingRight,
         bottom: this.shapePaddingBottom,
         left: this.shapePaddingLeft
-      },
-      width,
-      height,
-      mode: this.shapePaddingMode,
-      textInset
+      }
     })
 
-    this.shapePaddingMode = SHAPE_PADDING_MODE_USER
     this.shapePaddingTop = normalizedPadding.top
     this.shapePaddingRight = normalizedPadding.right
     this.shapePaddingBottom = normalizedPadding.bottom
