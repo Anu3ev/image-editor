@@ -31,6 +31,14 @@ export type ShapeScaleOriginX = 'left' | 'center' | 'right'
 export type ShapeScaleOriginY = 'top' | 'center' | 'bottom'
 export type ShapeScaleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
+/** Пользовательские внутренние отступы текста внутри фигуры. */
+export interface ShapePaddingParams {
+  top?: number
+  right?: number
+  bottom?: number
+  left?: number
+}
+
 /** Параметры стилизации текста внутри shape */
 export interface ShapeTextStyleParams {
   text?: string
@@ -87,6 +95,7 @@ export interface ShapeAddParams {
     rounding?: number
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
+    textPadding?: ShapePaddingParams
   }
 }
 
@@ -109,6 +118,7 @@ export interface ShapeAddAtBoundsParams {
     rounding?: number
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
+    textPadding?: ShapePaddingParams
   }
 }
 
@@ -139,6 +149,7 @@ export interface ShapeUpdateParams {
     rounding?: number
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
+    textPadding?: ShapePaddingParams
     withoutSelection?: boolean
   }
 }
@@ -227,6 +238,10 @@ export interface ShapeObjectInfo extends EditorObjectInfo {
   shapeTextAutoExpand?: boolean
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
+  shapePaddingTop: number
+  shapePaddingRight: number
+  shapePaddingBottom: number
+  shapePaddingLeft: number
   shapeFill?: string
   shapeStroke?: string | null
   shapeStrokeWidth?: number
