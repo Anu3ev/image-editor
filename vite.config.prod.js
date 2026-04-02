@@ -34,6 +34,7 @@ export default defineConfig({
   plugins: [
     analyzer({
       analyzerMode: 'static',
+      fileName: '../stats',
       gzipSize: true,
       brotliSize: true,
       openAnalyzer: true,
