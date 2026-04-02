@@ -193,4 +193,73 @@ describe('shape-layout-padding', () => {
       left: 10
     })
   })
+
+  it('просит увеличить ширину шейпа, если обязательный внутренний отступ не помещается', () => {
+    const text = createMockShapeTextbox({
+      text: 'T'
+    })
+
+    const layout = resolveAppliedShapePadding({
+      text,
+      width: 30,
+      height: 80,
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      internalShapeTextInset: {
+        top: 0,
+        right: 20,
+        bottom: 0,
+        left: 20
+      },
+      expandShapeHeightToFitText: true,
+      measureTextboxHeightForFrame: () => 20,
+      resolveMinimumTextFrameWidth: () => 10
+    })
+
+    expect(layout.requiredWidth).toBe(50)
+    expect(layout.appliedPadding.left).toBe(20)
+    expect(layout.appliedPadding.right).toBe(20)
+    expect(layout.appliedUserPadding.left).toBe(0)
+    expect(layout.appliedUserPadding.right).toBe(0)
+  })
+
+  it('при нехватке места съедает только пользовательский отступ, а обязательный сохраняет', () => {
+    const text = createMockShapeTextbox({
+      text: 'T'
+    })
+
+    const layout = resolveAppliedShapePadding({
+      text,
+      width: 70,
+      height: 80,
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 30
+      },
+      internalShapeTextInset: {
+        top: 0,
+        right: 20,
+        bottom: 0,
+        left: 20
+      },
+      expandShapeHeightToFitText: true,
+      changedPadding: {
+        left: true
+      },
+      measureTextboxHeightForFrame: () => 20,
+      resolveMinimumTextFrameWidth: () => 20
+    })
+
+    expect(layout.appliedPadding.left).toBe(30)
+    expect(layout.appliedPadding.right).toBe(20)
+    expect(layout.appliedUserPadding.left).toBe(10)
+    expect(layout.appliedUserPadding.right).toBe(0)
+    expect(layout.requiredWidth).toBe(60)
+  })
 })
