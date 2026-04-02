@@ -11,6 +11,7 @@ import {
 } from '../layout/shape-layout'
 import {
   normalizeShapeUserPadding,
+  resolveShapeTextContentInset,
   sumShapePadding
 } from '../layout/shape-padding'
 import { resizeShapeNode } from '../shape-factory'
@@ -29,7 +30,7 @@ import {
   getShapePreset,
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN,
-  resolveInternalShapeTextInset
+  resolveInternalShapeTextInset as resolvePresetInternalShapeTextInset
 } from '../shape-presets'
 import {
   isShapeTransformCornerChanged,
@@ -1120,7 +1121,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Возвращает derived inset пресета для текущих размеров shape-группы.
+   * Возвращает полный внутренний inset текста для текущих размеров shape-группы с учетом пресета и обводки.
    */
   private static _resolveInternalShapeTextInset({
     group,
@@ -1135,24 +1136,23 @@ export default class ShapeScalingController {
     const preset = presetKey
       ? getShapePreset({ presetKey })
       : null
-    if (!preset) {
-      return {
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0
-      }
-    }
+    const presetInset = preset
+      ? resolvePresetInternalShapeTextInset({
+        preset,
+        width,
+        height
+      })
+      : undefined
 
-    return resolveInternalShapeTextInset({
-      preset,
-      width,
-      height
+    return resolveShapeTextContentInset({
+      baseInset: presetInset,
+      stroke: group.shapeStroke,
+      strokeWidth: group.shapeStrokeWidth
     })
   }
 
   /**
-   * Возвращает effective padding текста с учётом derived inset пресета.
+   * Возвращает effective padding текста с учетом полного внутреннего inset и пользовательских отступов.
    */
   private static _resolveEffectivePadding({ group }: { group: ShapeGroup }): ShapePadding {
     const width = Math.max(
