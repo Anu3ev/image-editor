@@ -16,6 +16,7 @@ dist-ssr
 dev-build
 coverage
 certs
+stats.html
 *.local
 
 # Editor directories and files
