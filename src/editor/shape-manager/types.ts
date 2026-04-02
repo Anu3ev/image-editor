@@ -29,6 +29,15 @@ export type ShapePadding = {
   left: number
 }
 
+export type ShapePaddingRatio = {
+  top: number
+  right: number
+  bottom: number
+  left: number
+}
+
+export type ShapePaddingChangeMap = Partial<Record<keyof ShapePadding, boolean>>
+
 export type ShapeVisualStyle = {
   fill?: string
   stroke?: string | null
@@ -49,7 +58,7 @@ export type ShapePresetBase = {
   width: number
   height: number
   title?: string
-  textPadding?: Partial<ShapePadding>
+  internalTextInset?: Partial<ShapePaddingRatio>
   roundedVariant?: string
 }
 
@@ -201,6 +210,9 @@ export type ShapeLayoutInput = {
   alignH: ShapeHorizontalAlign
   alignV: ShapeVerticalAlign
   padding: ShapePadding
+  internalShapeTextInset?: ShapePadding
+  expandShapeHeightToFitText?: boolean
+  changedPadding?: ShapePaddingChangeMap
 }
 
 export type ShapeScalingState = {

@@ -1,0 +1,520 @@
+import {
+  MIN_SHAPE_TEXT_FRAME_SIZE,
+  normalizeShapeLayoutPadding
+} from './shape-padding'
+import {
+  ShapeLayoutInput,
+  ShapePadding,
+  ShapePaddingChangeMap
+} from '../types'
+
+const TEXT_FRAME_FILL_EPSILON = 0.5
+const MAX_MIN_FRAME_WIDTH_SEARCH_ITERATIONS = 12
+
+/**
+ * Текстовый узел, для которого рассчитывается текстовый фрейм внутри shape.
+ */
+type ShapeLayoutText = ShapeLayoutInput['text']
+
+/**
+ * Аргументы измерения высоты textbox при заданной ширине фрейма.
+ */
+type TextboxFrameMeasureParams = {
+  text: ShapeLayoutText
+  frameWidth: number
+}
+
+/**
+ * Функция измерения высоты textbox внутри текстового фрейма.
+ */
+type MeasureTextboxHeightForFrame = ({
+  text,
+  frameWidth
+}: TextboxFrameMeasureParams) => number
+
+/**
+ * Аргументы расчета минимальной ширины текстового фрейма.
+ */
+type MinimumTextFrameWidthParams = {
+  text: ShapeLayoutText
+}
+
+/**
+ * Функция расчета минимальной ширины текстового фрейма.
+ */
+type ResolveMinimumTextFrameWidth = ({
+  text
+}: MinimumTextFrameWidthParams) => number
+
+/**
+ * Аргументы ограничения пары padding по суммарному доступному пространству.
+ */
+type ClampPaddingPairParams = {
+  start: number
+  end: number
+  maxTotalPadding: number
+  startChanged: boolean
+  endChanged: boolean
+}
+
+/**
+ * Пара padding-значений для противоположных сторон.
+ */
+type PaddingPair = {
+  start: number
+  end: number
+}
+
+/**
+ * Аргументы расчета итоговой пары padding с учетом internal inset.
+ */
+type ResolveAppliedPaddingPairParams = {
+  start: number
+  end: number
+  insetStart: number
+  insetEnd: number
+  maxTotalPadding: number
+  startChanged: boolean
+  endChanged: boolean
+}
+
+/**
+ * Итог пары padding: effective значения и отдельно пользовательская часть.
+ */
+type AppliedPaddingPair = {
+  appliedPaddingStart: number
+  appliedPaddingEnd: number
+  appliedUserPaddingStart: number
+  appliedUserPaddingEnd: number
+}
+
+/**
+ * Аргументы подбора минимальной ширины фрейма под заданную высоту.
+ */
+type ResolveMinimumFrameWidthToFitHeightParams = {
+  text: ShapeLayoutText
+  minFrameWidth: number
+  maxFrameWidth: number
+  frameHeight: number
+  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame
+}
+
+/**
+ * Итог применения горизонтального padding.
+ */
+type ResolvedHorizontalPadding = {
+  appliedPadding: Pick<ShapePadding, 'left' | 'right'>
+  appliedUserPadding: Pick<ShapePadding, 'left' | 'right'>
+}
+
+/**
+ * Аргументы применения горизонтального padding.
+ */
+type ResolveAppliedHorizontalPaddingParams = {
+  text: ShapeLayoutText
+  width: number
+  height: number
+  padding: ShapePadding
+  internalShapeTextInset: ShapePadding
+  expandShapeHeightToFitText: boolean
+  changedPadding?: ShapePaddingChangeMap
+  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame
+  resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth
+}
+
+/**
+ * Итог применения вертикального padding.
+ */
+type ResolvedVerticalPadding = {
+  appliedPadding: Pick<ShapePadding, 'top' | 'bottom'>
+  appliedUserPadding: Pick<ShapePadding, 'top' | 'bottom'>
+}
+
+/**
+ * Аргументы применения вертикального padding.
+ */
+type ResolveAppliedVerticalPaddingParams = {
+  padding: ShapePadding
+  internalShapeTextInset: ShapePadding
+  height: number
+  textHeight: number
+  changedPadding?: ShapePaddingChangeMap
+}
+
+/**
+ * Полный набор аргументов расчета applied padding для shape.
+ */
+type ResolveAppliedShapePaddingParams = {
+  text: ShapeLayoutText
+  width: number
+  height: number
+  padding: ShapePadding
+  internalShapeTextInset?: ShapePadding
+  expandShapeHeightToFitText: boolean
+  changedPadding?: ShapePaddingChangeMap
+  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame
+  resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth
+}
+
+/**
+ * Итог расчета applied padding и требуемой высоты shape.
+ */
+type ResolvedShapePadding = {
+  appliedPadding: ShapePadding
+  appliedUserPadding: ShapePadding
+  requiredHeight: number
+}
+
+/**
+ * Возвращает доступную ширину текстового фрейма для переданной ширины шейпа.
+ */
+export function resolveTextFrameWidth({
+  width,
+  padding
+}: {
+  width: number
+  padding: ShapePadding
+}): number {
+  const leftPadding = Math.max(0, padding.left)
+  const rightPadding = Math.max(0, padding.right)
+
+  return Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, width - leftPadding - rightPadding)
+}
+
+/**
+ * Проверяет, содержит ли textbox видимый текст.
+ */
+function hasShapeTextContent({
+  text
+}: {
+  text: ShapeLayoutText
+}): boolean {
+  const rawText = text.text ?? ''
+
+  return rawText.trim().length > 0
+}
+
+/**
+ * Ограничивает пару padding по суммарному доступному пространству.
+ * Если изменилась только одна сторона, старается сохранить вторую без лишних изменений.
+ */
+function clampPaddingPair({
+  start,
+  end,
+  maxTotalPadding,
+  startChanged,
+  endChanged
+}: ClampPaddingPairParams): PaddingPair {
+  const safeStart = Math.max(0, start)
+  const safeEnd = Math.max(0, end)
+  const safeMaxTotalPadding = Math.max(0, maxTotalPadding)
+
+  if (safeStart + safeEnd <= safeMaxTotalPadding + TEXT_FRAME_FILL_EPSILON) {
+    return {
+      start: safeStart,
+      end: safeEnd
+    }
+  }
+
+  if (startChanged && !endChanged) {
+    const clampedEnd = Math.min(safeEnd, safeMaxTotalPadding)
+
+    return {
+      start: Math.min(safeStart, Math.max(0, safeMaxTotalPadding - clampedEnd)),
+      end: clampedEnd
+    }
+  }
+
+  if (endChanged && !startChanged) {
+    const clampedStart = Math.min(safeStart, safeMaxTotalPadding)
+
+    return {
+      start: clampedStart,
+      end: Math.min(safeEnd, Math.max(0, safeMaxTotalPadding - clampedStart))
+    }
+  }
+
+  const totalPadding = safeStart + safeEnd
+  if (totalPadding <= 0) {
+    return {
+      start: 0,
+      end: 0
+    }
+  }
+
+  const scale = safeMaxTotalPadding / totalPadding
+
+  return {
+    start: safeStart * scale,
+    end: safeEnd * scale
+  }
+}
+
+/**
+ * Возвращает итоговый padding пары сторон и отдельно пользовательскую часть без internal inset.
+ */
+function resolveAppliedPaddingPair({
+  start,
+  end,
+  insetStart,
+  insetEnd,
+  maxTotalPadding,
+  startChanged,
+  endChanged
+}: ResolveAppliedPaddingPairParams): AppliedPaddingPair {
+  const clampedPair = clampPaddingPair({
+    start: insetStart + Math.max(0, start),
+    end: insetEnd + Math.max(0, end),
+    maxTotalPadding,
+    startChanged,
+    endChanged
+  })
+
+  const appliedUserPaddingStart = Math.max(0, Math.floor(clampedPair.start - insetStart))
+  const appliedUserPaddingEnd = Math.max(0, Math.floor(clampedPair.end - insetEnd))
+
+  return {
+    appliedPaddingStart: insetStart + appliedUserPaddingStart,
+    appliedPaddingEnd: insetEnd + appliedUserPaddingEnd,
+    appliedUserPaddingStart,
+    appliedUserPaddingEnd
+  }
+}
+
+/**
+ * Возвращает минимальную ширину текстового фрейма, при которой текст ещё помещается
+ * в заданную высоту.
+ */
+function resolveMinimumFrameWidthToFitHeight({
+  text,
+  minFrameWidth,
+  maxFrameWidth,
+  frameHeight,
+  measureTextboxHeightForFrame
+}: ResolveMinimumFrameWidthToFitHeightParams): number {
+  const safeMinFrameWidth = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, minFrameWidth)
+  const safeMaxFrameWidth = Math.max(safeMinFrameWidth, maxFrameWidth)
+  const safeFrameHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, frameHeight)
+
+  if (!hasShapeTextContent({ text })) return safeMinFrameWidth
+
+  const minFrameHeight = measureTextboxHeightForFrame({
+    text,
+    frameWidth: safeMinFrameWidth
+  })
+  if (minFrameHeight <= safeFrameHeight + TEXT_FRAME_FILL_EPSILON) {
+    return safeMinFrameWidth
+  }
+
+  const maxFrameHeight = measureTextboxHeightForFrame({
+    text,
+    frameWidth: safeMaxFrameWidth
+  })
+  if (maxFrameHeight > safeFrameHeight + TEXT_FRAME_FILL_EPSILON) {
+    return safeMaxFrameWidth
+  }
+
+  let low = safeMinFrameWidth
+  let high = safeMaxFrameWidth
+
+  for (let iteration = 0; iteration < MAX_MIN_FRAME_WIDTH_SEARCH_ITERATIONS; iteration += 1) {
+    const middle = (low + high) / 2
+    const measuredHeight = measureTextboxHeightForFrame({
+      text,
+      frameWidth: middle
+    })
+
+    if (measuredHeight <= safeFrameHeight + TEXT_FRAME_FILL_EPSILON) {
+      high = middle
+      continue
+    }
+
+    low = middle
+  }
+
+  return high
+}
+
+/**
+ * Подбирает горизонтальные padding так, чтобы они не требовали расширять шейп сверх выбранной политики layout.
+ */
+function resolveAppliedHorizontalPadding({
+  text,
+  width,
+  height,
+  padding,
+  internalShapeTextInset,
+  expandShapeHeightToFitText,
+  changedPadding,
+  measureTextboxHeightForFrame,
+  resolveMinimumTextFrameWidth
+}: ResolveAppliedHorizontalPaddingParams): ResolvedHorizontalPadding {
+  const safeWidth = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, width)
+  const safeHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, height)
+
+  const hasTextContent = hasShapeTextContent({ text })
+  const minimumFrameWidth = hasTextContent
+    ? resolveMinimumTextFrameWidth({ text })
+    : MIN_SHAPE_TEXT_FRAME_SIZE
+
+  const verticalInset = internalShapeTextInset.top + internalShapeTextInset.bottom
+  const frameHeight = Math.max(
+    MIN_SHAPE_TEXT_FRAME_SIZE,
+    safeHeight - verticalInset
+  )
+
+  let requiredFrameWidth = minimumFrameWidth
+
+  if (!expandShapeHeightToFitText) {
+    requiredFrameWidth = resolveMinimumFrameWidthToFitHeight({
+      text,
+      minFrameWidth: minimumFrameWidth,
+      maxFrameWidth: safeWidth,
+      frameHeight,
+      measureTextboxHeightForFrame
+    })
+  }
+
+  const maxTotalPadding = Math.max(0, safeWidth - requiredFrameWidth)
+  const pair = resolveAppliedPaddingPair({
+    start: padding.left,
+    end: padding.right,
+    insetStart: internalShapeTextInset.left,
+    insetEnd: internalShapeTextInset.right,
+    maxTotalPadding,
+    startChanged: Boolean(changedPadding?.left),
+    endChanged: Boolean(changedPadding?.right)
+  })
+
+  return {
+    appliedPadding: {
+      left: pair.appliedPaddingStart,
+      right: pair.appliedPaddingEnd
+    },
+    appliedUserPadding: {
+      left: pair.appliedUserPaddingStart,
+      right: pair.appliedUserPaddingEnd
+    }
+  }
+}
+
+/**
+ * Подбирает вертикальные padding внутри уже вычисленной высоты shape.
+ */
+function resolveAppliedVerticalPadding({
+  padding,
+  internalShapeTextInset,
+  height,
+  textHeight,
+  changedPadding
+}: ResolveAppliedVerticalPaddingParams): ResolvedVerticalPadding {
+  const safeHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, height)
+  const safeTextHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, textHeight)
+  const maxTotalPadding = Math.max(0, safeHeight - safeTextHeight)
+
+  const pair = resolveAppliedPaddingPair({
+    start: padding.top,
+    end: padding.bottom,
+    insetStart: internalShapeTextInset.top,
+    insetEnd: internalShapeTextInset.bottom,
+    maxTotalPadding,
+    startChanged: Boolean(changedPadding?.top),
+    endChanged: Boolean(changedPadding?.bottom)
+  })
+
+  return {
+    appliedPadding: {
+      top: pair.appliedPaddingStart,
+      bottom: pair.appliedPaddingEnd
+    },
+    appliedUserPadding: {
+      top: pair.appliedUserPaddingStart,
+      bottom: pair.appliedUserPaddingEnd
+    }
+  }
+}
+
+/**
+ * Применяет padding внутри переданных размеров шейпа и возвращает итоговые effective/user-значения.
+ */
+export function resolveAppliedShapePadding({
+  text,
+  width,
+  height,
+  padding,
+  internalShapeTextInset,
+  expandShapeHeightToFitText,
+  changedPadding,
+  measureTextboxHeightForFrame,
+  resolveMinimumTextFrameWidth
+}: ResolveAppliedShapePaddingParams): ResolvedShapePadding {
+  const safeWidth = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, width)
+  const safeHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, height)
+
+  const normalizedPadding = normalizeShapeLayoutPadding({
+    padding
+  })
+  const normalizedInternalShapeTextInset = normalizeShapeLayoutPadding({
+    padding: internalShapeTextInset
+  })
+
+  const horizontalPadding = resolveAppliedHorizontalPadding({
+    text,
+    width: safeWidth,
+    height: safeHeight,
+    padding: normalizedPadding,
+    internalShapeTextInset: normalizedInternalShapeTextInset,
+    expandShapeHeightToFitText,
+    changedPadding,
+    measureTextboxHeightForFrame,
+    resolveMinimumTextFrameWidth
+  })
+
+  const horizontalFramePadding = {
+    top: 0,
+    right: horizontalPadding.appliedPadding.right,
+    bottom: 0,
+    left: horizontalPadding.appliedPadding.left
+  }
+  const frameWidth = resolveTextFrameWidth({
+    width: safeWidth,
+    padding: horizontalFramePadding
+  })
+
+  const hasTextContent = hasShapeTextContent({ text })
+  const measuredHeight = hasTextContent
+    ? measureTextboxHeightForFrame({
+      text,
+      frameWidth
+    })
+    : MIN_SHAPE_TEXT_FRAME_SIZE
+
+  const verticalInset = normalizedInternalShapeTextInset.top + normalizedInternalShapeTextInset.bottom
+  const requiredHeight = expandShapeHeightToFitText
+    ? Math.max(safeHeight, measuredHeight + verticalInset)
+    : safeHeight
+
+  const verticalPadding = resolveAppliedVerticalPadding({
+    padding: normalizedPadding,
+    internalShapeTextInset: normalizedInternalShapeTextInset,
+    height: requiredHeight,
+    textHeight: measuredHeight,
+    changedPadding
+  })
+
+  return {
+    appliedPadding: {
+      top: verticalPadding.appliedPadding.top,
+      right: horizontalPadding.appliedPadding.right,
+      bottom: verticalPadding.appliedPadding.bottom,
+      left: horizontalPadding.appliedPadding.left
+    },
+    appliedUserPadding: {
+      top: verticalPadding.appliedUserPadding.top,
+      right: horizontalPadding.appliedUserPadding.right,
+      bottom: verticalPadding.appliedUserPadding.bottom,
+      left: horizontalPadding.appliedUserPadding.left
+    },
+    requiredHeight
+  }
+}

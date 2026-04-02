@@ -10,6 +10,9 @@ import {
   isShapePresetRoundable
 } from './shape-presets'
 import {
+  normalizeShapeUserPadding
+} from './layout/shape-padding'
+import {
   applyShapeGroupInteractivity,
   detachShapeGroupAutoLayout,
   getShapeRuntimeTextNode,
@@ -127,6 +130,20 @@ export class ShapeGroupObject extends Group {
     if (this.shapeTextAutoExpand === undefined) {
       this.shapeTextAutoExpand = true
     }
+
+    const normalizedPadding = normalizeShapeUserPadding({
+      padding: {
+        top: this.shapePaddingTop,
+        right: this.shapePaddingRight,
+        bottom: this.shapePaddingBottom,
+        left: this.shapePaddingLeft
+      }
+    })
+
+    this.shapePaddingTop = normalizedPadding.top
+    this.shapePaddingRight = normalizedPadding.right
+    this.shapePaddingBottom = normalizedPadding.bottom
+    this.shapePaddingLeft = normalizedPadding.left
 
     this._syncRoundability()
     applyShapeGroupInteractivity({

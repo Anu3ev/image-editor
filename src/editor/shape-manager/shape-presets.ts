@@ -1,5 +1,6 @@
 import {
   ShapePadding,
+  ShapePaddingRatio,
   ShapePoint,
   ShapePreset,
   ShapeVerticalAlign,
@@ -8,12 +9,14 @@ import {
 
 const DEFAULT_SHAPE_SIZE = 180
 
-const DEFAULT_SHAPE_PADDING: ShapePadding = {
-  top: 0.2,
-  right: 0.2,
-  bottom: 0.2,
-  left: 0.2
+const DEFAULT_SHAPE_TEXT_INSET: ShapePaddingRatio = {
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0
 }
+
+const MAX_SHAPE_TEXT_INSET_RATIO = 0.45
 
 /**
  * Нормализует число до 4 знаков после запятой для стабильной сериализации.
@@ -90,7 +93,7 @@ const shapePresetsList: ShapePreset[] = [
     type: 'ellipse',
     width: DEFAULT_SHAPE_SIZE,
     height: DEFAULT_SHAPE_SIZE,
-    textPadding: {
+    internalTextInset: {
       top: 0.24,
       right: 0.24,
       bottom: 0.24,
@@ -102,7 +105,7 @@ const shapePresetsList: ShapePreset[] = [
     type: 'triangle',
     width: DEFAULT_SHAPE_SIZE,
     height: DEFAULT_SHAPE_SIZE,
-    textPadding: {
+    internalTextInset: {
       top: 0.38,
       right: 0.2,
       bottom: 0.14,
@@ -126,7 +129,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 50, y: 100 },
       { x: 0, y: 50 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.3,
       right: 0.3,
       bottom: 0.3,
@@ -143,7 +146,7 @@ const shapePresetsList: ShapePreset[] = [
       radius: 50,
       rotation: -Math.PI / 2
     }),
-    textPadding: {
+    internalTextInset: {
       top: 0.28,
       right: 0.2,
       bottom: 0.2,
@@ -160,7 +163,7 @@ const shapePresetsList: ShapePreset[] = [
       radius: 50,
       rotation: 0
     }),
-    textPadding: {
+    internalTextInset: {
       top: 0.24,
       right: 0.2,
       bottom: 0.24,
@@ -178,7 +181,7 @@ const shapePresetsList: ShapePreset[] = [
       innerRadius: 21,
       rotation: -Math.PI / 2
     }),
-    textPadding: {
+    internalTextInset: {
       top: 0.32,
       right: 0.32,
       bottom: 0.32,
@@ -196,7 +199,7 @@ const shapePresetsList: ShapePreset[] = [
       innerRadius: 16,
       rotation: -Math.PI / 2
     }),
-    textPadding: {
+    internalTextInset: {
       top: 0.34,
       right: 0.34,
       bottom: 0.34,
@@ -214,7 +217,7 @@ const shapePresetsList: ShapePreset[] = [
       'C53 12 60 8 70 8 C84 8 96 19 96 35',
       'C96 56 80 74 50 92 Z'
     ].join(' '),
-    textPadding: {
+    internalTextInset: {
       top: 0.3,
       right: 0.28,
       bottom: 0.22,
@@ -235,7 +238,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 58, y: 62 },
       { x: 0, y: 62 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.24,
       right: 0.42,
       bottom: 0.24,
@@ -256,7 +259,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 62, y: 42 },
       { x: 62, y: 100 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.4,
       right: 0.24,
       bottom: 0.16,
@@ -277,7 +280,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 66, y: 58 },
       { x: 0, y: 58 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.24,
       right: 0.4,
       bottom: 0.24,
@@ -298,7 +301,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 62, y: 58 },
       { x: 62, y: 0 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.16,
       right: 0.24,
       bottom: 0.4,
@@ -322,7 +325,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 38, y: 34 },
       { x: 18, y: 34 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.38,
       right: 0.26,
       bottom: 0.38,
@@ -346,7 +349,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 30, y: 62 },
       { x: 30, y: 82 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.26,
       right: 0.34,
       bottom: 0.26,
@@ -359,7 +362,7 @@ const shapePresetsList: ShapePreset[] = [
     width: 140,
     height: DEFAULT_SHAPE_SIZE,
     path: 'M50 0 C68 18 88 41 88 62 C88 84 71 100 50 100 C29 100 12 84 12 62 C12 41 32 18 50 0 Z',
-    textPadding: {
+    internalTextInset: {
       top: 0.3,
       right: 0.27,
       bottom: 0.2,
@@ -385,7 +388,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 0, y: 36 },
       { x: 36, y: 36 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.34,
       right: 0.34,
       bottom: 0.34,
@@ -403,7 +406,7 @@ const shapePresetsList: ShapePreset[] = [
       innerRadius: 40,
       rotation: -Math.PI / 2
     }),
-    textPadding: {
+    internalTextInset: {
       top: 0.28,
       right: 0.28,
       bottom: 0.28,
@@ -416,7 +419,7 @@ const shapePresetsList: ShapePreset[] = [
     width: DEFAULT_SHAPE_SIZE,
     height: DEFAULT_SHAPE_SIZE,
     path: 'M24 6 H76 L94 24 V76 L76 94 H24 L6 76 V24 Z',
-    textPadding: {
+    internalTextInset: {
       top: 0.24,
       right: 0.24,
       bottom: 0.24,
@@ -435,7 +438,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 50, y: 74 },
       { x: 18, y: 100 }
     ],
-    textPadding: {
+    internalTextInset: {
       top: 0.2,
       right: 0.22,
       bottom: 0.34,
@@ -448,7 +451,7 @@ const shapePresetsList: ShapePreset[] = [
     width: DEFAULT_SHAPE_SIZE,
     height: 130,
     path: 'M4 20 L64 20 L96 50 L64 80 L4 80 Z',
-    textPadding: {
+    internalTextInset: {
       top: 0.24,
       right: 0.34,
       bottom: 0.24,
@@ -466,7 +469,7 @@ const shapePresetsList: ShapePreset[] = [
       'C82 102 58 78 58 48 C58 28 68 12 84 4',
       'C79 4 74 4 68 4 Z'
     ].join(' '),
-    textPadding: {
+    internalTextInset: {
       top: 0.28,
       right: 0.34,
       bottom: 0.28,
@@ -518,23 +521,72 @@ export const resolvePresetKeyForRounding = ({
 }
 
 /**
- * Возвращает итоговые отступы текстовой области внутри фигуры.
+ * Переводит ratio-вставку формы в пиксели для текущего размера шейпа.
  */
-export const resolveShapePadding = ({
+function resolveInternalShapeTextInsetPixels({
+  value,
+  size
+}: {
+  value: number
+  size: number
+}): number {
+  const safeValue = Number.isFinite(value)
+    ? Math.min(Math.max(value, 0), MAX_SHAPE_TEXT_INSET_RATIO)
+    : 0
+  const safeSize = Number.isFinite(size) && size > 0
+    ? size
+    : 0
+
+  return safeSize * safeValue
+}
+
+/**
+ * Возвращает внутренний отступ текстовой области, который задаётся самой формой.
+ */
+export const resolveInternalShapeTextInset = ({
   preset,
-  overridePadding
+  width,
+  height
 }: {
   preset: ShapePreset
-  overridePadding?: Partial<ShapePadding>
+  width: number
+  height: number
 }): ShapePadding => {
-  const presetPadding = preset.textPadding ?? {}
+  const presetInset = preset.internalTextInset ?? {}
 
   return {
-    top: overridePadding?.top ?? presetPadding.top ?? DEFAULT_SHAPE_PADDING.top,
-    right: overridePadding?.right ?? presetPadding.right ?? DEFAULT_SHAPE_PADDING.right,
-    bottom: overridePadding?.bottom ?? presetPadding.bottom ?? DEFAULT_SHAPE_PADDING.bottom,
-    left: overridePadding?.left ?? presetPadding.left ?? DEFAULT_SHAPE_PADDING.left
+    top: resolveInternalShapeTextInsetPixels({
+      value: presetInset.top ?? DEFAULT_SHAPE_TEXT_INSET.top,
+      size: height
+    }),
+    right: resolveInternalShapeTextInsetPixels({
+      value: presetInset.right ?? DEFAULT_SHAPE_TEXT_INSET.right,
+      size: width
+    }),
+    bottom: resolveInternalShapeTextInsetPixels({
+      value: presetInset.bottom ?? DEFAULT_SHAPE_TEXT_INSET.bottom,
+      size: height
+    }),
+    left: resolveInternalShapeTextInsetPixels({
+      value: presetInset.left ?? DEFAULT_SHAPE_TEXT_INSET.left,
+      size: width
+    })
   }
+}
+
+/**
+ * Проверяет, содержит ли path только линейные команды.
+ */
+function hasLinearPathCommandsOnly({ path }: { path: string }): boolean {
+  const commands = path.match(/[a-zA-Z]/g) ?? []
+  const linearCommands = new Set(['M', 'L', 'H', 'V', 'Z'])
+
+  for (let index = 0; index < commands.length; index += 1) {
+    const command = commands[index].toUpperCase()
+    if (!linearCommands.has(command)) return false
+  }
+
+  return commands.length > 0
 }
 
 /**
@@ -555,21 +607,4 @@ export const isShapePresetRoundable = ({
   return hasLinearPathCommandsOnly({
     path: preset.path
   })
-}
-
-/**
- * Проверяет, содержит ли path только линейные команды.
- */
-function hasLinearPathCommandsOnly({ path }: { path: string }): boolean {
-  const commands = path.match(/[a-zA-Z]/g) ?? []
-  const linearCommands = new Set(['M', 'L', 'H', 'V', 'Z'])
-
-  for (let index = 0; index < commands.length; index += 1) {
-    const command = commands[index].toUpperCase()
-    if (!linearCommands.has(command)) {
-      return false
-    }
-  }
-
-  return commands.length > 0
 }

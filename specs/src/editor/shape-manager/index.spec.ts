@@ -7,7 +7,7 @@ import {
 import {
   applyShapeTextLayout,
   resolveShapeTextAutoExpandWidthForText
-} from '../../../../src/editor/shape-manager/shape-layout'
+} from '../../../../src/editor/shape-manager/layout/shape-layout'
 import {
   applyTextStyleToShapeText,
   createShapeManagerEditorStub,
@@ -21,7 +21,7 @@ jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
   resizeShapeNode: jest.fn()
 }))
 
-jest.mock('../../../../src/editor/shape-manager/shape-layout', () => ({
+jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
   resolveShapeTextAutoExpandWidthForText: jest.fn(({
     currentWidth,
@@ -188,6 +188,58 @@ describe('shape-manager', () => {
       minimumWidth: group.shapeManualBaseWidth,
       montageAreaWidth: 400
     }))
+  })
+
+  it('при добавлении шейпа без отступов сохраняет нули по всем сторонам', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapePaddingTop).toBe(0)
+    expect(group.shapePaddingRight).toBe(0)
+    expect(group.shapePaddingBottom).toBe(0)
+    expect(group.shapePaddingLeft).toBe(0)
+  })
+
+  it('при добавлении шейпа нормализует пользовательские отступы до целых неотрицательных пикселей', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        textPadding: {
+          top: 10.9,
+          right: -3,
+          bottom: 4.2,
+          left: 7.8
+        }
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapePaddingTop).toBe(10)
+    expect(group.shapePaddingRight).toBe(0)
+    expect(group.shapePaddingBottom).toBe(4)
+    expect(group.shapePaddingLeft).toBe(7)
   })
 
   it('при добавлении шейпа с явной шириной считает её ручной базовой шириной и сразу расширяет объект по тексту', async() => {
@@ -963,6 +1015,131 @@ describe('shape-manager', () => {
       minimumWidth: 180,
       montageAreaWidth: 400
     }))
+  })
+
+  it('при изменении одной стороны оставляет остальные отступы как были', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        textPadding: {
+          top: 2,
+          right: 4,
+          bottom: 6,
+          left: 8
+        }
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        textPadding: {
+          right: 19.7
+        }
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapePaddingTop).toBe(2)
+    expect(updatedGroup?.shapePaddingRight).toBe(19)
+    expect(updatedGroup?.shapePaddingBottom).toBe(6)
+    expect(updatedGroup?.shapePaddingLeft).toBe(8)
+  })
+
+  it('при изменении только отступов не пересчитывает размер шейпа заново', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        textPadding: {
+          top: 2,
+          right: 4,
+          bottom: 6,
+          left: 8
+        }
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    group.shapeBaseWidth = 240
+    group.shapeBaseHeight = 140
+    group.width = 240
+    group.height = 140
+
+    applyShapeTextLayoutMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        textPadding: {
+          right: 20
+        }
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 240,
+      height: 140,
+      expandShapeHeightToFitText: false,
+      changedPadding: {
+        right: true
+      }
+    }))
+  })
+
+  it('при смене пресета сохраняет пользовательские отступы', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        textPadding: {
+          top: 2,
+          right: 4,
+          bottom: 6,
+          left: 8
+        }
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const updatedGroup = await manager.update({
+      target: group,
+      presetKey: 'circle'
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapePaddingTop).toBe(2)
+    expect(updatedGroup?.shapePaddingRight).toBe(4)
+    expect(updatedGroup?.shapePaddingBottom).toBe(6)
+    expect(updatedGroup?.shapePaddingLeft).toBe(8)
   })
 
   it('обновление шейпа во время редактирования оставляет фигуру в режиме редактирования текста', async() => {

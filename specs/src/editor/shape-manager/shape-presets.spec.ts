@@ -2,7 +2,7 @@ import {
   getShapePreset,
   isShapePresetRoundable,
   resolvePresetKeyForRounding,
-  resolveShapePadding
+  resolveInternalShapeTextInset
 } from '../../../../src/editor/shape-manager/shape-presets'
 
 describe('shape-presets', () => {
@@ -24,7 +24,7 @@ describe('shape-presets', () => {
     expect(preset).toBeNull()
   })
 
-  it('корректно объединяет preset padding и пользовательский override', () => {
+  it('для квадратной фигуры возвращает нулевой внутренний отступ', () => {
     const preset = getShapePreset({
       presetKey: 'square'
     })
@@ -33,19 +33,40 @@ describe('shape-presets', () => {
       throw new Error('square preset is required for this test')
     }
 
-    const padding = resolveShapePadding({
+    const inset = resolveInternalShapeTextInset({
       preset,
-      overridePadding: {
-        left: 0.1,
-        top: 0.05
-      }
+      width: 180,
+      height: 120
     })
 
-    expect(padding).toEqual({
-      top: 0.05,
-      right: 0.2,
-      bottom: 0.2,
-      left: 0.1
+    expect(inset).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    })
+  })
+
+  it('переводит внутренний отступ формы из пресета в пиксели', () => {
+    const preset = getShapePreset({
+      presetKey: 'circle'
+    })
+
+    if (!preset) {
+      throw new Error('circle preset is required for this test')
+    }
+
+    const inset = resolveInternalShapeTextInset({
+      preset,
+      width: 200,
+      height: 100
+    })
+
+    expect(inset).toEqual({
+      top: 24,
+      right: 48,
+      bottom: 24,
+      left: 48
     })
   })
 
@@ -101,4 +122,3 @@ describe('shape-presets', () => {
     })).toBe(true)
   })
 })
-

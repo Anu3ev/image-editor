@@ -38,6 +38,10 @@ import {
  *   shapeStroke?: string,
  *   shapeStrokeWidth?: number,
  *   shapeOpacity?: number,
+ *   shapePaddingTop?: number,
+ *   shapePaddingRight?: number,
+ *   shapePaddingBottom?: number,
+ *   shapePaddingLeft?: number,
  *   shapeRounding?: number,
  *   shapeCanRound?: boolean
  * }} ShapeObject
@@ -60,6 +64,10 @@ import {
  *   shapeStrokeWidthValue: ShapeTextNode,
  *   shapeOpacityInput: ShapeInputElement,
  *   shapeOpacityValue: ShapeTextNode,
+ *   shapePaddingTopInput: ShapeInputElement,
+ *   shapePaddingRightInput: ShapeInputElement,
+ *   shapePaddingBottomInput: ShapeInputElement,
+ *   shapePaddingLeftInput: ShapeInputElement,
  *   shapeRoundingInput: ShapeInputElement,
  *   shapeRoundingValue: ShapeTextNode
  * }} ShapeControls
@@ -86,6 +94,10 @@ export default ({ editorInstance, controls }) => {
     shapeStrokeWidthValue,
     shapeOpacityInput,
     shapeOpacityValue,
+    shapePaddingTopInput,
+    shapePaddingRightInput,
+    shapePaddingBottomInput,
+    shapePaddingLeftInput,
     shapeRoundingInput,
     shapeRoundingValue
   } = controls
@@ -181,6 +193,26 @@ export default ({ editorInstance, controls }) => {
   })
 
   /**
+   * Считывает внутренний отступ фигуры из input.
+   * @param {ShapeInputElement} input
+   */
+  const getShapePaddingFromInput = (input) => parseNumberInput({
+    input,
+    min: 0,
+    fallback: 0
+  })
+
+  /**
+   * Возвращает текущие внутренние отступы фигуры из контролов.
+   */
+  const getShapeTextPaddingFromControls = () => ({
+    top: getShapePaddingFromInput(shapePaddingTopInput),
+    right: getShapePaddingFromInput(shapePaddingRightInput),
+    bottom: getShapePaddingFromInput(shapePaddingBottomInput),
+    left: getShapePaddingFromInput(shapePaddingLeftInput)
+  })
+
+  /**
    * Считывает скругление фигуры из input.
    */
   const getShapeRoundingFromInput = () => parseNumberInput({
@@ -227,6 +259,24 @@ export default ({ editorInstance, controls }) => {
     )
     shapeOpacityInput.value = opacityPercent
     shapeOpacityValue.textContent = `${opacityPercent}%`
+
+    const paddingTop = typeof shapeGroup.shapePaddingTop === 'number'
+      ? Math.max(0, Math.round(shapeGroup.shapePaddingTop))
+      : Number(shapePaddingTopInput.value) || 0
+    const paddingRight = typeof shapeGroup.shapePaddingRight === 'number'
+      ? Math.max(0, Math.round(shapeGroup.shapePaddingRight))
+      : Number(shapePaddingRightInput.value) || 0
+    const paddingBottom = typeof shapeGroup.shapePaddingBottom === 'number'
+      ? Math.max(0, Math.round(shapeGroup.shapePaddingBottom))
+      : Number(shapePaddingBottomInput.value) || 0
+    const paddingLeft = typeof shapeGroup.shapePaddingLeft === 'number'
+      ? Math.max(0, Math.round(shapeGroup.shapePaddingLeft))
+      : Number(shapePaddingLeftInput.value) || 0
+
+    shapePaddingTopInput.value = paddingTop
+    shapePaddingRightInput.value = paddingRight
+    shapePaddingBottomInput.value = paddingBottom
+    shapePaddingLeftInput.value = paddingLeft
 
     const rounding = typeof shapeGroup.shapeRounding === 'number'
       ? Math.max(0, Math.round(shapeGroup.shapeRounding))
@@ -329,6 +379,29 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
+   * Применяет внутренний отступ текста к активной фигуре.
+   * @param {{ side: 'top' | 'right' | 'bottom' | 'left', value: number, withoutSave?: boolean }} params
+   */
+  const applyShapePadding = async({ side, value, withoutSave = false }) => {
+    const shapeGroup = getActiveShape()
+    if (!shapeGroup) return
+
+    const updated = await editorInstance.shapeManager.update({
+      target: shapeGroup,
+      options: {
+        textPadding: { [side]: value },
+        withoutSave
+      }
+    })
+    if (!updated) {
+      syncShapeControls(getActiveShape())
+      return
+    }
+
+    syncShapeControls(updated)
+  }
+
+  /**
    * Собирает опции фигуры из текущих контролов.
    */
   const getShapeOptionsFromControls = () => {
@@ -351,7 +424,8 @@ export default ({ editorInstance, controls }) => {
       strokeWidth,
       opacity: opacityPercent / 100,
       rounding,
-      shapeTextAutoExpand: shapeTextAutoExpandCheckbox.checked
+      shapeTextAutoExpand: shapeTextAutoExpandCheckbox.checked,
+      textPadding: getShapeTextPaddingFromControls()
     }
   }
 
@@ -612,6 +686,32 @@ export default ({ editorInstance, controls }) => {
         shapeTextAutoExpand: shapeTextAutoExpandCheckbox.checked
       })
     })
+
+    const paddingInputs = [
+      { input: shapePaddingTopInput, key: 'top' },
+      { input: shapePaddingRightInput, key: 'right' },
+      { input: shapePaddingBottomInput, key: 'bottom' },
+      { input: shapePaddingLeftInput, key: 'left' }
+    ]
+
+    for (const { input, key } of paddingInputs) {
+      input.addEventListener('input', async() => {
+        const value = getShapePaddingFromInput(input)
+        await applyShapePadding({
+          side: key,
+          value,
+          withoutSave: true
+        })
+      })
+
+      input.addEventListener('change', async() => {
+        const value = getShapePaddingFromInput(input)
+        await applyShapePadding({
+          side: key,
+          value
+        })
+      })
+    }
   }
 
   /**

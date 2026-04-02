@@ -42,6 +42,10 @@ export type BrowserSerializableObject = BrowserObject & {
   shapeTextAutoExpand?: unknown
   shapeAlignHorizontal?: unknown
   shapeAlignVertical?: unknown
+  shapePaddingTop?: unknown
+  shapePaddingRight?: unknown
+  shapePaddingBottom?: unknown
+  shapePaddingLeft?: unknown
   shapeFill?: unknown
   shapeStroke?: unknown
   shapeStrokeWidth?: unknown

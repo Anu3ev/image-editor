@@ -441,6 +441,22 @@ export function installEditorBrowserHelpers(): void {
       shapeTextAutoExpand: shapeObject.shapeTextAutoExpand ?? true,
       shapeAlignHorizontal: shapeObject.shapeAlignHorizontal ?? 'center',
       shapeAlignVertical: shapeObject.shapeAlignVertical ?? 'middle',
+      shapePaddingTop: resolveNumber({
+        value: shapeObject.shapePaddingTop,
+        defaultValue: 0
+      }),
+      shapePaddingRight: resolveNumber({
+        value: shapeObject.shapePaddingRight,
+        defaultValue: 0
+      }),
+      shapePaddingBottom: resolveNumber({
+        value: shapeObject.shapePaddingBottom,
+        defaultValue: 0
+      }),
+      shapePaddingLeft: resolveNumber({
+        value: shapeObject.shapePaddingLeft,
+        defaultValue: 0
+      }),
       shapeFill: shapeObject.shapeFill,
       shapeStroke: shapeObject.shapeStroke,
       shapeStrokeWidth: shapeObject.shapeStrokeWidth,

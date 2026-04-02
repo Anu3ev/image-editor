@@ -22,6 +22,153 @@ const MIN_SIZE = 1
 const MIN_EDGE_LENGTH = 0.0001
 
 /**
+ * Размер shape в пикселях.
+ */
+type ShapeSize = {
+  width: number
+  height: number
+}
+
+/**
+ * Аргументы ресайза уже созданного shape-узла.
+ */
+type ResizeShapeNodeParams = ShapeSize & {
+  shape: ShapeNode
+  rounding?: number
+  strokeWidth?: number
+}
+
+/**
+ * Аргументы расчета внутреннего размера shape с учетом stroke.
+ */
+type ResolveInnerShapeSizeParams = ShapeSize & {
+  strokeWidth?: number
+}
+
+/**
+ * Аргументы создания shape-узла из пресета.
+ */
+type CreateShapeObjectByPresetParams = {
+  preset: ShapePreset
+  rounding?: number
+}
+
+/**
+ * Общие аргументы для shape, которые могут использовать скругление.
+ */
+type CreateRoundedPathParams = {
+  rounding?: number
+}
+
+/**
+ * Аргументы создания path-shape из path-строки.
+ */
+type CreatePathShapeParams = {
+  path: string
+  rounding?: number
+}
+
+/**
+ * Аргументы создания polygon/polyline-shape.
+ */
+type CreatePolygonShapeParams = {
+  points: ShapePoint[]
+  type: 'polygon' | 'polyline'
+  rounding?: number
+}
+
+/**
+ * Аргументы построения rounded path из линейного path.
+ */
+type CreateRoundedPathFromLinearPathParams = {
+  path: string
+  rounding: number
+}
+
+/**
+ * Аргументы создания закругленного path по списку точек.
+ */
+type CreateRoundedPolygonPathShapeParams = {
+  points: ShapePoint[]
+  rounding: number
+  closed: boolean
+}
+
+/**
+ * Аргументы построения path-строки с закругленными вершинами.
+ */
+type BuildRoundedPathFromPointsParams = {
+  points: ShapePoint[]
+  radius: number
+  closed: boolean
+}
+
+/**
+ * Аргументы построения линейной path-строки без скруглений.
+ */
+type BuildLinearPathFromPointsParams = {
+  points: ShapePoint[]
+  closed: boolean
+}
+
+/**
+ * Точки входа и выхода дуги скругления для одной вершины.
+ */
+type RoundedCornerPoints = {
+  start: ShapePoint
+  end: ShapePoint
+}
+
+/**
+ * Аргументы расчета точек скругления для одной вершины.
+ */
+type ResolveRoundedCornerPointsParams = {
+  previous: ShapePoint
+  current: ShapePoint
+  next: ShapePoint
+  radius: number
+}
+
+/**
+ * Аргументы создания shape из SVG-строки.
+ */
+type CreateShapeFromSvgParams = {
+  svg: string
+}
+
+/**
+ * Нормализует число для стабильного path-представления.
+ */
+function normalizeNumber({ value }: { value: number }): number {
+  return Number(value.toFixed(4))
+}
+
+/**
+ * Проверяет, нужно ли строить rounded-path для фигуры.
+ */
+function shouldUseRoundedPath({ rounding }: CreateRoundedPathParams): boolean {
+  return Math.max(0, rounding ?? 0) > 0
+}
+
+/**
+ * Возвращает внутренний размер фигуры с учетом толщины stroke.
+ */
+function resolveInnerShapeSize({
+  width,
+  height,
+  strokeWidth
+}: ResolveInnerShapeSizeParams): ShapeSize {
+  const safeStrokeWidth = Math.max(0, strokeWidth ?? 0)
+  const innerWidth = Math.max(MIN_SIZE, width - safeStrokeWidth)
+  const innerHeight = Math.max(MIN_SIZE, height - safeStrokeWidth)
+
+  return {
+    width: innerWidth,
+    height: innerHeight
+  }
+}
+
+/**
  * Применяет геометрию нужного размера к shape-объекту.
  */
 export function resizeShapeNode({
@@ -30,13 +177,7 @@ export function resizeShapeNode({
   height,
   rounding,
   strokeWidth
-}: {
-  shape: ShapeNode
-  width: number
-  height: number
-  rounding?: number
-  strokeWidth?: number
-}): void {
+}: ResizeShapeNodeParams): void {
   const safeWidth = Math.max(MIN_SIZE, width)
   const safeHeight = Math.max(MIN_SIZE, height)
   const innerSize = resolveInnerShapeSize({
@@ -67,7 +208,6 @@ export function resizeShapeNode({
     width: sourceWidth = MIN_SIZE,
     height: sourceHeight = MIN_SIZE
   } = shape
-
   const safeSourceWidth = Math.max(MIN_SIZE, sourceWidth)
   const safeSourceHeight = Math.max(MIN_SIZE, sourceHeight)
 
@@ -80,45 +220,6 @@ export function resizeShapeNode({
     originY: 'center'
   })
   shape.setCoords()
-}
-
-/**
- * Создает объект фигуры из пресета и применяет к нему стили.
- */
-export async function createShapeNode({
-  preset,
-  width,
-  height,
-  style,
-  rounding
-}: ShapeFactoryInput): Promise<ShapeNode> {
-  const shape = await createShapeObjectByPreset({
-    preset,
-    rounding
-  })
-
-  applyShapeStyle({
-    shape,
-    style
-  })
-
-  resizeShapeNode({
-    shape,
-    width,
-    height,
-    rounding,
-    strokeWidth: style.strokeWidth
-  })
-
-  shape.set({
-    selectable: false,
-    evented: false,
-    hasControls: false,
-    hasBorders: false,
-    shapeNodeType: 'shape'
-  })
-
-  return shape
 }
 
 /**
@@ -190,89 +291,193 @@ export function applyShapeStyle({
 }
 
 /**
- * Создает базовый shape-object на основе типа пресета.
+ * Строит линейный path из точек без закруглений.
  */
-async function createShapeObjectByPreset({
-  preset,
-  rounding
-}: {
-  preset: ShapePreset
-  rounding?: number
-}): Promise<ShapeNode> {
-  if (preset.type === 'rect') return new Rect({
-    width: 100,
-    height: 100,
-    originX: 'center',
-    originY: 'center',
-    left: 0,
-    top: 0
-  }) as ShapeNode
+function buildLinearPathFromPoints({
+  points,
+  closed
+}: BuildLinearPathFromPointsParams): string {
+  if (points.length === 0) return ''
 
-  if (preset.type === 'ellipse') return new Ellipse({
-    rx: 50,
-    ry: 50,
-    originX: 'center',
-    originY: 'center',
-    left: 0,
-    top: 0
-  }) as ShapeNode
+  let pathData = `M ${normalizeNumber({ value: points[0].x })} ${normalizeNumber({ value: points[0].y })}`
 
-  if (preset.type === 'triangle') return createTriangleShape({
-    rounding
-  })
+  for (let index = 1; index < points.length; index += 1) {
+    const point = points[index]
+    pathData += ` L ${normalizeNumber({ value: point.x })} ${normalizeNumber({ value: point.y })}`
+  }
 
-  if (preset.type === 'polygon') return createPolygonShape({
-    points: preset.points,
-    type: 'polygon',
-    rounding
-  })
+  if (closed) {
+    pathData += ' Z'
+  }
 
-  if (preset.type === 'polyline') return createPolygonShape({
-    points: preset.points,
-    type: 'polyline',
-    rounding
-  })
-
-  if (preset.type === 'path') return createPathShape({
-    path: preset.path,
-    rounding
-  })
-
-  if (preset.type === 'svg') return createShapeFromSvg({ svg: preset.svg })
-
-  return new Rect({
-    width: 100,
-    height: 100,
-    originX: 'center',
-    originY: 'center',
-    left: 0,
-    top: 0
-  }) as ShapeNode
+  return pathData
 }
 
 /**
- * Возвращает внутренний размер фигуры с учетом толщины stroke.
+ * Вычисляет начальную и конечную точки дуги скругления для одной вершины.
  */
-function resolveInnerShapeSize({
-  width,
-  height,
-  strokeWidth
-}: {
-  width: number
-  height: number
-  strokeWidth?: number
-}): {
-  width: number
-  height: number
-} {
-  const safeStrokeWidth = Math.max(0, strokeWidth ?? 0)
-  const innerWidth = Math.max(MIN_SIZE, width - safeStrokeWidth)
-  const innerHeight = Math.max(MIN_SIZE, height - safeStrokeWidth)
+function resolveRoundedCornerPoints({
+  previous,
+  current,
+  next,
+  radius
+}: ResolveRoundedCornerPointsParams): RoundedCornerPoints {
+  const vectorToPrevious = {
+    x: previous.x - current.x,
+    y: previous.y - current.y
+  }
+  const vectorToNext = {
+    x: next.x - current.x,
+    y: next.y - current.y
+  }
+  const previousLength = Math.hypot(vectorToPrevious.x, vectorToPrevious.y)
+  const nextLength = Math.hypot(vectorToNext.x, vectorToNext.y)
+
+  if (previousLength <= MIN_EDGE_LENGTH || nextLength <= MIN_EDGE_LENGTH) {
+    return {
+      start: {
+        x: normalizeNumber({ value: current.x }),
+        y: normalizeNumber({ value: current.y })
+      },
+      end: {
+        x: normalizeNumber({ value: current.x }),
+        y: normalizeNumber({ value: current.y })
+      }
+    }
+  }
+
+  const cornerRadius = Math.min(
+    Math.max(0, radius),
+    previousLength / 2,
+    nextLength / 2
+  )
+  const start = {
+    x: normalizeNumber({
+      value: current.x + (vectorToPrevious.x / previousLength) * cornerRadius
+    }),
+    y: normalizeNumber({
+      value: current.y + (vectorToPrevious.y / previousLength) * cornerRadius
+    })
+  }
+  const end = {
+    x: normalizeNumber({
+      value: current.x + (vectorToNext.x / nextLength) * cornerRadius
+    }),
+    y: normalizeNumber({
+      value: current.y + (vectorToNext.y / nextLength) * cornerRadius
+    })
+  }
 
   return {
-    width: innerWidth,
-    height: innerHeight
+    start,
+    end
   }
+}
+
+/**
+ * Строит path-строку с закругленными вершинами из точек.
+ */
+function buildRoundedPathFromPoints({
+  points,
+  radius,
+  closed
+}: BuildRoundedPathFromPointsParams): string {
+  const total = points.length
+  if (total === 0) return ''
+
+  if (!closed && total === 1) {
+    const point = points[0]
+
+    return `M ${normalizeNumber({ value: point.x })} ${normalizeNumber({ value: point.y })}`
+  }
+
+  const safeRadius = Math.max(0, radius)
+  if (safeRadius <= 0) {
+    return buildLinearPathFromPoints({
+      points,
+      closed
+    })
+  }
+
+  if (closed) {
+    const corners: RoundedCornerPoints[] = []
+
+    for (let index = 0; index < total; index += 1) {
+      const previousIndex = index === 0 ? total - 1 : index - 1
+      const nextIndex = index === total - 1 ? 0 : index + 1
+
+      corners.push(resolveRoundedCornerPoints({
+        previous: points[previousIndex],
+        current: points[index],
+        next: points[nextIndex],
+        radius: safeRadius
+      }))
+    }
+
+    const firstCorner = corners[0]
+    let pathData = `M ${firstCorner.start.x} ${firstCorner.start.y}`
+
+    for (let index = 0; index < total; index += 1) {
+      const current = points[index]
+      const corner = corners[index]
+      const nextCornerIndex = index === total - 1 ? 0 : index + 1
+      const nextCorner = corners[nextCornerIndex]
+
+      pathData += ` Q ${current.x} ${current.y} ${corner.end.x} ${corner.end.y}`
+      pathData += ` L ${nextCorner.start.x} ${nextCorner.start.y}`
+    }
+
+    pathData += ' Z'
+    return pathData
+  }
+
+  if (total === 2) {
+    return buildLinearPathFromPoints({
+      points,
+      closed: false
+    })
+  }
+
+  let pathData = `M ${normalizeNumber({ value: points[0].x })} ${normalizeNumber({ value: points[0].y })}`
+
+  for (let index = 1; index < total - 1; index += 1) {
+    const corner = resolveRoundedCornerPoints({
+      previous: points[index - 1],
+      current: points[index],
+      next: points[index + 1],
+      radius: safeRadius
+    })
+
+    pathData += ` L ${corner.start.x} ${corner.start.y}`
+    pathData += ` Q ${points[index].x} ${points[index].y} ${corner.end.x} ${corner.end.y}`
+  }
+
+  const lastPoint = points[total - 1]
+  pathData += ` L ${normalizeNumber({ value: lastPoint.x })} ${normalizeNumber({ value: lastPoint.y })}`
+
+  return pathData
+}
+
+/**
+ * Создает Path с закругленными углами по списку точек.
+ */
+function createRoundedPolygonPathShape({
+  points,
+  rounding,
+  closed
+}: CreateRoundedPolygonPathShapeParams): ShapeNode {
+  const pathData = buildRoundedPathFromPoints({
+    points,
+    radius: rounding,
+    closed
+  })
+
+  return new Path(pathData, {
+    originX: 'center',
+    originY: 'center',
+    left: 0,
+    top: 0
+  }) as ShapeNode
 }
 
 /**
@@ -280,9 +485,7 @@ function resolveInnerShapeSize({
  */
 function createTriangleShape({
   rounding
-}: {
-  rounding?: number
-}): ShapeNode {
+}: CreateRoundedPathParams): ShapeNode {
   if (!shouldUseRoundedPath({ rounding })) {
     return new Triangle({
       width: 100,
@@ -303,90 +506,6 @@ function createTriangleShape({
     rounding: Math.max(0, rounding ?? 0),
     closed: true
   })
-}
-
-/**
- * Создает Path фигуру и пытается применить скругление для линейных контуров.
- */
-function createPathShape({
-  path,
-  rounding
-}: {
-  path: string
-  rounding?: number
-}): ShapeNode {
-  if (!shouldUseRoundedPath({ rounding })) {
-    return createBasePathShape({ path })
-  }
-
-  const roundedPath = createRoundedPathFromLinearPath({
-    path,
-    rounding: Math.max(0, rounding ?? 0)
-  })
-
-  if (roundedPath) return roundedPath
-
-  return createBasePathShape({ path })
-}
-
-/**
- * Создает Polygon/Polyline для пресета.
- */
-function createPolygonShape({
-  points,
-  type,
-  rounding
-}: {
-  points: ShapePoint[]
-  type: 'polygon' | 'polyline'
-  rounding?: number
-}): ShapeNode {
-  const hasPoints = points.length > 0
-  const sourcePoints = hasPoints
-    ? points
-    : [
-      { x: 0, y: 0 },
-      { x: 100, y: 0 },
-      { x: 100, y: 100 }
-    ]
-
-  const shouldCreateRoundedPath = shouldUseRoundedPath({
-    rounding
-  })
-
-  if (shouldCreateRoundedPath) {
-    if (type === 'polygon' && sourcePoints.length >= 3) {
-      return createRoundedPolygonPathShape({
-        points: sourcePoints,
-        rounding: Math.max(0, rounding ?? 0),
-        closed: true
-      })
-    }
-
-    if (type === 'polyline' && sourcePoints.length >= 2) {
-      return createRoundedPolygonPathShape({
-        points: sourcePoints,
-        rounding: Math.max(0, rounding ?? 0),
-        closed: false
-      })
-    }
-  }
-
-  if (type === 'polyline') {
-    return new Polyline(sourcePoints, {
-      originX: 'center',
-      originY: 'center',
-      left: 0,
-      top: 0
-    }) as ShapeNode
-  }
-
-  return new Polygon(sourcePoints, {
-    originX: 'center',
-    originY: 'center',
-    left: 0,
-    top: 0
-  }) as ShapeNode
 }
 
 /**
@@ -411,10 +530,7 @@ function createBasePathShape({
 function createRoundedPathFromLinearPath({
   path,
   rounding
-}: {
-  path: string
-  rounding: number
-}): ShapeNode | null {
+}: CreateRoundedPathFromLinearPathParams): ShapeNode | null {
   const sourcePath = createBasePathShape({ path }) as Path
   const rawPath = sourcePath.path ?? []
   const simplifiedPath = util.makePathSimpler(rawPath)
@@ -463,24 +579,63 @@ function createRoundedPathFromLinearPath({
 }
 
 /**
- * Создает Path с закругленными углами по списку точек.
+ * Создает Path фигуру и пытается применить скругление для линейных контуров.
  */
-function createRoundedPolygonPathShape({
-  points,
-  rounding,
-  closed
-}: {
-  points: ShapePoint[]
-  rounding: number
-  closed: boolean
-}): ShapeNode {
-  const pathData = buildRoundedPathFromPoints({
-    points,
-    radius: rounding,
-    closed
-  })
+function createPathShape({
+  path,
+  rounding
+}: CreatePathShapeParams): ShapeNode {
+  if (!shouldUseRoundedPath({ rounding })) {
+    return createBasePathShape({ path })
+  }
 
-  return new Path(pathData, {
+  const roundedPath = createRoundedPathFromLinearPath({
+    path,
+    rounding: Math.max(0, rounding ?? 0)
+  })
+  if (roundedPath) return roundedPath
+
+  return createBasePathShape({ path })
+}
+
+/**
+ * Создает Polygon/Polyline для пресета.
+ */
+function createPolygonShape({
+  points,
+  type,
+  rounding
+}: CreatePolygonShapeParams): ShapeNode {
+  const sourcePoints = points.length > 0
+    ? points
+    : [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 }
+    ]
+  const safeRounding = Math.max(0, rounding ?? 0)
+
+  if (shouldUseRoundedPath({ rounding })) {
+    if (type === 'polygon' && sourcePoints.length >= 3) {
+      return createRoundedPolygonPathShape({
+        points: sourcePoints,
+        rounding: safeRounding,
+        closed: true
+      })
+    }
+
+    if (type === 'polyline' && sourcePoints.length >= 2) {
+      return createRoundedPolygonPathShape({
+        points: sourcePoints,
+        rounding: safeRounding,
+        closed: false
+      })
+    }
+  }
+
+  const ShapeClass = type === 'polyline' ? Polyline : Polygon
+
+  return new ShapeClass(sourcePoints, {
     originX: 'center',
     originY: 'center',
     left: 0,
@@ -489,213 +644,12 @@ function createRoundedPolygonPathShape({
 }
 
 /**
- * Строит path-строку с закругленными вершинами из точек.
- */
-function buildRoundedPathFromPoints({
-  points,
-  radius,
-  closed
-}: {
-  points: ShapePoint[]
-  radius: number
-  closed: boolean
-}): string {
-  const total = points.length
-  if (total === 0) return ''
-
-  if (!closed && total === 1) {
-    const point = points[0]
-    return `M ${normalizeNumber({ value: point.x })} ${normalizeNumber({ value: point.y })}`
-  }
-
-  const safeRadius = Math.max(0, radius)
-  if (safeRadius <= 0) {
-    return buildLinearPathFromPoints({
-      points,
-      closed
-    })
-  }
-
-  if (closed) {
-    const corners: Array<{
-      start: ShapePoint
-      end: ShapePoint
-    }> = []
-
-    for (let index = 0; index < total; index += 1) {
-      const previousIndex = index === 0 ? total - 1 : index - 1
-      const nextIndex = index === total - 1 ? 0 : index + 1
-      const corner = resolveRoundedCornerPoints({
-        previous: points[previousIndex],
-        current: points[index],
-        next: points[nextIndex],
-        radius: safeRadius
-      })
-      corners.push(corner)
-    }
-
-    const firstCorner = corners[0]
-    let pathData = `M ${firstCorner.start.x} ${firstCorner.start.y}`
-
-    for (let index = 0; index < total; index += 1) {
-      const current = points[index]
-      const corner = corners[index]
-      const nextCornerIndex = index === total - 1 ? 0 : index + 1
-      const nextCorner = corners[nextCornerIndex]
-      pathData += ` Q ${current.x} ${current.y} ${corner.end.x} ${corner.end.y}`
-      pathData += ` L ${nextCorner.start.x} ${nextCorner.start.y}`
-    }
-
-    pathData += ' Z'
-    return pathData
-  }
-
-  if (total === 2) {
-    return buildLinearPathFromPoints({
-      points,
-      closed: false
-    })
-  }
-
-  let pathData = `M ${normalizeNumber({ value: points[0].x })} ${normalizeNumber({ value: points[0].y })}`
-
-  for (let index = 1; index < total - 1; index += 1) {
-    const corner = resolveRoundedCornerPoints({
-      previous: points[index - 1],
-      current: points[index],
-      next: points[index + 1],
-      radius: safeRadius
-    })
-
-    pathData += ` L ${corner.start.x} ${corner.start.y}`
-    pathData += ` Q ${points[index].x} ${points[index].y} ${corner.end.x} ${corner.end.y}`
-  }
-
-  const lastPoint = points[total - 1]
-  pathData += ` L ${normalizeNumber({ value: lastPoint.x })} ${normalizeNumber({ value: lastPoint.y })}`
-
-  return pathData
-}
-
-/**
- * Строит линейный path из точек без закруглений.
- */
-function buildLinearPathFromPoints({
-  points,
-  closed
-}: {
-  points: ShapePoint[]
-  closed: boolean
-}): string {
-  if (points.length === 0) return ''
-
-  let pathData = `M ${normalizeNumber({ value: points[0].x })} ${normalizeNumber({ value: points[0].y })}`
-
-  for (let index = 1; index < points.length; index += 1) {
-    const point = points[index]
-    pathData += ` L ${normalizeNumber({ value: point.x })} ${normalizeNumber({ value: point.y })}`
-  }
-
-  if (closed) {
-    pathData += ' Z'
-  }
-
-  return pathData
-}
-
-/**
- * Вычисляет начальную и конечную точки дуги скругления для одной вершины.
- */
-function resolveRoundedCornerPoints({
-  previous,
-  current,
-  next,
-  radius
-}: {
-  previous: ShapePoint
-  current: ShapePoint
-  next: ShapePoint
-  radius: number
-}): {
-  start: ShapePoint
-  end: ShapePoint
-} {
-  const vectorToPrevious = {
-    x: previous.x - current.x,
-    y: previous.y - current.y
-  }
-
-  const vectorToNext = {
-    x: next.x - current.x,
-    y: next.y - current.y
-  }
-
-  const previousLength = Math.hypot(vectorToPrevious.x, vectorToPrevious.y)
-  const nextLength = Math.hypot(vectorToNext.x, vectorToNext.y)
-
-  if (previousLength <= MIN_EDGE_LENGTH || nextLength <= MIN_EDGE_LENGTH) {
-    return {
-      start: {
-        x: normalizeNumber({ value: current.x }),
-        y: normalizeNumber({ value: current.y })
-      },
-      end: {
-        x: normalizeNumber({ value: current.x }),
-        y: normalizeNumber({ value: current.y })
-      }
-    }
-  }
-
-  const cornerRadius = Math.min(
-    Math.max(0, radius),
-    previousLength / 2,
-    nextLength / 2
-  )
-
-  const start = {
-    x: normalizeNumber({
-      value: current.x + (vectorToPrevious.x / previousLength) * cornerRadius
-    }),
-    y: normalizeNumber({
-      value: current.y + (vectorToPrevious.y / previousLength) * cornerRadius
-    })
-  }
-
-  const end = {
-    x: normalizeNumber({
-      value: current.x + (vectorToNext.x / nextLength) * cornerRadius
-    }),
-    y: normalizeNumber({
-      value: current.y + (vectorToNext.y / nextLength) * cornerRadius
-    })
-  }
-
-  return {
-    start,
-    end
-  }
-}
-
-/**
- * Проверяет, нужно ли строить rounded-path для фигуры.
- */
-function shouldUseRoundedPath({ rounding }: { rounding?: number }): boolean {
-  return Math.max(0, rounding ?? 0) > 0
-}
-
-/**
- * Нормализует число для стабильного path-представления.
- */
-function normalizeNumber({ value }: { value: number }): number {
-  return Number(value.toFixed(4))
-}
-
-/**
  * Создает shape из SVG-строки.
  */
-async function createShapeFromSvg({ svg }: { svg: string }): Promise<ShapeNode> {
+async function createShapeFromSvg({
+  svg
+}: CreateShapeFromSvgParams): Promise<ShapeNode> {
   const svgData = await loadSVGFromString(svg)
-
   const grouped = util.groupSVGElements(
     svgData.objects as FabricObject[],
     svgData.options
@@ -707,8 +661,105 @@ async function createShapeFromSvg({ svg }: { svg: string }): Promise<ShapeNode> 
     left: 0,
     top: 0
   })
-
   grouped.setCoords()
 
   return grouped
+}
+
+/**
+ * Создает базовый shape-object на основе типа пресета.
+ */
+async function createShapeObjectByPreset({
+  preset,
+  rounding
+}: CreateShapeObjectByPresetParams): Promise<ShapeNode> {
+  switch (preset.type) {
+  case 'rect':
+    return new Rect({
+      width: 100,
+      height: 100,
+      originX: 'center',
+      originY: 'center',
+      left: 0,
+      top: 0
+    }) as ShapeNode
+  case 'ellipse':
+    return new Ellipse({
+      rx: 50,
+      ry: 50,
+      originX: 'center',
+      originY: 'center',
+      left: 0,
+      top: 0
+    }) as ShapeNode
+  case 'triangle':
+    return createTriangleShape({ rounding })
+  case 'polygon':
+    return createPolygonShape({
+      points: preset.points,
+      type: 'polygon',
+      rounding
+    })
+  case 'polyline':
+    return createPolygonShape({
+      points: preset.points,
+      type: 'polyline',
+      rounding
+    })
+  case 'path':
+    return createPathShape({
+      path: preset.path,
+      rounding
+    })
+  case 'svg':
+    return createShapeFromSvg({ svg: preset.svg })
+  default:
+    return new Rect({
+      width: 100,
+      height: 100,
+      originX: 'center',
+      originY: 'center',
+      left: 0,
+      top: 0
+    }) as ShapeNode
+  }
+}
+
+/**
+ * Создает объект фигуры из пресета и применяет к нему стили.
+ */
+export async function createShapeNode({
+  preset,
+  width,
+  height,
+  style,
+  rounding
+}: ShapeFactoryInput): Promise<ShapeNode> {
+  const shape = await createShapeObjectByPreset({
+    preset,
+    rounding
+  })
+
+  applyShapeStyle({
+    shape,
+    style
+  })
+
+  resizeShapeNode({
+    shape,
+    width,
+    height,
+    rounding,
+    strokeWidth: style.strokeWidth
+  })
+
+  shape.set({
+    selectable: false,
+    evented: false,
+    hasControls: false,
+    hasBorders: false,
+    shapeNodeType: 'shape'
+  })
+
+  return shape
 }

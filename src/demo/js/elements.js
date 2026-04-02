@@ -92,6 +92,14 @@ const shapeStrokeWidthValue = document.getElementById('shape-stroke-width-value'
 const shapeOpacityInput = document.getElementById('shape-opacity')
 /** Узел отображения текущей непрозрачности фигуры в процентах. */
 const shapeOpacityValue = document.getElementById('shape-opacity-value')
+/** Input верхнего внутреннего отступа текста внутри фигуры. */
+const shapePaddingTopInput = document.getElementById('shape-padding-top')
+/** Input правого внутреннего отступа текста внутри фигуры. */
+const shapePaddingRightInput = document.getElementById('shape-padding-right')
+/** Input нижнего внутреннего отступа текста внутри фигуры. */
+const shapePaddingBottomInput = document.getElementById('shape-padding-bottom')
+/** Input левого внутреннего отступа текста внутри фигуры. */
+const shapePaddingLeftInput = document.getElementById('shape-padding-left')
 /** Input выбора радиуса скругления углов фигуры. */
 const shapeRoundingInput = document.getElementById('shape-rounding')
 /** Узел отображения текущего скругления фигуры. */
@@ -288,6 +296,10 @@ export const shapeControls = {
   shapeStrokeWidthValue,
   shapeOpacityInput,
   shapeOpacityValue,
+  shapePaddingTopInput,
+  shapePaddingRightInput,
+  shapePaddingBottomInput,
+  shapePaddingLeftInput,
   shapeRoundingInput,
   shapeRoundingValue
 }

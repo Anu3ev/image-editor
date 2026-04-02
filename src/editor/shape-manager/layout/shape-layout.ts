@@ -1,18 +1,23 @@
 /* eslint-disable no-use-before-define, @typescript-eslint/no-use-before-define */
-import { resizeShapeNode } from './shape-factory'
+import { resizeShapeNode } from '../shape-factory'
+import {
+  MIN_SHAPE_TEXT_FRAME_SIZE,
+  normalizeShapeLayoutPadding,
+  normalizeShapeUserPadding
+} from './shape-padding'
+import {
+  resolveAppliedShapePadding,
+  resolveTextFrameWidth
+} from './shape-layout-padding'
 import {
   ShapeLayoutInput,
   ShapePadding,
   ShapeVerticalAlign
-} from './types'
+} from '../types'
 
-const MIN_TEXT_FRAME_SIZE = 1
+const MIN_TEXT_FRAME_SIZE = MIN_SHAPE_TEXT_FRAME_SIZE
 const TEXT_FRAME_FILL_EPSILON = 0.5
-const MAX_HORIZONTAL_PADDING_PX = 12
-const MAX_VERTICAL_PADDING_PX = 12
-const MAX_PADDING_RATIO = 0.45
 const MAX_WIDTH_RESIZE_ITERATIONS = 8
-const MAX_HEIGHT_RESIZE_ITERATIONS = 8
 
 type TextboxMeasurementState = {
   autoExpand?: boolean
@@ -45,10 +50,16 @@ export const applyShapeTextLayout = ({
   height,
   alignH,
   alignV,
-  padding
+  padding,
+  internalShapeTextInset,
+  expandShapeHeightToFitText = true,
+  changedPadding
 }: ShapeLayoutInput): void => {
-  const normalizedPadding = normalizePadding({
+  const requestedUserPadding = normalizeShapeUserPadding({
     padding
+  })
+  const normalizedInternalShapeTextInset = normalizeShapeLayoutPadding({
+    padding: internalShapeTextInset
   })
   const manualBaseWidth = Math.max(
     MIN_TEXT_FRAME_SIZE,
@@ -58,18 +69,27 @@ export const applyShapeTextLayout = ({
     MIN_TEXT_FRAME_SIZE,
     group.shapeManualBaseHeight ?? height
   )
-  const minWidth = resolveMinimumShapeWidthForText({
-    text,
-    padding: normalizedPadding
+  const minWidth = resolveMinimumTextFrameWidth({
+    text
   })
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width, minWidth)
-  const minHeight = resolveRequiredShapeHeightForText({
+
+  const {
+    appliedPadding,
+    appliedUserPadding,
+    requiredHeight
+  } = resolveAppliedShapePadding({
     text,
     width: safeWidth,
     height,
-    padding: normalizedPadding
+    padding: requestedUserPadding,
+    internalShapeTextInset: normalizedInternalShapeTextInset,
+    expandShapeHeightToFitText,
+    changedPadding,
+    measureTextboxHeightForFrame,
+    resolveMinimumTextFrameWidth
   })
-  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, minHeight)
+  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, requiredHeight)
 
   resizeShapeNode({
     shape,
@@ -88,7 +108,7 @@ export const applyShapeTextLayout = ({
     width: safeWidth,
     height: safeHeight,
     alignV,
-    padding: normalizedPadding
+    padding: appliedPadding
   })
 
   text.set({
@@ -118,10 +138,10 @@ export const applyShapeTextLayout = ({
   group.shapeBaseHeight = safeHeight
   group.shapeManualBaseWidth = manualBaseWidth
   group.shapeManualBaseHeight = manualBaseHeight
-  group.shapePaddingTop = normalizedPadding.top
-  group.shapePaddingRight = normalizedPadding.right
-  group.shapePaddingBottom = normalizedPadding.bottom
-  group.shapePaddingLeft = normalizedPadding.left
+  group.shapePaddingTop = appliedUserPadding.top
+  group.shapePaddingRight = appliedUserPadding.right
+  group.shapePaddingBottom = appliedUserPadding.bottom
+  group.shapePaddingLeft = appliedUserPadding.left
   group.shapeAlignHorizontal = alignH
   group.shapeAlignVertical = alignV
 
@@ -151,7 +171,7 @@ export const resolveShapeTextAutoExpandWidthForText = ({
   text: ShapeLayoutInput['text']
   currentWidth: number
   minimumWidth: number
-  padding: ShapePadding
+  padding?: ShapePadding
   strokeWidth?: number
   montageAreaWidth: number
 }): number => {
@@ -163,18 +183,20 @@ export const resolveShapeTextAutoExpandWidthForText = ({
     ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth)
     : Math.max(safeCurrentWidth, safeMinimumWidth)
   const safeStrokeWidth = Math.max(0, strokeWidth ?? 0)
+  const normalizedPadding = normalizeShapeLayoutPadding({
+    padding
+  })
   const effectiveMaxShapeWidth = Math.max(safeMinimumWidth, safeMontageAreaWidth)
+  const maxFrameWidth = resolveTextFrameWidth({
+    width: effectiveMaxShapeWidth,
+    padding: normalizedPadding
+  })
 
   if (safeStrokeWidth >= effectiveMaxShapeWidth) {
     return Math.max(safeCurrentWidth, safeMinimumWidth)
   }
 
-  const normalizedPadding = normalizePadding({ padding })
   const maxShapeWidth = effectiveMaxShapeWidth
-  const maxFrameWidth = resolveTextFrameWidth({
-    width: maxShapeWidth,
-    padding: normalizedPadding
-  })
   const maxMeasurement = measureTextboxLayoutForFrame({
     text,
     frameWidth: maxFrameWidth
@@ -186,27 +208,28 @@ export const resolveShapeTextAutoExpandWidthForText = ({
     MIN_TEXT_FRAME_SIZE,
     maxMeasurement.longestLineWidth
   )
+  const requiredShapeWidth = Math.max(
+    MIN_TEXT_FRAME_SIZE,
+    requiredFrameWidth + normalizedPadding.left + normalizedPadding.right
+  )
   let nextWidth = Math.min(
     maxShapeWidth,
     Math.max(
       safeMinimumWidth,
-      resolveShapeWidthForFrameWidth({
-        frameWidth: requiredFrameWidth,
-        padding: normalizedPadding
-      })
+      requiredShapeWidth
     )
   )
 
   for (let iteration = 0; iteration < MAX_WIDTH_RESIZE_ITERATIONS; iteration += 1) {
-    const nextFrameWidth = resolveTextFrameWidth({
+    const frameWidth = resolveTextFrameWidth({
       width: nextWidth,
       padding: normalizedPadding
     })
     const validation = measureTextboxLayoutForFrame({
       text,
-      frameWidth: nextFrameWidth
+      frameWidth
     })
-    const isWideEnough = nextFrameWidth >= requiredFrameWidth - TEXT_FRAME_FILL_EPSILON
+    const isWideEnough = frameWidth >= requiredFrameWidth - TEXT_FRAME_FILL_EPSILON
 
     if (!validation.hasWrappedLines && isWideEnough) {
       return nextWidth
@@ -216,18 +239,17 @@ export const resolveShapeTextAutoExpandWidthForText = ({
       return maxShapeWidth
     }
 
-    const nextTargetFrameWidth = validation.hasWrappedLines
-      ? Math.max(requiredFrameWidth + 1, nextFrameWidth + 1)
+    const nextTargetWidth = validation.hasWrappedLines
+      ? Math.max(requiredShapeWidth + 1, nextWidth + 1)
       : requiredFrameWidth
 
     nextWidth = Math.min(
       maxShapeWidth,
       Math.max(
         nextWidth + 1,
-        resolveShapeWidthForFrameWidth({
-          frameWidth: nextTargetFrameWidth,
-          padding: normalizedPadding
-        })
+        validation.hasWrappedLines
+          ? nextTargetWidth
+          : requiredShapeWidth
       )
     )
   }
@@ -243,23 +265,19 @@ export const resolveMinimumShapeWidthForText = ({
   padding
 }: {
   text: ShapeLayoutInput['text']
-  padding: ShapePadding
+  padding?: ShapePadding
 }): number => {
   if (!hasShapeTextContent({
     text
   })) return MIN_TEXT_FRAME_SIZE
 
-  const normalizedPadding = normalizePadding({
+  const normalizedPadding = normalizeShapeLayoutPadding({
     padding
   })
-  const minimumFrameWidth = resolveMinimumTextFrameWidth({
-    text
-  })
 
-  return resolveShapeWidthForFrameWidth({
-    frameWidth: minimumFrameWidth,
-    padding: normalizedPadding
-  })
+  return resolveMinimumTextFrameWidth({ text })
+    + normalizedPadding.left
+    + normalizedPadding.right
 }
 
 /**
@@ -280,13 +298,24 @@ export const resolveShapeTextFrameLayout = ({
 }): ShapeTextFrameLayout => {
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
-  const normalizedPadding = normalizePadding({
+  const requestedPadding = normalizeShapeLayoutPadding({
     padding
+  })
+  const {
+    appliedPadding
+  } = resolveAppliedShapePadding({
+    text,
+    width: safeWidth,
+    height: safeHeight,
+    padding: requestedPadding,
+    expandShapeHeightToFitText: false,
+    measureTextboxHeightForFrame,
+    resolveMinimumTextFrameWidth
   })
   const frame = createTextFrame({
     width: safeWidth,
     height: safeHeight,
-    padding: normalizedPadding
+    padding: appliedPadding
   })
   const splitByGrapheme = resolveSplitByGraphemeForFrame({
     text,
@@ -329,15 +358,14 @@ export const isShapeTextFrameFilled = ({
     text
   })) return false
 
-  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
-  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
-  const normalizedPadding = normalizePadding({
+  const {
+    frame
+  } = resolveShapeTextFrameLayout({
+    text,
+    width,
+    height,
+    alignV: 'top',
     padding
-  })
-  const frame = createTextFrame({
-    width: safeWidth,
-    height: safeHeight,
-    padding: normalizedPadding
   })
 
   const measuredHeight = measureTextboxHeightForFrame({
@@ -369,74 +397,22 @@ export const resolveRequiredShapeHeightForText = ({
   })) return safeHeight
 
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
-  const normalizedPadding = normalizePadding({
+  const normalizedPadding = normalizeShapeLayoutPadding({
     padding
   })
-  let nextHeight = safeHeight
+  const frameWidth = resolveTextFrameWidth({
+    width: safeWidth,
+    padding: normalizedPadding
+  })
+  const measuredHeight = measureTextboxHeightForFrame({
+    text,
+    frameWidth
+  })
 
-  for (let iteration = 0; iteration < MAX_HEIGHT_RESIZE_ITERATIONS; iteration += 1) {
-    const frame = createTextFrame({
-      width: safeWidth,
-      height: nextHeight,
-      padding: normalizedPadding
-    })
-
-    const measuredHeight = measureTextboxHeightForFrame({
-      text,
-      frameWidth: frame.width
-    })
-
-    if (measuredHeight <= frame.height + TEXT_FRAME_FILL_EPSILON) {
-      return nextHeight
-    }
-
-    const missingHeight = measuredHeight - frame.height
-    nextHeight = Math.max(nextHeight + missingHeight, nextHeight * 1.05)
-  }
-
-  return nextHeight
-}
-
-/**
- * Возвращает минимальную ширину shape для переданной минимальной ширины текстового фрейма.
- */
-function resolveShapeWidthForFrameWidth({
-  frameWidth,
-  padding
-}: {
-  frameWidth: number
-  padding: ShapePadding
-}): number {
-  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
-  let nextWidth = safeFrameWidth
-
-  for (let iteration = 0; iteration < MAX_WIDTH_RESIZE_ITERATIONS; iteration += 1) {
-    const nextFrameWidth = resolveTextFrameWidth({
-      width: nextWidth,
-      padding
-    })
-
-    if (nextFrameWidth >= safeFrameWidth - TEXT_FRAME_FILL_EPSILON) {
-      return nextWidth
-    }
-
-    const missingWidth = safeFrameWidth - nextFrameWidth
-    nextWidth = Math.max(nextWidth + missingWidth, nextWidth * 1.05)
-  }
-
-  return nextWidth
-}
-
-/**
- * Нормализует относительные отступы текстового фрейма.
- */
-function normalizePadding({ padding }: { padding: ShapePadding }): ShapePadding {
-  return {
-    top: clampPaddingValue({ value: padding.top }),
-    right: clampPaddingValue({ value: padding.right }),
-    bottom: clampPaddingValue({ value: padding.bottom }),
-    left: clampPaddingValue({ value: padding.left })
-  }
+  return Math.max(
+    safeHeight,
+    measuredHeight + normalizedPadding.top + normalizedPadding.bottom
+  )
 }
 
 /**
@@ -452,16 +428,6 @@ function hasShapeTextContent({
   return rawText.trim().length > 0
 }
 
-/**
- * Ограничивает значение padding в безопасном диапазоне.
- */
-function clampPaddingValue({ value }: { value: number }): number {
-  return Math.min(Math.max(value, 0), MAX_PADDING_RATIO)
-}
-
-/**
- * Формирует прямоугольник текстовой рамки внутри фигуры.
- */
 function createTextFrame({
   width,
   height,
@@ -471,26 +437,10 @@ function createTextFrame({
   height: number
   padding: ShapePadding
 }): ShapeTextFrame {
-  const leftPadding = resolvePaddingPixels({
-    size: width,
-    ratio: padding.left,
-    axis: 'horizontal'
-  })
-  const rightPadding = resolvePaddingPixels({
-    size: width,
-    ratio: padding.right,
-    axis: 'horizontal'
-  })
-  const topPadding = resolvePaddingPixels({
-    size: height,
-    ratio: padding.top,
-    axis: 'vertical'
-  })
-  const bottomPadding = resolvePaddingPixels({
-    size: height,
-    ratio: padding.bottom,
-    axis: 'vertical'
-  })
+  const leftPadding = Math.max(0, padding.left)
+  const rightPadding = Math.max(0, padding.right)
+  const topPadding = Math.max(0, padding.top)
+  const bottomPadding = Math.max(0, padding.bottom)
 
   const left = -width / 2 + leftPadding
   const top = -height / 2 + topPadding
@@ -503,30 +453,6 @@ function createTextFrame({
     width: frameWidth,
     height: frameHeight
   }
-}
-
-/**
- * Возвращает доступную ширину текстового фрейма для переданной ширины шейпа.
- */
-function resolveTextFrameWidth({
-  width,
-  padding
-}: {
-  width: number
-  padding: ShapePadding
-}): number {
-  const leftPadding = resolvePaddingPixels({
-    size: width,
-    ratio: padding.left,
-    axis: 'horizontal'
-  })
-  const rightPadding = resolvePaddingPixels({
-    size: width,
-    ratio: padding.right,
-    axis: 'horizontal'
-  })
-
-  return Math.max(MIN_TEXT_FRAME_SIZE, width - leftPadding - rightPadding)
 }
 
 /**
@@ -696,26 +622,6 @@ function resolveVerticalTop({
   if (alignV === 'bottom') return frameTop + freeSpace
 
   return frameTop + freeSpace / 2
-}
-
-/**
- * Возвращает реальный padding в пикселях с ограничением по максимуму.
- */
-function resolvePaddingPixels({
-  size,
-  ratio,
-  axis
-}: {
-  size: number
-  ratio: number
-  axis: 'horizontal' | 'vertical'
-}): number {
-  const maxPadding = axis === 'horizontal'
-    ? MAX_HORIZONTAL_PADDING_PX
-    : MAX_VERTICAL_PADDING_PX
-  const relativePadding = size * ratio
-
-  return Math.max(0, Math.min(relativePadding, maxPadding))
 }
 
 /**
