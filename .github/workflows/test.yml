@@ -94,6 +94,16 @@ jobs:
           path: coverage/
           retention-days: 30
 
+      - name: "☁️ Upload unit coverage to Codecov"
+        if: always() && matrix.node-version == 20
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage/lcov.info
+          flags: unit
+          name: unit-tests
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
+
       - name: 💬 Update PR with Results
         if: always() && github.event.pull_request.number
         uses: actions/github-script@v7
