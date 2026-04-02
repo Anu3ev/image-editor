@@ -11,26 +11,44 @@ import {
 const TEXT_FRAME_FILL_EPSILON = 0.5
 const MAX_MIN_FRAME_WIDTH_SEARCH_ITERATIONS = 12
 
+/**
+ * Текстовый узел, для которого рассчитывается текстовый фрейм внутри shape.
+ */
 type ShapeLayoutText = ShapeLayoutInput['text']
 
+/**
+ * Аргументы измерения высоты textbox при заданной ширине фрейма.
+ */
 type TextboxFrameMeasureParams = {
   text: ShapeLayoutText
   frameWidth: number
 }
 
+/**
+ * Функция измерения высоты textbox внутри текстового фрейма.
+ */
 type MeasureTextboxHeightForFrame = ({
   text,
   frameWidth
 }: TextboxFrameMeasureParams) => number
 
+/**
+ * Аргументы расчета минимальной ширины текстового фрейма.
+ */
 type MinimumTextFrameWidthParams = {
   text: ShapeLayoutText
 }
 
+/**
+ * Функция расчета минимальной ширины текстового фрейма.
+ */
 type ResolveMinimumTextFrameWidth = ({
   text
 }: MinimumTextFrameWidthParams) => number
 
+/**
+ * Аргументы ограничения пары padding по суммарному доступному пространству.
+ */
 type ClampPaddingPairParams = {
   start: number
   end: number
@@ -39,11 +57,17 @@ type ClampPaddingPairParams = {
   endChanged: boolean
 }
 
+/**
+ * Пара padding-значений для противоположных сторон.
+ */
 type PaddingPair = {
   start: number
   end: number
 }
 
+/**
+ * Аргументы расчета итоговой пары padding с учетом internal inset.
+ */
 type ResolveAppliedPaddingPairParams = {
   start: number
   end: number
@@ -54,6 +78,9 @@ type ResolveAppliedPaddingPairParams = {
   endChanged: boolean
 }
 
+/**
+ * Итог пары padding: effective значения и отдельно пользовательская часть.
+ */
 type AppliedPaddingPair = {
   appliedPaddingStart: number
   appliedPaddingEnd: number
@@ -61,6 +88,9 @@ type AppliedPaddingPair = {
   appliedUserPaddingEnd: number
 }
 
+/**
+ * Аргументы подбора минимальной ширины фрейма под заданную высоту.
+ */
 type ResolveMinimumFrameWidthToFitHeightParams = {
   text: ShapeLayoutText
   minFrameWidth: number
@@ -69,11 +99,17 @@ type ResolveMinimumFrameWidthToFitHeightParams = {
   measureTextboxHeightForFrame: MeasureTextboxHeightForFrame
 }
 
+/**
+ * Итог применения горизонтального padding.
+ */
 type ResolvedHorizontalPadding = {
   appliedPadding: Pick<ShapePadding, 'left' | 'right'>
   appliedUserPadding: Pick<ShapePadding, 'left' | 'right'>
 }
 
+/**
+ * Аргументы применения горизонтального padding.
+ */
 type ResolveAppliedHorizontalPaddingParams = {
   text: ShapeLayoutText
   width: number
@@ -86,11 +122,17 @@ type ResolveAppliedHorizontalPaddingParams = {
   resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth
 }
 
+/**
+ * Итог применения вертикального padding.
+ */
 type ResolvedVerticalPadding = {
   appliedPadding: Pick<ShapePadding, 'top' | 'bottom'>
   appliedUserPadding: Pick<ShapePadding, 'top' | 'bottom'>
 }
 
+/**
+ * Аргументы применения вертикального padding.
+ */
 type ResolveAppliedVerticalPaddingParams = {
   padding: ShapePadding
   internalShapeTextInset: ShapePadding
@@ -99,6 +141,9 @@ type ResolveAppliedVerticalPaddingParams = {
   changedPadding?: ShapePaddingChangeMap
 }
 
+/**
+ * Полный набор аргументов расчета applied padding для shape.
+ */
 type ResolveAppliedShapePaddingParams = {
   text: ShapeLayoutText
   width: number
@@ -111,6 +156,9 @@ type ResolveAppliedShapePaddingParams = {
   resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth
 }
 
+/**
+ * Итог расчета applied padding и требуемой высоты shape.
+ */
 type ResolvedShapePadding = {
   appliedPadding: ShapePadding
   appliedUserPadding: ShapePadding
