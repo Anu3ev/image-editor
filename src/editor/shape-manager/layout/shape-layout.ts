@@ -69,19 +69,12 @@ export const applyShapeTextLayout = ({
     MIN_TEXT_FRAME_SIZE,
     group.shapeManualBaseHeight ?? height
   )
-  const minWidth = resolveMinimumTextFrameWidth({
-    text
-  })
-  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width, minWidth)
-
-  const {
-    appliedPadding,
-    appliedUserPadding,
-    requiredHeight
-  } = resolveAppliedShapePadding({
+  const initialHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  let finalWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
+  let resolvedPaddingLayout = resolveAppliedShapePadding({
     text,
-    width: safeWidth,
-    height,
+    width: finalWidth,
+    height: initialHeight,
     padding: requestedUserPadding,
     internalShapeTextInset: normalizedInternalShapeTextInset,
     expandShapeHeightToFitText,
@@ -89,11 +82,34 @@ export const applyShapeTextLayout = ({
     measureTextboxHeightForFrame,
     resolveMinimumTextFrameWidth
   })
+
+  for (let iteration = 0; iteration < MAX_WIDTH_RESIZE_ITERATIONS; iteration += 1) {
+    const nextWidth = Math.max(finalWidth, resolvedPaddingLayout.requiredWidth)
+    if (nextWidth <= finalWidth + TEXT_FRAME_FILL_EPSILON) break
+
+    finalWidth = nextWidth
+    resolvedPaddingLayout = resolveAppliedShapePadding({
+      text,
+      width: finalWidth,
+      height: initialHeight,
+      padding: requestedUserPadding,
+      internalShapeTextInset: normalizedInternalShapeTextInset,
+      expandShapeHeightToFitText,
+      changedPadding,
+      measureTextboxHeightForFrame,
+      resolveMinimumTextFrameWidth
+    })
+  }
+  const {
+    appliedPadding,
+    appliedUserPadding,
+    requiredHeight
+  } = resolvedPaddingLayout
   const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, requiredHeight)
 
   resizeShapeNode({
     shape,
-    width: safeWidth,
+    width: finalWidth,
     height: safeHeight,
     rounding: group.shapeRounding,
     strokeWidth: group.shapeStrokeWidth
@@ -105,7 +121,7 @@ export const applyShapeTextLayout = ({
     textTop
   } = resolveShapeTextFrameLayout({
     text,
-    width: safeWidth,
+    width: finalWidth,
     height: safeHeight,
     alignV,
     padding: appliedPadding
@@ -134,7 +150,7 @@ export const applyShapeTextLayout = ({
   text.setCoords()
   shape.setCoords()
 
-  group.shapeBaseWidth = safeWidth
+  group.shapeBaseWidth = finalWidth
   group.shapeBaseHeight = safeHeight
   group.shapeManualBaseWidth = manualBaseWidth
   group.shapeManualBaseHeight = manualBaseHeight
@@ -146,7 +162,7 @@ export const applyShapeTextLayout = ({
   group.shapeAlignVertical = alignV
 
   group.set({
-    width: safeWidth,
+    width: finalWidth,
     height: safeHeight,
     scaleX: 1,
     scaleY: 1
@@ -165,14 +181,12 @@ export const resolveShapeTextAutoExpandWidthForText = ({
   currentWidth,
   minimumWidth,
   padding,
-  strokeWidth,
   montageAreaWidth
 }: {
   text: ShapeLayoutInput['text']
   currentWidth: number
   minimumWidth: number
   padding?: ShapePadding
-  strokeWidth?: number
   montageAreaWidth: number
 }): number => {
   const safeCurrentWidth = Math.max(MIN_TEXT_FRAME_SIZE, currentWidth)
@@ -182,7 +196,6 @@ export const resolveShapeTextAutoExpandWidthForText = ({
   const safeMontageAreaWidth = Number.isFinite(montageAreaWidth) && montageAreaWidth > 0
     ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth)
     : Math.max(safeCurrentWidth, safeMinimumWidth)
-  const safeStrokeWidth = Math.max(0, strokeWidth ?? 0)
   const normalizedPadding = normalizeShapeLayoutPadding({
     padding
   })
@@ -191,10 +204,6 @@ export const resolveShapeTextAutoExpandWidthForText = ({
     width: effectiveMaxShapeWidth,
     padding: normalizedPadding
   })
-
-  if (safeStrokeWidth >= effectiveMaxShapeWidth) {
-    return Math.max(safeCurrentWidth, safeMinimumWidth)
-  }
 
   const maxShapeWidth = effectiveMaxShapeWidth
   const maxMeasurement = measureTextboxLayoutForFrame({
@@ -281,7 +290,8 @@ export const resolveMinimumShapeWidthForText = ({
 }
 
 /**
- * Вычисляет текстовый фрейм, режим переноса и вертикальную позицию текста для переданных размеров шейпа.
+ * Вычисляет текстовый фрейм, режим переноса и вертикальную позицию текста
+ * для уже примененного padding.
  */
 export const resolveShapeTextFrameLayout = ({
   text,
@@ -298,19 +308,8 @@ export const resolveShapeTextFrameLayout = ({
 }): ShapeTextFrameLayout => {
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
-  const requestedPadding = normalizeShapeLayoutPadding({
+  const appliedPadding = normalizeShapeLayoutPadding({
     padding
-  })
-  const {
-    appliedPadding
-  } = resolveAppliedShapePadding({
-    text,
-    width: safeWidth,
-    height: safeHeight,
-    padding: requestedPadding,
-    expandShapeHeightToFitText: false,
-    measureTextboxHeightForFrame,
-    resolveMinimumTextFrameWidth
   })
   const frame = createTextFrame({
     width: safeWidth,

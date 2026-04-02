@@ -3,6 +3,8 @@ import {
   mergeShapePadding,
   normalizeShapeLayoutPadding,
   normalizeShapeUserPadding,
+  resolveShapeStrokeTextInset,
+  resolveShapeTextContentInset,
   sumShapePadding
 } from '../../../../src/editor/shape-manager/layout/shape-padding'
 
@@ -85,6 +87,74 @@ describe('shape-padding', () => {
       right: 29,
       bottom: 10.24,
       left: 29
+    })
+  })
+
+  it('без видимой обводки не добавляет внутренний отступ для текста', () => {
+    const padding = resolveShapeStrokeTextInset({
+      stroke: '#00ff00',
+      strokeWidth: 0
+    })
+
+    expect(padding).toEqual({
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    })
+  })
+
+  it('видимая обводка добавляет внутренний отступ по всем сторонам', () => {
+    const padding = resolveShapeStrokeTextInset({
+      stroke: '#00ff00',
+      strokeWidth: 6
+    })
+
+    expect(padding).toEqual({
+      top: 6,
+      right: 6,
+      bottom: 6,
+      left: 6
+    })
+  })
+
+  it('нулевая обводка не меняет внутренний отступ формы', () => {
+    const padding = resolveShapeTextContentInset({
+      baseInset: {
+        top: 24,
+        right: 48,
+        bottom: 24,
+        left: 48
+      },
+      stroke: '#00ff00',
+      strokeWidth: 0
+    })
+
+    expect(padding).toEqual({
+      top: 24,
+      right: 48,
+      bottom: 24,
+      left: 48
+    })
+  })
+
+  it('складывает внутренний отступ формы и обводку в один внутренний отступ текста', () => {
+    const padding = resolveShapeTextContentInset({
+      baseInset: {
+        top: 24,
+        right: 48,
+        bottom: 24,
+        left: 48
+      },
+      stroke: '#00ff00',
+      strokeWidth: 10
+    })
+
+    expect(padding).toEqual({
+      top: 34,
+      right: 58,
+      bottom: 34,
+      left: 58
     })
   })
 

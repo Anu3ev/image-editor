@@ -20,6 +20,18 @@ function normalizeShapeUserPaddingValue({ value }: { value?: number }): number {
   return Math.max(0, Math.floor(value ?? 0))
 }
 
+function hasVisibleShapeStroke({
+  stroke,
+  strokeWidth
+}: {
+  stroke?: string | null
+  strokeWidth?: number
+}): boolean {
+  if (stroke === null || stroke === undefined) return false
+
+  return Math.max(0, strokeWidth ?? 0) > 0
+}
+
 /**
  * Нормализует layout-level padding в px без округления до целых значений.
  */
@@ -49,6 +61,37 @@ export function normalizeShapeUserPadding({
     right: normalizeShapeUserPaddingValue({ value: padding?.right }),
     bottom: normalizeShapeUserPaddingValue({ value: padding?.bottom }),
     left: normalizeShapeUserPaddingValue({ value: padding?.left })
+  }
+}
+
+/**
+ * Возвращает внутренний inset обводки для текстового фрейма.
+ * Текущая geometry model shape уменьшает внутренний размер фигуры на весь strokeWidth,
+ * поэтому для текста нужно исключать полный strokeWidth по каждой стороне.
+ */
+export function resolveShapeStrokeTextInset({
+  stroke,
+  strokeWidth
+}: {
+  stroke?: string | null
+  strokeWidth?: number
+}): ShapePadding {
+  if (!hasVisibleShapeStroke({ stroke, strokeWidth })) {
+    return {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    }
+  }
+
+  const safeStrokeInset = Math.max(0, strokeWidth ?? 0)
+
+  return {
+    top: safeStrokeInset,
+    right: safeStrokeInset,
+    bottom: safeStrokeInset,
+    left: safeStrokeInset
   }
 }
 
@@ -97,6 +140,27 @@ export function sumShapePadding({
     bottom: normalizedBase.bottom + normalizedAddition.bottom,
     left: normalizedBase.left + normalizedAddition.left
   }
+}
+
+/**
+ * Собирает полный внутренний inset текстового фрейма из пресета фигуры и видимой обводки.
+ */
+export function resolveShapeTextContentInset({
+  baseInset,
+  stroke,
+  strokeWidth
+}: {
+  baseInset?: Partial<ShapePadding>
+  stroke?: string | null
+  strokeWidth?: number
+}): ShapePadding {
+  return sumShapePadding({
+    base: baseInset,
+    addition: resolveShapeStrokeTextInset({
+      stroke,
+      strokeWidth
+    })
+  })
 }
 
 /**

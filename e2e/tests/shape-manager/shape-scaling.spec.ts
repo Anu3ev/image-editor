@@ -5,6 +5,10 @@ import {
   SHAPE_SCALING_STROKE_WIDTH,
   SHAPE_SCALING_TOLERANCE
 } from '../../fixtures/data/shape-scaling.data'
+import {
+  SHAPE_STROKE_BASE_OPTIONS,
+  SHAPE_STROKE_SAFE_AREA_TOLERANCE
+} from '../../fixtures/data/shape-stroke.data'
 
 test.describe('Вертикальный скейлинг пустого шейпа', () => {
   test.beforeEach(async({ shapes }) => {
@@ -1058,6 +1062,97 @@ test.describe('Скейлинг шейпа с обводкой', () => {
       expect(shape.scaleY).toBe(1)
       expect(finalSnapshot.shapeStrokeWidth).toBe(SHAPE_SCALING_STROKE_WIDTH)
       expect(finalSnapshot.shapeStrokeUniform).toBe(true)
+    })
+  })
+})
+
+test.describe('Интерактивный скейлинг шейпа с текстом и обводкой', () => {
+  test.beforeEach(async({ shapes }) => {
+    await shapes.add({
+      presetKey: 'square',
+      options: {
+        ...SHAPE_STROKE_BASE_OPTIONS
+      }
+    })
+
+    await shapes.setStroke({
+      stroke: '#0a84ff',
+      strokeWidth: SHAPE_SCALING_STROKE_WIDTH,
+      objectIndex: 0
+    })
+  })
+
+  test('после уменьшения шейпа с обводкой текст остаётся внутри обводки и после отпускания мыши ничего не дёргается', async({
+    shapes
+  }) => {
+    const initialSnapshot = await test.step('Получить исходное состояние шейпа с обводкой', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+
+    const liveSnapshot = await test.step('Сузить шейп с обводкой до минимальной ширины', async() => {
+      return shapes.shrinkToMinimumWidth({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить что во время скейлинга шейп действительно сужается', () => {
+      expect(liveSnapshot.groupBoundsWidth).toBeLessThan(initialSnapshot.groupBoundsWidth)
+    })
+
+    const finalSnapshot = await test.step('Завершить скейлинг и получить финальное состояние', async() => {
+      return shapes.finishScale({ objectIndex: 0 })
+    })
+
+    await test.step('Проверить отсутствие рывка после отпускания мыши и сохранение безопасной области для текста', () => {
+      const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsWidth)
+      const leftJump = Math.abs(finalSnapshot.groupBoundsLeft - liveSnapshot.groupBoundsLeft)
+      const rightJump = Math.abs(finalSnapshot.groupBoundsRight - liveSnapshot.groupBoundsRight)
+
+      expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(leftJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      expect(rightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+      shapes.checkTextInsideStrokeSafeArea({
+        snapshot: finalSnapshot,
+        tolerance: SHAPE_STROKE_SAFE_AREA_TOLERANCE
+      })
+    })
+  })
+
+  test('шейп с обводкой упирается в большую минимальную ширину, чем такой же шейп без обводки', async({
+    shapes
+  }) => {
+    await test.step('Добавить второй такой же шейп без обводки', async() => {
+      await shapes.add({
+        presetKey: 'square',
+        options: {
+          ...SHAPE_STROKE_BASE_OPTIONS,
+          id: 'shape-without-stroke',
+          top: 420
+        }
+      })
+    })
+
+    await test.step('Сузить оба шейпа до их минимальной ширины', async() => {
+      await shapes.shrinkToMinimumWidth({ objectIndex: 0 })
+      await shapes.finishScale({ objectIndex: 0 })
+
+      await shapes.shrinkToMinimumWidth({ id: 'shape-without-stroke' })
+      await shapes.finishScale({ id: 'shape-without-stroke' })
+    })
+
+    const strokedSnapshot = await test.step('Получить минимальную ширину шейпа с обводкой', async() => {
+      return shapes.getScaleSnapshot({ objectIndex: 0 })
+    })
+    const plainSnapshot = await test.step('Получить минимальную ширину такого же шейпа без обводки', async() => {
+      return shapes.getScaleSnapshot({ id: 'shape-without-stroke' })
+    })
+
+    await test.step('Проверить что шейп с обводкой остановился на большей минимальной ширине', () => {
+      expect(strokedSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(plainSnapshot.groupBoundsWidth + SHAPE_STROKE_SAFE_AREA_TOLERANCE)
+      shapes.checkTextInsideStrokeSafeArea({
+        snapshot: strokedSnapshot,
+        tolerance: SHAPE_STROKE_SAFE_AREA_TOLERANCE
+      })
+      shapes.checkNodeInsideGroup({ snapshot: plainSnapshot, kind: 'text' })
     })
   })
 })

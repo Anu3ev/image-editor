@@ -15,7 +15,7 @@ import {
   getShapePreset,
   isShapePresetRoundable,
   resolvePresetKeyForRounding,
-  resolveInternalShapeTextInset
+  resolveInternalShapeTextInset as resolvePresetInternalShapeTextInset
 } from './shape-presets'
 import {
   applyShapeStyle,
@@ -29,6 +29,7 @@ import {
   getShapePaddingChangeMap,
   mergeShapePadding,
   normalizeShapeUserPadding,
+  resolveShapeTextContentInset,
   sumShapePadding
 } from './layout/shape-padding'
 import ShapeScalingController from './scaling/shape-scaling'
@@ -184,13 +185,22 @@ export default class ShapeManager {
 
     const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
+    const style = this._resolveShapeStyle({
+      options,
+      fallback: null
+    })
+
     const userPadding = normalizeShapeUserPadding({
       padding: textPadding
     })
-    const internalShapeTextInset = resolveInternalShapeTextInset({
-      preset: effectivePreset,
-      width: manualWidth,
-      height: manualHeight
+    const internalShapeTextInset = resolveShapeTextContentInset({
+      baseInset: resolvePresetInternalShapeTextInset({
+        preset: effectivePreset,
+        width: manualWidth,
+        height: manualHeight
+      }),
+      stroke: style.stroke,
+      strokeWidth: style.strokeWidth
     })
     const padding = sumShapePadding({
       base: internalShapeTextInset,
@@ -198,11 +208,6 @@ export default class ShapeManager {
     })
     const changedPadding = getShapePaddingChangeMap({
       padding: textPadding
-    })
-
-    const style = this._resolveShapeStyle({
-      options,
-      fallback: null
     })
 
     const textNode = this._createTextNode({
@@ -218,8 +223,7 @@ export default class ShapeManager {
       currentWidth: manualWidth,
       manualWidth,
       shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
-      padding,
-      strokeWidth: style.strokeWidth
+      padding
     })
 
     const shape = await createShapeNode({
@@ -377,19 +381,22 @@ export default class ShapeManager {
       base: currentUserPadding,
       override: textPadding
     })
-    const internalShapeTextInset = resolveInternalShapeTextInset({
-      preset: effectivePreset,
-      width: currentDimensions.width,
-      height
-    })
-    const padding = sumShapePadding({
-      base: internalShapeTextInset,
-      addition: nextUserPadding
-    })
-
     const style = this._resolveShapeStyle({
       options,
       fallback: currentGroup
+    })
+    const resolvedInternalShapeTextInset = resolveShapeTextContentInset({
+      baseInset: resolvePresetInternalShapeTextInset({
+        preset: effectivePreset,
+        width: currentDimensions.width,
+        height
+      }),
+      stroke: style.stroke,
+      strokeWidth: style.strokeWidth
+    })
+    const padding = sumShapePadding({
+      base: resolvedInternalShapeTextInset,
+      addition: nextUserPadding
     })
 
     let manualWidth = Math.max(
@@ -448,23 +455,23 @@ export default class ShapeManager {
       align: horizontalAlign
     })
 
-    const shouldPreventPaddingResize = textPadding !== undefined
-      && rawWidth === undefined
+    const shouldPreserveCurrentWidth = rawWidth === undefined
       && rawHeight === undefined
       && presetKey === undefined
       && shapeTextAutoExpand === undefined
       && rounding === undefined
       && text === undefined
       && !this._hasShapeTextSizeAffectingStyleChanges({ textStyle })
-    const resolvedLayoutWidth = shouldPreventPaddingResize
+    const shouldPreventPaddingResize = textPadding !== undefined
+      && shouldPreserveCurrentWidth
+    const resolvedLayoutWidth = shouldPreserveCurrentWidth
       ? currentDimensions.width
       : this._resolveShapeLayoutWidth({
         text: stagedTextNode,
         currentWidth: currentDimensions.width,
         manualWidth,
         shapeTextAutoExpandEnabled: nextShapeTextAutoExpand,
-        padding,
-        strokeWidth: style.strokeWidth
+        padding
       })
 
     const shape = await createShapeNode({
@@ -521,7 +528,7 @@ export default class ShapeManager {
         height,
         alignH: horizontalAlign,
         alignV: verticalAlign,
-        internalShapeTextInset,
+        internalShapeTextInset: resolvedInternalShapeTextInset,
         expandShapeHeightToFitText: !shouldPreventPaddingResize,
         changedPadding
       })
@@ -661,10 +668,14 @@ export default class ShapeManager {
       }
 
       if (text) {
+        const currentDimensions = this._resolveCurrentDimensions({ group })
+
         this._applyCurrentLayout({
           group,
           shape,
-          text
+          text,
+          width: currentDimensions.width,
+          height: currentDimensions.height
         })
       }
 
@@ -1411,7 +1422,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает derived inset пресета для текущих размеров группы.
+   * Возвращает полный внутренний inset текста для текущих размеров группы с учетом пресета и обводки.
    */
   private _resolveGroupInternalShapeTextInset({
     group,
@@ -1424,19 +1435,18 @@ export default class ShapeManager {
   }): ShapePadding {
     const presetKey = group.shapePresetKey ?? DEFAULT_SHAPE_PRESET_KEY
     const preset = getShapePreset({ presetKey })
-    if (!preset) {
-      return {
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0
-      }
-    }
+    const presetInset = preset
+      ? resolvePresetInternalShapeTextInset({
+        preset,
+        width,
+        height
+      })
+      : undefined
 
-    return resolveInternalShapeTextInset({
-      preset,
-      width,
-      height
+    return resolveShapeTextContentInset({
+      baseInset: presetInset,
+      stroke: group.shapeStroke,
+      strokeWidth: group.shapeStrokeWidth
     })
   }
 
@@ -1470,14 +1480,12 @@ export default class ShapeManager {
     text,
     currentWidth,
     minimumWidth,
-    padding,
-    strokeWidth
+    padding
   }: {
     text: ShapeTextNode
     currentWidth: number
     minimumWidth: number
     padding: ShapePadding
-    strokeWidth?: number
   }): number {
     const montageAreaWidth = this._resolveMontageAreaWidth()
     if (!montageAreaWidth) {
@@ -1493,7 +1501,6 @@ export default class ShapeManager {
       currentWidth,
       minimumWidth,
       padding,
-      strokeWidth,
       montageAreaWidth
     })
   }
@@ -1506,15 +1513,13 @@ export default class ShapeManager {
     currentWidth,
     manualWidth,
     shapeTextAutoExpandEnabled,
-    padding,
-    strokeWidth
+    padding
   }: {
     text: ShapeTextNode
     currentWidth: number
     manualWidth: number
     shapeTextAutoExpandEnabled: boolean
     padding: ShapePadding
-    strokeWidth?: number
   }): number {
     if (!shapeTextAutoExpandEnabled) {
       return Math.max(1, manualWidth)
@@ -1524,8 +1529,7 @@ export default class ShapeManager {
       text,
       currentWidth,
       minimumWidth: manualWidth,
-      padding,
-      strokeWidth
+      padding
     })
   }
 
@@ -1596,8 +1600,7 @@ export default class ShapeManager {
             height: Math.max(1, height ?? currentDimensions.height)
           }),
           addition: userPadding
-        }),
-        strokeWidth: group.shapeStrokeWidth
+        })
       })
     }
 

@@ -193,6 +193,51 @@ describe('shape-layout', () => {
     expect(group.shapeBaseWidth).toBeGreaterThanOrEqual(20)
   })
 
+  it('увеличивает ширину шейпа, если обводка съедает внутреннее место для текста', () => {
+    const shape = createMockShapeNode({
+      width: 20,
+      height: 120
+    })
+    const text = createMockShapeTextbox({
+      text: 'T',
+      width: 20,
+      fontSize: 48
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 20,
+      height: 120
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 20,
+      height: 120,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      internalShapeTextInset: {
+        top: 0,
+        right: 20,
+        bottom: 0,
+        left: 20
+      }
+    })
+
+    expect(group.shapeBaseWidth).toBeGreaterThan(20)
+    expect(group.shapePaddingLeft).toBe(0)
+    expect(group.shapePaddingRight).toBe(0)
+    expect(text.width).toBeCloseTo(group.shapeBaseWidth - 40, 4)
+  })
+
   it('resolveMinimumShapeWidthForText считает минимум по одному символу, а не по целому слову', () => {
     const multiCharText = createMockShapeTextbox({
       text: 'TEST',

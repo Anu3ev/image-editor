@@ -100,11 +100,12 @@ type ResolveMinimumFrameWidthToFitHeightParams = {
 }
 
 /**
- * Итог применения горизонтального padding.
+ * Итог применения горизонтального padding и минимальной нужной ширины шейпа.
  */
 type ResolvedHorizontalPadding = {
   appliedPadding: Pick<ShapePadding, 'left' | 'right'>
   appliedUserPadding: Pick<ShapePadding, 'left' | 'right'>
+  requiredWidth: number
 }
 
 /**
@@ -157,11 +158,12 @@ type ResolveAppliedShapePaddingParams = {
 }
 
 /**
- * Итог расчета applied padding и требуемой высоты shape.
+ * Итог расчета applied padding и минимальных размеров shape для выбранного layout.
  */
 type ResolvedShapePadding = {
   appliedPadding: ShapePadding
   appliedUserPadding: ShapePadding
+  requiredWidth: number
   requiredHeight: number
 }
 
@@ -252,6 +254,7 @@ function clampPaddingPair({
 
 /**
  * Возвращает итоговый padding пары сторон и отдельно пользовательскую часть без internal inset.
+ * Internal inset не ужимается: при нехватке места съедается только пользовательский padding.
  */
 function resolveAppliedPaddingPair({
   start,
@@ -262,20 +265,25 @@ function resolveAppliedPaddingPair({
   startChanged,
   endChanged
 }: ResolveAppliedPaddingPairParams): AppliedPaddingPair {
-  const clampedPair = clampPaddingPair({
-    start: insetStart + Math.max(0, start),
-    end: insetEnd + Math.max(0, end),
-    maxTotalPadding,
+  const safeInsetStart = Math.max(0, insetStart)
+  const safeInsetEnd = Math.max(0, insetEnd)
+  const maxTotalUserPadding = Math.max(
+    0,
+    maxTotalPadding - safeInsetStart - safeInsetEnd
+  )
+  const clampedUserPadding = clampPaddingPair({
+    start: Math.max(0, start),
+    end: Math.max(0, end),
+    maxTotalPadding: maxTotalUserPadding,
     startChanged,
     endChanged
   })
-
-  const appliedUserPaddingStart = Math.max(0, Math.floor(clampedPair.start - insetStart))
-  const appliedUserPaddingEnd = Math.max(0, Math.floor(clampedPair.end - insetEnd))
+  const appliedUserPaddingStart = Math.max(0, Math.floor(clampedUserPadding.start))
+  const appliedUserPaddingEnd = Math.max(0, Math.floor(clampedUserPadding.end))
 
   return {
-    appliedPaddingStart: insetStart + appliedUserPaddingStart,
-    appliedPaddingEnd: insetEnd + appliedUserPaddingEnd,
+    appliedPaddingStart: safeInsetStart + appliedUserPaddingStart,
+    appliedPaddingEnd: safeInsetEnd + appliedUserPaddingEnd,
     appliedUserPaddingStart,
     appliedUserPaddingEnd
   }
@@ -375,6 +383,10 @@ function resolveAppliedHorizontalPadding({
     })
   }
 
+  const requiredWidth = requiredFrameWidth
+    + internalShapeTextInset.left
+    + internalShapeTextInset.right
+
   const maxTotalPadding = Math.max(0, safeWidth - requiredFrameWidth)
   const pair = resolveAppliedPaddingPair({
     start: padding.left,
@@ -394,7 +406,8 @@ function resolveAppliedHorizontalPadding({
     appliedUserPadding: {
       left: pair.appliedUserPaddingStart,
       right: pair.appliedUserPaddingEnd
-    }
+    },
+    requiredWidth
   }
 }
 
@@ -435,7 +448,8 @@ function resolveAppliedVerticalPadding({
 }
 
 /**
- * Применяет padding внутри переданных размеров шейпа и возвращает итоговые effective/user-значения.
+ * Применяет padding внутри переданных размеров шейпа и возвращает итоговые effective/user-значения
+ * вместе с минимальными required width/height для non-removable internal inset.
  */
 export function resolveAppliedShapePadding({
   text,
@@ -515,6 +529,7 @@ export function resolveAppliedShapePadding({
       bottom: verticalPadding.appliedUserPadding.bottom,
       left: horizontalPadding.appliedUserPadding.left
     },
+    requiredWidth: horizontalPadding.requiredWidth,
     requiredHeight
   }
 }

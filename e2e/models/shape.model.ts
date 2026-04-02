@@ -1527,6 +1527,66 @@ export class ShapeModel {
     }
   }
 
+  /** Проверяет, что текст остаётся внутри внутренней области шейпа после вычета обводки. */
+  checkTextInsideStrokeSafeArea(params: {
+    snapshot: ShapeScaleSnapshot
+    tolerance?: number
+  }): {
+    left: number
+    top: number
+    right: number
+    bottom: number
+  } {
+    const {
+      snapshot,
+      tolerance = 1.5
+    } = params
+
+    expect(
+      snapshot.shapeStrokeWidth,
+      'ширина обводки должна существовать для проверки текста внутри обводки'
+    ).not.toBeNull()
+    expect(snapshot.shapeBoundsLeft, 'левая граница шейпа должна существовать').not.toBeNull()
+    expect(snapshot.shapeBoundsTop, 'верхняя граница шейпа должна существовать').not.toBeNull()
+    expect(snapshot.shapeBoundsRight, 'правая граница шейпа должна существовать').not.toBeNull()
+    expect(snapshot.shapeBoundsBottom, 'нижняя граница шейпа должна существовать').not.toBeNull()
+    expect(snapshot.textBoundsLeft, 'левая граница текста должна существовать').not.toBeNull()
+    expect(snapshot.textBoundsTop, 'верхняя граница текста должна существовать').not.toBeNull()
+    expect(snapshot.textBoundsRight, 'правая граница текста должна существовать').not.toBeNull()
+    expect(snapshot.textBoundsBottom, 'нижняя граница текста должна существовать').not.toBeNull()
+
+    if (
+      snapshot.shapeStrokeWidth === null
+      || snapshot.shapeBoundsLeft === null
+      || snapshot.shapeBoundsTop === null
+      || snapshot.shapeBoundsRight === null
+      || snapshot.shapeBoundsBottom === null
+      || snapshot.textBoundsLeft === null
+      || snapshot.textBoundsTop === null
+      || snapshot.textBoundsRight === null
+      || snapshot.textBoundsBottom === null
+    ) {
+      throw new Error('для проверки текста внутри обводки должны существовать bounds шейпа, текста и strokeWidth')
+    }
+
+    const safeLeft = snapshot.shapeBoundsLeft + snapshot.shapeStrokeWidth
+    const safeTop = snapshot.shapeBoundsTop + snapshot.shapeStrokeWidth
+    const safeRight = snapshot.shapeBoundsRight - snapshot.shapeStrokeWidth
+    const safeBottom = snapshot.shapeBoundsBottom - snapshot.shapeStrokeWidth
+
+    expect(snapshot.textBoundsLeft).toBeGreaterThanOrEqual(safeLeft - tolerance)
+    expect(snapshot.textBoundsTop).toBeGreaterThanOrEqual(safeTop - tolerance)
+    expect(snapshot.textBoundsRight).toBeLessThanOrEqual(safeRight + tolerance)
+    expect(snapshot.textBoundsBottom).toBeLessThanOrEqual(safeBottom + tolerance)
+
+    return {
+      left: snapshot.textBoundsLeft,
+      top: snapshot.textBoundsTop,
+      right: snapshot.textBoundsRight,
+      bottom: snapshot.textBoundsBottom
+    }
+  }
+
   /**
    * Удаляет shape и проверяет успешность удаления.
    * Возвращает true если удаление подтверждено

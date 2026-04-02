@@ -213,6 +213,31 @@ describe('shape-manager', () => {
     expect(group.shapePaddingLeft).toBe(0)
   })
 
+  it('при добавлении фигуры учитывает обводку во внутреннем отступе текста', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        stroke: '#00ff00',
+        strokeWidth: 8
+      }
+    })
+
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      internalShapeTextInset: {
+        top: 8,
+        right: 8,
+        bottom: 8,
+        left: 8
+      }
+    }))
+  })
+
   it('при добавлении шейпа нормализует пользовательские отступы до целых неотрицательных пикселей', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -1108,6 +1133,54 @@ describe('shape-manager', () => {
     }))
   })
 
+  it('при изменении только обводки сохраняет текущую ширину и пересчитывает layout в этих размерах', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    group.shapeBaseWidth = 240
+    group.shapeBaseHeight = 140
+    group.width = 240
+    group.height = 140
+
+    applyShapeTextLayoutMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        stroke: '#00ff00',
+        strokeWidth: 10
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 240,
+      height: 140,
+      internalShapeTextInset: {
+        top: 10,
+        right: 10,
+        bottom: 10,
+        left: 10
+      }
+    }))
+  })
+
   it('при смене пресета сохраняет пользовательские отступы', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -1648,6 +1721,59 @@ describe('shape-manager', () => {
     }))
     expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
       width: 210
+    }))
+  })
+
+  it('при изменении обводки пересчитывает layout в текущих размерах шейпа', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    group.shapeBaseWidth = 260
+    group.shapeBaseHeight = 150
+    group.width = 260
+    group.height = 150
+
+    applyShapeTextLayoutMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+
+    const updatedGroup = manager.setStroke({
+      target: group,
+      stroke: '#00ff00',
+      strokeWidth: 12
+    })
+
+    expect(updatedGroup).toBe(group)
+    expect(group.shapeStrokeWidth).toBe(12)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
+    expect(applyShapeStyleMock).toHaveBeenCalledWith(expect.objectContaining({
+      style: expect.objectContaining({
+        stroke: '#00ff00',
+        strokeWidth: 12
+      })
+    }))
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 260,
+      height: 150,
+      internalShapeTextInset: {
+        top: 12,
+        right: 12,
+        bottom: 12,
+        left: 12
+      }
     }))
   })
 })

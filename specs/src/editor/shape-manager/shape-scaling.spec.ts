@@ -757,6 +757,82 @@ describe('shape-scaling', () => {
     }))
   })
 
+  it('при уменьшении по ширине учитывает обводку в минимальной ширине', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    Object.assign(group, {
+      shapeStroke: '#00ff00'
+    })
+    group.shapePresetKey = 'square'
+    group.shapeStrokeWidth = 10
+    group.scaleX = 0.4
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      padding: {
+        top: 10,
+        right: 10,
+        bottom: 10,
+        left: 10
+      }
+    }))
+  })
+
+  it('при уменьшении по ширине складывает внутренний отступ формы и обводку', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    Object.assign(group, {
+      shapeStroke: '#00ff00'
+    })
+    group.shapePresetKey = 'circle'
+    group.shapeStrokeWidth = 10
+    group.shapeBaseWidth = 200
+    group.shapeBaseHeight = 200
+    group.scaleX = 0.4
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      padding: {
+        top: 58,
+        right: 58,
+        bottom: 58,
+        left: 58
+      }
+    }))
+  })
+
   it('после vertical shrink до minimum height horizontal scaling продолжает работать', () => {
     const {
       controller,

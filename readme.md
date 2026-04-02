@@ -1,5 +1,8 @@
 # Fabric Image Editor
 
+[![Tests](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml/badge.svg)](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
+[![Unit Coverage](https://codecov.io/gh/Anu3ev/image-editor/graph/badge.svg?flag=unit)](https://codecov.io/gh/Anu3ev/image-editor)
+
 A modern, powerful browser-based image editor built with [FabricJS](https://fabricjs.com/) and TypeScript. This library provides a complete image editing solution with professional features for web applications.
 
 🚀 **[Live Demo](https://anu3ev.github.io/image-editor/)**
