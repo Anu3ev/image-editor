@@ -42,6 +42,20 @@ describe('shape-group', () => {
     expect(text.autoExpand).toBe(false)
   })
 
+  it('конструктор без переданных отступов оставляет нули по всем сторонам', () => {
+    const shape = createMockShapeNode()
+    const text = createMockShapeTextbox({ text: 'shape text' })
+
+    const group = new ShapeGroupObject([shape as never, text], {
+      shapePresetKey: 'square'
+    })
+
+    expect(group.shapePaddingTop).toBe(0)
+    expect(group.shapePaddingRight).toBe(0)
+    expect(group.shapePaddingBottom).toBe(0)
+    expect(group.shapePaddingLeft).toBe(0)
+  })
+
   it('rehydrateRuntimeState не перезаписывает уже заданный shapeCanRound', () => {
     const shape = createMockShapeNode()
     const text = createMockShapeTextbox({ text: 'shape text' })
@@ -54,6 +68,23 @@ describe('shape-group', () => {
     group.rehydrateRuntimeState()
 
     expect(group.shapeCanRound).toBe(true)
+  })
+
+  it('rehydrateRuntimeState приводит сохранённые отступы к целым неотрицательным пикселям', () => {
+    const shape = createMockShapeNode()
+    const text = createMockShapeTextbox({ text: 'shape text' })
+    const group = new ShapeGroupObject([shape as never, text], {
+      shapePresetKey: 'square',
+      shapePaddingTop: 10.9,
+      shapePaddingRight: -3,
+      shapePaddingBottom: 4.2,
+      shapePaddingLeft: 7.8
+    })
+
+    expect(group.shapePaddingTop).toBe(10)
+    expect(group.shapePaddingRight).toBe(0)
+    expect(group.shapePaddingBottom).toBe(4)
+    expect(group.shapePaddingLeft).toBe(7)
   })
 
   it('rehydrateRuntimeState применяет shape-specific corner controls через общий runtime pipeline', () => {
@@ -156,5 +187,31 @@ describe('shape-group', () => {
     expect(restoredTextNode.autoExpand).toBe(false)
     expect(restoredTextNode.selectable).toBe(false)
     expect(restoredTextNode.evented).toBe(false)
+  })
+
+  it('fromObject восстанавливает сохранённые пользовательские отступы без сброса в ноль', async() => {
+    registerShapeGroup()
+
+    jest.spyOn(util, 'enlivenObjects')
+      .mockResolvedValue([
+        createMockShapeNode() as never,
+        createMockShapeTextbox({ text: 'Shape text' })
+      ])
+    jest.spyOn(util, 'enlivenObjectEnlivables').mockResolvedValue({})
+
+    const serialized = {
+      ...createSerializedShapeGroup(),
+      shapePaddingTop: 12.9,
+      shapePaddingRight: 8,
+      shapePaddingBottom: -4,
+      shapePaddingLeft: 5.1
+    }
+
+    const group = await ShapeGroupObject.fromObject(serialized)
+
+    expect(group.shapePaddingTop).toBe(12)
+    expect(group.shapePaddingRight).toBe(8)
+    expect(group.shapePaddingBottom).toBe(0)
+    expect(group.shapePaddingLeft).toBe(5)
   })
 })

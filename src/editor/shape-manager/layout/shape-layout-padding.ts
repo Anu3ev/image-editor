@@ -1,6 +1,6 @@
 import {
   MIN_SHAPE_TEXT_FRAME_SIZE,
-  normalizeShapePadding
+  normalizeShapeLayoutPadding
 } from './shape-padding'
 import {
   ShapeLayoutInput,
@@ -451,10 +451,10 @@ export function resolveAppliedShapePadding({
   const safeWidth = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, height)
 
-  const normalizedPadding = normalizeShapePadding({
+  const normalizedPadding = normalizeShapeLayoutPadding({
     padding
   })
-  const normalizedInternalShapeTextInset = normalizeShapePadding({
+  const normalizedInternalShapeTextInset = normalizeShapeLayoutPadding({
     padding: internalShapeTextInset
   })
 

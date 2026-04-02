@@ -8,7 +8,7 @@ import {
  */
 export const MIN_SHAPE_TEXT_FRAME_SIZE = 1
 
-function normalizeShapePaddingValue({ value }: { value?: number }): number {
+function normalizeShapeLayoutPaddingValue({ value }: { value?: number }): number {
   if (!Number.isFinite(value)) return 0
 
   return Math.max(0, value ?? 0)
@@ -21,18 +21,18 @@ function normalizeShapeUserPaddingValue({ value }: { value?: number }): number {
 }
 
 /**
- * Возвращает padding в предсказуемом px-формате.
+ * Нормализует layout-level padding в px без округления до целых значений.
  */
-export function normalizeShapePadding({
+export function normalizeShapeLayoutPadding({
   padding
 }: {
   padding?: Partial<ShapePadding>
 }): ShapePadding {
   return {
-    top: normalizeShapePaddingValue({ value: padding?.top }),
-    right: normalizeShapePaddingValue({ value: padding?.right }),
-    bottom: normalizeShapePaddingValue({ value: padding?.bottom }),
-    left: normalizeShapePaddingValue({ value: padding?.left })
+    top: normalizeShapeLayoutPaddingValue({ value: padding?.top }),
+    right: normalizeShapeLayoutPaddingValue({ value: padding?.right }),
+    bottom: normalizeShapeLayoutPaddingValue({ value: padding?.bottom }),
+    left: normalizeShapeLayoutPaddingValue({ value: padding?.left })
   }
 }
 
@@ -84,10 +84,10 @@ export function sumShapePadding({
   base?: Partial<ShapePadding>
   addition?: Partial<ShapePadding>
 }): ShapePadding {
-  const normalizedBase = normalizeShapePadding({
+  const normalizedBase = normalizeShapeLayoutPadding({
     padding: base
   })
-  const normalizedAddition = normalizeShapePadding({
+  const normalizedAddition = normalizeShapeLayoutPadding({
     padding: addition
   })
 

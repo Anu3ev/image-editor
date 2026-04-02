@@ -681,6 +681,82 @@ describe('shape-scaling', () => {
     expect(group.scaleX).toBe(0.8)
   })
 
+  it('при уменьшении по ширине не учитывает пользовательские отступы в минимальной ширине', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    group.shapePresetKey = 'square'
+    group.shapePaddingTop = 12
+    group.shapePaddingRight = 40
+    group.shapePaddingBottom = 14
+    group.shapePaddingLeft = 30
+    group.scaleX = 0.4
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      }
+    }))
+  })
+
+  it('при уменьшении по ширине сохраняет внутренний отступ формы в минимальной ширине', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    group.shapePresetKey = 'circle'
+    group.shapePaddingTop = 12
+    group.shapePaddingRight = 40
+    group.shapePaddingBottom = 14
+    group.shapePaddingLeft = 30
+    group.shapeBaseWidth = 200
+    group.shapeBaseHeight = 200
+    group.scaleX = 0.4
+    group.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      padding: {
+        top: 48,
+        right: 48,
+        bottom: 48,
+        left: 48
+      }
+    }))
+  })
+
   it('после vertical shrink до minimum height horizontal scaling продолжает работать', () => {
     const {
       controller,

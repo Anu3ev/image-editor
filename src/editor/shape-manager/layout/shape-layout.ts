@@ -2,7 +2,7 @@
 import { resizeShapeNode } from '../shape-factory'
 import {
   MIN_SHAPE_TEXT_FRAME_SIZE,
-  normalizeShapePadding,
+  normalizeShapeLayoutPadding,
   normalizeShapeUserPadding
 } from './shape-padding'
 import {
@@ -58,7 +58,7 @@ export const applyShapeTextLayout = ({
   const requestedUserPadding = normalizeShapeUserPadding({
     padding
   })
-  const normalizedInternalShapeTextInset = normalizeShapePadding({
+  const normalizedInternalShapeTextInset = normalizeShapeLayoutPadding({
     padding: internalShapeTextInset
   })
   const manualBaseWidth = Math.max(
@@ -183,7 +183,7 @@ export const resolveShapeTextAutoExpandWidthForText = ({
     ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth)
     : Math.max(safeCurrentWidth, safeMinimumWidth)
   const safeStrokeWidth = Math.max(0, strokeWidth ?? 0)
-  const normalizedPadding = normalizeShapePadding({
+  const normalizedPadding = normalizeShapeLayoutPadding({
     padding
   })
   const effectiveMaxShapeWidth = Math.max(safeMinimumWidth, safeMontageAreaWidth)
@@ -271,7 +271,7 @@ export const resolveMinimumShapeWidthForText = ({
     text
   })) return MIN_TEXT_FRAME_SIZE
 
-  const normalizedPadding = normalizeShapePadding({
+  const normalizedPadding = normalizeShapeLayoutPadding({
     padding
   })
 
@@ -298,7 +298,7 @@ export const resolveShapeTextFrameLayout = ({
 }): ShapeTextFrameLayout => {
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
-  const requestedPadding = normalizeShapePadding({
+  const requestedPadding = normalizeShapeLayoutPadding({
     padding
   })
   const {
@@ -397,7 +397,7 @@ export const resolveRequiredShapeHeightForText = ({
   })) return safeHeight
 
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
-  const normalizedPadding = normalizeShapePadding({
+  const normalizedPadding = normalizeShapeLayoutPadding({
     padding
   })
   const frameWidth = resolveTextFrameWidth({

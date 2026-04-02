@@ -429,6 +429,93 @@ describe('shape-layout', () => {
     expect(group.shapeManualBaseHeight).toBe(80)
   })
 
+  it('сохраняет в метаданных только пользовательские отступы без внутреннего отступа формы', () => {
+    const shape = createMockShapeNode({
+      width: 200,
+      height: 200
+    })
+    const text = createMockShapeTextbox({
+      text: 'shape text',
+      width: 200,
+      fontSize: 28
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 200,
+      height: 200
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 200,
+      height: 200,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 10,
+        right: 12,
+        bottom: 14,
+        left: 16
+      },
+      internalShapeTextInset: {
+        top: 24,
+        right: 20,
+        bottom: 24,
+        left: 20
+      }
+    })
+
+    expect(group.shapePaddingTop).toBe(10)
+    expect(group.shapePaddingRight).toBe(12)
+    expect(group.shapePaddingBottom).toBe(14)
+    expect(group.shapePaddingLeft).toBe(16)
+  })
+
+  it('при фиксированной высоте уменьшает верхний и нижний отступ, чтобы текст остался внутри шейпа', () => {
+    const shape = createMockShapeNode({
+      width: 120,
+      height: 100
+    })
+    const text = createMockShapeTextbox({
+      text: 'line one\nline two',
+      width: 120,
+      fontSize: 28,
+      lineHeight: 1
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 120,
+      height: 100
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: 120,
+      height: 100,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 40,
+        right: 0,
+        bottom: 40,
+        left: 0
+      },
+      expandShapeHeightToFitText: false
+    })
+
+    const availableTextHeight = group.shapeBaseHeight - group.shapePaddingTop - group.shapePaddingBottom
+
+    expect(group.shapeBaseHeight).toBe(100)
+    expect(group.shapePaddingTop + group.shapePaddingBottom).toBeLessThan(80)
+    expect(text.height ?? 0).toBeLessThanOrEqual(availableTextHeight + 0.5)
+  })
+
   it('после narrow layout с переносом строк и обратного расширения возвращает actual height к manual base height', () => {
     const shape = createMockShapeNode({
       width: 180,
