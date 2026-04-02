@@ -8,7 +8,7 @@ on:
     branches: [ master, main ]  # Проверяем качество только основных веток после мержа
 
 permissions:
-  contents: read
+  contents: write
   statuses: write
   issues: write
   pull-requests: write
@@ -94,15 +94,29 @@ jobs:
           path: coverage/
           retention-days: 30
 
-      - name: "☁️ Upload unit coverage to Codecov"
+      - name: "🏷️ Generate unit coverage badge"
         if: always() && matrix.node-version == 20
-        uses: codecov/codecov-action@v5
-        with:
-          files: ./coverage/lcov.info
-          flags: unit
-          name: unit-tests
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN }}
+        run: node .github/scripts/generate-coverage-badge.mjs
+
+      - name: "📤 Publish unit coverage badge"
+        if: always() && matrix.node-version == 20 && github.event_name == 'push'
+        run: |
+          git fetch origin badges:badges || true
+
+          if git rev-parse --verify badges >/dev/null 2>&1; then
+            git worktree add /tmp/unit-coverage-badge badges
+          else
+            git worktree add -b badges /tmp/unit-coverage-badge
+          fi
+
+          cp coverage/unit-coverage.svg /tmp/unit-coverage-badge/unit-coverage.svg
+
+          cd /tmp/unit-coverage-badge
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add unit-coverage.svg
+          git commit -m "Update unit coverage badge" || echo "No badge changes to commit"
+          git push origin badges
 
       - name: 💬 Update PR with Results
         if: always() && github.event.pull_request.number
