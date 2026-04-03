@@ -2,6 +2,12 @@ import { FabricObject, FabricImage, Point } from 'fabric'
 import { ImageEditor } from '../index'
 import { GroupedObjectsData, UngroupedObjectsData } from '../grouping-manager'
 import type {
+  BeforeShapeUpdatedPayload,
+  ShapeAddedPayload,
+  ShapeUpdatedPayload
+} from '../shape-manager/types'
+import type {
+  TextAddedPayload,
   BeforeTextUpdatedPayload,
   TextUpdatedPayload
 } from '../text-manager/types'
@@ -266,6 +272,11 @@ declare module 'fabric' {
     'editor:history-state-loaded': HistoryStateLoadedPayload
 
     /**
+     * Срабатывает после успешного выполнения публичного добавления текста.
+     */
+    'editor:text-added': TextAddedPayload
+
+    /**
      * Срабатывает до фиксации программного обновления текста в истории.
      * Позволяет aggregate-владельцам синхронизировать производное состояние.
      */
@@ -275,6 +286,21 @@ declare module 'fabric' {
      * Срабатывает после завершения программного обновления текста.
      */
     'editor:text-updated': TextUpdatedPayload
+
+    /**
+     * Срабатывает после успешного выполнения публичного добавления shape-композиции.
+     */
+    'editor:shape-added': ShapeAddedPayload
+
+    /**
+     * Срабатывает до фиксации программного обновления shape-композиции в истории.
+     */
+    'editor:before:shape-updated': BeforeShapeUpdatedPayload
+
+    /**
+     * Срабатывает после завершения публичного обновления shape-композиции.
+     */
+    'editor:shape-updated': ShapeUpdatedPayload
 
     /**
      * Срабатывает после успешного выполнения операции отмены (undo).

@@ -48,6 +48,8 @@ import {
   prepareShapeTextNode
 } from './shape-runtime'
 import {
+  BeforeShapeUpdatedPayload,
+  ShapeAddedPayload,
   ShapeAddOptions,
   ShapeGroup,
   ShapeGroupLike,
@@ -55,16 +57,17 @@ import {
   ShapeNode,
   ShapePadding,
   ShapePaddingChangeMap,
+  ShapeReference,
+  ShapeSnapshot,
   ShapeStrokeOptions,
   ShapeTextAlignOptions,
   ShapeTextStyleOptions,
   ShapeTextNode,
+  ShapeUpdatedPayload,
   ShapeUpdateOptions,
   ShapeVerticalAlign,
   ShapeVisualStyle
 } from './types'
-
-type ShapeReference = ShapeGroup | FabricObject | string | null | undefined
 
 const DEFAULT_SHAPE_FILL = '#B0B5BF'
 
@@ -134,6 +137,7 @@ export default class ShapeManager {
    * но текущая ширина может быть больше неё, если этого требует текст.
    * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
    * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
+   * @fires editor:shape-added
    */
   public async add({
     presetKey = DEFAULT_SHAPE_PRESET_KEY,
@@ -255,6 +259,11 @@ export default class ShapeManager {
       style,
       rounding
     })
+    const addedPayload: ShapeAddedPayload = {
+      shape: group,
+      presetKey: effectivePreset.key,
+      options
+    }
 
     if (left === undefined && top === undefined) {
       this.editor.canvasManager.centerObjectToMontageArea({ object: group })
@@ -274,7 +283,10 @@ export default class ShapeManager {
       })
     }
 
-    if (withoutAdding) return group
+    if (withoutAdding) {
+      this.editor.canvas.fire('editor:shape-added', addedPayload)
+      return group
+    }
 
     this._beginMutation()
 
@@ -290,6 +302,8 @@ export default class ShapeManager {
       this._endMutation({ withoutSave })
     }
 
+    this.editor.canvas.fire('editor:shape-added', addedPayload)
+
     return group
   }
 
@@ -299,6 +313,8 @@ export default class ShapeManager {
    * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
    * Если переданы `left/top/originX/originY`, они становятся новым placement-контрактом группы.
    * Сохраняет тот же instance группы и при необходимости заменяет только внутренний shape-узел.
+   * @fires editor:before:shape-updated
+   * @fires editor:shape-updated
    */
   public async update({
     target,
@@ -422,6 +438,10 @@ export default class ShapeManager {
 
     if (!currentShapeNode || !currentTextNode) return null
 
+    const beforeState = ShapeManager._getSnapshot({
+      group: currentGroup
+    })
+
     const textLayoutState = {
       angle: 0,
       skewX: 0,
@@ -541,8 +561,30 @@ export default class ShapeManager {
     const wasOnCanvas = this._isOnCanvas({ object: currentGroup })
     if (!wasOnCanvas) {
       applyUpdateToCurrentGroup()
+
+      const beforeShapeUpdatedPayload: BeforeShapeUpdatedPayload = {
+        shape: currentGroup,
+        target,
+        presetKey: effectivePreset.key,
+        options
+      }
+      const afterState = ShapeManager._getSnapshot({
+        group: currentGroup
+      })
+      const shapeUpdatedPayload: ShapeUpdatedPayload = {
+        ...beforeShapeUpdatedPayload,
+        before: beforeState,
+        after: afterState
+      }
+
+      this.editor.canvas.fire('editor:before:shape-updated', beforeShapeUpdatedPayload)
+      this.editor.canvas.fire('editor:shape-updated', shapeUpdatedPayload)
+
       return currentGroup
     }
+
+    let beforeShapeUpdatedPayload: BeforeShapeUpdatedPayload | null = null
+    let afterState: ShapeSnapshot | null = null
 
     this._beginMutation()
 
@@ -553,9 +595,30 @@ export default class ShapeManager {
         this.editor.canvas.setActiveObject(currentGroup)
       }
 
+      beforeShapeUpdatedPayload = {
+        shape: currentGroup,
+        target,
+        presetKey: effectivePreset.key,
+        options
+      }
+      this.editor.canvas.fire('editor:before:shape-updated', beforeShapeUpdatedPayload)
+
       this.editor.canvas.requestRenderAll()
+      afterState = ShapeManager._getSnapshot({
+        group: currentGroup
+      })
     } finally {
       this._endMutation({ withoutSave })
+    }
+
+    if (beforeShapeUpdatedPayload && afterState) {
+      const shapeUpdatedPayload: ShapeUpdatedPayload = {
+        ...beforeShapeUpdatedPayload,
+        before: beforeState,
+        after: afterState
+      }
+
+      this.editor.canvas.fire('editor:shape-updated', shapeUpdatedPayload)
     }
 
     return currentGroup
@@ -1227,7 +1290,8 @@ export default class ShapeManager {
     const textbox = this.editor.textManager.addText(updates, {
       withoutAdding: true,
       withoutSave: true,
-      withoutSelection: true
+      withoutSelection: true,
+      emitLifecycleEvents: false
     }) as ShapeTextNode
 
     textbox.set({
@@ -1286,7 +1350,8 @@ export default class ShapeManager {
         target: textNode,
         style: styleUpdates,
         skipRender: true,
-        withoutSave: true
+        withoutSave: true,
+        emitLifecycleEvents: false
       })
     } finally {
       this.internalTextUpdates.delete(textNode)
@@ -1325,11 +1390,16 @@ export default class ShapeManager {
       underline,
       uppercase
     } = textNode
+    const hasExplicitTextAlign = textAlign === 'left'
+      || textAlign === 'center'
+      || textAlign === 'right'
+      || textAlign === 'justify'
+    const textAlignOverride = hasExplicitTextAlign
+      ? { align: textAlign }
+      : undefined
     const align = this._resolveShapeTextHorizontalAlign({
       group: textNode.group as ShapeGroupLike,
-      textStyle: {
-        align: textAlign
-      }
+      textStyle: textAlignOverride
     })
 
     return {
@@ -1785,6 +1855,183 @@ export default class ShapeManager {
       strokeDashArray: dashArray ?? null,
       opacity: opacity ?? fallback?.shapeOpacity ?? DEFAULT_SHAPE_OPACITY
     }
+  }
+
+  /**
+   * Формирует снимок текущего доменного состояния shape-группы для lifecycle-событий.
+   */
+  private static _getSnapshot({ group }: { group: ShapeGroup }): ShapeSnapshot {
+    const {
+      id,
+      shapePresetKey,
+      shapeBaseWidth,
+      shapeBaseHeight,
+      shapeManualBaseWidth,
+      shapeManualBaseHeight,
+      shapeTextAutoExpand,
+      shapeAlignHorizontal,
+      shapeAlignVertical,
+      shapePaddingTop,
+      shapePaddingRight,
+      shapePaddingBottom,
+      shapePaddingLeft,
+      shapeFill,
+      shapeStroke,
+      shapeStrokeWidth,
+      shapeStrokeDashArray,
+      shapeOpacity,
+      shapeRounding,
+      left,
+      top,
+      angle,
+      scaleX,
+      scaleY
+    } = group
+    const { text } = getShapeNodes({ group })
+    const currentWidth = Math.max(
+      1,
+      (shapeBaseWidth ?? group.width ?? 1) * (Math.abs(scaleX ?? 1) || 1)
+    )
+    const currentHeight = Math.max(
+      1,
+      (shapeBaseHeight ?? group.height ?? 1) * (Math.abs(scaleY ?? 1) || 1)
+    )
+
+    return {
+      id,
+      presetKey: shapePresetKey,
+      baseWidth: shapeBaseWidth,
+      baseHeight: shapeBaseHeight,
+      manualBaseWidth: shapeManualBaseWidth,
+      manualBaseHeight: shapeManualBaseHeight,
+      currentWidth,
+      currentHeight,
+      shapeTextAutoExpand: shapeTextAutoExpand !== false,
+      alignH: shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+      alignV: shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
+      padding: {
+        top: shapePaddingTop ?? 0,
+        right: shapePaddingRight ?? 0,
+        bottom: shapePaddingBottom ?? 0,
+        left: shapePaddingLeft ?? 0
+      },
+      fill: shapeFill,
+      stroke: shapeStroke,
+      strokeWidth: shapeStrokeWidth,
+      strokeDashArray: shapeStrokeDashArray
+        ? shapeStrokeDashArray.slice()
+        : shapeStrokeDashArray ?? null,
+      opacity: shapeOpacity,
+      rounding: shapeRounding,
+      left,
+      top,
+      angle,
+      scaleX,
+      scaleY,
+      text: text
+        ? ShapeManager._getTextNodeSnapshot({ textNode: text })
+        : undefined
+    }
+  }
+
+  /**
+   * Формирует snapshot вложенного текстового узла shape-группы.
+   */
+  private static _getTextNodeSnapshot({ textNode }: { textNode: ShapeTextNode }): ShapeSnapshot['text'] {
+    const addIfPresent = (
+      {
+        snapshot,
+        entries
+      }: {
+        snapshot: NonNullable<ShapeSnapshot['text']>
+        entries: Record<string, unknown>
+      }
+    ): void => {
+      Object.entries(entries).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          snapshot[key] = value
+        }
+      })
+    }
+
+    const {
+      id,
+      text,
+      textCaseRaw,
+      uppercase,
+      autoExpand,
+      fontFamily,
+      fontSize,
+      fontWeight,
+      fontStyle,
+      underline,
+      linethrough,
+      textAlign,
+      fill,
+      stroke,
+      strokeWidth,
+      opacity,
+      backgroundColor,
+      backgroundOpacity,
+      paddingTop,
+      paddingRight,
+      paddingBottom,
+      paddingLeft,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft,
+      left,
+      top,
+      width,
+      height,
+      angle,
+      scaleX,
+      scaleY
+    } = textNode
+    const snapshot: NonNullable<ShapeSnapshot['text']> = {
+      id,
+      uppercase: Boolean(uppercase),
+      textAlign
+    }
+
+    addIfPresent({
+      snapshot,
+      entries: {
+        text,
+        textCaseRaw,
+        autoExpand,
+        fontFamily,
+        fontSize,
+        fontWeight,
+        fontStyle,
+        underline,
+        linethrough,
+        fill,
+        stroke,
+        strokeWidth,
+        opacity,
+        backgroundColor,
+        backgroundOpacity,
+        paddingTop,
+        paddingRight,
+        paddingBottom,
+        paddingLeft,
+        radiusTopLeft,
+        radiusTopRight,
+        radiusBottomRight,
+        radiusBottomLeft,
+        left,
+        top,
+        width,
+        height,
+        angle,
+        scaleX,
+        scaleY
+      }
+    })
+
+    return snapshot
   }
 
   /**

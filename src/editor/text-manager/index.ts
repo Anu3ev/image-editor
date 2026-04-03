@@ -133,6 +133,8 @@ export default class TextManager {
    * Добавляет новый текстовый объект на канвас.
    * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
    * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
+   * `emitLifecycleEvents=false` отключает editor-level lifecycle события
+   * для внутренних materialization-path без изменения самого create-контракта.
    * @param options — настройки текста
    * @param flags — флаги поведения
    */
@@ -165,7 +167,12 @@ export default class TextManager {
       radiusBottomLeft = 0,
       ...rest
     }: TextStyleOptions = {},
-    { withoutSelection = false, withoutSave = false, withoutAdding = false }: TextCreationFlags = {}
+    {
+      withoutSelection = false,
+      withoutSave = false,
+      withoutAdding = false,
+      emitLifecycleEvents = true
+    }: TextCreationFlags = {}
   ): EditorTextbox {
     const {
       canvasManager,
@@ -276,25 +283,27 @@ export default class TextManager {
       historyManager.saveState()
     }
 
-    canvas.fire('editor:text-added', {
-      textbox,
-      options: {
-        ...finalOptions,
-        text,
-        bold,
-        italic,
-        strikethrough,
-        align,
-        color,
-        strokeColor: resolvedStrokeColor,
-        strokeWidth: resolvedStrokeWidth
-      },
-      flags: {
-        withoutSelection: Boolean(withoutSelection),
-        withoutSave: Boolean(withoutSave),
-        withoutAdding: Boolean(withoutAdding)
-      }
-    })
+    if (emitLifecycleEvents) {
+      canvas.fire('editor:text-added', {
+        textbox,
+        options: {
+          ...finalOptions,
+          text,
+          bold,
+          italic,
+          strikethrough,
+          align,
+          color,
+          strokeColor: resolvedStrokeColor,
+          strokeWidth: resolvedStrokeWidth
+        },
+        flags: {
+          withoutSelection: Boolean(withoutSelection),
+          withoutSave: Boolean(withoutSave),
+          withoutAdding: Boolean(withoutAdding)
+        }
+      })
+    }
 
     return textbox
   }
@@ -308,6 +317,8 @@ export default class TextManager {
    * @param options.withoutSave — не сохранять состояние в историю
    * @param options.skipRender — не вызывать перерисовку канваса
    * @param options.selectionRange — внешний диапазон выделения для применения стилей
+   * @param options.emitLifecycleEvents — отключает editor-level lifecycle события
+   * для внутренних materialization-path без изменения update-контракта.
    * @fires editor:before:text-updated
    * @fires editor:text-updated
    */
@@ -316,7 +327,8 @@ export default class TextManager {
     style = {},
     withoutSave,
     skipRender,
-    selectionRange: selectionRangeOverride
+    selectionRange: selectionRangeOverride,
+    emitLifecycleEvents = true
   }: UpdateOptions = {}): EditorTextbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
@@ -730,7 +742,9 @@ export default class TextManager {
       selectionStyles: hasSelectionStyles ? selectionStyles : undefined
     }
 
-    canvas.fire('editor:before:text-updated', beforeTextUpdatedPayload)
+    if (emitLifecycleEvents) {
+      canvas.fire('editor:before:text-updated', beforeTextUpdatedPayload)
+    }
 
     if (!skipRender) {
       canvas.requestRenderAll()
@@ -749,7 +763,9 @@ export default class TextManager {
       after: afterState
     }
 
-    canvas.fire('editor:text-updated', textUpdatedPayload)
+    if (emitLifecycleEvents) {
+      canvas.fire('editor:text-updated', textUpdatedPayload)
+    }
 
     return textbox
   }
