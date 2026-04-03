@@ -602,14 +602,10 @@ export default class TextManager {
         wholeTextStyles
       ]
     })
-    const hasExplicitPlacementUpdate = left !== undefined
-      || top !== undefined
-      || originX !== undefined
-      || originY !== undefined
-    const hasPaddingUpdate = paddingTop !== undefined
-      || paddingRight !== undefined
-      || paddingBottom !== undefined
-      || paddingLeft !== undefined
+    const placementUpdates = [left, top, originX, originY]
+    const paddingUpdates = [paddingTop, paddingRight, paddingBottom, paddingLeft]
+    const hasExplicitPlacementUpdate = placementUpdates.some((value) => value !== undefined)
+    const hasPaddingUpdate = paddingUpdates.some((value) => value !== undefined)
     const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
     const shouldRestoreContentPlacement = hasPaddingUpdate
       && !hasExplicitPlacementUpdate
@@ -617,13 +613,15 @@ export default class TextManager {
       && !uppercaseChanged
       && !hasLayoutUpdates
       && !hasExplicitWidthUpdate
-    const contentPlacement = shouldRestoreContentPlacement
-      ? getTextboxContentPlacement({
+    let contentPlacement: ObjectPlacement | null = null
+
+    if (shouldRestoreContentPlacement) {
+      contentPlacement = getTextboxContentPlacement({
         textbox,
         originX: placement.originX,
         originY: placement.originY
       })
-      : null
+    }
 
     textbox.uppercase = nextUppercase
 
@@ -714,16 +712,16 @@ export default class TextManager {
       textbox.dirty = true
     }
 
-    const hasBackgroundStyleUpdate = backgroundColor !== undefined
-      || backgroundOpacity !== undefined
-      || paddingTop !== undefined
-      || paddingRight !== undefined
-      || paddingBottom !== undefined
-      || paddingLeft !== undefined
-      || radiusTopLeft !== undefined
-      || radiusTopRight !== undefined
-      || radiusBottomRight !== undefined
-      || radiusBottomLeft !== undefined
+    const backgroundStyleUpdates = [
+      backgroundColor,
+      backgroundOpacity,
+      ...paddingUpdates,
+      radiusTopLeft,
+      radiusTopRight,
+      radiusBottomRight,
+      radiusBottomLeft
+    ]
+    const hasBackgroundStyleUpdate = backgroundStyleUpdates.some((value) => value !== undefined)
 
     if (hasBackgroundStyleUpdate) {
       textbox.dirty = true
