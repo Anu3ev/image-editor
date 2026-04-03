@@ -1,5 +1,6 @@
-import type { FabricObject, Group, Textbox } from 'fabric'
+import type { FabricObject, Group } from 'fabric'
 import type { TextStyleOptions } from '../text-manager'
+import type { EditorTextbox, TextboxSnapshot } from '../text-manager/types'
 
 export type ShapePresetType = 'rect' | 'path' | 'polygon' | 'polyline' | 'svg' | 'ellipse' | 'triangle'
 
@@ -107,7 +108,7 @@ export type ShapeNode = FabricObject & {
   shapeNodeType?: ShapeNodeType
 }
 
-export type ShapeTextNode = Textbox & {
+export type ShapeTextNode = EditorTextbox & {
   shapeNodeType?: ShapeNodeType
 }
 
@@ -138,6 +139,8 @@ export type ShapeGroupMetadata = {
 export type ShapeGroup = Group & Partial<ShapeGroupMetadata>
 
 export type ShapeGroupLike = ShapeGroup
+
+export type ShapeReference = ShapeGroup | FabricObject | string | null | undefined
 
 export type ShapeCreationFlags = {
   withoutSelection?: boolean
@@ -178,6 +181,79 @@ export type ShapeUpdateOptions = ShapeVisualStyle & {
   textPadding?: Partial<ShapePadding>
   withoutSelection?: boolean
   withoutSave?: boolean
+}
+
+export type ShapeSnapshot = {
+  id?: string
+  presetKey?: string
+  baseWidth?: number
+  baseHeight?: number
+  manualBaseWidth?: number
+  manualBaseHeight?: number
+  currentWidth?: number
+  currentHeight?: number
+  shapeTextAutoExpand: boolean
+  alignH: ShapeHorizontalAlign
+  alignV: ShapeVerticalAlign
+  padding: ShapePadding
+  fill?: string
+  stroke?: string | null
+  strokeWidth?: number
+  strokeDashArray?: number[] | null
+  opacity?: number
+  rounding?: number
+  left?: number
+  top?: number
+  originX?: ShapePlacementOriginX
+  originY?: ShapePlacementOriginY
+  angle?: number
+  flipX?: boolean
+  flipY?: boolean
+  scaleX?: number
+  scaleY?: number
+  text?: TextboxSnapshot
+}
+
+export type ShapeAddedPayload = {
+  shape: ShapeGroup
+  presetKey: string
+  options: ShapeAddOptions
+}
+
+export type ShapeUpdateSource =
+  | 'update'
+  | 'fill'
+  | 'stroke'
+  | 'opacity'
+  | 'text-style'
+  | 'text-align'
+  | 'text-edit'
+  | 'text-update'
+  | 'resize'
+
+/**
+ * Общая часть payload editor-level событий перед и после обновления shape-композиции.
+ * Контракт покрывает все shape-level update path, а не только публичный `update()`.
+ */
+export type ShapeUpdateLifecyclePayload = {
+  shape: ShapeGroup
+  source: ShapeUpdateSource
+  target?: ShapeReference
+  presetKey?: string
+  options?: ShapeUpdateOptions
+  withoutSave?: boolean
+}
+
+export type BeforeShapeUpdatedPayload = ShapeUpdateLifecyclePayload
+
+export type ShapeUpdateLifecycleContext = {
+  before: ShapeSnapshot
+  payload: BeforeShapeUpdatedPayload
+}
+
+export type ShapeUpdatedPayload = ShapeUpdateLifecyclePayload & {
+  before: ShapeSnapshot
+  after: ShapeSnapshot
 }
 
 export type ShapeStrokeOptions = {

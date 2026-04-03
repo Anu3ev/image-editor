@@ -6,13 +6,19 @@ import {
 } from '../../../../src/editor/shape-manager/shape-factory'
 import {
   applyShapeTextLayout,
+  resolveMinimumShapeWidthForText,
+  resolveRequiredShapeHeightForText,
+  resolveShapeTextFrameLayout,
   resolveShapeTextAutoExpandWidthForText
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
 import {
+  applyShapeTextLayoutToMockGroup,
   applyTextStyleToShapeText,
+  getCanvasEventPayloads,
   createShapeManagerEditorStub,
   createMockShapeNode,
-  getCanvasHandler
+  getCanvasHandler,
+  getRequiredCanvasHandler
 } from '../../../test-utils/shape-helpers'
 
 jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
@@ -23,6 +29,29 @@ jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
 
 jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
+  resolveMinimumShapeWidthForText: jest.fn(() => 1),
+  resolveRequiredShapeHeightForText: jest.fn(({
+    height
+  }: {
+    height: number
+  }) => Math.max(1, height)),
+  resolveShapeTextFrameLayout: jest.fn(({
+    width,
+    padding
+  }: {
+    width: number
+    padding?: {
+      left?: number
+      right?: number
+    }
+  }) => ({
+    frame: {
+      left: padding?.left ?? 0,
+      width: Math.max(1, width - (padding?.left ?? 0) - (padding?.right ?? 0))
+    },
+    splitByGrapheme: false,
+    textTop: 0
+  })),
   resolveShapeTextAutoExpandWidthForText: jest.fn(({
     currentWidth,
     minimumWidth
@@ -54,11 +83,38 @@ describe('shape-manager', () => {
   const createShapeNodeMock = createShapeNode as jest.Mock
   const applyShapeStyleMock = applyShapeStyle as jest.Mock
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
+  const resolveMinimumShapeWidthForTextMock = resolveMinimumShapeWidthForText as jest.Mock
+  const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
+  const resolveShapeTextFrameLayoutMock = resolveShapeTextFrameLayout as jest.Mock
   const resolveShapeTextAutoExpandWidthForTextMock = resolveShapeTextAutoExpandWidthForText as jest.Mock
 
   beforeEach(() => {
     jest.clearAllMocks()
     createShapeNodeMock.mockImplementation(async() => createMockShapeNode())
+    applyShapeTextLayoutMock.mockImplementation(applyShapeTextLayoutToMockGroup)
+    resolveMinimumShapeWidthForTextMock.mockImplementation(() => 1)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({
+      height
+    }: {
+      height: number
+    }) => Math.max(1, height))
+    resolveShapeTextFrameLayoutMock.mockImplementation(({
+      width,
+      padding
+    }: {
+      width: number
+      padding?: {
+        left?: number
+        right?: number
+      }
+    }) => ({
+      frame: {
+        left: padding?.left ?? 0,
+        width: Math.max(1, width - (padding?.left ?? 0) - (padding?.right ?? 0))
+      },
+      splitByGrapheme: false,
+      textTop: 0
+    }))
     resolveShapeTextAutoExpandWidthForTextMock.mockImplementation(({
       currentWidth,
       minimumWidth
@@ -79,10 +135,12 @@ describe('shape-manager', () => {
       'object:scaling',
       'object:modified',
       'mouse:down',
+      'mouse:up',
       'text:editing:entered',
       'text:editing:exited',
       'text:changed',
-      'editor:before:text-updated'
+      'editor:before:text-updated',
+      'editor:text-updated'
     ]))
 
     manager.destroy()
@@ -92,10 +150,12 @@ describe('shape-manager', () => {
       'object:scaling',
       'object:modified',
       'mouse:down',
+      'mouse:up',
       'text:editing:entered',
       'text:editing:exited',
       'text:changed',
-      'editor:before:text-updated'
+      'editor:before:text-updated',
+      'editor:text-updated'
     ]))
   })
 
@@ -396,6 +456,10 @@ describe('shape-manager', () => {
       throw new Error('shape group should be created')
     }
 
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    canvasFireMock.mockClear()
+
     const updatedGroup = manager.setOpacity({
       target: group,
       opacity: 0.4
@@ -414,6 +478,86 @@ describe('shape-manager', () => {
 
     expect(textNode?.opacity).toBe(0.4)
     expect((group as { shapeOpacity?: number }).shapeOpacity).toBe(0.4)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'opacity',
+        target: group
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'opacity',
+        target: group,
+        after: expect.objectContaining({
+          opacity: 0.4
+        })
+      })
+    ])
+  })
+
+  it('при изменении заливки шлёт обновление фигуры', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    canvasFireMock.mockClear()
+
+    const updatedGroup = manager.setFill({
+      target: group,
+      fill: '#ff0000'
+    })
+
+    expect(updatedGroup).toBe(group)
+    expect(group.shapeFill).toBe('#ff0000')
+    expect(applyShapeStyleMock).toHaveBeenCalledWith(expect.objectContaining({
+      style: {
+        fill: '#ff0000'
+      }
+    }))
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'fill',
+        target: group
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'fill',
+        target: group,
+        after: expect.objectContaining({
+          fill: '#ff0000'
+        })
+      })
+    ])
   })
 
   it('getTextNode возвращает текстовый узел shape-группы по прямому target', async() => {
@@ -499,9 +643,11 @@ describe('shape-manager', () => {
     }
 
     const initialShapeStyleCalls = applyShapeStyleMock.mock.calls.length
+    const canvasFireMock = editor.canvas.fire as jest.Mock
 
     saveStateMock.mockClear()
     applyShapeTextLayoutMock.mockClear()
+    canvasFireMock.mockClear()
 
     manager.updateTextStyle({
       target: group,
@@ -536,6 +682,35 @@ describe('shape-manager', () => {
       alignH: 'left'
     }))
     expect(saveStateMock).toHaveBeenCalledTimes(1)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-style',
+        target: group
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-style',
+        target: group,
+        after: expect.objectContaining({
+          text: expect.objectContaining({
+            fill: '#ff0000',
+            stroke: '#00ff00',
+            strokeWidth: 3,
+            fontWeight: 'bold',
+            textAlign: 'left'
+          })
+        })
+      })
+    ])
   })
 
   it('updateTextStyle поддерживает justify для текста внутри шейпа', async() => {
@@ -695,7 +870,10 @@ describe('shape-manager', () => {
       throw new Error('shape group should be created')
     }
 
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
     saveStateMock.mockClear()
+    canvasFireMock.mockClear()
 
     manager.updateTextStyle({
       target: group,
@@ -706,6 +884,17 @@ describe('shape-manager', () => {
     })
 
     expect(saveStateMock).not.toHaveBeenCalled()
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-style',
+        target: group,
+        withoutSave: true
+      })
+    ])
   })
 
   it('setTextAlign обновляет textAlign и передаёт layout новые horizontal и vertical значения', async() => {
@@ -737,8 +926,11 @@ describe('shape-manager', () => {
       throw new Error('shape text node should exist')
     }
 
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
     saveStateMock.mockClear()
     applyShapeTextLayoutMock.mockClear()
+    canvasFireMock.mockClear()
 
     manager.setTextAlign({
       target: group,
@@ -754,6 +946,31 @@ describe('shape-manager', () => {
       alignV: 'bottom'
     }))
     expect(saveStateMock).toHaveBeenCalledTimes(1)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-align',
+        target: group
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-align',
+        target: group,
+        after: expect.objectContaining({
+          text: expect.objectContaining({
+            textAlign: 'right'
+          })
+        })
+      })
+    ])
   })
 
   it('setTextAlign поддерживает justify в horizontal выравнивании', async() => {
@@ -866,8 +1083,11 @@ describe('shape-manager', () => {
     }
 
     const originalTextNode = originalGroup.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
     editor.canvas.add.mockClear()
     editor.canvas.remove.mockClear()
+    canvasFireMock.mockClear()
 
     const updatedGroup = await manager.update({
       target: originalGroup,
@@ -883,6 +1103,88 @@ describe('shape-manager', () => {
     const updatedTextNode = updatedGroup?.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
     expect(updatedShapeNode).toBe(secondShape)
     expect(updatedTextNode).toBe(originalTextNode)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: originalGroup,
+        source: 'update',
+        target: originalGroup,
+        presetKey: 'circle'
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: originalGroup,
+        source: 'update',
+        target: originalGroup,
+        presetKey: 'circle',
+        after: expect.objectContaining({
+          presetKey: 'circle'
+        })
+      })
+    ])
+  })
+
+  it('update с withoutSave передаёт этот флаг в payload обновления фигуры', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const saveStateMock = editor.historyManager.saveState as jest.Mock
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    saveStateMock.mockClear()
+    canvasFireMock.mockClear()
+
+    await manager.update({
+      target: group,
+      presetKey: 'circle',
+      options: {
+        withoutSave: true
+      }
+    })
+
+    expect(saveStateMock).not.toHaveBeenCalled()
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'update',
+        target: group,
+        presetKey: 'circle',
+        withoutSave: true
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'update',
+        target: group,
+        presetKey: 'circle',
+        withoutSave: true
+      })
+    ])
   })
 
   it('обновление ещё не добавленной фигуры не трогает canvas и историю', async() => {
@@ -1814,6 +2116,573 @@ describe('shape-manager', () => {
     expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(1)
   })
 
+  it('эмитит обновление фигуры после выхода из редактирования текста, а не на каждый введённый символ', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const changedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:changed'
+    })
+    const exitedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:exited'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) throw new Error('shape text node should exist')
+
+    const textNodeWithRawText = textNode as Textbox & {
+      textCaseRaw?: string
+    }
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    enteredHandler({
+      target: textNode
+    })
+    textNode.enterEditing()
+
+    canvasFireMock.mockClear()
+    textNode.set({
+      text: 'updated text'
+    })
+    textNodeWithRawText.textCaseRaw = 'updated text'
+
+    changedHandler({
+      target: textNode
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toHaveLength(0)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toHaveLength(0)
+
+    exitedHandler({
+      target: textNode
+    })
+
+    const beforePayloads = getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })
+    const updatedPayloads = getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })
+
+    expect(beforePayloads).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-edit',
+        target: textNode
+      })
+    ])
+    expect(updatedPayloads).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-edit',
+        target: textNode,
+        before: expect.objectContaining({
+          text: expect.objectContaining({
+            text: 'base'
+          })
+        }),
+        after: expect.objectContaining({
+          text: expect.objectContaining({
+            text: 'updated text'
+          })
+        })
+      })
+    ])
+  })
+
+  it('эмитит обновление фигуры после программного обновления текста внутри неё', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const beforeTextUpdatedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:before:text-updated'
+    })
+    const textUpdatedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:text-updated'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) throw new Error('shape text node should exist')
+
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    canvasFireMock.mockClear()
+    textNode.set({
+      fontSize: 120
+    })
+
+    beforeTextUpdatedHandler({
+      textbox: textNode,
+      target: textNode,
+      style: {
+        fontSize: 120
+      },
+      options: {
+        withoutSave: true,
+        skipRender: true
+      },
+      updates: {
+        fontSize: 120
+      }
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-update',
+        target: textNode,
+        withoutSave: true
+      })
+    ])
+
+    textUpdatedHandler({
+      textbox: textNode,
+      target: textNode,
+      style: {
+        fontSize: 120
+      },
+      options: {
+        withoutSave: true,
+        skipRender: true
+      },
+      updates: {
+        fontSize: 120
+      },
+      before: {},
+      after: {}
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-update',
+        target: textNode,
+        withoutSave: true
+      })
+    ])
+  })
+
+  it('не шлёт обновление фигуры, если текст внутри неё не изменился', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const exitedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:exited'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) throw new Error('shape text node should exist')
+
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    enteredHandler({
+      target: textNode
+    })
+
+    canvasFireMock.mockClear()
+
+    exitedHandler({
+      target: textNode
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toHaveLength(0)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toHaveLength(0)
+  })
+
+  it('после программного обновления текста во время редактирования не шлёт второе обновление при выходе', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const exitedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:exited'
+    })
+    const beforeTextUpdatedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:before:text-updated'
+    })
+    const textUpdatedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:text-updated'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) throw new Error('shape text node should exist')
+
+    const textNodeWithRawText = textNode as Textbox & {
+      textCaseRaw?: string
+    }
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    enteredHandler({
+      target: textNode
+    })
+
+    canvasFireMock.mockClear()
+    textNode.set({
+      text: 'updated text'
+    })
+    textNodeWithRawText.textCaseRaw = 'updated text'
+
+    beforeTextUpdatedHandler({
+      textbox: textNode,
+      target: textNode,
+      style: {},
+      options: {
+        withoutSave: false,
+        skipRender: true
+      },
+      updates: {
+        text: 'updated text'
+      }
+    })
+    textUpdatedHandler({
+      textbox: textNode,
+      target: textNode,
+      style: {},
+      options: {
+        withoutSave: false,
+        skipRender: true
+      },
+      updates: {
+        text: 'updated text'
+      },
+      before: {},
+      after: {}
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-update',
+        target: textNode
+      })
+    ])
+
+    exitedHandler({
+      target: textNode
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-update',
+        target: textNode
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'text-update',
+        target: textNode
+      })
+    ])
+  })
+
+  it('эмитит обновление фигуры после завершения изменения размера, а не во время перетягивания', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    group.originX = 'right'
+    group.originY = 'bottom'
+    group.flipX = true
+    group.flipY = true
+
+    const scalingController = (manager as unknown as {
+      scalingController: {
+        handleObjectScaling: (event: unknown) => void
+        handleObjectModified: (event: unknown) => void
+      }
+    }).scalingController
+    const mouseDownHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'mouse:down'
+    })
+    const objectScalingHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:scaling'
+    })
+    const objectModifiedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:modified'
+    })
+    const scalingTransform = {
+      action: 'scaleX',
+      corner: 'mr',
+      target: group,
+      original: {
+        scaleX: 1,
+        scaleY: 1,
+        left: group.left ?? 0,
+        top: group.top ?? 0,
+        originX: group.originX ?? 'center',
+        originY: group.originY ?? 'center'
+      }
+    } as never
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    jest.spyOn(scalingController, 'handleObjectScaling').mockImplementation(() => {})
+    jest.spyOn(scalingController, 'handleObjectModified').mockImplementation(() => {
+      group.shapeBaseWidth = 270
+      group.shapeManualBaseWidth = 270
+      group.width = 270
+      group.left = 155
+      group.scaleX = 1
+      group.setCoords()
+    })
+
+    mouseDownHandler({
+      target: group
+    })
+
+    canvasFireMock.mockClear()
+
+    objectScalingHandler({
+      target: group,
+      transform: scalingTransform
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toHaveLength(0)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toHaveLength(0)
+
+    objectModifiedHandler({
+      target: group,
+      transform: scalingTransform
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'resize',
+        target: group
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'resize',
+        target: group,
+        before: expect.objectContaining({
+          currentWidth: 180,
+          originX: 'right',
+          originY: 'bottom',
+          flipX: true,
+          flipY: true
+        }),
+        after: expect.objectContaining({
+          currentWidth: 270,
+          originX: 'right',
+          originY: 'bottom',
+          flipX: true,
+          flipY: true
+        })
+      })
+    ])
+  })
+
+  it('не шлёт обновление фигуры, если изменение размера не поменяло итоговый размер', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'base'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const scalingController = (manager as unknown as {
+      scalingController: {
+        handleObjectScaling: (event: unknown) => void
+        handleObjectModified: (event: unknown) => void
+      }
+    }).scalingController
+    const mouseDownHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'mouse:down'
+    })
+    const objectScalingHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:scaling'
+    })
+    const objectModifiedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:modified'
+    })
+    const scalingTransform = {
+      action: 'scaleX',
+      corner: 'mr',
+      target: group,
+      original: {
+        scaleX: 1,
+        scaleY: 1,
+        left: group.left ?? 0,
+        top: group.top ?? 0,
+        originX: group.originX ?? 'center',
+        originY: group.originY ?? 'center'
+      }
+    } as never
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    jest.spyOn(scalingController, 'handleObjectScaling').mockImplementation(() => {})
+    jest.spyOn(scalingController, 'handleObjectModified').mockImplementation(() => {})
+
+    mouseDownHandler({
+      target: group
+    })
+
+    canvasFireMock.mockClear()
+
+    objectScalingHandler({
+      target: group,
+      transform: scalingTransform
+    })
+    objectModifiedHandler({
+      target: group,
+      transform: scalingTransform
+    })
+
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toHaveLength(0)
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toHaveLength(0)
+  })
+
   it('text:changed пересчитывает layout, сохраняя стабильный центр группы', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -1938,6 +2807,9 @@ describe('shape-manager', () => {
 
     applyShapeTextLayoutMock.mockClear()
     resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    canvasFireMock.mockClear()
 
     const updatedGroup = manager.setStroke({
       target: group,
@@ -1964,5 +2836,29 @@ describe('shape-manager', () => {
         left: 12
       }
     }))
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'stroke',
+        target: group
+      })
+    ])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([
+      expect.objectContaining({
+        shape: group,
+        source: 'stroke',
+        target: group,
+        after: expect.objectContaining({
+          stroke: '#00ff00',
+          strokeWidth: 12
+        })
+      })
+    ])
   })
 })

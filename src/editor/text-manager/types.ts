@@ -14,6 +14,7 @@ export type TextCreationFlags = {
   withoutSelection?: boolean
   withoutSave?: boolean
   withoutAdding?: boolean
+  emitLifecycleEvents?: boolean
 }
 
 export type TextStyleOptions = {
@@ -77,6 +78,17 @@ export type UpdateOptions = {
   withoutSave?: boolean
   skipRender?: boolean
   selectionRange?: TextSelectionRange | null
+  emitLifecycleEvents?: boolean
+}
+
+export type TextAddedPayload = {
+  textbox: EditorTextbox
+  options: TextStyleOptions
+  flags: {
+    withoutSelection: boolean
+    withoutSave: boolean
+    withoutAdding: boolean
+  }
 }
 
 /**
