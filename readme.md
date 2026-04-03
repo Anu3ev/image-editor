@@ -493,7 +493,7 @@ editor.shapeManager.remove({ target: shape })
 - `setFill()`, `setStroke()`, and `setOpacity()` update the visual style of the outer shape node.
 - `getTextNode()` returns the inner `Textbox` so it can be inspected or passed into other APIs.
 - `updateTextStyle()` applies `TextManager`-style updates to the inner text and recalculates the group layout.
-- `setTextAlign()` changes horizontal and vertical alignment inside the shape bounds.
+- `setTextAlign()` changes horizontal (`left`, `center`, `right`, `justify`) and vertical alignment inside the shape bounds.
 - `setRounding()` enables or updates corner rounding for roundable presets.
 
 #### Alignment & Guides

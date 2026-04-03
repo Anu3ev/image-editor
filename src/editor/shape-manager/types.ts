@@ -3,7 +3,7 @@ import type { TextStyleOptions } from '../text-manager'
 
 export type ShapePresetType = 'rect' | 'path' | 'polygon' | 'polyline' | 'svg' | 'ellipse' | 'triangle'
 
-export type ShapeHorizontalAlign = 'left' | 'center' | 'right'
+export type ShapeHorizontalAlign = 'left' | 'center' | 'right' | 'justify'
 
 export type ShapeVerticalAlign = 'top' | 'middle' | 'bottom'
 

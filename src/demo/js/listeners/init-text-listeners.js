@@ -493,31 +493,6 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает последовательность align-значений для текущего активного target.
-   */
-  const getAlignSequenceForActiveTarget = () => {
-    const activeText = getActiveText()
-    if (activeText) {
-      const activeShapeText = editorInstance.shapeManager.getTextNode({
-        target: activeText
-      })
-
-      if (activeShapeText) {
-        return ['left', 'center', 'right']
-      }
-
-      return ALIGN_SEQUENCE
-    }
-
-    const activeShapeText = editorInstance.shapeManager.getTextNode()
-    if (activeShapeText) {
-      return ['left', 'center', 'right']
-    }
-
-    return ALIGN_SEQUENCE
-  }
-
-  /**
    * Собирает стиль фона текста из текущих input'ов.
    */
   const getBackgroundStyleFromInputs = () => {
@@ -789,7 +764,7 @@ export default ({ editorInstance, controls }) => {
     }
 
     textAlignToggle.addEventListener('click', () => {
-      const alignSequence = getAlignSequenceForActiveTarget()
+      const alignSequence = ALIGN_SEQUENCE
       const currentAlign = textAlignToggle.dataset.align ?? 'left'
       const currentIndex = alignSequence.indexOf(currentAlign)
       const nextAlign = alignSequence[(currentIndex + 1) % alignSequence.length]

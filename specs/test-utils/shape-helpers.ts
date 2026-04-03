@@ -51,7 +51,7 @@ type MockShapeGroup = Group & {
   shapeBaseHeight: number
   shapeManualBaseWidth: number
   shapeManualBaseHeight: number
-  shapeAlignHorizontal: 'left' | 'center' | 'right'
+  shapeAlignHorizontal: 'left' | 'center' | 'right' | 'justify'
   shapeAlignVertical: 'top' | 'middle' | 'bottom'
   shapePaddingTop: number
   shapePaddingRight: number
@@ -324,7 +324,7 @@ export const createMockShapeTextbox = ({
   width?: number
   fontSize?: number
   lineHeight?: number
-  textAlign?: 'left' | 'center' | 'right'
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
 } = {}): MockShapeTextbox => {
   const textbox = new Textbox(text, {
     width,
@@ -688,7 +688,7 @@ export const createShapeManagerEditorStub = ({
       addText: jest.fn((style: Record<string, unknown>) => createMockShapeTextbox({
         text: String(style.text ?? ''),
         width: Number(style.width) || 180,
-        textAlign: (style.align as 'left' | 'center' | 'right') ?? 'center'
+        textAlign: (style.align as 'left' | 'center' | 'right' | 'justify') ?? 'center'
       })),
       updateText: jest.fn()
     },

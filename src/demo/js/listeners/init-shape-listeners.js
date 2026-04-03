@@ -113,7 +113,7 @@ export default ({ editorInstance, controls }) => {
   let shapeFillButtons = []
   /** @type {HTMLButtonElement[]} */
   let shapeStrokeButtons = []
-  const horizontalAlignOptions = ['left', 'center', 'right']
+  const horizontalAlignOptions = ['left', 'center', 'right', 'justify']
   const verticalAlignOptions = ['top', 'middle', 'bottom']
 
   /**

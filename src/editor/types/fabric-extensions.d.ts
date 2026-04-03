@@ -294,7 +294,7 @@ declare module 'fabric' {
     /**
      * Горизонтальное выравнивание текста внутри фигуры.
      */
-    shapeAlignHorizontal?: 'left' | 'center' | 'right';
+    shapeAlignHorizontal?: 'left' | 'center' | 'right' | 'justify';
 
     /**
      * Вертикальное выравнивание текста внутри фигуры.
