@@ -1,4 +1,5 @@
-import type { Textbox, TextboxProps } from 'fabric'
+import { Point, type Textbox, type TextboxProps } from 'fabric'
+import type { ObjectPlacement } from '../canvas-manager'
 import { DIMENSION_EPSILON } from './constants'
 import type { EditorTextbox } from './types'
 
@@ -26,6 +27,78 @@ export const getLongestLineWidth = ({
   }
 
   return longestLineWidth
+}
+
+const resolveOriginOffset = ({
+  origin,
+  size
+}: {
+  origin: ObjectPlacement['originX'] | ObjectPlacement['originY']
+  size: number
+}): number => {
+  if (origin === 'left' || origin === 'top' || origin === 'start' || origin === 0) {
+    return 0
+  }
+
+  if (origin === 'right' || origin === 'bottom' || origin === 'end' || origin === 1) {
+    return size
+  }
+
+  return size / 2
+}
+
+/**
+ * Возвращает placement внутренней text-area без учёта фоновой оболочки.
+ * Нужен для сценариев, где padding меняет только визуальную оболочку,
+ * но само положение текста в сцене должно оставаться прежним.
+ */
+export const getTextboxContentPlacement = ({
+  textbox,
+  originX = textbox.originX ?? 'center',
+  originY = textbox.originY ?? 'center'
+}: {
+  textbox: EditorTextbox
+  originX?: ObjectPlacement['originX']
+  originY?: ObjectPlacement['originY']
+}): ObjectPlacement => {
+  const width = textbox.width ?? textbox.calcTextWidth() ?? 0
+  const height = textbox.height ?? textbox.calcTextHeight() ?? 0
+  const paddingTop = textbox.paddingTop ?? 0
+  const paddingRight = textbox.paddingRight ?? 0
+  const paddingBottom = textbox.paddingBottom ?? 0
+  const paddingLeft = textbox.paddingLeft ?? 0
+
+  const contentLeft = (-width / 2) + ((paddingLeft - paddingRight) / 2)
+  const contentTop = (-height / 2) + ((paddingTop - paddingBottom) / 2)
+  const localPoint = new Point(
+    contentLeft + resolveOriginOffset({ origin: originX, size: width }),
+    contentTop + resolveOriginOffset({ origin: originY, size: height })
+  )
+  const center = textbox.getPointByOrigin('center', 'center')
+
+  const textboxWithTransform = textbox as EditorTextbox & {
+    calcTransformMatrix?: () => [number, number, number, number, number, number]
+  }
+  const matrix = typeof textboxWithTransform.calcTransformMatrix === 'function'
+    ? textboxWithTransform.calcTransformMatrix()
+    : null
+  const transformedPoint = Array.isArray(matrix)
+    ? new Point(
+      (localPoint.x * matrix[0])
+      + (localPoint.y * matrix[2])
+      + center.x,
+      (localPoint.x * matrix[1])
+      + (localPoint.y * matrix[3])
+      + center.y
+    )
+    : new Point(center.x + localPoint.x, center.y + localPoint.y)
+
+  return {
+    left: transformedPoint.x,
+    top: transformedPoint.y,
+    originX,
+    originY
+  }
 }
 
 /**

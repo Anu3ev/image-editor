@@ -129,7 +129,7 @@ export class ShapeModel {
 
   /** Добавляет shape на canvas и возвращает информацию о созданном объекте */
   async add(params: ShapeAddParams = {}): Promise<ShapeObjectInfo | null> {
-    return this.page.evaluate(async(p) => {
+    const createdShape = await this.page.evaluate(async(p) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -139,6 +139,14 @@ export class ShapeModel {
       if (!shape) return null
       return helpers.serializeShapeObject(shape)
     }, params)
+
+    if (!createdShape) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    if (typeof createdShape.id !== 'string') return createdShape
+
+    return this.getObject({ id: createdShape.id })
   }
 
   /** Добавляет shape так, чтобы `left/top` задавали левый верхний угол bounding box. */
@@ -168,7 +176,7 @@ export class ShapeModel {
 
   /** Удаляет shape. По умолчанию — активный объект */
   async remove(params: ObjectTargetParams = {}): Promise<boolean> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+    const removed = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -177,6 +185,10 @@ export class ShapeModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       return editor.shapeManager.remove({ target })
     }, params)
+
+    await waitForCanvasRender({ page: this.page })
+
+    return removed
   }
 
   /** Устанавливает заливку shape. По умолчанию — для активного объекта */
@@ -190,6 +202,8 @@ export class ShapeModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       editor.shapeManager.setFill({ target, fill })
     }, params)
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Устанавливает обводку shape. По умолчанию — для активного объекта */
@@ -203,6 +217,8 @@ export class ShapeModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       editor.shapeManager.setStroke({ target, stroke, strokeWidth, dash })
     }, params)
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Устанавливает прозрачность shape. По умолчанию — для активного объекта */
@@ -216,6 +232,8 @@ export class ShapeModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       editor.shapeManager.setOpacity({ target, opacity })
     }, params)
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Устанавливает скругление shape. По умолчанию — для активного объекта */
@@ -229,6 +247,8 @@ export class ShapeModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       await editor.shapeManager.setRounding({ target, rounding })
     }, params)
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Добавляет shape с текстом и начальными текстовыми стилями. */
@@ -1143,7 +1163,7 @@ export class ShapeModel {
 
   /** Обновляет shape — меняет пресет, размеры, стили. Сохраняет позицию и текст */
   async update(params: ShapeUpdateParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
-    return this.page.evaluate(async({ presetKey, options, objectIndex, id }) => {
+    const shape = await this.page.evaluate(async({ presetKey, options, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1154,11 +1174,21 @@ export class ShapeModel {
       if (!result) return null
       return helpers.serializeShapeObject(result)
     }, params)
+
+    if (!shape) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof shape.id === 'string'
+      ? { id: shape.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Устанавливает выравнивание текста внутри shape */
   async setTextAlign(params: ShapeTextAlignParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
-    return this.page.evaluate(({ horizontal, vertical, objectIndex, id }) => {
+    const shape = await this.page.evaluate(({ horizontal, vertical, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1169,13 +1199,23 @@ export class ShapeModel {
       if (!result) return null
       return helpers.serializeShapeObject(result)
     }, params)
+
+    if (!shape) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof shape.id === 'string'
+      ? { id: shape.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Обновляет стиль текста внутри shape и возвращает снимок текстового узла */
   async updateTextStyle(
     params: { style: ShapeTextStyleParams } & ObjectTargetParams
   ): Promise<ShapeTextInfo | null> {
-    return this.page.evaluate(({ style, objectIndex, id }) => {
+    const updatedTextNode = await this.page.evaluate(({ style, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1190,6 +1230,12 @@ export class ShapeModel {
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
+
+    if (!updatedTextNode) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(params)
   }
 
   /** Возвращает текстовый узел внутри shape */
@@ -1210,7 +1256,7 @@ export class ShapeModel {
 
   /** Делает shape активным объектом canvas */
   async select(params: ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+    const shape = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1220,8 +1266,20 @@ export class ShapeModel {
       if (!target) return null
 
       editor.canvas.setActiveObject(target)
+      editor.canvas.requestRenderAll()
+
       return helpers.serializeShapeObject(target)
     }, params)
+
+    if (!shape) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof shape.id === 'string'
+      ? { id: shape.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Кликает по фигуре на canvas через реальные координаты viewport. */
@@ -1273,7 +1331,7 @@ export class ShapeModel {
 
   /** Включает режим редактирования текста внутри shape */
   async enterTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+    const editingTextNode = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1290,11 +1348,17 @@ export class ShapeModel {
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
+
+    if (!editingTextNode) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(params)
   }
 
   /** Меняет текст активного text-edit внутри shape */
   async updateEditingText(params: { text: string } & ObjectTargetParams): Promise<ShapeTextInfo | null> {
-    return this.page.evaluate(({ text, objectIndex, id }) => {
+    const updatedTextNode = await this.page.evaluate(({ text, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1321,13 +1385,19 @@ export class ShapeModel {
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
+
+    if (!updatedTextNode) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(params)
   }
 
   /** Обновляет стиль текста внутри фигуры, пока открыт режим редактирования. */
   async updateTextStyleInEditing(
     params: { style: ShapeTextStyleParams } & ObjectTargetParams
   ): Promise<ShapeTextInfo | null> {
-    return this.page.evaluate(({ style, objectIndex, id }) => {
+    const updatedTextNode = await this.page.evaluate(({ style, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1345,11 +1415,17 @@ export class ShapeModel {
 
       return helpers.serializeShapeTextObject(result)
     }, params)
+
+    if (!updatedTextNode) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(params)
   }
 
   /** Завершает редактирование текста внутри shape */
   async exitTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+    const editingTextNode = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -1364,6 +1440,12 @@ export class ShapeModel {
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
+
+    if (!editingTextNode) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(params)
   }
 
   /** Устанавливает диапазон выделения текста внутри shape в режиме editing. */

@@ -13,7 +13,9 @@ import {
   cloneLineFontDefaults,
   scaleLineFontDefaults
 } from '../line-defaults'
-import { roundTextboxDimensions } from '../geometry'
+import {
+  roundTextboxDimensions
+} from '../geometry'
 import type {
   CornerRadiiValues,
   EditorTextbox,

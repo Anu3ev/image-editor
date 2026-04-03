@@ -151,6 +151,26 @@ describe('BackgroundTextbox', () => {
       expect(dims.x).toBe(60)
       expect(dims.y).toBe(30)
     })
+
+    it('учитывает правый отступ в ключе transform matrix', () => {
+      const textbox = new BackgroundTextbox('Test', {
+        left: 96,
+        top: 104,
+        originX: 'left',
+        originY: 'top',
+        width: 373,
+        height: 73
+      })
+
+      const initialKey = textbox.transformMatrixKey()
+
+      textbox.set({ paddingRight: 50 })
+
+      const nextKey = textbox.transformMatrixKey()
+
+      expect(initialKey.slice(-4)).toEqual([0, 0, 0, 0])
+      expect(nextKey.slice(-4)).toEqual([0, 50, 0, 0])
+    })
   })
 
   describe('rendering', () => {
@@ -343,6 +363,7 @@ describe('BackgroundTextbox', () => {
         radiusBottomRight: 15,
         radiusBottomLeft: 20
       })
+      expect(textbox).toBeInstanceOf(BackgroundTextbox)
 
       const ctx = createMockContext()
       const backgroundTextboxAny = BackgroundTextbox as any

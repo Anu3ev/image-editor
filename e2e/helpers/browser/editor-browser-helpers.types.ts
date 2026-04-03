@@ -10,6 +10,7 @@ export type BrowserBoundedObject = BrowserObject & {
 
 export type BrowserOriginPointObject = BrowserBoundedObject & {
   getPointByOrigin: (originX: string, originY: string) => unknown
+  calcTransformMatrix?: () => unknown
 }
 
 export type BrowserShapeNodeObject = BrowserObject & {

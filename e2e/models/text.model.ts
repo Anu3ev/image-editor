@@ -59,7 +59,7 @@ export class TextModel {
 
   /** Добавляет текстовый объект на canvas. */
   async add(params: TextAddParams = {}): Promise<TextObjectInfo | null> {
-    return this.page.evaluate((payload) => {
+    const textObject = await this.page.evaluate((payload) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -69,6 +69,14 @@ export class TextModel {
 
       return helpers.serializeTextObject(textbox)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    if (typeof textObject.id !== 'string') return textObject
+
+    return this.getObject({ id: textObject.id })
   }
 
   /** Добавляет regression text-объект в том же состоянии, что и новый отдельный текстовый объект. */
@@ -111,7 +119,13 @@ export class TextModel {
       lineDefaults: TEXT_RESIZING_REGRESSION_LINE_DEFAULTS
     })
 
-    return this.checkCreation({ textObject })
+    const createdTextObject = this.checkCreation({ textObject })
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledTextObject = await this.getObject({ id: createdTextObject.id })
+
+    return this.checkCreation({ textObject: settledTextObject })
   }
 
   /** Применяет regression template текстового объекта и возвращает вставленный объект. */
@@ -125,7 +139,7 @@ export class TextModel {
 
   /** Применяет text-only template и возвращает первый вставленный текстовый объект. */
   async applyTemplate(params: TextTemplateApplyParams): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(async({ template }) => {
+    const appliedTextObject = await this.page.evaluate(async({ template }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -134,13 +148,21 @@ export class TextModel {
       const objects = await editor.templateManager.applyTemplate({ template })
       if (!Array.isArray(objects) || objects.length === 0) return null
 
-      const textObject = objects.find((object: any) => {
+      const insertedTextObject = objects.find((object: any) => {
         return object?.type === 'textbox' || object?.type === 'background-textbox'
       })
-      if (!textObject) return null
+      if (!insertedTextObject) return null
 
-      return helpers.serializeTextObject(textObject)
+      return helpers.serializeTextObject(insertedTextObject)
     }, params)
+
+    if (!appliedTextObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    if (typeof appliedTextObject.id !== 'string') return appliedTextObject
+
+    return this.getObject({ id: appliedTextObject.id })
   }
 
   /** Возвращает текстовый объект по id или индексу canvas. */
@@ -159,7 +181,7 @@ export class TextModel {
 
   /** Делает текстовый объект активным объектом canvas. */
   async select(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -169,14 +191,25 @@ export class TextModel {
       if (!target) return null
 
       editor.canvas.setActiveObject(target)
+      editor.canvas.requestRenderAll()
 
       return helpers.serializeTextObject(target)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof textObject.id === 'string'
+      ? { id: textObject.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Обновляет стиль текстового объекта через публичный API TextManager. */
   async updateStyle(params: TextUpdateStyleParams): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(({ style, objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ style, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -191,11 +224,21 @@ export class TextModel {
 
       return helpers.serializeTextObject(result)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof textObject.id === 'string'
+      ? { id: textObject.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Включает режим редактирования текста у отдельного текстового объекта. */
   async enterTextEditing(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -211,11 +254,21 @@ export class TextModel {
 
       return helpers.serializeTextObject(target)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof textObject.id === 'string'
+      ? { id: textObject.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Меняет текст в активном режиме редактирования текстового объекта. */
   async updateEditingText(params: TextEditingUpdateParams): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(({ text, objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ text, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -241,11 +294,21 @@ export class TextModel {
 
       return helpers.serializeTextObject(target)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof textObject.id === 'string'
+      ? { id: textObject.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Завершает режим редактирования текстового объекта. */
   async exitTextEditing(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(({ objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -259,6 +322,16 @@ export class TextModel {
 
       return helpers.serializeTextObject(target)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof textObject.id === 'string'
+      ? { id: textObject.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Устанавливает диапазон выделения текста в режиме редактирования. */
@@ -293,7 +366,7 @@ export class TextModel {
 
   /** Поворачивает текстовый объект на заданный угол. */
   async rotate(params: TextRotateParams): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(({ angle, objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ angle, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -308,11 +381,21 @@ export class TextModel {
 
       return helpers.serializeTextObject(target)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof textObject.id === 'string'
+      ? { id: textObject.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Применяет inline-стиль к диапазону текстового объекта. */
   async setRangeStyle(params: TextRangeStyleParams): Promise<TextObjectInfo | null> {
-    return this.page.evaluate(({ start, end, style, objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ start, end, style, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -327,6 +410,16 @@ export class TextModel {
 
       return helpers.serializeTextObject(target)
     }, params)
+
+    if (!textObject) return null
+
+    await waitForCanvasRender({ page: this.page })
+
+    const settledParams = typeof textObject.id === 'string'
+      ? { id: textObject.id }
+      : params
+
+    return this.getObject(settledParams)
   }
 
   /** Возвращает текущее состояние resize текстового объекта. */

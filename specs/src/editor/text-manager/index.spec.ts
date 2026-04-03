@@ -791,6 +791,38 @@ describe('TextManager', () => {
       initSpy.mockRestore()
     })
 
+    it('updateText сохраняет правый нижний угол при изменении стиля, влияющего на layout', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120,
+        left: 260,
+        top: 180,
+        originX: 'right',
+        originY: 'bottom'
+      })
+      const anchorBefore = textbox.getPointByOrigin('right', 'bottom')
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
+
+      textManager.updateText({
+        target: textbox,
+        style: {
+          fontSize: 84,
+          bold: true
+        },
+        withoutSave: true
+      })
+
+      const anchorAfter = textbox.getPointByOrigin('right', 'bottom')
+
+      expect(textbox.width).toBe(260)
+      expect(anchorAfter.x).toBe(anchorBefore.x)
+      expect(anchorAfter.y).toBe(anchorBefore.y)
+
+      lineWidthSpy.mockRestore()
+    })
+
     it('не сдвигает объект по X при ширине больше или равной монтажной области', () => {
       const { textManager } = createTextManagerTestSetup()
 
@@ -1769,7 +1801,11 @@ describe('TextManager', () => {
           withoutSave: true
         })
 
-        const pointBeforePadding = textbox.getPointByOrigin('left', 'top')
+        const placementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
 
         textManager.updateText({
           target: textbox,
@@ -1779,12 +1815,16 @@ describe('TextManager', () => {
           withoutSave: true
         })
 
-        const pointAfterPadding = textbox.getPointByOrigin('left', 'top')
+        const placementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
 
         expect(textbox.originX).toBe('left')
         expect(textbox.originY).toBe('top')
-        expect(pointAfterPadding.x).toBeCloseTo(pointBeforePadding.x, 5)
-        expect(pointAfterPadding.y).toBeCloseTo(pointBeforePadding.y, 5)
+        expect(placementAfterPadding.left).toBeCloseTo(placementBeforePadding.left, 5)
+        expect(placementAfterPadding.top).toBeCloseTo(placementBeforePadding.top, 5)
       })
 
       it('после скейлинга по диагонали не сдвигает текст при padding справа', () => {
@@ -1826,7 +1866,11 @@ describe('TextManager', () => {
           withoutSave: true
         })
 
-        const pointBeforePadding = textbox.getPointByOrigin('left', 'top')
+        const placementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
 
         textManager.updateText({
           target: textbox,
@@ -1836,12 +1880,16 @@ describe('TextManager', () => {
           withoutSave: true
         })
 
-        const pointAfterPadding = textbox.getPointByOrigin('left', 'top')
+        const placementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
 
         expect(textbox.originX).toBe('left')
         expect(textbox.originY).toBe('top')
-        expect(pointAfterPadding.x).toBeCloseTo(pointBeforePadding.x, 5)
-        expect(pointAfterPadding.y).toBeCloseTo(pointBeforePadding.y, 5)
+        expect(placementAfterPadding.left).toBeCloseTo(placementBeforePadding.left, 5)
+        expect(placementAfterPadding.top).toBeCloseTo(placementBeforePadding.top, 5)
       })
 
       it('одинаково держит созданный напрямую и восстановленный текст при увеличении padding сверху после скейлинга', () => {
@@ -1893,8 +1941,16 @@ describe('TextManager', () => {
         })
         canvas.fire('object:modified', { target: restoredTextbox })
 
-        const directPointBeforePadding = directTextbox.getPointByOrigin('left', 'top')
-        const restoredPointBeforePadding = restoredTextbox.getPointByOrigin('left', 'top')
+        const directPlacementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox: directTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
+        const restoredPlacementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox: restoredTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
 
         textManager.updateText({
           target: directTextbox,
@@ -1911,13 +1967,21 @@ describe('TextManager', () => {
           withoutSave: true
         })
 
-        const directPointAfterPadding = directTextbox.getPointByOrigin('left', 'top')
-        const restoredPointAfterPadding = restoredTextbox.getPointByOrigin('left', 'top')
+        const directPlacementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox: directTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
+        const restoredPlacementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox: restoredTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
 
-        expect(directPointAfterPadding.x).toBeCloseTo(directPointBeforePadding.x, 5)
-        expect(directPointAfterPadding.y).toBeCloseTo(directPointBeforePadding.y, 5)
-        expect(restoredPointAfterPadding.x).toBeCloseTo(restoredPointBeforePadding.x, 5)
-        expect(restoredPointAfterPadding.y).toBeCloseTo(restoredPointBeforePadding.y, 5)
+        expect(directPlacementAfterPadding.left).toBeCloseTo(directPlacementBeforePadding.left, 5)
+        expect(directPlacementAfterPadding.top).toBeCloseTo(directPlacementBeforePadding.top, 5)
+        expect(restoredPlacementAfterPadding.left).toBeCloseTo(restoredPlacementBeforePadding.left, 5)
+        expect(restoredPlacementAfterPadding.top).toBeCloseTo(restoredPlacementBeforePadding.top, 5)
       })
     })
 

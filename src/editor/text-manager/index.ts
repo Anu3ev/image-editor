@@ -2,6 +2,7 @@ import {
   Canvas,
   FabricObject,
   IEvent,
+  Point,
   Textbox,
   TextboxProps,
   Transform,
@@ -39,6 +40,7 @@ import {
 import {
   clampTextboxToMontage,
   getLongestLineWidth,
+  getTextboxContentPlacement,
   hasLayoutAffectingStyles,
   roundTextboxDimensions
 } from './geometry'
@@ -592,6 +594,37 @@ export default class TextManager {
       textbox.textCaseRaw = previousRaw
     }
 
+    const hasLayoutUpdates = hasLayoutAffectingStyles({
+      stylesList: [
+        updates,
+        selectionStyles,
+        lineSelectionStyles,
+        wholeTextStyles
+      ]
+    })
+    const hasExplicitPlacementUpdate = left !== undefined
+      || top !== undefined
+      || originX !== undefined
+      || originY !== undefined
+    const hasPaddingUpdate = paddingTop !== undefined
+      || paddingRight !== undefined
+      || paddingBottom !== undefined
+      || paddingLeft !== undefined
+    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
+    const shouldRestoreContentPlacement = hasPaddingUpdate
+      && !hasExplicitPlacementUpdate
+      && !hasTextUpdate
+      && !uppercaseChanged
+      && !hasLayoutUpdates
+      && !hasExplicitWidthUpdate
+    const contentPlacement = shouldRestoreContentPlacement
+      ? getTextboxContentPlacement({
+        textbox,
+        originX: placement.originX,
+        originY: placement.originY
+      })
+      : null
+
     textbox.uppercase = nextUppercase
 
     textbox.set(updates)
@@ -681,8 +714,7 @@ export default class TextManager {
       textbox.dirty = true
     }
 
-    if (
-      backgroundColor !== undefined
+    const hasBackgroundStyleUpdate = backgroundColor !== undefined
       || backgroundOpacity !== undefined
       || paddingTop !== undefined
       || paddingRight !== undefined
@@ -692,21 +724,13 @@ export default class TextManager {
       || radiusTopRight !== undefined
       || radiusBottomRight !== undefined
       || radiusBottomLeft !== undefined
-    ) {
+
+    if (hasBackgroundStyleUpdate) {
       textbox.dirty = true
     }
 
-    const hasLayoutUpdates = hasLayoutAffectingStyles({
-      stylesList: [
-        updates,
-        selectionStyles,
-        lineSelectionStyles,
-        wholeTextStyles
-      ]
-    })
     const { autoExpand: storedAutoExpand } = textbox
     const hasAutoExpandUpdate = autoExpand !== undefined
-    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
     const resolvedAutoExpand = autoExpand ?? storedAutoExpand
     const isAutoExpandEnabled = resolvedAutoExpand !== false
 
@@ -715,14 +739,26 @@ export default class TextManager {
     } else if (storedAutoExpand === undefined) {
       textbox.autoExpand = true
     }
+
+    const hasAutoExpandTrigger = hasTextUpdate
+      || uppercaseChanged
+      || hasLayoutUpdates
     const shouldAutoExpand = isAutoExpandEnabled
       && !hasExplicitWidthUpdate
-      && (hasTextUpdate || uppercaseChanged || hasLayoutUpdates)
+      && hasAutoExpandTrigger
+
     this._normalizeTextboxAfterContentChange({
       textbox,
       placement,
       shouldAutoExpand
     })
+
+    if (contentPlacement) {
+      this._restoreTextboxContentPlacement({
+        textbox,
+        contentPlacement
+      })
+    }
 
     textbox.setCoords()
     const eventOptions = {
@@ -944,6 +980,54 @@ export default class TextManager {
     }
 
     return geometryAdjusted || dimensionsRounded
+  }
+
+  /**
+   * Восстанавливает scene placement внутренней text-area после обновления padding.
+   * Это удерживает сам текст на месте, пока меняется только его визуальная оболочка.
+   */
+  private _restoreTextboxContentPlacement(
+    {
+      textbox,
+      contentPlacement
+    }: {
+      textbox: EditorTextbox
+      contentPlacement: ObjectPlacement
+    }
+  ): boolean {
+    const currentContentPlacement = getTextboxContentPlacement({
+      textbox,
+      originX: contentPlacement.originX,
+      originY: contentPlacement.originY
+    })
+    const currentCenterPlacement = this.editor.canvasManager.getObjectPlacement({
+      object: textbox,
+      originX: 'center',
+      originY: 'center'
+    })
+    const deltaX = contentPlacement.left - currentContentPlacement.left
+    const deltaY = contentPlacement.top - currentContentPlacement.top
+
+    if (Math.abs(deltaX) <= DIMENSION_EPSILON && Math.abs(deltaY) <= DIMENSION_EPSILON) {
+      return false
+    }
+
+    const nextCenterPoint = new Point(
+      currentCenterPlacement.left + deltaX,
+      currentCenterPlacement.top + deltaY
+    )
+    const textboxWithSetXY = textbox as EditorTextbox & {
+      setXY?: (point: Point, originX: 'center', originY: 'center') => void
+    }
+
+    if (typeof textboxWithSetXY.setXY === 'function') {
+      textboxWithSetXY.setXY(nextCenterPoint, 'center', 'center')
+    } else {
+      textbox.setPositionByOrigin(nextCenterPoint, 'center', 'center')
+    }
+    textbox.setCoords()
+
+    return true
   }
 
   /**
