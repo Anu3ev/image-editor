@@ -236,6 +236,86 @@ describe('масштабирование текста', () => {
       expect(textbox.shouldRoundDimensionsOnInit).toBe(true)
     })
 
+    it('во время live шага держит точку, от которой тянут объект, но сохраняет origin текста', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Текст', {
+        width: 100,
+        fontSize: 20,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+
+      textbox.initDimensions()
+
+      const base = captureTextScaleBase({ textbox })
+      const dragPointBefore = textbox.getPointByOrigin('left', 'bottom')
+
+      commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 1.5,
+        heightScale: 2,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        anchorPlacement: {
+          left: dragPointBefore.x,
+          top: dragPointBefore.y,
+          originX: 'left',
+          originY: 'bottom'
+        },
+        shouldScaleFontSize: true,
+        shouldScalePadding: true,
+        shouldScaleRadii: true,
+        shouldRoundDimensions: false
+      })
+
+      const dragPointAfter = textbox.getPointByOrigin('left', 'bottom')
+
+      expect(textbox.originX).toBe('left')
+      expect(textbox.originY).toBe('top')
+      expect(dragPointAfter.x).toBeCloseTo(dragPointBefore.x, 5)
+      expect(dragPointAfter.y).toBeCloseTo(dragPointBefore.y, 5)
+    })
+
+    it('без временной точки сохраняет положение восстановленного текста по его origin', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Текст', {
+        width: 100,
+        fontSize: 20,
+        left: 180,
+        top: 220,
+        originX: 'center',
+        originY: 'bottom'
+      })
+
+      textbox.initDimensions()
+
+      const base = captureTextScaleBase({ textbox })
+      const pointBefore = textbox.getPointByOrigin('center', 'bottom')
+
+      commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 1.5,
+        heightScale: 2,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: true,
+        shouldScalePadding: true,
+        shouldScaleRadii: true,
+        shouldRoundDimensions: false
+      })
+
+      const pointAfter = textbox.getPointByOrigin('center', 'bottom')
+
+      expect(textbox.originX).toBe('center')
+      expect(textbox.originY).toBe('bottom')
+      expect(pointAfter.x).toBeCloseTo(pointBefore.x, 5)
+      expect(pointAfter.y).toBeCloseTo(pointBefore.y, 5)
+    })
+
     it('при ручном изменении ширины отключает autoExpand только если ширина реально изменилась', () => {
       const { editor } = createTextManagerTestSetup()
       const textbox = createStyledScalingTextbox()

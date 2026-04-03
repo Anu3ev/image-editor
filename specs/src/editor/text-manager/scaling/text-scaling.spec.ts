@@ -120,6 +120,42 @@ describe('масштабирование текста', () => {
       expect(textbox.width).toBeCloseTo(widthAfterFirstStep, 5)
       expect(textbox.fontSize).toBeCloseTo(fontSizeAfterFirstStep, 5)
     })
+
+    it('не меняет origin текста, если во время одного скейлинга меняется точка, от которой его тянут', () => {
+      const {
+        controller,
+        textbox
+      } = createTextScalingRuntimeSetup({
+        originX: 'left',
+        originY: 'top'
+      })
+      const firstTransform = createTextScalingTransform({ textbox })
+
+      textbox.scaleX = 0.75
+      textbox.scaleY = 0.75
+      controller.handleObjectScaling({
+        target: textbox,
+        transform: firstTransform
+      } as never)
+
+      const secondTransform = createTextScalingTransform({
+        textbox,
+        corner: 'tr',
+        originX: 'left',
+        originY: 'bottom'
+      })
+
+      textbox.scaleX = 0.5
+      textbox.scaleY = 0.5
+
+      controller.handleObjectScaling({
+        target: textbox,
+        transform: secondTransform
+      } as never)
+
+      expect(textbox.originX).toBe('left')
+      expect(textbox.originY).toBe('top')
+    })
   })
 
   describe('движение мыши во время скейлинга', () => {
@@ -167,6 +203,54 @@ describe('масштабирование текста', () => {
 
       expect(textbox.width).toBeLessThan(widthAfterFirstStep)
       expect(canvas.requestRenderAll).toHaveBeenCalled()
+    })
+
+    it('не меняет origin текста при продолжении скейлинга движением мыши', () => {
+      const {
+        canvas,
+        controller,
+        textbox
+      } = createTextScalingRuntimeSetup({
+        originX: 'left',
+        originY: 'top'
+      })
+      const transform = createTextScalingTransform({
+        textbox,
+        corner: 'tr',
+        originX: 'left',
+        originY: 'bottom'
+      })
+      const textboxWithDimensions = textbox as unknown as {
+        _getTransformedDimensions: jest.Mock
+      }
+
+      textbox.scaleX = 0.9
+      textbox.scaleY = 0.9
+      controller.handleObjectScaling({
+        target: textbox,
+        transform
+      } as never)
+
+      textboxWithDimensions._getTransformedDimensions = jest.fn(() => ({
+        x: 100,
+        y: 100
+      }))
+      canvas.getScenePoint = jest.fn(() => new Point(0, 0))
+      mockTextScalingLocalPoint({
+        x: 50,
+        y: 50
+      })
+      setCurrentTextScalingTransform({
+        canvas,
+        transform
+      })
+
+      controller.handleMouseMove({
+        e: {} as MouseEvent
+      } as never)
+
+      expect(textbox.originX).toBe('left')
+      expect(textbox.originY).toBe('top')
     })
   })
 
@@ -251,6 +335,36 @@ describe('масштабирование текста', () => {
       } as never)
 
       expect(persistScaledTextbox).not.toHaveBeenCalled()
+    })
+
+    it('после завершения скейлинга сохраняет исходный origin текста', () => {
+      const {
+        controller,
+        textbox
+      } = createTextScalingRuntimeSetup({
+        originX: 'left',
+        originY: 'top'
+      })
+      const transform = createTextScalingTransform({
+        textbox,
+        corner: 'tr',
+        originX: 'left',
+        originY: 'bottom'
+      })
+
+      textbox.scaleX = 1.5
+      textbox.scaleY = 1.5
+
+      controller.handleObjectScaling({
+        target: textbox,
+        transform
+      } as never)
+      controller.handleObjectModified({
+        target: textbox
+      } as never)
+
+      expect(textbox.originX).toBe('left')
+      expect(textbox.originY).toBe('top')
     })
   })
 })
