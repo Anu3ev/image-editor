@@ -7,7 +7,9 @@ import {
 } from 'fabric'
 import {
   getShapePreset,
-  isShapePresetRoundable
+  isShapePresetRoundable,
+  SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+  SHAPE_DEFAULT_VERTICAL_ALIGN
 } from './shape-presets'
 import {
   normalizeShapeUserPadding
@@ -129,6 +131,14 @@ export class ShapeGroupObject extends Group {
 
     if (this.shapeTextAutoExpand === undefined) {
       this.shapeTextAutoExpand = true
+    }
+
+    if (this.shapeAlignHorizontal === undefined) {
+      this.shapeAlignHorizontal = SHAPE_DEFAULT_HORIZONTAL_ALIGN
+    }
+
+    if (this.shapeAlignVertical === undefined) {
+      this.shapeAlignVertical = SHAPE_DEFAULT_VERTICAL_ALIGN
     }
 
     const normalizedPadding = normalizeShapeUserPadding({

@@ -25,7 +25,7 @@ export type ShapePresetKey =
   | 'tag'
   | 'moon'
 
-export type ShapeHorizontalAlign = 'left' | 'center' | 'right'
+export type ShapeHorizontalAlign = 'left' | 'center' | 'right' | 'justify'
 export type ShapeVerticalAlign = 'top' | 'middle' | 'bottom'
 export type ShapeScaleOriginX = 'left' | 'center' | 'right'
 export type ShapeScaleOriginY = 'top' | 'center' | 'bottom'

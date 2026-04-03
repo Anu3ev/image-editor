@@ -93,6 +93,17 @@ body {
   text-decoration: line-through;
 }
 
+.shape-controls .shape-align-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 31px;
+}
+
+.shape-controls .shape-align-btn svg {
+  display: block;
+}
+
 /* HTML: <div class="loader"></div> */
 .loader {
   width: fit-content;

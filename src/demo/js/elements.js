@@ -92,6 +92,10 @@ const shapeStrokeWidthValue = document.getElementById('shape-stroke-width-value'
 const shapeOpacityInput = document.getElementById('shape-opacity')
 /** Узел отображения текущей непрозрачности фигуры в процентах. */
 const shapeOpacityValue = document.getElementById('shape-opacity-value')
+/** Коллекция кнопок горизонтального выравнивания контента внутри фигуры. */
+const shapeAlignHorizontalButtons = Array.from(document.querySelectorAll('[data-shape-align-axis="horizontal"]'))
+/** Коллекция кнопок вертикального выравнивания контента внутри фигуры. */
+const shapeAlignVerticalButtons = Array.from(document.querySelectorAll('[data-shape-align-axis="vertical"]'))
 /** Input верхнего внутреннего отступа текста внутри фигуры. */
 const shapePaddingTopInput = document.getElementById('shape-padding-top')
 /** Input правого внутреннего отступа текста внутри фигуры. */
@@ -296,6 +300,8 @@ export const shapeControls = {
   shapeStrokeWidthValue,
   shapeOpacityInput,
   shapeOpacityValue,
+  shapeAlignHorizontalButtons,
+  shapeAlignVerticalButtons,
   shapePaddingTopInput,
   shapePaddingRightInput,
   shapePaddingBottomInput,

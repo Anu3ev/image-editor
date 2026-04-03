@@ -134,6 +134,43 @@ describe('shape-manager', () => {
     expect(editor.historyManager.saveState).toHaveBeenCalledTimes(1)
   })
 
+  it('add поддерживает justify через textStyle.align', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        textStyle: {
+          align: 'justify'
+        }
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    expect(group.shapeAlignHorizontal).toBe('justify')
+    expect(textNode.textAlign).toBe('justify')
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      group,
+      text: textNode,
+      alignH: 'justify'
+    }))
+  })
+
   it('ставит шейп в переданную точку и не тянет его в центр', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -501,6 +538,61 @@ describe('shape-manager', () => {
     expect(saveStateMock).toHaveBeenCalledTimes(1)
   })
 
+  it('updateTextStyle поддерживает justify для текста внутри шейпа', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+    const saveStateMock = editor.historyManager.saveState as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    saveStateMock.mockClear()
+    applyShapeTextLayoutMock.mockClear()
+    updateTextMock.mockClear()
+
+    manager.updateTextStyle({
+      target: group,
+      style: {
+        align: 'justify'
+      }
+    })
+
+    expect(updateTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      target: textNode,
+      style: expect.objectContaining({
+        align: 'justify'
+      })
+    }))
+    expect(textNode.textAlign).toBe('justify')
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      group,
+      text: textNode,
+      alignH: 'justify'
+    }))
+    expect(saveStateMock).toHaveBeenCalledTimes(1)
+  })
+
   it('изменение стиля текста не переключает режим авторасширения шейпа', async() => {
     const editor = createShapeManagerEditorStub({
       montageAreaWidth: 400
@@ -659,6 +751,54 @@ describe('shape-manager', () => {
       group,
       text: textNode,
       alignH: 'right',
+      alignV: 'bottom'
+    }))
+    expect(saveStateMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('setTextAlign поддерживает justify в horizontal выравнивании', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+    const saveStateMock = editor.historyManager.saveState as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    saveStateMock.mockClear()
+    applyShapeTextLayoutMock.mockClear()
+
+    manager.setTextAlign({
+      target: group,
+      horizontal: 'justify',
+      vertical: 'bottom'
+    })
+
+    expect(textNode.textAlign).toBe('justify')
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      group,
+      text: textNode,
+      alignH: 'justify',
       alignV: 'bottom'
     }))
     expect(saveStateMock).toHaveBeenCalledTimes(1)
@@ -921,6 +1061,55 @@ describe('shape-manager', () => {
     expect(updatedGroup.originY).toBe('bottom')
     expect(anchorAfter.x).toBe(anchorBefore.x)
     expect(anchorAfter.y).toBe(anchorBefore.y)
+  })
+
+  it('update поддерживает justify через alignH', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    applyShapeTextLayoutMock.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        alignH: 'justify'
+      }
+    })
+
+    if (!updatedGroup) {
+      throw new Error('shape group should be updated')
+    }
+
+    const textNode = manager.getTextNode({
+      target: updatedGroup
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    expect(textNode.textAlign).toBe('justify')
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      group: updatedGroup,
+      text: textNode,
+      alignH: 'justify'
+    }))
   })
 
   it('явное изменение ширины обновляет ручную базовую ширину и сразу пересчитывает текущую ширину по тексту', async() => {

@@ -316,7 +316,7 @@ test.describe('Текст внутри фигуры', () => {
   })
 
   test('циклически меняет горизонтальное выравнивание текста внутри фигуры', async({ shapes }) => {
-    const alignSequence: ShapeHorizontalAlign[] = ['left', 'center', 'right', 'left']
+    const alignSequence: ShapeHorizontalAlign[] = ['left', 'center', 'right', 'justify', 'left']
 
     await test.step('Последовательно переключить выравнивание текста', async() => {
       for (let index = 0; index < alignSequence.length; index += 1) {
@@ -881,6 +881,47 @@ test.describe('Размер текста внутри фигуры', () => {
         expect(shapeObjects[1]?.shapeAlignHorizontal).toBe('right')
         expect(regularText?.textAlign).toBe('right')
         expect(editingText?.textAlign).toBe('right')
+        expect(editingText?.isEditing).toBe(true)
+      })
+    })
+
+    test('применяет выравнивание по ширине одинаково до открытия и после открытия режима редактирования текста', async({ shapes }) => {
+      await test.step('Добавить вторую такую же фигуру для сравнения', async() => {
+        await shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_TEXT_LAYOUT_BASE_OPTIONS,
+            ...SHAPE_TEXT_LAYOUT_SECOND_POSITION
+          }
+        })
+      })
+
+      await test.step('У первой фигуры включить выравнивание по ширине без открытия режима редактирования текста', async() => {
+        await shapes.setTextAlign({
+          objectIndex: 0,
+          horizontal: 'justify'
+        })
+      })
+
+      await test.step('У второй фигуры включить выравнивание по ширине в режиме редактирования текста', async() => {
+        await shapes.enterTextEditing({ objectIndex: 1 })
+        await shapes.updateTextStyleInEditing({
+          objectIndex: 1,
+          style: {
+            align: 'justify'
+          }
+        })
+      })
+
+      await test.step('Проверить что выравнивание по ширине совпало в обоих режимах', async() => {
+        const shapeObjects = await shapes.getShapeObjects()
+        const regularText = await shapes.getTextNode({ objectIndex: 0 })
+        const editingText = await shapes.getTextNode({ objectIndex: 1 })
+
+        expect(shapeObjects[0]?.shapeAlignHorizontal).toBe('justify')
+        expect(shapeObjects[1]?.shapeAlignHorizontal).toBe('justify')
+        expect(regularText?.textAlign).toBe('justify')
+        expect(editingText?.textAlign).toBe('justify')
         expect(editingText?.isEditing).toBe(true)
       })
     })

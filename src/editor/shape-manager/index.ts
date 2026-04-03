@@ -1325,14 +1325,12 @@ export default class ShapeManager {
       underline,
       uppercase
     } = textNode
-    const align = textAlign === 'justify'
-      ? textAlign
-      : this._resolveShapeTextHorizontalAlign({
-        group: textNode.group as ShapeGroupLike,
-        textStyle: {
-          align: textAlign
-        }
-      })
+    const align = this._resolveShapeTextHorizontalAlign({
+      group: textNode.group as ShapeGroupLike,
+      textStyle: {
+        align: textAlign
+      }
+    })
 
     return {
       align,
@@ -1545,7 +1543,7 @@ export default class ShapeManager {
   }): ShapeHorizontalAlign {
     const align = textStyle?.align
 
-    if (align === 'left' || align === 'center' || align === 'right') {
+    if (align === 'left' || align === 'center' || align === 'right' || align === 'justify') {
       return align
     }
 
@@ -1711,7 +1709,12 @@ export default class ShapeManager {
     if (explicitAlign) return explicitAlign
 
     const alignFromTextStyle = textStyle?.align
-    if (alignFromTextStyle === 'left' || alignFromTextStyle === 'center' || alignFromTextStyle === 'right') {
+    if (
+      alignFromTextStyle === 'left'
+      || alignFromTextStyle === 'center'
+      || alignFromTextStyle === 'right'
+      || alignFromTextStyle === 'justify'
+    ) {
       return alignFromTextStyle
     }
 
