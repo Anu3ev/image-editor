@@ -293,12 +293,12 @@ declare module 'fabric' {
     'editor:shape-added': ShapeAddedPayload
 
     /**
-     * Срабатывает до фиксации программного обновления shape-композиции в истории.
+     * Срабатывает до фиксации обновления shape-композиции в истории.
      */
     'editor:before:shape-updated': BeforeShapeUpdatedPayload
 
     /**
-     * Срабатывает после завершения публичного обновления shape-композиции.
+     * Срабатывает после завершения обновления shape-композиции.
      */
     'editor:shape-updated': ShapeUpdatedPayload
 

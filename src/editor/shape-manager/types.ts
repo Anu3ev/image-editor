@@ -204,7 +204,11 @@ export type ShapeSnapshot = {
   rounding?: number
   left?: number
   top?: number
+  originX?: ShapePlacementOriginX
+  originY?: ShapePlacementOriginY
   angle?: number
+  flipX?: boolean
+  flipY?: boolean
   scaleX?: number
   scaleY?: number
   text?: TextboxSnapshot
@@ -216,14 +220,36 @@ export type ShapeAddedPayload = {
   options: ShapeAddOptions
 }
 
+export type ShapeUpdateSource =
+  | 'update'
+  | 'fill'
+  | 'stroke'
+  | 'opacity'
+  | 'text-style'
+  | 'text-align'
+  | 'text-edit'
+  | 'text-update'
+  | 'resize'
+
+/**
+ * Общая часть payload editor-level событий перед и после обновления shape-композиции.
+ * Контракт покрывает все shape-level update path, а не только публичный `update()`.
+ */
 export type ShapeUpdateLifecyclePayload = {
   shape: ShapeGroup
+  source: ShapeUpdateSource
   target?: ShapeReference
-  presetKey: string
-  options: ShapeUpdateOptions
+  presetKey?: string
+  options?: ShapeUpdateOptions
+  withoutSave?: boolean
 }
 
 export type BeforeShapeUpdatedPayload = ShapeUpdateLifecyclePayload
+
+export type ShapeUpdateLifecycleContext = {
+  before: ShapeSnapshot
+  payload: BeforeShapeUpdatedPayload
+}
 
 export type ShapeUpdatedPayload = ShapeUpdateLifecyclePayload & {
   before: ShapeSnapshot
