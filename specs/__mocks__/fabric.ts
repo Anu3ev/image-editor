@@ -370,6 +370,20 @@ export class FabricObject {
     Object.assign(this, options)
   }
 
+  transformMatrixKey() {
+    const {
+      left = 0,
+      top = 0,
+      width = 0,
+      height = 0,
+      scaleX = 1,
+      scaleY = 1,
+      angle = 0
+    } = this as any
+
+    return [left, top, width, height, scaleX, scaleY, angle]
+  }
+
   set(key: string | Record<string, any>, value?: any) {
     if (typeof key === 'string') {
       (this as any)[key] = value

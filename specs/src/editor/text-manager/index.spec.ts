@@ -5,6 +5,7 @@ import {
   createTemplateLikeTextbox,
   createTextManagerTestSetup
 } from '../../../test-utils/editor-helpers'
+import { createTextScalingTransform } from '../../../test-utils/text-scaling-helpers'
 import {
   createMockShapeGroup,
   createMockShapeNode,
@@ -788,6 +789,38 @@ describe('TextManager', () => {
 
       lineWidthSpy.mockRestore()
       initSpy.mockRestore()
+    })
+
+    it('updateText сохраняет правый нижний угол при изменении стиля, влияющего на layout', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'Short',
+        width: 120,
+        left: 260,
+        top: 180,
+        originX: 'right',
+        originY: 'bottom'
+      })
+      const anchorBefore = textbox.getPointByOrigin('right', 'bottom')
+      const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(260)
+
+      textManager.updateText({
+        target: textbox,
+        style: {
+          fontSize: 84,
+          bold: true
+        },
+        withoutSave: true
+      })
+
+      const anchorAfter = textbox.getPointByOrigin('right', 'bottom')
+
+      expect(textbox.width).toBe(260)
+      expect(anchorAfter.x).toBe(anchorBefore.x)
+      expect(anchorAfter.y).toBe(anchorBefore.y)
+
+      lineWidthSpy.mockRestore()
     })
 
     it('не сдвигает объект по X при ширине больше или равной монтажной области', () => {
@@ -1726,6 +1759,230 @@ describe('TextManager', () => {
       expect(textbox.autoExpand).toBe(false)
       expect(textbox.width).toBe(180)
       expect(textbox.fontSize).toBe(72)
+    })
+
+    describe('обновление после скейлинга по диагонали', () => {
+      it('после скейлинга по диагонали не сдвигает текст при padding сверху', () => {
+        const { canvas, textManager } = createTextManagerTestSetup()
+        const textbox = textManager.addText({
+          text: 'Новый текст',
+          autoExpand: true,
+          width: 240,
+          left: 40,
+          top: 60,
+          originX: 'left',
+          originY: 'top'
+        }) as BackgroundTextbox
+        const transform = createTextScalingTransform({
+          textbox,
+          corner: 'tr',
+          originX: 'left',
+          originY: 'bottom'
+        })
+
+        textbox.set({
+          scaleX: 1.5,
+          scaleY: 1.5
+        })
+        transform.scaleX = 1.5
+        transform.scaleY = 1.5
+
+        canvas.fire('object:scaling', {
+          target: textbox,
+          transform
+        })
+        canvas.fire('object:modified', { target: textbox })
+
+        textManager.updateText({
+          target: textbox,
+          style: {
+            backgroundColor: '#FFFFFF'
+          },
+          withoutSave: true
+        })
+
+        const placementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
+
+        textManager.updateText({
+          target: textbox,
+          style: {
+            paddingTop: 50
+          },
+          withoutSave: true
+        })
+
+        const placementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
+
+        expect(textbox.originX).toBe('left')
+        expect(textbox.originY).toBe('top')
+        expect(placementAfterPadding.left).toBeCloseTo(placementBeforePadding.left, 5)
+        expect(placementAfterPadding.top).toBeCloseTo(placementBeforePadding.top, 5)
+      })
+
+      it('после скейлинга по диагонали не сдвигает текст при padding справа', () => {
+        const { canvas, textManager } = createTextManagerTestSetup()
+        const textbox = textManager.addText({
+          text: 'Новый текст',
+          autoExpand: true,
+          width: 240,
+          left: 40,
+          top: 60,
+          originX: 'left',
+          originY: 'top'
+        }) as BackgroundTextbox
+        const transform = createTextScalingTransform({
+          textbox,
+          corner: 'tr',
+          originX: 'left',
+          originY: 'bottom'
+        })
+
+        textbox.set({
+          scaleX: 1.5,
+          scaleY: 1.5
+        })
+        transform.scaleX = 1.5
+        transform.scaleY = 1.5
+
+        canvas.fire('object:scaling', {
+          target: textbox,
+          transform
+        })
+        canvas.fire('object:modified', { target: textbox })
+
+        textManager.updateText({
+          target: textbox,
+          style: {
+            backgroundColor: '#FFFFFF'
+          },
+          withoutSave: true
+        })
+
+        const placementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
+
+        textManager.updateText({
+          target: textbox,
+          style: {
+            paddingRight: 50
+          },
+          withoutSave: true
+        })
+
+        const placementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox,
+          originX: 'left',
+          originY: 'top'
+        })
+
+        expect(textbox.originX).toBe('left')
+        expect(textbox.originY).toBe('top')
+        expect(placementAfterPadding.left).toBeCloseTo(placementBeforePadding.left, 5)
+        expect(placementAfterPadding.top).toBeCloseTo(placementBeforePadding.top, 5)
+      })
+
+      it('одинаково держит созданный напрямую и восстановленный текст при увеличении padding сверху после скейлинга', () => {
+        const { canvas, textManager } = createTextManagerTestSetup()
+        const directTextbox = createTemplateLikeTextbox({
+          textManager,
+          left: 281,
+          top: 352
+        })
+        const restoredTextbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352
+        })
+        const directTransform = createTextScalingTransform({
+          textbox: directTextbox,
+          corner: 'tr',
+          originX: 'left',
+          originY: 'bottom'
+        })
+        const restoredTransform = createTextScalingTransform({
+          textbox: restoredTextbox,
+          corner: 'tr',
+          originX: 'left',
+          originY: 'bottom'
+        })
+
+        directTextbox.set({
+          scaleX: 1.4,
+          scaleY: 1.4
+        })
+        restoredTextbox.set({
+          scaleX: 1.4,
+          scaleY: 1.4
+        })
+        directTransform.scaleX = 1.4
+        directTransform.scaleY = 1.4
+        restoredTransform.scaleX = 1.4
+        restoredTransform.scaleY = 1.4
+
+        canvas.fire('object:scaling', {
+          target: directTextbox,
+          transform: directTransform
+        })
+        canvas.fire('object:modified', { target: directTextbox })
+
+        canvas.fire('object:scaling', {
+          target: restoredTextbox,
+          transform: restoredTransform
+        })
+        canvas.fire('object:modified', { target: restoredTextbox })
+
+        const directPlacementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox: directTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
+        const restoredPlacementBeforePadding = textGeometry.getTextboxContentPlacement({
+          textbox: restoredTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
+
+        textManager.updateText({
+          target: directTextbox,
+          style: {
+            paddingTop: (directTextbox.paddingTop ?? 0) + 40
+          },
+          withoutSave: true
+        })
+        textManager.updateText({
+          target: restoredTextbox,
+          style: {
+            paddingTop: (restoredTextbox.paddingTop ?? 0) + 40
+          },
+          withoutSave: true
+        })
+
+        const directPlacementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox: directTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
+        const restoredPlacementAfterPadding = textGeometry.getTextboxContentPlacement({
+          textbox: restoredTextbox,
+          originX: 'left',
+          originY: 'top'
+        })
+
+        expect(directPlacementAfterPadding.left).toBeCloseTo(directPlacementBeforePadding.left, 5)
+        expect(directPlacementAfterPadding.top).toBeCloseTo(directPlacementBeforePadding.top, 5)
+        expect(restoredPlacementAfterPadding.left).toBeCloseTo(restoredPlacementBeforePadding.left, 5)
+        expect(restoredPlacementAfterPadding.top).toBeCloseTo(restoredPlacementBeforePadding.top, 5)
+      })
     })
 
     describe('когда текст уже упёрся в ширину монтажной области', () => {

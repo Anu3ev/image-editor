@@ -112,6 +112,8 @@ export interface TextResizeSnapshot extends TextObjectInfo {
   rightCenterY: number
   rightBottomX: number
   rightBottomY: number
+  textAreaLeftTopX: number
+  textAreaLeftTopY: number
 }
 
 /** Параметры обновления стиля текстового объекта через TextManager. */

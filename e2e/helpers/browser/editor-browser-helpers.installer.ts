@@ -150,6 +150,99 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Возвращает смещение внутри text-area для заданного origin.
+   */
+  function resolveOriginOffset({
+    origin,
+    size
+  }: {
+    origin: string
+    size: number
+  }): number {
+    if (origin === 'left' || origin === 'top' || origin === 'start' || origin === '0') {
+      return 0
+    }
+
+    if (origin === 'right' || origin === 'bottom' || origin === 'end' || origin === '1') {
+      return size
+    }
+
+    return size / 2
+  }
+
+  /**
+   * Возвращает scene point внутренней text-area без учёта фоновой оболочки.
+   */
+  function createTextAreaPointInfo({
+    target,
+    originX,
+    originY
+  }: {
+    target: unknown
+    originX: string
+    originY: string
+  }) {
+    const textObject = toBrowserObject({ value: target }) as BrowserOriginPointObject & BrowserSerializableObject
+    const width = resolveNumber({
+      value: textObject.width,
+      defaultValue: 0
+    })
+    const height = resolveNumber({
+      value: textObject.height,
+      defaultValue: 0
+    })
+    const paddingTop = resolveNumber({
+      value: textObject.paddingTop,
+      defaultValue: 0
+    })
+    const paddingRight = resolveNumber({
+      value: textObject.paddingRight,
+      defaultValue: 0
+    })
+    const paddingBottom = resolveNumber({
+      value: textObject.paddingBottom,
+      defaultValue: 0
+    })
+    const paddingLeft = resolveNumber({
+      value: textObject.paddingLeft,
+      defaultValue: 0
+    })
+
+    const localX = (-width / 2) + ((paddingLeft - paddingRight) / 2) + resolveOriginOffset({
+      origin: originX,
+      size: width
+    })
+    const localY = (-height / 2) + ((paddingTop - paddingBottom) / 2) + resolveOriginOffset({
+      origin: originY,
+      size: height
+    })
+    const matrix = textObject.calcTransformMatrix?.()
+    const center = toBrowserObject({
+      value: textObject.getPointByOrigin('center', 'center')
+    })
+    const centerX = resolveNumber({
+      value: center.x,
+      defaultValue: 0
+    })
+    const centerY = resolveNumber({
+      value: center.y,
+      defaultValue: 0
+    })
+
+    if (Array.isArray(matrix) && matrix.length === 6 && matrix.every((value) => typeof value === 'number')) {
+      return {
+        x: (localX * matrix[0]) + (localY * matrix[2]) + centerX,
+        y: (localX * matrix[1]) + (localY * matrix[3]) + centerY
+      }
+    }
+
+    return {
+      x: centerX + localX,
+      y: centerY + localY
+    }
+  }
+
+  /**
    * Преобразует bounds в nullable-набор для shape-ноды.
    */
   function createNullableBoundsInfo({ bounds }: { bounds: BrowserObject | null }): NullableBoundsInfo {
@@ -842,6 +935,13 @@ export function installEditorBrowserHelpers(): void {
     const rightBottom = createPointInfo({
       point: textObject.getPointByOrigin('right', 'bottom')
     })
+    const textAreaLeftTop = createPointInfo({
+      point: createTextAreaPointInfo({
+        target: obj,
+        originX: 'left',
+        originY: 'top'
+      })
+    })
 
     return {
       ...serializeTextObject(obj),
@@ -860,7 +960,9 @@ export function installEditorBrowserHelpers(): void {
       rightCenterX: rightCenter.x,
       rightCenterY: rightCenter.y,
       rightBottomX: rightBottom.x,
-      rightBottomY: rightBottom.y
+      rightBottomY: rightBottom.y,
+      textAreaLeftTopX: textAreaLeftTop.x,
+      textAreaLeftTopY: textAreaLeftTop.y
     }
   }
 

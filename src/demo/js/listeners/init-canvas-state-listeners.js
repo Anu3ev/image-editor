@@ -83,9 +83,7 @@ export default ({
     const textObject = explicitTextbox ?? getActiveTextTarget()
     const shapeGroup = getActiveShape()
 
-    if (textObject) {
-      syncTextControls(textObject)
-    }
+    syncTextControls(textObject)
 
     syncShapeControls(shapeGroup)
     syncCurrentObjectData()

@@ -117,6 +117,8 @@ const textContentInput = document.getElementById('text-content')
 const textFontFamilySelect = document.getElementById('text-font-family')
 /** Input выбора размера шрифта текста. */
 const textFontSizeInput = document.getElementById('text-font-size')
+/** Чекбокс режима auto expand для standalone text-объекта. */
+const textAutoExpandCheckbox = document.getElementById('text-auto-expand')
 /** Кнопка переключения жирного начертания текста. */
 const textBoldBtn = document.getElementById('text-bold-btn')
 /** Кнопка переключения курсива текста. */
@@ -196,6 +198,12 @@ const saveActiveObjectBtn = document.getElementById('save-active-object-btn')
 const undoBtn = document.getElementById('undo-btn')
 /** Кнопка повторного применения отменённого действия истории редактора. */
 const redoBtn = document.getElementById('redo-btn')
+/** Кнопка блокировки взаимодействия с редактором. */
+const blockEditorBtn = document.getElementById('block-editor-btn')
+/** Кнопка разблокировки взаимодействия с редактором. */
+const unblockEditorBtn = document.getElementById('unblock-editor-btn')
+/** Узел отображения текущего состояния InteractionBlocker. */
+const interactionBlockerStateNode = document.getElementById('interaction-blocker-state')
 
 /** Select выбора типа фоновой подложки редактора. */
 const backgroundTypeSelect = document.getElementById('background-type')
@@ -316,6 +324,7 @@ export const textControls = {
   textContentInput,
   textFontFamilySelect,
   textFontSizeInput,
+  textAutoExpandCheckbox,
   textBoldBtn,
   textItalicBtn,
   textUnderlineBtn,
@@ -366,6 +375,13 @@ export const serializationControls = {
 export const historyControls = {
   undoBtn,
   redoBtn
+}
+
+/** Группа контролов блокировки взаимодействия с редактором. */
+export const interactionControls = {
+  blockEditorBtn,
+  unblockEditorBtn,
+  interactionBlockerStateNode
 }
 
 /** Группа контролов управления фоном редактора. */

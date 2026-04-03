@@ -159,12 +159,13 @@ export type TextScaleBaseState = {
 
 export type ScalingState = {
   startBase: TextScaleBaseState
+  startObjectPlacement: ObjectPlacement
   startTransformCorner: string | null
   startTransformOriginX: FabricObject['originX'] | null
   startTransformOriginY: FabricObject['originY'] | null
   lastAllowedScaleX: number
   lastAllowedScaleY: number
-  lastAllowedPlacement: ObjectPlacement
+  lastAllowedAnchorPlacement: ObjectPlacement
   minimumWidthScale: number
   minimumFontScale: number
   minimumProportionalScale: number

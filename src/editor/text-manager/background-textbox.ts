@@ -149,6 +149,16 @@ export class BackgroundTextbox extends Textbox {
     }
   }
 
+  public override transformMatrixKey(skipGroup = false): number[] {
+    return [
+      ...super.transformMatrixKey(skipGroup),
+      this.paddingTop ?? 0,
+      this.paddingRight ?? 0,
+      this.paddingBottom ?? 0,
+      this.paddingLeft ?? 0
+    ]
+  }
+
   protected override _getLeftOffset(): number {
     const { width } = this._getBackgroundDimensions()
     const { left } = this._getPadding()

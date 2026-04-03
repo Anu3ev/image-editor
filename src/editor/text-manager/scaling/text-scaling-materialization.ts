@@ -1,4 +1,7 @@
-import type { TextboxProps } from 'fabric'
+import {
+  Point,
+  type TextboxProps
+} from 'fabric'
 import type CanvasManager from '../../canvas-manager'
 import type { ObjectPlacement } from '../../canvas-manager'
 import type { LineFontDefaults } from '../background-textbox'
@@ -10,7 +13,9 @@ import {
   cloneLineFontDefaults,
   scaleLineFontDefaults
 } from '../line-defaults'
-import { roundTextboxDimensions } from '../geometry'
+import {
+  roundTextboxDimensions
+} from '../geometry'
 import type {
   CornerRadiiValues,
   EditorTextbox,
@@ -37,6 +42,7 @@ type CommitStandaloneTextScaleOptions = {
   widthScale: number
   heightScale: number
   placement: ObjectPlacement
+  anchorPlacement?: ObjectPlacement
   shouldScaleFontSize: boolean
   shouldScalePadding: boolean
   shouldScaleRadii: boolean
@@ -133,6 +139,8 @@ export const resolveMinimumTextScalingBounds = (
 
 /**
  * Материализует transient scale standalone-textbox в канонические width/font/padding/radius значения.
+ * `placement` здесь означает стабильный placement самого объекта,
+ * а `anchorPlacement` — временную точку удержания текущего drag.
  */
 export const commitStandaloneTextboxScale = (
   {
@@ -142,6 +150,7 @@ export const commitStandaloneTextboxScale = (
     widthScale,
     heightScale,
     placement,
+    anchorPlacement,
     shouldScaleFontSize,
     shouldScalePadding,
     shouldScaleRadii,
@@ -264,6 +273,24 @@ export const commitStandaloneTextboxScale = (
 
   if (dimensionsRounded) {
     textbox.dirty = true
+  }
+
+  if (anchorPlacement) {
+    textbox.set({
+      originX: placement.originX,
+      originY: placement.originY
+    })
+    textbox.setPositionByOrigin(
+      new Point(anchorPlacement.left, anchorPlacement.top),
+      anchorPlacement.originX,
+      anchorPlacement.originY
+    )
+    textbox.setCoords()
+
+    return {
+      appliedWidth: textbox.width ?? committedWidth,
+      dimensionsRounded
+    }
   }
 
   canvasManager.applyObjectPlacement({

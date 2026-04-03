@@ -4,6 +4,7 @@ import {
   backgroundControls,
   canvasInfoControls,
   historyControls,
+  interactionControls,
   montageControls,
   serializationControls,
   shapeControls,
@@ -14,6 +15,7 @@ import {
 import initBackgroundListeners from './listeners/init-background-listeners.js'
 import initCanvasStateListeners from './listeners/init-canvas-state-listeners.js'
 import initEditorActionsListeners from './listeners/init-editor-actions-listeners.js'
+import initInteractionBlockerListeners from './listeners/init-interaction-blocker-listeners.js'
 import initSerializationListeners from './listeners/init-serialization-listeners.js'
 import initShapeListeners from './listeners/init-shape-listeners.js'
 import initTextListeners from './listeners/init-text-listeners.js'
@@ -36,6 +38,11 @@ export default (editorInstance) => {
     editorInstance,
     controls: toolbarControls,
     historyControls
+  })
+
+  initInteractionBlockerListeners({
+    editorInstance,
+    controls: interactionControls
   })
 
   initSerializationListeners({

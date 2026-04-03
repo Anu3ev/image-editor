@@ -26,6 +26,7 @@ export default ({ editorInstance, controls }) => {
     textContentInput,
     textFontFamilySelect,
     textFontSizeInput,
+    textAutoExpandCheckbox,
     textBoldBtn,
     textItalicBtn,
     textUnderlineBtn,
@@ -156,6 +157,26 @@ export default ({ editorInstance, controls }) => {
     if (activeText) return activeText
 
     return editorInstance.shapeManager.getTextNode()
+  }
+
+  /**
+   * Синхронизирует standalone-only control autoExpand.
+   * Для текста внутри shape этот режим должен управляться только через shape API.
+   */
+  const syncTextAutoExpandControl = ({ textbox = null } = {}) => {
+    const activeText = getActiveText()
+    const activeShapeText = !activeText && Boolean(editorInstance.shapeManager.getTextNode())
+
+    textAutoExpandCheckbox.disabled = activeShapeText
+
+    if (activeText && textbox === activeText) {
+      textAutoExpandCheckbox.checked = activeText.autoExpand !== false
+      return
+    }
+
+    if (!activeShapeText) {
+      textAutoExpandCheckbox.disabled = false
+    }
   }
 
   /**
@@ -423,6 +444,7 @@ export default ({ editorInstance, controls }) => {
    * Полностью синхронизирует текстовые контролы с активным объектом.
    */
   const syncTextControls = (textbox) => {
+    syncTextAutoExpandControl({ textbox })
     if (!textbox) return
 
     isSyncingControls = true
@@ -467,6 +489,25 @@ export default ({ editorInstance, controls }) => {
     if (!updatedText) return
 
     syncTextControls(updatedText)
+  }
+
+  /**
+   * Применяет autoExpand только к активному standalone text-объекту.
+   * Текст внутри shape должен управляться отдельным shape-level режимом.
+   */
+  const applyStandaloneTextAutoExpand = ({ autoExpand }) => {
+    if (isSyncingControls) return
+
+    const activeText = getActiveText()
+    if (!activeText) return
+
+    const updated = editorInstance.textManager.updateText({
+      target: activeText,
+      style: { autoExpand }
+    })
+    if (!updated) return
+
+    syncTextControls(updated)
   }
 
   /**
@@ -570,6 +611,7 @@ export default ({ editorInstance, controls }) => {
 
     return {
       text,
+      autoExpand: Boolean(textAutoExpandCheckbox.checked),
       fontFamily,
       fontSize,
       bold: isButtonActive(textBoldBtn),
@@ -640,6 +682,8 @@ export default ({ editorInstance, controls }) => {
     setStrokeWidthUI({ width: Number(textStrokeWidthInput.value) || 0 })
     textOpacityValue.textContent = `${textOpacityInput.value}%`
     textBackgroundOpacityValue.textContent = `${textBackgroundOpacityInput.value}%`
+    textAutoExpandCheckbox.checked = true
+    textAutoExpandCheckbox.disabled = false
     setBackgroundControlsEnabled({
       enabled: Boolean(textBackgroundEnabledCheckbox.checked)
     })
@@ -738,6 +782,12 @@ export default ({ editorInstance, controls }) => {
       if (!getActiveTextTarget()) return
 
       applyTextStyle({ style: { fontSize: value } })
+    })
+
+    textAutoExpandCheckbox.addEventListener('change', () => {
+      applyStandaloneTextAutoExpand({
+        autoExpand: Boolean(textAutoExpandCheckbox.checked)
+      })
     })
   }
 

@@ -68,6 +68,30 @@ export const TEXT_RIGHT_BOTTOM_ADD_OPTIONS = {
   fontSize: 48
 } as const
 
+/** Параметры текста для проверки позиции после скейлинга по диагонали. */
+export const TEXT_AFTER_DIAGONAL_SCALE_ADD_OPTIONS = {
+  id: 'text-position-after-diagonal-scale',
+  text: 'Новый текст',
+  left: 96,
+  top: 104,
+  originX: 'left',
+  originY: 'top',
+  width: 240,
+  autoExpand: true,
+  fontSize: 48
+} as const
+
+/** Фон для проверки позиционирования текста после скейлинга по диагонали. */
+export const TEXT_AFTER_DIAGONAL_SCALE_BACKGROUND_STYLE = {
+  backgroundColor: '#f3efe0'
+} as const
+
+/** Верхний отступ для проверки позиции после скейлинга по диагонали. */
+export const TEXT_AFTER_DIAGONAL_SCALE_PADDING_TOP = 50
+
+/** Правый отступ для проверки позиции после скейлинга по диагонали. */
+export const TEXT_AFTER_DIAGONAL_SCALE_PADDING_RIGHT = 50
+
 /** Стиль для проверки update текста без сдвига правого нижнего угла. */
 export const TEXT_RIGHT_BOTTOM_UPDATED_STYLE = {
   fontSize: 84,
