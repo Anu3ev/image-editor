@@ -184,7 +184,7 @@ export default class TextScalingController {
     } = pointerScalingStep
     const scaleOriginX = transform.originX ?? target.originX ?? 'center'
     const scaleOriginY = transform.originY ?? target.originY ?? 'center'
-    const placement = this.canvasManager.getObjectPlacement({
+    const scalingAnchorPlacement = this.canvasManager.getObjectPlacement({
       object: target,
       originX: scaleOriginX,
       originY: scaleOriginY
@@ -274,9 +274,10 @@ export default class TextScalingController {
       textbox: target,
       canvasManager: this.canvasManager,
       base: state.startBase,
+      placement: state.startObjectPlacement,
+      anchorPlacement: scalingAnchorPlacement,
       widthScale: nextWidthScale,
       heightScale: nextHeightScale,
-      placement,
       shouldScaleFontSize: isCornerHandle || isVerticalHandle,
       shouldScalePadding: isCornerHandle || isVerticalHandle,
       shouldScaleRadii: isCornerHandle || isVerticalHandle,
@@ -346,7 +347,7 @@ export default class TextScalingController {
     const stepScaleY = Math.abs(rawScaleY) || 1
     const scaleOriginX = transform.originX ?? target.originX ?? 'center'
     const scaleOriginY = transform.originY ?? target.originY ?? 'center'
-    const scalingPlacement = this.canvasManager.getObjectPlacement({
+    const scalingAnchorPlacement = this.canvasManager.getObjectPlacement({
       object: target,
       originX: scaleOriginX,
       originY: scaleOriginY
@@ -369,7 +370,7 @@ export default class TextScalingController {
 
     let nextWidthScale = state.lastAllowedScaleX
     let nextHeightScale = state.lastAllowedScaleY
-    let placement = scalingPlacement
+    let anchorPlacement = scalingAnchorPlacement
     let shouldStoreLastAllowedState = true
 
     if (isCornerHandle) {
@@ -386,7 +387,7 @@ export default class TextScalingController {
       if (shouldRestoreLastAllowedState) {
         nextWidthScale = state.lastAllowedScaleX
         nextHeightScale = state.lastAllowedScaleY
-        placement = state.lastAllowedPlacement
+        anchorPlacement = state.lastAllowedAnchorPlacement
         shouldStoreLastAllowedState = false
       } else {
         const clampedProportionalScale = Math.max(
@@ -420,9 +421,10 @@ export default class TextScalingController {
       textbox: target,
       canvasManager: this.canvasManager,
       base: startBase,
+      placement: state.startObjectPlacement,
+      anchorPlacement,
       widthScale: nextWidthScale,
       heightScale: nextHeightScale,
-      placement,
       shouldScaleFontSize,
       shouldScalePadding,
       shouldScaleRadii,
@@ -563,6 +565,7 @@ export default class TextScalingController {
 
     if (!state) {
       const startBase = captureTextScaleBase({ textbox })
+      const startObjectPlacement = this.canvasManager.getObjectPlacement({ object: textbox })
       const minimumScalingBounds = resolveMinimumTextScalingBounds({
         base: startBase
       })
@@ -574,12 +577,13 @@ export default class TextScalingController {
 
       state = {
         startBase,
+        startObjectPlacement,
         startTransformCorner,
         startTransformOriginX,
         startTransformOriginY,
         lastAllowedScaleX: 1,
         lastAllowedScaleY: 1,
-        lastAllowedPlacement: this.canvasManager.getObjectPlacement({
+        lastAllowedAnchorPlacement: this.canvasManager.getObjectPlacement({
           object: textbox,
           originX: startTransformOriginX,
           originY: startTransformOriginY
@@ -709,7 +713,7 @@ export default class TextScalingController {
   ): void {
     state.lastAllowedScaleX = widthScale
     state.lastAllowedScaleY = heightScale
-    state.lastAllowedPlacement = this.canvasManager.getObjectPlacement({
+    state.lastAllowedAnchorPlacement = this.canvasManager.getObjectPlacement({
       object: textbox,
       originX,
       originY
