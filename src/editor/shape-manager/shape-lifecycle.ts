@@ -224,7 +224,7 @@ export default class ShapeLifecycleController {
     })
     const { group } = textNode
 
-    if (isShapeGroup(group) && textNode.isEditing) {
+    if (isShapeGroup(group) && this.textEditingSnapshots.has(group)) {
       this.textEditingSnapshots.set(group, after)
     }
 

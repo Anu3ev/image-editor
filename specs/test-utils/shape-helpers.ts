@@ -732,6 +732,109 @@ export const getCanvasHandler = <TPayload = unknown>({
 }
 
 /**
+ * Возвращает canvas-handler по имени события или падает, если он не зарегистрирован.
+ */
+export const getRequiredCanvasHandler = <TPayload = unknown>({
+  canvas,
+  eventName
+}: {
+  canvas: {
+    on: jest.Mock
+  }
+  eventName: string
+}): ((payload: TPayload) => void) => {
+  const handler = getCanvasHandler<TPayload>({
+    canvas,
+    eventName
+  })
+
+  if (!handler) {
+    throw new Error(`${eventName} handler should be registered`)
+  }
+
+  return handler
+}
+
+/**
+ * Возвращает payload'ы canvas.fire для конкретного editor-события.
+ */
+export const getCanvasEventPayloads = <TPayload = unknown>({
+  canvas,
+  eventName
+}: {
+  canvas: {
+    fire: jest.Mock
+  }
+  eventName: string
+}): TPayload[] => {
+  return canvas.fire.mock.calls
+    .filter(([currentEventName]) => currentEventName === eventName)
+    .map(([, payload]) => payload as TPayload)
+}
+
+/**
+ * Минимально применяет layout к mock shape-группе так, чтобы snapshot и resize-тесты видели итоговые размеры.
+ */
+export const applyShapeTextLayoutToMockGroup = ({
+  group,
+  shape,
+  text,
+  width,
+  height,
+  alignH,
+  alignV,
+  padding
+}: {
+  group: MockShapeGroup
+  shape: MockShapeNode
+  text: MockShapeTextbox
+  width: number
+  height: number
+  alignH?: 'left' | 'center' | 'right' | 'justify'
+  alignV?: 'top' | 'middle' | 'bottom'
+  padding?: {
+    top?: number
+    right?: number
+    bottom?: number
+    left?: number
+  }
+}): void => {
+  shape.set({
+    width,
+    height
+  })
+
+  text.set({
+    textAlign: alignH ?? text.textAlign,
+    scaleX: 1,
+    scaleY: 1
+  })
+  text.initDimensions()
+  text.setCoords()
+
+  group.shapeBaseWidth = width
+  group.shapeBaseHeight = height
+  group.shapeAlignHorizontal = alignH ?? group.shapeAlignHorizontal
+  group.shapeAlignVertical = alignV ?? group.shapeAlignVertical
+
+  if (padding) {
+    group.shapePaddingTop = padding.top ?? group.shapePaddingTop
+    group.shapePaddingRight = padding.right ?? group.shapePaddingRight
+    group.shapePaddingBottom = padding.bottom ?? group.shapePaddingBottom
+    group.shapePaddingLeft = padding.left ?? group.shapePaddingLeft
+  }
+
+  group.set({
+    width,
+    height,
+    scaleX: 1,
+    scaleY: 1
+  })
+  group.setCoords()
+  shape.setCoords()
+}
+
+/**
  * Применяет text style к mock textbox в shape unit-тестах.
  */
 export const applyTextStyleToShapeText = ({
