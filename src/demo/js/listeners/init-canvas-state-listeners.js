@@ -112,6 +112,16 @@ export default ({
       canvasResolutionNode.textContent = getCanvasResolution(editorInstance)
       montageAreaResolutionNode.textContent = getMontageAreaResolution(editorInstance)
       currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
+
+      const activeTextTarget = getActiveTextTarget()
+      if (activeTextTarget) {
+        syncTextControls(activeTextTarget)
+      }
+
+      const activeShape = getActiveShape()
+      if (activeShape) {
+        syncShapeControls(activeShape)
+      }
     })
 
     editorInstance.canvas.on('editor:display-width-changed', () => {

@@ -9,7 +9,8 @@ import {
   normalizeColor,
   parseNumberInput,
   renderPalette,
-  setPaletteSelection
+  setPaletteSelection,
+  setToggleActive
 } from './shared-ui.js'
 
 /**
@@ -34,6 +35,8 @@ import {
  *   group?: ShapeObject | null,
  *   shapeComposite?: unknown,
  *   shapeTextAutoExpand?: boolean,
+ *   shapeAlignHorizontal?: string,
+ *   shapeAlignVertical?: string,
  *   shapeFill?: string,
  *   shapeStroke?: string,
  *   shapeStrokeWidth?: number,
@@ -64,6 +67,8 @@ import {
  *   shapeStrokeWidthValue: ShapeTextNode,
  *   shapeOpacityInput: ShapeInputElement,
  *   shapeOpacityValue: ShapeTextNode,
+ *   shapeAlignHorizontalButtons: HTMLButtonElement[],
+ *   shapeAlignVerticalButtons: HTMLButtonElement[],
  *   shapePaddingTopInput: ShapeInputElement,
  *   shapePaddingRightInput: ShapeInputElement,
  *   shapePaddingBottomInput: ShapeInputElement,
@@ -94,6 +99,8 @@ export default ({ editorInstance, controls }) => {
     shapeStrokeWidthValue,
     shapeOpacityInput,
     shapeOpacityValue,
+    shapeAlignHorizontalButtons,
+    shapeAlignVerticalButtons,
     shapePaddingTopInput,
     shapePaddingRightInput,
     shapePaddingBottomInput,
@@ -106,6 +113,8 @@ export default ({ editorInstance, controls }) => {
   let shapeFillButtons = []
   /** @type {HTMLButtonElement[]} */
   let shapeStrokeButtons = []
+  const horizontalAlignOptions = ['left', 'center', 'right']
+  const verticalAlignOptions = ['top', 'middle', 'bottom']
 
   /**
    * Возвращает ширину обводки фигуры из input.
@@ -113,6 +122,30 @@ export default ({ editorInstance, controls }) => {
   const getShapeStrokeWidthFromInput = () => {
     const rawWidth = Number(shapeStrokeWidthInput.value)
     return Math.max(0, Number.isNaN(rawWidth) ? 0 : Math.round(rawWidth))
+  }
+
+  /**
+   * Возвращает активное значение кнопочной группы выравнивания.
+   */
+  const getShapeAlignValue = ({ buttons, options, fallback }) => {
+    const activeButton = buttons.find((button) => button.classList.contains('active'))
+    const { shapeAlignValue } = activeButton?.dataset ?? {}
+
+    return options.includes(shapeAlignValue) ? shapeAlignValue : fallback
+  }
+
+  /**
+   * Синхронизирует активную кнопку в группе выравнивания.
+   */
+  const setShapeAlignButtonsState = ({ buttons, value, options, fallback }) => {
+    const resolvedValue = options.includes(value) ? value : fallback
+
+    for (const button of buttons) {
+      setToggleActive({
+        button,
+        isActive: button.dataset.shapeAlignValue === resolvedValue
+      })
+    }
   }
 
   /**
@@ -235,6 +268,18 @@ export default ({ editorInstance, controls }) => {
 
     setShapeControlsEnabled({ enabled: true })
     shapeTextAutoExpandCheckbox.checked = shapeGroup.shapeTextAutoExpand !== false
+    setShapeAlignButtonsState({
+      buttons: shapeAlignHorizontalButtons,
+      value: shapeGroup.shapeAlignHorizontal,
+      options: horizontalAlignOptions,
+      fallback: 'center'
+    })
+    setShapeAlignButtonsState({
+      buttons: shapeAlignVerticalButtons,
+      value: shapeGroup.shapeAlignVertical,
+      options: verticalAlignOptions,
+      fallback: 'middle'
+    })
 
     const fill = typeof shapeGroup.shapeFill === 'string'
       ? normalizeColor({ color: shapeGroup.shapeFill, fallback: shapeFillInput.value })
@@ -340,6 +385,27 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
+   * Применяет выравнивание контента к активной фигуре.
+   */
+  const applyShapeTextAlign = ({ horizontal, vertical, withoutSave = false }) => {
+    const shapeGroup = getActiveShape()
+    if (!shapeGroup) return
+
+    const updated = editorInstance.shapeManager.setTextAlign({
+      target: shapeGroup,
+      horizontal,
+      vertical,
+      withoutSave
+    })
+    if (!updated) {
+      syncShapeControls(getActiveShape())
+      return
+    }
+
+    syncShapeControls(updated)
+  }
+
+  /**
    * Применяет скругление к активной фигуре.
    */
   const applyShapeRounding = async({ rounding, withoutSave = false }) => {
@@ -423,6 +489,16 @@ export default ({ editorInstance, controls }) => {
       stroke,
       strokeWidth,
       opacity: opacityPercent / 100,
+      alignH: getShapeAlignValue({
+        buttons: shapeAlignHorizontalButtons,
+        options: horizontalAlignOptions,
+        fallback: 'center'
+      }),
+      alignV: getShapeAlignValue({
+        buttons: shapeAlignVerticalButtons,
+        options: verticalAlignOptions,
+        fallback: 'middle'
+      }),
       rounding,
       shapeTextAutoExpand: shapeTextAutoExpandCheckbox.checked,
       textPadding: getShapeTextPaddingFromControls()
@@ -511,6 +587,26 @@ export default ({ editorInstance, controls }) => {
     setShapeStrokeWidthUI({ width: Number(shapeStrokeWidthInput.value) || 0 })
     shapeOpacityValue.textContent = `${shapeOpacityInput.value}%`
     shapeRoundingValue.textContent = `${shapeRoundingInput.value}px`
+    setShapeAlignButtonsState({
+      buttons: shapeAlignHorizontalButtons,
+      value: getShapeAlignValue({
+        buttons: shapeAlignHorizontalButtons,
+        options: horizontalAlignOptions,
+        fallback: 'center'
+      }),
+      options: horizontalAlignOptions,
+      fallback: 'center'
+    })
+    setShapeAlignButtonsState({
+      buttons: shapeAlignVerticalButtons,
+      value: getShapeAlignValue({
+        buttons: shapeAlignVerticalButtons,
+        options: verticalAlignOptions,
+        fallback: 'middle'
+      }),
+      options: verticalAlignOptions,
+      fallback: 'middle'
+    })
     setShapeControlsEnabled({ enabled: Boolean(getActiveShape()) })
     setPaletteSelection({ buttons: shapeFillButtons, color: shapeFillInput.value })
     setPaletteSelection({ buttons: shapeStrokeButtons, color: shapeStrokeInput.value })
@@ -665,6 +761,44 @@ export default ({ editorInstance, controls }) => {
       shapeOpacityValue.textContent = `${opacityPercent}%`
       applyShapeOpacity({ opacity: opacityPercent / 100 })
     })
+
+    for (const button of shapeAlignHorizontalButtons) {
+      button.addEventListener('click', () => {
+        const { shapeAlignValue } = button.dataset
+        setShapeAlignButtonsState({
+          buttons: shapeAlignHorizontalButtons,
+          value: shapeAlignValue,
+          options: horizontalAlignOptions,
+          fallback: 'center'
+        })
+        applyShapeTextAlign({
+          horizontal: getShapeAlignValue({
+            buttons: shapeAlignHorizontalButtons,
+            options: horizontalAlignOptions,
+            fallback: 'center'
+          })
+        })
+      })
+    }
+
+    for (const button of shapeAlignVerticalButtons) {
+      button.addEventListener('click', () => {
+        const { shapeAlignValue } = button.dataset
+        setShapeAlignButtonsState({
+          buttons: shapeAlignVerticalButtons,
+          value: shapeAlignValue,
+          options: verticalAlignOptions,
+          fallback: 'middle'
+        })
+        applyShapeTextAlign({
+          vertical: getShapeAlignValue({
+            buttons: shapeAlignVerticalButtons,
+            options: verticalAlignOptions,
+            fallback: 'middle'
+          })
+        })
+      })
+    }
 
     shapeRoundingInput.addEventListener('input', async() => {
       const rounding = getShapeRoundingFromInput()

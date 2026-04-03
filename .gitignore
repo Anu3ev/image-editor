@@ -29,6 +29,7 @@ stats.html
 *.njsproj
 *.sln
 *.sw?
+.codex
 
 # Playwright
 /test-results/
