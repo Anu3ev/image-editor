@@ -53,6 +53,11 @@ describe('ClipboardManager', () => {
     it('список свойств для clipboard cloning включает режим авторасширения текста у фигуры', () => {
       expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeTextAutoExpand')
     })
+
+    it('список свойств для clipboard cloning включает replacement box фигуры', () => {
+      expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeReplaceBoxWidth')
+      expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeReplaceBoxHeight')
+    })
   })
 
   describe('copy', () => {
@@ -964,6 +969,25 @@ describe('ClipboardManager', () => {
 
       expect(clipboardManager.clipboard).toBeTruthy()
       expect(clipboardManager.clipboard?.shapeTextAutoExpand).toBe(false)
+    })
+
+    it('replacement box корректно копируется во внутренний буфер фигуры', async() => {
+      const shapeGroup = createMockFabricObject({
+        type: 'shape-group',
+        id: 'shape-1',
+        shapeComposite: true,
+        shapeReplaceBoxWidth: 260,
+        shapeReplaceBoxHeight: 180
+      })
+
+      mockCanvas.getActiveObject.mockReturnValue(shapeGroup)
+
+      clipboardManager.copy()
+      await new Promise(process.nextTick)
+
+      expect(clipboardManager.clipboard).toBeTruthy()
+      expect(clipboardManager.clipboard?.shapeReplaceBoxWidth).toBe(260)
+      expect(clipboardManager.clipboard?.shapeReplaceBoxHeight).toBe(180)
     })
 
     describe('textCaseRaw и uppercase при копировании', () => {

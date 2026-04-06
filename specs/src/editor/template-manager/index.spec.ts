@@ -81,6 +81,35 @@ describe('TemplateManager', () => {
     expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
+  it('сохраняет replacement box у фигуры из шаблона', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const text = createMockShapeTextbox({ text: 'Template text' })
+    const group = new ShapeGroupObject([
+      createMockShapeNode() as never,
+      text
+    ], {
+      left: 100,
+      top: 100,
+      shapePresetKey: 'square',
+      shapeReplaceBoxWidth: 260,
+      shapeReplaceBoxHeight: 180
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([group])
+
+    const result = await manager.applyTemplate({
+      template: createShapeTemplateDefinition()
+    })
+
+    expect(result).toEqual([group])
+    expect(group.shapeReplaceBoxWidth).toBe(260)
+    expect(group.shapeReplaceBoxHeight).toBe(180)
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
   it('текст из шаблона получает актуальный размер после прошлых трансформаций', async() => {
     const {
       manager,
