@@ -1023,6 +1023,14 @@ describe('shape-scaling', () => {
     expect(group.shapeManualBaseWidth).toBe(200)
     expect(group.shapeManualBaseHeight).toBe(160)
     expect(group.shapeBaseWidth).toBe(209)
+
+    const groupWithReplaceBox = group as typeof group & {
+      shapeReplaceBoxWidth?: number
+      shapeReplaceBoxHeight?: number
+    }
+
+    expect(groupWithReplaceBox.shapeReplaceBoxWidth).toBe(209)
+    expect(groupWithReplaceBox.shapeReplaceBoxHeight).toBe(160)
   })
 
   it('minimum height для vertical clamp считает от текущей width', () => {

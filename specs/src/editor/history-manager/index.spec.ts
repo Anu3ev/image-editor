@@ -36,6 +36,11 @@ describe('HistoryManager', () => {
     expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeTextAutoExpand')
   })
 
+  it('history serialization включает replacement box у фигуры', () => {
+    expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeReplaceBoxWidth')
+    expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeReplaceBoxHeight')
+  })
+
   describe('constructor и базовые аксессоры', () => {
     it('инициализирует менеджер с корректными значениями', () => {
       const { historyManager, mockEditor } = createHistoryManagerTestSetup({ maxHistoryLength: 10 })

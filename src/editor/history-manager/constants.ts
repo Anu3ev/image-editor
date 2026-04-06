@@ -47,6 +47,8 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'shapeBaseHeight',
   'shapeManualBaseWidth',
   'shapeManualBaseHeight',
+  'shapeReplaceBoxWidth',
+  'shapeReplaceBoxHeight',
   'shapeTextAutoExpand',
   'shapeAlignHorizontal',
   'shapeAlignVertical',

@@ -3,22 +3,29 @@ import type { EditorObjectInfo, ObjectTargetParams } from './editor.types'
 /** Доступные ключи shape-пресетов */
 export type ShapePresetKey =
   | 'circle'
+  | 'pie'
   | 'triangle'
   | 'square'
   | 'diamond'
   | 'pentagon'
   | 'hexagon'
   | 'star'
+  | 'star-16'
   | 'sparkle'
   | 'heart'
   | 'arrow-right-fat'
   | 'arrow-up-fat'
   | 'arrow-right'
+  | 'arrow-left'
+  | 'arrow-up'
   | 'arrow-down-fat'
+  | 'arrow-down'
   | 'arrow-up-down'
   | 'arrow-left-right'
+  | 'banner'
   | 'drop'
   | 'cross'
+  | 'ribbon'
   | 'gear'
   | 'badge'
   | 'bookmark'
@@ -150,6 +157,7 @@ export interface ShapeUpdateParams {
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
     textPadding?: ShapePaddingParams
+    preserveCurrentAspectRatio?: boolean
     withoutSelection?: boolean
   }
 }

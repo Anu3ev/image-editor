@@ -24,32 +24,24 @@ const MAX_SHAPE_TEXT_INSET_RATIO = 0.45
 const normalizeNumber = ({ value }: { value: number }): number => Number(value.toFixed(4))
 
 /**
- * Создает точки правильного многоугольника в системе координат 0..100.
+ * Масштабирует исходный viewBox фигуры к дефолтному размеру пресета.
  */
-const createRegularPolygonPoints = ({
-  sides,
-  radius = 50,
-  centerX = 50,
-  centerY = 50,
-  rotation = -Math.PI / 2
+const resolvePresetSize = ({
+  width,
+  height
 }: {
-  sides: number
-  radius?: number
-  centerX?: number
-  centerY?: number
-  rotation?: number
-}): ShapePoint[] => {
-  const points: ShapePoint[] = []
+  width: number
+  height: number
+}): {
+  width: number
+  height: number
+} => {
+  const scale = DEFAULT_SHAPE_SIZE / Math.max(width, height)
 
-  for (let index = 0; index < sides; index += 1) {
-    const angle = rotation + (index * Math.PI * 2) / sides
-    points.push({
-      x: normalizeNumber({ value: centerX + radius * Math.cos(angle) }),
-      y: normalizeNumber({ value: centerY + radius * Math.sin(angle) })
-    })
+  return {
+    width: normalizeNumber({ value: width * scale }),
+    height: normalizeNumber({ value: height * scale })
   }
-
-  return points
 }
 
 /**
@@ -101,15 +93,32 @@ const shapePresetsList: ShapePreset[] = [
     }
   },
   {
+    key: 'pie',
+    type: 'path',
+    ...resolvePresetSize({
+      width: 34,
+      height: 34
+    }),
+    path: 'M34 17A17 17 0 1 1 17 0v17z',
+    internalTextInset: {
+      top: 0.22,
+      right: 0.26,
+      bottom: 0.14,
+      left: 0.14
+    }
+  },
+  {
     key: 'triangle',
     type: 'triangle',
-    width: DEFAULT_SHAPE_SIZE,
-    height: DEFAULT_SHAPE_SIZE,
+    ...resolvePresetSize({
+      width: 38,
+      height: 31
+    }),
     internalTextInset: {
-      top: 0.38,
-      right: 0.2,
-      bottom: 0.14,
-      left: 0.2
+      top: 0.34,
+      right: 0.18,
+      bottom: 0.12,
+      left: 0.18
     }
   },
   {
@@ -139,53 +148,88 @@ const shapePresetsList: ShapePreset[] = [
   {
     key: 'pentagon',
     type: 'polygon',
-    width: DEFAULT_SHAPE_SIZE,
-    height: DEFAULT_SHAPE_SIZE,
-    points: createRegularPolygonPoints({
-      sides: 5,
-      radius: 50,
-      rotation: -Math.PI / 2
+    ...resolvePresetSize({
+      width: 36,
+      height: 33
     }),
+    points: [
+      { x: 50, y: 0 },
+      { x: 100, y: 38.197 },
+      { x: 80.9028, y: 100 },
+      { x: 19.0972, y: 100 },
+      { x: 0, y: 38.197 }
+    ],
     internalTextInset: {
-      top: 0.28,
-      right: 0.2,
-      bottom: 0.2,
-      left: 0.2
+      top: 0.24,
+      right: 0.18,
+      bottom: 0.18,
+      left: 0.18
     }
   },
   {
     key: 'hexagon',
     type: 'polygon',
-    width: DEFAULT_SHAPE_SIZE,
-    height: DEFAULT_SHAPE_SIZE,
-    points: createRegularPolygonPoints({
-      sides: 6,
-      radius: 50,
-      rotation: 0
+    ...resolvePresetSize({
+      width: 32,
+      height: 36
     }),
+    points: [
+      { x: 50, y: 0 },
+      { x: 100, y: 25 },
+      { x: 100, y: 75 },
+      { x: 50, y: 100 },
+      { x: 0, y: 75 },
+      { x: 0, y: 25 }
+    ],
     internalTextInset: {
-      top: 0.24,
-      right: 0.2,
-      bottom: 0.24,
-      left: 0.2
+      top: 0.22,
+      right: 0.18,
+      bottom: 0.22,
+      left: 0.18
     }
   },
   {
     key: 'star',
     type: 'polygon',
+    ...resolvePresetSize({
+      width: 38,
+      height: 36
+    }),
+    points: [
+      { x: 50, y: 0 },
+      { x: 61.8026, y: 38.1944 },
+      { x: 100, y: 38.1944 },
+      { x: 69.0974, y: 61.8056 },
+      { x: 80.9026, y: 100 },
+      { x: 50, y: 76.3944 },
+      { x: 19.0974, y: 100 },
+      { x: 30.9026, y: 61.8056 },
+      { x: 0, y: 38.1944 },
+      { x: 38.1974, y: 38.1944 }
+    ],
+    internalTextInset: {
+      top: 0.3,
+      right: 0.3,
+      bottom: 0.3,
+      left: 0.3
+    }
+  },
+  {
+    key: 'star-16',
+    type: 'polygon',
     width: DEFAULT_SHAPE_SIZE,
     height: DEFAULT_SHAPE_SIZE,
     points: createStarPoints({
-      spikes: 5,
+      spikes: 16,
       outerRadius: 50,
-      innerRadius: 21,
+      innerRadius: 45,
       rotation: -Math.PI / 2
     }),
     internalTextInset: {
-      top: 0.32,
-      right: 0.32,
-      bottom: 0.32,
-      left: 0.32
+      top: 0.24,
+      right: 0.24,
+      bottom: 0.24,
+      left: 0.24
     }
   },
   {
@@ -196,32 +240,33 @@ const shapePresetsList: ShapePreset[] = [
     points: createStarPoints({
       spikes: 4,
       outerRadius: 50,
-      innerRadius: 16,
+      innerRadius: 19.1,
       rotation: -Math.PI / 2
     }),
     internalTextInset: {
-      top: 0.34,
-      right: 0.34,
-      bottom: 0.34,
-      left: 0.34
+      top: 0.32,
+      right: 0.32,
+      bottom: 0.32,
+      left: 0.32
     }
   },
   {
     key: 'heart',
     type: 'path',
-    width: DEFAULT_SHAPE_SIZE,
-    height: DEFAULT_SHAPE_SIZE,
+    ...resolvePresetSize({
+      width: 36,
+      height: 34
+    }),
     path: [
-      'M50 92 C20 74 4 56 4 35',
-      'C4 19 16 8 30 8 C40 8 47 12 50 18',
-      'C53 12 60 8 70 8 C84 8 96 19 96 35',
-      'C96 56 80 74 50 92 Z'
+      'M26 0c5.523 0 10 4.477 10 10l-.013.586',
+      'C35.443 22.876 18.003 33.998 18 34c-.004-.003-18-11.48-18-24',
+      'C0 4.477 4.477 0 10 0a9.99 9.99 0 0 1 8 3.999A9.99 9.99 0 0 1 26 0'
     ].join(' '),
     internalTextInset: {
-      top: 0.3,
-      right: 0.28,
-      bottom: 0.22,
-      left: 0.28
+      top: 0.22,
+      right: 0.22,
+      bottom: 0.16,
+      left: 0.22
     }
   },
   {
@@ -269,22 +314,70 @@ const shapePresetsList: ShapePreset[] = [
   {
     key: 'arrow-right',
     type: 'polygon',
-    width: DEFAULT_SHAPE_SIZE,
-    height: 120,
+    ...resolvePresetSize({
+      width: 36,
+      height: 28
+    }),
     points: [
-      { x: 0, y: 42 },
-      { x: 66, y: 42 },
-      { x: 66, y: 22 },
       { x: 100, y: 50 },
-      { x: 66, y: 78 },
-      { x: 66, y: 58 },
-      { x: 0, y: 58 }
+      { x: 61.1111, y: 100 },
+      { x: 61.1111, y: 71.4286 },
+      { x: 0, y: 71.4286 },
+      { x: 0, y: 28.5714 },
+      { x: 61.1111, y: 28.5714 },
+      { x: 61.1111, y: 0 }
     ],
     internalTextInset: {
-      top: 0.24,
-      right: 0.4,
-      bottom: 0.24,
-      left: 0.14
+      top: 0.2,
+      right: 0.38,
+      bottom: 0.2,
+      left: 0.1
+    }
+  },
+  {
+    key: 'arrow-left',
+    type: 'polygon',
+    ...resolvePresetSize({
+      width: 36,
+      height: 28
+    }),
+    points: [
+      { x: 38.8889, y: 28.5714 },
+      { x: 100, y: 28.5714 },
+      { x: 100, y: 71.4286 },
+      { x: 38.8889, y: 71.4286 },
+      { x: 38.8889, y: 100 },
+      { x: 0, y: 50 },
+      { x: 38.8889, y: 0 }
+    ],
+    internalTextInset: {
+      top: 0.2,
+      right: 0.1,
+      bottom: 0.2,
+      left: 0.38
+    }
+  },
+  {
+    key: 'arrow-up',
+    type: 'polygon',
+    ...resolvePresetSize({
+      width: 28,
+      height: 36
+    }),
+    points: [
+      { x: 71.4286, y: 100 },
+      { x: 28.5714, y: 100 },
+      { x: 28.5714, y: 38.8889 },
+      { x: 0, y: 38.8889 },
+      { x: 50, y: 0 },
+      { x: 100, y: 38.8889 },
+      { x: 71.4286, y: 38.8889 }
+    ],
+    internalTextInset: {
+      top: 0.38,
+      right: 0.2,
+      bottom: 0.1,
+      left: 0.2
     }
   },
   {
@@ -309,64 +402,114 @@ const shapePresetsList: ShapePreset[] = [
     }
   },
   {
-    key: 'arrow-up-down',
+    key: 'arrow-down',
     type: 'polygon',
-    width: 130,
-    height: DEFAULT_SHAPE_SIZE,
+    ...resolvePresetSize({
+      width: 28,
+      height: 36
+    }),
     points: [
-      { x: 50, y: 0 },
-      { x: 82, y: 34 },
-      { x: 62, y: 34 },
-      { x: 62, y: 66 },
-      { x: 82, y: 66 },
-      { x: 50, y: 100 },
-      { x: 18, y: 66 },
-      { x: 38, y: 66 },
-      { x: 38, y: 34 },
-      { x: 18, y: 34 }
+      { x: 0, y: 61.1111 },
+      { x: 28.5714, y: 61.1111 },
+      { x: 28.5714, y: 0 },
+      { x: 71.4286, y: 0 },
+      { x: 71.4286, y: 61.1111 },
+      { x: 100, y: 61.1111 },
+      { x: 50, y: 100 }
     ],
     internalTextInset: {
-      top: 0.38,
-      right: 0.26,
+      top: 0.1,
+      right: 0.2,
       bottom: 0.38,
-      left: 0.26
+      left: 0.2
+    }
+  },
+  {
+    key: 'arrow-up-down',
+    type: 'polygon',
+    ...resolvePresetSize({
+      width: 20,
+      height: 38
+    }),
+    points: [
+      { x: 70, y: 73.6842 },
+      { x: 100, y: 73.6842 },
+      { x: 50, y: 100 },
+      { x: 0, y: 73.6842 },
+      { x: 30, y: 73.6842 },
+      { x: 30, y: 26.3158 },
+      { x: 0, y: 26.3158 },
+      { x: 50, y: 0 },
+      { x: 100, y: 26.3158 },
+      { x: 70, y: 26.3158 }
+    ],
+    internalTextInset: {
+      top: 0.34,
+      right: 0.2,
+      bottom: 0.34,
+      left: 0.2
     }
   },
   {
     key: 'arrow-left-right',
     type: 'polygon',
-    width: DEFAULT_SHAPE_SIZE,
-    height: 130,
+    ...resolvePresetSize({
+      width: 38,
+      height: 20
+    }),
     points: [
-      { x: 0, y: 50 },
-      { x: 30, y: 18 },
-      { x: 30, y: 38 },
-      { x: 70, y: 38 },
-      { x: 70, y: 18 },
       { x: 100, y: 50 },
-      { x: 70, y: 82 },
-      { x: 70, y: 62 },
-      { x: 30, y: 62 },
-      { x: 30, y: 82 }
+      { x: 73.6842, y: 100 },
+      { x: 73.6842, y: 70 },
+      { x: 26.3158, y: 70 },
+      { x: 26.3158, y: 100 },
+      { x: 0, y: 50 },
+      { x: 26.3158, y: 0 },
+      { x: 26.3158, y: 30 },
+      { x: 73.6842, y: 30 },
+      { x: 73.6842, y: 0 }
     ],
     internalTextInset: {
-      top: 0.26,
-      right: 0.34,
-      bottom: 0.26,
-      left: 0.34
+      top: 0.2,
+      right: 0.32,
+      bottom: 0.2,
+      left: 0.32
+    }
+  },
+  {
+    key: 'banner',
+    type: 'polygon',
+    ...resolvePresetSize({
+      width: 36,
+      height: 24
+    }),
+    points: [
+      { x: 0, y: 100 },
+      { x: 0, y: 0 },
+      { x: 77.7778, y: 0 },
+      { x: 100, y: 50 },
+      { x: 77.7778, y: 100 }
+    ],
+    internalTextInset: {
+      top: 0.14,
+      right: 0.26,
+      bottom: 0.14,
+      left: 0.12
     }
   },
   {
     key: 'drop',
     type: 'path',
-    width: 140,
-    height: DEFAULT_SHAPE_SIZE,
-    path: 'M50 0 C68 18 88 41 88 62 C88 84 71 100 50 100 C29 100 12 84 12 62 C12 41 32 18 50 0 Z',
+    ...resolvePresetSize({
+      width: 26,
+      height: 36
+    }),
+    path: 'M0 23C0 11 13 0 13 0s13 11 13 23c0 7.18-5.82 13-13 13S0 30.18 0 23',
     internalTextInset: {
-      top: 0.3,
-      right: 0.27,
-      bottom: 0.2,
-      left: 0.27
+      top: 0.28,
+      right: 0.26,
+      bottom: 0.18,
+      left: 0.26
     }
   },
   {
@@ -375,24 +518,45 @@ const shapePresetsList: ShapePreset[] = [
     width: DEFAULT_SHAPE_SIZE,
     height: DEFAULT_SHAPE_SIZE,
     points: [
-      { x: 36, y: 0 },
-      { x: 64, y: 0 },
-      { x: 64, y: 36 },
-      { x: 100, y: 36 },
-      { x: 100, y: 64 },
-      { x: 64, y: 64 },
-      { x: 64, y: 100 },
-      { x: 36, y: 100 },
-      { x: 36, y: 64 },
-      { x: 0, y: 64 },
-      { x: 0, y: 36 },
-      { x: 36, y: 36 }
+      { x: 67.6471, y: 32.3529 },
+      { x: 100, y: 32.3529 },
+      { x: 100, y: 67.6471 },
+      { x: 67.6471, y: 67.6471 },
+      { x: 67.6471, y: 100 },
+      { x: 32.3529, y: 100 },
+      { x: 32.3529, y: 67.6471 },
+      { x: 0, y: 67.6471 },
+      { x: 0, y: 32.3529 },
+      { x: 32.3529, y: 32.3529 },
+      { x: 32.3529, y: 0 },
+      { x: 67.6471, y: 0 }
     ],
     internalTextInset: {
-      top: 0.34,
-      right: 0.34,
-      bottom: 0.34,
-      left: 0.34
+      top: 0.32,
+      right: 0.32,
+      bottom: 0.32,
+      left: 0.32
+    }
+  },
+  {
+    key: 'ribbon',
+    type: 'polygon',
+    ...resolvePresetSize({
+      width: 24,
+      height: 34
+    }),
+    points: [
+      { x: 0, y: 0 },
+      { x: 100, y: 0 },
+      { x: 100, y: 100 },
+      { x: 50, y: 76.4706 },
+      { x: 0, y: 100 }
+    ],
+    internalTextInset: {
+      top: 0.16,
+      right: 0.18,
+      bottom: 0.28,
+      left: 0.18
     }
   },
   {

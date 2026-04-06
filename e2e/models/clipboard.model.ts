@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Page } from '@playwright/test'
+import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
 export class ClipboardModel {
   private readonly page: Page
@@ -26,9 +27,13 @@ export class ClipboardModel {
 
   /** Вставляет объект из внутреннего буфера обмена редактора. */
   async paste(): Promise<boolean> {
-    return this.page.evaluate(async() => {
+    const pasted = await this.page.evaluate(async() => {
       const { editor } = window as any
       return editor.clipboardManager.paste()
     })
+
+    await waitForCanvasRender({ page: this.page })
+
+    return pasted
   }
 }
