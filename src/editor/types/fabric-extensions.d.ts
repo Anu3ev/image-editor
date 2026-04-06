@@ -287,6 +287,16 @@ declare module 'fabric' {
     shapeManualBaseHeight?: number;
 
     /**
+     * Стабильная ширина размерного бокса, который используется при replace фигуры.
+     */
+    shapeReplaceBoxWidth?: number;
+
+    /**
+     * Стабильная высота размерного бокса, который используется при replace фигуры.
+     */
+    shapeReplaceBoxHeight?: number;
+
+    /**
      * Режим автоматического расширения ширины текста внутри фигуры.
      */
     shapeTextAutoExpand?: boolean;

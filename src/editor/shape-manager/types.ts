@@ -119,6 +119,8 @@ export type ShapeGroupMetadata = {
   shapeBaseHeight: number
   shapeManualBaseWidth: number
   shapeManualBaseHeight: number
+  shapeReplaceBoxWidth: number
+  shapeReplaceBoxHeight: number
   shapeTextAutoExpand: boolean
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
@@ -172,6 +174,7 @@ export type ShapeUpdateOptions = ShapeVisualStyle & {
   originY?: ShapePlacementOriginY
   width?: number
   height?: number
+  preserveCurrentAspectRatio?: boolean
   shapeTextAutoExpand?: boolean
   text?: string
   textStyle?: ShapeTextStyleOptions

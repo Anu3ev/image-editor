@@ -71,7 +71,7 @@ import {
   ShapeVisualStyle
 } from './types'
 
-const DEFAULT_SHAPE_FILL = '##B4B7BD'
+const DEFAULT_SHAPE_FILL = '#B4B7BD'
 
 const DEFAULT_SHAPE_STROKE_WIDTH = 0
 
@@ -318,13 +318,16 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет пресет фигуры у существующей shape-группы с сохранением текста и трансформаций.
-   * При shapeTextAutoExpand=true явная width обновляет ручную базовую ширину,
-   * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
-   * Если переданы `left/top/originX/originY`, они становятся новым placement-контрактом группы.
-   * Сохраняет тот же instance группы и при необходимости заменяет только внутренний shape-узел.
-   * @fires editor:before:shape-updated
-   * @fires editor:shape-updated
+  * Обновляет пресет фигуры у существующей shape-группы с сохранением текста и трансформаций.
+  * При shapeTextAutoExpand=true явная width обновляет ручную базовую ширину,
+  * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
+  * При replace с новым presetKey по умолчанию не сохраняет текущий aspect ratio группы:
+  * новая фигура вписывается в текущий replacement box с пропорциями своего пресета.
+  * `preserveCurrentAspectRatio=true` оставляет текущее поведение без такого пересчета.
+  * Если переданы `left/top/originX/originY`, они становятся новым placement-контрактом группы.
+  * Сохраняет тот же instance группы и при необходимости заменяет только внутренний shape-узел.
+  * @fires editor:before:shape-updated
+  * @fires editor:shape-updated
    */
   public async update({
     target,
@@ -349,6 +352,7 @@ export default class ShapeManager {
       originY,
       width: rawWidth,
       height: rawHeight,
+      preserveCurrentAspectRatio,
       shapeTextAutoExpand,
       text,
       textStyle,
@@ -370,8 +374,12 @@ export default class ShapeManager {
     const currentDimensions = this._resolveCurrentDimensions({
       group: currentGroup
     })
-
-    const height = Math.max(1, rawHeight ?? currentDimensions.height)
+    const currentManualDimensions = this._resolveManualDimensions({
+      group: currentGroup
+    })
+    const currentReplaceBoxDimensions = this._resolveReplaceBoxDimensions({
+      group: currentGroup
+    })
     const currentShapeTextAutoExpand = this._isShapeTextAutoExpandEnabled({
       group: currentGroup
     })
@@ -388,6 +396,30 @@ export default class ShapeManager {
     const effectivePreset = getShapePreset({
       presetKey: effectivePresetKey
     }) ?? basePreset
+    const { width: presetWidth, height: presetHeight } = effectivePreset
+    const shouldPreserveCurrentAspectRatio = Boolean(preserveCurrentAspectRatio)
+    const isPresetReplace = presetKey !== undefined
+    const shouldFitReplacementToPreset = isPresetReplace
+      && !shouldPreserveCurrentAspectRatio
+    const nextReplaceBoxDimensions = shouldFitReplacementToPreset
+      ? {
+        width: Math.max(1, rawWidth ?? currentReplaceBoxDimensions.width),
+        height: Math.max(1, rawHeight ?? currentReplaceBoxDimensions.height)
+      }
+      : null
+
+    const nextCurrentDimensions = nextReplaceBoxDimensions
+      ? this._resolveAspectRatioFittedDimensions({
+        targetWidth: nextReplaceBoxDimensions.width,
+        targetHeight: nextReplaceBoxDimensions.height,
+        aspectWidth: presetWidth,
+        aspectHeight: presetHeight
+      })
+      : {
+        width: Math.max(1, rawWidth ?? currentDimensions.width),
+        height: Math.max(1, rawHeight ?? currentDimensions.height)
+      }
+    const { width: nextWidth, height } = nextCurrentDimensions
 
     const horizontalAlign = alignH
       ?? currentGroup.shapeAlignHorizontal
@@ -414,7 +446,7 @@ export default class ShapeManager {
     const resolvedInternalShapeTextInset = resolveShapeTextContentInset({
       baseInset: resolvePresetInternalShapeTextInset({
         preset: effectivePreset,
-        width: currentDimensions.width,
+        width: nextWidth,
         height
       }),
       stroke: style.stroke,
@@ -425,20 +457,26 @@ export default class ShapeManager {
       addition: nextUserPadding
     })
 
-    let manualWidth = Math.max(
-      1,
-      currentGroup.shapeManualBaseWidth ?? currentDimensions.width
-    )
+    let manualWidth = currentManualDimensions.width
+    let manualHeight = currentManualDimensions.height
 
-    if (rawWidth !== undefined) {
+    if (isPresetReplace) {
+      manualWidth = nextWidth
+      manualHeight = height
+    }
+
+    if (!isPresetReplace && rawWidth !== undefined) {
       manualWidth = Math.max(1, rawWidth)
     }
 
-    if (rawWidth === undefined && currentShapeTextAutoExpand && !nextShapeTextAutoExpand) {
-      manualWidth = Math.max(1, currentDimensions.width)
+    if (!isPresetReplace && rawHeight !== undefined) {
+      manualHeight = Math.max(1, rawHeight)
     }
 
-    const manualHeight = Math.max(1, rawHeight ?? currentGroup.shapeManualBaseHeight ?? height)
+    if (!isPresetReplace && rawWidth === undefined && currentShapeTextAutoExpand && !nextShapeTextAutoExpand) {
+      manualWidth = currentDimensions.width
+    }
+
     const {
       shape: currentShapeNode,
       text: currentTextNode
@@ -506,7 +544,7 @@ export default class ShapeManager {
       ? currentDimensions.width
       : this._resolveShapeLayoutWidth({
         text: stagedTextNode,
-        currentWidth: currentDimensions.width,
+        currentWidth: nextWidth,
         manualWidth,
         shapeTextAutoExpandEnabled: nextShapeTextAutoExpand,
         padding
@@ -549,6 +587,8 @@ export default class ShapeManager {
         height,
         manualWidth,
         manualHeight,
+        replaceBoxWidth: nextReplaceBoxDimensions?.width,
+        replaceBoxHeight: nextReplaceBoxDimensions?.height,
         shapeTextAutoExpand: nextShapeTextAutoExpand,
         alignH: horizontalAlign,
         alignV: verticalAlign,
@@ -567,6 +607,7 @@ export default class ShapeManager {
         alignH: horizontalAlign,
         alignV: verticalAlign,
         internalShapeTextInset: resolvedInternalShapeTextInset,
+        minimumReplaceBox: nextReplaceBoxDimensions ?? undefined,
         expandShapeHeightToFitText: !shouldPreventPaddingResize,
         changedPadding
       })
@@ -613,6 +654,66 @@ export default class ShapeManager {
     })
 
     return currentGroup
+  }
+
+  /**
+   * Вписывает размеры фигуры в целевой бокс с сохранением заданного aspect ratio.
+   * Если задана только одна ось, вторая вычисляется из пропорций.
+   */
+  private _resolveAspectRatioFittedDimensions({
+    targetWidth,
+    targetHeight,
+    aspectWidth,
+    aspectHeight
+  }: {
+    targetWidth?: number
+    targetHeight?: number
+    aspectWidth: number
+    aspectHeight: number
+  }): ShapeGroupDimensions {
+    const safeAspectWidth = Math.max(1, aspectWidth)
+    const safeAspectHeight = Math.max(1, aspectHeight)
+    const safeTargetWidth = targetWidth !== undefined
+      ? Math.max(1, targetWidth)
+      : undefined
+    const safeTargetHeight = targetHeight !== undefined
+      ? Math.max(1, targetHeight)
+      : undefined
+
+    if (safeTargetWidth !== undefined && safeTargetHeight === undefined) {
+      const scale = safeTargetWidth / safeAspectWidth
+
+      return {
+        width: safeTargetWidth,
+        height: safeAspectHeight * scale
+      }
+    }
+
+    if (safeTargetWidth === undefined && safeTargetHeight !== undefined) {
+      const scale = safeTargetHeight / safeAspectHeight
+
+      return {
+        width: safeAspectWidth * scale,
+        height: safeTargetHeight
+      }
+    }
+
+    if (safeTargetWidth === undefined || safeTargetHeight === undefined) {
+      return {
+        width: safeAspectWidth,
+        height: safeAspectHeight
+      }
+    }
+
+    const scale = Math.min(
+      safeTargetWidth / safeAspectWidth,
+      safeTargetHeight / safeAspectHeight
+    )
+
+    return {
+      width: safeAspectWidth * scale,
+      height: safeAspectHeight * scale
+    }
   }
 
   /**
@@ -1351,6 +1452,9 @@ export default class ShapeManager {
       changedPadding
     })
 
+    group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? width)
+    group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? height)
+
     this._detachShapeGroupAutoLayout({
       group
     })
@@ -1369,6 +1473,8 @@ export default class ShapeManager {
     height,
     manualWidth,
     manualHeight,
+    replaceBoxWidth,
+    replaceBoxHeight,
     shapeTextAutoExpand,
     alignH,
     alignV,
@@ -1383,6 +1489,8 @@ export default class ShapeManager {
     height: number
     manualWidth?: number
     manualHeight?: number
+    replaceBoxWidth?: number
+    replaceBoxHeight?: number
     shapeTextAutoExpand: boolean
     alignH: ShapeHorizontalAlign
     alignV: ShapeVerticalAlign
@@ -1401,6 +1509,8 @@ export default class ShapeManager {
       shapeBaseHeight: height,
       shapeManualBaseWidth: Math.max(1, manualWidth ?? width),
       shapeManualBaseHeight: Math.max(1, manualHeight ?? height),
+      shapeReplaceBoxWidth: Math.max(1, replaceBoxWidth ?? width),
+      shapeReplaceBoxHeight: Math.max(1, replaceBoxHeight ?? height),
       shapeTextAutoExpand,
       shapeAlignHorizontal: alignH,
       shapeAlignVertical: alignV,
@@ -1642,6 +1752,18 @@ export default class ShapeManager {
   }
 
   /**
+   * Возвращает стабильный размерный бокс, который используется при replace с пересчетом пропорций.
+   */
+  private _resolveReplaceBoxDimensions({ group }: { group: ShapeGroupLike }): ShapeGroupDimensions {
+    const currentDimensions = this._resolveCurrentDimensions({ group })
+
+    return {
+      width: Math.max(1, group.shapeReplaceBoxWidth ?? currentDimensions.width),
+      height: Math.max(1, group.shapeReplaceBoxHeight ?? currentDimensions.height)
+    }
+  }
+
+  /**
    * Возвращает пользовательские отступы текстовой области shape-группы.
    */
   private _resolveGroupUserPadding({ group }: { group: ShapeGroupLike }): ShapePadding {
@@ -1799,6 +1921,7 @@ export default class ShapeManager {
     alignH,
     alignV,
     internalShapeTextInset,
+    minimumReplaceBox,
     expandShapeHeightToFitText = true,
     changedPadding
   }: {
@@ -1811,6 +1934,7 @@ export default class ShapeManager {
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
     internalShapeTextInset?: ShapePadding
+    minimumReplaceBox?: ShapeGroupDimensions
     expandShapeHeightToFitText?: boolean
     changedPadding?: ShapePaddingChangeMap
   }): void {
@@ -1859,6 +1983,17 @@ export default class ShapeManager {
       expandShapeHeightToFitText,
       changedPadding
     })
+
+    group.shapeReplaceBoxWidth = Math.max(
+      1,
+      minimumReplaceBox?.width ?? 0,
+      group.shapeBaseWidth ?? resolvedWidth
+    )
+    group.shapeReplaceBoxHeight = Math.max(
+      1,
+      minimumReplaceBox?.height ?? 0,
+      group.shapeBaseHeight ?? resolvedHeight
+    )
 
     this.editor.canvasManager.applyObjectPlacement({
       object: group,

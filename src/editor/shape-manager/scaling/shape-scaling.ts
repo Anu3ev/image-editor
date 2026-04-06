@@ -841,6 +841,9 @@ export default class ShapeScalingController {
       internalShapeTextInset
     })
 
+    group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? width)
+    group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? height)
+
     text.set({
       scaleX: 1,
       scaleY: 1
@@ -1282,6 +1285,9 @@ export default class ShapeScalingController {
       padding: userPadding,
       internalShapeTextInset
     })
+
+    group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? layoutWidth)
+    group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? layoutHeight)
 
     group.set({
       left: state.lastAllowedLeft,
