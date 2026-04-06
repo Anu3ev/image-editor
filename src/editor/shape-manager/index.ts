@@ -71,7 +71,7 @@ import {
   ShapeVisualStyle
 } from './types'
 
-const DEFAULT_SHAPE_FILL = '#B0B5BF'
+const DEFAULT_SHAPE_FILL = '##B4B7BD'
 
 const DEFAULT_SHAPE_STROKE_WIDTH = 0
 
