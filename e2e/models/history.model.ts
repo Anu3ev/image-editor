@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Page } from '@playwright/test'
+import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
 export class HistoryModel {
   private readonly page: Page
@@ -14,6 +15,8 @@ export class HistoryModel {
       const { editor } = window as any
       await editor.historyManager.undo()
     })
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Выполняет redo через публичный API historyManager */
@@ -22,6 +25,8 @@ export class HistoryModel {
       const { editor } = window as any
       await editor.historyManager.redo()
     })
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Принудительно фиксирует отложенное сохранение после text editing */

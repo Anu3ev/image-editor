@@ -3,11 +3,12 @@ import type { ShapePresetKey } from '../../types'
 
 test.describe('Пресеты фигур', () => {
   const presets: ShapePresetKey[] = [
-    'circle', 'triangle', 'square', 'diamond', 'pentagon',
-    'hexagon', 'star', 'sparkle', 'heart', 'arrow-right-fat',
-    'arrow-up-fat', 'arrow-right', 'arrow-down-fat', 'arrow-up-down',
-    'arrow-left-right', 'drop', 'cross', 'gear', 'badge',
-    'bookmark', 'tag', 'moon'
+    'circle', 'pie', 'triangle', 'square', 'diamond',
+    'pentagon', 'hexagon', 'star', 'star-16', 'sparkle',
+    'heart', 'arrow-right-fat', 'arrow-up-fat', 'arrow-right', 'arrow-left',
+    'arrow-up', 'arrow-down-fat', 'arrow-down', 'arrow-up-down', 'arrow-left-right',
+    'banner', 'drop', 'cross', 'ribbon', 'gear',
+    'badge', 'bookmark', 'tag', 'moon'
   ]
 
   for (const preset of presets) {
@@ -56,6 +57,53 @@ test.describe('Пресеты фигур', () => {
     await test.step('Проверить что rounding не изменился', async() => {
       const shape = await shapes.getFirstShape()
       expect(shape.shapeRounding).toBe(before)
+    })
+  })
+
+  test('текст внутри banner после увеличения шрифта и обводки остаётся внутри фигуры', async({ shapes }) => {
+    const createdShape = await test.step('Добавить banner с текстом', async() => {
+      return shapes.add({
+        presetKey: 'banner',
+        options: {
+          id: 'shape-preset-banner-text',
+          width: 280,
+          height: 160,
+          text: 'SALE',
+          textStyle: {
+            fontSize: 44
+          }
+        }
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'banner'
+    })
+
+    await test.step('Добавить обводку и увеличить размер текста', async() => {
+      await shapes.setStroke({
+        id: 'shape-preset-banner-text',
+        stroke: '#111111',
+        strokeWidth: 10
+      })
+      await shapes.update({
+        id: 'shape-preset-banner-text',
+        options: {
+          text: 'BIG SALE',
+          textStyle: {
+            fontSize: 58
+          }
+        }
+      })
+    })
+
+    await test.step('Проверить что текст не вышел за пределы фигуры и безопасной области обводки', async() => {
+      const snapshot = await shapes.getScaleSnapshot({ id: 'shape-preset-banner-text' })
+
+      shapes.checkNodeInsideGroup({ snapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot, kind: 'text' })
+      shapes.checkTextInsideStrokeSafeArea({ snapshot, tolerance: 2 })
     })
   })
 })
