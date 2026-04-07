@@ -1175,6 +1175,47 @@ describe('shape-scaling', () => {
     expect(group.shapeManualBaseHeight).toBe(250)
   })
 
+  it('при выключенном авторасширении после scaling не включает его обратно', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.shapeTextAutoExpand = false
+    group.scaleX = 1.5
+    group.scaleY = 1.25
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 300,
+      height: 250,
+      shapeTextAutoExpandEnabled: false
+    }))
+    expect(group.shapeTextAutoExpand).toBe(false)
+  })
+
   it('масштабирует shapeRounding пропорционально при равномерном увеличении', () => {
     const {
       controller,

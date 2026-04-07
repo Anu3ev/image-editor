@@ -8,6 +8,10 @@ import {
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
 import {
+  getShapePreset,
+  resolveInternalShapeTextInset
+} from '../../../../src/editor/shape-manager/shape-presets'
+import {
   createMeasuredAutoExpandTextbox,
   createMockShapeGroup,
   createMockShapeNode,
@@ -641,5 +645,258 @@ describe('shape-layout', () => {
     expect(group.shapeBaseHeight).toBe(80)
     expect(group.shapeManualBaseHeight).toBe(80)
     expect(group.height).toBe(80)
+  })
+
+  it('при сохранении пропорций и включённом авторасширении расширяет фигуру без переноса строки', () => {
+    const preset = getShapePreset({
+      presetKey: 'arrow-up-fat'
+    })
+
+    if (!preset) {
+      throw new Error('arrow-up-fat preset is required for this test')
+    }
+
+    const shape = createMockShapeNode({
+      width: preset.width,
+      height: preset.height
+    })
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST X',
+      width: preset.width,
+      fontSize: 36
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: preset.width,
+      height: preset.height,
+      presetKey: preset.key
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: preset.width,
+      height: preset.height,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      resolveInternalShapeTextInset: ({ width, height }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height
+      }),
+      preserveAspectRatio: true,
+      shapeTextAutoExpandEnabled: true,
+      montageAreaWidth: 400
+    })
+
+    const appliedInset = resolveInternalShapeTextInset({
+      preset,
+      width: group.shapeBaseWidth,
+      height: group.shapeBaseHeight
+    })
+    const renderedLayout = measureRenderedTextboxLayout({
+      text: text.text ?? '',
+      frameWidth: Math.max(1, group.shapeBaseWidth - appliedInset.left - appliedInset.right),
+      fontSize: Number(text.fontSize) || 36,
+      splitByGrapheme: false
+    })
+
+    expect(group.shapeBaseWidth).toBeGreaterThan(preset.width)
+    expect(group.shapeBaseHeight / group.shapeBaseWidth).toBeCloseTo(preset.height / preset.width, 4)
+    expect(renderedLayout.lines).toHaveLength(1)
+  })
+
+  it('при сохранении пропорций с выключенным авторасширением оставляет перенос строк внутри фигуры', () => {
+    const preset = getShapePreset({
+      presetKey: 'star'
+    })
+
+    if (!preset) {
+      throw new Error('star preset is required for this test')
+    }
+
+    const shape = createMockShapeNode({
+      width: preset.width,
+      height: preset.height
+    })
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'shape text shape text shape text',
+      width: preset.width,
+      fontSize: 30
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: preset.width,
+      height: preset.height,
+      presetKey: preset.key
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: preset.width,
+      height: preset.height,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      resolveInternalShapeTextInset: ({ width, height }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height
+      }),
+      preserveAspectRatio: true,
+      shapeTextAutoExpandEnabled: false,
+      montageAreaWidth: 400
+    })
+
+    const appliedInset = resolveInternalShapeTextInset({
+      preset,
+      width: group.shapeBaseWidth,
+      height: group.shapeBaseHeight
+    })
+    const renderedLayout = measureRenderedTextboxLayout({
+      text: text.text ?? '',
+      frameWidth: Math.max(1, group.shapeBaseWidth - appliedInset.left - appliedInset.right),
+      fontSize: Number(text.fontSize) || 30,
+      splitByGrapheme: false
+    })
+
+    expect(group.shapeBaseHeight / group.shapeBaseWidth).toBeCloseTo(preset.height / preset.width, 4)
+    expect(renderedLayout.lines.length).toBeGreaterThan(1)
+  })
+
+  it('при подборе ширины учитывает внутренний отступ фигуры на текущем размере, а не на стартовой ширине', () => {
+    const preset = getShapePreset({
+      presetKey: 'arrow-up-fat'
+    })
+
+    if (!preset) {
+      throw new Error('arrow-up-fat preset is required for this test')
+    }
+
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST X',
+      width: preset.width,
+      fontSize: 36
+    })
+    const fixedPadding = resolveInternalShapeTextInset({
+      preset,
+      width: preset.width,
+      height: preset.height
+    })
+    const widthWithFixedPadding = resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth: preset.width,
+      minimumWidth: preset.width,
+      padding: fixedPadding,
+      montageAreaWidth: 400
+    })
+    const widthWithDynamicPadding = resolveShapeTextAutoExpandWidthForText({
+      text,
+      currentWidth: preset.width,
+      minimumWidth: preset.width,
+      montageAreaWidth: 400,
+      resolvePaddingForWidth: ({ width }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height: preset.height
+      })
+    })
+    const appliedInset = resolveInternalShapeTextInset({
+      preset,
+      width: widthWithDynamicPadding,
+      height: preset.height
+    })
+    const renderedLayout = measureRenderedTextboxLayout({
+      text: text.text ?? '',
+      frameWidth: Math.max(1, widthWithDynamicPadding - appliedInset.left - appliedInset.right),
+      fontSize: Number(text.fontSize) || 36,
+      splitByGrapheme: false
+    })
+
+    expect(widthWithDynamicPadding).toBeGreaterThan(widthWithFixedPadding)
+    expect(renderedLayout.lines).toHaveLength(1)
+  })
+
+  it('при сохранении пропорций не выходит за ширину монтажной области, если одна строка всё равно не помещается', () => {
+    const preset = getShapePreset({
+      presetKey: 'arrow-up-fat'
+    })
+
+    if (!preset) {
+      throw new Error('arrow-up-fat preset is required for this test')
+    }
+
+    const shape = createMockShapeNode({
+      width: preset.width,
+      height: preset.height
+    })
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'SUPERCALIFRAGILISTICEXPIALIDOCIOUS SUPERCALIFRAGILISTICEXPIALIDOCIOUS',
+      width: preset.width,
+      fontSize: 30
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: preset.width,
+      height: preset.height,
+      presetKey: preset.key
+    })
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width: preset.width,
+      height: preset.height,
+      alignH: 'center',
+      alignV: 'middle',
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      resolveInternalShapeTextInset: ({ width, height }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height
+      }),
+      preserveAspectRatio: true,
+      shapeTextAutoExpandEnabled: true,
+      montageAreaWidth: 160
+    })
+
+    const appliedInset = resolveInternalShapeTextInset({
+      preset,
+      width: group.shapeBaseWidth,
+      height: group.shapeBaseHeight
+    })
+    const renderedLayout = measureRenderedTextboxLayout({
+      text: text.text ?? '',
+      frameWidth: Math.max(1, group.shapeBaseWidth - appliedInset.left - appliedInset.right),
+      fontSize: Number(text.fontSize) || 30,
+      splitByGrapheme: false
+    })
+
+    expect(group.shapeBaseWidth).toBeLessThanOrEqual(160)
+    expect(group.shapeBaseWidth).toBeCloseTo(160, 4)
+    expect(renderedLayout.lines.length).toBeGreaterThan(1)
   })
 })

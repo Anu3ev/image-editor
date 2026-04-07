@@ -97,6 +97,52 @@ describe('shape-presets', () => {
     expect(bannerInset.left).toBe(0)
   })
 
+  it('сохраняет пропорции и внутренний отступ у star', () => {
+    const preset = getShapePreset({
+      presetKey: 'star'
+    })
+
+    if (!preset) {
+      throw new Error('star preset is required for this test')
+    }
+
+    const inset = resolveInternalShapeTextInset({
+      preset,
+      width: preset.width,
+      height: preset.height
+    })
+
+    expect(preset.width).toBe(180)
+    expect(preset.height).toBeCloseTo(170.5263, 4)
+    expect(inset.top).toBeCloseTo(64.8, 4)
+    expect(inset.right).toBeCloseTo(54, 4)
+    expect(inset.bottom).toBeCloseTo(37.5158, 4)
+    expect(inset.left).toBeCloseTo(54, 4)
+  })
+
+  it('сохраняет пропорции и внутренний отступ у arrow-up-fat', () => {
+    const preset = getShapePreset({
+      presetKey: 'arrow-up-fat'
+    })
+
+    if (!preset) {
+      throw new Error('arrow-up-fat preset is required for this test')
+    }
+
+    const inset = resolveInternalShapeTextInset({
+      preset,
+      width: preset.width,
+      height: preset.height
+    })
+
+    expect(preset.width).toBe(130)
+    expect(preset.height).toBe(180)
+    expect(inset.top).toBeCloseTo(18, 4)
+    expect(inset.right).toBeCloseTo(45.5, 4)
+    expect(inset.bottom).toBe(0)
+    expect(inset.left).toBeCloseTo(45.5, 4)
+  })
+
   it('для квадратной фигуры возвращает нулевой внутренний отступ', () => {
     const preset = getShapePreset({
       presetKey: 'square'

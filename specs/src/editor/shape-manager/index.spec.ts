@@ -849,6 +849,77 @@ describe('shape-manager', () => {
     }))
   })
 
+  it('после замены увеличение текста считает минимальную ширину от нового размера фигуры', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    applyShapeTextLayoutMock.mockImplementationOnce(({
+      group: currentGroup,
+      shape,
+      text,
+      alignH,
+      alignV,
+      padding
+    }) => {
+      applyShapeTextLayoutToMockGroup({
+        group: currentGroup,
+        shape,
+        text,
+        width: 220,
+        height: 200,
+        alignH,
+        alignV,
+        padding
+      })
+    })
+
+    await manager.update({
+      target: group,
+      presetKey: 'arrow-up'
+    })
+
+    applyShapeTextLayoutMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(220)
+
+    manager.updateTextStyle({
+      target: group,
+      style: {
+        fontSize: 96
+      }
+    })
+
+    expect(group.shapeManualBaseWidth).toBe(220)
+    expect(group.shapeManualBaseHeight).toBe(200)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 220,
+      minimumWidth: 220,
+      montageAreaWidth: 400
+    }))
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 220,
+      height: 200
+    }))
+  })
+
   it('updateTextStyle с withoutSave не сохраняет history state', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -1326,7 +1397,63 @@ describe('shape-manager', () => {
     expect(updatedGroup?.shapeBaseHeight).toBe(200)
     expect(updatedGroup?.shapeManualBaseWidth).toBe(220)
     expect(updatedGroup?.shapeManualBaseHeight).toBe(200)
-    expect(updatedGroup?.shapeReplaceBoxWidth).toBe(220)
+    expect(updatedGroup?.shapeReplaceBoxWidth).toBeCloseTo(220, 4)
+    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(200)
+  })
+
+  it('после замены на выросшей фигуре следующая замена берёт уже новый бокс замены', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    applyShapeTextLayoutMock.mockImplementationOnce(({
+      group: currentGroup,
+      shape,
+      text,
+      alignH,
+      alignV,
+      padding
+    }) => {
+      applyShapeTextLayoutToMockGroup({
+        group: currentGroup,
+        shape,
+        text,
+        width: 220,
+        height: 200,
+        alignH,
+        alignV,
+        padding
+      })
+    })
+
+    await manager.update({
+      target: group,
+      presetKey: 'arrow-up'
+    })
+
+    const updatedGroup = await manager.update({
+      target: group,
+      presetKey: 'arrow-right'
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapePresetKey).toBe('arrow-right')
+    expect(updatedGroup?.shapeBaseWidth).toBeCloseTo(220, 4)
+    expect(updatedGroup?.shapeBaseHeight).toBeCloseTo(171.1111, 4)
+    expect(updatedGroup?.shapeManualBaseWidth).toBeCloseTo(220, 4)
+    expect(updatedGroup?.shapeManualBaseHeight).toBeCloseTo(171.1111, 4)
+    expect(updatedGroup?.shapeReplaceBoxWidth).toBeCloseTo(220, 4)
     expect(updatedGroup?.shapeReplaceBoxHeight).toBe(200)
   })
 
