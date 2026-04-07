@@ -51,5 +51,12 @@ export const SHAPE_AUTO_EXPAND_TYPING_SEQUENCE = [
   'TEST TEST'
 ]
 
+/** Последовательность ввода для arrow-up-fat около границы переноса строки. */
+export const SHAPE_AUTO_EXPAND_ARROW_UP_FAT_TYPING_SEQUENCE = [
+  'TEST',
+  'TEST ',
+  'TEST X'
+]
+
 /** Допуск для сравнений ширины shape в e2e. */
 export const SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE = 2
