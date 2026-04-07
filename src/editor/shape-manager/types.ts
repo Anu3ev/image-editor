@@ -295,6 +295,7 @@ export type ShapeLayoutInput = {
     height: number
   }) => ShapePadding
   preserveAspectRatio?: boolean
+  shapeTextAutoExpandEnabled?: boolean
   montageAreaWidth?: number | null
   expandShapeHeightToFitText?: boolean
   changedPadding?: ShapePaddingChangeMap

@@ -875,6 +875,7 @@ export default class ShapeScalingController {
       alignH,
       alignV,
       padding: userPadding,
+      shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
       internalShapeTextInset,
       resolveInternalShapeTextInset: ({ width, height }) => ShapeScalingController._resolveInternalShapeTextInset({
         group,

@@ -72,6 +72,7 @@ type ResolveShapeTextLayoutResolutionParams = {
   padding: ShapePadding
   internalShapeTextInset?: ShapePadding
   resolveInternalShapeTextInset?: ResolveInternalShapeTextInset
+  shapeTextAutoExpandEnabled?: boolean
   montageAreaWidth?: number | null
   expandShapeHeightToFitText?: boolean
   changedPadding?: ShapeLayoutInput['changedPadding']
@@ -81,8 +82,10 @@ type ResolveShapeTextLayoutResolutionParams = {
  * Применяет layout для композиции shape + text,
  * сохраняя ручные базовые размеры отдельно от фактического auto-fit размера
  * и пересчитывая derived inset формы на каждом шаге layout.
- * При preserveAspectRatio=true подбирает итоговый размер без лишнего переноса строк,
- * сохраняя заданное соотношение сторон.
+ * При preserveAspectRatio=true подбирает итоговый размер с сохранением заданного
+ * соотношения сторон. При shapeTextAutoExpand=true не допускает лишний перенос строк,
+ * а при выключенном режиме сохраняет пропорции, но допускает перенос по общему
+ * shape-layout контракту.
  */
 export const applyShapeTextLayout = ({
   group,
@@ -96,6 +99,7 @@ export const applyShapeTextLayout = ({
   internalShapeTextInset,
   resolveInternalShapeTextInset,
   preserveAspectRatio,
+  shapeTextAutoExpandEnabled,
   montageAreaWidth,
   expandShapeHeightToFitText = true,
   changedPadding
@@ -108,6 +112,8 @@ export const applyShapeTextLayout = ({
     MIN_TEXT_FRAME_SIZE,
     group.shapeManualBaseHeight ?? height
   )
+  const isShapeTextAutoExpandEnabled = shapeTextAutoExpandEnabled
+    ?? group.shapeTextAutoExpand !== false
   const {
     width: finalWidth,
     height: finalHeight,
@@ -121,6 +127,7 @@ export const applyShapeTextLayout = ({
       padding,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
+      shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
       montageAreaWidth,
       expandShapeHeightToFitText,
       changedPadding
@@ -208,12 +215,16 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
   padding,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
+  shapeTextAutoExpandEnabled = true,
   montageAreaWidth,
   expandShapeHeightToFitText = true,
   changedPadding
 }: ResolveShapeTextLayoutResolutionParams): ShapeTextLayoutResolution {
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  const safeMontageAreaWidth = Number.isFinite(montageAreaWidth) && (montageAreaWidth ?? 0) > 0
+    ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth ?? MIN_TEXT_FRAME_SIZE)
+    : null
 
   if (!hasShapeTextContent({ text })) {
     return resolveShapeTextLayoutResolution({
@@ -229,18 +240,18 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
   }
 
   const aspectRatio = safeHeight / safeWidth
-  const resolveCandidateResolution = ({ width: candidateWidth }: {
+  const resolveCandidateLayout = ({ width: candidateWidth }: {
     width: number
   }): {
     candidateHeight: number
     frameWidth: number
-    resolution: ShapeTextLayoutResolution
+    layoutResolution: ShapeTextLayoutResolution
   } => {
     const candidateHeight = Math.max(
       MIN_TEXT_FRAME_SIZE,
       candidateWidth * aspectRatio
     )
-    const resolution = resolveShapeTextLayoutResolution({
+    const layoutResolution = resolveShapeTextLayoutResolution({
       text,
       width: candidateWidth,
       height: candidateHeight,
@@ -255,10 +266,70 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
       candidateHeight,
       frameWidth: resolveTextFrameWidth({
         width: candidateWidth,
-        padding: resolution.appliedPadding
+        padding: layoutResolution.appliedPadding
       }),
-      resolution
+      layoutResolution
     }
+  }
+
+  const fitsCandidateBounds = ({
+    candidateWidth,
+    candidateHeight,
+    layoutResolution
+  }: {
+    candidateWidth: number
+    candidateHeight: number
+    layoutResolution: ShapeTextLayoutResolution
+  }): boolean => {
+    if (layoutResolution.width > candidateWidth + TEXT_FRAME_FILL_EPSILON) {
+      return false
+    }
+
+    if (layoutResolution.height > candidateHeight + TEXT_FRAME_FILL_EPSILON) {
+      return false
+    }
+
+    return true
+  }
+
+  if (!shapeTextAutoExpandEnabled) {
+    const isWidthValid = ({ width: candidateWidth }: { width: number }): boolean => {
+      const {
+        candidateHeight,
+        layoutResolution
+      } = resolveCandidateLayout({
+        width: candidateWidth
+      })
+
+      return fitsCandidateBounds({
+        candidateWidth,
+        candidateHeight,
+        layoutResolution
+      })
+    }
+
+    let maximumWidth = safeMontageAreaWidth
+      ? Math.max(safeWidth, safeMontageAreaWidth)
+      : safeWidth
+
+    if (!isWidthValid({ width: maximumWidth })) {
+      maximumWidth = resolveValidShapeWidthUpperBound({
+        minimumWidth: maximumWidth,
+        isWidthValid
+      })
+    }
+
+    const resolvedWidth = resolveMinimumValidShapeWidth({
+      minimumWidth: safeWidth,
+      maximumWidth,
+      isWidthValid
+    })
+
+    const { layoutResolution } = resolveCandidateLayout({
+      width: resolvedWidth
+    })
+
+    return layoutResolution
   }
 
   const isWidthValid = ({
@@ -271,18 +342,16 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
     const {
       candidateHeight,
       frameWidth,
-      resolution
-    } = resolveCandidateResolution({
+      layoutResolution
+    } = resolveCandidateLayout({
       width: candidateWidth
     })
 
-    if (resolution.width > candidateWidth + TEXT_FRAME_FILL_EPSILON) {
-      return false
-    }
-
-    if (resolution.height > candidateHeight + TEXT_FRAME_FILL_EPSILON) {
-      return false
-    }
+    if (!fitsCandidateBounds({
+      candidateWidth,
+      candidateHeight,
+      layoutResolution
+    })) return false
 
     if (requiredFrameWidth !== undefined && frameWidth < requiredFrameWidth - TEXT_FRAME_FILL_EPSILON) {
       return false
@@ -296,25 +365,22 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
     return !validation.hasWrappedLines
   }
 
-  const safeMontageAreaWidth = Number.isFinite(montageAreaWidth) && (montageAreaWidth ?? 0) > 0
-    ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth ?? MIN_TEXT_FRAME_SIZE)
-    : null
   const maximumWidth = safeMontageAreaWidth
     ? Math.max(safeWidth, safeMontageAreaWidth)
     : resolveValidShapeWidthUpperBound({
       minimumWidth: safeWidth,
-      isWidthValid: ({ width }) => isWidthValid({ width })
+      isWidthValid: ({ width: candidateWidth }) => isWidthValid({ width: candidateWidth })
     })
-  const maximumResolution = resolveCandidateResolution({
+  const maximumCandidateLayout = resolveCandidateLayout({
     width: maximumWidth
   })
   const maximumMeasurement = measureTextboxLayoutForFrame({
     text,
-    frameWidth: maximumResolution.frameWidth
+    frameWidth: maximumCandidateLayout.frameWidth
   })
 
   if (maximumMeasurement.hasWrappedLines) {
-    return maximumResolution.resolution
+    return maximumCandidateLayout.layoutResolution
   }
 
   const requiredFrameWidth = Math.max(
@@ -325,16 +391,17 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
   const resolvedWidth = resolveMinimumValidShapeWidth({
     minimumWidth: safeWidth,
     maximumWidth,
-    isWidthValid: ({ width }) => isWidthValid({
-      width,
+    isWidthValid: ({ width: candidateWidth }) => isWidthValid({
+      width: candidateWidth,
       requiredFrameWidth
     })
   })
 
-  return resolveCandidateResolution({
+  const { layoutResolution } = resolveCandidateLayout({
     width: resolvedWidth
   })
-    .resolution
+
+  return layoutResolution
 }
 
 /**
@@ -796,13 +863,9 @@ function resolveMinimumValidShapeWidth({
   let low = Math.max(MIN_TEXT_FRAME_SIZE, minimumWidth)
   let high = Math.max(low, maximumWidth)
 
-  if (isWidthValid({ width: low })) {
-    return low
-  }
+  if (isWidthValid({ width: low })) return low
 
-  if (!isWidthValid({ width: high })) {
-    return high
-  }
+  if (!isWidthValid({ width: high })) return high
 
   for (let iteration = 0; iteration < MAX_WIDTH_SEARCH_ITERATIONS; iteration += 1) {
     if (high - low <= TEXT_FRAME_FILL_EPSILON) {
