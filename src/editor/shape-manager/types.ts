@@ -290,6 +290,10 @@ export type ShapeLayoutInput = {
   alignV: ShapeVerticalAlign
   padding: ShapePadding
   internalShapeTextInset?: ShapePadding
+  resolveInternalShapeTextInset?: ({ width, height }: {
+    width: number
+    height: number
+  }) => ShapePadding
   expandShapeHeightToFitText?: boolean
   changedPadding?: ShapePaddingChangeMap
 }
