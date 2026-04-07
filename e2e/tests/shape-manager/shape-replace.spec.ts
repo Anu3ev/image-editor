@@ -38,17 +38,19 @@ test.describe('Смена фигуры между пресетами с разн
       return shapes.getScaleSnapshot({ id: 'shape-replace-arrow-up' })
     })
 
-    await test.step('Проверить что фигура стала заметно уже своей высоты и текст остался внутри', () => {
+    await test.step('Проверить что фигура сразу учитывает текст и сохраняет пропорции нового пресета', () => {
       shapes.checkUpdate({
         shape: updatedShape,
         presetKey: 'arrow-up'
       })
 
-      expect(Math.abs(updatedSnapshot.groupBoundsHeight - initialSnapshot.groupBoundsHeight))
-        .toBeLessThanOrEqual(SHAPE_REPLACE_TOLERANCE)
+      expect(updatedSnapshot.groupBoundsHeight)
+        .toBeGreaterThan(initialSnapshot.groupBoundsHeight + SHAPE_REPLACE_TOLERANCE)
       expect(updatedSnapshot.groupBoundsWidth).toBeLessThan(initialSnapshot.groupBoundsWidth - 20)
       expect(updatedSnapshot.groupBoundsWidth / updatedSnapshot.groupBoundsHeight)
         .toBeCloseTo(SHAPE_REPLACE_ARROW_UP_RATIO, 1)
+      expect(Math.abs(updatedSnapshot.textBoundsHeight - initialSnapshot.textBoundsHeight))
+        .toBeLessThanOrEqual(SHAPE_REPLACE_TOLERANCE)
       shapes.checkNodeInsideGroup({ snapshot: updatedSnapshot, kind: 'shape' })
       shapes.checkNodeInsideGroup({ snapshot: updatedSnapshot, kind: 'text' })
     })

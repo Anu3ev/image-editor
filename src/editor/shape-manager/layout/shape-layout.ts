@@ -58,10 +58,31 @@ type ResolveShapeWidthValidity = ({ width }: {
   width: number
 }) => boolean
 
+type ShapeTextLayoutResolution = {
+  width: number
+  height: number
+  appliedPadding: ShapePadding
+  appliedUserPadding: ShapePadding
+}
+
+type ResolveShapeTextLayoutResolutionParams = {
+  text: ShapeLayoutInput['text']
+  width: number
+  height: number
+  padding: ShapePadding
+  internalShapeTextInset?: ShapePadding
+  resolveInternalShapeTextInset?: ResolveInternalShapeTextInset
+  montageAreaWidth?: number | null
+  expandShapeHeightToFitText?: boolean
+  changedPadding?: ShapeLayoutInput['changedPadding']
+}
+
 /**
  * Применяет layout для композиции shape + text,
  * сохраняя ручные базовые размеры отдельно от фактического auto-fit размера
  * и пересчитывая derived inset формы на каждом шаге layout.
+ * При preserveAspectRatio=true подбирает итоговый размер без лишнего переноса строк,
+ * сохраняя заданное соотношение сторон.
  */
 export const applyShapeTextLayout = ({
   group,
@@ -74,15 +95,11 @@ export const applyShapeTextLayout = ({
   padding,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
+  preserveAspectRatio,
+  montageAreaWidth,
   expandShapeHeightToFitText = true,
   changedPadding
 }: ShapeLayoutInput): void => {
-  const requestedUserPadding = normalizeShapeUserPadding({
-    padding
-  })
-  const normalizedInternalShapeTextInset = normalizeShapeLayoutPadding({
-    padding: internalShapeTextInset
-  })
   const manualBaseWidth = Math.max(
     MIN_TEXT_FRAME_SIZE,
     group.shapeManualBaseWidth ?? width
@@ -91,59 +108,33 @@ export const applyShapeTextLayout = ({
     MIN_TEXT_FRAME_SIZE,
     group.shapeManualBaseHeight ?? height
   )
-  let finalWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
-  let finalHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
-  let resolvedPaddingLayout = resolveAppliedShapePadding({
-    text,
+  const {
     width: finalWidth,
     height: finalHeight,
-    padding: requestedUserPadding,
-    internalShapeTextInset: resolveCurrentInternalShapeTextInset({
-      width: finalWidth,
-      height: finalHeight,
-      internalShapeTextInset: normalizedInternalShapeTextInset,
-      resolveInternalShapeTextInset
-    }),
-    expandShapeHeightToFitText,
-    changedPadding,
-    measureTextboxHeightForFrame,
-    resolveMinimumTextFrameWidth
-  })
-
-  for (let iteration = 0; iteration < MAX_LAYOUT_RESOLVE_ITERATIONS; iteration += 1) {
-    const nextWidth = Math.max(finalWidth, resolvedPaddingLayout.requiredWidth)
-    const nextHeight = Math.max(finalHeight, resolvedPaddingLayout.requiredHeight)
-
-    if (
-      nextWidth <= finalWidth + TEXT_FRAME_FILL_EPSILON
-      && nextHeight <= finalHeight + TEXT_FRAME_FILL_EPSILON
-    ) {
-      break
-    }
-
-    finalWidth = nextWidth
-    finalHeight = nextHeight
-    resolvedPaddingLayout = resolveAppliedShapePadding({
-      text,
-      width: finalWidth,
-      height: finalHeight,
-      padding: requestedUserPadding,
-      internalShapeTextInset: resolveCurrentInternalShapeTextInset({
-        width: finalWidth,
-        height: finalHeight,
-        internalShapeTextInset: normalizedInternalShapeTextInset,
-        resolveInternalShapeTextInset
-      }),
-      expandShapeHeightToFitText,
-      changedPadding,
-      measureTextboxHeightForFrame,
-      resolveMinimumTextFrameWidth
-    })
-  }
-  const {
     appliedPadding,
     appliedUserPadding
-  } = resolvedPaddingLayout
+  } = preserveAspectRatio
+    ? resolveShapeTextLayoutResolutionForAspectRatio({
+      text,
+      width,
+      height,
+      padding,
+      internalShapeTextInset,
+      resolveInternalShapeTextInset,
+      montageAreaWidth,
+      expandShapeHeightToFitText,
+      changedPadding
+    })
+    : resolveShapeTextLayoutResolution({
+      text,
+      width,
+      height,
+      padding,
+      internalShapeTextInset,
+      resolveInternalShapeTextInset,
+      expandShapeHeightToFitText,
+      changedPadding
+    })
 
   resizeShapeNode({
     shape,
@@ -208,6 +199,142 @@ export const applyShapeTextLayout = ({
 
   group.set('dirty', true)
   group.setCoords()
+}
+
+function resolveShapeTextLayoutResolutionForAspectRatio({
+  text,
+  width,
+  height,
+  padding,
+  internalShapeTextInset,
+  resolveInternalShapeTextInset,
+  montageAreaWidth,
+  expandShapeHeightToFitText = true,
+  changedPadding
+}: ResolveShapeTextLayoutResolutionParams): ShapeTextLayoutResolution {
+  const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
+  const safeHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+
+  if (!hasShapeTextContent({ text })) {
+    return resolveShapeTextLayoutResolution({
+      text,
+      width: safeWidth,
+      height: safeHeight,
+      padding,
+      internalShapeTextInset,
+      resolveInternalShapeTextInset,
+      expandShapeHeightToFitText,
+      changedPadding
+    })
+  }
+
+  const aspectRatio = safeHeight / safeWidth
+  const resolveCandidateResolution = ({ width: candidateWidth }: {
+    width: number
+  }): {
+    candidateHeight: number
+    frameWidth: number
+    resolution: ShapeTextLayoutResolution
+  } => {
+    const candidateHeight = Math.max(
+      MIN_TEXT_FRAME_SIZE,
+      candidateWidth * aspectRatio
+    )
+    const resolution = resolveShapeTextLayoutResolution({
+      text,
+      width: candidateWidth,
+      height: candidateHeight,
+      padding,
+      internalShapeTextInset,
+      resolveInternalShapeTextInset,
+      expandShapeHeightToFitText,
+      changedPadding
+    })
+
+    return {
+      candidateHeight,
+      frameWidth: resolveTextFrameWidth({
+        width: candidateWidth,
+        padding: resolution.appliedPadding
+      }),
+      resolution
+    }
+  }
+
+  const isWidthValid = ({
+    width: candidateWidth,
+    requiredFrameWidth
+  }: {
+    width: number
+    requiredFrameWidth?: number
+  }): boolean => {
+    const {
+      candidateHeight,
+      frameWidth,
+      resolution
+    } = resolveCandidateResolution({
+      width: candidateWidth
+    })
+
+    if (resolution.width > candidateWidth + TEXT_FRAME_FILL_EPSILON) {
+      return false
+    }
+
+    if (resolution.height > candidateHeight + TEXT_FRAME_FILL_EPSILON) {
+      return false
+    }
+
+    if (requiredFrameWidth !== undefined && frameWidth < requiredFrameWidth - TEXT_FRAME_FILL_EPSILON) {
+      return false
+    }
+
+    const validation = measureTextboxLayoutForFrame({
+      text,
+      frameWidth
+    })
+
+    return !validation.hasWrappedLines
+  }
+
+  const safeMontageAreaWidth = Number.isFinite(montageAreaWidth) && (montageAreaWidth ?? 0) > 0
+    ? Math.max(MIN_TEXT_FRAME_SIZE, montageAreaWidth ?? MIN_TEXT_FRAME_SIZE)
+    : null
+  const maximumWidth = safeMontageAreaWidth
+    ? Math.max(safeWidth, safeMontageAreaWidth)
+    : resolveValidShapeWidthUpperBound({
+      minimumWidth: safeWidth,
+      isWidthValid: ({ width }) => isWidthValid({ width })
+    })
+  const maximumResolution = resolveCandidateResolution({
+    width: maximumWidth
+  })
+  const maximumMeasurement = measureTextboxLayoutForFrame({
+    text,
+    frameWidth: maximumResolution.frameWidth
+  })
+
+  if (maximumMeasurement.hasWrappedLines) {
+    return maximumResolution.resolution
+  }
+
+  const requiredFrameWidth = Math.max(
+    MIN_TEXT_FRAME_SIZE,
+    maximumMeasurement.longestLineWidth
+  )
+
+  const resolvedWidth = resolveMinimumValidShapeWidth({
+    minimumWidth: safeWidth,
+    maximumWidth,
+    isWidthValid: ({ width }) => isWidthValid({
+      width,
+      requiredFrameWidth
+    })
+  })
+
+  return resolveCandidateResolution({
+    width: resolvedWidth
+  })
+    .resolution
 }
 
 /**
@@ -557,6 +684,80 @@ function resolveCurrentInternalShapeTextInset({
       height: Math.max(MIN_TEXT_FRAME_SIZE, height)
     })
   })
+}
+
+function resolveShapeTextLayoutResolution({
+  text,
+  width,
+  height,
+  padding,
+  internalShapeTextInset,
+  resolveInternalShapeTextInset,
+  expandShapeHeightToFitText = true,
+  changedPadding
+}: ResolveShapeTextLayoutResolutionParams): ShapeTextLayoutResolution {
+  const requestedUserPadding = normalizeShapeUserPadding({
+    padding
+  })
+  const normalizedInternalShapeTextInset = normalizeShapeLayoutPadding({
+    padding: internalShapeTextInset
+  })
+  let finalWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
+  let finalHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  let resolvedPaddingLayout = resolveAppliedShapePadding({
+    text,
+    width: finalWidth,
+    height: finalHeight,
+    padding: requestedUserPadding,
+    internalShapeTextInset: resolveCurrentInternalShapeTextInset({
+      width: finalWidth,
+      height: finalHeight,
+      internalShapeTextInset: normalizedInternalShapeTextInset,
+      resolveInternalShapeTextInset
+    }),
+    expandShapeHeightToFitText,
+    changedPadding,
+    measureTextboxHeightForFrame,
+    resolveMinimumTextFrameWidth
+  })
+
+  for (let iteration = 0; iteration < MAX_LAYOUT_RESOLVE_ITERATIONS; iteration += 1) {
+    const nextWidth = Math.max(finalWidth, resolvedPaddingLayout.requiredWidth)
+    const nextHeight = Math.max(finalHeight, resolvedPaddingLayout.requiredHeight)
+
+    if (
+      nextWidth <= finalWidth + TEXT_FRAME_FILL_EPSILON
+      && nextHeight <= finalHeight + TEXT_FRAME_FILL_EPSILON
+    ) {
+      break
+    }
+
+    finalWidth = nextWidth
+    finalHeight = nextHeight
+    resolvedPaddingLayout = resolveAppliedShapePadding({
+      text,
+      width: finalWidth,
+      height: finalHeight,
+      padding: requestedUserPadding,
+      internalShapeTextInset: resolveCurrentInternalShapeTextInset({
+        width: finalWidth,
+        height: finalHeight,
+        internalShapeTextInset: normalizedInternalShapeTextInset,
+        resolveInternalShapeTextInset
+      }),
+      expandShapeHeightToFitText,
+      changedPadding,
+      measureTextboxHeightForFrame,
+      resolveMinimumTextFrameWidth
+    })
+  }
+
+  return {
+    width: finalWidth,
+    height: finalHeight,
+    appliedPadding: resolvedPaddingLayout.appliedPadding,
+    appliedUserPadding: resolvedPaddingLayout.appliedUserPadding
+  }
 }
 
 function resolveValidShapeWidthUpperBound({
