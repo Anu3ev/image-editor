@@ -749,10 +749,10 @@ describe('shape-scaling', () => {
 
     expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
       padding: {
-        top: 48,
-        right: 48,
-        bottom: 48,
-        left: 48
+        top: 10,
+        right: 10,
+        bottom: 10,
+        left: 10
       }
     }))
   })
@@ -825,10 +825,10 @@ describe('shape-scaling', () => {
 
     expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
       padding: {
-        top: 58,
-        right: 58,
-        bottom: 58,
-        left: 58
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 20
       }
     }))
   })

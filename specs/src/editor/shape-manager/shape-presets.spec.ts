@@ -74,16 +74,16 @@ describe('shape-presets', () => {
       throw new Error('shape presets are required for this test')
     }
 
-    expect(resolveInternalShapeTextInset({
+    const arrowUpInset = resolveInternalShapeTextInset({
       preset: arrowUpPreset,
       width: 140,
       height: 180
-    })).toEqual({
-      top: 68.4,
-      right: 28,
-      bottom: 18,
-      left: 28
     })
+
+    expect(arrowUpInset.top).toBeCloseTo(21.6, 6)
+    expect(arrowUpInset.right).toBeCloseTo(39.2, 6)
+    expect(arrowUpInset.bottom).toBe(0)
+    expect(arrowUpInset.left).toBeCloseTo(39.2, 6)
 
     const bannerInset = resolveInternalShapeTextInset({
       preset: bannerPreset,
@@ -91,10 +91,10 @@ describe('shape-presets', () => {
       height: 120
     })
 
-    expect(bannerInset.top).toBe(16.8)
-    expect(bannerInset.right).toBeCloseTo(46.8, 6)
-    expect(bannerInset.bottom).toBe(16.8)
-    expect(bannerInset.left).toBeCloseTo(21.6, 6)
+    expect(bannerInset.top).toBe(0)
+    expect(bannerInset.right).toBeCloseTo(36, 6)
+    expect(bannerInset.bottom).toBe(0)
+    expect(bannerInset.left).toBe(0)
   })
 
   it('для квадратной фигуры возвращает нулевой внутренний отступ', () => {
@@ -136,10 +136,10 @@ describe('shape-presets', () => {
     })
 
     expect(inset).toEqual({
-      top: 24,
-      right: 48,
-      bottom: 24,
-      left: 48
+      top: 5,
+      right: 10,
+      bottom: 5,
+      left: 10
     })
   })
 
