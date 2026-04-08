@@ -6,13 +6,16 @@ import {
 } from 'fabric'
 import {
   applyShapeTextLayout,
+  resolveShapeTextFixedWidthLayout,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText
 } from '../layout/shape-layout'
+import type {
+  ResolvedShapeTextLayout
+} from '../layout/shape-layout'
 import {
   normalizeShapeUserPadding,
-  resolveShapeTextContentInset,
-  sumShapePadding
+  resolveShapeTextContentInset
 } from '../layout/shape-padding'
 import { resizeShapeNode } from '../shape-factory'
 import {
@@ -84,6 +87,8 @@ type ShapePreviewDimensions = {
   previewWidth: number
   previewHeight: number
 }
+
+type ShapePreviewLayout = ResolvedShapeTextLayout
 
 type ShapeScalingStartDimensions = {
   startWidth: number
@@ -164,7 +169,6 @@ export default class ShapeScalingController {
     const currentFlipX = Boolean(group.flipX)
     const currentFlipY = Boolean(group.flipY)
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
-    const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const scalingDecision = this._resolveScalingDecision({
       group,
       text,
@@ -172,10 +176,13 @@ export default class ShapeScalingController {
       state,
       transform
     })
-    const previewPadding = ShapeScalingController._resolveEffectivePadding({
+    const previewLayout = this._resolvePreviewLayout({
       group,
-      width: scalingDecision.previewWidth,
-      height: scalingDecision.previewHeight
+      text,
+      state,
+      appliedScaleX: scalingDecision.appliedScaleX,
+      appliedScaleY: scalingDecision.appliedScaleY,
+      minimumHeight: scalingDecision.previewHeight
     })
     const currentScaleX = Math.abs(group.scaleX ?? 1) || 1
     const currentScaleY = Math.abs(group.scaleY ?? 1) || 1
@@ -198,11 +205,8 @@ export default class ShapeScalingController {
       group,
       shape,
       text,
-      width: scalingDecision.previewWidth,
-      height: scalingDecision.previewHeight,
-      padding: previewPadding,
+      layout: previewLayout,
       alignH,
-      alignV,
       scaleX: scalingDecision.appliedScaleX,
       scaleY: scalingDecision.appliedScaleY,
       minSize: MIN_SIZE,
@@ -461,6 +465,49 @@ export default class ShapeScalingController {
   }
 
   /**
+   * Возвращает live-preview layout текста для уже выбранной ширины scaling.
+   * Width фиксируется текущим drag, а пользовательский padding поджимается по тому же контракту, что и final layout.
+   */
+  private _resolvePreviewLayout({
+    group,
+    text,
+    state,
+    appliedScaleX,
+    appliedScaleY,
+    minimumHeight
+  }: {
+    group: ShapeGroup
+    text: ShapeTextNode
+    state: ShapeScalingState
+    appliedScaleX: number
+    appliedScaleY: number
+    minimumHeight?: number | null
+  }): ShapePreviewLayout {
+    const previewWidth = state.canScaleWidth
+      ? Math.max(MIN_SIZE, state.startWidth * appliedScaleX)
+      : state.startWidth
+    const scaledPreviewHeight = state.canScaleHeight
+      ? Math.max(MIN_SIZE, state.startHeight * appliedScaleY)
+      : state.startManualBaseHeight
+    const initialPreviewHeight = minimumHeight === null || minimumHeight === undefined
+      ? scaledPreviewHeight
+      : Math.max(scaledPreviewHeight, minimumHeight)
+
+    return resolveShapeTextFixedWidthLayout({
+      text,
+      width: previewWidth,
+      height: initialPreviewHeight,
+      alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
+      padding: ShapeScalingController._resolveUserPadding({ group }),
+      resolveInternalShapeTextInset: ({ width, height }) => ShapeScalingController._resolveInternalShapeTextInset({
+        group,
+        width,
+        height
+      })
+    })
+  }
+
+  /**
    * Применяет скорректированное состояние transform, когда текущий drag нужно ограничить или откатить.
    */
   private _applyResolvedScalingState({
@@ -539,7 +586,6 @@ export default class ShapeScalingController {
 
     const constraintPadding = ShapeScalingController._resolveScalingConstraintPadding({ group })
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
-    const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const currentScaleX = Math.abs(group.scaleX ?? state.lastAllowedScaleX ?? 1) || 1
     const currentScaleY = Math.abs(group.scaleY ?? state.lastAllowedScaleY ?? 1) || 1
     const eventWithTransform = {
@@ -605,10 +651,13 @@ export default class ShapeScalingController {
       appliedScaleY: nextScaleY,
       minimumHeight: didClampWidth ? null : resolvedMinimumHeight
     })
-    const previewPadding = ShapeScalingController._resolveEffectivePadding({
+    const previewLayout = this._resolvePreviewLayout({
       group,
-      width: previewDimensions.previewWidth,
-      height: previewDimensions.previewHeight
+      text,
+      state,
+      appliedScaleX: nextScaleX,
+      appliedScaleY: nextScaleY,
+      minimumHeight: previewDimensions.previewHeight
     })
 
     this._applyResolvedScalingState({
@@ -623,11 +672,8 @@ export default class ShapeScalingController {
       group,
       shape,
       text,
-      width: previewDimensions.previewWidth,
-      height: previewDimensions.previewHeight,
-      padding: previewPadding,
+      layout: previewLayout,
       alignH,
-      alignV,
       scaleX: nextScaleX,
       scaleY: nextScaleY,
       minSize: MIN_SIZE,
@@ -877,11 +923,13 @@ export default class ShapeScalingController {
       padding: userPadding,
       shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
       internalShapeTextInset,
-      resolveInternalShapeTextInset: ({ width, height }) => ShapeScalingController._resolveInternalShapeTextInset({
-        group,
-        width,
-        height
-      })
+      resolveInternalShapeTextInset: ({ width: nextWidth, height: nextHeight }) => {
+        return ShapeScalingController._resolveInternalShapeTextInset({
+          group,
+          width: nextWidth,
+          height: nextHeight
+        })
+      }
     })
 
     group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? width)
@@ -1152,11 +1200,13 @@ export default class ShapeScalingController {
       width,
       height: MIN_SIZE,
       padding,
-      resolvePaddingForSize: ({ width, height }) => ShapeScalingController._resolveScalingConstraintPadding({
-        group,
-        width,
-        height
-      })
+      resolvePaddingForSize: ({ width: nextWidth, height: nextHeight }) => {
+        return ShapeScalingController._resolveScalingConstraintPadding({
+          group,
+          width: nextWidth,
+          height: nextHeight
+        })
+      }
     })
   }
 
@@ -1202,39 +1252,6 @@ export default class ShapeScalingController {
       baseInset: presetInset,
       stroke: group.shapeStroke,
       strokeWidth: group.shapeStrokeWidth
-    })
-  }
-
-  /**
-   * Возвращает effective padding текста с учетом полного внутреннего inset и пользовательских отступов.
-   */
-  private static _resolveEffectivePadding({
-    group,
-    width,
-    height
-  }: {
-    group: ShapeGroup
-    width?: number
-    height?: number
-  }): ShapePadding {
-    const resolvedWidth = Math.max(
-      MIN_SIZE,
-      width ?? group.shapeBaseWidth ?? group.width ?? group.shapeManualBaseWidth ?? MIN_SIZE
-    )
-    const resolvedHeight = Math.max(
-      MIN_SIZE,
-      height ?? group.shapeBaseHeight ?? group.height ?? group.shapeManualBaseHeight ?? MIN_SIZE
-    )
-    const userPadding = ShapeScalingController._resolveUserPadding({ group })
-    const internalShapeTextInset = ShapeScalingController._resolveInternalShapeTextInset({
-      group,
-      width: resolvedWidth,
-      height: resolvedHeight
-    })
-
-    return sumShapePadding({
-      base: internalShapeTextInset,
-      addition: userPadding
     })
   }
 

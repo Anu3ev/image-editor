@@ -3,6 +3,7 @@ import {
   isShapeTextFrameFilled,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText,
+  resolveShapeTextFixedWidthLayout,
   resolveShapeTextAutoExpandWidthForText,
   resolveShapeTextFrameLayout
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
@@ -563,6 +564,40 @@ describe('shape-layout', () => {
     expect(group.shapeBaseHeight).toBe(100)
     expect(group.shapePaddingTop + group.shapePaddingBottom).toBeLessThan(80)
     expect(text.height ?? 0).toBeLessThanOrEqual(availableTextHeight + 0.5)
+  })
+
+  it('resolveShapeTextFixedWidthLayout уменьшает пользовательский right padding, чтобы текст оставался внутри preview-ширины', () => {
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST',
+      width: 160,
+      fontSize: 48
+    })
+
+    const layout = resolveShapeTextFixedWidthLayout({
+      text,
+      width: 100,
+      height: 80,
+      alignV: 'middle',
+      padding: {
+        top: 0,
+        right: 118,
+        bottom: 0,
+        left: 0
+      }
+    })
+    const renderedLayout = measureRenderedTextboxLayout({
+      text: text.text ?? '',
+      frameWidth: layout.frame.width,
+      fontSize: Number(text.fontSize) || 48,
+      splitByGrapheme: layout.splitByGrapheme
+    })
+    const longestLineWidth = Math.max(0, ...renderedLayout.lineWidths)
+
+    expect(layout.width).toBe(100)
+    expect(layout.appliedUserPadding.right).toBeLessThan(118)
+    expect(layout.frame.left).toBeGreaterThanOrEqual(-(layout.width / 2) - 0.5)
+    expect(layout.frame.left + layout.frame.width).toBeLessThanOrEqual((layout.width / 2) + 0.5)
+    expect(longestLineWidth).toBeLessThanOrEqual(layout.frame.width + 0.5)
   })
 
   it('после narrow layout с переносом строк и обратного расширения возвращает actual height к manual base height', () => {

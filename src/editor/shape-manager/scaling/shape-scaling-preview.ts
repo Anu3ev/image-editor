@@ -1,29 +1,23 @@
-import {
-  resolveShapeTextFrameLayout
+import type {
+  ResolvedShapeTextLayout
 } from '../layout/shape-layout'
 import { resizeShapeNode } from '../shape-factory'
 import {
-  SHAPE_DEFAULT_HORIZONTAL_ALIGN,
-  SHAPE_DEFAULT_VERTICAL_ALIGN
+  SHAPE_DEFAULT_HORIZONTAL_ALIGN
 } from '../shape-presets'
 import type {
   ShapeGroup,
   ShapeHorizontalAlign,
   ShapeNode,
-  ShapePadding,
-  ShapeTextNode,
-  ShapeVerticalAlign
+  ShapeTextNode
 } from '../types'
 
 type ShapeScalingPreviewOptions = {
   group: ShapeGroup
   shape: ShapeNode
   text: ShapeTextNode
-  width: number
-  height: number
-  padding: ShapePadding
+  layout: ResolvedShapeTextLayout
   alignH?: ShapeHorizontalAlign
-  alignV?: ShapeVerticalAlign
   scaleX: number
   scaleY: number
   minSize: number
@@ -43,11 +37,8 @@ type ShapeScalingShapeGeometryOptions = {
 
 type ShapeScalingTextLayoutOptions = {
   text: ShapeTextNode
-  width: number
-  height: number
-  padding: ShapePadding
+  layout: ResolvedShapeTextLayout
   alignH?: ShapeHorizontalAlign
-  alignV?: ShapeVerticalAlign
   scaleX: number
   scaleY: number
   scaleEpsilon: number
@@ -123,11 +114,8 @@ function applyShapeScalingPreviewGeometry({
  */
 function applyShapeScalingPreviewTextLayout({
   text,
-  width,
-  height,
-  padding,
+  layout,
   alignH,
-  alignV,
   scaleX,
   scaleY,
   scaleEpsilon
@@ -135,26 +123,14 @@ function applyShapeScalingPreviewTextLayout({
   const safeScaleX = Math.max(scaleEpsilon, Math.abs(scaleX) || 1)
   const safeScaleY = Math.max(scaleEpsilon, Math.abs(scaleY) || 1)
   const horizontalAlign = alignH ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
-  const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
-  const {
-    frame,
-    splitByGrapheme,
-    textTop
-  } = resolveShapeTextFrameLayout({
-    text,
-    width,
-    height,
-    alignV: verticalAlign,
-    padding
-  })
 
   text.set({
     autoExpand: false,
     textAlign: horizontalAlign,
-    width: frame.width,
-    splitByGrapheme,
-    left: frame.left / safeScaleX,
-    top: textTop / safeScaleY,
+    width: layout.frame.width,
+    splitByGrapheme: layout.splitByGrapheme,
+    left: layout.frame.left / safeScaleX,
+    top: layout.textTop / safeScaleY,
     originX: 'left',
     originY: 'top',
     scaleX: 1 / safeScaleX,
@@ -172,11 +148,8 @@ export const applyShapeScalingPreviewLayout = ({
   group,
   shape,
   text,
-  width,
-  height,
-  padding,
+  layout,
   alignH,
-  alignV,
   scaleX,
   scaleY,
   minSize,
@@ -186,16 +159,16 @@ export const applyShapeScalingPreviewLayout = ({
   const safeScaleY = Math.max(scaleEpsilon, Math.abs(scaleY) || 1)
 
   group.set({
-    width: width / safeScaleX,
-    height: height / safeScaleY,
+    width: layout.width / safeScaleX,
+    height: layout.height / safeScaleY,
     dirty: true
   })
 
   applyShapeScalingPreviewGeometry({
     group,
     shape,
-    width,
-    height,
+    width: layout.width,
+    height: layout.height,
     scaleX,
     scaleY,
     minSize,
@@ -204,11 +177,8 @@ export const applyShapeScalingPreviewLayout = ({
 
   applyShapeScalingPreviewTextLayout({
     text,
-    width,
-    height,
-    padding,
+    layout,
     alignH,
-    alignV,
     scaleX,
     scaleY,
     scaleEpsilon
