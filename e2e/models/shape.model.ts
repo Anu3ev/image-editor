@@ -87,6 +87,122 @@ export class ShapeModel {
     }
   }
 
+  /** Переводит точку canvas-сцены в viewport-координаты браузера для реальных mouse-событий. */
+  private async _resolveViewportPointFromScenePoint(
+    params: {
+      x: number
+      y: number
+    }
+  ): Promise<{
+    x: number
+    y: number
+  }> {
+    const point = await this.page.evaluate(({ x, y }) => {
+      const { editor } = window as any
+      const viewportTransform = Array.isArray(editor.canvas.viewportTransform)
+        ? editor.canvas.viewportTransform
+        : [1, 0, 0, 1, 0, 0]
+      const viewportX = (viewportTransform[0] * x)
+        + (viewportTransform[2] * y)
+        + viewportTransform[4]
+      const viewportY = (viewportTransform[1] * x)
+        + (viewportTransform[3] * y)
+        + viewportTransform[5]
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + viewportX,
+        y: canvasRect.top + viewportY
+      }
+    }, params)
+
+    expect(point, 'для pointer-взаимодействия на canvas должны существовать viewport-координаты').not.toBeNull()
+
+    return point as {
+      x: number
+      y: number
+    }
+  }
+
+  /** Возвращает точки для клика и drag в горизонтальной области отступа текста внутри фигуры. */
+  private async _resolveTextInsetInteractionPoints(
+    {
+      side,
+      ...targetParams
+    }: {
+      side: 'left' | 'right'
+    } & ObjectTargetParams
+  ): Promise<{
+    insetPoint: {
+      x: number
+      y: number
+    }
+    textPoint: {
+      x: number
+      y: number
+    }
+  }> {
+    const snapshot = await this.getScaleSnapshot(targetParams)
+
+    expect(
+      snapshot.textBoundsLeft,
+      'левая граница текста должна существовать для взаимодействия с отступом'
+    ).not.toBeNull()
+    expect(
+      snapshot.textBoundsTop,
+      'верхняя граница текста должна существовать для взаимодействия с отступом'
+    ).not.toBeNull()
+    expect(
+      snapshot.textBoundsRight,
+      'правая граница текста должна существовать для взаимодействия с отступом'
+    ).not.toBeNull()
+    expect(
+      snapshot.textBoundsBottom,
+      'нижняя граница текста должна существовать для взаимодействия с отступом'
+    ).not.toBeNull()
+
+    const textBoundsLeft = snapshot.textBoundsLeft as number
+    const textBoundsTop = snapshot.textBoundsTop as number
+    const textBoundsRight = snapshot.textBoundsRight as number
+    const textBoundsBottom = snapshot.textBoundsBottom as number
+    const insetWidth = side === 'right'
+      ? snapshot.groupBoundsRight - textBoundsRight
+      : textBoundsLeft - snapshot.groupBoundsLeft
+
+    const insetSideTitle = side === 'right'
+      ? 'правого'
+      : 'левого'
+
+    expect(
+      insetWidth,
+      `для ${insetSideTitle} отступа фигуры должно быть место для pointer-взаимодействия`
+    ).toBeGreaterThan(8)
+
+    const textBoundsWidth = textBoundsRight - textBoundsLeft
+    const textOffset = Math.max(4, Math.min(textBoundsWidth / 3, 24))
+    const interactionSceneY = textBoundsTop + ((textBoundsBottom - textBoundsTop) / 2)
+    const insetSceneX = side === 'right'
+      ? textBoundsRight + (insetWidth / 2)
+      : textBoundsLeft - (insetWidth / 2)
+    const textSceneX = side === 'right'
+      ? textBoundsLeft + textOffset
+      : textBoundsRight - textOffset
+
+    const insetPoint = await this._resolveViewportPointFromScenePoint({
+      x: insetSceneX,
+      y: interactionSceneY
+    })
+    const textPoint = await this._resolveViewportPointFromScenePoint({
+      x: textSceneX,
+      y: interactionSceneY
+    })
+
+    return {
+      insetPoint,
+      textPoint
+    }
+  }
+
   /** Возвращает viewport-координаты control-handle фигуры для реальных mouse-событий. */
   private async _resolveControlPoint(
     {
@@ -1389,6 +1505,60 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
 
     return this.getTextNode(params)
+  }
+
+  /** Кликает в горизонтальную область отступа текста внутри фигуры через реальные координаты canvas. */
+  async clickTextInset(
+    params: {
+      side: 'left' | 'right'
+    } & ObjectTargetParams
+  ): Promise<ShapeTextInfo | null> {
+    const {
+      side,
+      ...targetParams
+    } = params
+    const { insetPoint } = await this._resolveTextInsetInteractionPoints({
+      side,
+      ...targetParams
+    })
+
+    await this.page.mouse.click(insetPoint.x, insetPoint.y)
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(targetParams)
+  }
+
+  /** Начинает выделение текста из горизонтальной области отступа и протягивает курсор внутрь текста. */
+  async dragTextSelectionFromInset(
+    params: {
+      side: 'left' | 'right'
+    } & ObjectTargetParams
+  ): Promise<ShapeTextInfo | null> {
+    const {
+      side,
+      ...targetParams
+    } = params
+    const {
+      insetPoint,
+      textPoint
+    } = await this._resolveTextInsetInteractionPoints({
+      side,
+      ...targetParams
+    })
+
+    await this.page.mouse.move(insetPoint.x, insetPoint.y)
+    await this.page.mouse.down()
+    await waitForCanvasRender({ page: this.page })
+
+    await this.page.mouse.move(textPoint.x, textPoint.y, {
+      steps: 8
+    })
+    await waitForCanvasRender({ page: this.page })
+
+    await this.page.mouse.up()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(targetParams)
   }
 
   /** Наводит курсор на ручку поворота фигуры. */

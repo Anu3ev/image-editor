@@ -35,6 +35,20 @@ type ShapeEditingInteractionState = {
   textLockMovementY: boolean
 }
 
+type ShapeCanvasPointerEvent = Parameters<Canvas['findTarget']>[0]
+
+type ShapeCanvasTargetInfo = ReturnType<Canvas['findTarget']>
+
+type ShapeCanvasFindTarget = (
+  event: ShapeCanvasPointerEvent
+) => ShapeCanvasTargetInfo
+
+type ShapeEditingTargetResolverState = {
+  group: ShapeGroup
+  text: ShapeTextNode
+  findTarget: ShapeCanvasFindTarget
+}
+
 /**
  * Контроллер редактирования текста внутри shape-группы.
  */
@@ -49,9 +63,15 @@ export default class ShapeEditingController {
    */
   private editingInteractionState: WeakMap<ShapeGroup, ShapeEditingInteractionState>
 
+  /**
+   * Временный target resolver, который удерживает клики внутри активного shape на editing-textbox.
+   */
+  private editingTargetResolverState?: ShapeEditingTargetResolverState
+
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
     this.editingInteractionState = new WeakMap()
+    this.editingTargetResolverState = undefined
   }
 
   /**
@@ -214,6 +234,11 @@ export default class ShapeEditingController {
       lockMovementY: true
     })
 
+    this._installEditingTargetResolver({
+      group,
+      text
+    })
+
     group.setCoords()
     text.setCoords()
   }
@@ -245,9 +270,85 @@ export default class ShapeEditingController {
       lockMovementY: storedState.textLockMovementY
     })
 
+    this._restoreEditingTargetResolver()
+
     this.editingInteractionState.delete(group)
 
     group.setCoords()
     text.setCoords()
+  }
+
+  /**
+   * На время editing перенаправляет клики внутри текущей shape-группы в активный textbox.
+   * Это удерживает Fabric от deselect, когда курсор попадает в inset-область shape, а не в сам glyph-box текста.
+   */
+  private _installEditingTargetResolver({
+    group,
+    text
+  }: {
+    group: ShapeGroup
+    text: ShapeTextNode
+  }): void {
+    const currentState = this.editingTargetResolverState
+
+    if (currentState?.group === group && currentState.text === text) {
+      return
+    }
+
+    this._restoreEditingTargetResolver()
+
+    const canvas = this.canvas as Canvas & {
+      findTarget: ShapeCanvasFindTarget
+    }
+    const originalFindTarget = canvas.findTarget.bind(canvas)
+
+    canvas.findTarget = (event: ShapeCanvasPointerEvent): ShapeCanvasTargetInfo => {
+      const targetInfo = originalFindTarget(event)
+      const activeObject = this.canvas.getActiveObject()
+
+      if (activeObject !== text || !text.isEditing) return targetInfo
+
+      if (targetInfo.target === text) return targetInfo
+
+      const targetGroup = resolveShapeGroupFromTarget({
+        target: targetInfo.target,
+        subTargets: targetInfo.subTargets
+      })
+
+      if (targetGroup !== group) return targetInfo
+
+      const subTargets = targetInfo.subTargets.includes(text)
+        ? targetInfo.subTargets
+        : [text, ...targetInfo.subTargets]
+
+      return {
+        ...targetInfo,
+        target: text,
+        currentTarget: text,
+        subTargets,
+        currentSubTargets: subTargets
+      }
+    }
+
+    this.editingTargetResolverState = {
+      group,
+      text,
+      findTarget: originalFindTarget
+    }
+  }
+
+  /**
+   * Возвращает canvas.findTarget в исходное состояние после завершения editing.
+   */
+  private _restoreEditingTargetResolver(): void {
+    const currentState = this.editingTargetResolverState
+    if (!currentState) return
+
+    const canvas = this.canvas as Canvas & {
+      findTarget: ShapeCanvasFindTarget
+    }
+
+    canvas.findTarget = currentState.findTarget
+    this.editingTargetResolverState = undefined
   }
 }
