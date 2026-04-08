@@ -301,6 +301,114 @@ describe('shape-editing', () => {
     expect(canvas.setActiveObject).toHaveBeenCalledWith(group)
   })
 
+  it('во время редактирования клик внутри текущего шейпа остаётся на текстовом узле', () => {
+    const {
+      controller,
+      canvas,
+      group,
+      text
+    } = createShapeEditingSetup({
+      getShapeNodesMock: getShapeNodes as jest.Mock,
+      isShapeGroupMock,
+      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
+    })
+
+    const originalFindTarget = canvas.findTarget as jest.Mock
+
+    originalFindTarget.mockReturnValue({
+      target: group,
+      subTargets: []
+    })
+
+    controller.handleTextEditingEntered({
+      target: text
+    })
+
+    text.isEditing = true
+    canvas.setActiveObject(text)
+
+    const targetInfo = canvas.findTarget(new MouseEvent('mousedown'))
+
+    expect(targetInfo.target).toBe(text)
+    expect(targetInfo.currentTarget).toBe(text)
+    expect(targetInfo.subTargets).toContain(text)
+    expect(targetInfo.currentSubTargets).toContain(text)
+  })
+
+  it('во время редактирования клик по другому target не подменяется на текст текущего шейпа', () => {
+    const {
+      controller,
+      canvas,
+      group,
+      text
+    } = createShapeEditingSetup({
+      getShapeNodesMock: getShapeNodes as jest.Mock,
+      isShapeGroupMock,
+      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
+    })
+
+    const otherTarget = new Group()
+    const originalFindTarget = canvas.findTarget as jest.Mock
+    const resolveShapeGroupFromTargetMock = resolveShapeGroupFromTarget as jest.Mock
+
+    resolveShapeGroupFromTargetMock.mockImplementation(({
+      target
+    }: {
+      target?: unknown
+    }) => (target === group ? group : null))
+
+    originalFindTarget.mockReturnValue({
+      target: otherTarget,
+      subTargets: []
+    })
+
+    controller.handleTextEditingEntered({
+      target: text
+    })
+
+    text.isEditing = true
+    canvas.setActiveObject(text)
+
+    const targetInfo = canvas.findTarget(new MouseEvent('mousedown'))
+
+    expect(targetInfo.target).toBe(otherTarget)
+    expect(targetInfo.currentTarget).toBeUndefined()
+    expect(targetInfo.subTargets).toEqual([])
+  })
+
+  it('после выхода из редактирования клик внутри шейпа снова резолвится как обычный target canvas', () => {
+    const {
+      controller,
+      canvas,
+      group,
+      text
+    } = createShapeEditingSetup({
+      getShapeNodesMock: getShapeNodes as jest.Mock,
+      isShapeGroupMock,
+      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
+    })
+
+    const originalFindTarget = canvas.findTarget as jest.Mock
+
+    originalFindTarget.mockReturnValue({
+      target: group,
+      subTargets: []
+    })
+
+    controller.handleTextEditingEntered({
+      target: text
+    })
+
+    controller.handleTextEditingExited({
+      target: text
+    })
+
+    const targetInfo = canvas.findTarget(new MouseEvent('mousedown'))
+
+    expect(targetInfo.target).toBe(group)
+    expect(targetInfo.subTargets).toEqual([])
+  })
+
   it('игнорирует обычный текстовый объект вне shape-группы', () => {
     const canvas = createMockCanvas()
     const controller = new ShapeEditingController({

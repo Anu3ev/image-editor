@@ -11,6 +11,7 @@ type MockCanvas = {
   on: jest.Mock
   off: jest.Mock
   fire: jest.Mock
+  findTarget: jest.Mock
   requestRenderAll: jest.Mock
   setActiveObject: jest.Mock
   getActiveObject: jest.Mock
@@ -91,6 +92,12 @@ export const createMockCanvas = (): MockCanvas => {
     on: jest.fn(),
     off: jest.fn(),
     fire: jest.fn(),
+    findTarget: jest.fn(() => ({
+      target: null,
+      subTargets: [],
+      currentTarget: null,
+      currentSubTargets: []
+    })),
     requestRenderAll: jest.fn(),
     setActiveObject: jest.fn((object: unknown) => {
       activeObject = object
