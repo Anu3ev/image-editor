@@ -207,6 +207,21 @@ export default class ShapeManager {
     const userPadding = normalizeShapeUserPadding({
       padding: textPadding
     })
+    const resolveInternalShapeTextInset = ({
+      width,
+      height
+    }: {
+      width: number
+      height: number
+    }): ShapePadding => resolveShapeTextContentInset({
+      baseInset: resolvePresetInternalShapeTextInset({
+        preset: effectivePreset,
+        width,
+        height
+      }),
+      stroke: style.stroke,
+      strokeWidth: style.strokeWidth
+    })
     const internalShapeTextInset = resolveShapeTextContentInset({
       baseInset: resolvePresetInternalShapeTextInset({
         preset: effectivePreset,
@@ -237,7 +252,14 @@ export default class ShapeManager {
       currentWidth: manualWidth,
       manualWidth,
       shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
-      padding
+      padding,
+      resolvePaddingForWidth: ({ width }) => sumShapePadding({
+        base: resolveInternalShapeTextInset({
+          width,
+          height: manualHeight
+        }),
+        addition: userPadding
+      })
     })
 
     const shape = await createShapeNode({
@@ -322,7 +344,11 @@ export default class ShapeManager {
   * При shapeTextAutoExpand=true явная width обновляет ручную базовую ширину,
   * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
   * При replace с новым presetKey по умолчанию не сохраняет текущий aspect ratio группы:
-  * новая фигура вписывается в текущий replacement box с пропорциями своего пресета.
+  * новая фигура вписывается в текущий replacement box и дальше получает итоговый размер
+  * через общий layout с пропорциями своего пресета. При выключенном
+  * shapeTextAutoExpand текст может переноситься, но итоговый размер всё равно
+  * сохраняет эти пропорции. Этот итоговый размер становится новой базой фигуры
+  * для последующих text-layout перерасчётов.
   * `preserveCurrentAspectRatio=true` оставляет текущее поведение без такого пересчета.
   * Если переданы `left/top/originX/originY`, они становятся новым placement-контрактом группы.
   * Сохраняет тот же instance группы и при необходимости заменяет только внутренний shape-узел.
@@ -443,17 +469,27 @@ export default class ShapeManager {
       options,
       fallback: currentGroup
     })
-    const resolvedInternalShapeTextInset = resolveShapeTextContentInset({
+    const resolveInternalShapeTextInset = ({
+      width,
+      height: nextHeight
+    }: {
+      width: number
+      height: number
+    }): ShapePadding => resolveShapeTextContentInset({
       baseInset: resolvePresetInternalShapeTextInset({
         preset: effectivePreset,
-        width: nextWidth,
-        height
+        width,
+        height: nextHeight
       }),
       stroke: style.stroke,
       strokeWidth: style.strokeWidth
     })
-    const padding = sumShapePadding({
-      base: resolvedInternalShapeTextInset,
+    const baseInternalShapeTextInset = resolveInternalShapeTextInset({
+      width: nextWidth,
+      height
+    })
+    const basePadding = sumShapePadding({
+      base: baseInternalShapeTextInset,
       addition: nextUserPadding
     })
 
@@ -540,20 +576,38 @@ export default class ShapeManager {
       && !this._hasShapeTextSizeAffectingStyleChanges({ textStyle })
     const shouldPreventPaddingResize = textPadding !== undefined
       && shouldPreserveCurrentWidth
-    const resolvedLayoutWidth = shouldPreserveCurrentWidth
-      ? currentDimensions.width
-      : this._resolveShapeLayoutWidth({
+    let resolvedLayoutWidth = nextWidth
+    let resolvedLayoutHeight = height
+
+    if (shouldPreserveCurrentWidth) {
+      resolvedLayoutWidth = currentDimensions.width
+      resolvedLayoutHeight = currentDimensions.height
+    } else if (!shouldFitReplacementToPreset) {
+      resolvedLayoutWidth = this._resolveShapeLayoutWidth({
         text: stagedTextNode,
         currentWidth: nextWidth,
         manualWidth,
         shapeTextAutoExpandEnabled: nextShapeTextAutoExpand,
-        padding
+        padding: basePadding,
+        resolvePaddingForWidth: ({ width }) => sumShapePadding({
+          base: resolveInternalShapeTextInset({
+            width,
+            height
+          }),
+          addition: nextUserPadding
+        })
       })
+    }
+
+    const resolvedInternalShapeTextInset = resolveInternalShapeTextInset({
+      width: resolvedLayoutWidth,
+      height: resolvedLayoutHeight
+    })
 
     const shape = await createShapeNode({
       preset: effectivePreset,
       width: resolvedLayoutWidth,
-      height,
+      height: resolvedLayoutHeight,
       style,
       rounding: effectiveRounding
     })
@@ -584,7 +638,7 @@ export default class ShapeManager {
           preset: effectivePreset
         }),
         width: resolvedLayoutWidth,
-        height,
+        height: resolvedLayoutHeight,
         manualWidth,
         manualHeight,
         replaceBoxWidth: nextReplaceBoxDimensions?.width,
@@ -603,14 +657,29 @@ export default class ShapeManager {
         text: currentTextNode,
         placement,
         width: resolvedLayoutWidth,
-        height,
+        height: resolvedLayoutHeight,
         alignH: horizontalAlign,
         alignV: verticalAlign,
         internalShapeTextInset: resolvedInternalShapeTextInset,
+        resolveInternalShapeTextInset,
+        preserveAspectRatio: shouldFitReplacementToPreset,
         minimumReplaceBox: nextReplaceBoxDimensions ?? undefined,
         expandShapeHeightToFitText: !shouldPreventPaddingResize,
         changedPadding
       })
+
+      if (shouldFitReplacementToPreset) {
+        // После replace финальный пропорциональный размер становится новой базой,
+        // иначе live text layout откатится к промежуточному fitted size.
+        currentGroup.shapeManualBaseWidth = Math.max(
+          1,
+          currentGroup.shapeBaseWidth ?? resolvedLayoutWidth
+        )
+        currentGroup.shapeManualBaseHeight = Math.max(
+          1,
+          currentGroup.shapeBaseHeight ?? resolvedLayoutHeight
+        )
+      }
 
       if (currentTextNode.isEditing) {
         this.editingPlacements.set(currentGroup, placement)
@@ -1382,6 +1451,7 @@ export default class ShapeManager {
     alignV,
     padding,
     internalShapeTextInset,
+    resolveInternalShapeTextInset,
     changedPadding,
     style,
     rounding
@@ -1400,6 +1470,10 @@ export default class ShapeManager {
     alignV: ShapeVerticalAlign
     padding: ShapePadding
     internalShapeTextInset?: ShapePadding
+    resolveInternalShapeTextInset?: ({ width: nextWidth, height: nextHeight }: {
+      width: number
+      height: number
+    }) => ShapePadding
     changedPadding?: ShapePaddingChangeMap
     style: ShapeVisualStyle
     rounding?: number
@@ -1448,7 +1522,9 @@ export default class ShapeManager {
       alignH,
       alignV,
       padding,
+      shapeTextAutoExpandEnabled: shapeTextAutoExpand,
       internalShapeTextInset,
+      resolveInternalShapeTextInset,
       changedPadding
     })
 
@@ -1836,12 +1912,16 @@ export default class ShapeManager {
     text,
     currentWidth,
     minimumWidth,
-    padding
+    padding,
+    resolvePaddingForWidth
   }: {
     text: ShapeTextNode
     currentWidth: number
     minimumWidth: number
     padding: ShapePadding
+    resolvePaddingForWidth?: ({ width }: {
+      width: number
+    }) => ShapePadding
   }): number {
     const montageAreaWidth = this._resolveMontageAreaWidth()
     if (!montageAreaWidth) {
@@ -1857,7 +1937,8 @@ export default class ShapeManager {
       currentWidth,
       minimumWidth,
       padding,
-      montageAreaWidth
+      montageAreaWidth,
+      resolvePaddingForWidth
     })
   }
 
@@ -1869,13 +1950,17 @@ export default class ShapeManager {
     currentWidth,
     manualWidth,
     shapeTextAutoExpandEnabled,
-    padding
+    padding,
+    resolvePaddingForWidth
   }: {
     text: ShapeTextNode
     currentWidth: number
     manualWidth: number
     shapeTextAutoExpandEnabled: boolean
     padding: ShapePadding
+    resolvePaddingForWidth?: ({ width }: {
+      width: number
+    }) => ShapePadding
   }): number {
     if (!shapeTextAutoExpandEnabled) {
       return Math.max(1, manualWidth)
@@ -1885,7 +1970,8 @@ export default class ShapeManager {
       text,
       currentWidth,
       minimumWidth: manualWidth,
-      padding
+      padding,
+      resolvePaddingForWidth
     })
   }
 
@@ -1921,6 +2007,8 @@ export default class ShapeManager {
     alignH,
     alignV,
     internalShapeTextInset,
+    resolveInternalShapeTextInset,
+    preserveAspectRatio,
     minimumReplaceBox,
     expandShapeHeightToFitText = true,
     changedPadding
@@ -1934,6 +2022,11 @@ export default class ShapeManager {
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
     internalShapeTextInset?: ShapePadding
+    resolveInternalShapeTextInset?: ({ width: nextWidth, height: nextHeight }: {
+      width: number
+      height: number
+    }) => ShapePadding
+    preserveAspectRatio?: boolean
     minimumReplaceBox?: ShapeGroupDimensions
     expandShapeHeightToFitText?: boolean
     changedPadding?: ShapePaddingChangeMap
@@ -1941,21 +2034,38 @@ export default class ShapeManager {
     const currentDimensions = this._resolveCurrentDimensions({ group })
     const manualDimensions = this._resolveManualDimensions({ group })
     const userPadding = this._resolveGroupUserPadding({ group })
+    const isShapeTextAutoExpandEnabled = this._isShapeTextAutoExpandEnabled({ group })
+    const resolveCurrentInternalShapeTextInset = resolveInternalShapeTextInset
+      ?? (({ width: nextWidth, height: nextHeight }: {
+        width: number
+        height: number
+      }) => internalShapeTextInset ?? this._resolveGroupInternalShapeTextInset({
+        group,
+        width: nextWidth,
+        height: nextHeight
+      }))
     let resolvedWidth = currentDimensions.width
 
     if (width !== undefined) {
       resolvedWidth = Math.max(1, width)
     } else {
+      const resolvedAutoExpandHeight = Math.max(1, height ?? currentDimensions.height)
       resolvedWidth = this._resolveShapeLayoutWidth({
         text,
         currentWidth: currentDimensions.width,
         manualWidth: manualDimensions.width,
-        shapeTextAutoExpandEnabled: this._isShapeTextAutoExpandEnabled({ group }),
+        shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
         padding: sumShapePadding({
-          base: internalShapeTextInset ?? this._resolveGroupInternalShapeTextInset({
-            group,
+          base: resolveCurrentInternalShapeTextInset({
             width: resolvedWidth,
-            height: Math.max(1, height ?? currentDimensions.height)
+            height: resolvedAutoExpandHeight
+          }),
+          addition: userPadding
+        }),
+        resolvePaddingForWidth: ({ width: nextWidth }) => sumShapePadding({
+          base: resolveCurrentInternalShapeTextInset({
+            width: nextWidth,
+            height: resolvedAutoExpandHeight
           }),
           addition: userPadding
         })
@@ -1963,12 +2073,14 @@ export default class ShapeManager {
     }
 
     const resolvedHeight = Math.max(1, height ?? currentDimensions.height)
-    const resolvedInternalShapeTextInset = internalShapeTextInset ?? this._resolveGroupInternalShapeTextInset({
-      group,
+    const resolvedInternalShapeTextInset = resolveCurrentInternalShapeTextInset({
       width: resolvedWidth,
       height: resolvedHeight
     })
     const stablePlacement = placement ?? this.editor.canvasManager.getObjectPlacement({ object: group })
+    const montageAreaWidth = preserveAspectRatio
+      ? this._resolveMontageAreaWidth()
+      : undefined
 
     applyShapeTextLayout({
       group,
@@ -1979,7 +2091,11 @@ export default class ShapeManager {
       alignH: alignH ?? group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
       alignV: alignV ?? group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
       padding: userPadding,
+      shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
       internalShapeTextInset: resolvedInternalShapeTextInset,
+      resolveInternalShapeTextInset: resolveCurrentInternalShapeTextInset,
+      preserveAspectRatio,
+      montageAreaWidth,
       expandShapeHeightToFitText,
       changedPadding
     })

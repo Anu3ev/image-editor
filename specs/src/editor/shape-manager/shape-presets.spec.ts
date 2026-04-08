@@ -74,16 +74,16 @@ describe('shape-presets', () => {
       throw new Error('shape presets are required for this test')
     }
 
-    expect(resolveInternalShapeTextInset({
+    const arrowUpInset = resolveInternalShapeTextInset({
       preset: arrowUpPreset,
       width: 140,
       height: 180
-    })).toEqual({
-      top: 68.4,
-      right: 28,
-      bottom: 18,
-      left: 28
     })
+
+    expect(arrowUpInset.top).toBeCloseTo(21.6, 6)
+    expect(arrowUpInset.right).toBeCloseTo(39.2, 6)
+    expect(arrowUpInset.bottom).toBe(0)
+    expect(arrowUpInset.left).toBeCloseTo(39.2, 6)
 
     const bannerInset = resolveInternalShapeTextInset({
       preset: bannerPreset,
@@ -91,10 +91,56 @@ describe('shape-presets', () => {
       height: 120
     })
 
-    expect(bannerInset.top).toBe(16.8)
-    expect(bannerInset.right).toBeCloseTo(46.8, 6)
-    expect(bannerInset.bottom).toBe(16.8)
-    expect(bannerInset.left).toBeCloseTo(21.6, 6)
+    expect(bannerInset.top).toBe(0)
+    expect(bannerInset.right).toBeCloseTo(36, 6)
+    expect(bannerInset.bottom).toBe(0)
+    expect(bannerInset.left).toBe(0)
+  })
+
+  it('сохраняет пропорции и внутренний отступ у star', () => {
+    const preset = getShapePreset({
+      presetKey: 'star'
+    })
+
+    if (!preset) {
+      throw new Error('star preset is required for this test')
+    }
+
+    const inset = resolveInternalShapeTextInset({
+      preset,
+      width: preset.width,
+      height: preset.height
+    })
+
+    expect(preset.width).toBe(180)
+    expect(preset.height).toBeCloseTo(170.5263, 4)
+    expect(inset.top).toBeCloseTo(64.8, 4)
+    expect(inset.right).toBeCloseTo(54, 4)
+    expect(inset.bottom).toBeCloseTo(37.5158, 4)
+    expect(inset.left).toBeCloseTo(54, 4)
+  })
+
+  it('сохраняет пропорции и внутренний отступ у arrow-up-fat', () => {
+    const preset = getShapePreset({
+      presetKey: 'arrow-up-fat'
+    })
+
+    if (!preset) {
+      throw new Error('arrow-up-fat preset is required for this test')
+    }
+
+    const inset = resolveInternalShapeTextInset({
+      preset,
+      width: preset.width,
+      height: preset.height
+    })
+
+    expect(preset.width).toBe(130)
+    expect(preset.height).toBe(180)
+    expect(inset.top).toBeCloseTo(18, 4)
+    expect(inset.right).toBeCloseTo(45.5, 4)
+    expect(inset.bottom).toBe(0)
+    expect(inset.left).toBeCloseTo(45.5, 4)
   })
 
   it('для квадратной фигуры возвращает нулевой внутренний отступ', () => {
@@ -136,10 +182,10 @@ describe('shape-presets', () => {
     })
 
     expect(inset).toEqual({
-      top: 24,
-      right: 48,
-      bottom: 24,
-      left: 48
+      top: 5,
+      right: 10,
+      bottom: 5,
+      left: 10
     })
   })
 

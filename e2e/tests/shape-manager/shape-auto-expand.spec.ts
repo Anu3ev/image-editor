@@ -1,5 +1,6 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
+  SHAPE_AUTO_EXPAND_ARROW_UP_FAT_TYPING_SEQUENCE,
   SHAPE_AUTO_EXPAND_ATOMIC_UPDATE_WIDTH,
   SHAPE_AUTO_EXPAND_BASE_OPTIONS,
   SHAPE_AUTO_EXPAND_LIMIT_RESOLUTION,
@@ -319,6 +320,68 @@ test.describe('Авторасширение текста внутри фигур
         expect(finalSnapshot.groupBoundsWidth)
           .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
       })
+    })
+  })
+
+  test('во время набора текста в arrow-up-fat текст не уходит на следующую строку перед расширением фигуры', async({
+    shapes
+  }) => {
+    const createdShape = await test.step('Добавить arrow-up-fat с пустым текстом', async() => {
+      return shapes.add({
+        presetKey: 'arrow-up-fat',
+        options: {
+          id: 'shape-auto-expand-arrow-up-fat',
+          text: '',
+          textStyle: {
+            fontSize: 36
+          }
+        }
+      })
+    })
+
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'arrow-up-fat'
+    })
+
+    const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-arrow-up-fat' })
+    })
+
+    await test.step('Открыть редактирование текста', async() => {
+      await shapes.enterTextEditing({ id: 'shape-auto-expand-arrow-up-fat' })
+    })
+
+    for (const text of SHAPE_AUTO_EXPAND_ARROW_UP_FAT_TYPING_SEQUENCE) {
+      await test.step(`Ввести "${text}"`, async() => {
+        await shapes.updateEditingText({
+          id: 'shape-auto-expand-arrow-up-fat',
+          text
+        })
+      })
+
+      const currentText = await test.step(`Получить состояние текста после "${text}"`, () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-arrow-up-fat' })
+      })
+      const currentSnapshot = await test.step(`Получить ширину фигуры после "${text}"`, () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-arrow-up-fat' })
+      })
+
+      await test.step(`Проверить что после "${text}" текст остаётся в одну строку`, () => {
+        expect(currentText?.lineCount).toBe(1)
+        expect(currentSnapshot.groupBoundsWidth)
+          .toBeGreaterThanOrEqual(initialSnapshot.groupBoundsWidth - SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      })
+    }
+
+    const finalSnapshot = await test.step('Получить итоговую ширину после всей последовательности ввода', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-auto-expand-arrow-up-fat' })
+    })
+
+    await test.step('Проверить что фигура действительно расширилась и текст остался внутри неё', () => {
+      expect(finalSnapshot.groupBoundsWidth)
+        .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
     })
   })
 

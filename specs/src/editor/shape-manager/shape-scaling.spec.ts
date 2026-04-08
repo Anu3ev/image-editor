@@ -749,10 +749,10 @@ describe('shape-scaling', () => {
 
     expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
       padding: {
-        top: 48,
-        right: 48,
-        bottom: 48,
-        left: 48
+        top: 10,
+        right: 10,
+        bottom: 10,
+        left: 10
       }
     }))
   })
@@ -825,10 +825,10 @@ describe('shape-scaling', () => {
 
     expect(resolveMinimumShapeWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
       padding: {
-        top: 58,
-        right: 58,
-        bottom: 58,
-        left: 58
+        top: 20,
+        right: 20,
+        bottom: 20,
+        left: 20
       }
     }))
   })
@@ -1173,6 +1173,47 @@ describe('shape-scaling', () => {
     expect(text.scaleY).toBe(1)
     expect(group.shapeManualBaseWidth).toBe(300)
     expect(group.shapeManualBaseHeight).toBe(250)
+  })
+
+  it('при выключенном авторасширении после scaling не включает его обратно', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.shapeTextAutoExpand = false
+    group.scaleX = 1.5
+    group.scaleY = 1.25
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        original: {
+          scaleX: 1,
+          scaleY: 1,
+          left: 480,
+          top: 420
+        },
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 300,
+      height: 250,
+      shapeTextAutoExpandEnabled: false
+    }))
+    expect(group.shapeTextAutoExpand).toBe(false)
   })
 
   it('масштабирует shapeRounding пропорционально при равномерном увеличении', () => {

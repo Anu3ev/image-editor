@@ -86,10 +86,10 @@ const shapePresetsList: ShapePreset[] = [
     width: DEFAULT_SHAPE_SIZE,
     height: DEFAULT_SHAPE_SIZE,
     internalTextInset: {
-      top: 0.24,
-      right: 0.24,
-      bottom: 0.24,
-      left: 0.24
+      top: 0.05,
+      right: 0.05,
+      bottom: 0.05,
+      left: 0.05
     }
   },
   {
@@ -99,13 +99,7 @@ const shapePresetsList: ShapePreset[] = [
       width: 34,
       height: 34
     }),
-    path: 'M34 17A17 17 0 1 1 17 0v17z',
-    internalTextInset: {
-      top: 0.22,
-      right: 0.26,
-      bottom: 0.14,
-      left: 0.14
-    }
+    path: 'M34 17A17 17 0 1 1 17 0v17z'
   },
   {
     key: 'triangle',
@@ -116,9 +110,9 @@ const shapePresetsList: ShapePreset[] = [
     }),
     internalTextInset: {
       top: 0.34,
-      right: 0.18,
+      right: 0.24,
       bottom: 0.12,
-      left: 0.18
+      left: 0.24
     }
   },
   {
@@ -140,9 +134,9 @@ const shapePresetsList: ShapePreset[] = [
     ],
     internalTextInset: {
       top: 0.3,
-      right: 0.3,
+      right: 0.24,
       bottom: 0.3,
-      left: 0.3
+      left: 0.24
     }
   },
   {
@@ -161,9 +155,9 @@ const shapePresetsList: ShapePreset[] = [
     ],
     internalTextInset: {
       top: 0.24,
-      right: 0.18,
-      bottom: 0.18,
-      left: 0.18
+      right: 0.08,
+      bottom: 0.08,
+      left: 0.08
     }
   },
   {
@@ -183,9 +177,7 @@ const shapePresetsList: ShapePreset[] = [
     ],
     internalTextInset: {
       top: 0.22,
-      right: 0.18,
-      bottom: 0.22,
-      left: 0.18
+      bottom: 0.22
     }
   },
   {
@@ -208,9 +200,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 38.1974, y: 38.1944 }
     ],
     internalTextInset: {
-      top: 0.3,
+      top: 0.38,
       right: 0.3,
-      bottom: 0.3,
+      bottom: 0.22,
       left: 0.3
     }
   },
@@ -226,10 +218,10 @@ const shapePresetsList: ShapePreset[] = [
       rotation: -Math.PI / 2
     }),
     internalTextInset: {
-      top: 0.24,
-      right: 0.24,
-      bottom: 0.24,
-      left: 0.24
+      top: 0.05,
+      right: 0.05,
+      bottom: 0.05,
+      left: 0.05
     }
   },
   {
@@ -263,10 +255,10 @@ const shapePresetsList: ShapePreset[] = [
       'C0 4.477 4.477 0 10 0a9.99 9.99 0 0 1 8 3.999A9.99 9.99 0 0 1 26 0'
     ].join(' '),
     internalTextInset: {
-      top: 0.22,
-      right: 0.22,
+      top: 0.1,
+      right: 0.1,
       bottom: 0.16,
-      left: 0.22
+      left: 0.1
     }
   },
   {
@@ -305,10 +297,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 62, y: 100 }
     ],
     internalTextInset: {
-      top: 0.4,
-      right: 0.24,
-      bottom: 0.16,
-      left: 0.24
+      top: 0.1,
+      right: 0.35,
+      left: 0.35
     }
   },
   {
@@ -328,10 +319,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 61.1111, y: 0 }
     ],
     internalTextInset: {
-      top: 0.2,
-      right: 0.38,
-      bottom: 0.2,
-      left: 0.1
+      top: 0.3,
+      right: 0.1,
+      bottom: 0.3
     }
   },
   {
@@ -351,10 +341,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 38.8889, y: 0 }
     ],
     internalTextInset: {
-      top: 0.2,
-      right: 0.1,
-      bottom: 0.2,
-      left: 0.38
+      top: 0.3,
+      bottom: 0.3,
+      left: 0.1
     }
   },
   {
@@ -374,10 +363,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 71.4286, y: 38.8889 }
     ],
     internalTextInset: {
-      top: 0.38,
-      right: 0.2,
-      bottom: 0.1,
-      left: 0.2
+      top: 0.12,
+      right: 0.28,
+      left: 0.28
     }
   },
   {
@@ -395,10 +383,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 62, y: 0 }
     ],
     internalTextInset: {
-      top: 0.16,
-      right: 0.24,
-      bottom: 0.4,
-      left: 0.24
+      right: 0.35,
+      bottom: 0.1,
+      left: 0.35
     }
   },
   {
@@ -418,10 +405,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 50, y: 100 }
     ],
     internalTextInset: {
-      top: 0.1,
-      right: 0.2,
-      bottom: 0.38,
-      left: 0.2
+      right: 0.28,
+      bottom: 0.12,
+      left: 0.28
     }
   },
   {
@@ -444,10 +430,10 @@ const shapePresetsList: ShapePreset[] = [
       { x: 70, y: 26.3158 }
     ],
     internalTextInset: {
-      top: 0.34,
-      right: 0.2,
-      bottom: 0.34,
-      left: 0.2
+      top: 0.1,
+      right: 0.3,
+      bottom: 0.1,
+      left: 0.3
     }
   },
   {
@@ -470,10 +456,10 @@ const shapePresetsList: ShapePreset[] = [
       { x: 73.6842, y: 0 }
     ],
     internalTextInset: {
-      top: 0.2,
-      right: 0.32,
-      bottom: 0.2,
-      left: 0.32
+      top: 0.3,
+      right: 0.08,
+      bottom: 0.3,
+      left: 0.08
     }
   },
   {
@@ -491,10 +477,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 77.7778, y: 100 }
     ],
     internalTextInset: {
-      top: 0.14,
-      right: 0.26,
-      bottom: 0.14,
-      left: 0.12
+      right: 0.2
     }
   },
   {
@@ -506,10 +489,10 @@ const shapePresetsList: ShapePreset[] = [
     }),
     path: 'M0 23C0 11 13 0 13 0s13 11 13 23c0 7.18-5.82 13-13 13S0 30.18 0 23',
     internalTextInset: {
-      top: 0.28,
-      right: 0.26,
-      bottom: 0.18,
-      left: 0.26
+      top: 0.24,
+      right: 0.1,
+      bottom: 0.1,
+      left: 0.1
     }
   },
   {
@@ -553,10 +536,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 0, y: 100 }
     ],
     internalTextInset: {
-      top: 0.16,
-      right: 0.18,
-      bottom: 0.28,
-      left: 0.18
+      bottom: 0.22
     }
   },
   {
@@ -571,10 +551,10 @@ const shapePresetsList: ShapePreset[] = [
       rotation: -Math.PI / 2
     }),
     internalTextInset: {
-      top: 0.28,
-      right: 0.28,
-      bottom: 0.28,
-      left: 0.28
+      top: 0.1,
+      right: 0.1,
+      bottom: 0.1,
+      left: 0.1
     }
   },
   {
@@ -584,10 +564,8 @@ const shapePresetsList: ShapePreset[] = [
     height: DEFAULT_SHAPE_SIZE,
     path: 'M24 6 H76 L94 24 V76 L76 94 H24 L6 76 V24 Z',
     internalTextInset: {
-      top: 0.24,
-      right: 0.24,
-      bottom: 0.24,
-      left: 0.24
+      top: 0.1,
+      bottom: 0.1
     }
   },
   {
@@ -603,10 +581,7 @@ const shapePresetsList: ShapePreset[] = [
       { x: 18, y: 100 }
     ],
     internalTextInset: {
-      top: 0.2,
-      right: 0.22,
-      bottom: 0.34,
-      left: 0.22
+      bottom: 0.24
     }
   },
   {
@@ -616,10 +591,7 @@ const shapePresetsList: ShapePreset[] = [
     height: 130,
     path: 'M4 20 L64 20 L96 50 L64 80 L4 80 Z',
     internalTextInset: {
-      top: 0.24,
-      right: 0.34,
-      bottom: 0.24,
-      left: 0.18
+      right: 0.28
     }
   },
   {
@@ -635,9 +607,8 @@ const shapePresetsList: ShapePreset[] = [
     ].join(' '),
     internalTextInset: {
       top: 0.28,
-      right: 0.34,
-      bottom: 0.28,
-      left: 0.2
+      right: 0.5,
+      bottom: 0.28
     }
   }
 ]
