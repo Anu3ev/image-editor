@@ -600,6 +600,71 @@ describe('shape-layout', () => {
     expect(longestLineWidth).toBeLessThanOrEqual(layout.frame.width + 0.5)
   })
 
+  it('resolveShapeTextFixedWidthLayout уменьшает пользовательский left padding, чтобы текст оставался внутри preview-ширины', () => {
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST',
+      width: 160,
+      fontSize: 48
+    })
+
+    const layout = resolveShapeTextFixedWidthLayout({
+      text,
+      width: 100,
+      height: 80,
+      alignV: 'middle',
+      padding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 118
+      }
+    })
+    const renderedLayout = measureRenderedTextboxLayout({
+      text: text.text ?? '',
+      frameWidth: layout.frame.width,
+      fontSize: Number(text.fontSize) || 48,
+      splitByGrapheme: layout.splitByGrapheme
+    })
+    const longestLineWidth = Math.max(0, ...renderedLayout.lineWidths)
+
+    expect(layout.width).toBe(100)
+    expect(layout.appliedUserPadding.left).toBeLessThan(118)
+    expect(layout.frame.left).toBeGreaterThanOrEqual(-(layout.width / 2) - 0.5)
+    expect(layout.frame.left + layout.frame.width).toBeLessThanOrEqual((layout.width / 2) + 0.5)
+    expect(longestLineWidth).toBeLessThanOrEqual(layout.frame.width + 0.5)
+  })
+
+  // eslint-disable-next-line max-len
+  it('resolveShapeTextFixedWidthLayout при фиксированной высоте уменьшает верхний и нижний padding, чтобы текст остался внутри preview-высоты', () => {
+    const text = createMockShapeTextbox({
+      text: 'line one\nline two',
+      width: 120,
+      fontSize: 28,
+      lineHeight: 1
+    })
+
+    const layout = resolveShapeTextFixedWidthLayout({
+      text,
+      width: 120,
+      height: 100,
+      alignV: 'middle',
+      padding: {
+        top: 40,
+        right: 0,
+        bottom: 40,
+        left: 0
+      },
+      expandShapeHeightToFitText: false
+    })
+    const availableTextHeight = layout.height - layout.appliedPadding.top - layout.appliedPadding.bottom
+
+    expect(layout.height).toBe(100)
+    expect(layout.appliedUserPadding.top + layout.appliedUserPadding.bottom).toBeLessThan(80)
+    expect(layout.frame.top).toBeGreaterThanOrEqual(-(layout.height / 2) - 0.5)
+    expect(layout.frame.top + layout.frame.height).toBeLessThanOrEqual((layout.height / 2) + 0.5)
+    expect(layout.frame.height).toBeLessThanOrEqual(availableTextHeight + 0.5)
+  })
+
   it('после narrow layout с переносом строк и обратного расширения возвращает actual height к manual base height', () => {
     const shape = createMockShapeNode({
       width: 180,
