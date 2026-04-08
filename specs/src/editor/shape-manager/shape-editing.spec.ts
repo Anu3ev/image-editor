@@ -259,6 +259,44 @@ describe('shape-editing', () => {
     expect(text.lockMovementY).toBe(false)
   })
 
+  it('при обычном входе и выходе из редактирования возвращает исходное состояние группы', () => {
+    const {
+      controller,
+      group,
+      text
+    } = createShapeEditingSetup({
+      getShapeNodesMock: getShapeNodes as jest.Mock,
+      isShapeGroupMock,
+      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
+    })
+
+    group.selectable = false
+    group.evented = false
+    group.lockMovementX = false
+    group.lockMovementY = false
+    group.hoverCursor = 'move'
+    group.moveCursor = 'move'
+    text.lockMovementX = false
+    text.lockMovementY = false
+
+    controller.enterTextEditing({ group })
+    controller.handleTextEditingEntered({
+      target: text
+    })
+    controller.handleTextEditingExited({
+      target: text
+    })
+
+    expect(group.selectable).toBe(false)
+    expect(group.evented).toBe(false)
+    expect(group.lockMovementX).toBe(false)
+    expect(group.lockMovementY).toBe(false)
+    expect(group.hoverCursor).toBe('move')
+    expect(group.moveCursor).toBe('move')
+    expect(text.lockMovementX).toBe(false)
+    expect(text.lockMovementY).toBe(false)
+  })
+
   it('после выхода из editing восстанавливает интерактивность и возвращает active object на группу', () => {
     const {
       controller,
@@ -299,6 +337,35 @@ describe('shape-editing', () => {
     expect(text.evented).toBe(false)
     expect(text.selectable).toBe(false)
     expect(canvas.setActiveObject).toHaveBeenCalledWith(group)
+  })
+
+  it('если во время выхода из редактирования уже выбран другой объект, не возвращает выделение на текущий шейп', () => {
+    const {
+      controller,
+      canvas,
+      text
+    } = createShapeEditingSetup({
+      getShapeNodesMock: getShapeNodes as jest.Mock,
+      isShapeGroupMock,
+      resolveShapeGroupFromTargetMock: resolveShapeGroupFromTarget as jest.Mock
+    })
+
+    const otherObject = new Group()
+    const setActiveObjectMock = canvas.setActiveObject as jest.Mock
+
+    controller.handleTextEditingEntered({
+      target: text
+    })
+
+    canvas.setActiveObject(otherObject)
+    setActiveObjectMock.mockClear()
+
+    controller.handleTextEditingExited({
+      target: text
+    })
+
+    expect(canvas.getActiveObject()).toBe(otherObject)
+    expect(setActiveObjectMock).not.toHaveBeenCalled()
   })
 
   it('во время редактирования клик внутри текущего шейпа остаётся на текстовом узле', () => {
