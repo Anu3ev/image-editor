@@ -1,6 +1,12 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import type { ShapeHorizontalAlign } from '../../types'
 import {
+  SHAPE_EDITING_POINTER_PRIMARY_OPTIONS,
+  SHAPE_EDITING_POINTER_PRIMARY_PRESET,
+  SHAPE_EDITING_POINTER_SECONDARY_OPTIONS,
+  SHAPE_EDITING_POINTER_SECONDARY_PRESET
+} from '../../fixtures/data/shape-editing.data'
+import {
   SHAPE_TEXT_LAYOUT_BASE_OPTIONS,
   SHAPE_TEXT_LAYOUT_COMPARISON_FONT_SIZE,
   SHAPE_TEXT_LAYOUT_EXPAND_FONT_SIZE,
@@ -505,6 +511,119 @@ test.describe('Текст внутри фигуры', () => {
       expect(textNode?.text).toBe('Текст после изменения')
       expect(textNode?.textAlign).toBe('right')
       expect(textNode?.isEditing).toBe(false)
+    })
+  })
+})
+
+test.describe('Клики мышью в режиме редактирования текста внутри фигуры', () => {
+  test.beforeEach(async({ shapes }) => {
+    const primaryShape = await shapes.add({
+      presetKey: SHAPE_EDITING_POINTER_PRIMARY_PRESET,
+      options: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS
+    })
+    const secondaryShape = await shapes.add({
+      presetKey: SHAPE_EDITING_POINTER_SECONDARY_PRESET,
+      options: SHAPE_EDITING_POINTER_SECONDARY_OPTIONS
+    })
+
+    shapes.checkCreation({
+      shape: primaryShape,
+      presetKey: SHAPE_EDITING_POINTER_PRIMARY_PRESET
+    })
+    shapes.checkCreation({
+      shape: secondaryShape,
+      presetKey: SHAPE_EDITING_POINTER_SECONDARY_PRESET
+    })
+  })
+
+  test('при начале выделения из области отступа текст остаётся в режиме редактирования и выделяется мышью', async({
+    editorModel,
+    shapes
+  }) => {
+    await test.step('Открыть редактирование текста через реальный двойной клик по фигуре', async() => {
+      const textNode = await shapes.openTextEditingFromCanvas({
+        id: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS.id
+      })
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(activeObject?.type).toBe('background-textbox')
+    })
+
+    await test.step('Кликнуть в область отступа и убедиться что режим редактирования не закрылся', async() => {
+      const textNode = await shapes.clickTextInset({
+        id: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS.id,
+        side: 'right'
+      })
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(activeObject?.type).toBe('background-textbox')
+    })
+
+    await test.step('Протянуть мышь из области отступа в текст и проверить диапазон выделения', async() => {
+      const textNode = await shapes.dragTextSelectionFromInset({
+        id: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS.id,
+        side: 'right'
+      })
+      const activeObject = await editorModel.getActiveObject()
+      const selectionLength = Math.abs((textNode?.selectionEnd ?? 0) - (textNode?.selectionStart ?? 0))
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(selectionLength).toBeGreaterThan(0)
+      expect(activeObject?.type).toBe('background-textbox')
+    })
+  })
+
+  test('клик вне активной фигуры завершает редактирование текста', async({ canvas, shapes }) => {
+    await test.step('Открыть редактирование текста через реальный двойной клик по фигуре', async() => {
+      const textNode = await shapes.openTextEditingFromCanvas({
+        id: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS.id
+      })
+
+      expect(textNode?.isEditing).toBe(true)
+    })
+
+    await test.step('Кликнуть в верхний левый угол монтажной области', async() => {
+      await canvas.clickTopLeftInsideMontageArea()
+    })
+
+    await test.step('Проверить что редактирование текста завершилось', async() => {
+      const textNode = await shapes.getTextNode({
+        id: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS.id
+      })
+
+      expect(textNode?.isEditing).toBe(false)
+    })
+  })
+
+  test('клик по другой фигуре завершает редактирование текста и выделяет другую фигуру', async({
+    editorModel,
+    shapes
+  }) => {
+    await test.step('Открыть редактирование текста у первой фигуры через реальный двойной клик', async() => {
+      const textNode = await shapes.openTextEditingFromCanvas({
+        id: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS.id
+      })
+
+      expect(textNode?.isEditing).toBe(true)
+    })
+
+    await test.step('Кликнуть по второй фигуре на canvas', async() => {
+      await shapes.clickOnCanvas({
+        id: SHAPE_EDITING_POINTER_SECONDARY_OPTIONS.id
+      })
+    })
+
+    await test.step('Проверить что первая фигура вышла из редактирования, а активной стала вторая', async() => {
+      const textNode = await shapes.getTextNode({
+        id: SHAPE_EDITING_POINTER_PRIMARY_OPTIONS.id
+      })
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(textNode?.isEditing).toBe(false)
+      expect(activeObject?.type).toBe('shape-group')
+      expect(activeObject?.id).toBe(SHAPE_EDITING_POINTER_SECONDARY_OPTIONS.id)
     })
   })
 })
