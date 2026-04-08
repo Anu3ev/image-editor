@@ -12,6 +12,7 @@ import type {
   ShapeScaleStepParams,
   ShapeScaleMouseMoveStepParams,
   ShapeScaleSnapshot,
+  ShapeScaleSide,
   ShapeScaleCorner,
   ShapePresetKey,
   ShapeHorizontalAlign,
@@ -21,6 +22,11 @@ import type {
   ShapeTextSelectionStyleInfo
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
+
+type ShapeScaleLiveState = {
+  snapshot: ShapeScaleSnapshot
+  lineCount: number
+}
 
 export class ShapeModel {
   private readonly page: Page
@@ -347,6 +353,91 @@ export class ShapeModel {
       objectIndex,
       id
     })
+  }
+
+  /** Масштабирует shape по горизонтали за левую ручку и возвращает live snapshot. */
+  async scaleHorizontallyFromLeft(
+    params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      scaleX,
+      ctrlKey,
+      objectIndex,
+      id
+    } = params
+
+    return this._performInteractiveScaleStep({
+      scaleX,
+      scaleY: 1,
+      corner: 'ml',
+      originX: 'right',
+      originY: 'center',
+      ctrlKey,
+      objectIndex,
+      id
+    })
+  }
+
+  /** Пошагово сужает shape с выбранной стороны и возвращает live-состояния каждого шага. */
+  async shrinkFromSideInSteps(
+    params: {
+      side: ShapeScaleSide
+      steps: number[]
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleLiveState[]> {
+    const {
+      side,
+      steps,
+      objectIndex,
+      id
+    } = params
+
+    expect(steps.length, 'для поэтапного сужения должен быть хотя бы один шаг').toBeGreaterThan(0)
+
+    const states: ShapeScaleLiveState[] = []
+
+    for (let index = 0; index < steps.length; index += 1) {
+      const step = steps[index]
+      let snapshot: ShapeScaleSnapshot
+
+      if (side === 'right') {
+        snapshot = await this.scaleHorizontallyFromRight({
+          id,
+          objectIndex,
+          scaleX: step
+        })
+      } else if (side === 'left') {
+        snapshot = await this.scaleHorizontallyFromLeft({
+          id,
+          objectIndex,
+          scaleX: step
+        })
+      } else if (side === 'bottom') {
+        snapshot = await this.scaleVerticallyFromBottom({
+          id,
+          objectIndex,
+          scaleY: step
+        })
+      } else {
+        snapshot = await this.scaleVerticallyFromTop({
+          id,
+          objectIndex,
+          scaleY: step
+        })
+      }
+
+      const text = await this.getTextNode({
+        id,
+        objectIndex
+      })
+
+      states.push({
+        snapshot,
+        lineCount: text?.lineCount ?? 0
+      })
+    }
+
+    return states
   }
 
   /** Масштабирует shape по вертикали за нижнюю ручку и возвращает live snapshot. */

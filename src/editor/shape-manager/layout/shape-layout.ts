@@ -34,6 +34,16 @@ type ShapeTextFrame = {
   height: number
 }
 
+export type ResolvedShapeTextLayout = {
+  width: number
+  height: number
+  appliedPadding: ShapePadding
+  appliedUserPadding: ShapePadding
+  frame: ShapeTextFrame
+  splitByGrapheme: boolean
+  textTop: number
+}
+
 type ShapeTextFrameLayout = {
   frame: ShapeTextFrame
   splitByGrapheme: boolean
@@ -65,6 +75,22 @@ type ShapeTextLayoutResolution = {
   appliedUserPadding: ShapePadding
 }
 
+type ResolveShapeTextLayoutParams = Omit<ShapeLayoutInput, 'group' | 'shape' | 'alignH'>
+
+type ResolveShapeTextFixedWidthLayoutParams = Omit<
+ShapeLayoutInput,
+'group' | 'shape' | 'alignH' | 'preserveAspectRatio' | 'shapeTextAutoExpandEnabled' | 'montageAreaWidth'
+>
+
+type ResolveShapeTextLayoutStateParams = {
+  text: ShapeLayoutInput['text']
+  alignV: ShapeVerticalAlign
+  width: number
+  height: number
+  appliedPadding: ShapePadding
+  appliedUserPadding: ShapePadding
+}
+
 type ResolveShapeTextLayoutResolutionParams = {
   text: ShapeLayoutInput['text']
   width: number
@@ -87,6 +113,170 @@ type ResolveShapeTextLayoutResolutionParams = {
  * а при выключенном режиме сохраняет пропорции, но допускает перенос по общему
  * shape-layout контракту.
  */
+function resolveShapeTextLayoutState({
+  text,
+  alignV,
+  width,
+  height,
+  appliedPadding,
+  appliedUserPadding
+}: ResolveShapeTextLayoutStateParams): ResolvedShapeTextLayout {
+  const {
+    frame,
+    splitByGrapheme,
+    textTop
+  } = resolveShapeTextFrameLayout({
+    text,
+    width,
+    height,
+    alignV,
+    padding: appliedPadding
+  })
+
+  return {
+    width,
+    height,
+    appliedPadding,
+    appliedUserPadding,
+    frame,
+    splitByGrapheme,
+    textTop
+  }
+}
+
+/**
+ * Возвращает итоговый layout текста внутри shape c учетом авто-fit логики commit-path.
+ * Width/height могут быть расширены, если этого требует базовый текстовый контракт.
+ */
+export const resolveShapeTextLayout = ({
+  text,
+  width,
+  height,
+  alignV,
+  padding,
+  internalShapeTextInset,
+  resolveInternalShapeTextInset,
+  preserveAspectRatio,
+  shapeTextAutoExpandEnabled,
+  montageAreaWidth,
+  expandShapeHeightToFitText = true,
+  changedPadding
+}: ResolveShapeTextLayoutParams): ResolvedShapeTextLayout => {
+  const {
+    width: resolvedWidth,
+    height: resolvedHeight,
+    appliedPadding,
+    appliedUserPadding
+  } = preserveAspectRatio
+    ? resolveShapeTextLayoutResolutionForAspectRatio({
+      text,
+      width,
+      height,
+      padding,
+      internalShapeTextInset,
+      resolveInternalShapeTextInset,
+      shapeTextAutoExpandEnabled,
+      montageAreaWidth,
+      expandShapeHeightToFitText,
+      changedPadding
+    })
+    : resolveShapeTextLayoutResolution({
+      text,
+      width,
+      height,
+      padding,
+      internalShapeTextInset,
+      resolveInternalShapeTextInset,
+      expandShapeHeightToFitText,
+      changedPadding
+    })
+
+  return resolveShapeTextLayoutState({
+    text,
+    alignV,
+    width: resolvedWidth,
+    height: resolvedHeight,
+    appliedPadding,
+    appliedUserPadding
+  })
+}
+
+/**
+ * Возвращает preview-layout текста внутри shape для already-chosen width.
+ * В отличие от commit-path, ширина не расширяется и может меняться только applied padding и высота.
+ */
+export const resolveShapeTextFixedWidthLayout = ({
+  text,
+  width,
+  height,
+  alignV,
+  padding,
+  internalShapeTextInset,
+  resolveInternalShapeTextInset,
+  expandShapeHeightToFitText = true,
+  changedPadding
+}: ResolveShapeTextFixedWidthLayoutParams): ResolvedShapeTextLayout => {
+  const requestedUserPadding = normalizeShapeUserPadding({
+    padding
+  })
+  const normalizedInternalShapeTextInset = normalizeShapeLayoutPadding({
+    padding: internalShapeTextInset
+  })
+  const fixedWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
+  let resolvedHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  let resolvedPaddingLayout = resolveAppliedShapePadding({
+    text,
+    width: fixedWidth,
+    height: resolvedHeight,
+    padding: requestedUserPadding,
+    internalShapeTextInset: resolveCurrentInternalShapeTextInset({
+      width: fixedWidth,
+      height: resolvedHeight,
+      internalShapeTextInset: normalizedInternalShapeTextInset,
+      resolveInternalShapeTextInset
+    }),
+    expandShapeHeightToFitText,
+    changedPadding,
+    measureTextboxHeightForFrame,
+    resolveMinimumTextFrameWidth
+  })
+
+  for (let iteration = 0; iteration < MAX_LAYOUT_RESOLVE_ITERATIONS; iteration += 1) {
+    const nextHeight = Math.max(resolvedHeight, resolvedPaddingLayout.requiredHeight)
+
+    if (nextHeight <= resolvedHeight + TEXT_FRAME_FILL_EPSILON) {
+      break
+    }
+
+    resolvedHeight = nextHeight
+    resolvedPaddingLayout = resolveAppliedShapePadding({
+      text,
+      width: fixedWidth,
+      height: resolvedHeight,
+      padding: requestedUserPadding,
+      internalShapeTextInset: resolveCurrentInternalShapeTextInset({
+        width: fixedWidth,
+        height: resolvedHeight,
+        internalShapeTextInset: normalizedInternalShapeTextInset,
+        resolveInternalShapeTextInset
+      }),
+      expandShapeHeightToFitText,
+      changedPadding,
+      measureTextboxHeightForFrame,
+      resolveMinimumTextFrameWidth
+    })
+  }
+
+  return resolveShapeTextLayoutState({
+    text,
+    alignV,
+    width: fixedWidth,
+    height: resolvedHeight,
+    appliedPadding: resolvedPaddingLayout.appliedPadding,
+    appliedUserPadding: resolvedPaddingLayout.appliedUserPadding
+  })
+}
+
 export const applyShapeTextLayout = ({
   group,
   shape,
@@ -114,34 +304,28 @@ export const applyShapeTextLayout = ({
   )
   const isShapeTextAutoExpandEnabled = shapeTextAutoExpandEnabled
     ?? group.shapeTextAutoExpand !== false
+  const resolvedLayout = resolveShapeTextLayout({
+    text,
+    width,
+    height,
+    alignV,
+    padding,
+    internalShapeTextInset,
+    resolveInternalShapeTextInset,
+    preserveAspectRatio,
+    shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
+    montageAreaWidth,
+    expandShapeHeightToFitText,
+    changedPadding
+  })
   const {
     width: finalWidth,
     height: finalHeight,
-    appliedPadding,
-    appliedUserPadding
-  } = preserveAspectRatio
-    ? resolveShapeTextLayoutResolutionForAspectRatio({
-      text,
-      width,
-      height,
-      padding,
-      internalShapeTextInset,
-      resolveInternalShapeTextInset,
-      shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
-      montageAreaWidth,
-      expandShapeHeightToFitText,
-      changedPadding
-    })
-    : resolveShapeTextLayoutResolution({
-      text,
-      width,
-      height,
-      padding,
-      internalShapeTextInset,
-      resolveInternalShapeTextInset,
-      expandShapeHeightToFitText,
-      changedPadding
-    })
+    appliedUserPadding,
+    frame,
+    splitByGrapheme,
+    textTop
+  } = resolvedLayout
 
   resizeShapeNode({
     shape,
@@ -149,18 +333,6 @@ export const applyShapeTextLayout = ({
     height: finalHeight,
     rounding: group.shapeRounding,
     strokeWidth: group.shapeStrokeWidth
-  })
-
-  const {
-    frame,
-    splitByGrapheme,
-    textTop
-  } = resolveShapeTextFrameLayout({
-    text,
-    width: finalWidth,
-    height: finalHeight,
-    alignV,
-    padding: appliedPadding
   })
 
   text.set({

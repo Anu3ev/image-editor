@@ -4,7 +4,7 @@ import {
   isShapeTextFrameFilled,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText,
-  resolveShapeTextFrameLayout
+  resolveShapeTextFixedWidthLayout
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
 import {
@@ -22,7 +22,27 @@ jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   isShapeTextFrameFilled: jest.fn(),
   resolveMinimumShapeWidthForText: jest.fn(() => 100),
   resolveRequiredShapeHeightForText: jest.fn(({ height }: { height: number }) => height),
-  resolveShapeTextFrameLayout: jest.fn(() => ({
+  resolveShapeTextFixedWidthLayout: jest.fn(({
+    width,
+    height
+  }: {
+    width: number
+    height: number
+  }) => ({
+    width,
+    height,
+    appliedPadding: {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    },
+    appliedUserPadding: {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    },
     frame: {
       left: -60,
       top: -40,
@@ -48,7 +68,7 @@ describe('shape-scaling', () => {
   const isShapeTextFrameFilledMock = isShapeTextFrameFilled as jest.Mock
   const resolveMinimumShapeWidthForTextMock = resolveMinimumShapeWidthForText as jest.Mock
   const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
-  const resolveShapeTextFrameLayoutMock = resolveShapeTextFrameLayout as jest.Mock
+  const resolveShapeTextFixedWidthLayoutMock = resolveShapeTextFixedWidthLayout as jest.Mock
   const resizeShapeNodeMock = resizeShapeNode as jest.Mock
   const isShapeGroupMock = isShapeGroup as jest.Mock
 
@@ -57,6 +77,36 @@ describe('shape-scaling', () => {
     isShapeGroupMock.mockImplementation((target: { shapeComposite?: boolean }) => target?.shapeComposite === true)
     resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
     resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => height)
+    resolveShapeTextFixedWidthLayoutMock.mockImplementation(({
+      width,
+      height
+    }: {
+      width: number
+      height: number
+    }) => ({
+      width,
+      height,
+      appliedPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      appliedUserPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      frame: {
+        left: -60,
+        top: -40,
+        width: 120,
+        height: 120
+      },
+      splitByGrapheme: false,
+      textTop: -20
+    }))
     applyShapeTextLayoutMock.mockImplementation(({
       group,
       width,
@@ -169,7 +219,21 @@ describe('shape-scaling', () => {
     } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
-    resolveShapeTextFrameLayoutMock.mockReturnValueOnce({
+    resolveShapeTextFixedWidthLayoutMock.mockReturnValueOnce({
+      width: 160,
+      height: 160,
+      appliedPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      appliedUserPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
       frame: {
         left: -60,
         top: -40,
@@ -249,7 +313,21 @@ describe('shape-scaling', () => {
     } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
-    resolveShapeTextFrameLayoutMock.mockReturnValue({
+    resolveShapeTextFixedWidthLayoutMock.mockReturnValue({
+      width: 300,
+      height: 320,
+      appliedPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      appliedUserPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
       frame: {
         left: -60,
         top: -40,
@@ -284,6 +362,75 @@ describe('shape-scaling', () => {
     expect(text.scaleX).toBeCloseTo(1 / 1.5, 4)
     expect(text.scaleY).toBeCloseTo(0.5, 4)
     expect(canvas.requestRenderAll).toHaveBeenCalled()
+  })
+
+  it('в live-preview использует fixed-width layout с уже ужатым padding, а не сырые пользовательские отступы', () => {
+    const {
+      controller,
+      group,
+      text
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    group.shapePaddingRight = 118
+    group.scaleX = 0.2
+    group.scaleY = 1
+    resolveShapeTextFixedWidthLayoutMock.mockImplementation(({
+      width,
+      height
+    }: {
+      width: number
+      height: number
+    }) => ({
+      width,
+      height,
+      appliedPadding: {
+        top: 0,
+        right: 12,
+        bottom: 0,
+        left: 0
+      },
+      appliedUserPadding: {
+        top: 0,
+        right: 12,
+        bottom: 0,
+        left: 0
+      },
+      frame: {
+        left: -20,
+        top: -40,
+        width: 28,
+        height: 120
+      },
+      splitByGrapheme: true,
+      textTop: -30
+    }))
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 100,
+      padding: {
+        top: 0,
+        right: 118,
+        bottom: 0,
+        left: 0
+      }
+    }))
+    expect(text.width).toBe(28)
+    expect(text.left).toBeCloseTo(-40, 4)
+    expect(text.top).toBeCloseTo(-30, 4)
+    expect(text.splitByGrapheme).toBe(true)
   })
 
   it('синхронизирует высоту группы с live-preview высотой текста при переносе строк', () => {
@@ -438,7 +585,21 @@ describe('shape-scaling', () => {
     } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
-    resolveShapeTextFrameLayoutMock.mockReturnValue({
+    resolveShapeTextFixedWidthLayoutMock.mockReturnValue({
+      width: 200,
+      height: 160,
+      appliedPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      appliedUserPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
       frame: {
         left: -60,
         top: -40,

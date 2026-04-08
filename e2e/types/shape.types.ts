@@ -37,6 +37,7 @@ export type ShapeVerticalAlign = 'top' | 'middle' | 'bottom'
 export type ShapeScaleOriginX = 'left' | 'center' | 'right'
 export type ShapeScaleOriginY = 'top' | 'center' | 'bottom'
 export type ShapeScaleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
+export type ShapeScaleSide = 'right' | 'bottom' | 'left' | 'top'
 
 /** Пользовательские внутренние отступы текста внутри фигуры. */
 export interface ShapePaddingParams {

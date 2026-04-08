@@ -8,6 +8,7 @@ import {
   applyShapeTextLayout,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText,
+  resolveShapeTextFixedWidthLayout,
   resolveShapeTextFrameLayout,
   resolveShapeTextAutoExpandWidthForText
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
@@ -52,6 +53,36 @@ jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
     splitByGrapheme: false,
     textTop: 0
   })),
+  resolveShapeTextFixedWidthLayout: jest.fn(({
+    width,
+    height
+  }: {
+    width: number
+    height: number
+  }) => ({
+    width,
+    height,
+    appliedPadding: {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    },
+    appliedUserPadding: {
+      top: 0,
+      right: 0,
+      bottom: 0,
+      left: 0
+    },
+    frame: {
+      left: 0,
+      top: 0,
+      width: Math.max(1, width),
+      height: Math.max(1, height)
+    },
+    splitByGrapheme: false,
+    textTop: 0
+  })),
   resolveShapeTextAutoExpandWidthForText: jest.fn(({
     currentWidth,
     minimumWidth
@@ -85,6 +116,7 @@ describe('shape-manager', () => {
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
   const resolveMinimumShapeWidthForTextMock = resolveMinimumShapeWidthForText as jest.Mock
   const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
+  const resolveShapeTextFixedWidthLayoutMock = resolveShapeTextFixedWidthLayout as jest.Mock
   const resolveShapeTextFrameLayoutMock = resolveShapeTextFrameLayout as jest.Mock
   const resolveShapeTextAutoExpandWidthForTextMock = resolveShapeTextAutoExpandWidthForText as jest.Mock
 
@@ -111,6 +143,36 @@ describe('shape-manager', () => {
       frame: {
         left: padding?.left ?? 0,
         width: Math.max(1, width - (padding?.left ?? 0) - (padding?.right ?? 0))
+      },
+      splitByGrapheme: false,
+      textTop: 0
+    }))
+    resolveShapeTextFixedWidthLayoutMock.mockImplementation(({
+      width,
+      height
+    }: {
+      width: number
+      height: number
+    }) => ({
+      width,
+      height,
+      appliedPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      appliedUserPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      frame: {
+        left: 0,
+        top: 0,
+        width: Math.max(1, width),
+        height: Math.max(1, height)
       },
       splitByGrapheme: false,
       textTop: 0
@@ -1758,8 +1820,6 @@ describe('shape-manager', () => {
     if (!group) {
       throw new Error('shape group should be created')
     }
-
-    const initialWidth = group.shapeBaseWidth
 
     resolveShapeTextAutoExpandWidthForTextMock.mockClear()
     resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(320)
