@@ -1,6 +1,8 @@
 import { test, expect } from '../../fixtures/editor.fixture'
+import { SHAPE_SCALING_TOLERANCE } from '../../fixtures/data/shape-scaling.data'
 import {
   SHAPE_PADDING_BASE_OPTIONS,
+  SHAPE_PADDING_DIRECTIONAL_SCALING_SCENARIOS,
   SHAPE_PADDING_HISTORY_UPDATED,
   SHAPE_PADDING_INITIAL,
   SHAPE_PADDING_NORMALIZED_INPUT,
@@ -214,6 +216,131 @@ test.describe('Внутренние отступы текста внутри ф�
       expect(redoneShape?.shapePaddingBottom).toBe(updatedShape?.shapePaddingBottom)
       expect(redoneShape?.shapePaddingLeft).toBe(updatedShape?.shapePaddingLeft)
     })
+  })
+
+  test.describe('сужение фигуры с большим отступом со стороны скейлинга', () => {
+    for (const scenario of SHAPE_PADDING_DIRECTIONAL_SCALING_SCENARIOS) {
+      const {
+        title,
+        side,
+        axis,
+        expectWrap,
+        steps,
+        options
+      } = scenario
+      const {
+        id: shapeId
+      } = options
+
+      test(`при сужении ${title} текст остаётся внутри фигуры и не дёргается после отпускания мыши`, async({
+        shapes
+      }) => {
+        await test.step('Добавить фигуру с большим отступом со стороны сужения', async() => {
+          await shapes.add({
+            presetKey: 'square',
+            options
+          })
+        })
+
+        const initialSnapshot = await test.step('Получить исходные размеры фигуры', () => {
+          return shapes.getScaleSnapshot({ id: shapeId })
+        })
+        const initialText = await test.step('Получить исходное состояние текста', () => {
+          return shapes.getTextNode({ id: shapeId })
+        })
+
+        const liveStates = await test.step(
+          'Постепенно сузить фигуру и сохранить промежуточные состояния',
+          () => shapes.shrinkFromSideInSteps({
+            id: shapeId,
+            side,
+            steps
+          })
+        )
+
+        const lastLiveState = liveStates[liveStates.length - 1]
+
+        expect(lastLiveState, 'должно существовать последнее live-состояние перед отпусканием мыши').toBeDefined()
+
+        if (!lastLiveState) {
+          throw new Error('должно существовать последнее live-состояние перед отпусканием мыши')
+        }
+
+        await test.step('Проверить что на каждом live-шаге текст остаётся внутри фигуры', () => {
+          const initialSize = axis === 'horizontal'
+            ? initialSnapshot.groupBoundsWidth
+            : initialSnapshot.groupBoundsHeight
+          const firstLiveSize = axis === 'horizontal'
+            ? liveStates[0].snapshot.groupBoundsWidth
+            : liveStates[0].snapshot.groupBoundsHeight
+          const wrappedState = liveStates.find((state) => {
+            return state.lineCount > (initialText?.lineCount ?? 0)
+          })
+
+          expect(liveStates).toHaveLength(steps.length)
+          expect(firstLiveSize).toBeLessThan(initialSize - 1.5)
+
+          for (let index = 0; index < liveStates.length; index += 1) {
+            const currentSize = axis === 'horizontal'
+              ? liveStates[index].snapshot.groupBoundsWidth
+              : liveStates[index].snapshot.groupBoundsHeight
+
+            shapes.checkNodeInsideGroup({
+              snapshot: liveStates[index].snapshot,
+              kind: 'text'
+            })
+
+            if (index === 0) {
+              continue
+            }
+
+            const previousSize = axis === 'horizontal'
+              ? liveStates[index - 1].snapshot.groupBoundsWidth
+              : liveStates[index - 1].snapshot.groupBoundsHeight
+
+            expect(currentSize).toBeLessThanOrEqual(previousSize)
+          }
+
+          if (expectWrap) {
+            expect(wrappedState, 'должен существовать live-шаг, на котором текст уже перенёсся').toBeDefined()
+          }
+
+          if (!expectWrap) {
+            for (let index = 0; index < liveStates.length; index += 1) {
+              expect(liveStates[index].lineCount).toBe(initialText?.lineCount)
+            }
+          }
+        })
+
+        const finalSnapshot = await test.step('Отпустить мышь и получить финальное состояние', async() => {
+          return shapes.finishScale({ id: shapeId })
+        })
+        const finalText = await test.step('Получить финальное состояние текста', () => {
+          return shapes.getTextNode({ id: shapeId })
+        })
+
+        await test.step('Проверить что после отпускания мыши состояние не дёргается', () => {
+          const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - lastLiveState.snapshot.groupBoundsWidth)
+          const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - lastLiveState.snapshot.groupBoundsHeight)
+          const leftJump = Math.abs(finalSnapshot.groupBoundsLeft - lastLiveState.snapshot.groupBoundsLeft)
+          const topJump = Math.abs(finalSnapshot.groupBoundsTop - lastLiveState.snapshot.groupBoundsTop)
+          const rightJump = Math.abs(finalSnapshot.groupBoundsRight - lastLiveState.snapshot.groupBoundsRight)
+          const bottomJump = Math.abs(finalSnapshot.groupBoundsBottom - lastLiveState.snapshot.groupBoundsBottom)
+
+          expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+          expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+          expect(leftJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+          expect(topJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+          expect(rightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+          expect(bottomJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+          expect(finalText?.lineCount).toBe(lastLiveState.lineCount)
+          shapes.checkNodeInsideGroup({
+            snapshot: finalSnapshot,
+            kind: 'text'
+          })
+        })
+      })
+    }
   })
 
   test('при сужении фигуры скейлингом пользовательские отступы могут уменьшиться', async({ shapes }) => {

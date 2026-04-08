@@ -1,6 +1,7 @@
 import type {
   ShapeAddParams,
-  ShapePaddingParams
+  ShapePaddingParams,
+  ShapeScaleSide
 } from '../../types'
 
 export const SHAPE_PADDING_BASE_OPTIONS: NonNullable<ShapeAddParams['options']> = {
@@ -64,3 +65,125 @@ export const SHAPE_PADDING_SCALING_OPTIONS: NonNullable<ShapeAddParams['options'
     left: 30
   }
 }
+
+export interface ShapePaddingDirectionalScalingScenario {
+  title: string
+  side: ShapeScaleSide
+  axis: 'horizontal' | 'vertical'
+  expectWrap: boolean
+  steps: number[]
+  options: NonNullable<ShapeAddParams['options']>
+}
+
+const SHAPE_PADDING_HORIZONTAL_SCALING_STEPS = [
+  0.88,
+  0.74,
+  0.6,
+  0.48,
+  0.38,
+  0.3
+]
+
+const SHAPE_PADDING_VERTICAL_SCALING_STEPS = [
+  0.88,
+  0.74,
+  0.6,
+  0.48,
+  0.36,
+  0.28
+]
+
+export const SHAPE_PADDING_DIRECTIONAL_SCALING_SCENARIOS: ShapePaddingDirectionalScalingScenario[] = [
+  {
+    title: 'справа',
+    side: 'right',
+    axis: 'horizontal',
+    expectWrap: true,
+    steps: SHAPE_PADDING_HORIZONTAL_SCALING_STEPS,
+    options: {
+      id: 'shape-padding-live-scaling-right',
+      width: 260,
+      height: 180,
+      shapeTextAutoExpand: false,
+      text: 'TEST',
+      textStyle: {
+        fontSize: 48
+      },
+      textPadding: {
+        top: 0,
+        right: 118,
+        bottom: 0,
+        left: 0
+      }
+    }
+  },
+  {
+    title: 'снизу',
+    side: 'bottom',
+    axis: 'vertical',
+    expectWrap: false,
+    steps: SHAPE_PADDING_VERTICAL_SCALING_STEPS,
+    options: {
+      id: 'shape-padding-live-scaling-bottom',
+      width: 260,
+      height: 180,
+      shapeTextAutoExpand: false,
+      text: 'TEST',
+      textStyle: {
+        fontSize: 48
+      },
+      textPadding: {
+        top: 0,
+        right: 0,
+        bottom: 92,
+        left: 0
+      }
+    }
+  },
+  {
+    title: 'слева',
+    side: 'left',
+    axis: 'horizontal',
+    expectWrap: true,
+    steps: SHAPE_PADDING_HORIZONTAL_SCALING_STEPS,
+    options: {
+      id: 'shape-padding-live-scaling-left',
+      width: 260,
+      height: 180,
+      shapeTextAutoExpand: false,
+      text: 'TEST',
+      textStyle: {
+        fontSize: 48
+      },
+      textPadding: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 118
+      }
+    }
+  },
+  {
+    title: 'сверху',
+    side: 'top',
+    axis: 'vertical',
+    expectWrap: false,
+    steps: SHAPE_PADDING_VERTICAL_SCALING_STEPS,
+    options: {
+      id: 'shape-padding-live-scaling-top',
+      width: 260,
+      height: 180,
+      shapeTextAutoExpand: false,
+      text: 'TEST',
+      textStyle: {
+        fontSize: 48
+      },
+      textPadding: {
+        top: 92,
+        right: 0,
+        bottom: 0,
+        left: 0
+      }
+    }
+  }
+]
