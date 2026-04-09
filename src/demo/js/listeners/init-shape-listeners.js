@@ -67,6 +67,7 @@ import {
  *   shapeStrokeWidthValue: ShapeTextNode,
  *   shapeOpacityInput: ShapeInputElement,
  *   shapeOpacityValue: ShapeTextNode,
+ *   shapeOpacityApplyToTextCheckbox: HTMLInputElement,
  *   shapeAlignHorizontalButtons: HTMLButtonElement[],
  *   shapeAlignVerticalButtons: HTMLButtonElement[],
  *   shapePaddingTopInput: ShapeInputElement,
@@ -99,6 +100,7 @@ export default ({ editorInstance, controls }) => {
     shapeStrokeWidthValue,
     shapeOpacityInput,
     shapeOpacityValue,
+    shapeOpacityApplyToTextCheckbox,
     shapeAlignHorizontalButtons,
     shapeAlignVerticalButtons,
     shapePaddingTopInput,
@@ -370,13 +372,18 @@ export default ({ editorInstance, controls }) => {
   /**
    * Применяет opacity к активной фигуре.
    */
-  const applyShapeOpacity = ({ opacity, withoutSave = false }) => {
+  const applyShapeOpacity = ({
+    opacity,
+    applyToText = true,
+    withoutSave = false
+  }) => {
     const shapeGroup = getActiveShape()
     if (!shapeGroup) return
 
     const updated = editorInstance.shapeManager.setOpacity({
       target: shapeGroup,
       opacity,
+      applyToText,
       withoutSave
     })
     if (!updated) return
@@ -752,6 +759,7 @@ export default ({ editorInstance, controls }) => {
       shapeOpacityValue.textContent = `${opacityPercent}%`
       applyShapeOpacity({
         opacity: opacityPercent / 100,
+        applyToText: shapeOpacityApplyToTextCheckbox.checked,
         withoutSave: true
       })
     })
@@ -759,7 +767,10 @@ export default ({ editorInstance, controls }) => {
     shapeOpacityInput.addEventListener('change', () => {
       const opacityPercent = getShapeOpacityPercentFromInput()
       shapeOpacityValue.textContent = `${opacityPercent}%`
-      applyShapeOpacity({ opacity: opacityPercent / 100 })
+      applyShapeOpacity({
+        opacity: opacityPercent / 100,
+        applyToText: shapeOpacityApplyToTextCheckbox.checked
+      })
     })
 
     for (const button of shapeAlignHorizontalButtons) {
@@ -859,10 +870,36 @@ export default ({ editorInstance, controls }) => {
         if (!presetKey) return
 
         const options = getShapeOptionsFromControls()
-        await editorInstance.shapeManager.add({
+        const { opacity } = options
+        const applyToText = shapeOpacityApplyToTextCheckbox.checked
+        const needsShapeOnlyOpacityUpdate = !applyToText
+          && typeof opacity === 'number'
+          && opacity !== 1
+
+        if (needsShapeOnlyOpacityUpdate) {
+          delete options.opacity
+          options.withoutSave = true
+        }
+
+        const addedShape = await editorInstance.shapeManager.add({
           presetKey,
           options
         })
+
+        if (!addedShape) return
+
+        if (!needsShapeOnlyOpacityUpdate) {
+          syncShapeControls(addedShape)
+          return
+        }
+
+        const updatedShape = editorInstance.shapeManager.setOpacity({
+          target: addedShape,
+          opacity,
+          applyToText: false
+        })
+
+        syncShapeControls(updatedShape ?? addedShape)
       })
     }
 

@@ -93,6 +93,7 @@ export interface ShapeAddParams {
     originY?: ShapeScaleOriginY
     width?: number
     height?: number
+    preserveAspectRatio?: boolean
     shapeTextAutoExpand?: boolean
     text?: string
     textStyle?: ShapeTextStyleParams

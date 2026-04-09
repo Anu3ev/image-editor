@@ -61,6 +61,7 @@ import {
   ShapeNode,
   ShapePadding,
   ShapePaddingChangeMap,
+  ShapePreset,
   ShapeReference,
   ShapeStrokeOptions,
   ShapeTextAlignOptions,
@@ -143,8 +144,15 @@ export default class ShapeManager {
 
   /**
    * Добавляет shape-композицию (фигура + текст) по presetKey.
-   * При shapeTextAutoExpand=true явная width задаёт ручную базовую ширину,
-   * но текущая ширина может быть больше неё, если этого требует текст.
+   * По умолчанию width/height трактуются как точный итоговый размер фигуры
+   * и могут растянуть preset относительно его исходных пропорций.
+   * `preserveAspectRatio=true` переключает add-path в режим fit по пропорциям preset:
+   * одна переданная ось остаётся точной, а вторая вычисляется из aspect ratio;
+   * если переданы обе оси, фигура вписывается в этот box с сохранением пропорций.
+   * Если при этом включен shapeTextAutoExpand и тексту нужно больше места,
+   * финальный размер может вырасти относительно переданного box.
+   * При shapeTextAutoExpand=true ручная базовая ширина остается нижней границей,
+   * но текущий размер может стать больше неё, если этого требует текст.
    * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
    * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
    * @fires editor:shape-added
@@ -160,22 +168,88 @@ export default class ShapeManager {
     if (!basePreset) return null
 
     const {
-      width: rawWidth,
-      height: rawHeight,
-      shapeTextAutoExpand,
       left,
       top,
       originX,
       originY,
+      withoutAdding,
+      withoutSelection,
+      withoutSave
+    } = options
+
+    const group = await this._createShapeGroupForAdd({
+      basePreset,
+      options
+    })
+    const addedPayload: ShapeAddedPayload = {
+      shape: group,
+      presetKey: group.shapePresetKey ?? basePreset.key,
+      options
+    }
+
+    if (left === undefined && top === undefined) {
+      this.editor.canvasManager.centerObjectToMontageArea({ object: group })
+    } else {
+      const placement = this.editor.canvasManager.resolveObjectPlacement({
+        object: group,
+        left,
+        top,
+        originX,
+        originY,
+        fallbackPoint: this.editor.canvasManager.getMontageAreaSceneCenter()
+      })
+
+      this.editor.canvasManager.applyObjectPlacement({
+        object: group,
+        placement
+      })
+    }
+
+    if (withoutAdding) {
+      this.editor.canvas.fire('editor:shape-added', addedPayload)
+      return group
+    }
+
+    this._beginMutation()
+
+    try {
+      this.editor.canvas.add(group)
+
+      if (!withoutSelection) {
+        this.editor.canvas.setActiveObject(group)
+      }
+
+      this.editor.canvas.requestRenderAll()
+    } finally {
+      this._endMutation({ withoutSave })
+    }
+
+    this.editor.canvas.fire('editor:shape-added', addedPayload)
+
+    return group
+  }
+
+  /**
+   * Создает готовую shape-группу для add() до placement и добавления на canvas.
+   */
+  private async _createShapeGroupForAdd({
+    basePreset,
+    options
+  }: {
+    basePreset: ShapePreset
+    options: ShapeAddOptions
+  }): Promise<ShapeGroup> {
+    const {
+      width: rawWidth,
+      height: rawHeight,
+      preserveAspectRatio,
+      shapeTextAutoExpand,
       text,
       textStyle,
       alignH,
       alignV,
       textPadding,
       rounding,
-      withoutAdding,
-      withoutSelection,
-      withoutSave,
       id
     } = options
 
@@ -187,9 +261,37 @@ export default class ShapeManager {
     const effectivePreset = getShapePreset({
       presetKey: effectivePresetKey
     }) ?? basePreset
+    const {
+      width: presetWidth,
+      height: presetHeight
+    } = effectivePreset
 
-    const manualWidth = Math.max(1, rawWidth ?? effectivePreset.width)
-    const manualHeight = Math.max(1, rawHeight ?? effectivePreset.height)
+    const shouldPreserveAspectRatio = Boolean(preserveAspectRatio)
+
+    let manualWidth = Math.max(1, rawWidth ?? presetWidth)
+    let manualHeight = Math.max(1, rawHeight ?? presetHeight)
+    let replaceBoxWidth: number | undefined
+    let replaceBoxHeight: number | undefined
+
+    if (shouldPreserveAspectRatio) {
+      replaceBoxWidth = rawWidth !== undefined
+        ? Math.max(1, rawWidth)
+        : undefined
+      replaceBoxHeight = rawHeight !== undefined
+        ? Math.max(1, rawHeight)
+        : undefined
+
+      const fittedDimensions = this._resolveAspectRatioFittedDimensions({
+        targetWidth: replaceBoxWidth,
+        targetHeight: replaceBoxHeight,
+        aspectWidth: presetWidth,
+        aspectHeight: presetHeight
+      })
+
+      manualWidth = fittedDimensions.width
+      manualHeight = fittedDimensions.height
+    }
+
     const isShapeTextAutoExpandEnabled = shapeTextAutoExpand !== false
 
     const horizontalAlign = this._resolveHorizontalAlign({
@@ -247,30 +349,34 @@ export default class ShapeManager {
       opacity: style.opacity
     })
 
-    const layoutWidth = this._resolveShapeLayoutWidth({
-      text: textNode,
-      currentWidth: manualWidth,
-      manualWidth,
-      shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
-      padding,
-      resolvePaddingForWidth: ({ width }) => sumShapePadding({
-        base: resolveInternalShapeTextInset({
-          width,
-          height: manualHeight
-        }),
-        addition: userPadding
+    let initialWidth = manualWidth
+
+    if (!shouldPreserveAspectRatio) {
+      initialWidth = this._resolveShapeLayoutWidth({
+        text: textNode,
+        currentWidth: manualWidth,
+        manualWidth,
+        shapeTextAutoExpandEnabled: isShapeTextAutoExpandEnabled,
+        padding,
+        resolvePaddingForWidth: ({ width }) => sumShapePadding({
+          base: resolveInternalShapeTextInset({
+            width,
+            height: manualHeight
+          }),
+          addition: userPadding
+        })
       })
-    })
+    }
 
     const shape = await createShapeNode({
       preset: effectivePreset,
-      width: layoutWidth,
+      width: initialWidth,
       height: manualHeight,
       style,
       rounding
     })
 
-    const group = this._createShapeGroup({
+    return this._createShapeGroup({
       id: id ?? `shape-${nanoid()}`,
       presetKey: effectivePreset.key,
       presetCanRound: isShapePresetRoundable({
@@ -278,65 +384,23 @@ export default class ShapeManager {
       }),
       shape,
       text: textNode,
-      width: layoutWidth,
+      width: initialWidth,
       height: manualHeight,
       manualWidth,
       manualHeight,
+      replaceBoxWidth,
+      replaceBoxHeight,
+      preserveAspectRatio: shouldPreserveAspectRatio,
       shapeTextAutoExpand: isShapeTextAutoExpandEnabled,
       alignH: horizontalAlign,
       alignV: verticalAlign,
       padding: userPadding,
       internalShapeTextInset,
+      resolveInternalShapeTextInset,
       changedPadding,
       style,
       rounding
     })
-    const addedPayload: ShapeAddedPayload = {
-      shape: group,
-      presetKey: effectivePreset.key,
-      options
-    }
-
-    if (left === undefined && top === undefined) {
-      this.editor.canvasManager.centerObjectToMontageArea({ object: group })
-    } else {
-      const placement = this.editor.canvasManager.resolveObjectPlacement({
-        object: group,
-        left,
-        top,
-        originX,
-        originY,
-        fallbackPoint: this.editor.canvasManager.getMontageAreaSceneCenter()
-      })
-
-      this.editor.canvasManager.applyObjectPlacement({
-        object: group,
-        placement
-      })
-    }
-
-    if (withoutAdding) {
-      this.editor.canvas.fire('editor:shape-added', addedPayload)
-      return group
-    }
-
-    this._beginMutation()
-
-    try {
-      this.editor.canvas.add(group)
-
-      if (!withoutSelection) {
-        this.editor.canvas.setActiveObject(group)
-      }
-
-      this.editor.canvas.requestRenderAll()
-    } finally {
-      this._endMutation({ withoutSave })
-    }
-
-    this.editor.canvas.fire('editor:shape-added', addedPayload)
-
-    return group
   }
 
   /**
@@ -946,16 +1010,20 @@ export default class ShapeManager {
 
   /**
    * Обновляет прозрачность фигуры.
+   * По умолчанию opacity применяется и к shape-узлу, и к тексту внутри группы.
+   * `applyToText=false` оставляет текст с текущей прозрачностью и обновляет только shape.
    * @fires editor:before:shape-updated
    * @fires editor:shape-updated
    */
   public setOpacity({
     target,
     opacity,
+    applyToText = true,
     withoutSave
   }: {
     target?: ShapeReference
     opacity: number
+    applyToText?: boolean
     withoutSave?: boolean
   }): ShapeGroup | null {
     const group = this._resolveShapeGroup({ target })
@@ -982,7 +1050,7 @@ export default class ShapeManager {
         style: { opacity }
       })
 
-      if (text) {
+      if (applyToText && text) {
         text.set({ opacity })
         text.setCoords()
       }
@@ -1446,6 +1514,9 @@ export default class ShapeManager {
     height,
     manualWidth,
     manualHeight,
+    replaceBoxWidth,
+    replaceBoxHeight,
+    preserveAspectRatio,
     shapeTextAutoExpand,
     alignH,
     alignV,
@@ -1465,12 +1536,15 @@ export default class ShapeManager {
     height: number
     manualWidth?: number
     manualHeight?: number
+    replaceBoxWidth?: number
+    replaceBoxHeight?: number
+    preserveAspectRatio?: boolean
     shapeTextAutoExpand: boolean
     alignH: ShapeHorizontalAlign
     alignV: ShapeVerticalAlign
     padding: ShapePadding
     internalShapeTextInset?: ShapePadding
-    resolveInternalShapeTextInset?: ({ width: nextWidth, height: nextHeight }: {
+    resolveInternalShapeTextInset?: (dimensions: {
       width: number
       height: number
     }) => ShapePadding
@@ -1512,6 +1586,9 @@ export default class ShapeManager {
 
     applyGroupInteractivity({ group })
     prepareShapeTextNode({ text })
+    const montageAreaWidth = preserveAspectRatio
+      ? this._resolveMontageAreaWidth()
+      : undefined
 
     applyShapeTextLayout({
       group,
@@ -1523,13 +1600,34 @@ export default class ShapeManager {
       alignV,
       padding,
       shapeTextAutoExpandEnabled: shapeTextAutoExpand,
+      preserveAspectRatio,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
+      montageAreaWidth,
       changedPadding
     })
 
-    group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? width)
-    group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? height)
+    if (preserveAspectRatio) {
+      group.shapeManualBaseWidth = Math.max(
+        1,
+        group.shapeBaseWidth ?? width
+      )
+      group.shapeManualBaseHeight = Math.max(
+        1,
+        group.shapeBaseHeight ?? height
+      )
+    }
+
+    group.shapeReplaceBoxWidth = Math.max(
+      1,
+      replaceBoxWidth ?? 0,
+      group.shapeBaseWidth ?? width
+    )
+    group.shapeReplaceBoxHeight = Math.max(
+      1,
+      replaceBoxHeight ?? 0,
+      group.shapeBaseHeight ?? height
+    )
 
     this._detachShapeGroupAutoLayout({
       group
@@ -2022,7 +2120,7 @@ export default class ShapeManager {
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
     internalShapeTextInset?: ShapePadding
-    resolveInternalShapeTextInset?: ({ width: nextWidth, height: nextHeight }: {
+    resolveInternalShapeTextInset?: (dimensions: {
       width: number
       height: number
     }) => ShapePadding
