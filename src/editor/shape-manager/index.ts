@@ -149,6 +149,8 @@ export default class ShapeManager {
    * `preserveAspectRatio=true` переключает add-path в режим fit по пропорциям preset:
    * одна переданная ось остаётся точной, а вторая вычисляется из aspect ratio;
    * если переданы обе оси, фигура вписывается в этот box с сохранением пропорций.
+   * Если при этом включен shapeTextAutoExpand и тексту нужно больше места,
+   * финальный размер может вырасти относительно переданного box.
    * При shapeTextAutoExpand=true ручная базовая ширина остается нижней границей,
    * но текущий размер может стать больше неё, если этого требует текст.
    * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
@@ -394,6 +396,7 @@ export default class ShapeManager {
       alignV: verticalAlign,
       padding: userPadding,
       internalShapeTextInset,
+      resolveInternalShapeTextInset,
       changedPadding,
       style,
       rounding
@@ -1579,6 +1582,9 @@ export default class ShapeManager {
 
     applyGroupInteractivity({ group })
     prepareShapeTextNode({ text })
+    const montageAreaWidth = preserveAspectRatio
+      ? this._resolveMontageAreaWidth()
+      : undefined
 
     applyShapeTextLayout({
       group,
@@ -1593,16 +1599,30 @@ export default class ShapeManager {
       preserveAspectRatio,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
+      montageAreaWidth,
       changedPadding
     })
 
+    if (preserveAspectRatio) {
+      group.shapeManualBaseWidth = Math.max(
+        1,
+        group.shapeBaseWidth ?? width
+      )
+      group.shapeManualBaseHeight = Math.max(
+        1,
+        group.shapeBaseHeight ?? height
+      )
+    }
+
     group.shapeReplaceBoxWidth = Math.max(
       1,
-      replaceBoxWidth ?? group.shapeBaseWidth ?? width
+      replaceBoxWidth ?? 0,
+      group.shapeBaseWidth ?? width
     )
     group.shapeReplaceBoxHeight = Math.max(
       1,
-      replaceBoxHeight ?? group.shapeBaseHeight ?? height
+      replaceBoxHeight ?? 0,
+      group.shapeBaseHeight ?? height
     )
 
     this._detachShapeGroupAutoLayout({
