@@ -12,6 +12,7 @@ import {
   resolveShapeTextFrameLayout,
   resolveShapeTextAutoExpandWidthForText
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
+import { getShapePreset } from '../../../../src/editor/shape-manager/shape-presets'
 import {
   applyShapeTextLayoutToMockGroup,
   applyTextStyleToShapeText,
@@ -456,6 +457,159 @@ describe('shape-manager', () => {
       minimumWidth: 220,
       montageAreaWidth: 400
     }))
+  })
+
+  it('при добавлении без preserveAspectRatio оставляет заданные width и height у не-квадратной фигуры', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'arrow-up',
+      options: {
+        width: 200,
+        height: 200
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeBaseWidth).toBe(200)
+    expect(group.shapeBaseHeight).toBe(200)
+    expect(group.shapeManualBaseWidth).toBe(200)
+    expect(group.shapeManualBaseHeight).toBe(200)
+    expect(group.shapeReplaceBoxWidth).toBe(200)
+    expect(group.shapeReplaceBoxHeight).toBe(200)
+    expect(createShapeNodeMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 200,
+      height: 200
+    }))
+  })
+
+  it('при добавлении с preserveAspectRatio вписывает фигуру в заданный box и сохраняет его для последующей замены', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const preset = getShapePreset({
+      presetKey: 'arrow-up'
+    })
+
+    if (!preset) {
+      throw new Error('shape preset should exist')
+    }
+
+    const scale = Math.min(200 / preset.width, 200 / preset.height)
+    const expectedWidth = preset.width * scale
+    const expectedHeight = preset.height * scale
+    const group = await manager.add({
+      presetKey: 'arrow-up',
+      options: {
+        width: 200,
+        height: 200,
+        preserveAspectRatio: true
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(group.shapeBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(group.shapeManualBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(group.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(group.shapeReplaceBoxWidth).toBe(200)
+    expect(group.shapeReplaceBoxHeight).toBe(200)
+    expect(group.shapeBaseWidth).toBeLessThanOrEqual(200)
+    expect(group.shapeBaseHeight).toBeLessThanOrEqual(200)
+    expect(group.shapeBaseHeight / group.shapeBaseWidth).toBeCloseTo(preset.height / preset.width, 4)
+  })
+
+  it('при добавлении с preserveAspectRatio и одной заданной осью вычисляет вторую по пропорциям пресета', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const preset = getShapePreset({
+      presetKey: 'arrow-up'
+    })
+
+    if (!preset) {
+      throw new Error('shape preset should exist')
+    }
+
+    const expectedWidth = 280
+    const expectedHeight = preset.height * (expectedWidth / preset.width)
+    const group = await manager.add({
+      presetKey: 'arrow-up',
+      options: {
+        width: expectedWidth,
+        preserveAspectRatio: true
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(group.shapeBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(group.shapeManualBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(group.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(group.shapeReplaceBoxWidth).toBeCloseTo(expectedWidth, 4)
+    expect(group.shapeReplaceBoxHeight).toBeCloseTo(expectedHeight, 4)
+    expect(group.shapeBaseHeight / group.shapeBaseWidth).toBeCloseTo(preset.height / preset.width, 4)
+  })
+
+  it('после добавления с preserveAspectRatio смена фигуры использует исходный box добавления', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const createdShape = await manager.add({
+      presetKey: 'arrow-up',
+      options: {
+        width: 220,
+        height: 200,
+        preserveAspectRatio: true
+      }
+    })
+    const nextPreset = getShapePreset({
+      presetKey: 'arrow-right'
+    })
+
+    if (!createdShape || !nextPreset) {
+      throw new Error('shape and preset should exist')
+    }
+
+    const updatedShape = await manager.update({
+      target: createdShape,
+      presetKey: 'arrow-right'
+    })
+    const scale = Math.min(220 / nextPreset.width, 200 / nextPreset.height)
+    const expectedWidth = nextPreset.width * scale
+    const expectedHeight = nextPreset.height * scale
+
+    expect(updatedShape).not.toBeNull()
+    expect(updatedShape?.shapePresetKey).toBe('arrow-right')
+    expect(updatedShape?.shapeBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(updatedShape?.shapeBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(updatedShape?.shapeManualBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(updatedShape?.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(updatedShape?.shapeReplaceBoxWidth).toBeCloseTo(220, 4)
+    expect(updatedShape?.shapeReplaceBoxHeight).toBeCloseTo(200, 4)
   })
 
   it('при добавлении шейпа сохраняет выключенный режим авторасширения, если он передан явно', async() => {
