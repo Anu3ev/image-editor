@@ -1,3 +1,4 @@
+import { FabricObject } from 'fabric'
 import { ImageEditor } from '../..'
 import {
   copyPasteIcon,
@@ -95,36 +96,42 @@ export default {
   },
 
   handlers: {
-    copyPaste: async(editor: ImageEditor) => {
-      editor.clipboardManager.copyPaste()
+    copyPaste: async(editor: ImageEditor, target?: FabricObject | null) => {
+      editor.clipboardManager.copyPaste(target ?? undefined)
     },
 
-    delete: (editor: ImageEditor) => {
-      editor.deletionManager.deleteSelectedObjects()
+    delete: (editor: ImageEditor, target?: FabricObject | null) => {
+      editor.deletionManager.deleteSelectedObjects({
+        objects: target ? [target] : undefined
+      })
     },
 
-    lock: (editor: ImageEditor) => {
-      editor.objectLockManager.lockObject()
+    lock: (editor: ImageEditor, target?: FabricObject | null) => {
+      editor.objectLockManager.lockObject({
+        object: target ?? undefined
+      })
     },
 
-    unlock: (editor: ImageEditor) => {
-      editor.objectLockManager.unlockObject()
+    unlock: (editor: ImageEditor, target?: FabricObject | null) => {
+      editor.objectLockManager.unlockObject({
+        object: target ?? undefined
+      })
     },
 
-    bringForward: (editor: ImageEditor) => {
-      editor.layerManager.bringForward()
+    bringForward: (editor: ImageEditor, target?: FabricObject | null) => {
+      editor.layerManager.bringForward(target ?? undefined)
     },
 
-    bringToFront: (editor: ImageEditor) => {
-      editor.layerManager.bringToFront()
+    bringToFront: (editor: ImageEditor, target?: FabricObject | null) => {
+      editor.layerManager.bringToFront(target ?? undefined)
     },
 
-    sendToBack: (editor: ImageEditor) => {
-      editor.layerManager.sendToBack()
+    sendToBack: (editor: ImageEditor, target?: FabricObject | null) => {
+      editor.layerManager.sendToBack(target ?? undefined)
     },
 
-    sendBackwards: (editor: ImageEditor) => {
-      editor.layerManager.sendBackwards()
+    sendBackwards: (editor: ImageEditor, target?: FabricObject | null) => {
+      editor.layerManager.sendBackwards(target ?? undefined)
     }
   }
 }

@@ -8,14 +8,20 @@ import {
   TPointerEventInfo
 } from 'fabric'
 import { ImageEditor } from '../..'
+import { resolveShapeGroupFromTarget } from '../../shape-manager/shape-utils'
 import defaultConfig from './default-config'
+
+type ToolbarActionHandler = (
+  editor: ImageEditor,
+  target?: FabricObject | null
+) => void
 
 export type ToolbarConfig = {
   style?: Record<string, string | number>,
   btnStyle?: Record<string, string | number>,
   btnHover?: Record<string, string | number>,
   icons?: Record<string, Base64URLString>,
-  handlers?: Record<string, (editor: ImageEditor) => void>,
+  handlers?: Record<string, ToolbarActionHandler>,
   lockedActions?: Array<{ name: string, handle: string }>,
   actions?: Array<{ name: string, handle: string }>,
   offsetTop?: number
@@ -227,7 +233,7 @@ export default class ToolbarManager {
 
       Object.assign(btn.style, btnStyle)
 
-      btn.onclick = () => handlers[handle]?.(this.editor)
+      btn.onclick = () => handlers[handle]?.(this.editor, this.currentTarget)
 
       // Предотвращаем всплытие событий мыши на кнопках тулбара
       // чтобы избежать конфликта с drag'n'drop объектов на канвасе
@@ -315,18 +321,18 @@ export default class ToolbarManager {
   private _updateToolbar(): void {
     if (this.isTransforming || this.isTemporarilyHidden) return
 
-    const obj = this.canvas.getActiveObject()
-    if (!obj) {
+    const target = this._resolveCurrentTarget()
+    if (!target) {
       this.el.style.display = 'none'
       this.currentTarget = null
       return
     }
 
-    const locked = Boolean(obj.locked)
+    const locked = Boolean(target.locked)
 
     // Если объект или его флаг locked изменились — перерисовываем кнопки
-    if (obj !== this.currentTarget || locked !== this.currentLocked) {
-      this.currentTarget = obj
+    if (target !== this.currentTarget || locked !== this.currentLocked) {
+      this.currentTarget = target
       this.currentLocked = locked
       const actions = locked
         ? this.config.lockedActions
@@ -344,9 +350,9 @@ export default class ToolbarManager {
   private _updatePos(): void {
     if (this.isTransforming || this.isTemporarilyHidden) return
 
-    const obj = this.canvas.getActiveObject()
+    const target = this._resolveCurrentTarget()
 
-    if (!obj) {
+    if (!target) {
       this.el.style.display = 'none'
       return
     }
@@ -354,7 +360,7 @@ export default class ToolbarManager {
     const { el, config, canvas } = this
 
     // Пересчитываем внутренние координаты объекта (для корректного getBoundingRect)
-    obj.setCoords()
+    target.setCoords()
 
     // Читаем текущий зум (масштаб) и сдвиг (панорамирование) холста
     const zoom = canvas.getZoom()
@@ -363,12 +369,12 @@ export default class ToolbarManager {
     const [, , , , panX, panY] = canvas.viewportTransform
 
     // Находим центр объекта в исходных canvas-координатах
-    const { x: centerX } = obj.getCenterPoint()
+    const { x: centerX } = target.getCenterPoint()
 
     // Получаем axis-aligned bounding-box объекта (с учётом поворота)
     //    первый аргумент false — не включаем масштаб в результат,
     //    второй true — учитываем текущий трансформ (rotate/scale)
-    const { top: objectTop, height: objectHeight } = obj.getBoundingRect()
+    const { top: objectTop, height: objectHeight } = target.getBoundingRect()
 
     // Вычисляем экранную X-координату центра объекта
     const screenCenterX = centerX * zoom + panX
@@ -385,6 +391,18 @@ export default class ToolbarManager {
       top: `${top}px`,
       display: 'flex'
     })
+  }
+
+  /**
+   * Возвращает объект, относительно которого тулбар должен и позиционироваться, и выполнять действия.
+   * Для текста внутри shape-группы это сама группа, а не внутренний editing-textbox.
+   */
+  private _resolveCurrentTarget(): FabricObject | null {
+    const activeObject = this.canvas.getActiveObject()
+
+    return resolveShapeGroupFromTarget({
+      target: activeObject
+    }) ?? activeObject ?? null
   }
 
   /**
