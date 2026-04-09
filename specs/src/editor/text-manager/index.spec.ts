@@ -1568,6 +1568,61 @@ describe('TextManager', () => {
         expect(textbox.styles?.[1]?.[0]?.fontSize).toBe(initialStyleFontSize)
       })
 
+      it('если размер уже итоговый, возвращает обычный текст в базовый интерактивный режим', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352,
+          scaleX: 1,
+          scaleY: 1
+        })
+
+        textbox.selectable = false
+        textbox.evented = false
+        textbox.editable = false
+        textbox.lockMovementX = true
+        textbox.lockMovementY = true
+
+        const result = textManager.commitStandaloneTextScale({
+          target: textbox
+        })
+
+        expect(result).toBe(false)
+        expect(textbox.selectable).toBe(true)
+        expect(textbox.evented).toBe(true)
+        expect(textbox.editable).toBe(true)
+        expect(textbox.lockMovementX).toBe(false)
+        expect(textbox.lockMovementY).toBe(false)
+      })
+
+      it('если размер уже итоговый, возвращает заблокированный текст в базовый заблокированный режим', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createRestoredTemplateLikeTextbox({
+          left: 281,
+          top: 352,
+          scaleX: 1,
+          scaleY: 1
+        })
+
+        textbox.locked = true
+        textbox.selectable = false
+        textbox.evented = false
+        textbox.editable = true
+        textbox.lockMovementX = false
+        textbox.lockMovementY = false
+
+        const result = textManager.commitStandaloneTextScale({
+          target: textbox
+        })
+
+        expect(result).toBe(false)
+        expect(textbox.selectable).toBe(true)
+        expect(textbox.evented).toBe(true)
+        expect(textbox.editable).toBe(false)
+        expect(textbox.lockMovementX).toBe(true)
+        expect(textbox.lockMovementY).toBe(true)
+      })
+
       it('текст внутри фигуры не пересчитывается отдельно от фигуры', () => {
         const { textManager } = createTextManagerTestSetup()
         const textbox = createMockShapeTextbox({
@@ -1590,6 +1645,32 @@ describe('TextManager', () => {
         expect(result).toBe(false)
         expect(textbox.scaleX).toBe(1.4)
         expect(textbox.scaleY).toBe(0.8)
+      })
+
+      it('текст внутри фигуры не получает standalone-интерактивность после materialization', () => {
+        const { textManager } = createTextManagerTestSetup()
+        const textbox = createMockShapeTextbox({
+          text: 'Text inside shape',
+          width: 180
+        })
+
+        textbox.group = {
+          shapeComposite: true
+        } as never
+        textbox.selectable = false
+        textbox.evented = false
+        textbox.lockMovementX = true
+        textbox.lockMovementY = true
+
+        const result = textManager.commitStandaloneTextScale({
+          target: textbox
+        })
+
+        expect(result).toBe(false)
+        expect(textbox.selectable).toBe(false)
+        expect(textbox.evented).toBe(false)
+        expect(textbox.lockMovementX).toBe(true)
+        expect(textbox.lockMovementY).toBe(true)
       })
 
       it('вертикальный scale не выключает autoExpand', () => {

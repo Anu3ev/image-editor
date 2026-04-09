@@ -1490,8 +1490,43 @@ export class ShapeModel {
   }
 
   /** Кликает по фигуре на canvas через реальные координаты viewport. */
-  async clickOnCanvas(params: ObjectTargetParams = {}): Promise<void> {
-    const point = await this._resolveTargetCenterPoint(params)
+  async clickOnCanvas(
+    params: ({
+      point?: 'center' | 'bottom-right'
+    } & ObjectTargetParams) = {}
+  ): Promise<void> {
+    const {
+      point: pointType = 'center',
+      ...targetParams
+    } = params
+
+    const point = pointType === 'bottom-right'
+      ? await this.page.evaluate(({ objectIndex, id }) => {
+        const {
+          editor,
+          __editorHelpers: helpers
+        } = window as any
+
+        const target = helpers.resolveCanvasObject(objectIndex, id)
+        if (!target) return null
+
+        target.setCoords()
+
+        const corner = target.oCoords?.br
+        if (!corner || typeof corner.x !== 'number' || typeof corner.y !== 'number') {
+          return null
+        }
+
+        const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+        return {
+          x: canvasRect.left + corner.x - 12,
+          y: canvasRect.top + corner.y - 12
+        }
+      }, targetParams)
+      : await this._resolveTargetCenterPoint(targetParams)
+
+    expect(point, 'для клика по фигуре должны существовать координаты на canvas').not.toBeNull()
 
     await this.page.mouse.click(point.x, point.y)
     await waitForCanvasRender({ page: this.page })

@@ -57,6 +57,9 @@ export default class ClipboardManager {
 
     try {
       const clonedObject = await activeObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
+      this._rehydrateStandaloneTextOnClone({
+        clonedObject
+      })
       this.clipboard = clonedObject
       canvas.fire('editor:object-copied', { object: clonedObject })
     } catch (error) {
@@ -199,9 +202,9 @@ export default class ClipboardManager {
   }
 
   /**
-   * Нормализует текстовые объекты внутри clone перед добавлением на canvas.
+   * Материализует standalone-text в clone до добавления на canvas и в internal clipboard.
    */
-  private _commitStandaloneTextScaleOnClone({ clonedObject }: { clonedObject: FabricObject }): void {
+  private _rehydrateStandaloneTextOnClone({ clonedObject }: { clonedObject: FabricObject }): void {
     const { textManager } = this.editor
     if (!textManager) return
 
@@ -346,7 +349,7 @@ export default class ClipboardManager {
         evented: true
       })
 
-      this._commitStandaloneTextScaleOnClone({
+      this._rehydrateStandaloneTextOnClone({
         clonedObject
       })
 
@@ -476,7 +479,7 @@ export default class ClipboardManager {
         evented: true
       })
 
-      this._commitStandaloneTextScaleOnClone({
+      this._rehydrateStandaloneTextOnClone({
         clonedObject: clonedObj
       })
 

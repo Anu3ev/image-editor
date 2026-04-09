@@ -6,6 +6,7 @@ import type {
   MontageAreaInfo,
   MontageAreaBoundsInfo,
   MontageAreaViewportBoundsInfo,
+  ViewportBoundsInfo,
   ObjectTargetParams,
   SnappingObjectSnapshot
 } from '../types'
@@ -20,6 +21,7 @@ import { SnappingModel } from './snapping.model'
 import { BackgroundModel } from './background.model'
 import { InteractionBlockerModel } from './interaction-blocker.model'
 import { ImageModel } from './image.model'
+import { ToolbarModel } from './toolbar.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -42,6 +44,8 @@ export class EditorModel {
 
   readonly images: ImageModel
 
+  readonly toolbar: ToolbarModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -53,6 +57,7 @@ export class EditorModel {
     this.background = new BackgroundModel(page)
     this.interactionBlocker = new InteractionBlockerModel(page)
     this.images = new ImageModel(page)
+    this.toolbar = new ToolbarModel(page)
   }
 
   /** Ожидает финальное состояние редактора после завершения init(), а не раннее появление window.editor. */
@@ -128,6 +133,49 @@ export class EditorModel {
     expect(snapshot, 'должен существовать snapshot объекта').not.toBeNull()
 
     return snapshot as SnappingObjectSnapshot
+  }
+
+  /** Возвращает viewport-границы объекта canvas в системе координат canvas. */
+  async getObjectViewportBounds(params: ObjectTargetParams = {}): Promise<ViewportBoundsInfo> {
+    const bounds = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+
+      const tl = target.oCoords?.tl
+      const tr = target.oCoords?.tr
+      const br = target.oCoords?.br
+      const bl = target.oCoords?.bl
+
+      if (!tl || !tr || !br || !bl) return null
+
+      const left = Math.min(tl.x, tr.x, br.x, bl.x)
+      const top = Math.min(tl.y, tr.y, br.y, bl.y)
+      const right = Math.max(tl.x, tr.x, br.x, bl.x)
+      const bottom = Math.max(tl.y, tr.y, br.y, bl.y)
+      const width = right - left
+      const height = bottom - top
+
+      return {
+        left,
+        top,
+        width,
+        height,
+        right,
+        bottom,
+        centerX: left + (width / 2),
+        centerY: top + (height / 2)
+      }
+    }, params)
+
+    expect(bounds, 'для объекта должны существовать viewport-границы').not.toBeNull()
+
+    return bounds as ViewportBoundsInfo
   }
 
   /** Проверяет что количество пользовательских объектов на canvas равно ожидаемому */
