@@ -849,6 +849,7 @@ export default class TextManager {
 
   /**
    * Запекает текущий transient scale standalone-textbox в каноническую геометрию.
+   * После materialization также возвращает standalone-textbox в базовое runtime-состояние.
    * Используется для live-scaling, history/template rehydration и групповых трансформаций.
    */
   public commitStandaloneTextScale(
@@ -860,10 +861,30 @@ export default class TextManager {
       shouldDisableAutoExpandOnHorizontalChange?: boolean
     }
   ): boolean {
-    return this.scalingController.commitStandaloneTextScale({
+    const scaleCommitted = this.scalingController.commitStandaloneTextScale({
       target,
       shouldDisableAutoExpandOnHorizontalChange
     })
+
+    if (!TextManager._isTextbox(target)) return scaleCommitted
+    const textbox = target as EditorTextbox
+    const group = textbox.group as (FabricObject & {
+      shapeComposite?: boolean
+    }) | undefined
+    if (group?.shapeComposite === true) return scaleCommitted
+
+    const isLocked = Boolean(textbox.locked)
+
+    textbox.set({
+      editable: !isLocked,
+      evented: true,
+      lockMovementX: isLocked,
+      lockMovementY: isLocked,
+      selectable: true
+    })
+    textbox.setCoords()
+
+    return scaleCommitted
   }
 
   /**
