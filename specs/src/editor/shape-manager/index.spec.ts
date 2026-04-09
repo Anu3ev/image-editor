@@ -533,6 +533,77 @@ describe('shape-manager', () => {
     expect(group.shapeBaseHeight / group.shapeBaseWidth).toBeCloseTo(preset.height / preset.width, 4)
   })
 
+  it('при добавлении с preserveAspectRatio расширяет фигуру под текст и сохраняет итоговый размер для следующих пересчётов', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const preset = getShapePreset({
+      presetKey: 'arrow-up'
+    })
+
+    if (!preset) {
+      throw new Error('shape preset should exist')
+    }
+
+    const requestedWidth = 220
+    const requestedHeight = 320
+    const fittedScale = Math.min(
+      requestedWidth / preset.width,
+      requestedHeight / preset.height
+    )
+    const expandedWidth = preset.width * fittedScale * 1.25
+    const expandedHeight = preset.height * fittedScale * 1.25
+
+    applyShapeTextLayoutMock.mockImplementationOnce(({
+      group,
+      shape,
+      text,
+      alignH,
+      alignV,
+      padding
+    }) => {
+      applyShapeTextLayoutToMockGroup({
+        group,
+        shape,
+        text,
+        width: expandedWidth,
+        height: expandedHeight,
+        alignH,
+        alignV,
+        padding
+      })
+    })
+
+    const group = await manager.add({
+      presetKey: 'arrow-up',
+      options: {
+        width: requestedWidth,
+        height: requestedHeight,
+        preserveAspectRatio: true,
+        text: 'TEST',
+        textStyle: {
+          fontSize: 72
+        }
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeBaseWidth).toBeCloseTo(expandedWidth, 4)
+    expect(group.shapeBaseHeight).toBeCloseTo(expandedHeight, 4)
+    expect(group.shapeManualBaseWidth).toBeCloseTo(expandedWidth, 4)
+    expect(group.shapeManualBaseHeight).toBeCloseTo(expandedHeight, 4)
+    expect(group.shapeReplaceBoxWidth).toBeCloseTo(expandedWidth, 4)
+    expect(group.shapeReplaceBoxHeight).toBeCloseTo(expandedHeight, 4)
+    expect(group.shapeReplaceBoxWidth).toBeGreaterThan(requestedWidth)
+    expect(group.shapeReplaceBoxHeight).toBeGreaterThan(requestedHeight)
+  })
+
   it('при добавлении с preserveAspectRatio и одной заданной осью вычисляет вторую по пропорциям пресета', async() => {
     const editor = createShapeManagerEditorStub({
       montageAreaWidth: 400
@@ -610,6 +681,193 @@ describe('shape-manager', () => {
     expect(updatedShape?.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
     expect(updatedShape?.shapeReplaceBoxWidth).toBeCloseTo(220, 4)
     expect(updatedShape?.shapeReplaceBoxHeight).toBeCloseTo(200, 4)
+  })
+
+  it('после добавления с preserveAspectRatio следующий ввод текста не возвращает фигуру к размеру до initial layout', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const preset = getShapePreset({
+      presetKey: 'arrow-up'
+    })
+
+    if (!preset) {
+      throw new Error('shape preset should exist')
+    }
+
+    const requestedWidth = 220
+    const requestedHeight = 320
+    const fittedScale = Math.min(
+      requestedWidth / preset.width,
+      requestedHeight / preset.height
+    )
+    const expandedWidth = preset.width * fittedScale * 1.25
+    const expandedHeight = preset.height * fittedScale * 1.25
+
+    applyShapeTextLayoutMock.mockImplementationOnce(({
+      group,
+      shape,
+      text,
+      alignH,
+      alignV,
+      padding
+    }) => {
+      applyShapeTextLayoutToMockGroup({
+        group,
+        shape,
+        text,
+        width: expandedWidth,
+        height: expandedHeight,
+        alignH,
+        alignV,
+        padding
+      })
+    })
+
+    const group = await manager.add({
+      presetKey: 'arrow-up',
+      options: {
+        width: requestedWidth,
+        height: requestedHeight,
+        preserveAspectRatio: true,
+        text: 'TEST',
+        textStyle: {
+          fontSize: 72
+        }
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const changedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:changed'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    applyShapeTextLayoutMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(expandedWidth)
+
+    enteredHandler({
+      target: textNode
+    })
+
+    changedHandler({
+      target: textNode
+    })
+
+    expect(group.shapeManualBaseWidth).toBeCloseTo(expandedWidth, 4)
+    expect(group.shapeManualBaseHeight).toBeCloseTo(expandedHeight, 4)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: expandedWidth,
+      minimumWidth: expandedWidth,
+      montageAreaWidth: 400
+    }))
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: expandedWidth,
+      height: expandedHeight
+    }))
+  })
+
+  it('после добавления с preserveAspectRatio и роста под текст смена фигуры использует уже увеличенный box', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const sourcePreset = getShapePreset({
+      presetKey: 'arrow-up'
+    })
+    const nextPreset = getShapePreset({
+      presetKey: 'arrow-right'
+    })
+
+    if (!sourcePreset || !nextPreset) {
+      throw new Error('shape presets should exist')
+    }
+
+    const requestedWidth = 220
+    const requestedHeight = 320
+    const fittedScale = Math.min(
+      requestedWidth / sourcePreset.width,
+      requestedHeight / sourcePreset.height
+    )
+    const expandedWidth = sourcePreset.width * fittedScale * 1.25
+    const expandedHeight = sourcePreset.height * fittedScale * 1.25
+
+    applyShapeTextLayoutMock.mockImplementationOnce(({
+      group,
+      shape,
+      text,
+      alignH,
+      alignV,
+      padding
+    }) => {
+      applyShapeTextLayoutToMockGroup({
+        group,
+        shape,
+        text,
+        width: expandedWidth,
+        height: expandedHeight,
+        alignH,
+        alignV,
+        padding
+      })
+    })
+
+    const createdShape = await manager.add({
+      presetKey: 'arrow-up',
+      options: {
+        width: requestedWidth,
+        height: requestedHeight,
+        preserveAspectRatio: true,
+        text: 'TEST',
+        textStyle: {
+          fontSize: 72
+        }
+      }
+    })
+
+    if (!createdShape) {
+      throw new Error('shape group should be created')
+    }
+
+    const nextScale = Math.min(
+      expandedWidth / nextPreset.width,
+      expandedHeight / nextPreset.height
+    )
+    const expectedWidth = nextPreset.width * nextScale
+    const expectedHeight = nextPreset.height * nextScale
+    const updatedShape = await manager.update({
+      target: createdShape,
+      presetKey: 'arrow-right'
+    })
+
+    expect(updatedShape).not.toBeNull()
+    expect(updatedShape?.shapePresetKey).toBe('arrow-right')
+    expect(updatedShape?.shapeBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(updatedShape?.shapeBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(updatedShape?.shapeManualBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(updatedShape?.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(updatedShape?.shapeReplaceBoxWidth).toBeCloseTo(expandedWidth, 4)
+    expect(updatedShape?.shapeReplaceBoxHeight).toBeCloseTo(expandedHeight, 4)
   })
 
   it('при добавлении шейпа сохраняет выключенный режим авторасширения, если он передан явно', async() => {
