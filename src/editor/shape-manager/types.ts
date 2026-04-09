@@ -158,6 +158,7 @@ export type ShapeAddOptions = ShapeVisualStyle & ShapeCreationFlags & {
   originY?: ShapePlacementOriginY
   width?: number
   height?: number
+  preserveAspectRatio?: boolean
   shapeTextAutoExpand?: boolean
   text?: string
   textStyle?: ShapeTextStyleOptions
