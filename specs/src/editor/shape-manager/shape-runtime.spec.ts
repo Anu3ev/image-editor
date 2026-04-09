@@ -30,6 +30,59 @@ describe('shape-runtime', () => {
     expect(group.subTargetCheck).toBe(true)
   })
 
+  it('после materialization возвращает обычную фигуру в базовый интерактивный режим', () => {
+    const shape = createMockShapeNode()
+    const text = createMockShapeTextbox()
+    const group = createMockShapeGroup({ shape, text }) as Group & {
+      interactive?: boolean
+      hoverCursor?: string
+      moveCursor?: string
+    }
+
+    group.selectable = false
+    group.evented = false
+    group.lockMovementX = true
+    group.lockMovementY = true
+    group.hoverCursor = 'text'
+    group.moveCursor = 'text'
+
+    applyShapeGroupInteractivity({ group })
+
+    expect(group.selectable).toBe(true)
+    expect(group.evented).toBe(true)
+    expect(group.lockMovementX).toBe(false)
+    expect(group.lockMovementY).toBe(false)
+    expect(group.hoverCursor).toBeUndefined()
+    expect(group.moveCursor).toBeUndefined()
+  })
+
+  it('после materialization возвращает заблокированную фигуру в базовый заблокированный режим', () => {
+    const shape = createMockShapeNode()
+    const text = createMockShapeTextbox()
+    const group = createMockShapeGroup({ shape, text }) as Group & {
+      interactive?: boolean
+      hoverCursor?: string
+      moveCursor?: string
+    }
+
+    group.locked = true
+    group.selectable = false
+    group.evented = false
+    group.lockMovementX = false
+    group.lockMovementY = false
+    group.hoverCursor = 'text'
+    group.moveCursor = 'text'
+
+    applyShapeGroupInteractivity({ group })
+
+    expect(group.selectable).toBe(true)
+    expect(group.evented).toBe(true)
+    expect(group.lockMovementX).toBe(true)
+    expect(group.lockMovementY).toBe(true)
+    expect(group.hoverCursor).toBeUndefined()
+    expect(group.moveCursor).toBeUndefined()
+  })
+
   it('prepareShapeTextNode для незаблокированного textbox переводит его в базовый неинтерактивный режим', () => {
     const text = createMockShapeTextbox({ text: 'hello' })
 
