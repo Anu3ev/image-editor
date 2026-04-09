@@ -9,9 +9,11 @@ import type {
 } from './types'
 
 /**
- * Включает интерактивность группы и поддержку sub-target кликов.
+ * Возвращает shape-группу в базовый интерактивный режим и включает sub-target клики.
+ * Временное editing-состояние не должно переживать clone/deserialize/materialization.
  */
 export const applyShapeGroupInteractivity = ({ group }: { group: ShapeGroupLike }): void => {
+  const isLocked = Boolean(group.locked)
   const groupWithInteractive = group as Group & {
     interactive?: boolean
     setInteractive?: (value: boolean) => void
@@ -22,8 +24,14 @@ export const applyShapeGroupInteractivity = ({ group }: { group: ShapeGroupLike 
   }
 
   groupWithInteractive.set({
+    evented: true,
     interactive: true,
-    subTargetCheck: true
+    lockMovementX: isLocked,
+    lockMovementY: isLocked,
+    moveCursor: undefined,
+    selectable: true,
+    subTargetCheck: true,
+    hoverCursor: undefined
   })
 }
 
