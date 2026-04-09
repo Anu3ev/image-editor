@@ -515,6 +515,176 @@ test.describe('Текст внутри фигуры', () => {
   })
 })
 
+test.describe('Тулбар во время редактирования текста внутри фигуры', () => {
+  test('в режиме редактирования текста внутри фигуры при смене вертикального выравнивания тулбар остаётся под всей фигурой', async({
+    editorModel,
+    shapes,
+    toolbar
+  }) => {
+    const shape = await test.step('Добавить фигуру с запасом места по высоте для вертикального выравнивания', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          width: 220,
+          height: 260,
+          text: 'TEST'
+        }
+      })
+    })
+
+    expect(shape).not.toBeNull()
+    expect(typeof shape?.id).toBe('string')
+
+    const shapeId = shape!.id as string
+    const toolbarGapTolerance = 4
+
+    await test.step('Открыть редактирование текста через реальный двойной клик', async() => {
+      const textNode = await shapes.openTextEditingFromCanvas({ id: shapeId })
+
+      expect(textNode?.isEditing).toBe(true)
+      await toolbar.waitUntilVisible()
+    })
+
+    const topState = await test.step('Переключить выравнивание к верхнему краю и зафиксировать состояние', async() => {
+      await shapes.setTextAlign({
+        id: shapeId,
+        vertical: 'top'
+      })
+
+      return {
+        snapshot: await shapes.getScaleSnapshot({ id: shapeId }),
+        shapeBounds: await editorModel.getObjectViewportBounds({ id: shapeId }),
+        toolbarBounds: await toolbar.getBounds()
+      }
+    })
+
+    const middleState = await test.step('Переключить выравнивание к середине и зафиксировать состояние', async() => {
+      await shapes.setTextAlign({
+        id: shapeId,
+        vertical: 'middle'
+      })
+
+      return {
+        snapshot: await shapes.getScaleSnapshot({ id: shapeId }),
+        shapeBounds: await editorModel.getObjectViewportBounds({ id: shapeId }),
+        toolbarBounds: await toolbar.getBounds()
+      }
+    })
+
+    const bottomState = await test.step('Переключить выравнивание к нижнему краю и зафиксировать состояние', async() => {
+      await shapes.setTextAlign({
+        id: shapeId,
+        vertical: 'bottom'
+      })
+
+      return {
+        snapshot: await shapes.getScaleSnapshot({ id: shapeId }),
+        shapeBounds: await editorModel.getObjectViewportBounds({ id: shapeId }),
+        toolbarBounds: await toolbar.getBounds()
+      }
+    })
+
+    await test.step('Проверить что текст сместился внутри фигуры, а тулбар остался под всей фигурой', () => {
+      expect(
+        topState.snapshot.textBoundsTop,
+        'верхняя граница текста должна существовать при выравнивании по верхнему краю'
+      ).not.toBeNull()
+      expect(
+        middleState.snapshot.textBoundsTop,
+        'верхняя граница текста должна существовать при выравнивании по середине'
+      ).not.toBeNull()
+      expect(
+        bottomState.snapshot.textBoundsTop,
+        'верхняя граница текста должна существовать при выравнивании по нижнему краю'
+      ).not.toBeNull()
+
+      const topTextTop = topState.snapshot.textBoundsTop as number
+      const middleTextTop = middleState.snapshot.textBoundsTop as number
+      const bottomTextTop = bottomState.snapshot.textBoundsTop as number
+      const topToolbarGap = topState.toolbarBounds.top - topState.shapeBounds.bottom
+      const middleToolbarGap = middleState.toolbarBounds.top - middleState.shapeBounds.bottom
+      const bottomToolbarGap = bottomState.toolbarBounds.top - bottomState.shapeBounds.bottom
+
+      expect(Math.abs(bottomTextTop - topTextTop)).toBeGreaterThan(20)
+      expect(Math.abs(middleTextTop - topTextTop)).toBeGreaterThan(8)
+      expect(topToolbarGap).toBeGreaterThan(10)
+      expect(middleToolbarGap).toBeGreaterThan(10)
+      expect(bottomToolbarGap).toBeGreaterThan(10)
+      expect(Math.abs(middleToolbarGap - topToolbarGap)).toBeLessThanOrEqual(toolbarGapTolerance)
+      expect(Math.abs(bottomToolbarGap - topToolbarGap)).toBeLessThanOrEqual(toolbarGapTolerance)
+    })
+  })
+
+  test('в режиме редактирования текста внутри фигуры кнопка "Создать копию" создаёт рабочую копию фигуры', async({
+    canvas,
+    editorModel,
+    shapes,
+    toolbar
+  }) => {
+    const shape = await test.step('Добавить фигуру с текстом', async() => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          text: 'TEST'
+        }
+      })
+    })
+
+    expect(shape).not.toBeNull()
+    expect(typeof shape?.id).toBe('string')
+
+    const sourceShapeId = shape!.id as string
+
+    await test.step('Открыть редактирование текста через реальный двойной клик', async() => {
+      const textNode = await shapes.openTextEditingFromCanvas({ id: sourceShapeId })
+
+      expect(textNode?.isEditing).toBe(true)
+      await toolbar.waitUntilVisible()
+    })
+
+    await test.step('Нажать кнопку "Создать копию" в тулбаре', async() => {
+      await toolbar.clickAction({
+        name: 'Создать копию'
+      })
+
+      await editorModel.checkObjectCount({ count: 2 })
+    })
+
+    const copiedShapeId = await test.step('Найти id созданной копии', async() => {
+      const shapeObjects = await shapes.getShapeObjects()
+      const copiedShape = shapeObjects.find((item) => item.id !== sourceShapeId)
+
+      expect(copiedShape).toBeDefined()
+      expect(typeof copiedShape?.id).toBe('string')
+
+      return copiedShape!.id as string
+    })
+
+    await test.step('Сбросить текущее выделение реальным кликом по монтажной области', async() => {
+      await canvas.clickTopLeftInsideMontageArea()
+
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(activeObject).toBeNull()
+    })
+
+    await test.step('Реальным кликом выбрать копию и удалить её как рабочую фигуру', async() => {
+      await shapes.clickOnCanvas({
+        id: copiedShapeId,
+        point: 'bottom-right'
+      })
+
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(activeObject?.id).toBe(copiedShapeId)
+      expect(activeObject?.type).toBe('shape-group')
+
+      await editorModel.deleteSelectedObject()
+      await editorModel.checkObjectCount({ count: 1 })
+    })
+  })
+})
+
 test.describe('Клики мышью в режиме редактирования текста внутри фигуры', () => {
   test.beforeEach(async({ shapes }) => {
     const primaryShape = await shapes.add({

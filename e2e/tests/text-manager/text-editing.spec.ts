@@ -619,3 +619,73 @@ test.describe('Позиционирование текста после скей
     })
   })
 })
+
+test.describe('Тулбар во время редактирования текста', () => {
+  test('в режиме редактирования текста кнопка "Создать копию" создаёт рабочую копию текстового объекта', async({
+    canvas,
+    editorModel,
+    text,
+    toolbar
+  }) => {
+    const textObject = await test.step('Добавить отдельный текстовый объект', async() => {
+      return text.add({
+        text: 'Новый текст'
+      })
+    })
+
+    expect(textObject).not.toBeNull()
+    expect(typeof textObject?.id).toBe('string')
+
+    const sourceTextId = textObject!.id as string
+
+    await test.step('Открыть редактирование текста через реальный двойной клик', async() => {
+      const editingText = await text.openTextEditingFromCanvas({ id: sourceTextId })
+
+      expect(editingText?.isEditing).toBe(true)
+      await toolbar.waitUntilVisible()
+    })
+
+    await test.step('Нажать кнопку "Создать копию" в тулбаре', async() => {
+      await toolbar.clickAction({
+        name: 'Создать копию'
+      })
+
+      await editorModel.checkObjectCount({ count: 2 })
+    })
+
+    const copiedTextId = await test.step('Найти id созданной копии', async() => {
+      const objects = await editorModel.getObjects()
+      const copiedText = objects.find((item) => {
+        return item.type === 'background-textbox' && item.id !== sourceTextId
+      })
+
+      expect(copiedText).toBeDefined()
+      expect(typeof copiedText?.id).toBe('string')
+
+      return copiedText!.id as string
+    })
+
+    await test.step('Сбросить текущее выделение реальным кликом по монтажной области', async() => {
+      await canvas.clickTopLeftInsideMontageArea()
+
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(activeObject).toBeNull()
+    })
+
+    await test.step('Реальным кликом выбрать копию и удалить её как рабочий текстовый объект', async() => {
+      await text.clickOnCanvas({
+        id: copiedTextId,
+        point: 'bottom-right'
+      })
+
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(activeObject?.id).toBe(copiedTextId)
+      expect(activeObject?.type).toBe('background-textbox')
+
+      await editorModel.deleteSelectedObject()
+      await editorModel.checkObjectCount({ count: 1 })
+    })
+  })
+})

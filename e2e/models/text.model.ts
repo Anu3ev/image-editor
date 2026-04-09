@@ -57,6 +57,47 @@ export class TextModel {
     this.activeScaleInteraction = null
   }
 
+  /** Возвращает viewport-координаты центра текста для реальных mouse-событий. */
+  private async _resolveTargetCenterPoint(params: ObjectTargetParams = {}): Promise<{ x: number, y: number }> {
+    const point = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+
+      const centerPoint = target.getCenterPoint()
+      const sceneCenterX = typeof centerPoint.x === 'number' ? centerPoint.x : 0
+      const sceneCenterY = typeof centerPoint.y === 'number' ? centerPoint.y : 0
+      const viewportTransform = Array.isArray(editor.canvas.viewportTransform)
+        ? editor.canvas.viewportTransform
+        : [1, 0, 0, 1, 0, 0]
+      const viewportX = (viewportTransform[0] * sceneCenterX)
+        + (viewportTransform[2] * sceneCenterY)
+        + viewportTransform[4]
+      const viewportY = (viewportTransform[1] * sceneCenterX)
+        + (viewportTransform[3] * sceneCenterY)
+        + viewportTransform[5]
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + viewportX,
+        y: canvasRect.top + viewportY
+      }
+    }, params)
+
+    expect(point, 'для взаимодействия с текстом должны существовать координаты на canvas').not.toBeNull()
+
+    return point as {
+      x: number
+      y: number
+    }
+  }
+
   /** Добавляет текстовый объект на canvas. */
   async add(params: TextAddParams = {}): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate((payload) => {
@@ -205,6 +246,59 @@ export class TextModel {
       : params
 
     return this.getObject(settledParams)
+  }
+
+  /** Кликает по текстовому объекту на canvas через реальные координаты viewport. */
+  async clickOnCanvas(
+    params: ({
+      point?: 'center' | 'bottom-right'
+    } & ObjectTargetParams) = {}
+  ): Promise<void> {
+    const {
+      point: pointType = 'center',
+      ...targetParams
+    } = params
+
+    const point = pointType === 'bottom-right'
+      ? await this.page.evaluate(({ objectIndex, id }) => {
+        const {
+          editor,
+          __editorHelpers: helpers
+        } = window as any
+
+        const target = helpers.resolveCanvasObject(objectIndex, id)
+        if (!target) return null
+
+        target.setCoords()
+
+        const corner = target.oCoords?.br
+        if (!corner || typeof corner.x !== 'number' || typeof corner.y !== 'number') {
+          return null
+        }
+
+        const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+        return {
+          x: canvasRect.left + corner.x - 12,
+          y: canvasRect.top + corner.y - 12
+        }
+      }, targetParams)
+      : await this._resolveTargetCenterPoint(targetParams)
+
+    expect(point, 'для клика по тексту должны существовать координаты на canvas').not.toBeNull()
+
+    await this.page.mouse.click(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Открывает редактирование текста через реальный двойной клик по canvas. */
+  async openTextEditingFromCanvas(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
+    const point = await this._resolveTargetCenterPoint(params)
+
+    await this.page.mouse.dblclick(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getObject(params)
   }
 
   /** Обновляет стиль текстового объекта через публичный API TextManager. */

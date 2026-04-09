@@ -12,6 +12,7 @@ import { SnappingModel } from '../models/snapping.model'
 import { BackgroundModel } from '../models/background.model'
 import { InteractionBlockerModel } from '../models/interaction-blocker.model'
 import { ImageModel } from '../models/image.model'
+import { ToolbarModel } from '../models/toolbar.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
@@ -32,6 +33,7 @@ interface EditorFixtures {
   background: BackgroundModel
   interactionBlocker: InteractionBlockerModel
   images: ImageModel
+  toolbar: ToolbarModel
 }
 
 interface EditorInternalFixtures {
@@ -52,7 +54,10 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     const model = new EditorModel(page)
 
     await page.addInitScript(({ fonts }) => {
-      window.__EDITOR_DEMO_INIT_OPTIONS = { fonts }
+      window.__EDITOR_DEMO_INIT_OPTIONS = {
+        fonts,
+        showToolbar: true
+      }
     }, {
       fonts: E2E_EDITOR_FONTS
     })
@@ -129,6 +134,10 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   images: async({ editorModel }, use) => {
     await use(editorModel.images)
+  },
+
+  toolbar: async({ editorModel }, use) => {
+    await use(editorModel.toolbar)
   }
 })
 

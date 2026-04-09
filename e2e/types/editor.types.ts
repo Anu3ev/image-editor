@@ -36,6 +36,18 @@ export interface MontageAreaInfo {
   top: number
 }
 
+/** Базовые границы элемента в viewport-координатах canvas. */
+export interface ViewportBoundsInfo {
+  left: number
+  top: number
+  width: number
+  height: number
+  right: number
+  bottom: number
+  centerX: number
+  centerY: number
+}
+
 /** Границы montage area в координатах canvas-сцены. */
 export interface MontageAreaBoundsInfo {
   left: number
