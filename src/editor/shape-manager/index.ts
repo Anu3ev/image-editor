@@ -1010,16 +1010,20 @@ export default class ShapeManager {
 
   /**
    * Обновляет прозрачность фигуры.
+   * По умолчанию opacity применяется и к shape-узлу, и к тексту внутри группы.
+   * `applyToText=false` оставляет текст с текущей прозрачностью и обновляет только shape.
    * @fires editor:before:shape-updated
    * @fires editor:shape-updated
    */
   public setOpacity({
     target,
     opacity,
+    applyToText = true,
     withoutSave
   }: {
     target?: ShapeReference
     opacity: number
+    applyToText?: boolean
     withoutSave?: boolean
   }): ShapeGroup | null {
     const group = this._resolveShapeGroup({ target })
@@ -1046,7 +1050,7 @@ export default class ShapeManager {
         style: { opacity }
       })
 
-      if (text) {
+      if (applyToText && text) {
         text.set({ opacity })
         text.setCoords()
       }

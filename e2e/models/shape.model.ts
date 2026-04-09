@@ -343,16 +343,16 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Устанавливает прозрачность shape. По умолчанию — для активного объекта */
-  async setOpacity(params: { opacity: number } & ObjectTargetParams): Promise<void> {
-    await this.page.evaluate(({ opacity, objectIndex, id }) => {
+  /** Устанавливает прозрачность shape. По умолчанию — для активного объекта и его текста */
+  async setOpacity(params: { opacity: number; applyToText?: boolean } & ObjectTargetParams): Promise<void> {
+    await this.page.evaluate(({ opacity, applyToText, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
       } = window as any
 
       const target = helpers.resolveCanvasObject(objectIndex, id)
-      editor.shapeManager.setOpacity({ target, opacity })
+      editor.shapeManager.setOpacity({ target, opacity, applyToText })
     }, params)
 
     await waitForCanvasRender({ page: this.page })
