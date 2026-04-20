@@ -901,6 +901,11 @@ export default class ShapeScalingController {
     group.shapeManualBaseWidth = nextManualBaseDimensions.width
     group.shapeManualBaseHeight = nextManualBaseDimensions.height
 
+    if (canScaleWidth && hasWidthChange) {
+      // Ручной resize по ширине фиксирует новую ширину как пользовательский контракт.
+      group.shapeTextAutoExpand = false
+    }
+
     const baseRounding = state?.baseRounding ?? Math.max(0, group.shapeRounding ?? 0)
     const roundingScale = Math.min(allowedScaleX, allowedScaleY)
     const scaledRounding = Math.max(0, baseRounding * roundingScale)
