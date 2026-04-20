@@ -227,57 +227,234 @@ test.describe('Авторасширение текста внутри фигур
       })
     })
 
-    // eslint-disable-next-line max-len
-    test('если фигуре задать новую ширину вручную (скейлинг), затем расширить её длинным текстом и сократить текст обратно, фигура возвращается к новой базовой ширине, а не к исходной', async({ shapes }) => {
-      const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
-        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-default' })
-      })
-
-      const liveSnapshot = await test.step('Растянуть фигуру по ширине вручную', () => {
-        return shapes.scaleHorizontallyFromRight({
-          id: 'shape-auto-expand-default',
-          scaleX: SHAPE_AUTO_EXPAND_RESIZE_SCALE_X
+    test('после ручного сужения новый текст переносится вместо расширения фигуры', async({ shapes }) => {
+      const createdShape = await test.step('Добавить фигуру с текстом для ручного сужения', async() => {
+        return shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+            id: 'shape-auto-expand-after-manual-shrink',
+            text: 'TEST'
+          }
         })
       })
 
-      const resizedSnapshot = await test.step('Зафиксировать новую ширину после ресайза', async() => {
-        await shapes.finishScale({ id: 'shape-auto-expand-default' })
-
-        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-default' })
+      shapes.checkCreation({
+        shape: createdShape,
+        presetKey: 'square'
       })
 
-      await test.step('Ввести длинный текст после ресайза', async() => {
-        await shapes.enterTextEditing({ id: 'shape-auto-expand-default' })
+      const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-manual-shrink' })
+      })
+
+      const liveSnapshot = await test.step('Сузить фигуру по ширине вручную', () => {
+        return shapes.shrinkToMinimumWidth({ id: 'shape-auto-expand-after-manual-shrink' })
+      })
+
+      const resizedShape = await test.step('Зафиксировать новую ширину после скейлинга', async() => {
+        await shapes.finishScale({ id: 'shape-auto-expand-after-manual-shrink' })
+
+        return shapes.getObject({ id: 'shape-auto-expand-after-manual-shrink' })
+      })
+      const resizedSnapshot = await test.step('Получить ширину после ручного сужения', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-manual-shrink' })
+      })
+
+      await test.step('Ввести длинный текст после ручного сужения', async() => {
+        await shapes.enterTextEditing({ id: 'shape-auto-expand-after-manual-shrink' })
         await shapes.updateEditingText({
-          id: 'shape-auto-expand-default',
+          id: 'shape-auto-expand-after-manual-shrink',
           text: SHAPE_AUTO_EXPAND_VERY_LONG_TEXT
         })
       })
 
-      const expandedSnapshot = await test.step('Получить ширину после авторасширения', () => {
-        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-default' })
+      const updatedShape = await test.step('Получить состояние фигуры после нового ввода', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-after-manual-shrink' })
+      })
+      const updatedText = await test.step('Получить состояние текста после нового ввода', () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-after-manual-shrink' })
+      })
+      const updatedSnapshot = await test.step('Получить ширину фигуры после нового ввода', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-manual-shrink' })
       })
 
-      await test.step('Сократить текст обратно', async() => {
-        await shapes.updateEditingText({
-          id: 'shape-auto-expand-default',
-          text: SHAPE_AUTO_EXPAND_SHORT_TEXT
+      await test.step('Проверить что ручная ширина осталась фиксированной и текст перенёсся', () => {
+        expect(liveSnapshot.groupBoundsWidth)
+          .toBeLessThan(initialSnapshot.groupBoundsWidth - SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(resizedShape?.shapeTextAutoExpand).toBe(false)
+        expect(updatedShape?.shapeTextAutoExpand).toBe(false)
+        expect(updatedText?.lineCount).toBeGreaterThan(1)
+        expect(resizedSnapshot.groupBoundsWidth)
+          .toBeLessThan(initialSnapshot.groupBoundsWidth - SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(Math.abs(updatedSnapshot.groupBoundsWidth - resizedSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: updatedSnapshot,
+          kind: 'text'
+        })
+      })
+    })
+
+    test('после ручного сужения undo и redo сохраняют фиксированную ширину для следующего ввода', async({
+      history,
+      shapes
+    }) => {
+      const createdShape = await test.step('Добавить фигуру с текстом для проверки истории', async() => {
+        return shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+            id: 'shape-auto-expand-after-manual-shrink-history',
+            text: 'TEST'
+          }
         })
       })
 
-      const finalSnapshot = await test.step('Получить итоговую ширину фигуры', () => {
-        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-default' })
+      shapes.checkCreation({
+        shape: createdShape,
+        presetKey: 'square'
       })
 
-      await test.step('Проверить что ручной ресайз стал новой нижней границей ширины', () => {
-        expect(liveSnapshot.groupBoundsWidth)
-          .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      const initialSnapshot = await test.step('Получить исходную ширину фигуры', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+
+      await test.step('Сузить фигуру по ширине вручную и сохранить это состояние в истории', async() => {
+        await shapes.shrinkToMinimumWidth({ id: 'shape-auto-expand-after-manual-shrink-history' })
+        await shapes.finishScale({ id: 'shape-auto-expand-after-manual-shrink-history' })
+        await history.flushPendingSave()
+      })
+
+      const resizedShape = await test.step('Получить состояние фигуры после ручного сужения', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+      const resizedSnapshot = await test.step('Получить ширину после ручного сужения', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+
+      await test.step('Сделать undo и redo', async() => {
+        await history.undo()
+        await history.redo()
+      })
+
+      const redoneShape = await test.step('Получить состояние фигуры после redo', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+      const redoneSnapshot = await test.step('Получить ширину фигуры после redo', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+
+      await test.step('Ввести длинный текст после redo', async() => {
+        await shapes.enterTextEditing({ id: 'shape-auto-expand-after-manual-shrink-history' })
+        await shapes.updateEditingText({
+          id: 'shape-auto-expand-after-manual-shrink-history',
+          text: SHAPE_AUTO_EXPAND_VERY_LONG_TEXT
+        })
+      })
+
+      const updatedShape = await test.step('Получить состояние фигуры после нового ввода', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+      const updatedText = await test.step('Получить состояние текста после нового ввода', () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+      const updatedSnapshot = await test.step('Получить ширину фигуры после нового ввода', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-manual-shrink-history' })
+      })
+
+      await test.step('Проверить что после redo ручная ширина сохранилась и текст снова переносится', () => {
         expect(resizedSnapshot.groupBoundsWidth)
-          .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
-        expect(expandedSnapshot.groupBoundsWidth)
-          .toBeGreaterThanOrEqual(resizedSnapshot.groupBoundsWidth - SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
-        expect(Math.abs(finalSnapshot.groupBoundsWidth - resizedSnapshot.groupBoundsWidth))
+          .toBeLessThan(initialSnapshot.groupBoundsWidth - SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(resizedShape?.shapeTextAutoExpand).toBe(false)
+        expect(redoneShape?.shapeTextAutoExpand).toBe(false)
+        expect(Math.abs(redoneSnapshot.groupBoundsWidth - resizedSnapshot.groupBoundsWidth))
           .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(updatedShape?.shapeTextAutoExpand).toBe(false)
+        expect(updatedText?.lineCount).toBeGreaterThan(1)
+        expect(Math.abs(updatedSnapshot.groupBoundsWidth - redoneSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: updatedSnapshot,
+          kind: 'text'
+        })
+      })
+    })
+
+    test('после изменения только высоты длинный текст по-прежнему расширяет фигуру', async({ shapes }) => {
+      const createdShape = await test.step('Добавить фигуру с текстом для вертикального скейлинга', async() => {
+        return shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+            id: 'shape-auto-expand-after-vertical-scale',
+            text: 'TEST'
+          }
+        })
+      })
+
+      shapes.checkCreation({
+        shape: createdShape,
+        presetKey: 'square'
+      })
+
+      const initialShape = await test.step('Получить исходное состояние фигуры', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+      const initialSnapshot = await test.step('Получить исходные размеры фигуры', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+
+      await test.step('Изменить только высоту фигуры вручную', async() => {
+        await shapes.scaleVerticallyFromBottom({
+          id: 'shape-auto-expand-after-vertical-scale',
+          scaleY: 0.55
+        })
+        await shapes.finishScale({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+
+      const resizedShape = await test.step('Получить состояние фигуры после вертикального скейлинга', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+      const resizedSnapshot = await test.step('Получить размеры после вертикального скейлинга', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+
+      await test.step('Ввести длинный текст после изменения только высоты', async() => {
+        await shapes.enterTextEditing({ id: 'shape-auto-expand-after-vertical-scale' })
+        await shapes.updateEditingText({
+          id: 'shape-auto-expand-after-vertical-scale',
+          text: SHAPE_AUTO_EXPAND_VERY_LONG_TEXT
+        })
+      })
+
+      const updatedShape = await test.step('Получить состояние фигуры после ввода текста', () => {
+        return shapes.getObject({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+      const updatedText = await test.step('Получить состояние текста после ввода', () => {
+        return shapes.getTextNode({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+      const updatedSnapshot = await test.step('Получить размеры фигуры после ввода', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-auto-expand-after-vertical-scale' })
+      })
+
+      await test.step('Проверить что вертикальный скейлинг не выключил авторасширение', () => {
+        expect(initialShape?.shapeTextAutoExpand).toBe(true)
+        expect(resizedShape?.shapeTextAutoExpand).toBe(true)
+        expect(resizedSnapshot.groupBoundsHeight).toBeLessThan(initialSnapshot.groupBoundsHeight - 1)
+        expect(Math.abs(resizedSnapshot.groupBoundsWidth - initialSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(updatedShape?.shapeTextAutoExpand).toBe(true)
+        expect(updatedText?.lineCount).toBeGreaterThan(0)
+        expect(updatedSnapshot.groupBoundsWidth)
+          .toBeGreaterThan(resizedSnapshot.groupBoundsWidth + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: updatedSnapshot,
+          kind: 'text'
+        })
       })
     })
 

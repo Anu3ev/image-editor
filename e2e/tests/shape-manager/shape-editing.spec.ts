@@ -1095,6 +1095,55 @@ test.describe('Размер текста внутри фигуры', () => {
       })
     })
 
+    test('после ручного сужения bold не расширяет фигуру обратно', async({ shapes }) => {
+      const initialSnapshot = await test.step('Получить исходные размеры фигуры', () => {
+        return shapes.getScaleSnapshot({ objectIndex: 0 })
+      })
+
+      await test.step('Сузить фигуру по ширине вручную и зафиксировать новый размер', async() => {
+        await shapes.shrinkToMinimumWidth({ objectIndex: 0 })
+        await shapes.finishScale({ objectIndex: 0 })
+      })
+
+      const resizedShape = await test.step('Получить состояние фигуры после ручного сужения', () => {
+        return shapes.getObject({ objectIndex: 0 })
+      })
+      const resizedText = await test.step('Получить состояние текста после ручного сужения', () => {
+        return shapes.getTextNode({ objectIndex: 0 })
+      })
+      const resizedSnapshot = await test.step('Получить размеры после ручного сужения', () => {
+        return shapes.getScaleSnapshot({ objectIndex: 0 })
+      })
+
+      await test.step('Применить bold без открытия режима редактирования текста', async() => {
+        await shapes.updateTextStyle({
+          objectIndex: 0,
+          style: {
+            bold: true
+          }
+        })
+      })
+
+      await test.step('Проверить что фигура не расширилась обратно, а текст остался перенесённым', async() => {
+        const updatedShape = await shapes.getObject({ objectIndex: 0 })
+        const updatedText = await shapes.getTextNode({ objectIndex: 0 })
+        const updatedSnapshot = await shapes.getScaleSnapshot({ objectIndex: 0 })
+
+        expect(resizedSnapshot.groupBoundsWidth).toBeLessThan(initialSnapshot.groupBoundsWidth - 1)
+        expect(resizedShape?.shapeTextAutoExpand).toBe(false)
+        expect(resizedText?.lineCount).toBeGreaterThan(1)
+        expect(updatedShape?.shapeTextAutoExpand).toBe(false)
+        expect(updatedText?.fontWeight).toBe('bold')
+        expect(updatedText?.lineCount).toBeGreaterThan(1)
+        expect(Math.abs(updatedSnapshot.groupBoundsWidth - resizedSnapshot.groupBoundsWidth)).toBeLessThanOrEqual(1.5)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: updatedSnapshot,
+          kind: 'text'
+        })
+      })
+    })
+
     test('если одна буква перестаёт помещаться, фигура становится шире и текст не выходит за её пределы', async({ shapes }) => {
       await test.step('Открыть режим редактирования текста и сначала увеличить размер шрифта', async() => {
         await shapes.enterTextEditing({ objectIndex: 0 })

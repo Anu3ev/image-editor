@@ -872,6 +872,153 @@ describe('shape-manager text', () => {
     }))
   })
 
+  it('после ручного сужения ввод текста не расширяет шейп обратно', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const changedHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:changed'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!enteredHandler || !changedHandler || !textNode) {
+      throw new Error('shape manager change handlers should be registered')
+    }
+
+    const textNodeWithRawText = textNode as Textbox & {
+      textCaseRaw?: string
+    }
+
+    group.shapeBaseWidth = 140
+    group.width = 140
+    group.shapeManualBaseWidth = 140
+    group.shapeTextAutoExpand = false
+
+    enteredHandler({
+      target: textNode
+    })
+
+    applyShapeTextLayoutMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(220)
+
+    textNode.set({
+      text: 'updated text'
+    })
+    textNodeWithRawText.textCaseRaw = 'updated text'
+
+    changedHandler({
+      target: textNode
+    })
+
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 140,
+      shapeTextAutoExpandEnabled: false
+    }))
+    expect(group.shapeBaseWidth).toBe(140)
+  })
+
+  it('после ручного сужения программное обновление текста не расширяет шейп обратно', async() => {
+    const editor = createShapeManagerEditorStub({
+      montageAreaWidth: 400
+    })
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const beforeTextUpdatedHandler = getCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'editor:before:text-updated'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!enteredHandler || !beforeTextUpdatedHandler || !textNode) {
+      throw new Error('shape manager handlers should be registered')
+    }
+
+    const textNodeWithRawText = textNode as Textbox & {
+      textCaseRaw?: string
+    }
+
+    group.shapeBaseWidth = 140
+    group.width = 140
+    group.shapeManualBaseWidth = 140
+    group.shapeTextAutoExpand = false
+
+    enteredHandler({
+      target: textNode
+    })
+
+    applyShapeTextLayoutMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockClear()
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(220)
+
+    textNode.set({
+      text: 'updated text'
+    })
+    textNodeWithRawText.textCaseRaw = 'updated text'
+
+    beforeTextUpdatedHandler({
+      textbox: textNode,
+      target: textNode,
+      style: {
+        text: 'updated text'
+      },
+      options: {
+        withoutSave: true,
+        skipRender: true
+      },
+      updates: {
+        text: 'updated text'
+      }
+    })
+
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 140,
+      shapeTextAutoExpandEnabled: false
+    }))
+    expect(group.shapeBaseWidth).toBe(140)
+  })
+
   it('после замены следующий ввод текста не возвращает фигуру к размеру до пересчёта пропорций', async() => {
     const editor = createShapeManagerEditorStub({
       montageAreaWidth: 400

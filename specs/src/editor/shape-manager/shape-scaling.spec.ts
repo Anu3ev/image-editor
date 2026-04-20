@@ -1377,6 +1377,84 @@ describe('shape-scaling', () => {
     expect(group.shapeTextAutoExpand).toBe(false)
   })
 
+  it('после ручного изменения ширины шейп выключает авторасширение текста', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.shapeTextAutoExpand = true
+    group.scaleX = 0.7
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mr',
+          originX: 'left',
+          originY: 'center'
+        }),
+        action: 'scaleX'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 140,
+      height: 200,
+      shapeTextAutoExpandEnabled: false
+    }))
+    expect(group.shapeTextAutoExpand).toBe(false)
+    expect(group.shapeManualBaseWidth).toBe(140)
+    expect(group.shapeManualBaseHeight).toBe(200)
+  })
+
+  it('при изменении только высоты скейлинг не выключает авторасширение текста', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    group.shapeTextAutoExpand = true
+    group.scaleY = 0.5
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 200,
+      height: 100,
+      shapeTextAutoExpandEnabled: true
+    }))
+    expect(group.shapeTextAutoExpand).toBe(true)
+    expect(group.shapeManualBaseWidth).toBe(200)
+    expect(group.shapeManualBaseHeight).toBe(100)
+  })
+
   it('масштабирует shapeRounding пропорционально при равномерном увеличении', () => {
     const {
       controller,
