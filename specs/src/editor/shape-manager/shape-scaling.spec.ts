@@ -1455,7 +1455,7 @@ describe('shape-scaling', () => {
     expect(group.shapeManualBaseHeight).toBe(100)
   })
 
-  it('масштабирует shapeRounding пропорционально при равномерном увеличении', () => {
+  it('после равномерного увеличения сохраняет значение скругления и фиксирует новый размер', () => {
     const {
       controller,
       group
@@ -1486,10 +1486,18 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    expect(group.shapeRounding).toBe(100)
+    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(group.shapeRounding).toBe(50)
+    expect(applyLayoutCall).toEqual(expect.objectContaining({
+      width: 400,
+      height: 400
+    }))
+    expect(group.width).toBe(400)
+    expect(group.height).toBe(400)
   })
 
-  it('масштабирует shapeRounding пропорционально при уменьшении', () => {
+  it('после уменьшения сохраняет значение скругления и фиксирует новый размер', () => {
     const {
       controller,
       group
@@ -1521,10 +1529,18 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    expect(group.shapeRounding).toBe(40)
+    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(group.shapeRounding).toBe(80)
+    expect(applyLayoutCall).toEqual(expect.objectContaining({
+      width: 100,
+      height: 100
+    }))
+    expect(group.width).toBe(100)
+    expect(group.height).toBe(100)
   })
 
-  it('при непропорциональном масштабировании использует min(scaleX, scaleY) для rounding', () => {
+  it('после непропорционального растяжения сохраняет значение скругления и фиксирует новые размеры', () => {
     const {
       controller,
       group
@@ -1555,7 +1571,15 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    expect(group.shapeRounding).toBe(100)
+    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(group.shapeRounding).toBe(50)
+    expect(applyLayoutCall).toEqual(expect.objectContaining({
+      width: 600,
+      height: 400
+    }))
+    expect(group.width).toBe(600)
+    expect(group.height).toBe(400)
   })
 
   it('не меняет shapeRounding если он равен 0', () => {

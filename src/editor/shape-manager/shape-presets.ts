@@ -6,6 +6,7 @@ import {
   ShapeVerticalAlign,
   ShapeHorizontalAlign
 } from './types'
+import { normalizeShapeRounding } from './shape-rounding'
 
 const DEFAULT_SHAPE_SIZE = 180
 
@@ -647,7 +648,7 @@ export const resolvePresetKeyForRounding = ({
   preset: ShapePreset
   rounding?: number
 }): string => {
-  const roundedValue = typeof rounding === 'number' ? rounding : 0
+  const roundedValue = normalizeShapeRounding({ rounding })
   if (roundedValue <= 0) return preset.key
 
   if (preset.type === 'rect') return preset.key

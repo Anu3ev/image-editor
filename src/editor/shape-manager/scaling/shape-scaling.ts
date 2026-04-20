@@ -906,10 +906,6 @@ export default class ShapeScalingController {
       group.shapeTextAutoExpand = false
     }
 
-    const baseRounding = state?.baseRounding ?? Math.max(0, group.shapeRounding ?? 0)
-    const roundingScale = Math.min(allowedScaleX, allowedScaleY)
-    const scaledRounding = Math.max(0, baseRounding * roundingScale)
-    group.shapeRounding = scaledRounding
     const userPadding = ShapeScalingController._resolveUserPadding({ group })
     const internalShapeTextInset = ShapeScalingController._resolveInternalShapeTextInset({
       group,
@@ -1156,7 +1152,6 @@ export default class ShapeScalingController {
         startManualBaseHeight: startDimensions.startManualBaseHeight,
         canScaleWidth: startDimensions.canScaleWidth,
         canScaleHeight: startDimensions.canScaleHeight,
-        baseRounding: Math.max(0, group.shapeRounding ?? 0),
         cannotScaleDownAtStart: minimumHeightAtStart >= startDimensions.startHeight - SCALE_EPSILON,
         isProportionalScaling: false,
         blockedScaleAttempt: false,
@@ -1362,6 +1357,8 @@ export default class ShapeScalingController {
       width: layoutWidth,
       height: layoutHeight
     })
+    const horizontalAlign = alignH ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
+    const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
     applyShapeTextLayout({
       group,
@@ -1369,8 +1366,8 @@ export default class ShapeScalingController {
       text,
       width: layoutWidth,
       height: layoutHeight,
-      alignH,
-      alignV,
+      alignH: horizontalAlign,
+      alignV: verticalAlign,
       padding: userPadding,
       internalShapeTextInset,
       resolveInternalShapeTextInset: ({ width, height }) => ShapeScalingController._resolveInternalShapeTextInset({

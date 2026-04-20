@@ -326,12 +326,12 @@ export default ({ editorInstance, controls }) => {
     shapePaddingLeftInput.value = paddingLeft
 
     const rounding = typeof shapeGroup.shapeRounding === 'number'
-      ? Math.max(0, Math.round(shapeGroup.shapeRounding))
+      ? Math.max(0, Math.min(100, Math.round(shapeGroup.shapeRounding)))
       : 0
     const canRound = shapeGroup.shapeCanRound !== false
     shapeRoundingInput.disabled = !canRound
     shapeRoundingInput.value = rounding
-    shapeRoundingValue.textContent = canRound ? `${rounding}px` : 'N/A'
+    shapeRoundingValue.textContent = canRound ? `${rounding}%` : 'N/A'
   }
 
   /**
@@ -487,7 +487,7 @@ export default ({ editorInstance, controls }) => {
     shapeFillInput.value = fill
     shapeStrokeInput.value = stroke
     shapeOpacityValue.textContent = `${opacityPercent}%`
-    shapeRoundingValue.textContent = `${rounding}px`
+    shapeRoundingValue.textContent = `${rounding}%`
     setPaletteSelection({ buttons: shapeFillButtons, color: fill })
     setPaletteSelection({ buttons: shapeStrokeButtons, color: stroke })
 
@@ -593,7 +593,7 @@ export default ({ editorInstance, controls }) => {
 
     setShapeStrokeWidthUI({ width: Number(shapeStrokeWidthInput.value) || 0 })
     shapeOpacityValue.textContent = `${shapeOpacityInput.value}%`
-    shapeRoundingValue.textContent = `${shapeRoundingInput.value}px`
+    shapeRoundingValue.textContent = `${shapeRoundingInput.value}%`
     setShapeAlignButtonsState({
       buttons: shapeAlignHorizontalButtons,
       value: getShapeAlignValue({
@@ -813,7 +813,7 @@ export default ({ editorInstance, controls }) => {
 
     shapeRoundingInput.addEventListener('input', async() => {
       const rounding = getShapeRoundingFromInput()
-      shapeRoundingValue.textContent = `${rounding}px`
+      shapeRoundingValue.textContent = `${rounding}%`
       await applyShapeRounding({
         rounding,
         withoutSave: true
@@ -822,7 +822,7 @@ export default ({ editorInstance, controls }) => {
 
     shapeRoundingInput.addEventListener('change', async() => {
       const rounding = getShapeRoundingFromInput()
-      shapeRoundingValue.textContent = `${rounding}px`
+      shapeRoundingValue.textContent = `${rounding}%`
       await applyShapeRounding({ rounding })
     })
 

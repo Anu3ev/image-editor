@@ -25,6 +25,7 @@ import {
   applyShapeStyle,
   createShapeNode
 } from './shape-factory'
+import { normalizeShapeRounding } from './shape-rounding'
 import {
   applyShapeTextLayout,
   resolveShapeTextAutoExpandWidthForText
@@ -252,15 +253,20 @@ export default class ShapeManager {
       rounding,
       id
     } = options
+    const requestedRounding = normalizeShapeRounding({ rounding })
 
     const effectivePresetKey = resolvePresetKeyForRounding({
       preset: basePreset,
-      rounding
+      rounding: requestedRounding
     })
 
     const effectivePreset = getShapePreset({
       presetKey: effectivePresetKey
     }) ?? basePreset
+    const presetCanRound = isShapePresetRoundable({
+      preset: effectivePreset
+    })
+    const effectiveRounding = presetCanRound ? requestedRounding : 0
     const {
       width: presetWidth,
       height: presetHeight
@@ -373,15 +379,13 @@ export default class ShapeManager {
       width: initialWidth,
       height: manualHeight,
       style,
-      rounding
+      rounding: effectiveRounding
     })
 
     return this._createShapeGroup({
       id: id ?? `shape-${nanoid()}`,
       presetKey: effectivePreset.key,
-      presetCanRound: isShapePresetRoundable({
-        preset: effectivePreset
-      }),
+      presetCanRound,
       shape,
       text: textNode,
       width: initialWidth,
@@ -399,7 +403,7 @@ export default class ShapeManager {
       resolveInternalShapeTextInset,
       changedPadding,
       style,
-      rounding
+      rounding: effectiveRounding
     })
   }
 
@@ -477,15 +481,24 @@ export default class ShapeManager {
       ? shapeTextAutoExpand !== false
       : currentShapeTextAutoExpand
 
-    const effectiveRounding = rounding ?? currentGroup.shapeRounding ?? 0
+    const requestedRounding = rounding !== undefined
+      ? normalizeShapeRounding({ rounding })
+      : normalizeShapeRounding({
+        rounding: currentGroup.shapeRounding
+      })
+
     const effectivePresetKey = resolvePresetKeyForRounding({
       preset: basePreset,
-      rounding: effectiveRounding
+      rounding: requestedRounding
     })
 
     const effectivePreset = getShapePreset({
       presetKey: effectivePresetKey
     }) ?? basePreset
+    const presetCanRound = isShapePresetRoundable({
+      preset: effectivePreset
+    })
+    const effectiveRounding = presetCanRound ? requestedRounding : 0
     const { width: presetWidth, height: presetHeight } = effectivePreset
     const shouldPreserveCurrentAspectRatio = Boolean(preserveCurrentAspectRatio)
     const isPresetReplace = presetKey !== undefined
@@ -698,9 +711,7 @@ export default class ShapeManager {
       this._applyShapeGroupMetadata({
         group: currentGroup,
         presetKey: effectivePreset.key,
-        presetCanRound: isShapePresetRoundable({
-          preset: effectivePreset
-        }),
+        presetCanRound,
         width: resolvedLayoutWidth,
         height: resolvedLayoutHeight,
         manualWidth,
@@ -1236,7 +1247,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Устанавливает скругление для фигуры.
+   * Устанавливает степень скругления фигуры в диапазоне 0..100.
    */
   public async setRounding({
     target,
@@ -1250,7 +1261,7 @@ export default class ShapeManager {
     const group = this._resolveShapeGroup({ target })
     if (!group) return null
 
-    const normalizedRounding = Math.max(0, rounding)
+    const normalizedRounding = normalizeShapeRounding({ rounding })
     if (group.shapeCanRound === false) return group
     const presetKey = group.shapePresetKey ?? DEFAULT_SHAPE_PRESET_KEY
 
@@ -1675,6 +1686,9 @@ export default class ShapeManager {
     const strokeDashArray = style.strokeDashArray
       ? style.strokeDashArray.slice()
       : style.strokeDashArray ?? null
+    const normalizedRounding = presetCanRound
+      ? normalizeShapeRounding({ rounding })
+      : 0
 
     group.set({
       shapeComposite: true,
@@ -1697,7 +1711,7 @@ export default class ShapeManager {
       shapeStrokeWidth: style.strokeWidth,
       shapeStrokeDashArray: strokeDashArray,
       shapeOpacity: style.opacity,
-      shapeRounding: Math.max(0, rounding ?? 0),
+      shapeRounding: normalizedRounding,
       shapeCanRound: presetCanRound
     })
   }
