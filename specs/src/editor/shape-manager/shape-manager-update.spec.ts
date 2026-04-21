@@ -221,6 +221,51 @@ describe('shape-manager update', () => {
     }))
   })
 
+  it('при обновлении скругления с тем же пресетом сохраняет текущий размер фигуры', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        width: 260,
+        height: 140,
+        shapeTextAutoExpand: false
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    createShapeNodeMock.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: group,
+      presetKey: 'square',
+      options: {
+        rounding: 28
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapePresetKey).toBe('square')
+    expect(updatedGroup?.shapeRounding).toBe(28)
+    expect(updatedGroup?.shapeBaseWidth).toBe(260)
+    expect(updatedGroup?.shapeBaseHeight).toBe(140)
+    expect(updatedGroup?.shapeManualBaseWidth).toBe(260)
+    expect(updatedGroup?.shapeManualBaseHeight).toBe(140)
+    expect(updatedGroup?.shapeReplaceBoxWidth).toBe(260)
+    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(140)
+    expect(createShapeNodeMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      width: 260,
+      height: 140,
+      rounding: 28
+    }))
+  })
+
   it('при смене на non-roundable пресет сбрасывает скругление в 0', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({

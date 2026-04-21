@@ -435,8 +435,9 @@ export default class ShapeManager {
     const currentGroup = this._resolveShapeGroup({ target })
     if (!currentGroup) return null
 
-    const currentPresetKey = presetKey ?? currentGroup.shapePresetKey ?? DEFAULT_SHAPE_PRESET_KEY
-    const basePreset = getShapePreset({ presetKey: currentPresetKey })
+    const currentPresetKey = currentGroup.shapePresetKey ?? DEFAULT_SHAPE_PRESET_KEY
+    const requestedPresetKey = presetKey ?? currentPresetKey
+    const basePreset = getShapePreset({ presetKey: requestedPresetKey })
     if (!basePreset) return null
 
     const {
@@ -502,6 +503,7 @@ export default class ShapeManager {
     const { width: presetWidth, height: presetHeight } = effectivePreset
     const shouldPreserveCurrentAspectRatio = Boolean(preserveCurrentAspectRatio)
     const isPresetReplace = presetKey !== undefined
+      && requestedPresetKey !== currentPresetKey
     const shouldFitReplacementToPreset = isPresetReplace
       && !shouldPreserveCurrentAspectRatio
     const nextReplaceBoxDimensions = shouldFitReplacementToPreset
@@ -646,7 +648,7 @@ export default class ShapeManager {
 
     const shouldPreserveCurrentWidth = rawWidth === undefined
       && rawHeight === undefined
-      && presetKey === undefined
+      && !isPresetReplace
       && shapeTextAutoExpand === undefined
       && rounding === undefined
       && text === undefined
