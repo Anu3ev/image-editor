@@ -739,6 +739,41 @@ describe('shape-manager mutation', () => {
     expect(updateSpy).not.toHaveBeenCalled()
   })
 
+  it('setRounding меняет скругление и сохраняет текущий размер фигуры', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        width: 260,
+        height: 140,
+        shapeTextAutoExpand: false
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const result = await manager.setRounding({
+      target: group,
+      rounding: 28
+    })
+
+    expect(result).toBe(group)
+    expect(group.shapePresetKey).toBe('square')
+    expect(group.shapeRounding).toBe(28)
+    expect(group.shapeBaseWidth).toBe(260)
+    expect(group.shapeBaseHeight).toBe(140)
+    expect(group.shapeManualBaseWidth).toBe(260)
+    expect(group.shapeManualBaseHeight).toBe(140)
+    expect(group.shapeReplaceBoxWidth).toBe(260)
+    expect(group.shapeReplaceBoxHeight).toBe(140)
+  })
+
   it('при изменении обводки пересчитывает layout в текущих размерах шейпа', async() => {
     const editor = createShapeManagerEditorStub({
       montageAreaWidth: 400
