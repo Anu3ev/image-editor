@@ -214,4 +214,25 @@ describe('shape-group', () => {
     expect(group.shapePaddingBottom).toBe(0)
     expect(group.shapePaddingLeft).toBe(5)
   })
+
+  it('fromObject сохраняет сохранённое скругление у roundable шейпа', async() => {
+    registerShapeGroup()
+
+    jest.spyOn(util, 'enlivenObjects')
+      .mockResolvedValue([
+        createMockShapeNode() as never,
+        createMockShapeTextbox({ text: 'Shape text' })
+      ])
+    jest.spyOn(util, 'enlivenObjectEnlivables').mockResolvedValue({})
+
+    const serialized = {
+      ...createSerializedShapeGroup(),
+      shapeRounding: 40
+    }
+
+    const group = await ShapeGroupObject.fromObject(serialized)
+
+    expect(group.shapeRounding).toBe(40)
+    expect(group.shapeCanRound).toBe(true)
+  })
 })

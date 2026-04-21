@@ -133,6 +133,9 @@ export type ShapeGroupMetadata = {
   shapeStrokeWidth?: number
   shapeStrokeDashArray?: number[] | null
   shapeOpacity?: number
+  /**
+   * Степень скругления фигуры в диапазоне 0..100.
+   */
   shapeRounding?: number
   shapeCanRound?: boolean
   shapeScalingNoopTransform?: boolean
@@ -164,6 +167,9 @@ export type ShapeAddOptions = ShapeVisualStyle & ShapeCreationFlags & {
   textStyle?: ShapeTextStyleOptions
   alignH?: ShapeHorizontalAlign
   alignV?: ShapeVerticalAlign
+  /**
+   * Степень скругления фигуры в диапазоне 0..100.
+   */
   rounding?: number
   textPadding?: Partial<ShapePadding>
 }
@@ -181,6 +187,9 @@ export type ShapeUpdateOptions = ShapeVisualStyle & {
   textStyle?: ShapeTextStyleOptions
   alignH?: ShapeHorizontalAlign
   alignV?: ShapeVerticalAlign
+  /**
+   * Степень скругления фигуры в диапазоне 0..100.
+   */
   rounding?: number
   textPadding?: Partial<ShapePadding>
   withoutSelection?: boolean
@@ -205,6 +214,9 @@ export type ShapeSnapshot = {
   strokeWidth?: number
   strokeDashArray?: number[] | null
   opacity?: number
+  /**
+   * Степень скругления фигуры в диапазоне 0..100.
+   */
   rounding?: number
   left?: number
   top?: number
@@ -309,7 +321,6 @@ export type ShapeScalingState = {
   startManualBaseHeight: number
   canScaleWidth: boolean
   canScaleHeight: boolean
-  baseRounding: number
   cannotScaleDownAtStart: boolean
   isProportionalScaling: boolean
   blockedScaleAttempt: boolean

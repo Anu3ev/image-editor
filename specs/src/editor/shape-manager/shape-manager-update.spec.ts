@@ -188,6 +188,71 @@ describe('shape-manager update', () => {
     ])
   })
 
+  it('при обновлении roundable шейпа нормализует новое скругление', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    createShapeNodeMock.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: group,
+      options: {
+        rounding: 999999
+      }
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapeRounding).toBe(100)
+    expect(updatedGroup?.shapeCanRound).toBe(true)
+    expect(createShapeNodeMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      rounding: 100
+    }))
+  })
+
+  it('при смене на non-roundable пресет сбрасывает скругление в 0', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        rounding: 50
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    createShapeNodeMock.mockClear()
+
+    const updatedGroup = await manager.update({
+      target: group,
+      presetKey: 'circle'
+    })
+
+    expect(updatedGroup).not.toBeNull()
+    expect(updatedGroup?.shapeRounding).toBe(0)
+    expect(updatedGroup?.shapeCanRound).toBe(false)
+    expect(createShapeNodeMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      rounding: 0
+    }))
+  })
+
   it('при смене пресета вписывает новую фигуру в исходный бокс замены', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({

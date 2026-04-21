@@ -7,6 +7,26 @@ import {
 } from '../../fixtures/data/shape-opacity.data'
 
 test.describe('Свойства фигур', () => {
+  test('при создании прямоугольника слишком большое скругление ограничивается 100', async({ shapes }) => {
+    const createdShape = await test.step('Добавить прямоугольник со слишком большим скруглением', () => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'shape-rounding-add-clamp',
+          rounding: 999999
+        }
+      })
+    })
+
+    await test.step('Проверить что фигура создана со скруглением 100', () => {
+      shapes.checkCreation({
+        shape: createdShape,
+        presetKey: 'square'
+      })
+      expect(createdShape?.shapeRounding).toBe(100)
+    })
+  })
+
   test('setFill меняет заливку фигуры', async({ shapes }) => {
     await test.step('Добавить круг', () => shapes.add({ presetKey: 'circle' }))
 
@@ -87,6 +107,31 @@ test.describe('Свойства фигур', () => {
     await test.step('Проверить значение rounding', async() => {
       const shape = await shapes.getFirstShape()
       expect(shape.shapeRounding).toBe(20)
+    })
+  })
+
+  test('при обновлении прямоугольника слишком большое скругление ограничивается 100', async({ shapes }) => {
+    await test.step('Добавить прямоугольник', () => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'shape-rounding-update-clamp'
+        }
+      })
+    })
+
+    const updatedShape = await test.step('Обновить фигуру со слишком большим скруглением', () => {
+      return shapes.update({
+        id: 'shape-rounding-update-clamp',
+        options: {
+          rounding: 999999
+        }
+      })
+    })
+
+    await test.step('Проверить что после обновления скругление ограничено 100', () => {
+      expect(updatedShape?.shapeRounding).toBe(100)
+      expect(updatedShape?.shapePresetKey).toBe('square')
     })
   })
 

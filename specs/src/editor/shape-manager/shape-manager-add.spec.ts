@@ -264,6 +264,56 @@ describe('shape-manager add', () => {
     }))
   })
 
+  it('при добавлении roundable шейпа сохраняет нормализованное скругление', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        rounding: 999999
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeRounding).toBe(100)
+    expect(group.shapeCanRound).toBe(true)
+    expect(createShapeNodeMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      rounding: 100
+    }))
+  })
+
+  it('при добавлении non-roundable шейпа сбрасывает скругление в 0', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+
+    const group = await manager.add({
+      presetKey: 'circle',
+      options: {
+        text: 'shape text',
+        rounding: 50
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    expect(group.shapeRounding).toBe(0)
+    expect(group.shapeCanRound).toBe(false)
+    expect(createShapeNodeMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      rounding: 0
+    }))
+  })
+
   it('при добавлении шейпа нормализует пользовательские отступы до целых неотрицательных пикселей', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({

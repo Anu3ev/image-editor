@@ -17,6 +17,10 @@ import {
   ShapePreset,
   ShapeVisualStyle
 } from './types'
+import {
+  normalizeShapeRounding,
+  resolveShapeRoundingRatio
+} from './shape-rounding'
 
 const MIN_SIZE = 1
 const MIN_EDGE_LENGTH = 0.0001
@@ -99,7 +103,7 @@ type CreateRoundedPolygonPathShapeParams = {
  */
 type BuildRoundedPathFromPointsParams = {
   points: ShapePoint[]
-  radius: number
+  roundingRatio: number
   closed: boolean
 }
 
@@ -126,7 +130,7 @@ type ResolveRoundedCornerPointsParams = {
   previous: ShapePoint
   current: ShapePoint
   next: ShapePoint
-  radius: number
+  roundingRatio: number
 }
 
 /**
@@ -147,7 +151,7 @@ function normalizeNumber({ value }: { value: number }): number {
  * Проверяет, нужно ли строить rounded-path для фигуры.
  */
 function shouldUseRoundedPath({ rounding }: CreateRoundedPathParams): boolean {
-  return Math.max(0, rounding ?? 0) > 0
+  return normalizeShapeRounding({ rounding }) > 0
 }
 
 /**
@@ -187,7 +191,9 @@ export function resizeShapeNode({
   })
 
   if (shape instanceof Rect) {
-    const rounded = Math.max(0, rounding ?? 0)
+    const rounded = Math.min(innerSize.width / 2, innerSize.height / 2)
+      * resolveShapeRoundingRatio({ rounding })
+
     shape.set({
       width: innerSize.width,
       height: innerSize.height,
@@ -320,7 +326,7 @@ function resolveRoundedCornerPoints({
   previous,
   current,
   next,
-  radius
+  roundingRatio
 }: ResolveRoundedCornerPointsParams): RoundedCornerPoints {
   const vectorToPrevious = {
     x: previous.x - current.x,
@@ -346,11 +352,9 @@ function resolveRoundedCornerPoints({
     }
   }
 
-  const cornerRadius = Math.min(
-    Math.max(0, radius),
-    previousLength / 2,
-    nextLength / 2
-  )
+  const maxCornerRadius = Math.min(previousLength / 2, nextLength / 2)
+  const cornerRadius = maxCornerRadius * roundingRatio
+
   const start = {
     x: normalizeNumber({
       value: current.x + (vectorToPrevious.x / previousLength) * cornerRadius
@@ -379,7 +383,7 @@ function resolveRoundedCornerPoints({
  */
 function buildRoundedPathFromPoints({
   points,
-  radius,
+  roundingRatio,
   closed
 }: BuildRoundedPathFromPointsParams): string {
   const total = points.length
@@ -391,8 +395,7 @@ function buildRoundedPathFromPoints({
     return `M ${normalizeNumber({ value: point.x })} ${normalizeNumber({ value: point.y })}`
   }
 
-  const safeRadius = Math.max(0, radius)
-  if (safeRadius <= 0) {
+  if (roundingRatio <= 0) {
     return buildLinearPathFromPoints({
       points,
       closed
@@ -410,7 +413,7 @@ function buildRoundedPathFromPoints({
         previous: points[previousIndex],
         current: points[index],
         next: points[nextIndex],
-        radius: safeRadius
+        roundingRatio
       }))
     }
 
@@ -445,7 +448,7 @@ function buildRoundedPathFromPoints({
       previous: points[index - 1],
       current: points[index],
       next: points[index + 1],
-      radius: safeRadius
+      roundingRatio
     })
 
     pathData += ` L ${corner.start.x} ${corner.start.y}`
@@ -468,7 +471,7 @@ function createRoundedPolygonPathShape({
 }: CreateRoundedPolygonPathShapeParams): ShapeNode {
   const pathData = buildRoundedPathFromPoints({
     points,
-    radius: rounding,
+    roundingRatio: resolveShapeRoundingRatio({ rounding }),
     closed
   })
 
@@ -497,13 +500,15 @@ function createTriangleShape({
     }) as ShapeNode
   }
 
+  const normalizedRounding = normalizeShapeRounding({ rounding })
+
   return createRoundedPolygonPathShape({
     points: [
       { x: 50, y: 0 },
       { x: 100, y: 100 },
       { x: 0, y: 100 }
     ],
-    rounding: Math.max(0, rounding ?? 0),
+    rounding: normalizedRounding,
     closed: true
   })
 }
@@ -591,7 +596,7 @@ function createPathShape({
 
   const roundedPath = createRoundedPathFromLinearPath({
     path,
-    rounding: Math.max(0, rounding ?? 0)
+    rounding: normalizeShapeRounding({ rounding })
   })
   if (roundedPath) return roundedPath
 
@@ -613,13 +618,13 @@ function createPolygonShape({
       { x: 100, y: 0 },
       { x: 100, y: 100 }
     ]
-  const safeRounding = Math.max(0, rounding ?? 0)
+  const normalizedRounding = normalizeShapeRounding({ rounding })
 
-  if (shouldUseRoundedPath({ rounding })) {
+  if (normalizedRounding > 0) {
     if (type === 'polygon' && sourcePoints.length >= 3) {
       return createRoundedPolygonPathShape({
         points: sourcePoints,
-        rounding: safeRounding,
+        rounding: normalizedRounding,
         closed: true
       })
     }
@@ -627,7 +632,7 @@ function createPolygonShape({
     if (type === 'polyline' && sourcePoints.length >= 2) {
       return createRoundedPolygonPathShape({
         points: sourcePoints,
-        rounding: safeRounding,
+        rounding: normalizedRounding,
         closed: false
       })
     }
