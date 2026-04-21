@@ -5,6 +5,11 @@ import {
   SHAPE_OPACITY_VALUE,
   SHAPE_SHAPE_ONLY_OPACITY_VALUE
 } from '../../fixtures/data/shape-opacity.data'
+import {
+  SHAPE_ROUNDING_MANUAL_SIZE_OPTIONS,
+  SHAPE_ROUNDING_SIZE_TOLERANCE,
+  SHAPE_ROUNDING_UPDATED_VALUE
+} from '../../fixtures/data/shape-rounding.data'
 
 test.describe('Свойства фигур', () => {
   test('при создании прямоугольника слишком большое скругление ограничивается 100', async({ shapes }) => {
@@ -107,6 +112,56 @@ test.describe('Свойства фигур', () => {
     await test.step('Проверить значение rounding', async() => {
       const shape = await shapes.getFirstShape()
       expect(shape.shapeRounding).toBe(20)
+    })
+  })
+
+  test('при изменении скругления шейп с вручную заданными размерами не сжимается', async({ shapes }) => {
+    const createdShape = await test.step('Добавить прямоугольник с вручную заданной шириной и высотой', () => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          ...SHAPE_ROUNDING_MANUAL_SIZE_OPTIONS,
+          id: 'shape-rounding-manual-size'
+        }
+      })
+    })
+
+    await test.step('Проверить что фигура создана в исходном непропорциональном размере', () => {
+      shapes.checkCreation({
+        shape: createdShape,
+        presetKey: 'square'
+      })
+      expect(createdShape?.shapeTextAutoExpand).toBe(false)
+      expect(createdShape?.shapeRounding).toBe(SHAPE_ROUNDING_MANUAL_SIZE_OPTIONS.rounding)
+    })
+
+    const initialSnapshot = await test.step('Получить исходную геометрию фигуры', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-rounding-manual-size' })
+    })
+
+    await test.step('Изменить скругление без смены пресета', () => {
+      return shapes.setRounding({
+        id: 'shape-rounding-manual-size',
+        rounding: SHAPE_ROUNDING_UPDATED_VALUE
+      })
+    })
+
+    const updatedShape = await test.step('Получить состояние фигуры после изменения скругления', () => {
+      return shapes.getObject({ id: 'shape-rounding-manual-size' })
+    })
+    const updatedSnapshot = await test.step('Получить геометрию после изменения скругления', () => {
+      return shapes.getScaleSnapshot({ id: 'shape-rounding-manual-size' })
+    })
+
+    await test.step('Проверить что фигура сохранила ширину и высоту, а текст остался внутри', () => {
+      expect(updatedShape?.shapePresetKey).toBe('square')
+      expect(updatedShape?.shapeRounding).toBe(SHAPE_ROUNDING_UPDATED_VALUE)
+      expect(Math.abs(updatedSnapshot.groupBoundsWidth - initialSnapshot.groupBoundsWidth))
+        .toBeLessThanOrEqual(SHAPE_ROUNDING_SIZE_TOLERANCE)
+      expect(Math.abs(updatedSnapshot.groupBoundsHeight - initialSnapshot.groupBoundsHeight))
+        .toBeLessThanOrEqual(SHAPE_ROUNDING_SIZE_TOLERANCE)
+      shapes.checkNodeInsideGroup({ snapshot: updatedSnapshot, kind: 'shape' })
+      shapes.checkNodeInsideGroup({ snapshot: updatedSnapshot, kind: 'text' })
     })
   })
 
