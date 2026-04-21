@@ -44,6 +44,26 @@ test.describe('Пресеты фигур', () => {
     })
   })
 
+  test('при создании круга начальное скругление сбрасывается в 0', async({ shapes }) => {
+    const createdShape = await test.step('Добавить круг с начальным скруглением', () => {
+      return shapes.add({
+        presetKey: 'circle',
+        options: {
+          id: 'shape-non-roundable-add',
+          rounding: 50
+        }
+      })
+    })
+
+    await test.step('Проверить что у круга скругление осталось 0', () => {
+      shapes.checkCreation({
+        shape: createdShape,
+        presetKey: 'circle'
+      })
+      expect(createdShape?.shapeRounding).toBe(0)
+    })
+  })
+
   test('setRounding не влияет на non-roundable пресет (heart)', async({ shapes }) => {
     await test.step('Добавить сердце', () => shapes.add({ presetKey: 'heart' }))
 
@@ -57,6 +77,82 @@ test.describe('Пресеты фигур', () => {
     await test.step('Проверить что rounding не изменился', async() => {
       const shape = await shapes.getFirstShape()
       expect(shape.shapeRounding).toBe(before)
+    })
+  })
+
+  test('при смене прямоугольника на круг скругление сбрасывается в 0', async({ shapes }) => {
+    await test.step('Добавить прямоугольник со скруглением 50', () => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'shape-non-roundable-update',
+          rounding: 50
+        }
+      })
+    })
+
+    const updatedShape = await test.step('Сменить прямоугольник на круг', () => {
+      return shapes.update({
+        id: 'shape-non-roundable-update',
+        presetKey: 'circle'
+      })
+    })
+
+    await test.step('Проверить что круг сохранился без скругления', () => {
+      expect(updatedShape?.shapePresetKey).toBe('circle')
+      expect(updatedShape?.shapeRounding).toBe(0)
+    })
+  })
+
+  test('при смене круга на прямоугольник с большим скруглением сразу применяет скругление 100', async({ shapes }) => {
+    await test.step('Добавить круг', () => {
+      return shapes.add({
+        presetKey: 'circle',
+        options: {
+          id: 'shape-rounding-roundable-update'
+        }
+      })
+    })
+
+    const updatedShape = await test.step('Сменить круг на прямоугольник и передать слишком большое скругление', () => {
+      return shapes.update({
+        id: 'shape-rounding-roundable-update',
+        presetKey: 'square',
+        options: {
+          rounding: 999999
+        }
+      })
+    })
+
+    await test.step('Проверить что прямоугольник получил скругление 100', () => {
+      expect(updatedShape?.shapePresetKey).toBe('square')
+      expect(updatedShape?.shapeRounding).toBe(100)
+    })
+  })
+
+  test('при смене прямоугольника на круг сразу сбрасывает переданное скругление', async({ shapes }) => {
+    await test.step('Добавить прямоугольник', () => {
+      return shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'shape-rounding-non-roundable-update'
+        }
+      })
+    })
+
+    const updatedShape = await test.step('Сменить прямоугольник на круг и передать слишком большое скругление', () => {
+      return shapes.update({
+        id: 'shape-rounding-non-roundable-update',
+        presetKey: 'circle',
+        options: {
+          rounding: 999999
+        }
+      })
+    })
+
+    await test.step('Проверить что круг сохранился без скругления', () => {
+      expect(updatedShape?.shapePresetKey).toBe('circle')
+      expect(updatedShape?.shapeRounding).toBe(0)
     })
   })
 
