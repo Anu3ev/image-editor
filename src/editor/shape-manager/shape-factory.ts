@@ -10,6 +10,7 @@ import {
   loadSVGFromString,
   util
 } from 'fabric'
+import { nanoid } from 'nanoid'
 import {
   ShapeFactoryInput,
   ShapeNode,
@@ -731,7 +732,7 @@ async function createShapeObjectByPreset({
 }
 
 /**
- * Создает объект фигуры из пресета и применяет к нему стили.
+ * Создает объект фигуры из пресета, назначает ему id и применяет стили.
  */
 export async function createShapeNode({
   preset,
@@ -759,6 +760,7 @@ export async function createShapeNode({
   })
 
   shape.set({
+    id: `${shape.type}-${nanoid()}`,
     selectable: false,
     evented: false,
     hasControls: false,

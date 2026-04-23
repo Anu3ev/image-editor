@@ -8,6 +8,10 @@ import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
 import type { ObjectPlacement } from '../canvas-manager'
 import type { TextStyleOptions } from '../text-manager'
+import {
+  applyScaledTextboxVisualState,
+  captureTextScaleBase
+} from '../text-manager/scaling/text-scaling-materialization'
 import type {
   BeforeTextUpdatedPayload,
   TextUpdatedPayload
@@ -1275,6 +1279,105 @@ export default class ShapeManager {
         withoutSave
       }
     })
+  }
+
+  /**
+   * Материализует shape-группу после clone/deserialize/template-scale
+   * в тот же канонический layout-контракт, который используется в add/update/edit path.
+   * Запекает transient group scale в base/manual/replaceBox размеры и пересчитывает layout текста.
+   * При `textScale` дополнительно запекает scene-scale в визуальное состояние текста внутри фигуры
+   * и в пользовательский padding шейпа до layout-пересчета.
+   */
+  public commitRehydratedShapeLayout({
+    target,
+    textScale = 1
+  }: {
+    target?: ShapeReference
+    textScale?: number
+  }): boolean {
+    const group = this._resolveShapeGroup({ target })
+    if (!group) return false
+
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
+    if (!shape || !text) return false
+
+    const placement = this.editor.canvasManager.getObjectPlacement({ object: group })
+    const {
+      shapeAlignHorizontal = SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+      shapeAlignVertical = SHAPE_DEFAULT_VERTICAL_ALIGN,
+      shapeBaseWidth,
+      shapeBaseHeight,
+      shapeManualBaseWidth,
+      shapeManualBaseHeight,
+      shapeReplaceBoxWidth,
+      shapeReplaceBoxHeight,
+      shapePaddingTop = 0,
+      shapePaddingRight = 0,
+      shapePaddingBottom = 0,
+      shapePaddingLeft = 0,
+      width: groupWidth,
+      height: groupHeight
+    } = group
+    const scaleX = Math.abs(group.scaleX ?? 1) || 1
+    const scaleY = Math.abs(group.scaleY ?? 1) || 1
+    const resolvedTextScale = Number.isFinite(textScale) && textScale > 0
+      ? textScale
+      : 1
+    const baseWidth = Math.max(1, shapeBaseWidth ?? groupWidth ?? 1)
+    const baseHeight = Math.max(1, shapeBaseHeight ?? groupHeight ?? 1)
+    const currentDimensions = {
+      width: Math.max(1, baseWidth * scaleX),
+      height: Math.max(1, baseHeight * scaleY)
+    }
+    const manualDimensions = {
+      width: Math.max(1, (shapeManualBaseWidth ?? baseWidth) * scaleX),
+      height: Math.max(1, (shapeManualBaseHeight ?? baseHeight) * scaleY)
+    }
+    const replaceBoxDimensions = {
+      width: Math.max(1, (shapeReplaceBoxWidth ?? baseWidth) * scaleX),
+      height: Math.max(1, (shapeReplaceBoxHeight ?? baseHeight) * scaleY)
+    }
+
+    if (Math.abs(resolvedTextScale - 1) > 0.0001) {
+      const textScaleBase = captureTextScaleBase({
+        textbox: text
+      })
+
+      applyScaledTextboxVisualState({
+        textbox: text,
+        base: textScaleBase,
+        scale: resolvedTextScale
+      })
+
+      group.shapePaddingTop = Math.max(0, shapePaddingTop * resolvedTextScale)
+      group.shapePaddingRight = Math.max(0, shapePaddingRight * resolvedTextScale)
+      group.shapePaddingBottom = Math.max(0, shapePaddingBottom * resolvedTextScale)
+      group.shapePaddingLeft = Math.max(0, shapePaddingLeft * resolvedTextScale)
+    }
+
+    this._detachShapeGroupAutoLayout({
+      group
+    })
+
+    group.shapeManualBaseWidth = manualDimensions.width
+    group.shapeManualBaseHeight = manualDimensions.height
+
+    this._applyCurrentLayout({
+      group,
+      shape,
+      text,
+      placement,
+      width: currentDimensions.width,
+      height: currentDimensions.height,
+      alignH: shapeAlignHorizontal,
+      alignV: shapeAlignVertical,
+      minimumReplaceBox: replaceBoxDimensions
+    })
+
+    return true
   }
 
   /**

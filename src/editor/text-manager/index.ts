@@ -142,7 +142,7 @@ export default class TextManager {
    */
   public addText(
     {
-      id = `text-${nanoid()}`,
+      id = `background-textbox-${nanoid()}`,
       text = 'Новый текст',
       autoExpand = true,
       fontFamily,

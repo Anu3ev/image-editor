@@ -1,4 +1,4 @@
-import { ActiveSelection, FabricObject } from 'fabric'
+import { ActiveSelection, FabricObject, Group } from 'fabric'
 import { nanoid } from 'nanoid'
 import { CLIPBOARD_DATA_PREFIX, CLIPBOARD_CLONE_OBJECT_KEYS } from '../constants'
 
@@ -57,7 +57,7 @@ export default class ClipboardManager {
 
     try {
       const clonedObject = await activeObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
-      this._rehydrateStandaloneTextOnClone({
+      this._materializeCloneGeometry({
         clonedObject
       })
       this.clipboard = clonedObject
@@ -202,15 +202,20 @@ export default class ClipboardManager {
   }
 
   /**
-   * Материализует standalone-text в clone до добавления на canvas и в internal clipboard.
+   * Материализует clone в каноническую геометрию до добавления на canvas и в internal clipboard.
    */
-  private _rehydrateStandaloneTextOnClone({ clonedObject }: { clonedObject: FabricObject }): void {
-    const { textManager } = this.editor
-    if (!textManager) return
+  private _materializeCloneGeometry({ clonedObject }: { clonedObject: FabricObject }): void {
+    const {
+      shapeManager,
+      textManager
+    } = this.editor
 
     if (clonedObject instanceof ActiveSelection) {
       clonedObject.forEachObject((object) => {
         textManager.commitStandaloneTextScale({
+          target: object
+        })
+        shapeManager.commitRehydratedShapeLayout({
           target: object
         })
       })
@@ -220,6 +225,42 @@ export default class ClipboardManager {
 
     textManager.commitStandaloneTextScale({
       target: clonedObject
+    })
+    shapeManager.commitRehydratedShapeLayout({
+      target: clonedObject
+    })
+  }
+
+  /**
+   * Назначает свежие id клону и всем вложенным объектам перед вставкой на canvas.
+   * `evented` восстанавливается только у объектов верхнего уровня, которые реально добавляются на canvas.
+   */
+  private _materializeCloneIdentity({
+    clonedObject,
+    enableEvented = true
+  }: {
+    clonedObject: FabricObject
+    enableEvented?: boolean
+  }): void {
+    clonedObject.set({
+      id: `${clonedObject.type}-${nanoid()}`
+    })
+
+    if (enableEvented) {
+      clonedObject.set({
+        evented: true
+      })
+    }
+
+    if (!(clonedObject instanceof Group)) return
+
+    const shouldEnableChildEvented = clonedObject instanceof ActiveSelection
+
+    clonedObject.forEachObject((object) => {
+      this._materializeCloneIdentity({
+        clonedObject: object,
+        enableEvented: shouldEnableChildEvented
+      })
     })
   }
 
@@ -331,25 +372,16 @@ export default class ClipboardManager {
       // Используем асинхронное клонирование для корректной работы с SVG и сложными объектами
       const clonedObject = await targetObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
 
-      // Устанавливаем новые координаты и ID
-      if (clonedObject instanceof ActiveSelection) {
-        // Для ActiveSelection обновляем каждый объект внутри
-        clonedObject.forEachObject((obj) => {
-          obj.set({
-            id: `${obj.type}-${nanoid()}`,
-            evented: true
-          })
-        })
-      }
-
-      clonedObject.set({
-        id: `${clonedObject.type}-${nanoid()}`,
-        left: clonedObject.left + 10,
-        top: clonedObject.top + 10,
-        evented: true
+      this._materializeCloneIdentity({
+        clonedObject
       })
 
-      this._rehydrateStandaloneTextOnClone({
+      clonedObject.set({
+        left: clonedObject.left + 10,
+        top: clonedObject.top + 10
+      })
+
+      this._materializeCloneGeometry({
         clonedObject
       })
 
@@ -461,25 +493,16 @@ export default class ClipboardManager {
 
       canvas.discardActiveObject()
 
-      // Устанавливаем новые координаты и ID
-      if (clonedObj instanceof ActiveSelection) {
-        // Для ActiveSelection обновляем каждый объект внутри
-        clonedObj.forEachObject((obj) => {
-          obj.set({
-            id: `${obj.type}-${nanoid()}`,
-            evented: true
-          })
-        })
-      }
-
-      clonedObj.set({
-        id: `${clonedObj.type}-${nanoid()}`,
-        left: clonedObj.left + 10,
-        top: clonedObj.top + 10,
-        evented: true
+      this._materializeCloneIdentity({
+        clonedObject: clonedObj
       })
 
-      this._rehydrateStandaloneTextOnClone({
+      clonedObj.set({
+        left: clonedObj.left + 10,
+        top: clonedObj.top + 10
+      })
+
+      this._materializeCloneGeometry({
         clonedObject: clonedObj
       })
 
