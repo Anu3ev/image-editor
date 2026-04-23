@@ -191,6 +191,13 @@ export interface ShapeTextInfo extends EditorObjectInfo {
   splitByGrapheme: boolean
 }
 
+/** ID shape-группы и её внутренних объектов. */
+export interface ShapeObjectTreeIds {
+  groupId: string | null
+  shapeId: string | null
+  textId: string | null
+}
+
 /** Параметры одного шага интерактивного масштабирования */
 export interface ShapeScaleStepParams extends ObjectTargetParams {
   scaleX: number

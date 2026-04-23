@@ -68,6 +68,69 @@ export const PRODUCT_CARD_TEMPLATE_UPDATED_TITLE = 'НАУШНИКИ SONY'
 /** Цвет фона, который должен быть применён как background-object, а не как обычный canvas-объект. */
 export const PRODUCT_CARD_TEMPLATE_BACKGROUND_COLOR = '#fcf4ff'
 
+/** Базовое разрешение для шаблона с текстом внутри фигуры. */
+export const TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION = {
+  width: 810,
+  height: 1080
+} as const
+
+/** Увеличенное разрешение для проверки масштаба текста внутри фигуры из шаблона. */
+export const TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION = {
+  width: 4096,
+  height: 4096
+} as const
+
+/** Коэффициент масштабирования шаблона с текстом внутри фигуры на большом разрешении. */
+export const TEMPLATE_SHAPE_TEXT_LARGE_SCALE = Math.min(
+  TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION.width / TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION.width,
+  TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION.height / TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION.height
+)
+
+/** Допуск для проверок масштаба текста внутри фигуры после применения шаблона. */
+export const TEMPLATE_SHAPE_TEXT_SCALE_TOLERANCE = 1.5
+
+/** Фигура с длинным текстом для проверки сохранения и повторного применения шаблона. */
+export const TEMPLATE_SHAPE_LONG_TEXT_OPTIONS = {
+  id: 'template-shape-long-text',
+  left: 292,
+  top: 814,
+  width: 230,
+  height: 124,
+  shapeTextAutoExpand: false,
+  text: 'Премиальное качество\nПремиальное качество',
+  textStyle: {
+    fontFamily: 'Exo 2',
+    fontSize: 48,
+    bold: true,
+    color: '#333333'
+  },
+  fill: '#EBE4ED',
+  rounding: 25,
+  alignH: 'center',
+  alignV: 'middle'
+} as const
+
+/** Фигура для проверки масштабирования текста внутри шаблона на другом разрешении. */
+export const TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS = {
+  id: 'template-shape-text-scale',
+  left: 292,
+  top: 814,
+  width: 230,
+  height: 124,
+  shapeTextAutoExpand: false,
+  text: 'Премиум',
+  textStyle: {
+    fontFamily: 'Exo 2',
+    fontSize: 24,
+    bold: true,
+    color: '#333333'
+  },
+  fill: '#EBE4ED',
+  rounding: 25,
+  alignH: 'center',
+  alignV: 'middle'
+} as const
+
 /** Полный шаблон product card для e2e-проверок применения готового шаблона. */
 export const PRODUCT_CARD_TEMPLATE: TemplateDefinition = {
   id: 'template-2',

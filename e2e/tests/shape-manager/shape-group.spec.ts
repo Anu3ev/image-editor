@@ -204,3 +204,86 @@ test.describe('Свойства фигур', () => {
     })
   })
 })
+
+test.describe('ID объектов фигуры', () => {
+  test('при добавлении фигуры внутренние объекты сразу получают id', async({ shapes }) => {
+    await test.step('Добавить фигуру с текстом', async() => {
+      shapes.checkCreation({
+        shape: await shapes.add({
+          presetKey: 'square',
+          options: {
+            id: 'shape-object-ids-source',
+            text: 'Текст внутри фигуры'
+          }
+        }),
+        presetKey: 'square'
+      })
+    })
+
+    await test.step('Проверить id группы и внутренних объектов', async() => {
+      const ids = await shapes.getObjectTreeIds({ id: 'shape-object-ids-source' })
+
+      expect(ids.groupId).toBe('shape-object-ids-source')
+      expect(ids.shapeId).toEqual(expect.any(String))
+      expect(ids.textId).toEqual(expect.any(String))
+      expect(ids.shapeId).not.toBe(ids.textId)
+    })
+  })
+
+  test('после копирования и вставки фигуры внутренние объекты получают новые id', async({
+    clipboard,
+    editorModel,
+    shapes
+  }) => {
+    await test.step('Добавить исходную фигуру', async() => {
+      shapes.checkCreation({
+        shape: await shapes.add({
+          presetKey: 'square',
+          options: {
+            id: 'shape-copy-object-ids-source',
+            text: 'Текст для копии'
+          }
+        }),
+        presetKey: 'square'
+      })
+    })
+
+    const sourceIds = await test.step('Получить id исходной фигуры и внутренних объектов', () => {
+      return shapes.getObjectTreeIds({ id: 'shape-copy-object-ids-source' })
+    })
+
+    await test.step('Скопировать и вставить фигуру', async() => {
+      await shapes.select({ id: 'shape-copy-object-ids-source' })
+      await clipboard.copy()
+      await clipboard.waitForClipboardReady()
+
+      const pasted = await clipboard.paste()
+
+      expect(pasted).toBe(true)
+      await editorModel.checkObjectCount({ count: 2 })
+    })
+
+    const pastedShapeId = await test.step('Найти вставленную фигуру', async() => {
+      const shapeObjects = await shapes.getShapeObjects()
+      const pastedShape = shapeObjects.find((shape) => shape.id !== sourceIds.groupId)
+
+      if (!pastedShape?.id) {
+        throw new Error('после вставки должна существовать новая фигура с id')
+      }
+
+      return pastedShape.id
+    })
+
+    await test.step('Проверить что у вставленной фигуры и внутренних объектов новые id', async() => {
+      const pastedIds = await shapes.getObjectTreeIds({ id: pastedShapeId })
+
+      expect(pastedIds.groupId).toEqual(expect.any(String))
+      expect(pastedIds.shapeId).toEqual(expect.any(String))
+      expect(pastedIds.textId).toEqual(expect.any(String))
+      expect(pastedIds.groupId).not.toBe(sourceIds.groupId)
+      expect(pastedIds.shapeId).not.toBe(sourceIds.shapeId)
+      expect(pastedIds.textId).not.toBe(sourceIds.textId)
+      expect(pastedIds.shapeId).not.toBe(pastedIds.textId)
+    })
+  })
+})

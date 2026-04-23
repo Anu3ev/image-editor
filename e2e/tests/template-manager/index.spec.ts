@@ -14,6 +14,12 @@ import {
   PRODUCT_CARD_TEMPLATE_UPDATED_TITLE,
   TEMPLATE_ALIGNMENT_TOLERANCE,
   TEMPLATE_BOUNDS_TOLERANCE,
+  TEMPLATE_SHAPE_LONG_TEXT_OPTIONS,
+  TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION,
+  TEMPLATE_SHAPE_TEXT_LARGE_SCALE,
+  TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION,
+  TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS,
+  TEMPLATE_SHAPE_TEXT_SCALE_TOLERANCE,
   TEMPLATE_ROUNDTRIP_BASE_RESOLUTION,
   TEMPLATE_ROUNDTRIP_EXPANDED_RESOLUTION,
   TEMPLATE_ROUNDTRIP_LEFT_SHAPE,
@@ -226,6 +232,111 @@ test.describe('Готовый шаблон', () => {
 
       expect(titleObject.text).toBe(PRODUCT_CARD_TEMPLATE_UPDATED_TITLE)
       expect(subtitleObject.text).toBe('Новый подзаголовок товара')
+    })
+  })
+})
+
+test.describe('Текст внутри фигуры из шаблона', () => {
+  test('длинный текст внутри фигуры из сохранённого шаблона остаётся внутри выделения', async({
+    canvas,
+    shapes,
+    template
+  }) => {
+    const serializedTemplate = await test.step('Создать фигуру с длинным текстом и сохранить её как шаблон', async() => {
+      await canvas.setMontageResolution(TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION)
+      shapes.checkCreation({
+        shape: await shapes.addAtBounds({
+          presetKey: 'square',
+          options: TEMPLATE_SHAPE_LONG_TEXT_OPTIONS
+        }),
+        presetKey: 'square'
+      })
+      await shapes.select({ id: TEMPLATE_SHAPE_LONG_TEXT_OPTIONS.id })
+
+      return template.serializeSelection()
+    })
+
+    await test.step('Очистить canvas и применить сохранённый шаблон', async() => {
+      expect(serializedTemplate).not.toBeNull()
+      await canvas.clearCanvas()
+
+      const insertedCount = await template.applyTemplate({
+        template: serializedTemplate!
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    await test.step('Проверить что текст остался внутри фигуры', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+      const snapshot = await shapes.getScaleSnapshot({ objectIndex: 0 })
+
+      if (!textNode) {
+        throw new Error('текст внутри фигуры из шаблона должен существовать')
+      }
+
+      expect(textNode.text).toBe(TEMPLATE_SHAPE_LONG_TEXT_OPTIONS.text)
+      expect(textNode.lineCount).toBeGreaterThan(1)
+      shapes.checkNodeInsideGroup({ snapshot, kind: 'text' })
+    })
+  })
+
+  test('текст внутри фигуры из сохранённого шаблона увеличивается вместе с монтажной областью', async({
+    canvas,
+    shapes,
+    template
+  }) => {
+    await test.step('Создать фигуру на исходном размере монтажной области', async() => {
+      await canvas.setMontageResolution(TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION)
+      shapes.checkCreation({
+        shape: await shapes.addAtBounds({
+          presetKey: 'square',
+          options: TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS
+        }),
+        presetKey: 'square'
+      })
+      await shapes.select({ id: TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS.id })
+    })
+
+    const sourceText = await test.step('Получить исходный размер текста внутри фигуры', async() => {
+      return shapes.getTextNode({ id: TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS.id })
+    })
+    const sourceSnapshot = await test.step('Получить исходную геометрию фигуры', async() => {
+      return shapes.getScaleSnapshot({ id: TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS.id })
+    })
+    const serializedTemplate = await test.step('Сохранить фигуру как шаблон', () => {
+      return template.serializeSelection()
+    })
+
+    await test.step('Применить сохранённый шаблон на большом размере монтажной области', async() => {
+      expect(serializedTemplate).not.toBeNull()
+      await canvas.clearCanvas()
+      await canvas.setMontageResolution(TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION)
+
+      const insertedCount = await template.applyTemplate({
+        template: serializedTemplate!
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    await test.step('Проверить что текст и фигура увеличились в том же масштабе', async() => {
+      const appliedText = await shapes.getTextNode({ objectIndex: 0 })
+      const appliedSnapshot = await shapes.getScaleSnapshot({ objectIndex: 0 })
+
+      if (!sourceText || !appliedText) {
+        throw new Error('текст внутри фигуры должен существовать до и после применения шаблона')
+      }
+
+      const expectedFontSize = sourceText.fontSize * TEMPLATE_SHAPE_TEXT_LARGE_SCALE
+      const expectedWidth = sourceSnapshot.groupBoundsWidth * TEMPLATE_SHAPE_TEXT_LARGE_SCALE
+
+      expect(appliedText.fontSize).toBeGreaterThan(sourceText.fontSize + 1)
+      expect(Math.abs(appliedText.fontSize - expectedFontSize))
+        .toBeLessThanOrEqual(TEMPLATE_SHAPE_TEXT_SCALE_TOLERANCE)
+      expect(Math.abs(appliedSnapshot.groupBoundsWidth - expectedWidth))
+        .toBeLessThanOrEqual(TEMPLATE_SHAPE_TEXT_SCALE_TOLERANCE)
+      shapes.checkNodeInsideGroup({ snapshot: appliedSnapshot, kind: 'text' })
     })
   })
 })
