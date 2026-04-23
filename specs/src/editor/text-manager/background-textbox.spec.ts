@@ -395,8 +395,13 @@ describe('BackgroundTextbox', () => {
         0: {
           fontFamily: 'Arial',
           fontSize: 20,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
           fill: '#111111',
-          stroke: '#222222'
+          linethrough: true,
+          stroke: '#222222',
+          strokeWidth: 2,
+          underline: true
         },
         2: {
           fontFamily: 'Roboto',
