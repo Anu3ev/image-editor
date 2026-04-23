@@ -1481,7 +1481,16 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
   // Добавляем методы моков
   mockSelection.clone = jest.fn().mockImplementation(async() => {
     // Глубокое копирование для избежания shared references
-    const clonedObjects = objects.map((obj) => ({ ...obj }))
+    const clonedObjects = objects.map((object) => {
+      const clonedObject = { ...object }
+
+      clonedObject.set = jest.fn().mockImplementation((newProps) => {
+        Object.assign(clonedObject, newProps)
+      })
+      clonedObject.setCoords = jest.fn()
+
+      return clonedObject
+    })
     const clonedProps = JSON.parse(JSON.stringify(props))
     const cloned = new ActiveSelection(clonedObjects, clonedProps) as any
     cloned.set = jest.fn().mockImplementation((newProps) => {

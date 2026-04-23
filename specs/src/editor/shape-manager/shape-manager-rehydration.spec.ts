@@ -1,0 +1,139 @@
+import '../../../test-utils/shape-manager-module-mocks'
+import ShapeManager from '../../../../src/editor/shape-manager'
+import {
+  createShapeManagerEditorStub,
+  createShapeRehydrationTarget,
+  getShapeManagerUnitMocks,
+  resetShapeManagerUnitMocks
+} from '../../../test-utils/shape-manager-spec-helpers'
+
+describe('восстановленная фигура', () => {
+  const mocks = getShapeManagerUnitMocks()
+  const { applyShapeTextLayoutMock } = mocks
+
+  beforeEach(() => {
+    resetShapeManagerUnitMocks(mocks)
+  })
+
+  it('получает итоговый размер до пересчёта текста', () => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const { group } = createShapeRehydrationTarget({
+      width: 200,
+      height: 100,
+      scaleX: 1.5,
+      scaleY: 2,
+      manualWidth: 180,
+      manualHeight: 90,
+      replaceBoxWidth: 210,
+      replaceBoxHeight: 120
+    })
+
+    const result = manager.commitRehydratedShapeLayout({
+      target: group
+    })
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(result).toBe(true)
+    expect(layoutCall).toEqual(expect.objectContaining({
+      group,
+      width: 300,
+      height: 200
+    }))
+    expect(group.shapeBaseWidth).toBe(300)
+    expect(group.shapeBaseHeight).toBe(200)
+    expect(group.shapeManualBaseWidth).toBe(270)
+    expect(group.shapeManualBaseHeight).toBe(180)
+    expect(group.shapeReplaceBoxWidth).toBe(315)
+    expect(group.shapeReplaceBoxHeight).toBe(240)
+    expect(group.scaleX).toBe(1)
+    expect(group.scaleY).toBe(1)
+  })
+
+  it('текст внутри восстановленной фигуры масштабируется вместе с шаблоном', () => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const { group, text } = createShapeRehydrationTarget()
+
+    text.set({
+      fontSize: 20,
+      paddingTop: 2,
+      paddingRight: 3,
+      paddingBottom: 4,
+      paddingLeft: 5,
+      radiusTopLeft: 6,
+      radiusTopRight: 7,
+      radiusBottomRight: 8,
+      radiusBottomLeft: 9
+    })
+    text.lineFontDefaults = {
+      0: {
+        fontSize: 10
+      }
+    }
+    group.shapePaddingTop = 3
+    group.shapePaddingRight = 4
+    group.shapePaddingBottom = 5
+    group.shapePaddingLeft = 6
+
+    const result = manager.commitRehydratedShapeLayout({
+      target: group,
+      textScale: 2
+    })
+
+    expect(result).toBe(true)
+    expect(text.fontSize).toBe(40)
+    expect(text.lineFontDefaults?.[0]?.fontSize).toBe(20)
+    expect(text.paddingTop).toBe(4)
+    expect(text.paddingRight).toBe(6)
+    expect(text.paddingBottom).toBe(8)
+    expect(text.paddingLeft).toBe(10)
+    expect(text.radiusTopLeft).toBe(12)
+    expect(text.radiusTopRight).toBe(14)
+    expect(text.radiusBottomRight).toBe(16)
+    expect(text.radiusBottomLeft).toBe(18)
+    expect(group.shapePaddingTop).toBe(6)
+    expect(group.shapePaddingRight).toBe(8)
+    expect(group.shapePaddingBottom).toBe(10)
+    expect(group.shapePaddingLeft).toBe(12)
+  })
+
+  it('при обычном восстановлении не меняет визуальный размер текста', () => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const { group, text } = createShapeRehydrationTarget({
+      width: 200,
+      height: 100,
+      scaleX: 1.25,
+      scaleY: 1.5
+    })
+
+    text.set({
+      fontSize: 24,
+      paddingTop: 3,
+      radiusTopLeft: 5
+    })
+    group.shapePaddingTop = 7
+
+    const result = manager.commitRehydratedShapeLayout({
+      target: group
+    })
+    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+
+    expect(result).toBe(true)
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 250,
+      height: 150
+    }))
+    expect(text.fontSize).toBe(24)
+    expect(text.paddingTop).toBe(3)
+    expect(text.radiusTopLeft).toBe(5)
+    expect(group.shapePaddingTop).toBe(7)
+  })
+})

@@ -252,9 +252,10 @@ export default class ClipboardManager {
       })
     }
 
-    if (!(clonedObject instanceof Group)) return
-
     const shouldEnableChildEvented = clonedObject instanceof ActiveSelection
+    const isNestedContainer = shouldEnableChildEvented || clonedObject instanceof Group
+
+    if (!isNestedContainer) return
 
     clonedObject.getObjects().forEach((object) => {
       this._materializeCloneIdentity({

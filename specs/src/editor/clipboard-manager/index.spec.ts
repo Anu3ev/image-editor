@@ -359,7 +359,7 @@ describe('ClipboardManager', () => {
       })
     })
 
-    it('должен обработать вставку ActiveSelection и установить уникальные id', async() => {
+    it('вставляет выделение с новыми id у всех объектов', async() => {
       const mockObjects = [
         createMockFabricObject({ type: 'rect', id: 'original-rect', left: 50, top: 50 }),
         createMockFabricObject({ type: 'circle', id: 'original-circle', left: 100, top: 100 }),
@@ -371,16 +371,22 @@ describe('ClipboardManager', () => {
       const result = await clipboardManager.paste()
 
       expect(result).toBe(true)
-
-      // Проверяем, что объекты были добавлены на canvas через специальную логику для ActiveSelection
       expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
-
-      // Проверяем, что добавлено нужное количество объектов
       expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
 
-      // Проверяем вызов события
+      const addedObjects = mockCanvas.add.mock.calls.map(([object]) => object)
+      const addedIds = addedObjects.map((object) => object.id)
+
+      expect(addedIds).toHaveLength(mockObjects.length)
+      expect(new Set(addedIds).size).toBe(mockObjects.length)
+      expect(addedIds).not.toContain('original-rect')
+      expect(addedIds).not.toContain('original-circle')
+      expect(addedIds).not.toContain('original-text')
+      addedObjects.forEach((object) => {
+        expect(object.evented).toBe(true)
+      })
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
         fromInternalClipboard: true,
         clipboardObject: mockGroup,
@@ -388,7 +394,7 @@ describe('ClipboardManager', () => {
       })
     })
 
-    it('вставляет шейп из внутреннего буфера без потери runtime-свойств', async() => {
+    it('вставляет шейп из внутреннего буфера без потери свойств группы', async() => {
       const sourceShape = createMockShapeNode({ id: 'source-shape' })
       const sourceText = createMockShapeTextbox({ text: 'source text' })
       sourceText.set({ id: 'source-text' })
@@ -444,7 +450,7 @@ describe('ClipboardManager', () => {
       })
     })
 
-    it('должен обработать copyPaste для ActiveSelection и установить уникальные id', async() => {
+    it('дублирует выделение с новыми id у всех объектов', async() => {
       const mockObjects = [
         createMockFabricObject({ type: 'rect', id: 'original-rect', left: 75, top: 75 }),
         createMockFabricObject({ type: 'circle', id: 'original-circle', left: 125, top: 125 })
@@ -455,16 +461,21 @@ describe('ClipboardManager', () => {
       const result = await clipboardManager.copyPaste()
 
       expect(result).toBe(true)
-
-      // Проверяем, что были вызваны нужные методы для ActiveSelection
       expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
-
-      // Проверяем, что добавлено нужное количество объектов
       expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
 
-      // Проверяем вызов события
+      const addedObjects = mockCanvas.add.mock.calls.map(([object]) => object)
+      const addedIds = addedObjects.map((object) => object.id)
+
+      expect(addedIds).toHaveLength(mockObjects.length)
+      expect(new Set(addedIds).size).toBe(mockObjects.length)
+      expect(addedIds).not.toContain('original-rect')
+      expect(addedIds).not.toContain('original-circle')
+      addedObjects.forEach((object) => {
+        expect(object.evented).toBe(true)
+      })
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
         targetObject: mockGroup,
         clonedObject: expect.any(ActiveSelection)
