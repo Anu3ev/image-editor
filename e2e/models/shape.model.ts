@@ -19,6 +19,7 @@ import type {
   ShapeHorizontalAlign,
   ShapeVerticalAlign,
   ObjectTargetParams,
+  ShapeTextEditingUpdateParams,
   ShapeTextSelectionParams,
   ShapeTextSelectionStyleInfo
 } from '../types'
@@ -1680,8 +1681,15 @@ export class ShapeModel {
   }
 
   /** Меняет текст активного text-edit внутри shape */
-  async updateEditingText(params: { text: string } & ObjectTargetParams): Promise<ShapeTextInfo | null> {
-    const updatedTextNode = await this.page.evaluate(({ text, objectIndex, id }) => {
+  async updateEditingText(params: ShapeTextEditingUpdateParams): Promise<ShapeTextInfo | null> {
+    const updatedTextNode = await this.page.evaluate((payload) => {
+      const {
+        text,
+        selectionStart,
+        selectionEnd,
+        objectIndex,
+        id
+      } = payload
       const {
         editor,
         __editorHelpers: helpers
@@ -1692,14 +1700,18 @@ export class ShapeModel {
       if (!textNode) return null
 
       const { hiddenTextarea } = textNode
+      const nextSelectionStart = typeof selectionStart === 'number' ? selectionStart : text.length
+      const nextSelectionEnd = typeof selectionEnd === 'number' ? selectionEnd : nextSelectionStart
 
       if (hiddenTextarea instanceof HTMLTextAreaElement) {
         hiddenTextarea.value = text
-        hiddenTextarea.selectionStart = text.length
-        hiddenTextarea.selectionEnd = text.length
+        hiddenTextarea.selectionStart = nextSelectionStart
+        hiddenTextarea.selectionEnd = nextSelectionEnd
         hiddenTextarea.dispatchEvent(new Event('input', { bubbles: true }))
       } else {
         textNode.set({ text })
+        textNode.selectionStart = nextSelectionStart
+        textNode.selectionEnd = nextSelectionEnd
         editor.canvas.fire('text:changed', {
           target: textNode
         })
@@ -1785,11 +1797,59 @@ export class ShapeModel {
       const textNode = editor.shapeManager.getTextNode({ target })
       if (!textNode) return null
 
-      textNode.selectionStart = start
-      textNode.selectionEnd = end
+      if (typeof textNode.setSelectionStart === 'function') {
+        textNode.setSelectionStart(start)
+      } else {
+        textNode.selectionStart = start
+      }
+
+      if (typeof textNode.setSelectionEnd === 'function') {
+        textNode.setSelectionEnd(end)
+      } else {
+        textNode.selectionEnd = end
+      }
+      const { hiddenTextarea } = textNode
+
+      if (hiddenTextarea instanceof HTMLTextAreaElement) {
+        hiddenTextarea.focus()
+        hiddenTextarea.selectionStart = start
+        hiddenTextarea.selectionEnd = end
+      }
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
+  }
+
+  /** Удаляет выделенный текст внутри shape через реальное keyboard-событие. */
+  async deleteSelectedText(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
+    await this.page.keyboard.press('Delete')
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(params)
+  }
+
+  /** Вводит текст внутрь shape в текущую позицию курсора через реальные keyboard-события. */
+  async typeText(params: { text: string } & ObjectTargetParams): Promise<ShapeTextInfo | null> {
+    const {
+      text,
+      ...targetParams
+    } = params
+    const parts = text.split('\n')
+
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index]
+      if (part.length > 0) {
+        await this.page.keyboard.type(part)
+      }
+
+      if (index < parts.length - 1) {
+        await this.page.keyboard.press('Enter')
+      }
+    }
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getTextNode(targetParams)
   }
 
   /** Возвращает стиль текущего или явного выделенного диапазона текста внутри shape. */

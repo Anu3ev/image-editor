@@ -14,6 +14,17 @@ import {
   SHAPE_TEXT_LAYOUT_SECOND_POSITION,
   SHAPE_TEXT_LAYOUT_WRAP_FONT_SIZE
 } from '../../fixtures/data/shape-text-layout.data'
+import {
+  TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE,
+  TEXT_LINE_STYLE_FIRST_LINE_SELECTION,
+  TEXT_LINE_STYLE_FIRST_LINE_STYLE,
+  TEXT_LINE_STYLE_FIRST_LINE_TEXT,
+  TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE,
+  TEXT_LINE_STYLE_SECOND_LINE_SELECTION,
+  TEXT_LINE_STYLE_SECOND_LINE_STYLE,
+  TEXT_LINE_STYLE_SECOND_LINE_TEXT,
+  TEXT_LINE_STYLE_SHAPE_ADD_OPTIONS
+} from '../../fixtures/data/text-line-style.data'
 
 test.describe('Текст внутри фигуры', () => {
   test.beforeEach(async({ shapes }) => {
@@ -511,6 +522,112 @@ test.describe('Текст внутри фигуры', () => {
       expect(textNode?.text).toBe('Текст после изменения')
       expect(textNode?.textAlign).toBe('right')
       expect(textNode?.isEditing).toBe(false)
+    })
+  })
+})
+
+test.describe('Стили строк текста внутри фигуры после удаления текста', () => {
+  test('текст внутри фигуры после удаления текста строки сохраняет стиль этой строки', async({ shapes }) => {
+    await test.step('Добавить фигуру с двумя строками и применить разные стили строк', async() => {
+      const shape = await shapes.add(TEXT_LINE_STYLE_SHAPE_ADD_OPTIONS)
+
+      shapes.checkCreation({
+        shape,
+        presetKey: 'square'
+      })
+
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({
+        objectIndex: 0,
+        ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+      })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: TEXT_LINE_STYLE_FIRST_LINE_STYLE
+      })
+      await shapes.setTextSelection({
+        objectIndex: 0,
+        ...TEXT_LINE_STYLE_SECOND_LINE_SELECTION
+      })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: TEXT_LINE_STYLE_SECOND_LINE_STYLE
+      })
+    })
+
+    await test.step('Стереть первую строку и проверить стиль первого нового символа', async() => {
+      await shapes.setTextSelection({
+        objectIndex: 0,
+        ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+      })
+      await shapes.deleteSelectedText({ objectIndex: 0 })
+      await shapes.typeText({
+        objectIndex: 0,
+        text: 'F'
+      })
+
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: 0,
+        end: 1
+      })
+
+      expect(firstCharacterStyle).toMatchObject(TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE)
+    })
+
+    await test.step('Заполнить первую строку целиком', async() => {
+      await shapes.typeText({
+        objectIndex: 0,
+        text: 'IRST LINE'
+      })
+    })
+
+    await test.step('Стереть вторую строку и проверить стиль первого нового символа', async() => {
+      const secondLineStart = TEXT_LINE_STYLE_FIRST_LINE_TEXT.length + 1
+
+      await shapes.setTextSelection({
+        objectIndex: 0,
+        start: secondLineStart,
+        end: `${TEXT_LINE_STYLE_FIRST_LINE_TEXT}\n TEST TEXT`.length
+      })
+      await shapes.deleteSelectedText({ objectIndex: 0 })
+      await shapes.typeText({
+        objectIndex: 0,
+        text: 'S'
+      })
+
+      const secondCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart,
+        end: secondLineStart + 1
+      })
+
+      expect(secondCharacterStyle).toMatchObject(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE)
+    })
+
+    await test.step('Проверить финальный текст и стили обеих строк', async() => {
+      const secondLineStart = TEXT_LINE_STYLE_FIRST_LINE_TEXT.length + 1
+
+      await shapes.typeText({
+        objectIndex: 0,
+        text: 'ECOND LINE'
+      })
+
+      const firstLineStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: 0,
+        end: TEXT_LINE_STYLE_FIRST_LINE_TEXT.length
+      })
+      const secondLineStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart,
+        end: secondLineStart + TEXT_LINE_STYLE_SECOND_LINE_TEXT.length
+      })
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+
+      expect(textNode?.text).toBe(`${TEXT_LINE_STYLE_FIRST_LINE_TEXT}\n${TEXT_LINE_STYLE_SECOND_LINE_TEXT}`)
+      expect(firstLineStyle).toMatchObject(TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE)
+      expect(secondLineStyle).toMatchObject(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE)
     })
   })
 })

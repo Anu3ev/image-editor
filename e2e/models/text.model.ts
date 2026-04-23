@@ -362,7 +362,14 @@ export class TextModel {
 
   /** Меняет текст в активном режиме редактирования текстового объекта. */
   async updateEditingText(params: TextEditingUpdateParams): Promise<TextObjectInfo | null> {
-    const textObject = await this.page.evaluate(({ text, objectIndex, id }) => {
+    const textObject = await this.page.evaluate((payload) => {
+      const {
+        text,
+        selectionStart,
+        selectionEnd,
+        objectIndex,
+        id
+      } = payload
       const {
         editor,
         __editorHelpers: helpers
@@ -372,14 +379,18 @@ export class TextModel {
       if (!target) return null
 
       const { hiddenTextarea } = target
+      const nextSelectionStart = typeof selectionStart === 'number' ? selectionStart : text.length
+      const nextSelectionEnd = typeof selectionEnd === 'number' ? selectionEnd : nextSelectionStart
 
       if (hiddenTextarea instanceof HTMLTextAreaElement) {
         hiddenTextarea.value = text
-        hiddenTextarea.selectionStart = text.length
-        hiddenTextarea.selectionEnd = text.length
+        hiddenTextarea.selectionStart = nextSelectionStart
+        hiddenTextarea.selectionEnd = nextSelectionEnd
         hiddenTextarea.dispatchEvent(new Event('input', { bubbles: true }))
       } else {
         target.set({ text })
+        target.selectionStart = nextSelectionStart
+        target.selectionEnd = nextSelectionEnd
         editor.canvas.fire('text:changed', {
           target
         })
@@ -438,11 +449,59 @@ export class TextModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
-      target.selectionStart = start
-      target.selectionEnd = end
+      if (typeof target.setSelectionStart === 'function') {
+        target.setSelectionStart(start)
+      } else {
+        target.selectionStart = start
+      }
+
+      if (typeof target.setSelectionEnd === 'function') {
+        target.setSelectionEnd(end)
+      } else {
+        target.selectionEnd = end
+      }
+      const { hiddenTextarea } = target
+
+      if (hiddenTextarea instanceof HTMLTextAreaElement) {
+        hiddenTextarea.focus()
+        hiddenTextarea.selectionStart = start
+        hiddenTextarea.selectionEnd = end
+      }
 
       return helpers.serializeTextObject(target)
     }, params)
+  }
+
+  /** Удаляет выделенный текст через реальное keyboard-событие. */
+  async deleteSelectedText(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
+    await this.page.keyboard.press('Delete')
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getObject(params)
+  }
+
+  /** Вводит текст в текущую позицию курсора через реальные keyboard-события. */
+  async typeText(params: { text: string } & ObjectTargetParams): Promise<TextObjectInfo | null> {
+    const {
+      text,
+      ...targetParams
+    } = params
+    const parts = text.split('\n')
+
+    for (let index = 0; index < parts.length; index += 1) {
+      const part = parts[index]
+      if (part.length > 0) {
+        await this.page.keyboard.type(part)
+      }
+
+      if (index < parts.length - 1) {
+        await this.page.keyboard.press('Enter')
+      }
+    }
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getObject(targetParams)
   }
 
   /** Возвращает стиль текущего или явного выделенного диапазона текста. */

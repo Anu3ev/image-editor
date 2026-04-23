@@ -137,6 +137,7 @@ export interface TextSelectionParams extends ObjectTargetParams {
 /** Сериализованный стиль выделенного диапазона текстового объекта. */
 export interface TextSelectionStyleInfo {
   fill: string | null
+  fontFamily: string | null
   stroke: string | null
   strokeWidth: number | null
   fontSize: number | null
@@ -154,6 +155,8 @@ export interface TextRotateParams extends ObjectTargetParams {
 /** Параметры изменения текста в режиме редактирования. */
 export interface TextEditingUpdateParams extends ObjectTargetParams {
   text: string
+  selectionEnd?: number
+  selectionStart?: number
 }
 
 /** Параметры одного live-шагa horizontal resize standalone text. */

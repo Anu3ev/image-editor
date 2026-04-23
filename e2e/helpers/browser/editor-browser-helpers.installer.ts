@@ -726,6 +726,7 @@ export function installEditorBrowserHelpers(): void {
   }): BrowserTextSelectionStyleInfo {
     return {
       fill: resolveNullableString({ value: style.fill }),
+      fontFamily: resolveNullableString({ value: style.fontFamily }),
       stroke: resolveNullableString({ value: style.stroke }),
       strokeWidth: resolveNullableNumber({ value: style.strokeWidth }),
       fontSize: resolveNullableNumber({ value: style.fontSize }),

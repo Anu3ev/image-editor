@@ -27,6 +27,7 @@ import TextScalingController from './scaling/text-scaling'
 import {
   applyLineDefaultUpdates,
   createLineDefaultStyle,
+  removeLineDefaultStyles,
   syncLineDefaultStyles
 } from './line-defaults'
 import {
@@ -1102,6 +1103,8 @@ export default class TextManager {
       historyManager
     } = this.editor
     historyManager.beginAction({ reason: 'text-edit' })
+    target.__lineDefaultsPrevText = target.text ?? ''
+
     if (TextManager._isShapeOwnedTextbox(target)) return
 
     const placementState = this._ensureEditingPlacementState()
@@ -1186,6 +1189,8 @@ export default class TextManager {
     let nextLineDefaults = lineFontDefaults
     let lineDefaultsChanged = false
     let lineDefaultsCloned = false
+    const removedLineDefaultsForStyleCleanup: LineFontDefault[] = []
+    let removedLineStyleCleanupIndex: number | undefined
 
     const resolvedGlobalFill = typeof rawGlobalFill === 'string' ? rawGlobalFill : undefined
     const resolvedGlobalStroke = typeof rawGlobalStroke === 'string' ? rawGlobalStroke : undefined
@@ -1244,6 +1249,14 @@ export default class TextManager {
         const removedLineEnd = removedLineStart + removedLinesCount - 1
         const shiftedDefaults: LineFontDefaults = {}
 
+        for (let lineIndex = removedLineStart; lineIndex <= removedLineEnd; lineIndex += 1) {
+          const removedLineDefault = lineFontDefaults[lineIndex]
+          if (removedLineDefault) {
+            removedLineDefaultsForStyleCleanup.push(removedLineDefault)
+          }
+        }
+        removedLineStyleCleanupIndex = removedLineStart
+
         for (const key in lineFontDefaults) {
           if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
           const numericIndex = Number(key)
@@ -1270,6 +1283,45 @@ export default class TextManager {
     let stylesChanged = false
     let stylesCloned = false
     let lastLineDefaults: LineFontDefault | undefined
+
+    if (
+      removedLineStyleCleanupIndex !== undefined
+      && removedLineStyleCleanupIndex < currentLines.length
+      && removedLineDefaultsForStyleCleanup.length
+      && nextStyles
+    ) {
+      let cleanupLineStyles = nextStyles[removedLineStyleCleanupIndex]
+      let cleanupChanged = false
+
+      for (let index = 0; index < removedLineDefaultsForStyleCleanup.length; index += 1) {
+        const lineDefaultsForCleanup = removedLineDefaultsForStyleCleanup[index]
+        if (!lineDefaultsForCleanup) continue
+
+        const cleanupResult = removeLineDefaultStyles({
+          lineStyles: cleanupLineStyles,
+          lineDefaults: lineDefaultsForCleanup
+        })
+        if (!cleanupResult.changed) continue
+
+        cleanupLineStyles = cleanupResult.lineStyles
+        cleanupChanged = true
+      }
+
+      if (cleanupChanged) {
+        if (!stylesCloned) {
+          nextStyles = { ...nextStyles }
+          stylesCloned = true
+        }
+
+        if (cleanupLineStyles) {
+          nextStyles[removedLineStyleCleanupIndex] = cleanupLineStyles
+        } else {
+          delete nextStyles[removedLineStyleCleanupIndex]
+        }
+
+        stylesChanged = true
+      }
+    }
 
     for (let lineIndex = 0; lineIndex < currentLines.length; lineIndex += 1) {
       const lineText = currentLines[lineIndex] ?? ''
@@ -1533,6 +1585,7 @@ export default class TextManager {
     if (!TextManager._isTextbox(target)) return
     const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
     this.editingPlacementState?.delete(target)
+    delete target.__lineDefaultsPrevText
 
     // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
     const currentText = target.text ?? ''

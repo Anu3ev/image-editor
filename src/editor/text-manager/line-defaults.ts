@@ -192,6 +192,76 @@ export const applyLineDefaultUpdates = ({
 }
 
 /**
+ * Убирает из inline-стилей свойства, которые были перенесены из удалённого line default.
+ */
+export const removeLineDefaultStyles = ({
+  lineStyles,
+  lineDefaults
+}: {
+  lineDefaults: LineFontDefault
+  lineStyles?: TextboxLineStyles
+}): { lineStyles?: TextboxLineStyles; changed: boolean } => {
+  if (!lineStyles) return { lineStyles, changed: false }
+
+  const defaultStyles = createLineDefaultStyle({ lineDefaults })
+  const defaultStyleKeys = Object.keys(defaultStyles) as Array<keyof TextboxProps>
+  if (!defaultStyleKeys.length) return { lineStyles, changed: false }
+
+  let nextLineStyles = lineStyles
+  let lineStylesCloned = false
+  let stylesChanged = false
+
+  for (const key in lineStyles) {
+    if (!Object.prototype.hasOwnProperty.call(lineStyles, key)) continue
+
+    const currentStyle = lineStyles[key]
+    if (!currentStyle) continue
+
+    let nextStyle = currentStyle
+    let styleChanged = false
+
+    for (let index = 0; index < defaultStyleKeys.length; index += 1) {
+      const property = defaultStyleKeys[index]
+      if (!property) continue
+      if (currentStyle[property] !== defaultStyles[property]) continue
+
+      if (!styleChanged) {
+        nextStyle = { ...currentStyle }
+        styleChanged = true
+      }
+
+      delete nextStyle[property]
+    }
+
+    if (!styleChanged) continue
+
+    if (!lineStylesCloned) {
+      nextLineStyles = { ...lineStyles }
+      lineStylesCloned = true
+    }
+
+    if (Object.keys(nextStyle).length) {
+      nextLineStyles[key] = nextStyle
+    } else {
+      delete nextLineStyles[key]
+    }
+
+    stylesChanged = true
+  }
+
+  if (!stylesChanged) {
+    return { lineStyles, changed: false }
+  }
+
+  const hasStyles = Object.keys(nextLineStyles).length > 0
+
+  return {
+    lineStyles: hasStyles ? nextLineStyles : undefined,
+    changed: true
+  }
+}
+
+/**
  * Синхронизирует inline-стили строки с lineFontDefaults, заполняя пропуски.
  */
 export const syncLineDefaultStyles = ({

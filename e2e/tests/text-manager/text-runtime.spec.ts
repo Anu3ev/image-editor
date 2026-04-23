@@ -1,4 +1,19 @@
 import { test, expect } from '../../fixtures/editor.fixture'
+import {
+  TEXT_LINE_STYLE_ADD_OPTIONS,
+  TEXT_LINE_STYLE_AFTER_LINE_INSERT_TEXT,
+  TEXT_LINE_STYLE_AFTER_LINE_REMOVAL_TEXT,
+  TEXT_LINE_STYLE_DELETED_LINE_SELECTION,
+  TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE,
+  TEXT_LINE_STYLE_FIRST_LINE_SELECTION,
+  TEXT_LINE_STYLE_FIRST_LINE_STYLE,
+  TEXT_LINE_STYLE_FIRST_LINE_TEXT,
+  TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE,
+  TEXT_LINE_STYLE_SECOND_LINE_SELECTION,
+  TEXT_LINE_STYLE_SECOND_LINE_STYLE,
+  TEXT_LINE_STYLE_SECOND_LINE_TEXT,
+  TEXT_LINE_STYLE_THREE_LINE_ADD_OPTIONS
+} from '../../fixtures/data/text-line-style.data'
 
 test.describe('Редактирование текста и история объекта', () => {
   test.describe('изменение текста и история', () => {
@@ -288,6 +303,287 @@ test.describe('Редактирование текста и история об�
         expect(activeObject?.id).toBe(textObject.id)
         expect(activeObject?.type).toBe('background-textbox')
         expect(updatedTextObject?.isEditing).toBe(false)
+      })
+    })
+  })
+
+  test.describe('Стили строк после удаления текста', () => {
+    test('после удаления текста строки новый текст сохраняет стиль этой строки', async({ text }) => {
+      await test.step('Добавить текст с двумя строками и применить разные стили строк', async() => {
+        const textObject = await text.add(TEXT_LINE_STYLE_ADD_OPTIONS)
+
+        text.checkCreation({ textObject })
+
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+        })
+        await text.updateStyle({
+          objectIndex: 0,
+          style: TEXT_LINE_STYLE_FIRST_LINE_STYLE
+        })
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_SECOND_LINE_SELECTION
+        })
+        await text.updateStyle({
+          objectIndex: 0,
+          style: TEXT_LINE_STYLE_SECOND_LINE_STYLE
+        })
+      })
+
+      await test.step('Стереть первую строку и проверить стиль первого нового символа', async() => {
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+        })
+        await text.deleteSelectedText({ objectIndex: 0 })
+        await text.typeText({
+          objectIndex: 0,
+          text: 'F'
+        })
+
+        const firstCharacterStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: 0,
+          end: 1
+        })
+
+        expect(firstCharacterStyle).toMatchObject(TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE)
+      })
+
+      await test.step('Заполнить первую строку целиком', async() => {
+        await text.typeText({
+          objectIndex: 0,
+          text: 'IRST LINE'
+        })
+      })
+
+      await test.step('Стереть вторую строку и проверить стиль первого нового символа', async() => {
+        const secondLineStart = TEXT_LINE_STYLE_FIRST_LINE_TEXT.length + 1
+
+        await text.setTextSelection({
+          objectIndex: 0,
+          start: secondLineStart,
+          end: `${TEXT_LINE_STYLE_FIRST_LINE_TEXT}\n TEST TEXT`.length
+        })
+        await text.deleteSelectedText({ objectIndex: 0 })
+        await text.typeText({
+          objectIndex: 0,
+          text: 'S'
+        })
+
+        const secondCharacterStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: secondLineStart,
+          end: secondLineStart + 1
+        })
+
+        expect(secondCharacterStyle).toMatchObject(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE)
+      })
+
+      await test.step('Проверить финальный текст и стили обеих строк', async() => {
+        const secondLineStart = TEXT_LINE_STYLE_FIRST_LINE_TEXT.length + 1
+
+        await text.typeText({
+          objectIndex: 0,
+          text: 'ECOND LINE'
+        })
+
+        const firstLineStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: 0,
+          end: TEXT_LINE_STYLE_FIRST_LINE_TEXT.length
+        })
+        const secondLineStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: secondLineStart,
+          end: secondLineStart + TEXT_LINE_STYLE_SECOND_LINE_TEXT.length
+        })
+        const textObject = await text.getObject({ objectIndex: 0 })
+
+        expect(textObject?.text).toBe(`${TEXT_LINE_STYLE_FIRST_LINE_TEXT}\n${TEXT_LINE_STYLE_SECOND_LINE_TEXT}`)
+        expect(firstLineStyle).toMatchObject(TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE)
+        expect(secondLineStyle).toMatchObject(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE)
+      })
+    })
+
+    test('после удаления строки вместе с переносом новый текст не получает стиль удалённой строки', async({ text }) => {
+      await test.step('Добавить три строки и применить стиль ко второй строке', async() => {
+        const textObject = await text.add(TEXT_LINE_STYLE_THREE_LINE_ADD_OPTIONS)
+
+        text.checkCreation({ textObject })
+
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_DELETED_LINE_SELECTION
+        })
+        await text.updateStyle({
+          objectIndex: 0,
+          style: TEXT_LINE_STYLE_SECOND_LINE_STYLE
+        })
+      })
+
+      await test.step('Удалить вторую строку вместе с переносом', async() => {
+        const lineWithNextBreakSelection = {
+          start: 'FIRST\n'.length,
+          end: 'FIRST\nSECOND\n'.length
+        }
+        const insertedLineStart = 'FIRST\n'.length
+
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...lineWithNextBreakSelection
+        })
+        await text.deleteSelectedText({ objectIndex: 0 })
+
+        const nextLineStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: insertedLineStart,
+          end: TEXT_LINE_STYLE_AFTER_LINE_REMOVAL_TEXT.length
+        })
+        const textObject = await text.getObject({ objectIndex: 0 })
+
+        expect(textObject?.text).toBe(TEXT_LINE_STYLE_AFTER_LINE_REMOVAL_TEXT)
+        expect(nextLineStyle?.fontFamily).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontFamily)
+        expect(nextLineStyle?.fontSize).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontSize)
+        expect(nextLineStyle?.fontWeight).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontWeight)
+        expect(nextLineStyle?.fontStyle).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontStyle)
+        expect(nextLineStyle?.underline).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.underline)
+        expect(nextLineStyle?.linethrough).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.linethrough)
+      })
+
+      await test.step('Вставить новую строку на место удалённой и проверить её стиль', async() => {
+        const insertedLineStart = 'FIRST\n'.length
+        const insertedLineEnd = insertedLineStart + 'NEW'.length
+
+        await text.typeText({
+          objectIndex: 0,
+          text: 'NEW\n'
+        })
+
+        const insertedLineStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: insertedLineStart,
+          end: insertedLineEnd
+        })
+        const textObject = await text.getObject({ objectIndex: 0 })
+
+        expect(textObject?.text).toBe(TEXT_LINE_STYLE_AFTER_LINE_INSERT_TEXT)
+        expect(insertedLineStyle?.fontFamily).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontFamily)
+        expect(insertedLineStyle?.fontSize).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontSize)
+        expect(insertedLineStyle?.fontWeight).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontWeight)
+        expect(insertedLineStyle?.fontStyle).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.fontStyle)
+        expect(insertedLineStyle?.underline).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.underline)
+        expect(insertedLineStyle?.linethrough).not.toBe(TEXT_LINE_STYLE_SECOND_LINE_EXPECTED_STYLE.linethrough)
+      })
+    })
+
+    test('после undo/redo новый текст в строке сохраняет стиль строки', async({ history, text }) => {
+      await test.step('Добавить текст, применить стиль первой строки и сохранить состояние', async() => {
+        const textObject = await text.add(TEXT_LINE_STYLE_ADD_OPTIONS)
+
+        text.checkCreation({ textObject })
+
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+        })
+        await text.updateStyle({
+          objectIndex: 0,
+          style: TEXT_LINE_STYLE_FIRST_LINE_STYLE
+        })
+        await text.exitTextEditing({ objectIndex: 0 })
+        await history.flushPendingSave()
+      })
+
+      await test.step('Сделать undo и redo', async() => {
+        await history.undo()
+        await history.redo()
+      })
+
+      await test.step('Стереть первую строку после redo и проверить стиль нового текста', async() => {
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+        })
+        await text.deleteSelectedText({ objectIndex: 0 })
+        await text.typeText({
+          objectIndex: 0,
+          text: 'F'
+        })
+
+        const firstCharacterStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: 0,
+          end: 1
+        })
+
+        expect(firstCharacterStyle).toMatchObject(TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE)
+      })
+    })
+
+    test('объект из шаблона после удаления текста строки сохраняет стиль строки', async({
+      editorModel,
+      template,
+      text
+    }) => {
+      await test.step('Создать текст со стилем первой строки и сохранить его как шаблон', async() => {
+        const textObject = await text.add(TEXT_LINE_STYLE_ADD_OPTIONS)
+
+        text.checkCreation({ textObject })
+
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+        })
+        await text.updateStyle({
+          objectIndex: 0,
+          style: TEXT_LINE_STYLE_FIRST_LINE_STYLE
+        })
+        await text.exitTextEditing({ objectIndex: 0 })
+        await text.select({ objectIndex: 0 })
+      })
+
+      const serializedTemplate = await test.step('Сериализовать текстовый объект', () => template.serializeSelection())
+
+      await test.step('Удалить исходный объект и применить шаблон', async() => {
+        expect(serializedTemplate).not.toBeNull()
+
+        await editorModel.deleteSelectedObject()
+        await editorModel.checkObjectCount({ count: 0 })
+
+        const insertedCount = await template.applyTemplate({
+          template: serializedTemplate!
+        })
+
+        expect(insertedCount).toBe(1)
+      })
+
+      await test.step('Стереть первую строку у объекта из шаблона и проверить стиль нового текста', async() => {
+        await text.enterTextEditing({ objectIndex: 0 })
+        await text.setTextSelection({
+          objectIndex: 0,
+          ...TEXT_LINE_STYLE_FIRST_LINE_SELECTION
+        })
+        await text.deleteSelectedText({ objectIndex: 0 })
+        await text.typeText({
+          objectIndex: 0,
+          text: 'F'
+        })
+
+        const firstCharacterStyle = await text.getSelectionStyles({
+          objectIndex: 0,
+          start: 0,
+          end: 1
+        })
+
+        expect(firstCharacterStyle).toMatchObject(TEXT_LINE_STYLE_FIRST_LINE_EXPECTED_STYLE)
       })
     })
   })

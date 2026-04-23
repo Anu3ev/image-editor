@@ -70,9 +70,17 @@ export interface ShapeTextSelectionParams {
   end: number
 }
 
+/** Параметры изменения текста внутри shape в режиме editing */
+export interface ShapeTextEditingUpdateParams extends ObjectTargetParams {
+  text: string
+  selectionEnd?: number
+  selectionStart?: number
+}
+
 /** Сериализованный стиль выделенного диапазона текста внутри shape */
 export interface ShapeTextSelectionStyleInfo {
   fill: string | null
+  fontFamily: string | null
   stroke: string | null
   strokeWidth: number | null
   fontSize: number | null
