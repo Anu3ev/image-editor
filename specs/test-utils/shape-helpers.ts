@@ -23,6 +23,8 @@ type PlacementOriginX = 'left' | 'center' | 'right'
 type PlacementOriginY = 'top' | 'center' | 'bottom'
 
 type MockShapeNode = {
+  id?: string
+  type: string
   shapeNodeType: 'shape'
   width: number
   height: number
@@ -112,15 +114,21 @@ export const createMockCanvas = (): MockCanvas => {
  * Создаёт shape-узел с set/setCoords.
  */
 export const createMockShapeNode = ({
+  id,
+  type = 'rect',
   width = 180,
   height = 180,
   opacity = 1
 }: {
+  id?: string
+  type?: string
   width?: number
   height?: number
   opacity?: number
 } = {}): MockShapeNode => {
   const shape = {
+    id,
+    type,
     shapeNodeType: 'shape' as const,
     width,
     height,

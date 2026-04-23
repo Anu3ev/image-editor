@@ -453,7 +453,8 @@ export const createEditorStub = () => {
       refresh: jest.fn()
     },
     shapeManager: {
-      addRectangle: jest.fn()
+      addRectangle: jest.fn(),
+      commitRehydratedShapeLayout: jest.fn()
     },
     montageArea,
     options: {
@@ -509,7 +510,8 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   } as any
 
   editor.shapeManager = {
-    addRectangle: jest.fn()
+    addRectangle: jest.fn(),
+    commitRehydratedShapeLayout: jest.fn()
   } as any
 
   editor.panConstraintManager = {
@@ -967,6 +969,9 @@ export const createHistoryManagerTestSetup = (
     textManager: {
       commitStandaloneTextScale: jest.fn()
     },
+    shapeManager: {
+      commitRehydratedShapeLayout: jest.fn()
+    },
     options: {
       maxHistoryLength
     }
@@ -1201,6 +1206,9 @@ export const createTextManagerTestSetup = (
     },
     snappingManager: {
       applyTextResizingSnap: jest.fn()
+    },
+    shapeManager: {
+      commitRehydratedShapeLayout: jest.fn()
     }
   } as any
 

@@ -46,7 +46,7 @@ describe('TextManager', () => {
       expect(canvas.setActiveObject).toHaveBeenCalledWith(textbox)
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
 
-      expect(textbox.id).toBe('text-mocked-id')
+      expect(textbox.id).toBe('background-textbox-mocked-id')
       expect(textbox.text).toBe('Привет')
       expect(textbox.textCaseRaw).toBe('Привет')
 

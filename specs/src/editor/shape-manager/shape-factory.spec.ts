@@ -1,7 +1,41 @@
 import { Rect } from 'fabric'
-import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
+import { nanoid } from 'nanoid'
+import {
+  createShapeNode,
+  resizeShapeNode
+} from '../../../../src/editor/shape-manager/shape-factory'
+
+jest.mock('nanoid')
 
 describe('shape-factory', () => {
+  const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockNanoid.mockImplementation(() => 'shape-node-id')
+  })
+
+  it('при создании фигуры задаёт id внутреннему объекту фигуры', async() => {
+    const shape = await createShapeNode({
+      preset: {
+        key: 'square',
+        type: 'rect',
+        width: 100,
+        height: 100
+      },
+      width: 120,
+      height: 80,
+      style: {
+        fill: '#ffffff',
+        stroke: null,
+        strokeWidth: 0
+      }
+    })
+
+    expect(shape.id).toEqual(expect.stringContaining('shape-node-id'))
+    expect(shape.shapeNodeType).toBe('shape')
+  })
+
   it('для Rect пересчитывает визуальный радиус от текущего размера при том же значении скругления', () => {
     const shape = new Rect({
       width: 100,

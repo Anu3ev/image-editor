@@ -256,7 +256,7 @@ export default class ClipboardManager {
 
     const shouldEnableChildEvented = clonedObject instanceof ActiveSelection
 
-    clonedObject.forEachObject((object) => {
+    clonedObject.getObjects().forEach((object) => {
       this._materializeCloneIdentity({
         clonedObject: object,
         enableEvented: shouldEnableChildEvented
