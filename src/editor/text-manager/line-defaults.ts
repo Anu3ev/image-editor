@@ -12,6 +12,58 @@ import {
   MIN_TEXTBOX_FONT_SIZE
 } from './constants'
 
+type TextboxLineStyle = Partial<TextboxProps>
+type TextboxLineStyles = Record<string, TextboxLineStyle>
+
+/**
+ * Создаёт Fabric style-объект из lineFontDefaults.
+ */
+export const createLineDefaultStyle = ({
+  lineDefaults
+}: {
+  lineDefaults: LineFontDefault
+}): TextboxLineStyle => {
+  const styles: TextboxLineStyle = {}
+
+  if (lineDefaults.fontFamily !== undefined) {
+    styles.fontFamily = lineDefaults.fontFamily
+  }
+
+  if (lineDefaults.fontSize !== undefined) {
+    styles.fontSize = lineDefaults.fontSize
+  }
+
+  if (lineDefaults.fontWeight !== undefined) {
+    styles.fontWeight = lineDefaults.fontWeight
+  }
+
+  if (lineDefaults.fontStyle !== undefined) {
+    styles.fontStyle = lineDefaults.fontStyle
+  }
+
+  if (lineDefaults.underline !== undefined) {
+    styles.underline = lineDefaults.underline
+  }
+
+  if (lineDefaults.linethrough !== undefined) {
+    styles.linethrough = lineDefaults.linethrough
+  }
+
+  if (lineDefaults.fill !== undefined) {
+    styles.fill = lineDefaults.fill
+  }
+
+  if (lineDefaults.stroke !== undefined) {
+    styles.stroke = lineDefaults.stroke
+  }
+
+  if (lineDefaults.strokeWidth !== undefined) {
+    styles.strokeWidth = lineDefaults.strokeWidth
+  }
+
+  return styles
+}
+
 /**
  * Обновляет lineFontDefaults для указанных строк, изменяя только заданные поля.
  */
@@ -27,15 +79,25 @@ export const applyLineDefaultUpdates = ({
   if (!lineIndices.length) return false
 
   const {
+    fill,
     fontFamily,
     fontSize,
-    fill,
-    stroke
+    fontStyle,
+    fontWeight,
+    linethrough,
+    stroke,
+    strokeWidth,
+    underline
   } = updates
-  const hasUpdates = fontFamily !== undefined
+  const hasUpdates = fill !== undefined
+    || fontFamily !== undefined
     || fontSize !== undefined
-    || fill !== undefined
+    || fontStyle !== undefined
+    || fontWeight !== undefined
+    || linethrough !== undefined
     || stroke !== undefined
+    || strokeWidth !== undefined
+    || underline !== undefined
   if (!hasUpdates) return false
 
   const { lineFontDefaults } = textbox
@@ -65,6 +127,26 @@ export const applyLineDefaultUpdates = ({
       lineChanged = true
     }
 
+    if (fontWeight !== undefined && currentLineDefaults?.fontWeight !== fontWeight) {
+      nextLineDefault.fontWeight = fontWeight
+      lineChanged = true
+    }
+
+    if (fontStyle !== undefined && currentLineDefaults?.fontStyle !== fontStyle) {
+      nextLineDefault.fontStyle = fontStyle
+      lineChanged = true
+    }
+
+    if (underline !== undefined && currentLineDefaults?.underline !== underline) {
+      nextLineDefault.underline = underline
+      lineChanged = true
+    }
+
+    if (linethrough !== undefined && currentLineDefaults?.linethrough !== linethrough) {
+      nextLineDefault.linethrough = linethrough
+      lineChanged = true
+    }
+
     if (fill !== undefined && currentLineDefaults?.fill !== fill) {
       nextLineDefault.fill = fill
       lineChanged = true
@@ -82,6 +164,11 @@ export const applyLineDefaultUpdates = ({
         nextLineDefault.stroke = stroke
         lineChanged = true
       }
+    }
+
+    if (strokeWidth !== undefined && currentLineDefaults?.strokeWidth !== strokeWidth) {
+      nextLineDefault.strokeWidth = strokeWidth
+      lineChanged = true
     }
 
     if (!lineChanged) {
@@ -113,43 +200,19 @@ export const syncLineDefaultStyles = ({
   lineDefaults
 }: {
   lineText: string
-  lineStyles?: Record<string, TextboxProps>
+  lineStyles?: TextboxLineStyles
   lineDefaults: LineFontDefault
-}): { lineStyles?: Record<string, TextboxProps>; changed: boolean } => {
+}): { lineStyles?: TextboxLineStyles; changed: boolean } => {
   const lineLength = lineText.length
   if (lineLength === 0) {
     return { lineStyles, changed: false }
   }
 
-  const {
-    fontFamily,
-    fontSize,
-    fill,
-    stroke
-  } = lineDefaults
-  const hasDefaults = fontFamily !== undefined
-    || fontSize !== undefined
-    || fill !== undefined
-    || stroke !== undefined
-  if (!hasDefaults) {
+  const defaultStyles = createLineDefaultStyle({ lineDefaults })
+  const defaultStyleKeys = Object.keys(defaultStyles) as Array<keyof TextboxProps>
+
+  if (!defaultStyleKeys.length) {
     return { lineStyles, changed: false }
-  }
-
-  const defaultStyles: Partial<TextboxProps> = {}
-  if (fontFamily !== undefined) {
-    defaultStyles.fontFamily = fontFamily
-  }
-
-  if (fontSize !== undefined) {
-    defaultStyles.fontSize = fontSize
-  }
-
-  if (fill !== undefined) {
-    defaultStyles.fill = fill
-  }
-
-  if (stroke !== undefined) {
-    defaultStyles.stroke = stroke
   }
 
   let nextLineStyles = lineStyles
@@ -200,35 +263,9 @@ export const syncLineDefaultStyles = ({
       continue
     }
 
-    let nextCharStyles: TextboxProps | null = null
-
-    if (fontFamily !== undefined && currentStyle.fontFamily === undefined) {
-      nextCharStyles = { ...currentStyle }
-      nextCharStyles.fontFamily = fontFamily
-    }
-
-    if (fontSize !== undefined && currentStyle.fontSize === undefined) {
-      if (!nextCharStyles) {
-        nextCharStyles = { ...currentStyle }
-      }
-      nextCharStyles.fontSize = fontSize
-    }
-
-    if (fill !== undefined && currentStyle.fill === undefined) {
-      if (!nextCharStyles) {
-        nextCharStyles = { ...currentStyle }
-      }
-      nextCharStyles.fill = fill
-    }
-
-    if (stroke !== undefined && currentStyle.stroke === undefined) {
-      if (!nextCharStyles) {
-        nextCharStyles = { ...currentStyle }
-      }
-      nextCharStyles.stroke = stroke
-    }
-
-    if (!nextCharStyles) {
+    const hasMissingDefaultStyle = defaultStyleKeys
+      .some((property) => currentStyle[property] === undefined)
+    if (!hasMissingDefaultStyle) {
       continue
     }
 
@@ -242,7 +279,10 @@ export const syncLineDefaultStyles = ({
       stylesCloned = true
     }
 
-    nextLineStyles[charIndex] = nextCharStyles
+    nextLineStyles[charIndex] = {
+      ...defaultStyles,
+      ...currentStyle
+    }
     stylesChanged = true
   }
 

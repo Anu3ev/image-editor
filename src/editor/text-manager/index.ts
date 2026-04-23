@@ -26,6 +26,7 @@ import {
 import TextScalingController from './scaling/text-scaling'
 import {
   applyLineDefaultUpdates,
+  createLineDefaultStyle,
   syncLineDefaultStyles
 } from './line-defaults'
 import {
@@ -99,11 +100,6 @@ export default class TextManager {
   private editingPlacementState?: WeakMap<EditorTextbox, ObjectPlacement>
 
   /**
-   * Хранилище для защиты от повторной синхронизации lineFontDefaults.
-   */
-  private lineDefaultsSyncing: WeakSet<EditorTextbox>
-
-  /**
    * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
    * Используется для предотвращения сохранения состояния с временными lock-свойствами.
    */
@@ -124,7 +120,6 @@ export default class TextManager {
       }
     })
     this.editingPlacementState = new WeakMap()
-    this.lineDefaultsSyncing = new WeakSet()
     this.isTextEditingActive = false
 
     this._bindEvents()
@@ -397,6 +392,8 @@ export default class TextManager {
     const selectionStyles: Partial<TextboxProps> = {}
     const lineSelectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
+    let resolvedFontWeight: TextboxProps['fontWeight'] | undefined
+    let resolvedFontStyle: TextboxProps['fontStyle'] | undefined
     let resolvedStrokeColor: string | null | undefined
     let resolvedStrokeWidth: number | undefined
     const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
@@ -430,29 +427,29 @@ export default class TextManager {
     }
 
     if (bold !== undefined) {
-      const fontWeight = bold ? 'bold' : 'normal'
+      resolvedFontWeight = bold ? 'bold' : 'normal'
       if (selectionRange) {
-        selectionStyles.fontWeight = fontWeight
+        selectionStyles.fontWeight = resolvedFontWeight
       }
 
       if (shouldUpdateWholeObject) {
-        updates.fontWeight = fontWeight
+        updates.fontWeight = resolvedFontWeight
         if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontWeight = fontWeight
+          wholeTextStyles.fontWeight = resolvedFontWeight
         }
       }
     }
 
     if (italic !== undefined) {
-      const fontStyle = italic ? 'italic' : 'normal'
+      resolvedFontStyle = italic ? 'italic' : 'normal'
       if (selectionRange) {
-        selectionStyles.fontStyle = fontStyle
+        selectionStyles.fontStyle = resolvedFontStyle
       }
 
       if (shouldUpdateWholeObject) {
-        updates.fontStyle = fontStyle
+        updates.fontStyle = resolvedFontStyle
         if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontStyle = fontStyle
+          wholeTextStyles.fontStyle = resolvedFontStyle
         }
       }
     }
@@ -678,13 +675,37 @@ export default class TextManager {
 
     if (
       selectionRange
-      && (color !== undefined || strokeColor !== undefined || strokeWidth !== undefined)
+      && (
+        bold !== undefined
+        || italic !== undefined
+        || underline !== undefined
+        || strikethrough !== undefined
+        || color !== undefined
+        || strokeColor !== undefined
+        || strokeWidth !== undefined
+      )
     ) {
       const fullLineIndices = getFullLineIndicesForRange({
         textbox,
         range: selectionRange
       })
       const lineDefaultsUpdates: LineFontDefaultUpdate = {}
+
+      if (resolvedFontWeight !== undefined) {
+        lineDefaultsUpdates.fontWeight = resolvedFontWeight
+      }
+
+      if (resolvedFontStyle !== undefined) {
+        lineDefaultsUpdates.fontStyle = resolvedFontStyle
+      }
+
+      if (underline !== undefined) {
+        lineDefaultsUpdates.underline = underline
+      }
+
+      if (strikethrough !== undefined) {
+        lineDefaultsUpdates.linethrough = strikethrough
+      }
 
       if (color !== undefined) {
         lineDefaultsUpdates.fill = color
@@ -697,6 +718,10 @@ export default class TextManager {
 
         if (resolvedStrokeColor !== null && resolvedStrokeColor !== undefined) {
           lineDefaultsUpdates.stroke = resolvedStrokeColor
+        }
+
+        if (resolvedStrokeWidth !== undefined) {
+          lineDefaultsUpdates.strokeWidth = resolvedStrokeWidth
         }
       }
 
@@ -1092,7 +1117,6 @@ export default class TextManager {
   private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
-    if (this.lineDefaultsSyncing.has(target)) return
 
     const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
     const { text = '', uppercase, autoExpand } = target
@@ -1134,7 +1158,7 @@ export default class TextManager {
   }
 
   /**
-   * Синхронизирует lineFontDefaults при изменении текста и сохраняет typing style для пустых строк.
+   * Синхронизирует lineFontDefaults при изменении текста и сохраняет служебный Fabric-стиль для пустых строк.
    */
   private _syncLineFontDefaultsOnTextChanged({ textbox }: { textbox: EditorTextbox }): void {
     const {
@@ -1143,10 +1167,13 @@ export default class TextManager {
       styles,
       fontFamily: globalFontFamily,
       fontSize: globalFontSize,
+      fontStyle: globalFontStyle,
+      fontWeight: globalFontWeight,
       fill: rawGlobalFill,
       stroke: rawGlobalStroke,
-      selectionStart,
-      isEditing
+      strokeWidth: globalStrokeWidth,
+      linethrough: globalLinethrough,
+      underline: globalUnderline
     } = textbox
     const currentText = text
     const previousText = textbox.__lineDefaultsPrevText ?? currentText
@@ -1239,20 +1266,10 @@ export default class TextManager {
       }
     }
 
-    let cursorLineIndex: number | null = null
-    if (isEditing && typeof selectionStart === 'number') {
-      const cursorLocation = textbox.get2DCursorLocation(selectionStart)
-      const { lineIndex } = cursorLocation
-      if (Number.isFinite(lineIndex)) {
-        cursorLineIndex = lineIndex
-      }
-    }
-
     let nextStyles = styles
     let stylesChanged = false
     let stylesCloned = false
     let lastLineDefaults: LineFontDefault | undefined
-    let cursorLineDefaults: LineFontDefault | null = null
 
     for (let lineIndex = 0; lineIndex < currentLines.length; lineIndex += 1) {
       const lineText = currentLines[lineIndex] ?? ''
@@ -1312,6 +1329,30 @@ export default class TextManager {
         resolvedDefaults.fontSize = globalFontSize
       }
 
+      if (sourceDefaults?.fontWeight !== undefined) {
+        resolvedDefaults.fontWeight = sourceDefaults.fontWeight
+      } else if (globalFontWeight !== undefined) {
+        resolvedDefaults.fontWeight = globalFontWeight
+      }
+
+      if (sourceDefaults?.fontStyle !== undefined) {
+        resolvedDefaults.fontStyle = sourceDefaults.fontStyle
+      } else if (globalFontStyle !== undefined) {
+        resolvedDefaults.fontStyle = globalFontStyle
+      }
+
+      if (sourceDefaults?.underline !== undefined) {
+        resolvedDefaults.underline = sourceDefaults.underline
+      } else if (globalUnderline !== undefined) {
+        resolvedDefaults.underline = globalUnderline
+      }
+
+      if (sourceDefaults?.linethrough !== undefined) {
+        resolvedDefaults.linethrough = sourceDefaults.linethrough
+      } else if (globalLinethrough !== undefined) {
+        resolvedDefaults.linethrough = globalLinethrough
+      }
+
       if (sourceDefaults?.fill !== undefined) {
         resolvedDefaults.fill = sourceDefaults.fill
       } else if (resolvedGlobalFill !== undefined) {
@@ -1322,6 +1363,12 @@ export default class TextManager {
         resolvedDefaults.stroke = sourceDefaults.stroke
       } else if (resolvedGlobalStroke !== undefined) {
         resolvedDefaults.stroke = resolvedGlobalStroke
+      }
+
+      if (sourceDefaults?.strokeWidth !== undefined) {
+        resolvedDefaults.strokeWidth = sourceDefaults.strokeWidth
+      } else if (resolvedDefaults.stroke !== undefined && globalStrokeWidth !== undefined) {
+        resolvedDefaults.strokeWidth = globalStrokeWidth
       }
 
       if (!storedLineDefaults && Object.keys(resolvedDefaults).length) {
@@ -1344,27 +1391,7 @@ export default class TextManager {
         lastLineDefaults = storedLineDefaults
       }
 
-      if (cursorLineIndex !== null && cursorLineIndex === lineIndex) {
-        cursorLineDefaults = resolvedDefaults
-      }
-
-      const allowedStyles: Partial<TextboxProps> = {}
-      if (resolvedDefaults.fontFamily !== undefined) {
-        allowedStyles.fontFamily = resolvedDefaults.fontFamily
-      }
-
-      if (resolvedDefaults.fontSize !== undefined) {
-        allowedStyles.fontSize = resolvedDefaults.fontSize
-      }
-
-      if (resolvedDefaults.fill !== undefined) {
-        allowedStyles.fill = resolvedDefaults.fill
-      }
-
-      if (resolvedDefaults.stroke !== undefined) {
-        allowedStyles.stroke = resolvedDefaults.stroke
-      }
-
+      const allowedStyles = createLineDefaultStyle({ lineDefaults: resolvedDefaults })
       const hasAllowedStyles = Object.keys(allowedStyles).length > 0
       if (hasAllowedStyles || (nextStyles && nextStyles[lineIndex])) {
         if (!nextStyles) {
@@ -1396,35 +1423,6 @@ export default class TextManager {
     if (stylesChanged) {
       textbox.styles = nextStyles
       textbox.dirty = true
-    }
-
-    if (cursorLineDefaults && typeof selectionStart === 'number') {
-      const typingStyles: Partial<TextboxProps> = {}
-
-      if (cursorLineDefaults.fontFamily !== undefined) {
-        typingStyles.fontFamily = cursorLineDefaults.fontFamily
-      }
-
-      if (cursorLineDefaults.fontSize !== undefined) {
-        typingStyles.fontSize = cursorLineDefaults.fontSize
-      }
-
-      if (cursorLineDefaults.fill !== undefined) {
-        typingStyles.fill = cursorLineDefaults.fill
-      }
-
-      if (cursorLineDefaults.stroke !== undefined) {
-        typingStyles.stroke = cursorLineDefaults.stroke
-      }
-
-      if (Object.keys(typingStyles).length) {
-        this.lineDefaultsSyncing.add(textbox)
-        try {
-          textbox.setSelectionStyles(typingStyles, selectionStart, selectionStart)
-        } finally {
-          this.lineDefaultsSyncing.delete(textbox)
-        }
-      }
     }
 
     textbox.__lineDefaultsPrevText = currentText

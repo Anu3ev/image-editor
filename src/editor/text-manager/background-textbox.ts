@@ -10,10 +10,15 @@ import ErrorManager from '../error-manager'
 import { resolveStrokeColor, resolveStrokeWidth } from '../utils/text'
 
 export type LineFontDefault = {
+  fill?: string
   fontFamily?: string
   fontSize?: number
-  fill?: string
+  fontStyle?: TextboxProps['fontStyle']
+  fontWeight?: TextboxProps['fontWeight']
+  linethrough?: boolean
   stroke?: string
+  strokeWidth?: number
+  underline?: boolean
 }
 
 export type LineFontDefaults = Record<number, LineFontDefault>
