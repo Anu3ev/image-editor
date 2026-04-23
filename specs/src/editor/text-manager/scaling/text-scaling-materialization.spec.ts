@@ -13,6 +13,19 @@ describe('масштабирование текста', () => {
   describe('подготовка базового состояния', () => {
     it('сохраняет стили и размеры отдельно от исходного объекта', () => {
       const textbox = createStyledScalingTextbox()
+      textbox.lineFontDefaults = {
+        1: {
+          fontFamily: 'Open Sans',
+          fontSize: 24,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#333333',
+          linethrough: true,
+          stroke: '#222222',
+          strokeWidth: 2,
+          underline: true
+        }
+      }
 
       const base = captureTextScaleBase({ textbox })
 
@@ -36,7 +49,17 @@ describe('масштабирование текста', () => {
       expect(base.padding.top).toBe(21)
       expect(base.radii.topLeft).toBe(24)
       expect(base.styles['1']?.['0']?.fontSize).toBe(24)
-      expect(base.lineFontDefaults?.[1]?.fontSize).toBe(24)
+      expect(base.lineFontDefaults?.[1]).toMatchObject({
+        fontFamily: 'Open Sans',
+        fontSize: 24,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        fill: '#333333',
+        linethrough: true,
+        stroke: '#222222',
+        strokeWidth: 2,
+        underline: true
+      })
     })
   })
 
@@ -80,7 +103,7 @@ describe('масштабирование текста', () => {
   })
 
   describe('запекание временного масштаба', () => {
-    it('при сильном уменьшении по диагонали останавливает шрифт на минимальном размере', () => {
+    it('при сильном уменьшении по диагонали останавливает шрифт на минимальном размере и сохраняет стиль строки', () => {
       const { editor } = createTextManagerTestSetup()
       const textbox = new BackgroundTextbox('69\nЧасов музыки', {
         width: 160,
@@ -100,7 +123,14 @@ describe('масштабирование текста', () => {
       }
       textbox.lineFontDefaults = {
         1: {
-          fontSize: 10
+          fontSize: 10,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#333333',
+          linethrough: true,
+          stroke: '#222222',
+          strokeWidth: 2,
+          underline: true
         }
       }
       jest.spyOn(textbox, 'initDimensions').mockImplementation(() => undefined)
@@ -121,7 +151,16 @@ describe('масштабирование текста', () => {
       })
 
       expect(textbox.fontSize).toBe(8)
-      expect(textbox.lineFontDefaults?.[1]?.fontSize).toBe(8)
+      expect(textbox.lineFontDefaults?.[1]).toMatchObject({
+        fontSize: 8,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        fill: '#333333',
+        linethrough: true,
+        stroke: '#222222',
+        strokeWidth: 2,
+        underline: true
+      })
       expect(textbox.styles?.['1']?.['0']?.fontSize).toBe(8)
     })
 

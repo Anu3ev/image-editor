@@ -145,7 +145,12 @@ export type LineFontDefaultUpdate = {
   fill?: string
   fontFamily?: string
   fontSize?: number
+  fontStyle?: TextboxProps['fontStyle']
+  fontWeight?: TextboxProps['fontWeight']
+  linethrough?: boolean
   stroke?: string | null
+  strokeWidth?: number
+  underline?: boolean
 }
 
 export type TextScaleBaseState = {

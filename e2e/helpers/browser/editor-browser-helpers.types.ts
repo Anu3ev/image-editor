@@ -87,6 +87,7 @@ export type BrowserSerializableObject = BrowserObject & {
 
 export type BrowserTextSelectionStyleInfo = {
   fill: string | null
+  fontFamily: string | null
   stroke: string | null
   strokeWidth: number | null
   fontSize: number | null

@@ -460,7 +460,7 @@ describe('TextManager', () => {
       expect(secondLineDefaults).toBeUndefined()
     })
 
-    it('сохраняет fill и stroke в lineFontDefaults при выделении всей строки', () => {
+    it('запоминает стиль всей строки для дальнейшего ввода', () => {
       const { textManager } = createTextManagerTestSetup()
 
       const textbox = textManager.addText({
@@ -479,9 +479,15 @@ describe('TextManager', () => {
         target: textbox,
         withoutSave: true,
         style: {
+          bold: true,
           color: '#ff0000',
+          fontFamily: 'Roboto',
+          fontSize: 40,
+          italic: true,
           strokeColor: '#00ff00',
-          strokeWidth: 2
+          strokeWidth: 2,
+          strikethrough: true,
+          underline: true
         }
       })
 
@@ -490,10 +496,62 @@ describe('TextManager', () => {
       const secondLineDefaults = lineFontDefaults?.[1]
 
       expect(firstLineDefaults).toMatchObject({
+        fontFamily: 'Roboto',
+        fontSize: 40,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
         fill: '#ff0000',
-        stroke: '#00ff00'
+        linethrough: true,
+        stroke: '#00ff00',
+        strokeWidth: 2,
+        underline: true
       })
       expect(secondLineDefaults).toBeUndefined()
+    })
+
+    it('не запоминает стиль части строки как стиль всей строки', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'LineOne\nLineTwo',
+        fontFamily: 'Arial',
+        fontSize: 32,
+        color: '#111111'
+      })
+
+      textbox.isEditing = true
+      textbox.selectionStart = 1
+      textbox.selectionEnd = 4
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          bold: true,
+          color: '#ff0000',
+          italic: true,
+          strokeColor: '#00ff00',
+          strokeWidth: 2,
+          strikethrough: true,
+          underline: true
+        }
+      })
+
+      const selectionStyles = textbox.getSelectionStyles(1, 4)
+      expect(selectionStyles).toHaveLength(3)
+      selectionStyles.forEach((style) => {
+        expect(style).toMatchObject({
+          fill: '#ff0000',
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          linethrough: true,
+          stroke: '#00ff00',
+          strokeWidth: 2,
+          underline: true
+        })
+      })
+      expect(textbox.lineFontDefaults?.[0]).toBeUndefined()
+      expect(textbox.lineFontDefaults?.[1]).toBeUndefined()
     })
 
     it('пересчитывает размеры при смене шрифта для выделенного текста', () => {
@@ -973,8 +1031,13 @@ describe('TextManager', () => {
         2: {
           fontFamily: 'Arial',
           fontSize: 28,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
           fill: '#111111',
-          stroke: '#222222'
+          linethrough: true,
+          stroke: '#222222',
+          strokeWidth: 3,
+          underline: true
         }
       }
       textbox.styles = {
@@ -996,22 +1059,119 @@ describe('TextManager', () => {
         fontSize: 28,
         fill: '#ff0000',
         fontFamily: 'Arial',
-        stroke: '#222222'
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#222222',
+        strokeWidth: 3,
+        underline: true
       })
       expect(lineStyles?.[1]).toMatchObject({
         fontSize: 28,
         fill: '#111111',
         fontFamily: 'Arial',
-        stroke: '#222222'
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#222222',
+        strokeWidth: 3,
+        underline: true
       })
       expect(lineStyles?.[2]).toMatchObject({
         fontSize: 28,
         fill: '#111111',
         fontFamily: 'Arial',
-        stroke: '#222222'
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#222222',
+        strokeWidth: 3,
+        underline: true
       })
       expect(lineStyles?.[10]).toBeUndefined()
       expect(lineStyles?.['foo']).toBeUndefined()
+    })
+
+    it('text:changed сохраняет стиль пустой строки для дальнейшего ввода', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'FIRST\nSECOND',
+        autoExpand: false,
+        fontFamily: 'Arial',
+        fontSize: 48,
+        color: '#000000'
+      })
+      textbox.lineFontDefaults = {
+        0: {
+          fontFamily: 'Exo 2',
+          fontSize: 36,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#ff8800',
+          linethrough: true,
+          stroke: '#333333',
+          strokeWidth: 1,
+          underline: true
+        }
+      }
+
+      textbox.text = '\nSECOND'
+      canvas.fire('text:changed', { target: textbox })
+
+      expect(textbox.styles?.[0]?.[0]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+      expect(textbox.lineFontDefaults?.[0]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+    })
+
+    it('text:changed удаляет стиль строки, если строку удалили вместе с переносом', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'FIRST\nSECOND\nTHIRD',
+        autoExpand: false,
+        fontFamily: 'Arial',
+        fontSize: 48,
+        color: '#000000'
+      })
+      textbox.lineFontDefaults = {
+        1: {
+          fontFamily: 'Oswald',
+          fontSize: 24,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#ff8800',
+          linethrough: true,
+          stroke: '#333333',
+          strokeWidth: 1,
+          underline: true
+        }
+      }
+      textbox.__lineDefaultsPrevText = textbox.text ?? ''
+
+      textbox.text = 'FIRST\nTHIRD'
+      canvas.fire('text:changed', { target: textbox })
+
+      expect(textbox.lineFontDefaults?.[1]).toBeUndefined()
     })
   })
 

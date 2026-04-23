@@ -16,9 +16,7 @@ import type { EditorFontDefinition } from '../types/font'
 import {
   BackgroundTextbox,
   registerBackgroundTextbox,
-  type BackgroundTextboxProps,
-  type LineFontDefault,
-  type LineFontDefaults
+  type BackgroundTextboxProps
 } from './background-textbox'
 import {
   DIMENSION_EPSILON
@@ -26,16 +24,13 @@ import {
 import TextScalingController from './scaling/text-scaling'
 import {
   applyLineDefaultUpdates,
-  syncLineDefaultStyles
+  syncLineFontDefaultsAfterTextChange
 } from './line-defaults'
 import {
   clampSelectionRange,
   expandRangeToFullLines,
-  getFirstDiffIndex,
   getFullLineIndicesForRange,
-  getLineIndexByCharIndex,
-  getLineIndicesForRange,
-  getLineStartIndex
+  getLineIndicesForRange
 } from './selection'
 import {
   clampTextboxToMontage,
@@ -99,11 +94,6 @@ export default class TextManager {
   private editingPlacementState?: WeakMap<EditorTextbox, ObjectPlacement>
 
   /**
-   * Хранилище для защиты от повторной синхронизации lineFontDefaults.
-   */
-  private lineDefaultsSyncing: WeakSet<EditorTextbox>
-
-  /**
    * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
    * Используется для предотвращения сохранения состояния с временными lock-свойствами.
    */
@@ -124,7 +114,6 @@ export default class TextManager {
       }
     })
     this.editingPlacementState = new WeakMap()
-    this.lineDefaultsSyncing = new WeakSet()
     this.isTextEditingActive = false
 
     this._bindEvents()
@@ -397,6 +386,8 @@ export default class TextManager {
     const selectionStyles: Partial<TextboxProps> = {}
     const lineSelectionStyles: Partial<TextboxProps> = {}
     const wholeTextStyles: Partial<TextboxProps> = {}
+    let resolvedFontWeight: TextboxProps['fontWeight'] | undefined
+    let resolvedFontStyle: TextboxProps['fontStyle'] | undefined
     let resolvedStrokeColor: string | null | undefined
     let resolvedStrokeWidth: number | undefined
     const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
@@ -430,29 +421,29 @@ export default class TextManager {
     }
 
     if (bold !== undefined) {
-      const fontWeight = bold ? 'bold' : 'normal'
+      resolvedFontWeight = bold ? 'bold' : 'normal'
       if (selectionRange) {
-        selectionStyles.fontWeight = fontWeight
+        selectionStyles.fontWeight = resolvedFontWeight
       }
 
       if (shouldUpdateWholeObject) {
-        updates.fontWeight = fontWeight
+        updates.fontWeight = resolvedFontWeight
         if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontWeight = fontWeight
+          wholeTextStyles.fontWeight = resolvedFontWeight
         }
       }
     }
 
     if (italic !== undefined) {
-      const fontStyle = italic ? 'italic' : 'normal'
+      resolvedFontStyle = italic ? 'italic' : 'normal'
       if (selectionRange) {
-        selectionStyles.fontStyle = fontStyle
+        selectionStyles.fontStyle = resolvedFontStyle
       }
 
       if (shouldUpdateWholeObject) {
-        updates.fontStyle = fontStyle
+        updates.fontStyle = resolvedFontStyle
         if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontStyle = fontStyle
+          wholeTextStyles.fontStyle = resolvedFontStyle
         }
       }
     }
@@ -678,13 +669,37 @@ export default class TextManager {
 
     if (
       selectionRange
-      && (color !== undefined || strokeColor !== undefined || strokeWidth !== undefined)
+      && (
+        bold !== undefined
+        || italic !== undefined
+        || underline !== undefined
+        || strikethrough !== undefined
+        || color !== undefined
+        || strokeColor !== undefined
+        || strokeWidth !== undefined
+      )
     ) {
       const fullLineIndices = getFullLineIndicesForRange({
         textbox,
         range: selectionRange
       })
       const lineDefaultsUpdates: LineFontDefaultUpdate = {}
+
+      if (resolvedFontWeight !== undefined) {
+        lineDefaultsUpdates.fontWeight = resolvedFontWeight
+      }
+
+      if (resolvedFontStyle !== undefined) {
+        lineDefaultsUpdates.fontStyle = resolvedFontStyle
+      }
+
+      if (underline !== undefined) {
+        lineDefaultsUpdates.underline = underline
+      }
+
+      if (strikethrough !== undefined) {
+        lineDefaultsUpdates.linethrough = strikethrough
+      }
 
       if (color !== undefined) {
         lineDefaultsUpdates.fill = color
@@ -697,6 +712,10 @@ export default class TextManager {
 
         if (resolvedStrokeColor !== null && resolvedStrokeColor !== undefined) {
           lineDefaultsUpdates.stroke = resolvedStrokeColor
+        }
+
+        if (resolvedStrokeWidth !== undefined) {
+          lineDefaultsUpdates.strokeWidth = resolvedStrokeWidth
         }
       }
 
@@ -1077,6 +1096,8 @@ export default class TextManager {
       historyManager
     } = this.editor
     historyManager.beginAction({ reason: 'text-edit' })
+    target.__lineDefaultsPrevText = target.text ?? ''
+
     if (TextManager._isShapeOwnedTextbox(target)) return
 
     const placementState = this._ensureEditingPlacementState()
@@ -1092,7 +1113,6 @@ export default class TextManager {
   private _handleTextChanged = (event: IEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
-    if (this.lineDefaultsSyncing.has(target)) return
 
     const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
     const { text = '', uppercase, autoExpand } = target
@@ -1134,297 +1154,25 @@ export default class TextManager {
   }
 
   /**
-   * Синхронизирует lineFontDefaults при изменении текста и сохраняет typing style для пустых строк.
+   * Синхронизирует lineFontDefaults при изменении текста и сохраняет служебный Fabric-стиль для пустых строк.
    */
   private _syncLineFontDefaultsOnTextChanged({ textbox }: { textbox: EditorTextbox }): void {
-    const {
-      text = '',
-      lineFontDefaults,
-      styles,
-      fontFamily: globalFontFamily,
-      fontSize: globalFontSize,
-      fill: rawGlobalFill,
-      stroke: rawGlobalStroke,
-      selectionStart,
-      isEditing
-    } = textbox
-    const currentText = text
+    const currentText = textbox.text ?? ''
     const previousText = textbox.__lineDefaultsPrevText ?? currentText
-    const previousLines = previousText.split('\n')
-    const currentLines = currentText.split('\n')
-    const oldLineCount = previousLines.length
-    const newLineCount = currentLines.length
-    const deltaLines = newLineCount - oldLineCount
 
-    let nextLineDefaults = lineFontDefaults
-    let lineDefaultsChanged = false
-    let lineDefaultsCloned = false
+    const syncResult = syncLineFontDefaultsAfterTextChange({
+      textbox,
+      previousText,
+      currentText
+    })
 
-    const resolvedGlobalFill = typeof rawGlobalFill === 'string' ? rawGlobalFill : undefined
-    const resolvedGlobalStroke = typeof rawGlobalStroke === 'string' ? rawGlobalStroke : undefined
-
-    if (deltaLines !== 0 && lineFontDefaults && Object.keys(lineFontDefaults).length) {
-      const diffIndex = getFirstDiffIndex({
-        previous: previousText,
-        next: currentText
-      })
-      const lineIndexOld = getLineIndexByCharIndex({
-        text: previousText,
-        charIndex: diffIndex
-      })
-
-      if (deltaLines > 0) {
-        const lineStartOld = getLineStartIndex({
-          text: previousText,
-          lineIndex: lineIndexOld
-        })
-        let shiftStartIndex = lineIndexOld + 1
-        if (diffIndex === lineStartOld) {
-          shiftStartIndex = lineIndexOld
-        }
-
-        const shiftedDefaults: LineFontDefaults = {}
-        for (const key in lineFontDefaults) {
-          if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
-          const numericIndex = Number(key)
-          if (!Number.isFinite(numericIndex)) continue
-          const lineDefault = lineFontDefaults[numericIndex]
-          if (!lineDefault) continue
-
-          const nextIndex = numericIndex >= shiftStartIndex
-            ? numericIndex + deltaLines
-            : numericIndex
-          shiftedDefaults[nextIndex] = { ...lineDefault }
-        }
-
-        nextLineDefaults = shiftedDefaults
-        lineDefaultsChanged = true
-        lineDefaultsCloned = true
-      }
-
-      if (deltaLines < 0) {
-        const removedLinesCount = Math.abs(deltaLines)
-        let removedLineStart = lineIndexOld
-        const oldChar = previousText[diffIndex]
-
-        if (oldChar === '\n') {
-          const lineText = previousLines[lineIndexOld] ?? ''
-          if (lineText.length > 0) {
-            removedLineStart = lineIndexOld + 1
-          }
-        }
-
-        const removedLineEnd = removedLineStart + removedLinesCount - 1
-        const shiftedDefaults: LineFontDefaults = {}
-
-        for (const key in lineFontDefaults) {
-          if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
-          const numericIndex = Number(key)
-          if (!Number.isFinite(numericIndex)) continue
-          const lineDefault = lineFontDefaults[numericIndex]
-          if (!lineDefault) continue
-
-          if (numericIndex < removedLineStart) {
-            shiftedDefaults[numericIndex] = { ...lineDefault }
-          }
-
-          if (numericIndex > removedLineEnd) {
-            shiftedDefaults[numericIndex + deltaLines] = { ...lineDefault }
-          }
-        }
-
-        nextLineDefaults = shiftedDefaults
-        lineDefaultsChanged = true
-        lineDefaultsCloned = true
-      }
+    if (syncResult.lineFontDefaultsChanged && syncResult.lineFontDefaults) {
+      textbox.lineFontDefaults = syncResult.lineFontDefaults
     }
 
-    let cursorLineIndex: number | null = null
-    if (isEditing && typeof selectionStart === 'number') {
-      const cursorLocation = textbox.get2DCursorLocation(selectionStart)
-      const { lineIndex } = cursorLocation
-      if (Number.isFinite(lineIndex)) {
-        cursorLineIndex = lineIndex
-      }
-    }
-
-    let nextStyles = styles
-    let stylesChanged = false
-    let stylesCloned = false
-    let lastLineDefaults: LineFontDefault | undefined
-    let cursorLineDefaults: LineFontDefault | null = null
-
-    for (let lineIndex = 0; lineIndex < currentLines.length; lineIndex += 1) {
-      const lineText = currentLines[lineIndex] ?? ''
-      const storedLineDefaults = nextLineDefaults ? nextLineDefaults[lineIndex] : undefined
-
-      if (storedLineDefaults) {
-        lastLineDefaults = storedLineDefaults
-      }
-
-      const hasLineText = lineText.length !== 0
-      if (hasLineText) {
-        if (storedLineDefaults) {
-          const syncResult = syncLineDefaultStyles({
-            lineText,
-            lineStyles: nextStyles ? nextStyles[lineIndex] : undefined,
-            lineDefaults: storedLineDefaults
-          })
-
-          if (syncResult.changed) {
-            if (!nextStyles) {
-              nextStyles = {}
-              stylesCloned = true
-            }
-
-            if (!stylesCloned) {
-              nextStyles = { ...nextStyles }
-              stylesCloned = true
-            }
-
-            if (syncResult.lineStyles) {
-              nextStyles[lineIndex] = syncResult.lineStyles
-            }
-
-            if (!syncResult.lineStyles && nextStyles[lineIndex]) {
-              delete nextStyles[lineIndex]
-            }
-
-            stylesChanged = true
-          }
-        }
-
-        continue
-      }
-
-      const sourceDefaults = storedLineDefaults ?? lastLineDefaults
-      const resolvedDefaults: LineFontDefault = {}
-
-      if (sourceDefaults?.fontFamily !== undefined) {
-        resolvedDefaults.fontFamily = sourceDefaults.fontFamily
-      } else if (globalFontFamily !== undefined) {
-        resolvedDefaults.fontFamily = globalFontFamily
-      }
-
-      if (sourceDefaults?.fontSize !== undefined) {
-        resolvedDefaults.fontSize = sourceDefaults.fontSize
-      } else if (globalFontSize !== undefined) {
-        resolvedDefaults.fontSize = globalFontSize
-      }
-
-      if (sourceDefaults?.fill !== undefined) {
-        resolvedDefaults.fill = sourceDefaults.fill
-      } else if (resolvedGlobalFill !== undefined) {
-        resolvedDefaults.fill = resolvedGlobalFill
-      }
-
-      if (sourceDefaults?.stroke !== undefined) {
-        resolvedDefaults.stroke = sourceDefaults.stroke
-      } else if (resolvedGlobalStroke !== undefined) {
-        resolvedDefaults.stroke = resolvedGlobalStroke
-      }
-
-      if (!storedLineDefaults && Object.keys(resolvedDefaults).length) {
-        if (!nextLineDefaults) {
-          nextLineDefaults = {}
-          lineDefaultsCloned = true
-        }
-
-        if (!lineDefaultsCloned) {
-          nextLineDefaults = { ...nextLineDefaults }
-          lineDefaultsCloned = true
-        }
-
-        nextLineDefaults[lineIndex] = resolvedDefaults
-        lineDefaultsChanged = true
-        lastLineDefaults = resolvedDefaults
-      }
-
-      if (storedLineDefaults) {
-        lastLineDefaults = storedLineDefaults
-      }
-
-      if (cursorLineIndex !== null && cursorLineIndex === lineIndex) {
-        cursorLineDefaults = resolvedDefaults
-      }
-
-      const allowedStyles: Partial<TextboxProps> = {}
-      if (resolvedDefaults.fontFamily !== undefined) {
-        allowedStyles.fontFamily = resolvedDefaults.fontFamily
-      }
-
-      if (resolvedDefaults.fontSize !== undefined) {
-        allowedStyles.fontSize = resolvedDefaults.fontSize
-      }
-
-      if (resolvedDefaults.fill !== undefined) {
-        allowedStyles.fill = resolvedDefaults.fill
-      }
-
-      if (resolvedDefaults.stroke !== undefined) {
-        allowedStyles.stroke = resolvedDefaults.stroke
-      }
-
-      const hasAllowedStyles = Object.keys(allowedStyles).length > 0
-      if (hasAllowedStyles || (nextStyles && nextStyles[lineIndex])) {
-        if (!nextStyles) {
-          nextStyles = {}
-          stylesCloned = true
-        }
-
-        if (!stylesCloned) {
-          nextStyles = { ...nextStyles }
-          stylesCloned = true
-        }
-
-        if (hasAllowedStyles) {
-          nextStyles[lineIndex] = { 0: allowedStyles }
-        }
-
-        if (!hasAllowedStyles && nextStyles[lineIndex]) {
-          delete nextStyles[lineIndex]
-        }
-
-        stylesChanged = true
-      }
-    }
-
-    if (lineDefaultsChanged && nextLineDefaults) {
-      textbox.lineFontDefaults = nextLineDefaults
-    }
-
-    if (stylesChanged) {
-      textbox.styles = nextStyles
+    if (syncResult.stylesChanged) {
+      textbox.styles = syncResult.styles
       textbox.dirty = true
-    }
-
-    if (cursorLineDefaults && typeof selectionStart === 'number') {
-      const typingStyles: Partial<TextboxProps> = {}
-
-      if (cursorLineDefaults.fontFamily !== undefined) {
-        typingStyles.fontFamily = cursorLineDefaults.fontFamily
-      }
-
-      if (cursorLineDefaults.fontSize !== undefined) {
-        typingStyles.fontSize = cursorLineDefaults.fontSize
-      }
-
-      if (cursorLineDefaults.fill !== undefined) {
-        typingStyles.fill = cursorLineDefaults.fill
-      }
-
-      if (cursorLineDefaults.stroke !== undefined) {
-        typingStyles.stroke = cursorLineDefaults.stroke
-      }
-
-      if (Object.keys(typingStyles).length) {
-        this.lineDefaultsSyncing.add(textbox)
-        try {
-          textbox.setSelectionStyles(typingStyles, selectionStart, selectionStart)
-        } finally {
-          this.lineDefaultsSyncing.delete(textbox)
-        }
-      }
     }
 
     textbox.__lineDefaultsPrevText = currentText
@@ -1535,6 +1283,7 @@ export default class TextManager {
     if (!TextManager._isTextbox(target)) return
     const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
     this.editingPlacementState?.delete(target)
+    delete target.__lineDefaultsPrevText
 
     // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
     const currentText = target.text ?? ''
