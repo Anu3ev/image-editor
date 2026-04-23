@@ -50,6 +50,15 @@ type CommitStandaloneTextScaleOptions = {
   shouldRoundDimensions?: boolean
 }
 
+type ApplyScaledTextboxVisualStateOptions = {
+  textbox: EditorTextbox
+  base: TextScaleBaseState
+  scale: number
+  shouldScaleFontSize?: boolean
+  shouldScalePadding?: boolean
+  shouldScaleRadii?: boolean
+}
+
 /**
  * Снимает с textbox базовое состояние, относительно которого можно материализовать transient scale.
  */
@@ -138,6 +147,105 @@ export const resolveMinimumTextScalingBounds = (
 }
 
 /**
+ * Запекает масштаб в визуальные свойства textbox без изменения его placement и ширины.
+ * Используется там, где геометрией объекта управляет другой доменный слой.
+ */
+export const applyScaledTextboxVisualState = ({
+  textbox,
+  base,
+  scale,
+  shouldScaleFontSize = true,
+  shouldScalePadding = true,
+  shouldScaleRadii = true
+}: ApplyScaledTextboxVisualStateOptions): void => {
+  const {
+    fontSize: baseFontSize,
+    padding: basePadding,
+    radii: baseRadii,
+    styles: baseStyles,
+    lineFontDefaults: baseLineFontDefaults
+  } = base
+  const minimumBaseFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, baseFontSize)
+  const nextFontSize = Math.max(minimumBaseFontSize, baseFontSize * scale)
+  const hasBaseStyles = Object.keys(baseStyles).length > 0
+  let nextStyles: EditorTextbox['styles'] | undefined
+
+  if (shouldScaleFontSize && hasBaseStyles) {
+    const scaledStyles: TextboxStyles = {}
+
+    Object.entries(baseStyles).forEach(([lineIndex, lineStyles]) => {
+      if (!lineStyles) return
+
+      const scaledLineStyles: Record<string, TextboxProps> = {}
+      Object.entries(lineStyles as Record<string, TextboxProps>).forEach(([charIndex, charStyle]) => {
+        if (!charStyle) return
+
+        const nextCharStyle: TextboxProps = { ...charStyle }
+        if (typeof charStyle.fontSize === 'number') {
+          const minimumCharFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, charStyle.fontSize)
+          nextCharStyle.fontSize = Math.max(minimumCharFontSize, charStyle.fontSize * scale)
+        }
+
+        scaledLineStyles[charIndex] = nextCharStyle
+      })
+
+      if (Object.keys(scaledLineStyles).length) {
+        scaledStyles[lineIndex] = scaledLineStyles
+      }
+    })
+
+    if (Object.keys(scaledStyles).length) {
+      nextStyles = scaledStyles
+    }
+  }
+
+  let nextLineFontDefaults: LineFontDefaults | undefined
+  if (shouldScaleFontSize) {
+    nextLineFontDefaults = scaleLineFontDefaults({
+      lineFontDefaults: baseLineFontDefaults,
+      scale
+    })
+  }
+
+  const nextPadding: PaddingValues = shouldScalePadding
+    ? {
+      top: Math.max(0, basePadding.top * scale),
+      right: Math.max(0, basePadding.right * scale),
+      bottom: Math.max(0, basePadding.bottom * scale),
+      left: Math.max(0, basePadding.left * scale)
+    }
+    : basePadding
+  const nextRadii: CornerRadiiValues = shouldScaleRadii
+    ? {
+      topLeft: Math.max(0, baseRadii.topLeft * scale),
+      topRight: Math.max(0, baseRadii.topRight * scale),
+      bottomRight: Math.max(0, baseRadii.bottomRight * scale),
+      bottomLeft: Math.max(0, baseRadii.bottomLeft * scale)
+    }
+    : baseRadii
+
+  if (nextStyles) {
+    textbox.styles = nextStyles
+  }
+
+  if (nextLineFontDefaults) {
+    textbox.lineFontDefaults = nextLineFontDefaults
+  }
+
+  textbox.set({
+    fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
+    paddingTop: nextPadding.top,
+    paddingRight: nextPadding.right,
+    paddingBottom: nextPadding.bottom,
+    paddingLeft: nextPadding.left,
+    radiusTopLeft: nextRadii.topLeft,
+    radiusTopRight: nextRadii.topRight,
+    radiusBottomRight: nextRadii.bottomRight,
+    radiusBottomLeft: nextRadii.bottomLeft
+  })
+}
+
+/**
  * Материализует transient scale standalone-textbox в канонические width/font/padding/radius значения.
  * `placement` здесь означает стабильный placement самого объекта,
  * а `anchorPlacement` — временную точку удержания текущего drag.
@@ -158,75 +266,10 @@ export const commitStandaloneTextboxScale = (
     shouldRoundDimensions = true
   }: CommitStandaloneTextScaleOptions
 ): CommitStandaloneTextScaleResult => {
-  const {
-    width: baseWidth,
-    fontSize: baseFontSize,
-    padding: basePadding,
-    radii: baseRadii,
-    styles: baseStyles,
-    lineFontDefaults: baseLineFontDefaults
-  } = base
+  const { width: baseWidth } = base
   const nextWidth = Math.max(1, baseWidth * widthScale)
   const roundedNextWidth = Math.max(1, Math.round(nextWidth))
   const committedWidth = shouldRoundDimensions ? roundedNextWidth : nextWidth
-  const minimumBaseFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, baseFontSize)
-  const nextFontSize = Math.max(minimumBaseFontSize, baseFontSize * heightScale)
-  const hasBaseStyles = Object.keys(baseStyles).length > 0
-  let nextStyles: EditorTextbox['styles'] | undefined
-
-  if (shouldScaleFontSize && hasBaseStyles) {
-    const scaledStyles: TextboxStyles = {}
-
-    Object.entries(baseStyles).forEach(([lineIndex, lineStyles]) => {
-      if (!lineStyles) return
-
-      const scaledLineStyles: Record<string, TextboxProps> = {}
-      Object.entries(lineStyles as Record<string, TextboxProps>).forEach(([charIndex, charStyle]) => {
-        if (!charStyle) return
-
-        const nextCharStyle: TextboxProps = { ...charStyle }
-        if (typeof charStyle.fontSize === 'number') {
-          const minimumCharFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, charStyle.fontSize)
-          nextCharStyle.fontSize = Math.max(minimumCharFontSize, charStyle.fontSize * heightScale)
-        }
-
-        scaledLineStyles[charIndex] = nextCharStyle
-      })
-
-      if (Object.keys(scaledLineStyles).length) {
-        scaledStyles[lineIndex] = scaledLineStyles
-      }
-    })
-
-    if (Object.keys(scaledStyles).length) {
-      nextStyles = scaledStyles
-    }
-  }
-
-  let nextLineFontDefaults: LineFontDefaults | undefined
-  if (shouldScaleFontSize) {
-    nextLineFontDefaults = scaleLineFontDefaults({
-      lineFontDefaults: baseLineFontDefaults,
-      scale: heightScale
-    })
-  }
-
-  const nextPadding: PaddingValues = shouldScalePadding
-    ? {
-      top: Math.max(0, basePadding.top * heightScale),
-      right: Math.max(0, basePadding.right * heightScale),
-      bottom: Math.max(0, basePadding.bottom * heightScale),
-      left: Math.max(0, basePadding.left * heightScale)
-    }
-    : basePadding
-  const nextRadii: CornerRadiiValues = shouldScaleRadii
-    ? {
-      topLeft: Math.max(0, baseRadii.topLeft * heightScale),
-      topRight: Math.max(0, baseRadii.topRight * heightScale),
-      bottomRight: Math.max(0, baseRadii.bottomRight * heightScale),
-      bottomLeft: Math.max(0, baseRadii.bottomLeft * heightScale)
-    }
-    : baseRadii
   const currentWidth = textbox.width ?? baseWidth
   const widthChanged = Math.abs(committedWidth - currentWidth) > DIMENSION_EPSILON
 
@@ -234,25 +277,17 @@ export const commitStandaloneTextboxScale = (
     textbox.autoExpand = false
   }
 
-  if (nextStyles) {
-    textbox.styles = nextStyles
-  }
-
-  if (nextLineFontDefaults) {
-    textbox.lineFontDefaults = nextLineFontDefaults
-  }
+  applyScaledTextboxVisualState({
+    textbox,
+    base,
+    scale: heightScale,
+    shouldScaleFontSize,
+    shouldScalePadding,
+    shouldScaleRadii
+  })
 
   textbox.set({
     width: committedWidth,
-    fontSize: shouldScaleFontSize ? nextFontSize : baseFontSize,
-    paddingTop: nextPadding.top,
-    paddingRight: nextPadding.right,
-    paddingBottom: nextPadding.bottom,
-    paddingLeft: nextPadding.left,
-    radiusTopLeft: nextRadii.topLeft,
-    radiusTopRight: nextRadii.topRight,
-    radiusBottomRight: nextRadii.bottomRight,
-    radiusBottomLeft: nextRadii.bottomLeft,
     scaleX: 1,
     scaleY: 1
   })

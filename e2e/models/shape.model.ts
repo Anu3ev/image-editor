@@ -2,6 +2,7 @@
 import { type Page, expect } from '@playwright/test'
 import type {
   ShapeObjectInfo,
+  ShapeObjectTreeIds,
   ShapeTextInfo,
   ShapeAddParams,
   ShapeAddAtBoundsParams,
@@ -1459,6 +1460,32 @@ export class ShapeModel {
 
       return helpers.serializeShapeTextObject(textNode)
     }, params)
+  }
+
+  /** Возвращает ID shape-группы и её внутренних объектов. */
+  async getObjectTreeIds(params: ObjectTargetParams = {}): Promise<ShapeObjectTreeIds> {
+    const ids = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      const shapeNode = helpers.resolveShapeNode(target)
+      const textNode = editor.shapeManager.getTextNode({ target })
+
+      return {
+        groupId: typeof target.id === 'string' ? target.id : null,
+        shapeId: shapeNode && typeof shapeNode.id === 'string' ? shapeNode.id : null,
+        textId: textNode && typeof textNode.id === 'string' ? textNode.id : null
+      }
+    }, params)
+
+    expect(ids, 'для shape-группы должны существовать id объектов').not.toBeNull()
+
+    return ids as ShapeObjectTreeIds
   }
 
   /** Делает shape активным объектом canvas */

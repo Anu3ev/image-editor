@@ -28,6 +28,7 @@ describe('ClipboardManager', () => {
   let clipboardManager: ClipboardManager
   let mockCanvas: any
   let commitStandaloneTextScaleMock: jest.Mock
+  let commitRehydratedShapeLayoutMock: jest.Mock
 
   beforeEach(() => {
     // Устанавливаем глобальные моки браузерных API
@@ -37,6 +38,7 @@ describe('ClipboardManager', () => {
     mockEditor = mocks.mockEditor
     mockCanvas = mocks.mockCanvas
     commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+    commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
 
     clipboardManager = new ClipboardManager({ editor: mockEditor })
 
@@ -57,6 +59,10 @@ describe('ClipboardManager', () => {
     it('список свойств для clipboard cloning включает replacement box фигуры', () => {
       expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeReplaceBoxWidth')
       expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeReplaceBoxHeight')
+    })
+
+    it('список свойств для clipboard cloning включает id объектов', () => {
+      expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('id')
     })
   })
 
@@ -353,7 +359,7 @@ describe('ClipboardManager', () => {
       })
     })
 
-    it('должен обработать вставку ActiveSelection и установить уникальные id', async() => {
+    it('вставляет выделение с новыми id у всех объектов', async() => {
       const mockObjects = [
         createMockFabricObject({ type: 'rect', id: 'original-rect', left: 50, top: 50 }),
         createMockFabricObject({ type: 'circle', id: 'original-circle', left: 100, top: 100 }),
@@ -365,16 +371,22 @@ describe('ClipboardManager', () => {
       const result = await clipboardManager.paste()
 
       expect(result).toBe(true)
-
-      // Проверяем, что объекты были добавлены на canvas через специальную логику для ActiveSelection
       expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
-
-      // Проверяем, что добавлено нужное количество объектов
       expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
 
-      // Проверяем вызов события
+      const addedObjects = mockCanvas.add.mock.calls.map(([object]) => object)
+      const addedIds = addedObjects.map((object) => object.id)
+
+      expect(addedIds).toHaveLength(mockObjects.length)
+      expect(new Set(addedIds).size).toBe(mockObjects.length)
+      expect(addedIds).not.toContain('original-rect')
+      expect(addedIds).not.toContain('original-circle')
+      expect(addedIds).not.toContain('original-text')
+      addedObjects.forEach((object) => {
+        expect(object.evented).toBe(true)
+      })
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
         fromInternalClipboard: true,
         clipboardObject: mockGroup,
@@ -382,19 +394,27 @@ describe('ClipboardManager', () => {
       })
     })
 
-    it('должен вставить shape-group из внутреннего буфера без потери runtime-свойств', async() => {
+    it('вставляет шейп из внутреннего буфера без потери свойств группы', async() => {
+      const sourceShape = createMockShapeNode({ id: 'source-shape' })
+      const sourceText = createMockShapeTextbox({ text: 'source text' })
+      sourceText.set({ id: 'source-text' })
+      const pastedShape = createMockShapeNode({ id: 'pasted-shape' })
+      const pastedText = createMockShapeTextbox({ text: 'pasted text' })
+      pastedText.set({ id: 'pasted-text' })
       const sourceGroup = new ShapeGroupObject([
-        createMockShapeNode() as never,
-        createMockShapeTextbox({ text: 'source text' })
+        sourceShape as never,
+        sourceText
       ], {
+        id: 'source-group',
         left: 10,
         top: 20,
         shapePresetKey: 'square'
       })
       const pastedGroup = new ShapeGroupObject([
-        createMockShapeNode() as never,
-        createMockShapeTextbox({ text: 'pasted text' })
+        pastedShape as never,
+        pastedText
       ], {
+        id: 'pasted-group',
         left: 10,
         top: 20,
         shapePresetKey: 'square'
@@ -405,11 +425,24 @@ describe('ClipboardManager', () => {
 
       const result = await clipboardManager.paste()
 
+      expect(mockEditor.errorManager.emitError).not.toHaveBeenCalled()
       expect(result).toBe(true)
       expect(mockCanvas.add).toHaveBeenCalledWith(pastedGroup)
       expect(pastedGroup.shapeComposite).toBe(true)
       expect(pastedGroup.interactive).toBe(true)
       expect(pastedGroup.subTargetCheck).toBe(true)
+      expect(pastedGroup.id).toEqual(expect.any(String))
+      expect(pastedGroup.id).not.toBe('pasted-group')
+      expect(pastedShape.id).toEqual(expect.any(String))
+      expect(pastedShape.id).not.toBe('pasted-shape')
+      expect(pastedText.id).toEqual(expect.any(String))
+      expect(pastedText.id).not.toBe('pasted-text')
+      expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+        target: pastedGroup
+      })
+      expect(commitRehydratedShapeLayoutMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
         fromInternalClipboard: true,
         clipboardObject: sourceGroup,
@@ -417,7 +450,7 @@ describe('ClipboardManager', () => {
       })
     })
 
-    it('должен обработать copyPaste для ActiveSelection и установить уникальные id', async() => {
+    it('дублирует выделение с новыми id у всех объектов', async() => {
       const mockObjects = [
         createMockFabricObject({ type: 'rect', id: 'original-rect', left: 75, top: 75 }),
         createMockFabricObject({ type: 'circle', id: 'original-circle', left: 125, top: 125 })
@@ -428,16 +461,21 @@ describe('ClipboardManager', () => {
       const result = await clipboardManager.copyPaste()
 
       expect(result).toBe(true)
-
-      // Проверяем, что были вызваны нужные методы для ActiveSelection
       expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
-
-      // Проверяем, что добавлено нужное количество объектов
       expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
 
-      // Проверяем вызов события
+      const addedObjects = mockCanvas.add.mock.calls.map(([object]) => object)
+      const addedIds = addedObjects.map((object) => object.id)
+
+      expect(addedIds).toHaveLength(mockObjects.length)
+      expect(new Set(addedIds).size).toBe(mockObjects.length)
+      expect(addedIds).not.toContain('original-rect')
+      expect(addedIds).not.toContain('original-circle')
+      addedObjects.forEach((object) => {
+        expect(object.evented).toBe(true)
+      })
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-duplicated', {
         targetObject: mockGroup,
         clonedObject: expect.any(ActiveSelection)

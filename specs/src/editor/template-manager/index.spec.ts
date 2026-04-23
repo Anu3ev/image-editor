@@ -53,6 +53,46 @@ describe('TemplateManager', () => {
     expect(editor.historyManager.saveState).toHaveBeenCalled()
   })
 
+  it('текст внутри фигуры из шаблона пересчитывается с масштабом монтажной области', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      montageBounds: {
+        left: 0,
+        top: 0,
+        width: 800,
+        height: 600
+      }
+    })
+    const group = new ShapeGroupObject([
+      createMockShapeNode() as never,
+      createMockShapeTextbox({ text: 'Template text' })
+    ], {
+      left: 100,
+      top: 100,
+      shapePresetKey: 'square'
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([group])
+
+    const result = await manager.applyTemplate({
+      template: createShapeTemplateDefinition()
+    })
+
+    const commitRehydratedShapeLayoutMock = editor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+
+    expect(result).toEqual([group])
+    expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+      target: group,
+      textScale: 2
+    })
+    expect(commitRehydratedShapeLayoutMock.mock.invocationCallOrder[0]).toBeLessThan(
+      editor.canvas.add.mock.invocationCallOrder[0]
+    )
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
   it('сохраняет auto-expand у текста внутри фигуры из шаблона', async() => {
     const {
       manager,

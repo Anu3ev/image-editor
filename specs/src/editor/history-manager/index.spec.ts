@@ -1009,6 +1009,34 @@ describe('HistoryManager', () => {
       )
     })
 
+    it('фигура из истории пересчитывает layout до отрисовки', async() => {
+      const { historyManager, mockEditor } = createHistoryManagerTestSetup()
+      const commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+      const state = createState({
+        objects: [
+          { id: 'montage-area', type: 'rect' },
+          {
+            id: 'shape-1',
+            type: 'shape-group',
+            shapeComposite: true,
+            shapePresetKey: 'square'
+          }
+        ] as any[]
+      })
+
+      await historyManager.loadStateFromFullState(state)
+
+      expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+        target: expect.objectContaining({
+          id: 'shape-1',
+          type: 'shape-group'
+        })
+      })
+      expect(commitRehydratedShapeLayoutMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEditor.canvas.renderAll.mock.invocationCallOrder[0]
+      )
+    })
+
     it('обновляет canvas если размеры изменились', async() => {
       const { historyManager, mockEditor } = createHistoryManagerTestSetup({
         initialCanvasWidth: 800,

@@ -13,7 +13,9 @@ import {
 import {
   applyShapeTextLayoutToMockGroup,
   applyTextStyleToShapeText,
+  createMockShapeGroup,
   createMockShapeNode,
+  createMockShapeTextbox,
   createShapeManagerEditorStub,
   getCanvasEventPayloads,
   getCanvasHandler,
@@ -104,6 +106,54 @@ export const resetShapeManagerUnitMocks = ({
     currentWidth: number
     minimumWidth: number
   }) => Math.max(currentWidth, minimumWidth))
+}
+
+export const createShapeRehydrationTarget = ({
+  width = 200,
+  height = 100,
+  scaleX = 1,
+  scaleY = 1,
+  manualWidth = width,
+  manualHeight = height,
+  replaceBoxWidth = width,
+  replaceBoxHeight = height
+}: {
+  width?: number
+  height?: number
+  scaleX?: number
+  scaleY?: number
+  manualWidth?: number
+  manualHeight?: number
+  replaceBoxWidth?: number
+  replaceBoxHeight?: number
+} = {}) => {
+  const shape = createMockShapeNode({
+    width,
+    height
+  })
+  const text = createMockShapeTextbox({
+    text: 'Shape text',
+    width
+  })
+  const group = createMockShapeGroup({
+    shape,
+    text,
+    width,
+    height
+  })
+
+  group.scaleX = scaleX
+  group.scaleY = scaleY
+  group.shapeManualBaseWidth = manualWidth
+  group.shapeManualBaseHeight = manualHeight
+  group.shapeReplaceBoxWidth = replaceBoxWidth
+  group.shapeReplaceBoxHeight = replaceBoxHeight
+
+  return {
+    group,
+    shape,
+    text
+  }
 }
 
 export {

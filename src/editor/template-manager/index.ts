@@ -164,8 +164,8 @@ export default class TemplateManager {
    * Применяет шаблон к монтажной области без очистки текущих объектов.
    * @param options
    * @param options.template - описание шаблона.
-   * Standalone text после rehydration приводится к канонической геометрии до добавления на canvas,
-   * чтобы template-path не оставлял смешанное width/scale состояние.
+   * Standalone text и shape-композиции после rehydration приводятся к канонической геометрии
+   * до добавления на canvas, чтобы template-path не оставлял смешанное width/scale состояние.
    */
   public async applyTemplate({
     template
@@ -175,7 +175,9 @@ export default class TemplateManager {
       montageArea,
       historyManager,
       errorManager,
-      backgroundManager
+      backgroundManager,
+      shapeManager,
+      textManager
     } = this.editor
 
     const { objects, meta: templateMeta, id: templateId } = template ?? {}
@@ -238,7 +240,7 @@ export default class TemplateManager {
         })
       }
 
-      // Применяем текстовые подстановки, трансформируем координаты и добавляем объекты на канвас
+      // Материализуем type-specific geometry, трансформируем координаты и добавляем объекты на канвас
       const insertedObjects = contentObjects.map((object) => {
         this._adaptTextboxWidth({
           object,
@@ -254,8 +256,12 @@ export default class TemplateManager {
           useRelativePositions
         })
 
-        this.editor.textManager?.commitStandaloneTextScale({
+        textManager.commitStandaloneTextScale({
           target: object
+        })
+        shapeManager.commitRehydratedShapeLayout({
+          target: object,
+          textScale: scale
         })
 
         snapObjectToPixelGrid({ object })

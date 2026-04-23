@@ -453,7 +453,8 @@ export const createEditorStub = () => {
       refresh: jest.fn()
     },
     shapeManager: {
-      addRectangle: jest.fn()
+      addRectangle: jest.fn(),
+      commitRehydratedShapeLayout: jest.fn()
     },
     montageArea,
     options: {
@@ -509,7 +510,8 @@ export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
   } as any
 
   editor.shapeManager = {
-    addRectangle: jest.fn()
+    addRectangle: jest.fn(),
+    commitRehydratedShapeLayout: jest.fn()
   } as any
 
   editor.panConstraintManager = {
@@ -967,6 +969,9 @@ export const createHistoryManagerTestSetup = (
     textManager: {
       commitStandaloneTextScale: jest.fn()
     },
+    shapeManager: {
+      commitRehydratedShapeLayout: jest.fn()
+    },
     options: {
       maxHistoryLength
     }
@@ -1201,6 +1206,9 @@ export const createTextManagerTestSetup = (
     },
     snappingManager: {
       applyTextResizingSnap: jest.fn()
+    },
+    shapeManager: {
+      commitRehydratedShapeLayout: jest.fn()
     }
   } as any
 
@@ -1473,7 +1481,16 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
   // Добавляем методы моков
   mockSelection.clone = jest.fn().mockImplementation(async() => {
     // Глубокое копирование для избежания shared references
-    const clonedObjects = objects.map((obj) => ({ ...obj }))
+    const clonedObjects = objects.map((object) => {
+      const clonedObject = { ...object }
+
+      clonedObject.set = jest.fn().mockImplementation((newProps) => {
+        Object.assign(clonedObject, newProps)
+      })
+      clonedObject.setCoords = jest.fn()
+
+      return clonedObject
+    })
     const clonedProps = JSON.parse(JSON.stringify(props))
     const cloned = new ActiveSelection(clonedObjects, clonedProps) as any
     cloned.set = jest.fn().mockImplementation((newProps) => {
