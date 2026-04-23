@@ -16,9 +16,7 @@ import type { EditorFontDefinition } from '../types/font'
 import {
   BackgroundTextbox,
   registerBackgroundTextbox,
-  type BackgroundTextboxProps,
-  type LineFontDefault,
-  type LineFontDefaults
+  type BackgroundTextboxProps
 } from './background-textbox'
 import {
   DIMENSION_EPSILON
@@ -26,18 +24,13 @@ import {
 import TextScalingController from './scaling/text-scaling'
 import {
   applyLineDefaultUpdates,
-  createLineDefaultStyle,
-  removeLineDefaultStyles,
-  syncLineDefaultStyles
+  syncLineFontDefaultsAfterTextChange
 } from './line-defaults'
 import {
   clampSelectionRange,
   expandRangeToFullLines,
-  getFirstDiffIndex,
   getFullLineIndicesForRange,
-  getLineIndexByCharIndex,
-  getLineIndicesForRange,
-  getLineStartIndex
+  getLineIndicesForRange
 } from './selection'
 import {
   clampTextboxToMontage,
@@ -1164,316 +1157,21 @@ export default class TextManager {
    * Синхронизирует lineFontDefaults при изменении текста и сохраняет служебный Fabric-стиль для пустых строк.
    */
   private _syncLineFontDefaultsOnTextChanged({ textbox }: { textbox: EditorTextbox }): void {
-    const {
-      text = '',
-      lineFontDefaults,
-      styles,
-      fontFamily: globalFontFamily,
-      fontSize: globalFontSize,
-      fontStyle: globalFontStyle,
-      fontWeight: globalFontWeight,
-      fill: rawGlobalFill,
-      stroke: rawGlobalStroke,
-      strokeWidth: globalStrokeWidth,
-      linethrough: globalLinethrough,
-      underline: globalUnderline
-    } = textbox
-    const currentText = text
+    const currentText = textbox.text ?? ''
     const previousText = textbox.__lineDefaultsPrevText ?? currentText
-    const previousLines = previousText.split('\n')
-    const currentLines = currentText.split('\n')
-    const oldLineCount = previousLines.length
-    const newLineCount = currentLines.length
-    const deltaLines = newLineCount - oldLineCount
 
-    let nextLineDefaults = lineFontDefaults
-    let lineDefaultsChanged = false
-    let lineDefaultsCloned = false
-    const removedLineDefaultsForStyleCleanup: LineFontDefault[] = []
-    let removedLineStyleCleanupIndex: number | undefined
+    const syncResult = syncLineFontDefaultsAfterTextChange({
+      textbox,
+      previousText,
+      currentText
+    })
 
-    const resolvedGlobalFill = typeof rawGlobalFill === 'string' ? rawGlobalFill : undefined
-    const resolvedGlobalStroke = typeof rawGlobalStroke === 'string' ? rawGlobalStroke : undefined
-
-    if (deltaLines !== 0 && lineFontDefaults && Object.keys(lineFontDefaults).length) {
-      const diffIndex = getFirstDiffIndex({
-        previous: previousText,
-        next: currentText
-      })
-      const lineIndexOld = getLineIndexByCharIndex({
-        text: previousText,
-        charIndex: diffIndex
-      })
-
-      if (deltaLines > 0) {
-        const lineStartOld = getLineStartIndex({
-          text: previousText,
-          lineIndex: lineIndexOld
-        })
-        let shiftStartIndex = lineIndexOld + 1
-        if (diffIndex === lineStartOld) {
-          shiftStartIndex = lineIndexOld
-        }
-
-        const shiftedDefaults: LineFontDefaults = {}
-        for (const key in lineFontDefaults) {
-          if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
-          const numericIndex = Number(key)
-          if (!Number.isFinite(numericIndex)) continue
-          const lineDefault = lineFontDefaults[numericIndex]
-          if (!lineDefault) continue
-
-          const nextIndex = numericIndex >= shiftStartIndex
-            ? numericIndex + deltaLines
-            : numericIndex
-          shiftedDefaults[nextIndex] = { ...lineDefault }
-        }
-
-        nextLineDefaults = shiftedDefaults
-        lineDefaultsChanged = true
-        lineDefaultsCloned = true
-      }
-
-      if (deltaLines < 0) {
-        const removedLinesCount = Math.abs(deltaLines)
-        let removedLineStart = lineIndexOld
-        const oldChar = previousText[diffIndex]
-
-        if (oldChar === '\n') {
-          const lineText = previousLines[lineIndexOld] ?? ''
-          if (lineText.length > 0) {
-            removedLineStart = lineIndexOld + 1
-          }
-        }
-
-        const removedLineEnd = removedLineStart + removedLinesCount - 1
-        const shiftedDefaults: LineFontDefaults = {}
-
-        for (let lineIndex = removedLineStart; lineIndex <= removedLineEnd; lineIndex += 1) {
-          const removedLineDefault = lineFontDefaults[lineIndex]
-          if (removedLineDefault) {
-            removedLineDefaultsForStyleCleanup.push(removedLineDefault)
-          }
-        }
-        removedLineStyleCleanupIndex = removedLineStart
-
-        for (const key in lineFontDefaults) {
-          if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
-          const numericIndex = Number(key)
-          if (!Number.isFinite(numericIndex)) continue
-          const lineDefault = lineFontDefaults[numericIndex]
-          if (!lineDefault) continue
-
-          if (numericIndex < removedLineStart) {
-            shiftedDefaults[numericIndex] = { ...lineDefault }
-          }
-
-          if (numericIndex > removedLineEnd) {
-            shiftedDefaults[numericIndex + deltaLines] = { ...lineDefault }
-          }
-        }
-
-        nextLineDefaults = shiftedDefaults
-        lineDefaultsChanged = true
-        lineDefaultsCloned = true
-      }
+    if (syncResult.lineFontDefaultsChanged && syncResult.lineFontDefaults) {
+      textbox.lineFontDefaults = syncResult.lineFontDefaults
     }
 
-    let nextStyles = styles
-    let stylesChanged = false
-    let stylesCloned = false
-    let lastLineDefaults: LineFontDefault | undefined
-
-    if (
-      removedLineStyleCleanupIndex !== undefined
-      && removedLineStyleCleanupIndex < currentLines.length
-      && removedLineDefaultsForStyleCleanup.length
-      && nextStyles
-    ) {
-      let cleanupLineStyles = nextStyles[removedLineStyleCleanupIndex]
-      let cleanupChanged = false
-
-      for (let index = 0; index < removedLineDefaultsForStyleCleanup.length; index += 1) {
-        const lineDefaultsForCleanup = removedLineDefaultsForStyleCleanup[index]
-        if (!lineDefaultsForCleanup) continue
-
-        const cleanupResult = removeLineDefaultStyles({
-          lineStyles: cleanupLineStyles,
-          lineDefaults: lineDefaultsForCleanup
-        })
-        if (!cleanupResult.changed) continue
-
-        cleanupLineStyles = cleanupResult.lineStyles
-        cleanupChanged = true
-      }
-
-      if (cleanupChanged) {
-        if (!stylesCloned) {
-          nextStyles = { ...nextStyles }
-          stylesCloned = true
-        }
-
-        if (cleanupLineStyles) {
-          nextStyles[removedLineStyleCleanupIndex] = cleanupLineStyles
-        } else {
-          delete nextStyles[removedLineStyleCleanupIndex]
-        }
-
-        stylesChanged = true
-      }
-    }
-
-    for (let lineIndex = 0; lineIndex < currentLines.length; lineIndex += 1) {
-      const lineText = currentLines[lineIndex] ?? ''
-      const storedLineDefaults = nextLineDefaults ? nextLineDefaults[lineIndex] : undefined
-
-      if (storedLineDefaults) {
-        lastLineDefaults = storedLineDefaults
-      }
-
-      const hasLineText = lineText.length !== 0
-      if (hasLineText) {
-        if (storedLineDefaults) {
-          const syncResult = syncLineDefaultStyles({
-            lineText,
-            lineStyles: nextStyles ? nextStyles[lineIndex] : undefined,
-            lineDefaults: storedLineDefaults
-          })
-
-          if (syncResult.changed) {
-            if (!nextStyles) {
-              nextStyles = {}
-              stylesCloned = true
-            }
-
-            if (!stylesCloned) {
-              nextStyles = { ...nextStyles }
-              stylesCloned = true
-            }
-
-            if (syncResult.lineStyles) {
-              nextStyles[lineIndex] = syncResult.lineStyles
-            }
-
-            if (!syncResult.lineStyles && nextStyles[lineIndex]) {
-              delete nextStyles[lineIndex]
-            }
-
-            stylesChanged = true
-          }
-        }
-
-        continue
-      }
-
-      const sourceDefaults = storedLineDefaults ?? lastLineDefaults
-      const resolvedDefaults: LineFontDefault = {}
-
-      if (sourceDefaults?.fontFamily !== undefined) {
-        resolvedDefaults.fontFamily = sourceDefaults.fontFamily
-      } else if (globalFontFamily !== undefined) {
-        resolvedDefaults.fontFamily = globalFontFamily
-      }
-
-      if (sourceDefaults?.fontSize !== undefined) {
-        resolvedDefaults.fontSize = sourceDefaults.fontSize
-      } else if (globalFontSize !== undefined) {
-        resolvedDefaults.fontSize = globalFontSize
-      }
-
-      if (sourceDefaults?.fontWeight !== undefined) {
-        resolvedDefaults.fontWeight = sourceDefaults.fontWeight
-      } else if (globalFontWeight !== undefined) {
-        resolvedDefaults.fontWeight = globalFontWeight
-      }
-
-      if (sourceDefaults?.fontStyle !== undefined) {
-        resolvedDefaults.fontStyle = sourceDefaults.fontStyle
-      } else if (globalFontStyle !== undefined) {
-        resolvedDefaults.fontStyle = globalFontStyle
-      }
-
-      if (sourceDefaults?.underline !== undefined) {
-        resolvedDefaults.underline = sourceDefaults.underline
-      } else if (globalUnderline !== undefined) {
-        resolvedDefaults.underline = globalUnderline
-      }
-
-      if (sourceDefaults?.linethrough !== undefined) {
-        resolvedDefaults.linethrough = sourceDefaults.linethrough
-      } else if (globalLinethrough !== undefined) {
-        resolvedDefaults.linethrough = globalLinethrough
-      }
-
-      if (sourceDefaults?.fill !== undefined) {
-        resolvedDefaults.fill = sourceDefaults.fill
-      } else if (resolvedGlobalFill !== undefined) {
-        resolvedDefaults.fill = resolvedGlobalFill
-      }
-
-      if (sourceDefaults?.stroke !== undefined) {
-        resolvedDefaults.stroke = sourceDefaults.stroke
-      } else if (resolvedGlobalStroke !== undefined) {
-        resolvedDefaults.stroke = resolvedGlobalStroke
-      }
-
-      if (sourceDefaults?.strokeWidth !== undefined) {
-        resolvedDefaults.strokeWidth = sourceDefaults.strokeWidth
-      } else if (resolvedDefaults.stroke !== undefined && globalStrokeWidth !== undefined) {
-        resolvedDefaults.strokeWidth = globalStrokeWidth
-      }
-
-      if (!storedLineDefaults && Object.keys(resolvedDefaults).length) {
-        if (!nextLineDefaults) {
-          nextLineDefaults = {}
-          lineDefaultsCloned = true
-        }
-
-        if (!lineDefaultsCloned) {
-          nextLineDefaults = { ...nextLineDefaults }
-          lineDefaultsCloned = true
-        }
-
-        nextLineDefaults[lineIndex] = resolvedDefaults
-        lineDefaultsChanged = true
-        lastLineDefaults = resolvedDefaults
-      }
-
-      if (storedLineDefaults) {
-        lastLineDefaults = storedLineDefaults
-      }
-
-      const allowedStyles = createLineDefaultStyle({ lineDefaults: resolvedDefaults })
-      const hasAllowedStyles = Object.keys(allowedStyles).length > 0
-      if (hasAllowedStyles || (nextStyles && nextStyles[lineIndex])) {
-        if (!nextStyles) {
-          nextStyles = {}
-          stylesCloned = true
-        }
-
-        if (!stylesCloned) {
-          nextStyles = { ...nextStyles }
-          stylesCloned = true
-        }
-
-        if (hasAllowedStyles) {
-          nextStyles[lineIndex] = { 0: allowedStyles }
-        }
-
-        if (!hasAllowedStyles && nextStyles[lineIndex]) {
-          delete nextStyles[lineIndex]
-        }
-
-        stylesChanged = true
-      }
-    }
-
-    if (lineDefaultsChanged && nextLineDefaults) {
-      textbox.lineFontDefaults = nextLineDefaults
-    }
-
-    if (stylesChanged) {
-      textbox.styles = nextStyles
+    if (syncResult.stylesChanged) {
+      textbox.styles = syncResult.styles
       textbox.dirty = true
     }
 

@@ -1,4 +1,7 @@
-import type { TextboxProps } from 'fabric'
+import type {
+  TextStyle,
+  TextStyleDeclaration
+} from 'fabric'
 import type {
   LineFontDefault,
   LineFontDefaults
@@ -11,9 +14,199 @@ import {
   DIMENSION_EPSILON,
   MIN_TEXTBOX_FONT_SIZE
 } from './constants'
+import {
+  getFirstDiffIndex,
+  getLineIndexByCharIndex,
+  getLineStartIndex
+} from './selection'
 
-type TextboxLineStyle = Partial<TextboxProps>
-type TextboxLineStyles = Record<string, TextboxLineStyle>
+type TextboxStyles = TextStyle
+type TextboxLineStyle = TextStyleDeclaration
+type TextboxLineStyles = TextboxStyles[string]
+type DeletedLineDefaultsCleanup = {
+  lineIndex: number
+  lineDefaults: LineFontDefault[]
+}
+type LineFontDefaultsTextChangeResult = {
+  lineFontDefaults?: LineFontDefaults
+  changed: boolean
+  deletedLineDefaultsCleanup?: DeletedLineDefaultsCleanup
+}
+type LineFontDefaultsSyncResult = {
+  lineFontDefaults?: LineFontDefaults
+  lineFontDefaultsChanged: boolean
+  styles: TextboxStyles
+  stylesChanged: boolean
+}
+
+/**
+ * Сдвигает lineFontDefaults вниз после вставки одной или нескольких строк.
+ */
+const resolveLineFontDefaultsAfterLineInsertion = ({
+  deltaLines,
+  diffIndex,
+  lineFontDefaults,
+  lineIndexOld,
+  previousText
+}: {
+  deltaLines: number
+  diffIndex: number
+  lineFontDefaults: LineFontDefaults
+  lineIndexOld: number
+  previousText: string
+}): LineFontDefaultsTextChangeResult => {
+  const lineStartOld = getLineStartIndex({
+    text: previousText,
+    lineIndex: lineIndexOld
+  })
+  let shiftStartIndex = lineIndexOld + 1
+  if (diffIndex === lineStartOld) {
+    shiftStartIndex = lineIndexOld
+  }
+
+  const shiftedDefaults: LineFontDefaults = {}
+  for (const key in lineFontDefaults) {
+    if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
+    const numericIndex = Number(key)
+    if (!Number.isFinite(numericIndex)) continue
+    const lineDefault = lineFontDefaults[numericIndex]
+    if (!lineDefault) continue
+
+    const nextIndex = numericIndex >= shiftStartIndex
+      ? numericIndex + deltaLines
+      : numericIndex
+    shiftedDefaults[nextIndex] = { ...lineDefault }
+  }
+
+  return {
+    lineFontDefaults: shiftedDefaults,
+    changed: true
+  }
+}
+
+/**
+ * Удаляет lineFontDefaults исчезнувших строк и сдвигает оставшиеся вверх.
+ */
+const resolveLineFontDefaultsAfterLineRemoval = ({
+  deltaLines,
+  diffIndex,
+  lineFontDefaults,
+  lineIndexOld,
+  previousLines,
+  previousText
+}: {
+  deltaLines: number
+  diffIndex: number
+  lineFontDefaults: LineFontDefaults
+  lineIndexOld: number
+  previousLines: string[]
+  previousText: string
+}): LineFontDefaultsTextChangeResult => {
+  const removedLinesCount = Math.abs(deltaLines)
+  let removedLineStart = lineIndexOld
+  const oldChar = previousText[diffIndex]
+
+  if (oldChar === '\n') {
+    const lineText = previousLines[lineIndexOld] ?? ''
+    if (lineText.length > 0) {
+      removedLineStart = lineIndexOld + 1
+    }
+  }
+
+  const removedLineEnd = removedLineStart + removedLinesCount - 1
+  const shiftedDefaults: LineFontDefaults = {}
+  const removedLineDefaults: LineFontDefault[] = []
+
+  for (let lineIndex = removedLineStart; lineIndex <= removedLineEnd; lineIndex += 1) {
+    const removedLineDefault = lineFontDefaults[lineIndex]
+    if (removedLineDefault) {
+      removedLineDefaults.push(removedLineDefault)
+    }
+  }
+
+  for (const key in lineFontDefaults) {
+    if (!Object.prototype.hasOwnProperty.call(lineFontDefaults, key)) continue
+    const numericIndex = Number(key)
+    if (!Number.isFinite(numericIndex)) continue
+    const lineDefault = lineFontDefaults[numericIndex]
+    if (!lineDefault) continue
+
+    if (numericIndex < removedLineStart) {
+      shiftedDefaults[numericIndex] = { ...lineDefault }
+    }
+
+    if (numericIndex > removedLineEnd) {
+      shiftedDefaults[numericIndex + deltaLines] = { ...lineDefault }
+    }
+  }
+
+  return {
+    lineFontDefaults: shiftedDefaults,
+    changed: true,
+    deletedLineDefaultsCleanup: {
+      lineIndex: removedLineStart,
+      lineDefaults: removedLineDefaults
+    }
+  }
+}
+
+/**
+ * Пересчитывает lineFontDefaults только для структурного изменения строк.
+ */
+const resolveLineFontDefaultsAfterTextChange = ({
+  lineFontDefaults,
+  previousText,
+  currentText
+}: {
+  currentText: string
+  lineFontDefaults?: LineFontDefaults
+  previousText: string
+}): LineFontDefaultsTextChangeResult => {
+  if (!lineFontDefaults || !Object.keys(lineFontDefaults).length) {
+    return {
+      lineFontDefaults,
+      changed: false
+    }
+  }
+
+  const previousLines = previousText.split('\n')
+  const currentLines = currentText.split('\n')
+  const deltaLines = currentLines.length - previousLines.length
+  if (deltaLines === 0) {
+    return {
+      lineFontDefaults,
+      changed: false
+    }
+  }
+
+  const diffIndex = getFirstDiffIndex({
+    previous: previousText,
+    next: currentText
+  })
+  const lineIndexOld = getLineIndexByCharIndex({
+    text: previousText,
+    charIndex: diffIndex
+  })
+
+  if (deltaLines > 0) {
+    return resolveLineFontDefaultsAfterLineInsertion({
+      deltaLines,
+      diffIndex,
+      lineFontDefaults,
+      lineIndexOld,
+      previousText
+    })
+  }
+
+  return resolveLineFontDefaultsAfterLineRemoval({
+    deltaLines,
+    diffIndex,
+    lineFontDefaults,
+    lineIndexOld,
+    previousLines,
+    previousText
+  })
+}
 
 /**
  * Создаёт Fabric style-объект из lineFontDefaults.
@@ -204,7 +397,7 @@ export const removeLineDefaultStyles = ({
   if (!lineStyles) return { lineStyles, changed: false }
 
   const defaultStyles = createLineDefaultStyle({ lineDefaults })
-  const defaultStyleKeys = Object.keys(defaultStyles) as Array<keyof TextboxProps>
+  const defaultStyleKeys = Object.keys(defaultStyles) as Array<keyof TextboxLineStyle>
   if (!defaultStyleKeys.length) return { lineStyles, changed: false }
 
   let nextLineStyles = lineStyles
@@ -262,6 +455,187 @@ export const removeLineDefaultStyles = ({
 }
 
 /**
+ * Удаляет из inline styles служебные значения строки, которая была полностью удалена.
+ */
+const removeDeletedLineDefaultStyles = ({
+  cleanup,
+  lineCount,
+  styles
+}: {
+  cleanup?: DeletedLineDefaultsCleanup
+  lineCount: number
+  styles: TextboxStyles
+}): { styles: TextboxStyles; changed: boolean } => {
+  if (!cleanup) return { styles, changed: false }
+  if (cleanup.lineIndex >= lineCount) return { styles, changed: false }
+
+  let cleanupLineStyles: TextboxLineStyles | undefined = styles[cleanup.lineIndex]
+  let cleanupChanged = false
+
+  for (let index = 0; index < cleanup.lineDefaults.length; index += 1) {
+    const lineDefaultsForCleanup = cleanup.lineDefaults[index]
+    if (!lineDefaultsForCleanup) continue
+
+    const cleanupResult = removeLineDefaultStyles({
+      lineStyles: cleanupLineStyles,
+      lineDefaults: lineDefaultsForCleanup
+    })
+    if (!cleanupResult.changed) continue
+
+    cleanupLineStyles = cleanupResult.lineStyles
+    cleanupChanged = true
+  }
+
+  if (!cleanupChanged) {
+    return { styles, changed: false }
+  }
+
+  const nextStyles = { ...styles }
+
+  if (cleanupLineStyles) {
+    nextStyles[cleanup.lineIndex] = cleanupLineStyles
+  } else {
+    delete nextStyles[cleanup.lineIndex]
+  }
+
+  return {
+    styles: nextStyles,
+    changed: true
+  }
+}
+
+/**
+ * Собирает глобальные текстовые стили textbox в формате line defaults.
+ */
+const createGlobalLineDefaults = ({
+  textbox
+}: {
+  textbox: EditorTextbox
+}): LineFontDefault => {
+  const {
+    fontFamily,
+    fontSize,
+    fontStyle,
+    fontWeight,
+    fill: rawFill,
+    stroke: rawStroke,
+    strokeWidth,
+    linethrough,
+    underline
+  } = textbox
+  const globalLineDefaults: LineFontDefault = {}
+  const fill = typeof rawFill === 'string' ? rawFill : undefined
+  const stroke = typeof rawStroke === 'string' ? rawStroke : undefined
+
+  if (fontFamily !== undefined) {
+    globalLineDefaults.fontFamily = fontFamily
+  }
+
+  if (fontSize !== undefined) {
+    globalLineDefaults.fontSize = fontSize
+  }
+
+  if (fontWeight !== undefined) {
+    globalLineDefaults.fontWeight = fontWeight
+  }
+
+  if (fontStyle !== undefined) {
+    globalLineDefaults.fontStyle = fontStyle
+  }
+
+  if (underline !== undefined) {
+    globalLineDefaults.underline = underline
+  }
+
+  if (linethrough !== undefined) {
+    globalLineDefaults.linethrough = linethrough
+  }
+
+  if (fill !== undefined) {
+    globalLineDefaults.fill = fill
+  }
+
+  if (stroke !== undefined) {
+    globalLineDefaults.stroke = stroke
+  }
+
+  if (strokeWidth !== undefined) {
+    globalLineDefaults.strokeWidth = strokeWidth
+  }
+
+  return globalLineDefaults
+}
+
+/**
+ * Разрешает line defaults для пустой строки от ближайшего line default или глобальных стилей textbox.
+ */
+const createEmptyLineDefaults = ({
+  sourceDefaults,
+  globalLineDefaults
+}: {
+  globalLineDefaults: LineFontDefault
+  sourceDefaults?: LineFontDefault
+}): LineFontDefault => {
+  const resolvedDefaults: LineFontDefault = {}
+
+  if (sourceDefaults?.fontFamily !== undefined) {
+    resolvedDefaults.fontFamily = sourceDefaults.fontFamily
+  } else if (globalLineDefaults.fontFamily !== undefined) {
+    resolvedDefaults.fontFamily = globalLineDefaults.fontFamily
+  }
+
+  if (sourceDefaults?.fontSize !== undefined) {
+    resolvedDefaults.fontSize = sourceDefaults.fontSize
+  } else if (globalLineDefaults.fontSize !== undefined) {
+    resolvedDefaults.fontSize = globalLineDefaults.fontSize
+  }
+
+  if (sourceDefaults?.fontWeight !== undefined) {
+    resolvedDefaults.fontWeight = sourceDefaults.fontWeight
+  } else if (globalLineDefaults.fontWeight !== undefined) {
+    resolvedDefaults.fontWeight = globalLineDefaults.fontWeight
+  }
+
+  if (sourceDefaults?.fontStyle !== undefined) {
+    resolvedDefaults.fontStyle = sourceDefaults.fontStyle
+  } else if (globalLineDefaults.fontStyle !== undefined) {
+    resolvedDefaults.fontStyle = globalLineDefaults.fontStyle
+  }
+
+  if (sourceDefaults?.underline !== undefined) {
+    resolvedDefaults.underline = sourceDefaults.underline
+  } else if (globalLineDefaults.underline !== undefined) {
+    resolvedDefaults.underline = globalLineDefaults.underline
+  }
+
+  if (sourceDefaults?.linethrough !== undefined) {
+    resolvedDefaults.linethrough = sourceDefaults.linethrough
+  } else if (globalLineDefaults.linethrough !== undefined) {
+    resolvedDefaults.linethrough = globalLineDefaults.linethrough
+  }
+
+  if (sourceDefaults?.fill !== undefined) {
+    resolvedDefaults.fill = sourceDefaults.fill
+  } else if (globalLineDefaults.fill !== undefined) {
+    resolvedDefaults.fill = globalLineDefaults.fill
+  }
+
+  if (sourceDefaults?.stroke !== undefined) {
+    resolvedDefaults.stroke = sourceDefaults.stroke
+  } else if (globalLineDefaults.stroke !== undefined) {
+    resolvedDefaults.stroke = globalLineDefaults.stroke
+  }
+
+  if (sourceDefaults?.strokeWidth !== undefined) {
+    resolvedDefaults.strokeWidth = sourceDefaults.strokeWidth
+  } else if (resolvedDefaults.stroke !== undefined && globalLineDefaults.strokeWidth !== undefined) {
+    resolvedDefaults.strokeWidth = globalLineDefaults.strokeWidth
+  }
+
+  return resolvedDefaults
+}
+
+/**
  * Синхронизирует inline-стили строки с lineFontDefaults, заполняя пропуски.
  */
 export const syncLineDefaultStyles = ({
@@ -279,7 +653,7 @@ export const syncLineDefaultStyles = ({
   }
 
   const defaultStyles = createLineDefaultStyle({ lineDefaults })
-  const defaultStyleKeys = Object.keys(defaultStyles) as Array<keyof TextboxProps>
+  const defaultStyleKeys = Object.keys(defaultStyles) as Array<keyof TextboxLineStyle>
 
   if (!defaultStyleKeys.length) {
     return { lineStyles, changed: false }
@@ -359,6 +733,174 @@ export const syncLineDefaultStyles = ({
   return {
     lineStyles: nextLineStyles,
     changed: stylesChanged
+  }
+}
+
+/**
+ * Синхронизирует lineFontDefaults и inline styles с текущим набором строк текста.
+ */
+const syncLineFontDefaultsWithCurrentLines = ({
+  deletedLineDefaultsCleanup,
+  globalLineDefaults,
+  lineFontDefaults,
+  lines,
+  styles
+}: {
+  deletedLineDefaultsCleanup?: DeletedLineDefaultsCleanup
+  globalLineDefaults: LineFontDefault
+  lineFontDefaults?: LineFontDefaults
+  lines: string[]
+  styles?: TextboxStyles
+}): LineFontDefaultsSyncResult => {
+  let nextLineDefaults = lineFontDefaults
+  let lineDefaultsChanged = false
+  let lineDefaultsCloned = false
+  let nextStyles = styles
+  let stylesChanged = false
+  let stylesCloned = false
+  let lastLineDefaults: LineFontDefault | undefined
+
+  const cleanupResult = removeDeletedLineDefaultStyles({
+    styles: nextStyles ?? {},
+    lineCount: lines.length,
+    cleanup: deletedLineDefaultsCleanup
+  })
+  if (cleanupResult.changed) {
+    nextStyles = cleanupResult.styles
+    stylesChanged = true
+    stylesCloned = true
+  }
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const lineText = lines[lineIndex] ?? ''
+    const storedLineDefaults = nextLineDefaults ? nextLineDefaults[lineIndex] : undefined
+
+    if (storedLineDefaults) {
+      lastLineDefaults = storedLineDefaults
+    }
+
+    const hasLineText = lineText.length !== 0
+    if (hasLineText) {
+      if (storedLineDefaults) {
+        const syncResult = syncLineDefaultStyles({
+          lineText,
+          lineStyles: nextStyles ? nextStyles[lineIndex] : undefined,
+          lineDefaults: storedLineDefaults
+        })
+
+        if (syncResult.changed) {
+          if (!nextStyles) {
+            nextStyles = {}
+            stylesCloned = true
+          }
+
+          if (!stylesCloned) {
+            nextStyles = { ...nextStyles }
+            stylesCloned = true
+          }
+
+          if (syncResult.lineStyles) {
+            nextStyles[lineIndex] = syncResult.lineStyles
+          }
+
+          if (!syncResult.lineStyles && nextStyles[lineIndex]) {
+            delete nextStyles[lineIndex]
+          }
+
+          stylesChanged = true
+        }
+      }
+
+      continue
+    }
+
+    const sourceDefaults = storedLineDefaults ?? lastLineDefaults
+    const resolvedDefaults = createEmptyLineDefaults({
+      sourceDefaults,
+      globalLineDefaults
+    })
+
+    if (!storedLineDefaults && Object.keys(resolvedDefaults).length) {
+      if (!nextLineDefaults) {
+        nextLineDefaults = {}
+        lineDefaultsCloned = true
+      }
+
+      if (!lineDefaultsCloned) {
+        nextLineDefaults = { ...nextLineDefaults }
+        lineDefaultsCloned = true
+      }
+
+      nextLineDefaults[lineIndex] = resolvedDefaults
+      lineDefaultsChanged = true
+      lastLineDefaults = resolvedDefaults
+    }
+
+    if (storedLineDefaults) {
+      lastLineDefaults = storedLineDefaults
+    }
+
+    const allowedStyles = createLineDefaultStyle({ lineDefaults: resolvedDefaults })
+    const hasAllowedStyles = Object.keys(allowedStyles).length > 0
+    if (hasAllowedStyles || (nextStyles && nextStyles[lineIndex])) {
+      if (!nextStyles) {
+        nextStyles = {}
+        stylesCloned = true
+      }
+
+      if (!stylesCloned) {
+        nextStyles = { ...nextStyles }
+        stylesCloned = true
+      }
+
+      if (hasAllowedStyles) {
+        nextStyles[lineIndex] = { 0: allowedStyles }
+      }
+
+      if (!hasAllowedStyles && nextStyles[lineIndex]) {
+        delete nextStyles[lineIndex]
+      }
+
+      stylesChanged = true
+    }
+  }
+
+  return {
+    lineFontDefaults: nextLineDefaults,
+    lineFontDefaultsChanged: lineDefaultsChanged,
+    styles: nextStyles ?? {},
+    stylesChanged
+  }
+}
+
+/**
+ * Возвращает следующие lineFontDefaults и Fabric styles после изменения текста, не мутируя textbox.
+ */
+export const syncLineFontDefaultsAfterTextChange = ({
+  currentText,
+  previousText,
+  textbox
+}: {
+  currentText: string
+  previousText: string
+  textbox: EditorTextbox
+}): LineFontDefaultsSyncResult => {
+  const lineDefaultsChange = resolveLineFontDefaultsAfterTextChange({
+    lineFontDefaults: textbox.lineFontDefaults,
+    previousText,
+    currentText
+  })
+  const currentLinesSync = syncLineFontDefaultsWithCurrentLines({
+    lines: currentText.split('\n'),
+    styles: textbox.styles,
+    lineFontDefaults: lineDefaultsChange.lineFontDefaults,
+    deletedLineDefaultsCleanup: lineDefaultsChange.deletedLineDefaultsCleanup,
+    globalLineDefaults: createGlobalLineDefaults({ textbox })
+  })
+
+  return {
+    ...currentLinesSync,
+    lineFontDefaultsChanged: lineDefaultsChange.changed || currentLinesSync.lineFontDefaultsChanged
   }
 }
 
