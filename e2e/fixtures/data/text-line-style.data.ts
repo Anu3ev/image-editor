@@ -12,6 +12,8 @@ export const TEXT_LINE_STYLE_SECOND_LINE_TEXT = 'SECOND LINE'
 export const TEXT_LINE_STYLE_THREE_LINE_TEXT = 'FIRST\nSECOND\nTHIRD'
 export const TEXT_LINE_STYLE_AFTER_LINE_REMOVAL_TEXT = 'FIRST\nTHIRD'
 export const TEXT_LINE_STYLE_AFTER_LINE_INSERT_TEXT = 'FIRST\nNEW\nTHIRD'
+export const TEXT_PARTIAL_FONT_TEXT = 'NEW TEXT'
+export const TEXT_PARTIAL_FONT_TWO_LINE_TEXT = `${TEXT_PARTIAL_FONT_TEXT}\nSECOND LINE`
 
 export const TEXT_LINE_STYLE_FIRST_LINE_SELECTION = {
   start: 0,
@@ -28,10 +30,25 @@ export const TEXT_LINE_STYLE_DELETED_LINE_SELECTION = {
   end: 12
 }
 
+export const TEXT_PARTIAL_FONT_SELECTION = {
+  start: 4,
+  end: 8
+}
+
 export const TEXT_LINE_STYLE_BASE_TEXT_STYLE = {
   color: '#111111',
   fontFamily: 'Roboto',
   fontSize: 48
+} satisfies TextStyleParams & ShapeTextStyleParams
+
+export const TEXT_PARTIAL_FONT_BASE_STYLE = {
+  fontFamily: 'Arial',
+  fontSize: 48
+} satisfies TextStyleParams & ShapeTextStyleParams
+
+export const TEXT_PARTIAL_FONT_TARGET_STYLE = {
+  fontFamily: 'Exo 2',
+  fontSize: 36
 } satisfies TextStyleParams & ShapeTextStyleParams
 
 export const TEXT_LINE_STYLE_FIRST_LINE_STYLE = {
@@ -94,6 +111,16 @@ export const TEXT_LINE_STYLE_THREE_LINE_ADD_OPTIONS = {
   autoExpand: false,
   width: 260,
   ...TEXT_LINE_STYLE_BASE_TEXT_STYLE
+} satisfies TextAddParams
+
+export const TEXT_PARTIAL_FONT_SINGLE_LINE_ADD_OPTIONS = {
+  text: TEXT_PARTIAL_FONT_TEXT,
+  ...TEXT_PARTIAL_FONT_BASE_STYLE
+} satisfies TextAddParams
+
+export const TEXT_PARTIAL_FONT_TWO_LINE_ADD_OPTIONS = {
+  text: TEXT_PARTIAL_FONT_TWO_LINE_TEXT,
+  ...TEXT_PARTIAL_FONT_BASE_STYLE
 } satisfies TextAddParams
 
 export const TEXT_LINE_STYLE_SHAPE_ADD_OPTIONS = {
