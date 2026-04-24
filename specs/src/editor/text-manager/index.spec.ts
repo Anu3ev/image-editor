@@ -253,7 +253,7 @@ describe('TextManager', () => {
       expect(saveSpy).toHaveBeenCalledTimes(1)
     })
 
-    it('применяет стили только к выделенному тексту и сообщает информацию о выделении', () => {
+    it('цвет, начертание и обводка при частичном выделении не меняют стиль всего объекта', () => {
       const {
         canvas,
         historyManager,
@@ -287,8 +287,6 @@ describe('TextManager', () => {
           underline: true,
           strikethrough: true,
           color: '#ff0000',
-          fontFamily: 'Roboto',
-          fontSize: 64,
           strokeColor: '#00ff00',
           strokeWidth: 5
         }
@@ -298,7 +296,7 @@ describe('TextManager', () => {
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
       expect(textbox.dirty).toBe(true)
 
-      // Глобальные свойства не меняются при частичном выделении
+      // Базовые свойства объекта не меняются от частичного декоративного стиля.
       expect(textbox.fontFamily).toBe('Arial')
       expect(textbox.fontSize).toBe(32)
       expect(textbox.fill).toBe('#222222')
@@ -314,7 +312,6 @@ describe('TextManager', () => {
           underline: true,
           linethrough: true,
           fill: '#ff0000',
-          fontFamily: 'Roboto',
           stroke: '#00ff00',
           strokeWidth: 5
         })
@@ -340,7 +337,42 @@ describe('TextManager', () => {
       })
     })
 
-    it('применяет fontSize и fontFamily ко всей строке, если выделена её часть', () => {
+    it('если в однострочном тексте выделена часть строки, шрифт и размер обновляют весь объект', () => {
+      const { textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'NEW TEXT',
+        fontFamily: 'Arial',
+        fontSize: 48
+      })
+      const textValue = textbox.text ?? ''
+
+      textbox.isEditing = true
+      textbox.selectionStart = 4
+      textbox.selectionEnd = 8
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          fontFamily: 'Exo 2',
+          fontSize: 36
+        }
+      })
+
+      const wholeTextStyles = textbox.getSelectionStyles(0, textValue.length)
+      expect(wholeTextStyles).toHaveLength(textValue.length)
+      for (let index = 0; index < wholeTextStyles.length; index += 1) {
+        const style = wholeTextStyles[index]
+        expect(style.fontFamily).toBe('Exo 2')
+        expect(style.fontSize).toBe(36)
+      }
+
+      expect(textbox.fontFamily).toBe('Exo 2')
+      expect(textbox.fontSize).toBe(36)
+    })
+
+    it('в многострочном тексте применяет шрифт и размер ко всей затронутой строке', () => {
       const {
         textManager
       } = createTextManagerTestSetup()
