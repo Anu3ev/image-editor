@@ -1,12 +1,15 @@
 import {
   Canvas,
   FabricObject,
-  IEvent,
   Point,
   Textbox,
-  TextboxProps,
-  Transform,
   util
+} from 'fabric'
+import type {
+  BasicTransformEvent,
+  TextboxProps,
+  TPointerEvent,
+  Transform
 } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../index'
@@ -62,6 +65,15 @@ import {
 } from '../utils/text'
 
 export type { TextStyleOptions } from './types'
+
+type TextManagerTargetEvent = {
+  target?: EditorTextbox | FabricObject | null
+}
+
+type TextManagerTransformEvent = BasicTransformEvent<TPointerEvent> & TextManagerTargetEvent & {
+  e?: TPointerEvent | null
+  transform?: Transform | null
+}
 
 /**
  * Менеджер текста для редактора.
@@ -179,13 +191,15 @@ export default class TextManager {
       strokeColor,
       width: resolvedStrokeWidth
     })
+    const resolvedFontWeight: TextboxProps['fontWeight'] = bold ? 'bold' : 'normal'
+    const resolvedFontStyle: TextboxProps['fontStyle'] = italic ? 'italic' : 'normal'
 
     const finalOptions = {
       id,
       fontFamily: resolvedFontFamily,
       fontSize,
-      fontWeight: bold ? 'bold' : 'normal',
-      fontStyle: italic ? 'italic' : 'normal',
+      fontWeight: resolvedFontWeight,
+      fontStyle: resolvedFontStyle,
       underline,
       uppercase,
       linethrough: strikethrough,
@@ -495,15 +509,25 @@ export default class TextManager {
 
     if (strokeColor !== undefined || strokeWidth !== undefined) {
       const selectionStrokeWidth = selectionRange
-        ? getSelectionStyleValue<number>({ textbox, range: selectionRange, property: 'strokeWidth' })
+        ? getSelectionStyleValue({ textbox, range: selectionRange, property: 'strokeWidth' })
         : undefined
       const selectionStrokeColor = selectionRange
-        ? getSelectionStyleValue<string>({ textbox, range: selectionRange, property: 'stroke' })
+        ? getSelectionStyleValue({ textbox, range: selectionRange, property: 'stroke' })
         : undefined
 
-      const widthSource = strokeWidth ?? selectionStrokeWidth ?? textbox.strokeWidth ?? 0
+      const selectedStrokeWidth = typeof selectionStrokeWidth === 'number'
+        ? selectionStrokeWidth
+        : undefined
+      const selectedStrokeColor = typeof selectionStrokeColor === 'string'
+        ? selectionStrokeColor
+        : undefined
+      const objectStrokeColor = typeof textbox.stroke === 'string'
+        ? textbox.stroke
+        : undefined
+
+      const widthSource = strokeWidth ?? selectedStrokeWidth ?? textbox.strokeWidth ?? 0
       resolvedStrokeWidth = resolveStrokeWidth({ width: widthSource })
-      const colorSource = strokeColor ?? selectionStrokeColor ?? textbox.stroke ?? undefined
+      const colorSource = strokeColor ?? selectedStrokeColor ?? objectStrokeColor
       resolvedStrokeColor = resolveStrokeColor({
         strokeColor: colorSource,
         width: resolvedStrokeWidth
@@ -943,7 +967,7 @@ export default class TextManager {
    * Для таких textbox TextManager должен сохранять текстовые семантики,
    * но не применять standalone geometry/placement-логику поверх ShapeManager.
    */
-  private static _isShapeOwnedTextbox(object?: FabricObject | null): object is EditorTextbox {
+  private static _isShapeOwnedTextbox(object?: FabricObject | null): boolean {
     if (!TextManager._isTextbox(object)) return false
 
     const group = object.group as (FabricObject & {
@@ -1089,7 +1113,7 @@ export default class TextManager {
    * Для текста внутри shape-композиций action истории сохраняется,
    * но placement-снимок не создаётся: layout такого узла принадлежит ShapeManager.
    */
-  private _handleTextEditingEntered = (event: IEvent): void => {
+  private _handleTextEditingEntered = (event: TextManagerTargetEvent): void => {
     this.isTextEditingActive = true
     const { target } = event
     if (!TextManager._isTextbox(target)) return
@@ -1112,7 +1136,7 @@ export default class TextManager {
    * Для текста внутри shape-композиций ограничивается текстовыми семантиками,
    * не вмешиваясь в layout, которым владеет ShapeManager.
    */
-  private _handleTextChanged = (event: IEvent): void => {
+  private _handleTextChanged = (event: TextManagerTargetEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
 
@@ -1280,7 +1304,7 @@ export default class TextManager {
    * Для текста внутри shape-композиций завершает history-action,
    * но не применяет standalone geometry cleanup поверх shape-layout.
    */
-  private _handleTextEditingExited = (event: IEvent): void => {
+  private _handleTextEditingExited = (event: TextManagerTargetEvent): void => {
     const { target } = event
     if (!TextManager._isTextbox(target)) return
     const isShapeOwnedTextbox = TextManager._isShapeOwnedTextbox(target)
@@ -1338,7 +1362,7 @@ export default class TextManager {
    * Также корректирует позицию при ресайзе слева, чтобы компенсировать смещение.
    * Любой ручной horizontal resize переводит textbox в fixed-width режим.
    */
-  private _handleObjectResizing = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
+  private _handleObjectResizing = (event: TextManagerTransformEvent): void => {
     const { target, transform, e } = event
     if (!TextManager._isTextbox(target)) return
     if (TextManager._isShapeOwnedTextbox(target)) return

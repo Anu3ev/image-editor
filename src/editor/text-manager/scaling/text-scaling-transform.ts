@@ -15,6 +15,11 @@ type TextScalingTransform = Transform & {
   signY?: number
 }
 
+type TextScalingTransformOriginal = Transform['original'] & {
+  height?: number
+  width?: number
+}
+
 type TextScalingPointerStep = {
   passedOriginX: boolean
   passedOriginY: boolean
@@ -70,7 +75,7 @@ export const syncLiveTextScalingTransform = (
   transform.scaleX = 1
   transform.scaleY = 1
 
-  const { original } = transform
+  const original = transform.original as TextScalingTransformOriginal | undefined
   if (!original) return
 
   original.scaleX = 1

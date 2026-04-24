@@ -1,19 +1,15 @@
 import fabric from 'fabric'
-import { BackgroundTextbox, registerBackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
-import ErrorManager from '../../../../src/editor/error-manager'
+import {
+  BackgroundTextbox,
+  registerBackgroundTextbox,
+  type LineFontDefaults
+} from '../../../../src/editor/text-manager/background-textbox'
 import {
   createDecorationRenderSetup,
   createDecorationTextbox,
   createMockContext,
   ensureFabricHelpers
 } from '../../../test-utils/editor-helpers'
-
-jest.mock('../../../../src/editor/error-manager', () => ({
-  __esModule: true,
-  default: {
-    emitError: jest.fn()
-  }
-}))
 
 describe('BackgroundTextbox', () => {
   beforeEach(() => {
@@ -222,8 +218,7 @@ describe('BackgroundTextbox', () => {
       expect(rgba).toBe('rgba(0,255,0,0.25)')
     })
 
-    it('репортит ошибку при невалидном цвете', () => {
-      (ErrorManager as any).emitError = jest.fn()
+    it('возвращает null при невалидном цвете', () => {
       const textbox = new BackgroundTextbox('Test', {
         backgroundColor: 'invalid-color'
       })
@@ -231,11 +226,6 @@ describe('BackgroundTextbox', () => {
       const result = (textbox as any)._getEffectiveBackgroundFill()
 
       expect(result).toBeNull()
-      expect(ErrorManager.emitError).toHaveBeenCalledWith(expect.objectContaining({
-        code: 'INVALID_COLOR_VALUE',
-        origin: 'BackgroundTextbox',
-        method: '_getEffectiveBackgroundFill'
-      }))
     })
   })
 
@@ -407,7 +397,7 @@ describe('BackgroundTextbox', () => {
           fontFamily: 'Roboto',
           fontSize: 30
         }
-      }
+      } satisfies LineFontDefaults
       const textbox = new BackgroundTextbox('Serialize', {
         paddingTop: 1,
         paddingRight: 2,

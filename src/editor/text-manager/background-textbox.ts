@@ -3,10 +3,11 @@ import {
   Point,
   Textbox,
   type GraphemeBBox,
+  type SerializedTextboxProps,
+  type TClassProperties,
   type TextboxProps,
   classRegistry
 } from 'fabric'
-import ErrorManager from '../error-manager'
 import { resolveStrokeColor, resolveStrokeWidth } from '../utils/text'
 
 export type LineFontDefault = {
@@ -23,7 +24,7 @@ export type LineFontDefault = {
 
 export type LineFontDefaults = Record<number, LineFontDefault>
 
-export type BackgroundTextboxProps = TextboxProps & {
+type BackgroundTextboxSerializedProps = {
   backgroundColor?: string
   backgroundOpacity?: number
   lineFontDefaults?: LineFontDefaults
@@ -35,7 +36,18 @@ export type BackgroundTextboxProps = TextboxProps & {
   radiusBottomRight?: number
   radiusTopLeft?: number
   radiusTopRight?: number
+}
+
+export type BackgroundTextboxProps = Partial<TextboxProps> & BackgroundTextboxSerializedProps & {
+  autoExpand?: boolean
+  id?: string
+  isScaling?: boolean
+  locked?: boolean
+  shapeNodeType?: string
+  text?: string
+  textCaseRaw?: string
   type?: string
+  uppercase?: boolean
 }
 
 type CornerRadii = {
@@ -71,7 +83,7 @@ const clampNumber = ({
   value: number
 }): number => Math.min(Math.max(value, min), max)
 
-export class BackgroundTextbox extends Textbox {
+export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
   static override type = 'background-textbox'
 
   static override cacheProperties = [
@@ -164,24 +176,24 @@ export class BackgroundTextbox extends Textbox {
     ]
   }
 
-  protected override _getLeftOffset(): number {
+  public override _getLeftOffset(): number {
     const { width } = this._getBackgroundDimensions()
     const { left } = this._getPadding()
     return (-width / 2) + left
   }
 
-  protected override _getTopOffset(): number {
+  public override _getTopOffset(): number {
     const { height } = this._getBackgroundDimensions()
     const { top } = this._getPadding()
     return (-height / 2) + top
   }
 
-  protected override _getNonTransformedDimensions(): Point {
+  public override _getNonTransformedDimensions(): Point {
     const { width, height } = this._getBackgroundDimensions()
     return new Point(width, height).scalarAdd(this.strokeWidth)
   }
 
-  protected override _getTransformedDimensions(options: { width?: number; height?: number } = {}): Point {
+  public override _getTransformedDimensions(options: { width?: number; height?: number } = {}): Point {
     const { width, height } = this._getBackgroundDimensions()
     return super._getTransformedDimensions({
       ...options,
@@ -193,8 +205,11 @@ export class BackgroundTextbox extends Textbox {
   /**
    * Возвращает сериализованное представление с учётом фона, отступов и скруглений.
    */
-  public override toObject(propertiesToInclude: string[] = []): Record<string, unknown> {
-    const baseObject = super.toObject(propertiesToInclude)
+  public override toObject<
+    T extends Omit<BackgroundTextboxProps & TClassProperties<this>, keyof SerializedTextboxProps>,
+    K extends keyof T = never
+  >(propertiesToInclude: K[] = []): Pick<T, K> & SerializedTextboxProps & BackgroundTextboxSerializedProps {
+    const baseObject = super.toObject<T, K>(propertiesToInclude)
 
     return {
       ...baseObject,
@@ -211,45 +226,40 @@ export class BackgroundTextbox extends Textbox {
     }
   }
 
-  protected override _renderBackground(ctx: CanvasRenderingContext2D): void {
+  public override _renderBackground(ctx: CanvasRenderingContext2D): void {
     const fill = this._getEffectiveBackgroundFill()
     if (!fill) return
 
-    if (fill) {
-      const padding = this._getPadding()
-      const textWidth = this.width ?? 0
-      const textHeight = this.height ?? 0
-      const width = textWidth + padding.left + padding.right
-      const height = textHeight + padding.top + padding.bottom
-      const radii = this._getCornerRadii({ width, height })
-      const startX = this._getLeftOffset() - padding.left
-      const startY = this._getTopOffset() - padding.top
+    const padding = this._getPadding()
+    const textWidth = this.width ?? 0
+    const textHeight = this.height ?? 0
+    const width = textWidth + padding.left + padding.right
+    const height = textHeight + padding.top + padding.bottom
+    const radii = this._getCornerRadii({ width, height })
+    const startX = this._getLeftOffset() - padding.left
+    const startY = this._getTopOffset() - padding.top
 
-      ctx.save()
-      BackgroundTextbox._renderRoundedRect({
-        ctx,
-        height,
-        left: startX,
-        radii,
-        top: startY,
-        width
-      })
-      ctx.fillStyle = fill
-      ctx.fill()
-      ctx.restore()
-    }
+    ctx.save()
+    BackgroundTextbox._renderRoundedRect({
+      ctx,
+      height,
+      left: startX,
+      radii,
+      top: startY,
+      width
+    })
+    ctx.fillStyle = fill
+    ctx.fill()
+    ctx.restore()
   }
 
   /**
    * Рисует линии декорации текста с учетом активной обводки или заливки.
    */
-  protected override _renderTextDecoration(
+  public override _renderTextDecoration(
     ctx: CanvasRenderingContext2D,
     type: 'underline' | 'linethrough' | 'overline'
   ): void {
-    if (!this[type] && !this.styleHas(type)) {
-      return
-    }
     const {
       direction,
       fontSize,
@@ -259,6 +269,19 @@ export class BackgroundTextbox extends Textbox {
       _fontSizeFraction: fontSizeFraction,
       _textLines: textLines
     } = this
+
+    let hasDecorationStyle = false
+    for (let lineIndex = 0; lineIndex < textLines.length; lineIndex += 1) {
+      if (this.styleHas(type, lineIndex)) {
+        hasDecorationStyle = true
+        break
+      }
+    }
+
+    if (!this[type] && !hasDecorationStyle) {
+      return
+    }
+
     let topOffset = this._getTopOffset()
     const leftOffset = this._getLeftOffset()
     const { path } = this
@@ -426,15 +449,7 @@ export class BackgroundTextbox extends Textbox {
     let fabricColor: Color
     try {
       fabricColor = new Color(color)
-    } catch (error) {
-      ErrorManager.emitError({
-        origin: 'BackgroundTextbox',
-        method: '_getEffectiveBackgroundFill',
-        code: 'INVALID_COLOR_VALUE',
-        message: `Некорректное значение цвета фона: ${color}`,
-        data: { color, error }
-      })
-
+    } catch {
       return null
     }
     fabricColor.setAlpha(opacity)

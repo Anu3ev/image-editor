@@ -1,10 +1,11 @@
 import type {
   FabricObject,
-  Textbox,
+  TextStyle,
   TextboxProps
 } from 'fabric'
 import type { ObjectPlacement } from '../canvas-manager'
 import type {
+  BackgroundTextbox,
   BackgroundTextboxProps,
   LineFontDefaults
 } from './background-textbox'
@@ -64,7 +65,7 @@ export type TextStyleOptions = {
   >
 >
 
-export type EditorTextbox = Textbox & Partial<BackgroundTextboxProps> & {
+export type EditorTextbox = BackgroundTextbox & Partial<BackgroundTextboxProps> & {
   autoExpand?: boolean
   __lineDefaultsPrevText?: string
   shouldRoundDimensionsOnInit?: boolean
@@ -139,7 +140,7 @@ export type CornerRadiiValues = {
   topRight: number
 }
 
-export type TextboxStyles = Record<string, Record<string, TextboxProps>>
+export type TextboxStyles = TextStyle
 
 export type LineFontDefaultUpdate = {
   fill?: string
