@@ -391,7 +391,9 @@ export default class TextManager {
     let resolvedStrokeColor: string | null | undefined
     let resolvedStrokeWidth: number | undefined
     const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
+    const isFontSelectionForWholeText = isFullTextSelection({ textbox, range: fontSelectionRange })
     const shouldUpdateWholeObject = !selectionRange || isSelectionForWholeText
+    const shouldUpdateWholeObjectFont = shouldUpdateWholeObject || isFontSelectionForWholeText
     const shouldApplyWholeTextStyles = !selectionRange
 
     if (fontFamily !== undefined) {
@@ -399,7 +401,7 @@ export default class TextManager {
         lineSelectionStyles.fontFamily = fontFamily
       }
 
-      if (shouldUpdateWholeObject) {
+      if (shouldUpdateWholeObjectFont) {
         updates.fontFamily = fontFamily
         if (shouldApplyWholeTextStyles) {
           wholeTextStyles.fontFamily = fontFamily
@@ -412,7 +414,7 @@ export default class TextManager {
         lineSelectionStyles.fontSize = fontSize
       }
 
-      if (shouldUpdateWholeObject) {
+      if (shouldUpdateWholeObjectFont) {
         updates.fontSize = fontSize
         if (shouldApplyWholeTextStyles) {
           wholeTextStyles.fontSize = fontSize
