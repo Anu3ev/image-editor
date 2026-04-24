@@ -34,6 +34,13 @@ type CreateTextScalingRuntimeSetupOptions = {
   width?: number
 }
 
+export type TextScalingTransform = Transform & {
+  original: Transform['original'] & {
+    height?: number
+    width?: number
+  }
+}
+
 export type TextScalingRuntimeSetup = ReturnType<typeof createTextManagerTestSetup> & {
   canvasManager: ReturnType<typeof createTextManagerTestSetup>['editor']['canvasManager']
   controller: TextScalingController
@@ -98,7 +105,7 @@ export const createTextScalingTransform = (
     signX = 1,
     signY = 1
   }: CreateTextScalingTransformOptions
-): Transform => ({
+): TextScalingTransform => ({
   target: textbox,
   action,
   corner,

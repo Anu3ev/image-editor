@@ -36,11 +36,11 @@ const resolveOriginOffset = ({
   origin: ObjectPlacement['originX'] | ObjectPlacement['originY']
   size: number
 }): number => {
-  if (origin === 'left' || origin === 'top' || origin === 'start' || origin === 0) {
+  if (origin === 'left' || origin === 'top' || origin === 0) {
     return 0
   }
 
-  if (origin === 'right' || origin === 'bottom' || origin === 'end' || origin === 1) {
+  if (origin === 'right' || origin === 'bottom' || origin === 1) {
     return size
   }
 
@@ -114,7 +114,7 @@ export const clampTextboxToMontage = ({
   montageRight: number
 }): boolean => {
   textbox.setCoords()
-  const bounds = textbox.getBoundingRect(false, true)
+  const bounds = textbox.getBoundingRect()
   const left = bounds.left ?? 0
   const right = left + (bounds.width ?? 0)
   const montageWidth = montageRight - montageLeft

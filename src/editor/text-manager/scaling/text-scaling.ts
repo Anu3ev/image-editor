@@ -2,8 +2,13 @@ import {
   ActiveSelection,
   Canvas,
   FabricObject,
-  IEvent,
-  Textbox,
+  Textbox
+} from 'fabric'
+import type {
+  BasicTransformEvent,
+  ModifiedEvent,
+  TPointerEvent,
+  TPointerEventInfo,
   Transform
 } from 'fabric'
 import type CanvasManager from '../../canvas-manager'
@@ -32,6 +37,16 @@ type CanvasWithCurrentTransform = Canvas & {
   _currentTransform?: Transform | null
 }
 
+type TextScalingTargetEvent = BasicTransformEvent<TPointerEvent> & {
+  e?: TPointerEvent | null
+  target?: EditorTextbox | FabricObject | null
+  transform?: Transform | null
+}
+
+type TextScalingModifiedEvent = ModifiedEvent<TPointerEvent> & {
+  target?: EditorTextbox | FabricObject | null
+}
+
 type PersistScaledTextbox = ({
   target,
   style
@@ -50,7 +65,7 @@ function isTextbox(object?: FabricObject | null): object is EditorTextbox {
 /**
  * Возвращает true для текстового узла, чей layout и placement принадлежат shape-композиции.
  */
-function isShapeOwnedTextbox(object?: FabricObject | null): object is EditorTextbox {
+function isShapeOwnedTextbox(object?: FabricObject | null): boolean {
   if (!isTextbox(object)) return false
 
   const group = object.group as (FabricObject & {
@@ -148,7 +163,7 @@ export default class TextScalingController {
   /**
    * Доводит live-scale текста до текущего положения указателя на кадрах, где Fabric уже не эмитит object:scaling.
    */
-  public handleMouseMove = (event: IEvent<MouseEvent>): void => {
+  public handleMouseMove = (event: TPointerEventInfo<TPointerEvent>): void => {
     const canvas = this.canvas as CanvasWithCurrentTransform
     const transform = canvas._currentTransform
     if (!transform) return
@@ -313,7 +328,7 @@ export default class TextScalingController {
   /**
    * Материализует live scaling standalone-textbox в width/font/padding/radius и поддерживает fallback через lastAllowed state.
    */
-  public handleObjectScaling = (event: IEvent<MouseEvent> & { transform?: Transform }): void => {
+  public handleObjectScaling = (event: TextScalingTargetEvent): void => {
     const { target, transform } = event
     if (target instanceof ActiveSelection) return
     if (!isTextbox(target)) return
@@ -472,7 +487,7 @@ export default class TextScalingController {
   /**
    * Завершает трансформацию текстового объекта и фиксирует обновлённые стили и размеры через общий update pipeline.
    */
-  public handleObjectModified = (event: IEvent<MouseEvent>): void => {
+  public handleObjectModified = (event: TextScalingModifiedEvent): void => {
     const { target } = event
     if (target instanceof ActiveSelection) {
       const objects = target.getObjects()

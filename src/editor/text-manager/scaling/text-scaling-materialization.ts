@@ -1,6 +1,6 @@
 import {
   Point,
-  type TextboxProps
+  type TextStyleDeclaration
 } from 'fabric'
 import type CanvasManager from '../../canvas-manager'
 import type { ObjectPlacement } from '../../canvas-manager'
@@ -176,11 +176,11 @@ export const applyScaledTextboxVisualState = ({
     Object.entries(baseStyles).forEach(([lineIndex, lineStyles]) => {
       if (!lineStyles) return
 
-      const scaledLineStyles: Record<string, TextboxProps> = {}
-      Object.entries(lineStyles as Record<string, TextboxProps>).forEach(([charIndex, charStyle]) => {
+      const scaledLineStyles: Record<string, TextStyleDeclaration> = {}
+      Object.entries(lineStyles as Record<string, TextStyleDeclaration>).forEach(([charIndex, charStyle]) => {
         if (!charStyle) return
 
-        const nextCharStyle: TextboxProps = { ...charStyle }
+        const nextCharStyle: TextStyleDeclaration = { ...charStyle }
         if (typeof charStyle.fontSize === 'number') {
           const minimumCharFontSize = Math.min(MIN_TEXTBOX_FONT_SIZE, charStyle.fontSize)
           nextCharStyle.fontSize = Math.max(minimumCharFontSize, charStyle.fontSize * scale)

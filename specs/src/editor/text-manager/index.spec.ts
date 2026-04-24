@@ -12,6 +12,7 @@ import {
   createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
+import type { BeforeTextUpdatedPayload } from '../../../../src/editor/text-manager/types'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../../../../src/editor/constants'
 import * as textGeometry from '../../../../src/editor/text-manager/geometry'
 
@@ -62,7 +63,8 @@ describe('TextManager', () => {
 
       const state = historyManager.getFullState()
       expect(state.objects).toHaveLength(1)
-      expect(state.objects?.[0]?.text).toBe('Привет')
+      const savedTextbox = state.objects?.[0] as { text?: string } | undefined
+      expect(savedTextbox?.text).toBe('Привет')
     })
 
     it('ставит autoExpand=true по умолчанию', () => {
@@ -199,7 +201,7 @@ describe('TextManager', () => {
       const lifecycle: string[] = []
       const originalSaveState = historyManager.saveState.bind(historyManager)
 
-      canvas.on('editor:before:text-updated', ({ textbox: eventTextbox }) => {
+      canvas.on('editor:before:text-updated', ({ textbox: eventTextbox }: BeforeTextUpdatedPayload) => {
         lifecycle.push('before')
         eventTextbox.set({
           left: 123
@@ -757,15 +759,21 @@ describe('TextManager', () => {
 
       const stateAfterUpdate = historyManager.getFullState()
       const savedTextbox = stateAfterUpdate.objects?.[0]
+      const savedTextboxStyles = (savedTextbox as {
+        styles?: Record<number, { fontWeight?: string }>
+      } | undefined)?.styles
 
-      expect(savedTextbox?.styles?.[0]?.fontWeight).toBe('bold')
+      expect(savedTextboxStyles?.[0]?.fontWeight).toBe('bold')
 
       await historyManager.undo()
 
       const stateAfterUndo = historyManager.getFullState()
       const restoredTextbox = stateAfterUndo.objects?.[0]
+      const restoredTextboxStyles = (restoredTextbox as {
+        styles?: Record<number, unknown>
+      } | undefined)?.styles
 
-      expect(restoredTextbox?.styles?.[0]).toBeUndefined()
+      expect(restoredTextboxStyles?.[0]).toBeUndefined()
     })
   })
 
