@@ -12,9 +12,11 @@ import {
   createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
 import { createShapeTemplateDefinition, createTemplateManagerTestSetup } from '../../../test-utils/template-manager-helpers'
+import { BackgroundTextbox, registerBackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 
 describe('TemplateManager', () => {
   beforeEach(() => {
+    jest.restoreAllMocks()
     registerShapeGroup()
     jest.clearAllMocks()
   })
@@ -242,6 +244,107 @@ describe('TemplateManager', () => {
     expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
       editor.canvas.add.mock.invocationCallOrder[0]
     )
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
+  // eslint-disable-next-line max-len
+  it('длинный текст из шаблона получает стиль по всей строке из lineFontDefaults, а не только для тех символов что указаны в styles', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+
+    registerBackgroundTextbox()
+
+    const result = await manager.applyTemplate({
+      template: {
+        id: 'template-with-long-background-text',
+        meta: {
+          baseWidth: 400,
+          baseHeight: 300,
+          positionsNormalized: true
+        },
+        objects: [{
+          type: 'background-textbox',
+          left: 0.25,
+          top: 0.2,
+          width: 137,
+          text: 'Премиальное качество\nПремиальное качество',
+          fontFamily: 'Arial',
+          fontSize: 16,
+          fill: '#101010',
+          lineFontDefaults: {
+            0: {
+              fontFamily: 'Open Sans',
+              fontSize: 28,
+              fill: '#333333',
+              fontWeight: 'bold'
+            }
+          },
+          styles: [{
+            start: 0,
+            end: 3,
+            style: {
+              fontFamily: 'Open Sans',
+              fontSize: 28,
+              fill: '#ff5500',
+              fontWeight: 'bold'
+            }
+          }]
+        }]
+      }
+    })
+
+    const textbox = result?.[0] as BackgroundTextbox
+    const firstLineLength = 'Премиальное качество'.length
+    const secondLineLength = 'Премиальное качество'.length
+    const firstLineStyles = textbox.styles?.[0] ?? {}
+    const secondLineStyles = textbox.styles?.[1] ?? {}
+
+    expect(textbox).toBeInstanceOf(BackgroundTextbox)
+    expect(textbox.lineFontDefaults).toEqual({
+      0: {
+        fontFamily: 'Open Sans',
+        fontSize: 28,
+        fill: '#333333',
+        fontWeight: 'bold'
+      },
+      1: {
+        fontFamily: 'Open Sans',
+        fontSize: 28,
+        fill: '#333333',
+        fontWeight: 'bold'
+      }
+    })
+    expect(Object.keys(firstLineStyles)).toHaveLength(firstLineLength)
+    expect(Object.keys(secondLineStyles)).toHaveLength(secondLineLength)
+    expect(firstLineStyles[0]).toMatchObject({
+      fontFamily: 'Open Sans',
+      fontSize: 28,
+      fill: '#ff5500',
+      fontWeight: 'bold'
+    })
+    expect(firstLineStyles[3]).toMatchObject({
+      fontFamily: 'Open Sans',
+      fontSize: 28,
+      fill: '#333333',
+      fontWeight: 'bold'
+    })
+    expect(secondLineStyles[0]).toMatchObject({
+      fontFamily: 'Open Sans',
+      fontSize: 28,
+      fill: '#333333',
+      fontWeight: 'bold'
+    })
+    expect(secondLineStyles[secondLineLength - 1]).toMatchObject({
+      fontFamily: 'Open Sans',
+      fontSize: 28,
+      fill: '#333333',
+      fontWeight: 'bold'
+    })
+    expect((editor.textManager.commitStandaloneTextScale as jest.Mock)).toHaveBeenCalledWith({
+      target: textbox
+    })
     expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 

@@ -1183,6 +1183,70 @@ describe('TextManager', () => {
       })
     })
 
+    it('text:changed переносит стиль последней строки на новую непустую строку', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'FIRST',
+        autoExpand: false,
+        fontFamily: 'Arial',
+        fontSize: 48,
+        color: '#000000'
+      })
+      textbox.lineFontDefaults = {
+        0: {
+          fontFamily: 'Exo 2',
+          fontSize: 36,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#ff8800',
+          linethrough: true,
+          stroke: '#333333',
+          strokeWidth: 1,
+          underline: true
+        }
+      }
+      textbox.__lineDefaultsPrevText = textbox.text ?? ''
+
+      textbox.text = 'FIRST\nSECOND'
+      canvas.fire('text:changed', { target: textbox })
+
+      expect(textbox.lineFontDefaults?.[1]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+      expect(Object.keys(textbox.styles?.[1] ?? {})).toHaveLength('SECOND'.length)
+      expect(textbox.styles?.[1]?.[0]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+      expect(textbox.styles?.[1]?.['SECOND'.length - 1]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+    })
+
     it('text:changed удаляет стиль строки, если строку удалили вместе с переносом', () => {
       const { canvas, textManager } = createTextManagerTestSetup()
 
