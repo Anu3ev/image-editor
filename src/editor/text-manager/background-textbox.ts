@@ -2,6 +2,7 @@ import {
   Color,
   Point,
   Textbox,
+  util,
   type GraphemeBBox,
   type SerializedTextboxProps,
   type TClassProperties,
@@ -9,6 +10,10 @@ import {
   classRegistry
 } from 'fabric'
 import { resolveStrokeColor, resolveStrokeWidth } from '../utils/text'
+import {
+  rehydrateTextboxLineDefaults,
+  resolveSerializableTextboxState
+} from './line-defaults'
 
 export type LineFontDefault = {
   fill?: string
@@ -152,6 +157,14 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
     this.radiusBottomRight = options.radiusBottomRight ?? 0
     this.radiusBottomLeft = options.radiusBottomLeft ?? 0
 
+    const rehydrated = rehydrateTextboxLineDefaults({ textbox: this })
+
+    if (rehydrated) {
+      this.initDimensions()
+      this.dirty = true
+      return
+    }
+
     this._roundDimensions()
   }
 
@@ -210,11 +223,18 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
     K extends keyof T = never
   >(propertiesToInclude: K[] = []): Pick<T, K> & SerializedTextboxProps & BackgroundTextboxSerializedProps {
     const baseObject = super.toObject<T, K>(propertiesToInclude)
+    const {
+      lineFontDefaults,
+      styles
+    } = resolveSerializableTextboxState({ textbox: this })
 
     return {
       ...baseObject,
       backgroundOpacity: this.backgroundOpacity,
-      lineFontDefaults: this.lineFontDefaults,
+      // Полные стили строк сериализуем в lineFontDefaults,
+      // а в styles оставляем только реальные inline overrides.
+      lineFontDefaults,
+      styles: util.stylesToArray(styles, this.text ?? ''),
       paddingTop: this.paddingTop,
       paddingRight: this.paddingRight,
       paddingBottom: this.paddingBottom,
