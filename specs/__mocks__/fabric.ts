@@ -732,6 +732,117 @@ export class Textbox extends FabricObject {
   }
 }
 
+type MockTextStyle = Record<string, any>
+type MockTextStyles = Record<string, Record<string, MockTextStyle>>
+type MockTextStyleRange = {
+  start: number
+  end: number
+  style: MockTextStyle
+}
+
+const cloneMockStyles = (styles: MockTextStyles): MockTextStyles => JSON.parse(JSON.stringify(styles)) as MockTextStyles
+
+const areMockStylesEqual = ({
+  left,
+  right
+}: {
+  left: MockTextStyle
+  right: MockTextStyle
+}): boolean => {
+  const keys = [...new Set([
+    ...Object.keys(left),
+    ...Object.keys(right)
+  ])]
+
+  for (let index = 0; index < keys.length; index += 1) {
+    const key = keys[index]
+    if (!key) continue
+    if (left[key] !== right[key]) return false
+  }
+
+  return true
+}
+
+// Fabric сериализует runtime styles в массив диапазонов и обратно.
+// Для unit-моков нам достаточно стабильного round-trip без полного паритета с библиотекой.
+const stylesToArray = (styles: MockTextStyles = {}, text = ''): MockTextStyleRange[] => {
+  const lines = text.split('\n')
+  const ranges: MockTextStyleRange[] = []
+  let charIndex = -1
+  let previousStyle: MockTextStyle = {}
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex] ?? ''
+    const lineStyles = styles[lineIndex] ?? {}
+
+    for (let charIndexInLine = 0; charIndexInLine < line.length; charIndexInLine += 1) {
+      charIndex += 1
+      const currentStyle = lineStyles[charIndexInLine] ?? {}
+
+      if (Object.keys(currentStyle).length === 0) {
+        previousStyle = {}
+        continue
+      }
+
+      if (!ranges.length || !areMockStylesEqual({ left: previousStyle, right: currentStyle })) {
+        ranges.push({
+          start: charIndex,
+          end: charIndex + 1,
+          style: { ...currentStyle }
+        })
+      } else {
+        ranges[ranges.length - 1].end += 1
+      }
+
+      previousStyle = currentStyle
+    }
+
+    charIndex += 1
+    previousStyle = {}
+  }
+
+  return ranges
+}
+
+const stylesFromArray = (styles: MockTextStyleRange[] | MockTextStyles | undefined, text = ''): MockTextStyles => {
+  if (!styles) return {}
+
+  if (!Array.isArray(styles)) {
+    return cloneMockStyles(styles)
+  }
+
+  const lines = text.split('\n')
+  const stylesObject: MockTextStyles = {}
+  let globalCharIndex = -1
+  let rangeIndex = 0
+
+  for (let lineIndex = 0; lineIndex < lines.length; lineIndex += 1) {
+    const line = lines[lineIndex] ?? ''
+
+    for (let charIndexInLine = 0; charIndexInLine < line.length; charIndexInLine += 1) {
+      globalCharIndex += 1
+
+      while (styles[rangeIndex] && styles[rangeIndex].end <= globalCharIndex) {
+        rangeIndex += 1
+      }
+
+      const currentRange = styles[rangeIndex]
+      if (!currentRange) continue
+      if (currentRange.start > globalCharIndex || globalCharIndex >= currentRange.end) continue
+
+      if (!stylesObject[lineIndex]) {
+        stylesObject[lineIndex] = {}
+      }
+
+      stylesObject[lineIndex][charIndexInLine] = { ...currentRange.style }
+    }
+
+    globalCharIndex += 1
+  }
+
+  return stylesObject
+}
+
 export const controlsUtils = {
   createObjectDefaultControls: jest.fn(() => ({})),
   createTextboxDefaultControls: jest.fn(() => ({})),
@@ -839,10 +950,19 @@ export const classRegistry = {
 export const util = {
   enlivenObjects: async(objects: any[]) => objects.map((obj) => {
     const Cls = classRegistry.getClass(obj.type)
-    return Cls ? new Cls(obj.text ?? '', obj) : obj
+    if (!Cls) return obj
+
+    const normalizedObject = {
+      ...obj,
+      styles: stylesFromArray(obj.styles, obj.text ?? '')
+    }
+
+    return new Cls(normalizedObject.text ?? '', normalizedObject)
   }),
   enlivenObjectEnlivables: async(options: any) => options,
-  groupSVGElements: jest.fn((objects: any[], options: any = {}) => new Group(objects, options))
+  groupSVGElements: jest.fn((objects: any[], options: any = {}) => new Group(objects, options)),
+  stylesFromArray,
+  stylesToArray
 }
 
 export const loadSVGFromURL = jest.fn(async(_url: string) => ({

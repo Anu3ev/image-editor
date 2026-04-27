@@ -781,11 +781,30 @@ const syncLineFontDefaultsWithCurrentLines = ({
 
     const hasLineText = lineText.length !== 0
     if (hasLineText) {
-      if (storedLineDefaults) {
+      let effectiveLineDefaults = storedLineDefaults
+
+      if (!effectiveLineDefaults && lastLineDefaults) {
+        effectiveLineDefaults = { ...lastLineDefaults }
+
+        if (!nextLineDefaults) {
+          nextLineDefaults = {}
+          lineDefaultsCloned = true
+        }
+
+        if (!lineDefaultsCloned) {
+          nextLineDefaults = { ...nextLineDefaults }
+          lineDefaultsCloned = true
+        }
+
+        nextLineDefaults[lineIndex] = effectiveLineDefaults
+        lineDefaultsChanged = true
+      }
+
+      if (effectiveLineDefaults) {
         const syncResult = syncLineDefaultStyles({
           lineText,
           lineStyles: nextStyles ? nextStyles[lineIndex] : undefined,
-          lineDefaults: storedLineDefaults
+          lineDefaults: effectiveLineDefaults
         })
 
         if (syncResult.changed) {
@@ -809,6 +828,8 @@ const syncLineFontDefaultsWithCurrentLines = ({
 
           stylesChanged = true
         }
+
+        lastLineDefaults = effectiveLineDefaults
       }
 
       continue
@@ -874,6 +895,61 @@ const syncLineFontDefaultsWithCurrentLines = ({
 }
 
 /**
+ * Канонизирует сериализуемое состояние текста:
+ * lineFontDefaults остаётся persisted-источником построчных стилей,
+ * а styles хранит только реальные partial overrides.
+ */
+export function resolveSerializableTextboxState({
+  textbox
+}: {
+  textbox: EditorTextbox
+}): {
+  lineFontDefaults?: LineFontDefaults
+  styles: TextboxStyles
+} {
+  const currentText = textbox.text ?? ''
+  const lines = currentText.split('\n')
+  const globalLineDefaults = createGlobalLineDefaults({ textbox })
+  const syncResult = syncLineFontDefaultsWithCurrentLines({
+    lines,
+    styles: textbox.styles,
+    lineFontDefaults: textbox.lineFontDefaults,
+    globalLineDefaults
+  })
+  const lineFontDefaults = syncResult.lineFontDefaults && Object.keys(syncResult.lineFontDefaults).length > 0
+    ? syncResult.lineFontDefaults
+    : undefined
+  const styles: TextboxStyles = {}
+
+  for (const key in syncResult.styles) {
+    if (!Object.prototype.hasOwnProperty.call(syncResult.styles, key)) continue
+
+    const lineIndex = Number(key)
+    if (!Number.isInteger(lineIndex) || lineIndex < 0) continue
+
+    const lineStyles = syncResult.styles[key]
+    if (!lineStyles) continue
+
+    const lineDefaults = lineFontDefaults?.[lineIndex] ?? globalLineDefaults
+    const cleanupResult = removeLineDefaultStyles({
+      lineStyles,
+      lineDefaults
+    })
+
+    if (!cleanupResult.lineStyles || !Object.keys(cleanupResult.lineStyles).length) {
+      continue
+    }
+
+    styles[lineIndex] = cleanupResult.lineStyles
+  }
+
+  return {
+    lineFontDefaults,
+    styles
+  }
+}
+
+/**
  * Возвращает следующие lineFontDefaults и Fabric styles после изменения текста, не мутируя textbox.
  */
 export const syncLineFontDefaultsAfterTextChange = ({
@@ -902,6 +978,38 @@ export const syncLineFontDefaultsAfterTextChange = ({
     ...currentLinesSync,
     lineFontDefaultsChanged: lineDefaultsChange.changed || currentLinesSync.lineFontDefaultsChanged
   }
+}
+
+/**
+ * Доводит lineFontDefaults и runtime styles до консистентного состояния после deserialization.
+ */
+export const rehydrateTextboxLineDefaults = ({
+  textbox
+}: {
+  textbox: EditorTextbox
+}): boolean => {
+  const currentText = textbox.text ?? ''
+  const syncResult = syncLineFontDefaultsWithCurrentLines({
+    lines: currentText.split('\n'),
+    styles: textbox.styles,
+    lineFontDefaults: textbox.lineFontDefaults,
+    globalLineDefaults: createGlobalLineDefaults({ textbox })
+  })
+
+  let changed = false
+
+  if (syncResult.lineFontDefaultsChanged) {
+    textbox.lineFontDefaults = syncResult.lineFontDefaults
+    changed = true
+  }
+
+  if (syncResult.stylesChanged) {
+    textbox.styles = syncResult.styles
+    textbox.dirty = true
+    changed = true
+  }
+
+  return changed
 }
 
 /**

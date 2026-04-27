@@ -446,5 +446,124 @@ describe('BackgroundTextbox', () => {
         lineFontDefaults
       })
     })
+
+    it('оставляет в сериализованных styles только реальные отличия от стиля строки', () => {
+      const textbox = new BackgroundTextbox('AB', {
+        fontFamily: 'Arial',
+        fontSize: 18,
+        fill: '#111111',
+        lineFontDefaults: {
+          0: {
+            fontFamily: 'Open Sans',
+            fontSize: 24,
+            fill: '#222222'
+          }
+        }
+      })
+
+      textbox.styles = {
+        0: {
+          1: {
+            fill: '#ff0000'
+          }
+        }
+      }
+
+      const object = textbox.toObject()
+
+      expect(object.lineFontDefaults).toEqual({
+        0: {
+          fontFamily: 'Open Sans',
+          fontSize: 24,
+          fill: '#222222'
+        }
+      })
+      expect(object.styles).toEqual([{
+        start: 1,
+        end: 2,
+        style: {
+          fill: '#ff0000'
+        }
+      }])
+    })
+
+    it('после восстановления из шаблона длинный текст получает стиль по всей строке, а не только на старых символах', async() => {
+      registerBackgroundTextbox()
+
+      const serializedTextbox = {
+        type: 'background-textbox',
+        text: 'Премиальное качество\nПремиальное качество',
+        fontFamily: 'Arial',
+        fontSize: 16,
+        fill: '#101010',
+        lineFontDefaults: {
+          0: {
+            fontFamily: 'Open Sans',
+            fontSize: 28,
+            fill: '#333333',
+            fontWeight: 'bold'
+          }
+        },
+        styles: [{
+          start: 0,
+          end: 3,
+          style: {
+            fontFamily: 'Open Sans',
+            fontSize: 28,
+            fill: '#ff5500',
+            fontWeight: 'bold'
+          }
+        }]
+      }
+
+      const [restored] = await (fabric as any).util.enlivenObjects([serializedTextbox])
+      const firstLineLength = 'Премиальное качество'.length
+      const secondLineStart = firstLineLength + 1
+      const firstLineStyles = restored.styles?.[0] ?? {}
+      const secondLineStyles = restored.styles?.[1] ?? {}
+      const secondLineLength = (restored.text.length - secondLineStart)
+
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      expect(restored.lineFontDefaults).toEqual({
+        0: {
+          fontFamily: 'Open Sans',
+          fontSize: 28,
+          fill: '#333333',
+          fontWeight: 'bold'
+        },
+        1: {
+          fontFamily: 'Open Sans',
+          fontSize: 28,
+          fill: '#333333',
+          fontWeight: 'bold'
+        }
+      })
+      expect(Object.keys(firstLineStyles)).toHaveLength(firstLineLength)
+      expect(Object.keys(secondLineStyles)).toHaveLength(secondLineLength)
+      expect(firstLineStyles[0]).toMatchObject({
+        fontFamily: 'Open Sans',
+        fontSize: 28,
+        fill: '#ff5500',
+        fontWeight: 'bold'
+      })
+      expect(firstLineStyles[3]).toMatchObject({
+        fontFamily: 'Open Sans',
+        fontSize: 28,
+        fill: '#333333',
+        fontWeight: 'bold'
+      })
+      expect(secondLineStyles[0]).toMatchObject({
+        fontFamily: 'Open Sans',
+        fontSize: 28,
+        fill: '#333333',
+        fontWeight: 'bold'
+      })
+      expect(secondLineStyles[secondLineLength - 1]).toMatchObject({
+        fontFamily: 'Open Sans',
+        fontSize: 28,
+        fill: '#333333',
+        fontWeight: 'bold'
+      })
+    })
   })
 })

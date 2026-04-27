@@ -4,6 +4,19 @@ import {
   SHAPE_TEXT_LAYOUT_BASE_OPTIONS,
   SHAPE_TEXT_LAYOUT_EXPAND_FONT_SIZE
 } from '../../fixtures/data/shape-text-layout.data'
+import {
+  SHAPE_TEMPLATE_FIRST_LINE_STYLE,
+  SHAPE_TEMPLATE_LONG_TEXT,
+  SHAPE_TEMPLATE_SECOND_LINE_STYLE,
+  SHAPE_TEMPLATE_SECOND_LINE_WORD,
+  SHAPE_TEMPLATE_SECOND_LINE_WORD_EXPECTED_STYLE,
+  SHAPE_TEMPLATE_SECOND_LINE_WORD_STYLE_UPDATE,
+  SHAPE_TEMPLATE_THREE_LINE_TEXT,
+  SHAPE_TEMPLATE_WITH_STANDARD_TEXT_IN_FIGURE,
+  SHAPE_TEMPLATE_WITH_LONG_TEXT_IN_FIGURE,
+  SHAPE_TEMPLATE_WITH_THREE_LINE_TEXT_IN_FIGURE,
+  replaceTextInsideShapeTemplate
+} from '../../fixtures/data/shape-template-text-style.data'
 
 test.describe('Текст внутри фигуры после отмены и повтора', () => {
   test.beforeEach(async({ shapes }) => {
@@ -368,6 +381,398 @@ test.describe('Частичные стили текста внутри фигу�
 })
 
 test.describe('Текст внутри фигуры после копирования и шаблонов', () => {
+  // eslint-disable-next-line max-len
+  test('после сохранения фигуры в шаблон и внешней замены текста длинный текст внутри фигуры сохраняет стиль каждой строки', async({ editorModel, shapes, template }) => {
+    await test.step('Применить стандартный шаблон с текстом 69 и выделить фигуру', async() => {
+      const insertedCount = await template.applyTemplate({
+        template: SHAPE_TEMPLATE_WITH_STANDARD_TEXT_IN_FIGURE
+      })
+
+      expect(insertedCount).toBe(1)
+      await editorModel.checkObjectCount({ count: 1 })
+      await shapes.select({ objectIndex: 0 })
+    })
+
+    const serializedTemplate = await test.step('Сериализовать фигуру в шаблон и заменить текст в JSON', async() => {
+      const currentTemplate = await template.serializeSelection()
+
+      expect(currentTemplate).not.toBeNull()
+
+      return replaceTextInsideShapeTemplate({
+        template: currentTemplate!,
+        text: SHAPE_TEMPLATE_LONG_TEXT
+      })
+    })
+
+    await test.step('Удалить исходную фигуру и применить изменённый шаблон', async() => {
+      await shapes.remove({ objectIndex: 0 })
+      await editorModel.checkObjectCount({ count: 0 })
+
+      const insertedCount = await template.applyTemplate({
+        template: serializedTemplate
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    const firstLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[0].length
+    const secondLineStart = firstLineLength + 1
+    const secondLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[1].length
+
+    await test.step('Открыть текст внутри фигуры из изменённого шаблона', async() => {
+      const textNode = await shapes.enterTextEditing({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(textNode?.text).toBe(SHAPE_TEMPLATE_LONG_TEXT)
+    })
+
+    await test.step('Проверить что первая строка целиком сохранила свой стиль', async() => {
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: 0,
+        end: 1
+      })
+      const lastCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: firstLineLength - 1,
+        end: firstLineLength
+      })
+
+      expect(firstCharacterStyle).toMatchObject(SHAPE_TEMPLATE_FIRST_LINE_STYLE)
+      expect(lastCharacterStyle).toMatchObject(SHAPE_TEMPLATE_FIRST_LINE_STYLE)
+    })
+
+    await test.step('Проверить что вторая строка целиком сохранила свой стиль', async() => {
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart,
+        end: secondLineStart + 1
+      })
+      const lastCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart + secondLineLength - 1,
+        end: secondLineStart + secondLineLength
+      })
+
+      expect(firstCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+      expect(lastCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+    })
+  })
+
+  // eslint-disable-next-line max-len
+  test('после сохранения в шаблон длинный текст внутри фигуры сохраняет стиль каждой строки и стиль слова во второй строке', async({ editorModel, shapes, template }) => {
+    await test.step('Применить шаблон с длинным текстом внутри фигуры', async() => {
+      const insertedCount = await template.applyTemplate({
+        template: SHAPE_TEMPLATE_WITH_LONG_TEXT_IN_FIGURE
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    const firstLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[0].length
+    const secondLineStart = firstLineLength + 1
+    const secondLineWordStart = SHAPE_TEMPLATE_LONG_TEXT.indexOf(SHAPE_TEMPLATE_SECOND_LINE_WORD, secondLineStart)
+    const secondLineWordEnd = secondLineWordStart + SHAPE_TEMPLATE_SECOND_LINE_WORD.length
+
+    await test.step('Поменять стиль слова во второй строке и сохранить фигуру в шаблон', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({
+        objectIndex: 0,
+        start: secondLineWordStart,
+        end: secondLineWordEnd
+      })
+      await shapes.updateTextStyle({
+        objectIndex: 0,
+        style: SHAPE_TEMPLATE_SECOND_LINE_WORD_STYLE_UPDATE
+      })
+      await shapes.exitTextEditing({ objectIndex: 0 })
+      await shapes.select({ objectIndex: 0 })
+    })
+
+    const serializedTemplate = await test.step('Сериализовать фигуру после изменения инлайнового стиля', async() => {
+      const currentTemplate = await template.serializeSelection()
+
+      expect(currentTemplate).not.toBeNull()
+
+      return currentTemplate!
+    })
+
+    await test.step('Удалить исходную фигуру и применить сохранённый шаблон', async() => {
+      await shapes.remove({ objectIndex: 0 })
+      await editorModel.checkObjectCount({ count: 0 })
+
+      const insertedCount = await template.applyTemplate({
+        template: serializedTemplate
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    await test.step('Открыть текст внутри фигуры после повторного применения шаблона', async() => {
+      const textNode = await shapes.enterTextEditing({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(textNode?.text).toBe(SHAPE_TEMPLATE_LONG_TEXT)
+    })
+
+    await test.step('Проверить что стиль строки и стиль слова сохранились одновременно', async() => {
+      const firstLineStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: firstLineLength - 1,
+        end: firstLineLength
+      })
+      const secondLineBaseStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart,
+        end: secondLineStart + 1
+      })
+      const secondLineWordStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineWordStart,
+        end: secondLineWordStart + 1
+      })
+
+      expect(firstLineStyle).toMatchObject(SHAPE_TEMPLATE_FIRST_LINE_STYLE)
+      expect(secondLineBaseStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+      expect(secondLineWordStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_WORD_EXPECTED_STYLE)
+    })
+  })
+
+  // eslint-disable-next-line max-len
+  test('после сохранения фигуры в шаблон и внешней замены текста на три строки новая строка внутри фигуры наследует стиль предыдущей строки', async({ editorModel, shapes, template }) => {
+    await test.step('Применить стандартный шаблон с текстом 69 и выделить фигуру', async() => {
+      const insertedCount = await template.applyTemplate({
+        template: SHAPE_TEMPLATE_WITH_STANDARD_TEXT_IN_FIGURE
+      })
+
+      expect(insertedCount).toBe(1)
+      await shapes.select({ objectIndex: 0 })
+    })
+
+    const serializedTemplate = await test.step('Сериализовать фигуру в шаблон и заменить текст на три строки', async() => {
+      const currentTemplate = await template.serializeSelection()
+
+      expect(currentTemplate).not.toBeNull()
+
+      return replaceTextInsideShapeTemplate({
+        template: currentTemplate!,
+        text: SHAPE_TEMPLATE_THREE_LINE_TEXT
+      })
+    })
+
+    await test.step('Удалить исходную фигуру и применить изменённый шаблон', async() => {
+      await shapes.remove({ objectIndex: 0 })
+      await editorModel.checkObjectCount({ count: 0 })
+
+      const insertedCount = await template.applyTemplate({
+        template: serializedTemplate
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    const [firstLineText, secondLineText, thirdLineText] = SHAPE_TEMPLATE_THREE_LINE_TEXT.split('\n')
+    const secondLineStart = firstLineText.length + 1
+    const thirdLineStart = secondLineStart + secondLineText.length + 1
+
+    await test.step('Открыть текст внутри фигуры из изменённого шаблона', async() => {
+      const textNode = await shapes.enterTextEditing({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(textNode?.text).toBe(SHAPE_TEMPLATE_THREE_LINE_TEXT)
+    })
+
+    await test.step('Проверить что третья строка унаследовала стиль второй строки', async() => {
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: thirdLineStart,
+        end: thirdLineStart + 1
+      })
+      const lastCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: thirdLineStart + thirdLineText.length - 1,
+        end: thirdLineStart + thirdLineText.length
+      })
+
+      expect(firstCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+      expect(lastCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+    })
+  })
+
+  test('после применения шаблона длинный текст внутри фигуры сохраняет стиль каждой строки', async({ shapes, template }) => {
+    await test.step('Применить шаблон с длинным текстом внутри фигуры', async() => {
+      const insertedCount = await template.applyTemplate({
+        template: SHAPE_TEMPLATE_WITH_LONG_TEXT_IN_FIGURE
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    const firstLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[0].length
+    const secondLineStart = firstLineLength + 1
+    const secondLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[1].length
+
+    await test.step('Открыть текст внутри фигуры из шаблона', async() => {
+      const textNode = await shapes.enterTextEditing({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(textNode?.text).toBe(SHAPE_TEMPLATE_LONG_TEXT)
+    })
+
+    await test.step('Проверить что первая строка целиком сохранила свой стиль', async() => {
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: 0,
+        end: 1
+      })
+      const lastCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: firstLineLength - 1,
+        end: firstLineLength
+      })
+
+      expect(firstCharacterStyle).toMatchObject(SHAPE_TEMPLATE_FIRST_LINE_STYLE)
+      expect(lastCharacterStyle).toMatchObject(SHAPE_TEMPLATE_FIRST_LINE_STYLE)
+    })
+
+    await test.step('Проверить что вторая строка целиком сохранила свой стиль', async() => {
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart,
+        end: secondLineStart + 1
+      })
+      const lastCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart + secondLineLength - 1,
+        end: secondLineStart + secondLineLength
+      })
+
+      expect(firstCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+      expect(lastCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+    })
+  })
+
+  test('после применения шаблона удаление строки внутри фигуры сохраняет стиль этой строки', async({ shapes, template }) => {
+    await test.step('Применить шаблон с длинным текстом внутри фигуры', async() => {
+      const insertedCount = await template.applyTemplate({
+        template: SHAPE_TEMPLATE_WITH_LONG_TEXT_IN_FIGURE
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    const firstLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[0].length
+
+    await test.step('Удалить первую строку и ввести новый символ в её начале', async() => {
+      await shapes.enterTextEditing({ objectIndex: 0 })
+      await shapes.setTextSelection({
+        objectIndex: 0,
+        start: 0,
+        end: firstLineLength
+      })
+      await shapes.deleteSelectedText({ objectIndex: 0 })
+      await shapes.typeText({
+        objectIndex: 0,
+        text: 'Н'
+      })
+    })
+
+    await test.step('Проверить что новый символ получил стиль первой строки', async() => {
+      const textNode = await shapes.getTextNode({ objectIndex: 0 })
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: 0,
+        end: 1
+      })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(firstCharacterStyle).toMatchObject(SHAPE_TEMPLATE_FIRST_LINE_STYLE)
+    })
+  })
+
+  test('после undo и redo текст внутри фигуры из шаблона сохраняет стиль строк', async({ editorModel, history, shapes, template }) => {
+    await test.step('Применить шаблон с длинным текстом внутри фигуры и сохранить это в истории', async() => {
+      const insertedCount = await template.applyTemplate({
+        template: SHAPE_TEMPLATE_WITH_LONG_TEXT_IN_FIGURE
+      })
+
+      expect(insertedCount).toBe(1)
+      await history.flushPendingSave()
+    })
+
+    await test.step('Сделать undo и проверить что объект исчез', async() => {
+      await history.undo()
+      await editorModel.checkObjectCount({ count: 0 })
+    })
+
+    const firstLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[0].length
+    const secondLineStart = firstLineLength + 1
+    const secondLineLength = SHAPE_TEMPLATE_LONG_TEXT.split('\n')[1].length
+
+    await test.step('Сделать redo и открыть текст внутри фигуры', async() => {
+      await history.redo()
+      await editorModel.checkObjectCount({ count: 1 })
+
+      const textNode = await shapes.enterTextEditing({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(textNode?.text).toBe(SHAPE_TEMPLATE_LONG_TEXT)
+    })
+
+    await test.step('Проверить что после redo стиль обеих строк сохранился', async() => {
+      const firstLineStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: firstLineLength - 1,
+        end: firstLineLength
+      })
+      const secondLineStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: secondLineStart + secondLineLength - 1,
+        end: secondLineStart + secondLineLength
+      })
+
+      expect(firstLineStyle).toMatchObject(SHAPE_TEMPLATE_FIRST_LINE_STYLE)
+      expect(secondLineStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+    })
+  })
+
+  test('если в шаблоне строк стало больше, новая строка внутри фигуры наследует стиль предыдущей строки', async({ shapes, template }) => {
+    await test.step('Применить шаблон с тремя строками внутри фигуры', async() => {
+      const insertedCount = await template.applyTemplate({
+        template: SHAPE_TEMPLATE_WITH_THREE_LINE_TEXT_IN_FIGURE
+      })
+
+      expect(insertedCount).toBe(1)
+    })
+
+    const [firstLineText, secondLineText, thirdLineText] = SHAPE_TEMPLATE_THREE_LINE_TEXT.split('\n')
+    const secondLineStart = firstLineText.length + 1
+    const thirdLineStart = secondLineStart + secondLineText.length + 1
+
+    await test.step('Открыть текст внутри фигуры из шаблона', async() => {
+      const textNode = await shapes.enterTextEditing({ objectIndex: 0 })
+
+      expect(textNode?.isEditing).toBe(true)
+      expect(textNode?.text).toBe(SHAPE_TEMPLATE_THREE_LINE_TEXT)
+    })
+
+    await test.step('Проверить что новая третья строка получила стиль второй строки', async() => {
+      const firstCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: thirdLineStart,
+        end: thirdLineStart + 1
+      })
+      const lastCharacterStyle = await shapes.getSelectionStyles({
+        objectIndex: 0,
+        start: thirdLineStart + thirdLineText.length - 1,
+        end: thirdLineStart + thirdLineText.length
+      })
+
+      expect(firstCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+      expect(lastCharacterStyle).toMatchObject(SHAPE_TEMPLATE_SECOND_LINE_STYLE)
+    })
+  })
+
   test('после копирования фигуры можно сразу поменять стиль части текста', async({ clipboard, editorModel, shapes }) => {
     await test.step('Добавить исходную фигуру и скопировать её', async() => {
       await shapes.add({
