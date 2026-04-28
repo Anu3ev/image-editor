@@ -519,9 +519,14 @@ export function resolveAppliedShapePadding<TText extends ShapeLayoutText>({
       frameWidth
     })
     : MIN_SHAPE_TEXT_FRAME_SIZE
+  const requestedVerticalUserPadding = normalizedPadding.top
+    + normalizedPadding.bottom
 
   const requiredHeight = expandShapeHeightToFitText
-    ? Math.max(safeHeight, measuredHeight + verticalInset)
+    ? Math.max(
+      safeHeight,
+      measuredHeight + verticalInset + requestedVerticalUserPadding
+    )
     : safeHeight
 
   const verticalPadding = resolveAppliedVerticalPadding({

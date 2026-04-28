@@ -70,11 +70,11 @@ describe('shape-scaling', () => {
   const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
   const resolveShapeTextFixedWidthLayoutMock = resolveShapeTextFixedWidthLayout as jest.Mock
   const resizeShapeNodeMock = resizeShapeNode as jest.Mock
-  const isShapeGroupMock = isShapeGroup as jest.Mock
+  const isShapeGroupMock = isShapeGroup as unknown as jest.MockedFunction<typeof isShapeGroup>
 
   beforeEach(() => {
     jest.clearAllMocks()
-    isShapeGroupMock.mockImplementation((target: { shapeComposite?: boolean }) => target?.shapeComposite === true)
+    isShapeGroupMock.mockImplementation((target) => (target as { shapeComposite?: boolean } | null | undefined)?.shapeComposite === true)
     resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
     resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => height)
     resolveShapeTextFixedWidthLayoutMock.mockImplementation(({
@@ -433,6 +433,33 @@ describe('shape-scaling', () => {
     expect(text.splitByGrapheme).toBe(true)
   })
 
+  it('при vertical scaling в live-preview фиксирует высоту, чтобы верхний и нижний отступ могли схлопываться', () => {
+    const {
+      controller,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    group.scaleX = 1
+    group.scaleY = 0.8
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      expandShapeHeightToFitText: false
+    }))
+  })
+
   it('синхронизирует высоту группы с live-preview высотой текста при переносе строк', () => {
     const {
       controller,
@@ -447,7 +474,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
-      transform: createShapeScalingTransform()
+      transform: createShapeScalingTransform() as never
     })
 
     expect(group.width).toBe(200)
@@ -492,15 +519,14 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
-      transform: createShapeScalingTransform()
+      transform: createShapeScalingTransform() as never
     })
 
-    canvasWithTransform._currentTransform = {
-      ...createShapeScalingTransform(),
+    canvasWithTransform._currentTransform = createShapeScalingTransform({
       target: group,
       action: 'scaleX',
       signX: 1
-    }
+    })
 
     controller.handleCanvasMouseMove({
       e: {} as PointerEvent
@@ -513,7 +539,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
-      transform: createShapeScalingTransform()
+      transform: createShapeScalingTransform() as never
     })
 
     expect(group.scaleX).toBeCloseTo(0.9, 4)
@@ -678,13 +704,67 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 200,
       height: 80
     }))
     expect(group.scaleY).toBe(1)
+  })
+
+  it('после vertical scaling на object:modified не возвращает высоту в режим авторасширения текста', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 80
+
+      return height
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'mb',
+      localPoint: new Point(0, -10)
+    })
+
+    group.scaleY = 0.9
+
+    controller.handleObjectScaling({
+      target: group,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY'
+      } as never
+    })
+
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: {
+        ...createShapeScalingTransform({
+          corner: 'mb',
+          originX: 'center',
+          originY: 'top'
+        }),
+        action: 'scaleY',
+        signY: 1
+      } as never
+    })
+
+    expect(applyShapeTextLayoutMock).toHaveBeenLastCalledWith(expect.objectContaining({
+      expandShapeHeightToFitText: false
+    }))
   })
 
   it('в live-режиме зажимает vertical shrink пустого shape на 1px', () => {
@@ -801,7 +881,7 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 200,
@@ -1175,7 +1255,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 209,
@@ -1282,7 +1362,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 200,
@@ -1367,7 +1447,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 300,
@@ -1404,7 +1484,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 140,
@@ -1443,7 +1523,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 200,
@@ -1486,7 +1566,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(group.shapeRounding).toBe(50)
     expect(applyLayoutCall).toEqual(expect.objectContaining({
@@ -1529,7 +1609,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(group.shapeRounding).toBe(80)
     expect(applyLayoutCall).toEqual(expect.objectContaining({
@@ -1571,7 +1651,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const applyLayoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(group.shapeRounding).toBe(50)
     expect(applyLayoutCall).toEqual(expect.objectContaining({
@@ -1765,7 +1845,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
-      transform: createShapeScalingTransform()
+      transform: createShapeScalingTransform() as never
     })
     canvasWithTransform._currentTransform = minimumWidthTransform
     controller.handleCanvasMouseMove({
@@ -1782,7 +1862,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
-      transform: createShapeScalingTransform()
+      transform: createShapeScalingTransform() as never
     })
     controller.handleObjectModified({
       target: group
@@ -1793,7 +1873,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
-      transform: createShapeScalingTransform()
+      transform: createShapeScalingTransform() as never
     })
     canvasWithTransform._currentTransform = minimumWidthTransform
     controller.handleCanvasMouseMove({
@@ -1880,7 +1960,7 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    const resizeCall = resizeShapeNodeMock.mock.calls.at(-1)?.[0]
+    const resizeCall = resizeShapeNodeMock.mock.calls[resizeShapeNodeMock.mock.calls.length - 1]?.[0]
     expect(resizeCall).toEqual(expect.objectContaining({
       shape,
       strokeWidth: 10
@@ -1896,7 +1976,7 @@ describe('shape-scaling', () => {
     } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
-    mockShapeGroupPositionByOrigin({ group })
+    const setPositionByOriginMock = mockShapeGroupPositionByOrigin({ group })
 
     group.getCenterPoint = jest.fn(() => new Point(480, 420)) as never
     group.scaleX = 1.5
@@ -1918,7 +1998,7 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    const callsAfterScaling = group.setPositionByOrigin.mock.calls.length
+    const callsAfterScaling = setPositionByOriginMock.mock.calls.length
     group.left = 700
     group.top = 700
 
@@ -1926,8 +2006,8 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    expect(group.setPositionByOrigin.mock.calls.length).toBeGreaterThan(callsAfterScaling)
-    expect(group.setPositionByOrigin).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(setPositionByOriginMock.mock.calls.length).toBeGreaterThan(callsAfterScaling)
+    expect(setPositionByOriginMock).toHaveBeenLastCalledWith(expect.objectContaining({
       x: initialAnchor.x,
       y: initialAnchor.y
     }), 'left', 'top')

@@ -10,6 +10,7 @@ import {
 
 type GroupOriginX = 'left' | 'center' | 'right'
 type GroupOriginY = 'top' | 'center' | 'bottom'
+type ShapeScalingTestGroup = ReturnType<typeof createMockShapeGroup>
 
 type ShapeScalingTransformOptions = {
   scaleX?: number
@@ -19,12 +20,37 @@ type ShapeScalingTransformOptions = {
   corner?: string
   originX?: GroupOriginX
   originY?: GroupOriginY
+  action?: string
+  signX?: number
+  signY?: number
+  target?: ShapeScalingTestGroup
 }
+
+export type ShapeScalingTransformStub = {
+  original: {
+    scaleX: number
+    scaleY: number
+    left: number
+    top: number
+  }
+  corner: string
+  originX: GroupOriginX
+  originY: GroupOriginY
+  action?: string
+  signX?: number
+  signY?: number
+  target?: ShapeScalingTestGroup
+}
+
+export type ShapeGroupPositionByOriginMock = jest.Mock<
+  void,
+  [point: Point, originX: GroupOriginX, originY: GroupOriginY]
+>
 
 export type ShapeScalingTestSetup = {
   controller: ShapeScalingController
   canvas: ReturnType<typeof createMockCanvas>
-  group: ReturnType<typeof createMockShapeGroup>
+  group: ShapeScalingTestGroup
   shape: ReturnType<typeof createMockShapeNode>
   text: ReturnType<typeof createMockShapeTextbox>
 }
@@ -79,8 +105,12 @@ export const createShapeScalingTransform = ({
   top = 420,
   corner = 'br',
   originX = 'left',
-  originY = 'top'
-}: ShapeScalingTransformOptions = {}): never => ({
+  originY = 'top',
+  action,
+  signX,
+  signY,
+  target
+}: ShapeScalingTransformOptions = {}): ShapeScalingTransformStub => ({
   original: {
     scaleX,
     scaleY,
@@ -89,8 +119,12 @@ export const createShapeScalingTransform = ({
   },
   corner,
   originX,
-  originY
-} as never)
+  originY,
+  action,
+  signX,
+  signY,
+  target
+})
 
 /**
  * Подменяет setPositionByOrigin у группы на реалистичный расчёт left/top через origin.
@@ -99,8 +133,8 @@ export const mockShapeGroupPositionByOrigin = ({
   group
 }: {
   group: ShapeScalingTestSetup['group']
-}): void => {
-  group.setPositionByOrigin = jest.fn((
+}): ShapeGroupPositionByOriginMock => {
+  const setPositionByOriginMock: ShapeGroupPositionByOriginMock = jest.fn((
     point: Point,
     originX: GroupOriginX,
     originY: GroupOriginY
@@ -125,7 +159,11 @@ export const mockShapeGroupPositionByOrigin = ({
 
     group.left = nextLeft
     group.top = nextTop
-  }) as never
+  })
+
+  group.setPositionByOrigin = setPositionByOriginMock as never
+
+  return setPositionByOriginMock
 }
 
 /**
