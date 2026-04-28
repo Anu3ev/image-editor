@@ -492,6 +492,7 @@ export default class ShapeScalingController {
     const initialPreviewHeight = minimumHeight === null || minimumHeight === undefined
       ? scaledPreviewHeight
       : Math.max(scaledPreviewHeight, minimumHeight)
+    const expandShapeHeightToFitText = !state.canScaleHeight
 
     return resolveShapeTextFixedWidthLayout({
       text,
@@ -499,6 +500,7 @@ export default class ShapeScalingController {
       height: initialPreviewHeight,
       alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
       padding: ShapeScalingController._resolveUserPadding({ group }),
+      expandShapeHeightToFitText,
       resolveInternalShapeTextInset: ({ width, height }) => ShapeScalingController._resolveInternalShapeTextInset({
         group,
         width,
@@ -912,6 +914,7 @@ export default class ShapeScalingController {
       width,
       height
     })
+    const expandShapeHeightToFitText = !canScaleHeight
 
     applyShapeTextLayout({
       group,
@@ -924,6 +927,7 @@ export default class ShapeScalingController {
       padding: userPadding,
       shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
       internalShapeTextInset,
+      expandShapeHeightToFitText,
       resolveInternalShapeTextInset: ({ width: nextWidth, height: nextHeight }) => {
         return ShapeScalingController._resolveInternalShapeTextInset({
           group,

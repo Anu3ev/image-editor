@@ -79,6 +79,25 @@ export const SHAPE_PADDING_SCALING_OPTIONS: NonNullable<ShapeAddParams['options'
   }
 }
 
+export const SHAPE_PADDING_TEXT_EDITING_VERTICAL_OPTIONS: NonNullable<ShapeAddParams['options']> = {
+  id: 'shape-padding-text-editing-vertical',
+  width: 260,
+  height: 160,
+  shapeTextAutoExpand: false,
+  text: 'LINE ONE',
+  textStyle: {
+    fontSize: 48
+  },
+  textPadding: {
+    top: 40,
+    right: 0,
+    bottom: 40,
+    left: 0
+  }
+}
+
+export const SHAPE_PADDING_TEXT_EDITING_VERTICAL_UPDATED_TEXT = 'LINE ONE\nLINE TWO'
+
 export interface ShapePaddingDirectionalScalingScenario {
   title: string
   side: ShapeScaleSide

@@ -212,6 +212,37 @@ describe('shape-layout-padding', () => {
     expect(layout.appliedUserPadding.bottom).toBe(10)
   })
 
+  it('при авторасширении высоты не схлопывает верхний и нижний отступ', () => {
+    const text = createMockShapeTextbox({
+      text: 'line one\nline two'
+    })
+
+    const layout = resolveAppliedShapePadding({
+      text,
+      width: 100,
+      height: 100,
+      padding: {
+        top: 40,
+        right: 0,
+        bottom: 40,
+        left: 0
+      },
+      internalShapeTextInset: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      expandShapeHeightToFitText: true,
+      measureTextboxHeightForFrame: () => 80,
+      resolveMinimumTextFrameWidth: () => 20
+    })
+
+    expect(layout.requiredHeight).toBe(160)
+    expect(layout.appliedUserPadding.top).toBe(40)
+    expect(layout.appliedUserPadding.bottom).toBe(40)
+  })
+
   it('добавляет внутренний отступ формы к layout, но отдельно сохраняет только пользовательский', () => {
     const text = createMockShapeTextbox({
       text: 'test'
