@@ -3,7 +3,6 @@ import {
   normalizeShapeLayoutPadding
 } from './shape-padding'
 import {
-  ShapeLayoutInput,
   ShapePadding,
   ShapePaddingChangeMap
 } from '../types'
@@ -12,39 +11,41 @@ const TEXT_FRAME_FILL_EPSILON = 0.5
 const MAX_MIN_FRAME_WIDTH_SEARCH_ITERATIONS = 12
 
 /**
- * Текстовый узел, для которого рассчитывается текстовый фрейм внутри shape.
+ * Минимальный контракт текста для расчёта фрейма внутри shape.
  */
-type ShapeLayoutText = ShapeLayoutInput['text']
+type ShapeLayoutText = {
+  text?: string | null
+}
 
 /**
  * Аргументы измерения высоты textbox при заданной ширине фрейма.
  */
-type TextboxFrameMeasureParams = {
-  text: ShapeLayoutText
+type TextboxFrameMeasureParams<TText extends ShapeLayoutText> = {
+  text: TText
   frameWidth: number
 }
 
 /**
  * Функция измерения высоты textbox внутри текстового фрейма.
  */
-type MeasureTextboxHeightForFrame = ({
+type MeasureTextboxHeightForFrame<TText extends ShapeLayoutText> = ({
   text,
   frameWidth
-}: TextboxFrameMeasureParams) => number
+}: TextboxFrameMeasureParams<TText>) => number
 
 /**
  * Аргументы расчета минимальной ширины текстового фрейма.
  */
-type MinimumTextFrameWidthParams = {
-  text: ShapeLayoutText
+type MinimumTextFrameWidthParams<TText extends ShapeLayoutText> = {
+  text: TText
 }
 
 /**
  * Функция расчета минимальной ширины текстового фрейма.
  */
-type ResolveMinimumTextFrameWidth = ({
+type ResolveMinimumTextFrameWidth<TText extends ShapeLayoutText> = ({
   text
-}: MinimumTextFrameWidthParams) => number
+}: MinimumTextFrameWidthParams<TText>) => number
 
 /**
  * Аргументы ограничения пары padding по суммарному доступному пространству.
@@ -91,12 +92,12 @@ type AppliedPaddingPair = {
 /**
  * Аргументы подбора минимальной ширины фрейма под заданную высоту.
  */
-type ResolveMinimumFrameWidthToFitHeightParams = {
-  text: ShapeLayoutText
+type ResolveMinimumFrameWidthToFitHeightParams<TText extends ShapeLayoutText> = {
+  text: TText
   minFrameWidth: number
   maxFrameWidth: number
   frameHeight: number
-  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame
+  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame<TText>
 }
 
 /**
@@ -111,16 +112,16 @@ type ResolvedHorizontalPadding = {
 /**
  * Аргументы применения горизонтального padding.
  */
-type ResolveAppliedHorizontalPaddingParams = {
-  text: ShapeLayoutText
+type ResolveAppliedHorizontalPaddingParams<TText extends ShapeLayoutText> = {
+  text: TText
   width: number
-  height: number
+  availableTextFrameHeight: number
   padding: ShapePadding
   internalShapeTextInset: ShapePadding
   expandShapeHeightToFitText: boolean
   changedPadding?: ShapePaddingChangeMap
-  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame
-  resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth
+  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame<TText>
+  resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth<TText>
 }
 
 /**
@@ -145,16 +146,16 @@ type ResolveAppliedVerticalPaddingParams = {
 /**
  * Полный набор аргументов расчета applied padding для shape.
  */
-type ResolveAppliedShapePaddingParams = {
-  text: ShapeLayoutText
+type ResolveAppliedShapePaddingParams<TText extends ShapeLayoutText> = {
+  text: TText
   width: number
   height: number
   padding: ShapePadding
   internalShapeTextInset?: ShapePadding
   expandShapeHeightToFitText: boolean
   changedPadding?: ShapePaddingChangeMap
-  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame
-  resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth
+  measureTextboxHeightForFrame: MeasureTextboxHeightForFrame<TText>
+  resolveMinimumTextFrameWidth: ResolveMinimumTextFrameWidth<TText>
 }
 
 /**
@@ -293,13 +294,13 @@ function resolveAppliedPaddingPair({
  * Возвращает минимальную ширину текстового фрейма, при которой текст ещё помещается
  * в заданную высоту.
  */
-function resolveMinimumFrameWidthToFitHeight({
+function resolveMinimumFrameWidthToFitHeight<TText extends ShapeLayoutText>({
   text,
   minFrameWidth,
   maxFrameWidth,
   frameHeight,
   measureTextboxHeightForFrame
-}: ResolveMinimumFrameWidthToFitHeightParams): number {
+}: ResolveMinimumFrameWidthToFitHeightParams<TText>): number {
   const safeMinFrameWidth = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, minFrameWidth)
   const safeMaxFrameWidth = Math.max(safeMinFrameWidth, maxFrameWidth)
   const safeFrameHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, frameHeight)
@@ -346,30 +347,27 @@ function resolveMinimumFrameWidthToFitHeight({
 /**
  * Подбирает горизонтальные padding так, чтобы они не требовали расширять шейп сверх выбранной политики layout.
  */
-function resolveAppliedHorizontalPadding({
+function resolveAppliedHorizontalPadding<TText extends ShapeLayoutText>({
   text,
   width,
-  height,
+  availableTextFrameHeight,
   padding,
   internalShapeTextInset,
   expandShapeHeightToFitText,
   changedPadding,
   measureTextboxHeightForFrame,
   resolveMinimumTextFrameWidth
-}: ResolveAppliedHorizontalPaddingParams): ResolvedHorizontalPadding {
+}: ResolveAppliedHorizontalPaddingParams<TText>): ResolvedHorizontalPadding {
   const safeWidth = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, width)
-  const safeHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, height)
+  const safeAvailableTextFrameHeight = Math.max(
+    MIN_SHAPE_TEXT_FRAME_SIZE,
+    availableTextFrameHeight
+  )
 
   const hasTextContent = hasShapeTextContent({ text })
   const minimumFrameWidth = hasTextContent
     ? resolveMinimumTextFrameWidth({ text })
     : MIN_SHAPE_TEXT_FRAME_SIZE
-
-  const verticalInset = internalShapeTextInset.top + internalShapeTextInset.bottom
-  const frameHeight = Math.max(
-    MIN_SHAPE_TEXT_FRAME_SIZE,
-    safeHeight - verticalInset
-  )
 
   let requiredFrameWidth = minimumFrameWidth
 
@@ -378,7 +376,7 @@ function resolveAppliedHorizontalPadding({
       text,
       minFrameWidth: minimumFrameWidth,
       maxFrameWidth: safeWidth,
-      frameHeight,
+      frameHeight: safeAvailableTextFrameHeight,
       measureTextboxHeightForFrame
     })
   }
@@ -451,7 +449,7 @@ function resolveAppliedVerticalPadding({
  * Применяет padding внутри переданных размеров шейпа и возвращает итоговые effective/user-значения
  * вместе с минимальными required width/height для non-removable internal inset.
  */
-export function resolveAppliedShapePadding({
+export function resolveAppliedShapePadding<TText extends ShapeLayoutText>({
   text,
   width,
   height,
@@ -461,7 +459,7 @@ export function resolveAppliedShapePadding({
   changedPadding,
   measureTextboxHeightForFrame,
   resolveMinimumTextFrameWidth
-}: ResolveAppliedShapePaddingParams): ResolvedShapePadding {
+}: ResolveAppliedShapePaddingParams<TText>): ResolvedShapePadding {
   const safeWidth = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, width)
   const safeHeight = Math.max(MIN_SHAPE_TEXT_FRAME_SIZE, height)
 
@@ -472,10 +470,29 @@ export function resolveAppliedShapePadding({
     padding: internalShapeTextInset
   })
 
+  const hasHorizontalPaddingChange = Boolean(changedPadding?.left)
+    || Boolean(changedPadding?.right)
+  const hasVerticalPaddingChange = Boolean(changedPadding?.top)
+    || Boolean(changedPadding?.bottom)
+  const shouldPreserveVerticalPadding = !expandShapeHeightToFitText
+    && hasHorizontalPaddingChange
+    && !hasVerticalPaddingChange
+
+  const verticalInset = normalizedInternalShapeTextInset.top
+    + normalizedInternalShapeTextInset.bottom
+  const preservedVerticalUserPadding = shouldPreserveVerticalPadding
+    ? normalizedPadding.top + normalizedPadding.bottom
+    : 0
+  const reservedVerticalPadding = verticalInset + preservedVerticalUserPadding
+  const availableTextFrameHeightForHorizontalFit = Math.max(
+    MIN_SHAPE_TEXT_FRAME_SIZE,
+    safeHeight - reservedVerticalPadding
+  )
+
   const horizontalPadding = resolveAppliedHorizontalPadding({
     text,
     width: safeWidth,
-    height: safeHeight,
+    availableTextFrameHeight: availableTextFrameHeightForHorizontalFit,
     padding: normalizedPadding,
     internalShapeTextInset: normalizedInternalShapeTextInset,
     expandShapeHeightToFitText,
@@ -503,7 +520,6 @@ export function resolveAppliedShapePadding({
     })
     : MIN_SHAPE_TEXT_FRAME_SIZE
 
-  const verticalInset = normalizedInternalShapeTextInset.top + normalizedInternalShapeTextInset.bottom
   const requiredHeight = expandShapeHeightToFitText
     ? Math.max(safeHeight, measuredHeight + verticalInset)
     : safeHeight

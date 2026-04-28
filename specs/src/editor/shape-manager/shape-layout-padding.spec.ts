@@ -119,6 +119,64 @@ describe('shape-layout-padding', () => {
     expect(measuredHeight).toBeLessThanOrEqual(100.5)
   })
 
+  it('при изменении правого отступа сохраняет верхний и ограничивает правый по оставшейся высоте', () => {
+    const shapeWidth = 300
+    const shapeHeight = 260
+    const topPadding = 214
+    const requestedRightPadding = 500
+    const text = createMockShapeTextbox({
+      text: 'TEST'
+    })
+    const measureTextboxHeightForFrame = ({
+      frameWidth
+    }: {
+      frameWidth: number
+    }): number => {
+      if (frameWidth < 80) return 90
+
+      return 20
+    }
+
+    const layout = resolveAppliedShapePadding({
+      text,
+      width: shapeWidth,
+      height: shapeHeight,
+      padding: {
+        top: topPadding,
+        right: requestedRightPadding,
+        bottom: 0,
+        left: 0
+      },
+      internalShapeTextInset: {
+        top: 0,
+        right: 0,
+        bottom: 0,
+        left: 0
+      },
+      expandShapeHeightToFitText: false,
+      changedPadding: {
+        right: true
+      },
+      measureTextboxHeightForFrame,
+      resolveMinimumTextFrameWidth: () => 20
+    })
+    const frameWidth = resolveTextFrameWidth({
+      width: shapeWidth,
+      padding: layout.appliedPadding
+    })
+    const measuredHeight = measureTextboxHeightForFrame({
+      frameWidth
+    })
+    const availableTextHeight = shapeHeight
+      - layout.appliedPadding.top
+      - layout.appliedPadding.bottom
+
+    expect(layout.requiredHeight).toBe(shapeHeight)
+    expect(layout.appliedUserPadding.top).toBe(topPadding)
+    expect(layout.appliedUserPadding.right).toBeLessThan(requestedRightPadding)
+    expect(measuredHeight).toBeLessThanOrEqual(availableTextHeight)
+  })
+
   it('уменьшает верхний и нижний отступ, когда текущей высоты не хватает', () => {
     const text = createMockShapeTextbox({
       text: 'test'
