@@ -15,12 +15,12 @@ export const SHAPE_PADDING_BASE_OPTIONS: NonNullable<ShapeAddParams['options']> 
   }
 }
 
-export const SHAPE_PADDING_INITIAL: ShapePaddingParams = {
+export const SHAPE_PADDING_INITIAL = {
   top: 2,
   right: 4,
   bottom: 6,
   left: 8
-}
+} satisfies Required<ShapePaddingParams>
 
 export const SHAPE_PADDING_NORMALIZED_INPUT: ShapePaddingParams = {
   top: 10.9,
@@ -42,11 +42,24 @@ export const SHAPE_PADDING_UPDATED_RIGHT_RESULT = 19
 
 export const SHAPE_PADDING_TOO_LARGE_RIGHT = 500
 
+export const SHAPE_PADDING_TOO_LARGE_TOP = 500
+
 export const SHAPE_PADDING_HISTORY_UPDATED: ShapePaddingParams = {
   top: 12,
   right: 34,
   bottom: 5,
   left: 7
+}
+
+export const SHAPE_PADDING_TOP_THEN_RIGHT_OPTIONS: NonNullable<ShapeAddParams['options']> = {
+  id: 'shape-padding-top-then-right',
+  width: 300,
+  height: 260,
+  shapeTextAutoExpand: false,
+  text: 'TEST',
+  textStyle: {
+    fontSize: 48
+  }
 }
 
 export const SHAPE_PADDING_SCALING_OPTIONS: NonNullable<ShapeAddParams['options']> = {
