@@ -111,7 +111,7 @@ export default class ControlsCustomizer {
 
     activeSelectionPrototype._calcBoundsFromObjects = function(this: ActiveSelection, ...args: unknown[]) {
       const objects = this.getObjects?.() ?? []
-      ControlsCustomizer.applyTextSelectionScalingLock({
+      ControlsCustomizer.applyActiveSelectionScalingRules({
         selection: this,
         objects
       })
@@ -140,7 +140,7 @@ export default class ControlsCustomizer {
     activeSelectionPrototype._onAfterObjectsChange = function(this: ActiveSelection, type: unknown, options: unknown) {
       const result = originalAfterChange ? originalAfterChange.call(this, type, options) : undefined
       const objects = this.getObjects?.() ?? []
-      ControlsCustomizer.applyTextSelectionScalingLock({
+      ControlsCustomizer.applyActiveSelectionScalingRules({
         selection: this,
         objects
       })
@@ -168,16 +168,16 @@ export default class ControlsCustomizer {
       objects: FabricObject[],
       context: StrictLayoutContext
     ) {
-      const { target, type, overrides } = context
-      if (type === 'imperative' && overrides) {
-        return overrides
+      const { target, type } = context
+      if (type === 'imperative' && context.overrides) {
+        return context.overrides
       }
 
       if (!(target instanceof ActiveSelection)) {
         return originalCalcBoundingBox.call(this, objects, context)
       }
 
-      ControlsCustomizer.applyTextSelectionScalingLock({
+      ControlsCustomizer.applyActiveSelectionScalingRules({
         selection: target,
         objects
       })
@@ -232,9 +232,9 @@ export default class ControlsCustomizer {
   }
 
   /**
-   * Блокирует горизонтальное масштабирование ActiveSelection, если в выделении есть текстовые объекты.
+   * Применяет ограничения масштабирования ActiveSelection для объектов с собственным text/layout контрактом.
    */
-  private static applyTextSelectionScalingLock(
+  private static applyActiveSelectionScalingRules(
     {
       selection,
       objects
@@ -244,9 +244,15 @@ export default class ControlsCustomizer {
     }
   ): void {
     const hasText = objects.some((object) => object instanceof Textbox)
+    const hasShape = objects.some((object) => object.shapeComposite === true)
+    const shouldLockScalingFlip = hasText || hasShape
 
-    // Разрешаем горизонтальное масштабирование для групп с текстом,
-    // так как TextManager теперь умеет корректно обрабатывать изменение ширины (reflow).
+    selection.set({
+      lockScalingFlip: shouldLockScalingFlip
+    })
+
+    // Для текстовых объектов скрываем вертикальные хэндлы, но оставляем горизонтальное масштабирование:
+    // TextManager корректно обрабатывает изменение ширины.
     selection.setControlsVisibility({
       mt: !hasText,
       mb: !hasText,

@@ -1455,7 +1455,8 @@ export default class ShapeManager {
 
     if (target instanceof ActiveSelection) {
       this._commitActiveSelectionShapeScaling({
-        selection: target
+        selection: target,
+        transform: event.transform
       })
 
       groups.forEach((group) => {
@@ -1475,13 +1476,15 @@ export default class ShapeManager {
   }
 
   /**
-   * Материализует transient-scale ActiveSelection в дочерние shape-группы
-   * через общий rehydration/layout pipeline и восстанавливает выделение.
+   * Материализует временный scale ActiveSelection в дочерние shape-группы
+   * через общий путь фиксации resize и восстанавливает выделение.
    */
   private _commitActiveSelectionShapeScaling({
-    selection
+    selection,
+    transform
   }: {
     selection: ActiveSelection
+    transform?: ShapeCanvasEvent['transform']
   }): void {
     const objects = selection.getObjects()
     const shapeGroups = objects.filter((object): object is ShapeGroup => {
@@ -1497,19 +1500,30 @@ export default class ShapeManager {
 
     if (!hasScaleChange) return
 
-    const { canvas } = this.editor
-    const hasWidthChange = Math.abs(scaleX - 1) > ACTIVE_SELECTION_SCALE_EPSILON
+    const {
+      canvas,
+      canvasManager
+    } = this.editor
 
     canvas.discardActiveObject()
 
     shapeGroups.forEach((group) => {
-      this.commitRehydratedShapeLayout({
-        target: group,
-        shapeTextAutoExpand: hasWidthChange
-          ? false
-          : undefined
+      const placement = canvasManager.getObjectPlacement({
+        object: group
+      })
+      const didCommitScaling = this.scalingController.commitActiveSelectionGroupScaling({
+        group,
+        scaleX,
+        scaleY,
+        transform
       })
 
+      if (!didCommitScaling) return
+
+      canvasManager.applyObjectPlacement({
+        object: group,
+        placement
+      })
       group.setCoords()
     })
 

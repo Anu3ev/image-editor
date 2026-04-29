@@ -21,10 +21,12 @@ import {
 import { resizeShapeNode } from '../shape-factory'
 import {
   ShapeGroup,
+  ShapeHorizontalAlign,
   ShapePadding,
   ShapeScalingState,
   ShapeNode,
-  ShapeTextNode
+  ShapeTextNode,
+  ShapeVerticalAlign
 } from '../types'
 import {
   getShapeNodes,
@@ -103,6 +105,28 @@ type ShapeScalingStartDimensions = {
 type ShapeScalingManualBaseDimensions = {
   width: number
   height: number
+}
+
+type ShapeScalingCommitDimensions = {
+  width: number
+  height: number
+  hasWidthChange: boolean
+  hasDimensionChange: boolean
+}
+
+type ShapeScalingLayoutCommit = {
+  group: ShapeGroup
+  shape: ShapeNode
+  text: ShapeTextNode
+  width: number
+  height: number
+  alignH: ShapeHorizontalAlign
+  alignV: ShapeVerticalAlign
+  startManualBaseWidth: number
+  startManualBaseHeight: number
+  canScaleWidth: boolean
+  canScaleHeight: boolean
+  hasWidthChange: boolean
 }
 
 type CanvasWithCurrentTransform = Canvas & {
@@ -313,7 +337,7 @@ export default class ShapeScalingController {
       group,
       text,
       constraintPadding,
-      state,
+      startDimensions: state,
       appliedScaleX,
       appliedScaleY,
       minimumHeight: shouldReuseResolvedMinimumHeight ? constraintState.resolvedMinimumHeight : null
@@ -432,7 +456,7 @@ export default class ShapeScalingController {
     group,
     text,
     constraintPadding,
-    state,
+    startDimensions,
     appliedScaleX,
     appliedScaleY,
     minimumHeight
@@ -440,17 +464,17 @@ export default class ShapeScalingController {
     group: ShapeGroup
     text: ShapeTextNode
     constraintPadding: ShapePadding
-    state: ShapeScalingState
+    startDimensions: ShapeScalingStartDimensions
     appliedScaleX: number
     appliedScaleY: number
     minimumHeight?: number | null
   }): ShapePreviewDimensions {
-    const previewWidth = state.canScaleWidth
-      ? Math.max(MIN_SIZE, state.startWidth * appliedScaleX)
-      : state.startWidth
-    const scaledPreviewHeight = state.canScaleHeight
-      ? Math.max(MIN_SIZE, state.startHeight * appliedScaleY)
-      : state.startManualBaseHeight
+    const previewWidth = startDimensions.canScaleWidth
+      ? Math.max(MIN_SIZE, startDimensions.startWidth * appliedScaleX)
+      : startDimensions.startWidth
+    const scaledPreviewHeight = startDimensions.canScaleHeight
+      ? Math.max(MIN_SIZE, startDimensions.startHeight * appliedScaleY)
+      : startDimensions.startManualBaseHeight
     const resolvedMinimumHeight = minimumHeight ?? resolveRequiredShapeHeightForText({
       text,
       width: previewWidth,
@@ -665,7 +689,7 @@ export default class ShapeScalingController {
       group,
       text,
       constraintPadding,
-      state,
+      startDimensions: state,
       appliedScaleX: nextScaleX,
       appliedScaleY: nextScaleY,
       minimumHeight: didClampWidth ? null : resolvedMinimumHeight
@@ -766,7 +790,7 @@ export default class ShapeScalingController {
         group,
         text,
         constraintPadding,
-        state,
+        startDimensions: state,
         appliedScaleX: scaleX,
         appliedScaleY: scaleY
       })
@@ -949,18 +973,26 @@ export default class ShapeScalingController {
       }
     }
 
-    const widthByAllowedScale = canScaleWidth
-      ? Math.max(MIN_SIZE, startWidth * allowedScaleX)
-      : startWidth
-    const heightByAllowedScale = canScaleHeight
-      ? Math.max(MIN_SIZE, startHeight * allowedScaleY)
-      : startManualBaseHeight
-    const hasWidthChange = Math.abs(widthByAllowedScale - startWidth) > SIZE_EPSILON
-    const hasHeightChange = Math.abs(heightByAllowedScale - startHeight) > SIZE_EPSILON
-    const hasDimensionChange = hasWidthChange || hasHeightChange
-
-    const width = widthByAllowedScale
-    const height = heightByAllowedScale
+    const {
+      width,
+      height,
+      hasWidthChange,
+      hasDimensionChange
+    } = this._resolveScalingCommitDimensions({
+      group,
+      text,
+      constraintPadding,
+      startDimensions: {
+        startWidth,
+        startHeight,
+        startManualBaseWidth,
+        startManualBaseHeight,
+        canScaleWidth,
+        canScaleHeight
+      },
+      scaleX: allowedScaleX,
+      scaleY: allowedScaleY
+    })
 
     if (!hasDimensionChange && state) {
       this._restoreShapeStateWithoutResize({
@@ -987,32 +1019,7 @@ export default class ShapeScalingController {
       })
     }
 
-    const nextManualBaseDimensions = this._resolveNextManualBaseDimensionsAfterScaling({
-      startManualBaseWidth,
-      startManualBaseHeight,
-      canScaleWidth,
-      canScaleHeight,
-      finalWidth: width,
-      finalHeight: height
-    })
-
-    group.shapeManualBaseWidth = nextManualBaseDimensions.width
-    group.shapeManualBaseHeight = nextManualBaseDimensions.height
-
-    if (canScaleWidth && hasWidthChange) {
-      // Ручной resize по ширине фиксирует новую ширину как пользовательский контракт.
-      group.shapeTextAutoExpand = false
-    }
-
-    const userPadding = ShapeScalingController._resolveUserPadding({ group })
-    const internalShapeTextInset = ShapeScalingController._resolveInternalShapeTextInset({
-      group,
-      width,
-      height
-    })
-    const expandShapeHeightToFitText = !canScaleHeight
-
-    applyShapeTextLayout({
+    this._commitResolvedShapeScalingLayout({
       group,
       shape,
       text,
@@ -1020,30 +1027,11 @@ export default class ShapeScalingController {
       height,
       alignH,
       alignV,
-      padding: userPadding,
-      shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
-      internalShapeTextInset,
-      expandShapeHeightToFitText,
-      resolveInternalShapeTextInset: ({ width: nextWidth, height: nextHeight }) => {
-        return ShapeScalingController._resolveInternalShapeTextInset({
-          group,
-          width: nextWidth,
-          height: nextHeight
-        })
-      }
-    })
-
-    group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? width)
-    group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? height)
-
-    text.set({
-      scaleX: 1,
-      scaleY: 1
-    })
-
-    group.set({
-      scaleX: 1,
-      scaleY: 1
+      startManualBaseWidth,
+      startManualBaseHeight,
+      canScaleWidth,
+      canScaleHeight,
+      hasWidthChange
     })
 
     if (state) {
@@ -1061,6 +1049,94 @@ export default class ShapeScalingController {
     group.shapeScalingNoopTransform = false
 
     this.canvas.requestRenderAll()
+  }
+
+  /**
+   * Фиксирует resize дочерней shape-группы после масштабирования ActiveSelection.
+   */
+  public commitActiveSelectionGroupScaling({
+    group,
+    scaleX,
+    scaleY,
+    transform
+  }: {
+    group: ShapeGroup
+    scaleX: number
+    scaleY: number
+    transform?: Transform | null
+  }): boolean {
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group })
+
+    if (!shape || !text) {
+      this.scalingState.delete(group)
+      return false
+    }
+
+    const state = this.scalingState.get(group)
+    const startDimensions = state ?? this._resolveScalingStartDimensions({
+      group,
+      transform
+    })
+    const resolvedAxes = transform
+      ? resolveShapeScaleActionAxes({
+        transform
+      })
+      : null
+    const canScaleWidth = state?.canScaleWidth
+      ?? resolvedAxes?.canScaleWidth
+      ?? (Math.abs(scaleX - 1) > SCALE_EPSILON)
+    const canScaleHeight = state?.canScaleHeight
+      ?? resolvedAxes?.canScaleHeight
+      ?? (Math.abs(scaleY - 1) > SCALE_EPSILON)
+    const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
+    const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
+    const constraintPadding = ShapeScalingController._resolveScalingConstraintPadding({ group })
+    const {
+      width,
+      height,
+      hasWidthChange,
+      hasDimensionChange
+    } = this._resolveScalingCommitDimensions({
+      group,
+      text,
+      constraintPadding,
+      startDimensions: {
+        ...startDimensions,
+        canScaleWidth,
+        canScaleHeight
+      },
+      scaleX,
+      scaleY
+    })
+
+    if (!hasDimensionChange) {
+      this.scalingState.delete(group)
+      group.shapeScalingNoopTransform = false
+      return false
+    }
+
+    this._commitResolvedShapeScalingLayout({
+      group,
+      shape,
+      text,
+      width,
+      height,
+      alignH,
+      alignV,
+      startManualBaseWidth: startDimensions.startManualBaseWidth,
+      startManualBaseHeight: startDimensions.startManualBaseHeight,
+      canScaleWidth,
+      canScaleHeight,
+      hasWidthChange
+    })
+
+    this.scalingState.delete(group)
+    group.shapeScalingNoopTransform = false
+
+    return true
   }
 
   /**
@@ -1630,5 +1706,130 @@ export default class ShapeScalingController {
       width: nextManualBaseWidth,
       height: nextManualBaseHeight
     }
+  }
+
+  /**
+   * Возвращает итоговые размеры шага фиксации с учетом осей, которые реально скейлились.
+   */
+  private _resolveScalingCommitDimensions({
+    group,
+    text,
+    constraintPadding,
+    startDimensions,
+    scaleX,
+    scaleY
+  }: {
+    group: ShapeGroup
+    text: ShapeTextNode
+    constraintPadding: ShapePadding
+    startDimensions: ShapeScalingStartDimensions
+    scaleX: number
+    scaleY: number
+  }): ShapeScalingCommitDimensions {
+    const {
+      previewWidth,
+      previewHeight
+    } = this._resolvePreviewDimensions({
+      group,
+      text,
+      constraintPadding,
+      startDimensions,
+      appliedScaleX: scaleX,
+      appliedScaleY: scaleY
+    })
+    const {
+      startWidth,
+      startHeight
+    } = startDimensions
+    const hasWidthChange = Math.abs(previewWidth - startWidth) > SIZE_EPSILON
+    const hasHeightChange = Math.abs(previewHeight - startHeight) > SIZE_EPSILON
+
+    return {
+      width: previewWidth,
+      height: previewHeight,
+      hasWidthChange,
+      hasDimensionChange: hasWidthChange || hasHeightChange
+    }
+  }
+
+  /**
+   * Применяет уже выбранные resize-размеры к layout шейпа и сбрасывает временный scale.
+   */
+  private _commitResolvedShapeScalingLayout({
+    group,
+    shape,
+    text,
+    width,
+    height,
+    alignH,
+    alignV,
+    startManualBaseWidth,
+    startManualBaseHeight,
+    canScaleWidth,
+    canScaleHeight,
+    hasWidthChange
+  }: ShapeScalingLayoutCommit): void {
+    const nextManualBaseDimensions = this._resolveNextManualBaseDimensionsAfterScaling({
+      startManualBaseWidth,
+      startManualBaseHeight,
+      canScaleWidth,
+      canScaleHeight,
+      finalWidth: width,
+      finalHeight: height
+    })
+
+    group.shapeManualBaseWidth = nextManualBaseDimensions.width
+    group.shapeManualBaseHeight = nextManualBaseDimensions.height
+
+    if (canScaleWidth && hasWidthChange) {
+      // Ручной resize по ширине фиксирует новую ширину как пользовательский контракт.
+      group.shapeTextAutoExpand = false
+    }
+
+    const userPadding = ShapeScalingController._resolveUserPadding({ group })
+    const internalShapeTextInset = ShapeScalingController._resolveInternalShapeTextInset({
+      group,
+      width,
+      height
+    })
+    const expandShapeHeightToFitText = !canScaleHeight
+
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width,
+      height,
+      alignH,
+      alignV,
+      padding: userPadding,
+      shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
+      internalShapeTextInset,
+      expandShapeHeightToFitText,
+      resolveInternalShapeTextInset: ({ width: nextWidth, height: nextHeight }) => {
+        return ShapeScalingController._resolveInternalShapeTextInset({
+          group,
+          width: nextWidth,
+          height: nextHeight
+        })
+      }
+    })
+
+    group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? width)
+    group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? height)
+
+    text.set({
+      scaleX: 1,
+      scaleY: 1
+    })
+
+    group.set({
+      scaleX: 1,
+      scaleY: 1
+    })
+
+    group.setCoords()
+    text.setCoords()
+    shape.setCoords()
   }
 }

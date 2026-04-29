@@ -294,7 +294,7 @@ describe('shape-manager events', () => {
     }))
   })
 
-  it('после изменения размера нескольких шейпов запекает каждую фигуру и собирает выделение обратно', async() => {
+  it('после изменения размера нескольких шейпов фиксирует resize каждой фигуры и собирает выделение обратно', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -323,6 +323,7 @@ describe('shape-manager events', () => {
     }).lifecycleController
     const scalingController = (manager as unknown as {
       scalingController: {
+        commitActiveSelectionGroupScaling: (payload: unknown) => boolean
         clearState: (payload: unknown) => void
       }
     }).scalingController
@@ -336,26 +337,76 @@ describe('shape-manager events', () => {
       scaleX?: number
       scaleY?: number
     }
-    const commitRehydratedShapeLayoutSpy = jest.spyOn(manager, 'commitRehydratedShapeLayout').mockReturnValue(true)
+    const scalingTransform = {
+      action: 'scaleX',
+      corner: 'mr',
+      target: selection,
+      original: {
+        scaleX: 1,
+        scaleY: 1,
+        left: 0,
+        top: 0,
+        originX: 'center',
+        originY: 'center'
+      }
+    } as never
+    const commitActiveSelectionGroupScalingSpy = jest
+      .spyOn(scalingController, 'commitActiveSelectionGroupScaling')
+      .mockReturnValue(true)
+    const commitRehydratedShapeLayoutSpy = jest
+      .spyOn(manager, 'commitRehydratedShapeLayout')
+      .mockReturnValue(true)
     const clearStateSpy = jest.spyOn(scalingController, 'clearState').mockImplementation(() => {})
     const finishResizeSpy = jest.spyOn(lifecycleController, 'finishResize').mockImplementation(() => {})
+    const getObjectPlacementMock = editor.canvasManager.getObjectPlacement as jest.Mock
+    const applyObjectPlacementMock = editor.canvasManager.applyObjectPlacement as jest.Mock
 
     selection.scaleX = 0.75
     selection.scaleY = 1.2
 
     objectModifiedHandler({
-      target: selection
+      target: selection,
+      transform: scalingTransform
     })
 
-    expect(commitRehydratedShapeLayoutSpy).toHaveBeenCalledTimes(2)
-    expect(commitRehydratedShapeLayoutSpy).toHaveBeenNthCalledWith(1, {
-      target: firstShape,
-      shapeTextAutoExpand: false
+    expect(commitActiveSelectionGroupScalingSpy).toHaveBeenCalledTimes(2)
+    expect(commitActiveSelectionGroupScalingSpy).toHaveBeenNthCalledWith(1, {
+      group: firstShape,
+      scaleX: 0.75,
+      scaleY: 1.2,
+      transform: scalingTransform
     })
-    expect(commitRehydratedShapeLayoutSpy).toHaveBeenNthCalledWith(2, {
-      target: secondShape,
-      shapeTextAutoExpand: false
+    expect(commitActiveSelectionGroupScalingSpy).toHaveBeenNthCalledWith(2, {
+      group: secondShape,
+      scaleX: 0.75,
+      scaleY: 1.2,
+      transform: scalingTransform
     })
+
+    expect(commitRehydratedShapeLayoutSpy).not.toHaveBeenCalled()
+    expect(getObjectPlacementMock).toHaveBeenCalledTimes(2)
+    expect(getObjectPlacementMock).toHaveBeenNthCalledWith(1, {
+      object: firstShape
+    })
+    expect(getObjectPlacementMock).toHaveBeenNthCalledWith(2, {
+      object: secondShape
+    })
+    expect(applyObjectPlacementMock).toHaveBeenCalledTimes(2)
+    expect(applyObjectPlacementMock).toHaveBeenNthCalledWith(1, {
+      object: firstShape,
+      placement: getObjectPlacementMock.mock.results[0].value
+    })
+    expect(applyObjectPlacementMock).toHaveBeenNthCalledWith(2, {
+      object: secondShape,
+      placement: getObjectPlacementMock.mock.results[1].value
+    })
+    expect(getObjectPlacementMock.mock.invocationCallOrder[0]).toBeLessThan(
+      commitActiveSelectionGroupScalingSpy.mock.invocationCallOrder[0]
+    )
+    expect(commitActiveSelectionGroupScalingSpy.mock.invocationCallOrder[0]).toBeLessThan(
+      applyObjectPlacementMock.mock.invocationCallOrder[0]
+    )
+
     expect(clearStateSpy).toHaveBeenCalledTimes(2)
     expect(clearStateSpy).toHaveBeenNthCalledWith(1, {
       group: firstShape
