@@ -774,6 +774,141 @@ describe('shape-scaling', () => {
     expect(nonShapeObject.setCoords).not.toHaveBeenCalled()
   })
 
+  it('после горизонтального изменения размера нескольких шейпов не увеличивает высоту после завершения drag', () => {
+    const {
+      controller,
+      groups,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ width, height }: {
+      width: number
+      height: number
+    }) => {
+      if (width >= 200 && height === 100) return 80
+
+      return height
+    })
+
+    groups.forEach((group) => {
+      group.width = 100
+      group.height = 180
+      group.shapeBaseWidth = 100
+      group.shapeBaseHeight = 180
+      group.shapeManualBaseWidth = 100
+      group.shapeManualBaseHeight = 100
+    })
+
+    selection.scaleX = 2
+    selection.scaleY = 1
+
+    const transform = createShapeScalingTransform({
+      target: selection,
+      action: 'scaleX',
+      corner: 'mr',
+      originX: 'left',
+      originY: 'center'
+    }) as never
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform
+    })
+
+    const liveHeights = groups.map(({ height }) => height)
+
+    applyShapeTextLayoutMock.mockClear()
+
+    groups.forEach((group) => {
+      const didCommit = controller.commitActiveSelectionGroupScaling({
+        group,
+        scaleX: 2,
+        scaleY: 1,
+        transform
+      })
+
+      expect(didCommit).toBe(true)
+    })
+
+    expect(liveHeights).toEqual([100, 100])
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(2)
+    expect(applyShapeTextLayoutMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      width: 200,
+      height: 100
+    }))
+    expect(applyShapeTextLayoutMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      width: 200,
+      height: 100
+    }))
+    expect(groups[0].height).toBe(100)
+    expect(groups[1].height).toBe(100)
+  })
+
+  it('после сужения нескольких шейпов фиксирует высоту, достаточную для текста', () => {
+    const {
+      controller,
+      groups,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ width, height }: {
+      width: number
+      height: number
+    }) => {
+      if (width <= 100) return 260
+
+      return height
+    })
+
+    selection.scaleX = 0.5
+    selection.scaleY = 1
+
+    const transform = createShapeScalingTransform({
+      target: selection,
+      action: 'scaleX',
+      corner: 'mr',
+      originX: 'left',
+      originY: 'center'
+    }) as never
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform
+    })
+
+    const liveHeights = groups.map(({ height }) => height)
+
+    applyShapeTextLayoutMock.mockClear()
+
+    groups.forEach((group) => {
+      const didCommit = controller.commitActiveSelectionGroupScaling({
+        group,
+        scaleX: 0.5,
+        scaleY: 1,
+        transform
+      })
+
+      expect(didCommit).toBe(true)
+    })
+
+    expect(liveHeights).toEqual([260, 260])
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(2)
+    expect(applyShapeTextLayoutMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      width: 100,
+      height: 260
+    }))
+    expect(applyShapeTextLayoutMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      width: 100,
+      height: 260
+    }))
+    expect(groups[0].height).toBe(260)
+    expect(groups[1].height).toBe(260)
+    expect(groups[0].shapeManualBaseHeight).toBe(200)
+    expect(groups[1].shapeManualBaseHeight).toBe(200)
+  })
+
   it('на object:modified запекает vertical shrink в minimum height текста, даже если lastAllowedScaleY устарел', () => {
     const {
       controller,
