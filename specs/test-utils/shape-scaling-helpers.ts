@@ -1,4 +1,4 @@
-import { Point } from 'fabric'
+import { ActiveSelection, Point } from 'fabric'
 import ShapeScalingController from '../../src/editor/shape-manager/scaling/shape-scaling'
 import { getShapeNodes } from '../../src/editor/shape-manager/shape-utils'
 import {
@@ -11,6 +11,7 @@ import {
 type GroupOriginX = 'left' | 'center' | 'right'
 type GroupOriginY = 'top' | 'center' | 'bottom'
 type ShapeScalingTestGroup = ReturnType<typeof createMockShapeGroup>
+type ShapeScalingTransformTarget = ShapeScalingTestGroup | ActiveSelection
 
 type ShapeScalingTransformOptions = {
   scaleX?: number
@@ -23,7 +24,7 @@ type ShapeScalingTransformOptions = {
   action?: string
   signX?: number
   signY?: number
-  target?: ShapeScalingTestGroup
+  target?: ShapeScalingTransformTarget
 }
 
 export type ShapeScalingTransformStub = {
@@ -39,7 +40,7 @@ export type ShapeScalingTransformStub = {
   action?: string
   signX?: number
   signY?: number
-  target?: ShapeScalingTestGroup
+  target?: ShapeScalingTransformTarget
 }
 
 export type ShapeGroupPositionByOriginMock = jest.Mock<
@@ -53,6 +54,22 @@ export type ShapeScalingTestSetup = {
   group: ShapeScalingTestGroup
   shape: ReturnType<typeof createMockShapeNode>
   text: ReturnType<typeof createMockShapeTextbox>
+}
+
+export type ActiveSelectionShapeScalingTestSetup = {
+  controller: ShapeScalingController
+  canvas: ReturnType<typeof createMockCanvas>
+  groups: ShapeScalingTestGroup[]
+  shapes: Array<ReturnType<typeof createMockShapeNode>>
+  texts: Array<ReturnType<typeof createMockShapeTextbox>>
+  selection: ActiveSelection & {
+    scaleX?: number
+    scaleY?: number
+  }
+  nonShapeObject: {
+    setCoords: jest.Mock
+    shapeComposite?: boolean
+  } | null
 }
 
 /**
@@ -92,6 +109,89 @@ export const createShapeScalingSetup = (): ShapeScalingTestSetup => {
     group,
     shape,
     text
+  }
+}
+
+/**
+ * Создаёт setup для ActiveSelection c несколькими shape-группами.
+ */
+export const createActiveSelectionShapeScalingSetup = ({
+  includeNonShapeObject = false
+}: {
+  includeNonShapeObject?: boolean
+} = {}): ActiveSelectionShapeScalingTestSetup => {
+  const canvas = createMockCanvas()
+  const controller = new ShapeScalingController({
+    canvas: canvas as never
+  })
+  const groups: ShapeScalingTestGroup[] = []
+  const shapes: Array<ReturnType<typeof createMockShapeNode>> = []
+  const texts: Array<ReturnType<typeof createMockShapeTextbox>> = []
+  const groupNodes = new Map<ShapeScalingTestGroup, {
+    shape: ReturnType<typeof createMockShapeNode>
+    text: ReturnType<typeof createMockShapeTextbox>
+  }>()
+
+  for (let index = 0; index < 2; index += 1) {
+    const shape = createMockShapeNode({
+      width: 200,
+      height: 200
+    })
+    const text = createMockShapeTextbox({
+      text: `test text ${index + 1}`,
+      width: 200,
+      fontSize: 30
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      left: 480 + (index * 140),
+      top: 420,
+      width: 200,
+      height: 200
+    })
+
+    groups.push(group)
+    shapes.push(shape)
+    texts.push(text)
+    groupNodes.set(group, {
+      shape,
+      text
+    })
+  }
+
+  const nonShapeObject = includeNonShapeObject
+    ? {
+      setCoords: jest.fn(),
+      shapeComposite: false
+    }
+    : null
+  const selectionObjects = includeNonShapeObject && nonShapeObject
+    ? [groups[0], nonShapeObject, groups[1]]
+    : groups
+  const selection = new ActiveSelection(selectionObjects as never[], {
+    canvas: canvas as never
+  }) as ActiveSelection & {
+    scaleX?: number
+    scaleY?: number
+  }
+  const getShapeNodesMock = getShapeNodes as jest.Mock
+
+  getShapeNodesMock.mockImplementation(({ group }: { group: ShapeScalingTestGroup }) => {
+    return groupNodes.get(group) ?? {
+      shape: null,
+      text: null
+    }
+  })
+
+  return {
+    controller,
+    canvas,
+    groups,
+    shapes,
+    texts,
+    selection,
+    nonShapeObject
   }
 }
 

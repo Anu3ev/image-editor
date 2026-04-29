@@ -14,6 +14,7 @@ type MockCanvas = {
   findTarget: jest.Mock
   requestRenderAll: jest.Mock
   setActiveObject: jest.Mock
+  discardActiveObject: jest.Mock
   getActiveObject: jest.Mock
   getObjects: jest.Mock
   getCenterPoint: jest.Mock
@@ -38,6 +39,15 @@ type MockShapeTextbox = Textbox & {
   dynamicMinWidth: number
   autoExpand: boolean
   splitByGrapheme: boolean
+  lineFontDefaults?: Record<number, Record<string, unknown>>
+  paddingTop?: number
+  paddingRight?: number
+  paddingBottom?: number
+  paddingLeft?: number
+  radiusTopLeft?: number
+  radiusTopRight?: number
+  radiusBottomRight?: number
+  radiusBottomLeft?: number
   set: jest.Mock
   initDimensions: jest.Mock
   calcTextHeight: jest.Mock
@@ -103,6 +113,9 @@ export const createMockCanvas = (): MockCanvas => {
     requestRenderAll: jest.fn(),
     setActiveObject: jest.fn((object: unknown) => {
       activeObject = object
+    }),
+    discardActiveObject: jest.fn(() => {
+      activeObject = null
     }),
     getActiveObject: jest.fn(() => activeObject),
     getObjects: jest.fn(() => [...objects]),
@@ -468,7 +481,7 @@ export const createMockShapeGroup = ({
   height?: number
   presetKey?: string
 }): MockShapeGroup => {
-  const group = new Group([shape, text], {
+  const group = new Group([shape, text] as never[], {
     left,
     top,
     width,

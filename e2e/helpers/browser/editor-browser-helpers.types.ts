@@ -139,6 +139,7 @@ export interface BrowserEditorHelpers {
   resolveShapeNode: (group: unknown) => BrowserObject | null
   resolveTarget: (objectIndex?: number, id?: string) => unknown
   resolveCanvasObject: (objectIndex?: number, id?: string) => unknown
+  resolveCanvasObjectOrActive: (objectIndex?: number, id?: string) => unknown
   getSnappingGuideState: () => BrowserSnappingGuideState
   getTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
   getShapeTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
@@ -163,6 +164,10 @@ export interface NullableBoundsInfo {
 export interface BrowserEditorWindow extends Window {
   editor: {
     canvas: {
+      _currentTransform?: {
+        target?: unknown
+      } | null
+      getActiveObject: () => unknown
       upperCanvasEl: {
         style: {
           pointerEvents: string

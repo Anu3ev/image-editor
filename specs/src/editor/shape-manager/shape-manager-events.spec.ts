@@ -1,4 +1,5 @@
 import '../../../test-utils/shape-manager-module-mocks'
+import { ActiveSelection } from 'fabric'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import {
   createShapeManagerEditorStub,
@@ -215,5 +216,166 @@ describe('shape-manager events', () => {
       canvas: editor.canvas,
       eventName: 'editor:shape-updated'
     })).toHaveLength(0)
+  })
+
+  it('при начале изменения размера нескольких шейпов запускает resize lifecycle для каждой фигуры', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const firstShape = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'first'
+      }
+    })
+    const secondShape = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'second'
+      }
+    })
+
+    if (!firstShape || !secondShape) {
+      throw new Error('shape groups should be created')
+    }
+
+    const lifecycleController = (manager as unknown as {
+      lifecycleController: {
+        beginResize: (payload: unknown) => void
+      }
+    }).lifecycleController
+    const scalingController = (manager as unknown as {
+      scalingController: {
+        handleObjectScaling: (event: unknown) => void
+      }
+    }).scalingController
+    const objectScalingHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:scaling'
+    })
+    const selection = new ActiveSelection([firstShape, secondShape] as never[], {
+      canvas: editor.canvas as never
+    }) as ActiveSelection & {
+      scaleX?: number
+      scaleY?: number
+    }
+    const scalingTransform = {
+      action: 'scaleX',
+      corner: 'mr',
+      target: selection,
+      original: {
+        scaleX: 1,
+        scaleY: 1,
+        left: 0,
+        top: 0,
+        originX: 'center',
+        originY: 'center'
+      }
+    } as never
+    const beginResizeSpy = jest.spyOn(lifecycleController, 'beginResize').mockImplementation(() => {})
+    const handleObjectScalingSpy = jest.spyOn(scalingController, 'handleObjectScaling').mockImplementation(() => {})
+
+    objectScalingHandler({
+      target: selection,
+      transform: scalingTransform
+    })
+
+    expect(beginResizeSpy).toHaveBeenCalledTimes(2)
+    expect(beginResizeSpy).toHaveBeenNthCalledWith(1, {
+      group: firstShape
+    })
+    expect(beginResizeSpy).toHaveBeenNthCalledWith(2, {
+      group: secondShape
+    })
+    expect(handleObjectScalingSpy).toHaveBeenCalledWith(expect.objectContaining({
+      target: selection,
+      transform: scalingTransform
+    }))
+  })
+
+  it('после изменения размера нескольких шейпов запекает каждую фигуру и собирает выделение обратно', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const firstShape = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'first'
+      }
+    })
+    const secondShape = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'second'
+      }
+    })
+
+    if (!firstShape || !secondShape) {
+      throw new Error('shape groups should be created')
+    }
+
+    const lifecycleController = (manager as unknown as {
+      lifecycleController: {
+        finishResize: (payload: unknown) => void
+      }
+    }).lifecycleController
+    const scalingController = (manager as unknown as {
+      scalingController: {
+        clearState: (payload: unknown) => void
+      }
+    }).scalingController
+    const objectModifiedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:modified'
+    })
+    const selection = new ActiveSelection([firstShape, secondShape] as never[], {
+      canvas: editor.canvas as never
+    }) as ActiveSelection & {
+      scaleX?: number
+      scaleY?: number
+    }
+    const commitRehydratedShapeLayoutSpy = jest.spyOn(manager, 'commitRehydratedShapeLayout').mockReturnValue(true)
+    const clearStateSpy = jest.spyOn(scalingController, 'clearState').mockImplementation(() => {})
+    const finishResizeSpy = jest.spyOn(lifecycleController, 'finishResize').mockImplementation(() => {})
+
+    selection.scaleX = 0.75
+    selection.scaleY = 1.2
+
+    objectModifiedHandler({
+      target: selection
+    })
+
+    expect(commitRehydratedShapeLayoutSpy).toHaveBeenCalledTimes(2)
+    expect(commitRehydratedShapeLayoutSpy).toHaveBeenNthCalledWith(1, {
+      target: firstShape,
+      shapeTextAutoExpand: false
+    })
+    expect(commitRehydratedShapeLayoutSpy).toHaveBeenNthCalledWith(2, {
+      target: secondShape,
+      shapeTextAutoExpand: false
+    })
+    expect(clearStateSpy).toHaveBeenCalledTimes(2)
+    expect(clearStateSpy).toHaveBeenNthCalledWith(1, {
+      group: firstShape
+    })
+    expect(clearStateSpy).toHaveBeenNthCalledWith(2, {
+      group: secondShape
+    })
+    expect(finishResizeSpy).toHaveBeenCalledTimes(2)
+    expect(finishResizeSpy).toHaveBeenNthCalledWith(1, {
+      group: firstShape
+    })
+    expect(finishResizeSpy).toHaveBeenNthCalledWith(2, {
+      group: secondShape
+    })
+    expect(editor.canvas.discardActiveObject).toHaveBeenCalledTimes(1)
+
+    const setActiveObjectCalls = (editor.canvas.setActiveObject as jest.Mock).mock.calls
+    const restoredSelection = setActiveObjectCalls[setActiveObjectCalls.length - 1]?.[0]
+
+    expect(restoredSelection).toBeInstanceOf(ActiveSelection)
+    expect(restoredSelection?.getObjects()).toEqual([firstShape, secondShape])
   })
 })

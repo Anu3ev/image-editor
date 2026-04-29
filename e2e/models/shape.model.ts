@@ -57,7 +57,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
       if (!target) return null
 
       target.setCoords()
@@ -450,7 +450,7 @@ export class ShapeModel {
     return snapshot
   }
 
-  /** Масштабирует shape по горизонтали за правую ручку и возвращает live snapshot. */
+  /** Масштабирует текущий target на canvas по горизонтали за правую ручку и возвращает live snapshot. */
   async scaleHorizontallyFromRight(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
@@ -558,7 +558,7 @@ export class ShapeModel {
     return states
   }
 
-  /** Масштабирует shape по вертикали за нижнюю ручку и возвращает live snapshot. */
+  /** Масштабирует текущий target на canvas по вертикали за нижнюю ручку и возвращает live snapshot. */
   async scaleVerticallyFromBottom(
     params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
@@ -703,7 +703,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
       if (!target) return null
 
       const transform = editor.canvas._currentTransform
@@ -891,7 +891,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
       if (!target) return null
 
       const left = typeof target.left === 'number' ? target.left : 0
@@ -1156,7 +1156,7 @@ export class ShapeModel {
           __editorHelpers: helpers
         } = window as any
 
-        const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
+        const target = helpers.resolveCanvasObjectOrActive(targetObjectIndex, targetId)
         if (!target) return null
 
         target.setCoords()
@@ -1277,7 +1277,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
+      const target = helpers.resolveCanvasObjectOrActive(targetObjectIndex, targetId)
       if (!target) return null
 
       editor.canvas.setActiveObject(target)
@@ -1354,18 +1354,18 @@ export class ShapeModel {
     return true
   }
 
-  /** Возвращает текущий snapshot состояния shape-группы, fail-fast проверяет его наличие. */
+  /** Возвращает текущий snapshot масштабируемого target, fail-fast проверяет его наличие. */
   async getScaleSnapshot(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const { __editorHelpers: helpers } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
       if (!target) return null
 
       return helpers.serializeShapeScaleSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должен существовать текущий snapshot масштабируемого shape').not.toBeNull()
+    expect(snapshot, 'должен существовать текущий snapshot масштабируемого target').not.toBeNull()
 
     return snapshot as ShapeScaleSnapshot
   }
@@ -1471,7 +1471,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
       if (!target) return null
 
       const shapeNode = helpers.resolveShapeNode(target)
@@ -1497,7 +1497,7 @@ export class ShapeModel {
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
       if (!target) return null
 
       editor.canvas.setActiveObject(target)
@@ -1556,7 +1556,12 @@ export class ShapeModel {
 
     expect(point, 'для клика по фигуре должны существовать координаты на canvas').not.toBeNull()
 
-    await this.page.mouse.click(point.x, point.y)
+    const resolvedPoint = point as {
+      x: number
+      y: number
+    }
+
+    await this.page.mouse.click(resolvedPoint.x, resolvedPoint.y)
     await waitForCanvasRender({ page: this.page })
   }
 
