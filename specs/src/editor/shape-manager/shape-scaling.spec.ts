@@ -11,6 +11,7 @@ import {
   isShapeGroup
 } from '../../../../src/editor/shape-manager/shape-utils'
 import {
+  createActiveSelectionShapeScalingSetup,
   createShapeScalingSetup,
   createShapeScalingTransform,
   mockShapeScalingLocalPointer,
@@ -653,6 +654,124 @@ describe('shape-scaling', () => {
 
     expect(text.scaleX).toBeCloseTo(1, 4)
     expect(text.scaleY).toBeCloseTo(2, 4)
+  })
+
+  it('при изменении размера нескольких шейпов в лайве не уменьшает текст пропорционально выделению', () => {
+    const {
+      controller,
+      groups,
+      texts,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    selection.scaleX = 0.5
+    selection.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform: createShapeScalingTransform({
+        target: selection,
+        action: 'scaleX',
+        corner: 'mr',
+        originX: 'left',
+        originY: 'center'
+      }) as never
+    })
+
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledTimes(2)
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      width: 100,
+      height: 200
+    }))
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      width: 100,
+      height: 200
+    }))
+    expect(texts[0].scaleX).toBeCloseTo(2, 4)
+    expect(texts[0].scaleY).toBeCloseTo(1, 4)
+    expect(texts[1].scaleX).toBeCloseTo(2, 4)
+    expect(texts[1].scaleY).toBeCloseTo(1, 4)
+    expect(groups[0].width).toBe(200)
+    expect(groups[1].width).toBe(200)
+  })
+
+  it('если Fabric пропустил scaling-кадр, продолжает лайв-перерасчёт текста для нескольких шейпов', () => {
+    const {
+      controller,
+      canvas,
+      texts,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform: createShapeScalingTransform({
+        target: selection,
+        action: 'scaleX',
+        corner: 'mr',
+        originX: 'left',
+        originY: 'center'
+      }) as never
+    })
+
+    resolveShapeTextFixedWidthLayoutMock.mockClear()
+    selection.scaleX = 0.5
+    selection.scaleY = 1
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+    }
+
+    canvasWithTransform._currentTransform = createShapeScalingTransform({
+      target: selection,
+      action: 'scaleX',
+      corner: 'mr',
+      originX: 'left',
+      originY: 'center'
+    })
+
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledTimes(2)
+    expect(texts[0].scaleX).toBeCloseTo(2, 4)
+    expect(texts[1].scaleX).toBeCloseTo(2, 4)
+  })
+
+  it('в лайве с несколькими объектами перерасчитывает только шейпы из выделения', () => {
+    const {
+      controller,
+      nonShapeObject,
+      selection
+    } = createActiveSelectionShapeScalingSetup({
+      includeNonShapeObject: true
+    })
+
+    if (!nonShapeObject) {
+      throw new Error('non-shape object should be created')
+    }
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    selection.scaleX = 0.5
+    selection.scaleY = 1
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform: createShapeScalingTransform({
+        target: selection,
+        action: 'scaleX',
+        corner: 'mr',
+        originX: 'left',
+        originY: 'center'
+      }) as never
+    })
+
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledTimes(2)
+    expect(nonShapeObject.setCoords).not.toHaveBeenCalled()
   })
 
   it('на object:modified запекает vertical shrink в minimum height текста, даже если lastAllowedScaleY устарел', () => {

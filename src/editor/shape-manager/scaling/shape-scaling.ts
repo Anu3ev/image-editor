@@ -1,4 +1,5 @@
 import {
+  ActiveSelection,
   Canvas,
   FabricObject,
   Point,
@@ -137,6 +138,14 @@ export default class ShapeScalingController {
       target,
       transform
     } = event
+    if (target instanceof ActiveSelection) {
+      this._applyActiveSelectionScalingPreview({
+        selection: target,
+        transform
+      })
+      return
+    }
+
     if (!isShapeGroup(target)) return
 
     const group = target
@@ -564,6 +573,14 @@ export default class ShapeScalingController {
     if (!transform) return
 
     const { target } = transform
+    if (target instanceof ActiveSelection) {
+      this._applyActiveSelectionScalingPreview({
+        selection: target,
+        transform
+      })
+      return
+    }
+
     if (!isShapeGroup(target)) return
 
     const {
@@ -696,6 +713,85 @@ export default class ShapeScalingController {
       currentTop: state.lastAllowedTop,
       currentFlipX: state.lastAllowedFlipX,
       currentFlipY: state.lastAllowedFlipY
+    })
+
+    this.canvas.requestRenderAll()
+  }
+
+  /**
+   * Применяет shape-specific live preview для shape-групп внутри ActiveSelection,
+   * чтобы текст перераскладывался по shape-layout контракту, а не скейлился пропорционально с selection.
+   */
+  private _applyActiveSelectionScalingPreview({
+    selection,
+    transform
+  }: {
+    selection: ActiveSelection
+    transform?: Transform | null
+  }): void {
+    if (!transform) return
+
+    const {
+      canScaleWidth,
+      canScaleHeight
+    } = resolveShapeScaleActionAxes({
+      transform
+    })
+    if (!canScaleWidth && !canScaleHeight) return
+
+    const scaleX = Math.abs(selection.scaleX ?? 1) || 1
+    const scaleY = Math.abs(selection.scaleY ?? 1) || 1
+    const shapeGroups = selection.getObjects().filter((object): object is ShapeGroup => {
+      return isShapeGroup(object)
+    })
+
+    if (!shapeGroups.length) return
+
+    shapeGroups.forEach((group) => {
+      const {
+        shape,
+        text
+      } = getShapeNodes({ group })
+
+      if (!shape || !text) return
+
+      const constraintPadding = ShapeScalingController._resolveScalingConstraintPadding({ group })
+      const state = this._ensureScalingState({
+        group,
+        text,
+        constraintPadding,
+        transform
+      })
+      const previewDimensions = this._resolvePreviewDimensions({
+        group,
+        text,
+        constraintPadding,
+        state,
+        appliedScaleX: scaleX,
+        appliedScaleY: scaleY
+      })
+      const previewLayout = this._resolvePreviewLayout({
+        group,
+        text,
+        state,
+        appliedScaleX: scaleX,
+        appliedScaleY: scaleY,
+        minimumHeight: previewDimensions.previewHeight
+      })
+
+      applyShapeScalingPreviewLayout({
+        group,
+        shape,
+        text,
+        layout: previewLayout,
+        alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+        scaleX,
+        scaleY,
+        minSize: MIN_SIZE,
+        scaleEpsilon: SCALE_EPSILON
+      })
+
+      group.setCoords()
     })
 
     this.canvas.requestRenderAll()

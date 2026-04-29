@@ -113,6 +113,11 @@ export function installEditorBrowserHelpers(): void {
    */
   function getBoundingRect({ target }: { target: unknown }): BrowserObject | null {
     const canvasObject = toBrowserObject({ value: target }) as BrowserBoundedObject
+
+    if (typeof canvasObject.getBoundingRect !== 'function') {
+      return null
+    }
+
     const bounds = canvasObject.getBoundingRect()
 
     return toBrowserObject({ value: bounds })
@@ -459,6 +464,20 @@ export function installEditorBrowserHelpers(): void {
     if (objectIndex === undefined) return undefined
 
     return objects[objectIndex]
+  }
+
+  /**
+   * Возвращает canvas-объект по индексу или id, а при их отсутствии — target текущего transform или active object.
+   */
+  function resolveCanvasObjectOrActive({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
+    const target = resolveCanvasObject({ objectIndex, id })
+
+    if (target !== undefined) return target
+
+    const transformTarget = browserWindow.editor.canvas._currentTransform?.target
+    if (transformTarget) return transformTarget
+
+    return browserWindow.editor.canvas.getActiveObject()
   }
 
   /**
@@ -991,6 +1010,9 @@ export function installEditorBrowserHelpers(): void {
       },
       resolveCanvasObject(objectIndex?: number, id?: string) {
         return resolveCanvasObject({ objectIndex, id })
+      },
+      resolveCanvasObjectOrActive(objectIndex?: number, id?: string) {
+        return resolveCanvasObjectOrActive({ objectIndex, id })
       },
       getSnappingGuideState() {
         return {

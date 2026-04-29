@@ -34,7 +34,8 @@ describe('восстановленная фигура', () => {
     const result = manager.commitRehydratedShapeLayout({
       target: group
     })
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCallCalls = applyShapeTextLayoutMock.mock.calls
+    const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
 
     expect(result).toBe(true)
     expect(layoutCall).toEqual(expect.objectContaining({
@@ -124,7 +125,8 @@ describe('восстановленная фигура', () => {
     const result = manager.commitRehydratedShapeLayout({
       target: group
     })
-    const layoutCall = applyShapeTextLayoutMock.mock.calls.at(-1)?.[0]
+    const layoutCallCalls = applyShapeTextLayoutMock.mock.calls
+    const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
 
     expect(result).toBe(true)
     expect(layoutCall).toEqual(expect.objectContaining({
@@ -135,5 +137,64 @@ describe('восстановленная фигура', () => {
     expect(text.paddingTop).toBe(3)
     expect(text.radiusTopLeft).toBe(5)
     expect(group.shapePaddingTop).toBe(7)
+  })
+
+  it('при явном отключении авторасширения передаёт этот режим в layout во время materialization', () => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const { group } = createShapeRehydrationTarget({
+      width: 200,
+      height: 100,
+      scaleX: 1.25,
+      scaleY: 1.5
+    })
+
+    group.shapeTextAutoExpand = true
+
+    const result = manager.commitRehydratedShapeLayout({
+      target: group,
+      shapeTextAutoExpand: false
+    })
+    const layoutCallCalls = applyShapeTextLayoutMock.mock.calls
+    const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
+
+    expect(result).toBe(true)
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 250,
+      height: 150,
+      shapeTextAutoExpandEnabled: false
+    }))
+    expect(group.shapeTextAutoExpand).toBe(false)
+  })
+
+  it('без override сохраняет текущий режим авторасширения при materialization', () => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const { group } = createShapeRehydrationTarget({
+      width: 200,
+      height: 100,
+      scaleX: 1.25,
+      scaleY: 1.5
+    })
+
+    group.shapeTextAutoExpand = true
+
+    const result = manager.commitRehydratedShapeLayout({
+      target: group
+    })
+    const layoutCallCalls = applyShapeTextLayoutMock.mock.calls
+    const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
+
+    expect(result).toBe(true)
+    expect(layoutCall).toEqual(expect.objectContaining({
+      width: 250,
+      height: 150,
+      shapeTextAutoExpandEnabled: true
+    }))
+    expect(group.shapeTextAutoExpand).toBe(true)
   })
 })

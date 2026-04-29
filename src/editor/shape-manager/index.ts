@@ -95,6 +95,8 @@ type ShapeGroupDimensions = {
   height: number
 }
 
+const ACTIVE_SELECTION_SCALE_EPSILON = 0.0001
+
 /**
  * Менеджер фигур и композитных объектов "фигура + текст".
  */
@@ -1290,10 +1292,12 @@ export default class ShapeManager {
    */
   public commitRehydratedShapeLayout({
     target,
-    textScale = 1
+    textScale = 1,
+    shapeTextAutoExpand
   }: {
     target?: ShapeReference
     textScale?: number
+    shapeTextAutoExpand?: boolean
   }): boolean {
     const group = this._resolveShapeGroup({ target })
     if (!group) return false
@@ -1362,6 +1366,10 @@ export default class ShapeManager {
       group
     })
 
+    if (shapeTextAutoExpand !== undefined) {
+      group.shapeTextAutoExpand = shapeTextAutoExpand
+    }
+
     group.shapeManualBaseWidth = manualDimensions.width
     group.shapeManualBaseHeight = manualDimensions.height
 
@@ -1417,39 +1425,98 @@ export default class ShapeManager {
   }
 
   /**
-   * Обработчик live-resize shape-групп.
+   * Обработчик live-resize shape-групп, включая shape внутри ActiveSelection.
    */
   private _handleObjectScaling = (
     event: ShapeCanvasEvent
   ): void => {
-    const group = event.target && isShapeGroup(event.target)
-      ? event.target
-      : null
+    const groups = this._collectShapeGroupsFromTarget({
+      target: event.target,
+      subTargets: event.subTargets
+    })
 
-    if (group) {
+    groups.forEach((group) => {
       this.lifecycleController.beginResize({
         group
       })
-    }
+    })
 
     this.scalingController.handleObjectScaling(event)
   }
 
   /**
-   * Обработчик commit ресайза shape после завершения transform.
+   * Обработчик commit ресайза shape после завершения transform, включая ActiveSelection.
    */
   private _handleObjectModified = (
     event: ShapeCanvasEvent
   ): void => {
-    this.scalingController.handleObjectModified(event)
-    const group = event.target && isShapeGroup(event.target)
-      ? event.target
-      : null
-    if (!group) return
+    const { target } = event
+    const groups = this._collectShapeGroupsFromTarget({ target })
 
-    this.lifecycleController.finishResize({
-      group
+    if (target instanceof ActiveSelection) {
+      this._commitActiveSelectionShapeScaling({
+        selection: target
+      })
+
+      groups.forEach((group) => {
+        this.scalingController.clearState({
+          group
+        })
+      })
+    } else {
+      this.scalingController.handleObjectModified(event)
+    }
+
+    groups.forEach((group) => {
+      this.lifecycleController.finishResize({
+        group
+      })
     })
+  }
+
+  /**
+   * Материализует transient-scale ActiveSelection в дочерние shape-группы
+   * через общий rehydration/layout pipeline и восстанавливает выделение.
+   */
+  private _commitActiveSelectionShapeScaling({
+    selection
+  }: {
+    selection: ActiveSelection
+  }): void {
+    const objects = selection.getObjects()
+    const shapeGroups = objects.filter((object): object is ShapeGroup => {
+      return isShapeGroup(object)
+    })
+
+    if (!shapeGroups.length) return
+
+    const scaleX = Math.abs(selection.scaleX ?? 1)
+    const scaleY = Math.abs(selection.scaleY ?? 1)
+    const hasScaleChange = Math.abs(scaleX - 1) > ACTIVE_SELECTION_SCALE_EPSILON
+      || Math.abs(scaleY - 1) > ACTIVE_SELECTION_SCALE_EPSILON
+
+    if (!hasScaleChange) return
+
+    const { canvas } = this.editor
+    const hasWidthChange = Math.abs(scaleX - 1) > ACTIVE_SELECTION_SCALE_EPSILON
+
+    canvas.discardActiveObject()
+
+    shapeGroups.forEach((group) => {
+      this.commitRehydratedShapeLayout({
+        target: group,
+        shapeTextAutoExpand: hasWidthChange
+          ? false
+          : undefined
+      })
+
+      group.setCoords()
+    })
+
+    const nextSelection = new ActiveSelection(objects, { canvas })
+
+    canvas.setActiveObject(nextSelection)
+    canvas.requestRenderAll()
   }
 
   /**
