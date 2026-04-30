@@ -13,6 +13,11 @@ type SelectionScaleInteraction = {
   control: SelectionControlKey
 }
 
+type DragActiveScaleHandleParams = {
+  deltaX: number
+  deltaY: number
+}
+
 type ScaleSelectionFromControlParams = {
   startControl: SelectionControlKey
   oppositeControl: SelectionControlKey
@@ -76,6 +81,21 @@ export class SelectionModel {
     return this._scaleFromControl({
       startControl: 'mb',
       oppositeControl: 'mt',
+      scaleY: params.scaleY
+    })
+  }
+
+  /** Масштабирует текущее общее выделение из правого нижнего угла и возвращает live-состояние. */
+  async scaleDiagonallyFromBottomRight(
+    params: {
+      scaleX: number
+      scaleY: number
+    }
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'br',
+      oppositeControl: 'tl',
+      scaleX: params.scaleX,
       scaleY: params.scaleY
     })
   }
@@ -162,9 +182,10 @@ export class SelectionModel {
         clientY: releasePoint.y
       }))
 
-      target.setCoords()
+      const snapshotTarget = editor.canvas.getActiveObject() ?? target
+      snapshotTarget.setCoords()
 
-      return helpers.serializeSnappingObjectSnapshot(target)
+      return helpers.serializeSnappingObjectSnapshot(snapshotTarget)
     }, this.activeScaleInteraction)
 
     this.activeScaleInteraction = null
@@ -174,6 +195,92 @@ export class SelectionModel {
     await waitForCanvasRender({ page: this.page })
 
     return snapshot as SnappingObjectSnapshot
+  }
+
+  /** Продолжает текущий drag хэндла общего выделения и возвращает live-состояние. */
+  async dragActiveScaleHandleBy(
+    params: DragActiveScaleHandleParams
+  ): Promise<SnappingObjectSnapshot> {
+    expect(
+      this.activeScaleInteraction,
+      'должна существовать активная drag-сессия масштабирования общего выделения'
+    ).not.toBeNull()
+
+    if (!this.activeScaleInteraction) {
+      throw new Error('должна существовать активная drag-сессия масштабирования общего выделения')
+    }
+
+    const result = await this.page.evaluate((payload) => {
+      const {
+        point,
+        control,
+        deltaX,
+        deltaY
+      } = payload
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = editor.canvas.getActiveObject()
+      if (!target) return null
+
+      const movePoint = {
+        x: point.x + deltaX,
+        y: point.y + deltaY
+      }
+
+      editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: movePoint.x,
+        clientY: movePoint.y
+      }))
+
+      const snapshotTarget = editor.canvas.getActiveObject() ?? target
+      snapshotTarget.setCoords()
+
+      const currentControl = snapshotTarget.oCoords?.[control]
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const currentPoint = currentControl
+        && typeof currentControl.x === 'number'
+        && typeof currentControl.y === 'number'
+        ? {
+          x: rect.left + currentControl.x,
+          y: rect.top + currentControl.y
+        }
+        : movePoint
+
+      return {
+        point: currentPoint,
+        snapshot: helpers.serializeSnappingObjectSnapshot(snapshotTarget)
+      }
+    }, {
+      ...this.activeScaleInteraction,
+      ...params
+    })
+
+    expect(result, 'должно существовать live-состояние общего выделения после продолжения drag').not.toBeNull()
+
+    await waitForCanvasRender({ page: this.page })
+
+    const {
+      point,
+      snapshot
+    } = result as {
+      point: {
+        x: number
+        y: number
+      }
+      snapshot: SnappingObjectSnapshot
+    }
+
+    this.activeScaleInteraction = {
+      ...this.activeScaleInteraction,
+      point
+    }
+
+    return snapshot
   }
 
   private async _scaleFromControl(

@@ -60,7 +60,23 @@ export class Pattern {
   }
 }
 
-export class FitContentLayout {
+export class LayoutStrategy {}
+
+export class LayoutManager {
+  public strategy?: LayoutStrategy
+
+  public subscribeTargets = jest.fn()
+
+  public unsubscribeTargets = jest.fn()
+
+  public performLayout = jest.fn()
+
+  constructor(strategy?: LayoutStrategy) {
+    this.strategy = strategy
+  }
+}
+
+export class FitContentLayout extends LayoutStrategy {
   calcBoundingBox(_objects: unknown[], _context: unknown) {
     return undefined
   }
@@ -991,6 +1007,8 @@ export default {
   FabricImage,
   Gradient,
   Textbox,
+  LayoutManager,
+  LayoutStrategy,
   FitContentLayout,
   InteractiveFabricObject,
   controlsUtils,

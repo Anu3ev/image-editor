@@ -1,9 +1,9 @@
 import {
   Control,
   controlsUtils,
+  type FabricObject,
   type Transform
 } from 'fabric'
-import type { ShapeGroupLike } from '../types'
 
 const SHAPE_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
 
@@ -139,26 +139,30 @@ const createShapeCornerFreeScaleControl = ({
 }
 
 /**
- * Подменяет угловые контролы shape-группы так, чтобы diagonal drag работал как свободный resize.
+ * Подменяет угловые контролы объекта так, чтобы диагональный resize шейпа работал свободно по двум осям.
  */
 export const applyShapeCornerFreeScaleControls = ({
-  group
+  target
 }: {
-  group: ShapeGroupLike
+  target: FabricObject
 }): void => {
   const nextControls = {
-    ...group.controls
+    ...target.controls
   }
+  let hasControlChange = false
 
   SHAPE_CORNER_CONTROL_KEYS.forEach((key) => {
-    const control = group.controls[key] as ShapeCornerControl | undefined
+    const control = target.controls[key] as ShapeCornerControl | undefined
     if (!control) return
     if (control.shapeFreeScaleCornerControl) return
 
     nextControls[key] = createShapeCornerFreeScaleControl({
       control
     })
+    hasControlChange = true
   })
 
-  group.controls = nextControls
+  if (!hasControlChange) return
+
+  target.controls = nextControls
 }

@@ -1493,12 +1493,21 @@ export default class ShapeManager {
 
     if (!shapeGroups.length) return
 
-    const scaleX = Math.abs(selection.scaleX ?? 1)
-    const scaleY = Math.abs(selection.scaleY ?? 1)
+    const {
+      scaleX,
+      scaleY
+    } = this.scalingController.resolveActiveSelectionCommittedScale({
+      selection
+    })
     const hasScaleChange = Math.abs(scaleX - 1) > ACTIVE_SELECTION_SCALE_EPSILON
       || Math.abs(scaleY - 1) > ACTIVE_SELECTION_SCALE_EPSILON
 
-    if (!hasScaleChange) return
+    if (!hasScaleChange) {
+      this.scalingController.clearActiveSelectionState({
+        selection
+      })
+      return
+    }
 
     const {
       canvas,
@@ -1528,6 +1537,10 @@ export default class ShapeManager {
     })
 
     const nextSelection = new ActiveSelection(objects, { canvas })
+
+    this.scalingController.clearActiveSelectionState({
+      selection
+    })
 
     canvas.setActiveObject(nextSelection)
     canvas.requestRenderAll()

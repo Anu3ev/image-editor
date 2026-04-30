@@ -694,6 +694,7 @@ describe('shape-scaling', () => {
     expect(texts[1].scaleY).toBeCloseTo(1, 4)
     expect(groups[0].width).toBe(200)
     expect(groups[1].width).toBe(200)
+    expect(selection.setCoords).toHaveBeenCalled()
   })
 
   it('если Fabric пропустил scaling-кадр, продолжает лайв-перерасчёт текста для нескольких шейпов', () => {

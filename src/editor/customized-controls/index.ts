@@ -10,6 +10,7 @@ import {
   type StrictLayoutContext
 } from 'fabric'
 import { DEFAULT_CONTROLS } from './default-controls'
+import { applyShapeCornerFreeScaleControls } from '../shape-manager/scaling/shape-controls'
 
 type BoundingBox = {
   height: number
@@ -232,7 +233,7 @@ export default class ControlsCustomizer {
   }
 
   /**
-   * Применяет ограничения масштабирования ActiveSelection для объектов с собственным text/layout контрактом.
+   * Применяет ограничения и контролы масштабирования ActiveSelection для объектов с собственным text/layout контрактом.
    */
   private static applyActiveSelectionScalingRules(
     {
@@ -250,6 +251,12 @@ export default class ControlsCustomizer {
     selection.set({
       lockScalingFlip: shouldLockScalingFlip
     })
+
+    if (hasShape) {
+      applyShapeCornerFreeScaleControls({
+        target: selection
+      })
+    }
 
     // Для текстовых объектов скрываем вертикальные хэндлы, но оставляем горизонтальное масштабирование:
     // TextManager корректно обрабатывает изменение ширины.
