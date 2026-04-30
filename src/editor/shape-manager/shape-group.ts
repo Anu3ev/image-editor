@@ -1,9 +1,11 @@
 import {
   FabricObject,
   Group,
+  LayoutManager,
   classRegistry,
   util,
-  type Abortable
+  type Abortable,
+  type LayoutStrategy
 } from 'fabric'
 import {
   getShapePreset,
@@ -28,36 +30,33 @@ import type {
 
 type ShapeGroupOptions = ConstructorParameters<typeof Group>[1] & Partial<ShapeGroupMetadata>
 
-type SerializedShapeGroupOptions = ShapeGroupOptions & {
-  layoutManager?: {
-    strategy?: string
-    type: string
-  }
-  objects?: object[]
+type SerializedShapeGroupLayoutManager = {
+  type: string
+  strategy?: string
+}
+
+interface SerializedShapeGroupObject extends Partial<ShapeGroupMetadata> {
+  [key: string]: unknown
   type?: string
+  objects?: object[]
+  layoutManager?: SerializedShapeGroupLayoutManager
+}
+
+type RegisteredLayoutStrategyClass = {
+  new(): LayoutStrategy
 }
 
 const SHAPE_GROUP_TYPE = 'shape-group'
 
-type NoopShapeLayoutManager = {
-  performLayout: (options?: object) => void
-}
-
-type ShapeLayoutManager = {
-  subscribeTargets: (options: {
-    target: Group
-    targets: FabricObject[]
-    type: string
-  }) => void
-}
-
 /**
  * Создаёт временный layout manager без реального layout, используемый только на стадии deserialization.
  */
-function createNoopShapeLayoutManager(): NoopShapeLayoutManager {
-  return {
-    performLayout(): void {}
-  }
+function createNoopShapeLayoutManager(): LayoutManager {
+  const layoutManager = new LayoutManager()
+
+  layoutManager.performLayout = (): void => {}
+
+  return layoutManager
 }
 
 /**
@@ -66,11 +65,9 @@ function createNoopShapeLayoutManager(): NoopShapeLayoutManager {
 function resolveShapeGroupLayoutManager({
   layoutManager
 }: {
-  layoutManager?: SerializedShapeGroupOptions['layoutManager']
-}): ShapeLayoutManager {
-  const LayoutManagerClass = classRegistry.getClass('layoutManager') as new (
-    ...args: unknown[]
-  ) => ShapeLayoutManager
+  layoutManager?: SerializedShapeGroupLayoutManager
+}): LayoutManager {
+  const LayoutManagerClass = classRegistry.getClass<typeof LayoutManager>('layoutManager')
 
   if (!layoutManager) {
     return new LayoutManagerClass()
@@ -80,15 +77,13 @@ function resolveShapeGroupLayoutManager({
     strategy,
     type
   } = layoutManager
-  const RegisteredLayoutManagerClass = classRegistry.getClass(type) as new (
-    ...args: unknown[]
-  ) => ShapeLayoutManager
+  const RegisteredLayoutManagerClass = classRegistry.getClass<typeof LayoutManager>(type)
 
   if (!strategy) {
     return new RegisteredLayoutManagerClass()
   }
 
-  const StrategyClass = classRegistry.getClass(strategy) as new (...args: unknown[]) => object
+  const StrategyClass = classRegistry.getClass<RegisteredLayoutStrategyClass>(strategy)
 
   return new RegisteredLayoutManagerClass(new StrategyClass())
 }
@@ -160,7 +155,7 @@ export class ShapeGroupObject extends Group {
       group: this as ShapeGroupLike
     })
     applyShapeCornerFreeScaleControls({
-      group: this as ShapeGroupLike
+      target: this as ShapeGroupLike
     })
 
     const text = getShapeRuntimeTextNode({
@@ -187,7 +182,7 @@ export class ShapeGroupObject extends Group {
       objects = [],
       layoutManager,
       ...options
-    }: SerializedShapeGroupOptions,
+    }: SerializedShapeGroupObject,
     abortable?: Abortable
   ): Promise<ShapeGroupObject> {
     const [enlivenedObjects, hydratedOptions] = await Promise.all([
@@ -199,7 +194,7 @@ export class ShapeGroupObject extends Group {
       ...options,
       ...hydratedOptions,
       layoutManager: createNoopShapeLayoutManager()
-    })
+    } as ShapeGroupOptions)
 
     group.layoutManager = resolveShapeGroupLayoutManager({ layoutManager })
     group.layoutManager.subscribeTargets({

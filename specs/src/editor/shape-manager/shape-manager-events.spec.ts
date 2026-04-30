@@ -1,5 +1,5 @@
 import '../../../test-utils/shape-manager-module-mocks'
-import { ActiveSelection } from 'fabric'
+import { ActiveSelection, Point } from 'fabric'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import {
   createShapeManagerEditorStub,
@@ -428,5 +428,114 @@ describe('shape-manager events', () => {
 
     expect(restoredSelection).toBeInstanceOf(ActiveSelection)
     expect(restoredSelection?.getObjects()).toEqual([firstShape, secondShape])
+  })
+
+  it('после изменения размера нескольких шейпов фиксирует размер по scale, применённому во время drag', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const firstShape = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'first'
+      }
+    })
+    const secondShape = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'second'
+      }
+    })
+
+    if (!firstShape || !secondShape) {
+      throw new Error('shape groups should be created')
+    }
+
+    const minimumShapeWidth = 120
+    const rawSelectionScaleX = 0.2
+    const { shapeBaseWidth } = firstShape
+
+    if (typeof shapeBaseWidth !== 'number') {
+      throw new Error('у первого шейпа должна существовать базовая ширина')
+    }
+
+    const appliedSelectionScaleX = minimumShapeWidth / shapeBaseWidth
+    const scalingController = (manager as unknown as {
+      scalingController: {
+        commitActiveSelectionGroupScaling: (payload: unknown) => boolean
+      }
+    }).scalingController
+    const objectScalingHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:scaling'
+    })
+    const objectModifiedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'object:modified'
+    })
+    const selection = new ActiveSelection([firstShape, secondShape] as never[], {
+      canvas: editor.canvas as never
+    }) as ActiveSelection & {
+      scaleX?: number
+      scaleY?: number
+      setCoords: jest.Mock
+      setPositionByOrigin: jest.Mock
+    }
+    const scalingTransform = {
+      action: 'scaleX',
+      corner: 'mr',
+      target: selection,
+      originX: 'left',
+      originY: 'center',
+      original: {
+        scaleX: 1,
+        scaleY: 1,
+        left: 0,
+        top: 0,
+        originX: 'left',
+        originY: 'center'
+      }
+    } as never
+    const commitActiveSelectionGroupScalingSpy = jest
+      .spyOn(scalingController, 'commitActiveSelectionGroupScaling')
+      .mockReturnValue(true)
+    const getPositionByOriginMock = jest.fn((
+      _originX: Parameters<ActiveSelection['getPositionByOrigin']>[0],
+      _originY: Parameters<ActiveSelection['getPositionByOrigin']>[1]
+    ) => new Point(0, 0))
+
+    mocks.resolveMinimumShapeWidthForTextMock.mockReturnValue(minimumShapeWidth)
+    selection.scaleX = rawSelectionScaleX
+    selection.scaleY = 1
+    selection.setCoords = jest.fn()
+    selection.getPositionByOrigin = getPositionByOriginMock
+    selection.setPositionByOrigin = jest.fn()
+
+    objectScalingHandler({
+      target: selection,
+      transform: scalingTransform
+    })
+
+    selection.scaleX = rawSelectionScaleX
+
+    objectModifiedHandler({
+      target: selection,
+      transform: scalingTransform
+    })
+
+    expect(commitActiveSelectionGroupScalingSpy).toHaveBeenCalledTimes(2)
+    expect(commitActiveSelectionGroupScalingSpy).toHaveBeenNthCalledWith(1, {
+      group: firstShape,
+      scaleX: appliedSelectionScaleX,
+      scaleY: 1,
+      transform: scalingTransform
+    })
+    expect(commitActiveSelectionGroupScalingSpy).toHaveBeenNthCalledWith(2, {
+      group: secondShape,
+      scaleX: appliedSelectionScaleX,
+      scaleY: 1,
+      transform: scalingTransform
+    })
   })
 })

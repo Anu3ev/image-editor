@@ -109,6 +109,32 @@ describe('customized-controls', () => {
     })
   })
 
+  it('выделение с шейпом получает контролы для свободного изменения размера за угол', () => {
+    const {
+      selection,
+      recalculateBounds
+    } = createActiveSelectionScalingRulesTestSetup({
+      objectKinds: ['shape']
+    })
+    const topLeftControl = selection.controls.tl
+    const topRightControl = selection.controls.tr
+    const bottomLeftControl = selection.controls.bl
+    const bottomRightControl = selection.controls.br
+    const middleLeftControl = selection.controls.ml
+
+    recalculateBounds()
+
+    expect(selection.controls.tl).not.toBe(topLeftControl)
+    expect(selection.controls.tr).not.toBe(topRightControl)
+    expect(selection.controls.bl).not.toBe(bottomLeftControl)
+    expect(selection.controls.br).not.toBe(bottomRightControl)
+    expect(selection.controls.ml).toBe(middleLeftControl)
+    expect(selection.controls.tl).toHaveProperty('shapeFreeScaleCornerControl', true)
+    expect(selection.controls.tr).toHaveProperty('shapeFreeScaleCornerControl', true)
+    expect(selection.controls.bl).toHaveProperty('shapeFreeScaleCornerControl', true)
+    expect(selection.controls.br).toHaveProperty('shapeFreeScaleCornerControl', true)
+  })
+
   it('выделение обычных объектов не блокирует flip', () => {
     const {
       selection,

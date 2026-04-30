@@ -362,6 +362,11 @@ declare module 'fabric' {
     shapeRounding?: number;
 
     /**
+     * Флаг, указывающий поддерживает ли фигура скругление.
+     */
+    shapeCanRound?: boolean;
+
+    /**
      * Роль объекта внутри shape-группы.
      */
     shapeNodeType?: 'shape' | 'text';

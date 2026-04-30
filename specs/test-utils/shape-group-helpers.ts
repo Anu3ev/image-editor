@@ -1,5 +1,7 @@
 import {
   FabricObject,
+  LayoutManager,
+  LayoutStrategy,
   Textbox,
   classRegistry
 } from 'fabric'
@@ -13,21 +15,9 @@ class MockShapeObject extends FabricObject {
   }
 }
 
-export class MockLayoutStrategy {}
+export class MockLayoutStrategy extends LayoutStrategy {}
 
-export class MockLayoutManager {
-  public strategy?: object
-
-  public subscribeTargets = jest.fn()
-
-  public unsubscribeTargets = jest.fn()
-
-  public performLayout = jest.fn()
-
-  constructor(strategy?: object) {
-    this.strategy = strategy
-  }
-}
+export class MockLayoutManager extends LayoutManager {}
 
 /**
  * Регистрирует тестовые классы Fabric, нужные для десериализации shape-group.

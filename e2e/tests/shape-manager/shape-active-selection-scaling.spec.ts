@@ -9,6 +9,9 @@ import {
   SHAPE_MULTI_SCALING_TOLERANCE
 } from '../../fixtures/data/shape-multi-scaling.data'
 
+const SHAPE_MULTI_SCALING_MINIMUM_TARGET_SIZE = 1
+const SHAPE_MULTI_SCALING_BEYOND_MINIMUM_DRAG_DELTA = -120
+
 test.describe('Изменение размера нескольких шейпов', () => {
   test.beforeEach(async({ editorModel, shapes }) => {
     const leftShape = await shapes.addAtBounds({
@@ -386,6 +389,208 @@ test.describe('Изменение размера нескольких шейпо
       expect(finalLeftText.lineCount).toBe(liveLeftText.lineCount)
       expect(finalRightText.lineCount).toBe(liveRightText.lineCount)
 
+      shapes.checkNodeInsideGroup({
+        snapshot: finalLeftShape,
+        kind: 'text'
+      })
+      shapes.checkNodeInsideGroup({
+        snapshot: finalRightShape,
+        kind: 'text'
+      })
+    })
+  })
+
+  test('при сужении нескольких шейпов за угол текст переносится во время drag и размер не дёргается после mouseup', async({
+    selection,
+    shapes
+  }) => {
+    const { id: leftShapeId } = SHAPE_MULTI_SCALING_LEFT_OPTIONS
+    const { id: rightShapeId } = SHAPE_MULTI_SCALING_RIGHT_OPTIONS
+    const { mouseupJump } = SHAPE_MULTI_SCALING_TOLERANCE
+
+    const initialSelectionSnapshot = await test.step('Получить исходный размер общего выделения', () => {
+      return selection.getSnapshot()
+    })
+    const initialLeftText = await test.step('Получить исходное состояние текста в левом шейпе', () => {
+      return shapes.getTextNode({ id: leftShapeId })
+    })
+    const initialRightText = await test.step('Получить исходное состояние текста в правом шейпе', () => {
+      return shapes.getTextNode({ id: rightShapeId })
+    })
+
+    const liveSelectionSnapshot = await test.step('Сузить общее выделение из правого нижнего угла во время drag', () => {
+      return selection.scaleDiagonallyFromBottomRight({
+        scaleX: SHAPE_MULTI_SCALING_SCALE_X,
+        scaleY: SHAPE_MULTI_SCALING_SCALE_Y
+      })
+    })
+    const liveLeftShape = await test.step('Получить состояние левого шейпа во время drag', () => {
+      return shapes.getScaleSnapshot({ id: leftShapeId })
+    })
+    const liveRightShape = await test.step('Получить состояние правого шейпа во время drag', () => {
+      return shapes.getScaleSnapshot({ id: rightShapeId })
+    })
+    const liveLeftText = await test.step('Получить текст в левом шейпе во время drag', () => {
+      return shapes.getTextNode({ id: leftShapeId })
+    })
+    const liveRightText = await test.step('Получить текст в правом шейпе во время drag', () => {
+      return shapes.getTextNode({ id: rightShapeId })
+    })
+
+    const finalSelectionSnapshot = await test.step('Отпустить мышь и получить итоговое состояние общего выделения', () => {
+      return selection.finishScale()
+    })
+    const finalLeftShape = await test.step('Получить итоговое состояние левого шейпа', () => {
+      return shapes.getScaleSnapshot({ id: leftShapeId })
+    })
+    const finalRightShape = await test.step('Получить итоговое состояние правого шейпа', () => {
+      return shapes.getScaleSnapshot({ id: rightShapeId })
+    })
+    const finalLeftText = await test.step('Получить итоговый текст в левом шейпе', () => {
+      return shapes.getTextNode({ id: leftShapeId })
+    })
+    const finalRightText = await test.step('Получить итоговый текст в правом шейпе', () => {
+      return shapes.getTextNode({ id: rightShapeId })
+    })
+
+    await test.step('Проверить что во время drag изменяются обе оси и текст переносится внутри шейпов', () => {
+      expect(initialLeftText, 'текст в левом шейпе должен существовать').not.toBeNull()
+      expect(initialRightText, 'текст в правом шейпе должен существовать').not.toBeNull()
+      expect(liveLeftText, 'текст в левом шейпе во время drag должен существовать').not.toBeNull()
+      expect(liveRightText, 'текст в правом шейпе во время drag должен существовать').not.toBeNull()
+
+      if (!initialLeftText || !initialRightText || !liveLeftText || !liveRightText) {
+        throw new Error('текст в обоих шейпах должен существовать до и во время drag')
+      }
+
+      expect(liveSelectionSnapshot.boundsWidth)
+        .toBeLessThan(initialSelectionSnapshot.boundsWidth - mouseupJump)
+      expect(liveSelectionSnapshot.boundsHeight)
+        .toBeLessThan(initialSelectionSnapshot.boundsHeight - mouseupJump)
+      expect(liveLeftText.lineCount).toBeGreaterThan(initialLeftText.lineCount)
+      expect(liveRightText.lineCount).toBeGreaterThan(initialRightText.lineCount)
+      expect(liveLeftText.fontSize).toBe(initialLeftText.fontSize)
+      expect(liveRightText.fontSize).toBe(initialRightText.fontSize)
+
+      shapes.checkNodeInsideGroup({
+        snapshot: liveLeftShape,
+        kind: 'text'
+      })
+      shapes.checkNodeInsideGroup({
+        snapshot: liveRightShape,
+        kind: 'text'
+      })
+    })
+
+    await test.step('Проверить что после mouseup размер не дёрнулся и переносы строк сохранились', () => {
+      expect(liveLeftText, 'текст в левом шейпе во время drag должен существовать').not.toBeNull()
+      expect(liveRightText, 'текст в правом шейпе во время drag должен существовать').not.toBeNull()
+      expect(finalLeftText, 'итоговый текст в левом шейпе должен существовать').not.toBeNull()
+      expect(finalRightText, 'итоговый текст в правом шейпе должен существовать').not.toBeNull()
+
+      if (!liveLeftText || !liveRightText || !finalLeftText || !finalRightText) {
+        throw new Error('текст в обоих шейпах должен существовать во время drag и после mouseup')
+      }
+
+      const selectionWidthJump = Math.abs(finalSelectionSnapshot.boundsWidth - liveSelectionSnapshot.boundsWidth)
+      const selectionHeightJump = Math.abs(finalSelectionSnapshot.boundsHeight - liveSelectionSnapshot.boundsHeight)
+      const leftWidthJump = Math.abs(finalLeftShape.groupBoundsWidth - liveLeftShape.groupBoundsWidth)
+      const rightWidthJump = Math.abs(finalRightShape.groupBoundsWidth - liveRightShape.groupBoundsWidth)
+      const leftHeightJump = Math.abs(finalLeftShape.groupBoundsHeight - liveLeftShape.groupBoundsHeight)
+      const rightHeightJump = Math.abs(finalRightShape.groupBoundsHeight - liveRightShape.groupBoundsHeight)
+
+      expect(selectionWidthJump).toBeLessThanOrEqual(mouseupJump)
+      expect(selectionHeightJump).toBeLessThanOrEqual(mouseupJump)
+      expect(leftWidthJump).toBeLessThanOrEqual(mouseupJump)
+      expect(rightWidthJump).toBeLessThanOrEqual(mouseupJump)
+      expect(leftHeightJump).toBeLessThanOrEqual(mouseupJump)
+      expect(rightHeightJump).toBeLessThanOrEqual(mouseupJump)
+      expect(finalLeftText.lineCount).toBe(liveLeftText.lineCount)
+      expect(finalRightText.lineCount).toBe(liveRightText.lineCount)
+      expect(finalLeftText.fontSize).toBe(liveLeftText.fontSize)
+      expect(finalRightText.fontSize).toBe(liveRightText.fontSize)
+
+      shapes.checkNodeInsideGroup({
+        snapshot: finalLeftShape,
+        kind: 'text'
+      })
+      shapes.checkNodeInsideGroup({
+        snapshot: finalRightShape,
+        kind: 'text'
+      })
+    })
+  })
+
+  test('если продолжать тянуть угол после упора в минимальную ширину, выделение не расширяется по ширине рывком', async({
+    selection,
+    shapes
+  }) => {
+    const minimumSelectionSnapshot = await test.step('Сжать общее выделение из правого нижнего угла до минимального размера', () => {
+      return selection.shrinkDiagonallyFromBottomRightToMinimum({
+        minimumSize: SHAPE_MULTI_SCALING_MINIMUM_TARGET_SIZE
+      })
+    })
+    const minimumLeftShape = await test.step('Получить состояние левого шейпа на минимальном размере', () => {
+      return shapes.getScaleSnapshot({ id: SHAPE_MULTI_SCALING_LEFT_OPTIONS.id })
+    })
+    const minimumRightShape = await test.step('Получить состояние правого шейпа на минимальном размере', () => {
+      return shapes.getScaleSnapshot({ id: SHAPE_MULTI_SCALING_RIGHT_OPTIONS.id })
+    })
+
+    const continuedSelectionSnapshot = await test.step('Продолжить тянуть угол дальше по диагонали', () => {
+      return selection.dragActiveScaleHandleBy({
+        deltaX: SHAPE_MULTI_SCALING_BEYOND_MINIMUM_DRAG_DELTA,
+        deltaY: SHAPE_MULTI_SCALING_BEYOND_MINIMUM_DRAG_DELTA
+      })
+    })
+    const continuedLeftShape = await test.step('Получить состояние левого шейпа после продолжения drag', () => {
+      return shapes.getScaleSnapshot({ id: SHAPE_MULTI_SCALING_LEFT_OPTIONS.id })
+    })
+    const continuedRightShape = await test.step('Получить состояние правого шейпа после продолжения drag', () => {
+      return shapes.getScaleSnapshot({ id: SHAPE_MULTI_SCALING_RIGHT_OPTIONS.id })
+    })
+
+    const finalSelectionSnapshot = await test.step('Отпустить мышь и получить итоговое состояние общего выделения', () => {
+      return selection.finishScale()
+    })
+    const finalLeftShape = await test.step('Получить итоговое состояние левого шейпа', () => {
+      return shapes.getScaleSnapshot({ id: SHAPE_MULTI_SCALING_LEFT_OPTIONS.id })
+    })
+    const finalRightShape = await test.step('Получить итоговое состояние правого шейпа', () => {
+      return shapes.getScaleSnapshot({ id: SHAPE_MULTI_SCALING_RIGHT_OPTIONS.id })
+    })
+
+    await test.step('Проверить что продолжение drag не расширило выделение по ширине и шейпы остались корректными', () => {
+      expect(continuedSelectionSnapshot.boundsWidth)
+        .toBeGreaterThan(SHAPE_MULTI_SCALING_MINIMUM_TARGET_SIZE + SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+      expect(continuedSelectionSnapshot.boundsHeight)
+        .toBeGreaterThan(SHAPE_MULTI_SCALING_MINIMUM_TARGET_SIZE + SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+
+      expect(Math.abs(continuedSelectionSnapshot.boundsWidth - minimumSelectionSnapshot.boundsWidth))
+        .toBeLessThanOrEqual(SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+      expect(Math.abs(finalSelectionSnapshot.boundsWidth - continuedSelectionSnapshot.boundsWidth))
+        .toBeLessThanOrEqual(SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+
+      expect(Math.abs(continuedLeftShape.groupBoundsWidth - minimumLeftShape.groupBoundsWidth))
+        .toBeLessThanOrEqual(SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+      expect(Math.abs(continuedRightShape.groupBoundsWidth - minimumRightShape.groupBoundsWidth))
+        .toBeLessThanOrEqual(SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+      expect(Math.abs(finalLeftShape.groupBoundsWidth - continuedLeftShape.groupBoundsWidth))
+        .toBeLessThanOrEqual(SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+      expect(Math.abs(finalRightShape.groupBoundsWidth - continuedRightShape.groupBoundsWidth))
+        .toBeLessThanOrEqual(SHAPE_MULTI_SCALING_TOLERANCE.mouseupJump)
+      expect(finalSelectionSnapshot.boundsHeight).toBeGreaterThan(0)
+      expect(finalLeftShape.groupBoundsHeight).toBeGreaterThan(0)
+      expect(finalRightShape.groupBoundsHeight).toBeGreaterThan(0)
+
+      shapes.checkNodeInsideGroup({
+        snapshot: continuedLeftShape,
+        kind: 'text'
+      })
+      shapes.checkNodeInsideGroup({
+        snapshot: continuedRightShape,
+        kind: 'text'
+      })
       shapes.checkNodeInsideGroup({
         snapshot: finalLeftShape,
         kind: 'text'

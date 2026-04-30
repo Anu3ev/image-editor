@@ -1,4 +1,10 @@
-import { Control, Point, controlsUtils } from 'fabric'
+import {
+  Control,
+  Point,
+  controlsUtils,
+  type Transform,
+  type TPointerEvent
+} from 'fabric'
 import { applyShapeCornerFreeScaleControls } from '../../../../src/editor/shape-manager/scaling/shape-controls'
 import {
   createMockShapeGroup,
@@ -50,7 +56,7 @@ describe('shape-controls', () => {
     } as never
 
     applyShapeCornerFreeScaleControls({
-      group
+      target: group
     })
 
     expect(group.controls.tl).not.toBe(topLeftControl)
@@ -80,14 +86,14 @@ describe('shape-controls', () => {
     } as never
 
     applyShapeCornerFreeScaleControls({
-      group
+      target: group
     })
 
     const wrappedTopLeftControl = group.controls.tl
     const wrappedTopRightControl = group.controls.tr
 
     applyShapeCornerFreeScaleControls({
-      group
+      target: group
     })
 
     expect(group.controls.tl).toBe(wrappedTopLeftControl)
@@ -122,7 +128,7 @@ describe('shape-controls', () => {
     } as never
 
     applyShapeCornerFreeScaleControls({
-      group
+      target: group
     })
 
     const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
@@ -135,35 +141,29 @@ describe('shape-controls', () => {
         mode: 'proportional-scaling-result'
       }
     })
+    const eventData = {
+      shiftKey: true
+    } satisfies Pick<TPointerEvent, 'shiftKey'>
+    const transform = {
+      target,
+      originX: 'left',
+      originY: 'top'
+    } as unknown as Transform
 
     const result = actionHandler(
-      {
-        shiftKey: true
-      },
-      {
-        target,
-        originX: 'left',
-        originY: 'top'
-      },
+      eventData as TPointerEvent,
+      transform,
       10,
       20
     )
 
     expect(result).toEqual({
-      eventData: {
-        shiftKey: true
-      },
+      eventData,
       mode: 'proportional-scaling-result'
     })
     expect(scalingEquallyMock).toHaveBeenCalledWith(
-      {
-        shiftKey: true
-      },
-      {
-        target,
-        originX: 'left',
-        originY: 'top'
-      },
+      eventData,
+      transform,
       10,
       20
     )
@@ -202,20 +202,22 @@ describe('shape-controls', () => {
     } as never
 
     applyShapeCornerFreeScaleControls({
-      group
+      target: group
     })
 
     const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
+    const eventData = {
+      shiftKey: false
+    } satisfies Pick<TPointerEvent, 'shiftKey'>
+    const transform = {
+      target,
+      originX: 'left',
+      originY: 'top'
+    } as unknown as Transform
 
     const result = actionHandler(
-      {
-        shiftKey: false
-      },
-      {
-        target,
-        originX: 'left',
-        originY: 'top'
-      },
+      eventData as TPointerEvent,
+      transform,
       50,
       25
     )
@@ -257,7 +259,7 @@ describe('shape-controls', () => {
     } as never
 
     applyShapeCornerFreeScaleControls({
-      group
+      target: group
     })
 
     const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
@@ -265,21 +267,20 @@ describe('shape-controls', () => {
       target,
       originX: 'left',
       originY: 'top'
-    }
+    } as unknown as Transform
+    const eventData = {
+      shiftKey: false
+    } satisfies Pick<TPointerEvent, 'shiftKey'>
 
     actionHandler(
-      {
-        shiftKey: false
-      },
+      eventData as TPointerEvent,
       transform,
       50,
       50
     )
 
     const result = actionHandler(
-      {
-        shiftKey: false
-      },
+      eventData as TPointerEvent,
       transform,
       -50,
       25
@@ -320,7 +321,7 @@ describe('shape-controls', () => {
     } as never
 
     applyShapeCornerFreeScaleControls({
-      group
+      target: group
     })
 
     const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
@@ -328,21 +329,20 @@ describe('shape-controls', () => {
       target,
       originX: 'left',
       originY: 'top'
-    }
+    } as unknown as Transform
+    const eventData = {
+      shiftKey: false
+    } satisfies Pick<TPointerEvent, 'shiftKey'>
 
     actionHandler(
-      {
-        shiftKey: false
-      },
+      eventData as TPointerEvent,
       transform,
       50,
       50
     )
 
     const result = actionHandler(
-      {
-        shiftKey: false
-      },
+      eventData as TPointerEvent,
       transform,
       25,
       -50

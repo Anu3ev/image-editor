@@ -15,6 +15,7 @@ type RotateControl = Control & {
 type ControlCollection = Record<string, RotateControl>
 type ActiveSelectionObjectKind = 'object' | 'shape' | 'text'
 type ActiveSelectionScalingRulesSelection = ActiveSelection & {
+  controls: ControlCollection
   lockScalingFlip?: boolean
   setControlsVisibility: jest.Mock
   setCoords: jest.Mock
@@ -122,6 +123,7 @@ export const createActiveSelectionScalingRulesTestSetup = ({
   }))
   const selection = new ActiveSelection(objects as never[], {}) as ActiveSelectionScalingRulesSelection
 
+  selection.controls = createControlCollection()
   selection.setControlsVisibility = jest.fn()
   selection.setCoords = jest.fn()
   selection.setPositionByOrigin = jest.fn()
