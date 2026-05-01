@@ -85,6 +85,19 @@ export class SelectionModel {
     })
   }
 
+  /** Масштабирует текущее общее выделение сверху и возвращает live-состояние. */
+  async scaleVerticallyFromTop(
+    params: {
+      scaleY: number
+    }
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'mt',
+      oppositeControl: 'mb',
+      scaleY: params.scaleY
+    })
+  }
+
   /** Масштабирует текущее общее выделение из правого нижнего угла и возвращает live-состояние. */
   async scaleDiagonallyFromBottomRight(
     params: {
@@ -95,6 +108,21 @@ export class SelectionModel {
     return this._scaleFromControl({
       startControl: 'br',
       oppositeControl: 'tl',
+      scaleX: params.scaleX,
+      scaleY: params.scaleY
+    })
+  }
+
+  /** Масштабирует текущее общее выделение из правого верхнего угла и возвращает live-состояние. */
+  async scaleDiagonallyFromTopRight(
+    params: {
+      scaleX: number
+      scaleY: number
+    }
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'tr',
+      oppositeControl: 'bl',
       scaleX: params.scaleX,
       scaleY: params.scaleY
     })
@@ -122,6 +150,17 @@ export class SelectionModel {
     })
   }
 
+  /** Сжимает текущее общее выделение сверху до минимальной высоты и возвращает live-состояние. */
+  async shrinkVerticallyFromTopToMinimum(
+    params: SelectionMinimumSizeParams
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'mt',
+      oppositeControl: 'mb',
+      minimumHeight: params.minimumSize
+    })
+  }
+
   /** Сжимает текущее общее выделение из правого нижнего угла до минимальных ширины и высоты и возвращает live-состояние. */
   async shrinkDiagonallyFromBottomRightToMinimum(
     params: SelectionMinimumSizeParams
@@ -129,6 +168,18 @@ export class SelectionModel {
     return this._scaleFromControl({
       startControl: 'br',
       oppositeControl: 'tl',
+      minimumWidth: params.minimumSize,
+      minimumHeight: params.minimumSize
+    })
+  }
+
+  /** Сжимает текущее общее выделение из правого верхнего угла до минимальных ширины и высоты и возвращает live-состояние. */
+  async shrinkDiagonallyFromTopRightToMinimum(
+    params: SelectionMinimumSizeParams
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'tr',
+      oppositeControl: 'bl',
       minimumWidth: params.minimumSize,
       minimumHeight: params.minimumSize
     })

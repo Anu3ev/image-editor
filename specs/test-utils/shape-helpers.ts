@@ -593,6 +593,10 @@ export const createMockShapeGroup = ({
 
     return new Point(x, y)
   }) as never
+  group.getPositionByOrigin = jest.fn((
+    originX: PlacementOriginX,
+    originY: PlacementOriginY
+  ) => group.getPointByOrigin(originX, originY)) as never
 
   const textWithGroup = text as { group?: Group }
   textWithGroup.group = group

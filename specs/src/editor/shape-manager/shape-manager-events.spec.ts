@@ -461,6 +461,12 @@ describe('shape-manager events', () => {
     }
 
     const appliedSelectionScaleX = minimumShapeWidth / shapeBaseWidth
+    for (const shape of [firstShape, secondShape]) {
+      shape.getPositionByOrigin = jest.fn((
+        originX: Parameters<ActiveSelection['getPositionByOrigin']>[0],
+        originY: Parameters<ActiveSelection['getPositionByOrigin']>[1]
+      ) => shape.getPointByOrigin(originX, originY)) as never
+    }
     const scalingController = (manager as unknown as {
       scalingController: {
         commitActiveSelectionGroupScaling: (payload: unknown) => boolean

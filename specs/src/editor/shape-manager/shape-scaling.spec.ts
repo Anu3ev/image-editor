@@ -775,6 +775,71 @@ describe('shape-scaling', () => {
     expect(nonShapeObject.setCoords).not.toHaveBeenCalled()
   })
 
+  it('при уменьшении нескольких шейпов снизу не сдвигает вверх шейп у нижней границы', () => {
+    const {
+      controller,
+      groups,
+      selection
+    } = createActiveSelectionShapeScalingSetup({
+      shapeBounds: [
+        {
+          left: 100,
+          top: 220,
+          width: 200,
+          height: 120
+        },
+        {
+          left: 340,
+          top: 100,
+          width: 200,
+          height: 240
+        }
+      ]
+    })
+    const bottomShape = groups[0]
+    const bottomShapeInitialBottom = bottomShape.getPositionByOrigin('center', 'bottom').y
+    const transform = {
+      ...createShapeScalingTransform({
+        target: selection,
+        action: 'scaleY',
+        corner: 'mb',
+        originX: 'center',
+        originY: 'top'
+      }),
+      target: selection
+    } as never
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => {
+      if (height === 1) return 80
+
+      return height
+    })
+
+    selection.scaleX = 1
+    selection.scaleY = 0.65
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform
+    })
+
+    expect(bottomShape.setPositionByOrigin).toHaveBeenLastCalledWith(expect.objectContaining({
+      y: bottomShapeInitialBottom
+    }), 'center', 'bottom')
+
+    selection.scaleY = 0.2
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform
+    })
+
+    expect(bottomShape.setPositionByOrigin).toHaveBeenLastCalledWith(expect.objectContaining({
+      y: bottomShapeInitialBottom
+    }), 'center', 'bottom')
+  })
+
   it('после горизонтального изменения размера нескольких шейпов не увеличивает высоту после завершения drag', () => {
     const {
       controller,
