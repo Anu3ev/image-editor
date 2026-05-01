@@ -1,7 +1,8 @@
 import {
   Canvas,
   Point,
-  Transform
+  Transform,
+  type FabricObject
 } from 'fabric'
 import type {
   ShapeGroup,
@@ -102,37 +103,37 @@ export const resolveShapeScaleActionAxes = ({
 /**
  * Пересчитывает pointer из canvas-события в локальные координаты активного scale-transform.
  */
-export const resolveShapeLocalPointerForTransform = ({
+export const resolveScaleLocalPointerForTransform = ({
   event,
-  group,
+  target,
   transform,
   canvas
 }: {
   event?: ShapeScalingPointerEvent
-  group: ShapeGroup
+  target: FabricObject
   transform: Transform
   canvas: Canvas
 }): Point | null => {
   if (!event) return null
 
-  const resolvedCanvas = group.canvas ?? canvas
+  const resolvedCanvas = target.canvas ?? canvas
   const pointer = resolvedCanvas.getScenePoint(event as MouseEvent | PointerEvent | TouchEvent)
-  const centerPoint = group.getRelativeCenterPoint()
-  const originPoint = group.translateToGivenOrigin(
+  const centerPoint = target.getRelativeCenterPoint()
+  const originPoint = target.translateToGivenOrigin(
     centerPoint,
     'center',
     'center',
     transform.originX,
     transform.originY
   )
-  const angle = group.angle ?? 0
+  const angle = target.angle ?? 0
   const normalizedPointer = angle === 0
     ? pointer
     : pointer.rotate((-angle * Math.PI) / 180, centerPoint)
   const localPoint = normalizedPointer.subtract(originPoint)
-  const control = group.controls[transform.corner]
+  const control = target.controls[transform.corner]
   const zoom = resolvedCanvas.getZoom() || 1
-  const padding = (group.padding ?? 0) / zoom
+  const padding = (target.padding ?? 0) / zoom
 
   if (localPoint.x >= padding) {
     localPoint.x -= padding

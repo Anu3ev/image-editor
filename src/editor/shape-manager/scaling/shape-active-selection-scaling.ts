@@ -1,6 +1,7 @@
 import {
   ActiveSelection,
   Canvas,
+  Point,
   Transform
 } from 'fabric'
 import {
@@ -19,10 +20,13 @@ import type {
   ShapeNode,
   ShapePadding,
   ShapeScalingState,
-  ShapeTextNode
+  ShapeTextNode,
+  ShapeTransformOriginX,
+  ShapeTransformOriginY
 } from '../types'
 import { applyShapeScalingPreviewLayout } from './shape-scaling-preview'
 import {
+  resolveScaleLocalPointerForTransform,
   resolveShapeScaleActionAxes,
   resolveShapeTransformOriginXValue,
   resolveShapeTransformOriginYValue
@@ -43,7 +47,7 @@ import type {
   ShapeScalingPointerEvent
 } from './shape-scaling-layout'
 
-type ActiveSelectionShapeScalingPreviewItem = {
+type ActiveSelectionShapeScalingItem = {
   group: ShapeGroup
   shape: ShapeNode
   text: ShapeTextNode
@@ -56,6 +60,30 @@ export type ActiveSelectionAppliedScale = {
   scaleY: number
 }
 
+type ActiveSelectionLocalBounds = {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+
+type ActiveSelectionShapeScalingSessionItem = {
+  bounds: ActiveSelectionLocalBounds
+  originX: ShapeTransformOriginX
+  originY: ShapeTransformOriginY
+  originPoint: Point
+}
+
+type ActiveSelectionShapeLayoutScale = {
+  scaleX: number
+  scaleY: number
+}
+
+type ActiveSelectionScalingSession = {
+  bounds: ActiveSelectionLocalBounds
+  items: Map<ShapeGroup, ActiveSelectionShapeScalingSessionItem>
+}
+
 /**
  * Контроллер масштабирования shape-групп внутри ActiveSelection.
  */
@@ -65,6 +93,10 @@ export default class ShapeActiveSelectionScalingController {
   private shapeScalingState: WeakMap<ShapeGroup, ShapeScalingState>
 
   private scalingState: WeakMap<ActiveSelection, ActiveSelectionAppliedScale>
+
+  private scalingSessions: WeakMap<ActiveSelection, ActiveSelectionScalingSession>
+
+  private groupLayoutScales: WeakMap<ShapeGroup, ActiveSelectionShapeLayoutScale>
 
   constructor({
     canvas,
@@ -76,6 +108,8 @@ export default class ShapeActiveSelectionScalingController {
     this.canvas = canvas
     this.shapeScalingState = shapeScalingState
     this.scalingState = new WeakMap()
+    this.scalingSessions = new WeakMap()
+    this.groupLayoutScales = new WeakMap()
   }
 
   /**
@@ -107,45 +141,66 @@ export default class ShapeActiveSelectionScalingController {
 
     if (!items.length) return
 
+    const session = this._ensureScalingSession({
+      selection,
+      transform,
+      items
+    })
     const scaleX = Math.abs(selection.scaleX ?? 1) || 1
     const scaleY = Math.abs(selection.scaleY ?? 1) || 1
-    const appliedScale = this._resolveAppliedScale({
+    let selectionScale = this._resolveSelectionScale({
       items,
+      session,
       transform,
       scaleX,
       scaleY,
+      event
+    })
+    selectionScale = this._resolveSelectionScaleAtPointerBoundary({
+      selection,
+      items,
+      session,
+      transform,
+      selectionScale,
       event
     })
 
     this._applySelectionScale({
       selection,
       transform,
-      scaleX: appliedScale.scaleX,
-      scaleY: appliedScale.scaleY
+      scaleX: selectionScale.scaleX,
+      scaleY: selectionScale.scaleY
     })
-    this.scalingState.set(selection, appliedScale)
+    this.scalingState.set(selection, selectionScale)
 
-    items.forEach(({
-      group,
-      shape,
-      text,
-      constraintPadding,
-      state
-    }) => {
+    for (const item of items) {
+      const {
+        group,
+        shape,
+        text,
+        constraintPadding,
+        state
+      } = item
+      const sessionItem = session.items.get(group) as ActiveSelectionShapeScalingSessionItem
+
+      const layoutScale = this._resolveShapeLayoutScale({
+        item,
+        selectionScale
+      })
       const previewDimensions = resolveShapeScalingPreviewDimensions({
         group,
         text,
         constraintPadding,
         startDimensions: state,
-        appliedScaleX: appliedScale.scaleX,
-        appliedScaleY: appliedScale.scaleY
+        appliedScaleX: layoutScale.scaleX,
+        appliedScaleY: layoutScale.scaleY
       })
       const previewLayout = resolveShapeScalingPreviewLayout({
         group,
         text,
         state,
-        appliedScaleX: appliedScale.scaleX,
-        appliedScaleY: appliedScale.scaleY,
+        appliedScaleX: layoutScale.scaleX,
+        appliedScaleY: layoutScale.scaleY,
         minimumHeight: previewDimensions.previewHeight
       })
 
@@ -155,14 +210,16 @@ export default class ShapeActiveSelectionScalingController {
         text,
         layout: previewLayout,
         alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
-        scaleX: appliedScale.scaleX,
-        scaleY: appliedScale.scaleY,
+        scaleX: selectionScale.scaleX,
+        scaleY: selectionScale.scaleY,
         minSize: MIN_SIZE,
         scaleEpsilon: SCALE_EPSILON
       })
 
+      this.groupLayoutScales.set(group, layoutScale)
+      this._restoreShapeOriginInSelection({ group, sessionItem })
       group.setCoords()
-    })
+    }
 
     selection.setCoords()
     this.canvas.requestRenderAll()
@@ -211,6 +268,10 @@ export default class ShapeActiveSelectionScalingController {
     const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const constraintPadding = resolveShapeScalingConstraintPadding({ group })
+    const layoutScale = this.groupLayoutScales.get(group) ?? {
+      scaleX,
+      scaleY
+    }
     const {
       width,
       height,
@@ -225,12 +286,13 @@ export default class ShapeActiveSelectionScalingController {
         canScaleWidth,
         canScaleHeight
       },
-      scaleX,
-      scaleY
+      scaleX: layoutScale.scaleX,
+      scaleY: layoutScale.scaleY
     })
 
     if (!hasDimensionChange) {
       this.shapeScalingState.delete(group)
+      this.groupLayoutScales.delete(group)
       group.shapeScalingNoopTransform = false
       return false
     }
@@ -251,6 +313,7 @@ export default class ShapeActiveSelectionScalingController {
     })
 
     this.shapeScalingState.delete(group)
+    this.groupLayoutScales.delete(group)
     group.shapeScalingNoopTransform = false
 
     return true
@@ -283,6 +346,14 @@ export default class ShapeActiveSelectionScalingController {
    * Очищает состояние масштабирования для переданного ActiveSelection.
    */
   public clearState({ selection }: { selection: ActiveSelection }): void {
+    const session = this.scalingSessions.get(selection)
+    if (session) {
+      for (const group of session.items.keys()) {
+        this.groupLayoutScales.delete(group)
+      }
+    }
+
+    this.scalingSessions.delete(selection)
     this.scalingState.delete(selection)
   }
 
@@ -295,8 +366,8 @@ export default class ShapeActiveSelectionScalingController {
   }: {
     selection: ActiveSelection
     transform: Transform
-  }): ActiveSelectionShapeScalingPreviewItem[] {
-    const items: ActiveSelectionShapeScalingPreviewItem[] = []
+  }): ActiveSelectionShapeScalingItem[] {
+    const items: ActiveSelectionShapeScalingItem[] = []
 
     for (const object of selection.getObjects()) {
       if (!isShapeGroup(object)) continue
@@ -332,16 +403,71 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает scale общего выделения, ограниченный минимальными размерами всех shape-групп.
+   * Возвращает runtime-сессию текущего drag в локальной плоскости ActiveSelection.
    */
-  private _resolveAppliedScale({
+  private _ensureScalingSession({
+    selection,
+    transform,
+    items
+  }: {
+    selection: ActiveSelection
+    transform: Transform
+    items: ActiveSelectionShapeScalingItem[]
+  }): ActiveSelectionScalingSession {
+    const existingSession = this.scalingSessions.get(selection)
+    if (existingSession) return existingSession
+
+    const originX = resolveShapeTransformOriginXValue({
+      value: transform.originX
+    }) ?? 'center'
+    const originY = resolveShapeTransformOriginYValue({
+      value: transform.originY
+    }) ?? 'center'
+    const firstItem = items[0] as ActiveSelectionShapeScalingItem
+    const sessionItems = new Map<ShapeGroup, ActiveSelectionShapeScalingSessionItem>()
+    let selectionBounds = this._resolveShapeLocalBounds({
+      group: firstItem.group
+    })
+
+    for (const { group } of items) {
+      const bounds = this._resolveShapeLocalBounds({ group })
+
+      selectionBounds = this._mergeBounds({
+        current: selectionBounds,
+        next: bounds
+      })
+
+      sessionItems.set(group, {
+        bounds,
+        originX,
+        originY,
+        originPoint: group.getPositionByOrigin(originX, originY)
+      })
+    }
+
+    const session = {
+      bounds: selectionBounds,
+      items: sessionItems
+    }
+
+    this.scalingSessions.set(selection, session)
+
+    return session
+  }
+
+  /**
+   * Возвращает scale общего выделения, ограниченный bounds каждой shape-группы внутри ActiveSelection.
+   */
+  private _resolveSelectionScale({
     items,
+    session,
     transform,
     scaleX,
     scaleY,
     event
   }: {
-    items: ActiveSelectionShapeScalingPreviewItem[]
+    items: ActiveSelectionShapeScalingItem[]
+    session: ActiveSelectionScalingSession
     transform: Transform
     scaleX: number
     scaleY: number
@@ -359,27 +485,39 @@ export default class ShapeActiveSelectionScalingController {
     let appliedScaleY = scaleY
 
     if (canScaleWidth) {
-      appliedScaleX = this._resolveMinimumScaleX({
+      appliedScaleX = this._resolveSelectionScaleX({
         items,
+        session,
         scaleX,
-        scaleY: appliedScaleY
+        scaleY: appliedScaleY,
+        allowGrowth: canScaleHeight
       })
     }
 
     if (canScaleHeight) {
-      appliedScaleY = this._resolveMinimumScaleY({
+      appliedScaleY = this._resolveSelectionScaleY({
         items,
+        session,
         scaleX: appliedScaleX,
         scaleY,
-        isVerticalOnlyScale: canScaleHeight && !canScaleWidth
+        allowGrowth: canScaleWidth
       })
     }
 
     if (canScaleWidth && canScaleHeight) {
-      appliedScaleX = this._resolveMinimumScaleX({
+      appliedScaleX = this._resolveSelectionScaleX({
         items,
+        session,
         scaleX,
-        scaleY: appliedScaleY
+        scaleY: appliedScaleY,
+        allowGrowth: canScaleHeight
+      })
+      appliedScaleY = this._resolveSelectionScaleY({
+        items,
+        session,
+        scaleX: appliedScaleX,
+        scaleY,
+        allowGrowth: canScaleWidth
       })
     }
 
@@ -402,101 +540,461 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает общий scaleX, при котором каждый shape в выделении остаётся не уже своей минимальной ширины.
+   * Доводит ActiveSelection до minimum boundary на mousemove-кадрах,
+   * где Fabric уже перестал обновлять scale после быстрого движения pointer.
    */
-  private _resolveMinimumScaleX({
+  private _resolveSelectionScaleAtPointerBoundary({
+    selection,
     items,
-    scaleX,
-    scaleY
+    session,
+    transform,
+    selectionScale,
+    event
   }: {
-    items: ActiveSelectionShapeScalingPreviewItem[]
+    selection: ActiveSelection
+    items: ActiveSelectionShapeScalingItem[]
+    session: ActiveSelectionScalingSession
+    transform: Transform
+    selectionScale: ActiveSelectionAppliedScale
+    event?: ShapeScalingPointerEvent
+  }): ActiveSelectionAppliedScale {
+    const {
+      canScaleWidth,
+      canScaleHeight,
+      isCornerScaleAction
+    } = resolveShapeScaleActionAxes({
+      transform
+    })
+    const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
+
+    if (isCornerScaleAction && isShiftPressed) return selectionScale
+
+    const pointerReachedOrPassedOriginX = canScaleWidth && this._hasPointerReachedSelectionScaleOrigin({
+      selection,
+      transform,
+      event,
+      axis: 'x'
+    })
+    const pointerReachedOrPassedOriginY = canScaleHeight && this._hasPointerReachedSelectionScaleOrigin({
+      selection,
+      transform,
+      event,
+      axis: 'y'
+    })
+
+    if (!pointerReachedOrPassedOriginX && !pointerReachedOrPassedOriginY) return selectionScale
+
+    let nextScaleX = selectionScale.scaleX
+    let nextScaleY = selectionScale.scaleY
+
+    if (pointerReachedOrPassedOriginX) {
+      nextScaleX = 0
+    }
+    if (pointerReachedOrPassedOriginY) {
+      nextScaleY = 0
+    }
+
+    return this._resolveSelectionScale({
+      items,
+      session,
+      transform,
+      scaleX: nextScaleX,
+      scaleY: nextScaleY,
+      event
+    })
+  }
+
+  /**
+   * Возвращает scaleX рамки ActiveSelection, при котором все shape-группы остаются внутри bounds выделения.
+   */
+  private _resolveSelectionScaleX({
+    items,
+    session,
+    scaleX,
+    scaleY,
+    allowGrowth
+  }: {
+    items: ActiveSelectionShapeScalingItem[]
+    session: ActiveSelectionScalingSession
     scaleX: number
     scaleY: number
+    allowGrowth: boolean
   }): number {
     let appliedScaleX = scaleX
 
-    for (const {
-      group,
-      text,
-      constraintPadding,
-      state
-    } of items) {
-      const attemptedWidth = Math.max(MIN_SIZE, state.startWidth * scaleX)
-      const isShrinkingX = scaleX < state.lastAllowedScaleX - SCALE_EPSILON
-
-      if (!isShrinkingX) continue
-
-      const attemptedHeight = Math.max(MIN_SIZE, state.startHeight * scaleY)
-      const minimumWidth = resolveMinimumShapeWidthForText({
-        text,
-        padding: constraintPadding,
-        resolvePaddingForWidth: ({ width }) => resolveShapeScalingConstraintPadding({
-          group,
-          width,
-          height: attemptedHeight
-        })
+    for (const item of items) {
+      const sessionItem = session.items.get(item.group) as ActiveSelectionShapeScalingSessionItem
+      const minimumWidth = this._resolveMinimumShapeWidth({
+        item,
+        scaleY
+      })
+      const availableWidth = this._resolveSelectionAvailableWidth({
+        selectionBounds: session.bounds,
+        shapeBounds: sessionItem.bounds,
+        originX: sessionItem.originX
+      })
+      const minimumSelectionScaleX = this._resolveMinimumScaleForSize({
+        minimumSize: minimumWidth,
+        startSize: availableWidth,
+        allowGrowth
       })
 
-      if (attemptedWidth >= minimumWidth + SCALE_EPSILON) continue
-
-      const minimumScaleX = Math.max(MIN_SIZE / state.startWidth, minimumWidth / state.startWidth)
-      appliedScaleX = Math.max(appliedScaleX, minimumScaleX)
+      appliedScaleX = Math.max(appliedScaleX, minimumSelectionScaleX)
     }
 
     return appliedScaleX
   }
 
   /**
-   * Возвращает общий scaleY, при котором каждый shape в выделении остаётся не ниже своей минимальной высоты.
+   * Возвращает scaleY рамки ActiveSelection, при котором все shape-группы остаются внутри bounds выделения.
    */
-  private _resolveMinimumScaleY({
+  private _resolveSelectionScaleY({
     items,
+    session,
     scaleX,
     scaleY,
-    isVerticalOnlyScale
+    allowGrowth
   }: {
-    items: ActiveSelectionShapeScalingPreviewItem[]
+    items: ActiveSelectionShapeScalingItem[]
+    session: ActiveSelectionScalingSession
     scaleX: number
     scaleY: number
-    isVerticalOnlyScale: boolean
+    allowGrowth: boolean
   }): number {
     let appliedScaleY = scaleY
 
-    for (const {
+    for (const item of items) {
+      const sessionItem = session.items.get(item.group) as ActiveSelectionShapeScalingSessionItem
+      const layoutScaleX = this._resolveShapeLayoutScaleX({
+        item,
+        selectionScaleX: scaleX,
+        selectionScaleY: scaleY
+      })
+      const minimumHeight = this._resolveMinimumShapeHeight({
+        item,
+        scaleX: layoutScaleX
+      })
+      const availableHeight = this._resolveSelectionAvailableHeight({
+        selectionBounds: session.bounds,
+        shapeBounds: sessionItem.bounds,
+        originY: sessionItem.originY
+      })
+      const minimumSelectionScaleY = this._resolveMinimumScaleForSize({
+        minimumSize: minimumHeight,
+        startSize: availableHeight,
+        allowGrowth
+      })
+
+      appliedScaleY = Math.max(appliedScaleY, minimumSelectionScaleY)
+    }
+
+    return appliedScaleY
+  }
+
+  /**
+   * Возвращает layout scale конкретной shape-группы. Он может отличаться от scale рамки выделения.
+   */
+  private _resolveShapeLayoutScale({
+    item,
+    selectionScale
+  }: {
+    item: ActiveSelectionShapeScalingItem
+    selectionScale: ActiveSelectionAppliedScale
+  }): ActiveSelectionShapeLayoutScale {
+    let scaleX = this._resolveShapeLayoutScaleX({
+      item,
+      selectionScaleX: selectionScale.scaleX,
+      selectionScaleY: selectionScale.scaleY
+    })
+    let scaleY = this._resolveShapeLayoutScaleY({
+      item,
+      scaleX,
+      selectionScaleY: selectionScale.scaleY
+    })
+    scaleX = this._resolveShapeLayoutScaleX({
+      item,
+      selectionScaleX: selectionScale.scaleX,
+      selectionScaleY: scaleY
+    })
+    scaleY = this._resolveShapeLayoutScaleY({
+      item,
+      scaleX,
+      selectionScaleY: selectionScale.scaleY
+    })
+
+    return {
+      scaleX,
+      scaleY
+    }
+  }
+
+  private _resolveShapeLayoutScaleX({
+    item,
+    selectionScaleX,
+    selectionScaleY
+  }: {
+    item: ActiveSelectionShapeScalingItem
+    selectionScaleX: number
+    selectionScaleY: number
+  }): number {
+    const { state } = item
+    if (!state.canScaleWidth) return 1
+
+    const minimumWidth = this._resolveMinimumShapeWidth({
+      item,
+      scaleY: selectionScaleY
+    })
+    const minimumScaleX = this._resolveMinimumScaleForSize({
+      minimumSize: minimumWidth,
+      startSize: state.startWidth,
+      allowGrowth: state.canScaleHeight
+    })
+
+    return Math.max(selectionScaleX, minimumScaleX)
+  }
+
+  private _resolveShapeLayoutScaleY({
+    item,
+    scaleX,
+    selectionScaleY
+  }: {
+    item: ActiveSelectionShapeScalingItem
+    scaleX: number
+    selectionScaleY: number
+  }): number {
+    const { state } = item
+    if (!state.canScaleHeight) return 1
+
+    const minimumHeight = this._resolveMinimumShapeHeight({
+      item,
+      scaleX
+    })
+    const minimumScaleY = this._resolveMinimumScaleForSize({
+      minimumSize: minimumHeight,
+      startSize: state.startHeight,
+      allowGrowth: state.canScaleWidth
+    })
+
+    return Math.max(selectionScaleY, minimumScaleY)
+  }
+
+  private _resolveMinimumShapeWidth({
+    item,
+    scaleY
+  }: {
+    item: ActiveSelectionShapeScalingItem
+    scaleY: number
+  }): number {
+    const {
       group,
       text,
       constraintPadding,
       state
-    } of items) {
-      const isShrinkingY = scaleY < state.lastAllowedScaleY - SCALE_EPSILON
+    } = item
+    const attemptedHeight = Math.max(MIN_SIZE, state.startHeight * scaleY)
 
-      if (!isShrinkingY) continue
-
-      if (
-        isVerticalOnlyScale
-        && state.cannotScaleDownAtStart
-        && scaleY < state.startScaleY - SCALE_EPSILON
-      ) {
-        appliedScaleY = Math.max(appliedScaleY, state.startScaleY)
-        continue
-      }
-
-      const attemptedWidth = Math.max(MIN_SIZE, state.startWidth * scaleX)
-      const attemptedHeight = Math.max(MIN_SIZE, state.startHeight * scaleY)
-      const minimumHeight = resolveMinimumTextFitHeight({
+    return resolveMinimumShapeWidthForText({
+      text,
+      padding: constraintPadding,
+      resolvePaddingForWidth: ({ width }) => resolveShapeScalingConstraintPadding({
         group,
-        text,
-        width: attemptedWidth,
-        padding: constraintPadding
+        width,
+        height: attemptedHeight
       })
+    })
+  }
 
-      if (attemptedHeight >= minimumHeight + SCALE_EPSILON) continue
+  private _resolveMinimumScaleForSize({
+    minimumSize,
+    startSize,
+    allowGrowth
+  }: {
+    minimumSize: number
+    startSize: number
+    allowGrowth: boolean
+  }): number {
+    const minimumScale = Math.max(MIN_SIZE / startSize, minimumSize / startSize)
 
-      const minimumScaleY = Math.max(MIN_SIZE / state.startHeight, minimumHeight / state.startHeight)
-      appliedScaleY = Math.max(appliedScaleY, minimumScaleY)
+    if (allowGrowth) return minimumScale
+
+    return Math.min(1, minimumScale)
+  }
+
+  private _resolveMinimumShapeHeight({
+    item,
+    scaleX
+  }: {
+    item: ActiveSelectionShapeScalingItem
+    scaleX: number
+  }): number {
+    const {
+      group,
+      text,
+      constraintPadding,
+      state
+    } = item
+    const attemptedWidth = Math.max(MIN_SIZE, state.startWidth * scaleX)
+
+    return resolveMinimumTextFitHeight({
+      group,
+      text,
+      width: attemptedWidth,
+      padding: constraintPadding
+    })
+  }
+
+  private _resolveSelectionAvailableWidth({
+    selectionBounds,
+    shapeBounds,
+    originX
+  }: {
+    selectionBounds: ActiveSelectionLocalBounds
+    shapeBounds: ActiveSelectionLocalBounds
+    originX: ShapeTransformOriginX
+  }): number {
+    const originOffset = this._resolveOriginOffset({ origin: originX })
+
+    if (originOffset > 0) {
+      return Math.max(MIN_SIZE, shapeBounds.right - selectionBounds.left)
+    }
+    if (originOffset < 0) {
+      return Math.max(MIN_SIZE, selectionBounds.right - shapeBounds.left)
     }
 
-    return appliedScaleY
+    const shapeCenterX = (shapeBounds.left + shapeBounds.right) / 2
+
+    return Math.max(
+      MIN_SIZE,
+      2 * Math.min(
+        shapeCenterX - selectionBounds.left,
+        selectionBounds.right - shapeCenterX
+      )
+    )
+  }
+
+  private _resolveSelectionAvailableHeight({
+    selectionBounds,
+    shapeBounds,
+    originY
+  }: {
+    selectionBounds: ActiveSelectionLocalBounds
+    shapeBounds: ActiveSelectionLocalBounds
+    originY: ShapeTransformOriginY
+  }): number {
+    const originOffset = this._resolveOriginOffset({ origin: originY })
+
+    if (originOffset > 0) {
+      return Math.max(MIN_SIZE, shapeBounds.bottom - selectionBounds.top)
+    }
+    if (originOffset < 0) {
+      return Math.max(MIN_SIZE, selectionBounds.bottom - shapeBounds.top)
+    }
+
+    const shapeCenterY = (shapeBounds.top + shapeBounds.bottom) / 2
+
+    return Math.max(
+      MIN_SIZE,
+      2 * Math.min(
+        shapeCenterY - selectionBounds.top,
+        selectionBounds.bottom - shapeCenterY
+      )
+    )
+  }
+
+  private _resolveShapeLocalBounds({
+    group
+  }: {
+    group: ShapeGroup
+  }): ActiveSelectionLocalBounds {
+    const topLeft = group.getPositionByOrigin('left', 'top')
+    const bottomRight = group.getPositionByOrigin('right', 'bottom')
+
+    return {
+      bottom: bottomRight.y,
+      left: topLeft.x,
+      right: bottomRight.x,
+      top: topLeft.y
+    }
+  }
+
+  private _mergeBounds({
+    current,
+    next
+  }: {
+    current: ActiveSelectionLocalBounds
+    next: ActiveSelectionLocalBounds
+  }): ActiveSelectionLocalBounds {
+    return {
+      bottom: Math.max(current.bottom, next.bottom),
+      left: Math.min(current.left, next.left),
+      right: Math.max(current.right, next.right),
+      top: Math.min(current.top, next.top)
+    }
+  }
+
+  private _resolveOriginOffset({
+    origin
+  }: {
+    origin: ShapeTransformOriginX | ShapeTransformOriginY
+  }): number {
+    if (origin === 'left' || origin === 'top') return -0.5
+    if (origin === 'right' || origin === 'bottom') return 0.5
+    if (origin === 'center') return 0
+
+    return origin - 0.5
+  }
+
+  private _restoreShapeOriginInSelection({
+    group,
+    sessionItem
+  }: {
+    group: ShapeGroup
+    sessionItem: ActiveSelectionShapeScalingSessionItem
+  }): void {
+    group.setPositionByOrigin(
+      sessionItem.originPoint,
+      sessionItem.originX,
+      sessionItem.originY
+    )
+  }
+
+  /**
+   * Возвращает true, если pointer уже дошёл до origin активного scale-transform по переданной оси.
+   */
+  private _hasPointerReachedSelectionScaleOrigin({
+    selection,
+    transform,
+    event,
+    axis
+  }: {
+    selection: ActiveSelection
+    transform: Transform
+    event?: ShapeScalingPointerEvent
+    axis: 'x' | 'y'
+  }): boolean {
+    const transformWithSign = transform as Transform & {
+      signX?: number
+      signY?: number
+    }
+    const sign = axis === 'x'
+      ? transformWithSign.signX
+      : transformWithSign.signY
+
+    if (typeof sign !== 'number' || !Number.isFinite(sign)) return false
+
+    const localPoint = resolveScaleLocalPointerForTransform({
+      target: selection,
+      transform,
+      event,
+      canvas: this.canvas
+    })
+    if (!localPoint) return false
+
+    const pointCoordinate = axis === 'x'
+      ? localPoint.x
+      : localPoint.y
+
+    return (pointCoordinate * sign) <= 0
   }
 
   /**

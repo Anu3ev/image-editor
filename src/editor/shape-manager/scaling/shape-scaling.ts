@@ -28,7 +28,7 @@ import {
 import {
   isShapeTransformCornerChanged,
   isShapeTransformOriginChanged,
-  resolveShapeLocalPointerForTransform,
+  resolveScaleLocalPointerForTransform,
   resolveShapeScaleActionAxes
 } from './shape-scaling-transform'
 import { applyShapeScalingPreviewLayout } from './shape-scaling-preview'
@@ -964,9 +964,9 @@ export default class ShapeScalingController {
       : transformWithSign.signY
     if (typeof sign !== 'number' || !Number.isFinite(sign)) return false
 
-    const localPoint = resolveShapeLocalPointerForTransform({
+    const localPoint = resolveScaleLocalPointerForTransform({
       event: event.e,
-      group,
+      target: group,
       transform,
       canvas: this.canvas
     })
