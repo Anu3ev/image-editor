@@ -41,7 +41,8 @@ import {
   resolveShapeScalingPreviewLayout,
   resolveShapeScalingStartDimensions,
   SHAPE_SCALING_MIN_SIZE as MIN_SIZE,
-  SHAPE_SCALING_SCALE_EPSILON as SCALE_EPSILON
+  SHAPE_SCALING_SCALE_EPSILON as SCALE_EPSILON,
+  SHAPE_SCALING_SIZE_EPSILON as SIZE_EPSILON
 } from './shape-scaling-layout'
 import type {
   ShapeScalingPointerEvent
@@ -60,6 +61,8 @@ export type ActiveSelectionAppliedScale = {
   scaleY: number
 }
 
+type ActiveSelectionVerticalAttachment = 'top' | 'bottom' | 'center'
+
 type ActiveSelectionLocalBounds = {
   left: number
   right: number
@@ -69,9 +72,9 @@ type ActiveSelectionLocalBounds = {
 
 type ActiveSelectionShapeScalingSessionItem = {
   bounds: ActiveSelectionLocalBounds
-  originX: ShapeTransformOriginX
-  originY: ShapeTransformOriginY
-  originPoint: Point
+  transformOriginX: ShapeTransformOriginX
+  transformOriginPointX: number
+  verticalAttachment: ActiveSelectionVerticalAttachment
 }
 
 type ActiveSelectionShapeLayoutScale = {
@@ -217,7 +220,10 @@ export default class ShapeActiveSelectionScalingController {
       })
 
       this.groupLayoutScales.set(group, layoutScale)
-      this._restoreShapeOriginInSelection({ group, sessionItem })
+      this._positionShapeInSelection({
+        group,
+        sessionItem
+      })
       group.setCoords()
     }
 
@@ -417,13 +423,14 @@ export default class ShapeActiveSelectionScalingController {
     const existingSession = this.scalingSessions.get(selection)
     if (existingSession) return existingSession
 
-    const originX = resolveShapeTransformOriginXValue({
+    const transformOriginX = resolveShapeTransformOriginXValue({
       value: transform.originX
     }) ?? 'center'
-    const originY = resolveShapeTransformOriginYValue({
+    const transformOriginY = resolveShapeTransformOriginYValue({
       value: transform.originY
     }) ?? 'center'
     const firstItem = items[0] as ActiveSelectionShapeScalingItem
+    const shapeBoundsByGroup = new Map<ShapeGroup, ActiveSelectionLocalBounds>()
     const sessionItems = new Map<ShapeGroup, ActiveSelectionShapeScalingSessionItem>()
     let selectionBounds = this._resolveShapeLocalBounds({
       group: firstItem.group
@@ -432,16 +439,25 @@ export default class ShapeActiveSelectionScalingController {
     for (const { group } of items) {
       const bounds = this._resolveShapeLocalBounds({ group })
 
+      shapeBoundsByGroup.set(group, bounds)
+
       selectionBounds = this._mergeBounds({
         current: selectionBounds,
         next: bounds
       })
+    }
+
+    for (const [group, bounds] of shapeBoundsByGroup) {
+      const transformOriginPoint = group.getPositionByOrigin(transformOriginX, transformOriginY)
 
       sessionItems.set(group, {
         bounds,
-        originX,
-        originY,
-        originPoint: group.getPositionByOrigin(originX, originY)
+        transformOriginX,
+        transformOriginPointX: transformOriginPoint.x,
+        verticalAttachment: this._resolveVerticalAttachment({
+          selectionBounds,
+          shapeBounds: bounds
+        })
       })
     }
 
@@ -631,7 +647,7 @@ export default class ShapeActiveSelectionScalingController {
       const availableWidth = this._resolveSelectionAvailableWidth({
         selectionBounds: session.bounds,
         shapeBounds: sessionItem.bounds,
-        originX: sessionItem.originX
+        originX: sessionItem.transformOriginX
       })
       const minimumSelectionScaleX = this._resolveMinimumScaleForSize({
         minimumSize: minimumWidth,
@@ -677,7 +693,7 @@ export default class ShapeActiveSelectionScalingController {
       const availableHeight = this._resolveSelectionAvailableHeight({
         selectionBounds: session.bounds,
         shapeBounds: sessionItem.bounds,
-        originY: sessionItem.originY
+        verticalAttachment: sessionItem.verticalAttachment
       })
       const minimumSelectionScaleY = this._resolveMinimumScaleForSize({
         minimumSize: minimumHeight,
@@ -875,19 +891,18 @@ export default class ShapeActiveSelectionScalingController {
   private _resolveSelectionAvailableHeight({
     selectionBounds,
     shapeBounds,
-    originY
+    verticalAttachment
   }: {
     selectionBounds: ActiveSelectionLocalBounds
     shapeBounds: ActiveSelectionLocalBounds
-    originY: ShapeTransformOriginY
+    verticalAttachment: ActiveSelectionVerticalAttachment
   }): number {
-    const originOffset = this._resolveOriginOffset({ origin: originY })
-
-    if (originOffset > 0) {
-      return Math.max(MIN_SIZE, shapeBounds.bottom - selectionBounds.top)
-    }
-    if (originOffset < 0) {
+    if (verticalAttachment === 'top') {
       return Math.max(MIN_SIZE, selectionBounds.bottom - shapeBounds.top)
+    }
+
+    if (verticalAttachment === 'bottom') {
+      return Math.max(MIN_SIZE, shapeBounds.bottom - selectionBounds.top)
     }
 
     const shapeCenterY = (shapeBounds.top + shapeBounds.bottom) / 2
@@ -932,6 +947,25 @@ export default class ShapeActiveSelectionScalingController {
     }
   }
 
+  private _resolveVerticalAttachment({
+    selectionBounds,
+    shapeBounds
+  }: {
+    selectionBounds: ActiveSelectionLocalBounds
+    shapeBounds: ActiveSelectionLocalBounds
+  }): ActiveSelectionVerticalAttachment {
+    const topGap = Math.max(0, shapeBounds.top - selectionBounds.top)
+    const bottomGap = Math.max(0, selectionBounds.bottom - shapeBounds.bottom)
+    const isTopAttached = topGap <= SIZE_EPSILON
+    const isBottomAttached = bottomGap <= SIZE_EPSILON
+
+    if (isTopAttached && !isBottomAttached) return 'top'
+    if (isBottomAttached && !isTopAttached) return 'bottom'
+    if (Math.abs(topGap - bottomGap) <= SIZE_EPSILON) return 'center'
+
+    return topGap < bottomGap ? 'top' : 'bottom'
+  }
+
   private _resolveOriginOffset({
     origin
   }: {
@@ -944,17 +978,48 @@ export default class ShapeActiveSelectionScalingController {
     return origin - 0.5
   }
 
-  private _restoreShapeOriginInSelection({
+  /**
+   * Позиционирует shape по тому же vertical attachment, по которому считается clamp рамки.
+   * Координаты остаются в стартовой плоскости объектов; текущий transform ActiveSelection переводит их в preview.
+   */
+  private _positionShapeInSelection({
     group,
     sessionItem
   }: {
     group: ShapeGroup
     sessionItem: ActiveSelectionShapeScalingSessionItem
   }): void {
+    const {
+      bounds,
+      transformOriginX,
+      transformOriginPointX,
+      verticalAttachment
+    } = sessionItem
+
+    if (verticalAttachment === 'top') {
+      group.setPositionByOrigin(
+        new Point(transformOriginPointX, bounds.top),
+        transformOriginX,
+        'top'
+      )
+
+      return
+    }
+
+    if (verticalAttachment === 'bottom') {
+      group.setPositionByOrigin(
+        new Point(transformOriginPointX, bounds.bottom),
+        transformOriginX,
+        'bottom'
+      )
+
+      return
+    }
+
     group.setPositionByOrigin(
-      sessionItem.originPoint,
-      sessionItem.originX,
-      sessionItem.originY
+      new Point(transformOriginPointX, (bounds.top + bounds.bottom) / 2),
+      transformOriginX,
+      'center'
     )
   }
 

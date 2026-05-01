@@ -15,6 +15,8 @@ type ShapeScalingTransformTarget = ShapeScalingTestGroup | ActiveSelection
 type ActiveSelectionShapeScalingSelection = ActiveSelection & {
   scaleX?: number
   scaleY?: number
+  getPositionByOrigin: jest.Mock<Point, [originX: GroupOriginX, originY: GroupOriginY]>
+  setPositionByOrigin: jest.Mock<void, [point: Point, originX: GroupOriginX, originY: GroupOriginY]>
   setCoords: jest.Mock
 }
 
@@ -30,6 +32,13 @@ type ShapeScalingTransformOptions = {
   signX?: number
   signY?: number
   target?: ShapeScalingTransformTarget
+}
+
+type ActiveSelectionShapeScalingShapeBounds = {
+  left: number
+  top: number
+  width: number
+  height: number
 }
 
 export type ShapeScalingTransformStub = {
@@ -118,9 +127,11 @@ export const createShapeScalingSetup = (): ShapeScalingTestSetup => {
  * Создаёт setup для ActiveSelection c несколькими shape-группами.
  */
 export const createActiveSelectionShapeScalingSetup = ({
-  includeNonShapeObject = false
+  includeNonShapeObject = false,
+  shapeBounds
 }: {
   includeNonShapeObject?: boolean
+  shapeBounds?: ActiveSelectionShapeScalingShapeBounds[]
 } = {}): ActiveSelectionShapeScalingTestSetup => {
   const canvas = createMockCanvas()
   const controller = new ShapeScalingController({
@@ -135,22 +146,29 @@ export const createActiveSelectionShapeScalingSetup = ({
   }>()
 
   for (let index = 0; index < 2; index += 1) {
+    const bounds = shapeBounds?.[index]
+    const width = bounds?.width ?? 200
+    const height = bounds?.height ?? 200
     const shape = createMockShapeNode({
-      width: 200,
-      height: 200
+      width,
+      height
     })
     const text = createMockShapeTextbox({
       text: `test text ${index + 1}`,
-      width: 200,
+      width,
       fontSize: 30
     })
     const group = createMockShapeGroup({
       shape,
       text,
-      left: 480 + (index * 140),
-      top: 420,
-      width: 200,
-      height: 200
+      left: bounds
+        ? bounds.left + (bounds.width / 2)
+        : 480 + (index * 140),
+      top: bounds
+        ? bounds.top + (bounds.height / 2)
+        : 420,
+      width,
+      height
     })
 
     groups.push(group)
@@ -174,6 +192,21 @@ export const createActiveSelectionShapeScalingSetup = ({
   const selection = new ActiveSelection(selectionObjects as never[], {
     canvas: canvas as never
   }) as ActiveSelectionShapeScalingSelection
+  selection.getPositionByOrigin = jest.fn((
+    _originX: GroupOriginX,
+    _originY: GroupOriginY
+  ) => new Point(
+    Number(selection.left) || 0,
+    Number(selection.top) || 0
+  ))
+  selection.setPositionByOrigin = jest.fn((
+    point: Point,
+    _originX: GroupOriginX,
+    _originY: GroupOriginY
+  ) => {
+    selection.left = point.x
+    selection.top = point.y
+  })
   selection.setCoords = jest.fn()
 
   const getShapeNodesMock = getShapeNodes as jest.Mock
