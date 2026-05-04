@@ -80,6 +80,7 @@ export type UpdateOptions = {
   skipRender?: boolean
   selectionRange?: TextSelectionRange | null
   emitLifecycleEvents?: boolean
+  syncLineStylesWithText?: boolean
 }
 
 export type TextAddedPayload = {

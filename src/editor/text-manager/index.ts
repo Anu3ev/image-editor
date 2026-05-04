@@ -324,6 +324,8 @@ export default class TextManager {
    * @param options.selectionRange — внешний диапазон выделения для применения стилей
    * @param options.emitLifecycleEvents — отключает editor-level lifecycle события
    * для внутренних materialization-path без изменения update-контракта.
+  * @param options.syncLineStylesWithText — синхронизирует lineFontDefaults и runtime styles
+  * с новым текстом при программном обновлении. По умолчанию включён.
    * @fires editor:before:text-updated
    * @fires editor:text-updated
    */
@@ -333,7 +335,8 @@ export default class TextManager {
     withoutSave,
     skipRender,
     selectionRange: selectionRangeOverride,
-    emitLifecycleEvents = true
+    emitLifecycleEvents = true,
+    syncLineStylesWithText = true
   }: UpdateOptions = {}): EditorTextbox | null {
     const textbox = this._resolveTextObject(target)
     if (!textbox) return null
@@ -598,6 +601,7 @@ export default class TextManager {
     const targetRawText = hasTextUpdate ? text ?? '' : previousRaw
     const nextUppercase = uppercase ?? previousUppercase
     const uppercaseChanged = nextUppercase !== previousUppercase
+    const previousRenderedText = textbox.text ?? ''
 
     // textCaseRaw хранит исходный текст без учёта uppercase,
     // чтобы можно было переключать регистр без потери оригинальной строки.
@@ -781,6 +785,16 @@ export default class TextManager {
       textbox.autoExpand = autoExpand !== false
     } else if (storedAutoExpand === undefined) {
       textbox.autoExpand = true
+    }
+
+    const nextRenderedText = textbox.text ?? ''
+
+    if (syncLineStylesWithText && previousRenderedText !== nextRenderedText) {
+      this._syncLineStylesWithText({
+        textbox,
+        previousText: previousRenderedText,
+        currentText: nextRenderedText
+      })
     }
 
     const hasAutoExpandTrigger = hasTextUpdate
@@ -1166,7 +1180,7 @@ export default class TextManager {
     }
 
     if (isShapeOwnedTextbox) {
-      this._syncLineFontDefaultsOnTextChanged({ textbox: target })
+      this._syncLineStylesWithText({ textbox: target })
       return
     }
 
@@ -1176,23 +1190,31 @@ export default class TextManager {
       shouldAutoExpand: isAutoExpandEnabled
     })
 
-    this._syncLineFontDefaultsOnTextChanged({ textbox: target })
+    this._syncLineStylesWithText({ textbox: target })
   }
 
   /**
-   * Синхронизирует lineFontDefaults при изменении текста и сохраняет служебный Fabric-стиль для пустых строк.
+   * Синхронизирует lineFontDefaults и runtime styles после изменения текста.
    */
-  private _syncLineFontDefaultsOnTextChanged({ textbox }: { textbox: EditorTextbox }): void {
-    const currentText = textbox.text ?? ''
-    const previousText = textbox.__lineDefaultsPrevText ?? currentText
+  private _syncLineStylesWithText({
+    textbox,
+    previousText,
+    currentText
+  }: {
+    textbox: EditorTextbox
+    previousText?: string
+    currentText?: string
+  }): void {
+    const resolvedCurrentText = currentText ?? textbox.text ?? ''
+    const resolvedPreviousText = previousText ?? textbox.__lineDefaultsPrevText ?? resolvedCurrentText
 
     const syncResult = syncLineFontDefaultsAfterTextChange({
       textbox,
-      previousText,
-      currentText
+      previousText: resolvedPreviousText,
+      currentText: resolvedCurrentText
     })
 
-    if (syncResult.lineFontDefaultsChanged && syncResult.lineFontDefaults) {
+    if (syncResult.lineFontDefaultsChanged) {
       textbox.lineFontDefaults = syncResult.lineFontDefaults
     }
 
@@ -1201,7 +1223,7 @@ export default class TextManager {
       textbox.dirty = true
     }
 
-    textbox.__lineDefaultsPrevText = currentText
+    textbox.__lineDefaultsPrevText = resolvedCurrentText
   }
 
   /**

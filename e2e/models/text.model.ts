@@ -303,7 +303,7 @@ export class TextModel {
 
   /** Обновляет стиль текстового объекта через публичный API TextManager. */
   async updateStyle(params: TextUpdateStyleParams): Promise<TextObjectInfo | null> {
-    const textObject = await this.page.evaluate(({ style, objectIndex, id }) => {
+    const textObject = await this.page.evaluate(({ style, objectIndex, id, syncLineStylesWithText }) => {
       const {
         editor,
         __editorHelpers: helpers
@@ -312,7 +312,8 @@ export class TextModel {
       const target = helpers.resolveCanvasObject(objectIndex, id)
       const result = editor.textManager.updateText({
         target,
-        style
+        style,
+        syncLineStylesWithText
       })
       if (!result) return null
 

@@ -467,7 +467,20 @@ const removeDeletedLineDefaultStyles = ({
   styles: TextboxStyles
 }): { styles: TextboxStyles; changed: boolean } => {
   if (!cleanup) return { styles, changed: false }
-  if (cleanup.lineIndex >= lineCount) return { styles, changed: false }
+
+  if (cleanup.lineIndex >= lineCount) {
+    if (!styles[cleanup.lineIndex]) {
+      return { styles, changed: false }
+    }
+
+    const nextStyles = { ...styles }
+    delete nextStyles[cleanup.lineIndex]
+
+    return {
+      styles: nextStyles,
+      changed: true
+    }
+  }
 
   let cleanupLineStyles: TextboxLineStyles | undefined = styles[cleanup.lineIndex]
   let cleanupChanged = false

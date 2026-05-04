@@ -194,6 +194,7 @@ export type ShapeUpdateOptions = ShapeVisualStyle & {
   textPadding?: Partial<ShapePadding>
   withoutSelection?: boolean
   withoutSave?: boolean
+  syncLineStylesWithText?: boolean
 }
 
 export type ShapeSnapshot = {
