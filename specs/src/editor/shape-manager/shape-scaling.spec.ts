@@ -7,6 +7,7 @@ import {
   resolveRequiredShapeHeightForText,
   resolveShapeTextFixedWidthLayout
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
+import * as shapeScalingLayout from '../../../../src/editor/shape-manager/scaling/shape-scaling-layout'
 import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
 import {
   isShapeGroup
@@ -808,6 +809,46 @@ describe('shape-scaling', () => {
       expect(layoutCall.height).toBeGreaterThanOrEqual(99.5)
       expect(layoutCall.height).toBeLessThanOrEqual(100.01)
     })
+  })
+
+  it('в одном live-кадре при пропорциональном уменьшении нескольких шейпов по диагонали переиспользует уже найденный minimum', () => {
+    const {
+      controller,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+    const resolveMinimumProportionalShapeScaleSpy = jest.spyOn(
+      shapeScalingLayout,
+      'resolveMinimumProportionalShapeScale'
+    )
+
+    try {
+      isShapeTextFrameFilledMock.mockReturnValue(false)
+      measureShapeTextFrameLayoutMock.mockImplementation(({ frameWidth }: { frameWidth: number }) => ({
+        measuredHeight: 100,
+        renderedLineCount: 1,
+        longestLineWidth: frameWidth,
+        requiresGraphemeSplit: frameWidth < 100
+      }))
+
+      selection.scaleX = 0.4
+      selection.scaleY = 0.4
+
+      controller.handleObjectScaling({
+        target: selection,
+        transform: createShapeScalingTransform({
+          target: selection,
+          action: 'scale',
+          corner: 'br',
+          originX: 'left',
+          originY: 'top'
+        }) as never
+      })
+
+      expect(resolveMinimumProportionalShapeScaleSpy).toHaveBeenCalledTimes(2)
+      expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledTimes(2)
+    } finally {
+      resolveMinimumProportionalShapeScaleSpy.mockRestore()
+    }
   })
 
   it('если Fabric пропустил scaling-кадр, продолжает лайв-перерасчёт текста для нескольких шейпов', () => {

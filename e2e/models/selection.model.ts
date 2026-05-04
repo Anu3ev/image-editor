@@ -135,6 +135,40 @@ export class SelectionModel {
     })
   }
 
+  /** Масштабирует текущее общее выделение из левого верхнего угла и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
+  async scaleDiagonallyFromTopLeft(
+    params: {
+      scaleX: number
+      scaleY: number
+      shiftKey?: boolean
+    }
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'tl',
+      oppositeControl: 'br',
+      scaleX: params.scaleX,
+      scaleY: params.scaleY,
+      shiftKey: params.shiftKey
+    })
+  }
+
+  /** Масштабирует текущее общее выделение из левого нижнего угла и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
+  async scaleDiagonallyFromBottomLeft(
+    params: {
+      scaleX: number
+      scaleY: number
+      shiftKey?: boolean
+    }
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'bl',
+      oppositeControl: 'tr',
+      scaleX: params.scaleX,
+      scaleY: params.scaleY,
+      shiftKey: params.shiftKey
+    })
+  }
+
   /** Сжимает текущее общее выделение справа до минимальной ширины и возвращает live-состояние. */
   async shrinkHorizontallyFromRightToMinimum(
     params: SelectionMinimumSizeParams

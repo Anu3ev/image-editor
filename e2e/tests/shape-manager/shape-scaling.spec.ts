@@ -701,6 +701,172 @@ test.describe('Скейлинг шейпа с текстом по диагона
         shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
       })
     })
+
+    test('при сужении за левый верхний угол текст переносится во время drag и размер не дёргается после mouseup', async({
+      shapes
+    }) => {
+      await test.step('Добавить квадратный шейп с текстом из нескольких слов', async() => {
+        await shapes.addShapeWithText({
+          presetKey: 'square',
+          width: 220,
+          height: 220,
+          text: 'Active text',
+          fontSize: 48
+        })
+      })
+
+      const initialSnapshot = await test.step('Получить исходное состояние шейпа', async() => {
+        return shapes.getScaleSnapshot({ objectIndex: 0 })
+      })
+      const initialText = await test.step('Получить исходное состояние текста', async() => {
+        return shapes.getTextNode({ objectIndex: 0 })
+      })
+
+      const liveSnapshot = await test.step('Сузить шейп пропорционально за левый верхний угол во время drag', async() => {
+        return shapes.scaleDiagonallyProportionally({
+          scale: 0.55,
+          corner: 'tl',
+          objectIndex: 0
+        })
+      })
+      const liveText = await test.step('Получить состояние текста во время drag', async() => {
+        return shapes.getTextNode({ objectIndex: 0 })
+      })
+
+      await test.step('Проверить что шейп остаётся пропорциональным, а текст переносится внутри него', () => {
+        expect(initialText, 'исходный текст должен существовать').not.toBeNull()
+        expect(liveText, 'текст во время drag должен существовать').not.toBeNull()
+
+        if (!initialText || !liveText) {
+          throw new Error('текст должен существовать до и во время drag')
+        }
+
+        const proportionalDiff = Math.abs(liveSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsHeight)
+
+        expect(liveSnapshot.groupBoundsWidth)
+          .toBeLessThan(initialSnapshot.groupBoundsWidth - SHAPE_SCALING_TOLERANCE.direction)
+        expect(liveSnapshot.groupBoundsHeight)
+          .toBeLessThan(initialSnapshot.groupBoundsHeight - SHAPE_SCALING_TOLERANCE.direction)
+        expect(proportionalDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(liveText.lineCount).toBeGreaterThan(initialText.lineCount)
+        expect(liveText.fontSize).toBe(initialText.fontSize)
+
+        shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'shape' })
+        shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'text' })
+      })
+
+      const finalSnapshot = await test.step('Отпустить мышь и получить итоговое состояние шейпа', async() => {
+        return shapes.finishScale({ objectIndex: 0 })
+      })
+      const finalText = await test.step('Получить итоговое состояние текста', async() => {
+        return shapes.getTextNode({ objectIndex: 0 })
+      })
+
+      await test.step('Проверить что после mouseup размер не дёрнулся и переносы строк сохранились', () => {
+        expect(liveText, 'текст во время drag должен существовать').not.toBeNull()
+        expect(finalText, 'итоговый текст должен существовать').not.toBeNull()
+
+        if (!liveText || !finalText) {
+          throw new Error('текст должен существовать во время drag и после mouseup')
+        }
+
+        const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsWidth)
+        const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight)
+        const proportionalDiff = Math.abs(finalSnapshot.groupBoundsWidth - finalSnapshot.groupBoundsHeight)
+
+        expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(proportionalDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(finalText.lineCount).toBe(liveText.lineCount)
+        expect(finalText.fontSize).toBe(liveText.fontSize)
+
+        shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'shape' })
+        shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
+      })
+    })
+
+    test('при сужении за левый нижний угол текст переносится во время drag и размер не дёргается после mouseup', async({
+      shapes
+    }) => {
+      await test.step('Добавить квадратный шейп с текстом из нескольких слов', async() => {
+        await shapes.addShapeWithText({
+          presetKey: 'square',
+          width: 220,
+          height: 220,
+          text: 'Active text',
+          fontSize: 48
+        })
+      })
+
+      const initialSnapshot = await test.step('Получить исходное состояние шейпа', async() => {
+        return shapes.getScaleSnapshot({ objectIndex: 0 })
+      })
+      const initialText = await test.step('Получить исходное состояние текста', async() => {
+        return shapes.getTextNode({ objectIndex: 0 })
+      })
+
+      const liveSnapshot = await test.step('Сузить шейп пропорционально за левый нижний угол во время drag', async() => {
+        return shapes.scaleDiagonallyProportionally({
+          scale: 0.55,
+          corner: 'bl',
+          objectIndex: 0
+        })
+      })
+      const liveText = await test.step('Получить состояние текста во время drag', async() => {
+        return shapes.getTextNode({ objectIndex: 0 })
+      })
+
+      await test.step('Проверить что шейп остаётся пропорциональным, а текст переносится внутри него', () => {
+        expect(initialText, 'исходный текст должен существовать').not.toBeNull()
+        expect(liveText, 'текст во время drag должен существовать').not.toBeNull()
+
+        if (!initialText || !liveText) {
+          throw new Error('текст должен существовать до и во время drag')
+        }
+
+        const proportionalDiff = Math.abs(liveSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsHeight)
+
+        expect(liveSnapshot.groupBoundsWidth)
+          .toBeLessThan(initialSnapshot.groupBoundsWidth - SHAPE_SCALING_TOLERANCE.direction)
+        expect(liveSnapshot.groupBoundsHeight)
+          .toBeLessThan(initialSnapshot.groupBoundsHeight - SHAPE_SCALING_TOLERANCE.direction)
+        expect(proportionalDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(liveText.lineCount).toBeGreaterThan(initialText.lineCount)
+        expect(liveText.fontSize).toBe(initialText.fontSize)
+
+        shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'shape' })
+        shapes.checkNodeInsideGroup({ snapshot: liveSnapshot, kind: 'text' })
+      })
+
+      const finalSnapshot = await test.step('Отпустить мышь и получить итоговое состояние шейпа', async() => {
+        return shapes.finishScale({ objectIndex: 0 })
+      })
+      const finalText = await test.step('Получить итоговое состояние текста', async() => {
+        return shapes.getTextNode({ objectIndex: 0 })
+      })
+
+      await test.step('Проверить что после mouseup размер не дёрнулся и переносы строк сохранились', () => {
+        expect(liveText, 'текст во время drag должен существовать').not.toBeNull()
+        expect(finalText, 'итоговый текст должен существовать').not.toBeNull()
+
+        if (!liveText || !finalText) {
+          throw new Error('текст должен существовать во время drag и после mouseup')
+        }
+
+        const widthJump = Math.abs(finalSnapshot.groupBoundsWidth - liveSnapshot.groupBoundsWidth)
+        const heightJump = Math.abs(finalSnapshot.groupBoundsHeight - liveSnapshot.groupBoundsHeight)
+        const proportionalDiff = Math.abs(finalSnapshot.groupBoundsWidth - finalSnapshot.groupBoundsHeight)
+
+        expect(widthJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(heightJump).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(proportionalDiff).toBeLessThanOrEqual(SHAPE_SCALING_TOLERANCE.mouseupJump)
+        expect(finalText.lineCount).toBe(liveText.lineCount)
+        expect(finalText.fontSize).toBe(liveText.fontSize)
+
+        shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'shape' })
+        shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
+      })
+    })
   })
 
   test.describe('Непропорциональный скейлинг по диагонали', () => {
