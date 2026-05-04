@@ -169,6 +169,7 @@ export interface ShapeUpdateParams {
     textPadding?: ShapePaddingParams
     preserveCurrentAspectRatio?: boolean
     withoutSelection?: boolean
+    syncLineStylesWithText?: boolean
   }
 }
 

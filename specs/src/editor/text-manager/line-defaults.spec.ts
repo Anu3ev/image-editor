@@ -125,6 +125,177 @@ describe('lineFontDefaults', () => {
       expect(textbox.lineFontDefaults?.[0]).toBeUndefined()
       expect(textbox.lineFontDefaults?.[1]).toBeUndefined()
     })
+
+    it('при внешнем обновлении текста растягивает стиль строки на все символы нового текста', () => {
+      const {
+        canvas,
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'AA',
+        autoExpand: false,
+        fontFamily: 'Arial',
+        fontSize: 48,
+        color: '#000000'
+      })
+
+      textbox.lineFontDefaults = {
+        0: {
+          fontFamily: 'Exo 2',
+          fontSize: 36,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#ff8800',
+          linethrough: true,
+          stroke: '#333333',
+          strokeWidth: 1,
+          underline: true
+        }
+      }
+
+      canvas.fire('text:changed', { target: textbox })
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          text: 'AAAA'
+        }
+      })
+
+      expect(textbox.lineFontDefaults?.[0]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+      expect(Object.keys(textbox.styles?.[0] ?? {})).toHaveLength(4)
+      expect(textbox.styles?.[0]?.[0]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+      expect(textbox.styles?.[0]?.[3]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+    })
+
+    it('при внешнем обновлении текста удаляет lineFontDefaults строк которые исчезли', () => {
+      const {
+        canvas,
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'FIRST\nSECOND',
+        autoExpand: false,
+        fontFamily: 'Arial',
+        fontSize: 48,
+        color: '#000000'
+      })
+
+      textbox.lineFontDefaults = {
+        1: {
+          fontFamily: 'Oswald',
+          fontSize: 24,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#ff8800',
+          linethrough: true,
+          stroke: '#333333',
+          strokeWidth: 1,
+          underline: true
+        }
+      }
+
+      canvas.fire('text:changed', { target: textbox })
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        style: {
+          text: 'FIRST'
+        }
+      })
+
+      expect(textbox.text).toBe('FIRST')
+      expect(Object.keys(textbox.lineFontDefaults ?? {})).toHaveLength(0)
+      expect(textbox.styles?.[1]).toBeUndefined()
+    })
+
+    it('с флагом syncLineStylesWithText=false оставляет текущие стили без пересчёта под новый текст', () => {
+      const {
+        canvas,
+        textManager
+      } = createTextManagerTestSetup()
+
+      const textbox = textManager.addText({
+        text: 'AA',
+        autoExpand: false,
+        fontFamily: 'Arial',
+        fontSize: 48,
+        color: '#000000'
+      })
+
+      textbox.lineFontDefaults = {
+        0: {
+          fontFamily: 'Exo 2',
+          fontSize: 36,
+          fontStyle: 'italic',
+          fontWeight: 'bold',
+          fill: '#ff8800',
+          linethrough: true,
+          stroke: '#333333',
+          strokeWidth: 1,
+          underline: true
+        }
+      }
+
+      canvas.fire('text:changed', { target: textbox })
+
+      textManager.updateText({
+        target: textbox,
+        withoutSave: true,
+        syncLineStylesWithText: false,
+        style: {
+          text: 'AAAA'
+        }
+      })
+
+      expect(textbox.lineFontDefaults?.[0]).toMatchObject({
+        fill: '#ff8800',
+        fontFamily: 'Exo 2',
+        fontSize: 36,
+        fontStyle: 'italic',
+        fontWeight: 'bold',
+        linethrough: true,
+        stroke: '#333333',
+        strokeWidth: 1,
+        underline: true
+      })
+      expect(Object.keys(textbox.styles?.[0] ?? {})).toHaveLength(2)
+      expect(textbox.styles?.[0]?.[3]).toBeUndefined()
+    })
   })
 
   describe('text:changed', () => {

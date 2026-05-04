@@ -462,7 +462,8 @@ export default class ShapeManager {
       textPadding,
       rounding,
       withoutSelection,
-      withoutSave
+      withoutSave,
+      syncLineStylesWithText = true
     } = options
     const placement = this.editor.canvasManager.resolveObjectPlacement({
       object: currentGroup,
@@ -649,7 +650,8 @@ export default class ShapeManager {
       textNode: stagedTextNode,
       text,
       textStyle,
-      align: horizontalAlign
+      align: horizontalAlign,
+      syncLineStylesWithText
     })
 
     const shouldPreserveCurrentWidth = rawWidth === undefined
@@ -710,7 +712,8 @@ export default class ShapeManager {
         textNode: currentTextNode,
         text,
         textStyle,
-        align: horizontalAlign
+        align: horizontalAlign,
+        syncLineStylesWithText
       })
 
       currentGroup.remove(currentShapeNode)
@@ -1971,12 +1974,14 @@ export default class ShapeManager {
     textNode,
     text,
     textStyle,
-    align
+    align,
+    syncLineStylesWithText
   }: {
     textNode: ShapeTextNode
     text?: string
     textStyle?: ShapeTextStyleOptions
     align?: ShapeHorizontalAlign
+    syncLineStylesWithText?: boolean
   }): void {
     const styleUpdates: TextStyleOptions = {}
 
@@ -2011,7 +2016,8 @@ export default class ShapeManager {
         style: styleUpdates,
         skipRender: true,
         withoutSave: true,
-        emitLifecycleEvents: false
+        emitLifecycleEvents: false,
+        syncLineStylesWithText
       })
     } finally {
       this.internalTextUpdates.delete(textNode)

@@ -119,6 +119,7 @@ export interface TextResizeSnapshot extends TextObjectInfo {
 /** Параметры обновления стиля текстового объекта через TextManager. */
 export interface TextUpdateStyleParams extends ObjectTargetParams {
   style: TextStyleParams
+  syncLineStylesWithText?: boolean
 }
 
 /** Параметры применения inline-стиля к диапазону standalone text. */
