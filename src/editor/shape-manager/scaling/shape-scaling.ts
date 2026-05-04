@@ -39,6 +39,7 @@ import type {
 import {
   commitResolvedShapeScalingLayout,
   ensureShapeScalingState,
+  resolveMinimumProportionalShapeScale,
   resolveMinimumTextFitHeight,
   resolveShapeScalingCommitDimensions,
   resolveShapeScalingConstraintPadding,
@@ -46,6 +47,7 @@ import {
   resolveShapeScalingPreviewDimensions,
   resolveShapeScalingPreviewLayout,
   resolveShapeScalingUserPadding,
+  validateShapeTextLayoutForProportionalScaling,
   SHAPE_SCALING_MIN_SIZE as MIN_SIZE,
   SHAPE_SCALING_SCALE_EPSILON as SCALE_EPSILON
 } from './shape-scaling-layout'
@@ -83,11 +85,6 @@ type ShapeScalingConstraintState = {
 }
 
 type ShapeScaleDirection = -1 | 1
-
-type ShapeScalingProportionalMinimum = {
-  scale: number
-  minimumHeight: number
-}
 
 type CanvasWithCurrentTransform = Canvas & {
   _currentTransform?: Transform | null
@@ -401,6 +398,44 @@ export default class ShapeScalingController {
     const shouldHandleAsNoop = isVerticalOnlyScale
       && cannotScaleDownAtStart
       && isBelowStartScaleY
+    const shouldValidateProportionalConstraint = isProportionalScaling
+      && canScaleWidth
+      && canScaleHeight
+      && (isShrinkingX || isShrinkingY)
+
+    if (shouldValidateProportionalConstraint) {
+      const candidateConstraint = validateShapeTextLayoutForProportionalScaling({
+        group,
+        text,
+        width: attemptedWidth,
+        height: attemptedHeight
+      })
+
+      if (!candidateConstraint.isValid) {
+        const proportionalMinimum = resolveMinimumProportionalShapeScale({
+          group,
+          text,
+          state
+        })
+
+        return {
+          shouldHandleAsNoop,
+          shouldRestoreLastAllowedTransform: crossedOppositeCorner,
+          clampedScaleX: proportionalMinimum.scale,
+          clampedScaleY: proportionalMinimum.scale,
+          resolvedMinimumHeight: proportionalMinimum.minimumHeight
+        }
+      }
+
+      return {
+        shouldHandleAsNoop,
+        shouldRestoreLastAllowedTransform: crossedOppositeCorner,
+        clampedScaleX: null,
+        clampedScaleY: null,
+        resolvedMinimumHeight: null
+      }
+    }
+
     const hasMinimumWidthViolation = minimumWidth !== null
       && attemptedWidth < minimumWidth + SCALE_EPSILON
     const hasMinimumHeightViolation = minimumHeight !== null
@@ -413,10 +448,9 @@ export default class ShapeScalingController {
     let clampedScaleY: number | null = null
 
     if (isProportionalScaling && hasMinimumConstraintViolation) {
-      const proportionalMinimum = this._resolveProportionalMinimumScale({
+      const proportionalMinimum = resolveMinimumProportionalShapeScale({
         group,
         text,
-        constraintPadding,
         state
       })
 
@@ -564,10 +598,9 @@ export default class ShapeScalingController {
 
       if (!pointerReachedOrPassedOriginX && !pointerReachedOrPassedOriginY) return
 
-      const proportionalMinimum = this._resolveProportionalMinimumScale({
+      const proportionalMinimum = resolveMinimumProportionalShapeScale({
         group,
         text,
-        constraintPadding,
         state
       })
 
@@ -811,10 +844,9 @@ export default class ShapeScalingController {
       })
 
       if (pointerReachedOrPassedOriginX || pointerReachedOrPassedOriginY) {
-        const proportionalMinimum = this._resolveProportionalMinimumScale({
+        const proportionalMinimum = resolveMinimumProportionalShapeScale({
           group,
           text,
-          constraintPadding,
           state
         })
 
@@ -1173,103 +1205,6 @@ export default class ShapeScalingController {
     if (typeof value !== 'number' || !Number.isFinite(value) || value === 0) return null
 
     return value > 0 ? 1 : -1
-  }
-
-  /**
-   * Возвращает точный proportional minimum для текущего diagonal shrink.
-   * Поиск идёт по одной общей scale, потому что minimum boundary зависит сразу от width и height constraints.
-   */
-  private _resolveProportionalMinimumScale({
-    group,
-    text,
-    constraintPadding,
-    state
-  }: {
-    group: ShapeGroup
-    text: ShapeTextNode
-    constraintPadding: ShapePadding
-    state: ShapeScalingState
-  }): ShapeScalingProportionalMinimum {
-    const {
-      startHeight,
-      startWidth,
-      startScaleX,
-      startScaleY,
-      lastAllowedScaleX,
-      lastAllowedScaleY
-    } = state
-    const lowerBound = Math.max(
-      MIN_SIZE / startWidth,
-      MIN_SIZE / startHeight
-    )
-    const upperBound = Math.max(
-      lowerBound,
-      startScaleX,
-      startScaleY,
-      lastAllowedScaleX,
-      lastAllowedScaleY
-    )
-    const evaluateScale = ({ scale }: { scale: number }) => {
-      const attemptedWidth = Math.max(MIN_SIZE, startWidth * scale)
-      const attemptedHeight = Math.max(MIN_SIZE, startHeight * scale)
-      const minimumWidth = resolveMinimumShapeWidthForText({
-        text,
-        padding: constraintPadding,
-        resolvePaddingForWidth: ({ width }) => resolveShapeScalingConstraintPadding({
-          group,
-          width,
-          height: attemptedHeight
-        })
-      })
-      const minimumHeight = resolveMinimumTextFitHeight({
-        group,
-        text,
-        width: attemptedWidth,
-        padding: constraintPadding
-      })
-
-      return {
-        minimumHeight,
-        isValid: attemptedWidth >= minimumWidth - SCALE_EPSILON
-          && attemptedHeight >= minimumHeight - SCALE_EPSILON
-      }
-    }
-    const upperBoundConstraint = evaluateScale({
-      scale: upperBound
-    })
-
-    if (!upperBoundConstraint.isValid) {
-      return {
-        scale: upperBound,
-        minimumHeight: upperBoundConstraint.minimumHeight
-      }
-    }
-
-    let low = lowerBound
-    let high = upperBound
-    let resolvedScale = upperBound
-    let resolvedMinimumHeight = upperBoundConstraint.minimumHeight
-
-    for (let index = 0; index < 24; index += 1) {
-      const candidateScale = (low + high) / 2
-      const candidateConstraint = evaluateScale({
-        scale: candidateScale
-      })
-
-      if (candidateConstraint.isValid) {
-        resolvedScale = candidateScale
-        resolvedMinimumHeight = candidateConstraint.minimumHeight
-        high = candidateScale
-        continue
-      }
-
-      low = candidateScale
-    }
-
-    return {
-      scale: resolvedScale,
-      minimumHeight: resolvedMinimumHeight
-    }
   }
 
   /**

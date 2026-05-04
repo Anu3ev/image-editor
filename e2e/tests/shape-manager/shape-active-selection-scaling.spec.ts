@@ -512,6 +512,268 @@ test.describe('Изменение размера нескольких шейпо
     })
   })
 
+  test.describe('Пропорциональный скейлинг по диагонали', () => {
+    test('при пропорциональном сужении за правый верхний угол текст переносится во время drag и не дёргается после mouseup', async({
+      selection,
+      shapes
+    }) => {
+      const { id: leftShapeId } = SHAPE_MULTI_SCALING_LEFT_OPTIONS
+      const { id: rightShapeId } = SHAPE_MULTI_SCALING_RIGHT_OPTIONS
+      const { mouseupJump } = SHAPE_MULTI_SCALING_TOLERANCE
+
+      const initialSelectionSnapshot = await test.step('Получить исходный размер общего выделения', () => {
+        return selection.getSnapshot()
+      })
+      const initialLeftText = await test.step('Получить исходное состояние текста в левом шейпе', () => {
+        return shapes.getTextNode({ id: leftShapeId })
+      })
+      const initialRightText = await test.step('Получить исходное состояние текста в правом шейпе', () => {
+        return shapes.getTextNode({ id: rightShapeId })
+      })
+
+      const liveSelectionSnapshot = await test.step('Сузить общее выделение пропорционально из правого верхнего угла во время drag', () => {
+        return selection.scaleDiagonallyFromTopRight({
+          scaleX: SHAPE_MULTI_SCALING_SCALE_X,
+          scaleY: SHAPE_MULTI_SCALING_SCALE_Y
+        })
+      })
+      const liveLeftShape = await test.step('Получить состояние левого шейпа во время drag', () => {
+        return shapes.getScaleSnapshot({ id: leftShapeId })
+      })
+      const liveRightShape = await test.step('Получить состояние правого шейпа во время drag', () => {
+        return shapes.getScaleSnapshot({ id: rightShapeId })
+      })
+      const liveLeftText = await test.step('Получить текст в левом шейпе во время drag', () => {
+        return shapes.getTextNode({ id: leftShapeId })
+      })
+      const liveRightText = await test.step('Получить текст в правом шейпе во время drag', () => {
+        return shapes.getTextNode({ id: rightShapeId })
+      })
+
+      await test.step('Проверить что во время drag обе оси уменьшаются, а шейпы остаются пропорциональными', () => {
+        expect(initialLeftText, 'текст в левом шейпе должен существовать').not.toBeNull()
+        expect(initialRightText, 'текст в правом шейпе должен существовать').not.toBeNull()
+        expect(liveLeftText, 'текст в левом шейпе во время drag должен существовать').not.toBeNull()
+        expect(liveRightText, 'текст в правом шейпе во время drag должен существовать').not.toBeNull()
+
+        if (!initialLeftText || !initialRightText || !liveLeftText || !liveRightText) {
+          throw new Error('текст в обоих шейпах должен существовать до и во время drag')
+        }
+
+        const leftProportionalDiff = Math.abs(liveLeftShape.groupBoundsWidth - liveLeftShape.groupBoundsHeight)
+        const rightProportionalDiff = Math.abs(liveRightShape.groupBoundsWidth - liveRightShape.groupBoundsHeight)
+
+        expect(liveSelectionSnapshot.boundsWidth)
+          .toBeLessThan(initialSelectionSnapshot.boundsWidth - mouseupJump)
+        expect(liveSelectionSnapshot.boundsHeight)
+          .toBeLessThan(initialSelectionSnapshot.boundsHeight - mouseupJump)
+        expect(liveLeftText.lineCount).toBeGreaterThan(initialLeftText.lineCount)
+        expect(liveRightText.lineCount).toBeGreaterThan(initialRightText.lineCount)
+        expect(liveLeftText.fontSize).toBe(initialLeftText.fontSize)
+        expect(liveRightText.fontSize).toBe(initialRightText.fontSize)
+        expect(leftProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+        expect(rightProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: liveLeftShape,
+          kind: 'text'
+        })
+        shapes.checkNodeInsideGroup({
+          snapshot: liveRightShape,
+          kind: 'text'
+        })
+      })
+
+      const finalSelectionSnapshot = await test.step('Отпустить мышь и получить итоговое состояние общего выделения', () => {
+        return selection.finishScale()
+      })
+      const finalLeftShape = await test.step('Получить итоговое состояние левого шейпа', () => {
+        return shapes.getScaleSnapshot({ id: leftShapeId })
+      })
+      const finalRightShape = await test.step('Получить итоговое состояние правого шейпа', () => {
+        return shapes.getScaleSnapshot({ id: rightShapeId })
+      })
+      const finalLeftText = await test.step('Получить итоговый текст в левом шейпе', () => {
+        return shapes.getTextNode({ id: leftShapeId })
+      })
+      const finalRightText = await test.step('Получить итоговый текст в правом шейпе', () => {
+        return shapes.getTextNode({ id: rightShapeId })
+      })
+
+      await test.step('Проверить что после mouseup размеры и переносы строк сохранились без рывка', () => {
+        expect(liveLeftText, 'текст в левом шейпе во время drag должен существовать').not.toBeNull()
+        expect(liveRightText, 'текст в правом шейпе во время drag должен существовать').not.toBeNull()
+        expect(finalLeftText, 'итоговый текст в левом шейпе должен существовать').not.toBeNull()
+        expect(finalRightText, 'итоговый текст в правом шейпе должен существовать').not.toBeNull()
+
+        if (!liveLeftText || !liveRightText || !finalLeftText || !finalRightText) {
+          throw new Error('текст в обоих шейпах должен существовать во время drag и после mouseup')
+        }
+
+        const selectionWidthJump = Math.abs(finalSelectionSnapshot.boundsWidth - liveSelectionSnapshot.boundsWidth)
+        const selectionHeightJump = Math.abs(finalSelectionSnapshot.boundsHeight - liveSelectionSnapshot.boundsHeight)
+        const leftWidthJump = Math.abs(finalLeftShape.groupBoundsWidth - liveLeftShape.groupBoundsWidth)
+        const rightWidthJump = Math.abs(finalRightShape.groupBoundsWidth - liveRightShape.groupBoundsWidth)
+        const leftHeightJump = Math.abs(finalLeftShape.groupBoundsHeight - liveLeftShape.groupBoundsHeight)
+        const rightHeightJump = Math.abs(finalRightShape.groupBoundsHeight - liveRightShape.groupBoundsHeight)
+        const leftProportionalDiff = Math.abs(finalLeftShape.groupBoundsWidth - finalLeftShape.groupBoundsHeight)
+        const rightProportionalDiff = Math.abs(finalRightShape.groupBoundsWidth - finalRightShape.groupBoundsHeight)
+
+        expect(selectionWidthJump).toBeLessThanOrEqual(mouseupJump)
+        expect(selectionHeightJump).toBeLessThanOrEqual(mouseupJump)
+        expect(leftWidthJump).toBeLessThanOrEqual(mouseupJump)
+        expect(rightWidthJump).toBeLessThanOrEqual(mouseupJump)
+        expect(leftHeightJump).toBeLessThanOrEqual(mouseupJump)
+        expect(rightHeightJump).toBeLessThanOrEqual(mouseupJump)
+        expect(leftProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+        expect(rightProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+        expect(finalLeftText.lineCount).toBe(liveLeftText.lineCount)
+        expect(finalRightText.lineCount).toBe(liveRightText.lineCount)
+        expect(finalLeftText.fontSize).toBe(liveLeftText.fontSize)
+        expect(finalRightText.fontSize).toBe(liveRightText.fontSize)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: finalLeftShape,
+          kind: 'text'
+        })
+        shapes.checkNodeInsideGroup({
+          snapshot: finalRightShape,
+          kind: 'text'
+        })
+      })
+    })
+
+    test('при пропорциональном сужении за правый нижний угол текст переносится во время drag и не дёргается после mouseup', async({
+      selection,
+      shapes
+    }) => {
+      const { id: leftShapeId } = SHAPE_MULTI_SCALING_LEFT_OPTIONS
+      const { id: rightShapeId } = SHAPE_MULTI_SCALING_RIGHT_OPTIONS
+      const { mouseupJump } = SHAPE_MULTI_SCALING_TOLERANCE
+
+      const initialSelectionSnapshot = await test.step('Получить исходный размер общего выделения', () => {
+        return selection.getSnapshot()
+      })
+      const initialLeftText = await test.step('Получить исходное состояние текста в левом шейпе', () => {
+        return shapes.getTextNode({ id: leftShapeId })
+      })
+      const initialRightText = await test.step('Получить исходное состояние текста в правом шейпе', () => {
+        return shapes.getTextNode({ id: rightShapeId })
+      })
+
+      const liveSelectionSnapshot = await test.step('Сузить общее выделение пропорционально из правого нижнего угла во время drag', () => {
+        return selection.scaleDiagonallyFromBottomRight({
+          scaleX: SHAPE_MULTI_SCALING_SCALE_X,
+          scaleY: SHAPE_MULTI_SCALING_SCALE_Y
+        })
+      })
+      const liveLeftShape = await test.step('Получить состояние левого шейпа во время drag', () => {
+        return shapes.getScaleSnapshot({ id: leftShapeId })
+      })
+      const liveRightShape = await test.step('Получить состояние правого шейпа во время drag', () => {
+        return shapes.getScaleSnapshot({ id: rightShapeId })
+      })
+      const liveLeftText = await test.step('Получить текст в левом шейпе во время drag', () => {
+        return shapes.getTextNode({ id: leftShapeId })
+      })
+      const liveRightText = await test.step('Получить текст в правом шейпе во время drag', () => {
+        return shapes.getTextNode({ id: rightShapeId })
+      })
+
+      await test.step('Проверить что во время drag обе оси уменьшаются, а шейпы остаются пропорциональными', () => {
+        expect(initialLeftText, 'текст в левом шейпе должен существовать').not.toBeNull()
+        expect(initialRightText, 'текст в правом шейпе должен существовать').not.toBeNull()
+        expect(liveLeftText, 'текст в левом шейпе во время drag должен существовать').not.toBeNull()
+        expect(liveRightText, 'текст в правом шейпе во время drag должен существовать').not.toBeNull()
+
+        if (!initialLeftText || !initialRightText || !liveLeftText || !liveRightText) {
+          throw new Error('текст в обоих шейпах должен существовать до и во время drag')
+        }
+
+        const leftProportionalDiff = Math.abs(liveLeftShape.groupBoundsWidth - liveLeftShape.groupBoundsHeight)
+        const rightProportionalDiff = Math.abs(liveRightShape.groupBoundsWidth - liveRightShape.groupBoundsHeight)
+
+        expect(liveSelectionSnapshot.boundsWidth)
+          .toBeLessThan(initialSelectionSnapshot.boundsWidth - mouseupJump)
+        expect(liveSelectionSnapshot.boundsHeight)
+          .toBeLessThan(initialSelectionSnapshot.boundsHeight - mouseupJump)
+        expect(liveLeftText.lineCount).toBeGreaterThan(initialLeftText.lineCount)
+        expect(liveRightText.lineCount).toBeGreaterThan(initialRightText.lineCount)
+        expect(liveLeftText.fontSize).toBe(initialLeftText.fontSize)
+        expect(liveRightText.fontSize).toBe(initialRightText.fontSize)
+        expect(leftProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+        expect(rightProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: liveLeftShape,
+          kind: 'text'
+        })
+        shapes.checkNodeInsideGroup({
+          snapshot: liveRightShape,
+          kind: 'text'
+        })
+      })
+
+      const finalSelectionSnapshot = await test.step('Отпустить мышь и получить итоговое состояние общего выделения', () => {
+        return selection.finishScale()
+      })
+      const finalLeftShape = await test.step('Получить итоговое состояние левого шейпа', () => {
+        return shapes.getScaleSnapshot({ id: leftShapeId })
+      })
+      const finalRightShape = await test.step('Получить итоговое состояние правого шейпа', () => {
+        return shapes.getScaleSnapshot({ id: rightShapeId })
+      })
+      const finalLeftText = await test.step('Получить итоговый текст в левом шейпе', () => {
+        return shapes.getTextNode({ id: leftShapeId })
+      })
+      const finalRightText = await test.step('Получить итоговый текст в правом шейпе', () => {
+        return shapes.getTextNode({ id: rightShapeId })
+      })
+
+      await test.step('Проверить что после mouseup размеры и переносы строк сохранились без рывка', () => {
+        expect(liveLeftText, 'текст в левом шейпе во время drag должен существовать').not.toBeNull()
+        expect(liveRightText, 'текст в правом шейпе во время drag должен существовать').not.toBeNull()
+        expect(finalLeftText, 'итоговый текст в левом шейпе должен существовать').not.toBeNull()
+        expect(finalRightText, 'итоговый текст в правом шейпе должен существовать').not.toBeNull()
+
+        if (!liveLeftText || !liveRightText || !finalLeftText || !finalRightText) {
+          throw new Error('текст в обоих шейпах должен существовать во время drag и после mouseup')
+        }
+
+        const selectionWidthJump = Math.abs(finalSelectionSnapshot.boundsWidth - liveSelectionSnapshot.boundsWidth)
+        const selectionHeightJump = Math.abs(finalSelectionSnapshot.boundsHeight - liveSelectionSnapshot.boundsHeight)
+        const leftWidthJump = Math.abs(finalLeftShape.groupBoundsWidth - liveLeftShape.groupBoundsWidth)
+        const rightWidthJump = Math.abs(finalRightShape.groupBoundsWidth - liveRightShape.groupBoundsWidth)
+        const leftHeightJump = Math.abs(finalLeftShape.groupBoundsHeight - liveLeftShape.groupBoundsHeight)
+        const rightHeightJump = Math.abs(finalRightShape.groupBoundsHeight - liveRightShape.groupBoundsHeight)
+        const leftProportionalDiff = Math.abs(finalLeftShape.groupBoundsWidth - finalLeftShape.groupBoundsHeight)
+        const rightProportionalDiff = Math.abs(finalRightShape.groupBoundsWidth - finalRightShape.groupBoundsHeight)
+
+        expect(selectionWidthJump).toBeLessThanOrEqual(mouseupJump)
+        expect(selectionHeightJump).toBeLessThanOrEqual(mouseupJump)
+        expect(leftWidthJump).toBeLessThanOrEqual(mouseupJump)
+        expect(rightWidthJump).toBeLessThanOrEqual(mouseupJump)
+        expect(leftHeightJump).toBeLessThanOrEqual(mouseupJump)
+        expect(rightHeightJump).toBeLessThanOrEqual(mouseupJump)
+        expect(leftProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+        expect(rightProportionalDiff).toBeLessThanOrEqual(mouseupJump)
+        expect(finalLeftText.lineCount).toBe(liveLeftText.lineCount)
+        expect(finalRightText.lineCount).toBe(liveRightText.lineCount)
+        expect(finalLeftText.fontSize).toBe(liveLeftText.fontSize)
+        expect(finalRightText.fontSize).toBe(liveRightText.fontSize)
+
+        shapes.checkNodeInsideGroup({
+          snapshot: finalLeftShape,
+          kind: 'text'
+        })
+        shapes.checkNodeInsideGroup({
+          snapshot: finalRightShape,
+          kind: 'text'
+        })
+      })
+    })
+  })
+
   test.describe('Непропорциональный скейлинг по диагонали', () => {
     test('при сужении нескольких шейпов за правый верхний угол текст переносится во время drag и размер не дёргается после mouseup', async({
       selection,

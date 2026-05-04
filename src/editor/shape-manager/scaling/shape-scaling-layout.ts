@@ -1,6 +1,7 @@
 import type { Transform } from 'fabric'
 import {
   applyShapeTextLayout,
+  measureShapeTextFrameLayout,
   resolveShapeTextFixedWidthLayout,
   resolveRequiredShapeHeightForText
 } from '../layout/shape-layout'
@@ -83,6 +84,40 @@ type ShapePreviewDimensions = {
 
 type ShapePreviewLayout = ResolvedShapeTextLayout
 
+export type ShapeScalingProportionalTextConstraint = {
+  measuredHeight: number
+  renderedLineCount: number
+  longestLineWidth: number
+  requiresGraphemeSplit: boolean
+  isValid: boolean
+}
+
+function resolveShapeScalingTextFrameWidth({
+  width,
+  padding
+}: {
+  width: number
+  padding: ShapePadding
+}): number {
+  return Math.max(
+    SHAPE_SCALING_MIN_SIZE,
+    width - Math.max(0, padding.left) - Math.max(0, padding.right)
+  )
+}
+
+function resolveShapeScalingTextFrameHeight({
+  height,
+  padding
+}: {
+  height: number
+  padding: ShapePadding
+}): number {
+  return Math.max(
+    SHAPE_SCALING_MIN_SIZE,
+    height - Math.max(0, padding.top) - Math.max(0, padding.bottom)
+  )
+}
+
 /**
  * Возвращает пользовательский padding текста из метаданных группы.
  */
@@ -155,6 +190,136 @@ export function resolveShapeScalingConstraintPadding({
     width: resolvedWidth,
     height: resolvedHeight
   })
+}
+
+/**
+ * Валидирует proportional candidate по реальному текущему layout текста.
+ * Для этого path переносы по словам допустимы, а fallback на splitByGrapheme — нет.
+ */
+export function validateShapeTextLayoutForProportionalScaling({
+  group,
+  text,
+  width,
+  height
+}: {
+  group: ShapeGroup
+  text: ShapeTextNode
+  width: number
+  height: number
+}): ShapeScalingProportionalTextConstraint {
+  const safeWidth = Math.max(SHAPE_SCALING_MIN_SIZE, width)
+  const safeHeight = Math.max(SHAPE_SCALING_MIN_SIZE, height)
+  const constraintPadding = resolveShapeScalingConstraintPadding({
+    group,
+    width: safeWidth,
+    height: safeHeight
+  })
+  const frameWidth = resolveShapeScalingTextFrameWidth({
+    width: safeWidth,
+    padding: constraintPadding
+  })
+  const frameHeight = resolveShapeScalingTextFrameHeight({
+    height: safeHeight,
+    padding: constraintPadding
+  })
+  const measurement = measureShapeTextFrameLayout({
+    text,
+    frameWidth,
+    splitByGrapheme: false
+  })
+
+  return {
+    ...measurement,
+    isValid: !measurement.requiresGraphemeSplit
+      && measurement.measuredHeight <= frameHeight + SHAPE_SCALING_SIZE_EPSILON
+  }
+}
+
+/**
+ * Возвращает minimum scale для proportional shrink по текущему layout-контракту текста.
+ */
+export function resolveMinimumProportionalShapeScale({
+  group,
+  text,
+  state
+}: {
+  group: ShapeGroup
+  text: ShapeTextNode
+  state: ShapeScalingState
+}): {
+  scale: number
+  minimumHeight: number
+} {
+  const {
+    startHeight,
+    startWidth,
+    startScaleX,
+    startScaleY,
+    lastAllowedScaleX,
+    lastAllowedScaleY
+  } = state
+  const lowerBound = Math.max(
+    SHAPE_SCALING_MIN_SIZE / startWidth,
+    SHAPE_SCALING_MIN_SIZE / startHeight
+  )
+  const upperBound = Math.max(
+    lowerBound,
+    startScaleX,
+    startScaleY,
+    lastAllowedScaleX,
+    lastAllowedScaleY
+  )
+  const evaluateScale = ({ scale }: { scale: number }) => {
+    const attemptedWidth = Math.max(SHAPE_SCALING_MIN_SIZE, startWidth * scale)
+    const attemptedHeight = Math.max(SHAPE_SCALING_MIN_SIZE, startHeight * scale)
+    const candidateConstraint = validateShapeTextLayoutForProportionalScaling({
+      group,
+      text,
+      width: attemptedWidth,
+      height: attemptedHeight
+    })
+
+    return {
+      minimumHeight: candidateConstraint.measuredHeight,
+      isValid: candidateConstraint.isValid
+    }
+  }
+  const upperBoundConstraint = evaluateScale({
+    scale: upperBound
+  })
+
+  if (!upperBoundConstraint.isValid) {
+    return {
+      scale: upperBound,
+      minimumHeight: upperBoundConstraint.minimumHeight
+    }
+  }
+
+  let low = lowerBound
+  let high = upperBound
+  let resolvedScale = upperBound
+  let resolvedMinimumHeight = upperBoundConstraint.minimumHeight
+
+  for (let index = 0; index < 24; index += 1) {
+    const candidateScale = (low + high) / 2
+    const candidateConstraint = evaluateScale({
+      scale: candidateScale
+    })
+
+    if (candidateConstraint.isValid) {
+      resolvedScale = candidateScale
+      resolvedMinimumHeight = candidateConstraint.minimumHeight
+      high = candidateScale
+      continue
+    }
+
+    low = candidateScale
+  }
+
+  return {
+    scale: resolvedScale,
+    minimumHeight: resolvedMinimumHeight
+  }
 }
 
 /**

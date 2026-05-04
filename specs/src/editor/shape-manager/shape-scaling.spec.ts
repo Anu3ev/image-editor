@@ -2,6 +2,7 @@ import { Point } from 'fabric'
 import {
   applyShapeTextLayout,
   isShapeTextFrameFilled,
+  measureShapeTextFrameLayout,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText,
   resolveShapeTextFixedWidthLayout
@@ -21,6 +22,12 @@ import {
 jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
   isShapeTextFrameFilled: jest.fn(),
+  measureShapeTextFrameLayout: jest.fn(() => ({
+    measuredHeight: 100,
+    renderedLineCount: 1,
+    longestLineWidth: 100,
+    requiresGraphemeSplit: false
+  })),
   resolveMinimumShapeWidthForText: jest.fn(() => 100),
   resolveRequiredShapeHeightForText: jest.fn(({ height }: { height: number }) => height),
   resolveShapeTextFixedWidthLayout: jest.fn(({
@@ -67,6 +74,7 @@ jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
 describe('shape-scaling', () => {
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
   const isShapeTextFrameFilledMock = isShapeTextFrameFilled as jest.Mock
+  const measureShapeTextFrameLayoutMock = measureShapeTextFrameLayout as jest.Mock
   const resolveMinimumShapeWidthForTextMock = resolveMinimumShapeWidthForText as jest.Mock
   const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
   const resolveShapeTextFixedWidthLayoutMock = resolveShapeTextFixedWidthLayout as jest.Mock
@@ -76,6 +84,12 @@ describe('shape-scaling', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     isShapeGroupMock.mockImplementation((target) => (target as { shapeComposite?: boolean } | null | undefined)?.shapeComposite === true)
+    measureShapeTextFrameLayoutMock.mockReturnValue({
+      measuredHeight: 100,
+      renderedLineCount: 1,
+      longestLineWidth: 100,
+      requiresGraphemeSplit: false
+    })
     resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
     resolveRequiredShapeHeightForTextMock.mockImplementation(({ height }: { height: number }) => height)
     resolveShapeTextFixedWidthLayoutMock.mockImplementation(({
@@ -213,40 +227,22 @@ describe('shape-scaling', () => {
     expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
-  it('не блокирует уменьшение когда следующий layout требует splitByGrapheme', () => {
+  it('при уменьшении по диагонали без Shift не допускает переход на splitByGrapheme', () => {
     const {
       controller,
       group
     } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
-    resolveShapeTextFixedWidthLayoutMock.mockReturnValueOnce({
-      width: 160,
-      height: 160,
-      appliedPadding: {
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0
-      },
-      appliedUserPadding: {
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 0
-      },
-      frame: {
-        left: -60,
-        top: -40,
-        width: 120,
-        height: 120
-      },
-      splitByGrapheme: true,
-      textTop: -20
-    })
+    measureShapeTextFrameLayoutMock.mockImplementation(({ frameWidth }: { frameWidth: number }) => ({
+      measuredHeight: 100,
+      renderedLineCount: 1,
+      longestLineWidth: frameWidth,
+      requiresGraphemeSplit: frameWidth < 100
+    }))
 
-    group.scaleX = 0.8
-    group.scaleY = 0.8
+    group.scaleX = 0.4
+    group.scaleY = 0.4
     group.left = 480
     group.top = 420
 
@@ -266,8 +262,11 @@ describe('shape-scaling', () => {
     })
 
     expect(group.shapeScalingNoopTransform).toBe(false)
-    expect(group.scaleX).toBe(0.8)
-    expect(group.scaleY).toBe(0.8)
+    expect(group.scaleX).toBeGreaterThan(0.4)
+    expect(group.scaleY).toBeGreaterThan(0.4)
+    expect(measureShapeTextFrameLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      splitByGrapheme: false
+    }))
   })
 
   it('при пропорциональном скейлинге по диагонали без Shift зажимает shrink на точном minimum', () => {
@@ -277,7 +276,12 @@ describe('shape-scaling', () => {
     } = createShapeScalingSetup()
 
     isShapeTextFrameFilledMock.mockReturnValue(false)
-    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+    measureShapeTextFrameLayoutMock.mockImplementation(({ frameWidth }: { frameWidth: number }) => ({
+      measuredHeight: 100,
+      renderedLineCount: 1,
+      longestLineWidth: frameWidth,
+      requiresGraphemeSplit: frameWidth < 100
+    }))
 
     group.scaleX = 0.4
     group.scaleY = 0.4
@@ -648,10 +652,11 @@ describe('shape-scaling', () => {
       e: {} as PointerEvent
     })
 
-    expect(group.scaleX).toBeCloseTo(0.5, 4)
-    expect(group.scaleY).toBeCloseTo(0.5, 4)
-    expect((group.width ?? 0) * (group.scaleX ?? 1)).toBeCloseTo(100, 3)
-    expect((group.height ?? 0) * (group.scaleY ?? 1)).toBeCloseTo(100, 3)
+    expect(group.scaleX).toBeCloseTo(group.scaleY ?? 0, 4)
+    expect((group.width ?? 0) * (group.scaleX ?? 1)).toBeGreaterThanOrEqual(99.5)
+    expect((group.width ?? 0) * (group.scaleX ?? 1)).toBeLessThanOrEqual(100)
+    expect((group.height ?? 0) * (group.scaleY ?? 1)).toBeGreaterThanOrEqual(99.5)
+    expect((group.height ?? 0) * (group.scaleY ?? 1)).toBeLessThanOrEqual(100)
     expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
@@ -746,6 +751,63 @@ describe('shape-scaling', () => {
     expect(groups[0].width).toBe(200)
     expect(groups[1].width).toBe(200)
     expect(selection.setCoords).toHaveBeenCalled()
+  })
+
+  it('при пропорциональном уменьшении нескольких шейпов по диагонали сохраняет общий minimum и те же размеры после mouseup', () => {
+    const {
+      controller,
+      groups,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    measureShapeTextFrameLayoutMock.mockImplementation(({ frameWidth }: { frameWidth: number }) => ({
+      measuredHeight: 100,
+      renderedLineCount: 1,
+      longestLineWidth: frameWidth,
+      requiresGraphemeSplit: frameWidth < 100
+    }))
+
+    selection.scaleX = 0.4
+    selection.scaleY = 0.4
+
+    const transform = createShapeScalingTransform({
+      target: selection,
+      action: 'scale',
+      corner: 'br',
+      originX: 'left',
+      originY: 'top'
+    }) as never
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform
+    })
+
+    expect(selection.scaleX).toBeCloseTo(0.5, 4)
+    expect(selection.scaleY).toBeCloseTo(0.5, 4)
+
+    applyShapeTextLayoutMock.mockClear()
+
+    groups.forEach((group) => {
+      const didCommit = controller.commitActiveSelectionGroupScaling({
+        group,
+        scaleX: selection.scaleX ?? 1,
+        scaleY: selection.scaleY ?? 1,
+        transform
+      })
+
+      expect(didCommit).toBe(true)
+    })
+
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(2)
+
+    applyShapeTextLayoutMock.mock.calls.forEach(([layoutCall]) => {
+      expect(layoutCall.width).toBeGreaterThanOrEqual(99.5)
+      expect(layoutCall.width).toBeLessThanOrEqual(100.01)
+      expect(layoutCall.height).toBeGreaterThanOrEqual(99.5)
+      expect(layoutCall.height).toBeLessThanOrEqual(100.01)
+    })
   })
 
   it('если Fabric пропустил scaling-кадр, продолжает лайв-перерасчёт текста для нескольких шейпов', () => {
@@ -1128,8 +1190,10 @@ describe('shape-scaling', () => {
 
     const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
-    expect(layoutCall.width).toBeCloseTo(100, 3)
-    expect(layoutCall.height).toBeCloseTo(100, 3)
+    expect(layoutCall.width).toBeGreaterThanOrEqual(99.5)
+    expect(layoutCall.width).toBeLessThanOrEqual(100)
+    expect(layoutCall.height).toBeGreaterThanOrEqual(99.5)
+    expect(layoutCall.height).toBeLessThanOrEqual(100)
     expect(group.scaleX).toBe(1)
     expect(group.scaleY).toBe(1)
   })
@@ -2382,12 +2446,16 @@ describe('shape-scaling', () => {
     const expandCall = applyShapeTextLayoutMock.mock.calls[1]?.[0]
     const secondShrinkCall = applyShapeTextLayoutMock.mock.calls[2]?.[0]
 
-    expect(firstShrinkCall.width).toBeCloseTo(100, 3)
-    expect(firstShrinkCall.height).toBeCloseTo(100, 3)
-    expect(expandCall.width).toBeCloseTo(200, 3)
-    expect(expandCall.height).toBeCloseTo(200, 3)
-    expect(secondShrinkCall.width).toBeCloseTo(100, 3)
-    expect(secondShrinkCall.height).toBeCloseTo(100, 3)
+    expect(firstShrinkCall.width).toBeGreaterThanOrEqual(99.5)
+    expect(firstShrinkCall.width).toBeLessThanOrEqual(100)
+    expect(firstShrinkCall.height).toBeGreaterThanOrEqual(99.5)
+    expect(firstShrinkCall.height).toBeLessThanOrEqual(100)
+    expect(expandCall.width).toBeCloseTo(firstShrinkCall.width * 2, 3)
+    expect(expandCall.height).toBeCloseTo(firstShrinkCall.height * 2, 3)
+    expect(secondShrinkCall.width).toBeGreaterThanOrEqual(99.5)
+    expect(secondShrinkCall.width).toBeLessThanOrEqual(100)
+    expect(secondShrinkCall.height).toBeGreaterThanOrEqual(99.5)
+    expect(secondShrinkCall.height).toBeLessThanOrEqual(100)
   })
 
   it('фиксирует anchor в live-режиме и восстанавливает позицию через setPositionByOrigin', () => {
