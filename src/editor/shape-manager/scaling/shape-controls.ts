@@ -86,9 +86,9 @@ const scaleShapeFromCorner = ({
 
 /**
  * Возвращает Fabric-compatible handler для diagonal resize shape:
- * свободный по умолчанию и пропорциональный при зажатом Shift.
+ * пропорциональный по умолчанию и свободный при зажатом Shift.
  */
-const createShapeCornerFreeScaleActionHandler = (): NonNullable<Control['actionHandler']> => {
+const createShapeCornerScalingActionHandler = (): NonNullable<Control['actionHandler']> => {
   const freeScaleHandler = controlsUtils.wrapWithFireEvent(
     'scaling',
     controlsUtils.wrapWithFixedAnchor((_eventData, transform, x, y) => {
@@ -102,14 +102,14 @@ const createShapeCornerFreeScaleActionHandler = (): NonNullable<Control['actionH
 
   return (eventData, transform, x, y) => {
     const { canvas } = transform.target
-    const isProportionalResize = Boolean(eventData.shiftKey)
+    const isFreeScale = Boolean(eventData.shiftKey)
 
-    if (!canvas || !isProportionalResize) {
+    if (!canvas || isFreeScale) {
       return freeScaleHandler(eventData, transform, x, y)
     }
 
     const { uniformScaling: previousUniformScaling } = canvas
-    canvas.uniformScaling = false
+    canvas.uniformScaling = true
 
     try {
       return controlsUtils.scalingEqually(eventData, transform, x, y)
@@ -120,16 +120,17 @@ const createShapeCornerFreeScaleActionHandler = (): NonNullable<Control['actionH
 }
 
 /**
- * Создаёт corner control для shape со свободным diagonal resize без глобального uniformScaling.
+ * Создаёт corner control для shape, который по умолчанию держит пропорции
+ * и переключается в свободный diagonal resize при зажатом Shift.
  */
-const createShapeCornerFreeScaleControl = ({
+const createShapeCornerScalingControl = ({
   control
 }: {
   control: Control
 }): Control => {
   const nextControl = new Control({
     ...control,
-    actionHandler: createShapeCornerFreeScaleActionHandler()
+    actionHandler: createShapeCornerScalingActionHandler()
   })
 
   const shapeCornerControl = nextControl as ShapeCornerControl
@@ -139,7 +140,8 @@ const createShapeCornerFreeScaleControl = ({
 }
 
 /**
- * Подменяет угловые контролы объекта так, чтобы диагональный resize шейпа работал свободно по двум осям.
+ * Подменяет угловые контролы объекта так, чтобы диагональный resize шейпа
+ * по умолчанию держал пропорции и переходил в free-scale при зажатом Shift.
  */
 export const applyShapeCornerFreeScaleControls = ({
   target
@@ -156,7 +158,7 @@ export const applyShapeCornerFreeScaleControls = ({
     if (!control) return
     if (control.shapeFreeScaleCornerControl) return
 
-    nextControls[key] = createShapeCornerFreeScaleControl({
+    nextControls[key] = createShapeCornerScalingControl({
       control
     })
     hasControlChange = true

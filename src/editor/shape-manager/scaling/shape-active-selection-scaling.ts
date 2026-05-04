@@ -538,7 +538,7 @@ export default class ShapeActiveSelectionScalingController {
     }
 
     const isProportionalCornerScale = isCornerScaleAction
-      && isShiftPressed
+      && !isShiftPressed
 
     if (isProportionalCornerScale) {
       const appliedScale = Math.max(appliedScaleX, appliedScaleY)
@@ -583,7 +583,7 @@ export default class ShapeActiveSelectionScalingController {
     })
     const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
 
-    if (isCornerScaleAction && isShiftPressed) return selectionScale
+    if (isCornerScaleAction && !isShiftPressed) return selectionScale
 
     const pointerReachedOrPassedOriginX = canScaleWidth && this._hasPointerReachedSelectionScaleOrigin({
       selection,

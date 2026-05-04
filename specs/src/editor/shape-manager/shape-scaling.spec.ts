@@ -270,7 +270,7 @@ describe('shape-scaling', () => {
     expect(group.scaleY).toBe(0.8)
   })
 
-  it('при proportional corner scaling по Shift откатывает весь transform к последнему допустимому состоянию', () => {
+  it('при пропорциональном скейлинге по диагонали без Shift зажимает shrink на точном minimum', () => {
     const {
       controller,
       group
@@ -284,9 +284,6 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
-      e: {
-        shiftKey: true
-      } as never,
       transform: {
         original: {
           scaleX: 1,
@@ -300,8 +297,8 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    expect(group.scaleX).toBe(1)
-    expect(group.scaleY).toBe(1)
+    expect(group.scaleX).toBeCloseTo(0.5, 4)
+    expect(group.scaleY).toBeCloseTo(0.5, 4)
     expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
@@ -520,6 +517,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
+      e: { shiftKey: true } as never,
       transform: createShapeScalingTransform() as never
     })
 
@@ -530,7 +528,7 @@ describe('shape-scaling', () => {
     })
 
     controller.handleCanvasMouseMove({
-      e: {} as PointerEvent
+      e: { shiftKey: true } as PointerEvent
     })
 
     expect(group.scaleX).toBeCloseTo(0.5, 4)
@@ -540,6 +538,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
+      e: { shiftKey: true } as never,
       transform: createShapeScalingTransform() as never
     })
 
@@ -601,6 +600,58 @@ describe('shape-scaling', () => {
 
     expect(group.scaleY).toBeCloseTo(0.4, 4)
     expect((group.height ?? 0) * (group.scaleY ?? 1)).toBeCloseTo(80, 4)
+    expect(group.shapeScalingNoopTransform).toBe(false)
+  })
+
+  it('после пропущенного scaling-кадра дожимает уменьшение по диагонали до того же minimum', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    const canvasWithTransform = canvas as typeof canvas & {
+      _currentTransform?: unknown
+    }
+
+    mockShapeScalingLocalPointer({
+      canvas: canvasWithTransform,
+      group,
+      corner: 'br',
+      localPoint: new Point(120, 120)
+    })
+
+    group.scaleX = 0.9
+    group.scaleY = 0.9
+
+    controller.handleObjectScaling({
+      target: group,
+      e: { shiftKey: false } as never,
+      transform: createShapeScalingTransform() as never
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas: canvasWithTransform,
+      group,
+      corner: 'br',
+      localPoint: new Point(-10, -10)
+    })
+
+    canvasWithTransform._currentTransform = createShapeScalingTransform({
+      target: group
+    })
+
+    controller.handleCanvasMouseMove({
+      e: {} as PointerEvent
+    })
+
+    expect(group.scaleX).toBeCloseTo(0.5, 4)
+    expect(group.scaleY).toBeCloseTo(0.5, 4)
+    expect((group.width ?? 0) * (group.scaleX ?? 1)).toBeCloseTo(100, 3)
+    expect((group.height ?? 0) * (group.scaleY ?? 1)).toBeCloseTo(100, 3)
     expect(group.shapeScalingNoopTransform).toBe(false)
   })
 
@@ -1030,6 +1081,56 @@ describe('shape-scaling', () => {
       width: 200,
       height: 80
     }))
+    expect(group.scaleY).toBe(1)
+  })
+
+  it('после mouseup сохраняет тот же minimum при уменьшении по диагонали', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'br',
+      localPoint: new Point(120, 120)
+    })
+
+    group.scaleX = 0.9
+    group.scaleY = 0.9
+
+    controller.handleObjectScaling({
+      target: group,
+      e: { shiftKey: false } as never,
+      transform: createShapeScalingTransform() as never
+    })
+
+    mockShapeScalingLocalPointer({
+      canvas,
+      group,
+      corner: 'br',
+      localPoint: new Point(-10, -10)
+    })
+
+    group.scaleX = 0.3
+    group.scaleY = 0.3
+
+    controller.handleObjectModified({
+      target: group,
+      e: {} as PointerEvent,
+      transform: createShapeScalingTransform() as never
+    })
+
+    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
+
+    expect(layoutCall.width).toBeCloseTo(100, 3)
+    expect(layoutCall.height).toBeCloseTo(100, 3)
+    expect(group.scaleX).toBe(1)
     expect(group.scaleY).toBe(1)
   })
 
@@ -2165,11 +2266,12 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
+      e: { shiftKey: true } as never,
       transform: createShapeScalingTransform() as never
     })
     canvasWithTransform._currentTransform = minimumWidthTransform
     controller.handleCanvasMouseMove({
-      e: {} as PointerEvent
+      e: { shiftKey: true } as PointerEvent
     })
     controller.handleObjectModified({
       target: group,
@@ -2182,6 +2284,7 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
+      e: { shiftKey: true } as never,
       transform: createShapeScalingTransform() as never
     })
     controller.handleObjectModified({
@@ -2193,11 +2296,12 @@ describe('shape-scaling', () => {
 
     controller.handleObjectScaling({
       target: group,
+      e: { shiftKey: true } as never,
       transform: createShapeScalingTransform() as never
     })
     canvasWithTransform._currentTransform = minimumWidthTransform
     controller.handleCanvasMouseMove({
-      e: {} as PointerEvent
+      e: { shiftKey: true } as PointerEvent
     })
     controller.handleObjectModified({
       target: group,
@@ -2212,6 +2316,78 @@ describe('shape-scaling', () => {
     expect(firstShrinkCall.width).toBe(100)
     expect(expandCall.width).toBe(200)
     expect(secondShrinkCall.width).toBe(100)
+  })
+
+  it('после нескольких циклов уменьшения и увеличения по диагонали сохраняет один и тот же minimum', () => {
+    const {
+      controller,
+      canvas,
+      group
+    } = createShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    resolveMinimumShapeWidthForTextMock.mockReturnValue(100)
+
+    const runShrinkToMinimum = () => {
+      mockShapeScalingLocalPointer({
+        canvas,
+        group,
+        corner: 'br',
+        localPoint: new Point(120, 120)
+      })
+
+      group.scaleX = 0.9
+      group.scaleY = 0.9
+
+      controller.handleObjectScaling({
+        target: group,
+        e: { shiftKey: false } as never,
+        transform: createShapeScalingTransform() as never
+      })
+
+      mockShapeScalingLocalPointer({
+        canvas,
+        group,
+        corner: 'br',
+        localPoint: new Point(-10, -10)
+      })
+
+      group.scaleX = 0.3
+      group.scaleY = 0.3
+
+      controller.handleObjectModified({
+        target: group,
+        e: {} as PointerEvent,
+        transform: createShapeScalingTransform() as never
+      })
+    }
+
+    runShrinkToMinimum()
+
+    group.scaleX = 2
+    group.scaleY = 2
+
+    controller.handleObjectScaling({
+      target: group,
+      e: { shiftKey: false } as never,
+      transform: createShapeScalingTransform() as never
+    })
+    controller.handleObjectModified({
+      target: group
+    })
+
+    runShrinkToMinimum()
+
+    const firstShrinkCall = applyShapeTextLayoutMock.mock.calls[0]?.[0]
+    const expandCall = applyShapeTextLayoutMock.mock.calls[1]?.[0]
+    const secondShrinkCall = applyShapeTextLayoutMock.mock.calls[2]?.[0]
+
+    expect(firstShrinkCall.width).toBeCloseTo(100, 3)
+    expect(firstShrinkCall.height).toBeCloseTo(100, 3)
+    expect(expandCall.width).toBeCloseTo(200, 3)
+    expect(expandCall.height).toBeCloseTo(200, 3)
+    expect(secondShrinkCall.width).toBeCloseTo(100, 3)
+    expect(secondShrinkCall.height).toBeCloseTo(100, 3)
   })
 
   it('фиксирует anchor в live-режиме и восстанавливает позицию через setPositionByOrigin', () => {

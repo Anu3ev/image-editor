@@ -11,6 +11,7 @@ type SelectionScaleInteraction = {
     y: number
   }
   control: SelectionControlKey
+  shiftKey: boolean
 }
 
 type DragActiveScaleHandleParams = {
@@ -25,10 +26,12 @@ type ScaleSelectionFromControlParams = {
   scaleY?: number
   minimumWidth?: number
   minimumHeight?: number
+  shiftKey?: boolean
 }
 
 type SelectionMinimumSizeParams = {
   minimumSize: number
+  shiftKey?: boolean
 }
 
 export class SelectionModel {
@@ -98,33 +101,37 @@ export class SelectionModel {
     })
   }
 
-  /** Масштабирует текущее общее выделение из правого нижнего угла и возвращает live-состояние. */
+  /** Масштабирует текущее общее выделение из правого нижнего угла и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
   async scaleDiagonallyFromBottomRight(
     params: {
       scaleX: number
       scaleY: number
+      shiftKey?: boolean
     }
   ): Promise<SnappingObjectSnapshot> {
     return this._scaleFromControl({
       startControl: 'br',
       oppositeControl: 'tl',
       scaleX: params.scaleX,
-      scaleY: params.scaleY
+      scaleY: params.scaleY,
+      shiftKey: params.shiftKey
     })
   }
 
-  /** Масштабирует текущее общее выделение из правого верхнего угла и возвращает live-состояние. */
+  /** Масштабирует текущее общее выделение из правого верхнего угла и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
   async scaleDiagonallyFromTopRight(
     params: {
       scaleX: number
       scaleY: number
+      shiftKey?: boolean
     }
   ): Promise<SnappingObjectSnapshot> {
     return this._scaleFromControl({
       startControl: 'tr',
       oppositeControl: 'bl',
       scaleX: params.scaleX,
-      scaleY: params.scaleY
+      scaleY: params.scaleY,
+      shiftKey: params.shiftKey
     })
   }
 
@@ -161,7 +168,7 @@ export class SelectionModel {
     })
   }
 
-  /** Сжимает текущее общее выделение из правого нижнего угла до минимальных ширины и высоты и возвращает live-состояние. */
+  /** Сжимает текущее общее выделение из правого нижнего угла до минимальных ширины и высоты и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
   async shrinkDiagonallyFromBottomRightToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -169,11 +176,12 @@ export class SelectionModel {
       startControl: 'br',
       oppositeControl: 'tl',
       minimumWidth: params.minimumSize,
-      minimumHeight: params.minimumSize
+      minimumHeight: params.minimumSize,
+      shiftKey: params.shiftKey
     })
   }
 
-  /** Сжимает текущее общее выделение из правого верхнего угла до минимальных ширины и высоты и возвращает live-состояние. */
+  /** Сжимает текущее общее выделение из правого верхнего угла до минимальных ширины и высоты и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
   async shrinkDiagonallyFromTopRightToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -181,7 +189,8 @@ export class SelectionModel {
       startControl: 'tr',
       oppositeControl: 'bl',
       minimumWidth: params.minimumSize,
-      minimumHeight: params.minimumSize
+      minimumHeight: params.minimumSize,
+      shiftKey: params.shiftKey
     })
   }
 
@@ -199,7 +208,8 @@ export class SelectionModel {
     const snapshot = await this.page.evaluate((payload) => {
       const {
         point: interactionPoint,
-        control
+        control,
+        shiftKey
       } = payload
       const {
         editor,
@@ -230,7 +240,8 @@ export class SelectionModel {
         button: 0,
         buttons: 0,
         clientX: releasePoint.x,
-        clientY: releasePoint.y
+        clientY: releasePoint.y,
+        shiftKey
       }))
 
       const snapshotTarget = editor.canvas.getActiveObject() ?? target
@@ -266,7 +277,8 @@ export class SelectionModel {
         point,
         control,
         deltaX,
-        deltaY
+        deltaY,
+        shiftKey
       } = payload
       const {
         editor,
@@ -285,7 +297,8 @@ export class SelectionModel {
         button: 0,
         buttons: 1,
         clientX: movePoint.x,
-        clientY: movePoint.y
+        clientY: movePoint.y,
+        shiftKey
       }))
 
       const snapshotTarget = editor.canvas.getActiveObject() ?? target
@@ -348,7 +361,8 @@ export class SelectionModel {
       scaleX,
       scaleY,
       minimumWidth,
-      minimumHeight
+      minimumHeight,
+      shiftKey = false
     }) => {
       const {
         editor,
@@ -383,7 +397,8 @@ export class SelectionModel {
         button: 0,
         buttons: 1,
         clientX: startPoint.x,
-        clientY: startPoint.y
+        clientY: startPoint.y,
+        shiftKey
       }))
 
       const transform = editor.canvas._currentTransform
@@ -409,7 +424,8 @@ export class SelectionModel {
         button: 0,
         buttons: 1,
         clientX: movePoint.x,
-        clientY: movePoint.y
+        clientY: movePoint.y,
+        shiftKey
       }))
 
       target.setCoords()
@@ -429,6 +445,7 @@ export class SelectionModel {
 
       return {
         point: currentPoint,
+        shiftKey,
         snapshot: helpers.serializeSnappingObjectSnapshot(target)
       }
     }, params)
@@ -439,18 +456,21 @@ export class SelectionModel {
 
     const {
       point,
+      shiftKey,
       snapshot
     } = result as {
       point: {
         x: number
         y: number
       }
+      shiftKey: boolean
       snapshot: SnappingObjectSnapshot
     }
 
     this.activeScaleInteraction = {
       point,
-      control: params.startControl
+      control: params.startControl,
+      shiftKey
     }
 
     return snapshot

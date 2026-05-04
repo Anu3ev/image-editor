@@ -414,7 +414,9 @@ export function ensureShapeScalingState({
     lastAllowedScaleX: startScaleX,
     lastAllowedScaleY: startScaleY,
     lastAllowedLeft: startLeft,
-    lastAllowedTop: startTop
+    lastAllowedTop: startTop,
+    scaleDirectionX: null,
+    scaleDirectionY: null
   }
 
   scalingState.set(group, state)
