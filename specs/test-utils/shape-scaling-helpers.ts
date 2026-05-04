@@ -1,6 +1,7 @@
 import { ActiveSelection, Point } from 'fabric'
 import ShapeScalingController from '../../src/editor/shape-manager/scaling/shape-scaling'
 import { getShapeNodes } from '../../src/editor/shape-manager/shape-utils'
+import type { ShapeScalingState } from '../../src/editor/shape-manager/types'
 import {
   createMockCanvas,
   createMockShapeGroup,
@@ -81,6 +82,50 @@ export type ActiveSelectionShapeScalingTestSetup = {
     setCoords: jest.Mock
     shapeComposite?: boolean
   } | null
+}
+
+/**
+ * Создаёт базовое состояние scaling для unit-тестов clamp и commit логики.
+ */
+export const createShapeScalingState = (
+  overrides: Partial<ShapeScalingState> = {}
+): ShapeScalingState => {
+  const startWidth = overrides.startWidth ?? 200
+  const startHeight = overrides.startHeight ?? 200
+  const startLeft = overrides.startLeft ?? 480
+  const startTop = overrides.startTop ?? 420
+
+  return {
+    startWidth,
+    startHeight,
+    startManualBaseWidth: overrides.startManualBaseWidth ?? startWidth,
+    startManualBaseHeight: overrides.startManualBaseHeight ?? startHeight,
+    canScaleWidth: overrides.canScaleWidth ?? true,
+    canScaleHeight: overrides.canScaleHeight ?? true,
+    cannotScaleDownAtStart: overrides.cannotScaleDownAtStart ?? false,
+    isProportionalScaling: overrides.isProportionalScaling ?? true,
+    blockedScaleAttempt: overrides.blockedScaleAttempt ?? false,
+    startLeft,
+    startTop,
+    startScaleX: overrides.startScaleX ?? 1,
+    startScaleY: overrides.startScaleY ?? 1,
+    startTransformOriginX: overrides.startTransformOriginX ?? 'left',
+    startTransformOriginY: overrides.startTransformOriginY ?? 'top',
+    startTransformCorner: overrides.startTransformCorner ?? 'br',
+    scalingAnchorX: overrides.scalingAnchorX ?? null,
+    scalingAnchorY: overrides.scalingAnchorY ?? null,
+    scalingAnchorOriginX: overrides.scalingAnchorOriginX ?? null,
+    scalingAnchorOriginY: overrides.scalingAnchorOriginY ?? null,
+    crossedOppositeCorner: overrides.crossedOppositeCorner ?? false,
+    lastAllowedFlipX: overrides.lastAllowedFlipX ?? false,
+    lastAllowedFlipY: overrides.lastAllowedFlipY ?? false,
+    lastAllowedScaleX: overrides.lastAllowedScaleX ?? 1,
+    lastAllowedScaleY: overrides.lastAllowedScaleY ?? 1,
+    lastAllowedLeft: overrides.lastAllowedLeft ?? startLeft,
+    lastAllowedTop: overrides.lastAllowedTop ?? startTop,
+    scaleDirectionX: overrides.scaleDirectionX ?? 1,
+    scaleDirectionY: overrides.scaleDirectionY ?? 1
+  }
 }
 
 /**

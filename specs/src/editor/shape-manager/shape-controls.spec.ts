@@ -100,7 +100,7 @@ describe('shape-controls', () => {
     expect(group.controls.tr).toBe(wrappedTopRightControl)
   })
 
-  it('corner control при зажатом Shift сохраняет пропорции и восстанавливает uniformScaling canvas', () => {
+  it('corner control без Shift сохраняет пропорции и восстанавливает uniformScaling canvas', () => {
     const group = createMockShapeGroup({
       shape: createMockShapeNode(),
       text: createMockShapeTextbox()
@@ -142,7 +142,7 @@ describe('shape-controls', () => {
       }
     })
     const eventData = {
-      shiftKey: true
+      shiftKey: false
     } satisfies Pick<TPointerEvent, 'shiftKey'>
     const transform = {
       target,
@@ -172,7 +172,7 @@ describe('shape-controls', () => {
     expect(canvas.uniformScaling).toBe(true)
   })
 
-  it('corner control без Shift переводит пропорциональный объект в непропорциональный free-scale режим', () => {
+  it('corner control при зажатом Shift переводит пропорциональный объект в непропорциональный free-scale режим', () => {
     const group = createMockShapeGroup({
       shape: createMockShapeNode(),
       text: createMockShapeTextbox()
@@ -207,7 +207,7 @@ describe('shape-controls', () => {
 
     const actionHandler = (group.controls.tl as Control).actionHandler as NonNullable<Control['actionHandler']>
     const eventData = {
-      shiftKey: false
+      shiftKey: true
     } satisfies Pick<TPointerEvent, 'shiftKey'>
     const transform = {
       target,
@@ -269,7 +269,7 @@ describe('shape-controls', () => {
       originY: 'top'
     } as unknown as Transform
     const eventData = {
-      shiftKey: false
+      shiftKey: true
     } satisfies Pick<TPointerEvent, 'shiftKey'>
 
     actionHandler(
@@ -331,7 +331,7 @@ describe('shape-controls', () => {
       originY: 'top'
     } as unknown as Transform
     const eventData = {
-      shiftKey: false
+      shiftKey: true
     } satisfies Pick<TPointerEvent, 'shiftKey'>
 
     actionHandler(

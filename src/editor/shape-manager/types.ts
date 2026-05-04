@@ -342,6 +342,8 @@ export type ShapeScalingState = {
   lastAllowedScaleY: number
   lastAllowedLeft: number
   lastAllowedTop: number
+  scaleDirectionX: -1 | 1 | null
+  scaleDirectionY: -1 | 1 | null
 }
 
 export type ShapeEditingOptions = {

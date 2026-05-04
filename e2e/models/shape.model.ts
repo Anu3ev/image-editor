@@ -604,7 +604,7 @@ export class ShapeModel {
     })
   }
 
-  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает proportional drag через Shift и отключение snap через Ctrl. */
+  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает явную передачу Shift и отключение snap через Ctrl. */
   async scaleDiagonally(
     params: {
       scaleX: number
@@ -678,7 +678,7 @@ export class ShapeModel {
       scaleX: scale,
       scaleY: scale,
       corner,
-      shiftKey: true,
+      shiftKey: false,
       objectIndex,
       id
     })

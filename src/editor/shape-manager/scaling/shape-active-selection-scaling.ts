@@ -34,6 +34,7 @@ import {
 import {
   commitResolvedShapeScalingLayout,
   ensureShapeScalingState,
+  resolveMinimumProportionalShapeScale,
   resolveMinimumTextFitHeight,
   resolveShapeScalingCommitDimensions,
   resolveShapeScalingConstraintPadding,
@@ -55,6 +56,16 @@ type ActiveSelectionShapeScalingItem = {
   constraintPadding: ShapePadding
   state: ShapeScalingState
 }
+
+type ActiveSelectionProportionalLayoutResult = {
+  minimumScale: number
+  minimumHeight: number
+}
+
+type ActiveSelectionProportionalLayoutResults = Map<
+  ShapeGroup,
+  ActiveSelectionProportionalLayoutResult
+>
 
 export type ActiveSelectionAppliedScale = {
   scaleX: number
@@ -131,7 +142,8 @@ export default class ShapeActiveSelectionScalingController {
 
     const {
       canScaleWidth,
-      canScaleHeight
+      canScaleHeight,
+      isCornerScaleAction
     } = resolveShapeScaleActionAxes({
       transform
     })
@@ -149,12 +161,18 @@ export default class ShapeActiveSelectionScalingController {
       transform,
       items
     })
+    const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
+    const isProportionalCornerScale = isCornerScaleAction && !isShiftPressed
+    const proportionalLayoutResults = isProportionalCornerScale
+      ? this._resolveProportionalLayoutResults({ items })
+      : null
     const scaleX = Math.abs(selection.scaleX ?? 1) || 1
     const scaleY = Math.abs(selection.scaleY ?? 1) || 1
     let selectionScale = this._resolveSelectionScale({
       items,
       session,
       transform,
+      proportionalLayoutResults,
       scaleX,
       scaleY,
       event
@@ -186,25 +204,44 @@ export default class ShapeActiveSelectionScalingController {
       } = item
       const sessionItem = session.items.get(group) as ActiveSelectionShapeScalingSessionItem
 
-      const layoutScale = this._resolveShapeLayoutScale({
-        item,
-        selectionScale
-      })
-      const previewDimensions = resolveShapeScalingPreviewDimensions({
-        group,
-        text,
-        constraintPadding,
-        startDimensions: state,
-        appliedScaleX: layoutScale.scaleX,
-        appliedScaleY: layoutScale.scaleY
-      })
+      let layoutScale: ActiveSelectionShapeLayoutScale
+      let minimumHeight: number
+
+      if (proportionalLayoutResults) {
+        const proportionalLayoutResult = proportionalLayoutResults.get(group)!
+
+        const proportionalScale = Math.max(
+          selectionScale.scaleX,
+          proportionalLayoutResult.minimumScale
+        )
+
+        layoutScale = {
+          scaleX: state.canScaleWidth ? proportionalScale : 1,
+          scaleY: state.canScaleHeight ? proportionalScale : 1
+        }
+        minimumHeight = proportionalLayoutResult.minimumHeight
+      } else {
+        layoutScale = this._resolveShapeLayoutScale({
+          item,
+          selectionScale
+        })
+        minimumHeight = resolveShapeScalingPreviewDimensions({
+          group,
+          text,
+          constraintPadding,
+          startDimensions: state,
+          appliedScaleX: layoutScale.scaleX,
+          appliedScaleY: layoutScale.scaleY
+        }).previewHeight
+      }
+
       const previewLayout = resolveShapeScalingPreviewLayout({
         group,
         text,
         state,
         appliedScaleX: layoutScale.scaleX,
         appliedScaleY: layoutScale.scaleY,
-        minimumHeight: previewDimensions.previewHeight
+        minimumHeight
       })
 
       applyShapeScalingPreviewLayout({
@@ -478,6 +515,7 @@ export default class ShapeActiveSelectionScalingController {
     items,
     session,
     transform,
+    proportionalLayoutResults,
     scaleX,
     scaleY,
     event
@@ -485,6 +523,7 @@ export default class ShapeActiveSelectionScalingController {
     items: ActiveSelectionShapeScalingItem[]
     session: ActiveSelectionScalingSession
     transform: Transform
+    proportionalLayoutResults: ActiveSelectionProportionalLayoutResults | null
     scaleX: number
     scaleY: number
     event?: ShapeScalingPointerEvent
@@ -497,8 +536,30 @@ export default class ShapeActiveSelectionScalingController {
       transform
     })
     const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
+    const isProportionalCornerScale = isCornerScaleAction
+      && !isShiftPressed
     let appliedScaleX = scaleX
     let appliedScaleY = scaleY
+
+    if (isProportionalCornerScale) {
+      if (!proportionalLayoutResults) {
+        throw new Error('proportional layout results are required for ActiveSelection proportional scaling')
+      }
+
+      const proportionalScale = this._resolveProportionalSelectionScale({
+        items,
+        session,
+        proportionalLayoutResults,
+        scale: Math.max(scaleX, scaleY),
+        allowGrowthX: canScaleHeight,
+        allowGrowthY: canScaleWidth
+      })
+
+      return {
+        scaleX: proportionalScale,
+        scaleY: proportionalScale
+      }
+    }
 
     if (canScaleWidth) {
       appliedScaleX = this._resolveSelectionScaleX({
@@ -537,22 +598,72 @@ export default class ShapeActiveSelectionScalingController {
       })
     }
 
-    const isProportionalCornerScale = isCornerScaleAction
-      && isShiftPressed
-
-    if (isProportionalCornerScale) {
-      const appliedScale = Math.max(appliedScaleX, appliedScaleY)
-
-      return {
-        scaleX: appliedScale,
-        scaleY: appliedScale
-      }
-    }
-
     return {
       scaleX: appliedScaleX,
       scaleY: appliedScaleY
     }
+  }
+
+  private _resolveProportionalSelectionScale({
+    items,
+    session,
+    proportionalLayoutResults,
+    scale,
+    allowGrowthX,
+    allowGrowthY
+  }: {
+    items: ActiveSelectionShapeScalingItem[]
+    session: ActiveSelectionScalingSession
+    proportionalLayoutResults: ActiveSelectionProportionalLayoutResults
+    scale: number
+    allowGrowthX: boolean
+    allowGrowthY: boolean
+  }): number {
+    let appliedScale = scale
+
+    for (const item of items) {
+      const sessionItem = session.items.get(item.group) as ActiveSelectionShapeScalingSessionItem
+      const proportionalLayoutResult = proportionalLayoutResults.get(item.group)!
+      const minimumLayoutScale = proportionalLayoutResult.minimumScale
+      const minimumWidth = item.state.canScaleWidth
+        ? Math.max(MIN_SIZE, item.state.startWidth * minimumLayoutScale)
+        : item.state.startWidth
+      const minimumHeight = item.state.canScaleHeight
+        ? Math.max(MIN_SIZE, item.state.startHeight * minimumLayoutScale)
+        : item.state.startHeight
+      const availableWidth = this._resolveSelectionAvailableWidth({
+        selectionBounds: session.bounds,
+        shapeBounds: sessionItem.bounds,
+        originX: sessionItem.transformOriginX
+      })
+      const availableHeight = this._resolveSelectionAvailableHeight({
+        selectionBounds: session.bounds,
+        shapeBounds: sessionItem.bounds,
+        verticalAttachment: sessionItem.verticalAttachment
+      })
+      const minimumSelectionScaleX = item.state.canScaleWidth
+        ? this._resolveMinimumScaleForSize({
+          minimumSize: minimumWidth,
+          startSize: availableWidth,
+          allowGrowth: allowGrowthX
+        })
+        : scale
+      const minimumSelectionScaleY = item.state.canScaleHeight
+        ? this._resolveMinimumScaleForSize({
+          minimumSize: minimumHeight,
+          startSize: availableHeight,
+          allowGrowth: allowGrowthY
+        })
+        : scale
+
+      appliedScale = Math.max(
+        appliedScale,
+        minimumSelectionScaleX,
+        minimumSelectionScaleY
+      )
+    }
+
+    return appliedScale
   }
 
   /**
@@ -583,7 +694,7 @@ export default class ShapeActiveSelectionScalingController {
     })
     const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
 
-    if (isCornerScaleAction && isShiftPressed) return selectionScale
+    if (isCornerScaleAction && !isShiftPressed) return selectionScale
 
     const pointerReachedOrPassedOriginX = canScaleWidth && this._hasPointerReachedSelectionScaleOrigin({
       selection,
@@ -614,6 +725,7 @@ export default class ShapeActiveSelectionScalingController {
       items,
       session,
       transform,
+      proportionalLayoutResults: null,
       scaleX: nextScaleX,
       scaleY: nextScaleY,
       event
@@ -708,7 +820,8 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает layout scale конкретной shape-группы. Он может отличаться от scale рамки выделения.
+   * Возвращает layout scale конкретной shape-группы для непропорционального scaling по осям.
+   * При proportional scaling по диагонали minimum считается один раз на кадр в handleScalingPreview.
    */
   private _resolveShapeLayoutScale({
     item,
@@ -792,6 +905,32 @@ export default class ShapeActiveSelectionScalingController {
     })
 
     return Math.max(selectionScaleY, minimumScaleY)
+  }
+
+  /**
+   * Собирает minimum layout-ограничения для proportional scaling по диагонали один раз на текущий preview-кадр.
+   */
+  private _resolveProportionalLayoutResults({
+    items
+  }: {
+    items: ActiveSelectionShapeScalingItem[]
+  }): ActiveSelectionProportionalLayoutResults {
+    const results: ActiveSelectionProportionalLayoutResults = new Map()
+
+    for (const item of items) {
+      const proportionalMinimum = resolveMinimumProportionalShapeScale({
+        group: item.group,
+        text: item.text,
+        state: item.state
+      })
+
+      results.set(item.group, {
+        minimumScale: proportionalMinimum.scale,
+        minimumHeight: proportionalMinimum.minimumHeight
+      })
+    }
+
+    return results
   }
 
   private _resolveMinimumShapeWidth({

@@ -50,6 +50,13 @@ type ShapeTextFrameLayout = {
   textTop: number
 }
 
+export type ShapeTextFrameMeasurement = {
+  measuredHeight: number
+  renderedLineCount: number
+  longestLineWidth: number
+  requiresGraphemeSplit: boolean
+}
+
 type ResolvePaddingForWidth = ({ width }: {
   width: number
 }) => ShapePadding
@@ -1105,6 +1112,50 @@ function getTextboxHeight({ text }: { text: ShapeLayoutInput['text'] }): number 
 }
 
 /**
+ * Измеряет текущее состояние textbox для переданной ширины текстового фрейма
+ * в явно заданном режиме splitByGrapheme.
+ */
+export function measureShapeTextFrameLayout({
+  text,
+  frameWidth,
+  splitByGrapheme
+}: {
+  text: ShapeLayoutInput['text']
+  frameWidth: number
+  splitByGrapheme: boolean
+}): ShapeTextFrameMeasurement {
+  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
+  const previousState = captureTextboxMeasurementState({ text })
+  const requiresGraphemeSplit = resolveSplitByGraphemeForFrame({
+    text,
+    frameWidth: safeFrameWidth
+  })
+
+  text.set({
+    autoExpand: false,
+    width: safeFrameWidth,
+    splitByGrapheme
+  })
+  text.initDimensions()
+
+  const renderedLineCount = getRenderedTextboxLineCount({ text })
+  const explicitLineCount = getExplicitTextboxLineCount({ text })
+  const measurement = {
+    measuredHeight: getTextboxHeight({ text }),
+    renderedLineCount: renderedLineCount > 0 ? renderedLineCount : explicitLineCount,
+    longestLineWidth: Math.ceil(getTextboxLongestLineWidth({ text })),
+    requiresGraphemeSplit
+  }
+
+  restoreTextboxMeasurementState({
+    text,
+    state: previousState
+  })
+
+  return measurement
+}
+
+/**
  * Измеряет ширину самой длинной строки и факт автопереноса для переданной ширины текстового фрейма.
  */
 function measureTextboxLayoutForFrame({
@@ -1118,32 +1169,18 @@ function measureTextboxLayoutForFrame({
   longestLineWidth: number
 } {
   const explicitLineCount = getExplicitTextboxLineCount({ text })
-  const splitByGrapheme = resolveSplitByGraphemeForFrame({
+  const measurement = measureShapeTextFrameLayout({
     text,
-    frameWidth
-  })
-  const previousState = captureTextboxMeasurementState({ text })
-
-  text.set({
-    autoExpand: false,
-    width: Math.max(MIN_TEXT_FRAME_SIZE, frameWidth),
-    splitByGrapheme
-  })
-  text.initDimensions()
-
-  const hasWrappedLines = getRenderedTextboxLineCount({ text }) > explicitLineCount
-  const longestLineWidth = Math.ceil(
-    getTextboxLongestLineWidth({ text })
-  )
-
-  restoreTextboxMeasurementState({
-    text,
-    state: previousState
+    frameWidth,
+    splitByGrapheme: resolveSplitByGraphemeForFrame({
+      text,
+      frameWidth
+    })
   })
 
   return {
-    hasWrappedLines,
-    longestLineWidth
+    hasWrappedLines: measurement.renderedLineCount > explicitLineCount,
+    longestLineWidth: measurement.longestLineWidth
   }
 }
 
@@ -1159,28 +1196,17 @@ function measureTextboxHeightForFrame({
   frameWidth: number
   splitByGrapheme?: boolean
 }): number {
-  const previousState = captureTextboxMeasurementState({ text })
   const resolvedSplitByGrapheme = splitByGrapheme
     ?? resolveSplitByGraphemeForFrame({
       text,
       frameWidth
     })
 
-  text.set({
-    autoExpand: false,
-    width: Math.max(MIN_TEXT_FRAME_SIZE, frameWidth),
-    splitByGrapheme: resolvedSplitByGrapheme
-  })
-
-  text.initDimensions()
-  const measuredHeight = getTextboxHeight({ text })
-
-  restoreTextboxMeasurementState({
+  return measureShapeTextFrameLayout({
     text,
-    state: previousState
-  })
-
-  return measuredHeight
+    frameWidth,
+    splitByGrapheme: resolvedSplitByGrapheme
+  }).measuredHeight
 }
 
 /**

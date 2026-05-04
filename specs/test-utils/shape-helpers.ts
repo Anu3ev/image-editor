@@ -1,4 +1,6 @@
-import { Group, Point, Textbox } from 'fabric'
+import { Group, Point } from 'fabric'
+import type { ShapeTextNode } from '../../src/editor/shape-manager/types'
+import { BackgroundTextbox } from '../../src/editor/text-manager/background-textbox'
 
 const CHAR_WIDTH_RATIO = 0.55
 const SPACE_WIDTH_RATIO = 0.3
@@ -34,20 +36,11 @@ type MockShapeNode = {
   setCoords: jest.Mock
 }
 
-type MockShapeTextbox = Textbox & {
+type MockShapeTextbox = ShapeTextNode & {
   shapeNodeType: 'text'
   dynamicMinWidth: number
   autoExpand: boolean
   splitByGrapheme: boolean
-  lineFontDefaults?: Record<number, Record<string, unknown>>
-  paddingTop?: number
-  paddingRight?: number
-  paddingBottom?: number
-  paddingLeft?: number
-  radiusTopLeft?: number
-  radiusTopRight?: number
-  radiusBottomRight?: number
-  radiusBottomLeft?: number
   set: jest.Mock
   initDimensions: jest.Mock
   calcTextHeight: jest.Mock
@@ -356,11 +349,13 @@ export const createMockShapeTextbox = ({
   lineHeight?: number
   textAlign?: 'left' | 'center' | 'right' | 'justify'
 } = {}): MockShapeTextbox => {
-  const textbox = new Textbox(text, {
+  const textbox = new BackgroundTextbox(text, {
     width,
     fontSize,
     lineHeight,
     textAlign,
+    autoExpand: false,
+    shapeNodeType: 'text',
     originX: 'left',
     originY: 'top'
   }) as MockShapeTextbox
@@ -370,7 +365,7 @@ export const createMockShapeTextbox = ({
   textbox.splitByGrapheme = false
   textbox.dynamicMinWidth = 0
 
-  const baseSet = Textbox.prototype.set.bind(textbox)
+  const baseSet = textbox.set.bind(textbox)
   textbox.set = jest.fn((updates: Record<string, unknown>) => {
     baseSet(updates)
   }) as never
