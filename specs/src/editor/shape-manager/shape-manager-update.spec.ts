@@ -242,7 +242,7 @@ describe('shape-manager update', () => {
     expect(updatedGroup?.shapeReplaceBoxHeight).toBe(180)
   })
 
-  it('с preserveCurrentAspectRatio при смене пресета оставляет текущий размер фигуры', async() => {
+  it('с preserveCurrentAspectRatio при смене пресета оставляет текущий размер фигуры и не переписывает replace box', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -258,8 +258,11 @@ describe('shape-manager update', () => {
       throw new Error('shape group should be created')
     }
 
-    group.shapeReplaceBoxWidth = 320
-    group.shapeReplaceBoxHeight = 180
+    const initialReplaceBoxWidth = 320
+    const initialReplaceBoxHeight = 180
+
+    group.shapeReplaceBoxWidth = initialReplaceBoxWidth
+    group.shapeReplaceBoxHeight = initialReplaceBoxHeight
 
     const updatedGroup = await manager.update({
       target: group,
@@ -275,8 +278,8 @@ describe('shape-manager update', () => {
     expect(updatedGroup?.shapeBaseHeight).toBe(180)
     expect(updatedGroup?.shapeManualBaseWidth).toBe(180)
     expect(updatedGroup?.shapeManualBaseHeight).toBe(180)
-    expect(updatedGroup?.shapeReplaceBoxWidth).toBe(180)
-    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(180)
+    expect(updatedGroup?.shapeReplaceBoxWidth).toBe(initialReplaceBoxWidth)
+    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(initialReplaceBoxHeight)
   })
 
   it('при повторной замене не сужает фигуру относительно исходного бокса замены', async() => {
@@ -361,7 +364,7 @@ describe('shape-manager update', () => {
     expect(updatedGroup?.shapeReplaceBoxHeight).toBe(140)
   })
 
-  it('если после замены фигура выросла, новый размер становится базовым и сохраняется в replacement box', async() => {
+  it('если после замены фигура выросла, новый размер становится базовым, но replace box остаётся исходным', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -376,6 +379,10 @@ describe('shape-manager update', () => {
     if (!group) {
       throw new Error('shape group should be created')
     }
+
+    // Запоминаем исходный replace box до замены
+    const initialReplaceBoxWidth = group.shapeReplaceBoxWidth
+    const initialReplaceBoxHeight = group.shapeReplaceBoxHeight
 
     applyShapeTextLayoutMock.mockImplementationOnce(({
       group: currentGroup,
@@ -403,15 +410,18 @@ describe('shape-manager update', () => {
     })
 
     expect(updatedGroup).not.toBeNull()
+    // Фактический размер вырос под текст
     expect(updatedGroup?.shapeBaseWidth).toBe(220)
     expect(updatedGroup?.shapeBaseHeight).toBe(200)
+    // Ручная база поднята до финального размера для текущего пресета
     expect(updatedGroup?.shapeManualBaseWidth).toBe(220)
     expect(updatedGroup?.shapeManualBaseHeight).toBe(200)
-    expect(updatedGroup?.shapeReplaceBoxWidth).toBeCloseTo(220, 4)
-    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(200)
+    // Но replace box остаётся исходным, если не было явных width/height в update
+    expect(updatedGroup?.shapeReplaceBoxWidth).toBe(initialReplaceBoxWidth)
+    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(initialReplaceBoxHeight)
   })
 
-  it('после замены на выросшей фигуре следующая замена берёт уже новый бокс замены', async() => {
+  it('после замены с ростом под текст следующая замена использует исходный replace box', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -426,6 +436,10 @@ describe('shape-manager update', () => {
     if (!group) {
       throw new Error('shape group should be created')
     }
+
+    // Запоминаем исходный replace box
+    const initialReplaceBoxWidth = group.shapeReplaceBoxWidth
+    const initialReplaceBoxHeight = group.shapeReplaceBoxHeight
 
     applyShapeTextLayoutMock.mockImplementationOnce(({
       group: currentGroup,
@@ -452,6 +466,7 @@ describe('shape-manager update', () => {
       presetKey: 'arrow-up'
     })
 
+    // Вторая замена использует исходный replace box, а не выросший размер
     const updatedGroup = await manager.update({
       target: group,
       presetKey: 'arrow-right'
@@ -459,12 +474,25 @@ describe('shape-manager update', () => {
 
     expect(updatedGroup).not.toBeNull()
     expect(updatedGroup?.shapePresetKey).toBe('arrow-right')
-    expect(updatedGroup?.shapeBaseWidth).toBeCloseTo(220, 4)
-    expect(updatedGroup?.shapeBaseHeight).toBeCloseTo(171.1111, 4)
-    expect(updatedGroup?.shapeManualBaseWidth).toBeCloseTo(220, 4)
-    expect(updatedGroup?.shapeManualBaseHeight).toBeCloseTo(171.1111, 4)
-    expect(updatedGroup?.shapeReplaceBoxWidth).toBeCloseTo(220, 4)
-    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(200)
+
+    if (initialReplaceBoxWidth === undefined || initialReplaceBoxHeight === undefined) {
+      throw new Error('replace box should exist')
+    }
+
+    // Фигура вписывается в исходный replace box
+    const nextScale = Math.min(
+      initialReplaceBoxWidth / 180,
+      initialReplaceBoxHeight / 140
+    )
+    const expectedWidth = 180 * nextScale
+    const expectedHeight = 140 * nextScale
+    expect(updatedGroup?.shapeBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(updatedGroup?.shapeBaseHeight).toBeCloseTo(expectedHeight, 4)
+    expect(updatedGroup?.shapeManualBaseWidth).toBeCloseTo(expectedWidth, 4)
+    expect(updatedGroup?.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
+    // Replace box остаётся исходным
+    expect(updatedGroup?.shapeReplaceBoxWidth).toBe(initialReplaceBoxWidth)
+    expect(updatedGroup?.shapeReplaceBoxHeight).toBe(initialReplaceBoxHeight)
   })
 
   it('update с withoutSave передаёт этот флаг в payload обновления фигуры', async() => {

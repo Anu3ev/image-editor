@@ -268,6 +268,8 @@ export interface ShapeObjectInfo extends EditorObjectInfo {
   shapePaddingRight: number
   shapePaddingBottom: number
   shapePaddingLeft: number
+  shapeReplaceBoxWidth: number
+  shapeReplaceBoxHeight: number
   shapeFill?: string
   shapeStroke?: string | null
   shapeStrokeWidth?: number

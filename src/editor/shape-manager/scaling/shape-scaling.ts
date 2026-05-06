@@ -1329,9 +1329,6 @@ export default class ShapeScalingController {
       })
     })
 
-    group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? layoutWidth)
-    group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? layoutHeight)
-
     group.set({
       left: state.lastAllowedLeft,
       top: state.lastAllowedTop,

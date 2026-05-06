@@ -569,6 +569,14 @@ export function installEditorBrowserHelpers(): void {
         value: shapeObject.shapePaddingLeft,
         defaultValue: 0
       }),
+      shapeReplaceBoxWidth: resolveNumber({
+        value: shapeObject.shapeReplaceBoxWidth,
+        defaultValue: 0
+      }),
+      shapeReplaceBoxHeight: resolveNumber({
+        value: shapeObject.shapeReplaceBoxHeight,
+        defaultValue: 0
+      }),
       shapeFill: shapeObject.shapeFill,
       shapeStroke: shapeObject.shapeStroke,
       shapeStrokeWidth: shapeObject.shapeStrokeWidth,

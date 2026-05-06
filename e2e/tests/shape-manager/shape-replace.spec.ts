@@ -50,6 +50,10 @@ test.describe('Смена фигуры между пресетами с разн
         presetKey: 'arrow-up'
       })
 
+      if (updatedSnapshot.textBoundsHeight === null || initialSnapshot.textBoundsHeight === null) {
+        throw new Error('text bounds height should exist')
+      }
+
       expect(updatedSnapshot.groupBoundsHeight)
         .toBeGreaterThan(initialSnapshot.groupBoundsHeight + SHAPE_REPLACE_TOLERANCE)
       expect(updatedSnapshot.groupBoundsWidth).toBeLessThan(initialSnapshot.groupBoundsWidth - 20)
@@ -114,7 +118,7 @@ test.describe('Смена фигуры между пресетами с разн
     })
   })
 
-  test('после расширения текста следующая замена сохраняет новый размер объекта', async({ shapes }) => {
+  test('после расширения текста следующая замена использует исходный replace box', async({ shapes }) => {
     const createdShape = await test.step('Добавить квадрат для сценария с повторной заменой', async() => {
       return shapes.add({
         presetKey: 'square',
@@ -130,10 +134,6 @@ test.describe('Смена фигуры между пресетами с разн
       presetKey: 'square'
     })
 
-    const initialSnapshot = await test.step('Получить исходный размер квадрата', () => {
-      return shapes.getScaleSnapshot({ id: 'shape-replace-expanded-box' })
-    })
-
     await test.step('Сменить квадрат на стрелку вверх', async() => {
       await shapes.update({
         id: 'shape-replace-expanded-box',
@@ -141,6 +141,9 @@ test.describe('Смена фигуры между пресетами с разн
       })
     })
 
+    const replacedShape = await test.step('Получить состояние стрелки вверх до расширения текста', () => {
+      return shapes.getObject({ id: 'shape-replace-expanded-box' })
+    })
     const replacedSnapshot = await test.step('Получить размер стрелки вверх до расширения текста', () => {
       return shapes.getScaleSnapshot({ id: 'shape-replace-expanded-box' })
     })
@@ -154,6 +157,9 @@ test.describe('Смена фигуры между пресетами с разн
       })
     })
 
+    const expandedShape = await test.step('Получить состояние фигуры после расширения текста', () => {
+      return shapes.getObject({ id: 'shape-replace-expanded-box' })
+    })
     const expandedSnapshot = await test.step('Получить размер фигуры после расширения текста', () => {
       return shapes.getScaleSnapshot({ id: 'shape-replace-expanded-box' })
     })
@@ -165,15 +171,27 @@ test.describe('Смена фигуры между пресетами с разн
       })
     })
 
+    const finalShape = await test.step('Получить состояние фигуры после следующей замены', () => {
+      return shapes.getObject({ id: 'shape-replace-expanded-box' })
+    })
     const finalSnapshot = await test.step('Получить размер фигуры после следующей замены', () => {
       return shapes.getScaleSnapshot({ id: 'shape-replace-expanded-box' })
     })
 
-    await test.step('Проверить что следующая замена использует уже увеличенный размер объекта', () => {
+    await test.step('Проверить что auto-grow не расширил replace box', () => {
+      const expectedReplaceBoxWidth = SHAPE_REPLACE_BASE_OPTIONS.width ?? 0
+      const expectedReplaceBoxHeight = SHAPE_REPLACE_BASE_OPTIONS.height ?? 0
+
       expect(expandedSnapshot.groupBoundsWidth)
         .toBeGreaterThan(replacedSnapshot.groupBoundsWidth + SHAPE_REPLACE_TOLERANCE)
-      expect(finalSnapshot.groupBoundsWidth)
-        .toBeGreaterThan(initialSnapshot.groupBoundsWidth + SHAPE_REPLACE_TOLERANCE)
+      expect(createdShape?.shapeReplaceBoxWidth).toBe(expectedReplaceBoxWidth)
+      expect(createdShape?.shapeReplaceBoxHeight).toBe(expectedReplaceBoxHeight)
+      expect(replacedShape?.shapeReplaceBoxWidth).toBe(expectedReplaceBoxWidth)
+      expect(replacedShape?.shapeReplaceBoxHeight).toBe(expectedReplaceBoxHeight)
+      expect(expandedShape?.shapeReplaceBoxWidth).toBe(expectedReplaceBoxWidth)
+      expect(expandedShape?.shapeReplaceBoxHeight).toBe(expectedReplaceBoxHeight)
+      expect(finalShape?.shapeReplaceBoxWidth).toBe(expectedReplaceBoxWidth)
+      expect(finalShape?.shapeReplaceBoxHeight).toBe(expectedReplaceBoxHeight)
       shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'shape' })
       shapes.checkNodeInsideGroup({ snapshot: finalSnapshot, kind: 'text' })
     })
