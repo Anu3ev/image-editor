@@ -730,8 +730,8 @@ export function commitResolvedShapeScalingLayout({
     }
   })
 
-  group.shapeReplaceBoxWidth = Math.max(1, group.shapeBaseWidth ?? width)
-  group.shapeReplaceBoxHeight = Math.max(1, group.shapeBaseHeight ?? height)
+  group.shapeReplaceBoxWidth = Math.max(1, width)
+  group.shapeReplaceBoxHeight = Math.max(1, height)
 
   text.set({
     scaleX: 1,
