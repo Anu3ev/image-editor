@@ -209,6 +209,27 @@ export class ShapeGroupObject extends Group {
   }
 
   /**
+   * Заменяет внутренний shape-узел группы без пересчёта через матрицу группы.
+   *
+   * Generic Group.remove() + insertAt() здесь использовать нельзя:
+   * createShapeNode() уже возвращает child в локальной системе координат группы,
+   * а insertAt() повторно применил бы обратное преобразование через матрицу группы.
+   */
+  public replaceShapeNode(
+    index: number,
+    oldNode: FabricObject,
+    newNode: FabricObject
+  ): void {
+    this._objects.splice(index, 1)
+    this.exitGroup(oldNode, true)
+
+    this._objects.splice(index, 0, newNode)
+    this.enterGroup(newNode, false)
+
+    this._set('dirty', true)
+  }
+
+  /**
    * Гарантирует консистентность производных shape-свойств после materialization.
    */
   private _syncRoundability(): void {

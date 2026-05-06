@@ -1370,6 +1370,26 @@ export class ShapeModel {
     return snapshot as ShapeScaleSnapshot
   }
 
+  /**
+   * Устанавливает абсолютный угол поворота фигуры.
+   * Использует TransformManager для корректного применения трансформации и сохранения в историю.
+   */
+  async setAngle(params: { angle: number } & ObjectTargetParams): Promise<void> {
+    await this.page.evaluate(({ angle, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return
+
+      editor.transformManager.setAngle(target, angle)
+    }, params)
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Обновляет shape — меняет пресет, размеры, стили. Сохраняет позицию и текст */
   async update(params: ShapeUpdateParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     const shape = await this.page.evaluate(async({ presetKey, options, objectIndex, id }) => {

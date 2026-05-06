@@ -28,21 +28,24 @@ export default class TransformManager {
   }
 
   /**
-   * Поворот объекта на заданный угол
-   * @param angle
+   * Устанавливает абсолютный угол поворота объекта
+   * @param object - Целевой объект
+   * @param angle - Абсолютный угол в градусах
    * @param options
    * @param options.withoutSave - Не сохранять состояние
    * @fires editor:object-rotated
    */
-  public rotate(angle: number = DEFAULT_ROTATE_RATIO, { withoutSave }: { withoutSave?: boolean } = {}): void {
+  public setAngle(
+    object: FabricObject,
+    angle: number,
+    { withoutSave }: { withoutSave?: boolean } = {}
+  ): void {
     const { canvas, historyManager } = this.editor
 
-    const obj = canvas.getActiveObject()
-    if (!obj) return
-    const newAngle = obj.angle + angle
-    obj.rotate(newAngle)
-    obj.setCoords()
+    if (!object) return
 
+    object.rotate(angle)
+    object.setCoords()
     canvas.renderAll()
 
     if (!withoutSave) {
@@ -50,10 +53,27 @@ export default class TransformManager {
     }
 
     canvas.fire('editor:object-rotated', {
-      object: obj,
+      object,
       withoutSave,
-      angle: newAngle
+      angle
     })
+  }
+
+  /**
+   * Поворот активного объекта на относительный угол
+   * @param angle
+   * @param options
+   * @param options.withoutSave - Не сохранять состояние
+   * @fires editor:object-rotated
+   */
+  public rotate(angle: number = DEFAULT_ROTATE_RATIO, { withoutSave }: { withoutSave?: boolean } = {}): void {
+    const { canvas } = this.editor
+
+    const obj = canvas.getActiveObject()
+    if (!obj) return
+
+    const newAngle = (obj.angle ?? 0) + angle
+    this.setAngle(obj, newAngle, { withoutSave })
   }
 
   /**

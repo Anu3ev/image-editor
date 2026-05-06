@@ -716,8 +716,12 @@ export default class ShapeManager {
         syncLineStylesWithText
       })
 
-      currentGroup.remove(currentShapeNode)
-      currentGroup.insertAt(currentShapeIndex, shape)
+      const groupRef = currentGroup as ShapeGroupObject
+      groupRef.replaceShapeNode(
+        currentShapeIndex,
+        currentShapeNode,
+        shape
+      )
 
       this._applyShapeGroupMetadata({
         group: currentGroup,

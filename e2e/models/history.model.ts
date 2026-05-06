@@ -29,6 +29,16 @@ export class HistoryModel {
     await waitForCanvasRender({ page: this.page })
   }
 
+  /** Явно сохраняет текущее состояние canvas в историю */
+  async saveState(): Promise<void> {
+    await this.page.evaluate(() => {
+      const { editor } = window as any
+      editor.historyManager.saveState()
+    })
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Принудительно фиксирует отложенное сохранение после text editing */
   async flushPendingSave(): Promise<boolean> {
     return this.page.evaluate(() => {
