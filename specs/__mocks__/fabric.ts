@@ -229,6 +229,8 @@ export class Group {
 
   height = 100
 
+  canvas: any = null
+
   controls: Record<string, unknown> = {}
 
   _objects: any[] = []
@@ -309,6 +311,23 @@ export class Group {
     }
 
     return objects
+  }
+
+  enterGroup(object: any, _removeParentTransform?: boolean): void {
+    object.group = this
+    object.parent = this
+    object.canvas = this.canvas
+    object.setCoords()
+  }
+
+  exitGroup(object: any, _removeParentTransform?: boolean): void {
+    object.group = undefined
+    object.parent = undefined
+    object.canvas = undefined
+  }
+
+  _set(key: string, value: any): void {
+    (this as any)[key] = value
   }
 
   set(props: any) {
