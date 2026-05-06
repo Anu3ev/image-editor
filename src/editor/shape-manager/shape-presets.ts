@@ -277,9 +277,9 @@ const shapePresetsList: ShapePreset[] = [
       { x: 0, y: 62 }
     ],
     internalTextInset: {
-      top: 0.24,
+      top: 0.3,
       right: 0.42,
-      bottom: 0.24,
+      bottom: 0.3,
       left: 0.16
     }
   },
