@@ -203,6 +203,12 @@ export default class TransformManager {
       canvas.setActiveObject(sel)
     } else {
       this._fitSingleObject(activeObject, type)
+
+      if (activeObject instanceof ActiveSelection && fitAsOneObject) {
+        this._materializeFittedSelection({
+          selection: activeObject
+        })
+      }
     }
 
     canvas.renderAll()
@@ -264,6 +270,82 @@ export default class TransformManager {
     })
 
     canvasManager.centerObjectToMontageArea({ object: obj })
+
+    const fittedObjectMaterialized = this._materializeFittedObject({
+      object: obj
+    })
+
+    if (!fittedObjectMaterialized) {
+      obj.setCoords?.()
+    }
+  }
+
+  /**
+   * Запекает transient scale fitted-объекта в каноническое состояние, если объект поддерживает такой lifecycle.
+   */
+  private _materializeFittedObject({ object }: { object: FabricObject }): boolean {
+    const {
+      shapeManager,
+      textManager
+    } = this.editor
+    const shapeLayoutParams: {
+      target: FabricObject
+      textScale?: number
+    } = {
+      target: object
+    }
+
+    if (object.shapeComposite === true) {
+      shapeLayoutParams.textScale = Math.abs(object.scaleX ?? 1) || 1
+    }
+
+    const standaloneTextScaleCommitted = textManager.commitStandaloneTextScale({
+      target: object
+    })
+    const shapeLayoutCommitted = shapeManager.commitRehydratedShapeLayout(shapeLayoutParams)
+
+    return standaloneTextScaleCommitted || shapeLayoutCommitted
+  }
+
+  /**
+   * Возвращает true, если fitted child-объект нужно прогнать через materialization pipeline.
+   */
+  private _requiresFittedObjectMaterialization({ object }: { object: FabricObject }): boolean {
+    const isStandaloneTextObject = object.type === 'textbox' || object.type === 'background-textbox'
+    const isShapeCompositeObject = 'shapeComposite' in object && object.shapeComposite === true
+
+    return isStandaloneTextObject || isShapeCompositeObject
+  }
+
+  /**
+   * Материализует fitted ActiveSelection через тот же child-level pipeline, что и другие групповые трансформации.
+   */
+  private _materializeFittedSelection({ selection }: { selection: ActiveSelection }): void {
+    const { canvas } = this.editor
+    const objects = selection.getObjects()
+
+    const hasObjectsThatRequireMaterialization = objects.some((object) => {
+      return this._requiresFittedObjectMaterialization({
+        object
+      })
+    })
+
+    if (!hasObjectsThatRequireMaterialization) return
+
+    canvas.discardActiveObject()
+
+    objects.forEach((object) => {
+      const fittedObjectMaterialized = this._materializeFittedObject({
+        object
+      })
+
+      if (!fittedObjectMaterialized) {
+        object.setCoords?.()
+      }
+    })
+
+    const nextSelection = new ActiveSelection(objects, { canvas })
+    canvas.setActiveObject(nextSelection)
   }
 
   /**

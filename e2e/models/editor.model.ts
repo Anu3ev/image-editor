@@ -199,6 +199,60 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
+  /** Вызывает fitObject для текущего активного объекта через публичный API transformManager. */
+  async fitActiveObject(
+    params: {
+      type?: 'contain' | 'cover'
+      fitAsOneObject?: boolean
+    } = {}
+  ): Promise<void> {
+    const fitState = await this.page.evaluate(({ type, fitAsOneObject }) => {
+      const { editor } = window as any
+      const activeObject = editor.canvas.getActiveObject()
+
+      if (!activeObject) {
+        return {
+          hadActiveObject: false,
+          hasActiveObjectAfter: false
+        }
+      }
+
+      editor.transformManager.fitObject({
+        type,
+        fitAsOneObject
+      })
+
+      return {
+        hadActiveObject: true,
+        hasActiveObjectAfter: Boolean(editor.canvas.getActiveObject())
+      }
+    }, params)
+
+    expect(fitState.hadActiveObject, 'для fitObject должен существовать активный объект').toBe(true)
+    expect(fitState.hasActiveObjectAfter, 'после fitObject активный объект не должен теряться').toBe(true)
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Возвращает размер шрифта, который сейчас показывает правая панель demo-контролов. */
+  async getDisplayedTextFontSize(): Promise<number> {
+    const fontSize = await this.page.evaluate(() => {
+      const fontSizeInput = document.getElementById('text-font-size')
+
+      if (!(fontSizeInput instanceof HTMLInputElement)) return null
+
+      const parsedFontSize = Number(fontSizeInput.value)
+      if (!Number.isFinite(parsedFontSize)) return null
+
+      return parsedFontSize
+    })
+
+    expect(fontSize, 'поле размера шрифта должно существовать в demo-панели').not.toBeNull()
+    expect(Number.isFinite(fontSize as number), 'размер шрифта в demo-панели должен быть числом').toBe(true)
+
+    return fontSize as number
+  }
+
   /** Блокирует текущий выделенный объект через публичный API редактора. */
   async lockSelectedObject(): Promise<void> {
     await this.page.evaluate(() => {
