@@ -384,105 +384,28 @@ export class SelectionModel {
   private async _scaleFromControl(
     params: ScaleSelectionFromControlParams
   ): Promise<SnappingObjectSnapshot> {
-    expect(
-      this.activeScaleInteraction,
-      'нельзя начинать новое масштабирование общего выделения, пока предыдущий drag не завершён'
-    ).toBeNull()
+    const {
+      activeScaleInteraction
+    } = this
+    const requestedShiftKey = Boolean(params.shiftKey)
 
-    const result = await this.page.evaluate(({
-      startControl: startControlName,
-      oppositeControl: oppositeControlName,
-      scaleX,
-      scaleY,
-      minimumWidth,
-      minimumHeight,
-      shiftKey = false
-    }) => {
+    this._assertScaleInteractionCanContinue({
+      activeScaleInteraction,
+      startControl: params.startControl,
+      requestedShiftKey
+    })
+
+    const result = await this.page.evaluate((payload) => {
       const {
-        editor,
         __editorHelpers: helpers
       } = window as any
-      const target = editor.canvas.getActiveObject()
-      if (!target) return null
 
-      target.setCoords()
-
-      const startControl = target.oCoords?.[startControlName]
-      const oppositeControl = target.oCoords?.[oppositeControlName]
-      if (
-        !startControl
-        || !oppositeControl
-        || typeof startControl.x !== 'number'
-        || typeof startControl.y !== 'number'
-        || typeof oppositeControl.x !== 'number'
-        || typeof oppositeControl.y !== 'number'
-      ) {
-        return null
-      }
-
-      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-      const startPoint = {
-        x: rect.left + startControl.x,
-        y: rect.top + startControl.y
-      }
-
-      editor.canvas.__onMouseDown(new MouseEvent('mousedown', {
-        bubbles: true,
-        button: 0,
-        buttons: 1,
-        clientX: startPoint.x,
-        clientY: startPoint.y,
-        shiftKey
-      }))
-
-      const transform = editor.canvas._currentTransform
-      if (!transform || transform.target !== target) return null
-
-      const controlWidth = startControl.x - oppositeControl.x
-      const controlHeight = startControl.y - oppositeControl.y
-      const widthSign = Math.sign(controlWidth) || 1
-      const heightSign = Math.sign(controlHeight) || 1
-      const targetWidth = typeof minimumWidth === 'number'
-        ? minimumWidth
-        : Math.abs(controlWidth) * (scaleX ?? 1)
-      const targetHeight = typeof minimumHeight === 'number'
-        ? minimumHeight
-        : Math.abs(controlHeight) * (scaleY ?? 1)
-      const movePoint = {
-        x: rect.left + oppositeControl.x + (widthSign * targetWidth),
-        y: rect.top + oppositeControl.y + (heightSign * targetHeight)
-      }
-
-      editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
-        bubbles: true,
-        button: 0,
-        buttons: 1,
-        clientX: movePoint.x,
-        clientY: movePoint.y,
-        shiftKey
-      }))
-
-      target.setCoords()
-      const currentControl = target.oCoords?.[startControlName]
-      let currentPoint = movePoint
-
-      if (
-        currentControl
-        && typeof currentControl.x === 'number'
-        && typeof currentControl.y === 'number'
-      ) {
-        currentPoint = {
-          x: rect.left + currentControl.x,
-          y: rect.top + currentControl.y
-        }
-      }
-
-      return {
-        point: currentPoint,
-        shiftKey,
-        snapshot: helpers.serializeSnappingObjectSnapshot(target)
-      }
-    }, params)
+      return helpers.scaleSelectionFromControl(payload)
+    }, {
+      ...params,
+      continueInteraction: activeScaleInteraction !== null,
+      shiftKey: requestedShiftKey
+    })
 
     expect(result, 'должно существовать live-состояние общего выделения после масштабирования').not.toBeNull()
 
@@ -490,7 +413,7 @@ export class SelectionModel {
 
     const {
       point,
-      shiftKey,
+      shiftKey: interactionShiftKey,
       snapshot
     } = result as {
       point: {
@@ -504,9 +427,32 @@ export class SelectionModel {
     this.activeScaleInteraction = {
       point,
       control: params.startControl,
-      shiftKey
+      shiftKey: interactionShiftKey
     }
 
     return snapshot
+  }
+
+  private _assertScaleInteractionCanContinue(params: {
+    activeScaleInteraction: SelectionScaleInteraction | null
+    startControl: SelectionControlKey
+    requestedShiftKey: boolean
+  }): void {
+    const {
+      activeScaleInteraction,
+      startControl,
+      requestedShiftKey
+    } = params
+
+    if (!activeScaleInteraction) return
+
+    expect(
+      activeScaleInteraction.control,
+      'нельзя продолжать активную drag-сессию общего выделения через другую ручку'
+    ).toBe(startControl)
+    expect(
+      activeScaleInteraction.shiftKey,
+      'нельзя продолжать активную drag-сессию общего выделения с другим состоянием Shift'
+    ).toBe(requestedShiftKey)
   }
 }

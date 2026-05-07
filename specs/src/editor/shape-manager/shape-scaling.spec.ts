@@ -1,5 +1,6 @@
 import { Point } from 'fabric'
 import {
+  applyFixedWidthShapeTextLayout,
   applyShapeTextLayout,
   isShapeTextFrameFilled,
   measureShapeTextFrameLayout,
@@ -21,6 +22,7 @@ import {
 } from '../../../test-utils/shape-scaling-helpers'
 
 jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
+  applyFixedWidthShapeTextLayout: jest.fn(),
   applyShapeTextLayout: jest.fn(),
   isShapeTextFrameFilled: jest.fn(),
   measureShapeTextFrameLayout: jest.fn(() => ({
@@ -73,6 +75,7 @@ jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
 }))
 
 describe('shape-scaling', () => {
+  const applyFixedWidthShapeTextLayoutMock = applyFixedWidthShapeTextLayout as jest.Mock
   const applyShapeTextLayoutMock = applyShapeTextLayout as jest.Mock
   const isShapeTextFrameFilledMock = isShapeTextFrameFilled as jest.Mock
   const measureShapeTextFrameLayoutMock = measureShapeTextFrameLayout as jest.Mock
@@ -123,7 +126,7 @@ describe('shape-scaling', () => {
       splitByGrapheme: false,
       textTop: -20
     }))
-    applyShapeTextLayoutMock.mockImplementation(({
+    const applyLayoutMockImplementation = ({
       group,
       width,
       height
@@ -141,7 +144,10 @@ describe('shape-scaling', () => {
       group.height = height
       group.shapeBaseWidth = width
       group.shapeBaseHeight = height
-    })
+    }
+
+    applyShapeTextLayoutMock.mockImplementation(applyLayoutMockImplementation)
+    applyFixedWidthShapeTextLayoutMock.mockImplementation(applyLayoutMockImplementation)
   })
 
   it('обрабатывает vertical shrink как noop, если shape уже стоит на minimum height в начале drag', () => {
@@ -186,6 +192,10 @@ describe('shape-scaling', () => {
     })
 
     expect(applyShapeTextLayoutMock).not.toHaveBeenCalled()
+    expect(applyFixedWidthShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 200,
+      height: 200
+    }))
     expect(group.scaleX).toBe(1)
     expect(group.scaleY).toBe(1)
     expect(group.shapeScalingNoopTransform).toBe(false)
@@ -851,6 +861,41 @@ describe('shape-scaling', () => {
     }
   })
 
+  it('при увеличении нескольких шейпов по диагонали не пересчитывает shrink minimum', () => {
+    const {
+      controller,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+    const resolveMinimumProportionalShapeScaleSpy = jest.spyOn(
+      shapeScalingLayout,
+      'resolveMinimumProportionalShapeScale'
+    )
+
+    try {
+      isShapeTextFrameFilledMock.mockReturnValue(false)
+      selection.scaleX = 1.4
+      selection.scaleY = 1.4
+
+      controller.handleObjectScaling({
+        target: selection,
+        transform: createShapeScalingTransform({
+          target: selection,
+          action: 'scale',
+          corner: 'br',
+          originX: 'left',
+          originY: 'top'
+        }) as never
+      })
+
+      expect(resolveMinimumProportionalShapeScaleSpy).not.toHaveBeenCalled()
+      expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledTimes(2)
+      expect(selection.scaleX).toBeCloseTo(1.4, 4)
+      expect(selection.scaleY).toBeCloseTo(1.4, 4)
+    } finally {
+      resolveMinimumProportionalShapeScaleSpy.mockRestore()
+    }
+  })
+
   it('если Fabric пропустил scaling-кадр, продолжает лайв-перерасчёт текста для нескольких шейпов', () => {
     const {
       controller,
@@ -1178,7 +1223,7 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
+    const layoutCall = applyFixedWidthShapeTextLayoutMock.mock.calls[applyFixedWidthShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 200,
@@ -1288,7 +1333,7 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    expect(applyShapeTextLayoutMock).toHaveBeenLastCalledWith(expect.objectContaining({
+    expect(applyFixedWidthShapeTextLayoutMock).toHaveBeenLastCalledWith(expect.objectContaining({
       expandShapeHeightToFitText: false
     }))
   })
@@ -1407,7 +1452,7 @@ describe('shape-scaling', () => {
       } as never
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
+    const layoutCall = applyFixedWidthShapeTextLayoutMock.mock.calls[applyFixedWidthShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 200,
@@ -1708,6 +1753,10 @@ describe('shape-scaling', () => {
     })
 
     expect(applyShapeTextLayoutMock).not.toHaveBeenCalled()
+    expect(applyFixedWidthShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      width: 60,
+      height: 180
+    }))
     expect(resizeShapeNodeMock).toHaveBeenLastCalledWith(expect.objectContaining({
       width: 60,
       height: 180
@@ -1781,7 +1830,7 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
+    const layoutCall = applyFixedWidthShapeTextLayoutMock.mock.calls[applyFixedWidthShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 209,
@@ -1826,6 +1875,9 @@ describe('shape-scaling', () => {
       localPoint: new Point(0, -10)
     })
 
+    group.shapeBaseWidth = 140
+    group.shapeManualBaseWidth = 140
+    group.width = 140
     group.scaleX = 0.7
     group.scaleY = 0.9
 
@@ -2049,12 +2101,12 @@ describe('shape-scaling', () => {
       target: group
     })
 
-    const layoutCall = applyShapeTextLayoutMock.mock.calls[applyShapeTextLayoutMock.mock.calls.length - 1]?.[0]
+    const layoutCall = applyFixedWidthShapeTextLayoutMock.mock.calls[applyFixedWidthShapeTextLayoutMock.mock.calls.length - 1]?.[0]
 
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 200,
       height: 100,
-      shapeTextAutoExpandEnabled: true
+      expandShapeHeightToFitText: false
     }))
     expect(group.shapeTextAutoExpand).toBe(true)
     expect(group.shapeManualBaseWidth).toBe(200)

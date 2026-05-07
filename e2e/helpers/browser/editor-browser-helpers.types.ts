@@ -126,6 +126,28 @@ export type BrowserTextSelectionStyleParams = {
   end?: number
 }
 
+export type BrowserSelectionControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
+
+export type BrowserSelectionScaleFromControlParams = {
+  startControl: BrowserSelectionControlKey
+  oppositeControl: BrowserSelectionControlKey
+  scaleX?: number
+  scaleY?: number
+  minimumWidth?: number
+  minimumHeight?: number
+  shiftKey?: boolean
+  continueInteraction?: boolean
+}
+
+export type BrowserSelectionScaleFromControlResult = {
+  point: {
+    x: number
+    y: number
+  }
+  shiftKey: boolean
+  snapshot: BrowserSerializableObject
+}
+
 export type BrowserSerializer = (obj: unknown) => Record<string, unknown>
 
 export interface BrowserEditorHelpers {
@@ -142,6 +164,9 @@ export interface BrowserEditorHelpers {
   resolveTarget: (objectIndex?: number, id?: string) => unknown
   resolveCanvasObject: (objectIndex?: number, id?: string) => unknown
   resolveCanvasObjectOrActive: (objectIndex?: number, id?: string) => unknown
+  scaleSelectionFromControl: (
+    params: BrowserSelectionScaleFromControlParams
+  ) => BrowserSelectionScaleFromControlResult | null
   getSnappingGuideState: () => BrowserSnappingGuideState
   getTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
   getShapeTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
@@ -170,7 +195,10 @@ export interface BrowserEditorWindow extends Window {
         target?: unknown
       } | null
       getActiveObject: () => unknown
+      __onMouseDown: (event: MouseEvent) => void
+      __onMouseMove: (event: MouseEvent) => void
       upperCanvasEl: {
+        getBoundingClientRect: () => DOMRect
         style: {
           pointerEvents: string
         }

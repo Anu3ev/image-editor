@@ -3,6 +3,7 @@ import {
   isShapeTextFrameFilled,
   resolveMinimumShapeWidthForText,
   resolveRequiredShapeHeightForText,
+  resolveShapeTextLayout,
   resolveShapeTextFixedWidthLayout,
   resolveShapeTextAutoExpandWidthForText,
   resolveShapeTextFrameLayout
@@ -30,6 +31,12 @@ describe('shape-layout', () => {
     right: 12,
     bottom: 12,
     left: 12
+  }
+  const zeroShapePadding = {
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0
   }
   const resizeShapeNodeMock = resizeShapeNode as jest.Mock
 
@@ -415,6 +422,47 @@ describe('shape-layout', () => {
     expect(nextHeight).toBe(80)
   })
 
+  it('resolveRequiredShapeHeightForText не меняет итоговую высоту из-за стартовой высоты', () => {
+    const preset = getShapePreset({
+      presetKey: 'arrow-right-fat'
+    })
+
+    if (!preset) {
+      throw new Error('arrow-right-fat preset is required for this test')
+    }
+
+    const text = createMockShapeTextbox({
+      text: 'TEST\nTEST\nTEST\nTEST',
+      width: preset.width,
+      fontSize: 48,
+      lineHeight: 1.16
+    })
+    const initialHeight = resolveRequiredShapeHeightForText({
+      text,
+      width: preset.width,
+      height: preset.height,
+      padding: zeroShapePadding,
+      resolvePaddingForSize: ({ width, height }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height
+      })
+    })
+    const stabilizedHeight = resolveRequiredShapeHeightForText({
+      text,
+      width: preset.width,
+      height: initialHeight,
+      padding: zeroShapePadding,
+      resolvePaddingForSize: ({ width, height }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height
+      })
+    })
+
+    expect(Math.abs(stabilizedHeight - initialHeight)).toBeLessThanOrEqual(0.5)
+  })
+
   it('isShapeTextFrameFilled возвращает false для пустого текста', () => {
     const text = createMockShapeTextbox({
       text: ''
@@ -663,6 +711,49 @@ describe('shape-layout', () => {
     expect(layout.frame.top).toBeGreaterThanOrEqual(-(layout.height / 2) - 0.5)
     expect(layout.frame.top + layout.frame.height).toBeLessThanOrEqual((layout.height / 2) + 0.5)
     expect(layout.frame.height).toBeLessThanOrEqual(availableTextHeight + 0.5)
+  })
+
+  it('первый layout после ввода текста и первый fixed-width preview дают одну и ту же высоту', () => {
+    const preset = getShapePreset({
+      presetKey: 'arrow-right-fat'
+    })
+
+    if (!preset) {
+      throw new Error('arrow-right-fat preset is required for this test')
+    }
+
+    const text = createMockShapeTextbox({
+      text: 'TEST\nTEST\nTEST\nTEST',
+      width: preset.width,
+      fontSize: 48,
+      lineHeight: 1.16
+    })
+    const initialLayout = resolveShapeTextLayout({
+      text,
+      width: preset.width,
+      height: preset.height,
+      alignV: 'middle',
+      padding: zeroShapePadding,
+      resolveInternalShapeTextInset: ({ width, height }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height
+      })
+    })
+    const previewLayout = resolveShapeTextFixedWidthLayout({
+      text,
+      width: initialLayout.width,
+      height: initialLayout.height,
+      alignV: 'middle',
+      padding: zeroShapePadding,
+      resolveInternalShapeTextInset: ({ width, height }) => resolveInternalShapeTextInset({
+        preset,
+        width,
+        height
+      })
+    })
+
+    expect(Math.abs(previewLayout.height - initialLayout.height)).toBeLessThanOrEqual(0.5)
   })
 
   it('после narrow layout с переносом строк и обратного расширения возвращает actual height к manual base height', () => {

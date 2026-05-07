@@ -1,5 +1,8 @@
 import { Group, Point } from 'fabric'
-import type { ShapeTextNode } from '../../src/editor/shape-manager/types'
+import type {
+  ShapeNode,
+  ShapeTextNode
+} from '../../src/editor/shape-manager/types'
 import { BackgroundTextbox } from '../../src/editor/text-manager/background-textbox'
 
 const CHAR_WIDTH_RATIO = 0.55
@@ -25,7 +28,7 @@ type MockCanvas = {
 type PlacementOriginX = 'left' | 'center' | 'right'
 type PlacementOriginY = 'top' | 'center' | 'bottom'
 
-type MockShapeNode = {
+interface MockShapeNode extends ShapeNode {
   id?: string
   type: string
   shapeNodeType: 'shape'
@@ -145,7 +148,7 @@ export const createMockShapeNode = ({
     setCoords: jest.fn()
   }
 
-  return shape
+  return shape as MockShapeNode
 }
 
 /**

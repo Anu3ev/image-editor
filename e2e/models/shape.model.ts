@@ -429,19 +429,39 @@ export class ShapeModel {
   }
 
   /** Сжимает shape до minimum width в live drag-сессии и возвращает проверенный snapshot. */
-  async shrinkToMinimumWidth(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
+  async shrinkToMinimumWidth(
+    params: ({ edge?: 'left' | 'right' } & ObjectTargetParams) = {}
+  ): Promise<ShapeScaleSnapshot> {
     const {
+      edge = 'right',
       objectIndex,
       id
     } = params
 
+    const scaleHandleByEdge = {
+      right: {
+        pointerX: -20,
+        corner: 'mr' as const,
+        originX: 'left' as const,
+        signX: 1 as const
+      },
+      left: {
+        pointerX: 20,
+        corner: 'ml' as const,
+        originX: 'right' as const,
+        signX: -1 as const
+      }
+    }
+    const scaleHandle = scaleHandleByEdge[edge]
+
     const snapshot = await this.simulateScaleMouseMoveStep({
       scaleX: 0.2,
       scaleY: 1,
-      pointerX: -20,
+      pointerX: scaleHandle.pointerX,
       pointerY: 0,
-      corner: 'mr',
-      originX: 'left',
+      corner: scaleHandle.corner,
+      signX: scaleHandle.signX,
+      originX: scaleHandle.originX,
       originY: 'center',
       objectIndex,
       id
@@ -679,6 +699,26 @@ export class ShapeModel {
       scaleY: scale,
       corner,
       shiftKey: false,
+      objectIndex,
+      id
+    })
+  }
+
+  /** Сжимает shape до minimum по диагонали и возвращает live snapshot текущего кадра. */
+  async shrinkDiagonallyToMinimum(
+    params: {
+      corner: 'tl' | 'tr' | 'bl' | 'br'
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      corner,
+      objectIndex,
+      id
+    } = params
+
+    return this.scaleDiagonallyProportionally({
+      scale: 0.2,
+      corner,
       objectIndex,
       id
     })
