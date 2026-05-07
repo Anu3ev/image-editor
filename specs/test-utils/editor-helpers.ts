@@ -1302,6 +1302,54 @@ export const createRestoredTemplateLikeTextbox = ({
 }
 
 /**
+ * Создаёт standalone background-textbox, близкий к реальному template-path кейсу
+ * с длинным верхним заголовком и center-anchor по ширине.
+ */
+export const createRestoredStandaloneTemplateTextbox = ({
+  left = 0.03209876543209877,
+  top = 0.04351851851851852,
+  width = 758,
+  originX = 'left',
+  originY = 'top'
+}: {
+  left?: number
+  top?: number
+  width?: number
+  originX?: 'left' | 'center' | 'right'
+  originY?: 'top' | 'center' | 'bottom'
+} = {}): BackgroundTextbox => {
+  const textbox = new BackgroundTextbox('ЖЕНСКАЯ СУМКА ИЗ КОЖИ БЛА БЛА БЛА БЛА БЛАБЛА БЛА БЛА БЛА', {
+    width,
+    left,
+    top,
+    originX,
+    originY,
+    fontFamily: 'Open Sans',
+    fontSize: 72,
+    fontWeight: 'normal',
+    lineHeight: 1.16,
+    textAlign: 'center',
+    fill: '#333333',
+    backgroundOpacity: 1,
+    autoExpand: false,
+    paddingTop: 0,
+    paddingRight: 0,
+    paddingBottom: 0,
+    paddingLeft: 0,
+    radiusTopLeft: 0,
+    radiusTopRight: 0,
+    radiusBottomRight: 0,
+    radiusBottomLeft: 0
+  })
+
+  textbox.textCaseRaw = 'женская сумка из кожи'
+  textbox.uppercase = true
+  textbox.setCoords()
+
+  return textbox
+}
+
+/**
  * Создаёт template-подобный background-textbox с разными стилями по строкам и фоновыми отступами.
  * Используется для тестов reflow/resizing регрессии.
  */

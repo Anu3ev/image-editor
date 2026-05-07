@@ -14,6 +14,7 @@ import {
   PRODUCT_CARD_TEMPLATE_UPDATED_TITLE,
   TEMPLATE_ALIGNMENT_TOLERANCE,
   TEMPLATE_BOUNDS_TOLERANCE,
+  TEMPLATE_RELATIVE_TOLERANCE,
   TEMPLATE_SHAPE_LONG_TEXT_OPTIONS,
   TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION,
   TEMPLATE_SHAPE_TEXT_LARGE_SCALE,
@@ -27,7 +28,13 @@ import {
   TEMPLATE_ROUNDTRIP_MIXED_TEXT,
   TEMPLATE_ROUNDTRIP_POSITION_TOLERANCE,
   TEMPLATE_ROUNDTRIP_RELATIVE_TOLERANCE,
-  TEMPLATE_ROUNDTRIP_RIGHT_SHAPE
+  TEMPLATE_ROUNDTRIP_RIGHT_SHAPE,
+  TEMPLATE_STANDALONE_TEXT_BASE_RESOLUTION,
+  TEMPLATE_STANDALONE_TEXT_COMPACT_RESOLUTION,
+  TEMPLATE_STANDALONE_TEXT_OBJECT_COUNT,
+  TEMPLATE_STANDALONE_TEXT_SQUARE_RESOLUTION,
+  TEMPLATE_STANDALONE_TEXT_TALL_RESOLUTION,
+  TEMPLATE_STANDALONE_TEXT_TEMPLATE
 } from '../../fixtures/data/template-manager.data'
 
 test.describe('Готовый шаблон', () => {
@@ -178,10 +185,10 @@ test.describe('Готовый шаблон', () => {
       expect((title.boundsTop - montageBounds.top) / montageBounds.height).toBeLessThan(0.1)
       expect(subtitle.boundsTop).toBeGreaterThan(title.boundsTop)
       expect(subtitle.boundsBottom).toBeLessThan(card.boundsTop)
-      expect(((featureLeft.centerX - montageBounds.left) / montageBounds.width)).toBeLessThan(0.3)
-      expect(((featureCenter.centerX - montageBounds.left) / montageBounds.width)).toBeGreaterThan(0.45)
-      expect(((featureCenter.centerX - montageBounds.left) / montageBounds.width)).toBeLessThan(0.55)
-      expect(((featureRight.centerX - montageBounds.left) / montageBounds.width)).toBeGreaterThan(0.7)
+      expect((featureLeft.centerX - montageBounds.left) / montageBounds.width).toBeLessThan(0.3)
+      expect((featureCenter.centerX - montageBounds.left) / montageBounds.width).toBeGreaterThan(0.45)
+      expect((featureCenter.centerX - montageBounds.left) / montageBounds.width).toBeLessThan(0.55)
+      expect((featureRight.centerX - montageBounds.left) / montageBounds.width).toBeGreaterThan(0.7)
       expect(Math.abs(featureLeft.boundsBottom - featureCenter.boundsBottom)).toBeLessThanOrEqual(
         TEMPLATE_ALIGNMENT_TOLERANCE
       )
@@ -233,6 +240,81 @@ test.describe('Готовый шаблон', () => {
       expect(titleObject.text).toBe(PRODUCT_CARD_TEMPLATE_UPDATED_TITLE)
       expect(subtitleObject.text).toBe('Новый подзаголовок товара')
     })
+  })
+})
+
+test.describe('Standalone text из шаблона', () => {
+  test('на разных размерах standalone text из шаблона остаётся по центру сверху', async({
+    canvas,
+    editorModel,
+    template
+  }) => {
+    const targetResolutions = [
+      {
+        label: 'уменьшенный квадратный размер',
+        resolution: TEMPLATE_STANDALONE_TEXT_COMPACT_RESOLUTION
+      },
+      {
+        label: 'увеличенный квадратный размер',
+        resolution: TEMPLATE_STANDALONE_TEXT_SQUARE_RESOLUTION
+      },
+      {
+        label: 'высокий размер с горизонтальными полями',
+        resolution: TEMPLATE_STANDALONE_TEXT_TALL_RESOLUTION
+      }
+    ] as const
+    const referencePlacement = await test.step(
+      'Применить шаблон на исходном размере и зафиксировать относительное положение текста',
+      async() => {
+        await canvas.setMontageResolution(TEMPLATE_STANDALONE_TEXT_BASE_RESOLUTION)
+
+        const insertedCount = await template.applyTemplate({
+          template: TEMPLATE_STANDALONE_TEXT_TEMPLATE
+        })
+
+        expect(insertedCount).toBe(TEMPLATE_STANDALONE_TEXT_OBJECT_COUNT)
+        await editorModel.checkObjectCount({ count: TEMPLATE_STANDALONE_TEXT_OBJECT_COUNT })
+
+        const montageBounds = await editorModel.getMontageAreaBounds()
+        const snapshot = await editorModel.getObjectSnapshot({ objectIndex: 0 })
+
+        return {
+          relativeCenterX: (snapshot.centerX - montageBounds.left) / montageBounds.width,
+          relativeTop: (snapshot.boundsTop - montageBounds.top) / montageBounds.height
+        }
+      }
+    )
+
+    for (const { resolution } of targetResolutions) {
+      await test.step(`Очистить canvas и заново применить тот же шаблон на размере ${resolution.width}x${resolution.height}`, async() => {
+        await canvas.clearCanvas()
+        await editorModel.checkObjectCount({ count: 0 })
+        await canvas.setMontageResolution(resolution)
+
+        const insertedCount = await template.applyTemplate({
+          template: TEMPLATE_STANDALONE_TEXT_TEMPLATE
+        })
+
+        expect(insertedCount).toBe(TEMPLATE_STANDALONE_TEXT_OBJECT_COUNT)
+        await editorModel.checkObjectCount({ count: TEMPLATE_STANDALONE_TEXT_OBJECT_COUNT })
+      })
+
+      await test.step(`Проверить что на размере ${resolution.width}x${resolution.height} текст остаётся по центру сверху`, async() => {
+        const montageBounds = await editorModel.getMontageAreaBounds()
+        const snapshot = await editorModel.getObjectSnapshot({ objectIndex: 0 })
+        const relativeCenterX = (snapshot.centerX - montageBounds.left) / montageBounds.width
+        const relativeTop = (snapshot.boundsTop - montageBounds.top) / montageBounds.height
+
+        expect(Math.abs(relativeCenterX - referencePlacement.relativeCenterX)).toBeLessThanOrEqual(
+          TEMPLATE_RELATIVE_TOLERANCE
+        )
+        expect(Math.abs(relativeTop - referencePlacement.relativeTop)).toBeLessThanOrEqual(
+          TEMPLATE_RELATIVE_TOLERANCE
+        )
+        expect(snapshot.boundsTop).toBeGreaterThanOrEqual(montageBounds.top - TEMPLATE_BOUNDS_TOLERANCE)
+        expect(snapshot.boundsBottom).toBeLessThanOrEqual(montageBounds.bottom + TEMPLATE_BOUNDS_TOLERANCE)
+      })
+    }
   })
 })
 

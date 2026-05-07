@@ -6,12 +6,19 @@ import {
   createRevivedTemplateObject,
   getScenePointByOrigin
 } from '../../../test-utils/placement-helpers'
-import { createRestoredTemplateLikeTextbox } from '../../../test-utils/editor-helpers'
+import {
+  createRestoredStandaloneTemplateTextbox,
+  createRestoredTemplateLikeTextbox
+} from '../../../test-utils/editor-helpers'
 import {
   createMockShapeNode,
   createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
-import { createShapeTemplateDefinition, createTemplateManagerTestSetup } from '../../../test-utils/template-manager-helpers'
+import {
+  createShapeTemplateDefinition,
+  createStandaloneTextTemplateDefinition,
+  createTemplateManagerTestSetup
+} from '../../../test-utils/template-manager-helpers'
 import { BackgroundTextbox, registerBackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 
 describe('TemplateManager', () => {
@@ -247,6 +254,103 @@ describe('TemplateManager', () => {
     expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
+  it('centered standalone text из шаблона сохраняет относительное положение на размере с горизонтальными полями', async() => {
+    const template = createStandaloneTextTemplateDefinition()
+    const baseMontageBounds = {
+      left: 100,
+      top: 50,
+      width: 810,
+      height: 1080
+    }
+    const targetMontageBounds = {
+      left: 100,
+      top: 50,
+      width: 1000,
+      height: 1000
+    }
+    const sourceSetup = createTemplateManagerTestSetup({
+      montageBounds: baseMontageBounds
+    })
+    const targetSetup = createTemplateManagerTestSetup({
+      montageBounds: targetMontageBounds
+    })
+    const sourceTextbox = Object.assign(
+      createRestoredStandaloneTemplateTextbox(),
+      {
+        _templateAnchorX: 'center' as const,
+        _templateAnchorY: 'start' as const
+      }
+    )
+    const targetTextbox = Object.assign(
+      createRestoredStandaloneTemplateTextbox(),
+      {
+        _templateAnchorX: 'center' as const,
+        _templateAnchorY: 'start' as const
+      }
+    )
+
+    jest.spyOn(util, 'enlivenObjects')
+      .mockResolvedValueOnce([sourceTextbox])
+      .mockResolvedValueOnce([targetTextbox])
+
+    const sourceResult = await sourceSetup.manager.applyTemplate({ template })
+    const targetResult = await targetSetup.manager.applyTemplate({ template })
+
+    sourceTextbox.setCoords()
+    targetTextbox.setCoords()
+
+    const sourceRect = sourceTextbox.getBoundingRect()
+    const targetRect = targetTextbox.getBoundingRect()
+    const sourceRelativeCenterX = ((sourceRect.left + (sourceRect.width / 2)) - baseMontageBounds.left)
+      / baseMontageBounds.width
+    const sourceRelativeTop = (sourceRect.top - baseMontageBounds.top) / baseMontageBounds.height
+    const targetRelativeCenterX = ((targetRect.left + (targetRect.width / 2)) - targetMontageBounds.left)
+      / targetMontageBounds.width
+    const targetRelativeTop = (targetRect.top - targetMontageBounds.top) / targetMontageBounds.height
+
+    expect(sourceResult).toEqual([sourceTextbox])
+    expect(targetResult).toEqual([targetTextbox])
+    expect(Math.abs(targetRelativeCenterX - sourceRelativeCenterX)).toBeLessThanOrEqual(0.03)
+    expect(Math.abs(targetRelativeTop - sourceRelativeTop)).toBeLessThanOrEqual(0.02)
+    expect(targetRect.top).toBeGreaterThanOrEqual(targetMontageBounds.top)
+    expect(targetRect.top + targetRect.height).toBeLessThanOrEqual(
+      targetMontageBounds.top + targetMontageBounds.height
+    )
+  })
+
+  it('после применения шаблона эмитит editor:template-applied с вставленными объектами и bounds монтажной области', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const text = createMockShapeTextbox({ text: 'Template text' })
+    const group = new ShapeGroupObject([
+      createMockShapeNode() as never,
+      text
+    ], {
+      left: 100,
+      top: 100,
+      shapePresetKey: 'square'
+    })
+    const template = createShapeTemplateDefinition()
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([group])
+
+    const result = await manager.applyTemplate({ template })
+
+    expect(result).toEqual([group])
+    expect(editor.canvas.fire).toHaveBeenCalledWith('editor:template-applied', {
+      template,
+      objects: [group],
+      bounds: {
+        left: 100,
+        top: 50,
+        width: 400,
+        height: 300
+      }
+    })
+  })
+
   // eslint-disable-next-line max-len
   it('длинный текст из шаблона получает стиль по всей строке из lineFontDefaults, а не только для тех символов что указаны в styles', async() => {
     const {
@@ -353,8 +457,10 @@ describe('TemplateManager', () => {
       manager,
       editor
     } = createTemplateManagerTestSetup()
-    const backgroundObject = createMockShapeNode() as never
-    backgroundObject.id = 'background'
+    const backgroundObject = createMockShapeNode({ id: 'background' }) as ReturnType<typeof createMockShapeNode> & {
+      backgroundType?: 'color' | 'gradient' | 'image' | null
+      fill?: string
+    }
     backgroundObject.backgroundType = 'color'
     backgroundObject.fill = '#ff0055'
     const contentObject = new ShapeGroupObject([

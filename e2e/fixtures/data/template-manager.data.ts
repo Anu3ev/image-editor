@@ -62,6 +62,134 @@ export const TEMPLATE_RELATIVE_TOLERANCE = 0.025
 /** Допуск для проверок выравнивания блоков в одной линии. */
 export const TEMPLATE_ALIGNMENT_TOLERANCE = 4
 
+/** Базовое разрешение для шаблона с standalone text у верхней границы. */
+export const TEMPLATE_STANDALONE_TEXT_BASE_RESOLUTION = {
+  width: 810,
+  height: 1080
+} as const
+
+/** Квадратное разрешение для regression-проверки standalone text из шаблона. */
+export const TEMPLATE_STANDALONE_TEXT_SQUARE_RESOLUTION = {
+  width: 1000,
+  height: 1000
+} as const
+
+/** Уменьшенное квадратное разрешение для проверки standalone text после scale down. */
+export const TEMPLATE_STANDALONE_TEXT_COMPACT_RESOLUTION = {
+  width: 512,
+  height: 512
+} as const
+
+/** Высокое разрешение с горизонтальными полями для regression-проверки centered standalone text. */
+export const TEMPLATE_STANDALONE_TEXT_TALL_RESOLUTION = {
+  width: 910,
+  height: 1200
+} as const
+
+/** Количество объектов в шаблоне со standalone text. */
+export const TEMPLATE_STANDALONE_TEXT_OBJECT_COUNT = 1
+
+/** Шаблон со standalone text, который должен оставаться по центру сверху на разных разрешениях. */
+export const TEMPLATE_STANDALONE_TEXT_TEMPLATE: TemplateDefinition = {
+  id: 'template-standalone-text-alignment',
+  meta: {
+    baseWidth: 810,
+    baseHeight: 1080,
+    positionsNormalized: true
+  },
+  objects: [
+    {
+      fontSize: 72,
+      fontWeight: 'normal',
+      fontFamily: 'Open Sans',
+      fontStyle: 'normal',
+      lineHeight: 1.16,
+      text: 'ЖЕНСКАЯ СУМКА ИЗ КОЖИ БЛА БЛА БЛА БЛА БЛАБЛА БЛА БЛА БЛА',
+      charSpacing: 0,
+      textAlign: 'center',
+      styles: [],
+      pathStartOffset: 0,
+      pathSide: 'left',
+      pathAlign: 'baseline',
+      underline: false,
+      overline: false,
+      linethrough: false,
+      textBackgroundColor: null,
+      direction: 'ltr',
+      textDecorationThickness: 66.667,
+      minWidth: 20,
+      splitByGrapheme: false,
+      id: 'background-textbox-iPaS7YLnTRKxLVc_2hpMt',
+      customData: {
+        handle: 'title',
+        template: '{{text}}',
+        variables: [
+          {
+            name: 'text',
+            description: 'Заголовок товара',
+            maxChars: 30
+          }
+        ]
+      },
+      width: 758,
+      height: 364,
+      originX: 'left',
+      originY: 'top',
+      editable: true,
+      evented: true,
+      selectable: true,
+      lockMovementX: false,
+      lockMovementY: false,
+      lockRotation: false,
+      lockScalingX: false,
+      lockScalingY: false,
+      lockSkewingX: false,
+      lockSkewingY: false,
+      textCaseRaw: 'женская сумка из кожи',
+      uppercase: true,
+      autoExpand: false,
+      backgroundOpacity: 1,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      radiusTopLeft: 0,
+      radiusTopRight: 0,
+      radiusBottomRight: 0,
+      radiusBottomLeft: 0,
+      type: 'background-textbox',
+      version: '7.2.0',
+      left: 0.03209876543209877,
+      top: 0.04351851851851852,
+      fill: '#333333',
+      stroke: null,
+      strokeWidth: 0,
+      strokeDashArray: null,
+      strokeLineCap: 'butt',
+      strokeDashOffset: 0,
+      strokeLineJoin: 'miter',
+      strokeUniform: true,
+      strokeMiterLimit: 4,
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      flipX: false,
+      flipY: false,
+      opacity: 1,
+      shadow: null,
+      visible: true,
+      backgroundColor: null,
+      fillRule: 'nonzero',
+      paintFirst: 'fill',
+      globalCompositeOperation: 'source-over',
+      skewX: 0,
+      skewY: 0,
+      _templateAnchorX: 'center',
+      _templateAnchorY: 'start'
+    }
+  ]
+}
+
 /** Новый заголовок для проверки редактирования текста после применения шаблона. */
 export const PRODUCT_CARD_TEMPLATE_UPDATED_TITLE = 'НАУШНИКИ SONY'
 
@@ -223,11 +351,35 @@ export const PRODUCT_CARD_TEMPLATE: TemplateDefinition = {
           height="609"
           viewBox="0 0 715 609">
             <g transform="matrix(1 0 0 1 0 31.473)" id="rect-AaC1NbVQpxv910CTixQ4J"  >
-<linearGradient id="SVGID_10" gradientUnits="userSpaceOnUse" gradientTransform="matrix(1 0 0 1 -357 -304)"  x1="0" y1="0" x2="541.132" y2="735.231">
+<linearGradient
+  id="SVGID_10"
+  gradientUnits="userSpaceOnUse"
+  gradientTransform="matrix(1 0 0 1 -357 -304)"
+  x1="0"
+  y1="0"
+  x2="541.132"
+  y2="735.231">
 <stop offset="0%" style="stop-color:rgb(130,29,252);stop-opacity: 1"/>
 <stop offset="100%" style="stop-color:rgb(181,29,252);stop-opacity: 1"/>
 </linearGradient>
-<rect style="stroke: none; stroke-width: 1; stroke-dasharray: none; stroke-linecap: butt; stroke-dashoffset: 0; stroke-linejoin: miter; stroke-miterlimit: 4; fill: url(#SVGID_10); fill-rule: nonzero; opacity: 1;"  x="-357" y="-304" rx="36" ry="36" width="714" height="608" />
+<rect
+  style="
+    stroke: none;
+    stroke-width: 1;
+    stroke-dasharray: none;
+    stroke-linecap: butt;
+    stroke-dashoffset: 0;
+    stroke-linejoin: miter;
+    stroke-miterlimit: 4;
+    fill: url(#SVGID_10);
+    fill-rule: nonzero;
+    opacity: 1;"
+  x="-357"
+  y="-304"
+  rx="36"
+  ry="36"
+  width="714"
+  height="608" />
 </g>
 
         </svg>

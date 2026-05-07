@@ -154,6 +154,17 @@ export type ExternalImagePastePendingPayload = {
   }
 }
 
+export type TemplateAppliedPayload = {
+  template: import('../template-manager').TemplateDefinition
+  objects: FabricObject[]
+  bounds: {
+    left: number
+    top: number
+    width: number
+    height: number
+  }
+}
+
 declare module 'fabric' {
   interface CanvasEvents {
     /**
@@ -451,5 +462,10 @@ declare module 'fabric' {
      * Срабатывает при удалении фона.
      */
     'editor:background:removed': void
+
+    /**
+     * Срабатывает после применения шаблона к текущей монтажной области.
+     */
+    'editor:template-applied': TemplateAppliedPayload
   }
 }
