@@ -13,6 +13,55 @@ export class TemplateModel {
     this.page = page
   }
 
+  /**
+   * Обновляет текст первого shape-объекта в шаблоне.
+   * Используется в regression-сценариях, где нужно проверить materialization
+   * уже изменённого serialized template.
+   */
+  setFirstShapeText({
+    template,
+    text,
+    shapeTextAutoExpand
+  }: {
+    template: TemplateDefinition
+    text: string
+    shapeTextAutoExpand?: boolean
+  }): TemplateDefinition {
+    const firstShapeObject = template.objects.find((object) => {
+      return object.type === 'shape-group'
+    })
+
+    if (!firstShapeObject) {
+      throw new Error('Template должен содержать хотя бы один shape-group')
+    }
+
+    if (shapeTextAutoExpand !== undefined) {
+      firstShapeObject.shapeTextAutoExpand = shapeTextAutoExpand
+    }
+
+    const nestedObjects = firstShapeObject.objects
+
+    if (!Array.isArray(nestedObjects)) {
+      throw new Error('shape-group в шаблоне должен содержать вложенные объекты')
+    }
+
+    const textObject = nestedObjects.find((object) => {
+      return object.shapeNodeType === 'text'
+    })
+
+    if (!textObject) {
+      throw new Error('shape-group в шаблоне должен содержать текстовый узел')
+    }
+
+    textObject.text = text
+
+    if (typeof textObject.textCaseRaw === 'string') {
+      textObject.textCaseRaw = text
+    }
+
+    return template
+  }
+
   /** Сериализует текущее выделение редактора в описание шаблона. */
   async serializeSelection(params: SerializeTemplateParams = {}): Promise<TemplateDefinition | null> {
     return this.page.evaluate((payload) => {

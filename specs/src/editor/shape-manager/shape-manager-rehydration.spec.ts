@@ -9,13 +9,16 @@ import {
 
 describe('восстановленная фигура', () => {
   const mocks = getShapeManagerUnitMocks()
-  const { applyShapeTextLayoutMock } = mocks
+  const {
+    applyShapeTextLayoutMock,
+    resolveShapeTextAutoExpandWidthForTextMock
+  } = mocks
 
   beforeEach(() => {
     resetShapeManagerUnitMocks(mocks)
   })
 
-  it('получает итоговый размер до пересчёта текста', () => {
+  it('при включённом авторасширении заново вычисляет ширину через общий materialization-контракт', () => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -31,6 +34,8 @@ describe('восстановленная фигура', () => {
       replaceBoxHeight: 120
     })
 
+    resolveShapeTextAutoExpandWidthForTextMock.mockReturnValue(360)
+
     const result = manager.commitRehydratedShapeLayout({
       target: group
     })
@@ -38,12 +43,16 @@ describe('восстановленная фигура', () => {
     const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
 
     expect(result).toBe(true)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 300,
+      minimumWidth: 270
+    }))
     expect(layoutCall).toEqual(expect.objectContaining({
       group,
-      width: 300,
+      width: 360,
       height: 200
     }))
-    expect(group.shapeBaseWidth).toBe(300)
+    expect(group.shapeBaseWidth).toBe(360)
     expect(group.shapeBaseHeight).toBe(200)
     expect(group.shapeManualBaseWidth).toBe(270)
     expect(group.shapeManualBaseHeight).toBe(180)
@@ -129,6 +138,10 @@ describe('восстановленная фигура', () => {
     const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
 
     expect(result).toBe(true)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 250,
+      minimumWidth: 250
+    }))
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 250,
       height: 150
@@ -148,7 +161,9 @@ describe('восстановленная фигура', () => {
       width: 200,
       height: 100,
       scaleX: 1.25,
-      scaleY: 1.5
+      scaleY: 1.5,
+      manualWidth: 200,
+      manualHeight: 100
     })
 
     group.shapeTextAutoExpand = true
@@ -161,6 +176,7 @@ describe('восстановленная фигура', () => {
     const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
 
     expect(result).toBe(true)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).not.toHaveBeenCalled()
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 250,
       height: 150,
@@ -178,7 +194,9 @@ describe('восстановленная фигура', () => {
       width: 200,
       height: 100,
       scaleX: 1.25,
-      scaleY: 1.5
+      scaleY: 1.5,
+      manualWidth: 200,
+      manualHeight: 100
     })
 
     group.shapeTextAutoExpand = true
@@ -190,6 +208,10 @@ describe('восстановленная фигура', () => {
     const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
 
     expect(result).toBe(true)
+    expect(resolveShapeTextAutoExpandWidthForTextMock).toHaveBeenCalledWith(expect.objectContaining({
+      currentWidth: 250,
+      minimumWidth: 250
+    }))
     expect(layoutCall).toEqual(expect.objectContaining({
       width: 250,
       height: 150,

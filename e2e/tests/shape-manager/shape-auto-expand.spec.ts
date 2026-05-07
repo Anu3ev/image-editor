@@ -1144,6 +1144,170 @@ test.describe('Авторасширение текста внутри фигур
   })
 
   test.describe('после применения шаблона (TemplateManager), копирования и истории', () => {
+    test('если длинный текст уже сохранён в шаблоне, то фигура сразу расширяется и не прыгает при входе в редактирование', async({
+      editorModel,
+      shapes,
+      template
+    }) => {
+      const sourceShape = await test.step('Добавить исходную фигуру с включённым авторасширением', async() => {
+        return shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+            id: 'shape-template-serialized-long-text-source',
+            text: 'TEST',
+            shapeTextAutoExpand: true
+          }
+        })
+      })
+
+      shapes.checkCreation({
+        shape: sourceShape,
+        presetKey: 'square'
+      })
+
+      await test.step('Сериализовать исходную фигуру в шаблон', async() => {
+        await shapes.select({ id: 'shape-template-serialized-long-text-source' })
+      })
+
+      const serializedTemplate = await test.step('Подменить текст прямо в serialized template', async() => {
+        const currentTemplate = await template.serializeSelection()
+
+        expect(currentTemplate).not.toBeNull()
+
+        return template.setFirstShapeText({
+          template: currentTemplate!,
+          text: SHAPE_AUTO_EXPAND_VERY_LONG_TEXT,
+          shapeTextAutoExpand: true
+        })
+      })
+
+      const templateShapeId = await test.step('Применить шаблон и определить новую фигуру', async() => {
+        const insertedCount = await template.applyTemplate({
+          template: serializedTemplate
+        })
+
+        expect(insertedCount).toBe(1)
+        await editorModel.checkObjectCount({ count: 2 })
+
+        const objects = await shapes.getShapeObjects()
+        const appliedShape = objects.find((shape) => shape.id !== 'shape-template-serialized-long-text-source')
+
+        expect(appliedShape).toBeDefined()
+        expect(appliedShape?.id).toBeDefined()
+
+        return appliedShape?.id as string
+      })
+
+      const appliedShape = await test.step('Получить состояние фигуры сразу после применения шаблона', () => {
+        return shapes.getObject({ id: templateShapeId })
+      })
+      const appliedText = await test.step('Получить текст фигуры сразу после применения шаблона', () => {
+        return shapes.getTextNode({ id: templateShapeId })
+      })
+      const appliedSnapshot = await test.step('Получить ширину фигуры сразу после применения шаблона', () => {
+        return shapes.getScaleSnapshot({ id: templateShapeId })
+      })
+
+      await test.step('Войти в редактирование текста фигуры из шаблона', async() => {
+        await shapes.enterTextEditing({ id: templateShapeId })
+      })
+
+      const editingText = await test.step('Получить текст фигуры после входа в редактирование', () => {
+        return shapes.getTextNode({ id: templateShapeId })
+      })
+      const editingSnapshot = await test.step('Получить ширину фигуры после входа в редактирование', () => {
+        return shapes.getScaleSnapshot({ id: templateShapeId })
+      })
+
+      await test.step('Проверить что фигура сразу расширилась и не изменила ширину при входе в редактирование', () => {
+        expect(appliedShape?.shapeTextAutoExpand).toBe(true)
+        expect(appliedText?.lineCount).toBe(2)
+        expect(appliedSnapshot.groupBoundsWidth)
+          .toBeGreaterThan((SHAPE_AUTO_EXPAND_BASE_OPTIONS.width ?? 0) + SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+        expect(editingText?.lineCount).toBe(2)
+        expect(Math.abs(editingSnapshot.groupBoundsWidth - appliedSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      })
+    })
+
+    test('если длинный текст уже сохранён в шаблоне с выключенным авторасширением, то фигура сохраняет переносы и ширину', async({
+      editorModel,
+      shapes,
+      template
+    }) => {
+      const sourceShape = await test.step('Добавить исходную фигуру с выключенным авторасширением', async() => {
+        return shapes.add({
+          presetKey: 'square',
+          options: {
+            ...SHAPE_AUTO_EXPAND_BASE_OPTIONS,
+            id: 'shape-template-serialized-wrapped-text-source',
+            text: 'TEST',
+            shapeTextAutoExpand: false
+          }
+        })
+      })
+
+      shapes.checkCreation({
+        shape: sourceShape,
+        presetKey: 'square'
+      })
+
+      const sourceSnapshot = await test.step('Получить исходную ширину фигуры', () => {
+        return shapes.getScaleSnapshot({ id: 'shape-template-serialized-wrapped-text-source' })
+      })
+
+      await test.step('Сериализовать исходную фигуру в шаблон', async() => {
+        await shapes.select({ id: 'shape-template-serialized-wrapped-text-source' })
+      })
+
+      const serializedTemplate = await test.step('Подменить текст прямо в serialized template', async() => {
+        const currentTemplate = await template.serializeSelection()
+
+        expect(currentTemplate).not.toBeNull()
+
+        return template.setFirstShapeText({
+          template: currentTemplate!,
+          text: SHAPE_AUTO_EXPAND_VERY_LONG_TEXT,
+          shapeTextAutoExpand: false
+        })
+      })
+
+      const templateShapeId = await test.step('Применить шаблон и определить новую фигуру', async() => {
+        const insertedCount = await template.applyTemplate({
+          template: serializedTemplate
+        })
+
+        expect(insertedCount).toBe(1)
+        await editorModel.checkObjectCount({ count: 2 })
+
+        const objects = await shapes.getShapeObjects()
+        const appliedShape = objects.find((shape) => shape.id !== 'shape-template-serialized-wrapped-text-source')
+
+        expect(appliedShape).toBeDefined()
+        expect(appliedShape?.id).toBeDefined()
+
+        return appliedShape?.id as string
+      })
+
+      const appliedShape = await test.step('Получить состояние фигуры сразу после применения шаблона', () => {
+        return shapes.getObject({ id: templateShapeId })
+      })
+      const appliedText = await test.step('Получить текст фигуры сразу после применения шаблона', () => {
+        return shapes.getTextNode({ id: templateShapeId })
+      })
+      const appliedSnapshot = await test.step('Получить ширину фигуры сразу после применения шаблона', () => {
+        return shapes.getScaleSnapshot({ id: templateShapeId })
+      })
+
+      await test.step('Проверить что фигура сохранила выключенный режим и осталась в fixed-width состоянии', () => {
+        expect(appliedShape?.shapeTextAutoExpand).toBe(false)
+        expect(appliedText?.lineCount).toBeGreaterThan(1)
+        expect(Math.abs(appliedSnapshot.groupBoundsWidth - sourceSnapshot.groupBoundsWidth))
+          .toBeLessThanOrEqual(SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE)
+      })
+    })
+
     test('объект из шаблона ведёт себя так же, как созданный напрямую', async({
       editorModel,
       shapes,

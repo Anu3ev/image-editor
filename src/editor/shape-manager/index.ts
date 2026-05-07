@@ -1387,12 +1387,14 @@ export default class ShapeManager {
     group.shapeManualBaseWidth = manualDimensions.width
     group.shapeManualBaseHeight = manualDimensions.height
 
+    // Width здесь должен пройти через тот же auto-expand контракт, что и add/update path.
+    // Если передать уже зафиксированную current width, materialization обойдет этот шаг
+    // и shape с длинным текстом восстановится в wrapped state до первого text mutation.
     this._applyCurrentLayout({
       group,
       shape,
       text,
       placement,
-      width: currentDimensions.width,
       height: currentDimensions.height,
       alignH: shapeAlignHorizontal,
       alignV: shapeAlignVertical
