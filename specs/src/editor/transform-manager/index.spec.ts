@@ -202,6 +202,68 @@ describe('TransformManager', () => {
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
+    it('должен материализовать fitted standalone text через textManager', () => {
+      const commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+      const commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+      const textObject = {
+        width: 200,
+        height: 100,
+        scaleX: 1,
+        scaleY: 1,
+        angle: 0,
+        type: 'textbox',
+        set: jest.fn((nextValues) => {
+          Object.assign(textObject, nextValues)
+        }),
+        setCoords: jest.fn()
+      }
+
+      mockCanvas.getActiveObject.mockReturnValue(textObject)
+      commitStandaloneTextScaleMock.mockReturnValue(true)
+      commitRehydratedShapeLayoutMock.mockReturnValue(false)
+
+      transformManager.fitObject()
+
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: textObject
+      })
+      expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+        target: textObject
+      })
+      expect(textObject.setCoords).toHaveBeenCalledTimes(1)
+    })
+
+    it('должен передать scale fitted-шейпа в materialization текста внутри фигуры', () => {
+      const commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+      const commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+      const shapeObject = {
+        width: 200,
+        height: 100,
+        scaleX: 1,
+        scaleY: 1,
+        angle: 0,
+        shapeComposite: true,
+        set: jest.fn((nextValues) => {
+          Object.assign(shapeObject, nextValues)
+        }),
+        setCoords: jest.fn()
+      }
+
+      mockCanvas.getActiveObject.mockReturnValue(shapeObject)
+      commitStandaloneTextScaleMock.mockReturnValue(false)
+      commitRehydratedShapeLayoutMock.mockReturnValue(true)
+
+      transformManager.fitObject()
+
+      expect(shapeObject.scaleX).toBe(2)
+      expect(shapeObject.scaleY).toBe(2)
+      expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+        target: shapeObject,
+        textScale: 2
+      })
+      expect(shapeObject.setCoords).toHaveBeenCalledTimes(1)
+    })
+
     it('должен обработать ActiveSelection как отдельные объекты по умолчанию', () => {
       const obj1 = { id: 'obj1' }
       const obj2 = { id: 'obj2' }
@@ -220,9 +282,9 @@ describe('TransformManager', () => {
       expect(mockCanvas.setActiveObject).toHaveBeenCalledWith(expect.any(ActiveSelection))
     })
 
-    it('должен обработать ActiveSelection как один объект при fitAsOneObject: true', () => {
-      const obj1 = { id: 'obj1' }
-      const obj2 = { id: 'obj2' }
+    it('не должен пересобирать ActiveSelection при fitAsOneObject если children не требуют materialization', () => {
+      const obj1 = { id: 'obj1', type: 'rect' }
+      const obj2 = { id: 'obj2', type: 'circle' }
       const mockActiveSelection = new ActiveSelection([obj1 as any, obj2 as any], {}) as any
       mockActiveSelection.getObjects = jest.fn().mockReturnValue([obj1, obj2])
 
@@ -233,7 +295,47 @@ describe('TransformManager', () => {
       transformManager.fitObject({ fitAsOneObject: true })
 
       expect(mockCanvas.discardActiveObject).not.toHaveBeenCalled()
+      expect(mockCanvas.setActiveObject).not.toHaveBeenCalled()
+      expect(mockEditor.textManager.commitStandaloneTextScale).not.toHaveBeenCalled()
+      expect(mockEditor.shapeManager.commitRehydratedShapeLayout).not.toHaveBeenCalled()
       expect(fitSingleObjectSpy).toHaveBeenCalledWith(mockActiveSelection, 'contain')
+    })
+
+    it('должен материализовать eligible children и пересобрать ActiveSelection при fitAsOneObject', () => {
+      const commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+      const commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+      const textChild = {
+        id: 'text-child',
+        type: 'textbox',
+        setCoords: jest.fn()
+      }
+      const genericChild = {
+        id: 'generic-child',
+        type: 'rect',
+        setCoords: jest.fn()
+      }
+      const mockActiveSelection = new ActiveSelection([textChild as any, genericChild as any], {}) as any
+
+      mockActiveSelection.getObjects = jest.fn().mockReturnValue([textChild, genericChild])
+      mockCanvas.getActiveObject.mockReturnValue(mockActiveSelection)
+
+      commitStandaloneTextScaleMock.mockImplementation(({ target }) => {
+        return target === textChild
+      })
+      commitRehydratedShapeLayoutMock.mockReturnValue(false)
+
+      const fitSingleObjectSpy = jest.spyOn(transformManager as any, '_fitSingleObject').mockImplementation()
+
+      transformManager.fitObject({ fitAsOneObject: true })
+
+      expect(fitSingleObjectSpy).toHaveBeenCalledWith(mockActiveSelection, 'contain')
+      expect(mockCanvas.discardActiveObject).toHaveBeenCalledTimes(1)
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: textChild
+      })
+      expect(textChild.setCoords).not.toHaveBeenCalled()
+      expect(genericChild.setCoords).toHaveBeenCalledTimes(1)
+      expect(mockCanvas.setActiveObject).toHaveBeenCalledWith(expect.any(ActiveSelection))
     })
   })
 
