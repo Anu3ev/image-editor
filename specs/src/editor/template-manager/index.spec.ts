@@ -1,4 +1,5 @@
 import { Point, Textbox, util } from 'fabric'
+import { nanoid } from 'nanoid'
 import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/shape-group'
 import {
   createPlacementSelection,
@@ -23,8 +24,17 @@ import { BackgroundTextbox, registerBackgroundTextbox } from '../../../../src/ed
 
 describe('TemplateManager', () => {
   beforeEach(() => {
+    const nanoidMock = nanoid as jest.MockedFunction<typeof nanoid>
+    let nanoidCallIndex = 0
+
     jest.restoreAllMocks()
     registerShapeGroup()
+    nanoidMock.mockReset()
+    nanoidMock.mockImplementation(() => {
+      nanoidCallIndex += 1
+
+      return `mock-nanoid-${nanoidCallIndex}`
+    })
     jest.clearAllMocks()
   })
 
@@ -520,6 +530,133 @@ describe('TemplateManager', () => {
 
     expect(result).toBeNull()
     expect(editor.errorManager.emitWarning).toHaveBeenCalled()
+  })
+
+  it('при применении шаблона фигура получает новые id у группы и внутренних объектов', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const revivedShape = createMockShapeNode({ id: 'shape-node-source-id' })
+    const revivedText = createMockShapeTextbox({ text: 'Template text' })
+
+    revivedText.set({ id: 'shape-text-source-id' })
+
+    const revivedGroup = new ShapeGroupObject([
+      revivedShape as never,
+      revivedText
+    ], {
+      id: 'shape-group-source-id',
+      left: 100,
+      top: 100,
+      shapePresetKey: 'square'
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([revivedGroup])
+
+    const result = await manager.applyTemplate({
+      template: createShapeTemplateDefinition()
+    })
+    const appliedIds = [
+      revivedGroup.id,
+      revivedShape.id,
+      revivedText.id
+    ]
+
+    expect(result).toEqual([revivedGroup])
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+    expect(revivedGroup.id).toEqual(expect.any(String))
+    expect(revivedGroup.id).not.toBe('shape-group-source-id')
+    expect(revivedShape.id).toEqual(expect.any(String))
+    expect(revivedShape.id).not.toBe('shape-node-source-id')
+    expect(revivedText.id).toEqual(expect.any(String))
+    expect(revivedText.id).not.toBe('shape-text-source-id')
+    expect(new Set(appliedIds).size).toBe(3)
+  })
+
+  it('при применении mixed template новые id получают и фигура с вложенными объектами, и отдельный текст', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const revivedShape = createMockShapeNode({ id: 'mixed-shape-node-source-id' })
+    const revivedShapeText = createMockShapeTextbox({ text: 'Shape text' })
+
+    revivedShapeText.set({ id: 'mixed-shape-text-source-id' })
+
+    const revivedGroup = new ShapeGroupObject([
+      revivedShape as never,
+      revivedShapeText
+    ], {
+      id: 'mixed-shape-group-source-id',
+      left: 100,
+      top: 100,
+      shapePresetKey: 'square'
+    })
+    const revivedStandaloneText = new Textbox('Standalone text', {
+      left: 220,
+      top: 100,
+      width: 140,
+      originX: 'left',
+      originY: 'top'
+    }) as Textbox & {
+      id?: string
+    }
+
+    revivedStandaloneText.set({ id: 'mixed-standalone-text-source-id' })
+
+    jest.spyOn(util, 'enlivenObjects').mockImplementation(async(serializedObjects) => {
+      const [serialized] = serializedObjects as Array<Record<string, unknown>>
+
+      if (serialized.type === 'shape-group') return [revivedGroup] as never
+      if (serialized.type === 'textbox') return [revivedStandaloneText] as never
+
+      return [] as never
+    })
+
+    const result = await manager.applyTemplate({
+      template: {
+        id: 'mixed-template',
+        meta: {
+          baseWidth: 400,
+          baseHeight: 300,
+          positionsNormalized: true
+        },
+        objects: [
+          {
+            type: 'shape-group',
+            left: 100,
+            top: 100,
+            shapePresetKey: 'square'
+          },
+          {
+            type: 'textbox',
+            left: 220,
+            top: 100,
+            width: 140,
+            text: 'Standalone text'
+          }
+        ]
+      }
+    })
+    const appliedIds = [
+      revivedGroup.id,
+      revivedShape.id,
+      revivedShapeText.id,
+      revivedStandaloneText.id
+    ]
+
+    expect(result).toEqual([revivedGroup, revivedStandaloneText])
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+    expect(revivedGroup.id).toEqual(expect.any(String))
+    expect(revivedGroup.id).not.toBe('mixed-shape-group-source-id')
+    expect(revivedShape.id).toEqual(expect.any(String))
+    expect(revivedShape.id).not.toBe('mixed-shape-node-source-id')
+    expect(revivedShapeText.id).toEqual(expect.any(String))
+    expect(revivedShapeText.id).not.toBe('mixed-shape-text-source-id')
+    expect(revivedStandaloneText.id).toEqual(expect.any(String))
+    expect(revivedStandaloneText.id).not.toBe('mixed-standalone-text-source-id')
+    expect(new Set(appliedIds).size).toBe(4)
   })
 
   it('при сохранении двух выделенных объектов не теряет их места на канвасе', () => {

@@ -1,9 +1,9 @@
-import { ActiveSelection, FabricObject, Group } from 'fabric'
-import { nanoid } from 'nanoid'
+import { ActiveSelection, FabricObject } from 'fabric'
 import { CLIPBOARD_DATA_PREFIX, CLIPBOARD_CLONE_OBJECT_KEYS } from '../constants'
 
 import { ImageEditor } from '../index'
 import type { ImportImageOptions } from '../image-manager'
+import { materializeObjectIdentity } from '../utils/object-identity'
 
 export default class ClipboardManager {
   /**
@@ -232,40 +232,6 @@ export default class ClipboardManager {
   }
 
   /**
-   * Назначает свежие id клону и всем вложенным объектам перед вставкой на canvas.
-   * `evented` восстанавливается только у объектов верхнего уровня, которые реально добавляются на canvas.
-   */
-  private _materializeCloneIdentity({
-    clonedObject,
-    enableEvented = true
-  }: {
-    clonedObject: FabricObject
-    enableEvented?: boolean
-  }): void {
-    clonedObject.set({
-      id: `${clonedObject.type}-${nanoid()}`
-    })
-
-    if (enableEvented) {
-      clonedObject.set({
-        evented: true
-      })
-    }
-
-    const shouldEnableChildEvented = clonedObject instanceof ActiveSelection
-    const isNestedContainer = shouldEnableChildEvented || clonedObject instanceof Group
-
-    if (!isNestedContainer) return
-
-    clonedObject.getObjects().forEach((object) => {
-      this._materializeCloneIdentity({
-        clonedObject: object,
-        enableEvented: shouldEnableChildEvented
-      })
-    })
-  }
-
-  /**
    * Обработка импорта изображения из буфера обмена
    * @param source - источник изображения (data URL или URL)
    */
@@ -315,6 +281,12 @@ export default class ClipboardManager {
 
     try {
       const importOptions = await deferredPromise
+
+      if (importOptions === null) {
+        await this._importExternalImage({ source })
+        return
+      }
+
       await this._importExternalImage({ source, importOptions })
     } catch (error) {
       errorManager.emitError({
@@ -373,8 +345,8 @@ export default class ClipboardManager {
       // Используем асинхронное клонирование для корректной работы с SVG и сложными объектами
       const clonedObject = await targetObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
 
-      this._materializeCloneIdentity({
-        clonedObject
+      materializeObjectIdentity({
+        rootObject: clonedObject
       })
 
       clonedObject.set({
@@ -494,8 +466,8 @@ export default class ClipboardManager {
 
       canvas.discardActiveObject()
 
-      this._materializeCloneIdentity({
-        clonedObject: clonedObj
+      materializeObjectIdentity({
+        rootObject: clonedObj
       })
 
       clonedObj.set({
