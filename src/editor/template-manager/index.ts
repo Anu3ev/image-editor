@@ -53,6 +53,11 @@ const TEMPLATE_ANCHOR_Y_KEY = '_templateAnchorY'
 
 type TemplateAnchor = 'start' | 'center' | 'end'
 
+type TemplateAnchors = {
+  _templateAnchorX?: TemplateAnchor
+  _templateAnchorY?: TemplateAnchor
+}
+
 type TemplateCustomData = Record<string, unknown> & {
   templateField?: string
   text?: string
@@ -86,6 +91,10 @@ export type SerializeTemplateOptions = {
 export type ApplyTemplateOptions = {
   template: TemplateDefinition
   data?: Record<string, string>
+}
+
+type BoundingRectReadableObject = FabricObject & {
+  getBoundingRect: (absolute?: boolean, calculate?: boolean) => Bounds
 }
 
 export default class TemplateManager {
@@ -142,13 +151,16 @@ export default class TemplateManager {
         baseWidth,
         baseHeight
       }))
+    const inheritedPreviewId = typeof meta.previewId === 'string'
+      ? meta.previewId
+      : undefined
 
     const templateMeta: TemplateMeta = {
       ...meta,
       baseWidth,
       baseHeight,
       positionsNormalized: true,
-      previewId: previewId ?? meta.previewId
+      previewId: previewId ?? inheritedPreviewId
     }
 
     const template: TemplateDefinition = {
@@ -336,7 +348,7 @@ export default class TemplateManager {
     try {
       // Принудительно пересчитываем координаты перед получением bounds
       object.setCoords()
-      const rect = object.getBoundingRect(false, true)
+      const rect = TemplateManager._getBoundingRect(object)
       return {
         left: rect.left,
         top: rect.top,
@@ -349,8 +361,17 @@ export default class TemplateManager {
   }
 
   /**
-    * Превращает plain-описание объектов в Fabric объекты.
-    */
+   * Возвращает scene bounds объекта через runtime-сигнатуру Fabric.
+   */
+  private static _getBoundingRect(object: FabricObject): Bounds {
+    const readableObject = object as BoundingRectReadableObject
+
+    return readableObject.getBoundingRect(false, true)
+  }
+
+  /**
+   * Превращает plain-описание объектов в Fabric объекты.
+   */
   private static async _enlivenObjects(objects: TemplateObjectData[]): Promise<FabricObject[]> {
     const revivedList = await Promise.all(objects.map(async(serialized) => {
       if (TemplateManager._hasSerializedSvgMarkup(serialized)) {
@@ -549,7 +570,7 @@ export default class TemplateManager {
    * Определяет, что объект представляет SVG.
    */
   private static _isSvgObject(object: FabricObject): boolean {
-    return (object as Record<string, unknown>).format === 'svg'
+    return object.format === 'svg'
   }
 
   /**
@@ -566,7 +587,7 @@ export default class TemplateManager {
       const hasRoot = /<svg[\s>]/i.test(svgContent)
       if (hasRoot) return svgContent
 
-      const { width, height } = object.getBoundingRect(false, true)
+      const { width, height } = TemplateManager._getBoundingRect(object)
       const safeWidth = width || object.width || 0
       const safeHeight = height || object.height || 0
 
@@ -602,7 +623,7 @@ export default class TemplateManager {
     baseHeight: number
     useRelativePositions: boolean
   }): void {
-    const objectRecord = object as Record<string, unknown>
+    const objectWithTemplateAnchors = object as FabricObject & TemplateAnchors
     const { x: normalizedX, y: normalizedY } = resolveNormalizedPlacement({
       object,
       baseWidth,
@@ -619,8 +640,8 @@ export default class TemplateManager {
       baseHeight,
       scale,
       useRelativePositions,
-      anchorX: TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_X_KEY),
-      anchorY: TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_Y_KEY)
+      anchorX: TemplateManager._resolveAnchor(objectWithTemplateAnchors, TEMPLATE_ANCHOR_X_KEY),
+      anchorY: TemplateManager._resolveAnchor(objectWithTemplateAnchors, TEMPLATE_ANCHOR_Y_KEY)
     })
 
     const absolutePlacement = denormalizePlacement({
@@ -649,8 +670,8 @@ export default class TemplateManager {
       }
     })
 
-    delete objectRecord[TEMPLATE_ANCHOR_X_KEY]
-    delete objectRecord[TEMPLATE_ANCHOR_Y_KEY]
+    delete objectWithTemplateAnchors._templateAnchorX
+    delete objectWithTemplateAnchors._templateAnchorY
   }
 
   /**
@@ -699,8 +720,11 @@ export default class TemplateManager {
     return 0
   }
 
-  private static _resolveAnchor(objectRecord: Record<string, unknown>, key: string): TemplateAnchor {
-    const value = objectRecord[key]
+  private static _resolveAnchor(
+    objectWithTemplateAnchors: TemplateAnchors,
+    key: typeof TEMPLATE_ANCHOR_X_KEY | typeof TEMPLATE_ANCHOR_Y_KEY
+  ): TemplateAnchor {
+    const value = objectWithTemplateAnchors[key]
     if (value === 'center' || value === 'end' || value === 'start') return value
     return 'start'
   }
@@ -794,7 +818,8 @@ export default class TemplateManager {
   }
 
   /**
-   * Подгоняет ширину текстового объекта под фактическую длину строк, сохраняя выравнивание по якорю.
+   * Подгоняет ширину текстового объекта под фактическую длину строк
+   * в координатах исходного template-base и сохраняет выравнивание по якорю.
    */
   private _adaptTextboxWidth({
     object,
@@ -808,30 +833,24 @@ export default class TemplateManager {
     const textValue = typeof object.text === 'string' ? object.text : ''
     if (!textValue) return
 
-    const montageAreaWidth = toNumber({
-      value: this.editor?.montageArea?.width,
-      fallback: 0
-    })
-    const {
-      width: storedWidth = 0
-    } = object
-    const normalizedBaseWidth = toNumber({ value: baseWidth, fallback: 0 })
-    const textWidth = toNumber({ value: storedWidth, fallback: 0 })
-    if (!montageAreaWidth || !textWidth || !normalizedBaseWidth) return
+    const templateBaseWidth = toNumber({ value: baseWidth, fallback: 0 })
+    const textWidth = toNumber({ value: object.width, fallback: 0 })
+    if (!templateBaseWidth || !textWidth) return
 
     object.setCoords()
-    const objectRecord = object as Record<string, unknown>
-    const anchorX = TemplateManager._resolveAnchor(objectRecord, TEMPLATE_ANCHOR_X_KEY)
-    const storedPlacementX = typeof objectRecord.left === 'number'
-      ? objectRecord.left
+    const textboxWithTemplateAnchors = object as Textbox & TemplateAnchors
+    const anchorX = TemplateManager._resolveAnchor(textboxWithTemplateAnchors, TEMPLATE_ANCHOR_X_KEY)
+    const storedPlacementX = typeof object.left === 'number'
+      ? object.left
       : null
     const originX = object.originX ?? 'center'
     const originY = object.originY ?? 'center'
     const originalPlacement = object.getPointByOrigin(originX, originY)
-    const originalRect = object.getBoundingRect(false, true)
+    const originalRect = TemplateManager._getBoundingRect(object)
+    const originalCenterX = originalRect.left + (originalRect.width / 2)
     const originalRight = originalRect.left + originalRect.width
 
-    object.set('width', montageAreaWidth)
+    object.set('width', templateBaseWidth)
     object.initDimensions()
 
     const longestLineWidth = TemplateManager._getLongestLineWidth({
@@ -847,17 +866,20 @@ export default class TemplateManager {
 
     if (storedPlacementX === null) return
 
-    const finalRect = object.getBoundingRect(false, true)
+    const finalRect = TemplateManager._getBoundingRect(object)
+    const finalCenterX = finalRect.left + (finalRect.width / 2)
     const finalRight = finalRect.left + finalRect.width
     let nextPlacementX = storedPlacementX
 
     if (anchorX === 'start') {
-      nextPlacementX += (originalRect.left - finalRect.left) / normalizedBaseWidth
+      nextPlacementX += (originalRect.left - finalRect.left) / templateBaseWidth
+    } else if (anchorX === 'center') {
+      nextPlacementX += (originalCenterX - finalCenterX) / templateBaseWidth
     } else if (anchorX === 'end') {
-      nextPlacementX += (originalRight - finalRight) / normalizedBaseWidth
+      nextPlacementX += (originalRight - finalRight) / templateBaseWidth
     }
 
-    objectRecord.left = nextPlacementX
+    object.left = nextPlacementX
   }
 
   /**
@@ -922,7 +944,7 @@ export default class TemplateManager {
       width: boundsWidth,
       height: boundsHeight
     } = bounds
-    const rect = object.getBoundingRect(false, true)
+    const rect = TemplateManager._getBoundingRect(object)
     const safeWidth = baseWidth || boundsWidth || 1
     const safeHeight = baseHeight || boundsHeight || 1
     const placement = this.editor.canvasManager.getObjectPlacement({ object })
@@ -1090,9 +1112,9 @@ export default class TemplateManager {
       }
     }
 
-    const asRecord = image as Record<string, unknown>
-    if (typeof asRecord.src === 'string') {
-      return asRecord.src as string
+    const imageWithSource = image as FabricObject & { src?: unknown }
+    if (typeof imageWithSource.src === 'string') {
+      return imageWithSource.src
     }
 
     return null

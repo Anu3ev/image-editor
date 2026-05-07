@@ -99,3 +99,27 @@ export const createShapeTemplateDefinition = (): TemplateDefinition => ({
     }
   ]
 })
+
+/**
+ * Создаёт минимальный template definition для centered standalone text с top-anchor.
+ */
+export const createStandaloneTextTemplateDefinition = (): TemplateDefinition => ({
+  id: 'template-standalone-text',
+  meta: {
+    baseWidth: 810,
+    baseHeight: 1080,
+    positionsNormalized: true
+  },
+  objects: [
+    {
+      type: 'background-textbox',
+      left: 0.03209876543209877,
+      top: 0.04351851851851852,
+      width: 758,
+      originX: 'left',
+      originY: 'top',
+      _templateAnchorX: 'center',
+      _templateAnchorY: 'start'
+    }
+  ]
+})
