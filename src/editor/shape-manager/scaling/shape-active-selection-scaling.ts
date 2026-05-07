@@ -163,11 +163,14 @@ export default class ShapeActiveSelectionScalingController {
     })
     const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
     const isProportionalCornerScale = isCornerScaleAction && !isShiftPressed
-    const proportionalLayoutResults = isProportionalCornerScale
-      ? this._resolveProportionalLayoutResults({ items })
-      : null
     const scaleX = Math.abs(selection.scaleX ?? 1) || 1
     const scaleY = Math.abs(selection.scaleY ?? 1) || 1
+    const shouldResolveProportionalLayoutResults = isProportionalCornerScale
+      && (scaleX < 1 - SCALE_EPSILON || scaleY < 1 - SCALE_EPSILON)
+    const proportionalLayoutResults = isProportionalCornerScale
+      && shouldResolveProportionalLayoutResults
+      ? this._resolveProportionalLayoutResults({ items })
+      : null
     let selectionScale = this._resolveSelectionScale({
       items,
       session,
@@ -231,7 +234,8 @@ export default class ShapeActiveSelectionScalingController {
           constraintPadding,
           startDimensions: state,
           appliedScaleX: layoutScale.scaleX,
-          appliedScaleY: layoutScale.scaleY
+          appliedScaleY: layoutScale.scaleY,
+          measurementCache: state.previewTextMeasurementCache
         }).previewHeight
       }
 
@@ -542,22 +546,27 @@ export default class ShapeActiveSelectionScalingController {
     let appliedScaleY = scaleY
 
     if (isProportionalCornerScale) {
+      const proportionalScale = Math.max(scaleX, scaleY)
+
       if (!proportionalLayoutResults) {
-        throw new Error('proportional layout results are required for ActiveSelection proportional scaling')
+        return {
+          scaleX: proportionalScale,
+          scaleY: proportionalScale
+        }
       }
 
-      const proportionalScale = this._resolveProportionalSelectionScale({
+      const resolvedProportionalScale = this._resolveProportionalSelectionScale({
         items,
         session,
         proportionalLayoutResults,
-        scale: Math.max(scaleX, scaleY),
+        scale: proportionalScale,
         allowGrowthX: canScaleHeight,
         allowGrowthY: canScaleWidth
       })
 
       return {
-        scaleX: proportionalScale,
-        scaleY: proportionalScale
+        scaleX: resolvedProportionalScale,
+        scaleY: resolvedProportionalScale
       }
     }
 
@@ -951,6 +960,7 @@ export default class ShapeActiveSelectionScalingController {
     return resolveMinimumShapeWidthForText({
       text,
       padding: constraintPadding,
+      measurementCache: state.previewTextMeasurementCache ?? undefined,
       resolvePaddingForWidth: ({ width }) => resolveShapeScalingConstraintPadding({
         group,
         width,
@@ -994,7 +1004,8 @@ export default class ShapeActiveSelectionScalingController {
       group,
       text,
       width: attemptedWidth,
-      padding: constraintPadding
+      padding: constraintPadding,
+      measurementCache: state.previewTextMeasurementCache
     })
   }
 

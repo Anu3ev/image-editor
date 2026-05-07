@@ -315,6 +315,23 @@ export type ShapeLayoutInput = {
   changedPadding?: ShapePaddingChangeMap
 }
 
+export type ShapeTextFrameMeasurementCacheEntry = {
+  measuredHeight: number
+  renderedLineCount: number
+  longestLineWidth: number
+  requiresGraphemeSplit: boolean
+}
+
+export type ShapeTextMeasurementCache = {
+  measurementsByKey: Map<string, ShapeTextFrameMeasurementCacheEntry>
+  splitByGraphemeByFrameWidth: Map<string, boolean>
+  minimumTextFrameWidth: number | null
+}
+
+export type ShapeScalingProportionalTextConstraintCacheEntry = ShapeTextFrameMeasurementCacheEntry & {
+  isValid: boolean
+}
+
 export type ShapeScalingState = {
   startWidth: number
   startHeight: number
@@ -345,6 +362,9 @@ export type ShapeScalingState = {
   lastAllowedTop: number
   scaleDirectionX: -1 | 1 | null
   scaleDirectionY: -1 | 1 | null
+  fixedWidthMinimumTextFitHeight: number | null
+  previewTextMeasurementCache: ShapeTextMeasurementCache | null
+  proportionalTextConstraintCache: Map<string, ShapeScalingProportionalTextConstraintCacheEntry> | null
 }
 
 export type ShapeEditingOptions = {

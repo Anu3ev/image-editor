@@ -1,5 +1,7 @@
 import type {
   BrowserEditorHelpers,
+  BrowserSelectionScaleFromControlParams,
+  BrowserSelectionScaleFromControlResult,
   BoundsInfo,
   BrowserBoundedObject,
   BrowserEditorWindow,
@@ -904,6 +906,103 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Выполняет один шаг scale для текущего ActiveSelection через указанный control.
+   * Может как начать drag-сессию, так и продолжить уже активную.
+   */
+  const scaleSelectionFromControl = ({
+    startControl: startControlName,
+    oppositeControl: oppositeControlName,
+    scaleX,
+    scaleY,
+    minimumWidth,
+    minimumHeight,
+    shiftKey = false,
+    continueInteraction = false
+  }: BrowserSelectionScaleFromControlParams): BrowserSelectionScaleFromControlResult | null => {
+    const target = browserWindow.editor.canvas.getActiveObject()
+    if (!target) return null
+
+    const targetObject = toBrowserObject({ value: target })
+    if (typeof targetObject.setCoords !== 'function') return null
+
+    targetObject.setCoords()
+
+    const controls = toBrowserObject({ value: targetObject.oCoords })
+    const startControl = toBrowserObject({ value: controls[startControlName] })
+    const oppositeControl = toBrowserObject({ value: controls[oppositeControlName] })
+    if (
+      typeof startControl.x !== 'number'
+      || typeof startControl.y !== 'number'
+      || typeof oppositeControl.x !== 'number'
+      || typeof oppositeControl.y !== 'number'
+    ) {
+      return null
+    }
+
+    const rect = browserWindow.editor.canvas.upperCanvasEl.getBoundingClientRect()
+    const startPoint = {
+      x: rect.left + startControl.x,
+      y: rect.top + startControl.y
+    }
+
+    if (!continueInteraction) {
+      browserWindow.editor.canvas.__onMouseDown(new MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: startPoint.x,
+        clientY: startPoint.y,
+        shiftKey
+      }))
+    }
+
+    const transform = browserWindow.editor.canvas._currentTransform
+    if (!transform || transform.target !== target) return null
+
+    const controlWidth = startControl.x - oppositeControl.x
+    const controlHeight = startControl.y - oppositeControl.y
+    const widthSign = Math.sign(controlWidth) || 1
+    const heightSign = Math.sign(controlHeight) || 1
+    const targetWidth = typeof minimumWidth === 'number'
+      ? minimumWidth
+      : Math.abs(controlWidth) * (scaleX ?? 1)
+    const targetHeight = typeof minimumHeight === 'number'
+      ? minimumHeight
+      : Math.abs(controlHeight) * (scaleY ?? 1)
+    const movePoint = {
+      x: rect.left + oppositeControl.x + (widthSign * targetWidth),
+      y: rect.top + oppositeControl.y + (heightSign * targetHeight)
+    }
+
+    browserWindow.editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+      bubbles: true,
+      button: 0,
+      buttons: 1,
+      clientX: movePoint.x,
+      clientY: movePoint.y,
+      shiftKey
+    }))
+
+    targetObject.setCoords()
+
+    const currentControl = toBrowserObject({
+      value: toBrowserObject({ value: targetObject.oCoords })[startControlName]
+    })
+    const currentPoint = typeof currentControl.x === 'number' && typeof currentControl.y === 'number'
+      ? {
+        x: rect.left + currentControl.x,
+        y: rect.top + currentControl.y
+      }
+      : movePoint
+
+    return {
+      point: currentPoint,
+      shiftKey,
+      snapshot: serializeSnappingObjectSnapshot(target) as BrowserSerializableObject
+    }
+  }
+
+  /**
    * Возвращает сериализованное состояние interaction blocker и маски блокировки.
    */
   function getInteractionBlockerState(): Record<string, unknown> {
@@ -1021,6 +1120,9 @@ export function installEditorBrowserHelpers(): void {
       },
       resolveCanvasObjectOrActive(objectIndex?: number, id?: string) {
         return resolveCanvasObjectOrActive({ objectIndex, id })
+      },
+      scaleSelectionFromControl(params: BrowserSelectionScaleFromControlParams) {
+        return scaleSelectionFromControl(params)
       },
       getSnappingGuideState() {
         return {

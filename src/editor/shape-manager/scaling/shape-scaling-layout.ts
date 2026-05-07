@@ -1,5 +1,6 @@
 import type { Transform } from 'fabric'
 import {
+  applyFixedWidthShapeTextLayout,
   applyShapeTextLayout,
   measureShapeTextFrameLayout,
   resolveShapeTextFixedWidthLayout,
@@ -22,6 +23,7 @@ import type {
   ShapeHorizontalAlign,
   ShapeNode,
   ShapePadding,
+  ShapeScalingProportionalTextConstraintCacheEntry,
   ShapeScalingState,
   ShapeTextNode,
   ShapeVerticalAlign
@@ -84,12 +86,19 @@ type ShapePreviewDimensions = {
 
 type ShapePreviewLayout = ResolvedShapeTextLayout
 
-export type ShapeScalingProportionalTextConstraint = {
-  measuredHeight: number
-  renderedLineCount: number
-  longestLineWidth: number
-  requiresGraphemeSplit: boolean
-  isValid: boolean
+export type ShapeScalingProportionalTextConstraint = ShapeScalingProportionalTextConstraintCacheEntry
+
+function resolveShapeScalingSizeCacheKey({
+  width,
+  height
+}: {
+  width: number
+  height: number
+}): string {
+  const normalizedWidth = Math.round(Math.max(SHAPE_SCALING_MIN_SIZE, width) * 1_000_000) / 1_000_000
+  const normalizedHeight = Math.round(Math.max(SHAPE_SCALING_MIN_SIZE, height) * 1_000_000) / 1_000_000
+
+  return `${normalizedWidth}:${normalizedHeight}`
 }
 
 function resolveShapeScalingTextFrameWidth({
@@ -200,15 +209,27 @@ export function validateShapeTextLayoutForProportionalScaling({
   group,
   text,
   width,
-  height
+  height,
+  measurementCache,
+  constraintCache
 }: {
   group: ShapeGroup
   text: ShapeTextNode
   width: number
   height: number
+  measurementCache?: ShapeScalingState['previewTextMeasurementCache']
+  constraintCache?: ShapeScalingState['proportionalTextConstraintCache']
 }): ShapeScalingProportionalTextConstraint {
   const safeWidth = Math.max(SHAPE_SCALING_MIN_SIZE, width)
   const safeHeight = Math.max(SHAPE_SCALING_MIN_SIZE, height)
+  const constraintCacheKey = resolveShapeScalingSizeCacheKey({
+    width: safeWidth,
+    height: safeHeight
+  })
+  const cachedConstraint = constraintCache?.get(constraintCacheKey)
+
+  if (cachedConstraint) return cachedConstraint
+
   const constraintPadding = resolveShapeScalingConstraintPadding({
     group,
     width: safeWidth,
@@ -225,14 +246,19 @@ export function validateShapeTextLayoutForProportionalScaling({
   const measurement = measureShapeTextFrameLayout({
     text,
     frameWidth,
-    splitByGrapheme: false
+    splitByGrapheme: false,
+    measurementCache: measurementCache ?? undefined
   })
 
-  return {
+  const constraint = {
     ...measurement,
     isValid: !measurement.requiresGraphemeSplit
       && measurement.measuredHeight <= frameHeight + SHAPE_SCALING_SIZE_EPSILON
   }
+
+  constraintCache?.set(constraintCacheKey, constraint)
+
+  return constraint
 }
 
 /**
@@ -276,7 +302,9 @@ export function resolveMinimumProportionalShapeScale({
       group,
       text,
       width: attemptedWidth,
-      height: attemptedHeight
+      height: attemptedHeight,
+      measurementCache: state.previewTextMeasurementCache,
+      constraintCache: state.proportionalTextConstraintCache
     })
 
     return {
@@ -329,18 +357,21 @@ export function resolveMinimumTextFitHeight({
   group,
   text,
   width,
-  padding
+  padding,
+  measurementCache
 }: {
   group: ShapeGroup
   text: ShapeTextNode
   width: number
   padding: ShapePadding
+  measurementCache?: ShapeScalingState['previewTextMeasurementCache']
 }): number {
   return resolveRequiredShapeHeightForText({
     text,
     width,
     height: SHAPE_SCALING_MIN_SIZE,
     padding,
+    measurementCache: measurementCache ?? undefined,
     resolvePaddingForSize: ({ width: nextWidth, height: nextHeight }) => {
       return resolveShapeScalingConstraintPadding({
         group,
@@ -361,7 +392,8 @@ export function resolveShapeScalingPreviewDimensions({
   startDimensions,
   appliedScaleX,
   appliedScaleY,
-  minimumHeight
+  minimumHeight,
+  measurementCache
 }: {
   group: ShapeGroup
   text: ShapeTextNode
@@ -370,6 +402,7 @@ export function resolveShapeScalingPreviewDimensions({
   appliedScaleX: number
   appliedScaleY: number
   minimumHeight?: number | null
+  measurementCache?: ShapeScalingState['previewTextMeasurementCache']
 }): ShapePreviewDimensions {
   const previewWidth = startDimensions.canScaleWidth
     ? Math.max(SHAPE_SCALING_MIN_SIZE, startDimensions.startWidth * appliedScaleX)
@@ -382,6 +415,7 @@ export function resolveShapeScalingPreviewDimensions({
     width: previewWidth,
     height: scaledPreviewHeight,
     padding: constraintPadding,
+    measurementCache: measurementCache ?? undefined,
     resolvePaddingForSize: ({ width, height }) => resolveShapeScalingConstraintPadding({
       group,
       width,
@@ -436,6 +470,7 @@ export function resolveShapeScalingPreviewLayout({
     alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
     padding: resolveShapeScalingUserPadding({ group }),
     expandShapeHeightToFitText,
+    measurementCache: state.previewTextMeasurementCache ?? undefined,
     resolveInternalShapeTextInset: ({ width, height }) => resolveShapeScalingInternalTextInset({
       group,
       width,
@@ -545,11 +580,19 @@ export function ensureShapeScalingState({
     originX: startTransformOriginX,
     originY: startTransformOriginY
   })
+  const isFixedWidthVerticalScaling = !startDimensions.canScaleWidth && startDimensions.canScaleHeight
+  const previewTextMeasurementCache = {
+    measurementsByKey: new Map(),
+    splitByGraphemeByFrameWidth: new Map(),
+    minimumTextFrameWidth: null
+  }
+  const proportionalTextConstraintCache = new Map<string, ShapeScalingProportionalTextConstraintCacheEntry>()
   const minimumHeightAtStart = resolveMinimumTextFitHeight({
     group,
     text,
     width: startDimensions.startWidth,
-    padding: constraintPadding
+    padding: constraintPadding,
+    measurementCache: previewTextMeasurementCache
   })
 
   state = {
@@ -581,7 +624,10 @@ export function ensureShapeScalingState({
     lastAllowedLeft: startLeft,
     lastAllowedTop: startTop,
     scaleDirectionX: null,
-    scaleDirectionY: null
+    scaleDirectionY: null,
+    fixedWidthMinimumTextFitHeight: isFixedWidthVerticalScaling ? minimumHeightAtStart : null,
+    previewTextMeasurementCache,
+    proportionalTextConstraintCache
   }
 
   scalingState.set(group, state)
@@ -708,27 +754,47 @@ export function commitResolvedShapeScalingLayout({
     height
   })
   const expandShapeHeightToFitText = !canScaleHeight
+  const resolveInternalShapeTextInsetForSize = ({ width: nextWidth, height: nextHeight }: {
+    width: number
+    height: number
+  }) => {
+    return resolveShapeScalingInternalTextInset({
+      group,
+      width: nextWidth,
+      height: nextHeight
+    })
+  }
 
-  applyShapeTextLayout({
-    group,
-    shape,
-    text,
-    width,
-    height,
-    alignH,
-    alignV,
-    padding: userPadding,
-    shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
-    internalShapeTextInset,
-    expandShapeHeightToFitText,
-    resolveInternalShapeTextInset: ({ width: nextWidth, height: nextHeight }) => {
-      return resolveShapeScalingInternalTextInset({
-        group,
-        width: nextWidth,
-        height: nextHeight
-      })
-    }
-  })
+  if (!canScaleWidth && canScaleHeight) {
+    applyFixedWidthShapeTextLayout({
+      group,
+      shape,
+      text,
+      width,
+      height,
+      alignH,
+      alignV,
+      padding: userPadding,
+      internalShapeTextInset,
+      expandShapeHeightToFitText,
+      resolveInternalShapeTextInset: resolveInternalShapeTextInsetForSize
+    })
+  } else {
+    applyShapeTextLayout({
+      group,
+      shape,
+      text,
+      width,
+      height,
+      alignH,
+      alignV,
+      padding: userPadding,
+      shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
+      internalShapeTextInset,
+      expandShapeHeightToFitText,
+      resolveInternalShapeTextInset: resolveInternalShapeTextInsetForSize
+    })
+  }
 
   group.shapeReplaceBoxWidth = Math.max(1, width)
   group.shapeReplaceBoxHeight = Math.max(1, height)
