@@ -19,6 +19,7 @@ import {
   toNumber,
   type Dimensions
 } from '../utils/geometry'
+import { materializeObjectIdentity } from '../utils/object-identity'
 import {
   convertGradientToOptions
 } from '../utils/gradient'
@@ -278,9 +279,8 @@ export default class TemplateManager {
 
         snapObjectToPixelGrid({ object })
 
-        object.set({
-          id: `${object.type}-${nanoid()}`,
-          evented: true
+        materializeObjectIdentity({
+          rootObject: object
         })
 
         canvas.add(object)
