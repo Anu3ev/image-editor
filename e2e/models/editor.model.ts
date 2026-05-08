@@ -11,7 +11,7 @@ import type {
   SnappingObjectSnapshot
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
-import { ShapeModel } from './shape.model'
+import { ShapeModel } from './shape/shape.model'
 import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
 import { ClipboardModel } from './clipboard.model'

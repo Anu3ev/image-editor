@@ -1,6 +1,6 @@
 {
   "name": "@anu3ev/fabric-image-editor",
-  "version": "0.8.14",
+  "version": "0.8.15",
   "description": "TypeScript image editor library built on FabricJS, allowing you to create instances with an integrated montage area and providing an API to modify and manage state.",
   "module": "dist/main.js",
   "files": [
@@ -13,6 +13,7 @@
   },
   "scripts": {
     "dev": "vite --config vite.config.dev.js",
+    "dev:e2e": "vite --config vite.config.dev.js --host 127.0.0.1 --port 4173",
     "dev:build": "vite build --watch --mode development --config vite.config.dev.js",
     "prebuild": "npm install",
     "build": "vite build --config vite.config.prod.js",
@@ -30,7 +31,7 @@
     "@playwright/test": "^1.58.2",
     "@types/fabric": "^5.3.11",
     "@types/jest": "^30.0.0",
-    "@types/node": "^25.5.0",
+    "@types/node": "^25.6.2",
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
     "@vitejs/plugin-basic-ssl": "^2.2.0",

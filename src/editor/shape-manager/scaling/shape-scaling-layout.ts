@@ -127,6 +127,30 @@ function resolveShapeScalingTextFrameHeight({
   )
 }
 
+function hasVisibleShapeTextContent({
+  text
+}: {
+  text: ShapeTextNode
+}): boolean {
+  const rawText = text.text ?? ''
+
+  return rawText.trim().length > 0
+}
+
+function resolveEmptyTextProportionalConstraint({
+  height
+}: {
+  height: number
+}): ShapeScalingProportionalTextConstraint {
+  return {
+    measuredHeight: height,
+    renderedLineCount: 0,
+    longestLineWidth: 0,
+    requiresGraphemeSplit: false,
+    isValid: true
+  }
+}
+
 /**
  * Возвращает пользовательский padding текста из метаданных группы.
  */
@@ -229,6 +253,16 @@ export function validateShapeTextLayoutForProportionalScaling({
   const cachedConstraint = constraintCache?.get(constraintCacheKey)
 
   if (cachedConstraint) return cachedConstraint
+
+  if (!hasVisibleShapeTextContent({ text })) {
+    const constraint = resolveEmptyTextProportionalConstraint({
+      height: safeHeight
+    })
+
+    constraintCache?.set(constraintCacheKey, constraint)
+
+    return constraint
+  }
 
   const constraintPadding = resolveShapeScalingConstraintPadding({
     group,

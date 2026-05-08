@@ -94,6 +94,12 @@ export const createShapeScalingState = (
   const startHeight = overrides.startHeight ?? 200
   const startLeft = overrides.startLeft ?? 480
   const startTop = overrides.startTop ?? 420
+  const previewTextMeasurementCache = overrides.previewTextMeasurementCache ?? {
+    measurementsByKey: new Map(),
+    splitByGraphemeByFrameWidth: new Map(),
+    minimumTextFrameWidth: null
+  }
+  const proportionalTextConstraintCache = overrides.proportionalTextConstraintCache ?? new Map()
 
   return {
     startWidth,
@@ -124,7 +130,10 @@ export const createShapeScalingState = (
     lastAllowedLeft: overrides.lastAllowedLeft ?? startLeft,
     lastAllowedTop: overrides.lastAllowedTop ?? startTop,
     scaleDirectionX: overrides.scaleDirectionX ?? 1,
-    scaleDirectionY: overrides.scaleDirectionY ?? 1
+    scaleDirectionY: overrides.scaleDirectionY ?? 1,
+    fixedWidthMinimumTextFitHeight: overrides.fixedWidthMinimumTextFitHeight ?? null,
+    previewTextMeasurementCache,
+    proportionalTextConstraintCache
   }
 }
 
