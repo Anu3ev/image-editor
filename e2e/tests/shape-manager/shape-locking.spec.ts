@@ -419,6 +419,95 @@ test.describe('Заблокированная фигура после восст
   })
 })
 
+test.describe('Заблокированная фигура и программные обновления', () => {
+  test.beforeEach(async({ shapes }) => {
+    await shapes.add({
+      presetKey: 'square',
+      options: SHAPE_LOCKING_BASE_OPTIONS
+    })
+  })
+
+  test('заблокированная фигура не меняет пресет', async({
+    editorModel,
+    history,
+    shapes
+  }) => {
+    await test.step('Заблокировать фигуру и дождаться сохранения состояния', async() => {
+      await editorModel.lockSelectedObject()
+      await history.flushPendingSave()
+    })
+
+    const beforeShape = await test.step('Получить состояние фигуры до попытки сменить пресет', async() => {
+      return shapes.getObject({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+    })
+
+    const updateResult = await test.step('Попробовать сменить пресет заблокированной фигуры', async() => {
+      return shapes.update({
+        id: SHAPE_LOCKING_TARGET_ID,
+        presetKey: 'star'
+      })
+    })
+
+    await test.step('Проверить что пресет и выделение не изменились', async() => {
+      const currentShape = await shapes.getObject({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(updateResult).toBeNull()
+      expect(beforeShape?.shapePresetKey).toBe('square')
+      expect(currentShape?.shapePresetKey).toBe('square')
+      expect(currentShape?.locked).toBe(true)
+      expect(activeObject?.id).toBe(SHAPE_LOCKING_TARGET_ID)
+      expect(activeObject?.type).toBe('shape-group')
+    })
+  })
+
+  test('заблокированная фигура не меняет стиль текста', async({
+    editorModel,
+    history,
+    shapes
+  }) => {
+    await test.step('Заблокировать фигуру и дождаться сохранения состояния', async() => {
+      await editorModel.lockSelectedObject()
+      await history.flushPendingSave()
+    })
+
+    const beforeText = await test.step('Получить состояние текста до обновления', async() => {
+      return shapes.getTextNode({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+    })
+
+    const updateResult = await test.step('Попробовать изменить стиль текста внутри заблокированной фигуры', async() => {
+      return shapes.updateTextStyle({
+        id: SHAPE_LOCKING_TARGET_ID,
+        style: {
+          color: '#ff0000',
+          bold: true,
+          align: 'right'
+        }
+      })
+    })
+
+    await test.step('Проверить что стиль текста и выделение не изменились', async() => {
+      const currentText = await shapes.getTextNode({
+        id: SHAPE_LOCKING_TARGET_ID
+      })
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(updateResult).toBeNull()
+      expect(beforeText?.fill).toBe(currentText?.fill)
+      expect(beforeText?.fontWeight).toBe(currentText?.fontWeight)
+      expect(beforeText?.textAlign).toBe(currentText?.textAlign)
+      expect(activeObject?.id).toBe(SHAPE_LOCKING_TARGET_ID)
+      expect(activeObject?.type).toBe('shape-group')
+    })
+  })
+})
+
 test.describe('Ручка поворота у фигуры', () => {
   test.beforeEach(async({ shapes }) => {
     await shapes.add({

@@ -889,6 +889,31 @@ export const applyTextStyleToShapeText = ({
       continue
     }
 
+    if (key === 'color') {
+      nextStyle.fill = value
+      continue
+    }
+
+    if (key === 'strokeColor') {
+      nextStyle.stroke = value
+      continue
+    }
+
+    if (key === 'bold') {
+      nextStyle.fontWeight = value ? 'bold' : 'normal'
+      continue
+    }
+
+    if (key === 'italic') {
+      nextStyle.fontStyle = value ? 'italic' : 'normal'
+      continue
+    }
+
+    if (key === 'strikethrough') {
+      nextStyle.linethrough = value
+      continue
+    }
+
     nextStyle[key] = value
   }
 

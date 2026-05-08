@@ -178,6 +178,39 @@ describe('TextManager', () => {
       expect(historyManager.totalChangesCount).toBe(2)
     })
 
+    it('не обновляет заблокированный текст', () => {
+      const {
+        canvas,
+        historyManager,
+        textManager
+      } = createTextManagerTestSetup()
+      const textbox = textManager.addText({
+        text: 'TEST',
+        fontSize: 32
+      })
+      const saveSpy = jest.spyOn(historyManager, 'saveState')
+
+      saveSpy.mockClear()
+      canvas.requestRenderAll.mockClear()
+      canvas.fire.mockClear()
+
+      textbox.locked = true
+
+      textManager.updateText({
+        target: textbox,
+        style: {
+          text: 'UPDATED',
+          fontSize: 72
+        }
+      })
+
+      expect(textbox.text).toBe('TEST')
+      expect(textbox.fontSize).toBe(32)
+      expect(saveSpy).not.toHaveBeenCalled()
+      expect(canvas.requestRenderAll).not.toHaveBeenCalled()
+      expect(canvas.fire).not.toHaveBeenCalled()
+    })
+
     it('сначала даёт подписчикам синхронизировать изменение текста, а потом сохраняет итоговое состояние', () => {
       const {
         canvas,
