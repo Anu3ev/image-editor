@@ -120,4 +120,67 @@ describe('shape-scaling-layout', () => {
     expect(invalidBelowMinimum.isValid).toBe(false)
     expect(minimum.minimumHeight).toBeCloseTo(validConstraint.measuredHeight, 4)
   })
+
+  it('для пустого текста считает proportional candidate 1x1 валидным', () => {
+    const shape = createMockShapeNode({
+      width: 200,
+      height: 200
+    })
+    const text = createMockShapeTextbox({
+      text: '',
+      width: 200,
+      fontSize: 30
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 200,
+      height: 200,
+      presetKey: ''
+    })
+
+    const constraint = validateShapeTextLayoutForProportionalScaling({
+      group,
+      text,
+      width: 1,
+      height: 1
+    })
+
+    expect(constraint.isValid).toBe(true)
+    expect(constraint.measuredHeight).toBe(1)
+    expect(constraint.renderedLineCount).toBe(0)
+    expect(constraint.requiresGraphemeSplit).toBe(false)
+  })
+
+  it('для пустого текста сводит proportional minimum к геометрическому размеру 1px', () => {
+    const shape = createMockShapeNode({
+      width: 200,
+      height: 200
+    })
+    const text = createMockShapeTextbox({
+      text: '',
+      width: 200,
+      fontSize: 30
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 200,
+      height: 200,
+      presetKey: ''
+    })
+    const state = createShapeScalingState({
+      startWidth: 200,
+      startHeight: 200
+    })
+
+    const minimum = resolveMinimumProportionalShapeScale({
+      group,
+      text,
+      state
+    })
+
+    expect(minimum.scale).toBeCloseTo(0.005, 4)
+    expect(minimum.minimumHeight).toBeCloseTo(1, 4)
+  })
 })
