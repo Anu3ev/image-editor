@@ -1,4 +1,4 @@
-import { FabricObject } from 'fabric'
+import { ActiveSelection, FabricObject } from 'fabric'
 import { ImageEditor } from '../..'
 import {
   copyPasteIcon,
@@ -101,8 +101,20 @@ export default {
     },
 
     delete: (editor: ImageEditor, target?: FabricObject | null) => {
+      if (target instanceof ActiveSelection) {
+        editor.deletionManager.deleteSelectedObjects({
+          objects: target.getObjects()
+        })
+        return
+      }
+
+      if (!target) {
+        editor.deletionManager.deleteSelectedObjects()
+        return
+      }
+
       editor.deletionManager.deleteSelectedObjects({
-        objects: target ? [target] : undefined
+        objects: [target]
       })
     },
 
