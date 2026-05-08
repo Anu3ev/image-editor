@@ -84,6 +84,210 @@ describe('shape-manager mutation', () => {
     ])
   })
 
+  it('у заблокированного шейпа не меняются заливка, обводка и прозрачность', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        fill: '#111111',
+        stroke: '#222222',
+        strokeWidth: 2,
+        opacity: 0.6
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    const originalState = {
+      fill: group.shapeFill,
+      stroke: group.shapeStroke,
+      strokeWidth: group.shapeStrokeWidth,
+      opacity: group.shapeOpacity,
+      textOpacity: textNode.opacity
+    }
+    const requestRenderAllMock = editor.canvas.requestRenderAll as jest.Mock
+
+    group.locked = true
+    applyShapeStyleMock.mockClear()
+    requestRenderAllMock.mockClear()
+
+    const fillResult = manager.setFill({
+      target: group,
+      fill: '#ff0000'
+    })
+    const strokeResult = manager.setStroke({
+      target: group,
+      stroke: '#00ff00',
+      strokeWidth: 5,
+      dash: [4, 2]
+    })
+    const opacityResult = manager.setOpacity({
+      target: group,
+      opacity: 0.2
+    })
+
+    expect(fillResult).toBeNull()
+    expect(strokeResult).toBeNull()
+    expect(opacityResult).toBeNull()
+    expect(group.shapeFill).toBe(originalState.fill)
+    expect(group.shapeStroke).toBe(originalState.stroke)
+    expect(group.shapeStrokeWidth).toBe(originalState.strokeWidth)
+    expect(group.shapeOpacity).toBe(originalState.opacity)
+    expect(textNode.opacity).toBe(originalState.textOpacity)
+    expect(applyShapeStyleMock).not.toHaveBeenCalled()
+    expect(requestRenderAllMock).not.toHaveBeenCalled()
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([])
+  })
+
+  it('у заблокированного шейпа не меняются текст и выравнивание', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const updateTextMock = editor.textManager.updateText as jest.Mock
+    const saveStateMock = editor.historyManager.saveState as jest.Mock
+
+    updateTextMock.mockImplementation(applyTextStyleToShapeText)
+
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    const originalState = {
+      fill: textNode.fill,
+      fontWeight: textNode.fontWeight,
+      textAlign: textNode.textAlign,
+      alignH: group.shapeAlignHorizontal,
+      alignV: group.shapeAlignVertical
+    }
+    const requestRenderAllMock = editor.canvas.requestRenderAll as jest.Mock
+
+    group.locked = true
+    updateTextMock.mockClear()
+    saveStateMock.mockClear()
+    applyShapeTextLayoutMock.mockClear()
+    requestRenderAllMock.mockClear()
+
+    const styleResult = manager.updateTextStyle({
+      target: group,
+      style: {
+        color: '#ff0000',
+        bold: true,
+        align: 'right'
+      }
+    })
+    const alignResult = manager.setTextAlign({
+      target: group,
+      horizontal: 'right',
+      vertical: 'bottom'
+    })
+
+    expect(styleResult).toBeNull()
+    expect(alignResult).toBeNull()
+    expect(textNode.fill).toBe(originalState.fill)
+    expect(textNode.fontWeight).toBe(originalState.fontWeight)
+    expect(textNode.textAlign).toBe(originalState.textAlign)
+    expect(group.shapeAlignHorizontal).toBe(originalState.alignH)
+    expect(group.shapeAlignVertical).toBe(originalState.alignV)
+    expect(updateTextMock).not.toHaveBeenCalled()
+    expect(applyShapeTextLayoutMock).not.toHaveBeenCalled()
+    expect(saveStateMock).not.toHaveBeenCalled()
+    expect(requestRenderAllMock).not.toHaveBeenCalled()
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([])
+  })
+
+  it('заблокированный шейп нельзя удалить и скруглить', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const requestRenderAllMock = editor.canvas.requestRenderAll as jest.Mock
+    const removeMock = editor.canvas.remove as jest.Mock
+    const updateSpy = jest.spyOn(manager, 'update')
+    const originalRounding = group.shapeRounding
+
+    group.locked = true
+    requestRenderAllMock.mockClear()
+    removeMock.mockClear()
+
+    const removeResult = manager.remove({
+      target: group
+    })
+    const roundingResult = await manager.setRounding({
+      target: group,
+      rounding: 24
+    })
+
+    expect(removeResult).toBe(false)
+    expect(roundingResult).toBeNull()
+    expect(removeMock).not.toHaveBeenCalled()
+    expect(updateSpy).not.toHaveBeenCalled()
+    expect(group.shapeRounding).toBe(originalRounding)
+    expect(requestRenderAllMock).not.toHaveBeenCalled()
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([])
+  })
+
   it('при изменении заливки шлёт обновление фигуры', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
@@ -180,10 +384,10 @@ describe('shape-manager mutation', () => {
     manager.updateTextStyle({
       target: group,
       style: {
-        fill: '#ff0000',
-        stroke: '#00ff00',
+        color: '#ff0000',
+        strokeColor: '#00ff00',
         strokeWidth: 3,
-        fontWeight: 'bold',
+        bold: true,
         align: 'left'
       }
     })
@@ -191,10 +395,10 @@ describe('shape-manager mutation', () => {
     expect(updateTextMock).toHaveBeenCalledWith(expect.objectContaining({
       target: textNode,
       style: expect.objectContaining({
-        fill: '#ff0000',
-        stroke: '#00ff00',
+        color: '#ff0000',
+        strokeColor: '#00ff00',
         strokeWidth: 3,
-        fontWeight: 'bold',
+        bold: true,
         align: 'left'
       })
     }))
@@ -324,7 +528,7 @@ describe('shape-manager mutation', () => {
     manager.updateTextStyle({
       target: group,
       style: {
-        fill: '#ff0000'
+        color: '#ff0000'
       }
     })
 
@@ -477,7 +681,7 @@ describe('shape-manager mutation', () => {
     manager.updateTextStyle({
       target: group,
       style: {
-        fill: '#123456'
+        color: '#123456'
       },
       withoutSave: true
     })
@@ -636,7 +840,7 @@ describe('shape-manager mutation', () => {
       throw new Error('shape group should be created')
     }
 
-    const groupWithRoundFlag = group as {
+    const groupWithRoundFlag = group as typeof group & {
       shapeCanRound?: boolean
     }
     groupWithRoundFlag.shapeCanRound = false
@@ -685,6 +889,59 @@ describe('shape-manager mutation', () => {
     expect(group.shapeManualBaseHeight).toBe(140)
     expect(group.shapeReplaceBoxWidth).toBe(260)
     expect(group.shapeReplaceBoxHeight).toBe(140)
+  })
+
+  it('заблокированный шейп не удаляется и не меняет скругление', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'shape text',
+        width: 260,
+        height: 140,
+        shapeTextAutoExpand: false
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const initialRounding = group.shapeRounding
+
+    const removeMock = editor.canvas.remove as jest.Mock
+    const requestRenderAllMock = editor.canvas.requestRenderAll as jest.Mock
+    const canvasFireMock = editor.canvas.fire as jest.Mock
+
+    group.locked = true
+    removeMock.mockClear()
+    requestRenderAllMock.mockClear()
+    canvasFireMock.mockClear()
+
+    const removeResult = manager.remove({
+      target: group
+    })
+    const roundingResult = await manager.setRounding({
+      target: group,
+      rounding: 28
+    })
+
+    expect(removeResult).toBe(false)
+    expect(roundingResult).toBeNull()
+    expect(group.shapeRounding).toBe(initialRounding)
+    expect(removeMock).not.toHaveBeenCalled()
+    expect(requestRenderAllMock).not.toHaveBeenCalled()
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([])
   })
 
   it('при изменении обводки пересчитывает layout в текущих размерах шейпа', async() => {

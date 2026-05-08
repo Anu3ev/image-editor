@@ -1171,6 +1171,51 @@ describe('shape-manager update', () => {
     expect(updatedGroup?.lockMovementY).toBe(true)
   })
 
+  it('не заменяет заблокированный шейп при смене пресета на star', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'TEST'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const originalShapeNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'shape')
+
+    if (!originalShapeNode) {
+      throw new Error('shape node should exist')
+    }
+
+    group.locked = true
+    createShapeNodeMock.mockClear()
+
+    await manager.update({
+      target: group,
+      presetKey: 'star'
+    })
+
+    const updatedShapeNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'shape')
+
+    expect(group.shapePresetKey).toBe('square')
+    expect(updatedShapeNode).toBe(originalShapeNode)
+    expect(createShapeNodeMock).not.toHaveBeenCalled()
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:before:shape-updated'
+    })).toEqual([])
+    expect(getCanvasEventPayloads({
+      canvas: editor.canvas,
+      eventName: 'editor:shape-updated'
+    })).toEqual([])
+  })
+
   it('с флагом withoutSelection обновление не перехватывает текущее выделение', async() => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({

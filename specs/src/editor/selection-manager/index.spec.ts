@@ -1,8 +1,14 @@
 import { ActiveSelection } from 'fabric'
 import SelectionManager from '../../../../src/editor/selection-manager'
+import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import { emitCanvasEvent } from '../../../test-utils/canvas-events'
 import { mouse, ptr } from '../../../test-utils/events'
 import { createSelectionObject, createSelectionTestSetup } from '../../../test-utils/selection-helpers'
+import {
+  createMockShapeGroup,
+  createMockShapeNode,
+  createMockShapeTextbox
+} from '../../../test-utils/shape-helpers'
 
 describe('SelectionManager', () => {
   beforeEach(() => {
@@ -147,6 +153,42 @@ describe('SelectionManager', () => {
       const call = (editor.canvas.setActiveObject as jest.Mock).mock.calls[0][0]
       expect(call).toBe(unlockedObject)
       expect(editor.objectLockManager.lockObject).not.toHaveBeenCalled()
+    })
+
+    it('массовое выделение с заблокированным шейпом оставляет выделенным только обычный текст', () => {
+      const { editor } = createSelectionTestSetup()
+      const lockedShape = createMockShapeGroup({
+        shape: createMockShapeNode(),
+        text: createMockShapeTextbox({ text: 'shape text' })
+      })
+      const unlockedText = new BackgroundTextbox('standalone text', {
+        fontSize: 32
+      })
+
+      lockedShape.locked = true
+      unlockedText.locked = false
+
+      editor.canvasManager.getObjects.mockReturnValue([lockedShape, unlockedText])
+      // eslint-disable-next-line no-new
+      new SelectionManager({ editor })
+
+      const activeSelection = new ActiveSelection([lockedShape, unlockedText], { canvas: editor.canvas })
+      editor.canvas.setActiveObject(activeSelection)
+      const setActiveObjectMock = editor.canvas.setActiveObject as jest.Mock
+
+      setActiveObjectMock.mockClear()
+
+      emitCanvasEvent({
+        canvas: editor.canvas,
+        event: 'selection:created',
+        payload: { selected: [lockedShape], e: mouse('mousedown') }
+      })
+
+      const call = setActiveObjectMock.mock.calls[0][0]
+
+      expect(call).toBe(unlockedText)
+      expect(editor.objectLockManager.lockObject).not.toHaveBeenCalled()
+      expect(editor.canvas.requestRenderAll).toHaveBeenCalledTimes(1)
     })
 
     it('добавляет заблокированные объекты при Ctrl, если выделение только из них', () => {

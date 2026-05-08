@@ -18,35 +18,24 @@ import { TEXT_EDITING_DEBOUNCE_MS } from '../constants'
 import type { EditorFontDefinition } from '../types/font'
 import {
   BackgroundTextbox,
-  registerBackgroundTextbox,
-  type BackgroundTextboxProps
+  registerBackgroundTextbox
 } from './background-textbox'
+import TextUpdateController from './text-update-controller'
 import {
   DIMENSION_EPSILON
 } from './constants'
 import TextScalingController from './scaling/text-scaling'
 import {
-  applyLineDefaultUpdates,
   syncLineFontDefaultsAfterTextChange
 } from './line-defaults'
-import {
-  clampSelectionRange,
-  expandRangeToFullLines,
-  getFullLineIndicesForRange,
-  getLineIndicesForRange
-} from './selection'
 import {
   clampTextboxToMontage,
   getLongestLineWidth,
   getTextboxContentPlacement,
-  hasLayoutAffectingStyles,
   roundTextboxDimensions
 } from './geometry'
 import type {
-  BeforeTextUpdatedPayload,
   EditorTextbox,
-  LineFontDefaultUpdate,
-  TextUpdatedPayload,
   TextCreationFlags,
   TextReference,
   TextStyleOptions,
@@ -54,11 +43,6 @@ import type {
   UpdateOptions
 } from './types'
 import {
-  applyStylesToRange,
-  getFullTextRange,
-  getSelectionRange,
-  getSelectionStyleValue,
-  isFullTextSelection,
   resolveStrokeColor,
   resolveStrokeWidth,
   toUpperCaseSafe
@@ -66,10 +50,16 @@ import {
 
 export type { TextStyleOptions } from './types'
 
+/**
+ * Базовый event-контракт TextManager для событий с текстовым target.
+ */
 type TextManagerTargetEvent = {
   target?: EditorTextbox | FabricObject | null
 }
 
+/**
+ * Transform-event Fabric, расширенный target-контрактом TextManager.
+ */
 type TextManagerTransformEvent = BasicTransformEvent<TPointerEvent> & TextManagerTargetEvent & {
   e?: TPointerEvent | null
   transform?: Transform | null
@@ -101,6 +91,11 @@ export default class TextManager {
   private scalingController: TextScalingController
 
   /**
+   * Контроллер программного обновления standalone-textbox.
+   */
+  private updateController: TextUpdateController
+
+  /**
    * Placement текстового объекта на момент входа в редактирование.
    */
   private editingPlacementState?: WeakMap<EditorTextbox, ObjectPlacement>
@@ -111,6 +106,9 @@ export default class TextManager {
    */
   public isTextEditingActive: boolean
 
+  /**
+   * Инициализирует manager и связывает фасад с text update/scaling контроллерами.
+   */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.canvas = editor.canvas
@@ -123,6 +121,18 @@ export default class TextManager {
           target,
           style
         })
+      }
+    })
+    this.updateController = new TextUpdateController({
+      runtime: {
+        canvas: this.canvas,
+        canvasManager: editor.canvasManager,
+        historyManager: editor.historyManager,
+        resolveTextObject: (reference) => this._resolveTextObject(reference),
+        normalizeTextboxAfterContentChange: (params) => this._normalizeTextboxAfterContentChange(params),
+        restoreTextboxContentPlacement: (params) => this._restoreTextboxContentPlacement(params),
+        syncLineStylesWithText: (params) => this._syncLineStylesWithText(params),
+        getSnapshot: (textbox) => TextManager._getSnapshot(textbox)
       }
     })
     this.editingPlacementState = new WeakMap()
@@ -324,8 +334,8 @@ export default class TextManager {
    * @param options.selectionRange — внешний диапазон выделения для применения стилей
    * @param options.emitLifecycleEvents — отключает editor-level lifecycle события
    * для внутренних materialization-path без изменения update-контракта.
-  * @param options.syncLineStylesWithText — синхронизирует lineFontDefaults и runtime styles
-  * с новым текстом при программном обновлении. По умолчанию включён.
+   * @param options.syncLineStylesWithText — синхронизирует lineFontDefaults и runtime styles
+   * с новым текстом при программном обновлении. По умолчанию включён.
    * @fires editor:before:text-updated
    * @fires editor:text-updated
    */
@@ -338,529 +348,15 @@ export default class TextManager {
     emitLifecycleEvents = true,
     syncLineStylesWithText = true
   }: UpdateOptions = {}): EditorTextbox | null {
-    const textbox = this._resolveTextObject(target)
-    if (!textbox) return null
-
-    const {
-      text: currentText = ''
-    } = textbox
-    const { historyManager } = this.editor
-    const { canvasManager } = this.editor
-    const { canvas } = this
-    historyManager.suspendHistory()
-
-    const beforeState = TextManager._getSnapshot(textbox)
-
-    const {
-      text,
-      autoExpand,
-      fontFamily,
-      fontSize,
-      bold,
-      italic,
-      underline,
-      uppercase,
-      strikethrough,
-      align,
-      color,
-      strokeColor,
-      strokeWidth,
-      opacity,
-      backgroundColor,
-      backgroundOpacity,
-      paddingTop,
-      paddingRight,
-      paddingBottom,
-      paddingLeft,
-      radiusTopLeft,
-      radiusTopRight,
-      radiusBottomRight,
-      radiusBottomLeft,
-      left,
-      top,
-      originX,
-      originY,
-      ...rest
-    } = style
-
-    const updates: Partial<BackgroundTextboxProps> = { ...rest }
-    const placement = canvasManager.resolveObjectPlacement({
-      object: textbox,
-      left,
-      top,
-      originX,
-      originY
-    })
-    const selectionRange = selectionRangeOverride !== undefined
-      ? clampSelectionRange({
-        text: currentText,
-        range: selectionRangeOverride
-      })
-      : getSelectionRange({ textbox })
-    const fontSelectionRange = selectionRange
-      ? expandRangeToFullLines({ textbox, range: selectionRange })
-      : null
-    const selectionStyles: Partial<TextboxProps> = {}
-    const lineSelectionStyles: Partial<TextboxProps> = {}
-    const wholeTextStyles: Partial<TextboxProps> = {}
-    let resolvedFontWeight: TextboxProps['fontWeight'] | undefined
-    let resolvedFontStyle: TextboxProps['fontStyle'] | undefined
-    let resolvedStrokeColor: string | null | undefined
-    let resolvedStrokeWidth: number | undefined
-    const isSelectionForWholeText = isFullTextSelection({ textbox, range: selectionRange })
-    const isFontSelectionForWholeText = isFullTextSelection({ textbox, range: fontSelectionRange })
-    const shouldUpdateWholeObject = !selectionRange || isSelectionForWholeText
-    const shouldUpdateWholeObjectFont = shouldUpdateWholeObject || isFontSelectionForWholeText
-    const shouldApplyWholeTextStyles = !selectionRange
-
-    if (fontFamily !== undefined) {
-      if (fontSelectionRange) {
-        lineSelectionStyles.fontFamily = fontFamily
-      }
-
-      if (shouldUpdateWholeObjectFont) {
-        updates.fontFamily = fontFamily
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontFamily = fontFamily
-        }
-      }
-    }
-
-    if (fontSize !== undefined) {
-      if (fontSelectionRange) {
-        lineSelectionStyles.fontSize = fontSize
-      }
-
-      if (shouldUpdateWholeObjectFont) {
-        updates.fontSize = fontSize
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontSize = fontSize
-        }
-      }
-    }
-
-    if (bold !== undefined) {
-      resolvedFontWeight = bold ? 'bold' : 'normal'
-      if (selectionRange) {
-        selectionStyles.fontWeight = resolvedFontWeight
-      }
-
-      if (shouldUpdateWholeObject) {
-        updates.fontWeight = resolvedFontWeight
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontWeight = resolvedFontWeight
-        }
-      }
-    }
-
-    if (italic !== undefined) {
-      resolvedFontStyle = italic ? 'italic' : 'normal'
-      if (selectionRange) {
-        selectionStyles.fontStyle = resolvedFontStyle
-      }
-
-      if (shouldUpdateWholeObject) {
-        updates.fontStyle = resolvedFontStyle
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fontStyle = resolvedFontStyle
-        }
-      }
-    }
-
-    if (underline !== undefined) {
-      if (selectionRange) {
-        selectionStyles.underline = underline
-      }
-
-      if (shouldUpdateWholeObject) {
-        updates.underline = underline
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.underline = underline
-        }
-      }
-    }
-
-    if (strikethrough !== undefined) {
-      if (selectionRange) {
-        selectionStyles.linethrough = strikethrough
-      }
-
-      if (shouldUpdateWholeObject) {
-        updates.linethrough = strikethrough
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.linethrough = strikethrough
-        }
-      }
-    }
-
-    if (align !== undefined) {
-      updates.textAlign = align
-    }
-
-    if (color !== undefined) {
-      if (selectionRange) {
-        selectionStyles.fill = color
-      }
-
-      if (shouldUpdateWholeObject) {
-        updates.fill = color
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.fill = color
-        }
-      }
-    }
-
-    if (strokeColor !== undefined || strokeWidth !== undefined) {
-      const selectionStrokeWidth = selectionRange
-        ? getSelectionStyleValue({ textbox, range: selectionRange, property: 'strokeWidth' })
-        : undefined
-      const selectionStrokeColor = selectionRange
-        ? getSelectionStyleValue({ textbox, range: selectionRange, property: 'stroke' })
-        : undefined
-
-      const selectedStrokeWidth = typeof selectionStrokeWidth === 'number'
-        ? selectionStrokeWidth
-        : undefined
-      const selectedStrokeColor = typeof selectionStrokeColor === 'string'
-        ? selectionStrokeColor
-        : undefined
-      const objectStrokeColor = typeof textbox.stroke === 'string'
-        ? textbox.stroke
-        : undefined
-
-      const widthSource = strokeWidth ?? selectedStrokeWidth ?? textbox.strokeWidth ?? 0
-      resolvedStrokeWidth = resolveStrokeWidth({ width: widthSource })
-      const colorSource = strokeColor ?? selectedStrokeColor ?? objectStrokeColor
-      resolvedStrokeColor = resolveStrokeColor({
-        strokeColor: colorSource,
-        width: resolvedStrokeWidth
-      })
-
-      if (selectionRange) {
-        selectionStyles.stroke = resolvedStrokeColor
-        selectionStyles.strokeWidth = resolvedStrokeWidth
-      }
-
-      if (shouldUpdateWholeObject) {
-        updates.stroke = resolvedStrokeColor
-        updates.strokeWidth = resolvedStrokeWidth
-        if (shouldApplyWholeTextStyles) {
-          wholeTextStyles.stroke = resolvedStrokeColor
-          wholeTextStyles.strokeWidth = resolvedStrokeWidth
-        }
-      }
-    }
-
-    if (opacity !== undefined) {
-      updates.opacity = opacity
-    }
-
-    if (backgroundColor !== undefined) {
-      updates.backgroundColor = backgroundColor
-    }
-
-    if (backgroundOpacity !== undefined) {
-      updates.backgroundOpacity = backgroundOpacity
-    }
-
-    if (paddingTop !== undefined) {
-      updates.paddingTop = paddingTop
-    }
-
-    if (paddingRight !== undefined) {
-      updates.paddingRight = paddingRight
-    }
-
-    if (paddingBottom !== undefined) {
-      updates.paddingBottom = paddingBottom
-    }
-
-    if (paddingLeft !== undefined) {
-      updates.paddingLeft = paddingLeft
-    }
-
-    if (radiusTopLeft !== undefined) {
-      updates.radiusTopLeft = radiusTopLeft
-    }
-
-    if (radiusTopRight !== undefined) {
-      updates.radiusTopRight = radiusTopRight
-    }
-
-    if (radiusBottomRight !== undefined) {
-      updates.radiusBottomRight = radiusBottomRight
-    }
-
-    if (radiusBottomLeft !== undefined) {
-      updates.radiusBottomLeft = radiusBottomLeft
-    }
-
-    const previousRaw = textbox.textCaseRaw ?? currentText
-    const previousUppercase = Boolean(textbox.uppercase)
-    const hasTextUpdate = text !== undefined
-    const targetRawText = hasTextUpdate ? text ?? '' : previousRaw
-    const nextUppercase = uppercase ?? previousUppercase
-    const uppercaseChanged = nextUppercase !== previousUppercase
-    const previousRenderedText = textbox.text ?? ''
-
-    // textCaseRaw хранит исходный текст без учёта uppercase,
-    // чтобы можно было переключать регистр без потери оригинальной строки.
-    if (hasTextUpdate || uppercaseChanged) {
-      const renderedText = nextUppercase
-        ? toUpperCaseSafe({ value: targetRawText })
-        : targetRawText
-      updates.text = renderedText
-      textbox.textCaseRaw = targetRawText
-    } else if (textbox.textCaseRaw === undefined) {
-      textbox.textCaseRaw = previousRaw
-    }
-
-    const hasLayoutUpdates = hasLayoutAffectingStyles({
-      stylesList: [
-        updates,
-        selectionStyles,
-        lineSelectionStyles,
-        wholeTextStyles
-      ]
-    })
-    const placementUpdates = [left, top, originX, originY]
-    const paddingUpdates = [paddingTop, paddingRight, paddingBottom, paddingLeft]
-    const hasExplicitPlacementUpdate = placementUpdates.some((value) => value !== undefined)
-    const hasPaddingUpdate = paddingUpdates.some((value) => value !== undefined)
-    const hasExplicitWidthUpdate = Object.prototype.hasOwnProperty.call(updates, 'width')
-    const shouldRestoreContentPlacement = hasPaddingUpdate
-      && !hasExplicitPlacementUpdate
-      && !hasTextUpdate
-      && !uppercaseChanged
-      && !hasLayoutUpdates
-      && !hasExplicitWidthUpdate
-    let contentPlacement: ObjectPlacement | null = null
-
-    if (shouldRestoreContentPlacement) {
-      contentPlacement = getTextboxContentPlacement({
-        textbox,
-        originX: placement.originX,
-        originY: placement.originY
-      })
-    }
-
-    textbox.uppercase = nextUppercase
-
-    textbox.set(updates)
-
-    let stylesApplied = false
-    if (selectionRange) {
-      const selectionApplied = applyStylesToRange({ textbox, styles: selectionStyles, range: selectionRange })
-      const lineApplied = fontSelectionRange
-        ? applyStylesToRange({ textbox, styles: lineSelectionStyles, range: fontSelectionRange })
-        : false
-      stylesApplied = selectionApplied || lineApplied
-    } else if (Object.keys(wholeTextStyles).length) {
-      const fullRange = getFullTextRange({ textbox })
-      if (fullRange) {
-        stylesApplied = applyStylesToRange({ textbox, styles: wholeTextStyles, range: fullRange })
-      }
-    }
-
-    const shouldRecalculateDimensions = stylesApplied
-      && hasLayoutAffectingStyles({
-        stylesList: [
-          selectionStyles,
-          lineSelectionStyles,
-          wholeTextStyles
-        ]
-      })
-
-    if (stylesApplied) {
-      textbox.dirty = true
-    }
-
-    if (fontSelectionRange && (fontFamily !== undefined || fontSize !== undefined)) {
-      const lineIndices = getLineIndicesForRange({
-        textbox,
-        range: fontSelectionRange
-      })
-      const lineDefaultsUpdates: LineFontDefaultUpdate = {}
-
-      if (fontFamily !== undefined) {
-        lineDefaultsUpdates.fontFamily = fontFamily
-      }
-
-      if (fontSize !== undefined) {
-        lineDefaultsUpdates.fontSize = fontSize
-      }
-
-      applyLineDefaultUpdates({
-        textbox,
-        lineIndices,
-        updates: lineDefaultsUpdates
-      })
-    }
-
-    if (
-      selectionRange
-      && (
-        bold !== undefined
-        || italic !== undefined
-        || underline !== undefined
-        || strikethrough !== undefined
-        || color !== undefined
-        || strokeColor !== undefined
-        || strokeWidth !== undefined
-      )
-    ) {
-      const fullLineIndices = getFullLineIndicesForRange({
-        textbox,
-        range: selectionRange
-      })
-      const lineDefaultsUpdates: LineFontDefaultUpdate = {}
-
-      if (resolvedFontWeight !== undefined) {
-        lineDefaultsUpdates.fontWeight = resolvedFontWeight
-      }
-
-      if (resolvedFontStyle !== undefined) {
-        lineDefaultsUpdates.fontStyle = resolvedFontStyle
-      }
-
-      if (underline !== undefined) {
-        lineDefaultsUpdates.underline = underline
-      }
-
-      if (strikethrough !== undefined) {
-        lineDefaultsUpdates.linethrough = strikethrough
-      }
-
-      if (color !== undefined) {
-        lineDefaultsUpdates.fill = color
-      }
-
-      if (strokeColor !== undefined || strokeWidth !== undefined) {
-        if (resolvedStrokeColor === null) {
-          lineDefaultsUpdates.stroke = null
-        }
-
-        if (resolvedStrokeColor !== null && resolvedStrokeColor !== undefined) {
-          lineDefaultsUpdates.stroke = resolvedStrokeColor
-        }
-
-        if (resolvedStrokeWidth !== undefined) {
-          lineDefaultsUpdates.strokeWidth = resolvedStrokeWidth
-        }
-      }
-
-      applyLineDefaultUpdates({
-        textbox,
-        lineIndices: fullLineIndices,
-        updates: lineDefaultsUpdates
-      })
-    }
-
-    if (shouldRecalculateDimensions) {
-      textbox.initDimensions()
-      textbox.dirty = true
-    }
-
-    const backgroundStyleUpdates = [
-      backgroundColor,
-      backgroundOpacity,
-      ...paddingUpdates,
-      radiusTopLeft,
-      radiusTopRight,
-      radiusBottomRight,
-      radiusBottomLeft
-    ]
-    const hasBackgroundStyleUpdate = backgroundStyleUpdates.some((value) => value !== undefined)
-
-    if (hasBackgroundStyleUpdate) {
-      textbox.dirty = true
-    }
-
-    const { autoExpand: storedAutoExpand } = textbox
-    const hasAutoExpandUpdate = autoExpand !== undefined
-    const resolvedAutoExpand = autoExpand ?? storedAutoExpand
-    const isAutoExpandEnabled = resolvedAutoExpand !== false
-
-    if (hasAutoExpandUpdate) {
-      textbox.autoExpand = autoExpand !== false
-    } else if (storedAutoExpand === undefined) {
-      textbox.autoExpand = true
-    }
-
-    const nextRenderedText = textbox.text ?? ''
-
-    if (syncLineStylesWithText && previousRenderedText !== nextRenderedText) {
-      this._syncLineStylesWithText({
-        textbox,
-        previousText: previousRenderedText,
-        currentText: nextRenderedText
-      })
-    }
-
-    const hasAutoExpandTrigger = hasTextUpdate
-      || uppercaseChanged
-      || hasLayoutUpdates
-    const shouldAutoExpand = isAutoExpandEnabled
-      && !hasExplicitWidthUpdate
-      && hasAutoExpandTrigger
-
-    this._normalizeTextboxAfterContentChange({
-      textbox,
-      placement,
-      shouldAutoExpand
-    })
-
-    if (contentPlacement) {
-      this._restoreTextboxContentPlacement({
-        textbox,
-        contentPlacement
-      })
-    }
-
-    textbox.setCoords()
-    const eventOptions = {
-      withoutSave: Boolean(withoutSave),
-      skipRender: Boolean(skipRender)
-    }
-
-    const hasSelectionStyles = Boolean(selectionRange) && Object.keys(selectionStyles).length > 0
-
-    const beforeTextUpdatedPayload: BeforeTextUpdatedPayload = {
-      textbox,
+    return this.updateController.updateText({
       target,
       style,
-      options: eventOptions,
-      updates,
-      selectionRange: selectionRange ?? undefined,
-      selectionStyles: hasSelectionStyles ? selectionStyles : undefined
-    }
-
-    if (emitLifecycleEvents) {
-      canvas.fire('editor:before:text-updated', beforeTextUpdatedPayload)
-    }
-
-    if (!skipRender) {
-      canvas.requestRenderAll()
-    }
-
-    const afterState = TextManager._getSnapshot(textbox)
-
-    historyManager.resumeHistory()
-    if (!withoutSave) {
-      historyManager.saveState()
-    }
-
-    const textUpdatedPayload: TextUpdatedPayload = {
-      ...beforeTextUpdatedPayload,
-      before: beforeState,
-      after: afterState
-    }
-
-    if (emitLifecycleEvents) {
-      canvas.fire('editor:text-updated', textUpdatedPayload)
-    }
-
-    return textbox
+      withoutSave,
+      skipRender,
+      selectionRange: selectionRangeOverride,
+      emitLifecycleEvents,
+      syncLineStylesWithText
+    })
   }
 
   /**
@@ -1274,7 +770,7 @@ export default class TextManager {
     }
 
     textbox.initDimensions()
-    const { textLines } = (textbox as unknown as { textLines?: string[] })
+    const { textLines } = textbox as EditorTextbox & { textLines?: string[] }
     const hasWrappedLines = Array.isArray(textLines) && textLines.length > explicitLineCount
 
     const longestLineWidth = Math.ceil(
