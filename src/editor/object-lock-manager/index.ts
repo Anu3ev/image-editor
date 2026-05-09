@@ -1,6 +1,6 @@
 import { FabricObject, ActiveSelection, Group, Textbox } from 'fabric'
 import { ImageEditor } from '../index'
-import { resolveShapeGroupFromTarget } from '../shape-manager/shape-utils'
+import { resolveShapeGroupFromTarget } from '../shape-manager/domain/shape-reference'
 
 type lockObjectOptions = {
   object?: FabricObject

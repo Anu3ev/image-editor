@@ -5,11 +5,17 @@ import {
   ShapePreset,
   ShapeVerticalAlign,
   ShapeHorizontalAlign
-} from './types'
+} from '../types'
 import { normalizeShapeRounding } from './shape-rounding'
 
+/**
+ * Базовый размер пресета для фигур без собственного viewBox.
+ */
 const DEFAULT_SHAPE_SIZE = 180
 
+/**
+ * Дефолтный внутренний text inset пресета.
+ */
 const DEFAULT_SHAPE_TEXT_INSET: ShapePaddingRatio = {
   top: 0,
   right: 0,
@@ -17,6 +23,9 @@ const DEFAULT_SHAPE_TEXT_INSET: ShapePaddingRatio = {
   left: 0
 }
 
+/**
+ * Верхняя граница относительного text inset, чтобы текстовый frame не схлопнулся.
+ */
 const MAX_SHAPE_TEXT_INSET_RATIO = 0.45
 
 /**
@@ -80,6 +89,9 @@ const createStarPoints = ({
   return points
 }
 
+/**
+ * Канонический список shape-пресетов, из которого собирается словарь SHAPE_PRESETS.
+ */
 const shapePresetsList: ShapePreset[] = [
   {
     key: 'circle',
@@ -614,12 +626,24 @@ const shapePresetsList: ShapePreset[] = [
   }
 ]
 
+/**
+ * Пресет, который используется при создании фигуры без явного presetKey.
+ */
 export const DEFAULT_SHAPE_PRESET_KEY = 'circle'
 
+/**
+ * Горизонтальное выравнивание текста внутри фигуры по умолчанию.
+ */
 export const SHAPE_DEFAULT_HORIZONTAL_ALIGN: ShapeHorizontalAlign = 'center'
 
+/**
+ * Вертикальное выравнивание текста внутри фигуры по умолчанию.
+ */
 export const SHAPE_DEFAULT_VERTICAL_ALIGN: ShapeVerticalAlign = 'middle'
 
+/**
+ * Mutable builder для словаря пресетов; наружу экспортируется уже заполненный объект.
+ */
 const shapePresetDictionary: Record<string, ShapePreset> = {}
 
 for (let index = 0; index < shapePresetsList.length; index += 1) {
@@ -627,6 +651,9 @@ for (let index = 0; index < shapePresetsList.length; index += 1) {
   shapePresetDictionary[preset.key] = preset
 }
 
+/**
+ * Словарь доступных shape-пресетов по ключу.
+ */
 export const SHAPE_PRESETS: Record<string, ShapePreset> = shapePresetDictionary
 
 /**

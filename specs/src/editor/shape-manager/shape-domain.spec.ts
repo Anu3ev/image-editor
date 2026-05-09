@@ -1,23 +1,24 @@
-import { Group, Textbox } from 'fabric'
-import { ShapeGroupObject } from '../../../../src/editor/shape-manager/shape-group'
+import { Group, Rect, Textbox } from 'fabric'
+import { ShapeGroupObject } from '../../../../src/editor/shape-manager/domain/shape-group'
 import {
-  applyGroupInteractivity,
   getShapeNode,
   getShapeNodes,
-  getShapeTextNode,
+  getShapeTextNode
+} from '../../../../src/editor/shape-manager/domain/shape-nodes'
+import {
   isShapeGroup,
   resolveShapeGroupFromTarget
-} from '../../../../src/editor/shape-manager/shape-utils'
+} from '../../../../src/editor/shape-manager/domain/shape-reference'
 
-describe('shape-utils', () => {
+describe('shape domain', () => {
   it('isShapeGroup возвращает true для ShapeGroupObject и legacy shapeComposite Group', () => {
     const shapeGroupObject = new ShapeGroupObject([], {})
-    const group = new Group([], {
-      shapeComposite: true
-    }) as Group & {
+    const group = new Group([], {}) as Group & {
       shapeComposite?: boolean
     }
     const regularGroup = new Group([], {})
+
+    group.shapeComposite = true
 
     expect(isShapeGroup(shapeGroupObject)).toBe(true)
     expect(isShapeGroup(group)).toBe(true)
@@ -25,11 +26,11 @@ describe('shape-utils', () => {
   })
 
   it('resolveShapeGroupFromTarget находит группу по target и subTargets', () => {
-    const group = new Group([], {
-      shapeComposite: true
-    }) as Group & {
+    const group = new Group([], {}) as Group & {
       shapeComposite?: boolean
     }
+
+    group.shapeComposite = true
 
     const child = new Textbox('text', {})
     const childWithGroup = child as Textbox & { group?: Group }
@@ -51,15 +52,17 @@ describe('shape-utils', () => {
   })
 
   it('getShapeNode/getShapeTextNode находят узлы по shapeNodeType', () => {
-    const shapeNode = {
+    const shapeNode = new Rect({
       shapeNodeType: 'shape'
-    }
+    })
     const textNode = new Textbox('text', {
       shapeNodeType: 'text'
     })
-    const group = new Group([shapeNode, textNode], {
-      shapeComposite: true
-    })
+    const group = new Group([shapeNode, textNode], {}) as Group & {
+      shapeComposite?: boolean
+    }
+
+    group.shapeComposite = true
 
     expect(getShapeNode({
       group
@@ -77,25 +80,5 @@ describe('shape-utils', () => {
       shape: shapeNode,
       text: textNode
     })
-  })
-
-  it('applyGroupInteractivity включает interactive/subTargetCheck и вызывает setInteractive при наличии', () => {
-    const group = new Group([], {
-      shapeComposite: true
-    }) as Group & {
-      setInteractive?: jest.Mock
-      interactive?: boolean
-      subTargetCheck?: boolean
-    }
-
-    group.setInteractive = jest.fn()
-
-    applyGroupInteractivity({
-      group
-    })
-
-    expect(group.setInteractive).toHaveBeenCalledWith(true)
-    expect(group.interactive).toBe(true)
-    expect(group.subTargetCheck).toBe(true)
   })
 })

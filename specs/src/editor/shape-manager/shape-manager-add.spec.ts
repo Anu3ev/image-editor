@@ -1,7 +1,7 @@
 import '../../../test-utils/shape-manager-module-mocks'
 import { Group } from 'fabric'
 import ShapeManager from '../../../../src/editor/shape-manager'
-import { getShapePreset } from '../../../../src/editor/shape-manager/shape-presets'
+import { getShapePreset } from '../../../../src/editor/shape-manager/domain/shape-presets'
 import {
   applyShapeTextLayoutToMockGroup,
   createShapeManagerEditorStub,

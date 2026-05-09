@@ -1,4 +1,4 @@
-import ShapeLifecycleController from '../../../../src/editor/shape-manager/shape-lifecycle'
+import ShapeLifecycleController from '../../../../src/editor/shape-manager/lifecycle/shape-lifecycle-controller'
 import {
   createMockShapeGroup,
   createMockShapeNode,

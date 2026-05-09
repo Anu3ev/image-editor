@@ -3,7 +3,7 @@ import {
   isShapePresetRoundable,
   resolvePresetKeyForRounding,
   resolveInternalShapeTextInset
-} from '../../../../src/editor/shape-manager/shape-presets'
+} from '../../../../src/editor/shape-manager/domain/shape-presets'
 
 describe('shape-presets', () => {
   it('возвращает пресет по ключу', () => {

@@ -1,24 +1,29 @@
 import { Group } from 'fabric'
-import ShapeEditingController from '../../../../src/editor/shape-manager/shape-editing'
-import * as shapeRuntime from '../../../../src/editor/shape-manager/shape-runtime'
+import ShapeEditingController from '../../../../src/editor/shape-manager/editing/shape-editing-controller'
+import * as shapeRuntime from '../../../../src/editor/shape-manager/domain/shape-runtime'
 import {
-  getShapeNodes,
+  getShapeNodes
+} from '../../../../src/editor/shape-manager/domain/shape-nodes'
+import {
   isShapeGroup,
   resolveShapeGroupFromTarget
-} from '../../../../src/editor/shape-manager/shape-utils'
+} from '../../../../src/editor/shape-manager/domain/shape-reference'
 import {
   createMockCanvas,
   createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
 import { createShapeEditingSetup } from '../../../test-utils/shape-editing-helpers'
 
-jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
-  getShapeNodes: jest.fn(),
+jest.mock('../../../../src/editor/shape-manager/domain/shape-nodes', () => ({
+  getShapeNodes: jest.fn()
+}))
+
+jest.mock('../../../../src/editor/shape-manager/domain/shape-reference', () => ({
   isShapeGroup: jest.fn(),
   resolveShapeGroupFromTarget: jest.fn()
 }))
 
-const isShapeGroupMock = isShapeGroup as jest.Mock
+const isShapeGroupMock = jest.mocked(isShapeGroup)
 
 describe('shape-editing', () => {
   beforeEach(() => {
@@ -484,9 +489,11 @@ describe('shape-editing', () => {
     const plainText = createMockShapeTextbox({
       text: 'plain text'
     })
-    const plainGroup = new Group([plainText], {
-      shapeComposite: false
-    })
+    const plainGroup = new Group([plainText], {}) as Group & {
+      shapeComposite?: boolean
+    }
+
+    plainGroup.shapeComposite = false
     const plainTextWithGroup = plainText as typeof plainText & {
       group?: Group
     }

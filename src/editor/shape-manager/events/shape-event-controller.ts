@@ -3,22 +3,22 @@ import {
   FabricObject,
   Textbox
 } from 'fabric'
-import type { ObjectPlacement } from '../canvas-manager'
-import type { ImageEditor } from '../index'
-import type ShapeEditingController from './shape-editing'
-import type ShapeLifecycleController from './shape-lifecycle'
-import type ShapeScalingController from './scaling/shape-scaling'
-import { isShapeGroup } from './shape-utils'
+import type { ObjectPlacement } from '../../canvas-manager'
+import type { ImageEditor } from '../../index'
+import type ShapeEditingController from '../editing/shape-editing-controller'
+import type ShapeLifecycleController from '../lifecycle/shape-lifecycle-controller'
+import type ShapeScalingController from '../scaling/shape-scaling-controller'
+import { isShapeGroup } from '../domain/shape-reference'
 import type {
   ShapeGroup,
   ShapeGroupLike,
   ShapeTextNode,
   ShapeTextStyleOptions
-} from './types'
+} from '../types'
 import type {
   BeforeTextUpdatedPayload,
   TextUpdatedPayload
-} from '../text-manager/types'
+} from '../../text-manager/types'
 
 /**
  * Нормализованная форма canvas-события, с которой работает ShapeManager event path.

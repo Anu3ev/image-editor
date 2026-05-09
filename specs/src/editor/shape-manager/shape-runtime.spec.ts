@@ -1,10 +1,10 @@
-import { Group, Textbox } from 'fabric'
+import { Group, LayoutManager, Textbox } from 'fabric'
 import {
   applyShapeGroupInteractivity,
   detachShapeGroupAutoLayout,
   getShapeRuntimeTextNode,
   prepareShapeTextNode
-} from '../../../../src/editor/shape-manager/shape-runtime'
+} from '../../../../src/editor/shape-manager/domain/shape-runtime'
 import {
   createMockShapeGroup,
   createMockShapeNode,
@@ -135,18 +135,17 @@ describe('shape-runtime', () => {
   it('detachShapeGroupAutoLayout отписывает все target objects от layout manager', () => {
     const shape = createMockShapeNode()
     const text = createMockShapeTextbox({ text: 'hello' })
-    const group = createMockShapeGroup({ shape, text }) as Group & {
-      layoutManager?: {
-        unsubscribeTargets?: jest.Mock
-      }
+    const group = createMockShapeGroup({ shape, text })
+    const layoutManager = new LayoutManager() as LayoutManager & {
+      unsubscribeTargets: jest.Mock
     }
-    group.layoutManager = {
-      unsubscribeTargets: jest.fn()
-    }
+
+    layoutManager.unsubscribeTargets = jest.fn()
+    group.layoutManager = layoutManager
 
     detachShapeGroupAutoLayout({ group })
 
-    expect(group.layoutManager.unsubscribeTargets).toHaveBeenCalledWith({
+    expect(layoutManager.unsubscribeTargets).toHaveBeenCalledWith({
       target: group,
       targets: group.getObjects()
     })

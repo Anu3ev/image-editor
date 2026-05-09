@@ -19,7 +19,7 @@ import {
 } from '../../../test-utils/clipboard-manager-helpers'
 import ClipboardManager from '../../../../src/editor/clipboard-manager'
 import { CLIPBOARD_CLONE_OBJECT_KEYS } from '../../../../src/editor/constants'
-import { ShapeGroupObject } from '../../../../src/editor/shape-manager/shape-group'
+import { ShapeGroupObject } from '../../../../src/editor/shape-manager/domain/shape-group'
 
 describe('ClipboardManager', () => {
   const ASYNC_DELAY = 10

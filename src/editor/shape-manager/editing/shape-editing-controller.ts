@@ -6,24 +6,35 @@ import {
 import {
   ShapeGroup,
   ShapeTextNode
-} from './types'
+} from '../types'
 import {
-  getShapeNodes,
+  getShapeNodes
+} from '../domain/shape-nodes'
+import {
   isShapeGroup,
   resolveShapeGroupFromTarget
-} from './shape-utils'
-import { prepareShapeTextNode } from './shape-runtime'
+} from '../domain/shape-reference'
+import { prepareShapeTextNode } from '../domain/shape-runtime'
 
+/**
+ * Fabric mouse down payload, который нужен для входа в редактирование текста фигуры.
+ */
 type ShapeMouseDownEvent = {
   target?: FabricObject | null
   e?: Event | MouseEvent
   subTargets?: FabricObject[]
 }
 
+/**
+ * Fabric text editing payload для textbox внутри shape-группы.
+ */
 type ShapeTextEditingEvent = {
   target?: FabricObject | null
 }
 
+/**
+ * Снимок интерактивных флагов группы и текста на время редактирования.
+ */
 type ShapeEditingInteractionState = {
   groupSelectable: boolean
   groupEvented: boolean
@@ -35,14 +46,26 @@ type ShapeEditingInteractionState = {
   textLockMovementY: boolean
 }
 
+/**
+ * Pointer event тип из Fabric findTarget.
+ */
 type ShapeCanvasPointerEvent = Parameters<Canvas['findTarget']>[0]
 
+/**
+ * Результат Fabric findTarget для текущего canvas.
+ */
 type ShapeCanvasTargetInfo = ReturnType<Canvas['findTarget']>
 
+/**
+ * Сигнатура findTarget, которую временно подменяет editing controller.
+ */
 type ShapeCanvasFindTarget = (
   event: ShapeCanvasPointerEvent
 ) => ShapeCanvasTargetInfo
 
+/**
+ * Состояние временной подмены target resolver во время редактирования текста.
+ */
 type ShapeEditingTargetResolverState = {
   group: ShapeGroup
   text: ShapeTextNode
@@ -68,6 +91,9 @@ export default class ShapeEditingController {
    */
   private editingTargetResolverState?: ShapeEditingTargetResolverState
 
+  /**
+   * Инициализирует controller редактирования текста для переданного canvas.
+   */
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
     this.editingInteractionState = new WeakMap()

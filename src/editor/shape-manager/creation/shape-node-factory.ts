@@ -17,13 +17,20 @@ import {
   ShapePoint,
   ShapePreset,
   ShapeVisualStyle
-} from './types'
+} from '../types'
 import {
   normalizeShapeRounding,
   resolveShapeRoundingRatio
-} from './shape-rounding'
+} from '../domain/shape-rounding'
 
+/**
+ * Минимальный размер shape-узла, который можно безопасно передать в Fabric.
+ */
 const MIN_SIZE = 1
+
+/**
+ * Минимальная длина ребра для построения rounded path без вырожденной геометрии.
+ */
 const MIN_EDGE_LENGTH = 0.0001
 
 /**
@@ -142,6 +149,20 @@ type CreateShapeFromSvgParams = {
 }
 
 /**
+ * Fabric-свойства, которые shape factory применяет к обычному shape-узлу.
+ */
+interface ShapeStyleNodeUpdates {
+  strokeUniform: boolean
+  strokeLineCap: 'round'
+  strokeLineJoin: 'round'
+  fill?: ShapeVisualStyle['fill']
+  stroke?: ShapeVisualStyle['stroke']
+  strokeWidth?: ShapeVisualStyle['strokeWidth']
+  strokeDashArray?: ShapeVisualStyle['strokeDashArray']
+  opacity?: ShapeVisualStyle['opacity']
+}
+
+/**
  * Нормализует число для стабильного path-представления.
  */
 function normalizeNumber({ value }: { value: number }): number {
@@ -230,9 +251,9 @@ export function resizeShapeNode({
 }
 
 /**
- * Применяет fill/stroke/opacity к фигуре, включая SVG-группы.
+ * Применяет визуальный стиль к одному shape-узлу без обхода вложенных групп.
  */
-export function applyShapeStyle({
+function applyShapeStyleToNode({
   shape,
   style
 }: {
@@ -247,27 +268,7 @@ export function applyShapeStyle({
     opacity
   } = style
 
-  if (shape instanceof Group) {
-    const objects = shape.getObjects() as ShapeNode[]
-
-    for (let index = 0; index < objects.length; index += 1) {
-      applyShapeStyle({
-        shape: objects[index],
-        style
-      })
-    }
-
-    if (opacity !== undefined) {
-      shape.set({ opacity })
-    }
-
-    shape.setCoords()
-    return
-  }
-
-  const updates: Partial<FabricObject> & {
-    strokeDashArray?: number[] | null
-  } = {
+  const updates: ShapeStyleNodeUpdates = {
     strokeUniform: true,
     strokeLineCap: 'round',
     strokeLineJoin: 'round'
@@ -295,6 +296,43 @@ export function applyShapeStyle({
 
   shape.set(updates)
   shape.setCoords()
+}
+
+/**
+ * Применяет fill/stroke/opacity к фигуре, включая SVG-группы.
+ */
+export function applyShapeStyle({
+  shape,
+  style
+}: {
+  shape: ShapeNode
+  style: ShapeVisualStyle
+}): void {
+  const nodes = [shape]
+
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index]
+
+    if (node instanceof Group) {
+      const objects = node.getObjects() as ShapeNode[]
+
+      for (let objectIndex = 0; objectIndex < objects.length; objectIndex += 1) {
+        nodes.push(objects[objectIndex])
+      }
+
+      if (style.opacity !== undefined) {
+        node.set({ opacity: style.opacity })
+      }
+
+      node.setCoords()
+      continue
+    }
+
+    applyShapeStyleToNode({
+      shape: node,
+      style
+    })
+  }
 }
 
 /**

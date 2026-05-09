@@ -17,7 +17,7 @@ import {
   getShapePreset,
   resolveInternalShapeTextInset as resolvePresetInternalShapeTextInset,
   SHAPE_DEFAULT_VERTICAL_ALIGN
-} from '../shape-presets'
+} from '../domain/shape-presets'
 import type {
   ShapeGroup,
   ShapeHorizontalAlign,
@@ -36,13 +36,29 @@ import {
   resolveShapeTransformOriginYValue
 } from './shape-scaling-transform'
 
+/**
+ * Минимальный размер shape layout во время скейлинга.
+ */
 export const SHAPE_SCALING_MIN_SIZE = 1
 
+/**
+ * Допуск для сравнения scale-значений во время скейлинга.
+ */
 export const SHAPE_SCALING_SCALE_EPSILON = 0.0001
+
+/**
+ * Допуск для сравнения пиксельных размеров во время скейлинга.
+ */
 export const SHAPE_SCALING_SIZE_EPSILON = 0.5
 
+/**
+ * Pointer event, который может прийти из Fabric transform во время скейлинга.
+ */
 export type ShapeScalingPointerEvent = Event | MouseEvent | PointerEvent | TouchEvent
 
+/**
+ * Стартовые размеры shape-группы, нужные для расчёта live scaling.
+ */
 export type ShapeScalingStartDimensions = {
   startWidth: number
   startHeight: number
@@ -52,6 +68,9 @@ export type ShapeScalingStartDimensions = {
   canScaleHeight: boolean
 }
 
+/**
+ * Итоговые размеры shape-группы после commit скейлинга.
+ */
 export type ShapeScalingCommitDimensions = {
   width: number
   height: number
@@ -59,11 +78,17 @@ export type ShapeScalingCommitDimensions = {
   hasDimensionChange: boolean
 }
 
+/**
+ * Manual base размеры, которые сохраняются после commit скейлинга.
+ */
 type ShapeScalingManualBaseDimensions = {
   width: number
   height: number
 }
 
+/**
+ * Полный набор данных для применения scaling layout к shape-группе.
+ */
 type ShapeScalingLayoutCommit = {
   group: ShapeGroup
   shape: ShapeNode
@@ -79,15 +104,27 @@ type ShapeScalingLayoutCommit = {
   hasWidthChange: boolean
 }
 
+/**
+ * Preview размеры shape-группы на live scaling кадре.
+ */
 type ShapePreviewDimensions = {
   previewWidth: number
   previewHeight: number
 }
 
+/**
+ * Layout текста, рассчитанный для preview размеров.
+ */
 type ShapePreviewLayout = ResolvedShapeTextLayout
 
+/**
+ * Минимальный proportional scaling constraint для текста внутри фигуры.
+ */
 export type ShapeScalingProportionalTextConstraint = ShapeScalingProportionalTextConstraintCacheEntry
 
+/**
+ * Возвращает стабильный cache key для пары scaling размеров.
+ */
 function resolveShapeScalingSizeCacheKey({
   width,
   height
@@ -101,6 +138,9 @@ function resolveShapeScalingSizeCacheKey({
   return `${normalizedWidth}:${normalizedHeight}`
 }
 
+/**
+ * Возвращает ширину text frame для scaling расчётов.
+ */
 function resolveShapeScalingTextFrameWidth({
   width,
   padding
@@ -114,6 +154,9 @@ function resolveShapeScalingTextFrameWidth({
   )
 }
 
+/**
+ * Возвращает высоту text frame для scaling расчётов.
+ */
 function resolveShapeScalingTextFrameHeight({
   height,
   padding
@@ -127,6 +170,9 @@ function resolveShapeScalingTextFrameHeight({
   )
 }
 
+/**
+ * Возвращает true, если shape text содержит видимый текст.
+ */
 function hasVisibleShapeTextContent({
   text
 }: {
@@ -137,6 +183,9 @@ function hasVisibleShapeTextContent({
   return rawText.trim().length > 0
 }
 
+/**
+ * Возвращает proportional constraint для пустого текста без дополнительного измерения.
+ */
 function resolveEmptyTextProportionalConstraint({
   height
 }: {

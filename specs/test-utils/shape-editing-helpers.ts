@@ -1,4 +1,4 @@
-import ShapeEditingController from '../../src/editor/shape-manager/shape-editing'
+import ShapeEditingController from '../../src/editor/shape-manager/editing/shape-editing-controller'
 import {
   createMockCanvas,
   createMockShapeGroup,

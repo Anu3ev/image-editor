@@ -1,10 +1,10 @@
 import type {
   ResolvedShapeTextLayout
 } from '../layout/shape-layout'
-import { resizeShapeNode } from '../shape-factory'
+import { resizeShapeNode } from '../creation/shape-node-factory'
 import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN
-} from '../shape-presets'
+} from '../domain/shape-presets'
 import type {
   ShapeGroup,
   ShapeHorizontalAlign,
@@ -12,6 +12,9 @@ import type {
   ShapeTextNode
 } from '../types'
 
+/**
+ * Параметры полного preview layout для shape-группы во время live scaling.
+ */
 type ShapeScalingPreviewOptions = {
   group: ShapeGroup
   shape: ShapeNode
@@ -24,6 +27,9 @@ type ShapeScalingPreviewOptions = {
   scaleEpsilon: number
 }
 
+/**
+ * Параметры preview геометрии shape-узла без text layout.
+ */
 type ShapeScalingShapeGeometryOptions = {
   group: ShapeGroup
   shape: ShapeNode
@@ -35,6 +41,9 @@ type ShapeScalingShapeGeometryOptions = {
   scaleEpsilon: number
 }
 
+/**
+ * Параметры preview layout text node внутри shape-группы.
+ */
 type ShapeScalingTextLayoutOptions = {
   text: ShapeTextNode
   layout: ResolvedShapeTextLayout

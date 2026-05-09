@@ -1,6 +1,6 @@
 import { Point, Textbox, util } from 'fabric'
 import { nanoid } from 'nanoid'
-import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/shape-group'
+import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/domain/shape-group'
 import {
   createPlacementSelection,
   createPlacementTestObject,

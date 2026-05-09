@@ -1,3 +1,6 @@
+/**
+ * Максимальное значение скругления фигуры в публичном shape API.
+ */
 export const MAX_SHAPE_ROUNDING = 100
 
 /**

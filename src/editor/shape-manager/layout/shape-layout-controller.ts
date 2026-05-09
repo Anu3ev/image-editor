@@ -4,18 +4,18 @@ import {
   SHAPE_DEFAULT_VERTICAL_ALIGN,
   getShapePreset,
   resolveInternalShapeTextInset as resolvePresetInternalShapeTextInset
-} from './shape-presets'
+} from '../domain/shape-presets'
 import {
   applyShapeTextLayout,
   resolveShapeTextAutoExpandWidthForText
-} from './layout/shape-layout'
+} from './shape-layout'
 import {
   normalizeShapeUserPadding,
   resolveShapeTextContentInset,
   sumShapePadding
-} from './layout/shape-padding'
-import type { ObjectPlacement } from '../canvas-manager'
-import type { ImageEditor } from '../index'
+} from './shape-padding'
+import type { ObjectPlacement } from '../../canvas-manager'
+import type { ImageEditor } from '../../index'
 import type {
   ShapeGroupLike,
   ShapeHorizontalAlign,
@@ -25,7 +25,7 @@ import type {
   ShapeTextNode,
   ShapeTextStyleOptions,
   ShapeVerticalAlign
-} from './types'
+} from '../types'
 
 /**
  * Пара визуальных размеров shape-группы в текущем layout-контракте.

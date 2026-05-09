@@ -1,7 +1,7 @@
 import {
   applyShapeStyle,
   createShapeNode
-} from '../../src/editor/shape-manager/shape-factory'
+} from '../../src/editor/shape-manager/creation/shape-node-factory'
 import {
   applyShapeTextLayout,
   resolveMinimumShapeWidthForText,
