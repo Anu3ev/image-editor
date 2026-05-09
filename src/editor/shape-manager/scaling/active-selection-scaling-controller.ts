@@ -10,11 +10,13 @@ import {
 import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN
-} from '../shape-presets'
+} from '../domain/shape-presets'
 import {
-  getShapeNodes,
+  getShapeNodes
+} from '../domain/shape-nodes'
+import {
   isShapeGroup
-} from '../shape-utils'
+} from '../domain/shape-reference'
 import type {
   ShapeGroup,
   ShapeNode,
@@ -49,6 +51,9 @@ import type {
   ShapeScalingPointerEvent
 } from './shape-scaling-layout'
 
+/**
+ * Shape-группа и её узлы, участвующие в текущем scaling active selection.
+ */
 type ActiveSelectionShapeScalingItem = {
   group: ShapeGroup
   shape: ShapeNode
@@ -57,23 +62,38 @@ type ActiveSelectionShapeScalingItem = {
   state: ShapeScalingState
 }
 
+/**
+ * Minimum layout-ограничение одной shape-группы при пропорциональном scaling.
+ */
 type ActiveSelectionProportionalLayoutResult = {
   minimumScale: number
   minimumHeight: number
 }
 
+/**
+ * Minimum layout-ограничения shape-групп внутри active selection.
+ */
 type ActiveSelectionProportionalLayoutResults = Map<
   ShapeGroup,
   ActiveSelectionProportionalLayoutResult
 >
 
+/**
+ * Фактически применённый scale для active selection после перерасчёта shape layout.
+ */
 export type ActiveSelectionAppliedScale = {
   scaleX: number
   scaleY: number
 }
 
+/**
+ * Вертикальная привязка shape-группы внутри bounds active selection.
+ */
 type ActiveSelectionVerticalAttachment = 'top' | 'bottom' | 'center'
 
+/**
+ * Bounds shape-группы в локальной плоскости active selection.
+ */
 type ActiveSelectionLocalBounds = {
   left: number
   right: number
@@ -81,6 +101,9 @@ type ActiveSelectionLocalBounds = {
   bottom: number
 }
 
+/**
+ * Снимок одной shape-группы внутри scaling session active selection.
+ */
 type ActiveSelectionShapeScalingSessionItem = {
   bounds: ActiveSelectionLocalBounds
   transformOriginX: ShapeTransformOriginX
@@ -88,11 +111,17 @@ type ActiveSelectionShapeScalingSessionItem = {
   verticalAttachment: ActiveSelectionVerticalAttachment
 }
 
+/**
+ * Layout scale, применённый к shape-группе внутри active selection.
+ */
 type ActiveSelectionShapeLayoutScale = {
   scaleX: number
   scaleY: number
 }
 
+/**
+ * Состояние scaling session для active selection.
+ */
 type ActiveSelectionScalingSession = {
   bounds: ActiveSelectionLocalBounds
   items: Map<ShapeGroup, ActiveSelectionShapeScalingSessionItem>
@@ -102,16 +131,34 @@ type ActiveSelectionScalingSession = {
  * Контроллер масштабирования shape-групп внутри ActiveSelection.
  */
 export default class ShapeActiveSelectionScalingController {
+  /**
+   * Fabric canvas редактора.
+   */
   private canvas: Canvas
 
+  /**
+   * Внешнее live scaling state shape-групп.
+   */
   private shapeScalingState: WeakMap<ShapeGroup, ShapeScalingState>
 
+  /**
+   * Применённый scale для active selection после layout clamp.
+   */
   private scalingState: WeakMap<ActiveSelection, ActiveSelectionAppliedScale>
 
+  /**
+   * Снимки bounds и origin для текущего scaling active selection.
+   */
   private scalingSessions: WeakMap<ActiveSelection, ActiveSelectionScalingSession>
 
+  /**
+   * Layout scale каждой shape-группы после перерасчёта active selection.
+   */
   private groupLayoutScales: WeakMap<ShapeGroup, ActiveSelectionShapeLayoutScale>
 
+  /**
+   * Инициализирует controller скейлинга shape-групп внутри active selection.
+   */
   constructor({
     canvas,
     shapeScalingState
@@ -613,6 +660,9 @@ export default class ShapeActiveSelectionScalingController {
     }
   }
 
+  /**
+   * Возвращает scale active selection, достаточный для всех proportional layout ограничений.
+   */
   private _resolveProportionalSelectionScale({
     items,
     session,
@@ -866,6 +916,9 @@ export default class ShapeActiveSelectionScalingController {
     }
   }
 
+  /**
+   * Возвращает layout scaleX shape-группы с учётом минимальной ширины текста.
+   */
   private _resolveShapeLayoutScaleX({
     item,
     selectionScaleX,
@@ -891,6 +944,9 @@ export default class ShapeActiveSelectionScalingController {
     return Math.max(selectionScaleX, minimumScaleX)
   }
 
+  /**
+   * Возвращает layout scaleY shape-группы с учётом минимальной высоты текста.
+   */
   private _resolveShapeLayoutScaleY({
     item,
     scaleX,
@@ -942,6 +998,9 @@ export default class ShapeActiveSelectionScalingController {
     return results
   }
 
+  /**
+   * Возвращает минимальную ширину shape-группы для текущего vertical scale.
+   */
   private _resolveMinimumShapeWidth({
     item,
     scaleY
@@ -969,6 +1028,9 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
+  /**
+   * Переводит минимальный размер shape-группы в минимальный scale selection.
+   */
   private _resolveMinimumScaleForSize({
     minimumSize,
     startSize,
@@ -985,6 +1047,9 @@ export default class ShapeActiveSelectionScalingController {
     return Math.min(1, minimumScale)
   }
 
+  /**
+   * Возвращает минимальную высоту shape-группы для текущего horizontal scale.
+   */
   private _resolveMinimumShapeHeight({
     item,
     scaleX
@@ -1009,6 +1074,9 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
+  /**
+   * Возвращает доступную ширину active selection для конкретной shape-группы.
+   */
   private _resolveSelectionAvailableWidth({
     selectionBounds,
     shapeBounds,
@@ -1038,6 +1106,9 @@ export default class ShapeActiveSelectionScalingController {
     )
   }
 
+  /**
+   * Возвращает доступную высоту active selection для конкретной shape-группы.
+   */
   private _resolveSelectionAvailableHeight({
     selectionBounds,
     shapeBounds,
@@ -1066,6 +1137,9 @@ export default class ShapeActiveSelectionScalingController {
     )
   }
 
+  /**
+   * Возвращает локальные bounds shape-группы до применения текущего selection transform.
+   */
   private _resolveShapeLocalBounds({
     group
   }: {
@@ -1082,6 +1156,9 @@ export default class ShapeActiveSelectionScalingController {
     }
   }
 
+  /**
+   * Объединяет bounds active selection с bounds следующей shape-группы.
+   */
   private _mergeBounds({
     current,
     next
@@ -1097,6 +1174,9 @@ export default class ShapeActiveSelectionScalingController {
     }
   }
 
+  /**
+   * Определяет вертикальную привязку shape-группы внутри active selection.
+   */
   private _resolveVerticalAttachment({
     selectionBounds,
     shapeBounds
@@ -1116,6 +1196,9 @@ export default class ShapeActiveSelectionScalingController {
     return topGap < bottomGap ? 'top' : 'bottom'
   }
 
+  /**
+   * Переводит Fabric origin в числовое смещение относительно центра.
+   */
   private _resolveOriginOffset({
     origin
   }: {

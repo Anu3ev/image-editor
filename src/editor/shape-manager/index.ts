@@ -15,11 +15,12 @@ import {
   isShapePresetRoundable,
   resolvePresetKeyForRounding,
   resolveInternalShapeTextInset as resolvePresetInternalShapeTextInset
-} from './shape-presets'
+} from './domain/shape-presets'
 import {
   createShapeNode
-} from './shape-factory'
-import { normalizeShapeRounding } from './shape-rounding'
+} from './creation/shape-node-factory'
+import { normalizeShapeRounding } from './domain/shape-rounding'
+import { resolveShapeStyle } from './domain/shape-style'
 import {
   applyShapeTextLayout
 } from './layout/shape-layout'
@@ -29,25 +30,27 @@ import {
   resolveShapeTextContentInset,
   sumShapePadding
 } from './layout/shape-padding'
-import ShapeScalingController from './scaling/shape-scaling'
-import ShapeEditingController from './shape-editing'
-import ShapeEventController from './shape-event-controller'
-import ShapeLayoutController from './shape-layout-controller'
-import ShapeLifecycleController from './shape-lifecycle'
-import ShapeMutationController from './shape-mutation-controller'
+import ShapeScalingController from './scaling/shape-scaling-controller'
+import ShapeEditingController from './editing/shape-editing-controller'
+import ShapeEventController from './events/shape-event-controller'
+import ShapeLayoutController from './layout/shape-layout-controller'
+import ShapeLifecycleController from './lifecycle/shape-lifecycle-controller'
+import ShapeMutationController from './mutation/shape-mutation-controller'
 import {
   registerShapeGroup,
   ShapeGroupObject
-} from './shape-group'
+} from './domain/shape-group'
 import {
-  applyGroupInteractivity,
-  getShapeNodes,
+  getShapeNodes
+} from './domain/shape-nodes'
+import {
   isShapeGroup
-} from './shape-utils'
+} from './domain/shape-reference'
 import {
+  applyShapeGroupInteractivity,
   detachShapeGroupAutoLayout,
   prepareShapeTextNode
-} from './shape-runtime'
+} from './domain/shape-runtime'
 import {
   ShapeAddedPayload,
   ShapeAddOptions,
@@ -67,12 +70,6 @@ import {
   ShapeVerticalAlign,
   ShapeVisualStyle
 } from './types'
-
-const DEFAULT_SHAPE_FILL = '#B4B7BD'
-
-const DEFAULT_SHAPE_STROKE_WIDTH = 0
-
-const DEFAULT_SHAPE_OPACITY = 1
 
 /**
  * Пара размеров shape-группы в текущем layout-контракте.
@@ -161,7 +158,7 @@ export default class ShapeManager {
         resolveReplaceBoxDimensions: (params) => this._resolveReplaceBoxDimensions(params),
         resolveGroupUserPadding: (params) => this._resolveGroupUserPadding(params),
         isShapeTextAutoExpandEnabled: (params) => this._isShapeTextAutoExpandEnabled(params),
-        resolveShapeStyle: (params) => this._resolveShapeStyle(params),
+        resolveShapeStyle,
         resolveCurrentTextStyle: (params) => this._resolveCurrentTextStyle(params),
         createTextNode: (params) => this._createTextNode(params),
         applyTextUpdates: (params) => this._applyTextUpdates(params),
@@ -359,7 +356,7 @@ export default class ShapeManager {
 
     const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
 
-    const style = this._resolveShapeStyle({
+    const style = resolveShapeStyle({
       options,
       fallback: null
     })
@@ -776,7 +773,7 @@ export default class ShapeManager {
 
     group.rehydrateRuntimeState()
 
-    applyGroupInteractivity({ group })
+    applyShapeGroupInteractivity({ group })
     prepareShapeTextNode({ text })
     const montageAreaWidth = preserveAspectRatio
       ? this._resolveMontageAreaWidth()
@@ -1380,40 +1377,6 @@ export default class ShapeManager {
     }
 
     return false
-  }
-
-  /**
-   * Возвращает итоговый стиль фигуры с учетом переданных и сохраненных значений.
-   */
-  private _resolveShapeStyle({
-    options,
-    fallback
-  }: {
-    options: Pick<
-      ShapeAddOptions | ShapeUpdateOptions,
-      'fill' | 'stroke' | 'strokeWidth' | 'strokeDashArray' | 'opacity'
-    >
-    fallback: ShapeGroupLike | null
-  }): ShapeVisualStyle {
-    const {
-      fill,
-      stroke,
-      strokeWidth,
-      strokeDashArray,
-      opacity
-    } = options
-
-    const dashArray = strokeDashArray !== undefined
-      ? strokeDashArray
-      : fallback?.shapeStrokeDashArray
-
-    return {
-      fill: fill ?? fallback?.shapeFill ?? DEFAULT_SHAPE_FILL,
-      stroke: stroke ?? fallback?.shapeStroke ?? null,
-      strokeWidth: strokeWidth ?? fallback?.shapeStrokeWidth ?? DEFAULT_SHAPE_STROKE_WIDTH,
-      strokeDashArray: dashArray ?? null,
-      opacity: opacity ?? fallback?.shapeOpacity ?? DEFAULT_SHAPE_OPACITY
-    }
   }
 
   /**

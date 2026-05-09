@@ -8,7 +8,7 @@ import {
   TPointerEventInfo
 } from 'fabric'
 import { ImageEditor } from '../..'
-import { resolveShapeGroupFromTarget } from '../../shape-manager/shape-utils'
+import { resolveShapeGroupFromTarget } from '../../shape-manager/domain/shape-reference'
 import defaultConfig from './default-config'
 
 type ToolbarActionHandler = (

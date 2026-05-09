@@ -9,10 +9,10 @@ import {
   resolveShapeTextFixedWidthLayout
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
 import * as shapeScalingLayout from '../../../../src/editor/shape-manager/scaling/shape-scaling-layout'
-import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
+import { resizeShapeNode } from '../../../../src/editor/shape-manager/creation/shape-node-factory'
 import {
   isShapeGroup
-} from '../../../../src/editor/shape-manager/shape-utils'
+} from '../../../../src/editor/shape-manager/domain/shape-reference'
 import {
   createActiveSelectionShapeScalingSetup,
   createShapeScalingSetup,
@@ -65,12 +65,15 @@ jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   }))
 }))
 
-jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
+jest.mock('../../../../src/editor/shape-manager/creation/shape-node-factory', () => ({
   resizeShapeNode: jest.fn()
 }))
 
-jest.mock('../../../../src/editor/shape-manager/shape-utils', () => ({
-  getShapeNodes: jest.fn(),
+jest.mock('../../../../src/editor/shape-manager/domain/shape-nodes', () => ({
+  getShapeNodes: jest.fn()
+}))
+
+jest.mock('../../../../src/editor/shape-manager/domain/shape-reference', () => ({
   isShapeGroup: jest.fn()
 }))
 
@@ -83,7 +86,7 @@ describe('shape-scaling', () => {
   const resolveRequiredShapeHeightForTextMock = resolveRequiredShapeHeightForText as jest.Mock
   const resolveShapeTextFixedWidthLayoutMock = resolveShapeTextFixedWidthLayout as jest.Mock
   const resizeShapeNodeMock = resizeShapeNode as jest.Mock
-  const isShapeGroupMock = isShapeGroup as unknown as jest.MockedFunction<typeof isShapeGroup>
+  const isShapeGroupMock = jest.mocked(isShapeGroup)
 
   beforeEach(() => {
     jest.clearAllMocks()

@@ -1,5 +1,5 @@
 /* eslint-disable no-use-before-define, @typescript-eslint/no-use-before-define */
-import { resizeShapeNode } from '../shape-factory'
+import { resizeShapeNode } from '../creation/shape-node-factory'
 import {
   MIN_SHAPE_TEXT_FRAME_SIZE,
   normalizeShapeLayoutPadding,
@@ -10,26 +10,50 @@ import {
   resolveTextFrameWidth
 } from './shape-layout-padding'
 import {
+  measureShapeTextFrameLayout,
+  measureTextboxHeightForFrame,
+  measureTextboxLayoutForFrame,
+  resolveMinimumTextFrameWidth,
+  resolveSplitByGraphemeForFrame,
+  resolveVerticalTop
+} from './shape-text-measurement'
+import {
   ShapeLayoutInput,
   ShapeTextMeasurementCache,
   ShapePadding,
   ShapeVerticalAlign
 } from '../types'
 
+export { measureShapeTextFrameLayout }
+
+/**
+ * Минимальный размер текстового frame, общий для layout и padding расчётов.
+ */
 const MIN_TEXT_FRAME_SIZE = MIN_SHAPE_TEXT_FRAME_SIZE
+
+/**
+ * Допуск для проверки заполненности text frame.
+ */
 const TEXT_FRAME_FILL_EPSILON = 0.5
+
+/**
+ * Лимит итераций при пересчёте padding, зависящего от auto-fit размеров.
+ */
 const MAX_DYNAMIC_PADDING_LAYOUT_ITERATIONS = 24
+
+/**
+ * Лимит бинарного поиска минимальной валидной ширины.
+ */
 const MAX_WIDTH_SEARCH_ITERATIONS = 20
+
+/**
+ * Лимит расширения верхней границы поиска ширины.
+ */
 const MAX_WIDTH_BOUND_EXPANSIONS = 16
 
-type TextboxMeasurementState = {
-  autoExpand?: boolean
-  splitByGrapheme?: boolean
-  width?: number
-  scaleX?: number
-  scaleY?: number
-}
-
+/**
+ * Геометрия внутреннего text frame в координатах shape-группы.
+ */
 type ShapeTextFrame = {
   left: number
   top: number
@@ -37,6 +61,9 @@ type ShapeTextFrame = {
   height: number
 }
 
+/**
+ * Итог layout текста внутри фигуры: размеры группы, padding, frame и режим переноса.
+ */
 export type ResolvedShapeTextLayout = {
   width: number
   height: number
@@ -47,37 +74,48 @@ export type ResolvedShapeTextLayout = {
   textTop: number
 }
 
+/**
+ * Layout самого text frame без итоговых размеров shape-группы.
+ */
 type ShapeTextFrameLayout = {
   frame: ShapeTextFrame
   splitByGrapheme: boolean
   textTop: number
 }
 
-export type ShapeTextFrameMeasurement = {
-  measuredHeight: number
-  renderedLineCount: number
-  longestLineWidth: number
-  requiresGraphemeSplit: boolean
-}
-
+/**
+ * Resolver padding для layout-расчётов, зависящих только от ширины.
+ */
 type ResolvePaddingForWidth = ({ width }: {
   width: number
 }) => ShapePadding
 
+/**
+ * Resolver padding для layout-расчётов, зависящих от ширины и высоты.
+ */
 type ResolvePaddingForSize = ({ width, height }: {
   width: number
   height: number
 }) => ShapePadding
 
+/**
+ * Resolver внутреннего text inset для конкретного размера shape.
+ */
 type ResolveInternalShapeTextInset = ({ width, height }: {
   width: number
   height: number
 }) => ShapePadding
 
+/**
+ * Проверка валидности ширины shape для текущего текста и padding.
+ */
 type ResolveShapeWidthValidity = ({ width }: {
   width: number
 }) => boolean
 
+/**
+ * Итог разрешения размеров shape-текста до сборки полного layout результата.
+ */
 type ShapeTextLayoutResolution = {
   width: number
   height: number
@@ -85,8 +123,14 @@ type ShapeTextLayoutResolution = {
   appliedUserPadding: ShapePadding
 }
 
+/**
+ * Параметры resolveShapeTextLayout без Fabric group/shape, потому что расчёт чистый.
+ */
 type ResolveShapeTextLayoutParams = Omit<ShapeLayoutInput, 'group' | 'shape' | 'alignH'>
 
+/**
+ * Параметры layout-расчёта при фиксированной ширине shape.
+ */
 type ResolveShapeTextFixedWidthLayoutParams = {
   text: ShapeLayoutInput['text']
   width: number
@@ -100,6 +144,9 @@ type ResolveShapeTextFixedWidthLayoutParams = {
   measurementCache?: ShapeTextMeasurementCache
 }
 
+/**
+ * Параметры применения fixed-width layout к реальным Fabric объектам.
+ */
 type ApplyFixedWidthShapeTextLayoutParams = {
   group: ShapeLayoutInput['group']
   shape: ShapeLayoutInput['shape']
@@ -115,6 +162,9 @@ type ApplyFixedWidthShapeTextLayoutParams = {
   changedPadding?: ShapeLayoutInput['changedPadding']
 }
 
+/**
+ * Параметры сборки итогового состояния text frame.
+ */
 type ResolveShapeTextLayoutStateParams = {
   text: ShapeLayoutInput['text']
   alignV: ShapeVerticalAlign
@@ -124,6 +174,9 @@ type ResolveShapeTextLayoutStateParams = {
   appliedUserPadding: ShapePadding
 }
 
+/**
+ * Параметры разрешения итоговых размеров shape при текущем text layout.
+ */
 type ResolveShapeTextLayoutResolutionParams = {
   text: ShapeLayoutInput['text']
   width: number
@@ -325,6 +378,9 @@ export const resolveShapeTextFixedWidthLayout = ({
   })
 }
 
+/**
+ * Применяет уже рассчитанный shape/text layout к Fabric group, shape и text.
+ */
 function applyResolvedShapeTextLayout({
   group,
   shape,
@@ -408,24 +464,6 @@ function applyResolvedShapeTextLayout({
 
   group.set('dirty', true)
   group.setCoords()
-}
-
-function resolveMeasurementFrameWidthCacheKey({
-  frameWidth
-}: {
-  frameWidth: number
-}): string {
-  return String(Math.round(Math.max(MIN_TEXT_FRAME_SIZE, frameWidth) * 1000) / 1000)
-}
-
-function resolveMeasurementCacheKey({
-  frameWidth,
-  splitByGrapheme
-}: {
-  frameWidth: number
-  splitByGrapheme: boolean
-}): string {
-  return `${resolveMeasurementFrameWidthCacheKey({ frameWidth })}:${splitByGrapheme ? 1 : 0}`
 }
 
 /**
@@ -516,6 +554,9 @@ export const applyFixedWidthShapeTextLayout = ({
   })
 }
 
+/**
+ * Разрешает layout текста в режиме сохранения соотношения сторон shape.
+ */
 function resolveShapeTextLayoutResolutionForAspectRatio({
   text,
   width,
@@ -997,6 +1038,9 @@ function hasShapeTextContent({
   return rawText.trim().length > 0
 }
 
+/**
+ * Возвращает padding для текущей ширины, учитывая optional resolver.
+ */
 function resolveCurrentPaddingForWidth({
   width,
   padding,
@@ -1019,6 +1063,9 @@ function resolveCurrentPaddingForWidth({
   })
 }
 
+/**
+ * Возвращает padding для текущего размера, учитывая optional resolver.
+ */
 function resolveCurrentPaddingForSize({
   width,
   height,
@@ -1044,6 +1091,9 @@ function resolveCurrentPaddingForSize({
   })
 }
 
+/**
+ * Возвращает внутренний shape text inset для текущего размера.
+ */
 function resolveCurrentInternalShapeTextInset({
   width,
   height,
@@ -1069,6 +1119,9 @@ function resolveCurrentInternalShapeTextInset({
   })
 }
 
+/**
+ * Итеративно разрешает итоговые размеры shape и padding для текущего текста.
+ */
 function resolveShapeTextLayoutResolution({
   text,
   width,
@@ -1143,6 +1196,9 @@ function resolveShapeTextLayoutResolution({
   }
 }
 
+/**
+ * Находит верхнюю границу ширины, при которой shape layout становится валидным.
+ */
 function resolveValidShapeWidthUpperBound({
   minimumWidth,
   isWidthValid
@@ -1167,6 +1223,9 @@ function resolveValidShapeWidthUpperBound({
   return upperBound
 }
 
+/**
+ * Ищет минимальную валидную ширину shape внутри найденного диапазона.
+ */
 function resolveMinimumValidShapeWidth({
   minimumWidth,
   maximumWidth,
@@ -1201,6 +1260,9 @@ function resolveMinimumValidShapeWidth({
   return high
 }
 
+/**
+ * Создаёт text frame в локальных координатах shape-группы.
+ */
 function createTextFrame({
   width,
   height,
@@ -1226,461 +1288,4 @@ function createTextFrame({
     width: frameWidth,
     height: frameHeight
   }
-}
-
-/**
- * Возвращает визуальную высоту textbox.
- */
-function getTextboxHeight({ text }: { text: ShapeLayoutInput['text'] }): number {
-  const { height } = text
-  if (typeof height === 'number' && Number.isFinite(height)) {
-    return height
-  }
-
-  if (typeof text.calcTextHeight === 'function') {
-    const calculated = text.calcTextHeight()
-
-    if (typeof calculated === 'number' && Number.isFinite(calculated)) {
-      return calculated
-    }
-  }
-
-  return MIN_TEXT_FRAME_SIZE
-}
-
-/**
- * Измеряет текущее состояние textbox для переданной ширины текстового фрейма
- * в явно заданном режиме splitByGrapheme.
- */
-export function measureShapeTextFrameLayout({
-  text,
-  frameWidth,
-  splitByGrapheme,
-  requiresGraphemeSplit,
-  measurementCache
-}: {
-  text: ShapeLayoutInput['text']
-  frameWidth: number
-  splitByGrapheme: boolean
-  requiresGraphemeSplit?: boolean
-  measurementCache?: ShapeTextMeasurementCache
-}): ShapeTextFrameMeasurement {
-  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
-  const measurementCacheKey = resolveMeasurementCacheKey({
-    frameWidth: safeFrameWidth,
-    splitByGrapheme
-  })
-  const cachedMeasurement = measurementCache?.measurementsByKey.get(measurementCacheKey)
-
-  if (cachedMeasurement) return cachedMeasurement
-
-  const previousState = captureTextboxMeasurementState({ text })
-  const resolvedRequiresGraphemeSplit = requiresGraphemeSplit
-    ?? resolveSplitByGraphemeForFrame({
-      text,
-      frameWidth: safeFrameWidth,
-      measurementCache
-    })
-
-  text.set({
-    autoExpand: false,
-    width: safeFrameWidth,
-    splitByGrapheme,
-    scaleX: 1,
-    scaleY: 1
-  })
-  text.initDimensions()
-
-  const renderedLineCount = getRenderedTextboxLineCount({ text })
-  const explicitLineCount = getExplicitTextboxLineCount({ text })
-  const measurement = {
-    measuredHeight: getTextboxHeight({ text }),
-    renderedLineCount: renderedLineCount > 0 ? renderedLineCount : explicitLineCount,
-    longestLineWidth: Math.ceil(getTextboxLongestLineWidth({ text })),
-    requiresGraphemeSplit: resolvedRequiresGraphemeSplit
-  }
-
-  restoreTextboxMeasurementState({
-    text,
-    state: previousState
-  })
-
-  measurementCache?.measurementsByKey.set(measurementCacheKey, measurement)
-
-  return measurement
-}
-
-/**
- * Измеряет ширину самой длинной строки и факт автопереноса для переданной ширины текстового фрейма.
- */
-function measureTextboxLayoutForFrame({
-  text,
-  frameWidth,
-  measurementCache
-}: {
-  text: ShapeLayoutInput['text']
-  frameWidth: number
-  measurementCache?: ShapeTextMeasurementCache
-}): {
-  hasWrappedLines: boolean
-  longestLineWidth: number
-} {
-  const explicitLineCount = getExplicitTextboxLineCount({ text })
-  const requiresGraphemeSplit = resolveSplitByGraphemeForFrame({
-    text,
-    frameWidth,
-    measurementCache
-  })
-  const measurement = measureShapeTextFrameLayout({
-    text,
-    frameWidth,
-    splitByGrapheme: requiresGraphemeSplit,
-    requiresGraphemeSplit,
-    measurementCache
-  })
-
-  return {
-    hasWrappedLines: measurement.renderedLineCount > explicitLineCount,
-    longestLineWidth: measurement.longestLineWidth
-  }
-}
-
-/**
- * Измеряет высоту текста в рамках переданной ширины текстового фрейма.
- */
-function measureTextboxHeightForFrame({
-  text,
-  frameWidth,
-  splitByGrapheme,
-  measurementCache
-}: {
-  text: ShapeLayoutInput['text']
-  frameWidth: number
-  splitByGrapheme?: boolean
-  measurementCache?: ShapeTextMeasurementCache
-}): number {
-  const resolvedSplitByGrapheme = splitByGrapheme
-    ?? resolveSplitByGraphemeForFrame({
-      text,
-      frameWidth,
-      measurementCache
-    })
-
-  return measureShapeTextFrameLayout({
-    text,
-    frameWidth,
-    splitByGrapheme: resolvedSplitByGrapheme,
-    requiresGraphemeSplit: resolvedSplitByGrapheme,
-    measurementCache
-  }).measuredHeight
-}
-
-/**
- * Возвращает минимальную ширину текстового фрейма, достаточную для отображения одного символа.
- */
-function resolveMinimumTextFrameWidth({
-  text,
-  measurementCache
-}: {
-  text: ShapeLayoutInput['text']
-  measurementCache?: ShapeTextMeasurementCache
-}): number {
-  if (measurementCache?.minimumTextFrameWidth !== null && measurementCache?.minimumTextFrameWidth !== undefined) {
-    return measurementCache.minimumTextFrameWidth
-  }
-
-  const minimumFrameWidth = measureTextboxLongestLineWidthForFrame({
-    text,
-    frameWidth: MIN_TEXT_FRAME_SIZE,
-    splitByGrapheme: true,
-    measurementCache
-  })
-
-  const resolvedMinimumTextFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, minimumFrameWidth)
-
-  if (measurementCache) {
-    measurementCache.minimumTextFrameWidth = resolvedMinimumTextFrameWidth
-  }
-
-  return resolvedMinimumTextFrameWidth
-}
-
-/**
- * Измеряет максимальную ширину строки textbox при заданной ширине фрейма и режиме переноса.
- */
-function measureTextboxLongestLineWidthForFrame({
-  text,
-  frameWidth,
-  splitByGrapheme,
-  measurementCache
-}: {
-  text: ShapeLayoutInput['text']
-  frameWidth: number
-  splitByGrapheme: boolean
-  measurementCache?: ShapeTextMeasurementCache
-}): number {
-  const cachedMeasurement = measurementCache?.measurementsByKey.get(resolveMeasurementCacheKey({
-    frameWidth,
-    splitByGrapheme
-  }))
-
-  if (cachedMeasurement) {
-    return cachedMeasurement.longestLineWidth
-  }
-
-  const previousState = captureTextboxMeasurementState({ text })
-
-  text.set({
-    autoExpand: false,
-    width: Math.max(MIN_TEXT_FRAME_SIZE, frameWidth),
-    splitByGrapheme,
-    scaleX: 1,
-    scaleY: 1
-  })
-
-  text.initDimensions()
-  const longestLineWidth = getTextboxLongestLineWidth({ text })
-
-  restoreTextboxMeasurementState({
-    text,
-    state: previousState
-  })
-
-  return longestLineWidth
-}
-
-/**
- * Вычисляет верхнюю координату текста по вертикальному выравниванию.
- */
-function resolveVerticalTop({
-  alignV,
-  frameHeight,
-  frameTop,
-  textHeight
-}: {
-  alignV: ShapeVerticalAlign
-  frameHeight: number
-  frameTop: number
-  textHeight: number
-}): number {
-  const freeSpace = Math.max(0, frameHeight - textHeight)
-
-  if (alignV === 'top') return frameTop
-  if (alignV === 'bottom') return frameTop + freeSpace
-
-  return frameTop + freeSpace / 2
-}
-
-/**
- * Определяет, нужен ли fallback на splitByGrapheme для длинных слов без пробелов.
- */
-function resolveSplitByGraphemeForFrame({
-  text,
-  frameWidth,
-  measurementCache
-}: {
-  text: ShapeLayoutInput['text']
-  frameWidth: number
-  measurementCache?: ShapeTextMeasurementCache
-}): boolean {
-  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
-  const frameWidthCacheKey = resolveMeasurementFrameWidthCacheKey({
-    frameWidth: safeFrameWidth
-  })
-  const cachedSplitByGrapheme = measurementCache?.splitByGraphemeByFrameWidth.get(frameWidthCacheKey)
-
-  if (typeof cachedSplitByGrapheme === 'boolean') {
-    return cachedSplitByGrapheme
-  }
-
-  const previousState = captureTextboxMeasurementState({ text })
-
-  text.set({
-    autoExpand: false,
-    width: safeFrameWidth,
-    splitByGrapheme: false,
-    scaleX: 1,
-    scaleY: 1
-  })
-  text.initDimensions()
-
-  const dynamicMinWidth = getTextboxDynamicMinWidth({ text })
-  const shouldSplitByGrapheme = dynamicMinWidth > safeFrameWidth + TEXT_FRAME_FILL_EPSILON
-
-  restoreTextboxMeasurementState({
-    text,
-    state: previousState
-  })
-
-  measurementCache?.splitByGraphemeByFrameWidth.set(frameWidthCacheKey, shouldSplitByGrapheme)
-
-  return shouldSplitByGrapheme
-}
-
-/**
- * Возвращает ширину самой длинной отрисованной строки textbox.
- */
-function getTextboxLongestLineWidth({
-  text
-}: {
-  text: ShapeLayoutInput['text']
-}): number {
-  const lineCount = getRenderedTextboxLineCount({ text })
-
-  if (lineCount > 0) {
-    return measureLongestRenderedLineWidth({
-      text,
-      lineCount
-    })
-  }
-
-  const rawText = text.text ?? ''
-  const explicitLineCount = Math.max(rawText.split('\n').length, 1)
-
-  return measureLongestRenderedLineWidth({
-    text,
-    lineCount: explicitLineCount
-  })
-}
-
-/**
- * Возвращает количество явных строк в исходном тексте до автопереноса.
- */
-function getExplicitTextboxLineCount({
-  text
-}: {
-  text: ShapeLayoutInput['text']
-}): number {
-  const rawText = text.text ?? ''
-  return Math.max(rawText.split('\n').length, 1)
-}
-
-/**
- * Возвращает количество реально отрисованных строк textbox.
- */
-function getRenderedTextboxLineCount({
-  text
-}: {
-  text: ShapeLayoutInput['text']
-}): number {
-  const textbox = text as ShapeLayoutInput['text'] & {
-    textLines?: string[]
-  }
-
-  if (Array.isArray(textbox.textLines)) {
-    return textbox.textLines.length
-  }
-
-  return 0
-}
-
-/**
- * Измеряет ширину самой длинной уже отрисованной строки textbox.
- */
-function measureLongestRenderedLineWidth({
-  text,
-  lineCount
-}: {
-  text: ShapeLayoutInput['text']
-  lineCount: number
-}): number {
-  let longestLineWidth = MIN_TEXT_FRAME_SIZE
-
-  for (let lineIndex = 0; lineIndex < lineCount; lineIndex += 1) {
-    const lineWidth = text.getLineWidth(lineIndex)
-
-    if (lineWidth > longestLineWidth) {
-      longestLineWidth = lineWidth
-    }
-  }
-
-  return longestLineWidth
-}
-
-/**
- * Возвращает текущее состояние textbox для временных измерений.
- */
-function captureTextboxMeasurementState({
-  text
-}: {
-  text: ShapeLayoutInput['text']
-}): TextboxMeasurementState {
-  const {
-    autoExpand,
-    splitByGrapheme,
-    width,
-    scaleX,
-    scaleY
-  } = text
-
-  return {
-    autoExpand,
-    splitByGrapheme,
-    width: typeof width === 'number' ? width : undefined,
-    scaleX: typeof scaleX === 'number' ? scaleX : undefined,
-    scaleY: typeof scaleY === 'number' ? scaleY : undefined
-  }
-}
-
-/**
- * Восстанавливает состояние textbox после временных измерений.
- */
-function restoreTextboxMeasurementState({
-  text,
-  state
-}: {
-  text: ShapeLayoutInput['text']
-  state: TextboxMeasurementState
-}): void {
-  const {
-    autoExpand,
-    splitByGrapheme,
-    width,
-    scaleX,
-    scaleY
-  } = state
-
-  const updates: TextboxMeasurementState = {}
-  if (autoExpand !== undefined) {
-    updates.autoExpand = autoExpand
-  }
-
-  if (splitByGrapheme !== undefined) {
-    updates.splitByGrapheme = splitByGrapheme
-  }
-
-  if (typeof width === 'number') {
-    updates.width = width
-  }
-
-  if (typeof scaleX === 'number') {
-    updates.scaleX = scaleX
-  }
-
-  if (typeof scaleY === 'number') {
-    updates.scaleY = scaleY
-  }
-
-  const hasUpdates = Object.keys(updates).length > 0
-  if (!hasUpdates) return
-
-  text.set(updates)
-  text.initDimensions()
-}
-
-/**
- * Возвращает dynamicMinWidth textbox для проверки неразрывных слов.
- */
-function getTextboxDynamicMinWidth({
-  text
-}: {
-  text: ShapeLayoutInput['text']
-}): number {
-  const { dynamicMinWidth } = text
-
-  if (typeof dynamicMinWidth === 'number' && Number.isFinite(dynamicMinWidth)) {
-    return dynamicMinWidth
-  }
-
-  return 0
 }

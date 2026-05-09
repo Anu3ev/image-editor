@@ -2,11 +2,13 @@ import { Canvas } from 'fabric'
 import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN
-} from './shape-presets'
+} from '../domain/shape-presets'
 import {
-  getShapeNodes,
+  getShapeNodes
+} from '../domain/shape-nodes'
+import {
   isShapeGroup
-} from './shape-utils'
+} from '../domain/shape-reference'
 import {
   BeforeShapeUpdatedPayload,
   ShapeGroup,
@@ -16,7 +18,7 @@ import {
   ShapeUpdateLifecycleContext,
   ShapeUpdateOptions,
   ShapeUpdatedPayload
-} from './types'
+} from '../types'
 
 /**
  * Контроллер lifecycle-событий shape-композиций.
@@ -49,6 +51,9 @@ export default class ShapeLifecycleController {
    */
   private pendingResizeUpdates: WeakMap<ShapeGroup, ShapeUpdateLifecycleContext>
 
+  /**
+   * Инициализирует lifecycle controller для shape-событий на переданном canvas.
+   */
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
     this.textEditingSnapshots = new WeakMap()

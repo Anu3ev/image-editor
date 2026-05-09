@@ -1,5 +1,5 @@
 import ToolbarManager from '../../../../../src/editor/ui/toolbar-manager'
-import { resolveShapeGroupFromTarget } from '../../../../../src/editor/shape-manager/shape-utils'
+import { resolveShapeGroupFromTarget } from '../../../../../src/editor/shape-manager/domain/shape-reference'
 import { createManagerTestMocks } from '../../../../test-utils/editor-helpers'
 import {
   createMockShapeGroup,
@@ -7,7 +7,7 @@ import {
   createMockShapeTextbox
 } from '../../../../test-utils/shape-helpers'
 
-jest.mock('../../../../../src/editor/shape-manager/shape-utils', () => ({
+jest.mock('../../../../../src/editor/shape-manager/domain/shape-reference', () => ({
   resolveShapeGroupFromTarget: jest.fn()
 }))
 
@@ -61,11 +61,16 @@ describe('ToolbarManager', () => {
     const toolbarManager = new ToolbarManager({
       editor: mockEditor
     })
-    const toolbarManagerWithUpdate = toolbarManager as ToolbarManager & {
-      _updateToolbar: () => void
+    const afterRenderCall = mockCanvas.on.mock.calls.find(([
+      event
+    ]: [string, (...args: unknown[]) => void]) => event === 'after:render')
+
+    if (!afterRenderCall) {
+      throw new Error('ToolbarManager должен подписаться на after:render')
     }
 
-    toolbarManagerWithUpdate._updateToolbar()
+    const [, updateToolbar] = afterRenderCall
+    updateToolbar()
 
     const button = toolbarManager.el.querySelector('button') as HTMLButtonElement
     button.click()

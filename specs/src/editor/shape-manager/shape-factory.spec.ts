@@ -3,7 +3,7 @@ import { nanoid } from 'nanoid'
 import {
   createShapeNode,
   resizeShapeNode
-} from '../../../../src/editor/shape-manager/shape-factory'
+} from '../../../../src/editor/shape-manager/creation/shape-node-factory'
 
 jest.mock('nanoid')
 

@@ -15,26 +15,35 @@ import {
 } from './shape-presets'
 import {
   normalizeShapeUserPadding
-} from './layout/shape-padding'
+} from '../layout/shape-padding'
 import {
   applyShapeGroupInteractivity,
   detachShapeGroupAutoLayout,
   getShapeRuntimeTextNode,
   prepareShapeTextNode
 } from './shape-runtime'
-import { applyShapeCornerFreeScaleControls } from './scaling/shape-controls'
+import { applyShapeCornerFreeScaleControls } from '../scaling/shape-controls'
 import type {
   ShapeGroupLike,
   ShapeGroupMetadata
-} from './types'
+} from '../types'
 
+/**
+ * Опции Fabric Group с persisted metadata shape-группы.
+ */
 type ShapeGroupOptions = ConstructorParameters<typeof Group>[1] & Partial<ShapeGroupMetadata>
 
+/**
+ * Сериализованная форма layout manager, которую Fabric кладёт в object payload.
+ */
 type SerializedShapeGroupLayoutManager = {
   type: string
   strategy?: string
 }
 
+/**
+ * Сериализованная shape-группа, приходящая из clone/deserialize/history.
+ */
 interface SerializedShapeGroupObject extends Partial<ShapeGroupMetadata> {
   [key: string]: unknown
   type?: string
@@ -42,10 +51,16 @@ interface SerializedShapeGroupObject extends Partial<ShapeGroupMetadata> {
   layoutManager?: SerializedShapeGroupLayoutManager
 }
 
+/**
+ * Класс layout strategy, зарегистрированный внутри Fabric classRegistry.
+ */
 type RegisteredLayoutStrategyClass = {
   new(): LayoutStrategy
 }
 
+/**
+ * Fabric type для custom shape group object.
+ */
 const SHAPE_GROUP_TYPE = 'shape-group'
 
 /**
@@ -94,6 +109,9 @@ function resolveShapeGroupLayoutManager({
 export class ShapeGroupObject extends Group {
   static override type = SHAPE_GROUP_TYPE
 
+  /**
+   * Создаёт Fabric Group с shape-specific runtime настройками и восстанавливает инварианты.
+   */
   constructor(objects: FabricObject[] = [], options: ShapeGroupOptions = {}) {
     const {
       layoutManager,

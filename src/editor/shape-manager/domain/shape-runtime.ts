@@ -6,7 +6,7 @@ import {
 import type {
   ShapeGroupLike,
   ShapeTextNode
-} from './types'
+} from '../types'
 
 /**
  * Возвращает shape-группу в базовый интерактивный режим и включает sub-target клики.

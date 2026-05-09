@@ -1,6 +1,6 @@
 import { ActiveSelection, Point } from 'fabric'
-import ShapeScalingController from '../../src/editor/shape-manager/scaling/shape-scaling'
-import { getShapeNodes } from '../../src/editor/shape-manager/shape-utils'
+import ShapeScalingController from '../../src/editor/shape-manager/scaling/shape-scaling-controller'
+import { getShapeNodes } from '../../src/editor/shape-manager/domain/shape-nodes'
 import type { ShapeScalingState } from '../../src/editor/shape-manager/types'
 import {
   createMockCanvas,

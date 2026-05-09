@@ -1,45 +1,9 @@
-import { FabricObject, Group, Textbox } from 'fabric'
-import { ShapeGroupObject } from './shape-group'
-import { applyShapeGroupInteractivity } from './shape-runtime'
-import {
-  ShapeGroup,
+import { Textbox } from 'fabric'
+import type {
   ShapeGroupLike,
   ShapeNode,
   ShapeTextNode
-} from './types'
-
-/**
- * Проверяет, что объект является shape-группой.
- */
-export const isShapeGroup = (
-  object?: FabricObject | Group | null
-): object is ShapeGroup => object instanceof ShapeGroupObject
-  || (object instanceof Group && object.shapeComposite === true)
-
-/**
- * Разрешает shape-группу из target, subTarget или внутреннего узла shape-композиции.
- */
-export const resolveShapeGroupFromTarget = ({
-  target,
-  subTargets = []
-}: {
-  target?: FabricObject | null
-  subTargets?: FabricObject[]
-}): ShapeGroup | null => {
-  if (isShapeGroup(target)) return target
-
-  if (target?.group && isShapeGroup(target.group)) return target.group
-
-  for (let index = 0; index < subTargets.length; index += 1) {
-    const subTarget = subTargets[index]
-    if (isShapeGroup(subTarget)) return subTarget
-
-    const { group } = subTarget
-    if (group && isShapeGroup(group)) return group
-  }
-
-  return null
-}
+} from '../types'
 
 /**
  * Возвращает внутренний shape-объект группы.
@@ -95,10 +59,3 @@ export const getShapeNodes = ({ group }: { group: ShapeGroupLike }): {
   shape: getShapeNode({ group }),
   text: getShapeTextNode({ group })
 })
-
-/**
- * Включает интерактивность группы и sub-target клики.
- */
-export const applyGroupInteractivity = ({ group }: { group: ShapeGroupLike }): void => {
-  applyShapeGroupInteractivity({ group })
-}

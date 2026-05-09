@@ -8,11 +8,11 @@ import {
   resolveShapeTextAutoExpandWidthForText,
   resolveShapeTextFrameLayout
 } from '../../../../src/editor/shape-manager/layout/shape-layout'
-import { resizeShapeNode } from '../../../../src/editor/shape-manager/shape-factory'
+import { resizeShapeNode } from '../../../../src/editor/shape-manager/creation/shape-node-factory'
 import {
   getShapePreset,
   resolveInternalShapeTextInset
-} from '../../../../src/editor/shape-manager/shape-presets'
+} from '../../../../src/editor/shape-manager/domain/shape-presets'
 import {
   createMeasuredAutoExpandTextbox,
   createMockShapeGroup,
@@ -21,7 +21,7 @@ import {
   measureRenderedTextboxLayout
 } from '../../../test-utils/shape-helpers'
 
-jest.mock('../../../../src/editor/shape-manager/shape-factory', () => ({
+jest.mock('../../../../src/editor/shape-manager/creation/shape-node-factory', () => ({
   resizeShapeNode: jest.fn()
 }))
 

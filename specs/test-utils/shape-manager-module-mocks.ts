@@ -1,4 +1,4 @@
-jest.mock('../../src/editor/shape-manager/shape-factory', () => ({
+jest.mock('../../src/editor/shape-manager/creation/shape-node-factory', () => ({
   createShapeNode: jest.fn(),
   applyShapeStyle: jest.fn(),
   resizeShapeNode: jest.fn()

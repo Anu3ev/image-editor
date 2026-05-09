@@ -1,7 +1,7 @@
 import {
   normalizeShapeRounding,
   resolveShapeRoundingRatio
-} from '../../../../src/editor/shape-manager/shape-rounding'
+} from '../../../../src/editor/shape-manager/domain/shape-rounding'
 
 describe('shape-rounding', () => {
   it('normalizeShapeRounding ограничивает значение диапазоном от 0 до 100', () => {

@@ -1,7 +1,6 @@
 import {
   ActiveSelection,
   Canvas,
-  FabricObject,
   Point,
   Transform
 } from 'fabric'
@@ -18,13 +17,15 @@ import {
   ShapeTextNode
 } from '../types'
 import {
-  getShapeNodes,
+  getShapeNodes
+} from '../domain/shape-nodes'
+import {
   isShapeGroup
-} from '../shape-utils'
+} from '../domain/shape-reference'
 import {
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
   SHAPE_DEFAULT_VERTICAL_ALIGN
-} from '../shape-presets'
+} from '../domain/shape-presets'
 import {
   isShapeTransformCornerChanged,
   isShapeTransformOriginChanged,
@@ -32,10 +33,18 @@ import {
   resolveShapeScaleActionAxes
 } from './shape-scaling-transform'
 import { applyShapeScalingPreviewLayout } from './shape-scaling-preview'
-import ShapeActiveSelectionScalingController from './shape-active-selection-scaling'
+import ShapeActiveSelectionScalingController from './active-selection-scaling-controller'
 import type {
   ActiveSelectionAppliedScale
-} from './shape-active-selection-scaling'
+} from './active-selection-scaling-controller'
+import type {
+  CanvasWithCurrentTransform,
+  ShapeModifiedEvent,
+  ShapeScaleDirection,
+  ShapeScalingConstraintState,
+  ShapeScalingDecision,
+  ShapeScalingEvent
+} from './shape-scaling-types'
 import {
   commitResolvedShapeScalingLayout,
   ensureShapeScalingState,
@@ -54,40 +63,6 @@ import {
 import type {
   ShapeScalingPointerEvent
 } from './shape-scaling-layout'
-
-type ShapeScalingEvent = {
-  target?: FabricObject | null
-  e?: ShapeScalingPointerEvent
-  transform?: Transform | null
-}
-
-type ShapeModifiedEvent = {
-  target?: FabricObject | null
-  e?: ShapeScalingPointerEvent
-  transform?: Transform | null
-}
-
-type ShapeScalingDecision = {
-  appliedScaleX: number
-  appliedScaleY: number
-  previewHeight: number
-  shouldHandleAsNoop: boolean
-  shouldRestoreLastAllowedTransform: boolean
-}
-
-type ShapeScalingConstraintState = {
-  shouldHandleAsNoop: boolean
-  shouldRestoreLastAllowedTransform: boolean
-  clampedScaleX: number | null
-  clampedScaleY: number | null
-  resolvedMinimumHeight: number | null
-}
-
-type ShapeScaleDirection = -1 | 1
-
-type CanvasWithCurrentTransform = Canvas & {
-  _currentTransform?: Transform | null
-}
 
 /**
  * Контроллер масштабирования shape-группы без изменения размера шрифта.
@@ -108,6 +83,7 @@ export default class ShapeScalingController {
    */
   private activeSelectionScalingController: ShapeActiveSelectionScalingController
 
+  /** Инициализирует controller live scaling для shape-групп на canvas. */
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
     this.scalingState = new WeakMap()
