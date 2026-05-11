@@ -15,6 +15,7 @@ import {
 } from '../../../../src/editor/shape-manager/domain/shape-reference'
 import {
   createActiveSelectionShapeScalingSetup,
+  createShapeScalingState,
   createShapeScalingSetup,
   createShapeScalingTransform,
   mockShapeScalingLocalPointer,
@@ -151,6 +152,60 @@ describe('shape-scaling', () => {
 
     applyShapeTextLayoutMock.mockImplementation(applyLayoutMockImplementation)
     applyFixedWidthShapeTextLayoutMock.mockImplementation(applyLayoutMockImplementation)
+  })
+
+  it('resolveShapeScalingPreviewLayout передает words-only wrap policy в общий layout при proportional scaling', () => {
+    const {
+      group,
+      text
+    } = createShapeScalingSetup()
+    const state = createShapeScalingState({
+      isProportionalScaling: true,
+      startWidth: 200,
+      startHeight: 200
+    })
+
+    shapeScalingLayout.resolveShapeScalingPreviewLayout({
+      group,
+      text,
+      state,
+      appliedScaleX: 0.6,
+      appliedScaleY: 0.6
+    })
+
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledTimes(1)
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      wrapPolicy: 'words-only'
+    }))
+  })
+
+  it('commitResolvedShapeScalingLayout передает words-only wrap policy в финальный layout proportional scaling', () => {
+    const {
+      group,
+      shape,
+      text
+    } = createShapeScalingSetup()
+
+    shapeScalingLayout.commitResolvedShapeScalingLayout({
+      group,
+      shape,
+      text,
+      width: 120,
+      height: 120,
+      alignH: 'center',
+      alignV: 'middle',
+      startManualBaseWidth: 200,
+      startManualBaseHeight: 200,
+      canScaleWidth: true,
+      canScaleHeight: true,
+      hasWidthChange: true,
+      wrapPolicy: 'words-only'
+    })
+
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(1)
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledWith(expect.objectContaining({
+      wrapPolicy: 'words-only'
+    }))
   })
 
   it('обрабатывает vertical shrink как noop, если shape уже стоит на minimum height в начале drag', () => {
@@ -817,10 +872,47 @@ describe('shape-scaling', () => {
     expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(2)
 
     applyShapeTextLayoutMock.mock.calls.forEach(([layoutCall]) => {
+      expect(layoutCall.wrapPolicy).toBe('words-only')
       expect(layoutCall.width).toBeGreaterThanOrEqual(99.5)
       expect(layoutCall.width).toBeLessThanOrEqual(100.01)
       expect(layoutCall.height).toBeGreaterThanOrEqual(99.5)
       expect(layoutCall.height).toBeLessThanOrEqual(100.01)
+    })
+  })
+
+  it('при пропорциональном уменьшении нескольких шейпов по диагонали передает words-only wrap policy в preview layout', () => {
+    const {
+      controller,
+      selection
+    } = createActiveSelectionShapeScalingSetup()
+
+    isShapeTextFrameFilledMock.mockReturnValue(false)
+    measureShapeTextFrameLayoutMock.mockImplementation(({ frameWidth }: { frameWidth: number }) => ({
+      measuredHeight: 100,
+      renderedLineCount: 1,
+      longestLineWidth: frameWidth,
+      requiresGraphemeSplit: frameWidth < 100
+    }))
+
+    selection.scaleX = 0.4
+    selection.scaleY = 0.4
+
+    controller.handleObjectScaling({
+      target: selection,
+      transform: createShapeScalingTransform({
+        target: selection,
+        action: 'scale',
+        corner: 'br',
+        originX: 'left',
+        originY: 'top'
+      }) as never
+    })
+
+    expect(resolveShapeTextFixedWidthLayoutMock).toHaveBeenCalledTimes(2)
+
+    resolveShapeTextFixedWidthLayoutMock.mock.calls.forEach(([layoutCall]) => {
+      expect(layoutCall.wrapPolicy).toBe('words-only')
+      expect(layoutCall.width).toBeGreaterThanOrEqual(100)
     })
   })
 

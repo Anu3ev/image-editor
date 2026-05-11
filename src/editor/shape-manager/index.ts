@@ -65,6 +65,7 @@ import {
   ShapeStrokeOptions,
   ShapeTextAlignOptions,
   ShapeTextStyleOptions,
+  ShapeTextWrapPolicy,
   ShapeTextNode,
   ShapeUpdateOptions,
   ShapeVerticalAlign,
@@ -1218,6 +1219,7 @@ export default class ShapeManager {
     alignV,
     internalShapeTextInset,
     resolveInternalShapeTextInset,
+    wrapPolicy,
     preserveAspectRatio,
     expandShapeHeightToFitText = true,
     changedPadding
@@ -1235,6 +1237,7 @@ export default class ShapeManager {
       width: number
       height: number
     }) => ShapePadding
+    wrapPolicy?: ShapeTextWrapPolicy
     preserveAspectRatio?: boolean
     expandShapeHeightToFitText?: boolean
     changedPadding?: ShapePaddingChangeMap
@@ -1250,6 +1253,7 @@ export default class ShapeManager {
       alignV,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
+      wrapPolicy,
       preserveAspectRatio,
       expandShapeHeightToFitText,
       changedPadding

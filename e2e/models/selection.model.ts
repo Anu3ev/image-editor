@@ -5,6 +5,8 @@ import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
 type SelectionControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
+type SelectionDiagonalControlKey = Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
+
 type SelectionScaleInteraction = {
   point: {
     x: number
@@ -206,11 +208,9 @@ export class SelectionModel {
   async shrinkDiagonallyFromBottomRightToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
-    return this._scaleFromControl({
-      startControl: 'br',
-      oppositeControl: 'tl',
-      minimumWidth: params.minimumSize,
-      minimumHeight: params.minimumSize,
+    return this._shrinkDiagonallyToMinimum({
+      corner: 'br',
+      minimumSize: params.minimumSize,
       shiftKey: params.shiftKey
     })
   }
@@ -219,12 +219,49 @@ export class SelectionModel {
   async shrinkDiagonallyFromTopRightToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
-    return this._scaleFromControl({
-      startControl: 'tr',
-      oppositeControl: 'bl',
-      minimumWidth: params.minimumSize,
-      minimumHeight: params.minimumSize,
+    return this._shrinkDiagonallyToMinimum({
+      corner: 'tr',
+      minimumSize: params.minimumSize,
       shiftKey: params.shiftKey
+    })
+  }
+
+  /** Сжимает текущее общее выделение из левого верхнего угла до минимальных ширины и высоты и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
+  async shrinkDiagonallyFromTopLeftToMinimum(
+    params: SelectionMinimumSizeParams
+  ): Promise<SnappingObjectSnapshot> {
+    return this._shrinkDiagonallyToMinimum({
+      corner: 'tl',
+      minimumSize: params.minimumSize,
+      shiftKey: params.shiftKey
+    })
+  }
+
+  /** Сжимает текущее общее выделение из левого нижнего угла до минимальных ширины и высоты и возвращает live-состояние. Поддерживает непропорциональный drag через Shift. */
+  async shrinkDiagonallyFromBottomLeftToMinimum(
+    params: SelectionMinimumSizeParams
+  ): Promise<SnappingObjectSnapshot> {
+    return this._shrinkDiagonallyToMinimum({
+      corner: 'bl',
+      minimumSize: params.minimumSize,
+      shiftKey: params.shiftKey
+    })
+  }
+
+  /** Сжимает текущее общее выделение по диагонали до минимальных ширины и высоты из выбранного угла. */
+  async shrinkDiagonallyToMinimum({
+    corner,
+    minimumSize,
+    shiftKey
+  }: {
+    corner: SelectionDiagonalControlKey
+    minimumSize: number
+    shiftKey?: boolean
+  }): Promise<SnappingObjectSnapshot> {
+    return this._shrinkDiagonallyToMinimum({
+      corner,
+      minimumSize,
+      shiftKey
     })
   }
 
@@ -431,6 +468,36 @@ export class SelectionModel {
     }
 
     return snapshot
+  }
+
+  private async _shrinkDiagonallyToMinimum(params: {
+    corner: Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
+    minimumSize: number
+    shiftKey?: boolean
+  }): Promise<SnappingObjectSnapshot> {
+    const {
+      corner,
+      minimumSize,
+      shiftKey
+    } = params
+
+    return this._scaleFromControl({
+      startControl: corner,
+      oppositeControl: this._resolveOppositeDiagonalControl(corner),
+      minimumWidth: minimumSize,
+      minimumHeight: minimumSize,
+      shiftKey
+    })
+  }
+
+  private _resolveOppositeDiagonalControl(
+    corner: Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
+  ): Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'> {
+    if (corner === 'br') return 'tl'
+    if (corner === 'tr') return 'bl'
+    if (corner === 'tl') return 'br'
+
+    return 'tr'
   }
 
   private _assertScaleInteractionCanContinue(params: {

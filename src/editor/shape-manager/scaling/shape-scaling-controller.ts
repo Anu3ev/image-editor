@@ -55,6 +55,7 @@ import {
   resolveShapeScalingInternalTextInset,
   resolveShapeScalingPreviewDimensions,
   resolveShapeScalingPreviewLayout,
+  resolveShapeScalingTextWrapPolicy,
   resolveShapeScalingUserPadding,
   validateShapeTextLayoutForProportionalScaling,
   SHAPE_SCALING_MIN_SIZE as MIN_SIZE,
@@ -1003,7 +1004,10 @@ export default class ShapeScalingController {
         canScaleHeight
       },
       scaleX: allowedScaleX,
-      scaleY: allowedScaleY
+      scaleY: allowedScaleY,
+      wrapPolicy: resolveShapeScalingTextWrapPolicy({
+        isProportionalScaling: state?.isProportionalScaling
+      })
     })
 
     if (!hasDimensionChange && state) {
@@ -1043,7 +1047,10 @@ export default class ShapeScalingController {
       startManualBaseHeight,
       canScaleWidth,
       canScaleHeight,
-      hasWidthChange
+      hasWidthChange,
+      wrapPolicy: resolveShapeScalingTextWrapPolicy({
+        isProportionalScaling: state?.isProportionalScaling
+      })
     })
 
     if (state) {
@@ -1421,6 +1428,9 @@ export default class ShapeScalingController {
     })
     const horizontalAlign = alignH ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
+    const wrapPolicy = resolveShapeScalingTextWrapPolicy({
+      isProportionalScaling: state.isProportionalScaling
+    })
     const resolveInternalShapeTextInsetForSize = ({ width, height }: {
       width: number
       height: number
@@ -1440,6 +1450,7 @@ export default class ShapeScalingController {
         alignH: horizontalAlign,
         alignV: verticalAlign,
         padding: userPadding,
+        wrapPolicy,
         internalShapeTextInset,
         resolveInternalShapeTextInset: resolveInternalShapeTextInsetForSize
       })
@@ -1453,6 +1464,7 @@ export default class ShapeScalingController {
         alignH: horizontalAlign,
         alignV: verticalAlign,
         padding: userPadding,
+        wrapPolicy,
         internalShapeTextInset,
         resolveInternalShapeTextInset: resolveInternalShapeTextInsetForSize
       })

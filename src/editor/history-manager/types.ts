@@ -1,20 +1,29 @@
-import type { FabricObject } from 'fabric'
-
 /**
  * Полное сериализованное состояние canvas для history.
  */
+export type CanvasStateObject = {
+  [key: string]: unknown
+  id?: string
+  type?: string
+  width?: number
+  height?: number
+  customData?: object
+  objects?: CanvasStateObject[]
+}
+
 export type CanvasFullState = {
   clipPath: object | null
   height: number
   width: number
-  objects: FabricObject[]
+  objects: CanvasStateObject[]
   version: string
 }
 
 /**
- * Fabric-объект с runtime-свойствами, которые участвуют в нормализации snapshot.
+ * Runtime-объект с полями, которые участвуют в нормализации history snapshot.
  */
-export type SnapshotObject = FabricObject & {
+export interface SnapshotObject {
+  isEditing?: boolean
   locked?: boolean
   lockMovementX?: boolean
   lockMovementY?: boolean
@@ -22,8 +31,12 @@ export type SnapshotObject = FabricObject & {
   selectable?: boolean
   shapeComposite?: boolean
   type?: string
-  getObjects?: () => FabricObject[]
+  getObjects?: () => SnapshotObject[]
   group?: SnapshotObject
+}
+
+export interface SnapshotCanvas {
+  getObjects?: () => SnapshotObject[]
 }
 
 /**

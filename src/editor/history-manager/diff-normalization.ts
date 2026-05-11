@@ -1,5 +1,7 @@
-import type { FabricObject } from 'fabric'
-import type { CanvasFullState } from './types'
+import type {
+  CanvasFullState,
+  CanvasStateObject
+} from './types'
 
 /**
  * Делает глубокую копию состояния canvas.
@@ -70,11 +72,11 @@ export function getObjectById({
   objects,
   id
 }: {
-  objects: FabricObject[]
+  objects: CanvasStateObject[]
   id: string
-}): FabricObject | null {
+}): CanvasStateObject | null {
   for (let index = 0; index < objects.length; index += 1) {
-    const object = objects[index] as FabricObject & { id?: string }
+    const object = objects[index]
     if (object.id === id) return object
   }
 
@@ -87,7 +89,7 @@ export function getObjectById({
 export function getMontageAreaSize({
   objects
 }: {
-  objects: FabricObject[]
+  objects: CanvasStateObject[]
 }): { width: number; height: number } {
   const montageObject = getObjectById({
     objects,
@@ -104,18 +106,15 @@ export function getMontageAreaSize({
 /**
  * Собирает плоский список объектов состояния, включая вложенные объекты групп.
  */
-export function collectNestedCanvasObjects({ objects }: { objects: FabricObject[] }): FabricObject[] {
-  const collectedObjects: FabricObject[] = []
+export function collectNestedCanvasObjects({ objects }: { objects: CanvasStateObject[] }): CanvasStateObject[] {
+  const collectedObjects: CanvasStateObject[] = []
   const queue = [...objects]
 
   for (let index = 0; index < queue.length; index += 1) {
     const object = queue[index]
     collectedObjects.push(object)
 
-    const groupObject = object as FabricObject & {
-      objects?: FabricObject[]
-    }
-    const childObjects = Array.isArray(groupObject.objects) ? groupObject.objects : []
+    const childObjects = Array.isArray(object.objects) ? object.objects : []
 
     for (let childIndex = 0; childIndex < childObjects.length; childIndex += 1) {
       queue.push(childObjects[childIndex])
@@ -128,16 +127,11 @@ export function collectNestedCanvasObjects({ objects }: { objects: FabricObject[
 /**
  * Нормализует backgroundColor у текстовых объектов без фона, чтобы избежать шумовых diff.
  */
-export function normalizeTextBackground({ objects }: { objects: FabricObject[] }): void {
+export function normalizeTextBackground({ objects }: { objects: CanvasStateObject[] }): void {
   const allObjects = collectNestedCanvasObjects({ objects })
 
   for (let index = 0; index < allObjects.length; index += 1) {
-    const object = allObjects[index] as FabricObject & {
-      type?: string
-      backgroundOpacity?: number
-      backgroundColor?: string | null
-      textBackgroundColor?: string | null
-    }
+    const object = allObjects[index]
     const {
       type,
       backgroundOpacity: rawBackgroundOpacity,

@@ -194,6 +194,7 @@ export interface ShapeTextInfo extends EditorObjectInfo {
   evented: boolean
   lockMovementX: boolean
   lockMovementY: boolean
+  lines: string[]
   lineCount: number
   selectionStart: number
   selectionEnd: number

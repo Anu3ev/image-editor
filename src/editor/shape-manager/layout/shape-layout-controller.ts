@@ -22,6 +22,7 @@ import type {
   ShapeNode,
   ShapePadding,
   ShapePaddingChangeMap,
+  ShapeTextWrapPolicy,
   ShapeTextNode,
   ShapeTextStyleOptions,
   ShapeVerticalAlign
@@ -312,6 +313,7 @@ export default class ShapeLayoutController {
     alignV,
     internalShapeTextInset,
     resolveInternalShapeTextInset,
+    wrapPolicy,
     preserveAspectRatio,
     expandShapeHeightToFitText = true,
     changedPadding
@@ -329,6 +331,7 @@ export default class ShapeLayoutController {
       width: number
       height: number
     }) => ShapePadding
+    wrapPolicy?: ShapeTextWrapPolicy
     preserveAspectRatio?: boolean
     expandShapeHeightToFitText?: boolean
     changedPadding?: ShapePaddingChangeMap
@@ -380,6 +383,7 @@ export default class ShapeLayoutController {
       width: resolvedWidth,
       height: resolvedHeight
     })
+    const effectiveWrapPolicy = wrapPolicy ?? group.shapeTextWrapPolicy
     const stablePlacement = placement ?? this.editor.canvasManager.getObjectPlacement({
       object: group
     })
@@ -393,6 +397,7 @@ export default class ShapeLayoutController {
       alignH: alignH ?? group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
       alignV: alignV ?? group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
       padding: userPadding,
+      wrapPolicy: effectiveWrapPolicy,
       shapeTextAutoExpandEnabled,
       internalShapeTextInset: resolvedInset,
       resolveInternalShapeTextInset: resolveCurrentInset,

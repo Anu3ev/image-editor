@@ -53,6 +53,8 @@ export type ShapeVisualStyle = {
  */
 export type ShapeTextStyleOptions = Omit<TextStyleOptions, 'autoExpand'>
 
+export type ShapeTextWrapPolicy = 'auto' | 'words-only'
+
 export type ShapePresetBase = {
   key: string
   type: ShapePresetType
@@ -122,6 +124,7 @@ export type ShapeGroupMetadata = {
   shapeReplaceBoxWidth: number
   shapeReplaceBoxHeight: number
   shapeTextAutoExpand: boolean
+  shapeTextWrapPolicy?: ShapeTextWrapPolicy
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
   shapePaddingTop: number
@@ -207,6 +210,7 @@ export type ShapeSnapshot = {
   currentWidth?: number
   currentHeight?: number
   shapeTextAutoExpand: boolean
+  shapeTextWrapPolicy?: ShapeTextWrapPolicy
   alignH: ShapeHorizontalAlign
   alignV: ShapeVerticalAlign
   padding: ShapePadding
@@ -313,6 +317,7 @@ export type ShapeLayoutInput = {
   montageAreaWidth?: number | null
   expandShapeHeightToFitText?: boolean
   changedPadding?: ShapePaddingChangeMap
+  wrapPolicy?: ShapeTextWrapPolicy
 }
 
 export type ShapeTextFrameMeasurementCacheEntry = {

@@ -1,7 +1,8 @@
 /* eslint-disable no-use-before-define, @typescript-eslint/no-use-before-define */
 import {
   ShapeLayoutInput,
-  ShapeTextMeasurementCache
+  ShapeTextMeasurementCache,
+  ShapeTextWrapPolicy
 } from '../types'
 import { MIN_SHAPE_TEXT_FRAME_SIZE } from './shape-padding'
 
@@ -104,10 +105,12 @@ export function measureShapeTextFrameLayout({
 export function measureTextboxLayoutForFrame({
   text,
   frameWidth,
+  wrapPolicy,
   measurementCache
 }: {
   text: ShapeLayoutInput['text']
   frameWidth: number
+  wrapPolicy?: ShapeTextWrapPolicy
   measurementCache?: ShapeTextMeasurementCache
 }): {
   hasWrappedLines: boolean
@@ -117,6 +120,7 @@ export function measureTextboxLayoutForFrame({
   const requiresGraphemeSplit = resolveSplitByGraphemeForFrame({
     text,
     frameWidth,
+    wrapPolicy,
     measurementCache
   })
   const measurement = measureShapeTextFrameLayout({
@@ -140,17 +144,20 @@ export function measureTextboxHeightForFrame({
   text,
   frameWidth,
   splitByGrapheme,
+  wrapPolicy,
   measurementCache
 }: {
   text: ShapeLayoutInput['text']
   frameWidth: number
   splitByGrapheme?: boolean
+  wrapPolicy?: ShapeTextWrapPolicy
   measurementCache?: ShapeTextMeasurementCache
 }): number {
   const resolvedSplitByGrapheme = splitByGrapheme
     ?? resolveSplitByGraphemeForFrame({
       text,
       frameWidth,
+      wrapPolicy,
       measurementCache
     })
 
@@ -221,12 +228,16 @@ export function resolveVerticalTop({
 export function resolveSplitByGraphemeForFrame({
   text,
   frameWidth,
+  wrapPolicy,
   measurementCache
 }: {
   text: ShapeLayoutInput['text']
   frameWidth: number
+  wrapPolicy?: ShapeTextWrapPolicy
   measurementCache?: ShapeTextMeasurementCache
 }): boolean {
+  if (wrapPolicy === 'words-only') return false
+
   const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
   const frameWidthCacheKey = resolveMeasurementFrameWidthCacheKey({
     frameWidth: safeFrameWidth

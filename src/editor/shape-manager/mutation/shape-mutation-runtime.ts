@@ -9,6 +9,7 @@ import type {
   ShapePadding,
   ShapePaddingChangeMap,
   ShapeReference,
+  ShapeTextWrapPolicy,
   ShapeTextNode,
   ShapeTextStyleOptions,
   ShapeUpdateOptions,
@@ -139,6 +140,7 @@ export type ShapeMutationRuntime = {
     alignV?: ShapeVerticalAlign
     internalShapeTextInset?: ShapePadding
     resolveInternalShapeTextInset?: ShapeInsetResolver
+    wrapPolicy?: ShapeTextWrapPolicy
     preserveAspectRatio?: boolean
     expandShapeHeightToFitText?: boolean
     changedPadding?: ShapePaddingChangeMap

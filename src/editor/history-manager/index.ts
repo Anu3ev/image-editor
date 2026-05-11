@@ -5,10 +5,9 @@ import {
   FabricImage,
   Rect
 } from 'fabric'
-import { create as diffPatchCreate } from 'jsondiffpatch'
+import { create as diffPatchCreate } from 'jsondiffpatch/with-text-diffs'
 import type { DiffPatcher, Delta } from 'jsondiffpatch'
 import { nanoid } from 'nanoid'
-import DiffMatchPatch from 'diff-match-patch'
 import { ImageEditor } from '../index'
 import { OBJECT_SERIALIZATION_PROPS } from './constants'
 import {
@@ -40,7 +39,7 @@ export default class HistoryManager {
    * Базовое состояние канваса, от которого будут считаться диффы.
    * Это состояние сохраняется при первом вызове saveState и используется для создания диффов между текущим состоянием канваса и базовым состоянием.
    */
-  public baseState: object | null
+  public baseState: CanvasFullState | null
 
   /**
    * Массив диффов, представляющих изменения от базового состояния.
@@ -188,7 +187,6 @@ export default class HistoryManager {
       },
 
       textDiff: {
-        diffMatchPatch: DiffMatchPatch,
         minLength: 60
       }
     })

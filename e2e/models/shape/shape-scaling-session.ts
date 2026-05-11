@@ -20,6 +20,11 @@ type ActiveScaleInteraction = {
   id?: string
 }
 
+type DragActiveScaleHandleParams = {
+  deltaX: number
+  deltaY: number
+}
+
 export type ShapeDiagonalScaleCorner = Extract<ShapeScaleCorner, 'tl' | 'tr' | 'bl' | 'br'>
 
 type DiagonalScaleHandle = {
@@ -30,6 +35,8 @@ type DiagonalScaleHandle = {
   signX: -1 | 1
   signY: -1 | 1
 }
+
+const DIAGONAL_MINIMUM_POINTER_OFFSET = 1
 
 const SCALE_ORIGIN_BY_CORNER: Record<ShapeDiagonalScaleCorner, {
   originX: 'left' | 'right'
@@ -55,32 +62,32 @@ const SCALE_ORIGIN_BY_CORNER: Record<ShapeDiagonalScaleCorner, {
 
 const DIAGONAL_MINIMUM_SCALE_HANDLE_BY_CORNER: Record<ShapeDiagonalScaleCorner, DiagonalScaleHandle> = {
   tl: {
-    pointerX: 20,
-    pointerY: 20,
+    pointerX: DIAGONAL_MINIMUM_POINTER_OFFSET,
+    pointerY: DIAGONAL_MINIMUM_POINTER_OFFSET,
     originX: 'right',
     originY: 'bottom',
     signX: -1,
     signY: -1
   },
   tr: {
-    pointerX: -20,
-    pointerY: 20,
+    pointerX: -DIAGONAL_MINIMUM_POINTER_OFFSET,
+    pointerY: DIAGONAL_MINIMUM_POINTER_OFFSET,
     originX: 'left',
     originY: 'bottom',
     signX: 1,
     signY: -1
   },
   bl: {
-    pointerX: 20,
-    pointerY: -20,
+    pointerX: DIAGONAL_MINIMUM_POINTER_OFFSET,
+    pointerY: -DIAGONAL_MINIMUM_POINTER_OFFSET,
     originX: 'right',
     originY: 'top',
     signX: -1,
     signY: 1
   },
   br: {
-    pointerX: -20,
-    pointerY: -20,
+    pointerX: -DIAGONAL_MINIMUM_POINTER_OFFSET,
+    pointerY: -DIAGONAL_MINIMUM_POINTER_OFFSET,
     originX: 'left',
     originY: 'top',
     signX: 1,
@@ -322,7 +329,162 @@ export class ShapeScalingSession {
   private async _performInteractiveScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
     await this._startScaleInteractionIfNeeded(params)
 
-    const result = await this.page.evaluate((payload) => {
+    const result = this.activeScaleInteraction?.mode === 'synthetic-mouse-move'
+      ? await this._continueInteractiveScaleFromAbsoluteScale(params)
+      : await this._continueInteractiveScaleFromControl(params)
+
+    expect(result, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
+
+    await waitForCanvasRender({ page: this.page })
+
+    const {
+      corner,
+      point,
+      snapshot
+    } = result as {
+      corner: ShapeScaleCorner
+      point: {
+        x: number
+        y: number
+      }
+      snapshot: ShapeScaleSnapshot
+    }
+
+    expect(snapshot, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
+
+    this.activeScaleInteraction = {
+      point,
+      mode: 'interactive',
+      corner,
+      objectIndex: params.objectIndex,
+      id: params.id
+    }
+
+    return snapshot
+  }
+
+  private async _continueInteractiveScaleFromAbsoluteScale(params: ShapeScaleStepParams): Promise<{
+    corner: ShapeScaleCorner
+    point: {
+      x: number
+      y: number
+    }
+    snapshot: ShapeScaleSnapshot
+  } | null> {
+    return this.page.evaluate((payload) => {
+      const {
+        scaleX,
+        scaleY,
+        corner = 'br',
+        shiftKey = false,
+        ctrlKey = false,
+        objectIndex,
+        id
+      } = payload
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
+      if (!target) return null
+
+      const transform = editor.canvas._currentTransform
+      if (!transform || transform.target !== target) return null
+
+      const activeCorner = typeof transform.corner === 'string' && transform.corner ? transform.corner : corner
+      const activeOriginX = typeof transform.originX === 'string' ? transform.originX : 'left'
+      const activeOriginY = typeof transform.originY === 'string' ? transform.originY : 'top'
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const settleStep = 0.75
+      const resolveSettleDelta = (controlCorner: string, axis: 'x' | 'y') => {
+        if (axis === 'x') {
+          if (controlCorner.includes('l')) return -settleStep
+          if (controlCorner.includes('r')) return settleStep
+
+          return 0
+        }
+
+        if (controlCorner.includes('t')) return -settleStep
+        if (controlCorner.includes('b')) return settleStep
+
+        return 0
+      }
+      const anchorPoint = target.getPointByOrigin(activeOriginX, activeOriginY)
+      const previousState = {
+        left: typeof target.left === 'number' ? target.left : 0,
+        top: typeof target.top === 'number' ? target.top : 0,
+        scaleX: typeof target.scaleX === 'number' ? target.scaleX : 1,
+        scaleY: typeof target.scaleY === 'number' ? target.scaleY : 1
+      }
+
+      target.set({ scaleX, scaleY })
+      target.setPositionByOrigin(anchorPoint, activeOriginX, activeOriginY)
+      target.setCoords()
+
+      const control = target.oCoords?.[activeCorner]
+      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') {
+        target.set(previousState)
+        target.setCoords()
+
+        return null
+      }
+
+      const controlPoint = { x: rect.left + control.x, y: rect.top + control.y }
+
+      target.set(previousState)
+      target.setCoords()
+
+      editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: controlPoint.x,
+        clientY: controlPoint.y,
+        shiftKey,
+        ctrlKey
+      }))
+
+      if (!ctrlKey) {
+        target.setCoords()
+        const settledControl = target.oCoords?.[activeCorner]
+        if (settledControl && typeof settledControl.x === 'number' && typeof settledControl.y === 'number') {
+          const settlePoint = {
+            x: rect.left + settledControl.x + resolveSettleDelta(activeCorner, 'x'),
+            y: rect.top + settledControl.y + resolveSettleDelta(activeCorner, 'y')
+          }
+
+          editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+            bubbles: true,
+            button: 0,
+            buttons: 1,
+            clientX: settlePoint.x,
+            clientY: settlePoint.y,
+            shiftKey,
+            ctrlKey
+          }))
+        }
+      }
+
+      target.setCoords()
+      const finalControl = target.oCoords?.[activeCorner]
+      const finalPoint = finalControl && typeof finalControl.x === 'number' && typeof finalControl.y === 'number'
+        ? { x: rect.left + finalControl.x, y: rect.top + finalControl.y }
+        : controlPoint
+
+      return {
+        corner: activeCorner,
+        point: finalPoint,
+        snapshot: helpers.serializeShapeScaleSnapshot(target)
+      }
+    }, params)
+  }
+
+  private async _continueInteractiveScaleFromControl(params: ShapeScaleStepParams): Promise<{
+    corner: ShapeScaleCorner
+    point: {
+      x: number
+      y: number
+    }
+    snapshot: ShapeScaleSnapshot
+  } | null> {
+    return this.page.evaluate((payload) => {
       const {
         scaleX,
         scaleY,
@@ -347,59 +509,65 @@ export class ShapeScalingSession {
       const activeCorner = typeof transform.corner === 'string' && transform.corner
         ? transform.corner
         : corner
-      const activeOriginX = typeof transform.originX === 'string'
-        ? transform.originX
-        : 'left'
-      const activeOriginY = typeof transform.originY === 'string'
-        ? transform.originY
-        : 'top'
-      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-      const settleStep = 0.75
-      const anchorPoint = target.getPointByOrigin(activeOriginX, activeOriginY)
-      const previousLeft = typeof target.left === 'number' ? target.left : 0
-      const previousTop = typeof target.top === 'number' ? target.top : 0
-      const previousScaleX = typeof target.scaleX === 'number' ? target.scaleX : 1
-      const previousScaleY = typeof target.scaleY === 'number' ? target.scaleY : 1
+      const oppositeControlByCorner = {
+        tl: 'br',
+        tr: 'bl',
+        bl: 'tr',
+        br: 'tl',
+        ml: 'mr',
+        mr: 'ml',
+        mt: 'mb',
+        mb: 'mt'
+      } as Record<string, string>
+      const oppositeCorner = oppositeControlByCorner[activeCorner]
+      if (!oppositeCorner) return null
 
-      target.set({
-        scaleX,
-        scaleY
-      })
-      target.setPositionByOrigin(anchorPoint, activeOriginX, activeOriginY)
       target.setCoords()
 
-      const control = target.oCoords?.[activeCorner]
-      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') {
-        target.set({
-          left: previousLeft,
-          top: previousTop,
-          scaleX: previousScaleX,
-          scaleY: previousScaleY
-        })
-        target.setCoords()
-
+      const controls = target.oCoords
+      const startControl = controls?.[activeCorner]
+      const oppositeControl = controls?.[oppositeCorner]
+      if (
+        !startControl
+        || !oppositeControl
+        || typeof startControl.x !== 'number'
+        || typeof startControl.y !== 'number'
+        || typeof oppositeControl.x !== 'number'
+        || typeof oppositeControl.y !== 'number'
+      ) {
         return null
       }
 
-      const controlPoint = {
-        x: rect.left + control.x,
-        y: rect.top + control.y
-      }
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const settleStep = 0.75
+      const resolveSettleDelta = (controlCorner: string, axis: 'x' | 'y') => {
+        if (axis === 'x') {
+          if (controlCorner.includes('l')) return -settleStep
+          if (controlCorner.includes('r')) return settleStep
 
-      target.set({
-        left: previousLeft,
-        top: previousTop,
-        scaleX: previousScaleX,
-        scaleY: previousScaleY
-      })
-      target.setCoords()
+          return 0
+        }
+
+        if (controlCorner.includes('t')) return -settleStep
+        if (controlCorner.includes('b')) return settleStep
+
+        return 0
+      }
+      const controlWidth = startControl.x - oppositeControl.x
+      const controlHeight = startControl.y - oppositeControl.y
+      const widthSign = Math.sign(controlWidth) || 1
+      const heightSign = Math.sign(controlHeight) || 1
+      const movePoint = {
+        x: rect.left + oppositeControl.x + (widthSign * Math.abs(controlWidth) * scaleX),
+        y: rect.top + oppositeControl.y + (heightSign * Math.abs(controlHeight) * scaleY)
+      }
 
       editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
         bubbles: true,
         button: 0,
         buttons: 1,
-        clientX: controlPoint.x,
-        clientY: controlPoint.y,
+        clientX: movePoint.x,
+        clientY: movePoint.y,
         shiftKey,
         ctrlKey
       }))
@@ -409,25 +577,12 @@ export class ShapeScalingSession {
 
         const settledControl = target.oCoords?.[activeCorner]
         if (settledControl && typeof settledControl.x === 'number' && typeof settledControl.y === 'number') {
-          let settleDeltaX = 0
-          if (activeCorner.includes('l')) settleDeltaX = -settleStep
-          if (activeCorner.includes('r')) settleDeltaX = settleStep
-
-          let settleDeltaY = 0
-          if (activeCorner.includes('t')) settleDeltaY = -settleStep
-          if (activeCorner.includes('b')) settleDeltaY = settleStep
-
-          const settlePoint = {
-            x: rect.left + settledControl.x + settleDeltaX,
-            y: rect.top + settledControl.y + settleDeltaY
-          }
-
           editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
             bubbles: true,
             button: 0,
             buttons: 1,
-            clientX: settlePoint.x,
-            clientY: settlePoint.y,
+            clientX: rect.left + settledControl.x + resolveSettleDelta(activeCorner, 'x'),
+            clientY: rect.top + settledControl.y + resolveSettleDelta(activeCorner, 'y'),
             shiftKey,
             ctrlKey
           }))
@@ -441,41 +596,16 @@ export class ShapeScalingSession {
           x: rect.left + finalControl.x,
           y: rect.top + finalControl.y
         }
-        : controlPoint
+        : movePoint
 
       return {
+        corner: activeCorner,
         point: finalPoint,
         snapshot: helpers.serializeShapeScaleSnapshot(target)
       }
     }, params)
-
-    expect(result, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
-
-    await waitForCanvasRender({ page: this.page })
-
-    const {
-      point,
-      snapshot
-    } = result as {
-      point: {
-        x: number
-        y: number
-      }
-      snapshot: ShapeScaleSnapshot
-    }
-
-    expect(snapshot, 'должен существовать live snapshot после интерактивного масштабирования').not.toBeNull()
-
-    this.activeScaleInteraction = {
-      point,
-      mode: 'interactive',
-      corner: params.corner ?? 'br',
-      objectIndex: params.objectIndex,
-      id: params.id
-    }
-
-    return snapshot
   }
+
 
   /** Имитирует масштабирование shape и запекание результата через object:modified */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
@@ -717,6 +847,156 @@ export class ShapeScalingSession {
     }
 
     return snapshot
+  }
+
+  /** Продолжает текущий drag хэндла shape и возвращает live snapshot. */
+  async dragActiveScaleHandleBy(
+    params: DragActiveScaleHandleParams
+  ): Promise<ShapeScaleSnapshot> {
+    expect(
+      this.activeScaleInteraction,
+      'должна существовать активная drag-сессия масштабирования shape'
+    ).not.toBeNull()
+
+    if (!this.activeScaleInteraction) {
+      throw new Error('должна существовать активная drag-сессия масштабирования shape')
+    }
+
+    const result = await this._continueActiveScaleDrag({
+      ...this.activeScaleInteraction,
+      ...params
+    })
+
+    expect(result, 'должен существовать live snapshot после продолжения drag shape').not.toBeNull()
+
+    await waitForCanvasRender({ page: this.page })
+
+    const {
+      corner,
+      point,
+      snapshot
+    } = result as {
+      corner: ShapeScaleCorner
+      point: {
+        x: number
+        y: number
+      }
+      snapshot: ShapeScaleSnapshot
+    }
+
+    this.activeScaleInteraction = {
+      ...this.activeScaleInteraction,
+      corner,
+      point
+    }
+
+    return snapshot
+  }
+
+  /** Продолжает текущий drag хэндла shape в сторону anchor текущей drag-сессии. */
+  async dragActiveScaleHandleTowardAnchor(
+    params: { distance: number }
+  ): Promise<ShapeScaleSnapshot> {
+    expect(
+      this.activeScaleInteraction,
+      'должна существовать активная drag-сессия масштабирования shape'
+    ).not.toBeNull()
+
+    if (!this.activeScaleInteraction) {
+      throw new Error('должна существовать активная drag-сессия масштабирования shape')
+    }
+
+    const { distance } = params
+    const { corner } = this.activeScaleInteraction
+    let deltaX = 0
+    let deltaY = 0
+
+    if (corner.includes('l')) deltaX = distance
+    if (corner.includes('r')) deltaX = -distance
+    if (corner.includes('t')) deltaY = distance
+    if (corner.includes('b')) deltaY = -distance
+
+    if (deltaX !== 0 && deltaY !== 0 && Math.sign(deltaX) !== Math.sign(deltaY)) {
+      await this.dragActiveScaleHandleBy({
+        deltaX,
+        deltaY: 0
+      })
+
+      return this.dragActiveScaleHandleBy({
+        deltaX: 0,
+        deltaY
+      })
+    }
+
+    return this.dragActiveScaleHandleBy({
+      deltaX,
+      deltaY
+    })
+  }
+
+  private async _continueActiveScaleDrag(params: ActiveScaleInteraction & DragActiveScaleHandleParams): Promise<{
+    corner: ShapeScaleCorner
+    point: {
+      x: number
+      y: number
+    }
+    snapshot: ShapeScaleSnapshot
+  }> {
+    const result = await this.page.evaluate((payload) => {
+      const {
+        point,
+        corner,
+        deltaX,
+        deltaY,
+        objectIndex,
+        id
+      } = payload
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
+      if (!target) return null
+
+      const movePoint = {
+        x: point.x + deltaX,
+        y: point.y + deltaY
+      }
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: movePoint.x,
+        clientY: movePoint.y
+      }))
+
+      target.setCoords()
+
+      const transform = editor.canvas._currentTransform
+      const currentCorner = typeof transform?.corner === 'string'
+        ? transform.corner
+        : corner
+      return {
+        corner: currentCorner,
+        point: movePoint,
+        snapshot: helpers.serializeShapeScaleSnapshot(target)
+      }
+    }, params)
+
+    expect(result, 'должен существовать live snapshot после продолжения drag shape').not.toBeNull()
+
+    await waitForCanvasRender({ page: this.page })
+
+    return result as {
+      corner: ShapeScaleCorner
+      point: {
+        x: number
+        y: number
+      }
+      snapshot: ShapeScaleSnapshot
+    }
   }
 
   /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */

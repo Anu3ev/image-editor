@@ -1,5 +1,5 @@
-import { Textbox, type Canvas } from 'fabric'
 import type {
+  SnapshotCanvas,
   SnapshotInteractivityState,
   SnapshotObject
 } from './types'
@@ -10,7 +10,7 @@ import type {
 export function getChildSnapshotObjects({ object }: { object: SnapshotObject }): SnapshotObject[] {
   if (typeof object.getObjects !== 'function') return []
 
-  return object.getObjects() as SnapshotObject[]
+  return object.getObjects()
 }
 
 /**
@@ -18,7 +18,7 @@ export function getChildSnapshotObjects({ object }: { object: SnapshotObject }):
  */
 export function hasEditingTextInObjects({ objects }: { objects: SnapshotObject[] }): boolean {
   for (let index = 0; index < objects.length; index += 1) {
-    const object = objects[index] as Textbox
+    const object = objects[index]
     if (!object.isEditing) continue
 
     return true
@@ -35,7 +35,7 @@ export function isTextSnapshotObject({ object }: { object: SnapshotObject }): bo
 
   return type === 'textbox'
     || type === 'background-textbox'
-    || typeof (object as Textbox).isEditing === 'boolean'
+    || typeof object.isEditing === 'boolean'
 }
 
 /**
@@ -100,7 +100,7 @@ export function normalizeEditingShapeTextForSnapshot({
   if (!isTextSnapshotObject({ object })) return false
 
   const parentGroup = object.group
-  const { isEditing } = object as Textbox
+  const { isEditing } = object
   const isShapeText = parentGroup?.shapeComposite === true
   const parentLocked = Boolean(parentGroup?.locked)
 
@@ -182,8 +182,8 @@ export function normalizeSnapshotObjects({
 /**
  * Собирает плоский список объектов canvas вместе с дочерними объектами групп.
  */
-export function collectSnapshotObjects({ canvas }: { canvas: Canvas }): SnapshotObject[] {
-  const queue = [...canvas.getObjects?.() ?? []] as SnapshotObject[]
+export function collectSnapshotObjects({ canvas }: { canvas: SnapshotCanvas }): SnapshotObject[] {
+  const queue = [...canvas.getObjects?.() ?? []]
   const objects: SnapshotObject[] = []
 
   for (let index = 0; index < queue.length; index += 1) {
@@ -233,7 +233,7 @@ export function withNormalizedInteractivityForSnapshot<T>({
   canvas,
   callback
 }: {
-  canvas: Canvas
+  canvas: SnapshotCanvas
   callback: () => T
 }): T {
   const objects = collectSnapshotObjects({ canvas })

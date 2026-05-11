@@ -42,6 +42,7 @@ import {
   resolveShapeScalingConstraintPadding,
   resolveShapeScalingPreviewDimensions,
   resolveShapeScalingPreviewLayout,
+  resolveShapeScalingTextWrapPolicy,
   resolveShapeScalingStartDimensions,
   SHAPE_SCALING_MIN_SIZE as MIN_SIZE,
   SHAPE_SCALING_SCALE_EPSILON as SCALE_EPSILON,
@@ -254,6 +255,8 @@ export default class ShapeActiveSelectionScalingController {
       } = item
       const sessionItem = session.items.get(group) as ActiveSelectionShapeScalingSessionItem
 
+      state.isProportionalScaling = isProportionalCornerScale
+
       let layoutScale: ActiveSelectionShapeLayoutScale
       let minimumHeight: number
 
@@ -282,6 +285,9 @@ export default class ShapeActiveSelectionScalingController {
           startDimensions: state,
           appliedScaleX: layoutScale.scaleX,
           appliedScaleY: layoutScale.scaleY,
+          wrapPolicy: resolveShapeScalingTextWrapPolicy({
+            isProportionalScaling: state.isProportionalScaling
+          }),
           measurementCache: state.previewTextMeasurementCache
         }).previewHeight
       }
@@ -381,7 +387,10 @@ export default class ShapeActiveSelectionScalingController {
         canScaleHeight
       },
       scaleX: layoutScale.scaleX,
-      scaleY: layoutScale.scaleY
+      scaleY: layoutScale.scaleY,
+      wrapPolicy: resolveShapeScalingTextWrapPolicy({
+        isProportionalScaling: state?.isProportionalScaling
+      })
     })
 
     if (!hasDimensionChange) {
@@ -403,7 +412,10 @@ export default class ShapeActiveSelectionScalingController {
       startManualBaseHeight: startDimensions.startManualBaseHeight,
       canScaleWidth,
       canScaleHeight,
-      hasWidthChange
+      hasWidthChange,
+      wrapPolicy: resolveShapeScalingTextWrapPolicy({
+        isProportionalScaling: state?.isProportionalScaling
+      })
     })
 
     this.shapeScalingState.delete(group)

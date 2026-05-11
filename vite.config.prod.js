@@ -24,7 +24,7 @@ export default defineConfig({
 
     rollupOptions: {
       // внешние зависимости – не бандлить их
-      external: ['fabric', 'jspdf', 'jsondiffpatch', 'diff-match-patch']
+      external: ['fabric', 'jspdf', 'jsondiffpatch', 'jsondiffpatch/with-text-diffs']
     },
 
     outDir: 'dist',

@@ -82,6 +82,27 @@ describe('shape-layout', () => {
     expect(layout.splitByGrapheme).toBe(true)
   })
 
+  it('resolveShapeTextFrameLayout уважает words-only wrap policy для scaling layout', () => {
+    const text = createMockShapeTextbox({
+      text: 'superlongwordwithoutspaces',
+      width: 160,
+      fontSize: 26
+    })
+
+    const layout = resolveShapeTextFrameLayout({
+      text,
+      width: 120,
+      height: 120,
+      alignV: 'middle',
+      padding: textFramePadding,
+      wrapPolicy: 'words-only'
+    })
+
+    expect(layout.splitByGrapheme).toBe(false)
+    expect(layout.frame.width).toBeGreaterThan(0)
+    expect(layout.frame.height).toBeGreaterThan(0)
+  })
+
   it('resolveRequiredShapeHeightForText увеличивает высоту, если текст не помещается', () => {
     const text = createMockShapeTextbox({
       text: 'line one\nline two\nline three\nline four',

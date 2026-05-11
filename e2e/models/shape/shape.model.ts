@@ -302,6 +302,45 @@ export class ShapeModel {
     })
   }
 
+  /** Добавляет shape и сразу задаёт текст с нужным размером через editing path. */
+  async addWithText({
+    presetKey,
+    text,
+    fontSize,
+    options
+  }: {
+    presetKey: ShapePresetKey
+    text: string
+    fontSize: number
+    options?: ShapeAddParams['options']
+  }): Promise<ShapeObjectInfo | null> {
+    const createdShape = await this.add({
+      presetKey,
+      options
+    })
+
+    if (!createdShape) return null
+
+    const targetParams: ObjectTargetParams = typeof createdShape.id === 'string'
+      ? { id: createdShape.id }
+      : { objectIndex: 0 }
+
+    await this.enterTextEditing(targetParams)
+    await this.updateEditingText({
+      ...targetParams,
+      text
+    })
+    await this.updateTextStyleInEditing({
+      ...targetParams,
+      style: {
+        fontSize
+      }
+    })
+    await this.exitTextEditing(targetParams)
+
+    return this.getObject(targetParams)
+  }
+
   /** Удаляет shape. По умолчанию — активный объект */
   async remove(params: ObjectTargetParams = {}): Promise<boolean> {
     const removed = await this.page.evaluate(({ objectIndex, id }) => {
@@ -512,6 +551,16 @@ export class ShapeModel {
   /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
     return this.scalingController.simulateScaleMouseMoveStep(params)
+  }
+
+  /** Продолжает текущий drag хэндла shape и возвращает live snapshot. */
+  async dragActiveScaleHandleBy(params: { deltaX: number, deltaY: number }): Promise<ShapeScaleSnapshot> {
+    return this.scalingController.dragActiveScaleHandleBy(params)
+  }
+
+  /** Продолжает текущий drag хэндла shape в сторону anchor текущей drag-сессии. */
+  async dragActiveScaleHandleTowardAnchor(params: { distance: number }): Promise<ShapeScaleSnapshot> {
+    return this.scalingController.dragActiveScaleHandleTowardAnchor(params)
   }
 
   /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */
