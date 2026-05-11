@@ -884,11 +884,12 @@ export class ShapeUpdatePipeline {
     }
 
     if (dimensionState.shouldFitReplacementToPreset) {
-      return {
-        width: dimensionState.nextCurrentDimensions.width,
-        height: dimensionState.nextCurrentDimensions.height,
+      return this._resolveReplacementLayoutDimensions({
+        stagedTextNode,
+        styleState,
+        dimensionState,
         shouldPreserveCurrentWidth
-      }
+      })
     }
 
     return {
@@ -907,6 +908,51 @@ export class ShapeUpdatePipeline {
         })
       }),
       height: dimensionState.nextCurrentDimensions.height,
+      shouldPreserveCurrentWidth
+    }
+  }
+
+  /**
+   * Разрешает итоговый proportional layout для замены пресета с учётом текущего текста.
+   */
+  private _resolveReplacementLayoutDimensions({
+    stagedTextNode,
+    styleState,
+    dimensionState,
+    shouldPreserveCurrentWidth
+  }: {
+    stagedTextNode: ShapeTextNode
+    styleState: ResolvedUpdateStyle
+    dimensionState: ResolvedUpdateDimensions
+    shouldPreserveCurrentWidth: boolean
+  }): PreparedLayoutDimensions {
+    const {
+      width,
+      height
+    } = dimensionState.nextCurrentDimensions
+    const aspectRatio = height / Math.max(1, width)
+    const resolvedWidth = this.runtime.resolveShapeLayoutWidth({
+      text: stagedTextNode,
+      currentWidth: width,
+      manualWidth: width,
+      shapeTextAutoExpandEnabled: true,
+      padding: styleState.basePadding,
+      resolvePaddingForWidth: ({ width: candidateWidth }) => {
+        const candidateHeight = Math.max(1, candidateWidth * aspectRatio)
+
+        return sumShapePadding({
+          base: styleState.resolveInternalShapeTextInset({
+            width: candidateWidth,
+            height: candidateHeight
+          }),
+          addition: styleState.nextUserPadding
+        })
+      }
+    })
+
+    return {
+      width: resolvedWidth,
+      height: Math.max(1, resolvedWidth * aspectRatio),
       shouldPreserveCurrentWidth
     }
   }

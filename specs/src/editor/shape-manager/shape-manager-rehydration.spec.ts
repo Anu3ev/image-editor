@@ -152,6 +152,35 @@ describe('восстановленная фигура', () => {
     expect(group.shapePaddingTop).toBe(7)
   })
 
+  it('после восстановленного пропорционального сужения сохраняет запрет на перенос по буквам', () => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const { group } = createShapeRehydrationTarget({
+      width: 120,
+      height: 120,
+      scaleX: 1,
+      scaleY: 1,
+      manualWidth: 120,
+      manualHeight: 120
+    })
+
+    group.shapeTextWrapPolicy = 'words-only'
+
+    const result = manager.commitRehydratedShapeLayout({
+      target: group
+    })
+    const layoutCallCalls = applyShapeTextLayoutMock.mock.calls
+    const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
+
+    expect(result).toBe(true)
+    expect(layoutCall).toEqual(expect.objectContaining({
+      wrapPolicy: 'words-only'
+    }))
+    expect(group.shapeTextWrapPolicy).toBe('words-only')
+  })
+
   it('при явном отключении авторасширения передаёт этот режим в layout во время materialization', () => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({

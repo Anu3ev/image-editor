@@ -36,6 +36,10 @@ describe('HistoryManager', () => {
     expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeTextAutoExpand')
   })
 
+  it('history serialization включает wrap policy текста у фигуры', () => {
+    expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeTextWrapPolicy')
+  })
+
   it('history serialization включает replacement box у фигуры', () => {
     expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeReplaceBoxWidth')
     expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeReplaceBoxHeight')

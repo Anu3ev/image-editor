@@ -1,6 +1,7 @@
 import { Group, Point } from 'fabric'
 import type {
   ShapeNode,
+  ShapeTextWrapPolicy,
   ShapeTextNode
 } from '../../src/editor/shape-manager/types'
 import { BackgroundTextbox } from '../../src/editor/text-manager/background-textbox'
@@ -61,6 +62,7 @@ type MockShapeGroup = Group & {
   shapeBaseHeight: number
   shapeManualBaseWidth: number
   shapeManualBaseHeight: number
+  shapeTextWrapPolicy?: ShapeTextWrapPolicy
   shapeAlignHorizontal: 'left' | 'center' | 'right' | 'justify'
   shapeAlignVertical: 'top' | 'middle' | 'bottom'
   shapePaddingTop: number

@@ -21,6 +21,7 @@ import {
   ShapeLayoutInput,
   ShapeTextMeasurementCache,
   ShapePadding,
+  ShapeTextWrapPolicy,
   ShapeVerticalAlign
 } from '../types'
 
@@ -72,6 +73,7 @@ export type ResolvedShapeTextLayout = {
   frame: ShapeTextFrame
   splitByGrapheme: boolean
   textTop: number
+  wrapPolicy?: ShapeTextWrapPolicy
 }
 
 /**
@@ -137,6 +139,7 @@ type ResolveShapeTextFixedWidthLayoutParams = {
   height: number
   alignV: ShapeVerticalAlign
   padding: ShapePadding
+  wrapPolicy?: ShapeTextWrapPolicy
   internalShapeTextInset?: ShapePadding
   resolveInternalShapeTextInset?: ShapeLayoutInput['resolveInternalShapeTextInset']
   expandShapeHeightToFitText?: boolean
@@ -156,6 +159,7 @@ type ApplyFixedWidthShapeTextLayoutParams = {
   alignH: ShapeLayoutInput['alignH']
   alignV: ShapeLayoutInput['alignV']
   padding: ShapePadding
+  wrapPolicy?: ShapeTextWrapPolicy
   internalShapeTextInset?: ShapePadding
   resolveInternalShapeTextInset?: ShapeLayoutInput['resolveInternalShapeTextInset']
   expandShapeHeightToFitText?: boolean
@@ -172,6 +176,7 @@ type ResolveShapeTextLayoutStateParams = {
   height: number
   appliedPadding: ShapePadding
   appliedUserPadding: ShapePadding
+  wrapPolicy?: ShapeTextWrapPolicy
 }
 
 /**
@@ -182,6 +187,7 @@ type ResolveShapeTextLayoutResolutionParams = {
   width: number
   height: number
   padding: ShapePadding
+  wrapPolicy?: ShapeTextWrapPolicy
   internalShapeTextInset?: ShapePadding
   resolveInternalShapeTextInset?: ResolveInternalShapeTextInset
   shapeTextAutoExpandEnabled?: boolean
@@ -205,7 +211,8 @@ function resolveShapeTextLayoutState({
   width,
   height,
   appliedPadding,
-  appliedUserPadding
+  appliedUserPadding,
+  wrapPolicy
 }: ResolveShapeTextLayoutStateParams): ResolvedShapeTextLayout {
   const {
     frame,
@@ -216,7 +223,8 @@ function resolveShapeTextLayoutState({
     width,
     height,
     alignV,
-    padding: appliedPadding
+    padding: appliedPadding,
+    wrapPolicy
   })
 
   return {
@@ -226,7 +234,8 @@ function resolveShapeTextLayoutState({
     appliedUserPadding,
     frame,
     splitByGrapheme,
-    textTop
+    textTop,
+    wrapPolicy
   }
 }
 
@@ -240,6 +249,7 @@ export const resolveShapeTextLayout = ({
   height,
   alignV,
   padding,
+  wrapPolicy,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
   preserveAspectRatio,
@@ -259,6 +269,7 @@ export const resolveShapeTextLayout = ({
       width,
       height,
       padding,
+      wrapPolicy,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
       shapeTextAutoExpandEnabled,
@@ -271,6 +282,7 @@ export const resolveShapeTextLayout = ({
       width,
       height,
       padding,
+      wrapPolicy,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
       expandShapeHeightToFitText,
@@ -283,7 +295,8 @@ export const resolveShapeTextLayout = ({
     width: resolvedWidth,
     height: resolvedHeight,
     appliedPadding,
-    appliedUserPadding
+    appliedUserPadding,
+    wrapPolicy
   })
 }
 
@@ -297,6 +310,7 @@ export const resolveShapeTextFixedWidthLayout = ({
   height,
   alignV,
   padding,
+  wrapPolicy,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
   expandShapeHeightToFitText = true,
@@ -311,6 +325,15 @@ export const resolveShapeTextFixedWidthLayout = ({
   })
   const fixedWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   let resolvedHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  const measureTextboxHeight = ({ text: targetText, frameWidth }: {
+    text: ShapeLayoutInput['text']
+    frameWidth: number
+  }) => measureTextboxHeightForFrame({
+    text: targetText,
+    frameWidth,
+    wrapPolicy,
+    measurementCache
+  })
   let resolvedPaddingLayout = resolveAppliedShapePadding({
     text,
     width: fixedWidth,
@@ -324,11 +347,7 @@ export const resolveShapeTextFixedWidthLayout = ({
     }),
     expandShapeHeightToFitText,
     changedPadding,
-    measureTextboxHeightForFrame: ({ text: targetText, frameWidth }) => measureTextboxHeightForFrame({
-      text: targetText,
-      frameWidth,
-      measurementCache
-    }),
+    measureTextboxHeightForFrame: measureTextboxHeight,
     resolveMinimumTextFrameWidth: ({ text: targetText }) => resolveMinimumTextFrameWidth({
       text: targetText,
       measurementCache
@@ -356,11 +375,7 @@ export const resolveShapeTextFixedWidthLayout = ({
       }),
       expandShapeHeightToFitText,
       changedPadding,
-      measureTextboxHeightForFrame: ({ text: targetText, frameWidth }) => measureTextboxHeightForFrame({
-        text: targetText,
-        frameWidth,
-        measurementCache
-      }),
+      measureTextboxHeightForFrame: measureTextboxHeight,
       resolveMinimumTextFrameWidth: ({ text: targetText }) => resolveMinimumTextFrameWidth({
         text: targetText,
         measurementCache
@@ -374,7 +389,8 @@ export const resolveShapeTextFixedWidthLayout = ({
     width: fixedWidth,
     height: resolvedHeight,
     appliedPadding: resolvedPaddingLayout.appliedPadding,
-    appliedUserPadding: resolvedPaddingLayout.appliedUserPadding
+    appliedUserPadding: resolvedPaddingLayout.appliedUserPadding,
+    wrapPolicy
   })
 }
 
@@ -410,7 +426,8 @@ function applyResolvedShapeTextLayout({
     appliedUserPadding,
     frame,
     splitByGrapheme,
-    textTop
+    textTop,
+    wrapPolicy
   } = resolvedLayout
 
   resizeShapeNode({
@@ -452,6 +469,7 @@ function applyResolvedShapeTextLayout({
   group.shapePaddingRight = appliedUserPadding.right
   group.shapePaddingBottom = appliedUserPadding.bottom
   group.shapePaddingLeft = appliedUserPadding.left
+  group.shapeTextWrapPolicy = wrapPolicy
   group.shapeAlignHorizontal = alignH
   group.shapeAlignVertical = alignV
 
@@ -479,6 +497,7 @@ export const applyShapeTextLayout = ({
   alignH,
   alignV,
   padding,
+  wrapPolicy,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
   preserveAspectRatio,
@@ -495,6 +514,7 @@ export const applyShapeTextLayout = ({
     height,
     alignV,
     padding,
+    wrapPolicy,
     internalShapeTextInset,
     resolveInternalShapeTextInset,
     preserveAspectRatio,
@@ -527,6 +547,7 @@ export const applyFixedWidthShapeTextLayout = ({
   alignH,
   alignV,
   padding,
+  wrapPolicy,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
   expandShapeHeightToFitText = true,
@@ -538,6 +559,7 @@ export const applyFixedWidthShapeTextLayout = ({
     height,
     alignV,
     padding,
+    wrapPolicy,
     internalShapeTextInset,
     resolveInternalShapeTextInset,
     expandShapeHeightToFitText,
@@ -562,6 +584,7 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
   width,
   height,
   padding,
+  wrapPolicy,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
   shapeTextAutoExpandEnabled = true,
@@ -581,6 +604,7 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
       width: safeWidth,
       height: safeHeight,
       padding,
+      wrapPolicy,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
       expandShapeHeightToFitText,
@@ -605,6 +629,7 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
       width: candidateWidth,
       height: candidateHeight,
       padding,
+      wrapPolicy,
       internalShapeTextInset,
       resolveInternalShapeTextInset,
       expandShapeHeightToFitText,
@@ -708,7 +733,8 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
 
     const validation = measureTextboxLayoutForFrame({
       text,
-      frameWidth
+      frameWidth,
+      wrapPolicy
     })
 
     return !validation.hasWrappedLines
@@ -725,7 +751,8 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
   })
   const maximumMeasurement = measureTextboxLayoutForFrame({
     text,
-    frameWidth: maximumCandidateLayout.frameWidth
+    frameWidth: maximumCandidateLayout.frameWidth,
+    wrapPolicy
   })
 
   if (maximumMeasurement.hasWrappedLines) {
@@ -764,6 +791,7 @@ export const resolveShapeTextAutoExpandWidthForText = ({
   currentWidth,
   minimumWidth,
   padding,
+  wrapPolicy,
   montageAreaWidth,
   resolvePaddingForWidth
 }: {
@@ -771,6 +799,7 @@ export const resolveShapeTextAutoExpandWidthForText = ({
   currentWidth: number
   minimumWidth: number
   padding?: ShapePadding
+  wrapPolicy?: ShapeTextWrapPolicy
   montageAreaWidth: number
   resolvePaddingForWidth?: ResolvePaddingForWidth
 }): number => {
@@ -795,7 +824,8 @@ export const resolveShapeTextAutoExpandWidthForText = ({
   const maxShapeWidth = effectiveMaxShapeWidth
   const maxMeasurement = measureTextboxLayoutForFrame({
     text,
-    frameWidth: maxFrameWidth
+    frameWidth: maxFrameWidth,
+    wrapPolicy
   })
 
   if (maxMeasurement.hasWrappedLines) return maxShapeWidth
@@ -825,7 +855,8 @@ export const resolveShapeTextAutoExpandWidthForText = ({
 
       const validation = measureTextboxLayoutForFrame({
         text,
-        frameWidth
+        frameWidth,
+        wrapPolicy
       })
 
       return !validation.hasWrappedLines
@@ -890,12 +921,14 @@ export const resolveShapeTextFrameLayout = ({
   width,
   height,
   alignV,
+  wrapPolicy,
   padding
 }: {
   text: ShapeLayoutInput['text']
   width: number
   height: number
   alignV: ShapeVerticalAlign
+  wrapPolicy?: ShapeTextWrapPolicy
   padding: ShapePadding
 }): ShapeTextFrameLayout => {
   const safeWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
@@ -910,12 +943,14 @@ export const resolveShapeTextFrameLayout = ({
   })
   const splitByGrapheme = resolveSplitByGraphemeForFrame({
     text,
-    frameWidth: frame.width
+    frameWidth: frame.width,
+    wrapPolicy
   })
   const measuredHeight = measureTextboxHeightForFrame({
     text,
     frameWidth: frame.width,
-    splitByGrapheme
+    splitByGrapheme,
+    wrapPolicy
   })
   const textTop = resolveVerticalTop({
     alignV,
@@ -938,11 +973,13 @@ export const isShapeTextFrameFilled = ({
   text,
   width,
   height,
+  wrapPolicy,
   padding
 }: {
   text: ShapeLayoutInput['text']
   width: number
   height: number
+  wrapPolicy?: ShapeTextWrapPolicy
   padding: ShapePadding
 }): boolean => {
   if (!hasShapeTextContent({
@@ -956,12 +993,14 @@ export const isShapeTextFrameFilled = ({
     width,
     height,
     alignV: 'top',
+    wrapPolicy,
     padding
   })
 
   const measuredHeight = measureTextboxHeightForFrame({
     text,
-    frameWidth: frame.width
+    frameWidth: frame.width,
+    wrapPolicy
   })
 
   return measuredHeight >= frame.height - TEXT_FRAME_FILL_EPSILON
@@ -976,6 +1015,7 @@ export const resolveRequiredShapeHeightForText = ({
   width,
   height,
   padding,
+  wrapPolicy,
   resolvePaddingForSize,
   measurementCache
 }: {
@@ -983,6 +1023,7 @@ export const resolveRequiredShapeHeightForText = ({
   width: number
   height: number
   padding: ShapePadding
+  wrapPolicy?: ShapeTextWrapPolicy
   resolvePaddingForSize?: ResolvePaddingForSize
   measurementCache?: ShapeTextMeasurementCache
 }): number => {
@@ -1008,6 +1049,7 @@ export const resolveRequiredShapeHeightForText = ({
     const measuredHeight = measureTextboxHeightForFrame({
       text,
       frameWidth,
+      wrapPolicy,
       measurementCache
     })
     const nextHeight = Math.max(
@@ -1127,6 +1169,7 @@ function resolveShapeTextLayoutResolution({
   width,
   height,
   padding,
+  wrapPolicy,
   internalShapeTextInset,
   resolveInternalShapeTextInset,
   expandShapeHeightToFitText = true,
@@ -1140,6 +1183,14 @@ function resolveShapeTextLayoutResolution({
   })
   let finalWidth = Math.max(MIN_TEXT_FRAME_SIZE, width)
   let finalHeight = Math.max(MIN_TEXT_FRAME_SIZE, height)
+  const measureTextboxHeight = ({ text: targetText, frameWidth }: {
+    text: ShapeLayoutInput['text']
+    frameWidth: number
+  }) => measureTextboxHeightForFrame({
+    text: targetText,
+    frameWidth,
+    wrapPolicy
+  })
   let resolvedPaddingLayout = resolveAppliedShapePadding({
     text,
     width: finalWidth,
@@ -1153,7 +1204,7 @@ function resolveShapeTextLayoutResolution({
     }),
     expandShapeHeightToFitText,
     changedPadding,
-    measureTextboxHeightForFrame,
+    measureTextboxHeightForFrame: measureTextboxHeight,
     resolveMinimumTextFrameWidth
   })
 
@@ -1183,7 +1234,7 @@ function resolveShapeTextLayoutResolution({
       }),
       expandShapeHeightToFitText,
       changedPadding,
-      measureTextboxHeightForFrame,
+      measureTextboxHeightForFrame: measureTextboxHeight,
       resolveMinimumTextFrameWidth
     })
   }

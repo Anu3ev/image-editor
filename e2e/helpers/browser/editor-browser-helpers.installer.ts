@@ -92,6 +92,33 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
+   * Возвращает визуальные строки textbox в текстовом виде.
+   */
+  function resolveTextLines({ value }: { value: unknown }): string[] {
+    if (!Array.isArray(value)) return []
+
+    const lines: string[] = []
+
+    for (let index = 0; index < value.length; index += 1) {
+      const currentLine = value[index]
+
+      if (typeof currentLine === 'string') {
+        lines.push(currentLine)
+        continue
+      }
+
+      if (Array.isArray(currentLine)) {
+        lines.push(currentLine.filter((part) => typeof part === 'string').join(''))
+        continue
+      }
+
+      lines.push('')
+    }
+
+    return lines
+  }
+
+  /**
    * Возвращает дочерние canvas-объекты группы.
    */
   function getGroupObjects({ group }: { group: unknown }): BrowserObject[] {
@@ -609,6 +636,7 @@ export function installEditorBrowserHelpers(): void {
       evented: textObject.evented ?? true,
       lockMovementX: textObject.lockMovementX ?? false,
       lockMovementY: textObject.lockMovementY ?? false,
+      lines: resolveTextLines({ value: textObject.textLines }),
       lineCount: resolveTextLineCount({ value: textObject.textLines }),
       selectionStart: textObject.selectionStart ?? 0,
       selectionEnd: textObject.selectionEnd ?? 0

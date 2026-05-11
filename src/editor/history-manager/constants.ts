@@ -50,6 +50,7 @@ export const OBJECT_SERIALIZATION_PROPS = [
   'shapeReplaceBoxWidth',
   'shapeReplaceBoxHeight',
   'shapeTextAutoExpand',
+  'shapeTextWrapPolicy',
   'shapeAlignHorizontal',
   'shapeAlignVertical',
   'shapePaddingTop',

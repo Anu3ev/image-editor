@@ -25,6 +25,7 @@ import type {
   ShapePadding,
   ShapeScalingProportionalTextConstraintCacheEntry,
   ShapeScalingState,
+  ShapeTextWrapPolicy,
   ShapeTextNode,
   ShapeVerticalAlign
 } from '../types'
@@ -102,6 +103,7 @@ type ShapeScalingLayoutCommit = {
   canScaleWidth: boolean
   canScaleHeight: boolean
   hasWidthChange: boolean
+  wrapPolicy?: ShapeTextWrapPolicy
 }
 
 /**
@@ -121,6 +123,16 @@ type ShapePreviewLayout = ResolvedShapeTextLayout
  * Минимальный proportional scaling constraint для текста внутри фигуры.
  */
 export type ShapeScalingProportionalTextConstraint = ShapeScalingProportionalTextConstraintCacheEntry
+
+export function resolveShapeScalingTextWrapPolicy({
+  isProportionalScaling
+}: {
+  isProportionalScaling?: boolean
+}): ShapeTextWrapPolicy | undefined {
+  if (!isProportionalScaling) return undefined
+
+  return 'words-only'
+}
 
 /**
  * Возвращает стабильный cache key для пары scaling размеров.
@@ -441,12 +453,14 @@ export function resolveMinimumTextFitHeight({
   text,
   width,
   padding,
+  wrapPolicy,
   measurementCache
 }: {
   group: ShapeGroup
   text: ShapeTextNode
   width: number
   padding: ShapePadding
+  wrapPolicy?: ShapeTextWrapPolicy
   measurementCache?: ShapeScalingState['previewTextMeasurementCache']
 }): number {
   return resolveRequiredShapeHeightForText({
@@ -454,6 +468,7 @@ export function resolveMinimumTextFitHeight({
     width,
     height: SHAPE_SCALING_MIN_SIZE,
     padding,
+    wrapPolicy,
     measurementCache: measurementCache ?? undefined,
     resolvePaddingForSize: ({ width: nextWidth, height: nextHeight }) => {
       return resolveShapeScalingConstraintPadding({
@@ -476,6 +491,7 @@ export function resolveShapeScalingPreviewDimensions({
   appliedScaleX,
   appliedScaleY,
   minimumHeight,
+  wrapPolicy,
   measurementCache
 }: {
   group: ShapeGroup
@@ -485,6 +501,7 @@ export function resolveShapeScalingPreviewDimensions({
   appliedScaleX: number
   appliedScaleY: number
   minimumHeight?: number | null
+  wrapPolicy?: ShapeTextWrapPolicy
   measurementCache?: ShapeScalingState['previewTextMeasurementCache']
 }): ShapePreviewDimensions {
   const previewWidth = startDimensions.canScaleWidth
@@ -498,6 +515,7 @@ export function resolveShapeScalingPreviewDimensions({
     width: previewWidth,
     height: scaledPreviewHeight,
     padding: constraintPadding,
+    wrapPolicy,
     measurementCache: measurementCache ?? undefined,
     resolvePaddingForSize: ({ width, height }) => resolveShapeScalingConstraintPadding({
       group,
@@ -545,6 +563,9 @@ export function resolveShapeScalingPreviewLayout({
     ? scaledPreviewHeight
     : Math.max(scaledPreviewHeight, minimumHeight)
   const expandShapeHeightToFitText = !state.canScaleHeight
+  const wrapPolicy = resolveShapeScalingTextWrapPolicy({
+    isProportionalScaling: state.isProportionalScaling
+  })
 
   return resolveShapeTextFixedWidthLayout({
     text,
@@ -552,6 +573,7 @@ export function resolveShapeScalingPreviewLayout({
     height: initialPreviewHeight,
     alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
     padding: resolveShapeScalingUserPadding({ group }),
+    wrapPolicy,
     expandShapeHeightToFitText,
     measurementCache: state.previewTextMeasurementCache ?? undefined,
     resolveInternalShapeTextInset: ({ width, height }) => resolveShapeScalingInternalTextInset({
@@ -727,7 +749,8 @@ export function resolveShapeScalingCommitDimensions({
   constraintPadding,
   startDimensions,
   scaleX,
-  scaleY
+  scaleY,
+  wrapPolicy
 }: {
   group: ShapeGroup
   text: ShapeTextNode
@@ -735,6 +758,7 @@ export function resolveShapeScalingCommitDimensions({
   startDimensions: ShapeScalingStartDimensions
   scaleX: number
   scaleY: number
+  wrapPolicy?: ShapeTextWrapPolicy
 }): ShapeScalingCommitDimensions {
   const {
     previewWidth,
@@ -745,7 +769,8 @@ export function resolveShapeScalingCommitDimensions({
     constraintPadding,
     startDimensions,
     appliedScaleX: scaleX,
-    appliedScaleY: scaleY
+    appliedScaleY: scaleY,
+    wrapPolicy
   })
   const {
     startWidth,
@@ -811,7 +836,8 @@ export function commitResolvedShapeScalingLayout({
   startManualBaseHeight,
   canScaleWidth,
   canScaleHeight,
-  hasWidthChange
+  hasWidthChange,
+  wrapPolicy
 }: ShapeScalingLayoutCommit): void {
   const nextManualBaseDimensions = resolveNextManualBaseDimensionsAfterScaling({
     startManualBaseWidth,
@@ -826,7 +852,7 @@ export function commitResolvedShapeScalingLayout({
   group.shapeManualBaseHeight = nextManualBaseDimensions.height
 
   if (canScaleWidth && hasWidthChange) {
-    // Ручной resize по ширине фиксирует новую ширину как пользовательский контракт.
+    // Зафиксированное изменение ширины переводит shape в manual width contract.
     group.shapeTextAutoExpand = false
   }
 
@@ -858,6 +884,7 @@ export function commitResolvedShapeScalingLayout({
       alignH,
       alignV,
       padding: userPadding,
+      wrapPolicy,
       internalShapeTextInset,
       expandShapeHeightToFitText,
       resolveInternalShapeTextInset: resolveInternalShapeTextInsetForSize
@@ -872,6 +899,7 @@ export function commitResolvedShapeScalingLayout({
       alignH,
       alignV,
       padding: userPadding,
+      wrapPolicy,
       shapeTextAutoExpandEnabled: group.shapeTextAutoExpand !== false,
       internalShapeTextInset,
       expandShapeHeightToFitText,

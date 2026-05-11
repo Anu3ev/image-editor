@@ -21,6 +21,17 @@ import ClipboardManager from '../../../../src/editor/clipboard-manager'
 import { CLIPBOARD_CLONE_OBJECT_KEYS } from '../../../../src/editor/constants'
 import { ShapeGroupObject } from '../../../../src/editor/shape-manager/domain/shape-group'
 
+type ClipboardTextObject = {
+  text?: string
+  textCaseRaw?: string
+  uppercase?: boolean
+}
+
+type AddedCanvasObject = {
+  id?: string
+  evented?: boolean
+} & ClipboardTextObject
+
 describe('ClipboardManager', () => {
   const ASYNC_DELAY = 10
   const OBJECT_OFFSET = 10
@@ -54,6 +65,10 @@ describe('ClipboardManager', () => {
 
     it('список свойств для clipboard cloning включает режим авторасширения текста у фигуры', () => {
       expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeTextAutoExpand')
+    })
+
+    it('список свойств для clipboard cloning включает wrap policy текста у фигуры', () => {
+      expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeTextWrapPolicy')
     })
 
     it('список свойств для clipboard cloning включает replacement box фигуры', () => {
@@ -376,7 +391,7 @@ describe('ClipboardManager', () => {
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
 
-      const addedObjects = mockCanvas.add.mock.calls.map(([object]) => object)
+      const addedObjects = (mockCanvas.add.mock.calls as Array<[AddedCanvasObject]>).map(([object]) => object)
       const addedIds = addedObjects.map((object) => object.id)
 
       expect(addedIds).toHaveLength(mockObjects.length)
@@ -466,7 +481,7 @@ describe('ClipboardManager', () => {
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockCanvas.add).toHaveBeenCalledTimes(mockObjects.length)
 
-      const addedObjects = mockCanvas.add.mock.calls.map(([object]) => object)
+      const addedObjects = (mockCanvas.add.mock.calls as Array<[AddedCanvasObject]>).map(([object]) => object)
       const addedIds = addedObjects.map((object) => object.id)
 
       expect(addedIds).toHaveLength(mockObjects.length)
@@ -1043,8 +1058,10 @@ describe('ClipboardManager', () => {
         clipboardManager.copy()
         await new Promise(process.nextTick)
 
+        const clipboardText = clipboardManager.clipboard as ClipboardTextObject | null
+
         expect(clipboardManager.clipboard).toBeTruthy()
-        expect(clipboardManager.clipboard?.textCaseRaw).toBe('test')
+        expect(clipboardText?.textCaseRaw).toBe('test')
       })
 
       it('uppercase корректно копируется в клон', async() => {
@@ -1061,8 +1078,10 @@ describe('ClipboardManager', () => {
         clipboardManager.copy()
         await new Promise(process.nextTick)
 
+        const clipboardText = clipboardManager.clipboard as ClipboardTextObject | null
+
         expect(clipboardManager.clipboard).toBeTruthy()
-        expect(clipboardManager.clipboard?.uppercase).toBe(true)
+        expect(clipboardText?.uppercase).toBe(true)
       })
 
       it('после редактирования текста копирование работает', async() => {
@@ -1079,9 +1098,11 @@ describe('ClipboardManager', () => {
         clipboardManager.copy()
         await new Promise(process.nextTick)
 
+        const clipboardText = clipboardManager.clipboard as ClipboardTextObject | null
+
         expect(clipboardManager.clipboard).toBeTruthy()
-        expect(clipboardManager.clipboard?.text).toBe('Измененный текст')
-        expect(clipboardManager.clipboard?.textCaseRaw).toBe('измененный текст')
+        expect(clipboardText?.text).toBe('Измененный текст')
+        expect(clipboardText?.textCaseRaw).toBe('измененный текст')
       })
     })
 
@@ -1104,15 +1125,17 @@ describe('ClipboardManager', () => {
         clipboardManager.copy()
         await new Promise(process.nextTick)
 
-        expect(clipboardManager.clipboard?.text).toBe(editedText)
-        expect(clipboardManager.clipboard?.textCaseRaw).toBe(editedText.toLowerCase())
+        const clipboardText = clipboardManager.clipboard as ClipboardTextObject | null
+
+        expect(clipboardText?.text).toBe(editedText)
+        expect(clipboardText?.textCaseRaw).toBe(editedText.toLowerCase())
 
         const result = await clipboardManager.paste()
 
         expect(result).toBe(true)
         expect(mockCanvas.add).toHaveBeenCalled()
 
-        const addedObject = mockCanvas.add.mock.calls[0][0]
+        const addedObject = mockCanvas.add.mock.calls[0][0] as AddedCanvasObject
         expect(addedObject.text).toBe(editedText)
         expect(addedObject.textCaseRaw).toBe(editedText.toLowerCase())
       })

@@ -3,11 +3,21 @@ import type { FabricObject } from 'fabric'
 /**
  * Полное сериализованное состояние canvas для history.
  */
+export type CanvasStateObject = {
+  [key: string]: unknown
+  id?: string
+  type?: string
+  width?: number
+  height?: number
+  customData?: object
+  objects?: CanvasStateObject[]
+}
+
 export type CanvasFullState = {
   clipPath: object | null
   height: number
   width: number
-  objects: FabricObject[]
+  objects: CanvasStateObject[]
   version: string
 }
 
