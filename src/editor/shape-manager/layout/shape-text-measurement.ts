@@ -236,9 +236,7 @@ export function resolveSplitByGraphemeForFrame({
   wrapPolicy?: ShapeTextWrapPolicy
   measurementCache?: ShapeTextMeasurementCache
 }): boolean {
-  if (wrapPolicy === 'words-only') {
-    return false
-  }
+  if (wrapPolicy === 'words-only') return false
 
   const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
   const frameWidthCacheKey = resolveMeasurementFrameWidthCacheKey({

@@ -25,12 +25,12 @@ const config: Config.InitialOptions = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^nanoid$': '<rootDir>/specs/__mocks__/nanoid.ts',
     '^fabric$': '<rootDir>/specs/__mocks__/fabric.ts',
+    '^jsondiffpatch/with-text-diffs$': '<rootDir>/specs/__mocks__/jsondiffpatch.ts',
     '^jsondiffpatch$': '<rootDir>/specs/__mocks__/jsondiffpatch.ts',
-    '^diff-match-patch$': '<rootDir>/specs/__mocks__/diff-match-patch.ts',
     '\\?worker$': '<rootDir>/specs/__mocks__/worker.ts'
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(nanoid|fabric|jsondiffpatch|diff-match-patch)/)'
+    'node_modules/(?!(nanoid|fabric|jsondiffpatch)/)'
   ],
   setupFilesAfterEnv: ['<rootDir>/specs/setupTests.ts'],
   // Настройка сбора покрытия только для editor-кода

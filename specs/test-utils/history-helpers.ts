@@ -1,19 +1,40 @@
-import type { Canvas } from 'fabric'
 import type { CanvasFullState } from '../../src/editor/history-manager'
-import type { SnapshotObject } from '../../src/editor/history-manager/types'
+import type {
+  SnapshotCanvas,
+  SnapshotObject
+} from '../../src/editor/history-manager/types'
 
-export type HistorySnapshotTextObject = SnapshotObject & {
+export interface HistorySnapshotTextObject extends SnapshotObject {
   id: string
   type: string
+  text?: string
   isEditing?: boolean
+  locked?: boolean
+  lockMovementX?: boolean
+  lockMovementY?: boolean
+  selectable?: boolean
+  evented?: boolean
+  left?: number
+  top?: number
 }
 
-export type HistorySnapshotGroupObject = SnapshotObject & {
+type HistorySnapshotChildObject = SnapshotObject
+
+export interface HistorySnapshotGroupObject extends SnapshotObject {
   id: string
   type: string
   shapeComposite: true
+  locked?: boolean
+  lockMovementX?: boolean
+  lockMovementY?: boolean
+  selectable?: boolean
+  evented?: boolean
+  left?: number
+  top?: number
   getObjects: () => SnapshotObject[]
 }
+
+type HistorySnapshotCanvasObject = HistorySnapshotGroupObject | HistorySnapshotTextObject
 
 /**
  * Создаёт базовое сериализованное состояние canvas для unit-тестов history.
@@ -73,7 +94,7 @@ export function createSnapshotTextObject({
     evented,
     left,
     top
-  } as HistorySnapshotTextObject
+  }
 }
 
 /**
@@ -93,7 +114,7 @@ export function createSnapshotShapeGroup({
 }: {
   id?: string
   type?: string
-  childObjects?: SnapshotObject[]
+  childObjects?: HistorySnapshotChildObject[]
   locked?: boolean
   lockMovementX?: boolean
   lockMovementY?: boolean
@@ -114,12 +135,10 @@ export function createSnapshotShapeGroup({
     left,
     top,
     getObjects: jest.fn(() => childObjects)
-  } as HistorySnapshotGroupObject
+  }
 
   for (let index = 0; index < childObjects.length; index += 1) {
-    const childObject = childObjects[index] as SnapshotObject & {
-      group?: SnapshotObject
-    }
+    const childObject = childObjects[index]
     childObject.group = group
   }
 
@@ -132,11 +151,11 @@ export function createSnapshotShapeGroup({
 export function createSnapshotCanvas({
   objects
 }: {
-  objects: SnapshotObject[]
-}): Canvas {
+  objects: HistorySnapshotCanvasObject[]
+}): SnapshotCanvas {
   return {
     getObjects: jest.fn(() => objects)
-  } as unknown as Canvas
+  }
 }
 
 /**
@@ -160,7 +179,7 @@ export function serializeSnapshotShapeGroupState({
     objects: [{
       id: text.id,
       type: text.type,
-      text: (text as HistorySnapshotTextObject & { text?: string }).text,
+      text: text.text,
       selectable: text.selectable,
       evented: text.evented,
       lockMovementX: text.lockMovementX,

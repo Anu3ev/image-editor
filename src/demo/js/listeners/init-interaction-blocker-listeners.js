@@ -14,7 +14,7 @@ export default ({ editorInstance, controls }) => {
    * Синхронизирует demo-контролы с текущим состоянием блокировки редактора.
    */
   const syncInteractionBlockerControls = () => {
-    const isBlocked = editorInstance.interactionBlocker.isBlocked
+    const { isBlocked } = editorInstance.interactionBlocker
 
     interactionBlockerStateNode.textContent = isBlocked ? 'Blocked' : 'Unblocked'
 

@@ -62,6 +62,8 @@ type MockShapeGroup = Group & {
   shapeBaseHeight: number
   shapeManualBaseWidth: number
   shapeManualBaseHeight: number
+  shapeReplaceBoxWidth: number
+  shapeReplaceBoxHeight: number
   shapeTextWrapPolicy?: ShapeTextWrapPolicy
   shapeAlignHorizontal: 'left' | 'center' | 'right' | 'justify'
   shapeAlignVertical: 'top' | 'middle' | 'bottom'

@@ -61,7 +61,7 @@ export default defineConfig(({ command }) => {
       },
 
       rollupOptions: {
-        external: ['fabric', 'jspdf', 'jsondiffpatch', 'diff-match-patch']
+        external: ['fabric', 'jspdf', 'jsondiffpatch', 'jsondiffpatch/with-text-diffs']
       },
 
       outDir: path.resolve(__dirname, 'dev-build'),
