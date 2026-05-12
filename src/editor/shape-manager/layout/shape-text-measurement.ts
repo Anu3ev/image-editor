@@ -15,6 +15,7 @@ const MIN_TEXT_FRAME_SIZE = MIN_SHAPE_TEXT_FRAME_SIZE
  * Допуск для проверки, что измеренный текст заполняет frame.
  */
 const TEXT_FRAME_FILL_EPSILON = 0.5
+const TEXT_FRAME_WIDTH_CACHE_PRECISION = 1_000_000
 
 /**
  * Снимок mutable textbox-свойств, которые временно меняются во время измерения.
@@ -512,7 +513,11 @@ function resolveMeasurementFrameWidthCacheKey({
 }: {
   frameWidth: number
 }): string {
-  return String(Math.round(Math.max(MIN_TEXT_FRAME_SIZE, frameWidth) * 1000) / 1000)
+  const safeFrameWidth = Math.max(MIN_TEXT_FRAME_SIZE, frameWidth)
+
+  return String(
+    Math.round(safeFrameWidth * TEXT_FRAME_WIDTH_CACHE_PRECISION) / TEXT_FRAME_WIDTH_CACHE_PRECISION
+  )
 }
 
 /**

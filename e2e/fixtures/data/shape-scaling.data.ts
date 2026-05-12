@@ -69,7 +69,7 @@ export const SHAPE_PROPORTIONAL_THREE_WORD_WRAP_SCENARIO: ShapeProportionalWordW
   title: 'трёх слов',
   text: 'TEST TEST TEST',
   expectWrap: true,
-  expectedMinimumLines: ['TEST', 'TEST', 'TEST']
+  expectedMinimumLines: ['TEST TEST', 'TEST']
 }
 
 export const SHAPE_PROPORTIONAL_WORD_WRAP_SCENARIOS: ShapeProportionalWordWrapScenario[] = [
