@@ -295,6 +295,7 @@ export default class ShapeScalingController {
     }
 
     let resolvedPreviewMinimumHeight = constraintState.resolvedMinimumHeight
+
     const fixedWidthMinimumTextFitHeight = !state.canScaleWidth && state.canScaleHeight
       ? state.fixedWidthMinimumTextFitHeight
       : null

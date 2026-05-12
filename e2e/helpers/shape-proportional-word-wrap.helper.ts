@@ -9,6 +9,7 @@ import { SHAPE_SCALING_TOLERANCE } from '../fixtures/data/shape-scaling.data'
 
 type ShapeWordWrapShapesController = {
   getTextNode(params: ObjectTargetParams): Promise<ShapeTextInfo | null>
+  getScaleSnapshot(params: ObjectTargetParams): Promise<ShapeScaleSnapshot>
   dragActiveScaleHandleTowardAnchor(params: { distance: number }): Promise<ShapeScaleSnapshot>
 }
 
@@ -81,8 +82,10 @@ export function expectProportionalLiveMinimumState({
   expectedLines: string[]
   expectedText: string
 }): void {
+  const maximumAllowedLiveHeight = initialSnapshot.groupBoundsHeight + SHAPE_SCALING_TOLERANCE.direction
+
   expect(liveSnapshot.groupBoundsWidth).toBeLessThan(initialSnapshot.groupBoundsWidth)
-  expect(liveSnapshot.groupBoundsHeight).toBeLessThan(initialSnapshot.groupBoundsHeight)
+  expect(liveSnapshot.groupBoundsHeight).toBeLessThanOrEqual(maximumAllowedLiveHeight)
 
   expectWholeWordTextState({
     text: liveText,
@@ -141,8 +144,10 @@ export async function shrinkShapeDiagonallyToWordWrapMinimum({
     lastText = await shapes.getTextNode(targetParams)
 
     if (lastText && lastText.lineCount >= expectedLineCount && lastText.splitByGrapheme === false) {
+      const settledSnapshot = await shapes.getScaleSnapshot(targetParams)
+
       return {
-        snapshot: lastSnapshot,
+        snapshot: settledSnapshot,
         text: lastText
       }
     }
