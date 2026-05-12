@@ -43,6 +43,15 @@ type ShapeScaleLiveState = {
   lineCount: number
 }
 
+type ShapeScaleTextLiveState = {
+  snapshot: ShapeScaleSnapshot
+  text: ShapeTextInfo
+}
+
+const SHAPE_DIAGONAL_LIVE_SHRINK_START_SCALE = 0.92
+
+const SHAPE_DIAGONAL_LIVE_SHRINK_DISTANCES = [120, 60, 30, 15, 8, 4, 2, 1]
+
 export class ShapeModel {
   private readonly page: Page
 
@@ -636,6 +645,57 @@ export class ShapeModel {
       states.push({
         snapshot,
         lineCount: text?.lineCount ?? 0
+      })
+    }
+
+    return states
+  }
+
+  /** Сужает shape по диагонали пропорционально в одной drag-сессии и возвращает live-состояния текста на каждом шаге. */
+  async shrinkDiagonallyProportionallyInLiveSteps(
+    params: {
+      corner: ShapeDiagonalScaleCorner
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleTextLiveState[]> {
+    const {
+      corner,
+      objectIndex,
+      id
+    } = params
+    const states: ShapeScaleTextLiveState[] = []
+
+    const initialSnapshot = await this.scaleDiagonallyProportionally({
+      id,
+      objectIndex,
+      corner,
+      scale: SHAPE_DIAGONAL_LIVE_SHRINK_START_SCALE
+    })
+    const initialText = await this.getTextNode({ id, objectIndex })
+
+    expect(initialText, 'текст должен существовать после первого live-шага при диагональном сужении').not.toBeNull()
+
+    if (!initialText) {
+      throw new Error('текст должен существовать после первого live-шага при диагональном сужении')
+    }
+
+    states.push({
+      snapshot: initialSnapshot,
+      text: initialText
+    })
+
+    for (const distance of SHAPE_DIAGONAL_LIVE_SHRINK_DISTANCES) {
+      const snapshot = await this.dragActiveScaleHandleTowardAnchor({ distance })
+      const text = await this.getTextNode({ id, objectIndex })
+
+      expect(text, 'текст должен существовать на каждом live-шаге диагонального сужения').not.toBeNull()
+
+      if (!text) {
+        throw new Error('текст должен существовать на каждом live-шаге диагонального сужения')
+      }
+
+      states.push({
+        snapshot,
+        text
       })
     }
 

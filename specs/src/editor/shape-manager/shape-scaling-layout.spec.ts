@@ -75,6 +75,47 @@ describe('shape-scaling-layout', () => {
     expect(constraint.measuredHeight).toBeGreaterThan(60.5)
   })
 
+  it('не переиспользует measurement cache для почти одинаковой ширины по разные стороны границы переноса', () => {
+    const shape = createMockShapeNode({
+      width: 260,
+      height: 260
+    })
+    const text = createMeasuredAutoExpandTextbox({
+      text: 'TEST TEST TEST',
+      width: 260,
+      fontSize: 48
+    })
+    const group = createMockShapeGroup({
+      shape,
+      text,
+      width: 260,
+      height: 260,
+      presetKey: ''
+    })
+    const measurementCache = createShapeScalingState().previewTextMeasurementCache
+    const widerConstraint = validateShapeTextLayoutForProportionalScaling({
+      group,
+      text,
+      width: 225.6004,
+      height: 400,
+      measurementCache
+    })
+    const narrowerConstraint = validateShapeTextLayoutForProportionalScaling({
+      group,
+      text,
+      width: 225.5996,
+      height: 400,
+      measurementCache
+    })
+
+    expect(225.6004 - 225.5996).toBeLessThan(0.001)
+    expect(widerConstraint.renderedLineCount).toBe(2)
+    expect(narrowerConstraint.renderedLineCount).toBe(3)
+    expect(widerConstraint.measuredHeight).toBeLessThan(narrowerConstraint.measuredHeight)
+    expect(widerConstraint.isValid).toBe(true)
+    expect(narrowerConstraint.isValid).toBe(true)
+  })
+
   it('подбирает minimum scale на границе валидного proportional layout', () => {
     const shape = createMockShapeNode({
       width: 200,
