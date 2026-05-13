@@ -1,6 +1,24 @@
 import { Rect } from 'fabric'
 import { ImageEditor } from '../index'
 import { addRectangleToCanvas } from '../utils/primitive-shapes'
+import {
+  AiGenerationOverlay,
+  registerAiGenerationOverlay
+} from './ai-generation-overlay'
+import type {
+  InteractionBlockerBlockOptions,
+  InteractionBlockerOverlay,
+  InteractionBlockerOverlayBaseOptions,
+  InteractionBlockerOverlayGeometry
+} from './types'
+
+export type {
+  InteractionBlockerBlockOptions,
+  InteractionBlockerOverlay
+} from './types'
+
+const DEFAULT_OVERLAY: InteractionBlockerOverlay = 'default'
+const OVERLAY_MASK_ID = 'overlay-mask'
 
 export default class InteractionBlocker {
   /**
@@ -18,10 +36,15 @@ export default class InteractionBlocker {
    */
   public overlayMask: Rect | null
 
+  private _overlayType: InteractionBlockerOverlay
+
   constructor({ editor }: { editor: ImageEditor }) {
+    registerAiGenerationOverlay()
+
     this.editor = editor
     this.isBlocked = false
     this.overlayMask = null
+    this._overlayType = DEFAULT_OVERLAY
   }
 
   /**
@@ -29,10 +52,7 @@ export default class InteractionBlocker {
    * Overlay является derived/runtime слоем и должен совпадать с montageArea
    * в scene coordinates, не сохраняя своё независимое положение.
    */
-  private _getOverlayGeometry(): Pick<
-  Rect,
-  'width' | 'height' | 'left' | 'top' | 'originX' | 'originY' | 'scaleX' | 'scaleY' | 'angle' | 'flipX' | 'flipY'
-  > {
+  private _getOverlayGeometry(): InteractionBlockerOverlayGeometry {
     const { canvasManager } = this.editor
     const montageBounds = canvasManager.getMontageAreaSceneBounds()
 
@@ -51,44 +71,85 @@ export default class InteractionBlocker {
     }
   }
 
-  /**
-   * Создаёт overlay для блокировки монтажной области
-   */
-  private _createOverlay(): void {
+  private _getOverlayBaseOptions(): InteractionBlockerOverlayBaseOptions {
+    return {
+      ...this._getOverlayGeometry(),
+      selectable: false,
+      evented: true,
+      hoverCursor: 'not-allowed',
+      hasBorders: false,
+      hasControls: false,
+      excludeFromExport: true,
+      visible: false,
+      id: OVERLAY_MASK_ID
+    }
+  }
+
+  private _createDefaultOverlay(): Rect {
     const {
-      historyManager,
-      options: { overlayMaskColor = 'rgba(0,0,0,0.5)' }
+      options: { overlayMaskColor = 'rgba(136, 136, 136, 0.5)' }
     } = this.editor
 
-    historyManager.suspendHistory()
-
-    this.overlayMask = addRectangleToCanvas({
+    return addRectangleToCanvas({
       canvas: this.editor.canvas,
       options: {
-        ...this._getOverlayGeometry(),
-        fill: overlayMaskColor,
-        selectable: false,
-        evented: true,
-        hoverCursor: 'not-allowed',
-        hasBorders: false,
-        hasControls: false,
-        excludeFromExport: true,
-        visible: false,
-        id: 'overlay-mask'
+        ...this._getOverlayBaseOptions(),
+        fill: overlayMaskColor
       },
       flags: { withoutSelection: true }
     })
+  }
 
-    historyManager.resumeHistory()
+  private _createAiGenerationOverlay(): AiGenerationOverlay {
+    const overlay = new AiGenerationOverlay(this._getOverlayBaseOptions())
+
+    this.editor.canvas.add(overlay)
+    return overlay
+  }
+
+  private _stopOverlayAnimation(): void {
+    if (this.overlayMask instanceof AiGenerationOverlay) {
+      this.overlayMask.stopAnimation()
+    }
+  }
+
+  /**
+   * Создаёт overlay для блокировки монтажной области.
+   */
+  private _createOverlay({ overlay }: { overlay: InteractionBlockerOverlay }): void {
+    const { canvas, historyManager } = this.editor
+
+    historyManager.suspendHistory()
+
+    try {
+      this._stopOverlayAnimation()
+
+      if (this.overlayMask) {
+        canvas.remove(this.overlayMask)
+      }
+
+      this.overlayMask = overlay === 'ai-generation'
+        ? this._createAiGenerationOverlay()
+        : this._createDefaultOverlay()
+      this._overlayType = overlay
+    } finally {
+      historyManager.resumeHistory()
+    }
+  }
+
+  private _startOverlayAnimation(): void {
+    if (this.overlayMask instanceof AiGenerationOverlay) {
+      this.overlayMask.startAnimation({ canvas: this.editor.canvas })
+    }
   }
 
   /**
    * Гарантирует наличие overlay и синхронизирует его с текущей монтажной областью.
    * Overlay является runtime-слоем и не должен зависеть от persisted-state или порядка load-path.
    */
-  public ensureOverlay(): void {
-    if (!this.overlayMask) {
-      this._createOverlay()
+  public ensureOverlay({ overlay = this._overlayType }: InteractionBlockerBlockOptions = {}): void {
+    if (!this.overlayMask || this._overlayType !== overlay) {
+      this._createOverlay({ overlay })
     }
 
     if (!this.overlayMask) return
@@ -108,12 +169,19 @@ export default class InteractionBlocker {
 
     historyManager.suspendHistory()
 
-    this.overlayMask.set(this._getOverlayGeometry())
-    this.overlayMask.setCoords()
-    canvas.discardActiveObject()
+    try {
+      this.overlayMask.set(this._getOverlayGeometry())
+      this.overlayMask.setCoords()
+      canvas.discardActiveObject()
 
-    this.editor.layerManager.bringToFront(this.overlayMask, { withoutSave: true })
-    historyManager.resumeHistory()
+      this.editor.layerManager.bringToFront(this.overlayMask, { withoutSave: true })
+
+      if (this.isBlocked) {
+        this._startOverlayAnimation()
+      }
+    } finally {
+      historyManager.resumeHistory()
+    }
   }
 
   /**
@@ -122,36 +190,45 @@ export default class InteractionBlocker {
    * - делает все объекты не‑evented и не‑selectable
    * - делает видимым overlayMask поверх всех объектов в монтажной области
    */
-  public block(): void {
-    this.ensureOverlay()
+  public block({ overlay = DEFAULT_OVERLAY }: InteractionBlockerBlockOptions = {}): void {
+    if (this.isBlocked) {
+      this.ensureOverlay()
+      return
+    }
 
-    if (this.isBlocked || !this.overlayMask) return
+    this.ensureOverlay({ overlay })
+
+    if (!this.overlayMask) return
 
     const { canvas, canvasManager, historyManager } = this.editor
 
     historyManager.suspendHistory()
-    this.isBlocked = true
 
-    // Убираем все селекты, события мыши, скейл/драг–н–дроп
-    canvas.discardActiveObject()
-    canvas.selection = false
-    canvas.skipTargetFind = true
+    try {
+      this.isBlocked = true
 
-    // Делаем все объекты не‑evented и не‑selectable
-    canvasManager.getObjects().forEach((obj) => {
-      obj.evented = false
-      obj.selectable = false
-    })
+      // Убираем все селекты, события мыши, скейл/драг–н–дроп
+      canvas.discardActiveObject()
+      canvas.selection = false
+      canvas.skipTargetFind = true
 
-    // блокируем сами canvas‑элементы в DOM
-    canvas.upperCanvasEl.style.pointerEvents = 'none'
-    canvas.lowerCanvasEl.style.pointerEvents = 'none'
+      // Делаем все объекты не‑evented и не‑selectable
+      canvasManager.getObjects().forEach((obj) => {
+        obj.evented = false
+        obj.selectable = false
+      })
 
-    this.overlayMask.visible = true
-    this.refresh()
+      // блокируем сами canvas‑элементы в DOM
+      canvas.upperCanvasEl.style.pointerEvents = 'none'
+      canvas.lowerCanvasEl.style.pointerEvents = 'none'
 
-    canvas.fire('editor:disabled')
-    historyManager.resumeHistory()
+      this.overlayMask.visible = true
+      this.refresh()
+
+      canvas.fire('editor:disabled')
+    } finally {
+      historyManager.resumeHistory()
+    }
   }
 
   /**
@@ -163,27 +240,33 @@ export default class InteractionBlocker {
     const { canvas, canvasManager, historyManager } = this.editor
 
     historyManager.suspendHistory()
-    this.isBlocked = false
 
-    // возвращаем интерактивность
-    canvas.selection = true
-    canvas.skipTargetFind = false
+    try {
+      this.isBlocked = false
 
-    // возвращаем селекты & ивенты
-    canvasManager.getObjects().forEach((obj) => {
-      obj.evented = true
-      obj.selectable = true
-    })
+      // возвращаем интерактивность
+      canvas.selection = true
+      canvas.skipTargetFind = false
 
-    // разблокируем DOM
-    canvas.upperCanvasEl.style.pointerEvents = ''
-    canvas.lowerCanvasEl.style.pointerEvents = ''
+      // возвращаем селекты & ивенты
+      canvasManager.getObjects().forEach((obj) => {
+        obj.evented = true
+        obj.selectable = true
+      })
 
-    this.overlayMask.visible = false
-    canvas.requestRenderAll()
+      // разблокируем DOM
+      canvas.upperCanvasEl.style.pointerEvents = ''
+      canvas.lowerCanvasEl.style.pointerEvents = ''
 
-    canvas.fire('editor:enabled')
-    historyManager.resumeHistory()
+      this._stopOverlayAnimation()
+      this.overlayMask.visible = false
+      canvas.requestRenderAll()
+
+      canvas.fire('editor:enabled')
+    } finally {
+      historyManager.resumeHistory()
+    }
+
     historyManager.flushDeferredSaveAfterUnblock()
   }
 }

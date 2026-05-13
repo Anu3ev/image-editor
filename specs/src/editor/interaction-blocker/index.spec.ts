@@ -1,126 +1,20 @@
-import InteractionBlocker from '../../../../src/editor/interaction-blocker'
-import { addRectangleToCanvas } from '../../../../src/editor/utils/primitive-shapes'
+import { AiGenerationOverlay } from '../../../../src/editor/interaction-blocker/ai-generation-overlay'
+import { addRectangleToCanvasMock, createInteractionBlockerTestSetup, mockAnimationFrame, type AnimationFrameTestMocks } from './test-setup'
 
 jest.mock('../../../../src/editor/utils/primitive-shapes', () => ({
   addRectangleToCanvas: jest.fn()
 }))
 
-const addRectangleToCanvasMock = addRectangleToCanvas as jest.Mock
-
-type InteractionBlockerTestSetup = {
-  interactionBlocker: InteractionBlocker
-  mockEditor: {
-    canvas: {
-      discardActiveObject: jest.Mock
-      fire: jest.Mock
-      lowerCanvasEl: { style: Record<string, string> }
-      requestRenderAll: jest.Mock
-      selection: boolean
-      skipTargetFind: boolean
-      upperCanvasEl: { style: Record<string, string> }
-    }
-    canvasManager: {
-      getMontageAreaSceneBounds: jest.Mock
-      getObjects: jest.Mock
-    }
-    historyManager: {
-      flushDeferredSaveAfterUnblock: jest.Mock
-      resumeHistory: jest.Mock
-      suspendHistory: jest.Mock
-    }
-    layerManager: {
-      bringToFront: jest.Mock
-    }
-    montageArea: {
-      getBoundingRect: jest.Mock
-      setCoords: jest.Mock
-    }
-    options: {
-      overlayMaskColor: string
-    }
-    shapeManager: {
-      addRectangle: jest.Mock
-    }
-  }
-}
-
-/**
- * Создаёт окружение для тестов interaction blocker.
- */
-const createInteractionBlockerTestSetup = (): InteractionBlockerTestSetup => {
-  const canvasObjects = [
-    { evented: true, selectable: true },
-    { evented: true, selectable: true }
-  ]
-
-  const overlayMask = {
-    id: 'overlay-mask',
-    visible: false,
-    set: jest.fn(),
-    setCoords: jest.fn()
-  }
-
-  const mockEditor = {
-    canvas: {
-      discardActiveObject: jest.fn(),
-      fire: jest.fn(),
-      lowerCanvasEl: { style: {} },
-      requestRenderAll: jest.fn(),
-      selection: true,
-      skipTargetFind: false,
-      upperCanvasEl: { style: {} }
-    },
-    canvasManager: {
-      getMontageAreaSceneBounds: jest.fn(() => ({
-        left: 0,
-        top: 0,
-        right: 400,
-        bottom: 300,
-        width: 400,
-        height: 300,
-        center: {
-          x: 200,
-          y: 150
-        }
-      })),
-      getObjects: jest.fn(() => canvasObjects)
-    },
-    historyManager: {
-      flushDeferredSaveAfterUnblock: jest.fn(),
-      resumeHistory: jest.fn(),
-      suspendHistory: jest.fn()
-    },
-    layerManager: {
-      bringToFront: jest.fn()
-    },
-    montageArea: {
-      getBoundingRect: jest.fn(() => ({
-        left: 100,
-        top: 50,
-        width: 400,
-        height: 300
-      })),
-      setCoords: jest.fn()
-    },
-    options: {
-      overlayMaskColor: 'rgba(0,0,0,0.5)'
-    }
-  }
-
-  addRectangleToCanvasMock.mockReturnValue(overlayMask)
-
-  const interactionBlocker = new InteractionBlocker({ editor: mockEditor as never })
-  interactionBlocker.overlayMask = overlayMask as never
-
-  return {
-    interactionBlocker,
-    mockEditor
-  }
-}
-
 describe('InteractionBlocker', () => {
+  let animationFrameMocks: AnimationFrameTestMocks | null = null
+
   beforeEach(() => {
     jest.clearAllMocks()
+  })
+
+  afterEach(() => {
+    animationFrameMocks?.restore()
+    animationFrameMocks = null
   })
 
   it('объект overlay повторяет размеры и позицию монтажной области', () => {
@@ -145,8 +39,42 @@ describe('InteractionBlocker', () => {
     expect(interactionBlocker.overlayMask?.setCoords).toHaveBeenCalled()
   })
 
+  it('по умолчанию создаёт старую маску через прямоугольник Fabric', () => {
+    const { interactionBlocker, mockEditor, overlayMask } = createInteractionBlockerTestSetup({
+      withOverlay: false
+    })
+
+    interactionBlocker.block()
+
+    expect(addRectangleToCanvasMock).toHaveBeenCalledWith(expect.objectContaining({
+      canvas: mockEditor.canvas,
+      options: expect.objectContaining({
+        id: 'overlay-mask',
+        fill: mockEditor.options.overlayMaskColor,
+        excludeFromExport: true
+      })
+    }))
+    expect(interactionBlocker.overlayMask).toBe(overlayMask)
+    expect(mockEditor.canvas.add).not.toHaveBeenCalled()
+  })
+
+  it('для AI-блокировки создаёт AI overlay внутри библиотеки', () => {
+    animationFrameMocks = mockAnimationFrame()
+    const { interactionBlocker, mockEditor } = createInteractionBlockerTestSetup({
+      withOverlay: false
+    })
+
+    interactionBlocker.block({ overlay: 'ai-generation' })
+
+    expect(addRectangleToCanvasMock).not.toHaveBeenCalled()
+    expect(interactionBlocker.overlayMask).toBeInstanceOf(AiGenerationOverlay)
+    expect(mockEditor.canvas.add).toHaveBeenCalledWith(interactionBlocker.overlayMask)
+    expect(mockEditor.layerManager.bringToFront).toHaveBeenCalledWith(interactionBlocker.overlayMask, { withoutSave: true })
+    expect(animationFrameMocks.requestAnimationFrameMock).toHaveBeenCalledTimes(1)
+  })
+
   it('при блокировке редактора объект overlay появляется поверх монтажной области и отключает интерактивность', () => {
-    const { interactionBlocker, mockEditor } = createInteractionBlockerTestSetup()
+    const { canvasObjects, interactionBlocker, mockEditor } = createInteractionBlockerTestSetup()
 
     interactionBlocker.block()
 
@@ -156,8 +84,44 @@ describe('InteractionBlocker', () => {
     expect(mockEditor.canvas.skipTargetFind).toBe(true)
     expect(mockEditor.canvas.upperCanvasEl.style.pointerEvents).toBe('none')
     expect(mockEditor.canvas.lowerCanvasEl.style.pointerEvents).toBe('none')
-    expect(mockEditor.canvasManager.getObjects().every((object) => !object.evented && !object.selectable)).toBe(true)
+    expect(canvasObjects.every((object) => !object.evented && !object.selectable)).toBe(true)
     expect(mockEditor.layerManager.bringToFront).toHaveBeenCalledWith(interactionBlocker.overlayMask, { withoutSave: true })
+  })
+
+  it('при разблокировке AI-блокировки останавливает animation frame', () => {
+    animationFrameMocks = mockAnimationFrame()
+    const { interactionBlocker, mockEditor } = createInteractionBlockerTestSetup({
+      withOverlay: false
+    })
+
+    interactionBlocker.block({ overlay: 'ai-generation' })
+    interactionBlocker.unblock()
+
+    expect(animationFrameMocks.cancelAnimationFrameMock).toHaveBeenCalledWith(42)
+    expect(interactionBlocker.isBlocked).toBe(false)
+    expect(interactionBlocker.overlayMask?.visible).toBe(false)
+    expect(mockEditor.historyManager.flushDeferredSaveAfterUnblock).toHaveBeenCalledTimes(1)
+  })
+
+  it('после AI-блокировки обычный block снова показывает старую маску', () => {
+    animationFrameMocks = mockAnimationFrame()
+    const { interactionBlocker, mockEditor, overlayMask } = createInteractionBlockerTestSetup({
+      withOverlay: false
+    })
+
+    interactionBlocker.block({ overlay: 'ai-generation' })
+    const aiOverlay = interactionBlocker.overlayMask
+
+    interactionBlocker.unblock()
+    addRectangleToCanvasMock.mockClear()
+    mockEditor.canvas.remove.mockClear()
+
+    interactionBlocker.block()
+
+    expect(mockEditor.canvas.remove).toHaveBeenCalledWith(aiOverlay)
+    expect(addRectangleToCanvasMock).toHaveBeenCalledTimes(1)
+    expect(interactionBlocker.overlayMask).toBe(overlayMask)
+    expect(interactionBlocker.overlayMask).not.toBeInstanceOf(AiGenerationOverlay)
   })
 
   it('вызывает flushDeferredSaveAfterUnblock после unblock', () => {
