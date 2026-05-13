@@ -7,21 +7,45 @@ import {
 
 export const AI_GENERATION_OVERLAY_TYPE = 'ai-generation-overlay'
 
+// Базовая координатная система анимации. Она не равна размеру montage area:
+// через неё задаётся плотность точек и движение пятен влияния в стабильных единицах.
 const ANIMATION_SPACE_SIZE = 1080
 const TAU = Math.PI * 2
-const GRID_COUNT = 40
+const BASE_GRID_COUNT = 40
 const DOT_SIZE = 8
 const DOT_RADIUS = DOT_SIZE / 2
-const GRID_GAP = (ANIMATION_SPACE_SIZE - GRID_COUNT * DOT_SIZE) / (GRID_COUNT + 1)
+const GRID_GAP = (ANIMATION_SPACE_SIZE - BASE_GRID_COUNT * DOT_SIZE) / (BASE_GRID_COUNT + 1)
+const GRID_START = GRID_GAP + DOT_RADIUS
 const GRID_PITCH = DOT_SIZE + GRID_GAP
+const MAX_GRID_LINES = BASE_GRID_COUNT * 16
 const SCALE_START = 0.18
 const SCALE_END = 0.58
 const AI_OVERLAY_BACKDROP_FILL = 'rgba(136, 136, 136, 0.5)'
-const DOT_FILL = 'rgba(255, 255, 255, 0.92)'
+const DOT_FILL = '#ffffff'
 
 type Dot = {
   x: number
   y: number
+}
+
+type OverlayRenderSize = {
+  height: number
+  width: number
+}
+
+type AnimationSpaceSize = {
+  height: number
+  width: number
+}
+
+type AnimationRenderMetrics = {
+  animationSize: AnimationSpaceSize
+  animationToOverlayScale: number
+}
+
+type GridAxis = {
+  count: number
+  start: number
 }
 
 type InfluenceBlob = {
@@ -156,36 +180,21 @@ function noise01({ time, seed }: { seed: number; time: number }): number {
   return clamp({ value: 0.5 + 0.5 * signal })
 }
 
-function createDots(): Dot[] {
-  const dots: Dot[] = []
-
-  for (let row = 0; row < GRID_COUNT; row += 1) {
-    for (let col = 0; col < GRID_COUNT; col += 1) {
-      dots.push({
-        x: GRID_GAP + DOT_RADIUS + col * GRID_PITCH,
-        y: GRID_GAP + DOT_RADIUS + row * GRID_PITCH
-      })
-    }
-  }
-
-  return dots
-}
-
-const DOTS = createDots()
-
 function getInfluenceBlobState({
+  animationSize,
   blob,
   time
 }: {
+  animationSize: AnimationSpaceSize
   blob: InfluenceBlob
   time: number
 }): InfluenceBlobState {
   const moveTime = time * blob.speed
   const pulseTime = time * blob.pulseSpeed + blob.seed * 3.1
   const minX = -blob.travelPadX
-  const maxX = ANIMATION_SPACE_SIZE + blob.travelPadX
+  const maxX = animationSize.width + blob.travelPadX
   const minY = -blob.travelPadY
-  const maxY = ANIMATION_SPACE_SIZE + blob.travelPadY
+  const maxY = animationSize.height + blob.travelPadY
   const xProgress = noise01({
     time: moveTime,
     seed: blob.seed + 0.11
@@ -245,24 +254,75 @@ function getDotScale({
   return smoothstep({ edgeStart: SCALE_START, edgeEnd: SCALE_END, value: field }) * microPulse
 }
 
+function getAnimationRenderMetrics({
+  size
+}: {
+  size: OverlayRenderSize
+}): AnimationRenderMetrics {
+  // Canvas zoom применится внешним viewport transform Fabric.
+  // Внутри overlay animation-space зависит только от размера montage area.
+  const animationToOverlayScale = Math.min(size.width, size.height) / ANIMATION_SPACE_SIZE
+
+  return {
+    animationSize: {
+      width: size.width / animationToOverlayScale,
+      height: size.height / animationToOverlayScale
+    },
+    animationToOverlayScale
+  }
+}
+
+function getGridAxis({ size }: { size: number }): GridAxis {
+  const rawCount = Math.floor((size - 2 * GRID_START) / GRID_PITCH) + 1
+  const count = Math.max(1, Math.min(MAX_GRID_LINES, rawCount))
+
+  // Сетка центрируется по каждой оси отдельно: точки не растягиваются,
+  // а на вытянутых форматах просто добавляются новые ряды или колонки.
+  return {
+    count,
+    start: (size - (count - 1) * GRID_PITCH) / 2
+  }
+}
+
 function drawDots({
   ctx,
+  size,
   time
 }: {
   ctx: CanvasRenderingContext2D
+  size: OverlayRenderSize
   time: number
 }): void {
-  const states = INFLUENCE_BLOBS.map((blob) => getInfluenceBlobState({ blob, time }))
+  const { animationSize, animationToOverlayScale } = getAnimationRenderMetrics({ size })
+  const columnAxis = getGridAxis({ size: animationSize.width })
+  const rowAxis = getGridAxis({ size: animationSize.height })
+  const halfWidth = size.width / 2
+  const halfHeight = size.height / 2
+  const states = INFLUENCE_BLOBS.map((blob) => getInfluenceBlobState({
+    animationSize,
+    blob,
+    time
+  }))
 
   ctx.fillStyle = DOT_FILL
 
-  for (const dot of DOTS) {
-    const dotScale = getDotScale({ dot, states, time })
-    if (dotScale <= 0.01) continue
+  for (let row = 0; row < rowAxis.count; row += 1) {
+    for (let col = 0; col < columnAxis.count; col += 1) {
+      const dot = {
+        x: columnAxis.start + col * GRID_PITCH,
+        y: rowAxis.start + row * GRID_PITCH
+      }
+      const dotScale = getDotScale({ dot, states, time })
+      if (dotScale <= 0.01) continue
 
-    ctx.beginPath()
-    ctx.arc(dot.x, dot.y, DOT_RADIUS * Math.min(dotScale, 1), 0, TAU)
-    ctx.fill()
+      const x = dot.x * animationToOverlayScale - halfWidth
+      const y = dot.y * animationToOverlayScale - halfHeight
+      const radius = DOT_RADIUS * Math.min(dotScale, 1) * animationToOverlayScale
+
+      ctx.beginPath()
+      ctx.arc(x, y, radius, 0, TAU)
+      ctx.fill()
+    }
   }
 }
 
@@ -325,9 +385,11 @@ export class AiGenerationOverlay extends Rect {
     ctx.clip()
     ctx.fillStyle = AI_OVERLAY_BACKDROP_FILL
     ctx.fillRect(-width / 2, -height / 2, width, height)
-    ctx.translate(-width / 2, -height / 2)
-    ctx.scale(width / ANIMATION_SPACE_SIZE, height / ANIMATION_SPACE_SIZE)
-    drawDots({ ctx, time: this._renderTimeMs / 1000 })
+    drawDots({
+      ctx,
+      size: { width, height },
+      time: this._renderTimeMs / 1000
+    })
     ctx.restore()
   }
 }

@@ -5,6 +5,7 @@ import {
   BROWSER_RESIZE_WIDE_VIEWPORT
 } from '../../fixtures/data/browser-resize.data'
 import {
+  AI_BLOCKER_EXTREME_RESOLUTION_CASES,
   BLOCKER_SHAPE_OPTIONS,
   BLOCKER_UPDATED_FILL,
   BLOCKER_UPDATED_RESOLUTION
@@ -198,6 +199,36 @@ test.describe('Блокировка редактора', () => {
       expect(Math.abs(blockerState.boundsHeight - montageBounds.height)).toBeLessThanOrEqual(1)
     })
   })
+
+  for (const resolutionCase of AI_BLOCKER_EXTREME_RESOLUTION_CASES) {
+    test(`AI overlay остаётся на монтажной области при ${resolutionCase.title}`, async({
+      canvas,
+      editorModel,
+      interactionBlocker
+    }) => {
+      await test.step('Изменить размер монтажной области', async() => {
+        await canvas.setMontageResolution(resolutionCase.resolution)
+      })
+
+      await test.step('Заблокировать редактор с AI overlay', async() => {
+        await interactionBlocker.blockWithAiOverlay()
+      })
+
+      await test.step('Проверить что AI overlay совпал с монтажной областью', async() => {
+        const montageBounds = await editorModel.getMontageAreaBounds()
+        const blockerState = await interactionBlocker.getState()
+
+        expect(blockerState.overlayType).toBe('ai-generation-overlay')
+        expect(blockerState.overlayVisible).toBe(true)
+        expect(blockerState.upperCanvasPointerEvents).toBe('none')
+        expect(blockerState.lowerCanvasPointerEvents).toBe('none')
+        expect(Math.abs(blockerState.boundsLeft - montageBounds.left)).toBeLessThanOrEqual(1)
+        expect(Math.abs(blockerState.boundsTop - montageBounds.top)).toBeLessThanOrEqual(1)
+        expect(Math.abs(blockerState.boundsWidth - montageBounds.width)).toBeLessThanOrEqual(1)
+        expect(Math.abs(blockerState.boundsHeight - montageBounds.height)).toBeLessThanOrEqual(1)
+      })
+    })
+  }
 
   test('после сужения окна браузера маска блокировки остаётся ровно на монтажной области', async({
     editorModel,

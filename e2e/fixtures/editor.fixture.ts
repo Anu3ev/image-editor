@@ -42,6 +42,15 @@ interface EditorInternalFixtures {
   holdBrowserAfterTest: void
 }
 
+type EditorDemoInitOptions = {
+  fonts: typeof E2E_EDITOR_FONTS
+  showToolbar: boolean
+}
+
+interface EditorDemoWindow extends Window {
+  __EDITOR_DEMO_INIT_OPTIONS?: EditorDemoInitOptions
+}
+
 export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
   holdBrowserAfterTest: [async({ page: _page }, use, testInfo) => {
     await use()
@@ -56,7 +65,9 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     const model = new EditorModel(page)
 
     await page.addInitScript(({ fonts }) => {
-      window.__EDITOR_DEMO_INIT_OPTIONS = {
+      const demoWindow = window as EditorDemoWindow
+
+      demoWindow.__EDITOR_DEMO_INIT_OPTIONS = {
         fonts,
         showToolbar: true
       }
