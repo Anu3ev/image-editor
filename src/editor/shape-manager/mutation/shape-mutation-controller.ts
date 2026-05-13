@@ -280,6 +280,7 @@ export default class ShapeMutationController {
       }
 
       group.shapeOpacity = opacity
+      group.set({ opacity: 1 })
       group.setCoords()
       this.runtime.lifecycleController.fireBefore({ lifecycle })
       this.runtime.editor.canvas.requestRenderAll()

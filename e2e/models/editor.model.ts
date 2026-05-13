@@ -234,6 +234,26 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
+  /** Меняет opacity текущего активного объекта через публичный API transformManager. */
+  async setActiveObjectOpacity({ opacity }: { opacity: number }): Promise<void> {
+    const hasActiveObject = await this.page.evaluate(({ opacity: nextOpacity }) => {
+      const { editor } = window as any
+      const activeObject = editor.canvas.getActiveObject()
+
+      if (!activeObject) return false
+
+      editor.transformManager.setActiveObjectOpacity({
+        opacity: nextOpacity
+      })
+
+      return Boolean(editor.canvas.getActiveObject())
+    }, { opacity })
+
+    expect(hasActiveObject, 'для изменения opacity должен существовать активный объект').toBe(true)
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Возвращает размер шрифта, который сейчас показывает правая панель demo-контролов. */
   async getDisplayedTextFontSize(): Promise<number> {
     const fontSize = await this.page.evaluate(() => {

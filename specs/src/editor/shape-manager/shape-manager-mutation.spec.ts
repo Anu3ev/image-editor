@@ -59,6 +59,7 @@ describe('shape-manager mutation', () => {
 
     expect(textNode?.opacity).toBe(0.4)
     expect((group as { shapeOpacity?: number }).shapeOpacity).toBe(0.4)
+    expect(group.opacity).toBe(1)
     expect(getCanvasEventPayloads({
       canvas: editor.canvas,
       eventName: 'editor:before:shape-updated'

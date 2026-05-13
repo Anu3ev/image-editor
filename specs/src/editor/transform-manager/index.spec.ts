@@ -1,6 +1,11 @@
 import { ActiveSelection } from 'fabric'
 import TransformManager from '../../../../src/editor/transform-manager'
 import { createManagerTestMocks } from '../../../test-utils/editor-helpers'
+import {
+  createOpacityActiveSelection,
+  createOpacityObjectMock,
+  createShapeGroupOpacityTarget
+} from '../../../test-utils/transform-manager-helpers'
 
 describe('TransformManager', () => {
   let mockEditor: any
@@ -11,6 +16,7 @@ describe('TransformManager', () => {
     const mocks = createManagerTestMocks()
     mockEditor = mocks.mockEditor
     mockCanvas = mocks.mockCanvas
+    mockEditor.shapeManager.setOpacity = jest.fn()
 
     transformManager = new TransformManager({ editor: mockEditor })
   })
@@ -135,49 +141,105 @@ describe('TransformManager', () => {
   })
 
   describe('setActiveObjectOpacity', () => {
-    it('должен установить прозрачность для одиночного объекта', () => {
-      const mockObject = {
-        set: jest.fn()
-      }
-      mockCanvas.getActiveObject.mockReturnValue(mockObject)
+    it('для обычного одиночного объекта устанавливает Fabric opacity', () => {
+      const mockObject = createOpacityObjectMock()
+      mockCanvas.getActiveObject.mockReturnValue(mockObject.object)
 
       transformManager.setActiveObjectOpacity({ opacity: 0.5 })
 
-      expect(mockObject.set).toHaveBeenCalledWith('opacity', 0.5)
+      expect(mockObject.setMock).toHaveBeenCalledWith('opacity', 0.5)
+      expect(mockEditor.shapeManager.setOpacity).not.toHaveBeenCalled()
       expect(mockCanvas.renderAll).toHaveBeenCalled()
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-opacity-changed', {
-        object: mockObject,
+        object: mockObject.object,
         opacity: 0.5,
         withoutSave: undefined
       })
     })
 
-    it('должен установить прозрачность для всех объектов в ActiveSelection', () => {
-      const obj1 = { set: jest.fn() }
-      const obj2 = { set: jest.fn() }
-      const mockActiveSelection = new ActiveSelection([obj1 as any, obj2 as any], {}) as any
-      mockActiveSelection.getObjects = jest.fn().mockReturnValue([obj1, obj2])
+    it('для общего выделения применяет обычный opacity и shape opacity через разные контракты', () => {
+      const ordinaryObject = createOpacityObjectMock()
+      const {
+        group: shapeGroup
+      } = createShapeGroupOpacityTarget()
+      const mockActiveSelection = createOpacityActiveSelection({
+        objects: [
+          ordinaryObject.object,
+          shapeGroup
+        ]
+      })
+
+      mockEditor.shapeManager.setOpacity.mockReturnValue(shapeGroup)
 
       mockCanvas.getActiveObject.mockReturnValue(mockActiveSelection)
 
       transformManager.setActiveObjectOpacity({ opacity: 0.7 })
 
-      expect(obj1.set).toHaveBeenCalledWith('opacity', 0.7)
-      expect(obj2.set).toHaveBeenCalledWith('opacity', 0.7)
+      expect(ordinaryObject.setMock).toHaveBeenCalledWith('opacity', 0.7)
+      expect(mockEditor.shapeManager.setOpacity).toHaveBeenCalledWith({
+        target: shapeGroup,
+        opacity: 0.7,
+        withoutSave: true
+      })
+      expect(mockEditor.historyManager.saveState).toHaveBeenCalledTimes(1)
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-opacity-changed', {
+        object: mockActiveSelection,
+        opacity: 0.7,
+        withoutSave: undefined
+      })
     })
 
-    it('должен использовать переданный объект вместо активного', () => {
-      const specificObject = {
-        set: jest.fn()
-      }
+    it('для одиночной shape-группы меняет прозрачность через ShapeManager', () => {
+      const {
+        group: shapeGroup
+      } = createShapeGroupOpacityTarget()
+
+      mockEditor.shapeManager.setOpacity.mockReturnValue(shapeGroup)
+      mockCanvas.getActiveObject.mockReturnValue(shapeGroup)
+
+      transformManager.setActiveObjectOpacity({ opacity: 0.6 })
+
+      expect(mockEditor.shapeManager.setOpacity).toHaveBeenCalledWith({
+        target: shapeGroup,
+        opacity: 0.6,
+        withoutSave: true
+      })
+      expect(mockCanvas.renderAll).toHaveBeenCalled()
+      expect(mockEditor.historyManager.saveState).toHaveBeenCalledTimes(1)
+    })
+
+    it('для внутреннего объекта shape-группы обновляет всю фигуру через ShapeManager', () => {
+      const {
+        group: shapeGroup,
+        shape
+      } = createShapeGroupOpacityTarget()
+
+      mockEditor.shapeManager.setOpacity.mockReturnValue(shapeGroup)
 
       transformManager.setActiveObjectOpacity({
-        object: specificObject as any,
+        object: shape,
+        opacity: 0.65
+      })
+
+      expect(mockEditor.shapeManager.setOpacity).toHaveBeenCalledWith({
+        target: shapeGroup,
+        opacity: 0.65,
+        withoutSave: true
+      })
+      expect(mockCanvas.getActiveObject).not.toHaveBeenCalled()
+      expect(mockEditor.historyManager.saveState).toHaveBeenCalledTimes(1)
+    })
+
+    it('использует переданный обычный объект вместо активного', () => {
+      const specificObject = createOpacityObjectMock()
+
+      transformManager.setActiveObjectOpacity({
+        object: specificObject.object,
         opacity: 0.3
       })
 
-      expect(specificObject.set).toHaveBeenCalledWith('opacity', 0.3)
+      expect(specificObject.setMock).toHaveBeenCalledWith('opacity', 0.3)
     })
   })
 
