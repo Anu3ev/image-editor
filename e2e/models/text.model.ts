@@ -287,6 +287,10 @@ export class TextModel {
 
     expect(point, 'для клика по тексту должны существовать координаты на canvas').not.toBeNull()
 
+    if (!point) {
+      throw new Error('для клика по тексту должны существовать координаты на canvas')
+    }
+
     await this.page.mouse.click(point.x, point.y)
     await waitForCanvasRender({ page: this.page })
   }

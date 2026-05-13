@@ -18,3 +18,28 @@ export const BLOCKER_UPDATED_RESOLUTION = {
   width: 688,
   height: 392
 } as const
+
+/** Большие и вытянутые размеры для проверки AI overlay на разных пропорциях монтажной области. */
+export const AI_BLOCKER_EXTREME_RESOLUTION_CASES = [
+  {
+    title: 'квадратной 4K монтажной области',
+    resolution: {
+      width: 4000,
+      height: 4000
+    }
+  },
+  {
+    title: 'широкой монтажной области',
+    resolution: {
+      width: 4000,
+      height: 512
+    }
+  },
+  {
+    title: 'высокой монтажной области',
+    resolution: {
+      width: 512,
+      height: 4000
+    }
+  }
+] as const
