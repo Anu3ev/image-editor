@@ -2,6 +2,7 @@
 export interface InteractionBlockerStateInfo {
   isBlocked: boolean
   overlayExists: boolean
+  overlayType: string | null
   overlayVisible: boolean
   overlayFill: string | null
   upperCanvasPointerEvents: string

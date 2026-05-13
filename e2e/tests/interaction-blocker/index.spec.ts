@@ -49,6 +49,33 @@ test.describe('Блокировка редактора', () => {
     })
   })
 
+  test('AI-блокировка не даёт выделять фигуру и показывает AI overlay', async({
+    editorModel,
+    interactionBlocker,
+    shapes
+  }) => {
+    await test.step('Заблокировать редактор с AI overlay', async() => {
+      await interactionBlocker.blockWithAiOverlay()
+    })
+
+    await test.step('Кликнуть по фигуре на canvas', async() => {
+      await shapes.clickOnCanvas({ id: BLOCKER_SHAPE_OPTIONS.id })
+    })
+
+    await test.step('Проверить что выделение не появилось, а активен AI overlay', async() => {
+      const activeObject = await editorModel.getActiveObject()
+      const blockerState = await interactionBlocker.getState()
+
+      expect(activeObject).toBeNull()
+      expect(blockerState.isBlocked).toBe(true)
+      expect(blockerState.overlayExists).toBe(true)
+      expect(blockerState.overlayVisible).toBe(true)
+      expect(blockerState.overlayType).toBe('ai-generation-overlay')
+      expect(blockerState.upperCanvasPointerEvents).toBe('none')
+      expect(blockerState.lowerCanvasPointerEvents).toBe('none')
+    })
+  })
+
   test('после разблокировки редактора фигуру снова можно выделить и изменить', async({
     editorModel,
     interactionBlocker,
@@ -89,6 +116,38 @@ test.describe('Блокировка редактора', () => {
     })
   })
 
+  test('после AI-блокировки редактор снова можно разблокировать и заблокировать обычной маской', async({
+    editorModel,
+    interactionBlocker,
+    shapes
+  }) => {
+    await test.step('Заблокировать редактор с AI overlay и разблокировать', async() => {
+      await interactionBlocker.blockWithAiOverlay()
+      await interactionBlocker.unblock()
+    })
+
+    await test.step('Проверить что фигуру снова можно выделить', async() => {
+      await shapes.clickOnCanvas({ id: BLOCKER_SHAPE_OPTIONS.id })
+
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(activeObject?.type).toBe('shape-group')
+      expect(activeObject?.id).toBe(BLOCKER_SHAPE_OPTIONS.id)
+    })
+
+    await test.step('Заблокировать редактор обычной маской', async() => {
+      await interactionBlocker.block()
+    })
+
+    await test.step('Проверить что обычная блокировка не оставила AI overlay', async() => {
+      const blockerState = await interactionBlocker.getState()
+
+      expect(blockerState.isBlocked).toBe(true)
+      expect(blockerState.overlayVisible).toBe(true)
+      expect(blockerState.overlayType).not.toBe('ai-generation-overlay')
+    })
+  })
+
   test('после изменения resolution маска блокировки остаётся ровно на монтажной области', async({
     canvas,
     editorModel,
@@ -106,6 +165,32 @@ test.describe('Блокировка редактора', () => {
       const montageBounds = await editorModel.getMontageAreaBounds()
       const blockerState = await interactionBlocker.getState()
 
+      expect(blockerState.overlayVisible).toBe(true)
+      expect(Math.abs(blockerState.boundsLeft - montageBounds.left)).toBeLessThanOrEqual(1)
+      expect(Math.abs(blockerState.boundsTop - montageBounds.top)).toBeLessThanOrEqual(1)
+      expect(Math.abs(blockerState.boundsWidth - montageBounds.width)).toBeLessThanOrEqual(1)
+      expect(Math.abs(blockerState.boundsHeight - montageBounds.height)).toBeLessThanOrEqual(1)
+    })
+  })
+
+  test('после изменения resolution AI overlay остаётся ровно на монтажной области', async({
+    canvas,
+    editorModel,
+    interactionBlocker
+  }) => {
+    await test.step('Заблокировать редактор с AI overlay', async() => {
+      await interactionBlocker.blockWithAiOverlay()
+    })
+
+    await test.step('Изменить размер монтажной области', async() => {
+      await canvas.setMontageResolution(BLOCKER_UPDATED_RESOLUTION)
+    })
+
+    await test.step('Проверить что AI overlay совпал с новой монтажной областью', async() => {
+      const montageBounds = await editorModel.getMontageAreaBounds()
+      const blockerState = await interactionBlocker.getState()
+
+      expect(blockerState.overlayType).toBe('ai-generation-overlay')
       expect(blockerState.overlayVisible).toBe(true)
       expect(Math.abs(blockerState.boundsLeft - montageBounds.left)).toBeLessThanOrEqual(1)
       expect(Math.abs(blockerState.boundsTop - montageBounds.top)).toBeLessThanOrEqual(1)

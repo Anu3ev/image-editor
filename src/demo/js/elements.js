@@ -202,6 +202,8 @@ const undoBtn = document.getElementById('undo-btn')
 const redoBtn = document.getElementById('redo-btn')
 /** Кнопка блокировки взаимодействия с редактором. */
 const blockEditorBtn = document.getElementById('block-editor-btn')
+/** Кнопка блокировки взаимодействия с AI overlay. */
+const blockEditorWithAiOverlayBtn = document.getElementById('block-editor-with-ai-overlay-btn')
 /** Кнопка разблокировки взаимодействия с редактором. */
 const unblockEditorBtn = document.getElementById('unblock-editor-btn')
 /** Узел отображения текущего состояния InteractionBlocker. */
@@ -383,6 +385,7 @@ export const historyControls = {
 /** Группа контролов блокировки взаимодействия с редактором. */
 export const interactionControls = {
   blockEditorBtn,
+  blockEditorWithAiOverlayBtn,
   unblockEditorBtn,
   interactionBlockerStateNode
 }

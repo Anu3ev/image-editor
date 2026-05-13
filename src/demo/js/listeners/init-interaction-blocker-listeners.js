@@ -6,6 +6,7 @@
 export default ({ editorInstance, controls }) => {
   const {
     blockEditorBtn,
+    blockEditorWithAiOverlayBtn,
     unblockEditorBtn,
     interactionBlockerStateNode
   } = controls
@@ -22,6 +23,10 @@ export default ({ editorInstance, controls }) => {
       blockEditorBtn.disabled = isBlocked
     }
 
+    if (blockEditorWithAiOverlayBtn) {
+      blockEditorWithAiOverlayBtn.disabled = isBlocked
+    }
+
     if (unblockEditorBtn) {
       unblockEditorBtn.disabled = !isBlocked
     }
@@ -33,6 +38,10 @@ export default ({ editorInstance, controls }) => {
   const initActionListeners = () => {
     blockEditorBtn?.addEventListener('click', () => {
       editorInstance.interactionBlocker.block()
+    })
+
+    blockEditorWithAiOverlayBtn?.addEventListener('click', () => {
+      editorInstance.interactionBlocker.block({ overlay: 'ai-generation' })
     })
 
     unblockEditorBtn?.addEventListener('click', () => {

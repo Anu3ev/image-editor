@@ -1036,6 +1036,7 @@ export function installEditorBrowserHelpers(): void {
   function getInteractionBlockerState(): Record<string, unknown> {
     const { interactionBlocker, canvas } = browserWindow.editor
     const { overlayMask } = interactionBlocker
+    const overlayInfo = toBrowserObject({ value: overlayMask })
     const bounds = overlayMask
       ? createBoundsInfo({
         bounds: getBoundingRect({ target: overlayMask })
@@ -1052,8 +1053,9 @@ export function installEditorBrowserHelpers(): void {
     return {
       isBlocked: Boolean(interactionBlocker.isBlocked),
       overlayExists: Boolean(overlayMask),
-      overlayVisible: Boolean(toBrowserObject({ value: overlayMask }).visible),
-      overlayFill: resolveNullableString({ value: toBrowserObject({ value: overlayMask }).fill }),
+      overlayType: resolveNullableString({ value: overlayInfo.type }),
+      overlayVisible: Boolean(overlayInfo.visible),
+      overlayFill: resolveNullableString({ value: overlayInfo.fill }),
       upperCanvasPointerEvents: canvas.upperCanvasEl.style.pointerEvents,
       lowerCanvasPointerEvents: canvas.lowerCanvasEl.style.pointerEvents,
       boundsLeft: bounds.left,

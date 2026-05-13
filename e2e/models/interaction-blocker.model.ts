@@ -17,6 +17,14 @@ export class InteractionBlockerModel {
     })
   }
 
+  /** Блокирует редактор через публичный API InteractionBlocker с AI overlay. */
+  async blockWithAiOverlay(): Promise<void> {
+    await this.page.evaluate(() => {
+      const { editor } = window as any
+      editor.interactionBlocker.block({ overlay: 'ai-generation' })
+    })
+  }
+
   /** Разблокирует редактор через публичный API InteractionBlocker. */
   async unblock(): Promise<void> {
     await this.page.evaluate(() => {
