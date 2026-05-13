@@ -144,6 +144,36 @@ describe('shape-group', () => {
     expect(textNode.evented).toBe(false)
   })
 
+  it('fromObject переносит opacity самой группы во внутренние узлы shape-композиции', async() => {
+    registerShapeGroup()
+    const shapeNode = createMockShapeNode({ opacity: 0.8 })
+    const textNode = createMockShapeTextbox({ text: 'Shape text' })
+
+    textNode.set({ opacity: 0.6 })
+
+    jest.spyOn(util, 'enlivenObjects')
+      .mockResolvedValue([
+        shapeNode as never,
+        textNode
+      ])
+    jest.spyOn(util, 'enlivenObjectEnlivables').mockResolvedValue({})
+
+    const serialized = {
+      ...createSerializedShapeGroup(),
+      opacity: 0.5,
+      shapeOpacity: 0.8
+    }
+
+    const group = await ShapeGroupObject.fromObject(serialized)
+    const restoredShape = group.getObjects()[0] as typeof shapeNode
+    const restoredText = group.getObjects()[1] as typeof textNode
+
+    expect(group.opacity).toBe(1)
+    expect(group.shapeOpacity).toBe(0.4)
+    expect(restoredShape.opacity).toBe(0.4)
+    expect(restoredText.opacity).toBe(0.3)
+  })
+
   it('fromObject использует дефолтный layout manager если он не сериализован', async() => {
     registerShapeGroup()
     jest.spyOn(util, 'enlivenObjects')

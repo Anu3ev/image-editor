@@ -17,6 +17,9 @@ import {
   normalizeShapeUserPadding
 } from '../layout/shape-padding'
 import {
+  getShapeNodes
+} from './shape-nodes'
+import {
   applyShapeGroupInteractivity,
   detachShapeGroupAutoLayout,
   getShapeRuntimeTextNode,
@@ -169,6 +172,7 @@ export class ShapeGroupObject extends Group {
     this.shapePaddingLeft = normalizedPadding.left
 
     this._syncRoundability()
+    this._foldGroupOpacityIntoNodes()
     applyShapeGroupInteractivity({
       group: this as ShapeGroupLike
     })
@@ -260,6 +264,44 @@ export class ShapeGroupObject extends Group {
     if (!preset) return
 
     this.shapeCanRound = isShapePresetRoundable({ preset })
+  }
+
+  /**
+   * Сворачивает opacity самой группы во внутренние узлы shape-композиции.
+   */
+  private _foldGroupOpacityIntoNodes(): void {
+    const groupOpacity = this.opacity
+
+    if (typeof groupOpacity !== 'number' || groupOpacity === 1) return
+
+    const {
+      shape,
+      text
+    } = getShapeNodes({ group: this as ShapeGroupLike })
+
+    if (!shape && !text) return
+
+    if (shape) {
+      const shapeOpacity = typeof shape.opacity === 'number'
+        ? shape.opacity
+        : this.shapeOpacity ?? 1
+      const opacity = shapeOpacity * groupOpacity
+
+      shape.set({ opacity })
+      shape.setCoords()
+      this.shapeOpacity = opacity
+    }
+
+    if (text) {
+      const textOpacity = typeof text.opacity === 'number'
+        ? text.opacity
+        : 1
+
+      text.set({ opacity: textOpacity * groupOpacity })
+      text.setCoords()
+    }
+
+    this.set({ opacity: 1 })
   }
 }
 

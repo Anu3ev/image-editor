@@ -4,6 +4,7 @@ import { ImageEditor } from '../index'
 import {
   DEFAULT_ROTATE_RATIO
 } from '../constants'
+import { resolveShapeGroupFromTarget } from '../shape-manager/domain/shape-reference'
 
 export type ResetObjectOptions = {
   object?: FabricObject
@@ -142,13 +143,28 @@ export default class TransformManager {
     const activeObject = object || canvas.getActiveObject()
     if (!activeObject) return
 
+    let hasAppliedOpacity = false
+
     if (activeObject instanceof ActiveSelection) {
-      activeObject.getObjects().forEach((obj:FabricObject) => {
-        obj.set('opacity', opacity)
-      })
+      const objects = activeObject.getObjects()
+
+      for (let index = 0; index < objects.length; index += 1) {
+        const selectionObject = objects[index]
+        const isApplied = this._setCanvasObjectOpacity({
+          object: selectionObject,
+          opacity
+        })
+
+        hasAppliedOpacity = hasAppliedOpacity || isApplied
+      }
     } else {
-      activeObject.set('opacity', opacity)
+      hasAppliedOpacity = this._setCanvasObjectOpacity({
+        object: activeObject,
+        opacity
+      })
     }
+
+    if (!hasAppliedOpacity) return
 
     canvas.renderAll()
 
@@ -161,6 +177,33 @@ export default class TransformManager {
       opacity,
       withoutSave
     })
+  }
+
+  /**
+   * Устанавливает opacity с учетом доменного контракта shape-group.
+   */
+  private _setCanvasObjectOpacity({
+    object,
+    opacity
+  }: {
+    object: FabricObject
+    opacity: number
+  }): boolean {
+    const shapeGroup = resolveShapeGroupFromTarget({ target: object })
+
+    if (shapeGroup) {
+      const updated = this.editor.shapeManager.setOpacity({
+        target: shapeGroup,
+        opacity,
+        withoutSave: true
+      })
+
+      return Boolean(updated)
+    }
+
+    object.set('opacity', opacity)
+
+    return true
   }
 
   /**

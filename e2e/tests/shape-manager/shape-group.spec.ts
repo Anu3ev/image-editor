@@ -1,5 +1,10 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
+  SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ADD_PARAMS,
+  SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID,
+  SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ADD_PARAMS,
+  SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID,
+  SHAPE_ACTIVE_SELECTION_OPACITY_VALUE,
   SHAPE_OPACITY_PRESET,
   SHAPE_OPACITY_TEXT,
   SHAPE_OPACITY_VALUE,
@@ -101,6 +106,62 @@ test.describe('Свойства фигур', () => {
 
       expect(shape?.shapeOpacity).toBe(SHAPE_SHAPE_ONLY_OPACITY_VALUE)
       expect(textNode?.opacity).toBe(1)
+    })
+  })
+
+  test('undo и redo после изменения прозрачности общего выделения возвращают прозрачность шейпа и обычного текста', async({
+    editorModel,
+    history,
+    shapes,
+    text
+  }) => {
+    await test.step('Добавить шейп с текстом и отдельный текст', async() => {
+      await shapes.add(SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ADD_PARAMS)
+      await text.add(SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ADD_PARAMS)
+    })
+
+    await test.step('Изменить прозрачность общего выделения', async() => {
+      await editorModel.selectAllObjects()
+      await editorModel.setActiveObjectOpacity({
+        opacity: SHAPE_ACTIVE_SELECTION_OPACITY_VALUE
+      })
+    })
+
+    await test.step('Проверить что opacity применился по контрактам разных объектов', async() => {
+      const shape = await shapes.getObject({ id: SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID })
+      const shapeText = await shapes.getTextNode({ id: SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID })
+      const standaloneText = await text.getObject({ id: SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID })
+
+      expect(shape?.shapeOpacity).toBe(SHAPE_ACTIVE_SELECTION_OPACITY_VALUE)
+      expect(shape?.opacity).toBe(1)
+      expect(shapeText?.opacity).toBe(SHAPE_ACTIVE_SELECTION_OPACITY_VALUE)
+      expect(standaloneText?.opacity).toBe(SHAPE_ACTIVE_SELECTION_OPACITY_VALUE)
+    })
+
+    await test.step('Сделать undo и проверить исходную прозрачность', async() => {
+      await history.undo()
+
+      const shape = await shapes.getObject({ id: SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID })
+      const shapeText = await shapes.getTextNode({ id: SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID })
+      const standaloneText = await text.getObject({ id: SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID })
+
+      expect(shape?.shapeOpacity).toBe(1)
+      expect(shape?.opacity).toBe(1)
+      expect(shapeText?.opacity).toBe(1)
+      expect(standaloneText?.opacity).toBe(1)
+    })
+
+    await test.step('Сделать redo и проверить повторно применённую прозрачность', async() => {
+      await history.redo()
+
+      const shape = await shapes.getObject({ id: SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID })
+      const shapeText = await shapes.getTextNode({ id: SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID })
+      const standaloneText = await text.getObject({ id: SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID })
+
+      expect(shape?.shapeOpacity).toBe(SHAPE_ACTIVE_SELECTION_OPACITY_VALUE)
+      expect(shape?.opacity).toBe(1)
+      expect(shapeText?.opacity).toBe(SHAPE_ACTIVE_SELECTION_OPACITY_VALUE)
+      expect(standaloneText?.opacity).toBe(SHAPE_ACTIVE_SELECTION_OPACITY_VALUE)
     })
   })
 
