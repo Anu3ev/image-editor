@@ -131,7 +131,7 @@ export default class TextManager {
         resolveTextObject: (reference) => this._resolveTextObject(reference),
         normalizeTextboxAfterContentChange: (params) => this._normalizeTextboxAfterContentChange(params),
         restoreTextboxContentPlacement: (params) => this._restoreTextboxContentPlacement(params),
-        syncLineStylesWithText: (params) => this._syncLineStylesWithText(params),
+        syncLineStylesWithText: (params) => this.syncLineStylesWithText(params),
         getSnapshot: (textbox) => TextManager._getSnapshot(textbox)
       }
     })
@@ -690,13 +690,13 @@ export default class TextManager {
     }
 
     if (isShapeOwnedTextbox) {
-      this._syncLineStylesWithText({ textbox: target })
+      this.syncLineStylesWithText({ textbox: target })
       return
     }
 
     // Пустая строка должна получить свои line defaults до layout-измерения,
     // иначе Fabric измеряет её через object-level fontSize.
-    this._syncLineStylesWithText({ textbox: target })
+    this.syncLineStylesWithText({ textbox: target })
 
     this._normalizeTextboxAfterContentChange({
       textbox: target,
@@ -709,7 +709,7 @@ export default class TextManager {
   /**
    * Синхронизирует lineFontDefaults и runtime styles после изменения текста.
    */
-  private _syncLineStylesWithText({
+  public syncLineStylesWithText({
     textbox,
     previousText,
     currentText

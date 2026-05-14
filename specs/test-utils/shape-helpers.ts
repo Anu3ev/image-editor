@@ -726,6 +726,7 @@ export const createShapeManagerEditorStub = ({
         width: Number(style.width) || 180,
         textAlign: (style.align as 'left' | 'center' | 'right' | 'justify') ?? 'center'
       })),
+      syncLineStylesWithText: jest.fn(),
       updateText: jest.fn()
     },
     historyManager: {

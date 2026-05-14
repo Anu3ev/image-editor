@@ -246,6 +246,12 @@ export default class ShapeEventController {
 
     if (!isShapeGroup(textNode.group)) return
 
+    // ShapeManager получает text:changed раньше TextManager,
+    // поэтому line defaults должны попасть в runtime styles до layout-измерения.
+    this.runtime.editor.textManager.syncLineStylesWithText({
+      textbox: textNode
+    })
+
     const wasSynchronized = this.runtime.syncShapeTextLayoutAfterTextMutation({
       textNode
     })
