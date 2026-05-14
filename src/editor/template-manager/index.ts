@@ -3,6 +3,7 @@ import {
   Canvas,
   FabricImage,
   FabricObject,
+  Point,
   Textbox,
   loadSVGFromString,
   util
@@ -31,6 +32,11 @@ type Bounds = {
   height: number
 }
 
+type PointInfo = {
+  x: number
+  y: number
+}
+
 type TemplatePlaceholder = {
   id: string
   label?: string
@@ -38,6 +44,25 @@ type TemplatePlaceholder = {
 }
 
 type ImageFit = 'contain' | 'stretch'
+
+type ImageRestorePlan = {
+  nextProps: Record<string, number>
+  targetWidth: number
+  targetHeight: number
+  baseScaleX: number
+  baseScaleY: number
+  hasIntrinsicSize: boolean
+}
+
+type ImageRestorePropsParams = {
+  imageFit: ImageFit
+  intrinsicWidth: number
+  intrinsicHeight: number
+  targetWidth: number
+  targetHeight: number
+  baseScaleX: number
+  baseScaleY: number
+}
 
 export type TemplateMeta = {
   baseWidth: number
@@ -230,7 +255,12 @@ export default class TemplateManager {
 
     try {
       // Восстанавливаем Fabric-объекты из сохранённых данных шаблона
-      const enlivenedObjects = await TemplateManager._enlivenObjects(objects)
+      const enlivenedObjects = await TemplateManager._enlivenObjects({
+        objects,
+        baseWidth: meta.baseWidth,
+        baseHeight: meta.baseHeight,
+        useRelativePositions
+      })
 
       if (!enlivenedObjects.length) {
         errorManager.emitWarning({
@@ -372,12 +402,28 @@ export default class TemplateManager {
   /**
    * Превращает plain-описание объектов в Fabric объекты.
    */
-  private static async _enlivenObjects(objects: TemplateObjectData[]): Promise<FabricObject[]> {
+  private static async _enlivenObjects({
+    objects,
+    baseWidth,
+    baseHeight,
+    useRelativePositions
+  }: {
+    objects: TemplateObjectData[]
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+  }): Promise<FabricObject[]> {
     const revivedList = await Promise.all(objects.map(async(serialized) => {
       if (TemplateManager._hasSerializedSvgMarkup(serialized)) {
         const revived = await TemplateManager._reviveSvgObject(serialized)
         if (revived) {
-          TemplateManager._restoreImageScale({ revived, serialized })
+          TemplateManager._restoreImageScale({
+            revived,
+            serialized,
+            baseWidth,
+            baseHeight,
+            useRelativePositions
+          })
           return revived
         }
       }
@@ -386,7 +432,13 @@ export default class TemplateManager {
       const revived = enlivened?.[0]
 
       if (revived) {
-        TemplateManager._restoreImageScale({ revived, serialized })
+        TemplateManager._restoreImageScale({
+          revived,
+          serialized,
+          baseWidth,
+          baseHeight,
+          useRelativePositions
+        })
         return revived
       }
 
@@ -401,12 +453,62 @@ export default class TemplateManager {
    */
   private static _restoreImageScale({
     revived,
-    serialized
-  }: { revived: FabricObject; serialized: TemplateObjectData }): void {
+    serialized,
+    baseWidth,
+    baseHeight,
+    useRelativePositions
+  }: {
+    revived: FabricObject
+    serialized: TemplateObjectData
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+  }): void {
     const objectType = typeof revived.type === 'string' ? revived.type.toLowerCase() : ''
 
     if (objectType !== 'image') return
 
+    const image = revived as FabricImage
+    const plan = TemplateManager._createImageRestorePlan({ image, serialized })
+
+    if (!plan.hasIntrinsicSize) {
+      image.set(plan.nextProps)
+      return
+    }
+
+    const originalCenter = TemplateManager._resolveImageTemplateCenter({
+      image,
+      serialized,
+      plan,
+      baseWidth,
+      baseHeight,
+      useRelativePositions
+    })
+
+    image.set(plan.nextProps)
+    TemplateManager._restoreImageTemplateCenter({
+      image,
+      center: originalCenter,
+      baseWidth,
+      baseHeight,
+      useRelativePositions
+    })
+  }
+
+  /**
+   * Собирает план восстановления размера изображения по serialized box и новому intrinsic size.
+   */
+  private static _createImageRestorePlan({
+    image,
+    serialized
+  }: {
+    image: FabricImage
+    serialized: TemplateObjectData
+  }): ImageRestorePlan {
+    const {
+      width: intrinsicWidth,
+      height: intrinsicHeight
+    } = TemplateManager._getImageIntrinsicSize({ image })
     const {
       width: serializedWidth,
       height: serializedHeight,
@@ -414,8 +516,38 @@ export default class TemplateManager {
       scaleY: serializedScaleY,
       customData
     } = serialized
-    const image = revived as FabricImage
+    const targetWidth = toNumber({ value: serializedWidth, fallback: intrinsicWidth })
+    const targetHeight = toNumber({ value: serializedHeight, fallback: intrinsicHeight })
+    const baseScaleX = toNumber({ value: serializedScaleX, fallback: image.scaleX || 1 })
+    const baseScaleY = toNumber({ value: serializedScaleY, fallback: image.scaleY || 1 })
+    const imageFit = TemplateManager._resolveImageFit({ customData })
+    const nextProps = TemplateManager._resolveImageRestoreProps({
+      imageFit,
+      intrinsicWidth,
+      intrinsicHeight,
+      targetWidth,
+      targetHeight,
+      baseScaleX,
+      baseScaleY
+    })
 
+    const hasIntrinsicWidth = intrinsicWidth > 0
+    const hasIntrinsicHeight = intrinsicHeight > 0
+
+    return {
+      nextProps,
+      targetWidth,
+      targetHeight,
+      baseScaleX,
+      baseScaleY,
+      hasIntrinsicSize: hasIntrinsicWidth && hasIntrinsicHeight
+    }
+  }
+
+  /**
+   * Возвращает фактический размер нового изображения.
+   */
+  private static _getImageIntrinsicSize({ image }: { image: FabricImage }): Dimensions {
     const element = 'getElement' in image && typeof image.getElement === 'function'
       ? image.getElement()
       : null
@@ -434,23 +566,28 @@ export default class TemplateManager {
         height: 0
       }
 
-    const intrinsicWidth = toNumber({ value: naturalWidth || elementWidth || image.width, fallback: 0 })
-    const intrinsicHeight = toNumber({ value: naturalHeight || elementHeight || image.height, fallback: 0 })
+    return {
+      width: toNumber({ value: naturalWidth || elementWidth || image.width, fallback: 0 }),
+      height: toNumber({ value: naturalHeight || elementHeight || image.height, fallback: 0 })
+    }
+  }
 
-    const targetWidth = toNumber({ value: serializedWidth, fallback: intrinsicWidth })
-    const targetHeight = toNumber({ value: serializedHeight, fallback: intrinsicHeight })
-    const baseScaleX = toNumber({ value: serializedScaleX, fallback: image.scaleX || 1 })
-    const baseScaleY = toNumber({ value: serializedScaleY, fallback: image.scaleY || 1 })
-
+  /**
+   * Возвращает свойства размера и scale, которые должны быть применены к восстановленному изображению.
+   */
+  private static _resolveImageRestoreProps({
+    imageFit,
+    intrinsicWidth,
+    intrinsicHeight,
+    targetWidth,
+    targetHeight,
+    baseScaleX,
+    baseScaleY
+  }: ImageRestorePropsParams): Record<string, number> {
     const targetDisplayWidth = targetWidth * baseScaleX
     const targetDisplayHeight = targetHeight * baseScaleY
-
     const hasIntrinsicWidth = intrinsicWidth > 0
     const hasIntrinsicHeight = intrinsicHeight > 0
-    const hasTargetWidth = targetDisplayWidth > 0
-    const hasTargetHeight = targetDisplayHeight > 0
-    const imageFit = TemplateManager._resolveImageFit({ customData })
-
     const nextProps: Record<string, number> = {}
 
     if (hasIntrinsicWidth) {
@@ -462,30 +599,76 @@ export default class TemplateManager {
     }
 
     if (!hasIntrinsicWidth || !hasIntrinsicHeight) {
-      image.set(nextProps)
-      return
+      return nextProps
     }
 
     if (imageFit === 'stretch') {
-      const nextScaleX = hasTargetWidth ? targetDisplayWidth / intrinsicWidth : null
-      const nextScaleY = hasTargetHeight ? targetDisplayHeight / intrinsicHeight : null
-
-      if (nextScaleX && nextScaleX > 0) {
-        nextProps.scaleX = nextScaleX
-      }
-
-      if (nextScaleY && nextScaleY > 0) {
-        nextProps.scaleY = nextScaleY
-      }
-
-      image.set(nextProps)
-      return
+      TemplateManager._applyStretchedImageScale({
+        nextProps,
+        intrinsicWidth,
+        intrinsicHeight,
+        targetDisplayWidth,
+        targetDisplayHeight
+      })
+      return nextProps
     }
 
-    if (!hasTargetWidth || !hasTargetHeight) {
-      image.set(nextProps)
-      return
+    TemplateManager._applyContainedImageScale({
+      nextProps,
+      intrinsicWidth,
+      intrinsicHeight,
+      targetDisplayWidth,
+      targetDisplayHeight
+    })
+
+    return nextProps
+  }
+
+  /**
+   * Добавляет независимый scale по осям для stretch-режима.
+   */
+  private static _applyStretchedImageScale({
+    nextProps,
+    intrinsicWidth,
+    intrinsicHeight,
+    targetDisplayWidth,
+    targetDisplayHeight
+  }: {
+    nextProps: Record<string, number>
+    intrinsicWidth: number
+    intrinsicHeight: number
+    targetDisplayWidth: number
+    targetDisplayHeight: number
+  }): void {
+    const nextScaleX = targetDisplayWidth > 0 ? targetDisplayWidth / intrinsicWidth : null
+    const nextScaleY = targetDisplayHeight > 0 ? targetDisplayHeight / intrinsicHeight : null
+
+    if (nextScaleX && nextScaleX > 0) {
+      nextProps.scaleX = nextScaleX
     }
+
+    if (nextScaleY && nextScaleY > 0) {
+      nextProps.scaleY = nextScaleY
+    }
+  }
+
+  /**
+   * Добавляет единый scale для contain-режима.
+   */
+  private static _applyContainedImageScale({
+    nextProps,
+    intrinsicWidth,
+    intrinsicHeight,
+    targetDisplayWidth,
+    targetDisplayHeight
+  }: {
+    nextProps: Record<string, number>
+    intrinsicWidth: number
+    intrinsicHeight: number
+    targetDisplayWidth: number
+    targetDisplayHeight: number
+  }): void {
+    if (targetDisplayWidth <= 0 || targetDisplayHeight <= 0) return
 
     const containScale = Math.min(targetDisplayWidth / intrinsicWidth, targetDisplayHeight / intrinsicHeight)
 
@@ -493,8 +676,117 @@ export default class TemplateManager {
       nextProps.scaleX = containScale
       nextProps.scaleY = containScale
     }
+  }
 
-    image.set(nextProps)
+  /**
+   * Вычисляет центр исходной template-области изображения в координатах template-base.
+   */
+  private static _resolveImageTemplateCenter({
+    image,
+    serialized,
+    plan,
+    baseWidth,
+    baseHeight,
+    useRelativePositions
+  }: {
+    image: FabricImage
+    serialized: TemplateObjectData
+    plan: ImageRestorePlan
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+  }): PointInfo {
+    const originalProps = {
+      left: image.left,
+      top: image.top,
+      width: image.width,
+      height: image.height,
+      scaleX: image.scaleX,
+      scaleY: image.scaleY
+    }
+    const placement = TemplateManager._resolveTemplatePlacement({
+      image,
+      serialized,
+      baseWidth,
+      baseHeight,
+      useRelativePositions
+    })
+
+    image.set({
+      left: placement.x,
+      top: placement.y,
+      width: plan.targetWidth,
+      height: plan.targetHeight,
+      scaleX: plan.baseScaleX,
+      scaleY: plan.baseScaleY
+    })
+
+    const center = image.getPointByOrigin('center', 'center')
+
+    image.set(originalProps)
+
+    return {
+      x: center.x,
+      y: center.y
+    }
+  }
+
+  /**
+   * Возвращает template-placement в координатах base-size, даже если в template он хранится нормализованным.
+   */
+  private static _resolveTemplatePlacement({
+    image,
+    serialized,
+    baseWidth,
+    baseHeight,
+    useRelativePositions
+  }: {
+    image: FabricImage
+    serialized: TemplateObjectData
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+  }): PointInfo {
+    const left = toNumber({ value: serialized.left, fallback: image.left || 0 })
+    const top = toNumber({ value: serialized.top, fallback: image.top || 0 })
+
+    if (!useRelativePositions) {
+      return {
+        x: left,
+        y: top
+      }
+    }
+
+    return {
+      x: left * (baseWidth || 1),
+      y: top * (baseHeight || 1)
+    }
+  }
+
+  /**
+   * Возвращает восстановленное изображение в ту же систему координат, где его ждёт общий transform.
+   */
+  private static _restoreImageTemplateCenter({
+    image,
+    center,
+    baseWidth,
+    baseHeight,
+    useRelativePositions
+  }: {
+    image: FabricImage
+    center: PointInfo
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+  }): void {
+    image.setPositionByOrigin(new Point(center.x, center.y), 'center', 'center')
+
+    if (!useRelativePositions) return
+
+    image.set({
+      left: toNumber({ value: image.left, fallback: 0 }) / (baseWidth || 1),
+      top: toNumber({ value: image.top, fallback: 0 }) / (baseHeight || 1)
+    })
   }
 
   /**

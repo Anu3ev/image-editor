@@ -14,6 +14,9 @@ import {
   PRODUCT_CARD_TEMPLATE_UPDATED_TITLE,
   TEMPLATE_ALIGNMENT_TOLERANCE,
   TEMPLATE_BOUNDS_TOLERANCE,
+  TEMPLATE_REPLACED_IMAGE_CASES,
+  TEMPLATE_REPLACED_IMAGE_CENTER,
+  TEMPLATE_REPLACED_IMAGE_RESOLUTIONS,
   TEMPLATE_RELATIVE_TOLERANCE,
   TEMPLATE_SHAPE_LONG_TEXT_OPTIONS,
   TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION,
@@ -241,6 +244,70 @@ test.describe('Готовый шаблон', () => {
       expect(subtitleObject.text).toBe('Новый подзаголовок товара')
     })
   })
+})
+
+test.describe('Картинка из шаблона после замены src', () => {
+  for (const { label, template: imageTemplate } of TEMPLATE_REPLACED_IMAGE_CASES) {
+    test(`${label} остаётся в центре исходного места`, async({
+      canvas,
+      editorModel,
+      template
+    }) => {
+      await test.step('Применить шаблон с заменённой ссылкой на картинку', async() => {
+        await canvas.setMontageResolution(PRODUCT_CARD_TEMPLATE_BASE_RESOLUTION)
+
+        const insertedCount = await template.applyTemplate({
+          template: imageTemplate
+        })
+
+        expect(insertedCount).toBe(1)
+        await editorModel.checkObjectCount({ count: 1 })
+      })
+
+      await test.step('Проверить что центр картинки совпал с центром исходной квадратной области', async() => {
+        const montageBounds = await editorModel.getMontageAreaBounds()
+        const image = await editorModel.getObjectSnapshot({ objectIndex: 0 })
+        const expectedCenterX = montageBounds.left + (montageBounds.width * TEMPLATE_REPLACED_IMAGE_CENTER.x)
+        const expectedCenterY = montageBounds.top + (montageBounds.height * TEMPLATE_REPLACED_IMAGE_CENTER.y)
+
+        expect(Math.abs(image.centerX - expectedCenterX)).toBeLessThanOrEqual(TEMPLATE_BOUNDS_TOLERANCE)
+        expect(Math.abs(image.centerY - expectedCenterY)).toBeLessThanOrEqual(TEMPLATE_BOUNDS_TOLERANCE)
+      })
+    })
+  }
+
+  for (const { label, template: imageTemplate } of TEMPLATE_REPLACED_IMAGE_CASES) {
+    test(`${label} остаётся в центре исходного места на другом размере монтажной области`, async({
+      canvas,
+      editorModel,
+      template
+    }) => {
+      for (const { label: resolutionLabel, resolution } of TEMPLATE_REPLACED_IMAGE_RESOLUTIONS) {
+        await test.step(`Применить шаблон на размере ${resolution.width}x${resolution.height} для кейса "${resolutionLabel}"`, async() => {
+          await canvas.clearCanvas()
+          await canvas.setMontageResolution(resolution)
+
+          const insertedCount = await template.applyTemplate({
+            template: imageTemplate
+          })
+
+          expect(insertedCount).toBe(1)
+          await editorModel.checkObjectCount({ count: 1 })
+        })
+
+        // eslint-disable-next-line max-len
+        await test.step(`Проверить что на размере ${resolution.width}x${resolution.height} картинка остаётся по центру исходной области`, async() => {
+          const montageBounds = await editorModel.getMontageAreaBounds()
+          const image = await editorModel.getObjectSnapshot({ objectIndex: 0 })
+          const expectedCenterX = montageBounds.left + (montageBounds.width * TEMPLATE_REPLACED_IMAGE_CENTER.x)
+          const expectedCenterY = montageBounds.top + (montageBounds.height * TEMPLATE_REPLACED_IMAGE_CENTER.y)
+
+          expect(Math.abs(image.centerX - expectedCenterX)).toBeLessThanOrEqual(TEMPLATE_BOUNDS_TOLERANCE)
+          expect(Math.abs(image.centerY - expectedCenterY)).toBeLessThanOrEqual(TEMPLATE_BOUNDS_TOLERANCE)
+        })
+      }
+    })
+  }
 })
 
 test.describe('Standalone text из шаблона', () => {

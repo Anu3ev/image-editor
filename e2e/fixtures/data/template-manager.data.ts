@@ -217,6 +217,118 @@ export const TEMPLATE_SHAPE_TEXT_LARGE_SCALE = Math.min(
 /** Допуск для проверок масштаба текста внутри фигуры после применения шаблона. */
 export const TEMPLATE_SHAPE_TEXT_SCALE_TOLERANCE = 1.5
 
+const TEMPLATE_REPLACED_IMAGE_BASE_OBJECT = {
+  cropX: 0,
+  cropY: 0,
+  id: 'image-template-replaced-source',
+  customData: {
+    handle: 'main-image'
+  },
+  format: 'png',
+  width: 714,
+  height: 714,
+  originX: 'left',
+  originY: 'top',
+  evented: true,
+  selectable: true,
+  lockMovementX: false,
+  lockMovementY: false,
+  lockRotation: false,
+  lockScalingX: false,
+  lockScalingY: false,
+  lockSkewingX: false,
+  lockSkewingY: false,
+  type: 'Image',
+  version: '7.2.0',
+  left: 0.05925925925925926,
+  top: 0.15185185185185185,
+  fill: 'rgb(0,0,0)',
+  stroke: null,
+  strokeWidth: 0,
+  strokeDashArray: null,
+  strokeLineCap: 'butt',
+  strokeDashOffset: 0,
+  strokeLineJoin: 'miter',
+  strokeUniform: false,
+  strokeMiterLimit: 4,
+  scaleX: 1,
+  scaleY: 1,
+  angle: 0,
+  flipX: false,
+  flipY: false,
+  opacity: 1,
+  shadow: null,
+  visible: true,
+  backgroundColor: '',
+  fillRule: 'nonzero',
+  paintFirst: 'fill',
+  globalCompositeOperation: 'source-over',
+  skewX: 0,
+  skewY: 0,
+  src: 'https://static.insales-cdn.com/files/1/521/108380681/original/headphones.png',
+  crossOrigin: 'anonymous',
+  filters: [],
+  _templateAnchorX: 'center',
+  _templateAnchorY: 'center'
+} as const
+
+const TEMPLATE_REPLACED_IMAGE_META = {
+  baseWidth: 810,
+  baseHeight: 1080,
+  positionsNormalized: true
+} as const
+
+/** Ожидаемый центр исходной квадратной области изображения в координатах montage area. */
+export const TEMPLATE_REPLACED_IMAGE_CENTER = {
+  x: 0.5,
+  y: 0.4824074074074074
+} as const
+
+/** Размеры монтажной области для проверки заменённой картинки на базовом и изменённом масштабе шаблона. */
+export const TEMPLATE_REPLACED_IMAGE_RESOLUTIONS = [
+  {
+    label: 'уменьшенный размер с теми же пропорциями',
+    resolution: PRODUCT_CARD_TEMPLATE_COMPACT_RESOLUTION
+  },
+  {
+    label: 'квадратный размер с горизонтальными полями',
+    resolution: TEMPLATE_STANDALONE_TEXT_SQUARE_RESOLUTION
+  }
+] as const
+
+/** Шаблоны, где исходная квадратная картинка заменена картинкой с другим соотношением сторон. */
+export const TEMPLATE_REPLACED_IMAGE_CASES: {
+  label: string
+  template: TemplateDefinition
+}[] = [
+  {
+    label: 'вертикальная картинка 1:2',
+    template: {
+      id: 'template-image-replaced-with-vertical',
+      meta: TEMPLATE_REPLACED_IMAGE_META,
+      objects: [
+        {
+          ...TEMPLATE_REPLACED_IMAGE_BASE_OBJECT,
+          src: 'https://static.insales-cdn.com/files/1/3425/124923233/original/vertical_1_2.jpg'
+        }
+      ]
+    }
+  },
+  {
+    label: 'горизонтальная картинка 2:1',
+    template: {
+      id: 'template-image-replaced-with-horizontal',
+      meta: TEMPLATE_REPLACED_IMAGE_META,
+      objects: [
+        {
+          ...TEMPLATE_REPLACED_IMAGE_BASE_OBJECT,
+          src: 'https://static.insales-cdn.com/files/1/3417/124923225/original/horizontal_2_1.jpg'
+        }
+      ]
+    }
+  }
+]
+
 /** Фигура с длинным текстом для проверки сохранения и повторного применения шаблона. */
 export const TEMPLATE_SHAPE_LONG_TEXT_OPTIONS = {
   id: 'template-shape-long-text',

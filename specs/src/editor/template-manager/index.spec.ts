@@ -3,6 +3,7 @@ import { nanoid } from 'nanoid'
 import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/shape-manager/domain/shape-group'
 import {
   createPlacementSelection,
+  createPlacementTestImage,
   createPlacementTestObject,
   createRevivedTemplateObject,
   getScenePointByOrigin
@@ -16,6 +17,7 @@ import {
   createMockShapeTextbox
 } from '../../../test-utils/shape-helpers'
 import {
+  createImageTemplateDefinition,
   createShapeTemplateDefinition,
   createStandaloneTextTemplateDefinition,
   createTemplateManagerTestSetup
@@ -326,6 +328,146 @@ describe('TemplateManager', () => {
     expect(targetRect.top + targetRect.height).toBeLessThanOrEqual(
       targetMontageBounds.top + targetMontageBounds.height
     )
+  })
+
+  it('изображение из шаблона с новой вертикальной картинкой сохраняет центр исходной области', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true,
+      montageBounds: {
+        left: 100,
+        top: 50,
+        width: 810,
+        height: 1080
+      }
+    })
+    const revivedImage = createPlacementTestImage({
+      id: 'template-image',
+      left: 0.05925925925925926,
+      top: 0.15185185185185185,
+      width: 714,
+      height: 714,
+      intrinsicWidth: 400,
+      intrinsicHeight: 800
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([revivedImage as never])
+
+    const result = await manager.applyTemplate({
+      template: createImageTemplateDefinition({
+        left: 0.05925925925925926,
+        top: 0.15185185185185185,
+        width: 714,
+        height: 714
+      })
+    })
+    const imageCenter = getScenePointByOrigin({
+      object: revivedImage,
+      originX: 'center',
+      originY: 'center'
+    })
+
+    expect(result).toEqual([revivedImage])
+    expect(imageCenter).toEqual(new Point(505, 571))
+    expect(revivedImage.scaleX).toBe(0.8925)
+    expect(revivedImage.scaleY).toBe(0.8925)
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
+  it('legacy template без normalized positions сохраняет центр изображения после замены src', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true,
+      montageBounds: {
+        left: 0,
+        top: 0,
+        width: 810,
+        height: 1080
+      }
+    })
+    const revivedImage = createPlacementTestImage({
+      id: 'template-image',
+      left: 148,
+      top: 164,
+      width: 240,
+      height: 240,
+      intrinsicWidth: 480,
+      intrinsicHeight: 120
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([revivedImage as never])
+
+    const result = await manager.applyTemplate({
+      template: createImageTemplateDefinition({
+        left: 148,
+        top: 164,
+        width: 240,
+        height: 240,
+        positionsNormalized: false
+      })
+    })
+    const imageCenter = getScenePointByOrigin({
+      object: revivedImage,
+      originX: 'center',
+      originY: 'center'
+    })
+
+    expect(result).toEqual([revivedImage])
+    expect(imageCenter).toEqual(new Point(268, 284))
+    expect(revivedImage.originX).toBe('center')
+    expect(revivedImage.originY).toBe('center')
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
+  it('изображение в stretch-режиме сохраняет центр и размер исходного бокса', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true,
+      montageBounds: {
+        left: 100,
+        top: 50,
+        width: 810,
+        height: 1080
+      }
+    })
+    const revivedImage = createPlacementTestImage({
+      id: 'template-image',
+      left: 0.2,
+      top: 0.1,
+      width: 300,
+      height: 300,
+      intrinsicWidth: 100,
+      intrinsicHeight: 600
+    })
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([revivedImage as never])
+
+    const result = await manager.applyTemplate({
+      template: createImageTemplateDefinition({
+        left: 0.2,
+        top: 0.1,
+        width: 300,
+        height: 300,
+        imageFit: 'stretch'
+      })
+    })
+    const imageCenter = getScenePointByOrigin({
+      object: revivedImage,
+      originX: 'center',
+      originY: 'center'
+    })
+
+    expect(result).toEqual([revivedImage])
+    expect(imageCenter).toEqual(new Point(412, 308))
+    expect(revivedImage.scaleX).toBe(3)
+    expect(revivedImage.scaleY).toBe(0.5)
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
   it('после применения шаблона эмитит editor:template-applied с вставленными объектами и bounds монтажной области', async() => {
