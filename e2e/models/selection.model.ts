@@ -77,6 +77,19 @@ export class SelectionModel {
     })
   }
 
+  /** Масштабирует текущее общее выделение слева и возвращает live-состояние. */
+  async scaleHorizontallyFromLeft(
+    params: {
+      scaleX: number
+    }
+  ): Promise<SnappingObjectSnapshot> {
+    return this._scaleFromControl({
+      startControl: 'ml',
+      oppositeControl: 'mr',
+      scaleX: params.scaleX
+    })
+  }
+
   /** Масштабирует текущее общее выделение снизу и возвращает live-состояние. */
   async scaleVerticallyFromBottom(
     params: {

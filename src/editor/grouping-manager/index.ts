@@ -90,6 +90,35 @@ export default class GroupingManager {
   }
 
   /**
+   * Запекает transient scale объекта после выхода из Fabric-группы в его доменную модель.
+   */
+  private _materializeUngroupedObject({ object }: { object: FabricObject }): void {
+    const {
+      shapeManager,
+      textManager
+    } = this.editor
+    const shapeLayoutParams: {
+      target: FabricObject
+      textScale?: number
+    } = {
+      target: object
+    }
+
+    if (object.shapeComposite === true) {
+      shapeLayoutParams.textScale = Math.abs(object.scaleX ?? 1) || 1
+    }
+
+    const standaloneTextScaleCommitted = textManager.commitStandaloneTextScale({
+      target: object
+    })
+    const shapeLayoutCommitted = shapeManager.commitRehydratedShapeLayout(shapeLayoutParams)
+
+    if (!standaloneTextScaleCommitted && !shapeLayoutCommitted) {
+      object.setCoords()
+    }
+  }
+
+  /**
  * Группировка объектов
  * @param options
  * @param options.target - объект ActiveSelection или массив объектов для группировки
@@ -167,6 +196,9 @@ export default class GroupingManager {
         const ungroupedObjects = group.removeAll()
         canvas.remove(group)
         ungroupedObjects.forEach((groupedObj) => {
+          this._materializeUngroupedObject({
+            object: groupedObj
+          })
           canvas.add(groupedObj)
           allUngroupedObjects.push(groupedObj)
         })

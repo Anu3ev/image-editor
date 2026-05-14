@@ -14,6 +14,7 @@ import { InteractionBlockerModel } from '../models/interaction-blocker.model'
 import { ImageModel } from '../models/image.model'
 import { ToolbarModel } from '../models/toolbar.model'
 import { SelectionModel } from '../models/selection.model'
+import { GroupingModel } from '../models/grouping.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
@@ -36,6 +37,7 @@ interface EditorFixtures {
   images: ImageModel
   toolbar: ToolbarModel
   selection: SelectionModel
+  grouping: GroupingModel
 }
 
 interface EditorInternalFixtures {
@@ -155,6 +157,10 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   selection: async({ editorModel }, use) => {
     await use(editorModel.selection)
+  },
+
+  grouping: async({ editorModel }, use) => {
+    await use(editorModel.grouping)
   }
 })
 

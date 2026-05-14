@@ -178,6 +178,15 @@ export class SnappingModel {
     return this.getObjectSnapshot(params)
   }
 
+  /** Выполняет полный drag объекта до нужной позиции bounding box и завершает его через mouseup. */
+  async moveObjectBoundsTo(params: SnappingDragBoundsParams): Promise<SnappingObjectSnapshot> {
+    await this.startObjectDrag(params)
+    await this.dragObjectBoundsTo(params)
+    await this.finishPointerInteraction()
+
+    return this.getObjectSnapshot(params)
+  }
+
   /** Перемещает объект в live drag-сессии так, чтобы центр его bounding box пришёл в нужную позицию. */
   async dragObjectCenterTo(params: SnappingDragCenterParams): Promise<SnappingObjectSnapshot> {
     const dragInfo = await this._getDragTransformInfo(params)
