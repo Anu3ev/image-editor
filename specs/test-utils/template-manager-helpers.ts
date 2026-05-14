@@ -123,3 +123,48 @@ export const createStandaloneTextTemplateDefinition = (): TemplateDefinition => 
     }
   ]
 })
+
+/**
+ * Создаёт image template definition для проверок rehydration и placement.
+ */
+export const createImageTemplateDefinition = ({
+  left,
+  top,
+  width,
+  height,
+  positionsNormalized = true,
+  imageFit
+}: {
+  left: number
+  top: number
+  width: number
+  height: number
+  positionsNormalized?: boolean
+  imageFit?: 'contain' | 'stretch'
+}): TemplateDefinition => ({
+  id: 'template-image-placement',
+  meta: {
+    baseWidth: 810,
+    baseHeight: 1080,
+    positionsNormalized
+  },
+  objects: [
+    {
+      type: 'image',
+      id: 'template-image',
+      left,
+      top,
+      width,
+      height,
+      originX: 'left',
+      originY: 'top',
+      scaleX: 1,
+      scaleY: 1,
+      customData: imageFit
+        ? {
+          imageFit
+        }
+        : undefined
+    }
+  ]
+})

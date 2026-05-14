@@ -15,7 +15,7 @@ type PlacementPoint = {
   transform: (matrix: PlacementMatrix) => Point
 }
 
-type PlacementTestObject = {
+export type PlacementTestObject = {
   id: string
   type: string
   left: number
@@ -37,6 +37,10 @@ type PlacementTestObject = {
   getPointByOrigin: jest.Mock
   getBoundingRect: jest.Mock
   toDatalessObject: jest.Mock
+}
+
+export type PlacementImageTestObject = PlacementTestObject & {
+  getElement: jest.Mock
 }
 
 /**
@@ -203,7 +207,7 @@ export const createPlacementTestObject = ({
   strokeWidth?: number
   strokeUniform?: boolean
 }): PlacementTestObject => {
-  const object = {
+  const object: PlacementTestObject = {
     id,
     type,
     left,
@@ -269,7 +273,7 @@ export const createPlacementTestObject = ({
         height: scaledHeight
       }
     }),
-    toDatalessObject: jest.fn(() => ({
+    toDatalessObject: jest.fn((): Record<string, unknown> => ({
       id: object.id,
       type: object.type,
       left: object.left,
@@ -300,7 +304,7 @@ export const createPlacementSelection = ({
   offsetX: number
   offsetY: number
 }): PlacementGroup => {
-  const selection = new ActiveSelection(objects, {}) as PlacementGroup
+  const selection = new ActiveSelection(objects as never, {}) as PlacementGroup
   selection.calcTransformMatrix = jest.fn(() => [1, 0, 0, 1, offsetX, offsetY])
 
   for (let index = 0; index < objects.length; index += 1) {
@@ -332,4 +336,70 @@ export const createRevivedTemplateObject = ({
     strokeWidth: typeof serialized.strokeWidth === 'number' ? serialized.strokeWidth : 0,
     strokeUniform: typeof serialized.strokeUniform === 'boolean' ? serialized.strokeUniform : true
   })
+}
+
+/**
+ * Создаёт placement-aware image object c controllable intrinsic size.
+ */
+export const createPlacementTestImage = ({
+  id,
+  left,
+  top,
+  width,
+  height,
+  originX = 'left',
+  originY = 'top',
+  scaleX = 1,
+  scaleY = 1,
+  intrinsicWidth,
+  intrinsicHeight
+}: {
+  id: string
+  left: number
+  top: number
+  width: number
+  height: number
+  originX?: PlacementOriginX
+  originY?: PlacementOriginY
+  scaleX?: number
+  scaleY?: number
+  intrinsicWidth: number
+  intrinsicHeight: number
+}): PlacementImageTestObject => {
+  const image = createPlacementTestObject({
+    id,
+    type: 'image',
+    left,
+    top,
+    width,
+    height,
+    originX,
+    originY,
+    scaleX,
+    scaleY
+  }) as PlacementImageTestObject
+  const element = document.createElement('img')
+
+  Object.defineProperties(element, {
+    naturalWidth: {
+      configurable: true,
+      get: () => intrinsicWidth
+    },
+    naturalHeight: {
+      configurable: true,
+      get: () => intrinsicHeight
+    },
+    width: {
+      configurable: true,
+      get: () => intrinsicWidth
+    },
+    height: {
+      configurable: true,
+      get: () => intrinsicHeight
+    }
+  })
+
+  image.getElement = jest.fn(() => element)
+
+  return image
 }
