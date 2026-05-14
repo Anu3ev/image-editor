@@ -55,6 +55,7 @@ type TextUpdateRuntime = {
     placement?: ObjectPlacement
     shouldAutoExpand: boolean
     clampToMontage?: boolean
+    shouldRefreshDimensions?: boolean
   }) => void
   restoreTextboxContentPlacement: (params: {
     textbox: EditorTextbox
@@ -1049,11 +1050,15 @@ export default class TextUpdateController {
   }): void {
     const nextRenderedText = textbox.text ?? ''
     const hasBackgroundStyleUpdate = this._hasBackgroundStyleUpdate({ style })
+    const shouldRefreshDimensions = this._shouldRefreshDimensions({
+      contentUpdate,
+      styleMaps
+    })
     const shouldAutoExpand = this._resolveShouldAutoExpand({
       textbox,
       style,
       styleMaps,
-      contentUpdate
+      shouldRefreshDimensions
     })
 
     if (hasBackgroundStyleUpdate) {
@@ -1074,7 +1079,8 @@ export default class TextUpdateController {
     this.runtime.normalizeTextboxAfterContentChange({
       textbox,
       placement,
-      shouldAutoExpand
+      shouldAutoExpand,
+      shouldRefreshDimensions
     })
 
     if (contentPlacement) {
@@ -1110,30 +1116,40 @@ export default class TextUpdateController {
     textbox,
     style,
     styleMaps,
-    contentUpdate
+    shouldRefreshDimensions
   }: {
     textbox: EditorTextbox
     style: TextStyleOptions
     styleMaps: TextStyleMaps
-    contentUpdate: TextContentUpdate
+    shouldRefreshDimensions: boolean
   }): boolean {
     const resolvedAutoExpand = style.autoExpand ?? textbox.autoExpand
-    const hasLayoutUpdates = hasLayoutAffectingStyles({
-      stylesList: [
-        styleMaps.updates,
-        styleMaps.selectionStyles,
-        styleMaps.lineSelectionStyles,
-        styleMaps.wholeTextStyles
-      ]
-    })
 
     return resolvedAutoExpand !== false
       && !Object.prototype.hasOwnProperty.call(styleMaps.updates, 'width')
-      && (
-        contentUpdate.hasTextUpdate
-        || contentUpdate.uppercaseChanged
-        || hasLayoutUpdates
-      )
+      && shouldRefreshDimensions
+  }
+
+  /**
+   * Определяет, нужно ли заново измерять textbox после обновления текста или layout-affecting styles.
+   */
+  private _shouldRefreshDimensions({
+    contentUpdate,
+    styleMaps
+  }: {
+    contentUpdate: TextContentUpdate
+    styleMaps: TextStyleMaps
+  }): boolean {
+    return contentUpdate.hasTextUpdate
+      || contentUpdate.uppercaseChanged
+      || hasLayoutAffectingStyles({
+        stylesList: [
+          styleMaps.updates,
+          styleMaps.selectionStyles,
+          styleMaps.lineSelectionStyles,
+          styleMaps.wholeTextStyles
+        ]
+      })
   }
 
   /**

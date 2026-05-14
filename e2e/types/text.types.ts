@@ -119,6 +119,7 @@ export interface TextResizeSnapshot extends TextObjectInfo {
 /** Параметры обновления стиля текстового объекта через TextManager. */
 export interface TextUpdateStyleParams extends ObjectTargetParams {
   style: TextStyleParams
+  selectionRange?: TextSelectionRange
   syncLineStylesWithText?: boolean
 }
 
@@ -129,11 +130,14 @@ export interface TextRangeStyleParams extends ObjectTargetParams {
   style: TextInlineStyle
 }
 
-/** Параметры выделения диапазона в режиме редактирования текста. */
-export interface TextSelectionParams extends ObjectTargetParams {
+/** Диапазон текста для выделения или частичного обновления стиля. */
+export interface TextSelectionRange {
   start: number
   end: number
 }
+
+/** Параметры выделения диапазона в режиме редактирования текста. */
+export interface TextSelectionParams extends ObjectTargetParams, TextSelectionRange {}
 
 /** Сериализованный стиль выделенного диапазона текстового объекта. */
 export interface TextSelectionStyleInfo {
