@@ -63,7 +63,9 @@ describe('shape-manager text', () => {
       throw new Error('shape group should be created')
     }
 
-    const textNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    const textNode = manager.getTextNode({
+      target: group
+    })
 
     if (!textNode) {
       throw new Error('shape text node should exist')
@@ -100,7 +102,9 @@ describe('shape-manager text', () => {
       canvas: editor.canvas,
       eventName: 'editor:before:text-updated'
     })
-    const textNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    const textNode = manager.getTextNode({
+      target: group
+    })
 
     if (!enteredHandler || !beforeTextUpdatedHandler || !textNode) {
       throw new Error('shape manager handlers should be registered')
@@ -168,7 +172,9 @@ describe('shape-manager text', () => {
       canvas: editor.canvas,
       eventName: 'editor:before:text-updated'
     })
-    const textNode = group.getObjects().find((item) => (item as { shapeNodeType?: string }).shapeNodeType === 'text')
+    const textNode = manager.getTextNode({
+      target: group
+    })
 
     if (!enteredHandler || !beforeTextUpdatedHandler || !textNode) {
       throw new Error('shape manager handlers should be registered')
@@ -733,6 +739,93 @@ describe('shape-manager text', () => {
     expect(applyShapeTextLayoutMock).toHaveBeenCalled()
     expect(group.left).toBe(459)
     expect(group.top).toBe(412)
+  })
+
+  it('text:changed сначала синхронизирует стили пустой строки, а потом пересчитывает layout фигуры', async() => {
+    const editor = createShapeManagerEditorStub()
+    const manager = new ShapeManager({
+      editor: editor as never
+    })
+    const group = await manager.add({
+      presetKey: 'square',
+      options: {
+        text: 'FIRST LINE\nSECOND LINE'
+      }
+    })
+
+    if (!group) {
+      throw new Error('shape group should be created')
+    }
+
+    const enteredHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:editing:entered'
+    })
+    const changedHandler = getRequiredCanvasHandler({
+      canvas: editor.canvas,
+      eventName: 'text:changed'
+    })
+    const textNode = manager.getTextNode({
+      target: group
+    })
+
+    if (!textNode) {
+      throw new Error('shape text node should exist')
+    }
+
+    type ShapeTextLineStyles = {
+      styles?: Record<number, Record<number, { fontSize?: number }>>
+      lineFontDefaults?: Record<number, { fontSize?: number }>
+    }
+
+    const textNodeWithLineStyles = textNode as Textbox & ShapeTextLineStyles
+    const syncLineStylesWithTextMock = editor.textManager.syncLineStylesWithText as jest.Mock
+    const syncedFontSize = 20
+
+    textNodeWithLineStyles.text = 'FIRST LINE\n'
+    textNodeWithLineStyles.styles = {}
+    textNodeWithLineStyles.lineFontDefaults = {
+      1: {
+        fontSize: syncedFontSize
+      }
+    }
+
+    syncLineStylesWithTextMock.mockImplementation(({
+      textbox
+    }: {
+      textbox: Textbox & ShapeTextLineStyles
+    }) => {
+      textbox.styles = {
+        1: {
+          0: {
+            fontSize: syncedFontSize
+          }
+        }
+      }
+    })
+
+    applyShapeTextLayoutMock.mockImplementation((params: Parameters<typeof applyShapeTextLayoutToMockGroup>[0]) => {
+      const textForLayout = params.text as Textbox & ShapeTextLineStyles
+
+      expect(syncLineStylesWithTextMock).toHaveBeenCalledTimes(1)
+      expect(textForLayout.styles?.[1]?.[0]?.fontSize).toBe(syncedFontSize)
+
+      applyShapeTextLayoutToMockGroup(params)
+    })
+
+    enteredHandler({
+      target: textNode
+    })
+    syncLineStylesWithTextMock.mockClear()
+    applyShapeTextLayoutMock.mockClear()
+    changedHandler({
+      target: textNode
+    })
+
+    expect(syncLineStylesWithTextMock).toHaveBeenCalledWith({
+      textbox: textNode
+    })
+    expect(applyShapeTextLayoutMock).toHaveBeenCalledTimes(1)
   })
 
   it('при вводе текста не сужает шейп уже ширины, с которой он был добавлен', async() => {
