@@ -23,6 +23,7 @@ import { InteractionBlockerModel } from './interaction-blocker.model'
 import { ImageModel } from './image.model'
 import { ToolbarModel } from './toolbar.model'
 import { SelectionModel } from './selection.model'
+import { GroupingModel } from './grouping.model'
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -49,6 +50,8 @@ export class EditorModel {
 
   readonly selection: SelectionModel
 
+  readonly grouping: GroupingModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -62,6 +65,7 @@ export class EditorModel {
     this.images = new ImageModel(page)
     this.toolbar = new ToolbarModel(page)
     this.selection = new SelectionModel(page)
+    this.grouping = new GroupingModel(page)
   }
 
   /** Ожидает финальное состояние редактора после завершения init(), а не раннее появление window.editor. */

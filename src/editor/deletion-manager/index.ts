@@ -1,4 +1,4 @@
-import { FabricObject } from 'fabric'
+import { FabricObject, Group } from 'fabric'
 import { ImageEditor } from '../index'
 import { ObjectsDeletedPayload } from '../types/events'
 
@@ -23,8 +23,8 @@ export default class DeletionManager {
    * @param obj - объект для проверки
    * @returns true, если объект является группой и не является SVG
    */
-  private static _isUngroupableGroup(obj: FabricObject): boolean {
-    return obj.type === 'group' && obj.format !== 'svg'
+  private static _isUngroupableGroup(obj: FabricObject): obj is Group {
+    return obj instanceof Group && obj.format !== 'svg'
   }
 
   /**
@@ -32,12 +32,12 @@ export default class DeletionManager {
    * @param group - группа для обработки
    * @returns массив всех удаленных объектов (включая саму группу)
    */
-  private _handleGroupDeletion(group: FabricObject): FabricObject[] {
+  private _handleGroupDeletion(group: Group): FabricObject[] {
     const { groupingManager } = this.editor
 
     // Разгруппировываем и получаем объекты
     const { ungroupedObjects = [] } = groupingManager.ungroup({
-      object: group,
+      target: group,
       withoutSave: true
     }) ?? {}
 

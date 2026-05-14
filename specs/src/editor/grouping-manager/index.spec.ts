@@ -1,4 +1,3 @@
-import { Group, ActiveSelection } from 'fabric'
 import {
   createManagerTestMocks,
   createMockFabricObject,
@@ -276,6 +275,91 @@ describe('GroupingManager', () => {
   })
 
   describe('ungroup', () => {
+    it('перед добавлением на canvas запекает scale standalone-textbox через textManager', () => {
+      const commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+      const commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+      const textObject = createMockFabricObject({
+        type: 'textbox',
+        id: 'text-1',
+        scaleX: 0.8,
+        scaleY: 1
+      })
+      const mockGroup = createMockGroup([textObject], { id: 'group-1' })
+
+      commitStandaloneTextScaleMock.mockReturnValue(true)
+      commitRehydratedShapeLayoutMock.mockReturnValue(false)
+
+      const result = groupingManager.ungroup({ target: mockGroup })
+
+      expect(result?.ungroupedObjects).toEqual([textObject])
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: textObject
+      })
+      expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+        target: textObject
+      })
+      expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
+      expect(textObject.setCoords).not.toHaveBeenCalled()
+    })
+
+    it('перед добавлением на canvas передаёт scale shape-группы в её materialization-контракт', () => {
+      const commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+      const commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+      const shapeObject = createMockGroup([], {
+        id: 'shape-child',
+        shapeComposite: true,
+        scaleX: 1.6,
+        scaleY: 1.6
+      })
+      const parentGroup = createMockGroup([shapeObject], { id: 'parent-group' })
+
+      commitStandaloneTextScaleMock.mockReturnValue(false)
+      commitRehydratedShapeLayoutMock.mockReturnValue(true)
+
+      const result = groupingManager.ungroup({ target: parentGroup })
+
+      expect(result?.ungroupedObjects).toEqual([shapeObject])
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: shapeObject
+      })
+      expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+        target: shapeObject,
+        textScale: 1.6
+      })
+      expect(commitRehydratedShapeLayoutMock.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
+    })
+
+    it('если объекту нечего материализовать, перед добавлением обновляет только его координаты', () => {
+      const commitStandaloneTextScaleMock = mockEditor.textManager.commitStandaloneTextScale as jest.Mock
+      const commitRehydratedShapeLayoutMock = mockEditor.shapeManager.commitRehydratedShapeLayout as jest.Mock
+      const genericObject = createMockFabricObject({
+        type: 'rect',
+        id: 'rect-1'
+      })
+      const mockGroup = createMockGroup([genericObject], { id: 'group-1' })
+
+      commitStandaloneTextScaleMock.mockReturnValue(false)
+      commitRehydratedShapeLayoutMock.mockReturnValue(false)
+
+      const result = groupingManager.ungroup({ target: mockGroup })
+
+      expect(result?.ungroupedObjects).toEqual([genericObject])
+      expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
+        target: genericObject
+      })
+      expect(commitRehydratedShapeLayoutMock).toHaveBeenCalledWith({
+        target: genericObject
+      })
+      expect(genericObject.setCoords).toHaveBeenCalledTimes(1)
+      expect(genericObject.setCoords.mock.invocationCallOrder[0]).toBeLessThan(
+        mockCanvas.add.mock.invocationCallOrder[0]
+      )
+    })
+
     it('должен разгруппировать одну группу', () => {
       const mockRect = createMockFabricObject({ type: 'rect', id: 'rect-1' })
       const mockCircle = createMockFabricObject({ type: 'circle', id: 'circle-1' })
