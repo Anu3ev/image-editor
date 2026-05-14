@@ -507,19 +507,22 @@ export default class TextManager {
   /**
    * Нормализует standalone-геометрию текстового объекта после layout-изменений.
    * При включённом autoExpand пересчитывает ширину по фактической ширине текста.
-   * В остальных случаях только округляет размеры и восстанавливает placement.
+    * При shouldRefreshDimensions сначала сбрасывает measurement cache Fabric через initDimensions.
+    * В остальных случаях только округляет размеры и восстанавливает placement.
    */
   private _normalizeTextboxAfterContentChange(
     {
       textbox,
       placement,
       shouldAutoExpand,
-      clampToMontage = true
+      clampToMontage = true,
+      shouldRefreshDimensions = false
     }: {
       textbox: EditorTextbox
       placement?: ObjectPlacement | null
       shouldAutoExpand: boolean
       clampToMontage?: boolean
+      shouldRefreshDimensions?: boolean
     }
   ): boolean {
     let geometryAdjusted = false
@@ -531,7 +534,18 @@ export default class TextManager {
       })
     }
 
+    let dimensionsRecalculated = false
     let dimensionsRounded = false
+    if (!geometryAdjusted && shouldRefreshDimensions) {
+      const previousWidth = textbox.width ?? 0
+      const previousHeight = textbox.height ?? 0
+
+      textbox.initDimensions()
+
+      dimensionsRecalculated = Math.abs((textbox.width ?? 0) - previousWidth) > DIMENSION_EPSILON
+        || Math.abs((textbox.height ?? 0) - previousHeight) > DIMENSION_EPSILON
+    }
+
     if (!geometryAdjusted) {
       dimensionsRounded = roundTextboxDimensions({ textbox })
     }
@@ -545,15 +559,15 @@ export default class TextManager {
       placementApplied = true
     }
 
-    if (geometryAdjusted || dimensionsRounded) {
+    if (geometryAdjusted || dimensionsRecalculated || dimensionsRounded) {
       textbox.dirty = true
     }
 
-    if (geometryAdjusted || dimensionsRounded || placementApplied) {
+    if (geometryAdjusted || dimensionsRecalculated || dimensionsRounded || placementApplied) {
       textbox.setCoords()
     }
 
-    return geometryAdjusted || dimensionsRounded
+    return geometryAdjusted || dimensionsRecalculated || dimensionsRounded
   }
 
   /**
@@ -680,13 +694,16 @@ export default class TextManager {
       return
     }
 
+    // Пустая строка должна получить свои line defaults до layout-измерения,
+    // иначе Fabric измеряет её через object-level fontSize.
+    this._syncLineStylesWithText({ textbox: target })
+
     this._normalizeTextboxAfterContentChange({
       textbox: target,
       placement,
-      shouldAutoExpand: isAutoExpandEnabled
+      shouldAutoExpand: isAutoExpandEnabled,
+      shouldRefreshDimensions: true
     })
-
-    this._syncLineStylesWithText({ textbox: target })
   }
 
   /**
