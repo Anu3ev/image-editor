@@ -73,6 +73,10 @@ class Listeners {
 
   handleCopyEventBound: (e: KeyboardEvent) => void
 
+  handleCutEventBound: (e: KeyboardEvent) => void
+
+  handleDuplicateEventBound: (e: KeyboardEvent) => void
+
   handlePasteEventBound: (e: ClipboardEvent) => void
 
   handleUndoRedoEventBound: (e: KeyboardEvent) => void
@@ -124,6 +128,10 @@ class Listeners {
 
   copyObjectsByHotkey: boolean = false
 
+  cutObjectsByHotkey: boolean = false
+
+  duplicateObjectsByHotkey: boolean = false
+
   pasteImageFromClipboard: boolean = false
 
   undoRedoByHotKeys: boolean = false
@@ -142,6 +150,8 @@ class Listeners {
    * @param params.options.canvasDragging — включить перетаскивание канваса
    * @param params.options.mouseWheelZooming — включить зум колесом мыши
    * @param params.options.copyObjectsByHotkey — копировать объекты по Ctrl+C
+   * @param params.options.cutObjectsByHotkey — вырезать объекты по Ctrl+X
+   * @param params.options.duplicateObjectsByHotkey — дублировать объекты по Ctrl+D
    * @param params.options.pasteImageFromClipboard — вставлять изображения и объекты из буфера обмена
    * @param params.options.undoRedoByHotKeys — отмена/повтор по Ctrl+Z/Ctrl+Y
    * @param params.options.selectAllByHotkey — выделение всех объектов по Ctrl+A
@@ -158,6 +168,8 @@ class Listeners {
     // Глобальные (DOM) события:
     this.handleContainerResizeBound = Listeners.debounce(this.handleContainerResize.bind(this), 500)
     this.handleCopyEventBound = this.handleCopyEvent.bind(this)
+    this.handleCutEventBound = this.handleCutEvent.bind(this)
+    this.handleDuplicateEventBound = this.handleDuplicateEvent.bind(this)
     this.handlePasteEventBound = this.handlePasteEvent.bind(this)
     this.handleUndoRedoEventBound = this.handleUndoRedoEvent.bind(this)
     this.handleUndoRedoKeyUpBound = this.handleUndoRedoKeyUp.bind(this)
@@ -188,19 +200,15 @@ class Listeners {
    * Инициализация всех обработчиков согласно опциям.
    */
   init(): void {
-    const {
-      adaptCanvasToContainerOnResize,
-      canvasDragging,
-      mouseWheelZooming,
-      copyObjectsByHotkey,
-      pasteImageFromClipboard,
-      undoRedoByHotKeys,
-      selectAllByHotkey,
-      deleteObjectsByHotkey,
-      resetObjectFitByDoubleClick
-    } = this.options
+    this._bindCanvasInteractionEvents()
+    this._bindDomEvents()
+    this._bindHistoryEvents()
+    this._bindOverlayEvents()
+    this._bindBackgroundEvents()
+  }
 
-    if (canvasDragging) {
+  private _bindCanvasInteractionEvents(): void {
+    if (this.options.canvasDragging) {
       this.canvas.on('mouse:down', this.handleCanvasDragStartBound)
       this.canvas.on('mouse:move', this.handleCanvasDraggingBound)
       this.canvas.on('mouse:up', this.handleCanvasDragEndBound)
@@ -209,44 +217,56 @@ class Listeners {
       document.addEventListener('keyup', this.handleSpaceKeyUpBound, { capture: true })
     }
 
-    if (mouseWheelZooming) {
+    if (this.options.mouseWheelZooming) {
       this.canvas.wrapperEl.addEventListener('wheel', this.handleCanvasWheelZoomBound, {
         capture: true,
         passive: false
       })
     }
 
-    if (resetObjectFitByDoubleClick) {
+    if (this.options.resetObjectFitByDoubleClick) {
       this.canvas.on('mouse:dblclick', this.handleResetObjectFitBound)
     }
+  }
 
+  private _bindDomEvents(): void {
     // Подключаем глобальные DOM-события:
-    if (adaptCanvasToContainerOnResize) {
+    if (this.options.adaptCanvasToContainerOnResize) {
       window.addEventListener('resize', this.handleContainerResizeBound, { capture: true })
     }
 
-    if (copyObjectsByHotkey) {
+    if (this.options.copyObjectsByHotkey) {
       document.addEventListener('keydown', this.handleCopyEventBound, { capture: true })
     }
 
-    if (pasteImageFromClipboard) {
+    if (this.options.cutObjectsByHotkey) {
+      document.addEventListener('keydown', this.handleCutEventBound, { capture: true })
+    }
+
+    if (this.options.duplicateObjectsByHotkey) {
+      document.addEventListener('keydown', this.handleDuplicateEventBound, { capture: true })
+    }
+
+    if (this.options.pasteImageFromClipboard) {
       document.addEventListener('paste', this.handlePasteEventBound, { capture: true })
     }
 
-    if (undoRedoByHotKeys) {
+    if (this.options.undoRedoByHotKeys) {
       document.addEventListener('keydown', this.handleUndoRedoEventBound, { capture: true })
 
       document.addEventListener('keyup', this.handleUndoRedoKeyUpBound, { capture: true })
     }
 
-    if (selectAllByHotkey) {
+    if (this.options.selectAllByHotkey) {
       document.addEventListener('keydown', this.handleSelectAllEventBound, { capture: true })
     }
 
-    if (deleteObjectsByHotkey) {
+    if (this.options.deleteObjectsByHotkey) {
       document.addEventListener('keydown', this.handleDeleteObjectsEventBound, { capture: true })
     }
+  }
 
+  private _bindHistoryEvents(): void {
     // Инициализация истории редактора
     this.canvas.on('object:modified', this.handleObjectModifiedHistoryBound)
     this.canvas.on('object:rotating', this.handleObjectRotatingHistoryBound)
@@ -258,11 +278,15 @@ class Listeners {
     this.canvas.on('object:skewing', this.handleObjectTransformStartBound)
     this.canvas.on('object:resizing', this.handleObjectTransformStartBound)
     this.canvas.on('object:modified', this.handleObjectTransformEndBound)
+  }
 
+  private _bindOverlayEvents(): void {
     // Инициализация событий для overlayMask
     this.canvas.on('object:added', this.handleOverlayUpdateBound)
     this.canvas.on('selection:created', this.handleOverlayUpdateBound)
+  }
 
+  private _bindBackgroundEvents(): void {
     // Инициализация событий для background
     this.canvas.on('object:added', this.handleBackgroundUpdateBound)
     this.canvas.on('selection:created', this.handleBackgroundUpdateBound)
@@ -373,6 +397,40 @@ class Listeners {
 
     event.preventDefault()
     this.editor.clipboardManager.copy()
+  }
+
+  /**
+   * Обработчик для Ctrl+X (вырезание).
+   * @param event — объект события
+   * @param event.ctrlKey — зажата ли клавиша Ctrl
+   * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
+   * @param event.code — код клавиши
+   */
+  handleCutEvent(event: KeyboardEvent): void {
+    const { ctrlKey, metaKey, code } = event
+
+    if (this._shouldIgnoreKeyboardEvent(event)) return
+    if ((!ctrlKey && !metaKey) || code !== 'KeyX') return
+
+    event.preventDefault()
+    this.editor.clipboardManager.cut()
+  }
+
+  /**
+   * Обработчик для Ctrl+D (дублирование).
+   * @param event — объект события
+   * @param event.ctrlKey — зажата ли клавиша Ctrl
+   * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
+   * @param event.code — код клавиши
+   */
+  handleDuplicateEvent(event: KeyboardEvent): void {
+    const { ctrlKey, metaKey, code } = event
+
+    if (this._shouldIgnoreKeyboardEvent(event)) return
+    if ((!ctrlKey && !metaKey) || code !== 'KeyD') return
+
+    event.preventDefault()
+    this.editor.clipboardManager.copyPaste()
   }
 
   /**
@@ -826,6 +884,8 @@ class Listeners {
     // Глобальные DOM-обработчики
     window.removeEventListener('resize', this.handleContainerResizeBound, { capture: true })
     document.removeEventListener('keydown', this.handleCopyEventBound, { capture: true })
+    document.removeEventListener('keydown', this.handleCutEventBound, { capture: true })
+    document.removeEventListener('keydown', this.handleDuplicateEventBound, { capture: true })
     document.removeEventListener('paste', this.handlePasteEventBound, { capture: true })
     document.removeEventListener('keydown', this.handleUndoRedoEventBound, { capture: true })
     document.removeEventListener('keyup', this.handleUndoRedoKeyUpBound, { capture: true })

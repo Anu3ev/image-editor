@@ -64,6 +64,11 @@ export const errorCodes = {
     COPY_FAILED: 'COPY_FAILED',
 
     /**
+     * Ошибка вырезания объекта.
+     */
+    CUT_FAILED: 'CUT_FAILED',
+
+    /**
      * Ошибка вставки изображения из буфера обмена.
      */
     PASTE_IMAGE_FAILED: 'PASTE_IMAGE_FAILED',

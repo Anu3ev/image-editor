@@ -26,7 +26,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Синхронное копирование объекта в системный буфер обмена
+   * Запускает копирование активного объекта во внутренний и системный буфер.
    * @fires editor:object-copied
    */
   public copy(): void {
@@ -37,22 +37,16 @@ export default class ClipboardManager {
     // Асинхронно клонируем объект для внутреннего буфера (не блокирует систему)
     this._cloneToInternalClipboard(activeObject)
 
-    // Копируем объект в системный буфер обмена
-    this._copyToSystemClipboard(activeObject).catch((error) => {
-      this.editor.errorManager.emitWarning({
-        origin: 'ClipboardManager',
-        method: 'copy',
-        code: 'COPY_FAILED',
-        message: 'Ошибка копирования объекта в системный буфер обмена',
-        data: error as object
-      })
+    this._copyToSystemClipboardInBackground({
+      activeObject,
+      method: 'copy'
     })
   }
 
   /**
    * Асинхронное клонирование для внутреннего буфера
    */
-  private async _cloneToInternalClipboard(activeObject: FabricObject): Promise<void> {
+  private async _cloneToInternalClipboard(activeObject: FabricObject): Promise<boolean> {
     const { canvas, errorManager } = this.editor
 
     try {
@@ -62,6 +56,7 @@ export default class ClipboardManager {
       })
       this.clipboard = clonedObject
       canvas.fire('editor:object-copied', { object: clonedObject })
+      return true
     } catch (error) {
       errorManager.emitError({
         origin: 'ClipboardManager',
@@ -70,7 +65,29 @@ export default class ClipboardManager {
         message: 'Ошибка клонирования объекта для внутреннего буфера',
         data: error as object
       })
+      return false
     }
+  }
+
+  /**
+   * Фоновое копирование объекта в системный буфер без блокировки действия пользователя.
+   */
+  private _copyToSystemClipboardInBackground({
+    activeObject,
+    method
+  }: {
+    activeObject: FabricObject
+    method: 'copy' | 'cut'
+  }): void {
+    this._copyToSystemClipboard(activeObject).catch((error) => {
+      this.editor.errorManager.emitWarning({
+        origin: 'ClipboardManager',
+        method,
+        code: 'COPY_FAILED',
+        message: 'Ошибка копирования объекта в системный буфер обмена',
+        data: error as object
+      })
+    })
   }
 
   /**
@@ -374,6 +391,44 @@ export default class ClipboardManager {
         method: 'copyPaste',
         code: 'COPY_PASTE_FAILED',
         message: 'Ошибка создания копии объекта',
+        data: error as object
+      })
+      return false
+    }
+  }
+
+  /**
+   * Вырезает активный объект: сначала копирует во внутренний буфер, затем удаляет с canvas.
+   */
+  public async cut(): Promise<boolean> {
+    const { canvas, deletionManager, errorManager } = this.editor
+    const activeObject = canvas.getActiveObject()
+
+    if (!activeObject || activeObject.locked) return false
+
+    try {
+      const copied = await this._cloneToInternalClipboard(activeObject)
+      if (!copied) return false
+
+      this._copyToSystemClipboardInBackground({
+        activeObject,
+        method: 'cut'
+      })
+
+      const objectsToDelete = activeObject instanceof ActiveSelection
+        ? activeObject.getObjects()
+        : [activeObject]
+      const result = deletionManager.deleteSelectedObjects({
+        objects: objectsToDelete
+      })
+
+      return Boolean(result)
+    } catch (error) {
+      errorManager.emitError({
+        origin: 'ClipboardManager',
+        method: 'cut',
+        code: 'CUT_FAILED',
+        message: 'Ошибка вырезания объекта',
         data: error as object
       })
       return false

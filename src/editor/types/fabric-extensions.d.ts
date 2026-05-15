@@ -183,6 +183,14 @@ declare module 'fabric' {
      */
     copyObjectsByHotkey: boolean
     /**
+     * Вырезание объектов по сочетанию клавиш Ctrl + X.
+     */
+    cutObjectsByHotkey: boolean
+    /**
+     * Дублирование объектов по сочетанию клавиш Ctrl + D.
+     */
+    duplicateObjectsByHotkey: boolean
+    /**
      * Вставка изображения из буфера обмена при нажатии Ctrl + V.
      */
     pasteImageFromClipboard: boolean

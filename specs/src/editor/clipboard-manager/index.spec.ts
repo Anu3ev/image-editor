@@ -117,6 +117,85 @@ describe('ClipboardManager', () => {
     })
   })
 
+  describe('cut', () => {
+    it('вырезает активный объект только после копирования во внутренний буфер', async() => {
+      const mockObject = createMockFabricObject({ type: 'rect', id: 'cut-rect' })
+      mockCanvas.getActiveObject.mockReturnValue(mockObject)
+      mockEditor.deletionManager.deleteSelectedObjects.mockReturnValue({
+        objects: [mockObject],
+        withoutSave: false
+      })
+
+      const result = await clipboardManager.cut()
+
+      expect(result).toBe(true)
+      expect(clipboardManager.clipboard).toBeTruthy()
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-copied', {
+        object: expect.any(Object)
+      })
+      expect(mockEditor.deletionManager.deleteSelectedObjects).toHaveBeenCalledWith({
+        objects: [mockObject]
+      })
+      expect(mockCanvas.fire.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEditor.deletionManager.deleteSelectedObjects.mock.invocationCallOrder[0]
+      )
+    })
+
+    it('вырезает все объекты из текущего выделения', async() => {
+      const selectedObjects = [
+        createMockFabricObject({ type: 'rect', id: 'cut-rect-1' }),
+        createMockFabricObject({ type: 'circle', id: 'cut-circle-1' })
+      ]
+      const selection = createMockActiveSelection(selectedObjects, { left: 100, top: 100 })
+      mockCanvas.getActiveObject.mockReturnValue(selection)
+      mockEditor.deletionManager.deleteSelectedObjects.mockReturnValue({
+        objects: selectedObjects,
+        withoutSave: false
+      })
+
+      const result = await clipboardManager.cut()
+
+      expect(result).toBe(true)
+      expect(clipboardManager.clipboard).toBeTruthy()
+      expect(mockEditor.deletionManager.deleteSelectedObjects).toHaveBeenCalledWith({
+        objects: selectedObjects
+      })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-copied', {
+        object: expect.any(ActiveSelection)
+      })
+    })
+
+    it('не вырезает заблокированный объект', async() => {
+      const mockObject = createMockFabricObject({ type: 'rect', locked: true })
+      mockCanvas.getActiveObject.mockReturnValue(mockObject)
+
+      const result = await clipboardManager.cut()
+
+      expect(result).toBe(false)
+      expect(clipboardManager.clipboard).toBeNull()
+      expect(mockEditor.deletionManager.deleteSelectedObjects).not.toHaveBeenCalled()
+      expect(mockCanvas.fire).not.toHaveBeenCalled()
+    })
+
+    it('не удаляет объект если копирование во внутренний буфер упало', async() => {
+      const failingObject = createFailingMockObject('Clone error in cut')
+      mockCanvas.getActiveObject.mockReturnValue(failingObject)
+
+      const result = await clipboardManager.cut()
+
+      expect(result).toBe(false)
+      expect(clipboardManager.clipboard).toBeNull()
+      expect(mockEditor.deletionManager.deleteSelectedObjects).not.toHaveBeenCalled()
+      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
+        origin: 'ClipboardManager',
+        method: '_cloneToInternalClipboard',
+        code: 'CLONE_FAILED',
+        message: 'Ошибка клонирования объекта для внутреннего буфера',
+        data: expect.any(Error)
+      })
+    })
+  })
+
   describe('copyPaste', () => {
     it('должен создать копию обычного объекта', async() => {
       const left = 100
