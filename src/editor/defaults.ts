@@ -86,6 +86,8 @@ export const defaults: Partial<CanvasOptions> = {
   mouseWheelZooming: true,
   canvasDragging: true,
   copyObjectsByHotkey: true,
+  cutObjectsByHotkey: true,
+  duplicateObjectsByHotkey: true,
   pasteImageFromClipboard: true,
   undoRedoByHotKeys: true,
   selectAllByHotkey: true,

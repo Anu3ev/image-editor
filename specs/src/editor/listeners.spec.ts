@@ -56,6 +56,8 @@ describe('Listeners', () => {
           resetObjectFitByDoubleClick: true,
           adaptCanvasToContainerOnResize: true,
           copyObjectsByHotkey: true,
+          cutObjectsByHotkey: true,
+          duplicateObjectsByHotkey: true,
           pasteImageFromClipboard: true,
           undoRedoByHotKeys: true,
           selectAllByHotkey: true,
@@ -74,6 +76,8 @@ describe('Listeners', () => {
       })
       expect(addWin).toHaveBeenCalledWith('resize', listeners.handleContainerResizeBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('keydown', listeners.handleCopyEventBound, { capture: true })
+      expect(addDoc).toHaveBeenCalledWith('keydown', listeners.handleCutEventBound, { capture: true })
+      expect(addDoc).toHaveBeenCalledWith('keydown', listeners.handleDuplicateEventBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('paste', listeners.handlePasteEventBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('keydown', listeners.handleUndoRedoEventBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('keyup', listeners.handleUndoRedoKeyUpBound, { capture: true })
@@ -110,6 +114,8 @@ describe('Listeners', () => {
       })
       expect(addWin).not.toHaveBeenCalledWith('resize', listeners.handleContainerResizeBound, { capture: true })
       expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleCopyEventBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleCutEventBound, { capture: true })
+      expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleDuplicateEventBound, { capture: true })
       expect(addDoc).not.toHaveBeenCalledWith('paste', listeners.handlePasteEventBound, { capture: true })
       expect(addDoc).not.toHaveBeenCalledWith('keydown', listeners.handleUndoRedoEventBound, { capture: true })
       expect(addDoc).not.toHaveBeenCalledWith('keyup', listeners.handleUndoRedoKeyUpBound, { capture: true })
@@ -146,6 +152,36 @@ describe('Listeners', () => {
       listeners.handleDeleteObjectsEvent(eDelete)
       expect(preventDefault).toHaveBeenCalled()
       expect(editor.deletionManager.deleteSelectedObjects).toHaveBeenCalled()
+    })
+
+    it('Ctrl+X и Cmd+D запускают вырезание и дублирование', () => {
+      const editor = createEditorStub()
+      const cut = jest.fn()
+      const copyPaste = jest.fn()
+      Object.assign(editor.clipboardManager, {
+        cut,
+        copyPaste
+      })
+      const listeners = new Listeners({
+        editor,
+        options: { cutObjectsByHotkey: true, duplicateObjectsByHotkey: true }
+      })
+
+      const cutPreventDefault = jest.fn()
+      const cutEvent = keyDown({ ctrlKey: true, metaKey: false, code: 'KeyX' })
+      Object.defineProperty(cutEvent, 'preventDefault', { value: cutPreventDefault })
+      listeners.handleCutEvent(cutEvent)
+
+      expect(cutPreventDefault).toHaveBeenCalled()
+      expect(cut).toHaveBeenCalledTimes(1)
+
+      const duplicatePreventDefault = jest.fn()
+      const duplicateEvent = keyDown({ ctrlKey: false, metaKey: true, code: 'KeyD' })
+      Object.defineProperty(duplicateEvent, 'preventDefault', { value: duplicatePreventDefault })
+      listeners.handleDuplicateEvent(duplicateEvent)
+
+      expect(duplicatePreventDefault).toHaveBeenCalled()
+      expect(copyPaste).toHaveBeenCalledTimes(1)
     })
 
     it('undo/redo и сброс флага на keyup', async() => {
@@ -363,12 +399,9 @@ describe('Listeners', () => {
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
 
-      // Рассчитываем ожидаемое значение через ту же функцию, что и в коде
-      const expectedScale = listeners._calculateAdaptiveZoomStep(-100)
-
       listeners.handleCanvasWheelZoom(evt)
 
-      expect(editor.zoomManager.handleMouseWheelZoom).toHaveBeenCalledWith(expectedScale, evt)
+      expect(editor.zoomManager.handleMouseWheelZoom).toHaveBeenCalledWith(0.05, evt)
       expect(preventDefault).toHaveBeenCalled()
       expect(stopPropagation).toHaveBeenCalled()
     })

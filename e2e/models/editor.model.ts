@@ -68,6 +68,37 @@ export class EditorModel {
     this.grouping = new GroupingModel(page)
   }
 
+  /** Отправляет hotkey на body, чтобы DOM-событие имело корректный element target. */
+  private async _pressEditorHotkey({
+    key,
+    code,
+    ctrlKey = true
+  }: {
+    key: string
+    code: string
+    ctrlKey?: boolean
+  }): Promise<void> {
+    await this.page.evaluate((params) => {
+      const target = document.body
+
+      target.dispatchEvent(new KeyboardEvent('keydown', {
+        ...params,
+        bubbles: true,
+        cancelable: true
+      }))
+      target.dispatchEvent(new KeyboardEvent('keyup', {
+        ...params,
+        bubbles: true
+      }))
+    }, {
+      key,
+      code,
+      ctrlKey
+    })
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Ожидает финальное состояние редактора после завершения init(), а не раннее появление window.editor. */
   async waitForReady(): Promise<void> {
     await this.page.waitForFunction(() => {
@@ -190,6 +221,17 @@ export class EditorModel {
   async checkObjectCount(params: { count: number }): Promise<void> {
     const objects = await this.getObjects()
     expect(objects, `ожидается ${params.count} объектов на canvas`).toHaveLength(params.count)
+  }
+
+  /** Ждёт, пока количество пользовательских объектов на canvas станет ожидаемым. */
+  async waitForObjectCount(params: { count: number }): Promise<void> {
+    await this.page.waitForFunction(({ count }) => {
+      const { editor } = window as any
+
+      return editor.canvasManager.getObjects().length === count
+    }, params)
+
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Выделяет все пользовательские объекты на canvas через публичный API редактора. */
@@ -467,46 +509,36 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отправляет в редактор hotkey undo через DOM-событие документа. */
+  /** Отправляет в редактор hotkey undo через DOM-событие body. */
   async pressUndoHotkey(): Promise<void> {
-    await this.page.evaluate(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'z',
-        code: 'KeyZ',
-        ctrlKey: true,
-        bubbles: true,
-        cancelable: true
-      }))
-      document.dispatchEvent(new KeyboardEvent('keyup', {
-        key: 'z',
-        code: 'KeyZ',
-        ctrlKey: true,
-        bubbles: true
-      }))
+    await this._pressEditorHotkey({
+      key: 'z',
+      code: 'KeyZ'
     })
-
-    await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отправляет в редактор hotkey redo через DOM-событие документа. */
+  /** Отправляет в редактор hotkey redo через DOM-событие body. */
   async pressRedoHotkey(): Promise<void> {
-    await this.page.evaluate(() => {
-      document.dispatchEvent(new KeyboardEvent('keydown', {
-        key: 'y',
-        code: 'KeyY',
-        ctrlKey: true,
-        bubbles: true,
-        cancelable: true
-      }))
-      document.dispatchEvent(new KeyboardEvent('keyup', {
-        key: 'y',
-        code: 'KeyY',
-        ctrlKey: true,
-        bubbles: true
-      }))
+    await this._pressEditorHotkey({
+      key: 'y',
+      code: 'KeyY'
     })
+  }
 
-    await waitForCanvasRender({ page: this.page })
+  /** Отправляет в редактор hotkey вырезания через DOM-событие body. */
+  async pressCutHotkey(): Promise<void> {
+    await this._pressEditorHotkey({
+      key: 'x',
+      code: 'KeyX'
+    })
+  }
+
+  /** Отправляет в редактор hotkey дублирования через DOM-событие body. */
+  async pressDuplicateHotkey(): Promise<void> {
+    await this._pressEditorHotkey({
+      key: 'd',
+      code: 'KeyD'
+    })
   }
 
   /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
