@@ -152,7 +152,7 @@ describe('восстановленная фигура', () => {
     expect(group.shapePaddingTop).toBe(7)
   })
 
-  it('после восстановленного пропорционального сужения сохраняет запрет на перенос по буквам', () => {
+  it('восстановление игнорирует устаревшую wrap policy после proportional scaling', () => {
     const editor = createShapeManagerEditorStub()
     const manager = new ShapeManager({
       editor: editor as never
@@ -165,8 +165,11 @@ describe('восстановленная фигура', () => {
       manualWidth: 120,
       manualHeight: 120
     })
+    const legacyGroup = group as typeof group & {
+      shapeTextWrapPolicy?: 'words-only'
+    }
 
-    group.shapeTextWrapPolicy = 'words-only'
+    legacyGroup.shapeTextWrapPolicy = 'words-only'
 
     const result = manager.commitRehydratedShapeLayout({
       target: group
@@ -175,10 +178,7 @@ describe('восстановленная фигура', () => {
     const layoutCall = layoutCallCalls[layoutCallCalls.length - 1]?.[0]
 
     expect(result).toBe(true)
-    expect(layoutCall).toEqual(expect.objectContaining({
-      wrapPolicy: 'words-only'
-    }))
-    expect(group.shapeTextWrapPolicy).toBe('words-only')
+    expect(layoutCall?.wrapPolicy).toBeUndefined()
   })
 
   it('при явном отключении авторасширения передаёт этот режим в layout во время materialization', () => {

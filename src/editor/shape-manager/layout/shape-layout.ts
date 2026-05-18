@@ -426,8 +426,7 @@ function applyResolvedShapeTextLayout({
     appliedUserPadding,
     frame,
     splitByGrapheme,
-    textTop,
-    wrapPolicy
+    textTop
   } = resolvedLayout
 
   resizeShapeNode({
@@ -469,7 +468,6 @@ function applyResolvedShapeTextLayout({
   group.shapePaddingRight = appliedUserPadding.right
   group.shapePaddingBottom = appliedUserPadding.bottom
   group.shapePaddingLeft = appliedUserPadding.left
-  group.shapeTextWrapPolicy = wrapPolicy
   group.shapeAlignHorizontal = alignH
   group.shapeAlignVertical = alignV
 
