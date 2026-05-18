@@ -109,6 +109,7 @@ export const createShapeScalingState = (
     canScaleWidth: overrides.canScaleWidth ?? true,
     canScaleHeight: overrides.canScaleHeight ?? true,
     cannotScaleDownAtStart: overrides.cannotScaleDownAtStart ?? false,
+    startTextSplitByGrapheme: overrides.startTextSplitByGrapheme ?? false,
     isProportionalScaling: overrides.isProportionalScaling ?? true,
     blockedScaleAttempt: overrides.blockedScaleAttempt ?? false,
     startLeft,

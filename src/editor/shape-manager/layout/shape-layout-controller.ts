@@ -383,7 +383,6 @@ export default class ShapeLayoutController {
       width: resolvedWidth,
       height: resolvedHeight
     })
-    const effectiveWrapPolicy = wrapPolicy ?? group.shapeTextWrapPolicy
     const stablePlacement = placement ?? this.editor.canvasManager.getObjectPlacement({
       object: group
     })
@@ -397,7 +396,7 @@ export default class ShapeLayoutController {
       alignH: alignH ?? group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
       alignV: alignV ?? group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
       padding: userPadding,
-      wrapPolicy: effectiveWrapPolicy,
+      wrapPolicy,
       shapeTextAutoExpandEnabled,
       internalShapeTextInset: resolvedInset,
       resolveInternalShapeTextInset: resolveCurrentInset,

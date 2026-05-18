@@ -27,6 +27,8 @@ import type {
   ShapeScalingState,
   ShapeTextWrapPolicy,
   ShapeTextNode,
+  ShapeTransformOriginX,
+  ShapeTransformOriginY,
   ShapeVerticalAlign
 } from '../types'
 import {
@@ -88,6 +90,21 @@ type ShapeScalingManualBaseDimensions = {
 }
 
 /**
+ * Стартовый transform-контекст drag-сессии.
+ */
+type ShapeScalingStartTransform = {
+  startScaleX: number
+  startScaleY: number
+  startLeft: number
+  startTop: number
+  startTransformOriginX: ShapeTransformOriginX | null
+  startTransformOriginY: ShapeTransformOriginY | null
+  startTransformCorner: string | null
+  scalingAnchorX: number | null
+  scalingAnchorY: number | null
+}
+
+/**
  * Полный набор данных для применения scaling layout к shape-группе.
  */
 type ShapeScalingLayoutCommit = {
@@ -125,11 +142,14 @@ type ShapePreviewLayout = ResolvedShapeTextLayout
 export type ShapeScalingProportionalTextConstraint = ShapeScalingProportionalTextConstraintCacheEntry
 
 export function resolveShapeScalingTextWrapPolicy({
-  isProportionalScaling
+  isProportionalScaling,
+  startTextSplitByGrapheme
 }: {
   isProportionalScaling?: boolean
+  startTextSplitByGrapheme?: boolean
 }): ShapeTextWrapPolicy | undefined {
   if (!isProportionalScaling) return undefined
+  if (startTextSplitByGrapheme) return undefined
 
   return 'words-only'
 }
@@ -564,7 +584,8 @@ export function resolveShapeScalingPreviewLayout({
     : Math.max(scaledPreviewHeight, minimumHeight)
   const expandShapeHeightToFitText = !state.canScaleHeight
   const wrapPolicy = resolveShapeScalingTextWrapPolicy({
-    isProportionalScaling: state.isProportionalScaling
+    isProportionalScaling: state.isProportionalScaling,
+    startTextSplitByGrapheme: state.startTextSplitByGrapheme
   })
 
   return resolveShapeTextFixedWidthLayout({
@@ -627,6 +648,115 @@ export function resolveShapeScalingStartDimensions({
   }
 }
 
+function resolveShapeScalingStartTransform({
+  group,
+  transform
+}: {
+  group: ShapeGroup
+  transform?: Transform | null
+}): ShapeScalingStartTransform {
+  const originalScaleX = resolveShapeTransformOriginalNumber({
+    transform,
+    key: 'scaleX'
+  })
+  const originalScaleY = resolveShapeTransformOriginalNumber({
+    transform,
+    key: 'scaleY'
+  })
+  const originalLeft = resolveShapeTransformOriginalNumber({
+    transform,
+    key: 'left'
+  })
+  const originalTop = resolveShapeTransformOriginalNumber({
+    transform,
+    key: 'top'
+  })
+  const startTransformOriginX = resolveShapeTransformOriginXValue({
+    value: transform?.original?.originX ?? transform?.originX
+  })
+  const startTransformOriginY = resolveShapeTransformOriginYValue({
+    value: transform?.original?.originY ?? transform?.originY
+  })
+  const scalingAnchorPoint = resolveShapeScalingAnchorPoint({
+    group,
+    originX: startTransformOriginX,
+    originY: startTransformOriginY
+  })
+  const startTransformCorner = typeof transform?.corner === 'string'
+    ? transform.corner
+    : null
+
+  return {
+    startScaleX: Math.abs(originalScaleX ?? group.scaleX ?? 1) || 1,
+    startScaleY: Math.abs(originalScaleY ?? group.scaleY ?? 1) || 1,
+    startLeft: originalLeft ?? group.left ?? 0,
+    startTop: originalTop ?? group.top ?? 0,
+    startTransformOriginX,
+    startTransformOriginY,
+    startTransformCorner,
+    scalingAnchorX: scalingAnchorPoint?.x ?? null,
+    scalingAnchorY: scalingAnchorPoint?.y ?? null
+  }
+}
+
+function createShapeScalingState({
+  group,
+  text,
+  constraintPadding,
+  transform
+}: {
+  group: ShapeGroup
+  text: ShapeTextNode
+  constraintPadding: ShapePadding
+  transform?: Transform | null
+}): ShapeScalingState {
+  const startDimensions = resolveShapeScalingStartDimensions({
+    group,
+    transform
+  })
+  const startTransform = resolveShapeScalingStartTransform({
+    group,
+    transform
+  })
+  const isFixedWidthVerticalScaling = !startDimensions.canScaleWidth && startDimensions.canScaleHeight
+  const previewTextMeasurementCache = {
+    measurementsByKey: new Map(),
+    splitByGraphemeByFrameWidth: new Map(),
+    minimumTextFrameWidth: null
+  }
+  const proportionalTextConstraintCache = new Map<string, ShapeScalingProportionalTextConstraintCacheEntry>()
+  const minimumHeightAtStart = resolveMinimumTextFitHeight({
+    group,
+    text,
+    width: startDimensions.startWidth,
+    padding: constraintPadding,
+    measurementCache: previewTextMeasurementCache
+  })
+
+  return {
+    ...startDimensions,
+    cannotScaleDownAtStart: minimumHeightAtStart >= startDimensions.startHeight - SHAPE_SCALING_SCALE_EPSILON,
+    startTextSplitByGrapheme: Boolean(text.splitByGrapheme),
+    isProportionalScaling: false,
+    blockedScaleAttempt: false,
+    ...startTransform,
+    scalingAnchorOriginX: startTransform.startTransformOriginX,
+    scalingAnchorOriginY: startTransform.startTransformOriginY,
+    crossedOppositeCorner: false,
+    lastAllowedFlipX: Boolean(group.flipX),
+    lastAllowedFlipY: Boolean(group.flipY),
+    lastAllowedScaleX: startTransform.startScaleX,
+    lastAllowedScaleY: startTransform.startScaleY,
+    lastAllowedLeft: startTransform.startLeft,
+    lastAllowedTop: startTransform.startTop,
+    scaleDirectionX: null,
+    scaleDirectionY: null,
+    fixedWidthMinimumTextFitHeight: isFixedWidthVerticalScaling ? minimumHeightAtStart : null,
+    previewTextMeasurementCache,
+    proportionalTextConstraintCache
+  }
+}
+
 /**
  * Создает базовое состояние масштабирования для shape-группы.
  */
@@ -647,93 +777,12 @@ export function ensureShapeScalingState({
 
   if (state) return state
 
-  const startDimensions = resolveShapeScalingStartDimensions({
-    group,
-    transform
-  })
-  const originalScaleX = resolveShapeTransformOriginalNumber({
-    transform,
-    key: 'scaleX'
-  })
-  const originalScaleY = resolveShapeTransformOriginalNumber({
-    transform,
-    key: 'scaleY'
-  })
-  const originalLeft = resolveShapeTransformOriginalNumber({
-    transform,
-    key: 'left'
-  })
-  const originalTop = resolveShapeTransformOriginalNumber({
-    transform,
-    key: 'top'
-  })
-  const startScaleX = Math.abs(originalScaleX ?? group.scaleX ?? 1) || 1
-  const startScaleY = Math.abs(originalScaleY ?? group.scaleY ?? 1) || 1
-  const startLeft = originalLeft ?? group.left ?? 0
-  const startTop = originalTop ?? group.top ?? 0
-  const startTransformOriginX = resolveShapeTransformOriginXValue({
-    value: transform?.original?.originX ?? transform?.originX
-  })
-  const startTransformOriginY = resolveShapeTransformOriginYValue({
-    value: transform?.original?.originY ?? transform?.originY
-  })
-  const startTransformCorner = typeof transform?.corner === 'string'
-    ? transform.corner
-    : null
-  const scalingAnchorPoint = resolveShapeScalingAnchorPoint({
-    group,
-    originX: startTransformOriginX,
-    originY: startTransformOriginY
-  })
-  const isFixedWidthVerticalScaling = !startDimensions.canScaleWidth && startDimensions.canScaleHeight
-  const previewTextMeasurementCache = {
-    measurementsByKey: new Map(),
-    splitByGraphemeByFrameWidth: new Map(),
-    minimumTextFrameWidth: null
-  }
-  const proportionalTextConstraintCache = new Map<string, ShapeScalingProportionalTextConstraintCacheEntry>()
-  const minimumHeightAtStart = resolveMinimumTextFitHeight({
+  state = createShapeScalingState({
     group,
     text,
-    width: startDimensions.startWidth,
-    padding: constraintPadding,
-    measurementCache: previewTextMeasurementCache
+    constraintPadding,
+    transform
   })
-
-  state = {
-    startWidth: startDimensions.startWidth,
-    startHeight: startDimensions.startHeight,
-    startManualBaseWidth: startDimensions.startManualBaseWidth,
-    startManualBaseHeight: startDimensions.startManualBaseHeight,
-    canScaleWidth: startDimensions.canScaleWidth,
-    canScaleHeight: startDimensions.canScaleHeight,
-    cannotScaleDownAtStart: minimumHeightAtStart >= startDimensions.startHeight - SHAPE_SCALING_SCALE_EPSILON,
-    isProportionalScaling: false,
-    blockedScaleAttempt: false,
-    startLeft,
-    startTop,
-    startScaleX,
-    startScaleY,
-    startTransformOriginX,
-    startTransformOriginY,
-    startTransformCorner,
-    scalingAnchorX: scalingAnchorPoint?.x ?? null,
-    scalingAnchorY: scalingAnchorPoint?.y ?? null,
-    scalingAnchorOriginX: startTransformOriginX,
-    scalingAnchorOriginY: startTransformOriginY,
-    crossedOppositeCorner: false,
-    lastAllowedFlipX: Boolean(group.flipX),
-    lastAllowedFlipY: Boolean(group.flipY),
-    lastAllowedScaleX: startScaleX,
-    lastAllowedScaleY: startScaleY,
-    lastAllowedLeft: startLeft,
-    lastAllowedTop: startTop,
-    scaleDirectionX: null,
-    scaleDirectionY: null,
-    fixedWidthMinimumTextFitHeight: isFixedWidthVerticalScaling ? minimumHeightAtStart : null,
-    previewTextMeasurementCache,
-    proportionalTextConstraintCache
-  }
 
   scalingState.set(group, state)
 
