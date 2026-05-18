@@ -67,8 +67,8 @@ describe('ClipboardManager', () => {
       expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeTextAutoExpand')
     })
 
-    it('список свойств для clipboard cloning включает wrap policy текста у фигуры', () => {
-      expect(CLIPBOARD_CLONE_OBJECT_KEYS).toContain('shapeTextWrapPolicy')
+    it('список свойств для clipboard cloning не включает временную wrap policy текста у фигуры', () => {
+      expect(CLIPBOARD_CLONE_OBJECT_KEYS).not.toContain('shapeTextWrapPolicy')
     })
 
     it('список свойств для clipboard cloning включает replacement box фигуры', () => {

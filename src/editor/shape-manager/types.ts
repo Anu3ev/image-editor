@@ -124,7 +124,6 @@ export type ShapeGroupMetadata = {
   shapeReplaceBoxWidth: number
   shapeReplaceBoxHeight: number
   shapeTextAutoExpand: boolean
-  shapeTextWrapPolicy?: ShapeTextWrapPolicy
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
   shapePaddingTop: number
@@ -210,7 +209,6 @@ export type ShapeSnapshot = {
   currentWidth?: number
   currentHeight?: number
   shapeTextAutoExpand: boolean
-  shapeTextWrapPolicy?: ShapeTextWrapPolicy
   alignH: ShapeHorizontalAlign
   alignV: ShapeVerticalAlign
   padding: ShapePadding
@@ -345,6 +343,7 @@ export type ShapeScalingState = {
   canScaleWidth: boolean
   canScaleHeight: boolean
   cannotScaleDownAtStart: boolean
+  startTextSplitByGrapheme: boolean
   isProportionalScaling: boolean
   blockedScaleAttempt: boolean
   startLeft: number

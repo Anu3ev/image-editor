@@ -1007,7 +1007,8 @@ export default class ShapeScalingController {
       scaleX: allowedScaleX,
       scaleY: allowedScaleY,
       wrapPolicy: resolveShapeScalingTextWrapPolicy({
-        isProportionalScaling: state?.isProportionalScaling
+        isProportionalScaling: state?.isProportionalScaling,
+        startTextSplitByGrapheme: state?.startTextSplitByGrapheme
       })
     })
 
@@ -1050,7 +1051,8 @@ export default class ShapeScalingController {
       canScaleHeight,
       hasWidthChange,
       wrapPolicy: resolveShapeScalingTextWrapPolicy({
-        isProportionalScaling: state?.isProportionalScaling
+        isProportionalScaling: state?.isProportionalScaling,
+        startTextSplitByGrapheme: state?.startTextSplitByGrapheme
       })
     })
 
@@ -1430,7 +1432,8 @@ export default class ShapeScalingController {
     const horizontalAlign = alignH ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const verticalAlign = alignV ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const wrapPolicy = resolveShapeScalingTextWrapPolicy({
-      isProportionalScaling: state.isProportionalScaling
+      isProportionalScaling: state.isProportionalScaling,
+      startTextSplitByGrapheme: state.startTextSplitByGrapheme
     })
     const resolveInternalShapeTextInsetForSize = ({ width, height }: {
       width: number

@@ -286,7 +286,8 @@ export default class ShapeActiveSelectionScalingController {
           appliedScaleX: layoutScale.scaleX,
           appliedScaleY: layoutScale.scaleY,
           wrapPolicy: resolveShapeScalingTextWrapPolicy({
-            isProportionalScaling: state.isProportionalScaling
+            isProportionalScaling: state.isProportionalScaling,
+            startTextSplitByGrapheme: state.startTextSplitByGrapheme
           }),
           measurementCache: state.previewTextMeasurementCache
         }).previewHeight
@@ -389,7 +390,8 @@ export default class ShapeActiveSelectionScalingController {
       scaleX: layoutScale.scaleX,
       scaleY: layoutScale.scaleY,
       wrapPolicy: resolveShapeScalingTextWrapPolicy({
-        isProportionalScaling: state?.isProportionalScaling
+        isProportionalScaling: state?.isProportionalScaling,
+        startTextSplitByGrapheme: state?.startTextSplitByGrapheme
       })
     })
 
@@ -414,7 +416,8 @@ export default class ShapeActiveSelectionScalingController {
       canScaleHeight,
       hasWidthChange,
       wrapPolicy: resolveShapeScalingTextWrapPolicy({
-        isProportionalScaling: state?.isProportionalScaling
+        isProportionalScaling: state?.isProportionalScaling,
+        startTextSplitByGrapheme: state?.startTextSplitByGrapheme
       })
     })
 
