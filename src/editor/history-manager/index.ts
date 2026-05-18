@@ -653,7 +653,6 @@ export default class HistoryManager {
         canvasManager.refreshMontageDerivedState()
       } else {
         zoomManager.updateDefaultZoom()
-        canvasManager.centerViewportToMontageArea()
         canvasManager.refreshMontageDerivedState()
         panConstraintManager.updateBounds()
       }
