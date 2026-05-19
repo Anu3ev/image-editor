@@ -28,6 +28,26 @@ export const wheel = (init?: WheelEventInit, target?: EventTarget): WheelEvent =
   return e
 }
 
+// GestureEvent не доступен в jsdom, поэтому для unit-тестов собираем совместимый Event вручную.
+export const gesture = (
+  type: 'gesturestart' | 'gesturechange' | 'gestureend',
+  init?: { scale?: number; clientX?: number; clientY?: number },
+  target?: EventTarget
+): Event => {
+  const e = new Event(type, {
+    bubbles: true,
+    cancelable: true
+  })
+  const eventInit = init ?? {}
+
+  if (typeof eventInit.scale === 'number') Object.defineProperty(e, 'scale', { value: eventInit.scale })
+  if (typeof eventInit.clientX === 'number') Object.defineProperty(e, 'clientX', { value: eventInit.clientX })
+  if (typeof eventInit.clientY === 'number') Object.defineProperty(e, 'clientY', { value: eventInit.clientY })
+  if (target) Object.defineProperty(e, 'target', { value: target })
+
+  return e
+}
+
 // Fabric pointer wrapper: { e }
 export const ptr = <T extends TPointerEvent>(e: T): TPointerEventInfo<T> => ({ e } as unknown as TPointerEventInfo<T>)
 

@@ -59,13 +59,86 @@ test.describe('Горячие клавиши и zoom', () => {
     })
 
     await test.step('Отправить ctrl + wheel на canvas', async() => {
-      await editorModel.zoomByCtrlWheel({ deltaY: -120 })
+      const dispatchState = await editorModel.zoomByCtrlWheel({ deltaY: -120 })
+
+      expect(dispatchState.dispatchedEvents).toBe(1)
+      expect(dispatchState.canceledEvents).toBe(dispatchState.dispatchedEvents)
     })
 
     await test.step('Проверить что zoom изменился', async() => {
       const currentCanvasState = await editorModel.getCanvasState()
 
       expect(currentCanvasState.zoom).toBeGreaterThan(initialCanvasState.zoom)
+      expect(currentCanvasState.objectCount).toBe(initialCanvasState.objectCount)
+    })
+  })
+
+  test('pinch на тачпаде меняет zoom редактора', async({ editorModel }) => {
+    const initialCanvasState = await test.step('Получить исходный zoom', () => {
+      return editorModel.getCanvasState()
+    })
+
+    await test.step('Сделать полный pinch-жест на тачпаде', async() => {
+      const dispatchState = await editorModel.zoomInByTrackpadPinch()
+
+      expect(dispatchState.dispatchedEvents).toBeGreaterThan(0)
+      expect(dispatchState.canceledEvents).toBe(dispatchState.dispatchedEvents)
+    })
+
+    await test.step('Проверить что один pinch-жест даёт заметное приближение', async() => {
+      const currentCanvasState = await editorModel.getCanvasState()
+      const zoomIncrease = currentCanvasState.zoom - initialCanvasState.zoom
+
+      expect(zoomIncrease).toBeGreaterThanOrEqual(0.25)
+      expect(zoomIncrease).toBeLessThanOrEqual(0.35)
+      expect(currentCanvasState.objectCount).toBe(initialCanvasState.objectCount)
+    })
+  })
+
+  test('pinch-out на тачпаде уменьшает zoom после приближения', async({ editorModel }) => {
+    const initialCanvasState = await test.step('Получить исходный zoom', () => {
+      return editorModel.getCanvasState()
+    })
+
+    const zoomedInCanvasState = await test.step('Сначала приблизить canvas pinch-жестом', async() => {
+      await editorModel.zoomInByTrackpadPinch()
+
+      return editorModel.getCanvasState()
+    })
+
+    await test.step('Сделать обратный pinch-жест на тачпаде', async() => {
+      const dispatchState = await editorModel.zoomOutByTrackpadPinch()
+
+      expect(dispatchState.dispatchedEvents).toBeGreaterThan(0)
+      expect(dispatchState.canceledEvents).toBe(dispatchState.dispatchedEvents)
+    })
+
+    await test.step('Проверить что zoom уменьшился', async() => {
+      const currentCanvasState = await editorModel.getCanvasState()
+
+      expect(zoomedInCanvasState.zoom).toBeGreaterThan(initialCanvasState.zoom)
+      expect(currentCanvasState.zoom).toBeLessThan(zoomedInCanvasState.zoom)
+      expect(currentCanvasState.objectCount).toBe(initialCanvasState.objectCount)
+    })
+  })
+
+  test('gesture-событие Safari меняет zoom редактора', async({ editorModel }) => {
+    const initialCanvasState = await test.step('Получить исходный zoom', () => {
+      return editorModel.getCanvasState()
+    })
+
+    await test.step('Отправить WebKit pinch gesture на canvas', async() => {
+      const dispatchState = await editorModel.zoomInByWebKitGesturePinch()
+
+      expect(dispatchState.dispatchedEvents).toBe(3)
+      expect(dispatchState.canceledEvents).toBe(dispatchState.dispatchedEvents)
+    })
+
+    await test.step('Проверить что gesture fallback приблизил canvas', async() => {
+      const currentCanvasState = await editorModel.getCanvasState()
+
+      expect(currentCanvasState.zoom).toBeGreaterThan(initialCanvasState.zoom)
+      expect(currentCanvasState.objectCount).toBe(initialCanvasState.objectCount)
     })
   })
 

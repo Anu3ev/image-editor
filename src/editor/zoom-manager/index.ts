@@ -7,6 +7,11 @@ import {
   MIN_ZOOM
 } from '../constants'
 
+type ZoomPointerCoordinates = {
+  clientX: number
+  clientY: number
+}
+
 export default class ZoomManager {
   /**
    * Инстанс редактора с доступом к canvas
@@ -88,14 +93,14 @@ export default class ZoomManager {
   /**
    * Ограничивает координаты курсора видимыми границами монтажной области
    * в viewport coordinates, потому что zoomToPoint работает именно в этой плоскости.
-   * @param event - Событие колеса мыши
-   * @returns Ограниченные координаты в canvas-пространстве
+   * @param pointer - DOM-координаты указателя
+   * @returns Ограниченные viewport-координаты внутри видимой области монтажа
    * @private
    */
-  private _getClampedPointerCoordinates(event: WheelEvent): { x: number; y: number } {
+  private _getClampedPointerCoordinates(pointer: ZoomPointerCoordinates): { x: number; y: number } {
     const { canvas, montageArea } = this.editor
 
-    const viewportPointer = canvas.getViewportPoint(event)
+    const viewportPointer = this._getViewportPointerCoordinates(pointer)
     const vpt = canvas.viewportTransform
     const zoom = canvas.getZoom()
 
@@ -115,6 +120,21 @@ export default class ZoomManager {
     return {
       x: clampedCanvasX,
       y: clampedCanvasY
+    }
+  }
+
+  /**
+   * Переводит DOM client-координаты в viewport coordinates canvas.
+   * @param pointer - DOM-координаты указателя
+   * @returns Координаты указателя внутри canvas viewport
+   * @private
+   */
+  private _getViewportPointerCoordinates(pointer: ZoomPointerCoordinates): { x: number; y: number } {
+    const rect = this.editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+    return {
+      x: pointer.clientX - rect.left,
+      y: pointer.clientY - rect.top
     }
   }
 
@@ -348,19 +368,18 @@ export default class ZoomManager {
   }
 
   /**
-   * Обработчик зума колесом мыши с автоматическим определением точки зума.
+   * Обработчик зума от DOM-события с координатами указателя.
    * Логика выбора точки зума:
-   * - При zoom-out (уменьшении): зум к текущему центру монтажной области
-   * - При zoom-in (увеличении): зум к позиции курсора (ограниченной границами монтажной области)
-   * - Если zoom < defaultZoom или монтажная область помещается во viewport - зум к центру монтажной области
+   * - Пока монтажная область полностью помещается во viewport, зум идёт от её опорной точки.
+   * - Когда монтажная область уже больше viewport, zoom-in и zoom-out идут от позиции указателя.
    *
-   * Важный контракт: wheel-zoom работает только через viewportTransform.
+   * Важный контракт: pointer-zoom работает только через viewportTransform.
    * Scene state монтажной области и объектов остаётся стабильным.
    * @param scale - Шаг зума
-   * @param event - Событие колеса мыши
+   * @param pointer - DOM-координаты указателя
    * @fires editor:zoom-changed
    */
-  public handleMouseWheelZoom(scale: number, event: WheelEvent): void {
+  public handlePointerZoom(scale: number, pointer: ZoomPointerCoordinates): void {
     const { canvas, montageArea } = this.editor
     const currentZoom = canvas.getZoom()
     const isZoomingOut = scale < 0
@@ -377,7 +396,7 @@ export default class ZoomManager {
           pointY: montageArea.top
         })
       } else {
-        const clampedPointer = this._getClampedPointerCoordinates(event)
+        const clampedPointer = this._getClampedPointerCoordinates(pointer)
         this.zoom(scale, {
           pointX: clampedPointer.x,
           pointY: clampedPointer.y
@@ -386,7 +405,7 @@ export default class ZoomManager {
       return
     }
 
-    if (scale < 0 || !montageExceedsViewport) {
+    if (!montageExceedsViewport) {
       this.zoom(scale, {
         pointX: montageArea.left,
         pointY: montageArea.top
@@ -394,12 +413,23 @@ export default class ZoomManager {
       return
     }
 
-    const clampedPointer = this._getClampedPointerCoordinates(event)
+    const clampedPointer = this._getClampedPointerCoordinates(pointer)
 
     this.zoom(scale, {
       pointX: clampedPointer.x,
       pointY: clampedPointer.y
     })
+  }
+
+  /**
+   * Техническая совместимость для существующего wheel API.
+   * Новый app-код должен использовать handlePointerZoom, чтобы не привязывать camera-state к WheelEvent.
+   * @param scale - Шаг зума
+   * @param event - Событие колеса мыши
+   * @fires editor:zoom-changed
+   */
+  public handleMouseWheelZoom(scale: number, event: WheelEvent): void {
+    this.handlePointerZoom(scale, event)
   }
 
   /**
@@ -426,7 +456,9 @@ export default class ZoomManager {
     this.editor.montageArea.setCoords()
     this.editor.canvas.requestRenderAll()
 
-    let zoom = Number((currentZoom + Number(scale)).toFixed(2))
+    // Live-zoom не округляется на каждом wheel-событии:
+    // мелкие инкременты тачпада должны накапливаться.
+    let zoom = currentZoom + Number(scale)
     if (zoom > maxZoom) zoom = maxZoom
     if (zoom < minZoom) zoom = minZoom
 

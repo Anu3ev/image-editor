@@ -1,8 +1,7 @@
-import { CanvasOptions, ActiveSelection, Group, Point, Textbox } from 'fabric'
+import { CanvasOptions, ActiveSelection, Point, Textbox } from 'fabric'
 import { ImageEditor } from '../../src/editor'
 import HistoryManager from '../../src/editor/history-manager'
 import TextManager from '../../src/editor/text-manager'
-import FontManager from '../../src/editor/font-manager'
 import { BackgroundTextbox } from '../../src/editor/text-manager/background-textbox'
 import type { EditorFontDefinition } from '../../src/editor/types/font'
 
@@ -91,6 +90,28 @@ export const createFullOptions = (partialOptions: Partial<CanvasOptions> = {}): 
   ...partialOptions
 } as CanvasOptions)
 
+const createCanvasElementBoundsMock = () => jest.fn().mockReturnValue({
+  left: 0,
+  top: 0,
+  width: 800,
+  height: 600
+})
+
+// Zoom-тесты читают реальные DOM bounds у wrapper и upper canvas,
+// поэтому оба стаба должны отдавать предсказуемый rect.
+const createCanvasWrapperStub = () => ({
+  parentNode: null as HTMLElement | null,
+  style: {},
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  getBoundingClientRect: createCanvasElementBoundsMock()
+})
+
+const createUpperCanvasElementStub = () => ({
+  style: {},
+  getBoundingClientRect: createCanvasElementBoundsMock()
+})
+
 // Лёгкий стаб Canvas для юнит-тестов слушателей
 export const createCanvasStub = () => {
   const handlers: Record<string, AnyFn[]> = {}
@@ -139,14 +160,9 @@ export const createCanvasStub = () => {
     getObjects: jest.fn().mockReturnValue([]),
     clipPath,
     editorContainer: null as HTMLElement | null,
-    wrapperEl: {
-      parentNode: null as HTMLElement | null,
-      style: {},
-      addEventListener: jest.fn(),
-      removeEventListener: jest.fn()
-    },
+    wrapperEl: createCanvasWrapperStub(),
     lowerCanvasEl: { style: {} },
-    upperCanvasEl: { style: {} },
+    upperCanvasEl: createUpperCanvasElementStub(),
     __handlers: handlers
   }
   return canvas as any
@@ -413,6 +429,7 @@ export const createEditorStub = () => {
     zoomManager: {
       zoom: jest.fn(),
       setZoom: jest.fn(),
+      handlePointerZoom: jest.fn(),
       handleMouseWheelZoom: jest.fn(),
       resetZoom: jest.fn(),
       calculateAndApplyDefaultZoom: jest.fn(),
@@ -1406,492 +1423,36 @@ export const createTemplateLikeTextbox = ({
   return textbox
 }
 
-export type FontManagerTestSetupOptions = {
-  fonts?: EditorFontDefinition[]
-  existingFontFaces?: Array<Record<string, any>>
-}
+// Историческая точка входа для editor test-utils.
+// Реализация тяжёлых mock-модулей вынесена отдельно, чтобы этот файл оставался в рамках лимита по размеру.
+export {
+  createFontManagerTestSetup,
+  resetFontManagerRegistry
+} from './font-manager-helpers'
 
-export const createFontManagerTestSetup = (
-  options: FontManagerTestSetupOptions = {}
-) => {
-  const {
-    fonts = [],
-    existingFontFaces = []
-  } = options
+export type {
+  FontManagerTestSetupOptions
+} from './font-manager-helpers'
 
-  const appendedNodes: Element[] = []
-  const originalAppendChild = document.head.appendChild.bind(document.head)
-  const appendChildSpy = jest
-    .spyOn(document.head, 'appendChild')
-    .mockImplementation((node: any) => {
-      appendedNodes.push(node as Element)
-      return originalAppendChild(node)
-    })
-
-  const fontSet = {
-    add: jest.fn(),
-    forEach: jest.fn((callback: (fontFace: any) => void) => {
-      existingFontFaces.forEach((fontFace) => callback(fontFace))
-    })
-  }
-
-  const originalFontSet = (document as any).fonts
-  Object.defineProperty(document, 'fonts', {
-    configurable: true,
-    value: fontSet
-  })
-
-  const fontManager = new FontManager(fonts)
-  const originalFontFace = (global as any).FontFace
-
-  const restore = () => {
-    appendChildSpy.mockRestore()
-    appendedNodes.forEach((node) => {
-      if (node.parentNode) {
-        node.parentNode.removeChild(node)
-      }
-    })
-    if (originalFontSet !== undefined) {
-      Object.defineProperty(document, 'fonts', {
-        configurable: true,
-        value: originalFontSet
-      })
-    } else {
-      delete (document as any).fonts
-    }
-    if (originalFontFace === undefined) {
-      delete (global as any).FontFace
-    } else {
-      (global as any).FontFace = originalFontFace
-    }
-  }
-
-  const setFontFaceMock = (implementation?: any) => {
-    if (implementation === undefined) {
-      delete (global as any).FontFace
-    } else {
-      (global as any).FontFace = implementation
-    }
-  }
-
-  return {
-    fontManager,
-    appendChildSpy,
-    fontSet,
-    styleElements: appendedNodes,
-    restore,
-    setFontFaceMock
-  }
-}
-
-export const resetFontManagerRegistry = () => {
-  const registry = (FontManager as any).registeredFontKeys as Set<string> | undefined
-  if (registry && typeof registry.clear === 'function') {
-    registry.clear()
-    return
-  }
-  (FontManager as any).registeredFontKeys = new Set<string>()
-}
-
-// Функции для создания мок-объектов fabric для тестов
-export const createMockFabricObject = (props: any = {}) => {
-  const mockObject = {
-    type: 'object',
-    id: 'mock-object',
-    left: 0,
-    top: 0,
-    locked: false,
-    evented: true,
-    ...props,
-    clone: jest.fn().mockImplementation(async() => {
-      // Глубокое копирование для избежания shared references
-      const cloned = { ...mockObject, ...JSON.parse(JSON.stringify(props)) }
-      // Создаем новый мок для клонированного объекта
-      cloned.set = jest.fn().mockImplementation((newProps) => {
-        Object.assign(cloned, newProps)
-      })
-      cloned.setCoords = jest.fn()
-      cloned.toObject = jest.fn().mockReturnValue({ ...props })
-      cloned.toCanvasElement = jest.fn().mockReturnValue({
-        toDataURL: () => 'data:image/png;base64,mockData'
-      })
-      return cloned
-    }),
-    set: jest.fn().mockImplementation((newProps) => {
-      Object.assign(mockObject, newProps)
-    }),
-    setCoords: jest.fn(),
-    toObject: jest.fn().mockReturnValue(props),
-    toCanvasElement: jest.fn().mockReturnValue({
-      toDataURL: () => 'data:image/png;base64,mockData'
-    })
-  }
-  return mockObject
-}
-
-export const createMockActiveSelection = (objects: any[], props: any = {}) => {
-  const mockSelection = new ActiveSelection(objects, props) as any
-
-  // Добавляем методы моков
-  mockSelection.clone = jest.fn().mockImplementation(async() => {
-    // Глубокое копирование для избежания shared references
-    const clonedObjects = objects.map((object) => {
-      const clonedObject = { ...object }
-
-      clonedObject.set = jest.fn().mockImplementation((newProps) => {
-        Object.assign(clonedObject, newProps)
-      })
-      clonedObject.setCoords = jest.fn()
-
-      return clonedObject
-    })
-    const clonedProps = JSON.parse(JSON.stringify(props))
-    const cloned = new ActiveSelection(clonedObjects, clonedProps) as any
-    cloned.set = jest.fn().mockImplementation((newProps) => {
-      Object.assign(cloned, newProps)
-    })
-    cloned.setCoords = jest.fn()
-    cloned.forEachObject = jest.fn().mockImplementation((callback) => {
-      clonedObjects.forEach(callback)
-    })
-    cloned.toObject = jest.fn().mockReturnValue(clonedProps)
-    cloned.toCanvasElement = jest.fn().mockReturnValue({
-      toDataURL: () => 'data:image/png;base64,mockData'
-    })
-    return cloned
-  })
-
-  mockSelection.set = jest.fn().mockImplementation((newProps) => {
-    Object.assign(mockSelection, newProps)
-  })
-  mockSelection.setCoords = jest.fn()
-
-  mockSelection.toObject = jest.fn().mockReturnValue(props)
-  mockSelection.toCanvasElement = jest.fn().mockReturnValue({
-    toDataURL: () => 'data:image/png;base64,mockData'
-  })
-
-  mockSelection.forEachObject = jest.fn().mockImplementation((callback) => {
-    objects.forEach(callback)
-  })
-
-  return mockSelection
-}
-
-export const createMockGroup = (objects: any[] = [], props: any = {}) => {
-  // Используем реальный класс Group из мока
-  const mockGroup = new Group(objects, {
-    id: props.id || 'mock-group',
-    left: props.left || 0,
-    top: props.top || 0,
-    width: props.width || 100,
-    height: props.height || 100,
-    ...props
-  })
-
-  return mockGroup
-}
-
-export const createMockClipboardEvent = (data: any = {}) => ({
-  clipboardData: {
-    items: data.items || [],
-    getData: data.getData || jest.fn().mockReturnValue(''),
-    ...data
-  }
-} as ClipboardEvent)
-
-// Хелперы для создания failing моков
-export const createFailingMockObject = (errorMessage = 'Mock clone failed') => {
-  const mockObject = createMockFabricObject({ type: 'rect', id: 'failing-object' })
-  mockObject.clone.mockRejectedValue(new Error(errorMessage))
-  return mockObject
-}
-
-export const createEmptyClipboardEvent = () => ({
-  clipboardData: null
-} as any as ClipboardEvent)
-
-// Хелперы для создания мок объектов фона
-export const createMockBackgroundRect = (props: any = {}) => ({
-  ...createMockFabricObject({
-    type: 'rect',
-    id: 'background',
-    backgroundType: 'color',
-    backgroundId: `background-${Math.random().toString(36).slice(2, 7)}`,
-    fill: '#ffffff',
-    selectable: false,
-    evented: false,
-    ...props
-  }),
-  getBoundingRect: jest.fn().mockReturnValue({
-    left: props.left || 100,
-    top: props.top || 50,
-    width: props.width || 400,
-    height: props.height || 300
-  })
-})
-
-export const createMockBackgroundImage = (props: any = {}) => ({
-  ...createMockFabricObject({
-    type: 'image',
-    id: 'background',
-    backgroundType: 'image',
-    backgroundId: `background-${Math.random().toString(36).slice(2, 7)}`,
-    selectable: false,
-    evented: false,
-    ...props
-  }),
-  getBoundingRect: jest.fn().mockReturnValue({
-    left: props.left || 100,
-    top: props.top || 50,
-    width: props.width || 400,
-    height: props.height || 300
-  })
-})
-
-/**
- * Создаёт минимальный мок CanvasRenderingContext2D для рендера.
- */
-export const createMockContext = (): CanvasRenderingContext2D => {
-  const ctx: any = {
-    save: jest.fn(),
-    restore: jest.fn(),
-    beginPath: jest.fn(),
-    moveTo: jest.fn(),
-    lineTo: jest.fn(),
-    quadraticCurveTo: jest.fn(),
-    closePath: jest.fn(),
-    fill: jest.fn(),
-    _fillStyle: undefined as string | undefined
-  }
-
-  Object.defineProperty(ctx, 'fillStyle', {
-    get: () => ctx._fillStyle,
-    set: (value) => {
-      ctx._fillStyle = value
-    }
-  })
-
-  return ctx as CanvasRenderingContext2D
-}
-
-/**
- * Добавляет недостающие методы в mock-классы Fabric для тестов.
- */
-export const ensureFabricHelpers = (): void => {
-  const { prototype: pointPrototype } = Point
-  if (!pointPrototype.scalarAdd) {
-    pointPrototype.scalarAdd = function addScalar(value: number) {
-      return new Point(this.x + value, this.y + value)
-    }
-  }
-
-  const { prototype: textboxPrototype } = Textbox
-  if (!textboxPrototype.toObject) {
-    textboxPrototype.toObject = function toObject() {
-      const { constructor } = this as any
-      return { ...this, type: constructor?.type ?? 'textbox' }
-    }
-  }
-}
-
-/**
- * Создаёт BackgroundTextbox с переопределённым чтением стилей для декораций.
- */
-export const createDecorationTextbox = ({
-  stroke = '#ff0000',
-  strokeWidth = 2,
-  fill = '#000000'
-}: {
-  stroke?: string | null
-  strokeWidth?: number
-  fill?: string
-} = {}) => {
-  const textbox = new BackgroundTextbox('Test')
-  const state = {
-    stroke,
-    strokeWidth,
-    fill
-  }
-  const textboxAny = textbox as any
-
-  textboxAny.getValueOfPropertyAt = (
-    _lineIndex: number,
-    _charIndex: number,
-    property: string
-  ) => {
-    const {
-      strokeWidth: currentStrokeWidth,
-      stroke: currentStroke,
-      fill: currentFill
-    } = state
-
-    if (property === 'strokeWidth') return currentStrokeWidth
-    if (property === 'stroke') return currentStroke
-    if (property === 'fill') return currentFill
-    return undefined
-  }
-
-  return { textbox, state }
-}
-
-/**
- * Готовит BackgroundTextbox и контекст для проверки цветов декораций.
- */
-export const createDecorationRenderSetup = ({
-  text,
-  type,
-  strokeByIndex,
-  strokeWidth = 2,
-  fill = '#000000'
-}: {
-  text: string
-  type: 'underline' | 'linethrough'
-  strokeByIndex: string[]
-  strokeWidth?: number
-  fill?: string
-}) => {
-  const textbox = new BackgroundTextbox(text, { fontSize: 10, lineHeight: 1 })
-  const chars = text.split('')
-  const { length: charsLength } = chars
-  const charBounds: Array<{
-    left: number
-    width: number
-    kernedWidth: number
-    height: number
-    deltaY: number
-  }> = []
-  for (let index = 0; index < charsLength; index += 1) {
-    charBounds.push({
-      left: index * 10,
-      width: 10,
-      kernedWidth: 10,
-      height: 10,
-      deltaY: 0
-    })
-  }
-
-  const textboxAny = textbox as any
-  textboxAny._textLines = [chars]
-  textboxAny.__charBounds = [charBounds]
-  textboxAny.offsets = { underline: 0, linethrough: 0, overline: 0 }
-  textboxAny._fontSizeFraction = 0
-  textboxAny.direction = 'ltr'
-  textboxAny.width = charsLength * 10
-  textboxAny._getWidthOfCharSpacing = () => 0
-  textboxAny._getLineLeftOffset = () => 0
-  textboxAny._getTopOffset = () => 0
-  textboxAny._getLeftOffset = () => 0
-  textboxAny.getHeightOfLine = () => 10
-  textboxAny.getHeightOfChar = () => 10
-  textboxAny.styleHas = () => true
-  textboxAny._removeShadow = jest.fn()
-  textboxAny[type] = true
-
-  const { length: strokeByIndexLength } = strokeByIndex
-  const fallbackStrokeIndex = Math.max(strokeByIndexLength - 1, 0)
-
-  textboxAny.getValueOfPropertyAt = (
-    _lineIndex: number,
-    charIndex: number,
-    property: string
-  ) => {
-    if (property === type) return true
-    if (property === 'textDecorationThickness') return 100
-    if (property === 'deltaY') return 0
-    if (property === 'strokeWidth') return strokeWidth
-    if (property === 'stroke') {
-      const strokeAtIndex = strokeByIndex[charIndex]
-      const fallbackStroke = strokeByIndex[fallbackStrokeIndex]
-      return strokeAtIndex ?? fallbackStroke
-    }
-    if (property === 'fill') return fill
-    return undefined
-  }
-
-  const ctx = createMockContext()
-  const fillStyles: string[] = []
-  ctx.fillRect = function fillRect() {
-    fillStyles.push(ctx.fillStyle as string)
-  }
-
-  return { textbox, ctx, fillStyles }
-}
-
-// Глобальные моки браузерных API для тестов буфера обмена
-export const mockNavigatorClipboard = {
-  writeText: jest.fn(),
-  write: jest.fn(),
-  readText: jest.fn()
-}
-
-export const mockClipboardItem = jest.fn().mockImplementation((data) => ({
-  types: Object.keys(data),
-  getType: jest.fn()
-}))
-
-// Мок FileReader для тестов с файлами из буфера обмена
-export class MockFileReader {
-  result: string | null = null
-
-  onload: ((event: any) => void) | null = null
-
-  readAsDataURL(_blob: Blob): void {
-    setTimeout(() => {
-      this.result = 'data:image/png;base64,mockBase64Data'
-      if (this.onload) {
-        this.onload({ target: this })
-      }
-    }, 0)
-  }
-}
-
-// Мок DOMParser для HTML буфера обмена
-export const mockQuerySelector = jest.fn()
-export const mockDOMParser = {
-  parseFromString: jest.fn().mockReturnValue({
-    querySelector: mockQuerySelector
-  })
-}
-
-// Мок atob для декодирования base64
-export const mockAtob = jest.fn().mockImplementation((_base64: string) => 'mock-binary-data')
-
-// Мок Blob для создания файлов
-export const mockBlob = jest.fn().mockImplementation((data, options) => ({
-  type: options?.type || 'application/octet-stream',
-  size: 100
-}))
-
-// Функция для установки всех глобальных моков браузерных API
-export const setupBrowserMocks = () => {
-  Object.defineProperty(global, 'navigator', {
-    value: { clipboard: mockNavigatorClipboard },
-    writable: true
-  })
-
-  Object.defineProperty(global, 'ClipboardItem', {
-    value: mockClipboardItem,
-    writable: true
-  })
-
-  Object.defineProperty(global, 'FileReader', {
-    value: MockFileReader,
-    writable: true
-  })
-
-  Object.defineProperty(global, 'DOMParser', {
-    value: jest.fn().mockImplementation(() => mockDOMParser),
-    writable: true
-  })
-
-  Object.defineProperty(global, 'atob', {
-    value: mockAtob,
-    writable: true
-  })
-
-  Object.defineProperty(global, 'Blob', {
-    value: mockBlob,
-    writable: true
-  })
-}
+export {
+  createMockActiveSelection,
+  createMockBackgroundImage,
+  createMockBackgroundRect,
+  createMockClipboardEvent,
+  createMockContext,
+  createMockFabricObject,
+  createMockGroup,
+  createDecorationRenderSetup,
+  createDecorationTextbox,
+  createEmptyClipboardEvent,
+  createFailingMockObject,
+  ensureFabricHelpers,
+  mockAtob,
+  mockBlob,
+  mockClipboardItem,
+  mockDOMParser,
+  MockFileReader,
+  mockNavigatorClipboard,
+  mockQuerySelector,
+  setupBrowserMocks
+} from './fabric-object-mocks'
