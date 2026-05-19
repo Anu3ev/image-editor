@@ -1,7 +1,7 @@
 import { ActiveSelection } from 'fabric'
 import Listeners from '../../../src/editor/listeners'
 import { createEditorStub } from '../../test-utils/editor-helpers'
-import { keyDown, keyUp, mouse, wheel, ptr, fabricPtrWithTarget } from '../../test-utils/events'
+import { keyDown, keyUp, mouse, wheel, gesture, ptr, fabricPtrWithTarget } from '../../test-utils/events'
 
 // Shared event lists to avoid duplication in assertions
 const OPTIONAL_CANVAS_EVENTS = [
@@ -74,6 +74,18 @@ describe('Listeners', () => {
         capture: true,
         passive: false
       })
+      expect(editor.canvas.wrapperEl.addEventListener).toHaveBeenCalledWith('gesturestart', listeners.handleCanvasGestureStartBound, {
+        capture: true,
+        passive: false
+      })
+      expect(editor.canvas.wrapperEl.addEventListener).toHaveBeenCalledWith('gesturechange', listeners.handleCanvasGestureChangeBound, {
+        capture: true,
+        passive: false
+      })
+      expect(editor.canvas.wrapperEl.addEventListener).toHaveBeenCalledWith('gestureend', listeners.handleCanvasGestureEndBound, {
+        capture: true,
+        passive: false
+      })
       expect(addWin).toHaveBeenCalledWith('resize', listeners.handleContainerResizeBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('keydown', listeners.handleCopyEventBound, { capture: true })
       expect(addDoc).toHaveBeenCalledWith('keydown', listeners.handleCutEventBound, { capture: true })
@@ -109,6 +121,18 @@ describe('Listeners', () => {
 
       // DOM addEventListener не должен быть вызван для опциональных обработчиков
       expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+        capture: true,
+        passive: false
+      })
+      expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('gesturestart', listeners.handleCanvasGestureStartBound, {
+        capture: true,
+        passive: false
+      })
+      expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('gesturechange', listeners.handleCanvasGestureChangeBound, {
+        capture: true,
+        passive: false
+      })
+      expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('gestureend', listeners.handleCanvasGestureEndBound, {
         capture: true,
         passive: false
       })
@@ -390,7 +414,7 @@ describe('Listeners', () => {
   })
 
   describe('misc handlers', () => {
-    it('mouse wheel zoom вызывает zoomManager.handleMouseWheelZoom', () => {
+    it('ctrl + wheel передаёт mouse-wheel zoom без ускорения тачпада', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
       const preventDefault = jest.fn()
@@ -401,7 +425,7 @@ describe('Listeners', () => {
 
       listeners.handleCanvasWheelZoom(evt)
 
-      expect(editor.zoomManager.handleMouseWheelZoom).toHaveBeenCalledWith(0.05, evt)
+      expect(editor.zoomManager.handlePointerZoom).toHaveBeenCalledWith(0.05, evt)
       expect(preventDefault).toHaveBeenCalled()
       expect(stopPropagation).toHaveBeenCalled()
     })
@@ -417,13 +441,85 @@ describe('Listeners', () => {
 
       listeners.handleCanvasWheelZoom(evt)
 
-      const zoomCallOrder = editor.zoomManager.handleMouseWheelZoom.mock.invocationCallOrder[0]
+      const zoomCallOrder = editor.zoomManager.handlePointerZoom.mock.invocationCallOrder[0]
 
       expect(preventDefault).toHaveBeenCalledTimes(1)
       expect(stopPropagation).toHaveBeenCalledTimes(1)
-      expect(editor.zoomManager.handleMouseWheelZoom).toHaveBeenCalledTimes(1)
+      expect(editor.zoomManager.handlePointerZoom).toHaveBeenCalledTimes(1)
       expect(preventDefault.mock.invocationCallOrder[0]).toBeLessThan(zoomCallOrder)
       expect(stopPropagation.mock.invocationCallOrder[0]).toBeLessThan(zoomCallOrder)
+    })
+
+    it('pinch-wheel тачпада получает отдельное ускорение для мелких pixel-delta событий', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
+      const evt = wheel({
+        ctrlKey: true,
+        deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+        deltaY: -5
+      })
+
+      listeners.handleCanvasWheelZoom(evt)
+
+      expect(editor.zoomManager.handlePointerZoom).toHaveBeenCalledTimes(1)
+      expect(editor.zoomManager.handlePointerZoom.mock.calls[0][0]).toBeCloseTo(0.04)
+      expect(editor.zoomManager.handlePointerZoom.mock.calls[0][1]).toBe(evt)
+    })
+
+    it('line-delta wheel нормализуется перед расчётом zoom-step', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
+      const evt = wheel({
+        ctrlKey: true,
+        deltaMode: WheelEvent.DOM_DELTA_LINE,
+        deltaY: -3
+      })
+
+      listeners.handleCanvasWheelZoom(evt)
+
+      expect(editor.zoomManager.handlePointerZoom).toHaveBeenCalledTimes(1)
+      expect(editor.zoomManager.handlePointerZoom.mock.calls[0][0]).toBeCloseTo(0.024)
+      expect(editor.zoomManager.handlePointerZoom.mock.calls[0][1]).toBe(evt)
+    })
+
+    it('WebKit gesture переводит cumulative scale в последовательные zoom-инкременты', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
+      const startEvent = gesture('gesturestart', { scale: 1, clientX: 120, clientY: 140 })
+      const firstChangeEvent = gesture('gesturechange', { scale: 1.1, clientX: 120, clientY: 140 })
+      const secondChangeEvent = gesture('gesturechange', { scale: 1.3, clientX: 120, clientY: 140 })
+
+      listeners.handleCanvasGestureStart(startEvent)
+      listeners.handleCanvasGestureChange(firstChangeEvent)
+      listeners.handleCanvasGestureChange(secondChangeEvent)
+
+      const zoomCalls = editor.zoomManager.handlePointerZoom.mock.calls
+
+      expect(zoomCalls).toHaveLength(2)
+      expect(zoomCalls[0][0]).toBeCloseTo(0.1)
+      expect(zoomCalls[0][1]).toEqual({ clientX: 120, clientY: 140 })
+      expect(zoomCalls[1][0]).toBeCloseTo(0.1818)
+      expect(zoomCalls[1][1]).toEqual({ clientX: 120, clientY: 140 })
+    })
+
+    it('WebKit gesture сбрасывает накопленный scale после завершения жеста', () => {
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { mouseWheelZooming: true } })
+      const firstStartEvent = gesture('gesturestart', { scale: 1, clientX: 120, clientY: 140 })
+      const firstChangeEvent = gesture('gesturechange', { scale: 1.4, clientX: 120, clientY: 140 })
+      const endEvent = gesture('gestureend', { scale: 1.4, clientX: 120, clientY: 140 })
+      const secondChangeEvent = gesture('gesturechange', { scale: 1.2, clientX: 120, clientY: 140 })
+
+      listeners.handleCanvasGestureStart(firstStartEvent)
+      listeners.handleCanvasGestureChange(firstChangeEvent)
+      listeners.handleCanvasGestureEnd(endEvent)
+      listeners.handleCanvasGestureChange(secondChangeEvent)
+
+      const zoomCalls = editor.zoomManager.handlePointerZoom.mock.calls
+
+      expect(zoomCalls).toHaveLength(2)
+      expect(zoomCalls[0][0]).toBeCloseTo(0.4)
+      expect(zoomCalls[1][0]).toBeCloseTo(0.2)
     })
 
     it('mouse wheel не зумит без ctrl/meta', () => {
@@ -435,7 +531,7 @@ describe('Listeners', () => {
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
       listeners.handleCanvasWheelZoom(evt)
-      expect(editor.zoomManager.handleMouseWheelZoom).not.toHaveBeenCalled()
+      expect(editor.zoomManager.handlePointerZoom).not.toHaveBeenCalled()
       expect(preventDefault).not.toHaveBeenCalled()
       expect(stopPropagation).not.toHaveBeenCalled()
     })
@@ -567,6 +663,15 @@ describe('Listeners', () => {
       const offCalls = (editor.canvas.off as jest.Mock).mock.calls.map((c) => c[0])
       expect(offCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
       expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+        capture: true
+      })
+      expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('gesturestart', listeners.handleCanvasGestureStartBound, {
+        capture: true
+      })
+      expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('gesturechange', listeners.handleCanvasGestureChangeBound, {
+        capture: true
+      })
+      expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('gestureend', listeners.handleCanvasGestureEndBound, {
         capture: true
       })
 
