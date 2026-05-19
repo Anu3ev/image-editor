@@ -2,7 +2,8 @@ import { Canvas, Pattern, Point } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../../../src/editor'
 import { addRectangleToCanvas } from '../../../src/editor/utils/primitive-shapes'
-import { basicOptions, createFullOptions, createEditorWithMocks } from '../../test-utils/editor-helpers'
+import { basicOptions, createFullOptions } from '../../test-utils/editor/options'
+import { createEditorWithMocks } from '../../test-utils/editor/editor-with-mocks'
 
 // Мокируем сторонние зависимости редактора (не fabric)
 jest.mock('nanoid')
@@ -43,7 +44,7 @@ describe('ImageEditor', () => {
   const mockRect = {}
   const addRectangleToCanvasMock = addRectangleToCanvas as jest.Mock
 
-  // Базовые опции/хелперы теперь импортируются из test-utils/editor-helpers
+  // Базовые опции/хелперы теперь импортируются из test-utils/editor/options и test-utils/editor/editor-with-mocks
 
   beforeEach(() => {
     jest.clearAllMocks()

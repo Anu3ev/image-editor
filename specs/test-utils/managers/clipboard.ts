@@ -1,25 +1,6 @@
-import type { AnyFn } from './editor-helpers'
-
 export type DeferredExternalPasteControls = {
   resolve: (importOptions?: object | null) => void
   reject: (error?: unknown) => void
-}
-
-/**
- * В тестах canvas из `createCanvasStub` хранит подписчиков в `__handlers`,
- * но `fire` по умолчанию их не вызывает. Этот хелпер делает `fire` "настоящим".
- */
-export const enableCanvasFireHandlers = (canvas: any) => {
-  const fireSpy = jest.fn((eventName: string, payload?: any) => {
-    const handlers: AnyFn[] = canvas.__handlers?.[eventName] ?? []
-    for (let index = 0; index < handlers.length; index += 1) {
-      handlers[index](payload)
-    }
-  })
-
-  canvas.fire = fireSpy
-
-  return fireSpy
 }
 
 /**

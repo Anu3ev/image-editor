@@ -6,10 +6,10 @@ import {
 } from '../../../../src/editor/text-manager/background-textbox'
 import {
   createDecorationRenderSetup,
-  createDecorationTextbox,
-  createMockContext,
-  ensureFabricHelpers
-} from '../../../test-utils/editor-helpers'
+  createDecorationTextbox
+} from '../../../test-utils/text/decoration-fixtures'
+import { createMockContext } from '../../../test-utils/fabric/context'
+import { ensureFabricHelpers } from '../../../test-utils/fabric/registry'
 
 describe('BackgroundTextbox', () => {
   beforeEach(() => {

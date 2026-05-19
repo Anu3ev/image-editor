@@ -1,6 +1,7 @@
 import { ActiveSelection } from 'fabric'
 import LayerManager from '../../../../src/editor/layer-manager'
-import { createManagerTestMocks, createTestObjects, getObjectOrder } from '../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
+import { createTestObjects, getObjectOrder } from '../../../test-utils/managers/layer'
 
 describe('LayerManager', () => {
   let mockEditor: any

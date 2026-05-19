@@ -1,10 +1,10 @@
-import ShapeEditingController from '../../src/editor/shape-manager/editing/shape-editing-controller'
+import ShapeEditingController from '../../../src/editor/shape-manager/editing/shape-editing-controller'
 import {
   createMockCanvas,
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from './shape-helpers'
+} from './factories'
 
 export type ShapeEditingTestSetup = {
   controller: ShapeEditingController

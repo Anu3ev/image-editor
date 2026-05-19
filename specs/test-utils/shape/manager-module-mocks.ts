@@ -1,10 +1,10 @@
-jest.mock('../../src/editor/shape-manager/creation/shape-node-factory', () => ({
+jest.mock('../../../src/editor/shape-manager/creation/shape-node-factory', () => ({
   createShapeNode: jest.fn(),
   applyShapeStyle: jest.fn(),
   resizeShapeNode: jest.fn()
 }))
 
-jest.mock('../../src/editor/shape-manager/layout/shape-layout', () => ({
+jest.mock('../../../src/editor/shape-manager/layout/shape-layout', () => ({
   applyShapeTextLayout: jest.fn(),
   resolveMinimumShapeWidthForText: jest.fn(() => 1),
   resolveRequiredShapeHeightForText: jest.fn(({

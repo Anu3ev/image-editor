@@ -7,21 +7,21 @@ import {
   createPlacementTestObject,
   createRevivedTemplateObject,
   getScenePointByOrigin
-} from '../../../test-utils/placement-helpers'
+} from '../../../test-utils/canvas/placement'
 import {
   createRestoredStandaloneTemplateTextbox,
   createRestoredTemplateLikeTextbox
-} from '../../../test-utils/editor-helpers'
+} from '../../../test-utils/text/template-textbox-fixtures'
 import {
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 import {
   createImageTemplateDefinition,
   createShapeTemplateDefinition,
   createStandaloneTextTemplateDefinition,
   createTemplateManagerTestSetup
-} from '../../../test-utils/template-manager-helpers'
+} from '../../../test-utils/managers/template'
 import { BackgroundTextbox, registerBackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 
 describe('TemplateManager', () => {

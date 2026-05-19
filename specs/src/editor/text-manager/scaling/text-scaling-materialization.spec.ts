@@ -6,8 +6,8 @@ import {
 } from '../../../../../src/editor/text-manager/scaling/text-scaling-materialization'
 import {
   createTextManagerTestSetup
-} from '../../../../test-utils/editor-helpers'
-import { createStyledScalingTextbox } from '../../../../test-utils/text-scaling-helpers'
+} from '../../../../test-utils/text/manager-setup'
+import { createStyledScalingTextbox } from '../../../../test-utils/text/scaling'
 
 describe('масштабирование текста', () => {
   describe('подготовка базового состояния', () => {

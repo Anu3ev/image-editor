@@ -3,7 +3,7 @@ import {
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 
 describe('shape-lifecycle', () => {
   it('getSnapshot сохраняет значение скругления и отдельно считает текущий размер после scale', () => {

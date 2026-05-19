@@ -8,7 +8,7 @@ import {
   createTextScalingRuntimeSetup,
   createTextScalingTransform,
   mockTextScalingLocalPoint
-} from '../../../../test-utils/text-scaling-helpers'
+} from '../../../../test-utils/text/scaling'
 
 describe('масштабирование текста', () => {
   describe('распознавание направления', () => {

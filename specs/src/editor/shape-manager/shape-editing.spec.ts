@@ -11,8 +11,8 @@ import {
 import {
   createMockCanvas,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
-import { createShapeEditingSetup } from '../../../test-utils/shape-editing-helpers'
+} from '../../../test-utils/shape/factories'
+import { createShapeEditingSetup } from '../../../test-utils/shape/editing'
 
 jest.mock('../../../../src/editor/shape-manager/domain/shape-nodes', () => ({
   getShapeNodes: jest.fn()

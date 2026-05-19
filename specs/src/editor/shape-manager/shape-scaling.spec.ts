@@ -20,7 +20,7 @@ import {
   createShapeScalingTransform,
   mockShapeScalingLocalPointer,
   mockShapeGroupPositionByOrigin
-} from '../../../test-utils/shape-scaling-helpers'
+} from '../../../test-utils/shape/scaling'
 
 jest.mock('../../../../src/editor/shape-manager/layout/shape-layout', () => ({
   applyFixedWidthShapeTextLayout: jest.fn(),

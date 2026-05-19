@@ -1,11 +1,11 @@
 import { ActiveSelection } from 'fabric'
 import TransformManager from '../../../../src/editor/transform-manager'
-import { createManagerTestMocks } from '../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
 import {
   createOpacityActiveSelection,
   createOpacityObjectMock,
   createShapeGroupOpacityTarget
-} from '../../../test-utils/transform-manager-helpers'
+} from '../../../test-utils/managers/transform'
 
 describe('TransformManager', () => {
   let mockEditor: any

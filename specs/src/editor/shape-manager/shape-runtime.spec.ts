@@ -9,7 +9,7 @@ import {
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 
 describe('shape-runtime', () => {
   it('applyShapeGroupInteractivity включает interactive и subTargetCheck', () => {

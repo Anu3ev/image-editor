@@ -1,10 +1,10 @@
-import '../../../test-utils/shape-manager-module-mocks'
+import '../../../test-utils/shape/manager-module-mocks'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import {
   getShapeManagerUnitMocks,
   createShapeManagerEditorStub,
   resetShapeManagerUnitMocks
-} from '../../../test-utils/shape-manager-spec-helpers'
+} from '../../../test-utils/shape/manager-spec-helpers'
 
 describe('shape-manager update replace', () => {
   const mocks = getShapeManagerUnitMocks()

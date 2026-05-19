@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid'
 import {
   createTextManagerTestSetup
-} from '../../../test-utils/editor-helpers'
+} from '../../../test-utils/text/manager-setup'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import type { BeforeTextUpdatedPayload } from '../../../../src/editor/text-manager/types'
 import { TEXT_EDITING_DEBOUNCE_MS } from '../../../../src/editor/constants'

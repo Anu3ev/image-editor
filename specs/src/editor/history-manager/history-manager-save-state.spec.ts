@@ -1,11 +1,11 @@
 import { nanoid } from 'nanoid'
 import { prepareStatesForDiff } from '../../../../src/editor/history-manager/diff-normalization'
-import { createHistoryManagerTestSetup } from '../../../test-utils/editor-helpers'
+import { createHistoryManagerTestSetup } from '../../../test-utils/history/manager-setup'
 import {
   createSnapshotShapeGroup,
   createSnapshotTextObject,
   serializeSnapshotShapeGroupState
-} from '../../../test-utils/history-helpers'
+} from '../../../test-utils/history/snapshot-fixtures'
 import { createHistoryState } from './history-manager.spec-utils'
 
 jest.mock('nanoid')

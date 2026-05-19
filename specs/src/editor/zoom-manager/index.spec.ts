@@ -1,6 +1,6 @@
 import { Point } from 'fabric'
 import ZoomManager from '../../../../src/editor/zoom-manager'
-import { createManagerTestMocks } from '../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
 
 describe('ZoomManager', () => {
   let mockEditor: any

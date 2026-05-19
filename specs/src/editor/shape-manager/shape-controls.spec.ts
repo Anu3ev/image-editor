@@ -10,7 +10,7 @@ import {
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 
 type ShapeCornerControl = Control & {
   shapeFreeScaleCornerControl?: boolean

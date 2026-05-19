@@ -1,5 +1,5 @@
 import AngleIndicatorManager from '../../../../../src/editor/ui/angle-indicator'
-import { createManagerTestMocks } from '../../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../../test-utils/editor/manager-test-mocks'
 import { ANGLE_INDICATOR_CLASS, OFFSET_X, OFFSET_Y } from '../../../../../src/editor/ui/angle-indicator/constants'
 
 describe('AngleIndicatorManager', () => {

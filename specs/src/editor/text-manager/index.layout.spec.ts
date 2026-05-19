@@ -1,8 +1,10 @@
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import {
-  createTemplateLikeTextbox,
+  createTemplateLikeTextbox
+} from '../../../test-utils/text/template-textbox-fixtures'
+import {
   createTextManagerTestSetup
-} from '../../../test-utils/editor-helpers'
+} from '../../../test-utils/text/manager-setup'
 
 describe('TextManager layout', () => {
   describe('авто-расширение ширины', () => {

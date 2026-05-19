@@ -1,11 +1,11 @@
 import MeasurementManager from '../../../../src/editor/measurement-manager'
 import {
-  attachToolbarMock,
   createBoundsObject,
   createSnappingTestContext,
   setActiveObjects
-} from '../../../test-utils/editor-helpers'
-import { mockRaf } from '../../../test-utils/events'
+} from '../../../test-utils/canvas/geometry-objects'
+import { attachToolbarMock } from '../../../test-utils/managers/toolbar'
+import { mockRaf } from '../../../test-utils/events/raf'
 import * as renderUtils from '../../../../src/editor/utils/render-utils'
 
 describe('MeasurementManager', () => {

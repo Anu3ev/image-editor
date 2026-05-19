@@ -1,4 +1,4 @@
-import '../../../test-utils/shape-manager-module-mocks'
+import '../../../test-utils/shape/manager-module-mocks'
 import { Textbox } from 'fabric'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import {
@@ -10,7 +10,7 @@ import {
   getRequiredCanvasHandler,
   getShapeManagerUnitMocks,
   resetShapeManagerUnitMocks
-} from '../../../test-utils/shape-manager-spec-helpers'
+} from '../../../test-utils/shape/manager-spec-helpers'
 
 describe('shape-manager text', () => {
   const mocks = getShapeManagerUnitMocks()
