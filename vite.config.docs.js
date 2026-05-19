@@ -33,14 +33,15 @@ export default defineConfig({
           src: 'src/demo/js/*.js',
           dest: './js',
           transform: (content, filePath) => {
-            if (filePath.endsWith(path.join('js', 'index.js'))) {
+            if (filePath.endsWith(path.join('js', 'editor-module-loader.js'))) {
               return content
                 .toString()
                 .replace(
-                  /import initEditor from ['"].*['"]/,
-                  'import initEditor from \'./image-editor/main.js\''
+                  "import('../../main.js')",
+                  "import('./image-editor/main.js')"
                 )
             }
+
             return content
           }
         },
