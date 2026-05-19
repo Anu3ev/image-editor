@@ -1,7 +1,7 @@
 import {
   createActiveSelectionScalingRulesTestSetup,
   createControlsCustomizerTestSetup
-} from '../../../test-utils/customized-controls-helpers'
+} from '../../../test-utils/managers/customized-controls'
 
 describe('customized-controls', () => {
   beforeEach(() => {

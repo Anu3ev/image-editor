@@ -1,9 +1,9 @@
 import defaultConfig from '../../../../../src/editor/ui/toolbar-manager/default-config'
+import { createManagerTestMocks } from '../../../../test-utils/editor/manager-test-mocks'
 import {
-  createManagerTestMocks,
   createMockActiveSelection,
   createMockFabricObject
-} from '../../../../test-utils/editor-helpers'
+} from '../../../../test-utils/fabric/objects'
 
 describe('ToolbarManager default delete handler', () => {
   it('при массовом выделении передаёт в удаление все объекты из activeSelection', () => {

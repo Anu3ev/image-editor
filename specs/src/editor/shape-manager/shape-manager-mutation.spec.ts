@@ -1,4 +1,4 @@
-import '../../../test-utils/shape-manager-module-mocks'
+import '../../../test-utils/shape/manager-module-mocks'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import {
   applyShapeTextLayoutToMockGroup,
@@ -7,7 +7,7 @@ import {
   getCanvasEventPayloads,
   getShapeManagerUnitMocks,
   resetShapeManagerUnitMocks
-} from '../../../test-utils/shape-manager-spec-helpers'
+} from '../../../test-utils/shape/manager-spec-helpers'
 
 describe('shape-manager mutation', () => {
   const mocks = getShapeManagerUnitMocks()

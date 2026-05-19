@@ -2,7 +2,7 @@ import {
   resolveAppliedShapePadding,
   resolveTextFrameWidth
 } from '../../../../src/editor/shape-manager/layout/shape-layout-padding'
-import { createMockShapeTextbox } from '../../../test-utils/shape-helpers'
+import { createMockShapeTextbox } from '../../../test-utils/shape/factories'
 
 describe('shape-layout-padding', () => {
   it('при изменении правого отступа сохраняет левый насколько это возможно', () => {

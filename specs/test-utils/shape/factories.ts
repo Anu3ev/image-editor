@@ -2,15 +2,15 @@ import { Group, Point } from 'fabric'
 import type {
   ShapeNode,
   ShapeTextNode
-} from '../../src/editor/shape-manager/types'
-import { BackgroundTextbox } from '../../src/editor/text-manager/background-textbox'
+} from '../../../src/editor/shape-manager/types'
+import { BackgroundTextbox } from '../../../src/editor/text-manager/background-textbox'
 
 const CHAR_WIDTH_RATIO = 0.55
 const SPACE_WIDTH_RATIO = 0.3
 
 type GroupOrigin = 'left' | 'center' | 'right' | 'top' | 'bottom'
 
-type MockCanvas = {
+export type MockCanvas = {
   add: jest.Mock
   remove: jest.Mock
   on: jest.Mock
@@ -25,10 +25,10 @@ type MockCanvas = {
   getCenterPoint: jest.Mock
 }
 
-type PlacementOriginX = 'left' | 'center' | 'right'
-type PlacementOriginY = 'top' | 'center' | 'bottom'
+export type PlacementOriginX = 'left' | 'center' | 'right'
+export type PlacementOriginY = 'top' | 'center' | 'bottom'
 
-interface MockShapeNode extends ShapeNode {
+export interface MockShapeNode extends ShapeNode {
   id?: string
   type: string
   shapeNodeType: 'shape'
@@ -39,7 +39,7 @@ interface MockShapeNode extends ShapeNode {
   setCoords: jest.Mock
 }
 
-type MockShapeTextbox = ShapeTextNode & {
+export type MockShapeTextbox = ShapeTextNode & {
   shapeNodeType: 'text'
   dynamicMinWidth: number
   autoExpand: boolean
@@ -54,7 +54,7 @@ type MockShapeTextbox = ShapeTextNode & {
   selectAll: jest.Mock
 }
 
-type MockShapeGroup = Group & {
+export type MockShapeGroup = Group & {
   shapeComposite: boolean
   shapePresetKey: string
   shapeBaseWidth: number
@@ -76,15 +76,12 @@ type MockShapeGroup = Group & {
   shapeScalingNoopTransform?: boolean
 }
 
-type RenderedTextboxLayout = {
+export type RenderedTextboxLayout = {
   dynamicMinWidth: number
   lineWidths: number[]
   lines: string[]
 }
 
-/**
- * Создаёт минимальный canvas-стаб для shape-тестов.
- */
 export const createMockCanvas = (): MockCanvas => {
   const objects: Array<unknown> = []
   let activeObject: unknown = null
@@ -121,9 +118,6 @@ export const createMockCanvas = (): MockCanvas => {
   }
 }
 
-/**
- * Создаёт shape-узел с set/setCoords.
- */
 export const createMockShapeNode = ({
   id,
   type = 'rect',
@@ -153,9 +147,6 @@ export const createMockShapeNode = ({
   return shape as MockShapeNode
 }
 
-/**
- * Эмулирует перенос текста, близкий к поведению Textbox: по словам, а при splitByGrapheme по символам.
- */
 function measureTextbox({
   text,
   width,
@@ -247,9 +238,6 @@ function measureTextbox({
   }
 }
 
-/**
- * Эмулирует перенос строк для shape-textbox в тестах auto-expand helper'а.
- */
 export function measureRenderedTextboxLayout({
   text,
   frameWidth,
@@ -338,9 +326,6 @@ export function measureRenderedTextboxLayout({
   }
 }
 
-/**
- * Создаёт textbox-узел со стабильным расчётом переносов и высоты.
- */
 export const createMockShapeTextbox = ({
   text = '',
   width = 180,
@@ -414,9 +399,6 @@ export const createMockShapeTextbox = ({
   return textbox
 }
 
-/**
- * Создаёт textbox с предсказуемым переносом строк для тестов auto-expand helper'а.
- */
 export function createMeasuredAutoExpandTextbox({
   text,
   width,
@@ -461,9 +443,6 @@ export function createMeasuredAutoExpandTextbox({
   return textbox
 }
 
-/**
- * Создаёт shape-группу с метаданными и внутренними узлами.
- */
 export const createMockShapeGroup = ({
   shape,
   text,
@@ -602,324 +581,4 @@ export const createMockShapeGroup = ({
   textWithGroup.group = group
 
   return group
-}
-
-/**
- * Создаёт редактор-стаб для unit-тестов ShapeManager,
- * при необходимости сразу добавляя монтажную область для веток auto-expand.
- */
-export const createShapeManagerEditorStub = ({
-  canvas,
-  montageAreaWidth
-}: {
-  canvas?: MockCanvas
-  montageAreaWidth?: number
-} = {}) => {
-  const resolvedCanvas = canvas ?? createMockCanvas()
-  const resolvedMontageAreaWidth = Number.isFinite(montageAreaWidth)
-    ? Math.max(1, Number(montageAreaWidth))
-    : 400
-  const montageArea = {
-    width: resolvedMontageAreaWidth,
-    height: 300,
-    left: resolvedMontageAreaWidth / 2,
-    top: 150,
-    setCoords: jest.fn(),
-    getBoundingRect: jest.fn(() => ({
-      left: 0,
-      top: 0,
-      width: resolvedMontageAreaWidth,
-      height: 300
-    }))
-  }
-
-  return {
-    canvas: resolvedCanvas,
-    canvasManager: {
-      centerObjectToMontageArea: jest.fn(({ object }: { object: Group }) => {
-        object.setPositionByOrigin(new Point(montageArea.left, montageArea.top), 'center', 'center')
-        object.setCoords()
-      }),
-      getMontageAreaSceneCenter: jest.fn(() => new Point(montageArea.left, montageArea.top)),
-      getObjectPlacement: jest.fn(({
-        object,
-        originX,
-        originY
-      }: {
-        object: Group
-        originX?: PlacementOriginX
-        originY?: PlacementOriginY
-      }) => {
-        const resolvedOriginX = originX ?? object.originX ?? 'center'
-        const resolvedOriginY = originY ?? object.originY ?? 'center'
-        const point = object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
-
-        return {
-          left: point.x,
-          top: point.y,
-          originX: resolvedOriginX,
-          originY: resolvedOriginY
-        }
-      }),
-      getMontageAreaSceneBounds: jest.fn(() => ({
-        left: 0,
-        top: 0,
-        right: montageArea.width,
-        bottom: montageArea.height,
-        width: montageArea.width,
-        height: montageArea.height,
-        center: new Point(montageArea.left, montageArea.top)
-      })),
-      resolveObjectPlacement: jest.fn(({
-        object,
-        left,
-        top,
-        originX,
-        originY,
-        fallbackPoint
-      }: {
-        object: Group
-        left?: number
-        top?: number
-        originX?: PlacementOriginX
-        originY?: PlacementOriginY
-        fallbackPoint?: Point
-      }) => {
-        const resolvedOriginX = originX ?? object.originX ?? 'center'
-        const resolvedOriginY = originY ?? object.originY ?? 'center'
-        const basePoint = fallbackPoint ?? object.getPointByOrigin(resolvedOriginX, resolvedOriginY)
-
-        return {
-          left: left ?? basePoint.x,
-          top: top ?? basePoint.y,
-          originX: resolvedOriginX,
-          originY: resolvedOriginY
-        }
-      }),
-      applyObjectPlacement: jest.fn(({
-        object,
-        placement
-      }: {
-        object: Group
-        placement: {
-          left: number
-          top: number
-          originX: PlacementOriginX
-          originY: PlacementOriginY
-        }
-      }) => {
-        object.originX = placement.originX
-        object.originY = placement.originY
-        object.setPositionByOrigin(
-          new Point(placement.left, placement.top),
-          placement.originX,
-          placement.originY
-        )
-        object.setCoords()
-      })
-    },
-    textManager: {
-      addText: jest.fn((style: Record<string, unknown>) => createMockShapeTextbox({
-        text: String(style.text ?? ''),
-        width: Number(style.width) || 180,
-        textAlign: (style.align as 'left' | 'center' | 'right' | 'justify') ?? 'center'
-      })),
-      syncLineStylesWithText: jest.fn(),
-      updateText: jest.fn()
-    },
-    historyManager: {
-      suspendHistory: jest.fn(),
-      resumeHistory: jest.fn(),
-      saveState: jest.fn()
-    },
-    montageArea
-  }
-}
-
-/**
- * Возвращает зарегистрированный canvas-handler по имени события.
- */
-export const getCanvasHandler = <TPayload = unknown>({
-  canvas,
-  eventName
-}: {
-  canvas: {
-    on: jest.Mock
-  }
-  eventName: string
-}): ((payload: TPayload) => void) | null => {
-  const calls = canvas.on.mock.calls
-
-  for (let callIndex = 0; callIndex < calls.length; callIndex += 1) {
-    const [
-      currentEventName,
-      handler
-    ] = calls[callIndex]
-
-    if (currentEventName === eventName && typeof handler === 'function') {
-      return handler as (payload: TPayload) => void
-    }
-  }
-
-  return null
-}
-
-/**
- * Возвращает canvas-handler по имени события или падает, если он не зарегистрирован.
- */
-export const getRequiredCanvasHandler = <TPayload = unknown>({
-  canvas,
-  eventName
-}: {
-  canvas: {
-    on: jest.Mock
-  }
-  eventName: string
-}): ((payload: TPayload) => void) => {
-  const handler = getCanvasHandler<TPayload>({
-    canvas,
-    eventName
-  })
-
-  if (!handler) {
-    throw new Error(`${eventName} handler should be registered`)
-  }
-
-  return handler
-}
-
-/**
- * Возвращает payload'ы canvas.fire для конкретного editor-события.
- */
-export const getCanvasEventPayloads = <TPayload = unknown>({
-  canvas,
-  eventName
-}: {
-  canvas: {
-    fire: jest.Mock
-  }
-  eventName: string
-}): TPayload[] => {
-  return canvas.fire.mock.calls
-    .filter(([currentEventName]) => currentEventName === eventName)
-    .map(([, payload]) => payload as TPayload)
-}
-
-/**
- * Минимально применяет layout к mock shape-группе так, чтобы snapshot и resize-тесты видели итоговые размеры.
- */
-export const applyShapeTextLayoutToMockGroup = ({
-  group,
-  shape,
-  text,
-  width,
-  height,
-  alignH,
-  alignV,
-  padding
-}: {
-  group: MockShapeGroup
-  shape: MockShapeNode
-  text: MockShapeTextbox
-  width: number
-  height: number
-  alignH?: 'left' | 'center' | 'right' | 'justify'
-  alignV?: 'top' | 'middle' | 'bottom'
-  padding?: {
-    top?: number
-    right?: number
-    bottom?: number
-    left?: number
-  }
-}): void => {
-  shape.set({
-    width,
-    height
-  })
-
-  text.set({
-    textAlign: alignH ?? text.textAlign,
-    scaleX: 1,
-    scaleY: 1
-  })
-  text.initDimensions()
-  text.setCoords()
-
-  group.shapeBaseWidth = width
-  group.shapeBaseHeight = height
-  group.shapeAlignHorizontal = alignH ?? group.shapeAlignHorizontal
-  group.shapeAlignVertical = alignV ?? group.shapeAlignVertical
-
-  if (padding) {
-    group.shapePaddingTop = padding.top ?? group.shapePaddingTop
-    group.shapePaddingRight = padding.right ?? group.shapePaddingRight
-    group.shapePaddingBottom = padding.bottom ?? group.shapePaddingBottom
-    group.shapePaddingLeft = padding.left ?? group.shapePaddingLeft
-  }
-
-  group.set({
-    width,
-    height,
-    scaleX: 1,
-    scaleY: 1
-  })
-  group.setCoords()
-  shape.setCoords()
-}
-
-/**
- * Применяет text style к mock textbox в shape unit-тестах.
- */
-export const applyTextStyleToShapeText = ({
-  target,
-  style
-}: {
-  target: {
-    set: (updates: Record<string, unknown>) => void
-    autoExpand?: boolean
-  }
-  style: Record<string, unknown>
-}): void => {
-  const nextStyle: Record<string, unknown> = {}
-  const styleKeys = Object.keys(style)
-
-  for (let index = 0; index < styleKeys.length; index += 1) {
-    const key = styleKeys[index]
-    const value = style[key]
-
-    if (key === 'align') {
-      nextStyle.textAlign = value
-      continue
-    }
-
-    if (key === 'color') {
-      nextStyle.fill = value
-      continue
-    }
-
-    if (key === 'strokeColor') {
-      nextStyle.stroke = value
-      continue
-    }
-
-    if (key === 'bold') {
-      nextStyle.fontWeight = value ? 'bold' : 'normal'
-      continue
-    }
-
-    if (key === 'italic') {
-      nextStyle.fontStyle = value ? 'italic' : 'normal'
-      continue
-    }
-
-    if (key === 'strikethrough') {
-      nextStyle.linethrough = value
-      continue
-    }
-
-    nextStyle[key] = value
-  }
-
-  target.set(nextStyle)
-  target.autoExpand = false
 }

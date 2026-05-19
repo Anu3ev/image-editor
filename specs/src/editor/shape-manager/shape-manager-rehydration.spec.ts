@@ -1,11 +1,11 @@
-import '../../../test-utils/shape-manager-module-mocks'
+import '../../../test-utils/shape/manager-module-mocks'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import {
   createShapeManagerEditorStub,
   createShapeRehydrationTarget,
   getShapeManagerUnitMocks,
   resetShapeManagerUnitMocks
-} from '../../../test-utils/shape-manager-spec-helpers'
+} from '../../../test-utils/shape/manager-spec-helpers'
 
 describe('восстановленная фигура', () => {
   const mocks = getShapeManagerUnitMocks()

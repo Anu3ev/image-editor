@@ -7,7 +7,7 @@ import {
   createMockFabricImage,
   mockFabricImageFromURL,
   suppressConsoleWarnings
-} from '../../../test-utils/image-manager-helpers'
+} from '../../../test-utils/managers/image'
 
 describe('ImageManager', () => {
   let imageManager: ImageManager

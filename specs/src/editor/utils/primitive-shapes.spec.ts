@@ -5,7 +5,7 @@ import {
   addTriangleToCanvas
 } from '../../../../src/editor/utils/primitive-shapes'
 import { snapObjectToPixelGrid } from '../../../../src/editor/utils/geometry'
-import { createCanvasStub } from '../../../test-utils/editor-helpers'
+import { createCanvasStub } from '../../../test-utils/canvas/canvas-stub'
 
 jest.mock('nanoid')
 jest.mock('../../../../src/editor/utils/geometry', () => ({

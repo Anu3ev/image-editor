@@ -1,5 +1,5 @@
 import { getObjectBounds, snapObjectToPixelGrid } from '../../../../src/editor/utils/geometry'
-import { createBoundsObject, createPixelGridObject } from '../../../test-utils/editor-helpers'
+import { createBoundsObject, createPixelGridObject } from '../../../test-utils/canvas/geometry-objects'
 
 describe('getObjectBounds', () => {
   it('возвращает null для null-объекта', () => {

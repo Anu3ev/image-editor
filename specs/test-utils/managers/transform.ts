@@ -3,11 +3,11 @@ import {
   Rect,
   type FabricObject
 } from 'fabric'
-import { ShapeGroupObject } from '../../src/editor/shape-manager/domain/shape-group'
+import { ShapeGroupObject } from '../../../src/editor/shape-manager/domain/shape-group'
 import {
   createMockShapeNode,
   createMockShapeTextbox
-} from './shape-helpers'
+} from '../shape/factories'
 
 /**
  * Создаёт обычный canvas-объект для проверки прямого Fabric opacity.

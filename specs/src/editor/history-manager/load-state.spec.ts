@@ -5,7 +5,7 @@ import {
   cloneCustomData,
   createLoadSafeState
 } from '../../../../src/editor/history-manager/load-state'
-import { createHistoryCanvasState } from '../../../test-utils/history-helpers'
+import { createHistoryCanvasState } from '../../../test-utils/history/snapshot-fixtures'
 
 describe('history-manager/load-state', () => {
   it('createLoadSafeState создаёт независимую копию и сериализует customData', () => {

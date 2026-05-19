@@ -1,5 +1,5 @@
-import FontManager from '../../src/editor/font-manager'
-import type { EditorFontDefinition } from '../../src/editor/types/font'
+import FontManager from '../../../src/editor/font-manager'
+import type { EditorFontDefinition } from '../../../src/editor/types/font'
 
 type FontFaceRegistryEntry = Record<string, unknown>
 

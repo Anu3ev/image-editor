@@ -3,11 +3,13 @@ import { BackgroundTextbox } from '../../../../src/editor/text-manager/backgroun
 import * as textGeometry from '../../../../src/editor/text-manager/geometry'
 import {
   createRestoredTemplateLikeTextbox,
-  createTemplateLikeTextbox,
+  createTemplateLikeTextbox
+} from '../../../test-utils/text/template-textbox-fixtures'
+import {
   createTextManagerTestSetup
-} from '../../../test-utils/editor-helpers'
-import { createMockShapeGroup, createMockShapeNode, createMockShapeTextbox } from '../../../test-utils/shape-helpers'
-import { createTextScalingTransform } from '../../../test-utils/text-scaling-helpers'
+} from '../../../test-utils/text/manager-setup'
+import { createMockShapeGroup, createMockShapeNode, createMockShapeTextbox } from '../../../test-utils/shape/factories'
+import { createTextScalingTransform } from '../../../test-utils/text/scaling'
 
 describe('TextManager scaling', () => {
   describe('масштабирование ActiveSelection с текстами', () => {

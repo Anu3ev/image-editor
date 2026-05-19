@@ -1,7 +1,8 @@
 import { ActiveSelection } from 'fabric'
 import Listeners from '../../../src/editor/listeners'
-import { createEditorStub } from '../../test-utils/editor-helpers'
-import { keyDown, keyUp, mouse, wheel, gesture, ptr, fabricPtrWithTarget } from '../../test-utils/events'
+import { createEditorStub } from '../../test-utils/editor/editor-stub'
+import { keyDown, keyUp, mouse, wheel, gesture } from '../../test-utils/events/dom-events'
+import { ptr, fabricPtrWithTarget } from '../../test-utils/events/fabric-events'
 
 // Shared event lists to avoid duplication in assertions
 const OPTIONAL_CANVAS_EVENTS = [

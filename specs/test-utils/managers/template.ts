@@ -1,6 +1,6 @@
-import CanvasManager from '../../src/editor/canvas-manager'
-import TemplateManager, { TemplateDefinition } from '../../src/editor/template-manager'
-import { createEditorStub } from './editor-helpers'
+import CanvasManager from '../../../src/editor/canvas-manager'
+import TemplateManager, { TemplateDefinition } from '../../../src/editor/template-manager'
+import { createEditorStub } from '../editor/editor-stub'
 
 type BaseEditorStub = ReturnType<typeof createEditorStub>
 

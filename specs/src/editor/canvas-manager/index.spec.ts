@@ -4,11 +4,9 @@ import CanvasManager, {
   calculateProportionalDimension,
   isImageObject
 } from '../../../../src/editor/canvas-manager'
-import {
-  createManagerTestMocks,
-  createMockFabricObject
-} from '../../../test-utils/editor-helpers'
-import { createPlacementSelection, createPlacementTestObject } from '../../../test-utils/placement-helpers'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
+import { createMockFabricObject } from '../../../test-utils/fabric/objects'
+import { createPlacementSelection, createPlacementTestObject } from '../../../test-utils/canvas/placement'
 import {
   CANVAS_MIN_WIDTH,
   CANVAS_MIN_HEIGHT,

@@ -2,7 +2,7 @@ import type { EditorFontDefinition } from '../../../../src/editor/types/font'
 import {
   createFontManagerTestSetup,
   resetFontManagerRegistry
-} from '../../../test-utils/editor-helpers'
+} from '../../../test-utils/managers/font'
 
 describe('FontManager', () => {
   beforeEach(() => {

@@ -3,13 +3,13 @@ import { ShapeGroupObject, registerShapeGroup } from '../../../../src/editor/sha
 import {
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 import {
   MockLayoutManager,
   MockLayoutStrategy,
   createSerializedShapeGroup,
   registerShapeGroupTestClasses
-} from '../../../test-utils/shape-group-helpers'
+} from '../../../test-utils/shape/group-deserialization'
 
 describe('shape-group', () => {
   beforeEach(() => {

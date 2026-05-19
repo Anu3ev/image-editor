@@ -13,8 +13,8 @@ import {
 import type { Bounds, SpacingPattern } from '../../../../src/editor/snapping-manager/types'
 import { resolveDisplayDistance } from '../../../../src/editor/utils/distance'
 import { getObjectBounds } from '../../../../src/editor/utils/geometry'
-import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/editor-helpers'
-import { createMockFabricImage } from '../../../test-utils/image-manager-helpers'
+import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/canvas/geometry-objects'
+import { createMockFabricImage } from '../../../test-utils/managers/image'
 
 type OriginX = 'left' | 'center' | 'right'
 type OriginY = 'top' | 'center' | 'bottom'

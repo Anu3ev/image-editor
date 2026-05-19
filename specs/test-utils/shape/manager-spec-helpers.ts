@@ -1,7 +1,7 @@
 import {
   applyShapeStyle,
   createShapeNode
-} from '../../src/editor/shape-manager/creation/shape-node-factory'
+} from '../../../src/editor/shape-manager/creation/shape-node-factory'
 import {
   applyShapeTextLayout,
   resolveMinimumShapeWidthForText,
@@ -9,18 +9,22 @@ import {
   resolveShapeTextAutoExpandWidthForText,
   resolveShapeTextFixedWidthLayout,
   resolveShapeTextFrameLayout
-} from '../../src/editor/shape-manager/layout/shape-layout'
+} from '../../../src/editor/shape-manager/layout/shape-layout'
 import {
-  applyShapeTextLayoutToMockGroup,
-  applyTextStyleToShapeText,
   createMockShapeGroup,
   createMockShapeNode,
-  createMockShapeTextbox,
-  createShapeManagerEditorStub,
+  createMockShapeTextbox
+} from './factories'
+import { createShapeManagerEditorStub } from './editor-stub'
+import {
+  applyShapeTextLayoutToMockGroup,
+  applyTextStyleToShapeText
+} from './layout-application'
+import {
   getCanvasEventPayloads,
   getCanvasHandler,
   getRequiredCanvasHandler
-} from './shape-helpers'
+} from '../canvas/handlers'
 
 export const getShapeManagerUnitMocks = () => ({
   applyShapeStyleMock: applyShapeStyle as jest.Mock,

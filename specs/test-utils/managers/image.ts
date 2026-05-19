@@ -1,6 +1,6 @@
 import { FabricImage } from 'fabric'
-import ImageManager from '../../src/editor/image-manager'
-import { createManagerTestMocks } from './editor-helpers'
+import ImageManager from '../../../src/editor/image-manager'
+import { createManagerTestMocks } from '../editor/manager-test-mocks'
 
 type ImageManagerSetupOptions = {
   acceptContentTypes?: string[]
@@ -65,7 +65,10 @@ export const setupImageManagerGlobalMocks = () => {
     }
   }))
   const mockCreateImageBitmap = jest.fn(async() => ({}))
-  const mockCreateObjectURL = jest.fn(() => `blob:mock-${blobCounter += 1}`)
+  const mockCreateObjectURL = jest.fn(() => {
+    blobCounter += 1
+    return `blob:mock-${blobCounter}`
+  })
   const mockRevokeObjectURL = jest.fn()
 
   globalRef.fetch = mockFetch

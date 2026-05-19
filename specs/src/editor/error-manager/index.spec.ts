@@ -1,5 +1,5 @@
 import ErrorManager from '../../../../src/editor/error-manager'
-import { createEditorStub } from '../../../test-utils/editor-helpers'
+import { createEditorStub } from '../../../test-utils/editor/editor-stub'
 
 describe('ErrorManager', () => {
   let errorManager: ErrorManager

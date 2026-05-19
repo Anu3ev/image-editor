@@ -1,4 +1,4 @@
-import { createTextManagerTestSetup } from '../../../test-utils/editor-helpers'
+import { createTextManagerTestSetup } from '../../../test-utils/text/manager-setup'
 
 describe('uppercase и textCaseRaw', () => {
   describe('базовое поведение uppercase', () => {
