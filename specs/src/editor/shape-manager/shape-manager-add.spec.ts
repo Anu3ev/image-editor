@@ -1,4 +1,4 @@
-import '../../../test-utils/shape-manager-module-mocks'
+import '../../../test-utils/shape/manager-module-mocks'
 import { Group } from 'fabric'
 import ShapeManager from '../../../../src/editor/shape-manager'
 import { getShapePreset } from '../../../../src/editor/shape-manager/domain/shape-presets'
@@ -8,7 +8,7 @@ import {
   getRequiredCanvasHandler,
   getShapeManagerUnitMocks,
   resetShapeManagerUnitMocks
-} from '../../../test-utils/shape-manager-spec-helpers'
+} from '../../../test-utils/shape/manager-spec-helpers'
 
 describe('shape-manager add', () => {
   const mocks = getShapeManagerUnitMocks()

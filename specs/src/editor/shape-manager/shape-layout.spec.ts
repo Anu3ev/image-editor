@@ -19,7 +19,7 @@ import {
   createMockShapeNode,
   createMockShapeTextbox,
   measureRenderedTextboxLayout
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 
 jest.mock('../../../../src/editor/shape-manager/creation/shape-node-factory', () => ({
   resizeShapeNode: jest.fn()

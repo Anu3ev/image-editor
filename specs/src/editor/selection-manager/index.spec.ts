@@ -1,14 +1,15 @@
 import { ActiveSelection } from 'fabric'
 import SelectionManager from '../../../../src/editor/selection-manager'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
-import { emitCanvasEvent } from '../../../test-utils/canvas-events'
-import { mouse, ptr } from '../../../test-utils/events'
-import { createSelectionObject, createSelectionTestSetup } from '../../../test-utils/selection-helpers'
+import { emitCanvasEvent } from '../../../test-utils/canvas/events'
+import { mouse } from '../../../test-utils/events/dom-events'
+import { ptr } from '../../../test-utils/events/fabric-events'
+import { createSelectionObject, createSelectionTestSetup } from '../../../test-utils/managers/selection'
 import {
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 
 describe('SelectionManager', () => {
   beforeEach(() => {

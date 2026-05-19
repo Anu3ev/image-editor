@@ -1,11 +1,11 @@
 import ToolbarManager from '../../../../../src/editor/ui/toolbar-manager'
 import { resolveShapeGroupFromTarget } from '../../../../../src/editor/shape-manager/domain/shape-reference'
-import { createManagerTestMocks } from '../../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../../test-utils/editor/manager-test-mocks'
 import {
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../../test-utils/shape-helpers'
+} from '../../../../test-utils/shape/factories'
 
 jest.mock('../../../../../src/editor/shape-manager/domain/shape-reference', () => ({
   resolveShapeGroupFromTarget: jest.fn()

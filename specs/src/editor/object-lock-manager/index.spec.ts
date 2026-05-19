@@ -2,7 +2,7 @@ import {
   createNestedLockGroupTarget,
   createObjectLockManagerSetup,
   createShapeGroupLockTarget
-} from '../../../test-utils/object-lock-manager-helpers'
+} from '../../../test-utils/managers/object-lock'
 
 describe('ObjectLockManager', () => {
   beforeEach(() => {

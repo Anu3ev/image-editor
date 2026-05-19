@@ -5,7 +5,7 @@ import {
   Textbox,
   controlsUtils
 } from 'fabric'
-import ControlsCustomizer from '../../src/editor/customized-controls'
+import ControlsCustomizer from '../../../src/editor/customized-controls'
 
 type RotateControl = Control & {
   cursorStyle?: string

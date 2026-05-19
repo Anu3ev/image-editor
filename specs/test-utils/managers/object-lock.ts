@@ -1,14 +1,14 @@
 import { Group } from 'fabric'
-import ObjectLockManager from '../../src/editor/object-lock-manager'
+import ObjectLockManager from '../../../src/editor/object-lock-manager'
 import {
-  createManagerTestMocks,
-  createMockFabricObject
-} from './editor-helpers'
+  createManagerTestMocks
+} from '../editor/manager-test-mocks'
+import { createMockFabricObject } from '../fabric/objects'
 import {
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from './shape-helpers'
+} from '../shape/factories'
 
 type ManagerTestMocks = ReturnType<typeof createManagerTestMocks>
 

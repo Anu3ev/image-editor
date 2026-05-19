@@ -3,10 +3,10 @@ import {
   controlsUtils,
   type Transform
 } from 'fabric'
-import { BackgroundTextbox } from '../../src/editor/text-manager/background-textbox'
-import TextScalingController from '../../src/editor/text-manager/scaling/text-scaling'
-import { createTextManagerTestSetup } from './editor-helpers'
-import { createMockShapeTextbox } from './shape-helpers'
+import { BackgroundTextbox } from '../../../src/editor/text-manager/background-textbox'
+import TextScalingController from '../../../src/editor/text-manager/scaling/text-scaling'
+import { createTextManagerTestSetup } from '../text/manager-setup'
+import { createMockShapeTextbox } from '../shape/factories'
 
 type TextOriginX = 'left' | 'center' | 'right'
 type TextOriginY = 'top' | 'center' | 'bottom'

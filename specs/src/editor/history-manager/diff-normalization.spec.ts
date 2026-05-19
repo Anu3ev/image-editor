@@ -4,7 +4,7 @@ import {
   prepareStatesForDiff,
   stableStringify
 } from '../../../../src/editor/history-manager/diff-normalization'
-import { createHistoryCanvasState } from '../../../test-utils/history-helpers'
+import { createHistoryCanvasState } from '../../../test-utils/history/snapshot-fixtures'
 
 describe('history-manager/diff-normalization', () => {
   it('stableStringify возвращает одинаковую строку для объектов с разным порядком ключей', () => {

@@ -6,7 +6,7 @@ import {
   createSnapshotCanvas,
   createSnapshotShapeGroup,
   createSnapshotTextObject
-} from '../../../test-utils/history-helpers'
+} from '../../../test-utils/history/snapshot-fixtures'
 
 describe('history-manager/snapshot-interactivity', () => {
   it('collectSnapshotObjects возвращает и shape-группу, и её дочерний текст', () => {

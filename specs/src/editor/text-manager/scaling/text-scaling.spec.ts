@@ -6,7 +6,7 @@ import {
   createTextScalingTransform,
   mockTextScalingLocalPoint,
   setCurrentTextScalingTransform
-} from '../../../../test-utils/text-scaling-helpers'
+} from '../../../../test-utils/text/scaling'
 
 describe('масштабирование текста', () => {
   describe('запекание временного масштаба', () => {

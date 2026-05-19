@@ -7,10 +7,10 @@ import {
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
+} from '../../../test-utils/shape/factories'
 import {
   createShapeScalingState
-} from '../../../test-utils/shape-scaling-helpers'
+} from '../../../test-utils/shape/scaling'
 
 describe('shape-scaling-layout', () => {
   it('при пропорциональном уменьшении допускает перенос по словам, пока текст помещается по высоте', () => {

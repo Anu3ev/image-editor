@@ -1,10 +1,6 @@
-import {
-  createManagerTestMocks,
-  createMockBackgroundRect,
-  createMockBackgroundImage,
-  createMockFabricObject,
-  createMockActiveSelection
-} from '../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
+import { createMockBackgroundRect, createMockBackgroundImage } from '../../../test-utils/fabric/background-objects'
+import { createMockFabricObject, createMockActiveSelection } from '../../../test-utils/fabric/objects'
 import BackgroundManager from '../../../../src/editor/background-manager'
 import { addRectangleToCanvas } from '../../../../src/editor/utils/primitive-shapes'
 

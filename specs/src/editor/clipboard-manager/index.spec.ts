@@ -1,22 +1,19 @@
 import { ActiveSelection } from 'fabric'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
 import {
-  createManagerTestMocks,
   createMockFabricObject,
   createMockActiveSelection,
   createMockClipboardEvent,
   createFailingMockObject,
-  createEmptyClipboardEvent,
-  setupBrowserMocks,
-  mockQuerySelector
-} from '../../../test-utils/editor-helpers'
+  createEmptyClipboardEvent
+} from '../../../test-utils/fabric/objects'
+import { setupBrowserMocks, mockQuerySelector } from '../../../test-utils/browser/clipboard-globals'
 import {
   createMockShapeNode,
   createMockShapeTextbox
-} from '../../../test-utils/shape-helpers'
-import {
-  enableCanvasFireHandlers,
-  installExternalImagePastePendingDefer
-} from '../../../test-utils/clipboard-manager-helpers'
+} from '../../../test-utils/shape/factories'
+import { installExternalImagePastePendingDefer } from '../../../test-utils/managers/clipboard'
+import { enableCanvasFireHandlers } from '../../../test-utils/canvas/events'
 import ClipboardManager from '../../../../src/editor/clipboard-manager'
 import { CLIPBOARD_CLONE_OBJECT_KEYS } from '../../../../src/editor/constants'
 import { ShapeGroupObject } from '../../../../src/editor/shape-manager/domain/shape-group'

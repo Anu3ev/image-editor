@@ -1,5 +1,5 @@
 import { FabricObject } from 'fabric'
-import { createEditorStub } from './editor-helpers'
+import { createEditorStub } from '../editor/editor-stub'
 
 export type SelectionTestSetup = {
   editor: ReturnType<typeof createEditorStub>

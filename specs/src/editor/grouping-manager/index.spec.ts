@@ -1,9 +1,5 @@
-import {
-  createManagerTestMocks,
-  createMockFabricObject,
-  createMockActiveSelection,
-  createMockGroup
-} from '../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
+import { createMockFabricObject, createMockActiveSelection, createMockGroup } from '../../../test-utils/fabric/objects'
 import GroupingManager from '../../../../src/editor/grouping-manager'
 
 describe('GroupingManager', () => {

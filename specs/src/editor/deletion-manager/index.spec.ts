@@ -1,9 +1,6 @@
 import DeletionManager from '../../../../src/editor/deletion-manager'
-import {
-  createManagerTestMocks,
-  createMockFabricObject,
-  createMockGroup
-} from '../../../test-utils/editor-helpers'
+import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
+import { createMockFabricObject, createMockGroup } from '../../../test-utils/fabric/objects'
 
 describe('DeletionManager', () => {
   let deletionManager: DeletionManager
