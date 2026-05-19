@@ -1,7 +1,15 @@
 import initListeners from './listeners.js'
-import initEditor from '../../main.js'
+import {
+  getRequestedEditorVersion,
+  loadEditorModule
+} from './editor-module-loader.js'
 
 document.addEventListener('DOMContentLoaded', async() => {
+  const { default: initEditor } = await loadEditorModule()
+  const editorVersion = getRequestedEditorVersion() || 'local'
+
+  console.info('[image-editor demo] editor version:', editorVersion)
+
   // Инициализация редактора
   const editorInstance = await initEditor('editor', {
     montageAreaWidth: 512,
