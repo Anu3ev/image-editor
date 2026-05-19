@@ -3,9 +3,21 @@ import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo
 import { ImageEditor } from '.'
 
 const HISTORY_SAVE_DEBOUNCE_MS = 300
+const STANDARD_WHEEL_DELTA = 100
+const WHEEL_LINE_DELTA = 16
+const MOUSE_WHEEL_ZOOM_CHANGE_PERCENT = 0.05
+const TRACKPAD_PINCH_ZOOM_CHANGE_PERCENT = 0.8
+const TRACKPAD_PINCH_DELTA_THRESHOLD = 50
+const WEBKIT_GESTURE_ZOOM_GAIN = 1
 
 type CanvasWithTransform = Canvas & {
   _currentTransform?: Record<string, unknown> | null
+}
+
+interface CanvasGestureEvent extends Event {
+  scale: number
+  clientX?: number
+  clientY?: number
 }
 
 class Listeners {
@@ -43,6 +55,13 @@ class Listeners {
    * @default 0
    */
   private lastMouseY: number = 0
+
+  /**
+   * Последний cumulative scale WebKit gesture-события.
+   * Нужен только для перевода gesturechange в инкрементальный zoom-step.
+   * @default 1
+   */
+  private lastGestureScale: number = 1
 
   /**
    * Флаг, что сочетание Ctrl+Z/Ctrl+Y удерживается.
@@ -114,6 +133,12 @@ class Listeners {
   handleCanvasDragEndBound: () => void
 
   handleCanvasWheelZoomBound: (event: WheelEvent) => void
+
+  handleCanvasGestureStartBound: (event: Event) => void
+
+  handleCanvasGestureChangeBound: (event: Event) => void
+
+  handleCanvasGestureEndBound: (event: Event) => void
 
   handleResetObjectFitBound: (options: TPointerEventInfo<TPointerEvent>) => void
 
@@ -191,6 +216,9 @@ class Listeners {
     this.handleCanvasDraggingBound = this.handleCanvasDragging.bind(this)
     this.handleCanvasDragEndBound = this.handleCanvasDragEnd.bind(this)
     this.handleCanvasWheelZoomBound = this.handleCanvasWheelZoom.bind(this)
+    this.handleCanvasGestureStartBound = this.handleCanvasGestureStart.bind(this)
+    this.handleCanvasGestureChangeBound = this.handleCanvasGestureChange.bind(this)
+    this.handleCanvasGestureEndBound = this.handleCanvasGestureEnd.bind(this)
     this.handleResetObjectFitBound = this.handleResetObjectFit.bind(this)
 
     this.init()
@@ -219,6 +247,18 @@ class Listeners {
 
     if (this.options.mouseWheelZooming) {
       this.canvas.wrapperEl.addEventListener('wheel', this.handleCanvasWheelZoomBound, {
+        capture: true,
+        passive: false
+      })
+      this.canvas.wrapperEl.addEventListener('gesturestart', this.handleCanvasGestureStartBound, {
+        capture: true,
+        passive: false
+      })
+      this.canvas.wrapperEl.addEventListener('gesturechange', this.handleCanvasGestureChangeBound, {
+        capture: true,
+        passive: false
+      })
+      this.canvas.wrapperEl.addEventListener('gestureend', this.handleCanvasGestureEndBound, {
         capture: true,
         passive: false
       })
@@ -741,28 +781,99 @@ class Listeners {
   }
 
   /**
-   * Рассчитывает шаг зума на основе текущего масштаба канваса.
-   * Логика: один скролл изменяет зум на фиксированный процент от текущего значения.
-   *
-   * @param currentZoom - Текущий уровень зума канваса
-   * @param deltaY - Значение deltaY из WheelEvent
+   * Рассчитывает шаг зума на основе текущего масштаба канваса и типа wheel-события.
+   * Обычное колесо остаётся спокойным, а мелкое pixel-wheel событие тачпада получает отдельный gain.
+   * @param event - Событие wheel
    * @returns Шаг изменения зума
    */
-  private _calculateAdaptiveZoomStep(deltaY: number): number {
+  private _calculateAdaptiveZoomStep(event: WheelEvent): number {
     const currentZoom = this.canvas.getZoom()
+    const normalizedDeltaY = this._normalizeWheelDeltaY(event)
+    const zoomChangePercent = this._isTrackpadPinchWheel(event)
+      ? TRACKPAD_PINCH_ZOOM_CHANGE_PERCENT
+      : MOUSE_WHEEL_ZOOM_CHANGE_PERCENT
+    const scrollSteps = normalizedDeltaY / STANDARD_WHEEL_DELTA
+    const zoomDelta = currentZoom * zoomChangePercent * scrollSteps
 
-    // Процент изменения зума за прокрутку колеса мыши (deltaY = 100)
-    const ZOOM_CHANGE_PERCENT = 0.05 // 5%
-
-    // Стандартное значение deltaY при одном скролле
-    const STANDARD_DELTA = 100
-
-    // Нормализуем deltaY и считаем шаг относительно текущего зума
-    const scrollSteps = deltaY / STANDARD_DELTA
-    const zoomDelta = currentZoom * ZOOM_CHANGE_PERCENT * scrollSteps
-
-    // Инвертируем: скролл вверх (отрицательный deltaY) = зум in (положительное изменение)
     return -zoomDelta
+  }
+
+  /**
+   * Приводит deltaY к одной шкале, чтобы pixel/line/page wheel считались одинаково.
+   * @param event - Событие wheel
+   * @returns Нормализованное deltaY
+   */
+  private _normalizeWheelDeltaY(event: WheelEvent): number {
+    if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+      return event.deltaY * WHEEL_LINE_DELTA
+    }
+
+    if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+      return event.deltaY * this.canvas.getHeight()
+    }
+
+    return event.deltaY
+  }
+
+  /**
+   * Отличает pinch-жест тачпада от обычного колеса по мелкому pixel-delta.
+   * @param event - Событие wheel
+   * @returns true, если событие похоже на pinch тачпада
+   */
+  private _isTrackpadPinchWheel(event: WheelEvent): boolean {
+    const normalizedDeltaY = Math.abs(this._normalizeWheelDeltaY(event))
+
+    return event.deltaMode === WheelEvent.DOM_DELTA_PIXEL && normalizedDeltaY < TRACKPAD_PINCH_DELTA_THRESHOLD
+  }
+
+  /**
+   * Переводит cumulative scale из gesturechange в инкрементальный шаг зума.
+   * @param scale - Текущее cumulative scale из WebKit gesture
+   * @returns Шаг изменения зума
+   */
+  private _calculateGestureZoomStep(scale: number): number {
+    const currentZoom = this.canvas.getZoom()
+    const relativeScale = scale / this.lastGestureScale
+
+    if (!Number.isFinite(relativeScale) || relativeScale <= 0) return 0
+
+    return currentZoom * (relativeScale - 1) * WEBKIT_GESTURE_ZOOM_GAIN
+  }
+
+  /**
+   * Проверяет, что DOM-событие действительно несёт WebKit gesture scale.
+   * @param event - DOM-событие
+   * @returns true, если событие можно трактовать как CanvasGestureEvent
+   */
+  private _isCanvasGestureEvent(event: Event): event is CanvasGestureEvent {
+    return 'scale' in event && typeof event.scale === 'number'
+  }
+
+  /**
+   * Возвращает DOM-координаты gesture-события.
+   * Если браузер не прислал clientX/clientY, используется центр wrapper-элемента canvas.
+   * @param event - WebKit gesture-событие
+   * @returns DOM-координаты для pointer-zoom
+   */
+  private _getGesturePointer(event: CanvasGestureEvent): { clientX: number; clientY: number } {
+    const {
+      clientX,
+      clientY
+    } = event
+
+    if (typeof clientX === 'number' && typeof clientY === 'number') {
+      return {
+        clientX,
+        clientY
+      }
+    }
+
+    const rect = this.canvas.wrapperEl.getBoundingClientRect()
+
+    return {
+      clientX: rect.left + (rect.width / 2),
+      clientY: rect.top + (rect.height / 2)
+    }
   }
 
   /**
@@ -776,11 +887,56 @@ class Listeners {
     event.preventDefault()
     event.stopPropagation()
 
-    // Адаптивный conversionFactor в зависимости от размера монтажной области
-    // Чем больше монтажная область, тем плавнее (меньше) шаг зума
-    const scaleAdjustment = this._calculateAdaptiveZoomStep(event.deltaY)
+    const scaleAdjustment = this._calculateAdaptiveZoomStep(event)
 
-    this.editor.zoomManager.handleMouseWheelZoom(scaleAdjustment, event)
+    this.editor.zoomManager.handlePointerZoom(scaleAdjustment, event)
+  }
+
+  /**
+   * Начало WebKit gesture-события.
+   * Это резервный путь для Safari/macOS, где pinch может приходить не через wheel.
+   * @param event - DOM-событие gesturestart
+   */
+  handleCanvasGestureStart(event: Event): void {
+    if (!this._isCanvasGestureEvent(event)) return
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    this.lastGestureScale = event.scale > 0 ? event.scale : 1
+  }
+
+  /**
+   * Обработчик WebKit gesturechange.
+   * GestureEvent.scale является cumulative, поэтому здесь он переводится в инкрементальный zoom-step.
+   * @param event - DOM-событие gesturechange
+   */
+  handleCanvasGestureChange(event: Event): void {
+    if (!this._isCanvasGestureEvent(event)) return
+
+    event.preventDefault()
+    event.stopPropagation()
+
+    const scaleAdjustment = this._calculateGestureZoomStep(event.scale)
+    this.lastGestureScale = event.scale
+
+    if (!scaleAdjustment) return
+
+    const pointer = this._getGesturePointer(event)
+
+    this.editor.zoomManager.handlePointerZoom(scaleAdjustment, pointer)
+  }
+
+  /**
+   * Завершение WebKit gesture-события.
+   */
+  handleCanvasGestureEnd(event: Event): void {
+    if (this._isCanvasGestureEvent(event)) {
+      event.preventDefault()
+      event.stopPropagation()
+    }
+
+    this.lastGestureScale = 1
   }
 
   /**
@@ -903,6 +1059,15 @@ class Listeners {
     }
     if (this.options.mouseWheelZooming) {
       this.canvas.wrapperEl.removeEventListener('wheel', this.handleCanvasWheelZoomBound, {
+        capture: true
+      })
+      this.canvas.wrapperEl.removeEventListener('gesturestart', this.handleCanvasGestureStartBound, {
+        capture: true
+      })
+      this.canvas.wrapperEl.removeEventListener('gesturechange', this.handleCanvasGestureChangeBound, {
+        capture: true
+      })
+      this.canvas.wrapperEl.removeEventListener('gestureend', this.handleCanvasGestureEndBound, {
         capture: true
       })
     }

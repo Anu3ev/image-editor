@@ -25,6 +25,15 @@ import { ToolbarModel } from './toolbar.model'
 import { SelectionModel } from './selection.model'
 import { GroupingModel } from './grouping.model'
 
+type ZoomInputDispatchState = {
+  canceledEvents: number
+  dispatchedEvents: number
+}
+
+const FULL_TRACKPAD_PINCH_IN_DELTA_STEPS = [-5, -5, -5, -5, -5, -5, -5, -5, -5, -5]
+const FULL_TRACKPAD_PINCH_OUT_DELTA_STEPS = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+const DOM_DELTA_PIXEL = 0
+
 export class EditorModel {
   readonly shapes: ShapeModel
 
@@ -541,22 +550,122 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
-  async zoomByCtrlWheel(params: { deltaY: number }): Promise<void> {
-    await this.page.evaluate(({ deltaY }) => {
+  /**
+   * Отправляет последовательность Ctrl + wheel событий в центр canvas wrapper.
+   * Через этот же путь браузер обычно пробрасывает pinch-жест тачпада.
+   */
+  private async _dispatchWheelZoomEvents({
+    deltaYSteps,
+    deltaMode
+  }: {
+    deltaYSteps: number[]
+    deltaMode?: number
+  }): Promise<ZoomInputDispatchState> {
+    const dispatchState = await this.page.evaluate(({ deltaMode: eventDeltaMode, deltaYSteps: eventDeltaYSteps }) => {
       const { editor } = window as any
-      const rect = editor.canvas.wrapperEl.getBoundingClientRect()
+      const wrapper = editor.canvas.wrapperEl
+      const rect = wrapper.getBoundingClientRect()
+      const clientX = rect.left + (rect.width / 2)
+      const clientY = rect.top + (rect.height / 2)
+      let canceledEvents = 0
 
-      editor.canvas.wrapperEl.dispatchEvent(new WheelEvent('wheel', {
-        deltaY,
-        ctrlKey: true,
-        clientX: rect.left + (rect.width / 2),
-        clientY: rect.top + (rect.height / 2),
-        bubbles: true,
-        cancelable: true
-      }))
-    }, params)
+      for (const deltaY of eventDeltaYSteps) {
+        const eventInit: WheelEventInit = {
+          deltaY,
+          ctrlKey: true,
+          clientX,
+          clientY,
+          bubbles: true,
+          cancelable: true
+        }
+
+        if (typeof eventDeltaMode === 'number') {
+          eventInit.deltaMode = eventDeltaMode
+        }
+
+        const wasNotCanceled = wrapper.dispatchEvent(new WheelEvent('wheel', eventInit))
+
+        if (!wasNotCanceled) {
+          canceledEvents += 1
+        }
+      }
+
+      return {
+        canceledEvents,
+        dispatchedEvents: eventDeltaYSteps.length
+      }
+    }, {
+      deltaMode,
+      deltaYSteps
+    })
 
     await waitForCanvasRender({ page: this.page })
+
+    return dispatchState
+  }
+
+  /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
+  async zoomByCtrlWheel(params: { deltaY: number }): Promise<ZoomInputDispatchState> {
+    return this._dispatchWheelZoomEvents({
+      deltaYSteps: [params.deltaY]
+    })
+  }
+
+  /** Отправляет мелкие Ctrl + wheel события, как при pinch-жесте на тачпаде. */
+  async zoomInByTrackpadPinch(): Promise<ZoomInputDispatchState> {
+    return this._dispatchWheelZoomEvents({
+      deltaMode: DOM_DELTA_PIXEL,
+      deltaYSteps: FULL_TRACKPAD_PINCH_IN_DELTA_STEPS
+    })
+  }
+
+  /** Отправляет мелкие Ctrl + wheel события, как при обратном pinch-жесте на тачпаде. */
+  async zoomOutByTrackpadPinch(): Promise<ZoomInputDispatchState> {
+    return this._dispatchWheelZoomEvents({
+      deltaMode: DOM_DELTA_PIXEL,
+      deltaYSteps: FULL_TRACKPAD_PINCH_OUT_DELTA_STEPS
+    })
+  }
+
+  /** Отправляет WebKit gesture-события, как Safari fallback для pinch-жеста. */
+  async zoomInByWebKitGesturePinch(): Promise<ZoomInputDispatchState> {
+    const dispatchState = await this.page.evaluate(() => {
+      const { editor } = window as any
+      const wrapper = editor.canvas.wrapperEl
+      const rect = wrapper.getBoundingClientRect()
+      const clientX = rect.left + (rect.width / 2)
+      const clientY = rect.top + (rect.height / 2)
+      let canceledEvents = 0
+
+      for (const eventInit of [
+        { type: 'gesturestart', scale: 1 },
+        { type: 'gesturechange', scale: 1.3 },
+        { type: 'gestureend', scale: 1.3 }
+      ]) {
+        const event = new Event(eventInit.type, {
+          bubbles: true,
+          cancelable: true
+        })
+
+        Object.defineProperty(event, 'scale', { value: eventInit.scale })
+        Object.defineProperty(event, 'clientX', { value: clientX })
+        Object.defineProperty(event, 'clientY', { value: clientY })
+
+        const wasNotCanceled = wrapper.dispatchEvent(event)
+
+        if (!wasNotCanceled) {
+          canceledEvents += 1
+        }
+      }
+
+      return {
+        canceledEvents,
+        dispatchedEvents: 3
+      }
+    })
+
+    await waitForCanvasRender({ page: this.page })
+
+    return dispatchState
   }
 }
