@@ -103,6 +103,10 @@ export class Rect {
     // noop in mock
   }
 
+  _render(_ctx: CanvasRenderingContext2D) {
+    // noop in mock
+  }
+
   getPointByOrigin(originX: 'left' | 'center' | 'right', originY: 'top' | 'center' | 'bottom') {
     const width = (this as any).width ?? 0
     const height = (this as any).height ?? 0

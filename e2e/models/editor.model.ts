@@ -24,6 +24,7 @@ import { ImageModel } from './image.model'
 import { ToolbarModel } from './toolbar.model'
 import { SelectionModel } from './selection.model'
 import { GroupingModel } from './grouping.model'
+import { CropModel } from './crop.model'
 
 type ZoomInputDispatchState = {
   canceledEvents: number
@@ -61,6 +62,8 @@ export class EditorModel {
 
   readonly grouping: GroupingModel
 
+  readonly crop: CropModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -75,6 +78,7 @@ export class EditorModel {
     this.toolbar = new ToolbarModel(page)
     this.selection = new SelectionModel(page)
     this.grouping = new GroupingModel(page)
+    this.crop = new CropModel(page)
   }
 
   /** Отправляет hotkey на body, чтобы DOM-событие имело корректный element target. */

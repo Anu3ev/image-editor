@@ -15,6 +15,7 @@ import { ImageModel } from '../models/image.model'
 import { ToolbarModel } from '../models/toolbar.model'
 import { SelectionModel } from '../models/selection.model'
 import { GroupingModel } from '../models/grouping.model'
+import { CropModel } from '../models/crop.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
@@ -38,6 +39,7 @@ interface EditorFixtures {
   toolbar: ToolbarModel
   selection: SelectionModel
   grouping: GroupingModel
+  crop: CropModel
 }
 
 interface EditorInternalFixtures {
@@ -161,6 +163,10 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   grouping: async({ editorModel }, use) => {
     await use(editorModel.grouping)
+  },
+
+  crop: async({ editorModel }, use) => {
+    await use(editorModel.crop)
   }
 })
 

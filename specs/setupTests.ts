@@ -12,6 +12,7 @@ const mockCanvasContext = {
   setTransform: jest.fn(),
   save: jest.fn(),
   restore: jest.fn(),
+  setLineDash: jest.fn(),
   beginPath: jest.fn(),
   moveTo: jest.fn(),
   lineTo: jest.fn(),
