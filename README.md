@@ -10,6 +10,7 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 
 ### Core Editing
 - **Montage Area** - Dedicated workspace with clipping region for precise cropping
+- **Canvas & Image Cropping** - Interactive crop mode for montage resizing and raster image cropping
 - **Multi-layer Support** - Layer management with ordering, visibility, and locking
 - **History System** - Full undo/redo with state management
 - **Rich Text Editing** - Text manager with typography controls, uppercase transforms, and history-aware updates
@@ -255,6 +256,76 @@ await editor.shapeManager.update({
 
 All mutating `ShapeManager` methods save to history by default. Pass `withoutSave: true` for internal or batched updates.
 
+### Cropping Canvas and Images
+
+`CropManager` provides a transient crop mode for the montage area and raster images. The crop frame can be moved and resized with Fabric controls, constrained by editor size limits, and optionally allowed to extend beyond the source object.
+
+```javascript
+// Start crop mode for the montage area
+editor.cropManager.startCanvasCrop({
+  aspectRatio: {
+    width: 1,
+    height: 1
+  },
+  allowFrameOverflow: true,
+  showGrid: true,
+  cancelOnSelectionClear: true
+})
+
+// Or start with an explicit crop frame size
+editor.cropManager.startCanvasCrop({
+  size: {
+    width: 800,
+    height: 600
+  }
+})
+
+// Start crop mode for a raster image.
+// If target is omitted, CropManager uses the active object.
+editor.cropManager.startImageCrop({
+  target: imageObject,
+  aspectRatio: {
+    width: 16,
+    height: 9
+  }
+})
+
+// Update active crop mode from UI controls
+editor.cropManager.setAspectRatio({
+  aspectRatio: {
+    width: 4,
+    height: 3
+  }
+})
+
+editor.cropManager.setSize({
+  size: {
+    width: 512,
+    height: 512
+  }
+})
+
+// Apply or cancel the active crop mode
+const cropResult = editor.cropManager.apply()
+editor.cropManager.cancel()
+```
+
+`startCanvasCrop()` resizes the montage area when applied. `startImageCrop()` updates the selected image so the visible content inside the crop frame stays visually in place. Crop mode is runtime-only: it is not serialized into history until `apply()` commits the result.
+
+Crop behavior options:
+- `allowFrameOverflow` defaults to `true` and lets the crop frame become larger than the source object.
+- `showGrid` defaults to `true` and draws a composition grid inside the crop frame.
+- `cancelOnSelectionClear` defaults to `true` and cancels crop mode when the crop frame loses focus.
+
+`CropManager` public methods:
+- `startCanvasCrop()` enters crop mode for the montage area.
+- `startImageCrop()` enters crop mode for a `FabricImage` target or the active image object.
+- `setAspectRatio()` updates the active crop frame by width/height ratio.
+- `setSize()` updates the active crop frame by explicit dimensions.
+- `getState()` returns the active crop state, including mode, frame, target, options, and result rect.
+- `apply()` commits the active crop and saves the new state to history.
+- `cancel()` exits crop mode without changing the montage area or image.
+
 ### Configuring Fonts
 
 By default the editor ships with a curated Google Fonts collection (Latin + Cyrillic coverage).
@@ -314,6 +385,7 @@ The editor follows a modular architecture with specialized managers:
 - **`TextManager`** - Text object creation, styling, uppercase handling, and history integration
 - **`LayerManager`** - Object layering, z-index management, send to back/front
 - **`BackgroundManager`** - Background colors, gradients, and images
+- **`CropManager`** - Runtime crop mode for montage resizing and raster image cropping
 - **`TransformManager`** - Object transformations, fitting, and scaling
 - **`ZoomManager`** - Zoom limits, fit calculations, and smooth viewport centering
 
@@ -496,6 +568,35 @@ editor.shapeManager.remove({ target: shape })
 - `setTextAlign()` changes horizontal (`left`, `center`, `right`, `justify`) and vertical alignment inside the shape bounds.
 - `setRounding()` enables or updates corner rounding for roundable presets.
 
+#### Crop Operations
+```javascript
+// Start montage crop mode
+editor.cropManager.startCanvasCrop({
+  aspectRatio: {
+    width: 1,
+    height: 1
+  }
+})
+
+// Start image crop mode for an explicit target
+editor.cropManager.startImageCrop({
+  target: imageObject,
+  size: {
+    width: 512,
+    height: 512
+  }
+})
+
+// Read the active crop state
+const cropState = editor.cropManager.getState()
+
+// Commit or discard the active crop mode
+editor.cropManager.apply()
+editor.cropManager.cancel()
+```
+
+Crop frame dimensions are clamped to editor limits. Pass `allowFrameOverflow: false` when the frame must stay inside the montage area or image bounds.
+
 #### Alignment & Guides
 - Objects snap to montage area edges/centers and nearby objects while dragging, with guides for matches and equal spacing.
 - Hold `Ctrl` during drag to temporarily disable snapping (movement still follows the configured move step).
@@ -578,6 +679,7 @@ src/
 │   ├── background-manager/    # Background functionality
 │   ├── canvas-manager/        # Canvas operations
 │   ├── clipboard-manager/     # Copy/paste operations
+│   ├── crop-manager/          # Montage and image crop mode
 │   ├── customized-controls/   # Custom FabricJS controls
 │   ├── deletion-manager/      # Object deletion
 │   ├── error-manager/         # Error handling
