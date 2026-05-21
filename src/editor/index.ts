@@ -28,6 +28,7 @@ import TextManager from './text-manager'
 import TemplateManager from './template-manager'
 import SnappingManager from './snapping-manager'
 import MeasurementManager from './measurement-manager'
+import CropManager from './crop-manager'
 import { addRectangleToCanvas } from './utils/primitive-shapes'
 
 import type { ImportImageOptions } from './image-manager'
@@ -57,11 +58,6 @@ export class ImageEditor {
    * Уникальный идентификатор редактора.
    */
   readonly editorId: string
-
-  /**
-   * Буфер обмена для хранения объектов.
-   */
-  public clipboard: ClipboardItem | null
 
   /**
    * Канвас редактора.
@@ -189,6 +185,11 @@ export class ImageEditor {
   public templateManager!: TemplateManager
 
   /**
+   * Менеджер режима кропа монтажной области и изображений
+   */
+  public cropManager!: CropManager
+
+  /**
    * Менеджер индикатора угла поворота (опционально)
    */
   public angleIndicator?: AngleIndicatorManager
@@ -263,6 +264,7 @@ export class ImageEditor {
     this.fontManager = new FontManager(this.options.fonts ?? [])
     this.textManager = new TextManager({ editor: this })
     this.templateManager = new TemplateManager({ editor: this })
+    this.cropManager = new CropManager({ editor: this })
 
     // Инициализируем индикатор угла поворота, если включена опция
     if (showRotationAngle) {
@@ -415,6 +417,7 @@ export class ImageEditor {
     this.measurementManager?.destroy()
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
+    this.cropManager?.destroy()
     this.textManager?.destroy()
     this.selectionManager.destroy()
     this.canvas.dispose()
