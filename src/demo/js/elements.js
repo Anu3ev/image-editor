@@ -50,6 +50,26 @@ const imageFitCoverBtn = document.getElementById('fit-cover-btn')
 const resetFit = document.getElementById('reset-fit-btn')
 /** Кнопка подгонки размера монтажной области под размеры изображения. */
 const scaleCanvasToImageBtn = document.getElementById('scale-canvas-btn')
+/** Select выбора пропорции crop frame. */
+const cropRatioSelect = document.getElementById('crop-ratio-select')
+/** Input ширины crop frame. */
+const cropWidthInput = document.getElementById('crop-width-input')
+/** Input высоты crop frame. */
+const cropHeightInput = document.getElementById('crop-height-input')
+/** Checkbox разрешения crop frame выходить за границы источника. */
+const cropAllowOverflowCheckbox = document.getElementById('crop-allow-overflow-checkbox')
+/** Checkbox отображения сетки crop frame. */
+const cropShowGridCheckbox = document.getElementById('crop-show-grid-checkbox')
+/** Checkbox отмены crop mode при сбросе выделения. */
+const cropCancelOnSelectionClearCheckbox = document.getElementById('crop-cancel-on-selection-clear-checkbox')
+/** Кнопка входа в crop mode монтажной области. */
+const startCanvasCropBtn = document.getElementById('start-canvas-crop-btn')
+/** Кнопка входа в crop mode выбранного изображения. */
+const startImageCropBtn = document.getElementById('start-image-crop-btn')
+/** Кнопка применения активного crop mode. */
+const applyCropBtn = document.getElementById('apply-crop-btn')
+/** Кнопка выхода из crop mode без применения. */
+const cancelCropBtn = document.getElementById('cancel-crop-btn')
 
 /** Узел отображения текущего внутреннего разрешения canvas. */
 const canvasResolutionNode = document.getElementById('canvas-resolution')
@@ -284,6 +304,20 @@ export const toolbarControls = {
   imageFitCoverBtn,
   resetFit,
   scaleCanvasToImageBtn
+}
+
+/** Группа контролов crop mode. */
+export const cropControls = {
+  applyCropBtn,
+  cancelCropBtn,
+  cropAllowOverflowCheckbox,
+  cropCancelOnSelectionClearCheckbox,
+  cropHeightInput,
+  cropRatioSelect,
+  cropShowGridCheckbox,
+  cropWidthInput,
+  startCanvasCropBtn,
+  startImageCropBtn
 }
 
 /** Группа информационных узлов со служебным состоянием canvas. */

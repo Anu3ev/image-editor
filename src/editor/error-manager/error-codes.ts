@@ -99,6 +99,21 @@ export const errorCodes = {
     NO_ACTIVE_OBJECT: 'NO_ACTIVE_OBJECT'
   },
 
+  /**
+   * Коды ошибок для CropManager.
+   */
+  CROP_MANAGER: {
+    /**
+     * Ошибка старта кропа изображения без raster image target.
+     */
+    INVALID_IMAGE_TARGET: 'CROP_INVALID_IMAGE_TARGET',
+
+    /**
+     * Ошибка старта кропа заблокированного изображения.
+     */
+    LOCKED_IMAGE_TARGET: 'CROP_LOCKED_IMAGE_TARGET'
+  },
+
   HISTORY_MANAGER: {
     UNDO_ERROR: 'UNDO_ERROR',
     REDO_ERROR: 'REDO_ERROR'

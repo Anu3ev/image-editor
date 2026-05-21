@@ -10,6 +10,25 @@ export class ToolbarModel {
     this.page = page
   }
 
+  /** Возвращает true, если тулбар редактора видим сейчас. */
+  async isVisible(): Promise<boolean> {
+    return this.page.evaluate(() => {
+      const copyPasteIcon = document.querySelector('img[title="Создать копию"]')
+      if (!(copyPasteIcon instanceof HTMLImageElement)) return false
+
+      const toolbar = copyPasteIcon.closest('div')
+      if (!(toolbar instanceof HTMLDivElement)) return false
+
+      const toolbarStyle = window.getComputedStyle(toolbar)
+      const bounds = toolbar.getBoundingClientRect()
+
+      return toolbarStyle.display !== 'none'
+        && toolbarStyle.visibility !== 'hidden'
+        && bounds.width > 0
+        && bounds.height > 0
+    })
+  }
+
   /** Ожидает пока тулбар редактора станет видимым. */
   async waitUntilVisible(): Promise<void> {
     await this.page.waitForFunction(() => {

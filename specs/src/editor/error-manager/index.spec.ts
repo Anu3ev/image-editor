@@ -238,6 +238,8 @@ describe('ErrorManager', () => {
       expect(ErrorManager.isValidErrorCode('IMAGE_RESIZE_WARNING')).toBe(true)
       expect(ErrorManager.isValidErrorCode('INVALID_CONTENT_TYPE')).toBe(true)
       expect(ErrorManager.isValidErrorCode('CUT_FAILED')).toBe(true)
+      expect(ErrorManager.isValidErrorCode('CROP_INVALID_IMAGE_TARGET')).toBe(true)
+      expect(ErrorManager.isValidErrorCode('CROP_LOCKED_IMAGE_TARGET')).toBe(true)
     })
 
     test('должен вернуть false для невалидных кодов ошибок', () => {

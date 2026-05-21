@@ -1,4 +1,5 @@
 export * from './background.types'
+export * from './crop.types'
 export * from './editor.types'
 export * from './interaction-blocker.types'
 export * from './shape.types'

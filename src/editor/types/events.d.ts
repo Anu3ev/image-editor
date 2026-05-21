@@ -11,6 +11,10 @@ import type {
   BeforeTextUpdatedPayload,
   TextUpdatedPayload
 } from '../text-manager/types'
+import type {
+  CropApplyResult,
+  CropState
+} from '../crop-manager/types'
 
 /**
  * Параметры события editor:canvas-exported
@@ -302,6 +306,29 @@ declare module 'fabric' {
      * Срабатывает после успешного выполнения публичного добавления shape-композиции.
      */
     'editor:shape-added': ShapeAddedPayload
+
+    /**
+     * Срабатывает после входа в crop mode.
+     */
+    'editor:crop:started': CropState | null
+
+    /**
+     * Срабатывает при изменении crop frame.
+     */
+    'editor:crop:changed': CropState | null
+
+    /**
+     * Срабатывает после применения crop mode.
+     */
+    'editor:crop:applied': CropApplyResult
+
+    /**
+     * Срабатывает после выхода из crop mode без применения.
+     */
+    'editor:crop:cancelled': {
+      mode: 'canvas' | 'image'
+      target: FabricImage | null
+    }
 
     /**
      * Срабатывает до фиксации обновления shape-композиции в истории.

@@ -3,6 +3,7 @@
 import {
   backgroundControls,
   canvasInfoControls,
+  cropControls,
   historyControls,
   interactionControls,
   montageControls,
@@ -14,6 +15,7 @@ import {
 
 import initBackgroundListeners from './listeners/init-background-listeners.js'
 import initCanvasStateListeners from './listeners/init-canvas-state-listeners.js'
+import initCropListeners from './listeners/init-crop-listeners.js'
 import initEditorActionsListeners from './listeners/init-editor-actions-listeners.js'
 import initInteractionBlockerListeners from './listeners/init-interaction-blocker-listeners.js'
 import initSerializationListeners from './listeners/init-serialization-listeners.js'
@@ -38,6 +40,11 @@ export default (editorInstance) => {
     editorInstance,
     controls: toolbarControls,
     historyControls
+  })
+
+  initCropListeners({
+    editorInstance,
+    controls: cropControls
   })
 
   initInteractionBlockerListeners({
