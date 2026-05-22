@@ -6,6 +6,8 @@ import type {
   MontageAreaInfo,
   MontageAreaBoundsInfo,
   MontageAreaViewportBoundsInfo,
+  ObjectSizeIndicatorInfo,
+  VisibleObjectSizeIndicatorInfo,
   ViewportBoundsInfo,
   ObjectTargetParams,
   SnappingObjectSnapshot
@@ -167,6 +169,58 @@ export class EditorModel {
 
       return helpers.serializeEditorObject(obj)
     })
+  }
+
+  /** Возвращает текущее состояние DOM-индикатора размеров объекта. */
+  async getObjectSizeIndicator(): Promise<ObjectSizeIndicatorInfo> {
+    return this.page.evaluate(() => {
+      const indicator = document.querySelector('.fabric-editor-object-size-indicator')
+      if (!(indicator instanceof HTMLDivElement)) {
+        return {
+          visible: false,
+          text: '',
+          width: null,
+          height: null
+        }
+      }
+
+      const style = window.getComputedStyle(indicator)
+      const bounds = indicator.getBoundingClientRect()
+      const text = indicator.textContent ?? ''
+      const match = text.match(/ширина:\s*([\d\s]+)\s+высота:\s*([\d\s]+)/)
+      const width = match ? Number(match[1].replace(/\s/g, '')) : null
+      const height = match ? Number(match[2].replace(/\s/g, '')) : null
+
+      return {
+        visible: style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && bounds.width > 0
+          && bounds.height > 0,
+        text,
+        width,
+        height
+      }
+    })
+  }
+
+  /** Возвращает видимый DOM-индикатор размеров объекта или падает с понятной причиной. */
+  async requireObjectSizeIndicator(): Promise<VisibleObjectSizeIndicatorInfo> {
+    const indicator = await this.getObjectSizeIndicator()
+
+    expect(indicator.visible, 'индикатор размеров объекта должен быть видимым').toBe(true)
+    expect(indicator.width, 'индикатор размеров должен содержать ширину').not.toBeNull()
+    expect(indicator.height, 'индикатор размеров должен содержать высоту').not.toBeNull()
+
+    if (indicator.width === null || indicator.height === null) {
+      throw new Error('индикатор размеров объекта должен содержать ширину и высоту')
+    }
+
+    return {
+      ...indicator,
+      visible: true,
+      width: indicator.width,
+      height: indicator.height
+    }
   }
 
   /** Возвращает snapshot объекта canvas с актуальным bounding box. */
