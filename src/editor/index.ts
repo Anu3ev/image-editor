@@ -8,6 +8,7 @@ import CustomizedControls from './customized-controls'
 import FontManager from './font-manager'
 import ToolbarManager from './ui/toolbar-manager'
 import AngleIndicatorManager from './ui/angle-indicator'
+import ObjectSizeIndicatorManager from './ui/object-size-indicator'
 import HistoryManager, { CanvasFullState } from './history-manager'
 import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
@@ -195,6 +196,11 @@ export class ImageEditor {
   public angleIndicator?: AngleIndicatorManager
 
   /**
+   * Менеджер индикатора размеров объекта во время скейлинга (опционально)
+   */
+  public objectSizeIndicator?: ObjectSizeIndicatorManager
+
+  /**
    * Менеджер шрифтов редактора
    */
   public fontManager!: FontManager
@@ -234,6 +240,7 @@ export class ImageEditor {
       initialState,
       scaleType,
       showRotationAngle,
+      showObjectSizeOnScale,
       _onReadyCallback
     } = this.options
 
@@ -269,6 +276,11 @@ export class ImageEditor {
     // Инициализируем индикатор угла поворота, если включена опция
     if (showRotationAngle) {
       this.angleIndicator = new AngleIndicatorManager({ editor: this })
+    }
+
+    // Инициализируем индикатор размеров объекта, если включена опция
+    if (showObjectSizeOnScale) {
+      this.objectSizeIndicator = new ObjectSizeIndicatorManager({ editor: this })
     }
 
     this._createMontageArea()
@@ -417,6 +429,7 @@ export class ImageEditor {
     this.measurementManager?.destroy()
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
+    this.objectSizeIndicator?.destroy()
     this.cropManager?.destroy()
     this.textManager?.destroy()
     this.selectionManager.destroy()

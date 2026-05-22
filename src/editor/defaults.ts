@@ -77,7 +77,14 @@ export const defaults: Partial<CanvasOptions> = {
   maxZoom: 2,
   zoomRatio: 0.1,
   overlayMaskColor: 'rgba(136, 136, 136, 0.6)',
+  /**
+   * Показывать угол поворота объекта рядом с указателем во время вращения.
+   */
   showRotationAngle: true,
+  /**
+   * Показывать текущую ширину и высоту объекта рядом с указателем во время скейлинга.
+   */
+  showObjectSizeOnScale: true,
 
   /*
    * Настройки слушателей событий

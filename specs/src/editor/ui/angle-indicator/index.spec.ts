@@ -1,6 +1,6 @@
 import AngleIndicatorManager from '../../../../../src/editor/ui/angle-indicator'
 import { createManagerTestMocks } from '../../../../test-utils/editor/manager-test-mocks'
-import { ANGLE_INDICATOR_CLASS, OFFSET_X, OFFSET_Y } from '../../../../../src/editor/ui/angle-indicator/constants'
+import { ANGLE_INDICATOR_CLASS } from '../../../../../src/editor/ui/angle-indicator/constants'
 
 describe('AngleIndicatorManager', () => {
   let mockEditor: any
@@ -418,7 +418,7 @@ describe('AngleIndicatorManager', () => {
     })
   })
 
-  describe('Edge cases', () => {
+  describe('Граничные случаи', () => {
     it('корректно обрабатывает target === undefined', () => {
       const mockEvent = {
         transform: { target: undefined },
