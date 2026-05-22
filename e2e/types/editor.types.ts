@@ -48,6 +48,21 @@ export interface ViewportBoundsInfo {
   centerY: number
 }
 
+/** Состояние DOM-индикатора размеров объекта. */
+export interface ObjectSizeIndicatorInfo {
+  visible: boolean
+  text: string
+  width: number | null
+  height: number | null
+}
+
+/** Состояние видимого DOM-индикатора размеров объекта с распознанными числами. */
+export interface VisibleObjectSizeIndicatorInfo extends ObjectSizeIndicatorInfo {
+  visible: true
+  width: number
+  height: number
+}
+
 /** Границы montage area в координатах canvas-сцены. */
 export interface MontageAreaBoundsInfo {
   left: number

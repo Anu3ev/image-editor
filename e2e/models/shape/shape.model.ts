@@ -538,6 +538,51 @@ export class ShapeModel {
     return this.scalingController.scaleDiagonallyProportionally(params)
   }
 
+  /** Масштабирует shape за выбранную боковую ручку и возвращает live snapshot. */
+  async scaleFromSide(
+    params: {
+      side: ShapeScaleSide
+      scale: number
+    } & ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const {
+      side,
+      scale,
+      objectIndex,
+      id
+    } = params
+
+    if (side === 'right') {
+      return this.scaleHorizontallyFromRight({
+        scaleX: scale,
+        objectIndex,
+        id
+      })
+    }
+
+    if (side === 'left') {
+      return this.scaleHorizontallyFromLeft({
+        scaleX: scale,
+        objectIndex,
+        id
+      })
+    }
+
+    if (side === 'bottom') {
+      return this.scaleVerticallyFromBottom({
+        scaleY: scale,
+        objectIndex,
+        id
+      })
+    }
+
+    return this.scaleVerticallyFromTop({
+      scaleY: scale,
+      objectIndex,
+      id
+    })
+  }
+
   /** Сжимает shape до minimum по диагонали и возвращает live snapshot текущего кадра. */
   async shrinkDiagonallyToMinimum(
     params: {
