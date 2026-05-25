@@ -2,7 +2,9 @@ import type {
   TemplateDefinition,
   TextAddParams,
   TextInlineStyle,
-  TextLineDefaults
+  TextLineDefaults,
+  TextScaleDragStep,
+  TextScaleHandleCase
 } from '../../types'
 
 /** Допуски для standalone text resize assertions. */
@@ -35,6 +37,69 @@ export const TEXT_HORIZONTAL_SCALING_NARROW_STEPS = [
   0.62,
   0.42
 ]
+
+/** Создаёт повторяющиеся pointer-шаги для live-сужения текста за scale-угол. */
+const createTextScaleDragSteps = ({
+  deltaX,
+  deltaY,
+  count
+}: {
+  deltaX: number
+  deltaY: number
+  count: number
+}): TextScaleDragStep[] => {
+  const steps: TextScaleDragStep[] = []
+
+  for (let index = 0; index < count; index += 1) {
+    steps.push({
+      deltaX,
+      deltaY,
+      pointerSteps: 1
+    })
+  }
+
+  return steps
+}
+
+/** Реальные pointer-сценарии сужения текста за диагональные углы для проверки live-переносов. */
+export const TEXT_DIAGONAL_SCALING_NARROW_DRAG_CASES = [
+  {
+    title: 'правый верхний угол',
+    corner: 'tr',
+    steps: createTextScaleDragSteps({
+      deltaX: -7,
+      deltaY: 3,
+      count: 7
+    })
+  },
+  {
+    title: 'правый нижний угол',
+    corner: 'br',
+    steps: createTextScaleDragSteps({
+      deltaX: -7,
+      deltaY: -3,
+      count: 7
+    })
+  },
+  {
+    title: 'левый верхний угол',
+    corner: 'tl',
+    steps: createTextScaleDragSteps({
+      deltaX: 7,
+      deltaY: 3,
+      count: 7
+    })
+  },
+  {
+    title: 'левый нижний угол',
+    corner: 'bl',
+    steps: createTextScaleDragSteps({
+      deltaX: 7,
+      deltaY: -3,
+      count: 7
+    })
+  }
+] satisfies TextScaleHandleCase[]
 
 /** Минимальный размер шрифта при скейлинге standalone text. */
 export const TEXT_SCALING_MINIMUM_FONT_SIZE = 8
@@ -241,6 +306,96 @@ export const TEXT_RESIZING_REGRESSION_TEMPLATE: TemplateDefinition = {
       _templateCenterY: 0.5,
       _templateAnchorX: 'center',
       _templateAnchorY: 'center'
+    }
+  ]
+}
+
+/** Template JSON из регрессии, где standalone text дрожит при сужении за правый верхний угол. */
+export const TEXT_TOP_RIGHT_SCALING_REGRESSION_TEMPLATE: TemplateDefinition = {
+  id: 'template-li-6iWreVuR-zClIK1_iN',
+  meta: {
+    baseWidth: 512,
+    baseHeight: 512,
+    positionsNormalized: true
+  },
+  objects: [
+    {
+      fontSize: 54.28960333834419,
+      fontWeight: 'normal',
+      fontFamily: 'Arial',
+      fontStyle: 'normal',
+      lineHeight: 1.16,
+      text: 'Новый текст',
+      charSpacing: 0,
+      textAlign: 'left',
+      styles: [],
+      pathStartOffset: 0,
+      pathSide: 'left',
+      pathAlign: 'baseline',
+      underline: false,
+      overline: false,
+      linethrough: false,
+      textBackgroundColor: '',
+      direction: 'ltr',
+      textDecorationThickness: 66.667,
+      minWidth: 20,
+      splitByGrapheme: false,
+      id: 'background-textbox-X2r5MeYF_jIApB8Xk2RHd',
+      width: 313,
+      height: 133,
+      originX: 'center',
+      originY: 'center',
+      editable: true,
+      evented: true,
+      selectable: true,
+      lockMovementX: false,
+      lockMovementY: false,
+      lockRotation: false,
+      lockScalingX: false,
+      lockScalingY: false,
+      lockSkewingX: false,
+      lockSkewingY: false,
+      textCaseRaw: 'Новый текст',
+      uppercase: false,
+      autoExpand: true,
+      backgroundOpacity: 1,
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      radiusTopLeft: 0,
+      radiusTopRight: 0,
+      radiusBottomRight: 0,
+      radiusBottomLeft: 0,
+      type: 'background-textbox',
+      version: '7.2.0',
+      left: 0.5048828125000002,
+      top: 0.7562030782926384,
+      fill: '#000000',
+      stroke: null,
+      strokeWidth: 0,
+      strokeDashArray: null,
+      strokeLineCap: 'butt',
+      strokeDashOffset: 0,
+      strokeLineJoin: 'miter',
+      strokeUniform: true,
+      strokeMiterLimit: 4,
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      flipX: false,
+      flipY: false,
+      opacity: 1,
+      shadow: null,
+      visible: true,
+      backgroundColor: '',
+      fillRule: 'nonzero',
+      paintFirst: 'fill',
+      globalCompositeOperation: 'source-over',
+      skewX: 0,
+      skewY: 0,
+      _templateAnchorX: 'center',
+      _templateAnchorY: 'end'
     }
   ]
 }

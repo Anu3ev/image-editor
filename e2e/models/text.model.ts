@@ -11,6 +11,8 @@ import type {
   TextResizeSnapshot,
   TextResizeUntilWrapParams,
   TextRotateParams,
+  TextScaleDragStep,
+  TextScaleHandleCorner,
   TextSelectionParams,
   TextSelectionStyleInfo,
   TextTemplateApplyParams,
@@ -36,7 +38,7 @@ export class TextModel {
       x: number
       y: number
     }
-    corner: 'mb' | 'br' | 'mr'
+    corner: TextScaleHandleCorner
     objectIndex?: number
     id?: string
   } | null
@@ -696,13 +698,62 @@ export class TextModel {
     })
   }
 
-  /** Тянет scale-ручку текстового объекта реальной мышью и оставляет drag-сессию открытой. */
+  /** Сжимает standalone text за выбранный угол и возвращает live-состояния после каждого шага. */
+  async shrinkFromScaleCornerInLiveSteps(
+    params: {
+      corner: TextScaleHandleCorner
+      steps: TextScaleDragStep[]
+    } & ObjectTargetParams
+  ): Promise<TextResizeSnapshot[]> {
+    const {
+      corner,
+      steps,
+      objectIndex,
+      id
+    } = params
+
+    expect(steps.length, 'для live-сужения текста должен быть хотя бы один шаг').toBeGreaterThan(0)
+
+    const firstStep = steps[0]
+    expect(firstStep, 'первый шаг live-сужения текста должен существовать').toBeDefined()
+
+    if (!firstStep) {
+      throw new Error('первый шаг live-сужения текста должен существовать')
+    }
+
+    const states = [
+      await this.dragScaleHandleBy({
+        corner,
+        objectIndex,
+        id,
+        ...firstStep
+      })
+    ]
+
+    for (let index = 1; index < steps.length; index += 1) {
+      const step = steps[index]
+
+      expect(step, 'каждый шаг live-сужения текста должен существовать').toBeDefined()
+
+      if (!step) {
+        throw new Error('каждый шаг live-сужения текста должен существовать')
+      }
+
+      states.push(await this.continueScaleHandleBy(step))
+    }
+
+    expect(states.length, 'число live-состояний текста должно совпадать с числом шагов').toBe(steps.length)
+
+    return states
+  }
+
+  /** Тянет ручку масштабирования текстового объекта реальной мышью и оставляет drag-сессию открытой. */
   async dragScaleHandleBy(
     params: {
-      corner: 'mb' | 'br' | 'mr'
+      corner: TextScaleHandleCorner
       deltaX: number
       deltaY: number
-      steps?: number
+      pointerSteps?: number
     } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
     expect(
@@ -714,7 +765,7 @@ export class TextModel {
       corner,
       deltaX,
       deltaY,
-      steps = 8,
+      pointerSteps = 8,
       objectIndex,
       id
     } = params
@@ -730,9 +781,19 @@ export class TextModel {
 
     await this.page.mouse.move(point.x, point.y)
     await this.page.mouse.down()
-    await this.page.mouse.move(nextPoint.x, nextPoint.y, { steps })
+    await this.page.mouse.move(nextPoint.x, nextPoint.y, { steps: pointerSteps })
+    await waitForCanvasRender({ page: this.page })
 
     const snapshot = await this.getResizeSnapshot({ objectIndex, id })
+
+    expect(
+      snapshot.width,
+      'после drag ручки масштабирования текста ширина должна быть положительной'
+    ).toBeGreaterThan(0)
+    expect(
+      snapshot.height,
+      'после drag ручки масштабирования текста высота должна быть положительной'
+    ).toBeGreaterThan(0)
 
     this.activeScaleInteraction = {
       point: nextPoint,
@@ -744,10 +805,64 @@ export class TextModel {
     return snapshot
   }
 
-  /** Возвращает viewport-точку scale-ручки текстового объекта. */
+  /** Продолжает открытую drag-сессию масштабирования текстового объекта реальным движением мыши. */
+  async continueScaleHandleBy(
+    params: {
+      deltaX: number
+      deltaY: number
+      pointerSteps?: number
+    }
+  ): Promise<TextResizeSnapshot> {
+    expect(
+      this.activeScaleInteraction,
+      'нельзя продолжать scale drag текста без активной drag-сессии'
+    ).not.toBeNull()
+
+    if (!this.activeScaleInteraction) {
+      throw new Error('активная drag-сессия scale текста должна существовать')
+    }
+
+    const {
+      deltaX,
+      deltaY,
+      pointerSteps = 1
+    } = params
+    const {
+      point,
+      objectIndex,
+      id
+    } = this.activeScaleInteraction
+    const nextPoint = {
+      x: point.x + deltaX,
+      y: point.y + deltaY
+    }
+
+    await this.page.mouse.move(nextPoint.x, nextPoint.y, { steps: pointerSteps })
+    await waitForCanvasRender({ page: this.page })
+
+    const snapshot = await this.getResizeSnapshot({ objectIndex, id })
+
+    expect(
+      snapshot.width,
+      'после продолжения drag масштабирования текста ширина должна быть положительной'
+    ).toBeGreaterThan(0)
+    expect(
+      snapshot.height,
+      'после продолжения drag масштабирования текста высота должна быть положительной'
+    ).toBeGreaterThan(0)
+
+    this.activeScaleInteraction = {
+      ...this.activeScaleInteraction,
+      point: nextPoint
+    }
+
+    return snapshot
+  }
+
+  /** Возвращает viewport-точку ручки масштабирования текстового объекта. */
   private async _resolveScaleHandlePoint(
     params: {
-      corner: 'mb' | 'br' | 'mr'
+      corner: TextScaleHandleCorner
     } & ObjectTargetParams
   ): Promise<{ x: number, y: number }> {
     const {
@@ -787,10 +902,13 @@ export class TextModel {
       id
     })
 
-    expect(point, 'должна существовать стартовая точка scale-ручки текста').not.toBeNull()
+    expect(point, 'должна существовать стартовая точка ручки масштабирования текста').not.toBeNull()
     if (!point) {
-      throw new Error('стартовая точка scale-ручки текста должна существовать')
+      throw new Error('стартовая точка ручки масштабирования текста должна существовать')
     }
+
+    expect(Number.isFinite(point.x), 'x-координата ручки масштабирования текста должна быть конечным числом').toBe(true)
+    expect(Number.isFinite(point.y), 'y-координата ручки масштабирования текста должна быть конечным числом').toBe(true)
 
     return point
   }

@@ -10,7 +10,9 @@ import {
   TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION,
   TEXT_RESIZING_TOLERANCE,
   TEXT_SCALING_MINIMUM_FONT_SIZE,
-  TEXT_SCALING_REGRESSION_WIDTH
+  TEXT_SCALING_REGRESSION_WIDTH,
+  TEXT_DIAGONAL_SCALING_NARROW_DRAG_CASES,
+  TEXT_TOP_RIGHT_SCALING_REGRESSION_TEMPLATE
 } from '../../fixtures/data/text-resizing.data'
 
 test.describe('Скейлинг текстового объекта', () => {
@@ -552,6 +554,85 @@ test.describe('Скейлинг текстового объекта', () => {
         expect(afterPointerMoveSnapshot.leftTopY).toBeCloseTo(finalSnapshot.leftTopY, 1)
       })
     })
+  })
+
+  test.describe('объект "Новый текст" восстановлен из шаблона', () => {
+    test.beforeEach(async({ text }) => {
+      const textObject = await text.applyTemplate({
+        template: TEXT_TOP_RIGHT_SCALING_REGRESSION_TEMPLATE
+      })
+
+      text.checkCreation({ textObject })
+    })
+
+    for (const scalingCase of TEXT_DIAGONAL_SCALING_NARROW_DRAG_CASES) {
+      test(`при сужении за ${scalingCase.title} текст остаётся в одну строку во время drag`, async({
+        text
+      }) => {
+        await test.step('Явно выбрать текстовый объект перед началом скейлинга', async() => {
+          await text.select({ objectIndex: 0 })
+        })
+
+        const initialSnapshot = await test.step('Получить исходное состояние текста из шаблона', async() => {
+          return text.getResizeSnapshot({ objectIndex: 0 })
+        })
+
+        const liveStates = await test.step(`Сузить текст за ${scalingCase.title} по live-шагам`, async() => {
+          return text.shrinkFromScaleCornerInLiveSteps({
+            objectIndex: 0,
+            corner: scalingCase.corner,
+            steps: scalingCase.steps
+          })
+        })
+
+        const finalSnapshot = await test.step('Отпустить мышь и получить итоговое состояние текста', async() => {
+          return text.finishScale({ objectIndex: 0 })
+        })
+
+        await test.step('Проверить что во время drag текст ни разу не перепрыгнул на две строки', () => {
+          expect(initialSnapshot.text).toBe('Новый текст')
+          expect(initialSnapshot.lineCount).toBe(1)
+          expect(liveStates.length).toBe(scalingCase.steps.length)
+
+          for (let index = 0; index < liveStates.length; index += 1) {
+            const state = liveStates[index]
+
+            expect(state, 'live-состояние текста должно существовать').toBeDefined()
+
+            if (!state) {
+              throw new Error('live-состояние текста должно существовать')
+            }
+
+            expect(state.text).toBe(initialSnapshot.text)
+            expect(
+              state.lineCount,
+              `шаг ${index + 1}: width=${state.width}, height=${state.height}, fontSize=${state.fontSize}`
+            ).toBe(1)
+            expect(state.width).toBeLessThan(initialSnapshot.width)
+            expect(state.fontSize).toBeLessThan(initialSnapshot.fontSize)
+          }
+        })
+
+        await test.step('Проверить что после mouseup текст остался в одну строку без скачка размеров', () => {
+          const lastLiveState = liveStates[liveStates.length - 1]
+
+          expect(lastLiveState, 'последнее live-состояние текста должно существовать').toBeDefined()
+
+          if (!lastLiveState) {
+            throw new Error('последнее live-состояние текста должно существовать')
+          }
+
+          expect(finalSnapshot.text).toBe(initialSnapshot.text)
+          expect(finalSnapshot.lineCount).toBe(1)
+          expect(Math.abs(finalSnapshot.width - lastLiveState.width))
+            .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+          expect(Math.abs(finalSnapshot.height - lastLiveState.height))
+            .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
+          expect(finalSnapshot.scaleX).toBe(1)
+          expect(finalSnapshot.scaleY).toBe(1)
+        })
+      })
+    }
   })
 
   test('после ручного сужения объект из буфера масштабируется так же, как исходный', async({

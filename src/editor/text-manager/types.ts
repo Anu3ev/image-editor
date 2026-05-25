@@ -69,6 +69,7 @@ export type EditorTextbox = BackgroundTextbox & Partial<BackgroundTextboxProps> 
   autoExpand?: boolean
   __lineDefaultsPrevText?: string
   shouldRoundDimensionsOnInit?: boolean
+  textLines?: string[]
 }
 
 export type TextReference = string | EditorTextbox | null | undefined
@@ -158,6 +159,8 @@ export type LineFontDefaultUpdate = {
 export type TextScaleBaseState = {
   width: number
   fontSize: number
+  explicitLineCount?: number
+  renderedLineCount?: number
   styles: TextboxStyles
   lineFontDefaults?: LineFontDefaults
   padding: PaddingValues
