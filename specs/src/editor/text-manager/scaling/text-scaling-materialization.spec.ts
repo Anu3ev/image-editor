@@ -61,6 +61,24 @@ describe('масштабирование текста', () => {
         underline: true
       })
     })
+
+    it('отличает явные строки от строк после переноса', () => {
+      const textbox = new BackgroundTextbox('Новый текст', {
+        width: 120,
+        fontSize: 54,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+
+      textbox.textLines = ['Новый', 'текст']
+
+      const base = captureTextScaleBase({ textbox })
+
+      expect(base.explicitLineCount).toBe(1)
+      expect(base.renderedLineCount).toBe(2)
+    })
   })
 
   describe('ограничение уменьшения', () => {

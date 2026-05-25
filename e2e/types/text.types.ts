@@ -9,6 +9,21 @@ export type TextPlacementOriginX = 'left' | 'center' | 'right'
 export type TextPlacementOriginY = 'top' | 'center' | 'bottom'
 export type TextResizeOriginX = 'left' | 'right'
 export type TextResizeOriginY = 'top' | 'center' | 'bottom'
+export type TextScaleHandleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'mb' | 'mr'
+
+/** Один pointer-шаг реального перетаскивания ручки масштабирования standalone text. */
+export interface TextScaleDragStep {
+  deltaX: number
+  deltaY: number
+  pointerSteps?: number
+}
+
+/** E2E-кейс сужения standalone text за конкретный угол. */
+export interface TextScaleHandleCase {
+  title: string
+  corner: TextScaleHandleCorner
+  steps: TextScaleDragStep[]
+}
 
 /** Параметры стилизации отдельного текстового объекта. */
 export interface TextStyleParams {
@@ -29,6 +44,10 @@ export interface TextStyleParams {
   backgroundOpacity?: number
   lineHeight?: number
   autoExpand?: boolean
+  left?: number
+  top?: number
+  originX?: TextPlacementOriginX
+  originY?: TextPlacementOriginY
   paddingTop?: number
   paddingRight?: number
   paddingBottom?: number
@@ -116,6 +135,12 @@ export interface TextResizeSnapshot extends TextObjectInfo {
   textAreaLeftTopY: number
 }
 
+/** Диапазон текста для выделения или частичного обновления стиля. */
+export interface TextSelectionRange {
+  start: number
+  end: number
+}
+
 /** Параметры обновления стиля текстового объекта через TextManager. */
 export interface TextUpdateStyleParams extends ObjectTargetParams {
   style: TextStyleParams
@@ -128,12 +153,6 @@ export interface TextRangeStyleParams extends ObjectTargetParams {
   start: number
   end: number
   style: TextInlineStyle
-}
-
-/** Диапазон текста для выделения или частичного обновления стиля. */
-export interface TextSelectionRange {
-  start: number
-  end: number
 }
 
 /** Параметры выделения диапазона в режиме редактирования текста. */
