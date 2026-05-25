@@ -9,6 +9,14 @@ export interface PanBounds {
 }
 
 /**
+ * Смещение viewportTransform в canvas coordinates.
+ */
+export interface PanDelta {
+  deltaX: number
+  deltaY: number
+}
+
+/**
  * Менеджер для управления границами перетаскивания канваса.
  * Ограничивает расстояние, на которое можно переместить канвас при зажатой клавише Space.
  * Pan относится только к camera-state и должен изменять исключительно viewportTransform.
@@ -132,6 +140,34 @@ export default class PanConstraintManager {
       x: constrainedVptX,
       y: constrainedVptY
     }
+  }
+
+  /**
+   * Применяет смещение viewportTransform через общие pan-ограничения.
+   * Метод является единым write-path для mouse drag, trackpad wheel-pan и touch-pan.
+   * @param params - Параметры смещения viewport
+   * @param params.deltaX - Смещение viewportTransform по X
+   * @param params.deltaY - Смещение viewportTransform по Y
+   * @returns true если pan-событие обработано текущим camera-state
+   */
+  public applyPanDelta({ deltaX, deltaY }: PanDelta): boolean {
+    if (deltaX === 0 && deltaY === 0) return false
+    if (!this.isPanAllowed()) return false
+
+    const { canvas, montageArea } = this.editor
+    const vpt = canvas.viewportTransform
+    const constrained = this.constrainPan(vpt[4] + deltaX, vpt[5] + deltaY)
+    const didViewportMove = constrained.x !== vpt[4] || constrained.y !== vpt[5]
+
+    if (didViewportMove) {
+      vpt[4] = constrained.x
+      vpt[5] = constrained.y
+
+      montageArea.setCoords()
+      canvas.requestRenderAll()
+    }
+
+    return true
   }
 
   /**

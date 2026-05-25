@@ -122,6 +122,37 @@ test.describe('Горячие клавиши и zoom', () => {
     })
   })
 
+  test('двухпальцевый scroll на тачпаде двигает вьюпорт после приближения', async({ editorModel }) => {
+    await test.step('Приблизить canvas pinch-жестом, чтобы pan был разрешён', async() => {
+      const dispatchState = await editorModel.zoomInByTrackpadPinch()
+
+      expect(dispatchState.dispatchedEvents).toBeGreaterThan(0)
+      expect(dispatchState.canceledEvents).toBe(dispatchState.dispatchedEvents)
+    })
+
+    const beforePan = await test.step('Получить viewport перед scroll на тачпаде', () => {
+      return editorModel.getCanvasViewportTransform()
+    })
+
+    await test.step('Сделать двухпальцевый scroll на тачпаде без Ctrl', async() => {
+      const dispatchState = await editorModel.panByTrackpadScroll({
+        deltaX: 72,
+        deltaY: 48
+      })
+
+      expect(dispatchState.dispatchedEvents).toBe(1)
+      expect(dispatchState.canceledEvents).toBe(1)
+    })
+
+    await test.step('Проверить что viewport сдвинулся без изменения zoom', async() => {
+      const afterPan = await editorModel.getCanvasViewportTransform()
+
+      expect(afterPan.zoom).toBeCloseTo(beforePan.zoom, 4)
+      expect(afterPan.x).toBeLessThan(beforePan.x)
+      expect(afterPan.y).toBeLessThan(beforePan.y)
+    })
+  })
+
   test('gesture-событие Safari меняет zoom редактора', async({ editorModel }) => {
     const initialCanvasState = await test.step('Получить исходный zoom', () => {
       return editorModel.getCanvasState()

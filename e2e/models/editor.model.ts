@@ -3,6 +3,7 @@ import { type Page, expect } from '@playwright/test'
 import type {
   EditorObjectInfo,
   CanvasStateInfo,
+  CanvasViewportTransformInfo,
   MontageAreaInfo,
   MontageAreaBoundsInfo,
   MontageAreaViewportBoundsInfo,
@@ -28,9 +29,18 @@ import { SelectionModel } from './selection.model'
 import { GroupingModel } from './grouping.model'
 import { CropModel } from './crop.model'
 
-type ZoomInputDispatchState = {
+/** Результат отправки DOM input-событий в canvas wrapper. */
+type WheelInputDispatchState = {
   canceledEvents: number
   dispatchedEvents: number
+}
+
+/** Параметры последовательности wheel-событий для browser context. */
+type WheelInputDispatchParams = {
+  ctrlKey?: boolean
+  deltaXSteps?: number[]
+  deltaYSteps: number[]
+  deltaMode?: number
 }
 
 const FULL_TRACKPAD_PINCH_IN_DELTA_STEPS = [-5, -5, -5, -5, -5, -5, -5, -5, -5, -5]
@@ -140,6 +150,20 @@ export class EditorModel {
         height: canvas.getHeight(),
         zoom: canvas.getZoom(),
         objectCount: canvasManager.getObjects().length
+      }
+    })
+  }
+
+  /** Возвращает текущее смещение viewportTransform и zoom canvas. */
+  async getCanvasViewportTransform(): Promise<CanvasViewportTransformInfo> {
+    return this.page.evaluate(() => {
+      const { canvas } = (window as any).editor
+      const vpt = canvas.viewportTransform
+
+      return {
+        x: vpt[4],
+        y: vpt[5],
+        zoom: canvas.getZoom()
       }
     })
   }
@@ -609,17 +633,46 @@ export class EditorModel {
   }
 
   /**
-   * Отправляет последовательность Ctrl + wheel событий в центр canvas wrapper.
-   * Через этот же путь браузер обычно пробрасывает pinch-жест тачпада.
+   * Отправляет последовательность wheel событий в центр canvas wrapper.
+   * Ctrl + wheel используется для zoom, wheel без Ctrl — для pan на тачпаде.
    */
-  private async _dispatchWheelZoomEvents({
+  private async _dispatchWheelEvents(params: WheelInputDispatchParams): Promise<WheelInputDispatchState> {
+    this._assertWheelInputDispatchParams(params)
+
+    const dispatchState = await this._dispatchWheelEventsInBrowser(params)
+
+    await waitForCanvasRender({ page: this.page })
+
+    return dispatchState
+  }
+
+  /**
+   * Проверяет согласованность wheel steps перед отправкой в browser context.
+   */
+  private _assertWheelInputDispatchParams({
+    deltaXSteps,
+    deltaYSteps
+  }: WheelInputDispatchParams): void {
+    if (deltaXSteps && deltaXSteps.length !== deltaYSteps.length) {
+      throw new Error('deltaXSteps должен совпадать по длине с deltaYSteps')
+    }
+  }
+
+  /**
+   * Выполняет DOM dispatch wheel-событий внутри browser context.
+   */
+  private async _dispatchWheelEventsInBrowser({
+    ctrlKey = false,
+    deltaXSteps,
     deltaYSteps,
     deltaMode
-  }: {
-    deltaYSteps: number[]
-    deltaMode?: number
-  }): Promise<ZoomInputDispatchState> {
-    const dispatchState = await this.page.evaluate(({ deltaMode: eventDeltaMode, deltaYSteps: eventDeltaYSteps }) => {
+  }: WheelInputDispatchParams): Promise<WheelInputDispatchState> {
+    return this.page.evaluate(({
+      ctrlKey: eventCtrlKey,
+      deltaMode: eventDeltaMode,
+      deltaXSteps: eventDeltaXSteps,
+      deltaYSteps: eventDeltaYSteps
+    }) => {
       const { editor } = window as any
       const wrapper = editor.canvas.wrapperEl
       const rect = wrapper.getBoundingClientRect()
@@ -627,10 +680,13 @@ export class EditorModel {
       const clientY = rect.top + (rect.height / 2)
       let canceledEvents = 0
 
-      for (const deltaY of eventDeltaYSteps) {
+      for (let index = 0; index < eventDeltaYSteps.length; index += 1) {
+        const deltaY = eventDeltaYSteps[index]
+        const deltaX = eventDeltaXSteps?.[index] ?? 0
         const eventInit: WheelEventInit = {
+          deltaX,
           deltaY,
-          ctrlKey: true,
+          ctrlKey: eventCtrlKey,
           clientX,
           clientY,
           bubbles: true,
@@ -653,40 +709,50 @@ export class EditorModel {
         dispatchedEvents: eventDeltaYSteps.length
       }
     }, {
+      ctrlKey,
       deltaMode,
+      deltaXSteps,
       deltaYSteps
     })
-
-    await waitForCanvasRender({ page: this.page })
-
-    return dispatchState
   }
 
   /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
-  async zoomByCtrlWheel(params: { deltaY: number }): Promise<ZoomInputDispatchState> {
-    return this._dispatchWheelZoomEvents({
+  async zoomByCtrlWheel(params: { deltaY: number }): Promise<WheelInputDispatchState> {
+    return this._dispatchWheelEvents({
+      ctrlKey: true,
+      deltaYSteps: [params.deltaY]
+    })
+  }
+
+  /** Отправляет wheel без Ctrl, как двухпальцевый scroll на тачпаде. */
+  async panByTrackpadScroll(params: { deltaX: number; deltaY: number }): Promise<WheelInputDispatchState> {
+    return this._dispatchWheelEvents({
+      deltaMode: DOM_DELTA_PIXEL,
+      deltaXSteps: [params.deltaX],
       deltaYSteps: [params.deltaY]
     })
   }
 
   /** Отправляет мелкие Ctrl + wheel события, как при pinch-жесте на тачпаде. */
-  async zoomInByTrackpadPinch(): Promise<ZoomInputDispatchState> {
-    return this._dispatchWheelZoomEvents({
+  async zoomInByTrackpadPinch(): Promise<WheelInputDispatchState> {
+    return this._dispatchWheelEvents({
+      ctrlKey: true,
       deltaMode: DOM_DELTA_PIXEL,
       deltaYSteps: FULL_TRACKPAD_PINCH_IN_DELTA_STEPS
     })
   }
 
   /** Отправляет мелкие Ctrl + wheel события, как при обратном pinch-жесте на тачпаде. */
-  async zoomOutByTrackpadPinch(): Promise<ZoomInputDispatchState> {
-    return this._dispatchWheelZoomEvents({
+  async zoomOutByTrackpadPinch(): Promise<WheelInputDispatchState> {
+    return this._dispatchWheelEvents({
+      ctrlKey: true,
       deltaMode: DOM_DELTA_PIXEL,
       deltaYSteps: FULL_TRACKPAD_PINCH_OUT_DELTA_STEPS
     })
   }
 
   /** Отправляет WebKit gesture-события, как Safari fallback для pinch-жеста. */
-  async zoomInByWebKitGesturePinch(): Promise<ZoomInputDispatchState> {
+  async zoomInByWebKitGesturePinch(): Promise<WheelInputDispatchState> {
     const dispatchState = await this.page.evaluate(() => {
       const { editor } = window as any
       const wrapper = editor.canvas.wrapperEl
