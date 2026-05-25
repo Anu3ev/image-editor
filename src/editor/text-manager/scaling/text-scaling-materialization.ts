@@ -14,6 +14,7 @@ import {
   scaleLineFontDefaults
 } from '../line-defaults'
 import {
+  getLongestLineWidth,
   roundTextboxDimensions
 } from '../geometry'
 import type {
@@ -59,6 +60,137 @@ type ApplyScaledTextboxVisualStateOptions = {
   shouldScaleRadii?: boolean
 }
 
+type ScaledAutoExpandOptions = {
+  textbox: EditorTextbox
+  canvasManager: CanvasManager
+  base: TextScaleBaseState
+  committedWidth: number
+  shouldScaleFontSize: boolean
+  shouldRoundDimensions: boolean
+}
+
+/**
+ * Возвращает число строк, заданных явными переносами текста.
+ */
+const resolveExplicitLineCount = ({ text }: { text?: string }): number => {
+  const textValue = typeof text === 'string' ? text : ''
+  return Math.max(textValue.split('\n').length, 1)
+}
+
+/**
+ * Возвращает число реально рассчитанных Fabric строк.
+ */
+const resolveRenderedLineCount = ({
+  textbox,
+  fallbackLineCount
+}: {
+  textbox: EditorTextbox
+  fallbackLineCount: number
+}): number => {
+  const { textLines } = textbox
+
+  return Array.isArray(textLines) && textLines.length > 0
+    ? textLines.length
+    : fallbackLineCount
+}
+
+/**
+ * Пересчитывает Fabric dimensions с явным управлением локальным правилом округления.
+ */
+const recalculateTextboxDimensions = ({
+  textbox,
+  shouldRoundDimensions
+}: {
+  textbox: EditorTextbox
+  shouldRoundDimensions: boolean
+}): void => {
+  const previousShouldRoundDimensionsOnInit = textbox.shouldRoundDimensionsOnInit
+
+  textbox.shouldRoundDimensionsOnInit = shouldRoundDimensions
+
+  try {
+    textbox.initDimensions()
+  } finally {
+    textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
+  }
+}
+
+/**
+ * Возвращает максимальную ширину text-area для autoExpand внутри монтажной области.
+ */
+const resolveAutoExpandMaxWidth = ({
+  textbox,
+  canvasManager
+}: {
+  textbox: EditorTextbox
+  canvasManager: CanvasManager
+}): number => {
+  const { width: montageWidth } = canvasManager.getMontageAreaSceneBounds()
+  const scaleX = Math.abs(textbox.scaleX ?? 1) || 1
+  const paddingLeft = textbox.paddingLeft ?? 0
+  const paddingRight = textbox.paddingRight ?? 0
+  const strokeWidth = textbox.strokeWidth ?? 0
+
+  return Math.max(
+    1,
+    (montageWidth / scaleX) - paddingLeft - paddingRight - strokeWidth
+  )
+}
+
+/**
+ * При autoExpand сохраняет отсутствие soft-wrap во время пропорционального live-scale.
+ */
+const preserveScaledAutoExpandLineCount = ({
+  textbox,
+  canvasManager,
+  base,
+  committedWidth,
+  shouldScaleFontSize,
+  shouldRoundDimensions
+}: ScaledAutoExpandOptions): void => {
+  if (!shouldScaleFontSize) return
+  if (textbox.autoExpand === false) return
+
+  const explicitLineCount = base.explicitLineCount
+    ?? resolveExplicitLineCount({ text: textbox.text })
+  const renderedLineCount = base.renderedLineCount ?? explicitLineCount
+  if (renderedLineCount > explicitLineCount) return
+
+  const currentLineCount = resolveRenderedLineCount({
+    textbox,
+    fallbackLineCount: explicitLineCount
+  })
+  if (currentLineCount <= explicitLineCount) return
+
+  const currentWidth = textbox.width ?? committedWidth
+  const maxWidth = resolveAutoExpandMaxWidth({
+    textbox,
+    canvasManager
+  })
+  if (maxWidth <= currentWidth + DIMENSION_EPSILON) return
+
+  textbox.set({ width: maxWidth })
+  recalculateTextboxDimensions({
+    textbox,
+    shouldRoundDimensions
+  })
+
+  const text = typeof textbox.text === 'string' ? textbox.text : ''
+  const targetWidth = Math.min(
+    maxWidth,
+    Math.max(
+      currentWidth,
+      Math.ceil(getLongestLineWidth({ textbox, text }))
+    )
+  )
+
+  textbox.set({ width: targetWidth })
+  recalculateTextboxDimensions({
+    textbox,
+    shouldRoundDimensions
+  })
+}
+
 /**
  * Снимает с textbox базовое состояние, относительно которого можно материализовать transient scale.
  */
@@ -69,6 +201,11 @@ export const captureTextScaleBase = ({
 }): TextScaleBaseState => {
   const width = textbox.width ?? textbox.calcTextWidth()
   const fontSize = textbox.fontSize ?? 16
+  const explicitLineCount = resolveExplicitLineCount({ text: textbox.text })
+  const renderedLineCount = resolveRenderedLineCount({
+    textbox,
+    fallbackLineCount: explicitLineCount
+  })
   const { styles: textboxStyles = {} } = textbox
   const { lineFontDefaults } = textbox
   const {
@@ -87,6 +224,8 @@ export const captureTextScaleBase = ({
   return {
     width,
     fontSize,
+    explicitLineCount,
+    renderedLineCount,
     padding: {
       top: paddingTop,
       right: paddingRight,
@@ -292,15 +431,19 @@ export const commitStandaloneTextboxScale = (
     scaleY: 1
   })
 
-  const previousShouldRoundDimensionsOnInit = textbox.shouldRoundDimensionsOnInit
+  recalculateTextboxDimensions({
+    textbox,
+    shouldRoundDimensions
+  })
 
-  textbox.shouldRoundDimensionsOnInit = shouldRoundDimensions
-
-  try {
-    textbox.initDimensions()
-  } finally {
-    textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
-  }
+  preserveScaledAutoExpandLineCount({
+    textbox,
+    canvasManager,
+    base,
+    committedWidth,
+    shouldScaleFontSize,
+    shouldRoundDimensions
+  })
 
   const dimensionsRounded = shouldRoundDimensions
     ? roundTextboxDimensions({ textbox })
