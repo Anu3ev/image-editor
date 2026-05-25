@@ -20,6 +20,29 @@ interface CanvasGestureEvent extends Event {
   clientY?: number
 }
 
+/**
+ * Точка pan-жеста в viewport coordinates DOM-события.
+ */
+interface PanPointer {
+  x: number
+  y: number
+}
+
+/**
+ * Минимальный touch-контракт, который нужен для расчёта центра двух пальцев.
+ */
+interface TouchPointLike {
+  clientX: number
+  clientY: number
+}
+
+/**
+ * Touch-событие с индексируемым списком активных точек касания.
+ */
+interface TouchEventWithPoints extends Event {
+  touches: ArrayLike<TouchPointLike>
+}
+
 class Listeners {
   /**
    * Ссылка на редактор, содержащий canvas.
@@ -43,18 +66,18 @@ class Listeners {
   private isDragging: boolean = false
 
   /**
-   * Координаты последнего положения мыши по оси X при перетаскивании канваса.
-   * Используется для расчёта смещения по горизонтали при перетаскивании.
+   * Координаты последнего pan-указателя по оси X при перетаскивании канваса.
+   * Используется для расчёта смещения по горизонтали при mouse и touch pan.
    * @default 0
    */
-  private lastMouseX: number = 0
+  private lastPanPointerX: number = 0
 
   /**
-   * Координаты последнего положения мыши по оси Y при перетаскивании канваса.
-   * Используется для расчёта смещения по вертикали при перетаскивании.
+   * Координаты последнего pan-указателя по оси Y при перетаскивании канваса.
+   * Используется для расчёта смещения по вертикали при mouse и touch pan.
    * @default 0
    */
-  private lastMouseY: number = 0
+  private lastPanPointerY: number = 0
 
   /**
    * Последний cumulative scale WebKit gesture-события.
@@ -132,7 +155,7 @@ class Listeners {
 
   handleCanvasDragEndBound: () => void
 
-  handleCanvasWheelZoomBound: (event: WheelEvent) => void
+  handleCanvasWheelInputBound: (event: WheelEvent) => void
 
   handleCanvasGestureStartBound: (event: Event) => void
 
@@ -215,7 +238,7 @@ class Listeners {
     this.handleCanvasDragStartBound = this.handleCanvasDragStart.bind(this)
     this.handleCanvasDraggingBound = this.handleCanvasDragging.bind(this)
     this.handleCanvasDragEndBound = this.handleCanvasDragEnd.bind(this)
-    this.handleCanvasWheelZoomBound = this.handleCanvasWheelZoom.bind(this)
+    this.handleCanvasWheelInputBound = this.handleCanvasWheelInput.bind(this)
     this.handleCanvasGestureStartBound = this.handleCanvasGestureStart.bind(this)
     this.handleCanvasGestureChangeBound = this.handleCanvasGestureChange.bind(this)
     this.handleCanvasGestureEndBound = this.handleCanvasGestureEnd.bind(this)
@@ -245,11 +268,14 @@ class Listeners {
       document.addEventListener('keyup', this.handleSpaceKeyUpBound, { capture: true })
     }
 
-    if (this.options.mouseWheelZooming) {
-      this.canvas.wrapperEl.addEventListener('wheel', this.handleCanvasWheelZoomBound, {
+    if (this.options.mouseWheelZooming || this.options.canvasDragging) {
+      this.canvas.wrapperEl.addEventListener('wheel', this.handleCanvasWheelInputBound, {
         capture: true,
         passive: false
       })
+    }
+
+    if (this.options.mouseWheelZooming) {
       this.canvas.wrapperEl.addEventListener('gesturestart', this.handleCanvasGestureStartBound, {
         capture: true,
         passive: false
@@ -714,54 +740,52 @@ class Listeners {
   // --- Обработчики для событий canvas (Fabric) ---
 
   /**
-   * Начало перетаскивания канваса (срабатывает при mouse:down и зажатом пробеле).
+   * Начало перетаскивания канваса.
+   * Mouse pan требует зажатый Space, touch pan начинается по двум пальцам без клавиатуры.
    * @param options - событие указателя
-   * @param options.e — объект события (MouseEvent или TouchEvent)
+   * @param options.e — объект события указателя
    */
   handleCanvasDragStart({ e: event }:TPointerEventInfo<TPointerEvent>): void {
-    if (!this.isSpacePressed || !(event instanceof MouseEvent)) return
+    const pointer = this._getPanPointer(event)
+
+    if (!pointer) return
 
     this.isDragging = true
-    this.lastMouseX = event.clientX
-    this.lastMouseY = event.clientY
+    this.lastPanPointerX = pointer.x
+    this.lastPanPointerY = pointer.y
 
-    this.canvas.set('defaultCursor', 'grabbing')
-    this.canvas.setCursor('grabbing')
+    if (event instanceof MouseEvent) {
+      this.canvas.set('defaultCursor', 'grabbing')
+      this.canvas.setCursor('grabbing')
+    }
   }
 
   /**
-   * Перетаскивание канваса (mouse:move).
+   * Перетаскивание канваса.
    * Проверяет, разрешено ли перетаскивание при текущем зуме и применяет ограничения на панорамирование с помощью panConstraintManager.
    * @param options
    * @param options.e — объект события
    */
   handleCanvasDragging({ e: event }:TPointerEventInfo<TPointerEvent>): void {
-    if (!this.isDragging || !this.isSpacePressed || !(event instanceof MouseEvent)) return
+    if (!this.isDragging) return
 
-    const { panConstraintManager, montageArea } = this.editor
+    const pointer = this._getPanPointer(event)
 
-    // Проверяем, разрешено ли перетаскивание при текущем зуме
-    if (!panConstraintManager.isPanAllowed()) {
-      return
+    if (!pointer) return
+
+    const didHandlePan = this.editor.panConstraintManager.applyPanDelta({
+      deltaX: pointer.x - this.lastPanPointerX,
+      deltaY: pointer.y - this.lastPanPointerY
+    })
+
+    if (!didHandlePan) return
+
+    this.lastPanPointerX = pointer.x
+    this.lastPanPointerY = pointer.y
+
+    if (event.cancelable) {
+      event.preventDefault()
     }
-
-    const vpt = this.canvas.viewportTransform
-    const newVptX = vpt[4] + (event.clientX - this.lastMouseX)
-    const newVptY = vpt[5] + (event.clientY - this.lastMouseY)
-
-    // Применяем ограничения к координатам
-    const constrained = panConstraintManager.constrainPan(newVptX, newVptY)
-
-    vpt[4] = constrained.x
-    vpt[5] = constrained.y
-
-    // Принудительно пересчитываем координаты монтажной области перед рендерингом
-    montageArea.setCoords()
-
-    this.canvas.requestRenderAll()
-
-    this.lastMouseX = event.clientX
-    this.lastMouseY = event.clientY
   }
 
   /**
@@ -777,6 +801,47 @@ class Listeners {
     if (this.isSpacePressed) {
       this.canvas.set('defaultCursor', 'grab')
       this.canvas.setCursor('grab')
+    }
+  }
+
+  /**
+   * Возвращает текущую точку pan-жеста для mouse или двух пальцев touch.
+   * @param event - Событие указателя
+   * @returns Точка pan-жеста или null, если событие не должно двигать viewport
+   */
+  private _getPanPointer(event: TPointerEvent): PanPointer | null {
+    if (event instanceof MouseEvent) {
+      if (!this.isSpacePressed) return null
+
+      return {
+        x: event.clientX,
+        y: event.clientY
+      }
+    }
+
+    return this._getTwoTouchCenter(event)
+  }
+
+  /**
+   * Рассчитывает центр двух активных touch-точек.
+   * @param event - Событие указателя
+   * @returns Центр двух пальцев или null для другого touch-сценария
+   */
+  private _getTwoTouchCenter(event: TPointerEvent): PanPointer | null {
+    if (!('touches' in event)) return null
+
+    const { touches } = event as TouchEventWithPoints
+
+    if (touches.length !== 2) return null
+
+    const firstTouch = touches[0]
+    const secondTouch = touches[1]
+
+    if (!firstTouch || !secondTouch) return null
+
+    return {
+      x: (firstTouch.clientX + secondTouch.clientX) / 2,
+      y: (firstTouch.clientY + secondTouch.clientY) / 2
     }
   }
 
@@ -799,20 +864,42 @@ class Listeners {
   }
 
   /**
+   * Приводит wheel-delta к одной шкале, чтобы pixel/line/page wheel считались одинаково.
+   * @param event - Событие wheel
+   * @param axis - Ось wheel-события
+   * @returns Нормализованная delta
+   */
+  private _normalizeWheelDelta({
+    event,
+    axis
+  }: {
+    event: WheelEvent
+    axis: 'x' | 'y'
+  }): number {
+    const delta = axis === 'x' ? event.deltaX : event.deltaY
+
+    if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
+      return delta * WHEEL_LINE_DELTA
+    }
+
+    if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
+      const pageSize = axis === 'x'
+        ? this.canvas.getWidth()
+        : this.canvas.getHeight()
+
+      return delta * pageSize
+    }
+
+    return delta
+  }
+
+  /**
    * Приводит deltaY к одной шкале, чтобы pixel/line/page wheel считались одинаково.
    * @param event - Событие wheel
    * @returns Нормализованное deltaY
    */
   private _normalizeWheelDeltaY(event: WheelEvent): number {
-    if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) {
-      return event.deltaY * WHEEL_LINE_DELTA
-    }
-
-    if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) {
-      return event.deltaY * this.canvas.getHeight()
-    }
-
-    return event.deltaY
+    return this._normalizeWheelDelta({ event, axis: 'y' })
   }
 
   /**
@@ -824,6 +911,19 @@ class Listeners {
     const normalizedDeltaY = Math.abs(this._normalizeWheelDeltaY(event))
 
     return event.deltaMode === WheelEvent.DOM_DELTA_PIXEL && normalizedDeltaY < TRACKPAD_PINCH_DELTA_THRESHOLD
+  }
+
+  /**
+   * Переводит wheel scroll в pan-delta viewport.
+   * Wheel-delta описывает прокрутку viewport, поэтому viewportTransform двигается в обратную сторону.
+   * @param event - Событие wheel
+   * @returns Смещение viewportTransform для pan
+   */
+  private _getWheelPanDelta(event: WheelEvent): { deltaX: number; deltaY: number } {
+    return {
+      deltaX: -this._normalizeWheelDelta({ event, axis: 'x' }),
+      deltaY: -this._normalizeWheelDelta({ event, axis: 'y' })
+    }
   }
 
   /**
@@ -877,12 +977,15 @@ class Listeners {
   }
 
   /**
-   * Обработчик `Ctrl/Cmd + wheel` на DOM-границе канваса.
-   * Здесь событие отменяется до всплытия в браузер, чтобы page zoom
-   * не перехватывал управление у редактора.
+   * Обработчик wheel на DOM-границе канваса.
+   * Ctrl/Cmd + wheel остаётся zoom-сценарием, а wheel без модификаторов
+   * используется как pan-сценарий для двухпальцевого scroll на тачпаде.
    */
-  handleCanvasWheelZoom(event: WheelEvent): void {
-    if (!event.ctrlKey && !event.metaKey) return
+  handleCanvasWheelInput(event: WheelEvent): void {
+    if (!event.ctrlKey && !event.metaKey) {
+      this._handleCanvasWheelPan(event)
+      return
+    }
 
     event.preventDefault()
     event.stopPropagation()
@@ -890,6 +993,21 @@ class Listeners {
     const scaleAdjustment = this._calculateAdaptiveZoomStep(event)
 
     this.editor.zoomManager.handlePointerZoom(scaleAdjustment, event)
+  }
+
+  /**
+   * Применяет wheel без Ctrl/Cmd как pan-событие.
+   * @param event - Событие wheel
+   */
+  private _handleCanvasWheelPan(event: WheelEvent): void {
+    if (!this.options.canvasDragging) return
+
+    const didHandlePan = this.editor.panConstraintManager.applyPanDelta(this._getWheelPanDelta(event))
+
+    if (!didHandlePan) return
+
+    event.preventDefault()
+    event.stopPropagation()
   }
 
   /**
@@ -1057,10 +1175,13 @@ class Listeners {
       document.removeEventListener('keydown', this.handleSpaceKeyDownBound, { capture: true })
       document.removeEventListener('keyup', this.handleSpaceKeyUpBound, { capture: true })
     }
-    if (this.options.mouseWheelZooming) {
-      this.canvas.wrapperEl.removeEventListener('wheel', this.handleCanvasWheelZoomBound, {
+    if (this.options.mouseWheelZooming || this.options.canvasDragging) {
+      this.canvas.wrapperEl.removeEventListener('wheel', this.handleCanvasWheelInputBound, {
         capture: true
       })
+    }
+
+    if (this.options.mouseWheelZooming) {
       this.canvas.wrapperEl.removeEventListener('gesturestart', this.handleCanvasGestureStartBound, {
         capture: true
       })

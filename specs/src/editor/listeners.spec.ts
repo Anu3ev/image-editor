@@ -1,7 +1,7 @@
 import { ActiveSelection } from 'fabric'
 import Listeners from '../../../src/editor/listeners'
 import { createEditorStub } from '../../test-utils/editor/editor-stub'
-import { keyDown, keyUp, mouse, wheel, gesture } from '../../test-utils/events/dom-events'
+import { keyDown, keyUp, mouse, wheel, gesture, touch } from '../../test-utils/events/dom-events'
 import { ptr, fabricPtrWithTarget } from '../../test-utils/events/fabric-events'
 
 // Shared event lists to avoid duplication in assertions
@@ -38,6 +38,34 @@ const DISABLED_OPTIONAL_CANVAS_EVENTS = [
 
 const getOnEvents = (editor: ReturnType<typeof createEditorStub>) => (editor.canvas.on as jest.Mock).mock.calls.map((c) => c[0])
 
+/**
+ * Создаёт editor stub с тем же pan write-path, который использует production PanConstraintManager.
+ */
+const createEditorStubWithPanDelta = (): ReturnType<typeof createEditorStub> => {
+  const editor = createEditorStub()
+
+  editor.panConstraintManager.applyPanDelta = jest.fn(({
+    deltaX,
+    deltaY
+  }: {
+    deltaX: number
+    deltaY: number
+  }) => {
+    const vpt = editor.canvas.viewportTransform
+    const constrained = editor.panConstraintManager.constrainPan(vpt[4] + deltaX, vpt[5] + deltaY)
+
+    vpt[4] = constrained.x
+    vpt[5] = constrained.y
+
+    editor.montageArea.setCoords()
+    editor.canvas.requestRenderAll()
+
+    return true
+  })
+
+  return editor
+}
+
 describe('Listeners', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -71,7 +99,7 @@ describe('Listeners', () => {
       expect(onCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
 
       // DOM bindings
-      expect(editor.canvas.wrapperEl.addEventListener).toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+      expect(editor.canvas.wrapperEl.addEventListener).toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelInputBound, {
         capture: true,
         passive: false
       })
@@ -121,7 +149,7 @@ describe('Listeners', () => {
       }
 
       // DOM addEventListener не должен быть вызван для опциональных обработчиков
-      expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+      expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelInputBound, {
         capture: true,
         passive: false
       })
@@ -268,7 +296,7 @@ describe('Listeners', () => {
     })
 
     it('Space включает режим drag, mouse down/move/up двигает вьюпорт', () => {
-      const editor = createEditorStub()
+      const editor = createEditorStubWithPanDelta()
       const listeners = new Listeners({ editor, options: { canvasDragging: true } })
 
       // keydown Space
@@ -309,6 +337,59 @@ describe('Listeners', () => {
       const objs = (editor.canvasManager.getObjects as jest.Mock).mock.results[0].value
       expect(objs[0].set).toHaveBeenCalled()
       expect(objs[1].set).toHaveBeenCalled()
+    })
+
+    it('двухпальцевый scroll на тачпаде двигает вьюпорт без Ctrl', () => {
+      const editor = createEditorStubWithPanDelta()
+      const listeners = new Listeners({
+        editor,
+        options: {
+          canvasDragging: true,
+          mouseWheelZooming: true
+        }
+      })
+      const preventDefault = jest.fn()
+      const stopPropagation = jest.fn()
+      const event = wheel({
+        deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+        deltaX: 24,
+        deltaY: -16
+      })
+      Object.defineProperty(event, 'preventDefault', { value: preventDefault })
+      Object.defineProperty(event, 'stopPropagation', { value: stopPropagation })
+
+      listeners.handleCanvasWheelInput(event)
+
+      expect(editor.zoomManager.handlePointerZoom).not.toHaveBeenCalled()
+      expect(editor.panConstraintManager.constrainPan).toHaveBeenCalledWith(-24, 16)
+      expect(editor.canvas.viewportTransform[4]).toBe(-24)
+      expect(editor.canvas.viewportTransform[5]).toBe(16)
+      expect(editor.canvas.requestRenderAll).toHaveBeenCalled()
+      expect(preventDefault).toHaveBeenCalled()
+      expect(stopPropagation).toHaveBeenCalled()
+    })
+
+    it('двумя пальцами по сенсорному экрану двигает вьюпорт без пробела', () => {
+      const editor = createEditorStubWithPanDelta()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+      const startEvent = touch('touchstart', [
+        { clientX: 100, clientY: 120 },
+        { clientX: 160, clientY: 120 }
+      ])
+      const moveEvent = touch('touchmove', [
+        { clientX: 112, clientY: 134 },
+        { clientX: 172, clientY: 134 }
+      ])
+
+      listeners.handleCanvasDragStart(ptr(startEvent))
+      listeners.handleCanvasDragging(ptr(moveEvent))
+      listeners.handleCanvasDragEnd()
+
+      expect(editor.panConstraintManager.constrainPan).toHaveBeenCalledWith(12, 14)
+      expect(editor.canvas.viewportTransform[4]).toBe(12)
+      expect(editor.canvas.viewportTransform[5]).toBe(14)
+      expect(editor.canvas.requestRenderAll).toHaveBeenCalled()
+      expect(editor.canvas.setViewportTransform).toHaveBeenCalled()
     })
 
     it('Space завершает режим drag даже если фокус в input', () => {
@@ -424,7 +505,7 @@ describe('Listeners', () => {
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
 
-      listeners.handleCanvasWheelZoom(evt)
+      listeners.handleCanvasWheelInput(evt)
 
       expect(editor.zoomManager.handlePointerZoom).toHaveBeenCalledWith(0.05, evt)
       expect(preventDefault).toHaveBeenCalled()
@@ -440,7 +521,7 @@ describe('Listeners', () => {
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
 
-      listeners.handleCanvasWheelZoom(evt)
+      listeners.handleCanvasWheelInput(evt)
 
       const zoomCallOrder = editor.zoomManager.handlePointerZoom.mock.invocationCallOrder[0]
 
@@ -460,7 +541,7 @@ describe('Listeners', () => {
         deltaY: -5
       })
 
-      listeners.handleCanvasWheelZoom(evt)
+      listeners.handleCanvasWheelInput(evt)
 
       expect(editor.zoomManager.handlePointerZoom).toHaveBeenCalledTimes(1)
       expect(editor.zoomManager.handlePointerZoom.mock.calls[0][0]).toBeCloseTo(0.04)
@@ -476,7 +557,7 @@ describe('Listeners', () => {
         deltaY: -3
       })
 
-      listeners.handleCanvasWheelZoom(evt)
+      listeners.handleCanvasWheelInput(evt)
 
       expect(editor.zoomManager.handlePointerZoom).toHaveBeenCalledTimes(1)
       expect(editor.zoomManager.handlePointerZoom.mock.calls[0][0]).toBeCloseTo(0.024)
@@ -531,7 +612,7 @@ describe('Listeners', () => {
       const evt = wheel({ ctrlKey: false, deltaY: -100 })
       Object.defineProperty(evt, 'preventDefault', { value: preventDefault })
       Object.defineProperty(evt, 'stopPropagation', { value: stopPropagation })
-      listeners.handleCanvasWheelZoom(evt)
+      listeners.handleCanvasWheelInput(evt)
       expect(editor.zoomManager.handlePointerZoom).not.toHaveBeenCalled()
       expect(preventDefault).not.toHaveBeenCalled()
       expect(stopPropagation).not.toHaveBeenCalled()
@@ -663,7 +744,7 @@ describe('Listeners', () => {
       // canvas .off for main groups
       const offCalls = (editor.canvas.off as jest.Mock).mock.calls.map((c) => c[0])
       expect(offCalls).toEqual(expect.arrayContaining(ALL_EXPECTED_CANVAS_EVENTS))
-      expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelZoomBound, {
+      expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelInputBound, {
         capture: true
       })
       expect(editor.canvas.wrapperEl.removeEventListener).toHaveBeenCalledWith('gesturestart', listeners.handleCanvasGestureStartBound, {

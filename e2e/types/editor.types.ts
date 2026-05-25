@@ -28,6 +28,13 @@ export interface CanvasStateInfo {
   objectCount: number
 }
 
+/** Смещение и zoom текущего viewportTransform canvas */
+export interface CanvasViewportTransformInfo {
+  x: number
+  y: number
+  zoom: number
+}
+
 /** Информация о montage area */
 export interface MontageAreaInfo {
   width: number
