@@ -36,6 +36,30 @@ type SelectionMinimumSizeParams = {
   shiftKey?: boolean
 }
 
+/**
+ * Расхождение между scene-bounds активного объекта и его отрисованной областью выделения.
+ */
+type SelectionFrameAlignmentInfo = {
+  bottomRightDeltaX: number
+  bottomRightDeltaY: number
+  maxDistance: number
+  topLeftDeltaX: number
+  topLeftDeltaY: number
+}
+
+type SelectionScenePoint = {
+  x: number
+  y: number
+  transform?: (matrix: number[]) => SelectionScenePoint
+}
+
+type SelectionVisualTarget = {
+  group?: {
+    calcTransformMatrix?: () => number[]
+  }
+  getPointByOrigin: (originX: string, originY: string) => SelectionScenePoint
+}
+
 export class SelectionModel {
   private readonly page: Page
 
@@ -62,6 +86,65 @@ export class SelectionModel {
     expect(snapshot, 'должно существовать текущее общее выделение').not.toBeNull()
 
     return snapshot as SnappingObjectSnapshot
+  }
+
+  /** Возвращает смещение области выделения относительно активного объекта без принудительного setCoords(). */
+  async getActiveObjectSelectionFrameAlignment(): Promise<SelectionFrameAlignmentInfo> {
+    const alignment = await this.page.evaluate(() => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = editor.canvas.getActiveObject()
+      const visualTarget = helpers.resolveShapeNode(target) ?? target
+
+      if (!target?.oCoords || typeof visualTarget?.getPointByOrigin !== 'function') return null
+
+      const measuredTarget = visualTarget as SelectionVisualTarget
+      const { viewportTransform } = editor.canvas
+      const toScenePoint = (object: SelectionVisualTarget, originX: string, originY: string) => {
+        const point = object.getPointByOrigin(originX, originY)
+
+        if (
+          object.group
+          && typeof point.transform === 'function'
+          && typeof object.group.calcTransformMatrix === 'function'
+        ) {
+          return point.transform(object.group.calcTransformMatrix())
+        }
+
+        return point
+      }
+      const toViewportPoint = (point: { x: number; y: number }) => ({
+        x: viewportTransform[0] * point.x + viewportTransform[2] * point.y + viewportTransform[4],
+        y: viewportTransform[1] * point.x + viewportTransform[3] * point.y + viewportTransform[5]
+      })
+
+      const topLeft = toViewportPoint(toScenePoint(measuredTarget, 'left', 'top'))
+      const bottomRight = toViewportPoint(toScenePoint(measuredTarget, 'right', 'bottom'))
+      const controlTopLeft = target.oCoords.tl
+      const controlBottomRight = target.oCoords.br
+
+      if (!controlTopLeft || !controlBottomRight) return null
+
+      const topLeftDeltaX = controlTopLeft.x - topLeft.x
+      const topLeftDeltaY = controlTopLeft.y - topLeft.y
+      const bottomRightDeltaX = controlBottomRight.x - bottomRight.x
+      const bottomRightDeltaY = controlBottomRight.y - bottomRight.y
+      const topLeftDistance = Math.sqrt(topLeftDeltaX * topLeftDeltaX + topLeftDeltaY * topLeftDeltaY)
+      const bottomRightDistance = Math.sqrt(
+        bottomRightDeltaX * bottomRightDeltaX + bottomRightDeltaY * bottomRightDeltaY
+      )
+
+      return {
+        bottomRightDeltaX,
+        bottomRightDeltaY,
+        maxDistance: Math.max(topLeftDistance, bottomRightDistance),
+        topLeftDeltaX,
+        topLeftDeltaY
+      }
+    })
+
+    expect(alignment, 'область выделения активного объекта должна быть доступна').not.toBeNull()
+
+    return alignment as SelectionFrameAlignmentInfo
   }
 
   /** Масштабирует текущее общее выделение справа и возвращает live-состояние. */

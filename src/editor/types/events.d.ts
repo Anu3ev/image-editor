@@ -15,6 +15,7 @@ import type {
   CropApplyResult,
   CropState
 } from '../crop-manager/types'
+import type { PanViewportState } from '../pan-constraint-manager'
 
 /**
  * Параметры события editor:canvas-exported
@@ -98,6 +99,14 @@ export type MontageAreaScaledToImagePayload = {
 export type CanvasUpdatedPayload = {
   width: number
   height: number
+}
+
+/**
+ * Параметры события editor:pan-changed
+ */
+export type PanChangedPayload = {
+  panState: PanViewportState
+  viewportTransform: number[]
 }
 
 /**
@@ -429,6 +438,11 @@ declare module 'fabric' {
       zoom?: number,
       point: Point
     }
+
+    /**
+     * Срабатывает при изменении viewportTransform через pan.
+     */
+    'editor:pan-changed': PanChangedPayload
 
     /**
      * Срабатывает при изменении прозрачности объекта.

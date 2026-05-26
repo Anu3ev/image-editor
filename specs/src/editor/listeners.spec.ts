@@ -1,5 +1,7 @@
 import { ActiveSelection } from 'fabric'
+import type { TPointerEvent } from 'fabric'
 import Listeners from '../../../src/editor/listeners'
+import PanConstraintManager from '../../../src/editor/pan-constraint-manager'
 import { createEditorStub } from '../../test-utils/editor/editor-stub'
 import { keyDown, keyUp, mouse, wheel, gesture, touch } from '../../test-utils/events/dom-events'
 import { ptr, fabricPtrWithTarget } from '../../test-utils/events/fabric-events'
@@ -39,6 +41,28 @@ const DISABLED_OPTIONAL_CANVAS_EVENTS = [
 const getOnEvents = (editor: ReturnType<typeof createEditorStub>) => (editor.canvas.on as jest.Mock).mock.calls.map((c) => c[0])
 
 /**
+ * Создаёт pointer-like событие, которое не является MouseEvent.
+ */
+const pointerLike = ({
+  clientX,
+  clientY,
+  type
+}: {
+  clientX: number
+  clientY: number
+  type: string
+}): TPointerEvent => {
+  const event = new Event(type, { cancelable: true })
+
+  Object.defineProperties(event, {
+    clientX: { value: clientX },
+    clientY: { value: clientY }
+  })
+
+  return event as TPointerEvent
+}
+
+/**
  * Создаёт editor stub с тем же pan write-path, который использует production PanConstraintManager.
  */
 const createEditorStubWithPanDelta = (): ReturnType<typeof createEditorStub> => {
@@ -62,6 +86,31 @@ const createEditorStubWithPanDelta = (): ReturnType<typeof createEditorStub> => 
 
     return true
   })
+
+  return editor
+}
+
+/**
+ * Создаёт editor stub, где монтажная область уже достаточно близко к краям viewport для pan.
+ */
+const createEditorStubWithViewportPanRange = (): ReturnType<typeof createEditorStub> => {
+  const editor = createEditorStub()
+  const viewportSize = 600
+  const montageSize = 512
+  const zoom = 1.1
+  const centeredViewportOffset = viewportSize / 2 - (montageSize / 2) * zoom
+
+  editor.canvas.getWidth.mockReturnValue(viewportSize)
+  editor.canvas.getHeight.mockReturnValue(viewportSize)
+  editor.canvas.getZoom.mockReturnValue(zoom)
+  editor.montageArea.width = montageSize
+  editor.montageArea.height = montageSize
+  editor.montageArea.left = montageSize / 2
+  editor.montageArea.top = montageSize / 2
+  editor.canvas.viewportTransform[4] = centeredViewportOffset
+  editor.canvas.viewportTransform[5] = centeredViewportOffset
+  editor.zoomManager.defaultZoom = 0.5
+  editor.panConstraintManager = new PanConstraintManager({ editor })
 
   return editor
 }
@@ -337,6 +386,42 @@ describe('Listeners', () => {
       const objs = (editor.canvasManager.getObjects as jest.Mock).mock.results[0].value
       expect(objs[0].set).toHaveBeenCalled()
       expect(objs[1].set).toHaveBeenCalled()
+    })
+
+    it('Space и ЛКМ двигают viewport, когда zoom даёт доступный pan-диапазон', () => {
+      const editor = createEditorStubWithViewportPanRange()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+      const initialX = editor.canvas.viewportTransform[4]
+      const initialY = editor.canvas.viewportTransform[5]
+      const spaceEvent = keyDown({ code: 'Space' })
+
+      Object.defineProperty(spaceEvent, 'preventDefault', { value: jest.fn() })
+      listeners.handleSpaceKeyDown(spaceEvent)
+      listeners.handleCanvasDragStart(ptr(mouse('mousedown', { clientX: 10, clientY: 20 })))
+      listeners.handleCanvasDragging(ptr(mouse('mousemove', { clientX: 34, clientY: 4 })))
+
+      expect(editor.canvas.viewportTransform[4]).toBeCloseTo(initialX + 24)
+      expect(editor.canvas.viewportTransform[5]).toBeCloseTo(initialY - 16)
+      expect(editor.montageArea.setCoords).toHaveBeenCalledTimes(1)
+      expect(editor.canvas.requestRenderAll).toHaveBeenCalled()
+    })
+
+    it('Space и ЛКМ двигают viewport, когда canvas отдаёт pointer-событие вместо MouseEvent', () => {
+      const editor = createEditorStubWithViewportPanRange()
+      const listeners = new Listeners({ editor, options: { canvasDragging: true } })
+      const initialX = editor.canvas.viewportTransform[4]
+      const initialY = editor.canvas.viewportTransform[5]
+      const spaceEvent = keyDown({ code: 'Space' })
+
+      Object.defineProperty(spaceEvent, 'preventDefault', { value: jest.fn() })
+      listeners.handleSpaceKeyDown(spaceEvent)
+      listeners.handleCanvasDragStart(ptr(pointerLike({ type: 'pointerdown', clientX: 10, clientY: 20 })))
+      listeners.handleCanvasDragging(ptr(pointerLike({ type: 'pointermove', clientX: 34, clientY: 4 })))
+
+      expect(editor.canvas.viewportTransform[4]).toBeCloseTo(initialX + 24)
+      expect(editor.canvas.viewportTransform[5]).toBeCloseTo(initialY - 16)
+      expect(editor.montageArea.setCoords).toHaveBeenCalledTimes(1)
+      expect(editor.canvas.requestRenderAll).toHaveBeenCalled()
     })
 
     it('двухпальцевый scroll на тачпаде двигает вьюпорт без Ctrl', () => {

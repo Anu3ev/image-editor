@@ -9,6 +9,8 @@ import type {
   MontageAreaViewportBoundsInfo,
   ObjectSizeIndicatorInfo,
   VisibleObjectSizeIndicatorInfo,
+  ViewportPanInfo,
+  ViewportScrollbarInfo,
   ViewportBoundsInfo,
   ObjectTargetParams,
   SnappingObjectSnapshot
@@ -43,9 +45,22 @@ type WheelInputDispatchParams = {
   deltaMode?: number
 }
 
+/** Параметры drag viewport через Space + ЛКМ. */
+type ViewportSpaceDragParams = {
+  deltaX: number
+  deltaY: number
+}
+
+/** Параметры drag DOM-thumb viewport-скроллбара. */
+type ViewportScrollbarThumbDragParams = {
+  axis: 'horizontal' | 'vertical'
+  delta: number
+}
+
 const FULL_TRACKPAD_PINCH_IN_DELTA_STEPS = [-5, -5, -5, -5, -5, -5, -5, -5, -5, -5]
 const FULL_TRACKPAD_PINCH_OUT_DELTA_STEPS = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
 const DOM_DELTA_PIXEL = 0
+const VIEWPORT_PAN_ZOOM_ATTEMPTS = 6
 
 export class EditorModel {
   readonly shapes: ShapeModel
@@ -164,6 +179,75 @@ export class EditorModel {
         x: vpt[4],
         y: vpt[5],
         zoom: canvas.getZoom()
+      }
+    })
+  }
+
+  /** Возвращает pan-состояние viewport из production PanConstraintManager. */
+  async getViewportPanState(): Promise<ViewportPanInfo> {
+    return this.page.evaluate(() => {
+      const { panConstraintManager } = (window as any).editor
+      const state = panConstraintManager.getViewportPanState()
+
+      return {
+        canPan: state.canPan,
+        horizontal: {
+          canPan: state.horizontal.canPan,
+          current: state.horizontal.current,
+          max: state.horizontal.max,
+          min: state.horizontal.min,
+          ratio: state.horizontal.ratio,
+          scrollDistance: state.horizontal.scrollDistance
+        },
+        vertical: {
+          canPan: state.vertical.canPan,
+          current: state.vertical.current,
+          max: state.vertical.max,
+          min: state.vertical.min,
+          ratio: state.vertical.ratio,
+          scrollDistance: state.vertical.scrollDistance
+        }
+      }
+    })
+  }
+
+  /** Возвращает DOM-состояние viewport-скроллбаров. */
+  async getViewportScrollbarState(): Promise<ViewportScrollbarInfo> {
+    return this.page.evaluate(() => {
+      const serializeBounds = (element: Element) => {
+        const bounds = element.getBoundingClientRect()
+
+        return {
+          left: bounds.left,
+          top: bounds.top,
+          width: bounds.width,
+          height: bounds.height,
+          right: bounds.right,
+          bottom: bounds.bottom,
+          centerX: bounds.left + bounds.width / 2,
+          centerY: bounds.top + bounds.height / 2
+        }
+      }
+      const resolveAxis = (axis: 'horizontal' | 'vertical') => {
+        const track = document.querySelector(`[data-editor-scrollbar="${axis}"]`)
+        const thumb = document.querySelector(`[data-editor-scrollbar-thumb="${axis}"]`)
+
+        if (!track || !thumb) {
+          throw new Error(`viewport-скроллбар ${axis} должен существовать`)
+        }
+
+        const style = window.getComputedStyle(track)
+
+        return {
+          thumb: serializeBounds(thumb),
+          track: serializeBounds(track),
+          visible: style.display !== 'none'
+        }
+      }
+
+      return {
+        horizontal: resolveAxis('horizontal'),
+        vertical: resolveAxis('vertical')
       }
     })
   }
@@ -731,6 +815,108 @@ export class EditorModel {
       deltaXSteps: [params.deltaX],
       deltaYSteps: [params.deltaY]
     })
+  }
+
+  /** Отправляет серию wheel без Ctrl и возвращается до отложенного render. */
+  async panByFastTrackpadScroll(params: {
+    deltaXSteps: number[]
+    deltaYSteps: number[]
+  }): Promise<WheelInputDispatchState> {
+    const dispatchParams = {
+      deltaMode: DOM_DELTA_PIXEL,
+      deltaXSteps: params.deltaXSteps,
+      deltaYSteps: params.deltaYSteps
+    }
+
+    this._assertWheelInputDispatchParams(dispatchParams)
+
+    return this._dispatchWheelEventsInBrowser(dispatchParams)
+  }
+
+  /** Приближает canvas до состояния, когда viewport можно двигать по обеим осям. */
+  async zoomInUntilViewportCanMove(): Promise<ViewportPanInfo> {
+    for (let attempt = 0; attempt < VIEWPORT_PAN_ZOOM_ATTEMPTS; attempt += 1) {
+      const panState = await this.getViewportPanState()
+
+      if (panState.horizontal.canPan && panState.vertical.canPan) {
+        return panState
+      }
+
+      await this.zoomInByTrackpadPinch()
+    }
+
+    const panState = await this.getViewportPanState()
+
+    if (!panState.horizontal.canPan || !panState.vertical.canPan) {
+      throw new Error('Viewport должен двигаться по обеим осям после серии pinch-жестов')
+    }
+
+    return panState
+  }
+
+  /** Двигает viewport настоящим Space + ЛКМ drag по canvas. */
+  async dragViewportBySpaceMouse({ deltaX, deltaY }: ViewportSpaceDragParams): Promise<void> {
+    const startPoint = await this.page.evaluate(() => {
+      const { canvas } = (window as any).editor
+      const bounds = canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: bounds.left + bounds.width / 2,
+        y: bounds.top + bounds.height / 2
+      }
+    })
+
+    await this.page.evaluate(() => {
+      const { activeElement } = document
+
+      if (activeElement instanceof HTMLElement) {
+        activeElement.blur()
+      }
+    })
+    await this.page.keyboard.down('Space')
+    await this.page.waitForFunction(() => {
+      const { editor } = window as any
+
+      return editor.listeners.isSpacePressed === true
+    })
+    await this.page.mouse.move(startPoint.x, startPoint.y)
+    await this.page.mouse.down()
+    await this.page.waitForFunction(() => {
+      const { editor } = window as any
+
+      return editor.listeners.isDragging === true
+    })
+    await this.page.mouse.move(startPoint.x + deltaX, startPoint.y + deltaY)
+    await this.page.mouse.up()
+    await this.page.keyboard.up('Space')
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Двигает thumb viewport-скроллбара реальным mouse drag. */
+  async dragViewportScrollbarThumb({ axis, delta }: ViewportScrollbarThumbDragParams): Promise<void> {
+    const scrollbarState = await this.getViewportScrollbarState()
+    const axisState = scrollbarState[axis]
+    const trackSize = axis === 'horizontal' ? axisState.track.width : axisState.track.height
+    const thumbSize = axis === 'horizontal' ? axisState.thumb.width : axisState.thumb.height
+
+    expect(axisState.visible, `viewport-скроллбар ${axis} должен быть видимым`).toBe(true)
+    expect(trackSize, `track viewport-скроллбара ${axis} должен иметь размер`).toBeGreaterThan(0)
+    expect(thumbSize, `thumb viewport-скроллбара ${axis} должен быть меньше track`).toBeLessThan(trackSize)
+
+    const startPoint = {
+      x: axisState.thumb.centerX,
+      y: axisState.thumb.centerY
+    }
+    const endPoint = {
+      x: axis === 'horizontal' ? startPoint.x + delta : startPoint.x,
+      y: axis === 'vertical' ? startPoint.y + delta : startPoint.y
+    }
+
+    await this.page.mouse.move(startPoint.x, startPoint.y)
+    await this.page.mouse.down()
+    await this.page.mouse.move(endPoint.x, endPoint.y)
+    await this.page.mouse.up()
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Отправляет мелкие Ctrl + wheel события, как при pinch-жесте на тачпаде. */

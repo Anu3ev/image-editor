@@ -12,6 +12,7 @@ jest.mock('../../../src/editor/module-loader')
 jest.mock('../../../src/editor/worker-manager')
 jest.mock('../../../src/editor/customized-controls')
 jest.mock('../../../src/editor/ui/toolbar-manager')
+jest.mock('../../../src/editor/ui/viewport-scrollbar-manager')
 jest.mock('../../../src/editor/history-manager')
 jest.mock('../../../src/editor/image-manager', () => ({
   __esModule: true,

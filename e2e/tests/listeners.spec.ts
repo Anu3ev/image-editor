@@ -123,11 +123,14 @@ test.describe('Горячие клавиши и zoom', () => {
   })
 
   test('двухпальцевый scroll на тачпаде двигает вьюпорт после приближения', async({ editorModel }) => {
-    await test.step('Приблизить canvas pinch-жестом, чтобы pan был разрешён', async() => {
-      const dispatchState = await editorModel.zoomInByTrackpadPinch()
+    const panState = await test.step('Приблизить canvas до доступного pan-диапазона', () => {
+      return editorModel.zoomInUntilViewportCanMove()
+    })
 
-      expect(dispatchState.dispatchedEvents).toBeGreaterThan(0)
-      expect(dispatchState.canceledEvents).toBe(dispatchState.dispatchedEvents)
+    await test.step('Проверить что pan доступен по обеим осям', async() => {
+      expect(panState.canPan).toBe(true)
+      expect(panState.horizontal.canPan).toBe(true)
+      expect(panState.vertical.canPan).toBe(true)
     })
 
     const beforePan = await test.step('Получить viewport перед scroll на тачпаде', () => {
@@ -150,6 +153,173 @@ test.describe('Горячие клавиши и zoom', () => {
       expect(afterPan.zoom).toBeCloseTo(beforePan.zoom, 4)
       expect(afterPan.x).toBeLessThan(beforePan.x)
       expect(afterPan.y).toBeLessThan(beforePan.y)
+    })
+  })
+
+  test('wheel-scroll не отрывает область выделения от выбранного шейпа', async({
+    editorModel,
+    selection,
+    shapes
+  }) => {
+    const shape = await test.step('Добавить и выделить квадратный шейп', async() => {
+      const createdShape = await shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'wheel-pan-selected-shape',
+          width: 180,
+          height: 180
+        }
+      })
+
+      expect(createdShape?.id).toBe('wheel-pan-selected-shape')
+
+      return shapes.select({ id: 'wheel-pan-selected-shape' })
+    })
+
+    await test.step('Приблизить canvas до доступного pan-диапазона', async() => {
+      const panState = await editorModel.zoomInUntilViewportCanMove()
+
+      expect(shape?.id).toBe('wheel-pan-selected-shape')
+      expect(panState.horizontal.canPan).toBe(true)
+      expect(panState.vertical.canPan).toBe(true)
+    })
+
+    const beforeAlignment = await test.step('Получить положение области выделения перед scroll', () => {
+      return selection.getActiveObjectSelectionFrameAlignment()
+    })
+    const beforePan = await test.step('Получить viewport перед wheel-scroll', () => {
+      return editorModel.getCanvasViewportTransform()
+    })
+
+    await test.step('Сделать быстрый wheel-scroll по обеим осям', async() => {
+      const dispatchState = await editorModel.panByFastTrackpadScroll({
+        deltaXSteps: [120, 120, 120, 120],
+        deltaYSteps: [180, 180, 180, 180]
+      })
+
+      expect(dispatchState.dispatchedEvents).toBe(4)
+      expect(dispatchState.canceledEvents).toBe(4)
+    })
+
+    await test.step('Проверить что область выделения осталась на шейпе', async() => {
+      const afterPan = await editorModel.getCanvasViewportTransform()
+      const afterAlignment = await selection.getActiveObjectSelectionFrameAlignment()
+
+      expect(afterPan.x).toBeLessThan(beforePan.x)
+      expect(afterPan.y).toBeLessThan(beforePan.y)
+      expect(Math.abs(afterAlignment.topLeftDeltaX - beforeAlignment.topLeftDeltaX)).toBeLessThan(1)
+      expect(Math.abs(afterAlignment.topLeftDeltaY - beforeAlignment.topLeftDeltaY)).toBeLessThan(1)
+      expect(Math.abs(afterAlignment.bottomRightDeltaX - beforeAlignment.bottomRightDeltaX)).toBeLessThan(1)
+      expect(Math.abs(afterAlignment.bottomRightDeltaY - beforeAlignment.bottomRightDeltaY)).toBeLessThan(1)
+    })
+  })
+
+  test('Space + ЛКМ двигает viewport после приближения к краям viewport', async({ editorModel }) => {
+    await test.step('Приблизить canvas, чтобы pan и скроллбары были доступны', async() => {
+      const panState = await editorModel.zoomInUntilViewportCanMove()
+
+      expect(panState.canPan).toBe(true)
+      expect(panState.horizontal.canPan).toBe(true)
+      expect(panState.vertical.canPan).toBe(true)
+    })
+
+    const panState = await test.step('Проверить pan-диапазон после приближения', () => {
+      return editorModel.getViewportPanState()
+    })
+    const scrollbarState = await test.step('Проверить что скроллбары видимы', () => {
+      return editorModel.getViewportScrollbarState()
+    })
+    const beforeDrag = await test.step('Получить viewport перед Space + ЛКМ drag', () => {
+      return editorModel.getCanvasViewportTransform()
+    })
+
+    await test.step('Сдвинуть viewport через Space + ЛКМ', async() => {
+      await editorModel.dragViewportBySpaceMouse({
+        deltaX: 24,
+        deltaY: -16
+      })
+    })
+
+    await test.step('Проверить что viewport сдвинулся в пределах доступного диапазона', async() => {
+      const afterDrag = await editorModel.getCanvasViewportTransform()
+
+      expect(panState.canPan).toBe(true)
+      expect(panState.horizontal.scrollDistance).toBeGreaterThan(0)
+      expect(panState.vertical.scrollDistance).toBeGreaterThan(0)
+      expect(scrollbarState.horizontal.visible).toBe(true)
+      expect(scrollbarState.vertical.visible).toBe(true)
+      expect(afterDrag.x).toBeGreaterThan(beforeDrag.x)
+      expect(afterDrag.y).toBeLessThan(beforeDrag.y)
+      expect(afterDrag.x).toBeLessThanOrEqual(panState.horizontal.max)
+      expect(afterDrag.y).toBeGreaterThanOrEqual(panState.vertical.min)
+    })
+  })
+
+  test('drag скроллбаров двигает viewport и не отрывает область выделения от шейпа', async({
+    editorModel,
+    selection,
+    shapes
+  }) => {
+    const shape = await test.step('Добавить и выделить квадратный шейп', async() => {
+      const createdShape = await shapes.add({
+        presetKey: 'square',
+        options: {
+          id: 'scrollbar-pan-selected-shape',
+          width: 180,
+          height: 180
+        }
+      })
+
+      expect(createdShape?.id).toBe('scrollbar-pan-selected-shape')
+
+      return shapes.select({ id: 'scrollbar-pan-selected-shape' })
+    })
+
+    await test.step('Приблизить canvas до доступных скроллбаров', async() => {
+      const panState = await editorModel.zoomInUntilViewportCanMove()
+      const scrollbarState = await editorModel.getViewportScrollbarState()
+
+      expect(shape?.id).toBe('scrollbar-pan-selected-shape')
+      expect(panState.horizontal.canPan).toBe(true)
+      expect(panState.vertical.canPan).toBe(true)
+      expect(scrollbarState.horizontal.visible).toBe(true)
+      expect(scrollbarState.vertical.visible).toBe(true)
+    })
+
+    const beforePan = await test.step('Получить viewport перед drag скроллбаров', () => {
+      return editorModel.getCanvasViewportTransform()
+    })
+    const beforeScrollbars = await test.step('Получить положение скроллбаров перед drag', () => {
+      return editorModel.getViewportScrollbarState()
+    })
+    const beforeAlignment = await test.step('Получить положение области выделения перед drag', () => {
+      return selection.getActiveObjectSelectionFrameAlignment()
+    })
+
+    await test.step('Сдвинуть viewport горизонтальным и вертикальным скроллбаром', async() => {
+      await editorModel.dragViewportScrollbarThumb({
+        axis: 'horizontal',
+        delta: 96
+      })
+      await editorModel.dragViewportScrollbarThumb({
+        axis: 'vertical',
+        delta: 96
+      })
+    })
+
+    await test.step('Проверить pan, скроллбары и область выделения после drag', async() => {
+      const afterPan = await editorModel.getCanvasViewportTransform()
+      const afterScrollbars = await editorModel.getViewportScrollbarState()
+      const afterAlignment = await selection.getActiveObjectSelectionFrameAlignment()
+
+      expect(afterPan.x).toBeLessThan(beforePan.x)
+      expect(afterPan.y).toBeLessThan(beforePan.y)
+      expect(afterScrollbars.horizontal.thumb.centerX).toBeGreaterThan(beforeScrollbars.horizontal.thumb.centerX)
+      expect(afterScrollbars.vertical.thumb.centerY).toBeGreaterThan(beforeScrollbars.vertical.thumb.centerY)
+      expect(Math.abs(afterAlignment.topLeftDeltaX - beforeAlignment.topLeftDeltaX)).toBeLessThan(1)
+      expect(Math.abs(afterAlignment.topLeftDeltaY - beforeAlignment.topLeftDeltaY)).toBeLessThan(1)
+      expect(Math.abs(afterAlignment.bottomRightDeltaX - beforeAlignment.bottomRightDeltaX)).toBeLessThan(1)
+      expect(Math.abs(afterAlignment.bottomRightDeltaY - beforeAlignment.bottomRightDeltaY)).toBeLessThan(1)
     })
   })
 

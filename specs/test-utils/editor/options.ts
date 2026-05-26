@@ -1,6 +1,11 @@
 import type { CanvasOptions } from 'fabric'
 
-export const basicOptions: Partial<CanvasOptions> = {
+interface BasicEditorOptions extends Partial<CanvasOptions> {
+  montageAreaHeight: number
+  montageAreaWidth: number
+}
+
+export const basicOptions: BasicEditorOptions = {
   editorContainerWidth: '800px',
   editorContainerHeight: '600px',
   canvasWrapperWidth: '700px',
@@ -10,7 +15,8 @@ export const basicOptions: Partial<CanvasOptions> = {
   montageAreaWidth: 400,
   montageAreaHeight: 300,
   scaleType: 'contain',
-  showRotationAngle: false
+  showRotationAngle: false,
+  showViewportScrollbars: false
 }
 
 export const createFullOptions = (partialOptions: Partial<CanvasOptions> = {}): CanvasOptions => ({
