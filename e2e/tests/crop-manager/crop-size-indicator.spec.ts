@@ -12,8 +12,25 @@ const LARGER_CROP_DRAG_TARGET_SIZE = 513
 /** Drag-target для сценария уменьшения crop-области. */
 const SHRUNK_CROP_DRAG_TARGET_SIZE = 372
 
-/** Итоговый размер crop-области из пользовательского сценария с off-by-one ошибкой. */
-const SHRUNK_CROP_SIZE = 371
+/** Размеры монтажной области, на которых полный crop не должен терять пиксель. */
+const FULL_CROP_MONTAGE_SIZES = [
+  {
+    width: 1027,
+    height: 1027
+  },
+  {
+    width: 767,
+    height: 768
+  },
+  {
+    width: 1024,
+    height: 1025
+  },
+  {
+    width: 2048,
+    height: 2049
+  }
+] as const
 
 test.describe('Индикатор размеров crop-области', () => {
   test('при растягивании crop-области показывает размер, который применится после crop', async({
@@ -90,10 +107,56 @@ test.describe('Индикатор размеров crop-области', () => {
     await test.step('Проверить что индикатор совпал с применённым размером', () => {
       expect(indicator.width).toBe(Math.round(liveState.rect.width))
       expect(indicator.height).toBe(Math.round(liveState.rect.height))
-      expect(montageAfter.width).toBe(SHRUNK_CROP_SIZE)
-      expect(montageAfter.height).toBe(SHRUNK_CROP_SIZE)
+      expect(montageAfter.width).toBe(SHRUNK_CROP_DRAG_TARGET_SIZE)
+      expect(montageAfter.height).toBe(SHRUNK_CROP_DRAG_TARGET_SIZE)
       expect(indicator.width).toBe(montageAfter.width)
       expect(indicator.height).toBe(montageAfter.height)
     })
   })
+
+  for (const montageSize of FULL_CROP_MONTAGE_SIZES) {
+    test(`при полном crop ${montageSize.width}x${montageSize.height} показывает размер монтажной области`, async({
+      editorModel,
+      canvas,
+      crop
+    }) => {
+      await test.step('Задать размер монтажной области', async() => {
+        await canvas.setMontageResolution(montageSize)
+      })
+
+      await test.step('Войти в crop монтажной области', async() => {
+        await crop.startCanvasCrop()
+      })
+
+      const liveState = await test.step('Потянуть crop-область без изменения полного размера', async() => {
+        return crop.dragFrameFromControl({
+          control: 'br',
+          widthRatio: 1,
+          heightRatio: 1
+        })
+      })
+
+      const indicator = await test.step('Получить текст индикатора до mouseup', async() => {
+        return editorModel.requireObjectSizeIndicator()
+      })
+
+      await test.step('Завершить resize и применить crop', async() => {
+        await crop.finishFrameResize()
+        await crop.apply()
+      })
+
+      const montageAfter = await test.step('Получить размер монтажной области после crop', async() => {
+        return editorModel.getMontageArea()
+      })
+
+      await test.step('Проверить что полный crop не потерял пиксель', () => {
+        expect(Math.round(liveState.rect.width)).toBe(montageSize.width)
+        expect(Math.round(liveState.rect.height)).toBe(montageSize.height)
+        expect(indicator.width).toBe(montageSize.width)
+        expect(indicator.height).toBe(montageSize.height)
+        expect(montageAfter.width).toBe(montageSize.width)
+        expect(montageAfter.height).toBe(montageSize.height)
+      })
+    })
+  }
 })
