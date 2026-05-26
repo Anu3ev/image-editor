@@ -15,6 +15,11 @@ import {
 import { getCropFrameSourceSize } from '../domain/crop-frame-size'
 
 /**
+ * Допуск сравнения client pointer-координат внутри одной Fabric transform-сессии.
+ */
+const POINTER_POSITION_EPSILON = 0.001
+
+/**
  * Угловые controls, которые отвечают за диагональный resize crop frame.
  */
 const CROP_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
@@ -58,6 +63,14 @@ type CropScaleLimits = {
 }
 
 /**
+ * Размеры crop frame в его локальной geometry без stroke.
+ */
+type CropScaleDimensions = {
+  x: number
+  y: number
+}
+
+/**
  * Ось бокового resize.
  */
 type CropScaleAxis = 'x' | 'y'
@@ -94,6 +107,16 @@ function scaleCropFrameFromCorner({
   const cropTransform = transform as CropScaleTransform
   const { target } = cropTransform
   const { scaleX: currentScaleX = 1, scaleY: currentScaleY = 1 } = target
+  if (isPointerAtTransformStart({
+    transform: cropTransform,
+    x,
+    y
+  })) {
+    restoreOriginalScale({ transform: cropTransform })
+
+    return true
+  }
+
   const localPoint = controlsUtils.getLocalPoint(
     cropTransform,
     cropTransform.originX,
@@ -126,6 +149,16 @@ function scaleCropFrameProportionallyFromCorner({
   const cropTransform = transform as CropScaleTransform
   const { target } = cropTransform
   const { scaleX: currentScaleX = 1, scaleY: currentScaleY = 1 } = target
+  if (isPointerAtTransformStart({
+    transform: cropTransform,
+    x,
+    y
+  })) {
+    restoreOriginalScale({ transform: cropTransform })
+
+    return true
+  }
+
   const localPoint = controlsUtils.getLocalPoint(
     cropTransform,
     cropTransform.originX,
@@ -162,6 +195,19 @@ function scaleCropFrameFromSide({
   const currentScale = axis === 'x'
     ? target.scaleX ?? 1
     : target.scaleY ?? 1
+  if (isPointerAtTransformStart({
+    transform: cropTransform,
+    x,
+    y
+  })) {
+    restoreOriginalScaleForAxis({
+      transform: cropTransform,
+      axis
+    })
+
+    return true
+  }
+
   const localPoint = controlsUtils.getLocalPoint(
     cropTransform,
     cropTransform.originX,
@@ -180,6 +226,50 @@ function scaleCropFrameFromSide({
   if (axis === 'x') return currentScale !== target.scaleX
 
   return currentScale !== target.scaleY
+}
+
+/**
+ * Возвращает true, если drag-control получил событие без фактического движения pointer.
+ */
+function isPointerAtTransformStart({
+  transform,
+  x,
+  y
+}: {
+  transform: Transform
+  x: number
+  y: number
+}): boolean {
+  return Math.abs(x - transform.ex) <= POINTER_POSITION_EPSILON
+    && Math.abs(y - transform.ey) <= POINTER_POSITION_EPSILON
+}
+
+/**
+ * Возвращает обе scale-оси к значениям на старте Fabric transform.
+ */
+function restoreOriginalScale({ transform }: { transform: CropScaleTransform }): void {
+  transform.target.set({
+    scaleX: transform.original.scaleX,
+    scaleY: transform.original.scaleY
+  })
+}
+
+/**
+ * Возвращает одну scale-ось к значению на старте Fabric transform.
+ */
+function restoreOriginalScaleForAxis({
+  transform,
+  axis
+}: {
+  transform: CropScaleTransform
+  axis: CropScaleAxis
+}): void {
+  if (axis === 'x') {
+    transform.target.set('scaleX', transform.original.scaleX)
+    return
+  }
+
+  transform.target.set('scaleY', transform.original.scaleY)
 }
 
 /**
@@ -308,7 +398,7 @@ function resolveAxisScale({
   localPoint: { x: number; y: number }
 }): number {
   const { target } = transform
-  const dimensions = target._getTransformedDimensions()
+  const dimensions = getCropScaleDimensions({ target })
   const limits = getCropScaleLimits({ target })
   const currentScale = axis === 'x'
     ? target.scaleX ?? 1
@@ -348,7 +438,7 @@ function applyProportionalCornerScale({
   const { target } = transform
   if (target.lockScalingX || target.lockScalingY) return
 
-  const dimensions = target._getTransformedDimensions()
+  const dimensions = getCropScaleDimensions({ target })
   const scale = getProportionalScale({
     transform,
     localPoint,
@@ -413,6 +503,19 @@ function getOriginalCornerDistance({
 
   return Math.abs((dimensions.x * original.scaleX) / currentScaleX)
     + Math.abs((dimensions.y * original.scaleY) / currentScaleY)
+}
+
+/**
+ * Возвращает scale-размеры crop frame без stroke, потому что stroke не входит в crop result.
+ */
+function getCropScaleDimensions({ target }: { target: FabricObject }): CropScaleDimensions {
+  const scaleX = Math.abs(target.scaleX ?? 1)
+  const scaleY = Math.abs(target.scaleY ?? 1)
+
+  return {
+    x: Math.max(1, target.width * scaleX),
+    y: Math.max(1, target.height * scaleY)
+  }
 }
 
 /**
