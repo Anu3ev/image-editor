@@ -433,9 +433,17 @@ export default class CropManager {
     const { _session: session } = this
     if (!session) return
     if (!session.options.cancelOnSelectionClear) return
+    if (this._isSpacePanActive()) return
     if (this.editor.canvas.getActiveObject() === session.frame) return
 
     this.cancel()
+  }
+
+  /**
+   * Возвращает true, если текущая потеря focus связана с временным Space-pan.
+   */
+  private _isSpacePanActive(): boolean {
+    return Boolean(this.editor.listeners?.isSpacePressed)
   }
 
   /**
@@ -447,6 +455,7 @@ export default class CropManager {
     const { _session: session } = this
     if (!session) return
     if (!session.options.cancelOnSelectionClear) return
+    if (this._isSpacePanActive()) return
     if (target === session.frame) return
 
     const nextActiveObject = session.mode === 'image'
