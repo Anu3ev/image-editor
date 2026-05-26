@@ -23,6 +23,34 @@ export const wheel = (init?: WheelEventInit, target?: EventTarget): WheelEvent =
   return e
 }
 
+/**
+ * Минимальные viewport-координаты touch-точки для unit-событий.
+ */
+type TouchPointInit = {
+  clientX: number
+  clientY: number
+}
+
+/**
+ * Создаёт touch-событие для jsdom, где нативный TouchEvent недоступен стабильно.
+ */
+export const touch = (
+  type: 'touchstart' | 'touchmove' | 'touchend',
+  points: TouchPointInit[],
+  target?: EventTarget
+): TouchEvent => {
+  const e = new Event(type, {
+    bubbles: true,
+    cancelable: true
+  })
+
+  Object.defineProperty(e, 'touches', { value: points })
+  Object.defineProperty(e, 'changedTouches', { value: points })
+  if (target) Object.defineProperty(e, 'target', { value: target })
+
+  return e as TouchEvent
+}
+
 // GestureEvent не доступен в jsdom, поэтому для unit-тестов собираем совместимый Event вручную.
 export const gesture = (
   type: 'gesturestart' | 'gesturechange' | 'gestureend',

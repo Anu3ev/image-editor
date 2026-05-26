@@ -72,5 +72,11 @@ export const createCanvasStub = () => {
     upperCanvasEl: createUpperCanvasElementStub(),
     __handlers: handlers
   }
+
+  canvas.setViewportTransform.mockImplementation((viewportTransform: typeof canvas.viewportTransform) => {
+    canvas.viewportTransform = viewportTransform
+    canvas.requestRenderAll()
+  })
+
   return canvas as any
 }

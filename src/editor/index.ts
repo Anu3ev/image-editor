@@ -9,6 +9,7 @@ import FontManager from './font-manager'
 import ToolbarManager from './ui/toolbar-manager'
 import AngleIndicatorManager from './ui/angle-indicator'
 import ObjectSizeIndicatorManager from './ui/object-size-indicator'
+import ViewportScrollbarManager from './ui/viewport-scrollbar-manager'
 import HistoryManager, { CanvasFullState } from './history-manager'
 import ImageManager from './image-manager'
 import CanvasManager from './canvas-manager'
@@ -201,6 +202,11 @@ export class ImageEditor {
   public objectSizeIndicator?: ObjectSizeIndicatorManager
 
   /**
+   * Менеджер viewport-скроллбаров (опционально)
+   */
+  public viewportScrollbars?: ViewportScrollbarManager
+
+  /**
    * Менеджер шрифтов редактора
    */
   public fontManager!: FontManager
@@ -241,6 +247,7 @@ export class ImageEditor {
       scaleType,
       showRotationAngle,
       showObjectSizeOnScale,
+      showViewportScrollbars,
       _onReadyCallback
     } = this.options
 
@@ -297,6 +304,11 @@ export class ImageEditor {
     this.canvasManager.setCanvasCSSHeight(canvasCSSHeight)
     this.canvasManager.updateCanvas()
     this.zoomManager.calculateAndApplyDefaultZoom()
+
+    // Инициализируем viewport-скроллбары после расчёта начального camera-state
+    if (showViewportScrollbars) {
+      this.viewportScrollbars = new ViewportScrollbarManager({ editor: this })
+    }
 
     // Загружаем шрифты после того как редактор получил размеры
     await this.fontManager.loadFonts()
@@ -430,6 +442,7 @@ export class ImageEditor {
     this.toolbar.destroy()
     this.angleIndicator?.destroy()
     this.objectSizeIndicator?.destroy()
+    this.viewportScrollbars?.destroy()
     this.cropManager?.destroy()
     this.textManager?.destroy()
     this.selectionManager.destroy()

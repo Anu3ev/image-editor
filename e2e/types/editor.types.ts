@@ -28,12 +28,11 @@ export interface CanvasStateInfo {
   objectCount: number
 }
 
-/** Информация о montage area */
-export interface MontageAreaInfo {
-  width: number
-  height: number
-  left: number
-  top: number
+/** Смещение и zoom текущего viewportTransform canvas */
+export interface CanvasViewportTransformInfo {
+  x: number
+  y: number
+  zoom: number
 }
 
 /** Базовые границы элемента в viewport-координатах canvas. */
@@ -46,6 +45,44 @@ export interface ViewportBoundsInfo {
   bottom: number
   centerX: number
   centerY: number
+}
+
+/** DOM-состояние одного viewport-скроллбара. */
+export interface ViewportScrollbarAxisInfo {
+  thumb: ViewportBoundsInfo
+  track: ViewportBoundsInfo
+  visible: boolean
+}
+
+/** DOM-состояние viewport-скроллбаров редактора. */
+export interface ViewportScrollbarInfo {
+  horizontal: ViewportScrollbarAxisInfo
+  vertical: ViewportScrollbarAxisInfo
+}
+
+/** Состояние pan по одной оси viewport. */
+export interface ViewportPanAxisInfo {
+  canPan: boolean
+  current: number
+  max: number
+  min: number
+  ratio: number
+  scrollDistance: number
+}
+
+/** Состояние pan viewport. */
+export interface ViewportPanInfo {
+  canPan: boolean
+  horizontal: ViewportPanAxisInfo
+  vertical: ViewportPanAxisInfo
+}
+
+/** Информация о montage area */
+export interface MontageAreaInfo {
+  width: number
+  height: number
+  left: number
+  top: number
 }
 
 /** Состояние DOM-индикатора размеров объекта. */
