@@ -309,7 +309,8 @@ export const createEditorStub = () => {
       defaultScale: 0.8,
       minZoom: 0.1,
       maxZoom: 2,
-      scaleType: 'contain'
+      scaleType: 'contain',
+      showViewportScrollbars: true
     }
   } as any
 }

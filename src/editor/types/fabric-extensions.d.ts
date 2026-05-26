@@ -108,12 +108,14 @@ declare module 'fabric' {
      * scale-montage - масштабирует монтажную область до размеров изображения.
      *  - {Boolean} withoutSave - Не сохранять состояние редактора (по умолчанию false)
      *  - {String} contentType - Тип контента (например, 'image/png')
+     *  - {Object} customData - Произвольные данные, которые будут сохранены на объекте изображения.
      */
     initialImage: {
       source: string
       scale?: 'contain' | 'cover'
       withoutSave?: boolean,
       contentType?: string
+      customData?: object
     } | null
     /**
      * Дефолтный масштаб для редактора.
@@ -160,6 +162,10 @@ declare module 'fabric' {
      * Показывать текущую ширину и высоту объекта рядом с указателем во время скейлинга.
      */
     showObjectSizeOnScale: boolean
+    /**
+     * Показывать программные viewport-скроллбары для pan при увеличенном canvas.
+     */
+    showViewportScrollbars: boolean
     /**
      * Коллбэк, который будет вызван при готовности редактора.
      * Используется для выполнения действий после полной инициализации редактора.

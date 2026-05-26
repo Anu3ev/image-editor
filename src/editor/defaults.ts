@@ -85,6 +85,10 @@ export const defaults: Partial<CanvasOptions> = {
    * Показывать текущую ширину и высоту объекта рядом с указателем во время скейлинга.
    */
   showObjectSizeOnScale: true,
+  /**
+   * Показывать программные viewport-скроллбары для pan при увеличенном canvas.
+   */
+  showViewportScrollbars: true,
 
   /*
    * Настройки слушателей событий

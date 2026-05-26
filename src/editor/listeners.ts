@@ -37,6 +37,14 @@ interface TouchPointLike {
 }
 
 /**
+ * Минимальный контракт mouse/pointer события для pan по Space + ЛКМ.
+ */
+interface ClientPointerLike {
+  clientX: number
+  clientY: number
+}
+
+/**
  * Touch-событие с индексируемым списком активных точек касания.
  */
 interface TouchEventWithPoints extends Event {
@@ -754,7 +762,7 @@ class Listeners {
     this.lastPanPointerX = pointer.x
     this.lastPanPointerY = pointer.y
 
-    if (event instanceof MouseEvent) {
+    if (this._isClientPointerEvent(event)) {
       this.canvas.set('defaultCursor', 'grabbing')
       this.canvas.setCursor('grabbing')
     }
@@ -810,7 +818,10 @@ class Listeners {
    * @returns Точка pan-жеста или null, если событие не должно двигать viewport
    */
   private _getPanPointer(event: TPointerEvent): PanPointer | null {
-    if (event instanceof MouseEvent) {
+    const touchCenter = this._getTwoTouchCenter(event)
+
+    if (touchCenter) return touchCenter
+    if (this._isClientPointerEvent(event)) {
       if (!this.isSpacePressed) return null
 
       return {
@@ -819,7 +830,16 @@ class Listeners {
       }
     }
 
-    return this._getTwoTouchCenter(event)
+    return null
+  }
+
+  /**
+   * Проверяет, что событие несёт viewport coordinates указателя.
+   */
+  private _isClientPointerEvent(event: TPointerEvent): event is TPointerEvent & ClientPointerLike {
+    const pointer = event as Partial<ClientPointerLike>
+
+    return typeof pointer.clientX === 'number' && typeof pointer.clientY === 'number'
   }
 
   /**
