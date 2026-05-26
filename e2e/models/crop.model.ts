@@ -6,6 +6,7 @@ import type {
   CropControlKey,
   CropImageSourceInfo,
   CropResizeFromControlParams,
+  CropSizeInfo,
   CropStartParams,
   CropStateInfo,
   ObjectTargetParams
@@ -21,6 +22,18 @@ type CropResizePointer = {
 /** Результат browser-side шага drag crop frame. */
 type CropResizeDragResult = {
   point: CropResizePointer
+}
+
+/** Параметры browser-side drag crop frame с управлением live-сессией. */
+type CropFrameControlDragParams = CropResizeFromControlParams & {
+  continueInteraction?: boolean
+}
+
+/** Параметры resize crop frame до целевого размера результата. */
+type CropFrameResizeToSizeParams = {
+  control: CropControlKey
+  size: CropSizeInfo
+  shiftKey?: boolean
 }
 
 /** Соответствие drag-control crop frame его фиксированному противоположному control. */
@@ -182,6 +195,33 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Тянет crop-область из control до целевого результата в source-пикселях. */
+  async dragFrameFromControlToSize(params: CropFrameResizeToSizeParams): Promise<CropStateInfo> {
+    const resizeParams = await this.resolveResizeFromSize(params)
+
+    return this.dragFrameFromControl(resizeParams)
+  }
+
+  /** Продолжает активный drag crop-control без нового mousedown. */
+  async continueFrameResizeFromControl(params: CropResizeFromControlParams): Promise<CropStateInfo> {
+    const dragResult = await this.performFrameControlDrag({
+      ...params,
+      continueInteraction: true
+    })
+
+    this.lastResizePointer = dragResult.point
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
+  /** Продолжает активный drag crop-control до целевого результата в source-пикселях. */
+  async continueFrameResizeFromControlToSize(params: CropFrameResizeToSizeParams): Promise<CropStateInfo> {
+    const resizeParams = await this.resolveResizeFromSize(params)
+
+    return this.continueFrameResizeFromControl(resizeParams)
+  }
+
   /** Завершает активный resize crop frame через mouseup. */
   async finishFrameResize(): Promise<CropStateInfo> {
     const pointer = this.lastResizePointer
@@ -215,7 +255,7 @@ export class CropModel {
   }
 
   /** Выполняет browser-side drag crop-control и возвращает pointer для завершения drag. */
-  private async performFrameControlDrag(params: CropResizeFromControlParams): Promise<CropResizeDragResult> {
+  private async performFrameControlDrag(params: CropFrameControlDragParams): Promise<CropResizeDragResult> {
     const oppositeControl = OPPOSITE_CROP_CONTROL[params.control]
     const dragResult = await this.page.evaluate((payload) => {
       const {
@@ -223,7 +263,8 @@ export class CropModel {
         oppositeControl: opposite,
         widthRatio,
         heightRatio,
-        shiftKey = false
+        shiftKey = false,
+        continueInteraction = false
       } = payload
       const {
         editor,
@@ -238,7 +279,8 @@ export class CropModel {
         oppositeControl: opposite,
         scaleX: widthRatio,
         scaleY: heightRatio,
-        shiftKey
+        shiftKey,
+        continueInteraction
       })
       if (!result) return null
 
@@ -333,5 +375,30 @@ export class CropModel {
     }
 
     return state
+  }
+
+  /** Преобразует желаемый размер результата crop в ratio-параметры resize control. */
+  private async resolveResizeFromSize(params: CropFrameResizeToSizeParams): Promise<CropResizeFromControlParams> {
+    const state = await this.requireState()
+    const {
+      control,
+      size,
+      shiftKey
+    } = params
+    const { width, height } = state.rect
+
+    expect(width, 'текущая ширина crop frame должна быть больше нуля').toBeGreaterThan(0)
+    expect(height, 'текущая высота crop frame должна быть больше нуля').toBeGreaterThan(0)
+
+    if (width <= 0 || height <= 0) {
+      throw new Error('Текущий размер crop frame должен быть больше нуля')
+    }
+
+    return {
+      control,
+      widthRatio: size.width / width,
+      heightRatio: size.height / height,
+      shiftKey
+    }
   }
 }

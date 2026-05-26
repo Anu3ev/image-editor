@@ -1,36 +1,17 @@
 import { test, expect } from '../../fixtures/editor.fixture'
-
-/** Размер монтажной области, который используется в демо по умолчанию. */
-const DEFAULT_MONTAGE_SIZE = 512
-
-/** Стартовый размер crop-области для сценария растягивания до монтажной области. */
-const SMALLER_CROP_SIZE = 400
-
-/** Drag-target для сценария растягивания crop-области. */
-const LARGER_CROP_DRAG_TARGET_SIZE = 513
-
-/** Drag-target для сценария уменьшения crop-области. */
-const SHRUNK_CROP_DRAG_TARGET_SIZE = 372
-
-/** Размеры монтажной области, на которых полный crop не должен терять пиксель. */
-const FULL_CROP_MONTAGE_SIZES = [
-  {
-    width: 1027,
-    height: 1027
-  },
-  {
-    width: 767,
-    height: 768
-  },
-  {
-    width: 1024,
-    height: 1025
-  },
-  {
-    width: 2048,
-    height: 2049
-  }
-] as const
+import {
+  CROP_SIZE_INSIDE_SNAP_THRESHOLD,
+  DEFAULT_MONTAGE_SIZE,
+  FULL_CROP_MONTAGE_SIZES,
+  FULL_CROP_SNAP_THRESHOLD_CORNER_CASES,
+  FULL_CROP_SNAP_THRESHOLD_SIDE_CASES,
+  LARGER_CROP_TARGET_SIZE,
+  SHRUNK_CROP_TARGET_SIZE,
+  SMALLER_CROP_SIZE,
+  SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS,
+  SNAP_THRESHOLD_MONTAGE_SIZE,
+  SNAP_THRESHOLD_SCREEN_PIXELS
+} from '../../fixtures/data/crop-size-indicator.data'
 
 test.describe('Индикатор размеров crop-области', () => {
   test('при растягивании crop-области показывает размер, который применится после crop', async({
@@ -47,10 +28,12 @@ test.describe('Индикатор размеров crop-области', () => {
     })
 
     const liveState = await test.step('Растянуть crop-область', async() => {
-      return crop.dragFrameFromControl({
+      return crop.dragFrameFromControlToSize({
         control: 'br',
-        widthRatio: LARGER_CROP_DRAG_TARGET_SIZE / SMALLER_CROP_SIZE,
-        heightRatio: LARGER_CROP_DRAG_TARGET_SIZE / SMALLER_CROP_SIZE
+        size: {
+          width: LARGER_CROP_TARGET_SIZE,
+          height: LARGER_CROP_TARGET_SIZE
+        }
       })
     })
 
@@ -84,10 +67,12 @@ test.describe('Индикатор размеров crop-области', () => {
     })
 
     const liveState = await test.step('Уменьшить crop-область до пользовательского размера', async() => {
-      return crop.dragFrameFromControl({
+      return crop.dragFrameFromControlToSize({
         control: 'br',
-        widthRatio: SHRUNK_CROP_DRAG_TARGET_SIZE / DEFAULT_MONTAGE_SIZE,
-        heightRatio: SHRUNK_CROP_DRAG_TARGET_SIZE / DEFAULT_MONTAGE_SIZE
+        size: {
+          width: SHRUNK_CROP_TARGET_SIZE,
+          height: SHRUNK_CROP_TARGET_SIZE
+        }
       })
     })
 
@@ -107,11 +92,177 @@ test.describe('Индикатор размеров crop-области', () => {
     await test.step('Проверить что индикатор совпал с применённым размером', () => {
       expect(indicator.width).toBe(Math.round(liveState.rect.width))
       expect(indicator.height).toBe(Math.round(liveState.rect.height))
-      expect(montageAfter.width).toBe(SHRUNK_CROP_DRAG_TARGET_SIZE)
-      expect(montageAfter.height).toBe(SHRUNK_CROP_DRAG_TARGET_SIZE)
+      expect(montageAfter.width).toBe(SHRUNK_CROP_TARGET_SIZE)
+      expect(montageAfter.height).toBe(SHRUNK_CROP_TARGET_SIZE)
       expect(indicator.width).toBe(montageAfter.width)
       expect(indicator.height).toBe(montageAfter.height)
     })
+  })
+
+  test.describe('уменьшение полного crop около snap-порога', () => {
+    test.beforeEach(async({ canvas, crop }) => {
+      await canvas.setMontageResolution({
+        width: SNAP_THRESHOLD_MONTAGE_SIZE,
+        height: SNAP_THRESHOLD_MONTAGE_SIZE
+      })
+
+      await crop.startCanvasCrop()
+    })
+
+    for (const cropCase of FULL_CROP_SNAP_THRESHOLD_CORNER_CASES) {
+      test(`при уменьшении полного crop из ${cropCase.title} внутри snap-порога не показывает минус один пиксель`, async({
+        editorModel,
+        crop
+      }) => {
+        const heldState = await test.step('Уменьшить crop внутри snap-порога', async() => {
+          return crop.dragFrameFromControlToSize({
+            control: cropCase.control,
+            size: {
+              width: CROP_SIZE_INSIDE_SNAP_THRESHOLD,
+              height: CROP_SIZE_INSIDE_SNAP_THRESHOLD
+            }
+          })
+        })
+
+        const heldIndicator = await test.step('Получить индикатор пока snap держит край', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        const canvasState = await test.step('Получить текущий zoom canvas', async() => {
+          return editorModel.getCanvasState()
+        })
+        expect(canvasState.zoom).toBeGreaterThan(0)
+        if (canvasState.zoom <= 0) {
+          throw new Error('Zoom canvas должен быть больше нуля для расчёта snap-порога')
+        }
+
+        const snapThresholdInSourcePixels = Math.ceil(SNAP_THRESHOLD_SCREEN_PIXELS / canvasState.zoom)
+        const cropSizeOutsideSnapThreshold = SNAP_THRESHOLD_MONTAGE_SIZE
+          - snapThresholdInSourcePixels
+          - SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS
+
+        const releasedState = await test.step('Продолжить уменьшение crop за snap-порог', async() => {
+          return crop.continueFrameResizeFromControlToSize({
+            control: cropCase.control,
+            size: {
+              width: cropSizeOutsideSnapThreshold,
+              height: cropSizeOutsideSnapThreshold
+            }
+          })
+        })
+
+        const releasedIndicator = await test.step('Получить индикатор после выхода из snap-порога', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize', async() => {
+          await crop.finishFrameResize()
+        })
+
+        await test.step('Проверить удержание и выход из snap-порога', () => {
+          expect(Math.round(heldState.rect.width)).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(Math.round(heldState.rect.height)).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(heldIndicator.width).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(heldIndicator.height).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(Math.round(releasedState.rect.width)).toBeLessThanOrEqual(
+            SNAP_THRESHOLD_MONTAGE_SIZE - snapThresholdInSourcePixels
+          )
+          expect(Math.round(releasedState.rect.height)).toBeLessThanOrEqual(
+            SNAP_THRESHOLD_MONTAGE_SIZE - snapThresholdInSourcePixels
+          )
+          expect(releasedIndicator.width).toBe(Math.round(releasedState.rect.width))
+          expect(releasedIndicator.height).toBe(Math.round(releasedState.rect.height))
+        })
+      })
+    }
+
+    for (const cropCase of FULL_CROP_SNAP_THRESHOLD_SIDE_CASES) {
+      test(`при уменьшении полного crop из ${cropCase.title} внутри snap-порога не показывает минус один пиксель по активной оси`, async({
+        editorModel,
+        crop
+      }) => {
+        const heldSize = cropCase.axis === 'horizontal'
+          ? {
+            width: CROP_SIZE_INSIDE_SNAP_THRESHOLD,
+            height: SNAP_THRESHOLD_MONTAGE_SIZE
+          }
+          : {
+            width: SNAP_THRESHOLD_MONTAGE_SIZE,
+            height: CROP_SIZE_INSIDE_SNAP_THRESHOLD
+          }
+
+        const heldState = await test.step('Уменьшить crop внутри snap-порога', async() => {
+          return crop.dragFrameFromControlToSize({
+            control: cropCase.control,
+            size: heldSize
+          })
+        })
+
+        const heldIndicator = await test.step('Получить индикатор пока snap держит край', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        const canvasState = await test.step('Получить текущий zoom canvas', async() => {
+          return editorModel.getCanvasState()
+        })
+        expect(canvasState.zoom).toBeGreaterThan(0)
+        if (canvasState.zoom <= 0) {
+          throw new Error('Zoom canvas должен быть больше нуля для расчёта snap-порога')
+        }
+
+        const snapThresholdInSourcePixels = Math.ceil(SNAP_THRESHOLD_SCREEN_PIXELS / canvasState.zoom)
+        const cropSizeOutsideSnapThreshold = SNAP_THRESHOLD_MONTAGE_SIZE
+          - snapThresholdInSourcePixels
+          - SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS
+        const releasedSize = cropCase.axis === 'horizontal'
+          ? {
+            width: cropSizeOutsideSnapThreshold,
+            height: SNAP_THRESHOLD_MONTAGE_SIZE
+          }
+          : {
+            width: SNAP_THRESHOLD_MONTAGE_SIZE,
+            height: cropSizeOutsideSnapThreshold
+          }
+
+        const releasedState = await test.step('Продолжить уменьшение crop за snap-порог', async() => {
+          return crop.continueFrameResizeFromControlToSize({
+            control: cropCase.control,
+            size: releasedSize
+          })
+        })
+
+        const releasedIndicator = await test.step('Получить индикатор после выхода из snap-порога', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize', async() => {
+          await crop.finishFrameResize()
+        })
+
+        await test.step('Проверить удержание и выход из snap-порога по активной оси', () => {
+          expect(Math.round(heldState.rect.width)).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(Math.round(heldState.rect.height)).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(heldIndicator.width).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(heldIndicator.height).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(releasedIndicator.width).toBe(Math.round(releasedState.rect.width))
+          expect(releasedIndicator.height).toBe(Math.round(releasedState.rect.height))
+
+          if (cropCase.axis === 'horizontal') {
+            expect(Math.round(releasedState.rect.width)).toBeLessThanOrEqual(
+              SNAP_THRESHOLD_MONTAGE_SIZE - snapThresholdInSourcePixels
+            )
+            expect(Math.round(releasedState.rect.height)).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+
+            return
+          }
+
+          expect(Math.round(releasedState.rect.width)).toBe(SNAP_THRESHOLD_MONTAGE_SIZE)
+          expect(Math.round(releasedState.rect.height)).toBeLessThanOrEqual(
+            SNAP_THRESHOLD_MONTAGE_SIZE - snapThresholdInSourcePixels
+          )
+        })
+      })
+    }
   })
 
   for (const montageSize of FULL_CROP_MONTAGE_SIZES) {
@@ -129,10 +280,9 @@ test.describe('Индикатор размеров crop-области', () => {
       })
 
       const liveState = await test.step('Потянуть crop-область без изменения полного размера', async() => {
-        return crop.dragFrameFromControl({
+        return crop.dragFrameFromControlToSize({
           control: 'br',
-          widthRatio: 1,
-          heightRatio: 1
+          size: montageSize
         })
       })
 
