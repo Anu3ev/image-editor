@@ -1,7 +1,6 @@
 import {
   BasicTransformEvent,
   Canvas,
-  FabricImage,
   FabricObject,
   Textbox,
   Transform,
@@ -13,7 +12,6 @@ import { ImageEditor } from '..'
 import {
   GUIDE_COLOR,
   GUIDE_WIDTH,
-  MOVE_SNAP_STEP,
   SNAP_THRESHOLD,
   SPACING_CONTEXT_SWITCH_DISTANCE,
   SPACING_SNAP_HOLD_MARGIN
@@ -24,6 +22,11 @@ import {
   type SpacingContextByAxis
 } from './calculations'
 import { drawSpacingGuide } from './renderer'
+import {
+  applyMovementStep,
+  applyScalingStep,
+  shouldApplyPixelScalingStep
+} from './pixel-grid'
 import type {
   AnchorBuckets,
   Bounds,
@@ -242,7 +245,7 @@ export default class SnappingManager {
       return
     }
 
-    SnappingManager._applyMovementStep({
+    applyMovementStep({
       target,
       transform
     })
@@ -310,7 +313,7 @@ export default class SnappingManager {
     }
 
     if (!hasSpacingSnap) {
-      SnappingManager._applyMovementStep({
+      applyMovementStep({
         target,
         transform
       })
@@ -351,20 +354,20 @@ export default class SnappingManager {
       return
     }
 
-    const shouldApplyPixelScalingStep = SnappingManager._shouldApplyPixelScalingStep({
+    const canApplyPixelScalingStep = shouldApplyPixelScalingStep({
       target
     })
     const isCtrlPressed = Boolean(e?.ctrlKey)
     if (isCtrlPressed) {
       this._clearGuides()
-      if (shouldApplyPixelScalingStep) {
-        SnappingManager._applyScalingStep({ target, transform })
+      if (canApplyPixelScalingStep) {
+        applyScalingStep({ target, transform })
       }
       return
     }
 
-    if (shouldApplyPixelScalingStep) {
-      SnappingManager._applyScalingStep({ target, transform })
+    if (canApplyPixelScalingStep) {
+      applyScalingStep({ target, transform })
     }
 
     const {
@@ -558,11 +561,12 @@ export default class SnappingManager {
           object: target,
           placement: anchorPlacement
         })
+        target.setCoords()
       }
     }
 
-    if (shouldApplyPixelScalingStep) {
-      SnappingManager._applyScalingStep({ target, transform })
+    if (canApplyPixelScalingStep) {
+      applyScalingStep({ target, transform })
     }
 
     this._applyGuides({
@@ -1272,138 +1276,6 @@ export default class SnappingManager {
     if (!Number.isFinite(rawWidth) || rawWidth <= 0) return null
 
     return Math.max(1, Math.round(rawWidth))
-  }
-
-  /**
-   * Возвращает true, если live-scaling объекта нужно округлять до целого пиксельного размера.
-   * Для изображений и текста сохраняем их собственный runtime-контракт без дополнительной квантизации:
-   * изображения полагаются на нативное поведение Fabric, а текст материализует scale через TextManager.
-   */
-  private static _shouldApplyPixelScalingStep({ target }: { target: FabricObject }): boolean {
-    const targetType = typeof target.type === 'string' ? target.type.toLowerCase() : ''
-    const isTextTarget = target instanceof Textbox
-      || targetType === 'textbox'
-      || targetType === 'background-textbox'
-
-    return !(target instanceof FabricImage) && !isTextTarget
-  }
-
-  /**
-   * Применяет шаг перемещения, округляя координаты объекта к сетке MOVE_SNAP_STEP.
-   */
-  private static _applyMovementStep({
-    target,
-    transform
-  }: {
-    target: FabricObject
-    transform?: Transform | null
-  }): void {
-    const { left = 0, top = 0 } = target
-    const snappedLeft = Math.round(left / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
-    const snappedTop = Math.round(top / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
-    const originalLeft = typeof transform?.original?.left === 'number'
-      ? transform.original.left
-      : null
-    const originalTop = typeof transform?.original?.top === 'number'
-      ? transform.original.top
-      : null
-    const shouldSnapX = originalLeft === null || originalLeft !== left
-    const shouldSnapY = originalTop === null || originalTop !== top
-    const updates: Partial<Record<'left' | 'top', number>> = {}
-
-    if (shouldSnapX && snappedLeft !== left) {
-      updates.left = snappedLeft
-    }
-
-    if (shouldSnapY && snappedTop !== top) {
-      updates.top = snappedTop
-    }
-
-    if (!('left' in updates) && !('top' in updates)) return
-
-    target.set(updates)
-    target.setCoords()
-  }
-
-  /**
-   * Округляет масштаб объекта так, чтобы его визуальный размер в пикселях был целым числом (минимум 1).
-   */
-  private static _applyScalingStep({
-    target,
-    transform
-  }: {
-    target: FabricObject
-    transform?: Transform | null
-  }): void {
-    const {
-      scaleX: rawScaleX = 1,
-      scaleY: rawScaleY = 1
-    } = target
-    const { width: effectiveWidth, height: effectiveHeight } = SnappingManager._resolveEffectiveDimensions({ target })
-    const isUniform = rawScaleX === rawScaleY
-
-    let snappedScaleX = rawScaleX
-    let snappedScaleY = rawScaleY
-
-    if (isUniform) {
-      const candidateFromWidth = effectiveWidth > 0
-        ? Math.max(1, Math.round(effectiveWidth * rawScaleX)) / effectiveWidth
-        : rawScaleX
-      const candidateFromHeight = effectiveHeight > 0
-        ? Math.max(1, Math.round(effectiveHeight * rawScaleY)) / effectiveHeight
-        : rawScaleY
-      const errorX = Math.abs(candidateFromWidth - rawScaleX)
-      const errorY = Math.abs(candidateFromHeight - rawScaleY)
-      const uniformScale = errorX <= errorY ? candidateFromWidth : candidateFromHeight
-
-      snappedScaleX = uniformScale
-      snappedScaleY = uniformScale
-    } else {
-      snappedScaleX = effectiveWidth > 0
-        ? Math.max(1, Math.round(effectiveWidth * rawScaleX)) / effectiveWidth
-        : rawScaleX
-      snappedScaleY = effectiveHeight > 0
-        ? Math.max(1, Math.round(effectiveHeight * rawScaleY)) / effectiveHeight
-        : rawScaleY
-    }
-
-    const isAlreadySnapped = snappedScaleX === rawScaleX && snappedScaleY === rawScaleY
-
-    if (isAlreadySnapped) return
-
-    target.set({
-      scaleX: snappedScaleX,
-      scaleY: snappedScaleY
-    })
-
-    if (transform) {
-      transform.scaleX = snappedScaleX
-      transform.scaleY = snappedScaleY
-    }
-
-    target.setCoords()
-  }
-
-  /**
-   * Возвращает эффективные размеры объекта (без масштаба), включая strokeWidth если он масштабируется вместе с объектом.
-   */
-  private static _resolveEffectiveDimensions({ target }: { target: FabricObject }): { width: number; height: number } {
-    if (target instanceof Textbox) {
-      return SnappingManager._resolveBaseDimensions({ target })
-    }
-
-    const {
-      width = 0,
-      height = 0,
-      strokeWidth = 0,
-      strokeUniform = false
-    } = target
-    const strokeContribution = strokeUniform ? 0 : strokeWidth
-
-    return {
-      width: width + strokeContribution,
-      height: height + strokeContribution
-    }
   }
 
   /**

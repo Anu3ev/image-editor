@@ -14,6 +14,16 @@ export class Point {
   scalarAdd(value: number) {
     return new Point(this.x + value, this.y + value)
   }
+
+  /** Применяет 2D affine matrix так же, как Point.transform в Fabric. */
+  transform(matrix: [number, number, number, number, number, number]) {
+    const [a, b, c, d, e, f] = matrix
+
+    return new Point(
+      (this.x * a) + (this.y * c) + e,
+      (this.x * b) + (this.y * d) + f
+    )
+  }
 }
 
 export class Canvas {

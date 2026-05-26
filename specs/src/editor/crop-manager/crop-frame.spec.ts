@@ -41,4 +41,31 @@ describe('crop frame', () => {
     expect(context.stroke).not.toHaveBeenCalled()
     expect(context.restore).not.toHaveBeenCalled()
   })
+
+  it('возвращает snapping bounds без учёта stroke и control padding', () => {
+    const frame = new CropFrame({
+      left: 200,
+      top: 150,
+      width: 100,
+      height: 60,
+      scaleX: 2,
+      scaleY: 0.5,
+      originX: 'center',
+      originY: 'center',
+      strokeWidth: 12,
+      strokeUniform: true,
+      showGrid: false
+    })
+
+    frame.calcTransformMatrix = jest.fn(() => [2, 0, 0, 0.5, 200, 150])
+
+    const bounds = frame.getObjectSnappingBounds()
+
+    expect(bounds.left).toBe(100)
+    expect(bounds.right).toBe(300)
+    expect(bounds.top).toBe(135)
+    expect(bounds.bottom).toBe(165)
+    expect(bounds.centerX).toBe(200)
+    expect(bounds.centerY).toBe(150)
+  })
 })

@@ -394,6 +394,18 @@ declare module 'fabric' {
      * Используется объектами, у которых итоговый доменный размер отличается от visual bbox.
      */
     getObjectDisplaySize?(): { width: number; height: number };
+
+    /**
+     * Возвращает границы объекта для snapping/measurement, если visual bbox не совпадает с доменной геометрией.
+     */
+    getObjectSnappingBounds?(): {
+      left: number;
+      right: number;
+      top: number;
+      bottom: number;
+      centerX: number;
+      centerY: number;
+    };
   }
 
   interface RectProps {
@@ -426,7 +438,29 @@ declare module 'fabric' {
     id?: string;
   }
 
-  interface TextboxProps {
+  interface EditorTextboxPaddingProperties {
+    /**
+     * Верхний внутренний отступ текстового блока в editor-пикселях.
+     */
+    paddingTop?: number;
+
+    /**
+     * Правый внутренний отступ текстового блока в editor-пикселях.
+     */
+    paddingRight?: number;
+
+    /**
+     * Нижний внутренний отступ текстового блока в editor-пикселях.
+     */
+    paddingBottom?: number;
+
+    /**
+     * Левый внутренний отступ текстового блока в editor-пикселях.
+     */
+    paddingLeft?: number;
+  }
+
+  interface TextboxProps extends EditorTextboxPaddingProperties {
     /**
      * Исходное значение текста без преобразования регистра.
      */
@@ -445,7 +479,7 @@ declare module 'fabric' {
     autoExpand?: boolean;
   }
 
-  interface Textbox {
+  interface Textbox extends EditorTextboxPaddingProperties {
     /**
      * Исходное значение текста без преобразования регистра.
      */
