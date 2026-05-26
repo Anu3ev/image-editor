@@ -11,6 +11,18 @@ import type {
   ObjectTargetParams
 } from '../types'
 
+/** Последняя pointer-позиция live resize crop frame. */
+type CropResizePointer = {
+  x: number
+  y: number
+  shiftKey: boolean
+}
+
+/** Результат browser-side шага drag crop frame. */
+type CropResizeDragResult = {
+  point: CropResizePointer
+}
+
 /** Соответствие drag-control crop frame его фиксированному противоположному control. */
 const OPPOSITE_CROP_CONTROL = {
   tl: 'br',
@@ -25,6 +37,9 @@ const OPPOSITE_CROP_CONTROL = {
 
 export class CropModel {
   private readonly page: Page
+
+  /** Pointer-позиция последнего незавершённого resize crop frame. */
+  private lastResizePointer: CropResizePointer | null = null
 
   constructor(page: Page) {
     this.page = page
@@ -152,8 +167,57 @@ export class CropModel {
 
   /** Масштабирует crop-область из control через реальную Fabric drag-сессию. */
   async resizeFrameFromControl(params: CropResizeFromControlParams): Promise<CropStateInfo> {
-    const oppositeControl = OPPOSITE_CROP_CONTROL[params.control]
+    await this.dragFrameFromControl(params)
+
+    return this.finishFrameResize()
+  }
+
+  /** Тянет crop-область из control и оставляет Fabric drag-сессию активной. */
+  async dragFrameFromControl(params: CropResizeFromControlParams): Promise<CropStateInfo> {
+    const dragResult = await this.performFrameControlDrag(params)
+
+    this.lastResizePointer = dragResult.point
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
+  /** Завершает активный resize crop frame через mouseup. */
+  async finishFrameResize(): Promise<CropStateInfo> {
+    const pointer = this.lastResizePointer
+
+    expect(pointer, 'должна существовать активная resize-сессия crop frame').not.toBeNull()
+    if (!pointer) {
+      throw new Error('Нельзя завершить resize crop frame без активной drag-сессии')
+    }
+
     const state = await this.page.evaluate((payload) => {
+      const { editor } = window as any
+
+      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        buttons: 0,
+        clientX: payload.x,
+        clientY: payload.y,
+        shiftKey: payload.shiftKey
+      }))
+
+      return editor.cropManager.getState()
+    }, pointer)
+
+    this.lastResizePointer = null
+
+    expect(state, 'после mouseup crop mode должен остаться активным').not.toBeNull()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
+  /** Выполняет browser-side drag crop-control и возвращает pointer для завершения drag. */
+  private async performFrameControlDrag(params: CropResizeFromControlParams): Promise<CropResizeDragResult> {
+    const oppositeControl = OPPOSITE_CROP_CONTROL[params.control]
+    const dragResult = await this.page.evaluate((payload) => {
       const {
         control,
         oppositeControl: opposite,
@@ -178,25 +242,26 @@ export class CropModel {
       })
       if (!result) return null
 
-      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
-        bubbles: true,
-        button: 0,
-        buttons: 0,
-        clientX: result.point.x,
-        clientY: result.point.y,
-        shiftKey
-      }))
+      if (!editor.cropManager.getState()) return null
 
-      return editor.cropManager.getState()
+      return {
+        point: {
+          x: result.point.x,
+          y: result.point.y,
+          shiftKey: result.shiftKey
+        }
+      }
     }, {
       ...params,
       oppositeControl
     })
 
-    expect(state, 'после resize crop mode должен остаться активным').not.toBeNull()
-    await waitForCanvasRender({ page: this.page })
+    expect(dragResult, 'после drag crop mode должен остаться активным').not.toBeNull()
+    if (!dragResult) {
+      throw new Error('Не удалось выполнить drag crop-control')
+    }
 
-    return this.requireState()
+    return dragResult
   }
 
   /** Кликает в центр canvas-объекта реальным mouse-событием. */

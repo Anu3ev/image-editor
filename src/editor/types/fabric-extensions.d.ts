@@ -388,6 +388,12 @@ declare module 'fabric' {
      * Роль объекта внутри shape-группы.
      */
     shapeNodeType?: 'shape' | 'text';
+
+    /**
+     * Возвращает текущий доменный размер объекта в editor-пикселях.
+     * Используется объектами, у которых итоговый доменный размер отличается от visual bbox.
+     */
+    getObjectDisplaySize?(): { width: number; height: number };
   }
 
   interface RectProps {

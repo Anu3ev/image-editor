@@ -21,6 +21,7 @@ export interface ObjectSizeIndicatorTargetStub {
   lockScalingY?: boolean
   getScaledWidth: jest.Mock<number, []>
   getScaledHeight: jest.Mock<number, []>
+  getObjectDisplaySize?: jest.Mock<{ width: number; height: number }, []>
 }
 
 /** Минимальная форма Fabric transform event, нужная ObjectSizeIndicatorManager. */
@@ -114,6 +115,7 @@ export const createObjectSizeIndicatorTarget = ({
   id = 'test-object',
   width = 120,
   height = 80,
+  indicatorSize,
   locked = false,
   lockScalingX = false,
   lockScalingY = false
@@ -121,25 +123,36 @@ export const createObjectSizeIndicatorTarget = ({
   id?: string
   width?: number
   height?: number
+  indicatorSize?: { width: number; height: number }
   locked?: boolean
   lockScalingX?: boolean
   lockScalingY?: boolean
-} = {}): ObjectSizeIndicatorTargetStub => ({
-  id,
-  locked,
-  lockScalingX,
-  lockScalingY,
-  getScaledWidth: jest.fn(() => width),
-  getScaledHeight: jest.fn(() => height)
-})
+} = {}): ObjectSizeIndicatorTargetStub => {
+  const target: ObjectSizeIndicatorTargetStub = {
+    id,
+    locked,
+    lockScalingX,
+    lockScalingY,
+    getScaledWidth: jest.fn(() => width),
+    getScaledHeight: jest.fn(() => height)
+  }
+
+  if (indicatorSize) {
+    target.getObjectDisplaySize = jest.fn(() => indicatorSize)
+  }
+
+  return target
+}
 
 /** Создаёт ObjectSizeIndicatorManager с минимальными editor/canvas mocks. */
 export const createObjectSizeIndicatorManagerFixture = ({
   width,
-  height
+  height,
+  indicatorSize
 }: {
   width?: number
   height?: number
+  indicatorSize?: { width: number; height: number }
 } = {}): ObjectSizeIndicatorManagerTestFixture => {
   const {
     mockCanvas,
@@ -147,7 +160,7 @@ export const createObjectSizeIndicatorManagerFixture = ({
   } = createManagerTestMocks()
   mockEditor.options.showObjectSizeOnScale = true
 
-  const target = createObjectSizeIndicatorTarget({ width, height })
+  const target = createObjectSizeIndicatorTarget({ width, height, indicatorSize })
   const manager = new ObjectSizeIndicatorManager({ editor: mockEditor })
   mockElementBounds({
     element: manager.el,
