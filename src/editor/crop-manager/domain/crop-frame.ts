@@ -7,6 +7,7 @@ import {
 import { nanoid } from 'nanoid'
 
 import { applyCropResizeControls } from '../interaction/crop-controls'
+import { getCropFrameSourceSize } from './crop-frame-size'
 import type { CropSize } from '../types'
 
 /**
@@ -72,6 +73,13 @@ export class CropFrame extends Rect {
       width: this.width,
       height: this.height
     })
+  }
+
+  /**
+   * Возвращает размер crop frame, который совпадает с результатом применения crop.
+   */
+  public getObjectDisplaySize(): CropSize {
+    return getCropFrameSourceSize({ frame: this })
   }
 }
 

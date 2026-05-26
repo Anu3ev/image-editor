@@ -78,6 +78,29 @@ describe('ObjectSizeIndicatorManager', () => {
     expect(manager.el.textContent).toBe('ширина: 181 высота: 76')
   })
 
+  it('использует доменный размер объекта, если он отличается от visual bbox', () => {
+    const {
+      manager,
+      mockCanvas,
+      target
+    } = createObjectSizeIndicatorManagerFixture({
+      width: 513,
+      height: 513,
+      indicatorSize: {
+        width: 512,
+        height: 512
+      }
+    })
+
+    getCanvasHandler(mockCanvas, 'object:scaling')(createObjectSizeTransformEvent({ target }))
+
+    expect(manager.el.style.display).toBe('block')
+    expect(manager.el.textContent).toBe('ширина: 512 высота: 512')
+    expect(target.getObjectDisplaySize).toHaveBeenCalledTimes(1)
+    expect(target.getScaledWidth).not.toHaveBeenCalled()
+    expect(target.getScaledHeight).not.toHaveBeenCalled()
+  })
+
   it('не показывает индикатор на mouse:move, если активная трансформация не меняет размер', () => {
     const {
       manager,

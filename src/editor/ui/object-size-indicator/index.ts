@@ -185,8 +185,26 @@ export default class ObjectSizeIndicatorManager {
    * Возвращает текущие размеры объекта с учётом live-scale, но без screen zoom.
    */
   private static _resolveDisplaySize({ target }: { target: FabricObject }): ObjectDisplaySize | null {
-    const width = Math.abs(target.getScaledWidth())
-    const height = Math.abs(target.getScaledHeight())
+    const customSize = target.getObjectDisplaySize?.()
+
+    if (customSize) {
+      return ObjectSizeIndicatorManager._normalizeDisplaySize({ size: customSize })
+    }
+
+    return ObjectSizeIndicatorManager._normalizeDisplaySize({
+      size: {
+        width: target.getScaledWidth(),
+        height: target.getScaledHeight()
+      }
+    })
+  }
+
+  /**
+   * Нормализует размер перед показом в индикаторе.
+   */
+  private static _normalizeDisplaySize({ size }: { size: ObjectDisplaySize }): ObjectDisplaySize | null {
+    const width = Math.abs(size.width)
+    const height = Math.abs(size.height)
 
     if (!Number.isFinite(width) || !Number.isFinite(height)) return null
 
