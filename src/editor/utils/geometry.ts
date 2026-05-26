@@ -187,6 +187,18 @@ export const snapObjectToPixelGrid = ({
 }
 
 /**
+ * Проверяет, что кастомные bounds можно использовать в геометрических расчётах.
+ */
+function isFiniteObjectBounds({ bounds }: { bounds: ObjectBounds }): boolean {
+  return Number.isFinite(bounds.left)
+    && Number.isFinite(bounds.right)
+    && Number.isFinite(bounds.top)
+    && Number.isFinite(bounds.bottom)
+    && Number.isFinite(bounds.centerX)
+    && Number.isFinite(bounds.centerY)
+}
+
+/**
  * Возвращает bounding box объекта с учётом трансформации и округлением до целых пикселей.
  */
 export const getObjectBounds = ({
@@ -196,9 +208,14 @@ export const getObjectBounds = ({
 }): ObjectBounds | null => {
   if (!object) return null
 
+  const customBounds = object.getObjectSnappingBounds?.()
+  if (customBounds && isFiniteObjectBounds({ bounds: customBounds })) {
+    return customBounds
+  }
+
   try {
     object.setCoords()
-    const rect = object.getBoundingRect(false, true)
+    const rect = object.getBoundingRect()
     const {
       left: rawLeft = 0,
       top: rawTop = 0,

@@ -74,6 +74,55 @@ describe('getObjectBounds', () => {
     expect(bounds?.centerY).toBe(20 + 15)
   })
 
+  it('использует кастомные snapping bounds объекта вместо visual bbox', () => {
+    const obj = createBoundsObject({ left: 10, top: 20, width: 50, height: 30 })
+    const customBounds = {
+      left: 100,
+      right: 200,
+      top: 300,
+      bottom: 360,
+      centerX: 150,
+      centerY: 330
+    }
+
+    obj.getObjectSnappingBounds = jest.fn(() => customBounds)
+
+    const bounds = getObjectBounds({ object: obj })
+
+    expect(bounds).toEqual(customBounds)
+    expect(obj.getObjectSnappingBounds).toHaveBeenCalledTimes(1)
+    expect(obj.getBoundingRect).not.toHaveBeenCalled()
+    expect(obj.setCoords).not.toHaveBeenCalled()
+  })
+
+  it('возвращается к visual bbox, если кастомные snapping bounds невалидны', () => {
+    const obj = createBoundsObject({ left: 0, top: 0, width: 50, height: 30 })
+
+    obj.getObjectSnappingBounds = jest.fn(() => ({
+      left: Number.NaN,
+      right: 40,
+      top: 50,
+      bottom: 80,
+      centerX: 20,
+      centerY: 65
+    }))
+    obj.getBoundingRect.mockReturnValue({ left: 12.4, top: 24.2, width: 30.6, height: 19.6 })
+
+    const bounds = getObjectBounds({ object: obj })
+
+    expect(bounds).toEqual({
+      left: 12.4,
+      right: 43.4,
+      top: 24.2,
+      bottom: 44.2,
+      centerX: 27.9,
+      centerY: 34.2
+    })
+    expect(obj.getObjectSnappingBounds).toHaveBeenCalledTimes(1)
+    expect(obj.getBoundingRect).toHaveBeenCalledTimes(1)
+    expect(obj.setCoords).toHaveBeenCalledTimes(1)
+  })
+
   it('возвращает null при ошибке в getBoundingRect', () => {
     const obj: any = {
       setCoords: jest.fn(),
