@@ -262,6 +262,41 @@ test.describe('Crop mode', () => {
     })
   })
 
+  test('Space + ЛКМ двигает viewport и не сбрасывает crop монтажной области', async({
+    editorModel,
+    crop
+  }) => {
+    const cropBefore = await test.step('Войти в crop монтажной области', async() => {
+      return crop.startCanvasCrop({
+        cancelOnSelectionClear: true
+      })
+    })
+
+    await test.step('Приблизить canvas до доступного pan по обеим осям', async() => {
+      const panState = await editorModel.zoomInUntilViewportCanMove()
+
+      expect(panState.horizontal.canPan).toBe(true)
+      expect(panState.vertical.canPan).toBe(true)
+    })
+
+    await test.step('Подвигать viewport через реальный Space + ЛКМ drag', async() => {
+      await editorModel.dragViewportBySpaceMouse({
+        deltaX: -120,
+        deltaY: -90
+      })
+    })
+
+    await test.step('Проверить что crop mode и выделение crop-области восстановились', async() => {
+      const cropAfter = await crop.requireState()
+      const activeObject = await editorModel.getActiveObject()
+
+      expect(cropAfter.frame.id).toBe(cropBefore.frame.id)
+      expect(cropAfter.rect.width).toBe(cropBefore.rect.width)
+      expect(cropAfter.rect.height).toBe(cropBefore.rect.height)
+      expect(activeObject?.id).toBe(cropBefore.frame.id)
+    })
+  })
+
   test('кроп изображения больше его размера добавляет прозрачные поля без cropX/cropY', async({
     crop,
     images
