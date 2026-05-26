@@ -12,6 +12,7 @@ import {
   MIN_CROP_FRAME_HEIGHT,
   MIN_CROP_FRAME_WIDTH
 } from '../domain/crop-geometry'
+import { getCropFrameSourceSize } from '../domain/crop-frame-size'
 
 /**
  * Угловые controls, которые отвечают за диагональный resize crop frame.
@@ -428,8 +429,8 @@ function clampProportionalCornerScale({
   scale: number
   forceMinimum: boolean
 }): { scaleX: number; scaleY: number } {
-  const startSize = getCropFrameLocalSize({
-    target,
+  const startSize = getCropFrameSourceSize({
+    frame: target,
     scaleX: transform.original.scaleX,
     scaleY: transform.original.scaleY
   })
@@ -452,28 +453,6 @@ function clampProportionalCornerScale({
   return {
     scaleX: transform.original.scaleX * nextScale,
     scaleY: transform.original.scaleY * nextScale
-  }
-}
-
-/**
- * Возвращает crop-размер frame в локальных пикселях источника.
- */
-function getCropFrameLocalSize({
-  target,
-  scaleX,
-  scaleY
-}: {
-  target: FabricObject
-  scaleX: number
-  scaleY: number
-}): { width: number; height: number } {
-  const cropTarget = target as CropFrameScaleTarget
-  const sourceScaleX = Math.abs(cropTarget.cropSourceScaleX ?? 1) || 1
-  const sourceScaleY = Math.abs(cropTarget.cropSourceScaleY ?? 1) || 1
-
-  return {
-    width: Math.max(1, (target.width * Math.abs(scaleX)) / sourceScaleX),
-    height: Math.max(1, (target.height * Math.abs(scaleY)) / sourceScaleY)
   }
 }
 
