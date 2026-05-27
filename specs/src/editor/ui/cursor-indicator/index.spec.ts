@@ -4,6 +4,7 @@ import {
 } from '../../../../../src/editor/ui/cursor-indicator/constants'
 import {
   createCursorIndicatorFixture,
+  createCursorTouchEventStub,
   TEST_CURSOR_INDICATOR_CLASS
 } from '../../../../test-utils/ui/indicator-test-utils'
 
@@ -122,6 +123,67 @@ describe('CursorIndicator', () => {
 
     expect(indicator.el.style.display).toBe('none')
     expect(indicator.el.textContent).toBe('')
+  })
+
+  it('скрывает индикатор, если synthetic event не содержит клиентских координат', () => {
+    const { indicator } = createCursorIndicatorFixture()
+
+    indicator.showAtPointer({
+      text: 'visible',
+      event: new MouseEvent('mousemove', {
+        clientX: 200,
+        clientY: 140
+      })
+    })
+    indicator.showAtPointer({
+      text: 'hidden',
+      event: new Event('mousemove') as MouseEvent
+    })
+
+    expect(indicator.el.style.display).toBe('none')
+    expect(indicator.el.textContent).toBe('')
+  })
+
+  it('берёт координаты из первого touch, если mouse path недоступен', () => {
+    const { indicator } = createCursorIndicatorFixture()
+
+    indicator.showAtPointer({
+      text: 'touch',
+      event: createCursorTouchEventStub({
+        touches: [
+          {
+            clientX: 420,
+            clientY: 230
+          }
+        ]
+      })
+    })
+
+    expect(indicator.el.style.display).toBe('block')
+    expect(indicator.el.textContent).toBe('touch')
+    expect(indicator.el.style.left).toBe(`${320 + CURSOR_INDICATOR_OFFSET_X}px`)
+    expect(indicator.el.style.top).toBe(`${180 + CURSOR_INDICATOR_OFFSET_Y}px`)
+  })
+
+  it('берёт координаты из changedTouches, если текущих touches уже нет', () => {
+    const { indicator } = createCursorIndicatorFixture()
+
+    indicator.showAtPointer({
+      text: 'changed',
+      event: createCursorTouchEventStub({
+        changedTouches: [
+          {
+            clientX: 430,
+            clientY: 240
+          }
+        ]
+      })
+    })
+
+    expect(indicator.el.style.display).toBe('block')
+    expect(indicator.el.textContent).toBe('changed')
+    expect(indicator.el.style.left).toBe(`${330 + CURSOR_INDICATOR_OFFSET_X}px`)
+    expect(indicator.el.style.top).toBe(`${190 + CURSOR_INDICATOR_OFFSET_Y}px`)
   })
 
   it('удаляет DOM-элемент при destroy', () => {
