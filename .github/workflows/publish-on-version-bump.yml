@@ -49,36 +49,62 @@ jobs:
             echo "should_publish=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Publish to npm and create Git tag
-        id: publish_npm
+      - name: Resolve release version and tag
+        id: release_info
         if: steps.check_bump.outputs.should_publish == 'true'
         run: |
           VERSION=$(node -p "require('./package.json').version")
           TAG="v${VERSION}"
 
-          echo "► Публикация пакета в npm (version=${VERSION})"
-          npm publish --access public
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Create Git tag
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          TAG="${{ steps.release_info.outputs.TAG }}"
 
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Тэг $TAG уже существует → пропускаем его создание"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag "$TAG"
-            git push origin "$TAG"
+            exit 0
           fi
 
-          # Передаём внешний параметр, чтобы следующий шаг видел, какой тег создать в релизе
-          echo "RELEASE_TAG=$TAG" >> $GITHUB_OUTPUT
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
 
       - name: Create GitHub Release (softprops)
         if: steps.check_bump.outputs.should_publish == 'true'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.publish_npm.outputs.RELEASE_TAG }}
-          name: "Release ${{ steps.publish_npm.outputs.RELEASE_TAG }}"
+          tag_name: ${{ steps.release_info.outputs.TAG }}
+          name: "Release ${{ steps.release_info.outputs.TAG }}"
           generate_release_notes: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to npm
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          VERSION="${{ steps.release_info.outputs.VERSION }}"
+
+          echo "► Публикация пакета в npm (version=${VERSION})"
+          npm publish --access public
+
+      - name: Delete tag and release after failed publish flow
+        if: failure() && steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          TAG="${{ steps.release_info.outputs.TAG }}"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release delete "$TAG" --yes
+          fi
+
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git push origin ":refs/tags/$TAG"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
