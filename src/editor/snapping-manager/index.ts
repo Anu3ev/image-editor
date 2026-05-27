@@ -73,6 +73,24 @@ type ScalingAxisState = {
   shouldSnapY: boolean
 }
 
+type ScalingTransformState = {
+  originX: Transform['originX']
+  originY: Transform['originY']
+  scaleX: number
+  scaleY: number
+}
+
+type ScaleAxisSnapState = {
+  verticalSnap: AxisSnapResult
+  horizontalSnap: AxisSnapResult
+}
+
+type ScaleUpdatePlan = {
+  guides: GuideLine[]
+  nextScaleX: number | null
+  nextScaleY: number | null
+}
+
 /**
  * Менеджер отвечает за отображение направляющих и прилипающее выравнивание объектов.
  */
@@ -230,7 +248,7 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его перемещении.
    */
   private _handleObjectMoving(event: TransformEvent): void {
-    const { target, e, transform } = event
+    const { target, transform } = event
 
     if (!target) {
       this._clearSpacingContexts()
@@ -238,10 +256,7 @@ export default class SnappingManager {
       return
     }
 
-    const isCtrlPressed = Boolean(e?.ctrlKey)
-    if (isCtrlPressed) {
-      this._clearSpacingContexts()
-      this._clearGuides()
+    if (this._shouldAbortObjectMoving({ target, event })) {
       return
     }
 
@@ -261,56 +276,34 @@ export default class SnappingManager {
       return
     }
 
-    const { canvas } = this
-    const zoom = canvas.getZoom() || 1
-    const threshold = SNAP_THRESHOLD / zoom
+    const threshold = SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
     const snapResult = calculateSnap({
       activeBounds,
       threshold,
       anchors: this.anchors
     })
-
-    const { deltaX, deltaY } = snapResult
-
-    if (deltaX !== 0 || deltaY !== 0) {
-      const { left = 0, top = 0 } = target
-      target.set({
-        left: left + deltaX,
-        top: top + deltaY
-      })
-      target.setCoords()
-      activeBounds = getObjectBounds({ object: target }) ?? activeBounds
-    }
+    activeBounds = this._applyMovementDelta({
+      target,
+      activeBounds,
+      deltaX: snapResult.deltaX,
+      deltaY: snapResult.deltaY
+    })
 
     const candidateBounds = this._resolveCurrentTargetBounds({ activeObject: target })
-    const hasActiveSpacingContext = Boolean(
-      this.spacingContexts.vertical || this.spacingContexts.horizontal
-    )
-    const spacingThreshold = hasActiveSpacingContext
-      ? (SNAP_THRESHOLD + SPACING_SNAP_HOLD_MARGIN) / zoom
-      : threshold
-
-    const spacingResult = calculateSpacingSnap({
+    const spacingResult = this._calculateSpacingResult({
       activeBounds,
-      candidates: candidateBounds,
-      threshold: spacingThreshold,
-      spacingPatterns: this.spacingPatterns,
-      previousContexts: this.spacingContexts,
-      switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
+      candidateBounds,
+      threshold
     })
     this.spacingContexts = spacingResult.contexts
 
     const hasSpacingSnap = spacingResult.deltaX !== 0 || spacingResult.deltaY !== 0
-
-    if (hasSpacingSnap) {
-      const { left = 0, top = 0 } = target
-      target.set({
-        left: left + spacingResult.deltaX,
-        top: top + spacingResult.deltaY
-      })
-      target.setCoords()
-      activeBounds = getObjectBounds({ object: target }) ?? activeBounds
-    }
+    activeBounds = this._applyMovementDelta({
+      target,
+      activeBounds,
+      deltaX: spacingResult.deltaX,
+      deltaY: spacingResult.deltaY
+    })
 
     if (!hasSpacingSnap) {
       applyMovementStep({
@@ -320,26 +313,10 @@ export default class SnappingManager {
     }
 
     const finalBounds = getObjectBounds({ object: target }) ?? activeBounds
-    const visualSnapResult = calculateSnap({
+    this._applyMovementVisualGuides({
       activeBounds: finalBounds,
-      threshold,
-      anchors: this.anchors
-    })
-    const visualSpacingResult = calculateSpacingSnap({
-      activeBounds: finalBounds,
-      candidates: candidateBounds,
-      threshold,
-      spacingPatterns: this.spacingPatterns,
-      previousContexts: this.spacingContexts,
-      switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
-    })
-    this.spacingContexts = visualSpacingResult.contexts
-    const isSpacingPositionExact = visualSpacingResult.deltaX === 0
-      && visualSpacingResult.deltaY === 0
-
-    this._applyGuides({
-      guides: visualSnapResult.guides,
-      spacingGuides: isSpacingPositionExact ? visualSpacingResult.guides : []
+      candidateBounds,
+      threshold
     })
   }
 
@@ -347,7 +324,7 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его масштабировании.
    */
   private _handleObjectScaling(event: TransformEvent): void {
-    const { target, e, transform } = event
+    const { target, transform } = event
 
     if (!target || !transform) {
       this._clearGuides()
@@ -357,17 +334,14 @@ export default class SnappingManager {
     const canApplyPixelScalingStep = shouldApplyPixelScalingStep({
       target
     })
-    const isCtrlPressed = Boolean(e?.ctrlKey)
-    if (isCtrlPressed) {
+    if (this._shouldAbortObjectScaling({
+      target,
+      transform,
+      event,
+      canApplyPixelScalingStep
+    })) {
       this._clearGuides()
-      if (canApplyPixelScalingStep) {
-        applyScalingStep({ target, transform })
-      }
       return
-    }
-
-    if (canApplyPixelScalingStep) {
-      applyScalingStep({ target, transform })
     }
 
     const {
@@ -396,183 +370,258 @@ export default class SnappingManager {
       return
     }
 
-    const { canvas } = this
-    const zoom = canvas.getZoom() || 1
-    const threshold = SNAP_THRESHOLD / zoom
-
+    const threshold = SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
     const {
-      originX: transformOriginX,
-      originY: transformOriginY
-    } = transform
-    const {
-      originX: targetOriginX = 'left',
-      originY: targetOriginY = 'top',
-      scaleX = 1,
-      scaleY = 1
-    } = target
-    const originX = transformOriginX ?? targetOriginX
-    const originY = transformOriginY ?? targetOriginY
-
-    const verticalCandidates = SnappingManager._collectVerticalSnapCandidates({
+      originX,
+      originY,
+      scaleX,
+      scaleY
+    } = SnappingManager._resolveScalingTransformState({ target, transform })
+    const snapState = SnappingManager._resolveScaleAxisSnaps({
       bounds: activeBounds,
       originX,
-      shouldSnapX
-    })
-    const horizontalCandidates = SnappingManager._collectHorizontalSnapCandidates({
-      bounds: activeBounds,
       originY,
-      shouldSnapY
+      shouldSnapX,
+      shouldSnapY,
+      threshold,
+      anchors: this.anchors
     })
 
-    const verticalSnap = SnappingManager._findAxisSnapCandidate({
-      anchors: verticalAnchors,
-      candidates: verticalCandidates,
-      threshold
-    })
-    const horizontalSnap = SnappingManager._findAxisSnapCandidate({
-      anchors: horizontalAnchors,
-      candidates: horizontalCandidates,
-      threshold
-    })
-
-    const { guidePosition: verticalGuidePosition } = verticalSnap
-    const { guidePosition: horizontalGuidePosition } = horizontalSnap
-    const hasVerticalSnap = verticalGuidePosition !== null
-    const hasHorizontalSnap = horizontalGuidePosition !== null
-
-    if (!hasVerticalSnap && !hasHorizontalSnap) {
+    if (!snapState) {
       this._clearGuides()
       return
     }
 
-    const guides: GuideLine[] = []
-    let nextScaleX: number | null = null
-    let nextScaleY: number | null = null
+    const scalePlan = SnappingManager._resolveScaleUpdatePlan({
+      target,
+      bounds: activeBounds,
+      originX,
+      originY,
+      scaleX,
+      scaleY,
+      isCornerHandle,
+      verticalSnap: snapState.verticalSnap,
+      horizontalSnap: snapState.horizontalSnap
+    })
 
-    if (isCornerHandle) {
-      const uniformResult = SnappingManager._resolveUniformScale({
-        bounds: activeBounds,
-        originX,
-        originY,
-        verticalSnap,
-        horizontalSnap
-      })
-
-      if (uniformResult) {
-        const { scaleFactor, guide } = uniformResult
-        nextScaleX = scaleX * scaleFactor
-        nextScaleY = scaleY * scaleFactor
-        guides.push(guide)
-      }
-    }
-
-    if (!isCornerHandle) {
-      const { angle = 0 } = target
-      const { width: baseWidth, height: baseHeight } = SnappingManager._resolveBaseDimensions({ target })
-      const absScaleX = Math.abs(scaleX) || 1
-      const absScaleY = Math.abs(scaleY) || 1
-
-      if (hasVerticalSnap) {
-        const desiredWidth = SnappingManager._resolveDesiredWidth({
-          bounds: activeBounds,
-          originX,
-          snap: verticalSnap
-        })
-
-        if (desiredWidth !== null) {
-          const absNextScaleX = SnappingManager._resolveScaleForWidth({
-            desiredWidth,
-            baseWidth,
-            baseHeight,
-            scaleY: absScaleY,
-            angle
-          })
-
-          if (absNextScaleX !== null) {
-            const scaleSignX = scaleX < 0 ? -1 : 1
-            nextScaleX = absNextScaleX * scaleSignX
-            if (verticalGuidePosition !== null) {
-              guides.push({
-                type: 'vertical',
-                position: verticalGuidePosition
-              })
-            }
-          }
-        }
-      }
-
-      if (hasHorizontalSnap) {
-        const desiredHeight = SnappingManager._resolveDesiredHeight({
-          bounds: activeBounds,
-          originY,
-          snap: horizontalSnap
-        })
-
-        if (desiredHeight !== null) {
-          const absNextScaleY = SnappingManager._resolveScaleForHeight({
-            desiredHeight,
-            baseWidth,
-            baseHeight,
-            scaleX: absScaleX,
-            angle
-          })
-
-          if (absNextScaleY !== null) {
-            const scaleSignY = scaleY < 0 ? -1 : 1
-            nextScaleY = absNextScaleY * scaleSignY
-            if (horizontalGuidePosition !== null) {
-              guides.push({
-                type: 'horizontal',
-                position: horizontalGuidePosition
-              })
-            }
-          }
-        }
-      }
-    }
-
-    const hasScaleUpdates = nextScaleX !== null || nextScaleY !== null
-    if (!hasScaleUpdates && !guides.length) {
+    if (!scalePlan) {
       this._clearGuides()
       return
     }
 
-    if (hasScaleUpdates) {
-      const anchorPlacement = this.editor.canvasManager.getObjectPlacement({
-        object: target,
-        originX,
-        originY
-      })
-      const updates: Partial<FabricObject> = {}
-
-      if (nextScaleX !== null) {
-        updates.scaleX = nextScaleX
-        transform.scaleX = nextScaleX
-      }
-
-      if (nextScaleY !== null) {
-        updates.scaleY = nextScaleY
-        transform.scaleY = nextScaleY
-      }
-
-      if (Object.keys(updates).length) {
-        target.set(updates)
-        this.editor.canvasManager.applyObjectPlacement({
-          object: target,
-          placement: anchorPlacement
-        })
-        target.setCoords()
-      }
-    }
+    this._applyScaleUpdatePlan({
+      target,
+      transform,
+      originX,
+      originY,
+      plan: scalePlan
+    })
 
     if (canApplyPixelScalingStep) {
       applyScalingStep({ target, transform })
     }
 
     this._applyGuides({
-      guides,
+      guides: scalePlan.guides,
       spacingGuides: []
     })
+  }
+
+  /** Возвращает true, если движение нужно прервать до расчёта направляющих. */
+  private _shouldAbortObjectMoving({
+    target,
+    event
+  }: {
+    target: FabricObject
+    event: TransformEvent
+  }): boolean {
+    if (event.e?.ctrlKey) {
+      this._clearSpacingContexts()
+      this._clearGuides()
+      return true
+    }
+
+    return this._shouldHideOverflowingCropFrameGuides({
+      target,
+      clearSpacingContexts: true
+    })
+  }
+
+  /** Возвращает true, если scaling нужно прервать до расчёта направляющих. */
+  private _shouldAbortObjectScaling({
+    target,
+    transform,
+    event,
+    canApplyPixelScalingStep
+  }: {
+    target: FabricObject
+    transform: Transform
+    event: TransformEvent
+    canApplyPixelScalingStep: boolean
+  }): boolean {
+    if (event.e?.ctrlKey) {
+      this._clearGuides()
+      if (canApplyPixelScalingStep) {
+        applyScalingStep({ target, transform })
+      }
+      return true
+    }
+
+    if (canApplyPixelScalingStep) {
+      applyScalingStep({ target, transform })
+    }
+
+    return this._shouldHideOverflowingCropFrameGuides({ target })
+  }
+
+  /** Скрывает направляющие для crop frame, если текущий шаг уже вышел за source и будет зажат clamp-ом. */
+  private _shouldHideOverflowingCropFrameGuides({
+    target,
+    clearSpacingContexts = false
+  }: {
+    target: FabricObject
+    clearSpacingContexts?: boolean
+  }): boolean {
+    if (!this.editor.cropManager.isFrameOverflowingSource({ target })) return false
+
+    if (clearSpacingContexts) {
+      this._clearSpacingContexts()
+    }
+
+    this._clearGuides()
+
+    return true
+  }
+
+  /** Применяет сдвиг объекта и возвращает его актуальные bounds. */
+  private _applyMovementDelta({
+    target,
+    activeBounds,
+    deltaX,
+    deltaY
+  }: {
+    target: FabricObject
+    activeBounds: Bounds
+    deltaX: number
+    deltaY: number
+  }): Bounds {
+    if (deltaX === 0 && deltaY === 0) return activeBounds
+
+    const { left = 0, top = 0 } = target
+    target.set({
+      left: left + deltaX,
+      top: top + deltaY
+    })
+    target.setCoords()
+
+    return getObjectBounds({ object: target }) ?? activeBounds
+  }
+
+  /** Рассчитывает snap по равноудалённым интервалам для текущего состояния moving. */
+  private _calculateSpacingResult({
+    activeBounds,
+    candidateBounds,
+    threshold
+  }: {
+    activeBounds: Bounds
+    candidateBounds: Bounds[]
+    threshold: number
+  }) {
+    const hasActiveSpacingContext = Boolean(
+      this.spacingContexts.vertical || this.spacingContexts.horizontal
+    )
+    const spacingThreshold = hasActiveSpacingContext
+      ? (SNAP_THRESHOLD + SPACING_SNAP_HOLD_MARGIN) / (this.canvas.getZoom() || 1)
+      : threshold
+
+    return calculateSpacingSnap({
+      activeBounds,
+      candidates: candidateBounds,
+      threshold: spacingThreshold,
+      spacingPatterns: this.spacingPatterns,
+      previousContexts: this.spacingContexts,
+      switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
+    })
+  }
+
+  /** Пересчитывает и показывает финальные moving-guides по уже скорректированным bounds. */
+  private _applyMovementVisualGuides({
+    activeBounds,
+    candidateBounds,
+    threshold
+  }: {
+    activeBounds: Bounds
+    candidateBounds: Bounds[]
+    threshold: number
+  }): void {
+    const visualSnapResult = calculateSnap({
+      activeBounds,
+      threshold,
+      anchors: this.anchors
+    })
+    const visualSpacingResult = calculateSpacingSnap({
+      activeBounds,
+      candidates: candidateBounds,
+      threshold,
+      spacingPatterns: this.spacingPatterns,
+      previousContexts: this.spacingContexts,
+      switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
+    })
+    this.spacingContexts = visualSpacingResult.contexts
+
+    const isSpacingPositionExact = visualSpacingResult.deltaX === 0
+      && visualSpacingResult.deltaY === 0
+
+    this._applyGuides({
+      guides: visualSnapResult.guides,
+      spacingGuides: isSpacingPositionExact ? visualSpacingResult.guides : []
+    })
+  }
+
+  /** Применяет рассчитанные scale-обновления к target и текущему Fabric transform. */
+  private _applyScaleUpdatePlan({
+    target,
+    transform,
+    originX,
+    originY,
+    plan
+  }: {
+    target: FabricObject
+    transform: Transform
+    originX: Transform['originX']
+    originY: Transform['originY']
+    plan: ScaleUpdatePlan
+  }): void {
+    const {
+      nextScaleX,
+      nextScaleY
+    } = plan
+
+    if (nextScaleX === null && nextScaleY === null) return
+
+    const anchorPlacement = this.editor.canvasManager.getObjectPlacement({
+      object: target,
+      originX,
+      originY
+    })
+    const updates: Partial<FabricObject> = {}
+
+    if (nextScaleX !== null) {
+      updates.scaleX = nextScaleX
+      transform.scaleX = nextScaleX
+    }
+
+    if (nextScaleY !== null) {
+      updates.scaleY = nextScaleY
+      transform.scaleY = nextScaleY
+    }
+
+    target.set(updates)
+    this.editor.canvasManager.applyObjectPlacement({
+      object: target,
+      placement: anchorPlacement
+    })
+    target.setCoords()
   }
 
   /**
@@ -833,6 +882,199 @@ export default class SnappingManager {
       isCornerHandle,
       shouldSnapX: isHorizontalHandle || isCornerHandle,
       shouldSnapY: isVerticalHandle || isCornerHandle
+    }
+  }
+
+  /** Возвращает активные origin и scale из transform с fallback в состояние target. */
+  private static _resolveScalingTransformState({
+    target,
+    transform
+  }: {
+    target: FabricObject
+    transform: Transform
+  }): ScalingTransformState {
+    const {
+      originX: transformOriginX,
+      originY: transformOriginY
+    } = transform
+    const {
+      originX: targetOriginX = 'left',
+      originY: targetOriginY = 'top',
+      scaleX = 1,
+      scaleY = 1
+    } = target
+
+    return {
+      originX: transformOriginX ?? targetOriginX,
+      originY: transformOriginY ?? targetOriginY,
+      scaleX,
+      scaleY
+    }
+  }
+
+  /** Находит активные axis-snap кандидаты для текущего scaling-step. */
+  private static _resolveScaleAxisSnaps({
+    bounds,
+    originX,
+    originY,
+    shouldSnapX,
+    shouldSnapY,
+    threshold,
+    anchors
+  }: {
+    bounds: Bounds
+    originX: Transform['originX']
+    originY: Transform['originY']
+    shouldSnapX: boolean
+    shouldSnapY: boolean
+    threshold: number
+    anchors: AnchorBuckets
+  }): ScaleAxisSnapState | null {
+    const verticalCandidates = SnappingManager._collectVerticalSnapCandidates({
+      bounds,
+      originX,
+      shouldSnapX
+    })
+    const horizontalCandidates = SnappingManager._collectHorizontalSnapCandidates({
+      bounds,
+      originY,
+      shouldSnapY
+    })
+    const verticalSnap = SnappingManager._findAxisSnapCandidate({
+      anchors: anchors.vertical,
+      candidates: verticalCandidates,
+      threshold
+    })
+    const horizontalSnap = SnappingManager._findAxisSnapCandidate({
+      anchors: anchors.horizontal,
+      candidates: horizontalCandidates,
+      threshold
+    })
+
+    if (verticalSnap.guidePosition === null && horizontalSnap.guidePosition === null) {
+      return null
+    }
+
+    return {
+      verticalSnap,
+      horizontalSnap
+    }
+  }
+
+  /** Рассчитывает scale-обновления и соответствующие направляющие для текущего scaling-step. */
+  private static _resolveScaleUpdatePlan({
+    target,
+    bounds,
+    originX,
+    originY,
+    scaleX,
+    scaleY,
+    isCornerHandle,
+    verticalSnap,
+    horizontalSnap
+  }: {
+    target: FabricObject
+    bounds: Bounds
+    originX: Transform['originX']
+    originY: Transform['originY']
+    scaleX: number
+    scaleY: number
+    isCornerHandle: boolean
+    verticalSnap: AxisSnapResult
+    horizontalSnap: AxisSnapResult
+  }): ScaleUpdatePlan | null {
+    const { guidePosition: verticalGuidePosition } = verticalSnap
+    const { guidePosition: horizontalGuidePosition } = horizontalSnap
+    const hasVerticalSnap = verticalGuidePosition !== null
+    const hasHorizontalSnap = horizontalGuidePosition !== null
+    const guides: GuideLine[] = []
+    let nextScaleX: number | null = null
+    let nextScaleY: number | null = null
+
+    if (isCornerHandle) {
+      const uniformResult = SnappingManager._resolveUniformScale({
+        bounds,
+        originX,
+        originY,
+        verticalSnap,
+        horizontalSnap
+      })
+
+      if (uniformResult) {
+        const { scaleFactor, guide } = uniformResult
+        nextScaleX = scaleX * scaleFactor
+        nextScaleY = scaleY * scaleFactor
+        guides.push(guide)
+      }
+    }
+
+    if (!isCornerHandle) {
+      const { angle = 0 } = target
+      const { width: baseWidth, height: baseHeight } = SnappingManager._resolveBaseDimensions({ target })
+      const absScaleX = Math.abs(scaleX) || 1
+      const absScaleY = Math.abs(scaleY) || 1
+
+      if (hasVerticalSnap) {
+        const desiredWidth = SnappingManager._resolveDesiredWidth({
+          bounds,
+          originX,
+          snap: verticalSnap
+        })
+
+        if (desiredWidth !== null) {
+          const absNextScaleX = SnappingManager._resolveScaleForWidth({
+            desiredWidth,
+            baseWidth,
+            baseHeight,
+            scaleY: absScaleY,
+            angle
+          })
+
+          if (absNextScaleX !== null) {
+            nextScaleX = absNextScaleX * (scaleX < 0 ? -1 : 1)
+            guides.push({
+              type: 'vertical',
+              position: verticalGuidePosition
+            })
+          }
+        }
+      }
+
+      if (hasHorizontalSnap) {
+        const desiredHeight = SnappingManager._resolveDesiredHeight({
+          bounds,
+          originY,
+          snap: horizontalSnap
+        })
+
+        if (desiredHeight !== null) {
+          const absNextScaleY = SnappingManager._resolveScaleForHeight({
+            desiredHeight,
+            baseWidth,
+            baseHeight,
+            scaleX: absScaleX,
+            angle
+          })
+
+          if (absNextScaleY !== null) {
+            nextScaleY = absNextScaleY * (scaleY < 0 ? -1 : 1)
+            guides.push({
+              type: 'horizontal',
+              position: horizontalGuidePosition
+            })
+          }
+        }
+      }
+    }
+
+    if (nextScaleX === null && nextScaleY === null && !guides.length) {
+      return null
+    }
+
+    return {
+      guides,
+      nextScaleX,
+      nextScaleY
     }
   }
 
