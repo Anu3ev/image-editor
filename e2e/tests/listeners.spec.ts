@@ -9,6 +9,15 @@ import {
   LISTENERS_CUT_HOTKEY_SHAPE_OFFSET,
   LISTENERS_DUPLICATE_HOTKEY_SHAPE_ID,
   LISTENERS_DUPLICATE_HOTKEY_SHAPE_OFFSET,
+  LISTENERS_EDGE_ZOOM_DELTA_Y,
+  LISTENERS_EDGE_ZOOM_MONTAGE_RESOLUTION,
+  LISTENERS_EDGE_ZOOM_SCROLL_DELTA_Y,
+  LISTENERS_EDGE_ZOOM_SHAPE_ID,
+  LISTENERS_EDGE_ZOOM_SHAPE_SIZE,
+  LISTENERS_EDGE_ZOOM_TEXT,
+  LISTENERS_EDGE_ZOOM_TEXT_FONT_SIZE,
+  LISTENERS_EDGE_ZOOM_VIEWPORT_RIGHT_INSET,
+  LISTENERS_EDGE_ZOOM_WHEEL_STEPS,
   LISTENERS_HOTKEY_SHAPE_SIZE
 } from '../fixtures/data/listeners.data'
 
@@ -153,6 +162,115 @@ test.describe('Горячие клавиши и zoom', () => {
       expect(afterPan.zoom).toBeCloseTo(beforePan.zoom, 4)
       expect(afterPan.x).toBeLessThan(beforePan.x)
       expect(afterPan.y).toBeLessThan(beforePan.y)
+    })
+  })
+
+  test.describe('ctrl + wheel у правого края canvas', () => {
+    let zoomPoint = {
+      x: 0,
+      y: 0
+    }
+
+    test.beforeEach(async({
+      canvas,
+      editorModel,
+      shapes
+    }) => {
+      await canvas.setMontageResolution(LISTENERS_EDGE_ZOOM_MONTAGE_RESOLUTION)
+
+      const shape = await shapes.addWithText({
+        presetKey: 'square',
+        text: LISTENERS_EDGE_ZOOM_TEXT,
+        fontSize: LISTENERS_EDGE_ZOOM_TEXT_FONT_SIZE,
+        options: {
+          id: LISTENERS_EDGE_ZOOM_SHAPE_ID,
+          ...LISTENERS_EDGE_ZOOM_SHAPE_SIZE
+        }
+      })
+      const montageArea = await editorModel.getMontageArea()
+
+      expect(shape?.id).toBe(LISTENERS_EDGE_ZOOM_SHAPE_ID)
+      expect(montageArea.width).toBe(LISTENERS_EDGE_ZOOM_MONTAGE_RESOLUTION.width)
+      expect(montageArea.height).toBe(LISTENERS_EDGE_ZOOM_MONTAGE_RESOLUTION.height)
+
+      const viewportBounds = await editorModel.getCanvasViewportBounds()
+
+      zoomPoint = {
+        x: viewportBounds.width - LISTENERS_EDGE_ZOOM_VIEWPORT_RIGHT_INSET,
+        y: viewportBounds.height / 2
+      }
+
+      await editorModel.zoomByCtrlWheelRepeatedlyAtViewportPoint({
+        deltaY: LISTENERS_EDGE_ZOOM_DELTA_Y,
+        steps: LISTENERS_EDGE_ZOOM_WHEEL_STEPS,
+        ...zoomPoint
+      })
+
+      const panState = await editorModel.getViewportPanState()
+      const scrollbarState = await editorModel.getViewportScrollbarState()
+
+      expect(panState.horizontal.canPan).toBe(true)
+      expect(panState.vertical.canPan).toBe(true)
+      expect(scrollbarState.horizontal.visible).toBe(true)
+      expect(scrollbarState.vertical.visible).toBe(true)
+    })
+
+    test('не даёт камере прыгнуть при следующем scroll', async({ editorModel }) => {
+      const afterZoom = await test.step('Проверить что zoom сразу оставляет viewport в pan-границах', async() => {
+        const viewport = await editorModel.getCanvasViewportTransform()
+        const panState = await editorModel.getViewportPanState()
+
+        expect(viewport.x).toBeGreaterThanOrEqual(panState.horizontal.min)
+        expect(viewport.x).toBeLessThanOrEqual(panState.horizontal.max)
+        expect(viewport.y).toBeGreaterThanOrEqual(panState.vertical.min)
+        expect(viewport.y).toBeLessThanOrEqual(panState.vertical.max)
+
+        return viewport
+      })
+
+      await test.step('Сделать обычный scroll без Ctrl только по вертикали', async() => {
+        await editorModel.panByWheelAtViewportPoint({
+          deltaY: LISTENERS_EDGE_ZOOM_SCROLL_DELTA_Y,
+          ...zoomPoint
+        })
+      })
+
+      await test.step('Проверить что scroll не вызывает горизонтальный скачок камеры', async() => {
+        const afterScroll = await editorModel.getCanvasViewportTransform()
+
+        expect(Math.abs(afterScroll.x - afterZoom.x)).toBeLessThan(1)
+        expect(afterScroll.y).toBeLessThan(afterZoom.y)
+        expect(afterScroll.zoom).toBeCloseTo(afterZoom.zoom, 4)
+      })
+    })
+
+    test('не даёт камере прыгнуть при следующем Space + ЛКМ drag', async({ editorModel }) => {
+      const afterZoom = await test.step('Проверить что zoom сразу оставляет viewport в pan-границах', async() => {
+        const viewport = await editorModel.getCanvasViewportTransform()
+        const panState = await editorModel.getViewportPanState()
+
+        expect(viewport.x).toBeGreaterThanOrEqual(panState.horizontal.min)
+        expect(viewport.x).toBeLessThanOrEqual(panState.horizontal.max)
+        expect(viewport.y).toBeGreaterThanOrEqual(panState.vertical.min)
+        expect(viewport.y).toBeLessThanOrEqual(panState.vertical.max)
+
+        return viewport
+      })
+
+      await test.step('Сдвинуть viewport через Space + ЛКМ вверх без горизонтального смещения', async() => {
+        await editorModel.dragViewportBySpaceMouse({
+          deltaX: 0,
+          deltaY: -24
+        })
+      })
+
+      await test.step('Проверить что drag не вызывает горизонтальный скачок камеры', async() => {
+        const afterDrag = await editorModel.getCanvasViewportTransform()
+
+        expect(Math.abs(afterDrag.x - afterZoom.x)).toBeLessThan(1)
+        expect(afterDrag.y).toBeLessThan(afterZoom.y)
+        expect(afterDrag.zoom).toBeCloseTo(afterZoom.zoom, 4)
+      })
     })
   })
 
