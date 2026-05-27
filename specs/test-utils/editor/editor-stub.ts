@@ -299,6 +299,10 @@ export const createEditorStub = () => {
       addRectangle: jest.fn(),
       commitRehydratedShapeLayout: jest.fn()
     },
+    cropManager: {
+      isActive: false,
+      isFrameOverflowingSource: jest.fn().mockReturnValue(false)
+    },
     montageArea,
     options: {
       editorContainer: null as HTMLElement | null,

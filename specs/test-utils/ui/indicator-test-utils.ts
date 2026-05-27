@@ -43,6 +43,12 @@ export interface CursorIndicatorTestFixture {
   parent: HTMLElement
 }
 
+/** Touch-подобная точка для unit-проверок CursorIndicator. */
+export interface CursorIndicatorTouchPointStub {
+  clientX: number
+  clientY: number
+}
+
 /** Fixture для ObjectSizeIndicatorManager unit-тестов. */
 export interface ObjectSizeIndicatorManagerTestFixture {
   manager: ObjectSizeIndicatorManager
@@ -109,6 +115,26 @@ export const createCursorIndicatorFixture = ({
     parent
   }
 }
+
+/** Создаёт минимальный TouchList-совместимый stub. */
+export const createTouchListStub = (
+  points: CursorIndicatorTouchPointStub[]
+): TouchList => ({
+  length: points.length,
+  item: (index: number) => points[index] ?? null
+} as unknown as TouchList)
+
+/** Создаёт TouchEvent-совместимый stub для unit-проверок CursorIndicator. */
+export const createCursorTouchEventStub = ({
+  touches = [],
+  changedTouches = []
+}: {
+  touches?: CursorIndicatorTouchPointStub[]
+  changedTouches?: CursorIndicatorTouchPointStub[]
+} = {}): TouchEvent => ({
+  touches: createTouchListStub(touches),
+  changedTouches: createTouchListStub(changedTouches)
+} as unknown as TouchEvent)
 
 /** Создаёт target с управляемыми scaled-размерами. */
 export const createObjectSizeIndicatorTarget = ({

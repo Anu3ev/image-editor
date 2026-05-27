@@ -19,9 +19,22 @@ type CropResizePointer = {
   shiftKey: boolean
 }
 
+/** Последняя pointer-позиция live drag crop frame. */
+type CropMovePointer = {
+  x: number
+  y: number
+  altKey: boolean
+  ctrlKey: boolean
+}
+
 /** Результат browser-side шага drag crop frame. */
 type CropResizeDragResult = {
   point: CropResizePointer
+}
+
+/** Результат browser-side шага drag crop frame за центр. */
+type CropMoveDragResult = {
+  point: CropMovePointer
 }
 
 /** Параметры browser-side drag crop frame с управлением live-сессией. */
@@ -53,6 +66,9 @@ export class CropModel {
 
   /** Pointer-позиция последнего незавершённого resize crop frame. */
   private lastResizePointer: CropResizePointer | null = null
+
+  /** Pointer-позиция последнего незавершённого drag crop frame. */
+  private lastMovePointer: CropMovePointer | null = null
 
   constructor(page: Page) {
     this.page = page
@@ -222,6 +238,18 @@ export class CropModel {
     return this.continueFrameResizeFromControl(resizeParams)
   }
 
+  /** Тянет active crop frame за центр на заданное смещение и оставляет drag-сессию активной. */
+  async dragFrameByOffset(
+    params: { deltaX: number, deltaY: number, altKey?: boolean, ctrlKey?: boolean }
+  ): Promise<CropStateInfo> {
+    const dragResult = await this.performFrameMove(params)
+
+    this.lastMovePointer = dragResult.point
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
   /** Завершает активный resize crop frame через mouseup. */
   async finishFrameResize(): Promise<CropStateInfo> {
     const pointer = this.lastResizePointer
@@ -247,6 +275,39 @@ export class CropModel {
     }, pointer)
 
     this.lastResizePointer = null
+
+    expect(state, 'после mouseup crop mode должен остаться активным').not.toBeNull()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
+  /** Завершает активный drag crop frame через mouseup. */
+  async finishFrameMove(): Promise<CropStateInfo> {
+    const pointer = this.lastMovePointer
+
+    expect(pointer, 'должна существовать активная drag-сессия crop frame').not.toBeNull()
+    if (!pointer) {
+      throw new Error('Нельзя завершить drag crop frame без активной drag-сессии')
+    }
+
+    const state = await this.page.evaluate((payload) => {
+      const { editor } = window as any
+
+      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        buttons: 0,
+        clientX: payload.x,
+        clientY: payload.y,
+        altKey: payload.altKey,
+        ctrlKey: payload.ctrlKey
+      }))
+
+      return editor.cropManager.getState()
+    }, pointer)
+
+    this.lastMovePointer = null
 
     expect(state, 'после mouseup crop mode должен остаться активным').not.toBeNull()
     await waitForCanvasRender({ page: this.page })
@@ -301,6 +362,78 @@ export class CropModel {
     expect(dragResult, 'после drag crop mode должен остаться активным').not.toBeNull()
     if (!dragResult) {
       throw new Error('Не удалось выполнить drag crop-control')
+    }
+
+    return dragResult
+  }
+
+  /** Выполняет browser-side drag active crop frame за центр и возвращает pointer для завершения drag. */
+  private async performFrameMove(
+    params: { deltaX: number, deltaY: number, altKey?: boolean, ctrlKey?: boolean }
+  ): Promise<CropMoveDragResult> {
+    const dragResult = await this.page.evaluate((payload) => {
+      const {
+        deltaX,
+        deltaY,
+        altKey = false,
+        ctrlKey = false
+      } = payload
+      const { editor } = window as any
+      const cropState = editor.cropManager.getState()
+      if (!cropState) return null
+
+      const { frame } = cropState
+      const center = frame.getCenterPoint()
+      const [a, b, c, d, tx, ty] = editor.canvas.viewportTransform
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const startPoint = {
+        x: rect.left + (center.x * a) + (center.y * c) + tx,
+        y: rect.top + (center.x * b) + (center.y * d) + ty
+      }
+      const nextCenter = {
+        x: center.x + deltaX,
+        y: center.y + deltaY
+      }
+      const nextPoint = {
+        x: rect.left + (nextCenter.x * a) + (nextCenter.y * c) + tx,
+        y: rect.top + (nextCenter.x * b) + (nextCenter.y * d) + ty
+      }
+
+      editor.canvas.setActiveObject(frame)
+      editor.canvas.__onMouseDown(new MouseEvent('mousedown', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: startPoint.x,
+        clientY: startPoint.y,
+        altKey,
+        ctrlKey
+      }))
+      editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+        bubbles: true,
+        button: 0,
+        buttons: 1,
+        clientX: nextPoint.x,
+        clientY: nextPoint.y,
+        altKey,
+        ctrlKey
+      }))
+
+      if (!editor.cropManager.getState()) return null
+
+      return {
+        point: {
+          x: nextPoint.x,
+          y: nextPoint.y,
+          altKey,
+          ctrlKey
+        }
+      }
+    }, params)
+
+    expect(dragResult, 'после drag crop mode должен остаться активным').not.toBeNull()
+    if (!dragResult) {
+      throw new Error('Не удалось выполнить drag crop frame за центр')
     }
 
     return dragResult

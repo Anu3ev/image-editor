@@ -11,6 +11,7 @@ import type { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import {
   clampCropFrameToSource,
+  getCropRectInSource,
   getSourceSize,
   resolveCropSize
 } from './domain/crop-geometry'
@@ -121,6 +122,30 @@ export default class CropManager {
       target: session.target,
       rect: getCropSessionResultRect({ session })
     }
+  }
+
+  /** Возвращает true, если текущий live-step вынес crop frame за пределы source и будет зажат clamp-ом. */
+  public isFrameOverflowingSource({ target }: { target?: FabricObject | null }): boolean {
+    const { _session: session } = this
+    if (!session || !target) return false
+    if (session.options.allowFrameOverflow) return false
+
+    if (session.frame !== target) return false
+
+    const rect = getCropRectInSource({
+      source: session.source,
+      frame: session.frame
+    })
+    const sourceSize = getSourceSize({ source: session.source })
+    const minLeft = -sourceSize.width / 2
+    const minTop = -sourceSize.height / 2
+    const maxRight = sourceSize.width / 2
+    const maxBottom = sourceSize.height / 2
+
+    return rect.left < minLeft
+      || rect.top < minTop
+      || rect.left + rect.width > maxRight
+      || rect.top + rect.height > maxBottom
   }
 
   /**
