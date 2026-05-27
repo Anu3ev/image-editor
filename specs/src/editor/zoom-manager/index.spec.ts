@@ -153,6 +153,48 @@ describe('ZoomManager', () => {
       expect(mockCanvas.zoomToPoint).not.toHaveBeenCalled()
       expect(mockCanvas.fire).not.toHaveBeenCalled()
     })
+
+    it('после zoom сразу зажимает viewport в pan-границах', () => {
+      mockCanvas.getZoom.mockReturnValue(1)
+      mockCanvas.zoomToPoint.mockImplementation((_point: Point, zoom: number) => {
+        mockCanvas.viewportTransform = [zoom, 0, 0, zoom, -260, -180]
+      })
+      mockEditor.panConstraintManager.constrainPan.mockReturnValue({
+        x: -200,
+        y: -150
+      })
+      jest.spyOn(zoomManager as any, '_applyViewportCentering').mockReturnValue(false)
+      mockCanvas.setViewportTransform.mockClear()
+      mockEditor.montageArea.setCoords.mockClear()
+
+      zoomManager.zoom(0.1)
+
+      expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalledTimes(1)
+      expect(mockEditor.panConstraintManager.constrainPan).toHaveBeenCalledWith(-260, -180)
+      expect(mockCanvas.setViewportTransform).toHaveBeenCalledWith([1.1, 0, 0, 1.1, -200, -150])
+      expect(mockEditor.montageArea.setCoords).toHaveBeenCalledTimes(2)
+    })
+
+    it('не делает лишний viewport write если zoom уже оставил камеру в pan-границах', () => {
+      mockCanvas.getZoom.mockReturnValue(1)
+      mockCanvas.zoomToPoint.mockImplementation((_point: Point, zoom: number) => {
+        mockCanvas.viewportTransform = [zoom, 0, 0, zoom, -200, -150]
+      })
+      mockEditor.panConstraintManager.constrainPan.mockReturnValue({
+        x: -200,
+        y: -150
+      })
+      jest.spyOn(zoomManager as any, '_applyViewportCentering').mockReturnValue(false)
+      mockCanvas.setViewportTransform.mockClear()
+      mockEditor.montageArea.setCoords.mockClear()
+
+      zoomManager.zoom(0.1)
+
+      expect(mockEditor.panConstraintManager.updateBounds).toHaveBeenCalledTimes(1)
+      expect(mockEditor.panConstraintManager.constrainPan).toHaveBeenCalledWith(-200, -150)
+      expect(mockCanvas.setViewportTransform).not.toHaveBeenCalled()
+      expect(mockEditor.montageArea.setCoords).toHaveBeenCalledTimes(1)
+    })
   })
 
   describe('setZoom', () => {

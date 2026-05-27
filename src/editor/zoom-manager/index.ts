@@ -343,6 +343,34 @@ export default class ZoomManager {
   }
 
   /**
+   * Нормализует текущий viewportTransform по pan-границам после zoom-сценария.
+   * Zoom может сдвинуть camera-state за допустимый pan-диапазон быстрее,
+   * чем следующий scroll или Space-drag успеют пройти через PanConstraintManager.
+   * В этом случае bounds нужно применить сразу в том же zoom write-path,
+   * чтобы не оставлять invalid viewport до первого pan-события.
+   * @private
+   */
+  private _constrainViewportToPanBounds(): void {
+    const { canvas, montageArea, panConstraintManager } = this.editor
+    const vpt = canvas.viewportTransform
+
+    panConstraintManager.updateBounds()
+
+    const constrainedViewport = panConstraintManager.constrainPan(vpt[4], vpt[5])
+    const didViewportChange = constrainedViewport.x !== vpt[4] || constrainedViewport.y !== vpt[5]
+
+    if (!didViewportChange) return
+
+    const nextViewportTransform = [...vpt] as typeof vpt
+
+    nextViewportTransform[4] = constrainedViewport.x
+    nextViewportTransform[5] = constrainedViewport.y
+
+    canvas.setViewportTransform(nextViewportTransform)
+    montageArea.setCoords()
+  }
+
+  /**
    * Пересчитывает defaultZoom для текущих размеров контейнера и монтажной области.
    * Метод обновляет только derived camera-state и не меняет текущий viewport.
    * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
@@ -464,8 +492,8 @@ export default class ZoomManager {
 
     canvas.zoomToPoint(point, zoom)
 
-    this.editor.panConstraintManager.updateBounds()
     this._applyViewportCentering(zoom, isZoomingOut, scale)
+    this._constrainViewportToPanBounds()
 
     canvas.fire('editor:zoom-changed', {
       currentZoom: canvas.getZoom(),

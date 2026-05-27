@@ -252,6 +252,25 @@ export class EditorModel {
     })
   }
 
+  /** Возвращает DOM-границы верхнего canvas слоя для реальных pointer-взаимодействий. */
+  async getCanvasViewportBounds(): Promise<ViewportBoundsInfo> {
+    return this.page.evaluate(() => {
+      const { canvas } = (window as any).editor
+      const rect = canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
+        right: rect.right,
+        bottom: rect.bottom,
+        centerX: rect.left + (rect.width / 2),
+        centerY: rect.top + (rect.height / 2)
+      }
+    })
+  }
+
   /** Возвращает список пользовательских объектов canvas (без служебных) */
   async getObjects(): Promise<EditorObjectInfo[]> {
     return this.page.evaluate(() => {
@@ -800,11 +819,117 @@ export class EditorModel {
     })
   }
 
+  /** Переводит viewport-координаты canvas в client-координаты браузера. */
+  private async _resolveCanvasClientPoint({
+    x,
+    y
+  }: {
+    x: number
+    y: number
+  }): Promise<{
+    x: number
+    y: number
+  }> {
+    return this.page.evaluate(({ viewportX, viewportY }) => {
+      const { editor } = window as any
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: rect.left + viewportX,
+        y: rect.top + viewportY
+      }
+    }, {
+      viewportX: x,
+      viewportY: y
+    })
+  }
+
+  /** Выполняет реальный wheel-input в заданной viewport-точке canvas. */
+  private async _wheelAtViewportPoint({
+    x,
+    y,
+    deltaX = 0,
+    deltaY,
+    ctrlKey = false
+  }: {
+    x: number
+    y: number
+    deltaX?: number
+    deltaY: number
+    ctrlKey?: boolean
+  }): Promise<void> {
+    const clientPoint = await this._resolveCanvasClientPoint({ x, y })
+
+    await this.page.mouse.move(clientPoint.x, clientPoint.y)
+
+    if (ctrlKey) {
+      await this.page.keyboard.down('Control')
+    }
+
+    try {
+      await this.page.mouse.wheel(deltaX, deltaY)
+    } finally {
+      if (ctrlKey) {
+        await this.page.keyboard.up('Control')
+      }
+    }
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
   async zoomByCtrlWheel(params: { deltaY: number }): Promise<WheelInputDispatchState> {
     return this._dispatchWheelEvents({
       ctrlKey: true,
       deltaYSteps: [params.deltaY]
+    })
+  }
+
+  /** Делает серию реальных Ctrl + wheel событий в заданной viewport-точке canvas. */
+  async zoomByCtrlWheelRepeatedlyAtViewportPoint({
+    deltaY,
+    steps,
+    x,
+    y
+  }: {
+    deltaY: number
+    steps: number
+    x: number
+    y: number
+  }): Promise<void> {
+    const clientPoint = await this._resolveCanvasClientPoint({ x, y })
+
+    await this.page.mouse.move(clientPoint.x, clientPoint.y)
+    await this.page.keyboard.down('Control')
+
+    try {
+      for (let stepIndex = 0; stepIndex < steps; stepIndex += 1) {
+        await this.page.mouse.wheel(0, deltaY)
+      }
+    } finally {
+      await this.page.keyboard.up('Control')
+    }
+
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Делает реальный wheel-pan в заданной viewport-точке canvas. */
+  async panByWheelAtViewportPoint({
+    deltaX = 0,
+    deltaY,
+    x,
+    y
+  }: {
+    deltaX?: number
+    deltaY: number
+    x: number
+    y: number
+  }): Promise<void> {
+    await this._wheelAtViewportPoint({
+      deltaX,
+      deltaY,
+      x,
+      y
     })
   }
 
