@@ -250,6 +250,36 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Выполняет реальный двойной клик по центру активной crop-области. */
+  async doubleClickFrame(): Promise<CropStateInfo> {
+    const point = await this.page.evaluate(() => {
+      const { editor } = window as any
+      const cropState = editor.cropManager.getState()
+      if (!cropState) return null
+
+      const { frame } = cropState
+      frame.setCoords()
+
+      const bounds = frame.getBoundingRect(false, true)
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + bounds.left + (bounds.width / 2),
+        y: canvasRect.top + bounds.top + (bounds.height / 2)
+      }
+    })
+
+    expect(point, 'для двойного клика по crop-области должны существовать client-координаты').not.toBeNull()
+    if (!point) {
+      throw new Error('Не удалось получить client-координаты для двойного клика по crop-области')
+    }
+
+    await this.page.mouse.dblclick(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
   /** Завершает активный resize crop frame через mouseup. */
   async finishFrameResize(): Promise<CropStateInfo> {
     const pointer = this.lastResizePointer
