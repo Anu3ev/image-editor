@@ -2,6 +2,23 @@ import { CropFrame } from '../../../../src/editor/crop-manager/domain/crop-frame
 import { resetCropCanvasContext } from '../../../test-utils/crop/image-crop'
 
 describe('crop frame', () => {
+  it('по умолчанию включает preserveAspectRatio и позволяет явно его отключить', () => {
+    const defaultFrame = new CropFrame({
+      width: 90,
+      height: 60,
+      showGrid: false
+    })
+    const unlockedFrame = new CropFrame({
+      width: 90,
+      height: 60,
+      showGrid: false,
+      preserveAspectRatio: false
+    })
+
+    expect(defaultFrame.preserveAspectRatio).toBe(true)
+    expect(unlockedFrame.preserveAspectRatio).toBe(false)
+  })
+
   it('рисует сетку третей, когда showGrid включён', () => {
     const context = resetCropCanvasContext()
     const frame = new CropFrame({
