@@ -24,6 +24,14 @@ interface CropFrameOptions extends Partial<RectProps> {
   showGrid: boolean
   sourceScaleX?: number
   sourceScaleY?: number
+  preserveAspectRatio?: boolean
+}
+
+/**
+ * Runtime-контракт crop frame для выбора режима resize.
+ */
+export interface CropFrameResizeTarget extends FabricObject {
+  preserveAspectRatio?: boolean
 }
 
 /**
@@ -41,6 +49,11 @@ export class CropFrame extends Rect {
   public readonly cropSourceScaleY: number
 
   /**
+    * Сохранять ли текущие пропорции при resize без модификаторов.
+   */
+  public preserveAspectRatio: boolean
+
+  /**
    * Показывать ли сетку внутри crop frame.
    */
   private readonly _showGrid: boolean
@@ -53,6 +66,7 @@ export class CropFrame extends Rect {
       showGrid,
       sourceScaleX = 1,
       sourceScaleY = 1,
+      preserveAspectRatio = true,
       ...rectOptions
     } = options
 
@@ -60,6 +74,7 @@ export class CropFrame extends Rect {
     this._showGrid = showGrid
     this.cropSourceScaleX = sourceScaleX
     this.cropSourceScaleY = sourceScaleY
+    this.preserveAspectRatio = preserveAspectRatio
   }
 
   /**
@@ -98,11 +113,13 @@ export class CropFrame extends Rect {
 export function createCropFrame({
   source,
   cropSize,
-  showGrid
+  showGrid,
+  preserveAspectRatio
 }: {
   source: FabricObject
   cropSize: CropSize
   showGrid: boolean
+  preserveAspectRatio: boolean
 }): Rect {
   const center = source.getCenterPoint()
   const sourceScaleX = source.scaleX ?? 1
@@ -133,6 +150,7 @@ export function createCropFrame({
     lockSkewingY: true,
     excludeFromExport: true,
     showGrid,
+    preserveAspectRatio,
     sourceScaleX,
     sourceScaleY
   })

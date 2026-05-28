@@ -30,6 +30,7 @@ export type StartCanvasCropOptions = {
   allowFrameOverflow?: boolean
   showGrid?: boolean
   cancelOnSelectionClear?: boolean
+  preserveAspectRatio?: boolean
 }
 
 /**
@@ -42,6 +43,7 @@ export type StartImageCropOptions = {
   allowFrameOverflow?: boolean
   showGrid?: boolean
   cancelOnSelectionClear?: boolean
+  preserveAspectRatio?: boolean
 }
 
 /**
@@ -51,6 +53,7 @@ export type CropSessionOptions = {
   allowFrameOverflow: boolean
   showGrid: boolean
   cancelOnSelectionClear: boolean
+  preserveAspectRatio: boolean
 }
 
 /**

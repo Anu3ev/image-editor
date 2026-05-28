@@ -12,6 +12,7 @@ import {
   MIN_CROP_FRAME_HEIGHT,
   MIN_CROP_FRAME_WIDTH
 } from '../domain/crop-geometry'
+import type { CropFrameResizeTarget } from '../domain/crop-frame'
 import { getCropFrameSourceSize } from '../domain/crop-frame-size'
 
 /**
@@ -76,11 +77,31 @@ type CropScaleDimensions = {
 type CropScaleAxis = 'x' | 'y'
 
 /**
+ * Action names side-resize crop control-ов без переключения в skew.
+ */
+type CropSideScaleActionName = 'scaleX' | 'scaleY'
+
+/**
  * Стартовые знаки control относительно центра crop frame.
  */
 type CropScaleSigns = {
   signX: number
   signY: number
+}
+
+/**
+ * Боковые control-ключи crop frame.
+ */
+type CropSideControlKey = typeof CROP_SIDE_CONTROL_KEYS[number]
+
+/**
+ * Cursor для side resize crop frame.
+ */
+const CROP_SIDE_RESIZE_CURSOR_BY_KEY: Record<CropSideControlKey, string> = {
+  ml: 'w-resize',
+  mr: 'e-resize',
+  mt: 'n-resize',
+  mb: 's-resize'
 }
 
 /**
@@ -226,6 +247,52 @@ function scaleCropFrameFromSide({
   if (axis === 'x') return currentScale !== target.scaleX
 
   return currentScale !== target.scaleY
+}
+
+/**
+ * Выполняет proportional resize frame через боковой control.
+ */
+function scaleCropFrameProportionallyFromSide({
+  transform,
+  axis,
+  x,
+  y
+}: {
+  transform: Transform
+  axis: CropScaleAxis
+  x: number
+  y: number
+}): boolean {
+  const cropTransform = transform as CropScaleTransform
+  const { target } = cropTransform
+  const { scaleX: currentScaleX = 1, scaleY: currentScaleY = 1 } = target
+
+  if (isPointerAtTransformStart({
+    transform: cropTransform,
+    x,
+    y
+  })) {
+    restoreOriginalScale({ transform: cropTransform })
+
+    return true
+  }
+
+  const localPoint = controlsUtils.getLocalPoint(
+    cropTransform,
+    cropTransform.originX,
+    cropTransform.originY,
+    x,
+    y
+  )
+
+  setInitialScaleSigns({ transform: cropTransform })
+  applyProportionalSideScale({
+    transform: cropTransform,
+    axis,
+    localPoint
+  })
+
+  return currentScaleX !== target.scaleX || currentScaleY !== target.scaleY
 }
 
 /**
@@ -386,6 +453,47 @@ function applySideScale({
 }
 
 /**
+ * Применяет proportional resize через боковой control.
+ */
+function applyProportionalSideScale({
+  transform,
+  axis,
+  localPoint
+}: {
+  transform: CropScaleTransform
+  axis: CropScaleAxis
+  localPoint: { x: number; y: number }
+}): void {
+  const { target } = transform
+  if (target.lockScalingX || target.lockScalingY) return
+
+  const axisScale = resolveAxisScale({
+    transform,
+    axis,
+    localPoint
+  })
+  const originalAxisScale = axis === 'x'
+    ? transform.original.scaleX
+    : transform.original.scaleY
+  const proportionalScale = originalAxisScale > 0
+    ? axisScale / originalAxisScale
+    : 1
+  const clampedScale = clampProportionalScale({
+    target,
+    transform,
+    scale: proportionalScale,
+    forceMinimum: hasScaleOriginCrossed({
+      transform,
+      axis,
+      localPoint
+    })
+  })
+
+  target.set('scaleX', clampedScale.scaleX)
+  target.set('scaleY', clampedScale.scaleY)
+}
+
+/**
  * Возвращает scale одной оси с учётом min/max и перелёта через origin.
  */
 function resolveAxisScale({
@@ -444,7 +552,7 @@ function applyProportionalCornerScale({
     localPoint,
     dimensions
   })
-  const clampedScale = clampProportionalCornerScale({
+  const clampedScale = clampProportionalScale({
     target,
     transform,
     scale,
@@ -521,7 +629,7 @@ function getCropScaleDimensions({ target }: { target: FabricObject }): CropScale
 /**
  * Ограничивает proportional scale единым multiplier, чтобы пропорции не ломались.
  */
-function clampProportionalCornerScale({
+function clampProportionalScale({
   target,
   transform,
   scale,
@@ -623,7 +731,25 @@ function hasProportionalScaleOriginCrossed({
 }
 
 /**
- * Создаёт action handler: пропорциональный resize по умолчанию, свободный при Shift.
+ * Возвращает true, если текущий resize должен сохранять пропорции.
+ */
+function shouldPreserveCropFrameAspectRatioOnResize({
+  eventData,
+  target
+}: {
+  eventData: { shiftKey?: boolean }
+  target: FabricObject
+}): boolean {
+  const cropTarget = target as CropFrameResizeTarget
+  const preserveAspectRatio = cropTarget.preserveAspectRatio ?? true
+
+  if (!eventData.shiftKey) return preserveAspectRatio
+
+  return !preserveAspectRatio
+}
+
+/**
+ * Создаёт action handler для resize из угла с поддержкой инверсии по Shift.
  */
 function createCropCornerScalingActionHandler(): NonNullable<Control['actionHandler']> {
   const freeScaleHandler = controlsUtils.wrapWithFireEvent(
@@ -648,9 +774,12 @@ function createCropCornerScalingActionHandler(): NonNullable<Control['actionHand
   )
 
   return (eventData, transform, x, y) => {
-    const isFreeScale = Boolean(eventData.shiftKey)
+    const shouldPreserveAspectRatio = shouldPreserveCropFrameAspectRatioOnResize({
+      eventData,
+      target: transform.target
+    })
 
-    if (isFreeScale) {
+    if (!shouldPreserveAspectRatio) {
       return freeScaleHandler(eventData, transform, x, y)
     }
 
@@ -659,14 +788,14 @@ function createCropCornerScalingActionHandler(): NonNullable<Control['actionHand
 }
 
 /**
- * Создаёт action handler для бокового resize по одной оси.
+ * Создаёт action handler для бокового resize с поддержкой сохранения пропорций.
  */
 function createCropSideScalingActionHandler({
   axis
 }: {
   axis: CropScaleAxis
 }): NonNullable<Control['actionHandler']> {
-  return controlsUtils.wrapWithFireEvent(
+  const freeScaleHandler = controlsUtils.wrapWithFireEvent(
     'scaling',
     controlsUtils.wrapWithFixedAnchor((_eventData, transform, x, y) => {
       return scaleCropFrameFromSide({
@@ -677,6 +806,30 @@ function createCropSideScalingActionHandler({
       })
     })
   )
+  const proportionalScaleHandler = controlsUtils.wrapWithFireEvent(
+    'scaling',
+    controlsUtils.wrapWithFixedAnchor((_eventData, transform, x, y) => {
+      return scaleCropFrameProportionallyFromSide({
+        transform,
+        axis,
+        x,
+        y
+      })
+    })
+  )
+
+  return (eventData, transform, x, y) => {
+    const shouldPreserveAspectRatio = shouldPreserveCropFrameAspectRatioOnResize({
+      eventData,
+      target: transform.target
+    })
+
+    if (!shouldPreserveAspectRatio) {
+      return freeScaleHandler(eventData, transform, x, y)
+    }
+
+    return proportionalScaleHandler(eventData, transform, x, y)
+  }
 }
 
 /**
@@ -699,20 +852,54 @@ function clampNumber({
  */
 function createCropResizeControl({
   control,
-  actionHandler
+  actionHandler,
+  cursorStyleHandler,
+  getActionName
 }: {
   control: Control
   actionHandler: NonNullable<Control['actionHandler']>
+  cursorStyleHandler?: Control['cursorStyleHandler']
+  getActionName?: Control['getActionName']
 }): Control {
-  const nextControl = new Control({
+  const controlOptions = {
     ...control,
     actionHandler
-  })
+  }
+
+  if (cursorStyleHandler) {
+    Object.assign(controlOptions, {
+      cursorStyleHandler
+    })
+  }
+
+  if (getActionName) {
+    Object.assign(controlOptions, {
+      getActionName
+    })
+  }
+
+  const nextControl = new Control(controlOptions)
   const cropControl = nextControl as CropResizeControl
 
   cropControl.cropResizeControl = true
 
   return cropControl
+}
+
+/**
+ * Возвращает стабильный resize cursor для бокового crop-control.
+ */
+function getCropSideResizeCursor({ controlKey }: { controlKey: CropSideControlKey }): string {
+  return CROP_SIDE_RESIZE_CURSOR_BY_KEY[controlKey]
+}
+
+/**
+ * Возвращает resize action name для бокового crop-control.
+ */
+function getCropSideScaleActionName({ axis }: { axis: CropScaleAxis }): CropSideScaleActionName {
+  if (axis === 'x') return 'scaleX'
+
+  return 'scaleY'
 }
 
 /**
@@ -742,13 +929,17 @@ export function applyCropResizeControls({ target }: { target: FabricObject }): v
     if (!control) return
     if (control.cropResizeControl) return
 
-    const actionHandler = key === 'ml' || key === 'mr'
+    const isHorizontalControl = key === 'ml' || key === 'mr'
+    const actionHandler = isHorizontalControl
       ? horizontalActionHandler
       : verticalActionHandler
+    const axis = isHorizontalControl ? 'x' : 'y'
 
     nextControls[key] = createCropResizeControl({
       control,
-      actionHandler
+      actionHandler,
+      cursorStyleHandler: () => getCropSideResizeCursor({ controlKey: key }),
+      getActionName: () => getCropSideScaleActionName({ axis })
     })
     hasControlChange = true
   })

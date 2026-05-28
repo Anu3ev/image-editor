@@ -25,6 +25,7 @@ export interface CropSessionOptionsInfo {
   allowFrameOverflow: boolean
   showGrid: boolean
   cancelOnSelectionClear: boolean
+  preserveAspectRatio: boolean
 }
 
 /** Сериализованное состояние runtime crop frame. */
@@ -67,6 +68,7 @@ export interface CropStartParams extends ObjectTargetParams {
   allowFrameOverflow?: boolean
   showGrid?: boolean
   cancelOnSelectionClear?: boolean
+  preserveAspectRatio?: boolean
 }
 
 /** Параметры интерактивного resize crop frame из control. */
