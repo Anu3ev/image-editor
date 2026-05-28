@@ -1078,7 +1078,7 @@ class Listeners {
   }
 
   /**
-   * Обработчик сброса объекта по двойному клику.
+   * Обработчик сброса объекта или active crop frame по двойному клику.
    * @param options - объект события fabric
    */
   handleResetObjectFit(options: TPointerEventInfo<TPointerEvent>): void {
@@ -1086,7 +1086,12 @@ class Listeners {
     const isCtrlPressed = Boolean(e && (e.ctrlKey || e.metaKey))
 
     if (isCtrlPressed) return
+
+    const cropResetState = this.editor.cropManager.resetFrameToSource({ target })
+
+    if (cropResetState) return
     if (!target || target instanceof Textbox || Boolean(target.shapeComposite)) return
+
     this.editor.transformManager.resetObject({ object: target })
   }
 

@@ -235,6 +235,23 @@ export default class CropManager {
   }
 
   /**
+   * Сбрасывает активный crop frame к полному размеру source.
+   */
+  public resetFrameToSource({ target }: { target?: FabricObject | null }): CropState | null {
+    const { _session: session } = this
+    if (!session || session.frame !== target) return null
+
+    const sourceSize = getSourceSize({ source: session.source })
+
+    this._applyFrameSize({
+      session,
+      size: sourceSize
+    })
+
+    return this.getState()
+  }
+
+  /**
    * Применяет активный crop mode.
    */
   public apply(): CropApplyResult | null {
