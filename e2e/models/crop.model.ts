@@ -171,6 +171,35 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Задаёт пропорции активной crop-области через публичный API редактора. */
+  async setAspectRatio(params: CropSizeInfo): Promise<CropStateInfo> {
+    await this.page.evaluate((aspectRatio) => {
+      const { editor } = window as any
+
+      editor.cropManager.setAspectRatio({ aspectRatio })
+    }, params)
+
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
+  /** Переключает сохранение пропорций у resize crop-области через публичный API редактора. */
+  async setPreserveAspectRatio(
+    params: { preserveAspectRatio: boolean }
+  ): Promise<CropStateInfo> {
+    const state = await this.page.evaluate((payload) => {
+      const { editor } = window as any
+
+      return editor.cropManager.setPreserveAspectRatio(payload)
+    }, params)
+
+    expect(state, 'режим сохранения пропорций у active crop должен обновиться').not.toBeNull()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
   /** Применяет активный crop mode. */
   async apply(): Promise<void> {
     const result = await this.page.evaluate(() => {
@@ -278,6 +307,40 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
 
     return this.requireState()
+  }
+
+  /** Наводит курсор на указанный resize control активной crop-области. */
+  async hoverFrameControl(params: { control: CropControlKey }): Promise<void> {
+    const point = await this.resolveFrameControlPoint(params)
+
+    await this.page.mouse.move(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Возвращает cursor canvas после hover указанного resize control. */
+  async getFrameControlCursor(
+    params: { control: CropControlKey, shiftKey?: boolean }
+  ): Promise<string> {
+    const {
+      control,
+      shiftKey = false
+    } = params
+
+    if (!shiftKey) {
+      await this.hoverFrameControl({ control })
+
+      return this.readCanvasCursor()
+    }
+
+    await this.page.keyboard.down('Shift')
+
+    try {
+      await this.hoverFrameControl({ control })
+
+      return await this.readCanvasCursor()
+    } finally {
+      await this.page.keyboard.up('Shift')
+    }
   }
 
   /** Завершает активный resize crop frame через mouseup. */
@@ -538,6 +601,51 @@ export class CropModel {
     }
 
     return state
+  }
+
+  /** Возвращает viewport-координаты resize control активной crop-области. */
+  private async resolveFrameControlPoint(
+    { control }: { control: CropControlKey }
+  ): Promise<{ x: number, y: number }> {
+    const point = await this.page.evaluate(({ control: controlKey }) => {
+      const { editor } = window as any
+      const cropState = editor.cropManager.getState()
+      if (!cropState) return null
+
+      const { frame } = cropState
+
+      editor.canvas.setActiveObject(frame)
+      frame.setCoords()
+      editor.canvas.renderAll()
+
+      const frameControl = frame.oCoords?.[controlKey]
+      if (!frameControl || typeof frameControl.x !== 'number' || typeof frameControl.y !== 'number') {
+        return null
+      }
+
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + frameControl.x,
+        y: canvasRect.top + frameControl.y
+      }
+    }, { control })
+
+    expect(point, 'для hover crop-control должны существовать client-координаты').not.toBeNull()
+    if (!point) {
+      throw new Error('Не удалось получить client-координаты crop-control')
+    }
+
+    return point
+  }
+
+  /** Возвращает текущее значение cursor у верхнего canvas слоя. */
+  private async readCanvasCursor(): Promise<string> {
+    return this.page.evaluate(() => {
+      const { editor } = window as any
+
+      return editor.canvas.upperCanvasEl.style.cursor ?? ''
+    })
   }
 
   /** Преобразует желаемый размер результата crop в ratio-параметры resize control. */

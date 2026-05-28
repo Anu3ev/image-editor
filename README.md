@@ -267,6 +267,7 @@ editor.cropManager.startCanvasCrop({
     width: 1,
     height: 1
   },
+  preserveAspectRatio: true,
   allowFrameOverflow: true,
   showGrid: true,
   cancelOnSelectionClear: true
@@ -305,6 +306,10 @@ editor.cropManager.setSize({
   }
 })
 
+editor.cropManager.setPreserveAspectRatio({
+  preserveAspectRatio: false
+})
+
 // Apply or cancel the active crop mode
 const cropResult = editor.cropManager.apply()
 editor.cropManager.cancel()
@@ -316,12 +321,14 @@ Crop behavior options:
 - `allowFrameOverflow` defaults to `true` and lets the crop frame become larger than the source object.
 - `showGrid` defaults to `true` and draws a composition grid inside the crop frame.
 - `cancelOnSelectionClear` defaults to `true` and cancels crop mode when the crop frame loses focus.
+- `preserveAspectRatio` defaults to `true` and keeps the current aspect ratio during crop resize; `Shift` temporarily inverts the active mode for any resize control.
 
 `CropManager` public methods:
 - `startCanvasCrop()` enters crop mode for the montage area.
 - `startImageCrop()` enters crop mode for a `FabricImage` target or the active image object.
 - `setAspectRatio()` updates the active crop frame by width/height ratio.
 - `setSize()` updates the active crop frame by explicit dimensions.
+- `setPreserveAspectRatio()` toggles whether crop resize keeps the current aspect ratio for the active crop frame.
 - `getState()` returns the active crop state, including mode, frame, target, options, and result rect.
 - `apply()` commits the active crop and saves the new state to history.
 - `cancel()` exits crop mode without changing the montage area or image.

@@ -15,7 +15,10 @@ import {
   getSourceSize,
   resolveCropSize
 } from './domain/crop-geometry'
-import { createCropFrame } from './domain/crop-frame'
+import {
+  createCropFrame,
+  type CropFrameResizeTarget
+} from './domain/crop-frame'
 import {
   getCropSessionResultRect,
   getRoundedCropRect
@@ -42,7 +45,8 @@ import type {
 const DEFAULT_CROP_SESSION_OPTIONS = {
   allowFrameOverflow: true,
   showGrid: true,
-  cancelOnSelectionClear: true
+  cancelOnSelectionClear: true,
+  preserveAspectRatio: true
 } satisfies CropSessionOptions
 
 /**
@@ -235,6 +239,27 @@ export default class CropManager {
   }
 
   /**
+   * Переключает сохранение пропорций при resize активной crop-области.
+   */
+  public setPreserveAspectRatio({
+    preserveAspectRatio
+  }: {
+    preserveAspectRatio: boolean
+  }): CropState | null {
+    const { _session: session } = this
+    if (!session) return null
+
+    session.options.preserveAspectRatio = preserveAspectRatio
+    this._setFramePreserveAspectRatio({
+      frame: session.frame,
+      preserveAspectRatio
+    })
+    this.editor.canvas.requestRenderAll()
+
+    return this.getState()
+  }
+
+  /**
    * Сбрасывает активный crop frame к полному размеру source.
    */
   public resetFrameToSource({ target }: { target?: FabricObject | null }): CropState | null {
@@ -364,7 +389,9 @@ export default class CropManager {
     return {
       allowFrameOverflow: options.allowFrameOverflow ?? DEFAULT_CROP_SESSION_OPTIONS.allowFrameOverflow,
       showGrid: options.showGrid ?? DEFAULT_CROP_SESSION_OPTIONS.showGrid,
-      cancelOnSelectionClear: options.cancelOnSelectionClear ?? DEFAULT_CROP_SESSION_OPTIONS.cancelOnSelectionClear
+      cancelOnSelectionClear: options.cancelOnSelectionClear ?? DEFAULT_CROP_SESSION_OPTIONS.cancelOnSelectionClear,
+      preserveAspectRatio: options.preserveAspectRatio
+        ?? DEFAULT_CROP_SESSION_OPTIONS.preserveAspectRatio
     }
   }
 
@@ -391,8 +418,24 @@ export default class CropManager {
     return createCropFrame({
       source,
       cropSize,
-      showGrid: sessionOptions.showGrid
+      showGrid: sessionOptions.showGrid,
+      preserveAspectRatio: sessionOptions.preserveAspectRatio
     })
+  }
+
+  /**
+   * Синхронизирует runtime crop frame с активным режимом сохранения пропорций.
+   */
+  private _setFramePreserveAspectRatio({
+    frame,
+    preserveAspectRatio
+  }: {
+    frame: Rect
+    preserveAspectRatio: boolean
+  }): void {
+    const cropFrame = frame as CropFrameResizeTarget
+
+    cropFrame.preserveAspectRatio = preserveAspectRatio
   }
 
   /**

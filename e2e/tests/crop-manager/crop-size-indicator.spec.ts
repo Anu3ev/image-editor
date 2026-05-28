@@ -1,7 +1,6 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
   CROP_SIZE_INSIDE_SNAP_THRESHOLD,
-  DEFAULT_MONTAGE_SIZE,
   FULL_CROP_MONTAGE_SIZES,
   FULL_CROP_SNAP_THRESHOLD_CORNER_CASES,
   FULL_CROP_SNAP_THRESHOLD_SIDE_CASES,
@@ -181,6 +180,14 @@ test.describe('Индикатор размеров crop-области', () => {
         editorModel,
         crop
       }) => {
+        await test.step('Отключить сохранение пропорций для проверки snap по одной оси', async() => {
+          const state = await crop.setPreserveAspectRatio({
+            preserveAspectRatio: false
+          })
+
+          expect(state.options.preserveAspectRatio).toBe(false)
+        })
+
         const heldSize = cropCase.axis === 'horizontal'
           ? {
             width: CROP_SIZE_INSIDE_SNAP_THRESHOLD,

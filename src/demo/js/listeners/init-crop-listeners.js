@@ -7,7 +7,8 @@ const getCropBehaviorOptions = ({ controls }) => {
   return {
     allowFrameOverflow: controls.cropAllowOverflowCheckbox.checked,
     showGrid: controls.cropShowGridCheckbox.checked,
-    cancelOnSelectionClear: controls.cropCancelOnSelectionClearCheckbox.checked
+    cancelOnSelectionClear: controls.cropCancelOnSelectionClearCheckbox.checked,
+    preserveAspectRatio: controls.cropPreserveAspectRatioCheckbox.checked
   }
 }
 
@@ -131,5 +132,14 @@ export default ({ editorInstance, controls }) => {
       editorInstance,
       controls
     })
+  })
+
+  controls.cropPreserveAspectRatioCheckbox.addEventListener('change', () => {
+    if (!editorInstance.cropManager.isActive) return
+
+    const state = editorInstance.cropManager.setPreserveAspectRatio({
+      preserveAspectRatio: controls.cropPreserveAspectRatioCheckbox.checked
+    })
+    if (!state) return
   })
 }
