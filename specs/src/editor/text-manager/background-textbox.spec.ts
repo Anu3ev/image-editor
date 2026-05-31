@@ -521,7 +521,7 @@ describe('BackgroundTextbox', () => {
       const secondLineStart = firstLineLength + 1
       const firstLineStyles = restored.styles?.[0] ?? {}
       const secondLineStyles = restored.styles?.[1] ?? {}
-      const secondLineLength = (restored.text.length - secondLineStart)
+      const secondLineLength = restored.text.length - secondLineStart
 
       expect(restored).toBeInstanceOf(BackgroundTextbox)
       expect(restored.lineFontDefaults).toEqual({

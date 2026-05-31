@@ -606,7 +606,6 @@ export class ShapeScalingSession {
     }, params)
   }
 
-
   /** Имитирует масштабирование shape и запекание результата через object:modified */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
     const {
@@ -962,7 +961,6 @@ export class ShapeScalingSession {
         x: point.x + deltaX,
         y: point.y + deltaY
       }
-      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
 
       editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
         bubbles: true,

@@ -8,9 +8,6 @@ jest.mock('../../../../src/editor/utils/primitive-shapes', () => ({
   addRectangleToCanvas: jest.fn()
 }))
 
-// Константы для тестирования
-const ASYNC_DELAY = 10
-
 const addRectangleToCanvasMock = addRectangleToCanvas as jest.Mock
 
 describe('BackgroundManager', () => {
@@ -148,7 +145,7 @@ describe('BackgroundManager', () => {
   })
 
   describe('setImageBackground', () => {
-    it('должен создать новый фон из изображения', async () => {
+    it('должен создать новый фон из изображения', async() => {
       const imageSource = 'https://example.com/image.jpg'
       const mockImage = createMockBackgroundImage({ id: 'background' })
 
@@ -177,7 +174,7 @@ describe('BackgroundManager', () => {
       expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
     })
 
-    it('не должен сохранять в историю при withoutSave: true', async () => {
+    it('не должен сохранять в историю при withoutSave: true', async() => {
       const imageSource = 'https://example.com/image.jpg'
       const mockImage = createMockBackgroundImage({ id: 'background' })
 
@@ -979,8 +976,8 @@ describe('BackgroundManager', () => {
 
       // Настраиваем indexOf мок для refresh()
       mockCanvas.indexOf.mockImplementation((obj: any) => {
-        const objects = mockCanvas.getObjects()
-        return objects.indexOf(obj)
+        const canvasObjects = mockCanvas.getObjects()
+        return canvasObjects.indexOf(obj)
       })
 
       // Сброс счетчика вызовов moveObjectTo перед refresh
@@ -1047,8 +1044,8 @@ describe('BackgroundManager', () => {
       mockMontageArea.height = 450
 
       // Проверяем начальное состояние фона в canvas
-      let objects = mockCanvas.getObjects()
-      let backgroundObj = objects.find((obj: any) => obj.id === 'background')
+      const objects = mockCanvas.getObjects()
+      const backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.left).toBe(100)
       expect(backgroundObj?.width).toBe(400)
