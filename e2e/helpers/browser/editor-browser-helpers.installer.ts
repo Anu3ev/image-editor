@@ -16,11 +16,36 @@ import type {
   NullableBoundsInfo
 } from './editor-browser-helpers.types'
 
+/** Client-точка, полученная из browser-side control координат. */
+type BrowserControlPoint = {
+  x: number
+  y: number
+}
+
+/** Window на момент установки helpers: editor может появиться после init приложения. */
+type BrowserEditorWindowInstallerTarget = Window & {
+  editor?: BrowserEditorWindow['editor']
+  __editorHelpers?: BrowserEditorHelpers
+}
+
 /**
  * Устанавливает browser-side хелперы на window редактора.
  */
 export function installEditorBrowserHelpers(): void {
-  const browserWindow = window as unknown as BrowserEditorWindow
+  const browserWindow: BrowserEditorWindowInstallerTarget = window
+
+  /**
+   * Возвращает editor runtime после завершения init приложения.
+   */
+  function getEditorRuntime(): BrowserEditorWindow['editor'] {
+    const { editor } = browserWindow
+
+    if (!editor) {
+      throw new Error('Browser editor runtime должен быть доступен перед вызовом e2e helper')
+    }
+
+    return editor
+  }
 
   /**
    * Безопасно приводит unknown-значение к plain-object.
@@ -53,6 +78,21 @@ export function installEditorBrowserHelpers(): void {
     if (typeof value === 'number') return value
 
     return defaultValue
+  }
+
+  /**
+   * Возвращает конечную control-точку или null, если browser-side объект неполный.
+   */
+  function resolveControlPoint({ value }: { value: BrowserObject }): BrowserControlPoint | null {
+    const { x, y } = value
+
+    if (typeof x !== 'number' || !Number.isFinite(x)) return null
+    if (typeof y !== 'number' || !Number.isFinite(y)) return null
+
+    return {
+      x,
+      y
+    }
   }
 
   /**
@@ -318,7 +358,7 @@ export function installEditorBrowserHelpers(): void {
     type: 'vertical' | 'horizontal'
     position: number
   }> {
-    const editorObject = toBrowserObject({ value: browserWindow.editor })
+    const editorObject = toBrowserObject({ value: getEditorRuntime() })
     const snappingManager = toBrowserObject({ value: editorObject.snappingManager })
     const rawGuides = Array.isArray(snappingManager.activeGuides)
       ? snappingManager.activeGuides
@@ -356,7 +396,7 @@ export function installEditorBrowserHelpers(): void {
     activeEnd: number
     distance: number
   }> {
-    const editorObject = toBrowserObject({ value: browserWindow.editor })
+    const editorObject = toBrowserObject({ value: getEditorRuntime() })
     const snappingManager = toBrowserObject({ value: editorObject.snappingManager })
     const rawGuides = Array.isArray(snappingManager.activeSpacingGuides)
       ? snappingManager.activeSpacingGuides
@@ -468,7 +508,7 @@ export function installEditorBrowserHelpers(): void {
 
     if (objectIndex === undefined) return undefined
 
-    const objects = browserWindow.editor.canvasManager.getObjects()
+    const objects = getEditorRuntime().canvasManager.getObjects()
     if (!Array.isArray(objects)) return undefined
 
     return objects[objectIndex]
@@ -478,7 +518,7 @@ export function installEditorBrowserHelpers(): void {
    * Возвращает canvas-объект по индексу или id.
    */
   function resolveCanvasObject({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
-    const objects = browserWindow.editor.canvasManager.getObjects()
+    const objects = getEditorRuntime().canvasManager.getObjects()
     if (!Array.isArray(objects)) return undefined
 
     if (typeof id === 'string') {
@@ -503,10 +543,10 @@ export function installEditorBrowserHelpers(): void {
 
     if (target !== undefined) return target
 
-    const transformTarget = browserWindow.editor.canvas._currentTransform?.target
+    const transformTarget = getEditorRuntime().canvas._currentTransform?.target
     if (transformTarget) return transformTarget
 
-    return browserWindow.editor.canvas.getActiveObject()
+    return getEditorRuntime().canvas.getActiveObject()
   }
 
   /**
@@ -722,7 +762,7 @@ export function installEditorBrowserHelpers(): void {
   }: BrowserTextSelectionStyleParams): BrowserSerializableObject | null {
     const target = resolveTarget({ objectIndex, id })
 
-    return browserWindow.editor.shapeManager.getTextNode({ target }) as BrowserSerializableObject | null
+    return getEditorRuntime().shapeManager.getTextNode({ target }) as BrowserSerializableObject | null
   }
 
   /**
@@ -947,7 +987,8 @@ export function installEditorBrowserHelpers(): void {
     shiftKey = false,
     continueInteraction = false
   }: BrowserSelectionScaleFromControlParams): BrowserSelectionScaleFromControlResult | null => {
-    const target = browserWindow.editor.canvas.getActiveObject()
+    const { canvas } = getEditorRuntime()
+    const target = canvas.getActiveObject()
     if (!target) return null
 
     const targetObject = toBrowserObject({ value: target })
@@ -958,23 +999,18 @@ export function installEditorBrowserHelpers(): void {
     const controls = toBrowserObject({ value: targetObject.oCoords })
     const startControl = toBrowserObject({ value: controls[startControlName] })
     const oppositeControl = toBrowserObject({ value: controls[oppositeControlName] })
-    if (
-      typeof startControl.x !== 'number'
-      || typeof startControl.y !== 'number'
-      || typeof oppositeControl.x !== 'number'
-      || typeof oppositeControl.y !== 'number'
-    ) {
-      return null
-    }
+    const startControlPoint = resolveControlPoint({ value: startControl })
+    const oppositeControlPoint = resolveControlPoint({ value: oppositeControl })
+    if (!startControlPoint || !oppositeControlPoint) return null
 
-    const rect = browserWindow.editor.canvas.upperCanvasEl.getBoundingClientRect()
+    const rect = canvas.upperCanvasEl.getBoundingClientRect()
     const startPoint = {
-      x: rect.left + startControl.x,
-      y: rect.top + startControl.y
+      x: rect.left + startControlPoint.x,
+      y: rect.top + startControlPoint.y
     }
 
     if (!continueInteraction) {
-      browserWindow.editor.canvas.__onMouseDown(new MouseEvent('mousedown', {
+      canvas.__onMouseDown(new MouseEvent('mousedown', {
         bubbles: true,
         button: 0,
         buttons: 1,
@@ -984,25 +1020,30 @@ export function installEditorBrowserHelpers(): void {
       }))
     }
 
-    const transform = browserWindow.editor.canvas._currentTransform
+    const transform = canvas._currentTransform
     if (!transform || transform.target !== target) return null
 
-    const controlWidth = startControl.x - oppositeControl.x
-    const controlHeight = startControl.y - oppositeControl.y
+    const controlWidth = startControlPoint.x - oppositeControlPoint.x
+    const controlHeight = startControlPoint.y - oppositeControlPoint.y
     const widthSign = Math.sign(controlWidth) || 1
     const heightSign = Math.sign(controlHeight) || 1
-    const targetWidth = typeof minimumWidth === 'number'
-      ? minimumWidth
-      : Math.abs(controlWidth) * (scaleX ?? 1)
-    const targetHeight = typeof minimumHeight === 'number'
-      ? minimumHeight
-      : Math.abs(controlHeight) * (scaleY ?? 1)
-    const movePoint = {
-      x: rect.left + oppositeControl.x + (widthSign * targetWidth),
-      y: rect.top + oppositeControl.y + (heightSign * targetHeight)
+    let targetWidth = Math.abs(controlWidth) * (scaleX ?? 1)
+    let targetHeight = Math.abs(controlHeight) * (scaleY ?? 1)
+
+    if (typeof minimumWidth === 'number') {
+      targetWidth = minimumWidth
     }
 
-    browserWindow.editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
+    if (typeof minimumHeight === 'number') {
+      targetHeight = minimumHeight
+    }
+
+    const movePoint = {
+      x: rect.left + oppositeControlPoint.x + (widthSign * targetWidth),
+      y: rect.top + oppositeControlPoint.y + (heightSign * targetHeight)
+    }
+
+    canvas.__onMouseMove(new MouseEvent('mousemove', {
       bubbles: true,
       button: 0,
       buttons: 1,
@@ -1016,10 +1057,11 @@ export function installEditorBrowserHelpers(): void {
     const currentControl = toBrowserObject({
       value: toBrowserObject({ value: targetObject.oCoords })[startControlName]
     })
-    const currentPoint = typeof currentControl.x === 'number' && typeof currentControl.y === 'number'
+    const currentControlPoint = resolveControlPoint({ value: currentControl })
+    const currentPoint = currentControlPoint
       ? {
-        x: rect.left + currentControl.x,
-        y: rect.top + currentControl.y
+        x: rect.left + currentControlPoint.x,
+        y: rect.top + currentControlPoint.y
       }
       : movePoint
 
@@ -1034,7 +1076,7 @@ export function installEditorBrowserHelpers(): void {
    * Возвращает сериализованное состояние interaction blocker и маски блокировки.
    */
   function getInteractionBlockerState(): Record<string, unknown> {
-    const { interactionBlocker, canvas } = browserWindow.editor
+    const { interactionBlocker, canvas } = getEditorRuntime()
     const { overlayMask } = interactionBlocker
     const overlayInfo = toBrowserObject({ value: overlayMask })
     const bounds = overlayMask

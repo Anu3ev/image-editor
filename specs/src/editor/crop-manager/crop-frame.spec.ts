@@ -1,8 +1,13 @@
-import { CropFrame } from '../../../../src/editor/crop-manager/domain/crop-frame'
+import { Rect } from 'fabric'
+
+import {
+  createCropFrame,
+  CropFrame
+} from '../../../../src/editor/crop-manager/domain/crop-frame'
 import { resetCropCanvasContext } from '../../../test-utils/crop/image-crop'
 
 describe('crop frame', () => {
-  it('по умолчанию включает preserveAspectRatio и позволяет явно его отключить', () => {
+  it('по умолчанию включает preserveAspectRatio, overflow и не привязывается к source', () => {
     const defaultFrame = new CropFrame({
       width: 90,
       height: 60,
@@ -16,7 +21,42 @@ describe('crop frame', () => {
     })
 
     expect(defaultFrame.preserveAspectRatio).toBe(true)
+    expect(defaultFrame.cropAllowFrameOverflow).toBe(true)
+    expect(defaultFrame.cropSource).toBeNull()
     expect(unlockedFrame.preserveAspectRatio).toBe(false)
+    expect(unlockedFrame.cropAllowFrameOverflow).toBe(true)
+    expect(unlockedFrame.cropSource).toBeNull()
+  })
+
+  it('создаёт frame с source-ограничениями активной crop session', () => {
+    const source = new Rect({
+      left: 200,
+      top: 150,
+      width: 1000,
+      height: 667,
+      scaleX: 0.5,
+      scaleY: 0.25,
+      angle: 12,
+      originX: 'center',
+      originY: 'center'
+    })
+    const frame = createCropFrame({
+      source,
+      cropSize: {
+        width: 300,
+        height: 300
+      },
+      showGrid: false,
+      allowFrameOverflow: false,
+      preserveAspectRatio: true
+    })
+
+    expect(frame).toBeInstanceOf(CropFrame)
+    expect(frame.cropSource).toBe(source)
+    expect(frame.cropAllowFrameOverflow).toBe(false)
+    expect(frame.cropSourceScaleX).toBe(0.5)
+    expect(frame.cropSourceScaleY).toBe(0.25)
+    expect(frame.preserveAspectRatio).toBe(true)
   })
 
   it('рисует сетку третей, когда showGrid включён', () => {

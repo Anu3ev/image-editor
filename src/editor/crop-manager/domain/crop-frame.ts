@@ -22,6 +22,8 @@ const CROP_GRID_STROKE = 'rgba(47, 128, 237, 0.42)'
  */
 interface CropFrameOptions extends Partial<RectProps> {
   showGrid: boolean
+  source?: FabricObject
+  allowFrameOverflow?: boolean
   sourceScaleX?: number
   sourceScaleY?: number
   preserveAspectRatio?: boolean
@@ -39,6 +41,16 @@ export interface CropFrameResizeTarget extends FabricObject {
  */
 export class CropFrame extends Rect {
   /**
+   * Source-объект активной crop session. Нужен только live resize-ограничениям.
+   */
+  public readonly cropSource: FabricObject | null
+
+  /**
+   * Разрешён ли resize crop frame за пределы source.
+   */
+  public readonly cropAllowFrameOverflow: boolean
+
+  /**
    * Scale источника по X на момент старта crop mode.
    */
   public readonly cropSourceScaleX: number
@@ -49,7 +61,7 @@ export class CropFrame extends Rect {
   public readonly cropSourceScaleY: number
 
   /**
-    * Сохранять ли текущие пропорции при resize без модификаторов.
+   * Сохранять ли текущие пропорции при resize без модификаторов.
    */
   public preserveAspectRatio: boolean
 
@@ -59,11 +71,13 @@ export class CropFrame extends Rect {
   private readonly _showGrid: boolean
 
   /**
-   * @param options - параметры Fabric Rect и флаг сетки.
+   * @param options - runtime-параметры Fabric Rect для crop mode.
    */
   constructor(options: CropFrameOptions) {
     const {
       showGrid,
+      source = null,
+      allowFrameOverflow = true,
       sourceScaleX = 1,
       sourceScaleY = 1,
       preserveAspectRatio = true,
@@ -72,6 +86,8 @@ export class CropFrame extends Rect {
 
     super(rectOptions)
     this._showGrid = showGrid
+    this.cropSource = source
+    this.cropAllowFrameOverflow = allowFrameOverflow
     this.cropSourceScaleX = sourceScaleX
     this.cropSourceScaleY = sourceScaleY
     this.preserveAspectRatio = preserveAspectRatio
@@ -114,13 +130,15 @@ export function createCropFrame({
   source,
   cropSize,
   showGrid,
+  allowFrameOverflow,
   preserveAspectRatio
 }: {
   source: FabricObject
   cropSize: CropSize
   showGrid: boolean
+  allowFrameOverflow: boolean
   preserveAspectRatio: boolean
-}): Rect {
+}): CropFrame {
   const center = source.getCenterPoint()
   const sourceScaleX = source.scaleX ?? 1
   const sourceScaleY = source.scaleY ?? 1
@@ -150,6 +168,8 @@ export function createCropFrame({
     lockSkewingY: true,
     excludeFromExport: true,
     showGrid,
+    source,
+    allowFrameOverflow,
     preserveAspectRatio,
     sourceScaleX,
     sourceScaleY

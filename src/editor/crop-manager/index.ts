@@ -1,23 +1,27 @@
 import {
   FabricImage,
   Rect,
+  type BasicTransformEvent,
   type Canvas,
+  type FabricObject,
+  type ModifiedEvent,
+  type Transform,
   type TPointerEvent,
-  type TPointerEventInfo,
-  type FabricObject
+  type TPointerEventInfo
 } from 'fabric'
 
 import type { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import {
   clampCropFrameToSource,
+  clampCropFrameToSourcePreservingAspectRatio,
   getCropRectInSource,
   getSourceSize,
   resolveCropSize
 } from './domain/crop-geometry'
 import {
-  createCropFrame,
-  type CropFrameResizeTarget
+  CropFrame,
+  createCropFrame
 } from './domain/crop-frame'
 import {
   getCropSessionResultRect,
@@ -30,6 +34,7 @@ import {
 import type {
   CropApplyResult,
   CropAspectRatio,
+  CropFrameTransformState,
   CropObjectInteractivity,
   CropSession,
   CropSessionOptions,
@@ -62,6 +67,22 @@ type CanvasWithTargetCache = Canvas & {
 }
 
 /**
+ * Fabric transform, который crop controls помечают при упоре proportional resize в source.
+ */
+type CropSourceBoundTransform = Transform & {
+  cropSourceScaleClamped?: boolean
+}
+
+/**
+ * Событие live-изменения crop frame.
+ */
+type CropFrameChangeEvent = (
+  BasicTransformEvent<TPointerEvent> | ModifiedEvent<TPointerEvent>
+) & {
+  transform?: CropSourceBoundTransform
+}
+
+/**
  * Управляет transient crop mode для монтажной области и выбранного изображения.
  */
 export default class CropManager {
@@ -74,27 +95,6 @@ export default class CropManager {
    * Активная crop session. Не сериализуется и не попадает в history.
    */
   private _session: CropSession | null
-
-  /**
-   * Bound handler изменения crop frame.
-   */
-  private readonly _handleCropFrameChangedBound = (): void => {
-    this._handleCropFrameChanged()
-  }
-
-  /**
-   * Bound handler изменения active object во время crop mode.
-   */
-  private readonly _handleCanvasSelectionChangedBound = (): void => {
-    this._handleCanvasSelectionChanged()
-  }
-
-  /**
-   * Bound handler клика вне crop frame до стандартной Fabric selection-логики.
-   */
-  private readonly _handleCanvasMouseDownBeforeBound = (event: TPointerEventInfo<TPointerEvent>): void => {
-    this._handleCanvasMouseDownBefore(event)
-  }
 
   /**
    * @param options
@@ -346,7 +346,8 @@ export default class CropManager {
       frame,
       options: sessionOptions,
       previousActiveObject: this.editor.canvas.getActiveObject() ?? null,
-      interactivity: []
+      interactivity: [],
+      sourceBoundFrameState: null
     }
   }
 
@@ -374,7 +375,8 @@ export default class CropManager {
       frame,
       options: sessionOptions,
       previousActiveObject: this.editor.canvas.getActiveObject() ?? null,
-      interactivity: []
+      interactivity: [],
+      sourceBoundFrameState: null
     }
   }
 
@@ -419,6 +421,7 @@ export default class CropManager {
       source,
       cropSize,
       showGrid: sessionOptions.showGrid,
+      allowFrameOverflow: sessionOptions.allowFrameOverflow,
       preserveAspectRatio: sessionOptions.preserveAspectRatio
     })
   }
@@ -433,9 +436,11 @@ export default class CropManager {
     frame: Rect
     preserveAspectRatio: boolean
   }): void {
-    const cropFrame = frame as CropFrameResizeTarget
+    if (!(frame instanceof CropFrame)) {
+      throw new Error('Crop session frame должен быть CropFrame')
+    }
 
-    cropFrame.preserveAspectRatio = preserveAspectRatio
+    frame.preserveAspectRatio = preserveAspectRatio
   }
 
   /**
@@ -465,18 +470,18 @@ export default class CropManager {
    * Подписывает crop frame на live-ограничения.
    */
   private _bindCropFrameEvents({ frame }: { frame: Rect }): void {
-    frame.on('moving', this._handleCropFrameChangedBound)
-    frame.on('scaling', this._handleCropFrameChangedBound)
-    frame.on('modified', this._handleCropFrameChangedBound)
+    frame.on('moving', this._handleCropFrameChanged)
+    frame.on('scaling', this._handleCropFrameChanged)
+    frame.on('modified', this._handleCropFrameChanged)
   }
 
   /**
    * Отписывает crop frame от live-ограничений.
    */
   private _unbindCropFrameEvents({ frame }: { frame: Rect }): void {
-    frame.off('moving', this._handleCropFrameChangedBound)
-    frame.off('scaling', this._handleCropFrameChangedBound)
-    frame.off('modified', this._handleCropFrameChangedBound)
+    frame.off('moving', this._handleCropFrameChanged)
+    frame.off('scaling', this._handleCropFrameChanged)
+    frame.off('modified', this._handleCropFrameChanged)
   }
 
   /**
@@ -485,36 +490,134 @@ export default class CropManager {
   private _bindCanvasSelectionEvents({ session }: { session: CropSession }): void {
     if (!session.options.cancelOnSelectionClear) return
 
-    this.editor.canvas.on('mouse:down:before', this._handleCanvasMouseDownBeforeBound)
-    this.editor.canvas.on('selection:cleared', this._handleCanvasSelectionChangedBound)
-    this.editor.canvas.on('selection:updated', this._handleCanvasSelectionChangedBound)
+    this.editor.canvas.on('mouse:down:before', this._handleCanvasMouseDownBefore)
+    this.editor.canvas.on('selection:cleared', this._handleCanvasSelectionChanged)
+    this.editor.canvas.on('selection:updated', this._handleCanvasSelectionChanged)
   }
 
   /**
    * Отписывает canvas от lifecycle-событий crop session.
    */
   private _unbindCanvasSelectionEvents(): void {
-    this.editor.canvas.off('mouse:down:before', this._handleCanvasMouseDownBeforeBound)
-    this.editor.canvas.off('selection:cleared', this._handleCanvasSelectionChangedBound)
-    this.editor.canvas.off('selection:updated', this._handleCanvasSelectionChangedBound)
+    this.editor.canvas.off('mouse:down:before', this._handleCanvasMouseDownBefore)
+    this.editor.canvas.off('selection:cleared', this._handleCanvasSelectionChanged)
+    this.editor.canvas.off('selection:updated', this._handleCanvasSelectionChanged)
   }
 
   /**
    * Обрабатывает live-изменение crop frame.
    */
-  private _handleCropFrameChanged(): void {
+  private readonly _handleCropFrameChanged = (event?: CropFrameChangeEvent): void => {
     const { _session: session } = this
     if (!session) return
 
-    this._clampFrameIfNeeded({ session })
+    const restoredSourceBoundFrame = this._restoreSourceBoundFrameIfNeeded({
+      session,
+      event
+    })
+
+    this._clampFrameIfNeeded({
+      session,
+      preserveAspectRatio: this._isSourceScaleClamped({ event })
+    })
+    if (!restoredSourceBoundFrame) {
+      this._rememberSourceBoundFrameIfNeeded({
+        session,
+        event
+      })
+    }
     this.editor.canvas.fire('editor:crop:changed', this.getState())
     this.editor.canvas.requestRenderAll()
   }
 
   /**
+   * Восстанавливает frame, если proportional resize уже упёрся в source на предыдущем live-шаге.
+   */
+  private _restoreSourceBoundFrameIfNeeded({
+    session,
+    event
+  }: {
+    session: CropSession
+    event?: CropFrameChangeEvent
+  }): boolean {
+    if (!this._isSourceScaleClamped({ event })) {
+      session.sourceBoundFrameState = null
+      return false
+    }
+    if (!session.sourceBoundFrameState) return false
+
+    this._applyFrameTransformState({
+      session,
+      state: session.sourceBoundFrameState
+    })
+
+    return true
+  }
+
+  /**
+   * Запоминает первую frame geometry, на которой proportional resize упёрся в source.
+   */
+  private _rememberSourceBoundFrameIfNeeded({
+    session,
+    event
+  }: {
+    session: CropSession
+    event?: CropFrameChangeEvent
+  }): void {
+    if (!this._isSourceScaleClamped({ event })) {
+      session.sourceBoundFrameState = null
+      return
+    }
+
+    session.sourceBoundFrameState = this._getFrameTransformState({ session })
+  }
+
+  /**
+   * Возвращает true, если текущий transform зажат source-границей.
+   */
+  private _isSourceScaleClamped({
+    event
+  }: {
+    event?: CropFrameChangeEvent
+  }): boolean {
+    return event?.transform?.cropSourceScaleClamped === true
+  }
+
+  /**
+   * Возвращает geometry crop frame, достаточную для восстановления live resize.
+   */
+  private _getFrameTransformState({ session }: { session: CropSession }): CropFrameTransformState {
+    return {
+      left: session.frame.left,
+      top: session.frame.top,
+      scaleX: session.frame.scaleX ?? 1,
+      scaleY: session.frame.scaleY ?? 1
+    }
+  }
+
+  /**
+   * Восстанавливает geometry crop frame внутри текущей live resize-сессии.
+   */
+  private _applyFrameTransformState({
+    session,
+    state
+  }: {
+    session: CropSession
+    state: CropFrameTransformState
+  }): void {
+    session.frame.set({
+      left: state.left,
+      top: state.top,
+      scaleX: state.scaleX,
+      scaleY: state.scaleY
+    })
+    session.frame.setCoords()
+  }
+
+  /**
    * Отменяет crop mode, если crop frame перестал быть active object.
    */
-  private _handleCanvasSelectionChanged(): void {
+  private readonly _handleCanvasSelectionChanged = (): void => {
     const { _session: session } = this
     if (!session) return
     if (!session.options.cancelOnSelectionClear) return
@@ -534,18 +637,20 @@ export default class CropManager {
   /**
    * Выходит из crop mode по клику вне frame и не даёт этому же клику выбрать другой объект.
    */
-  private _handleCanvasMouseDownBefore({
+  private readonly _handleCanvasMouseDownBefore = ({
     target
-  }: TPointerEventInfo<TPointerEvent>): void {
+  }: TPointerEventInfo<TPointerEvent>): void => {
     const { _session: session } = this
     if (!session) return
     if (!session.options.cancelOnSelectionClear) return
     if (this._isSpacePanActive()) return
     if (target === session.frame) return
 
-    const nextActiveObject = session.mode === 'image'
-      ? session.target
-      : null
+    let nextActiveObject: FabricObject | null = null
+
+    if (session.mode === 'image') {
+      nextActiveObject = session.target
+    }
 
     this._cancelFromPointerDown({
       nextActiveObject
@@ -635,8 +740,22 @@ export default class CropManager {
   /**
    * Ограничивает crop frame source-границами только для strict mode.
    */
-  private _clampFrameIfNeeded({ session }: { session: CropSession }): void {
+  private _clampFrameIfNeeded({
+    session,
+    preserveAspectRatio = false
+  }: {
+    session: CropSession
+    preserveAspectRatio?: boolean
+  }): void {
     if (session.options.allowFrameOverflow) return
+
+    if (preserveAspectRatio) {
+      clampCropFrameToSourcePreservingAspectRatio({
+        source: session.source,
+        frame: session.frame
+      })
+      return
+    }
 
     clampCropFrameToSource({
       source: session.source,

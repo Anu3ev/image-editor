@@ -98,6 +98,59 @@ test.describe('Индикатор размеров crop-области', () => {
     })
   })
 
+  test('при image crop 1:1 не округляет ширину до 668 после упора в высоту source', async({
+    editorModel,
+    crop,
+    images
+  }) => {
+    const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+      return images.checkCreation({
+        imageObject: await images.addFilledImage({
+          width: 1000,
+          height: 667
+        })
+      })
+    })
+
+    const initialState = await test.step('Войти в image crop 1:1 с запретом выхода за source', async() => {
+      return crop.startImageCrop({
+        id: image.id,
+        aspectRatio: {
+          width: 1,
+          height: 1
+        },
+        allowFrameOverflow: false,
+        preserveAspectRatio: true
+      })
+    })
+
+    const liveState = await test.step('Потянуть верхнюю сторону наружу после упора в высоту source', async() => {
+      return crop.dragFrameFromControlToSize({
+        control: 'mt',
+        size: {
+          width: initialState.rect.width,
+          height: initialState.rect.height + 80
+        }
+      })
+    })
+
+    const indicator = await test.step('Получить текст индикатора до mouseup', async() => {
+      return editorModel.requireObjectSizeIndicator()
+    })
+
+    await test.step('Завершить resize и закрыть crop mode', async() => {
+      await crop.finishFrameResize()
+      await crop.cancel()
+    })
+
+    await test.step('Проверить что indicator показывает фактический квадрат source', () => {
+      expect(liveState.rect.width).toBeCloseTo(667, 5)
+      expect(liveState.rect.height).toBeCloseTo(667, 5)
+      expect(indicator.width).toBe(667)
+      expect(indicator.height).toBe(667)
+    })
+  })
+
   test.describe('уменьшение полного crop около snap-порога', () => {
     test.beforeEach(async({ canvas, crop }) => {
       await canvas.setMontageResolution({
