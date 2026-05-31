@@ -137,8 +137,11 @@ export default ({ editorInstance, controls }) => {
   controls.cropPreserveAspectRatioCheckbox.addEventListener('change', () => {
     if (!editorInstance.cropManager.isActive) return
 
-    const state = editorInstance.cropManager.setPreserveAspectRatio({
+    const cropState = editorInstance.cropManager.setPreserveAspectRatio({
       preserveAspectRatio: controls.cropPreserveAspectRatioCheckbox.checked
     })
+    if (cropState) {
+      controls.cropPreserveAspectRatioCheckbox.checked = cropState.options.preserveAspectRatio
+    }
   })
 }

@@ -95,6 +95,8 @@ export class FitContentLayout extends LayoutStrategy {
 export class Rect {
   private props: Record<string, any>
 
+  public controls: Record<string, any> = {}
+
   constructor(options: Record<string, any>) {
     this.props = { ...options }
     Object.assign(this, options)
@@ -110,6 +112,14 @@ export class Rect {
   }
 
   setCoords() {
+    // noop in mock
+  }
+
+  getCenterPoint() {
+    return new Point((this as any).left ?? 0, (this as any).top ?? 0)
+  }
+
+  setControlsVisibility(_visibility: Record<string, boolean>) {
     // noop in mock
   }
 
@@ -1010,6 +1020,22 @@ export const util = {
   }),
   enlivenObjectEnlivables: async(options: any) => options,
   groupSVGElements: jest.fn((objects: any[], options: any = {}) => new Group(objects, options)),
+  invertTransform: ([a, b, c, d, e, f]: [number, number, number, number, number, number]) => {
+    const determinant = (a * d) - (b * c)
+
+    if (determinant === 0) {
+      throw new Error('Нельзя инвертировать вырожденную affine matrix')
+    }
+
+    return [
+      d / determinant,
+      -b / determinant,
+      -c / determinant,
+      a / determinant,
+      ((c * f) - (d * e)) / determinant,
+      ((b * e) - (a * f)) / determinant
+    ] as [number, number, number, number, number, number]
+  },
   stylesFromArray,
   stylesToArray
 }

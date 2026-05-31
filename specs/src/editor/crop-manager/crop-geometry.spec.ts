@@ -1,4 +1,8 @@
+import { Rect } from 'fabric'
+
 import {
+  clampCropFrameToSourcePreservingAspectRatio,
+  getCropRectInSource,
   MAX_CROP_FRAME_HEIGHT,
   MAX_CROP_FRAME_WIDTH,
   MIN_CROP_FRAME_SIZE,
@@ -114,5 +118,59 @@ describe('crop geometry', () => {
       width: 225,
       height: 300
     })
+  })
+
+  it('зажимает frame с фиксированной пропорцией единым scale', () => {
+    const source = new Rect({
+      left: 256,
+      top: 256,
+      width: 1000,
+      height: 667,
+      scaleX: 0.512,
+      scaleY: 0.512,
+      originX: 'center',
+      originY: 'center'
+    })
+    const frame = new Rect({
+      left: 256,
+      top: 256,
+      width: 667,
+      height: 667,
+      scaleX: 0.512743628185907,
+      scaleY: 0.512743628185907,
+      originX: 'center',
+      originY: 'center'
+    })
+    source.calcTransformMatrix = jest.fn(() => [
+      source.scaleX ?? 1,
+      0,
+      0,
+      source.scaleY ?? 1,
+      256,
+      256
+    ])
+    frame.calcTransformMatrix = jest.fn(() => [
+      frame.scaleX ?? 1,
+      0,
+      0,
+      frame.scaleY ?? 1,
+      256,
+      256
+    ])
+
+    clampCropFrameToSourcePreservingAspectRatio({
+      source,
+      frame
+    })
+
+    const rect = getCropRectInSource({
+      source,
+      frame
+    })
+
+    expect(frame.scaleX).toBeCloseTo(frame.scaleY ?? 0, 6)
+    expect(rect.width).toBeCloseTo(667, 5)
+    expect(rect.height).toBeCloseTo(667, 5)
+    expect(rect.top).toBeCloseTo(-333.5, 5)
   })
 })

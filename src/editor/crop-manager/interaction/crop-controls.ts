@@ -3,10 +3,13 @@ import {
   Control,
   controlsUtils,
   type FabricObject,
+  type Rect,
   type Transform
 } from 'fabric'
 
 import {
+  getCropRectInSource,
+  getSourceSize,
   MAX_CROP_FRAME_HEIGHT,
   MAX_CROP_FRAME_WIDTH,
   MIN_CROP_FRAME_HEIGHT,
@@ -14,6 +17,14 @@ import {
 } from '../domain/crop-geometry'
 import type { CropFrameResizeTarget } from '../domain/crop-frame'
 import { getCropFrameSourceSize } from '../domain/crop-frame-size'
+import {
+  resolveCropProportionalSourceScaleLimit,
+  type CropProportionalSourceScaleAnchor
+} from '../domain/crop-proportional-source-scale'
+import type {
+  CropRect,
+  CropSize
+} from '../types'
 
 /**
  * Допуск сравнения client pointer-координат внутри одной Fabric transform-сессии.
@@ -36,14 +47,26 @@ const CROP_SIDE_CONTROL_KEYS = ['ml', 'mr', 'mt', 'mb'] as const
 type CropScaleTransform = Transform & {
   signX?: number
   signY?: number
+  cropProportionalSourceBounds?: CropProportionalSourceBounds | null
+  cropSourceScaleClamped?: boolean
 }
 
 /**
  * Crop frame хранит scale источника, чтобы live resize ограничивался в source-пикселях.
  */
-type CropFrameScaleTarget = FabricObject & {
+type CropFrameScaleTarget = Rect & {
+  cropSource?: FabricObject | null
+  cropAllowFrameOverflow?: boolean
   cropSourceScaleX?: number
   cropSourceScaleY?: number
+}
+
+/**
+ * Source-границы proportional resize, зафиксированные на старте Fabric transform.
+ */
+type CropProportionalSourceBounds = {
+  sourceSize: CropSize
+  startRect: CropRect
 }
 
 /**
@@ -649,22 +672,123 @@ function clampProportionalScale({
     MIN_CROP_FRAME_WIDTH / startSize.width,
     MIN_CROP_FRAME_HEIGHT / startSize.height
   )
-  const maxScale = Math.min(
+  const cropSizeMaxScale = Math.min(
     MAX_CROP_FRAME_WIDTH / startSize.width,
     MAX_CROP_FRAME_HEIGHT / startSize.height
   )
-  const nextScale = forceMinimum
-    ? minScale
-    : clampNumber({
+  const sourceMaxScale = getProportionalSourceMaxScale({
+    target,
+    transform
+  })
+  const maxScale = Math.max(
+    minScale,
+    Math.min(cropSizeMaxScale, sourceMaxScale ?? cropSizeMaxScale)
+  )
+  transform.cropSourceScaleClamped = !forceMinimum && scale > maxScale
+  let nextScale = minScale
+
+  if (!forceMinimum) {
+    nextScale = clampNumber({
       value: scale,
       min: minScale,
       max: maxScale
     })
+  }
 
   return {
     scaleX: transform.original.scaleX * nextScale,
     scaleY: transform.original.scaleY * nextScale
   }
+}
+
+/**
+ * Возвращает максимальный proportional multiplier, при котором frame остаётся внутри source.
+ */
+function getProportionalSourceMaxScale({
+  target,
+  transform
+}: {
+  target: FabricObject
+  transform: CropScaleTransform
+}): number | null {
+  const bounds = getProportionalSourceBounds({
+    target,
+    transform
+  })
+  if (!bounds) return null
+
+  return resolveCropProportionalSourceScaleLimit({
+    sourceSize: bounds.sourceSize,
+    startRect: bounds.startRect,
+    anchorX: getTransformAnchorX({ transform }),
+    anchorY: getTransformAnchorY({ transform })
+  })
+}
+
+/**
+ * Возвращает source-границы proportional resize или null для режима allow overflow.
+ */
+function getProportionalSourceBounds({
+  target,
+  transform
+}: {
+  target: FabricObject
+  transform: CropScaleTransform
+}): CropProportionalSourceBounds | null {
+  if (transform.cropProportionalSourceBounds !== undefined) {
+    return transform.cropProportionalSourceBounds
+  }
+
+  const cropTarget = target as CropFrameScaleTarget
+  if (cropTarget.cropAllowFrameOverflow !== false || !cropTarget.cropSource) {
+    transform.cropProportionalSourceBounds = null
+
+    return null
+  }
+
+  transform.cropProportionalSourceBounds = {
+    sourceSize: getSourceSize({ source: cropTarget.cropSource }),
+    startRect: getCropRectInSource({
+      source: cropTarget.cropSource,
+      frame: cropTarget
+    })
+  }
+
+  return transform.cropProportionalSourceBounds
+}
+
+/**
+ * Возвращает fixed anchor по горизонтали для текущего Fabric transform.
+ */
+function getTransformAnchorX({ transform }: { transform: Transform }): CropProportionalSourceScaleAnchor {
+  if (transform.corner === 'tl' || transform.corner === 'bl' || transform.corner === 'ml') {
+    return 'max'
+  }
+  if (transform.corner === 'tr' || transform.corner === 'br' || transform.corner === 'mr') {
+    return 'min'
+  }
+
+  if (transform.originX === 'left' || transform.originX === 0) return 'min'
+  if (transform.originX === 'right' || transform.originX === 1) return 'max'
+
+  return 'center'
+}
+
+/**
+ * Возвращает fixed anchor по вертикали для текущего Fabric transform.
+ */
+function getTransformAnchorY({ transform }: { transform: Transform }): CropProportionalSourceScaleAnchor {
+  if (transform.corner === 'tl' || transform.corner === 'tr' || transform.corner === 'mt') {
+    return 'max'
+  }
+  if (transform.corner === 'bl' || transform.corner === 'br' || transform.corner === 'mb') {
+    return 'min'
+  }
+
+  if (transform.originY === 'top' || transform.originY === 0) return 'min'
+  if (transform.originY === 'bottom' || transform.originY === 1) return 'max'
+
+  return 'center'
 }
 
 /**

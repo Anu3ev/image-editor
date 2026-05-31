@@ -129,6 +129,26 @@ export function clampCropFrameToSource({
 }
 
 /**
+ * Ограничивает frame с фиксированной пропорцией границами источника без разрыва текущей пропорции.
+ */
+export function clampCropFrameToSourcePreservingAspectRatio({
+  source,
+  frame
+}: {
+  source: FabricObject
+  frame: Rect
+}): void {
+  shrinkFrameToSourcePreservingAspectRatio({
+    source,
+    frame
+  })
+  moveFrameInsideSource({
+    source,
+    frame
+  })
+}
+
+/**
  * Возвращает bounds по набору точек.
  */
 function getBoundsFromPoints({ points }: { points: Point[] }): CropRect {
@@ -257,6 +277,35 @@ function shrinkFrameToSource({
   }
   if (heightRatio < 1) {
     frame.set({ scaleY: (frame.scaleY ?? 1) * heightRatio })
+  }
+
+  frame.setCoords()
+}
+
+/**
+ * Уменьшает frame единым scale-множителем, если resize с фиксированной пропорцией вышел за source.
+ */
+function shrinkFrameToSourcePreservingAspectRatio({
+  source,
+  frame
+}: {
+  source: FabricObject
+  frame: Rect
+}): void {
+  const rect = getCropRectInSource({
+    source,
+    frame
+  })
+  const sourceSize = getSourceSize({ source })
+  const widthRatio = sourceSize.width / Math.max(rect.width, MIN_CROP_FRAME_WIDTH)
+  const heightRatio = sourceSize.height / Math.max(rect.height, MIN_CROP_FRAME_HEIGHT)
+  const scaleRatio = Math.min(widthRatio, heightRatio)
+
+  if (scaleRatio < 1) {
+    frame.set({
+      scaleX: (frame.scaleX ?? 1) * scaleRatio,
+      scaleY: (frame.scaleY ?? 1) * scaleRatio
+    })
   }
 
   frame.setCoords()
