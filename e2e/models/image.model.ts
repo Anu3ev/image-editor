@@ -479,5 +479,4 @@ export class ImageModel {
 
     return true
   }
-
 }
