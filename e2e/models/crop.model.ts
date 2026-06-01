@@ -67,6 +67,21 @@ type CropFrameControlMouseDragContinuationParams = {
   pointerSteps?: number
 }
 
+/** Параметры drag resize control crop frame в source-пикселях. */
+type CropFrameControlSourceDragParams = {
+  control: CropControlKey
+  deltaX: number
+  deltaY: number
+  pointerSteps?: number
+}
+
+/** Параметры продолжения drag resize control crop frame в source-пикселях. */
+type CropFrameControlSourceDragContinuationParams = {
+  deltaX: number
+  deltaY: number
+  pointerSteps?: number
+}
+
 /** Параметры пошагового resize crop frame до набора live-размеров. */
 type CropFrameResizeToSizesParams = {
   control: CropControlKey
@@ -376,6 +391,43 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Тянет resize control crop frame на смещение, заданное в source-пикселях. */
+  async dragFrameControlBySourcePixels(
+    params: CropFrameControlSourceDragParams
+  ): Promise<CropStateInfo> {
+    const {
+      control,
+      deltaX,
+      deltaY,
+      pointerSteps
+    } = params
+
+    expect(
+      Number.isFinite(deltaX),
+      'source-смещение crop frame по X должно быть конечным числом'
+    ).toBe(true)
+    expect(
+      Number.isFinite(deltaY),
+      'source-смещение crop frame по Y должно быть конечным числом'
+    ).toBe(true)
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) {
+      throw new Error('Source-смещение crop frame должно быть конечным числом')
+    }
+
+    const canvasZoom = await this.getCanvasZoom()
+    expect(canvasZoom).toBeGreaterThan(0)
+    if (canvasZoom <= 0) {
+      throw new Error('Zoom canvas должен быть больше нуля для пересчёта source-пикселей')
+    }
+
+    return this.dragFrameControlBy({
+      control,
+      deltaX: deltaX * canvasZoom,
+      deltaY: deltaY * canvasZoom,
+      pointerSteps
+    })
+  }
+
   /** Тянет resize control до source-границы и продолжает движение наружу. */
   async dragFrameControlPastSourceBoundary({
     control,
@@ -465,6 +517,41 @@ export class CropModel {
     this.lastResizePointer = nextPoint
 
     return this.requireState()
+  }
+
+  /** Продолжает resize crop frame на смещение, заданное в source-пикселях. */
+  async continueFrameResizeBySourcePixels(
+    params: CropFrameControlSourceDragContinuationParams
+  ): Promise<CropStateInfo> {
+    const {
+      deltaX,
+      deltaY,
+      pointerSteps
+    } = params
+
+    expect(
+      Number.isFinite(deltaX),
+      'source-смещение crop frame по X должно быть конечным числом'
+    ).toBe(true)
+    expect(
+      Number.isFinite(deltaY),
+      'source-смещение crop frame по Y должно быть конечным числом'
+    ).toBe(true)
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) {
+      throw new Error('Source-смещение crop frame должно быть конечным числом')
+    }
+
+    const canvasZoom = await this.getCanvasZoom()
+    expect(canvasZoom).toBeGreaterThan(0)
+    if (canvasZoom <= 0) {
+      throw new Error('Zoom canvas должен быть больше нуля для пересчёта source-пикселей')
+    }
+
+    return this.continueFrameResizeBy({
+      deltaX: deltaX * canvasZoom,
+      deltaY: deltaY * canvasZoom,
+      pointerSteps
+    })
   }
 
   /** Продолжает активный drag crop-control до целевого результата в source-пикселях. */

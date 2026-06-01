@@ -141,20 +141,22 @@ export function shouldUseUniformScaleSnap({
   event: { e?: TPointerEvent | null }
   isCornerHandle: boolean
 }): boolean {
-  if (isCornerHandle) return true
-
   const cropTarget = target as CropFrameSnapTarget
-  if (!cropTarget.cropSource) return false
+  if (cropTarget.cropSource) {
+    const preserveAspectRatio = cropTarget.preserveAspectRatio ?? true
 
-  const preserveAspectRatio = cropTarget.preserveAspectRatio ?? true
-  if (!event.e?.shiftKey) return preserveAspectRatio
+    if (!event.e?.shiftKey) return preserveAspectRatio
 
-  return !preserveAspectRatio
+    return !preserveAspectRatio
+  }
+
+  return isCornerHandle
 }
 
 /** Находит активные axis-snap кандидаты для текущего scaling-step. */
 export function resolveScaleAxisSnaps({
   bounds,
+  corner,
   originX,
   originY,
   shouldSnapX,
@@ -163,6 +165,7 @@ export function resolveScaleAxisSnaps({
   anchors
 }: {
   bounds: Bounds
+  corner?: string
   originX: Transform['originX']
   originY: Transform['originY']
   shouldSnapX: boolean
@@ -172,11 +175,13 @@ export function resolveScaleAxisSnaps({
 }): ScaleAxisSnapState | null {
   const verticalCandidates = collectVerticalSnapCandidates({
     bounds,
+    corner,
     originX,
     shouldSnapX
   })
   const horizontalCandidates = collectHorizontalSnapCandidates({
     bounds,
+    corner,
     originY,
     shouldSnapY
   })
@@ -396,10 +401,12 @@ function resolveScaleYUpdate({
  */
 function collectVerticalSnapCandidates({
   bounds,
+  corner = '',
   originX,
   shouldSnapX
 }: {
   bounds: Bounds
+  corner?: string
   originX: Transform['originX']
   shouldSnapX: boolean
 }): AxisSnapCandidate[] {
@@ -410,6 +417,16 @@ function collectVerticalSnapCandidates({
   let resolvedOriginX: 'left' | 'center' | 'right' = 'left'
   if (originX === 'center' || originX === 'right') {
     resolvedOriginX = originX
+  }
+
+  const controlEdge = resolveControlMovingXEdge({ controlKey: corner })
+  if (controlEdge && resolvedOriginX !== 'center') {
+    candidates.push({
+      edge: controlEdge,
+      position: controlEdge === 'left' ? left : right
+    })
+
+    return candidates
   }
 
   if (resolvedOriginX === 'left') {
@@ -445,10 +462,12 @@ function collectVerticalSnapCandidates({
  */
 function collectHorizontalSnapCandidates({
   bounds,
+  corner = '',
   originY,
   shouldSnapY
 }: {
   bounds: Bounds
+  corner?: string
   originY: Transform['originY']
   shouldSnapY: boolean
 }): AxisSnapCandidate[] {
@@ -459,6 +478,16 @@ function collectHorizontalSnapCandidates({
   let resolvedOriginY: 'top' | 'center' | 'bottom' = 'top'
   if (originY === 'center' || originY === 'bottom') {
     resolvedOriginY = originY
+  }
+
+  const controlEdge = resolveControlMovingYEdge({ controlKey: corner })
+  if (controlEdge && resolvedOriginY !== 'center') {
+    candidates.push({
+      edge: controlEdge,
+      position: controlEdge === 'top' ? top : bottom
+    })
+
+    return candidates
   }
 
   if (resolvedOriginY === 'top') {
@@ -487,6 +516,22 @@ function collectHorizontalSnapCandidates({
   }
 
   return candidates
+}
+
+/** Возвращает X-грань, которую пользователь двигает текущим resize-control. */
+function resolveControlMovingXEdge({ controlKey }: { controlKey: string }): 'left' | 'right' | null {
+  if (controlKey === 'tl' || controlKey === 'bl' || controlKey === 'ml') return 'left'
+  if (controlKey === 'tr' || controlKey === 'br' || controlKey === 'mr') return 'right'
+
+  return null
+}
+
+/** Возвращает Y-грань, которую пользователь двигает текущим resize-control. */
+function resolveControlMovingYEdge({ controlKey }: { controlKey: string }): 'top' | 'bottom' | null {
+  if (controlKey === 'tl' || controlKey === 'tr' || controlKey === 'mt') return 'top'
+  if (controlKey === 'bl' || controlKey === 'br' || controlKey === 'mb') return 'bottom'
+
+  return null
 }
 
 /**

@@ -55,6 +55,12 @@ const DEFAULT_CROP_SESSION_OPTIONS = {
 } satisfies CropSessionOptions
 
 /**
+ * Допуск для live-проверки выхода frame за source.
+ * Fabric может давать доли пикселя у frame, который визуально стоит на границе source.
+ */
+const SOURCE_BOUNDS_OVERFLOW_EPSILON = 0.5
+
+/**
  * Часть internal Fabric canvas state, нужная только чтобы погасить текущий pointer event.
  */
 type CanvasWithTargetCache = Canvas & {
@@ -141,10 +147,10 @@ export default class CropManager {
       frame: session.frame
     })
     const sourceSize = getSourceSize({ source: session.source })
-    const minLeft = -sourceSize.width / 2
-    const minTop = -sourceSize.height / 2
-    const maxRight = sourceSize.width / 2
-    const maxBottom = sourceSize.height / 2
+    const minLeft = (-sourceSize.width / 2) - SOURCE_BOUNDS_OVERFLOW_EPSILON
+    const minTop = (-sourceSize.height / 2) - SOURCE_BOUNDS_OVERFLOW_EPSILON
+    const maxRight = (sourceSize.width / 2) + SOURCE_BOUNDS_OVERFLOW_EPSILON
+    const maxBottom = (sourceSize.height / 2) + SOURCE_BOUNDS_OVERFLOW_EPSILON
 
     return rect.left < minLeft
       || rect.top < minTop
