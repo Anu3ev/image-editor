@@ -27,6 +27,15 @@ import {
   applyScalingStep,
   shouldApplyPixelScalingStep
 } from './pixel-grid'
+import {
+  resolveScaleAxisSnaps,
+  resolveScaleUpdatePlan,
+  resolveScalingAxisState,
+  resolveScalingTransformState,
+  resolveTextResizeSnapPlan,
+  shouldUseUniformScaleSnap,
+  type ScaleUpdatePlan
+} from './scaling'
 import type {
   AnchorBuckets,
   Bounds,
@@ -52,43 +61,6 @@ type TransformEvent = BasicTransformEvent<TPointerEvent> & {
 
 type MouseEventInfo = TPointerEventInfo<TPointerEvent> & {
   target?: FabricObject | null
-}
-
-type AxisSnapEdge = 'left' | 'right' | 'top' | 'bottom'
-
-type AxisSnapCandidate = {
-  edge: AxisSnapEdge
-  position: number
-}
-
-type AxisSnapResult = {
-  delta: number
-  guidePosition: number | null
-  candidate: AxisSnapCandidate | null
-}
-
-type ScalingAxisState = {
-  isCornerHandle: boolean
-  shouldSnapX: boolean
-  shouldSnapY: boolean
-}
-
-type ScalingTransformState = {
-  originX: Transform['originX']
-  originY: Transform['originY']
-  scaleX: number
-  scaleY: number
-}
-
-type ScaleAxisSnapState = {
-  verticalSnap: AxisSnapResult
-  horizontalSnap: AxisSnapResult
-}
-
-type ScaleUpdatePlan = {
-  guides: GuideLine[]
-  nextScaleX: number | null
-  nextScaleY: number | null
 }
 
 /**
@@ -348,7 +320,7 @@ export default class SnappingManager {
       shouldSnapX,
       shouldSnapY,
       isCornerHandle
-    } = SnappingManager._resolveScalingAxisState({ transform })
+    } = resolveScalingAxisState({ transform })
 
     if (!shouldSnapX && !shouldSnapY) {
       this._clearGuides()
@@ -376,8 +348,8 @@ export default class SnappingManager {
       originY,
       scaleX,
       scaleY
-    } = SnappingManager._resolveScalingTransformState({ target, transform })
-    const snapState = SnappingManager._resolveScaleAxisSnaps({
+    } = resolveScalingTransformState({ target, transform })
+    const snapState = resolveScaleAxisSnaps({
       bounds: activeBounds,
       originX,
       originY,
@@ -392,14 +364,19 @@ export default class SnappingManager {
       return
     }
 
-    const scalePlan = SnappingManager._resolveScaleUpdatePlan({
+    const shouldUseUniformScale = shouldUseUniformScaleSnap({
+      target,
+      event,
+      isCornerHandle
+    })
+    const scalePlan = resolveScaleUpdatePlan({
       target,
       bounds: activeBounds,
       originX,
       originY,
       scaleX,
       scaleY,
-      isCornerHandle,
+      shouldUseUniformScaleSnap: shouldUseUniformScale,
       verticalSnap: snapState.verticalSnap,
       horizontalSnap: snapState.horizontalSnap
     })
@@ -683,44 +660,20 @@ export default class SnappingManager {
     const originX = transformOriginX ?? targetOriginX
     const originY = transformOriginY ?? targetOriginY
 
-    const verticalCandidates = SnappingManager._collectVerticalSnapCandidates({
+    const snapPlan = resolveTextResizeSnapPlan({
+      target,
       bounds: activeBounds,
       originX,
-      shouldSnapX: true
-    })
-    const verticalSnap = SnappingManager._findAxisSnapCandidate({
-      anchors: verticalAnchors,
-      candidates: verticalCandidates,
+      verticalAnchors,
       threshold
     })
 
-    const { guidePosition: verticalGuidePosition } = verticalSnap
-    if (verticalGuidePosition === null) {
+    if (!snapPlan) {
       this._clearGuides()
       return
     }
 
-    const desiredWidth = SnappingManager._resolveDesiredWidth({
-      bounds: activeBounds,
-      originX,
-      snap: verticalSnap
-    })
-
-    if (desiredWidth === null) {
-      this._clearGuides()
-      return
-    }
-
-    const nextWidth = SnappingManager._resolveTextWidthForBounds({
-      target,
-      boundsWidth: desiredWidth
-    })
-
-    if (nextWidth === null) {
-      this._clearGuides()
-      return
-    }
-
+    const { guide, nextWidth } = snapPlan
     const { width: currentWidth = 0 } = target
     if (nextWidth !== currentWidth) {
       const anchorPlacement = this.editor.canvasManager.getObjectPlacement({
@@ -737,12 +690,7 @@ export default class SnappingManager {
     }
 
     this._applyGuides({
-      guides: [
-        {
-          type: 'vertical',
-          position: verticalGuidePosition
-        }
-      ],
+      guides: [guide],
       spacingGuides: []
     })
   }
@@ -863,661 +811,6 @@ export default class SnappingManager {
       vertical: null,
       horizontal: null
     }
-  }
-
-  /**
-   * Определяет активные оси масштабирования по углу и действию трансформации.
-   */
-  private static _resolveScalingAxisState({ transform }: { transform: Transform }): ScalingAxisState {
-    const { corner = '', action = '' } = transform
-    const isHorizontalHandle = corner === 'ml' || corner === 'mr' || action === 'scaleX'
-    const isVerticalHandle = corner === 'mt' || corner === 'mb' || action === 'scaleY'
-    const isCornerHandle = corner === 'tl'
-      || corner === 'tr'
-      || corner === 'bl'
-      || corner === 'br'
-      || action === 'scale'
-
-    return {
-      isCornerHandle,
-      shouldSnapX: isHorizontalHandle || isCornerHandle,
-      shouldSnapY: isVerticalHandle || isCornerHandle
-    }
-  }
-
-  /** Возвращает активные origin и scale из transform с fallback в состояние target. */
-  private static _resolveScalingTransformState({
-    target,
-    transform
-  }: {
-    target: FabricObject
-    transform: Transform
-  }): ScalingTransformState {
-    const {
-      originX: transformOriginX,
-      originY: transformOriginY
-    } = transform
-    const {
-      originX: targetOriginX = 'left',
-      originY: targetOriginY = 'top',
-      scaleX = 1,
-      scaleY = 1
-    } = target
-
-    return {
-      originX: transformOriginX ?? targetOriginX,
-      originY: transformOriginY ?? targetOriginY,
-      scaleX,
-      scaleY
-    }
-  }
-
-  /** Находит активные axis-snap кандидаты для текущего scaling-step. */
-  private static _resolveScaleAxisSnaps({
-    bounds,
-    originX,
-    originY,
-    shouldSnapX,
-    shouldSnapY,
-    threshold,
-    anchors
-  }: {
-    bounds: Bounds
-    originX: Transform['originX']
-    originY: Transform['originY']
-    shouldSnapX: boolean
-    shouldSnapY: boolean
-    threshold: number
-    anchors: AnchorBuckets
-  }): ScaleAxisSnapState | null {
-    const verticalCandidates = SnappingManager._collectVerticalSnapCandidates({
-      bounds,
-      originX,
-      shouldSnapX
-    })
-    const horizontalCandidates = SnappingManager._collectHorizontalSnapCandidates({
-      bounds,
-      originY,
-      shouldSnapY
-    })
-    const verticalSnap = SnappingManager._findAxisSnapCandidate({
-      anchors: anchors.vertical,
-      candidates: verticalCandidates,
-      threshold
-    })
-    const horizontalSnap = SnappingManager._findAxisSnapCandidate({
-      anchors: anchors.horizontal,
-      candidates: horizontalCandidates,
-      threshold
-    })
-
-    if (verticalSnap.guidePosition === null && horizontalSnap.guidePosition === null) {
-      return null
-    }
-
-    return {
-      verticalSnap,
-      horizontalSnap
-    }
-  }
-
-  /** Рассчитывает scale-обновления и соответствующие направляющие для текущего scaling-step. */
-  private static _resolveScaleUpdatePlan({
-    target,
-    bounds,
-    originX,
-    originY,
-    scaleX,
-    scaleY,
-    isCornerHandle,
-    verticalSnap,
-    horizontalSnap
-  }: {
-    target: FabricObject
-    bounds: Bounds
-    originX: Transform['originX']
-    originY: Transform['originY']
-    scaleX: number
-    scaleY: number
-    isCornerHandle: boolean
-    verticalSnap: AxisSnapResult
-    horizontalSnap: AxisSnapResult
-  }): ScaleUpdatePlan | null {
-    const { guidePosition: verticalGuidePosition } = verticalSnap
-    const { guidePosition: horizontalGuidePosition } = horizontalSnap
-    const hasVerticalSnap = verticalGuidePosition !== null
-    const hasHorizontalSnap = horizontalGuidePosition !== null
-    const guides: GuideLine[] = []
-    let nextScaleX: number | null = null
-    let nextScaleY: number | null = null
-
-    if (isCornerHandle) {
-      const uniformResult = SnappingManager._resolveUniformScale({
-        bounds,
-        originX,
-        originY,
-        verticalSnap,
-        horizontalSnap
-      })
-
-      if (uniformResult) {
-        const { scaleFactor, guide } = uniformResult
-        nextScaleX = scaleX * scaleFactor
-        nextScaleY = scaleY * scaleFactor
-        guides.push(guide)
-      }
-    }
-
-    if (!isCornerHandle) {
-      const { angle = 0 } = target
-      const { width: baseWidth, height: baseHeight } = SnappingManager._resolveBaseDimensions({ target })
-      const absScaleX = Math.abs(scaleX) || 1
-      const absScaleY = Math.abs(scaleY) || 1
-
-      if (hasVerticalSnap) {
-        const desiredWidth = SnappingManager._resolveDesiredWidth({
-          bounds,
-          originX,
-          snap: verticalSnap
-        })
-
-        if (desiredWidth !== null) {
-          const absNextScaleX = SnappingManager._resolveScaleForWidth({
-            desiredWidth,
-            baseWidth,
-            baseHeight,
-            scaleY: absScaleY,
-            angle
-          })
-
-          if (absNextScaleX !== null) {
-            nextScaleX = absNextScaleX * (scaleX < 0 ? -1 : 1)
-            guides.push({
-              type: 'vertical',
-              position: verticalGuidePosition
-            })
-          }
-        }
-      }
-
-      if (hasHorizontalSnap) {
-        const desiredHeight = SnappingManager._resolveDesiredHeight({
-          bounds,
-          originY,
-          snap: horizontalSnap
-        })
-
-        if (desiredHeight !== null) {
-          const absNextScaleY = SnappingManager._resolveScaleForHeight({
-            desiredHeight,
-            baseWidth,
-            baseHeight,
-            scaleX: absScaleX,
-            angle
-          })
-
-          if (absNextScaleY !== null) {
-            nextScaleY = absNextScaleY * (scaleY < 0 ? -1 : 1)
-            guides.push({
-              type: 'horizontal',
-              position: horizontalGuidePosition
-            })
-          }
-        }
-      }
-    }
-
-    if (nextScaleX === null && nextScaleY === null && !guides.length) {
-      return null
-    }
-
-    return {
-      guides,
-      nextScaleX,
-      nextScaleY
-    }
-  }
-
-  /**
-   * Собирает кандидаты на вертикальное прилипания по текущему originX.
-   */
-  private static _collectVerticalSnapCandidates({
-    bounds,
-    originX,
-    shouldSnapX
-  }: {
-    bounds: Bounds
-    originX: Transform['originX']
-    shouldSnapX: boolean
-  }): AxisSnapCandidate[] {
-    const candidates: AxisSnapCandidate[] = []
-    if (!shouldSnapX) return candidates
-
-    const { left, right } = bounds
-    let resolvedOriginX: 'left' | 'center' | 'right' = 'left'
-    if (originX === 'center' || originX === 'right') {
-      resolvedOriginX = originX
-    }
-
-    if (resolvedOriginX === 'left') {
-      candidates.push({
-        edge: 'right',
-        position: right
-      })
-    }
-
-    if (resolvedOriginX === 'right') {
-      candidates.push({
-        edge: 'left',
-        position: left
-      })
-    }
-
-    if (resolvedOriginX === 'center') {
-      candidates.push({
-        edge: 'left',
-        position: left
-      })
-      candidates.push({
-        edge: 'right',
-        position: right
-      })
-    }
-
-    return candidates
-  }
-
-  /**
-   * Собирает кандидаты на горизонтальное прилипания по текущему originY.
-   */
-  private static _collectHorizontalSnapCandidates({
-    bounds,
-    originY,
-    shouldSnapY
-  }: {
-    bounds: Bounds
-    originY: Transform['originY']
-    shouldSnapY: boolean
-  }): AxisSnapCandidate[] {
-    const candidates: AxisSnapCandidate[] = []
-    if (!shouldSnapY) return candidates
-
-    const { top, bottom } = bounds
-    let resolvedOriginY: 'top' | 'center' | 'bottom' = 'top'
-    if (originY === 'center' || originY === 'bottom') {
-      resolvedOriginY = originY
-    }
-
-    if (resolvedOriginY === 'top') {
-      candidates.push({
-        edge: 'bottom',
-        position: bottom
-      })
-    }
-
-    if (resolvedOriginY === 'bottom') {
-      candidates.push({
-        edge: 'top',
-        position: top
-      })
-    }
-
-    if (resolvedOriginY === 'center') {
-      candidates.push({
-        edge: 'top',
-        position: top
-      })
-      candidates.push({
-        edge: 'bottom',
-        position: bottom
-      })
-    }
-
-    return candidates
-  }
-
-  /**
-   * Находит ближайший кандидат прилипания с учетом порога и возвращает дельту.
-   */
-  private static _findAxisSnapCandidate({
-    anchors,
-    candidates,
-    threshold
-  }: {
-    anchors: number[]
-    candidates: AxisSnapCandidate[]
-    threshold: number
-  }): AxisSnapResult {
-    let nearestDelta = 0
-    let nearestDistance = threshold + 1
-    let guidePosition: number | null = null
-    let candidate: AxisSnapCandidate | null = null
-
-    for (const snapCandidate of candidates) {
-      const { position } = snapCandidate
-
-      for (const anchor of anchors) {
-        const distance = Math.abs(anchor - position)
-        if (distance > threshold || distance >= nearestDistance) continue
-
-        nearestDelta = anchor - position
-        nearestDistance = distance
-        guidePosition = anchor
-        candidate = snapCandidate
-      }
-    }
-
-    return {
-      delta: nearestDelta,
-      guidePosition,
-      candidate
-    }
-  }
-
-  /**
-   * Рассчитывает коэффициент равномерного масштаба и соответствующий гайд.
-   */
-  private static _resolveUniformScale({
-    bounds,
-    originX,
-    originY,
-    verticalSnap,
-    horizontalSnap
-  }: {
-    bounds: Bounds
-    originX: Transform['originX']
-    originY: Transform['originY']
-    verticalSnap: AxisSnapResult
-    horizontalSnap: AxisSnapResult
-  }): { scaleFactor: number; guide: GuideLine } | null {
-    const {
-      left,
-      right,
-      top,
-      bottom
-    } = bounds
-    const currentWidth = right - left
-    const currentHeight = bottom - top
-
-    const {
-      guidePosition: verticalGuidePosition,
-      delta: verticalDelta
-    } = verticalSnap
-    const {
-      guidePosition: horizontalGuidePosition,
-      delta: horizontalDelta
-    } = horizontalSnap
-
-    let scaleFactorX: number | null = null
-    let scaleFactorY: number | null = null
-
-    if (verticalGuidePosition !== null && currentWidth > 0) {
-      const desiredWidth = SnappingManager._resolveDesiredWidth({
-        bounds,
-        originX,
-        snap: verticalSnap
-      })
-
-      if (desiredWidth !== null) {
-        const factor = desiredWidth / currentWidth
-        if (Number.isFinite(factor) && factor > 0) {
-          scaleFactorX = factor
-        }
-      }
-    }
-
-    if (horizontalGuidePosition !== null && currentHeight > 0) {
-      const desiredHeight = SnappingManager._resolveDesiredHeight({
-        bounds,
-        originY,
-        snap: horizontalSnap
-      })
-
-      if (desiredHeight !== null) {
-        const factor = desiredHeight / currentHeight
-        if (Number.isFinite(factor) && factor > 0) {
-          scaleFactorY = factor
-        }
-      }
-    }
-
-    let chosenAxis: 'x' | 'y' | null = null
-    if (scaleFactorX !== null && scaleFactorY === null) {
-      chosenAxis = 'x'
-    }
-    if (scaleFactorY !== null && scaleFactorX === null) {
-      chosenAxis = 'y'
-    }
-    if (scaleFactorX !== null && scaleFactorY !== null) {
-      const absVerticalDelta = Math.abs(verticalDelta)
-      const absHorizontalDelta = Math.abs(horizontalDelta)
-
-      if (absVerticalDelta <= absHorizontalDelta) {
-        chosenAxis = 'x'
-      }
-      if (absVerticalDelta > absHorizontalDelta) {
-        chosenAxis = 'y'
-      }
-    }
-
-    if (chosenAxis === 'x' && scaleFactorX !== null && verticalGuidePosition !== null) {
-      return {
-        scaleFactor: scaleFactorX,
-        guide: {
-          type: 'vertical',
-          position: verticalGuidePosition
-        }
-      }
-    }
-
-    if (chosenAxis === 'y' && scaleFactorY !== null && horizontalGuidePosition !== null) {
-      return {
-        scaleFactor: scaleFactorY,
-        guide: {
-          type: 'horizontal',
-          position: horizontalGuidePosition
-        }
-      }
-    }
-
-    return null
-  }
-
-  /**
-   * Рассчитывает требуемую ширину bounding-box для прилипания по X.
-   */
-  private static _resolveDesiredWidth({
-    bounds,
-    originX,
-    snap
-  }: {
-    bounds: Bounds
-    originX: Transform['originX']
-    snap: AxisSnapResult
-  }): number | null {
-    const { left, right, centerX } = bounds
-    const { candidate, guidePosition } = snap
-    if (!candidate || guidePosition === null) return null
-
-    let resolvedOriginX: 'left' | 'center' | 'right' = 'left'
-    if (originX === 'center' || originX === 'right') {
-      resolvedOriginX = originX
-    }
-
-    const { edge } = candidate
-    let desiredWidth: number | null = null
-
-    if (resolvedOriginX === 'left' && edge === 'right') {
-      desiredWidth = guidePosition - left
-    }
-    if (resolvedOriginX === 'right' && edge === 'left') {
-      desiredWidth = right - guidePosition
-    }
-    if (resolvedOriginX === 'center' && edge === 'left') {
-      desiredWidth = (centerX - guidePosition) * 2
-    }
-    if (resolvedOriginX === 'center' && edge === 'right') {
-      desiredWidth = (guidePosition - centerX) * 2
-    }
-
-    if (desiredWidth === null) return null
-    if (!Number.isFinite(desiredWidth) || desiredWidth <= 0) return null
-
-    return desiredWidth
-  }
-
-  /**
-   * Рассчитывает требуемую высоту bounding-box для прилипания по Y.
-   */
-  private static _resolveDesiredHeight({
-    bounds,
-    originY,
-    snap
-  }: {
-    bounds: Bounds
-    originY: Transform['originY']
-    snap: AxisSnapResult
-  }): number | null {
-    const { top, bottom, centerY } = bounds
-    const { candidate, guidePosition } = snap
-    if (!candidate || guidePosition === null) return null
-
-    let resolvedOriginY: 'top' | 'center' | 'bottom' = 'top'
-    if (originY === 'center' || originY === 'bottom') {
-      resolvedOriginY = originY
-    }
-
-    const { edge } = candidate
-    let desiredHeight: number | null = null
-
-    if (resolvedOriginY === 'top' && edge === 'bottom') {
-      desiredHeight = guidePosition - top
-    }
-    if (resolvedOriginY === 'bottom' && edge === 'top') {
-      desiredHeight = bottom - guidePosition
-    }
-    if (resolvedOriginY === 'center' && edge === 'top') {
-      desiredHeight = (centerY - guidePosition) * 2
-    }
-    if (resolvedOriginY === 'center' && edge === 'bottom') {
-      desiredHeight = (guidePosition - centerY) * 2
-    }
-
-    if (desiredHeight === null) return null
-    if (!Number.isFinite(desiredHeight) || desiredHeight <= 0) return null
-
-    return desiredHeight
-  }
-
-  /**
-   * Возвращает базовые размеры объекта без учета масштаба, включая отступы текста.
-   */
-  private static _resolveBaseDimensions({ target }: { target: FabricObject }): { width: number; height: number } {
-    const {
-      width: rawWidth = 0,
-      height: rawHeight = 0
-    } = target
-    let width = rawWidth
-    let height = rawHeight
-
-    if (target instanceof Textbox) {
-      const {
-        paddingTop = 0,
-        paddingRight = 0,
-        paddingBottom = 0,
-        paddingLeft = 0,
-        strokeWidth = 0
-      } = target
-      width = rawWidth + paddingLeft + paddingRight + strokeWidth
-      height = rawHeight + paddingTop + paddingBottom + strokeWidth
-    }
-
-    return {
-      width,
-      height
-    }
-  }
-
-  /**
-   * Рассчитывает масштаб по оси X для заданной ширины bounding-box.
-   */
-  private static _resolveScaleForWidth({
-    desiredWidth,
-    baseWidth,
-    baseHeight,
-    scaleY,
-    angle
-  }: {
-    desiredWidth: number
-    baseWidth: number
-    baseHeight: number
-    scaleY: number
-    angle: number
-  }): number | null {
-    const radians = (angle * Math.PI) / 180
-    const cos = Math.abs(Math.cos(radians))
-    const sin = Math.abs(Math.sin(radians))
-    const widthComponent = baseWidth * cos
-    const heightComponent = baseHeight * scaleY * sin
-
-    if (widthComponent <= 0) return null
-
-    const nextScaleX = (desiredWidth - heightComponent) / widthComponent
-    if (!Number.isFinite(nextScaleX) || nextScaleX <= 0) return null
-
-    return nextScaleX
-  }
-
-  /**
-   * Рассчитывает масштаб по оси Y для заданной высоты bounding-box.
-   */
-  private static _resolveScaleForHeight({
-    desiredHeight,
-    baseWidth,
-    baseHeight,
-    scaleX,
-    angle
-  }: {
-    desiredHeight: number
-    baseWidth: number
-    baseHeight: number
-    scaleX: number
-    angle: number
-  }): number | null {
-    const radians = (angle * Math.PI) / 180
-    const cos = Math.abs(Math.cos(radians))
-    const sin = Math.abs(Math.sin(radians))
-    const heightComponent = baseHeight * cos
-    const widthComponent = baseWidth * scaleX * sin
-
-    if (heightComponent <= 0) return null
-
-    const nextScaleY = (desiredHeight - widthComponent) / heightComponent
-    if (!Number.isFinite(nextScaleY) || nextScaleY <= 0) return null
-
-    return nextScaleY
-  }
-
-  /**
-   * Приводит ширину bounding-box текста к ширине текстового блока.
-   */
-  private static _resolveTextWidthForBounds({
-    target,
-    boundsWidth
-  }: {
-    target: Textbox
-    boundsWidth: number
-  }): number | null {
-    const {
-      paddingLeft = 0,
-      paddingRight = 0,
-      strokeWidth = 0
-    } = target
-
-    const rawWidth = boundsWidth - paddingLeft - paddingRight - strokeWidth
-    if (!Number.isFinite(rawWidth) || rawWidth <= 0) return null
-
-    return Math.max(1, Math.round(rawWidth))
   }
 
   /**
