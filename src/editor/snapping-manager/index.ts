@@ -351,6 +351,7 @@ export default class SnappingManager {
     } = resolveScalingTransformState({ target, transform })
     const snapState = resolveScaleAxisSnaps({
       bounds: activeBounds,
+      corner: transform.corner,
       originX,
       originY,
       shouldSnapX,
@@ -398,6 +399,8 @@ export default class SnappingManager {
       applyScalingStep({ target, transform })
     }
 
+    if (this._shouldHideOverflowingCropFrameGuides({ target })) return
+
     this._applyGuides({
       guides: scalePlan.guides,
       spacingGuides: []
@@ -424,7 +427,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Возвращает true, если scaling нужно прервать до расчёта направляющих. */
+  /** Возвращает true, если scaling нужно прервать до расчёта snap-плана. */
   private _shouldAbortObjectScaling({
     target,
     transform,
@@ -448,7 +451,7 @@ export default class SnappingManager {
       applyScalingStep({ target, transform })
     }
 
-    return this._shouldHideOverflowingCropFrameGuides({ target })
+    return false
   }
 
   /** Скрывает направляющие для crop frame, если текущий шаг уже вышел за source и будет зажат clamp-ом. */

@@ -1,15 +1,19 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import {
   CROP_SIZE_INSIDE_SNAP_THRESHOLD,
+  DEFAULT_MONTAGE_SIZE,
   FULL_CROP_MONTAGE_SIZES,
   FULL_CROP_SNAP_THRESHOLD_CORNER_CASES,
   FULL_CROP_SNAP_THRESHOLD_SIDE_CASES,
+  FREE_CROP_CORNER_SNAP_AXIS_CASES,
   LARGER_CROP_TARGET_SIZE,
   SHRUNK_CROP_TARGET_SIZE,
   SMALLER_CROP_SIZE,
   SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS,
   SNAP_THRESHOLD_MONTAGE_SIZE,
-  SNAP_THRESHOLD_SCREEN_PIXELS
+  SNAP_THRESHOLD_SCREEN_PIXELS,
+  STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+  STRICT_FREE_CROP_VERTICAL_SNAP_CORNER_CASES
 } from '../../fixtures/data/crop-size-indicator.data'
 
 test.describe('Индикатор размеров crop-области', () => {
@@ -320,6 +324,221 @@ test.describe('Индикатор размеров crop-области', () => {
           expect(Math.round(releasedState.rect.height)).toBeLessThanOrEqual(
             SNAP_THRESHOLD_MONTAGE_SIZE - snapThresholdInSourcePixels
           )
+        })
+      })
+    }
+  })
+
+  test.describe('непропорциональный crop из угла около snap-порога', () => {
+    test.beforeEach(async({ crop }) => {
+      await crop.startCanvasCrop({
+        preserveAspectRatio: false
+      })
+    })
+
+    for (const cropCase of FREE_CROP_CORNER_SNAP_AXIS_CASES) {
+      test(`${cropCase.title} удерживает полный размер внутри snap-порога`, async({
+        editorModel,
+        crop
+      }) => {
+        const heldSize = {
+          width: DEFAULT_MONTAGE_SIZE,
+          height: DEFAULT_MONTAGE_SIZE
+        }
+        heldSize[cropCase.sizeProperty] += cropCase.directionMultiplier
+
+        const heldState = await test.step('Потянуть угловой control внутри snap-порога', async() => {
+          return crop.dragFrameFromControlToSize({
+            control: cropCase.control,
+            size: heldSize
+          })
+        })
+
+        const heldIndicator = await test.step('Получить индикатор пока snap держит край', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize', async() => {
+          await crop.finishFrameResize()
+        })
+
+        await test.step('Проверить удержание внутри snap-порога', () => {
+          expect(heldState.options.preserveAspectRatio).toBe(false)
+          expect(Math.round(heldState.rect.width)).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(Math.round(heldState.rect.height)).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(heldIndicator.width).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(heldIndicator.height).toBe(DEFAULT_MONTAGE_SIZE)
+        })
+      })
+
+      test(`${cropCase.title} отпускает размер после выхода из snap-порога`, async({
+        editorModel,
+        crop
+      }) => {
+        const canvasState = await test.step('Получить текущий zoom canvas', async() => {
+          return editorModel.getCanvasState()
+        })
+        expect(canvasState.zoom).toBeGreaterThan(0)
+        if (canvasState.zoom <= 0) {
+          throw new Error('Zoom canvas должен быть больше нуля для расчёта snap-порога')
+        }
+
+        const heldSize = {
+          width: DEFAULT_MONTAGE_SIZE,
+          height: DEFAULT_MONTAGE_SIZE
+        }
+        heldSize[cropCase.sizeProperty] += cropCase.directionMultiplier
+
+        await test.step('Начать resize внутри snap-порога', async() => {
+          await crop.dragFrameFromControlToSize({
+            control: cropCase.control,
+            size: heldSize
+          })
+        })
+
+        const snapThresholdInSourcePixels = Math.ceil(SNAP_THRESHOLD_SCREEN_PIXELS / canvasState.zoom)
+        const releasedSize = {
+          width: DEFAULT_MONTAGE_SIZE,
+          height: DEFAULT_MONTAGE_SIZE
+        }
+        releasedSize[cropCase.sizeProperty] += cropCase.directionMultiplier * (
+          snapThresholdInSourcePixels + SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS
+        )
+
+        const releasedState = await test.step('Продолжить движение за snap-порог', async() => {
+          return crop.continueFrameResizeFromControlToSize({
+            control: cropCase.control,
+            size: releasedSize
+          })
+        })
+
+        const releasedIndicator = await test.step('Получить индикатор после выхода из snap-порога', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize', async() => {
+          await crop.finishFrameResize()
+        })
+
+        await test.step('Проверить выход из snap-порога только по активной оси', () => {
+          const fixedSizeProperty = cropCase.sizeProperty === 'width' ? 'height' : 'width'
+          const activeSize = Math.round(releasedState.rect[cropCase.sizeProperty])
+          const fixedSize = Math.round(releasedState.rect[fixedSizeProperty])
+
+          expect(releasedState.options.preserveAspectRatio).toBe(false)
+          expect(fixedSize).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(releasedIndicator.width).toBe(Math.round(releasedState.rect.width))
+          expect(releasedIndicator.height).toBe(Math.round(releasedState.rect.height))
+
+          if (cropCase.directionMultiplier < 0) {
+            expect(activeSize).toBeLessThanOrEqual(
+              DEFAULT_MONTAGE_SIZE - snapThresholdInSourcePixels
+            )
+
+            return
+          }
+
+          expect(activeSize).toBeGreaterThanOrEqual(
+            DEFAULT_MONTAGE_SIZE + snapThresholdInSourcePixels
+          )
+        })
+      })
+    }
+  })
+
+  test.describe('непропорциональный crop без overflow из угла около snap-порога', () => {
+    test.beforeEach(async({ crop }) => {
+      await crop.startCanvasCrop({
+        allowFrameOverflow: false,
+        preserveAspectRatio: false
+      })
+    })
+
+    for (const cropCase of STRICT_FREE_CROP_VERTICAL_SNAP_CORNER_CASES) {
+      test(`при уменьшении высоты из ${cropCase.title} удерживает полный размер внутри snap-порога`, async({
+        editorModel,
+        crop
+      }) => {
+        const heldState = await test.step('Потянуть угловой control по высоте внутри snap-порога', async() => {
+          return crop.dragFrameControlBySourcePixels({
+            control: cropCase.control,
+            deltaX: 0,
+            deltaY: cropCase.shrinkDeltaY * STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+            pointerSteps: 1
+          })
+        })
+
+        const heldIndicator = await test.step('Получить индикатор пока snap держит край', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize', async() => {
+          await crop.finishFrameResize()
+        })
+
+        await test.step('Проверить удержание внутри snap-порога', () => {
+          expect(heldState.options.allowFrameOverflow).toBe(false)
+          expect(heldState.options.preserveAspectRatio).toBe(false)
+          expect(Math.round(heldState.rect.width)).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(Math.round(heldState.rect.height)).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(heldIndicator.width).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(heldIndicator.height).toBe(DEFAULT_MONTAGE_SIZE)
+        })
+      })
+
+      test(`при уменьшении высоты из ${cropCase.title} отпускает размер после выхода из snap-порога`, async({
+        editorModel,
+        crop
+      }) => {
+        const canvasState = await test.step('Получить текущий zoom canvas', async() => {
+          return editorModel.getCanvasState()
+        })
+        expect(canvasState.zoom).toBeGreaterThan(0)
+        if (canvasState.zoom <= 0) {
+          throw new Error('Zoom canvas должен быть больше нуля для расчёта snap-порога')
+        }
+
+        await test.step('Начать resize по высоте внутри snap-порога', async() => {
+          await crop.dragFrameControlBySourcePixels({
+            control: cropCase.control,
+            deltaX: 0,
+            deltaY: cropCase.shrinkDeltaY * STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+            pointerSteps: 1
+          })
+        })
+
+        const snapThresholdInSourcePixels = Math.ceil(SNAP_THRESHOLD_SCREEN_PIXELS / canvasState.zoom)
+        const releaseDelta = snapThresholdInSourcePixels + SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS
+        expect(releaseDelta).toBeGreaterThan(STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS)
+        if (releaseDelta <= STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS) {
+          throw new Error('Source-смещение для выхода из snap-порога должно быть больше начального шага')
+        }
+
+        const releasedState = await test.step('Продолжить движение по высоте за snap-порог', async() => {
+          return crop.continueFrameResizeBySourcePixels({
+            deltaX: 0,
+            deltaY: cropCase.shrinkDeltaY * (releaseDelta - STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS),
+            pointerSteps: 8
+          })
+        })
+
+        const releasedIndicator = await test.step('Получить индикатор после выхода из snap-порога', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize', async() => {
+          await crop.finishFrameResize()
+        })
+
+        await test.step('Проверить выход из snap-порога только по высоте', () => {
+          expect(releasedState.options.allowFrameOverflow).toBe(false)
+          expect(releasedState.options.preserveAspectRatio).toBe(false)
+          expect(Math.round(releasedState.rect.width)).toBe(DEFAULT_MONTAGE_SIZE)
+          expect(Math.round(releasedState.rect.height)).toBeLessThanOrEqual(
+            DEFAULT_MONTAGE_SIZE - snapThresholdInSourcePixels
+          )
+          expect(releasedIndicator.width).toBe(Math.round(releasedState.rect.width))
+          expect(releasedIndicator.height).toBe(Math.round(releasedState.rect.height))
         })
       })
     }

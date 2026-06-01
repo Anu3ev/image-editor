@@ -24,6 +24,9 @@ export const SNAP_THRESHOLD_SCREEN_PIXELS = 5
 /** Дополнительный отступ за snap-порогом, чтобы drag гарантированно вышел из прилипания. */
 export const SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS = 2
 
+/** Вертикальный drag внутри snap-порога для проверки ручного resize из угла. */
+export const STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS = 2
+
 /** Размеры монтажной области, на которых полный crop не должен терять пиксель. */
 export const FULL_CROP_MONTAGE_SIZES = [
   {
@@ -93,4 +96,65 @@ export const FULL_CROP_SNAP_THRESHOLD_SIDE_CASES = [
   control: CropControlKey
   title: string
   axis: 'horizontal' | 'vertical'
+}>
+
+/** Угловые resize-сценарии без сохранения пропорций около snap-порога. */
+export const FREE_CROP_CORNER_SNAP_AXIS_CASES = [
+  {
+    control: 'tr',
+    title: 'при уменьшении высоты из правого верхнего угла',
+    sizeProperty: 'height',
+    directionMultiplier: -1
+  },
+  {
+    control: 'tr',
+    title: 'при увеличении высоты из правого верхнего угла',
+    sizeProperty: 'height',
+    directionMultiplier: 1
+  },
+  {
+    control: 'tr',
+    title: 'при уменьшении ширины из правого верхнего угла',
+    sizeProperty: 'width',
+    directionMultiplier: -1
+  },
+  {
+    control: 'tr',
+    title: 'при увеличении ширины из правого верхнего угла',
+    sizeProperty: 'width',
+    directionMultiplier: 1
+  }
+] as const satisfies ReadonlyArray<{
+  control: CropControlKey
+  title: string
+  sizeProperty: 'width' | 'height'
+  directionMultiplier: -1 | 1
+}>
+
+/** Угловые controls для вертикального resize без overflow и без сохранения пропорций. */
+export const STRICT_FREE_CROP_VERTICAL_SNAP_CORNER_CASES = [
+  {
+    control: 'tl',
+    title: 'левого верхнего угла',
+    shrinkDeltaY: 1
+  },
+  {
+    control: 'tr',
+    title: 'правого верхнего угла',
+    shrinkDeltaY: 1
+  },
+  {
+    control: 'bl',
+    title: 'левого нижнего угла',
+    shrinkDeltaY: -1
+  },
+  {
+    control: 'br',
+    title: 'правого нижнего угла',
+    shrinkDeltaY: -1
+  }
+] as const satisfies ReadonlyArray<{
+  control: CropControlKey
+  title: string
+  shrinkDeltaY: -1 | 1
 }>
