@@ -4,6 +4,45 @@ import { test, expect } from '../../fixtures/editor.fixture'
  * Допуск сравнения source-пикселей после реальных pointer events.
  */
 const SOURCE_PIXEL_TOLERANCE = 2
+const SNAP_APPROACH_OFFSET = 4
+const SNAP_HOLD_DRAG_PIXELS = 4
+const SNAP_RELEASE_DRAG_PIXELS = 12
+const SNAP_REFERENCE_SHAPE_SIZE = 64
+const SNAP_REFERENCE_SHAPE_GAP = 24
+const SNAP_REFERENCE_SHAPE_OFFSET = 72
+
+const CROP_FRAME_SNAPPING_RESIZE_CASES = [
+  {
+    title: 'при сужении сверху удерживает квадратную crop-область на горизонтальной направляющей',
+    control: 'mt',
+    referenceId: 'vertical-snap-reference',
+    guideType: 'horizontal',
+    continueDeltaX: 0,
+    continueDeltaY: SNAP_HOLD_DRAG_PIXELS,
+    releaseDeltaX: 0,
+    releaseDeltaY: SNAP_RELEASE_DRAG_PIXELS
+  },
+  {
+    title: 'при сужении слева удерживает квадратную crop-область на вертикальной направляющей',
+    control: 'ml',
+    referenceId: 'horizontal-snap-reference',
+    guideType: 'vertical',
+    continueDeltaX: SNAP_HOLD_DRAG_PIXELS,
+    continueDeltaY: 0,
+    releaseDeltaX: SNAP_RELEASE_DRAG_PIXELS,
+    releaseDeltaY: 0
+  },
+  {
+    title: 'при сужении из левого верхнего угла удерживает квадратную crop-область на направляющей',
+    control: 'tl',
+    referenceId: 'diagonal-snap-reference',
+    guideType: 'horizontal',
+    continueDeltaX: SNAP_HOLD_DRAG_PIXELS,
+    continueDeltaY: SNAP_HOLD_DRAG_PIXELS,
+    releaseDeltaX: SNAP_RELEASE_DRAG_PIXELS,
+    releaseDeltaY: SNAP_RELEASE_DRAG_PIXELS
+  }
+] as const
 
 /**
  * Сценарии resize уменьшенного квадратного image crop после переноса в середину source.
@@ -406,4 +445,155 @@ test.describe('Увеличение crop-области изображения �
       expect(Math.abs(stateAfterMouseUp.frame.left - initialState.frame.left)).toBeLessThanOrEqual(1)
     })
   })
+})
+
+test.describe('Уменьшение crop-области изображения с фиксированной пропорцией и прилипанием', () => {
+  for (const resizeCase of CROP_FRAME_SNAPPING_RESIZE_CASES) {
+    test(resizeCase.title, async({
+      crop,
+      images,
+      shapes,
+      snapping
+    }) => {
+      const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+        return images.checkCreation({
+          imageObject: await images.addFilledImage({
+            width: 1000,
+            height: 667
+          })
+        })
+      })
+
+      const imageSnapshot = await test.step('Получить bounds изображения', async() => {
+        return images.getSnapshot({ id: image.id })
+      })
+
+      const measuredState = await test.step('Измерить стартовые bounds будущей crop-области', async() => {
+        return crop.startImageCrop({
+          id: image.id,
+          aspectRatio: {
+            width: 1,
+            height: 1
+          },
+          allowFrameOverflow: false,
+          preserveAspectRatio: true
+        })
+      })
+
+      expect(measuredState.frame.id, 'у crop frame должен быть id для измерения bounds').not.toBeNull()
+      if (!measuredState.frame.id) {
+        throw new Error('Crop frame должен иметь id для измерения bounds')
+      }
+
+      const measuredFrame = await snapping.getObjectSnapshot({ id: measuredState.frame.id })
+      await crop.cancel()
+
+      const isHorizontalGuide = resizeCase.guideType === 'horizontal'
+      const initialCropStart = isHorizontalGuide ? measuredFrame.boundsTop : measuredFrame.boundsLeft
+      const referencePosition = initialCropStart + SNAP_REFERENCE_SHAPE_OFFSET
+
+      await test.step('Добавить shape с границей внутри будущей crop-области', async() => {
+        const shape = await shapes.addAtBounds({
+          presetKey: 'square',
+          options: {
+            id: resizeCase.referenceId,
+            left: isHorizontalGuide
+              ? imageSnapshot.boundsRight + SNAP_REFERENCE_SHAPE_GAP
+              : referencePosition,
+            top: isHorizontalGuide
+              ? referencePosition
+              : imageSnapshot.boundsBottom + SNAP_REFERENCE_SHAPE_GAP,
+            width: SNAP_REFERENCE_SHAPE_SIZE,
+            height: SNAP_REFERENCE_SHAPE_SIZE,
+            text: ''
+          }
+        })
+
+        shapes.checkCreation({ shape, presetKey: 'square' })
+      })
+
+      const reference = await snapping.getObjectSnapshot({ id: resizeCase.referenceId })
+      const guidePosition = isHorizontalGuide ? reference.boundsTop : reference.boundsLeft
+      const initialState = await test.step('Войти в image crop 1:1 с запретом выхода за source', async() => {
+        return crop.startImageCrop({
+          id: image.id,
+          aspectRatio: {
+            width: 1,
+            height: 1
+          },
+          allowFrameOverflow: false,
+          preserveAspectRatio: true
+        })
+      })
+
+      expect(initialState.frame.id, 'у active crop frame должен быть id для проверки bounds').not.toBeNull()
+      if (!initialState.frame.id) {
+        throw new Error('Active crop frame должен иметь id для проверки bounds')
+      }
+
+      const activeFrame = await snapping.getObjectSnapshot({ id: initialState.frame.id })
+      const initialCropEnd = isHorizontalGuide ? activeFrame.boundsBottom : activeFrame.boundsRight
+      const frameScale = isHorizontalGuide ? initialState.frame.scaleY : initialState.frame.scaleX
+      const snappedSize = (initialCropEnd - guidePosition) / Math.abs(frameScale)
+      const requestedSize = snappedSize + (SNAP_APPROACH_OFFSET / Math.abs(frameScale))
+      const stateAtSnap = await test.step('Потянуть control почти до направляющей', async() => {
+        return crop.dragFrameFromControlToSize({
+          control: resizeCase.control,
+          size: {
+            width: requestedSize,
+            height: requestedSize
+          }
+        })
+      })
+      const guideState = await snapping.getGuideState()
+      const stateAfterHold = await test.step('Продолжить движение внутри зоны удержания', async() => {
+        return crop.continueFrameResizeBy({
+          deltaX: resizeCase.continueDeltaX,
+          deltaY: resizeCase.continueDeltaY
+        })
+      })
+      const stateAfterRelease = await test.step('Выйти из зоны удержания и продолжить уменьшение', async() => {
+        return crop.continueFrameResizeBy({
+          deltaX: resizeCase.releaseDeltaX,
+          deltaY: resizeCase.releaseDeltaY
+        })
+      })
+      const guideStateAfterRelease = await snapping.getGuideState()
+
+      const stateAfterMouseUp = await test.step('Завершить resize и закрыть crop mode', async() => {
+        const state = await crop.finishFrameResize()
+
+        await crop.cancel()
+
+        return state
+      })
+
+      await test.step('Проверить что snap сразу сохранил пропорции и удержал обе оси', () => {
+        expect(initialState.options.allowFrameOverflow).toBe(false)
+        expect(initialState.options.preserveAspectRatio).toBe(true)
+        expect(guideState.guides).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            type: resizeCase.guideType,
+            position: guidePosition
+          })
+        ]))
+        expect(Math.abs(stateAtSnap.rect.width - snappedSize)).toBeLessThanOrEqual(SOURCE_PIXEL_TOLERANCE)
+        expect(Math.abs(stateAtSnap.rect.height - snappedSize)).toBeLessThanOrEqual(SOURCE_PIXEL_TOLERANCE)
+        expect(stateAtSnap.rect.width).toBeCloseTo(stateAtSnap.rect.height, 4)
+        expect(stateAfterHold.rect.width).toBeCloseTo(stateAtSnap.rect.width, 4)
+        expect(stateAfterHold.rect.height).toBeCloseTo(stateAtSnap.rect.height, 4)
+        expect(stateAfterRelease.rect.width).toBeLessThan(stateAfterHold.rect.width - SOURCE_PIXEL_TOLERANCE)
+        expect(stateAfterRelease.rect.height).toBeLessThan(stateAfterHold.rect.height - SOURCE_PIXEL_TOLERANCE)
+        expect(stateAfterRelease.rect.width).toBeCloseTo(stateAfterRelease.rect.height, 4)
+        expect(guideStateAfterRelease.guides).not.toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            type: resizeCase.guideType,
+            position: guidePosition
+          })
+        ]))
+        expect(stateAfterMouseUp.rect.width).toBeCloseTo(stateAfterRelease.rect.width, 4)
+        expect(stateAfterMouseUp.rect.height).toBeCloseTo(stateAfterRelease.rect.height, 4)
+      })
+    })
+  }
 })
