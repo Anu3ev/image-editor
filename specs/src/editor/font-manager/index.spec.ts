@@ -10,7 +10,7 @@ describe('FontManager', () => {
     jest.clearAllMocks()
   })
 
-  it('загружает шрифты через FontFace API при наличии поддержки', async () => {
+  it('загружает шрифты через FontFace API при наличии поддержки', async() => {
     const font: EditorFontDefinition = {
       family: 'Test Font',
       source: 'https://example.com/fonts/test-font.woff2',
@@ -50,7 +50,7 @@ describe('FontManager', () => {
     }
   })
 
-  it('Инжектит в DOM @font-face когда FontFace API недоступен', async () => {
+  it('Инжектит в DOM @font-face когда FontFace API недоступен', async() => {
     const font: EditorFontDefinition = {
       family: 'Fallback Font',
       source: "url('https://example.com/fonts/fallback.woff2')",
@@ -84,7 +84,7 @@ describe('FontManager', () => {
     }
   })
 
-  it('не загружает шрифт повторно если он уже есть в FontFaceSet', async () => {
+  it('не загружает шрифт повторно если он уже есть в FontFaceSet', async() => {
     const font: EditorFontDefinition = {
       family: 'Existing Font',
       source: 'https://example.com/fonts/existing.woff2',

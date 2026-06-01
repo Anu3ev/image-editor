@@ -77,6 +77,16 @@ export type CropObjectInteractivity = {
 }
 
 /**
+ * Geometry crop frame, которая восстанавливается только внутри live resize-сессии.
+ */
+export type CropFrameTransformState = {
+  left: number
+  top: number
+  scaleX: number
+  scaleY: number
+}
+
+/**
  * Общие runtime-поля crop session. Не сериализуются и не попадают в history.
  */
 type BaseCropSession = {
@@ -85,6 +95,7 @@ type BaseCropSession = {
   options: CropSessionOptions
   previousActiveObject: FabricObject | null
   interactivity: CropObjectInteractivity[]
+  sourceBoundFrameState: CropFrameTransformState | null
 }
 
 /**
