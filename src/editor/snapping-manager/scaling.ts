@@ -11,6 +11,7 @@ import type {
   Bounds,
   GuideLine
 } from './types'
+import type { ScalingStepSnapGuard } from './pixel-grid'
 
 type AxisSnapEdge = 'left' | 'right' | 'top' | 'bottom'
 
@@ -24,6 +25,9 @@ type AxisSnapResult = {
   guidePosition: number | null
   candidate: AxisSnapCandidate | null
 }
+
+/** Допуск сравнения uniform scale-factor для осей одного scaling-step. */
+const UNIFORM_SCALE_FACTOR_EPSILON = 0.000001
 
 export type ScalingAxisState = {
   isCornerHandle: boolean
@@ -50,6 +54,7 @@ export type ScaleAxisSnapState = {
 
 export type ScaleUpdatePlan = {
   guides: GuideLine[]
+  snapGuards: ScalingStepSnapGuard[]
   nextScaleX: number | null
   nextScaleY: number | null
 }
@@ -76,11 +81,19 @@ interface ScaleUpdatePlanParams extends ScaleSnapContext {
 
 type AxisScaleUpdate = {
   guide: GuideLine
+  snapGuard: ScalingStepSnapGuard
   nextScale: number
 }
 
 type UniformScaleResult = {
   guide: GuideLine
+  snapGuards: ScalingStepSnapGuard[]
+  scaleFactor: number
+}
+
+type UniformScaleSnap = {
+  guide: GuideLine
+  snapGuard: ScalingStepSnapGuard
   scaleFactor: number
 }
 
@@ -284,10 +297,15 @@ function resolveUniformScaleUpdatePlan({
 
   if (!uniformResult) return null
 
-  const { guide, scaleFactor } = uniformResult
+  const {
+    guide,
+    scaleFactor,
+    snapGuards
+  } = uniformResult
 
   return {
     guides: [guide],
+    snapGuards,
     nextScaleX: scaleX * scaleFactor,
     nextScaleY: scaleY * scaleFactor
   }
@@ -300,21 +318,25 @@ function resolveAxisScaleUpdatePlan(params: ScaleSnapContext): ScaleUpdatePlan |
   if (!scaleXUpdate && !scaleYUpdate) return null
 
   const guides: GuideLine[] = []
+  const snapGuards: ScalingStepSnapGuard[] = []
   let nextScaleX: number | null = null
   let nextScaleY: number | null = null
 
   if (scaleXUpdate) {
     guides.push(scaleXUpdate.guide)
+    snapGuards.push(scaleXUpdate.snapGuard)
     nextScaleX = scaleXUpdate.nextScale
   }
 
   if (scaleYUpdate) {
     guides.push(scaleYUpdate.guide)
+    snapGuards.push(scaleYUpdate.snapGuard)
     nextScaleY = scaleYUpdate.nextScale
   }
 
   return {
     guides,
+    snapGuards,
     nextScaleX,
     nextScaleY
   }
@@ -349,8 +371,15 @@ function resolveScaleXUpdate({
   })
   if (absNextScaleX === null) return null
 
+  const snapGuard = createScaleSnapGuard({
+    type: 'vertical',
+    snap: verticalSnap
+  })
+  if (!snapGuard) return null
+
   return {
     nextScale: absNextScaleX * (scaleX < 0 ? -1 : 1),
+    snapGuard,
     guide: {
       type: 'vertical',
       position: guidePosition
@@ -387,8 +416,15 @@ function resolveScaleYUpdate({
   })
   if (absNextScaleY === null) return null
 
+  const snapGuard = createScaleSnapGuard({
+    type: 'horizontal',
+    snap: horizontalSnap
+  })
+  if (!snapGuard) return null
+
   return {
     nextScale: absNextScaleY * (scaleY < 0 ? -1 : 1),
+    snapGuard,
     guide: {
       type: 'horizontal',
       position: guidePosition
@@ -604,28 +640,155 @@ function resolveUniformScale({
     verticalSnap,
     horizontalSnap
   })
+  let primarySnap: UniformScaleSnap | null = null
 
-  if (chosenAxis === 'x' && scaleFactorX !== null && verticalSnap.guidePosition !== null) {
-    return {
+  if (chosenAxis === 'x') {
+    primarySnap = createUniformScaleSnap({
+      type: 'vertical',
       scaleFactor: scaleFactorX,
-      guide: {
-        type: 'vertical',
-        position: verticalSnap.guidePosition
-      }
-    }
+      snap: verticalSnap
+    })
   }
 
-  if (chosenAxis === 'y' && scaleFactorY !== null && horizontalSnap.guidePosition !== null) {
-    return {
+  if (chosenAxis === 'y') {
+    primarySnap = createUniformScaleSnap({
+      type: 'horizontal',
       scaleFactor: scaleFactorY,
-      guide: {
-        type: 'horizontal',
-        position: horizontalSnap.guidePosition
-      }
-    }
+      snap: horizontalSnap
+    })
   }
 
-  return null
+  if (!primarySnap) return null
+
+  const snapGuards = collectMatchingUniformScaleSnapGuards({
+    scaleFactor: primarySnap.scaleFactor,
+    scaleFactorX,
+    scaleFactorY,
+    verticalSnap,
+    horizontalSnap
+  })
+  if (snapGuards.length === 0) return null
+
+  return {
+    guide: primarySnap.guide,
+    snapGuards,
+    scaleFactor: primarySnap.scaleFactor
+  }
+}
+
+/**
+ * Создаёт snap-результат для одной оси uniform scaling.
+ */
+function createUniformScaleSnap({
+  type,
+  scaleFactor,
+  snap
+}: {
+  type: GuideLine['type']
+  scaleFactor: number | null
+  snap: AxisSnapResult
+}): UniformScaleSnap | null {
+  const { guidePosition } = snap
+  if (scaleFactor === null || guidePosition === null) return null
+
+  const snapGuard = createScaleSnapGuard({
+    type,
+    snap
+  })
+  if (!snapGuard) return null
+
+  return {
+    scaleFactor,
+    snapGuard,
+    guide: {
+      type,
+      position: guidePosition
+    }
+  }
+}
+
+/**
+ * Собирает guards для осей, которые совпадают с выбранным uniform scale-factor.
+ */
+function collectMatchingUniformScaleSnapGuards({
+  scaleFactor,
+  scaleFactorX,
+  scaleFactorY,
+  verticalSnap,
+  horizontalSnap
+}: {
+  scaleFactor: number
+  scaleFactorX: number | null
+  scaleFactorY: number | null
+  verticalSnap: AxisSnapResult
+  horizontalSnap: AxisSnapResult
+}): ScalingStepSnapGuard[] {
+  const snapGuards: ScalingStepSnapGuard[] = []
+
+  addUniformScaleSnapGuardIfMatching({
+    snapGuards,
+    scaleFactor,
+    axisScaleFactor: scaleFactorX,
+    type: 'vertical',
+    snap: verticalSnap
+  })
+  addUniformScaleSnapGuardIfMatching({
+    snapGuards,
+    scaleFactor,
+    axisScaleFactor: scaleFactorY,
+    type: 'horizontal',
+    snap: horizontalSnap
+  })
+
+  return snapGuards
+}
+
+/**
+ * Добавляет guard только если ось реально попала в выбранный uniform scale.
+ */
+function addUniformScaleSnapGuardIfMatching({
+  snapGuards,
+  scaleFactor,
+  axisScaleFactor,
+  type,
+  snap
+}: {
+  snapGuards: ScalingStepSnapGuard[]
+  scaleFactor: number
+  axisScaleFactor: number | null
+  type: GuideLine['type']
+  snap: AxisSnapResult
+}): void {
+  if (axisScaleFactor === null) return
+  if (Math.abs(axisScaleFactor - scaleFactor) > UNIFORM_SCALE_FACTOR_EPSILON) return
+
+  const snapGuard = createScaleSnapGuard({
+    type,
+    snap
+  })
+  if (!snapGuard) return
+
+  snapGuards.push(snapGuard)
+}
+
+/**
+ * Создаёт guard для последующего pixel-grid округления уже приклеенного active edge.
+ */
+function createScaleSnapGuard({
+  type,
+  snap
+}: {
+  type: GuideLine['type']
+  snap: AxisSnapResult
+}): ScalingStepSnapGuard | null {
+  const { candidate, guidePosition } = snap
+  if (!candidate || guidePosition === null) return null
+
+  return {
+    type,
+    edge: candidate.edge,
+    position: guidePosition
+  }
 }
 
 function resolveUniformScaleFactorForWidth({
@@ -719,11 +882,11 @@ function resolveDesiredWidth({
   const { edge } = candidate
   let desiredWidth: number | null = null
 
-  if (resolvedOriginX === 'left' && edge === 'right') {
-    desiredWidth = guidePosition - left
-  }
-  if (resolvedOriginX === 'right' && edge === 'left') {
+  if (resolvedOriginX !== 'center' && edge === 'left') {
     desiredWidth = right - guidePosition
+  }
+  if (resolvedOriginX !== 'center' && edge === 'right') {
+    desiredWidth = guidePosition - left
   }
   if (resolvedOriginX === 'center' && edge === 'left') {
     desiredWidth = (centerX - guidePosition) * 2
@@ -762,11 +925,11 @@ function resolveDesiredHeight({
   const { edge } = candidate
   let desiredHeight: number | null = null
 
-  if (resolvedOriginY === 'top' && edge === 'bottom') {
-    desiredHeight = guidePosition - top
-  }
-  if (resolvedOriginY === 'bottom' && edge === 'top') {
+  if (resolvedOriginY !== 'center' && edge === 'top') {
     desiredHeight = bottom - guidePosition
+  }
+  if (resolvedOriginY !== 'center' && edge === 'bottom') {
+    desiredHeight = guidePosition - top
   }
   if (resolvedOriginY === 'center' && edge === 'top') {
     desiredHeight = (centerY - guidePosition) * 2

@@ -2,6 +2,14 @@ import { test, expect } from '../../fixtures/editor.fixture'
 import {
   CROP_SIZE_INSIDE_SNAP_THRESHOLD,
   DEFAULT_MONTAGE_SIZE,
+  EDGE_IMAGE_CROP_AXIS_BOUNDARY_DRAG_CASES,
+  EDGE_IMAGE_CROP_BOUNDARY_DRAG_CASES,
+  EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+  EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS,
+  EDGE_IMAGE_CROP_MIDDLE_GUIDE_DRAG_CASES,
+  EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE,
+  EDGE_IMAGE_CROP_SOURCE_SIZE,
+  EDGE_IMAGE_CROP_SQUARE_SIZE,
   FULL_CROP_MONTAGE_SIZES,
   FULL_CROP_SNAP_THRESHOLD_CORNER_CASES,
   FULL_CROP_SNAP_THRESHOLD_SIDE_CASES,
@@ -152,6 +160,331 @@ test.describe('Индикатор размеров crop-области', () => {
       expect(liveState.rect.height).toBeCloseTo(667, 5)
       expect(indicator.width).toBe(667)
       expect(indicator.height).toBe(667)
+    })
+  })
+
+  test.describe('image crop 1:1 у правой границы source', () => {
+    for (const cropCase of EDGE_IMAGE_CROP_BOUNDARY_DRAG_CASES) {
+      test(`при небольшом resize из ${cropCase.title} ${cropCase.directionTitle} показывает текущий квадрат без сдвига на пиксель`, async({
+        editorModel,
+        crop,
+        images
+      }) => {
+        const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+          return images.checkCreation({
+            imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+          })
+        })
+
+        await test.step('Войти в image crop 1:1 у правой границы source', async() => {
+          const state = await crop.startSquareImageCropAtImageRightEdge({ image })
+
+          expect(Math.round(state.rect.left + state.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+          expect(Math.round(state.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(Math.round(state.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+        })
+
+        const liveState = await test.step('Потянуть угол внутри snap-порога', async() => {
+          return crop.dragFrameControlBySourcePixels({
+            control: cropCase.control,
+            deltaX: cropCase.deltaX * EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+            deltaY: cropCase.deltaY * EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+            pointerSteps: 1
+          })
+        })
+
+        const indicator = await test.step('Получить индикатор пока snap держит crop-область', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize и закрыть crop mode', async() => {
+          await crop.finishFrameResize()
+          await crop.cancel()
+        })
+
+        await test.step('Проверить что indicator совпадает с текущим crop rect', () => {
+          expect(liveState.options.allowFrameOverflow).toBe(false)
+          expect(liveState.options.preserveAspectRatio).toBe(true)
+          expect(Math.round(liveState.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(Math.round(liveState.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(indicator.width).toBe(Math.round(liveState.rect.width))
+          expect(indicator.height).toBe(Math.round(liveState.rect.height))
+        })
+      })
+    }
+
+    for (const cropCase of EDGE_IMAGE_CROP_AXIS_BOUNDARY_DRAG_CASES) {
+      test(`при небольшом resize из ${cropCase.title} ${cropCase.directionTitle} показывает текущий квадрат без сдвига на пиксель`, async({
+        editorModel,
+        crop,
+        images
+      }) => {
+        const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+          return images.checkCreation({
+            imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+          })
+        })
+
+        await test.step('Войти в image crop 1:1 у правой границы source', async() => {
+          const state = await crop.startSquareImageCropAtImageRightEdge({ image })
+
+          expect(Math.round(state.rect.left + state.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+          expect(Math.round(state.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(Math.round(state.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+        })
+
+        const liveState = await test.step('Потянуть угол по одной оси внутри snap-порога', async() => {
+          return crop.dragFrameControlBy({
+            control: cropCase.control,
+            deltaX: cropCase.deltaX * EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS,
+            deltaY: cropCase.deltaY * EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS,
+            pointerSteps: 1
+          })
+        })
+
+        const indicator = await test.step('Получить индикатор пока snap держит crop-область', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize и закрыть crop mode', async() => {
+          await crop.finishFrameResize()
+          await crop.cancel()
+        })
+
+        await test.step('Проверить что indicator совпадает с текущим crop rect', () => {
+          expect(liveState.options.allowFrameOverflow).toBe(false)
+          expect(liveState.options.preserveAspectRatio).toBe(true)
+          expect(Math.round(liveState.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(Math.round(liveState.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(indicator.width).toBe(Math.round(liveState.rect.width))
+          expect(indicator.height).toBe(Math.round(liveState.rect.height))
+        })
+      })
+    }
+  })
+
+  test.describe('image crop 1:1 у серединных guide source', () => {
+    for (const cropCase of EDGE_IMAGE_CROP_MIDDLE_GUIDE_DRAG_CASES) {
+      test(`при уменьшении из ${cropCase.title} до серединных guide показывает половину source без сдвига на пиксель`, async({
+        editorModel,
+        crop,
+        images
+      }) => {
+        const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+          return images.checkCreation({
+            imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+          })
+        })
+
+        await test.step('Войти в image crop 1:1 с запретом выхода за source', async() => {
+          const state = await crop.startImageCrop({
+            id: image.id,
+            aspectRatio: {
+              width: 1,
+              height: 1
+            },
+            allowFrameOverflow: false,
+            preserveAspectRatio: true
+          })
+
+          expect(Math.round(state.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(Math.round(state.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+        })
+
+        const liveState = await test.step('Потянуть угол к серединным guide source', async() => {
+          return crop.dragFrameControlBySourcePixels({
+            control: cropCase.control,
+            deltaX: cropCase.deltaX * (EDGE_IMAGE_CROP_SQUARE_SIZE / 2),
+            deltaY: cropCase.deltaY * (EDGE_IMAGE_CROP_SQUARE_SIZE / 2),
+            pointerSteps: 8
+          })
+        })
+
+        const indicator = await test.step('Получить индикатор во время snap к серединным guide', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize и закрыть crop mode', async() => {
+          await crop.finishFrameResize()
+          await crop.cancel()
+        })
+
+        await test.step('Проверить что indicator не перескочил через серединный guide', () => {
+          expect(liveState.options.allowFrameOverflow).toBe(false)
+          expect(liveState.options.preserveAspectRatio).toBe(true)
+          expect(Math.round(liveState.rect.width)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+          expect(Math.round(liveState.rect.height)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+          expect(indicator.width).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+          expect(indicator.height).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        })
+      })
+    }
+
+    for (const cropCase of EDGE_IMAGE_CROP_MIDDLE_GUIDE_DRAG_CASES) {
+      test(`при точном уменьшении до половины source из ${cropCase.title} не показывает плюс пиксель`, async({
+        editorModel,
+        crop,
+        images
+      }) => {
+        const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+          return images.checkCreation({
+            imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+          })
+        })
+
+        await test.step('Войти в image crop 1:1 у правой границы source', async() => {
+          const state = await crop.startSquareImageCropAtImageRightEdge({ image })
+
+          expect(Math.round(state.rect.left + state.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+          expect(Math.round(state.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+          expect(Math.round(state.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+        })
+
+        const liveState = await test.step('Уменьшить crop ровно до половины source', async() => {
+          return crop.dragFrameFromControlToSize({
+            control: cropCase.control,
+            size: {
+              width: EDGE_IMAGE_CROP_SQUARE_SIZE / 2,
+              height: EDGE_IMAGE_CROP_SQUARE_SIZE / 2
+            }
+          })
+        })
+
+        const indicator = await test.step('Получить индикатор во время resize', async() => {
+          return editorModel.requireObjectSizeIndicator()
+        })
+
+        await test.step('Завершить resize и закрыть crop mode', async() => {
+          await crop.finishFrameResize()
+          await crop.cancel()
+        })
+
+        await test.step('Проверить что indicator не округлил половину source вверх', () => {
+          expect(liveState.options.allowFrameOverflow).toBe(false)
+          expect(liveState.options.preserveAspectRatio).toBe(true)
+          expect(indicator.width).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+          expect(indicator.height).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        })
+      })
+    }
+
+    test('после snap к серединному guide не показывает плюс пиксель при микродвижении из левого верхнего угла', async({
+      editorModel,
+      crop,
+      images
+    }) => {
+      const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+        return images.checkCreation({
+          imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+        })
+      })
+
+      await test.step('Войти в image crop 1:1 у правой границы source', async() => {
+        const state = await crop.startSquareImageCropAtImageRightEdge({ image })
+
+        expect(Math.round(state.rect.left + state.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+        expect(Math.round(state.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+        expect(Math.round(state.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+      })
+
+      const snappedState = await test.step('Потянуть левый верхний угол к серединным guide source', async() => {
+        return crop.dragFrameControlBySourcePixels({
+          control: 'tl',
+          deltaX: EDGE_IMAGE_CROP_SQUARE_SIZE / 2,
+          deltaY: EDGE_IMAGE_CROP_SQUARE_SIZE / 2,
+          pointerSteps: 8
+        })
+      })
+      const heldState = await test.step('Продолжить движение наружу внутри snap-порога', async() => {
+        return crop.continueFrameResizeBy({
+          deltaX: -EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS,
+          deltaY: -EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS,
+          pointerSteps: 1
+        })
+      })
+
+      const indicator = await test.step('Получить индикатор после микродвижения внутри snap-порога', async() => {
+        return editorModel.requireObjectSizeIndicator()
+      })
+
+      await test.step('Завершить resize и закрыть crop mode', async() => {
+        await crop.finishFrameResize()
+        await crop.cancel()
+      })
+
+      await test.step('Проверить что indicator не перескочил через серединный guide', () => {
+        expect(snappedState.options.allowFrameOverflow).toBe(false)
+        expect(snappedState.options.preserveAspectRatio).toBe(true)
+        expect(Math.round(snappedState.rect.width)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(Math.round(snappedState.rect.height)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(Math.round(heldState.rect.width)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(Math.round(heldState.rect.height)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(indicator.width).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(indicator.height).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+      })
+    })
+
+    test('после snap к серединному guide не увеличивает crop из левого нижнего угла внутри snap-порога', async({
+      editorModel,
+      crop,
+      images
+    }) => {
+      const image = await test.step('Добавить изображение шире квадратной crop-области', async() => {
+        return images.checkCreation({
+          imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+        })
+      })
+
+      await test.step('Войти в image crop 1:1 у правой границы source', async() => {
+        const state = await crop.startSquareImageCropAtImageRightEdge({ image })
+
+        expect(Math.round(state.rect.left + state.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+        expect(Math.round(state.rect.width)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+        expect(Math.round(state.rect.height)).toBe(EDGE_IMAGE_CROP_SQUARE_SIZE)
+      })
+
+      await test.step('Уменьшить crop до серединных guide source', async() => {
+        const state = await crop.dragFrameControlBySourcePixels({
+          control: 'tl',
+          deltaX: EDGE_IMAGE_CROP_SQUARE_SIZE / 2,
+          deltaY: EDGE_IMAGE_CROP_SQUARE_SIZE / 2,
+          pointerSteps: 8
+        })
+
+        expect(Math.round(state.rect.width)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(Math.round(state.rect.height)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+
+        await crop.finishFrameResize()
+      })
+
+      const heldState = await test.step('Потянуть левый нижний угол наружу внутри snap-порога', async() => {
+        return crop.dragFrameControlBySourcePixels({
+          control: 'bl',
+          deltaX: -EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+          deltaY: EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+          pointerSteps: 1
+        })
+      })
+
+      const indicator = await test.step('Получить индикатор после микродвижения внутри snap-порога', async() => {
+        return editorModel.requireObjectSizeIndicator()
+      })
+
+      await test.step('Завершить resize и закрыть crop mode', async() => {
+        await crop.finishFrameResize()
+        await crop.cancel()
+      })
+
+      await test.step('Проверить что right и bottom source не дали crop вырасти внутри snap-порога', () => {
+        expect(heldState.options.allowFrameOverflow).toBe(false)
+        expect(heldState.options.preserveAspectRatio).toBe(true)
+        expect(Math.round(heldState.rect.left + heldState.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+        expect(Math.round(heldState.rect.top + heldState.rect.height)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.height)
+        expect(Math.round(heldState.rect.width)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(Math.round(heldState.rect.height)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(indicator.width).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+        expect(indicator.height).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+      })
     })
   })
 
