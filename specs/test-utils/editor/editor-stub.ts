@@ -302,6 +302,7 @@ export const createEditorStub = () => {
     cropManager: {
       isActive: false,
       isFrameOverflowingSource: jest.fn().mockReturnValue(false),
+      isFrameSourceScaleClamped: jest.fn().mockReturnValue(false),
       resetFrameToSource: jest.fn().mockReturnValue(null)
     },
     montageArea,

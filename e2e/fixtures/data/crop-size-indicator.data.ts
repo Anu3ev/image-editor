@@ -27,6 +27,24 @@ export const SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS = 2
 /** Вертикальный drag внутри snap-порога для проверки ручного resize из угла. */
 export const STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS = 2
 
+/** Размер изображения для проверки image crop у границ source. */
+export const EDGE_IMAGE_CROP_SOURCE_SIZE = {
+  width: 1000,
+  height: 667
+} as const
+
+/** Квадратная crop-область, ограниченная высотой тестового изображения. */
+export const EDGE_IMAGE_CROP_SQUARE_SIZE = 667
+
+/** Небольшой drag внутри snap-порога для proportional image crop у границы source. */
+export const EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS = 1
+
+/** Небольшой экранный drag внутри snap-порога для proportional image crop у границы source. */
+export const EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS = 1
+
+/** Размер crop-области после уменьшения квадратного image crop до серединных guide source. */
+export const EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE = Math.floor(EDGE_IMAGE_CROP_SQUARE_SIZE / 2)
+
 /** Размеры монтажной области, на которых полный crop не должен терять пиксель. */
 export const FULL_CROP_MONTAGE_SIZES = [
   {
@@ -157,4 +175,169 @@ export const STRICT_FREE_CROP_VERTICAL_SNAP_CORNER_CASES = [
   control: CropControlKey
   title: string
   shrinkDeltaY: -1 | 1
+}>
+
+/** Угловые resize-сценарии proportional image crop у правой границы source. */
+export const EDGE_IMAGE_CROP_BOUNDARY_DRAG_CASES = [
+  {
+    control: 'tl',
+    title: 'левого верхнего угла',
+    directionTitle: 'внутрь source',
+    deltaX: 1,
+    deltaY: 1
+  },
+  {
+    control: 'tl',
+    title: 'левого верхнего угла',
+    directionTitle: 'наружу source',
+    deltaX: -1,
+    deltaY: -1
+  },
+  {
+    control: 'tr',
+    title: 'правого верхнего угла',
+    directionTitle: 'внутрь source',
+    deltaX: -1,
+    deltaY: 1
+  },
+  {
+    control: 'tr',
+    title: 'правого верхнего угла',
+    directionTitle: 'наружу source',
+    deltaX: 1,
+    deltaY: -1
+  },
+  {
+    control: 'bl',
+    title: 'левого нижнего угла',
+    directionTitle: 'внутрь source',
+    deltaX: 1,
+    deltaY: -1
+  },
+  {
+    control: 'bl',
+    title: 'левого нижнего угла',
+    directionTitle: 'наружу source',
+    deltaX: -1,
+    deltaY: 1
+  },
+  {
+    control: 'br',
+    title: 'правого нижнего угла',
+    directionTitle: 'внутрь source',
+    deltaX: -1,
+    deltaY: -1
+  },
+  {
+    control: 'br',
+    title: 'правого нижнего угла',
+    directionTitle: 'наружу source',
+    deltaX: 1,
+    deltaY: 1
+  }
+] as const satisfies ReadonlyArray<{
+  control: CropControlKey
+  title: string
+  directionTitle: string
+  deltaX: -1 | 1
+  deltaY: -1 | 1
+}>
+
+/** Осевые drag-сценарии из углов proportional image crop у правой границы source. */
+export const EDGE_IMAGE_CROP_AXIS_BOUNDARY_DRAG_CASES = [
+  {
+    control: 'tl',
+    title: 'левого верхнего угла',
+    directionTitle: 'по ширине наружу source',
+    deltaX: -1,
+    deltaY: 0
+  },
+  {
+    control: 'tl',
+    title: 'левого верхнего угла',
+    directionTitle: 'по высоте наружу source',
+    deltaX: 0,
+    deltaY: -1
+  },
+  {
+    control: 'tr',
+    title: 'правого верхнего угла',
+    directionTitle: 'по ширине наружу source',
+    deltaX: 1,
+    deltaY: 0
+  },
+  {
+    control: 'tr',
+    title: 'правого верхнего угла',
+    directionTitle: 'по высоте наружу source',
+    deltaX: 0,
+    deltaY: -1
+  },
+  {
+    control: 'bl',
+    title: 'левого нижнего угла',
+    directionTitle: 'по ширине наружу source',
+    deltaX: -1,
+    deltaY: 0
+  },
+  {
+    control: 'bl',
+    title: 'левого нижнего угла',
+    directionTitle: 'по высоте наружу source',
+    deltaX: 0,
+    deltaY: 1
+  },
+  {
+    control: 'br',
+    title: 'правого нижнего угла',
+    directionTitle: 'по ширине наружу source',
+    deltaX: 1,
+    deltaY: 0
+  },
+  {
+    control: 'br',
+    title: 'правого нижнего угла',
+    directionTitle: 'по высоте наружу source',
+    deltaX: 0,
+    deltaY: 1
+  }
+] as const satisfies ReadonlyArray<{
+  control: CropControlKey
+  title: string
+  directionTitle: string
+  deltaX: -1 | 0 | 1
+  deltaY: -1 | 0 | 1
+}>
+
+/** Угловые resize-сценарии proportional image crop до серединных guide source. */
+export const EDGE_IMAGE_CROP_MIDDLE_GUIDE_DRAG_CASES = [
+  {
+    control: 'tl',
+    title: 'левого верхнего угла',
+    deltaX: 1,
+    deltaY: 1
+  },
+  {
+    control: 'tr',
+    title: 'правого верхнего угла',
+    deltaX: -1,
+    deltaY: 1
+  },
+  {
+    control: 'bl',
+    title: 'левого нижнего угла',
+    deltaX: 1,
+    deltaY: -1
+  },
+  {
+    control: 'br',
+    title: 'правого нижнего угла',
+    deltaX: -1,
+    deltaY: -1
+  }
+] as const satisfies ReadonlyArray<{
+  control: CropControlKey
+  title: string
+  deltaX: -1 | 1
+  deltaY: -1 | 1
 }>

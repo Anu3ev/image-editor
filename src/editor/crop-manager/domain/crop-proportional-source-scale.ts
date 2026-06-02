@@ -33,6 +33,21 @@ export function resolveCropProportionalSourceScaleLimit({
   anchorX,
   anchorY
 }: ResolveCropProportionalSourceScaleLimitParams): number {
+  const startWidth = Math.max(1, startRect.width)
+  const startHeight = Math.max(1, startRect.height)
+
+  if (isSourceAxisVisiblyFilled({
+    sourceSize,
+    rect: startRect,
+    axis: 'x'
+  })) return 1
+
+  if (isSourceAxisVisiblyFilled({
+    sourceSize,
+    rect: startRect,
+    axis: 'y'
+  })) return 1
+
   const widthLimit = resolveAnchoredSourceSizeLimit({
     sourceSize,
     rect: startRect,
@@ -45,8 +60,7 @@ export function resolveCropProportionalSourceScaleLimit({
     axis: 'y',
     anchor: anchorY
   })
-  const startWidth = Math.max(1, startRect.width)
-  const startHeight = Math.max(1, startRect.height)
+
   const anchoredMaxScale = Math.min(
     widthLimit / startWidth,
     heightLimit / startHeight
@@ -61,6 +75,24 @@ export function resolveCropProportionalSourceScaleLimit({
   if (remainingGrowth <= SOURCE_BOUNDARY_SIZE_EPSILON) return 1
 
   return Math.max(1, maxScale)
+}
+
+/**
+ * Возвращает true, если crop rect уже занимает всю source-длину в отображаемых пикселях.
+ */
+function isSourceAxisVisiblyFilled({
+  sourceSize,
+  rect,
+  axis
+}: {
+  sourceSize: CropSize
+  rect: CropRect
+  axis: 'x' | 'y'
+}): boolean {
+  const sourceLength = axis === 'x' ? sourceSize.width : sourceSize.height
+  const rectLength = axis === 'x' ? rect.width : rect.height
+
+  return Math.round(rectLength) >= Math.round(sourceLength)
 }
 
 /**

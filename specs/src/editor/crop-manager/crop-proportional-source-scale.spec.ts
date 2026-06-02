@@ -100,4 +100,24 @@ describe('ограничение proportional scale внутри source', () => 
     expect(scale).toBe(1)
     expect(667 * scale).toBe(667)
   })
+
+  it('не разрешает рост, если source-rect уже занял всю ширину source', () => {
+    const scale = resolveCropProportionalSourceScaleLimit({
+      sourceSize: {
+        width: 1000,
+        height: 667
+      },
+      startRect: {
+        left: -500,
+        top: -100,
+        width: 1000,
+        height: 200
+      },
+      anchorX: 'center',
+      anchorY: 'center'
+    })
+
+    expect(scale).toBe(1)
+    expect(1000 * scale).toBe(1000)
+  })
 })
