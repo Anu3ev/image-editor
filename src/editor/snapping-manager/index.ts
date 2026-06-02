@@ -315,6 +315,13 @@ export default class SnappingManager {
       this._clearGuides()
       return
     }
+    if (!this._hasObjectScaleChanged({
+      target,
+      transform
+    })) {
+      this._clearGuides()
+      return
+    }
 
     const {
       shouldSnapX,
@@ -323,7 +330,11 @@ export default class SnappingManager {
     } = resolveScalingAxisState({ transform })
 
     if (!shouldSnapX && !shouldSnapY) {
-      this._clearGuides()
+      this._finishObjectScalingWithoutSnap({
+        target,
+        transform,
+        canApplyPixelScalingStep
+      })
       return
     }
 
@@ -338,7 +349,11 @@ export default class SnappingManager {
 
     const activeBounds = getObjectBounds({ object: target })
     if (!activeBounds) {
-      this._clearGuides()
+      this._finishObjectScalingWithoutSnap({
+        target,
+        transform,
+        canApplyPixelScalingStep
+      })
       return
     }
 
@@ -351,6 +366,7 @@ export default class SnappingManager {
     } = resolveScalingTransformState({ target, transform })
     const snapState = resolveScaleAxisSnaps({
       bounds: activeBounds,
+      corner: transform.corner,
       originX,
       originY,
       shouldSnapX,
@@ -360,7 +376,11 @@ export default class SnappingManager {
     })
 
     if (!snapState) {
-      this._clearGuides()
+      this._finishObjectScalingWithoutSnap({
+        target,
+        transform,
+        canApplyPixelScalingStep
+      })
       return
     }
 
@@ -382,7 +402,11 @@ export default class SnappingManager {
     })
 
     if (!scalePlan) {
-      this._clearGuides()
+      this._finishObjectScalingWithoutSnap({
+        target,
+        transform,
+        canApplyPixelScalingStep
+      })
       return
     }
 
@@ -395,8 +419,29 @@ export default class SnappingManager {
     })
 
     if (canApplyPixelScalingStep) {
-      applyScalingStep({ target, transform })
+      const scaleStepPlacement = this.editor.canvasManager.getObjectPlacement({
+        object: target,
+        originX,
+        originY
+      })
+
+      applyScalingStep({
+        target,
+        transform,
+        preservePlacement: {
+          placement: scaleStepPlacement,
+          applyPlacement: (placement) => {
+            this.editor.canvasManager.applyObjectPlacement({
+              object: target,
+              placement
+            })
+          }
+        },
+        snapGuards: scalePlan.snapGuards
+      })
     }
+
+    if (this._shouldHideOverflowingCropFrameGuides({ target })) return
 
     this._applyGuides({
       guides: scalePlan.guides,
@@ -424,7 +469,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Возвращает true, если scaling нужно прервать до расчёта направляющих. */
+  /** Возвращает true, если scaling нужно прервать до расчёта snap-плана. */
   private _shouldAbortObjectScaling({
     target,
     transform,
@@ -436,6 +481,11 @@ export default class SnappingManager {
     event: TransformEvent
     canApplyPixelScalingStep: boolean
   }): boolean {
+    if (this.editor.cropManager.isFrameSourceScaleClamped({ target, transform })) {
+      this._clearGuides()
+      return true
+    }
+
     if (event.e?.ctrlKey) {
       this._clearGuides()
       if (canApplyPixelScalingStep) {
@@ -444,11 +494,39 @@ export default class SnappingManager {
       return true
     }
 
+    return false
+  }
+
+  /** Завершает scaling-шаг без snap-направляющих и сохраняет обычное pixel-rounding поведение. */
+  private _finishObjectScalingWithoutSnap({
+    target,
+    transform,
+    canApplyPixelScalingStep
+  }: {
+    target: FabricObject
+    transform: Transform
+    canApplyPixelScalingStep: boolean
+  }): void {
     if (canApplyPixelScalingStep) {
       applyScalingStep({ target, transform })
     }
 
-    return this._shouldHideOverflowingCropFrameGuides({ target })
+    this._clearGuides()
+  }
+
+  /** Возвращает true, если текущий scale отличается от стартового scale Fabric transform. */
+  private _hasObjectScaleChanged({
+    target,
+    transform
+  }: {
+    target: FabricObject
+    transform: Transform
+  }): boolean {
+    const originalScaleX = transform.original?.scaleX
+    const originalScaleY = transform.original?.scaleY
+    if (typeof originalScaleX !== 'number' || typeof originalScaleY !== 'number') return true
+
+    return target.scaleX !== originalScaleX || target.scaleY !== originalScaleY
   }
 
   /** Скрывает направляющие для crop frame, если текущий шаг уже вышел за source и будет зажат clamp-ом. */

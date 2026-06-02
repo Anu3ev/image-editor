@@ -1,4 +1,5 @@
 import {
+  resolveScaleAxisSnaps,
   resolveScaleUpdatePlan,
   shouldUseUniformScaleSnap
 } from '../../../../src/editor/snapping-manager/scaling'
@@ -51,6 +52,92 @@ describe('SnappingManager scaling contract', () => {
     expect(withShift).toBe(true)
   })
 
+  it('для corner-control crop frame с выключенным preserveAspectRatio включает uniform snap только с Shift', () => {
+    const target = createCropFrameTarget({
+      preserveAspectRatio: false
+    })
+
+    const withoutShift = shouldUseUniformScaleSnap({
+      target,
+      event: createScalingEvent(),
+      isCornerHandle: true
+    })
+    const withShift = shouldUseUniformScaleSnap({
+      target,
+      event: createScalingEvent({ shiftKey: true }),
+      isCornerHandle: true
+    })
+
+    expect(withoutShift).toBe(false)
+    expect(withShift).toBe(true)
+  })
+
+  it('для правого верхнего control использует верхнюю грань для snap по высоте, даже если originY уже указывает на top', () => {
+    const snapState = resolveScaleAxisSnaps({
+      bounds: createScalingBounds({
+        left: 0,
+        top: 2,
+        width: 512,
+        height: 510
+      }),
+      corner: 'tr',
+      originX: 'left',
+      originY: 'top',
+      shouldSnapX: true,
+      shouldSnapY: true,
+      threshold: 5,
+      anchors: {
+        vertical: [512],
+        horizontal: [0]
+      }
+    })
+
+    expect(snapState).not.toBeNull()
+    if (!snapState) {
+      throw new Error('Snap state для правого верхнего control должен существовать')
+    }
+
+    expect(snapState.verticalSnap.guidePosition).toBe(512)
+    expect(snapState.horizontalSnap.guidePosition).toBe(0)
+    expect(snapState.horizontalSnap.candidate).toEqual({
+      edge: 'top',
+      position: 2
+    })
+  })
+
+  it('для левого нижнего control использует нижнюю грань для snap по высоте, даже если originY уже указывает на bottom', () => {
+    const snapState = resolveScaleAxisSnaps({
+      bounds: createScalingBounds({
+        left: 2,
+        top: 0,
+        width: 510,
+        height: 510
+      }),
+      corner: 'bl',
+      originX: 'right',
+      originY: 'bottom',
+      shouldSnapX: true,
+      shouldSnapY: true,
+      threshold: 5,
+      anchors: {
+        vertical: [0],
+        horizontal: [512]
+      }
+    })
+
+    expect(snapState).not.toBeNull()
+    if (!snapState) {
+      throw new Error('Snap state для левого нижнего control должен существовать')
+    }
+
+    expect(snapState.verticalSnap.guidePosition).toBe(0)
+    expect(snapState.horizontalSnap.guidePosition).toBe(512)
+    expect(snapState.horizontalSnap.candidate).toEqual({
+      edge: 'bottom',
+      position: 510
+    })
+  })
+
   it('при vertical snap side-control пересчитывает обе scale-оси одним коэффициентом', () => {
     const plan = resolveScaleUpdatePlan({
       target: createCropFrameTarget(),
@@ -81,6 +168,13 @@ describe('SnappingManager scaling contract', () => {
     expect(plan.guides).toEqual([
       {
         type: 'horizontal',
+        position: 40
+      }
+    ])
+    expect(plan.snapGuards).toEqual([
+      {
+        type: 'horizontal',
+        edge: 'top',
         position: 40
       }
     ])
@@ -121,7 +215,126 @@ describe('SnappingManager scaling contract', () => {
         position: 40
       }
     ])
+    expect(plan.snapGuards).toEqual([
+      {
+        type: 'vertical',
+        edge: 'left',
+        position: 40
+      }
+    ])
     expect(plan.nextScaleX).toBeCloseTo(0.8, 5)
     expect(plan.nextScaleY).toBeCloseTo(0.8, 5)
+  })
+
+  it('при uniform snap по двум осям передаёт guards для обоих активных краёв', () => {
+    const plan = resolveScaleUpdatePlan({
+      target: createCropFrameTarget(),
+      bounds: createScalingBounds({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100
+      }),
+      originX: 'left',
+      originY: 'top',
+      scaleX: 1,
+      scaleY: 1,
+      shouldUseUniformScaleSnap: true,
+      verticalSnap: createAxisSnapResult({
+        edge: 'right',
+        position: 100,
+        guidePosition: 80
+      }),
+      horizontalSnap: createAxisSnapResult({
+        edge: 'bottom',
+        position: 100,
+        guidePosition: 80
+      })
+    })
+
+    expect(plan).not.toBeNull()
+    if (!plan) {
+      throw new Error('Scale plan для uniform snap по двум осям должен существовать')
+    }
+
+    expect(plan.guides).toEqual([
+      {
+        type: 'vertical',
+        position: 80
+      }
+    ])
+    expect(plan.snapGuards).toEqual([
+      {
+        type: 'vertical',
+        edge: 'right',
+        position: 80
+      },
+      {
+        type: 'horizontal',
+        edge: 'bottom',
+        position: 80
+      }
+    ])
+    expect(plan.nextScaleX).toBeCloseTo(0.8, 5)
+    expect(plan.nextScaleY).toBeCloseTo(0.8, 5)
+  })
+
+  it('при раздельном snap по осям передаёт guards для обоих активных краёв', () => {
+    const plan = resolveScaleUpdatePlan({
+      target: createCropFrameTarget({
+        preserveAspectRatio: false
+      }),
+      bounds: createScalingBounds({
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100
+      }),
+      originX: 'left',
+      originY: 'top',
+      scaleX: 1,
+      scaleY: 1,
+      shouldUseUniformScaleSnap: false,
+      verticalSnap: createAxisSnapResult({
+        edge: 'right',
+        position: 100,
+        guidePosition: 80
+      }),
+      horizontalSnap: createAxisSnapResult({
+        edge: 'bottom',
+        position: 100,
+        guidePosition: 70
+      })
+    })
+
+    expect(plan).not.toBeNull()
+    if (!plan) {
+      throw new Error('Scale plan для раздельного snap по осям должен существовать')
+    }
+
+    expect(plan.guides).toEqual([
+      {
+        type: 'vertical',
+        position: 80
+      },
+      {
+        type: 'horizontal',
+        position: 70
+      }
+    ])
+    expect(plan.snapGuards).toEqual([
+      {
+        type: 'vertical',
+        edge: 'right',
+        position: 80
+      },
+      {
+        type: 'horizontal',
+        edge: 'bottom',
+        position: 70
+      }
+    ])
+    expect(plan.nextScaleX).toBeCloseTo(0.8, 5)
+    expect(plan.nextScaleY).toBeCloseTo(0.7, 5)
   })
 })

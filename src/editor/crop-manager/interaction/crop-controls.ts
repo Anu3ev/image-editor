@@ -42,6 +42,14 @@ const CROP_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
 const CROP_SIDE_CONTROL_KEYS = ['ml', 'mr', 'mt', 'mb'] as const
 
 /**
+ * Scale, на котором proportional resize уже упёрся в source.
+ */
+type CropSourceBoundScale = {
+  scaleX: number
+  scaleY: number
+}
+
+/**
  * Transform с сохранённым стартовым знаком стороны во время scale.
  */
 type CropScaleTransform = Transform & {
@@ -49,6 +57,7 @@ type CropScaleTransform = Transform & {
   signY?: number
   cropProportionalSourceBounds?: CropProportionalSourceBounds | null
   cropSourceScaleClamped?: boolean
+  cropSourceBoundScale?: CropSourceBoundScale | null
 }
 
 /**
@@ -193,11 +202,13 @@ function scaleCropFrameProportionallyFromCorner({
   const cropTransform = transform as CropScaleTransform
   const { target } = cropTransform
   const { scaleX: currentScaleX = 1, scaleY: currentScaleY = 1 } = target
-  if (isPointerAtTransformStart({
+  const pointerAtStart = isPointerAtTransformStart({
     transform: cropTransform,
     x,
     y
-  })) {
+  })
+
+  if (pointerAtStart) {
     restoreOriginalScale({ transform: cropTransform })
 
     return true
@@ -695,9 +706,21 @@ function clampProportionalScale({
     })
   }
 
+  const scaleX = transform.original.scaleX * nextScale
+  const scaleY = transform.original.scaleY * nextScale
+
+  if (transform.cropSourceScaleClamped) {
+    transform.cropSourceBoundScale = {
+      scaleX,
+      scaleY
+    }
+  } else {
+    transform.cropSourceBoundScale = null
+  }
+
   return {
-    scaleX: transform.original.scaleX * nextScale,
-    scaleY: transform.original.scaleY * nextScale
+    scaleX,
+    scaleY
   }
 }
 
@@ -735,7 +758,7 @@ function getProportionalSourceBounds({
   target: FabricObject
   transform: CropScaleTransform
 }): CropProportionalSourceBounds | null {
-  if (transform.cropProportionalSourceBounds !== undefined) {
+  if (transform.cropProportionalSourceBounds) {
     return transform.cropProportionalSourceBounds
   }
 

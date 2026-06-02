@@ -67,6 +67,21 @@ type CropFrameControlMouseDragContinuationParams = {
   pointerSteps?: number
 }
 
+/** Параметры drag resize control crop frame в source-пикселях. */
+type CropFrameControlSourceDragParams = {
+  control: CropControlKey
+  deltaX: number
+  deltaY: number
+  pointerSteps?: number
+}
+
+/** Параметры продолжения drag resize control crop frame в source-пикселях. */
+type CropFrameControlSourceDragContinuationParams = {
+  deltaX: number
+  deltaY: number
+  pointerSteps?: number
+}
+
 /** Параметры пошагового resize crop frame до набора live-размеров. */
 type CropFrameResizeToSizesParams = {
   control: CropControlKey
@@ -79,8 +94,13 @@ interface CreatedCropImage extends EditorObjectInfo {
   id: string
 }
 
-/** Параметры подготовки квадратного image crop в середине source. */
-type CenteredSmallSquareImageCropParams = {
+/** Параметры подготовки image crop для созданного изображения. */
+type ImageCropSetupParams = {
+  image: CreatedCropImage
+}
+
+/** Параметры переноса active image crop к правой границе source. */
+type MoveCropFrameToImageRightEdgeParams = {
   image: CreatedCropImage
 }
 
@@ -240,7 +260,7 @@ export class CropModel {
   /** Включает квадратный image crop, уменьшает его и переносит в середину source. */
   async startCenteredSmallSquareImageCrop({
     image
-  }: CenteredSmallSquareImageCropParams): Promise<CropStateInfo> {
+  }: ImageCropSetupParams): Promise<CropStateInfo> {
     const startedState = await this.startImageCrop({
       id: image.id,
       aspectRatio: {
@@ -262,6 +282,52 @@ export class CropModel {
     expect(startedState.options.preserveAspectRatio).toBe(true)
 
     return centeredState
+  }
+
+  /** Включает квадратный image crop 1:1 и переносит frame к правой границе source. */
+  async startSquareImageCropAtImageRightEdge({
+    image
+  }: ImageCropSetupParams): Promise<CropStateInfo> {
+    const startedState = await this.startImageCrop({
+      id: image.id,
+      aspectRatio: {
+        width: 1,
+        height: 1
+      },
+      allowFrameOverflow: false,
+      preserveAspectRatio: true
+    })
+
+    expect(startedState.options.allowFrameOverflow).toBe(false)
+    expect(startedState.options.preserveAspectRatio).toBe(true)
+
+    return this.moveActiveCropFrameToImageRightEdge({ image })
+  }
+
+  /** Переносит active crop frame к правой границе изображения и завершает drag. */
+  async moveActiveCropFrameToImageRightEdge({
+    image
+  }: MoveCropFrameToImageRightEdgeParams): Promise<CropStateInfo> {
+    const state = await this.requireState()
+    const sourceDeltaX = image.width - state.rect.left - state.rect.width
+    const scaleX = Math.abs(state.frame.scaleX ?? 1)
+
+    expect(sourceDeltaX, 'crop frame должен находиться левее правой границы source').toBeGreaterThanOrEqual(0)
+    expect(scaleX, 'scaleX crop frame должен быть больше нуля для переноса к source-границе').toBeGreaterThan(0)
+    if (sourceDeltaX < 0 || scaleX <= 0) {
+      throw new Error('Нельзя перенести crop frame к правой границе source из текущего состояния')
+    }
+
+    await this.dragFrameByOffset({
+      deltaX: sourceDeltaX * scaleX,
+      deltaY: 0
+    })
+    const movedState = await this.finishFrameMove()
+
+    expect(Math.round(movedState.rect.left + movedState.rect.width)).toBe(image.width)
+    expect(Math.round(movedState.rect.height)).toBe(Math.round(state.rect.height))
+
+    return movedState
   }
 
   /** Задаёт размер активной crop-области через публичный API редактора. */
@@ -376,6 +442,42 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Тянет resize control crop frame на смещение, заданное в source-пикселях. */
+  async dragFrameControlBySourcePixels(
+    params: CropFrameControlSourceDragParams
+  ): Promise<CropStateInfo> {
+    const {
+      control,
+      deltaX,
+      deltaY,
+      pointerSteps
+    } = params
+
+    expect(
+      Number.isFinite(deltaX),
+      'source-смещение crop frame по X должно быть конечным числом'
+    ).toBe(true)
+    expect(
+      Number.isFinite(deltaY),
+      'source-смещение crop frame по Y должно быть конечным числом'
+    ).toBe(true)
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) {
+      throw new Error('Source-смещение crop frame должно быть конечным числом')
+    }
+
+    const pointerDelta = await this.resolveSourcePixelPointerDelta({
+      deltaX,
+      deltaY
+    })
+
+    return this.dragFrameControlBy({
+      control,
+      deltaX: pointerDelta.deltaX,
+      deltaY: pointerDelta.deltaY,
+      pointerSteps
+    })
+  }
+
   /** Тянет resize control до source-границы и продолжает движение наружу. */
   async dragFrameControlPastSourceBoundary({
     control,
@@ -465,6 +567,40 @@ export class CropModel {
     this.lastResizePointer = nextPoint
 
     return this.requireState()
+  }
+
+  /** Продолжает resize crop frame на смещение, заданное в source-пикселях. */
+  async continueFrameResizeBySourcePixels(
+    params: CropFrameControlSourceDragContinuationParams
+  ): Promise<CropStateInfo> {
+    const {
+      deltaX,
+      deltaY,
+      pointerSteps
+    } = params
+
+    expect(
+      Number.isFinite(deltaX),
+      'source-смещение crop frame по X должно быть конечным числом'
+    ).toBe(true)
+    expect(
+      Number.isFinite(deltaY),
+      'source-смещение crop frame по Y должно быть конечным числом'
+    ).toBe(true)
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) {
+      throw new Error('Source-смещение crop frame должно быть конечным числом')
+    }
+
+    const pointerDelta = await this.resolveSourcePixelPointerDelta({
+      deltaX,
+      deltaY
+    })
+
+    return this.continueFrameResizeBy({
+      deltaX: pointerDelta.deltaX,
+      deltaY: pointerDelta.deltaY,
+      pointerSteps
+    })
   }
 
   /** Продолжает активный drag crop-control до целевого результата в source-пикселях. */
@@ -732,6 +868,31 @@ export class CropModel {
     }
 
     return zoom
+  }
+
+  /** Пересчитывает source-пиксели active crop frame в client-смещение pointer. */
+  private async resolveSourcePixelPointerDelta({
+    deltaX,
+    deltaY
+  }: {
+    deltaX: number
+    deltaY: number
+  }): Promise<CropFramePointerDelta> {
+    const state = await this.requireState()
+    const canvasZoom = await this.getCanvasZoom()
+    const scaleX = Math.abs(state.frame.scaleX ?? 1)
+    const scaleY = Math.abs(state.frame.scaleY ?? 1)
+
+    expect(scaleX, 'scaleX crop frame должен быть больше нуля для пересчёта source-пикселей').toBeGreaterThan(0)
+    expect(scaleY, 'scaleY crop frame должен быть больше нуля для пересчёта source-пикселей').toBeGreaterThan(0)
+    if (scaleX <= 0 || scaleY <= 0) {
+      throw new Error('Scale crop frame должен быть больше нуля для пересчёта source-пикселей')
+    }
+
+    return {
+      deltaX: deltaX * scaleX * canvasZoom,
+      deltaY: deltaY * scaleY * canvasZoom
+    }
   }
 
   /** Выполняет browser-side drag crop-control и возвращает pointer для завершения drag. */

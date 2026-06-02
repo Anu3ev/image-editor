@@ -55,6 +55,12 @@ const DEFAULT_CROP_SESSION_OPTIONS = {
 } satisfies CropSessionOptions
 
 /**
+ * Допуск для live-проверки выхода frame за source.
+ * Fabric может давать доли пикселя у frame, который визуально стоит на границе source.
+ */
+const SOURCE_BOUNDS_OVERFLOW_EPSILON = 0.5
+
+/**
  * Часть internal Fabric canvas state, нужная только чтобы погасить текущий pointer event.
  */
 type CanvasWithTargetCache = Canvas & {
@@ -67,10 +73,19 @@ type CanvasWithTargetCache = Canvas & {
 }
 
 /**
+ * Scale, на котором proportional resize уже упёрся в source.
+ */
+type CropSourceBoundScale = {
+  scaleX: number
+  scaleY: number
+}
+
+/**
  * Fabric transform, который crop controls помечают при упоре proportional resize в source.
  */
 type CropSourceBoundTransform = Transform & {
   cropSourceScaleClamped?: boolean
+  cropSourceBoundScale?: CropSourceBoundScale | null
 }
 
 /**
@@ -141,15 +156,30 @@ export default class CropManager {
       frame: session.frame
     })
     const sourceSize = getSourceSize({ source: session.source })
-    const minLeft = -sourceSize.width / 2
-    const minTop = -sourceSize.height / 2
-    const maxRight = sourceSize.width / 2
-    const maxBottom = sourceSize.height / 2
+    const minLeft = (-sourceSize.width / 2) - SOURCE_BOUNDS_OVERFLOW_EPSILON
+    const minTop = (-sourceSize.height / 2) - SOURCE_BOUNDS_OVERFLOW_EPSILON
+    const maxRight = (sourceSize.width / 2) + SOURCE_BOUNDS_OVERFLOW_EPSILON
+    const maxBottom = (sourceSize.height / 2) + SOURCE_BOUNDS_OVERFLOW_EPSILON
 
     return rect.left < minLeft
       || rect.top < minTop
       || rect.left + rect.width > maxRight
       || rect.top + rect.height > maxBottom
+  }
+
+  /** Возвращает true, если active crop frame уже зажат source-границей в текущем scale-step. */
+  public isFrameSourceScaleClamped({
+    target,
+    transform
+  }: {
+    target?: FabricObject | null
+    transform?: Transform | null
+  }): boolean {
+    const { _session: session } = this
+    if (!session || !target || !transform) return false
+    if (session.frame !== target) return false
+
+    return (transform as CropSourceBoundTransform).cropSourceScaleClamped === true
   }
 
   /**
@@ -518,7 +548,10 @@ export default class CropManager {
 
     this._clampFrameIfNeeded({
       session,
-      preserveAspectRatio: this._isSourceScaleClamped({ event })
+      preserveAspectRatio: this._shouldPreserveAspectRatioOnFrameClamp({
+        session,
+        event
+      })
     })
     if (!restoredSourceBoundFrame) {
       this._rememberSourceBoundFrameIfNeeded({
@@ -544,14 +577,42 @@ export default class CropManager {
       session.sourceBoundFrameState = null
       return false
     }
-    if (!session.sourceBoundFrameState) return false
+
+    const state = session.sourceBoundFrameState
+      ?? this._getSourceBoundFrameStateFromEvent({
+        session,
+        event
+      })
+    if (!state) return false
 
     this._applyFrameTransformState({
       session,
-      state: session.sourceBoundFrameState
+      state
     })
 
     return true
+  }
+
+  /**
+   * Возвращает frame state из текущего source-bound transform.
+   */
+  private _getSourceBoundFrameStateFromEvent({
+    session,
+    event
+  }: {
+    session: CropSession
+    event?: CropFrameChangeEvent
+  }): CropFrameTransformState | null {
+    const scale = event?.transform?.cropSourceBoundScale
+    if (!scale) return null
+    if (!Number.isFinite(scale.scaleX) || !Number.isFinite(scale.scaleY)) return null
+
+    return {
+      left: session.frame.left,
+      top: session.frame.top,
+      scaleX: scale.scaleX,
+      scaleY: scale.scaleY
+    }
   }
 
   /**
@@ -581,6 +642,24 @@ export default class CropManager {
     event?: CropFrameChangeEvent
   }): boolean {
     return event?.transform?.cropSourceScaleClamped === true
+  }
+
+  /**
+   * Возвращает true, если source-clamp текущего live-step должен сохранять пропорции crop frame.
+   */
+  private _shouldPreserveAspectRatioOnFrameClamp({
+    session,
+    event
+  }: {
+    session: CropSession
+    event?: CropFrameChangeEvent
+  }): boolean {
+    if (this._isSourceScaleClamped({ event })) return true
+
+    const isShiftPressed = Boolean(event?.e?.shiftKey)
+    if (!isShiftPressed) return session.options.preserveAspectRatio
+
+    return !session.options.preserveAspectRatio
   }
 
   /**
