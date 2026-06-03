@@ -45,6 +45,17 @@ export const EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS = 1
 /** Размер crop-области после уменьшения квадратного image crop до серединных guide source. */
 export const EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE = Math.floor(EDGE_IMAGE_CROP_SQUARE_SIZE / 2)
 
+const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT = Math.floor(EDGE_IMAGE_CROP_SOURCE_SIZE.height / 2)
+
+/** Размер пропорционального image crop после прилипания верхней стороны к середине source. */
+export const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE = {
+  height: EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT,
+  width: Math.round(
+    (EDGE_IMAGE_CROP_SOURCE_SIZE.width * EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT)
+    / EDGE_IMAGE_CROP_SOURCE_SIZE.height
+  )
+} as const
+
 /** Размеры монтажной области, на которых полный crop не должен терять пиксель. */
 export const FULL_CROP_MONTAGE_SIZES = [
   {

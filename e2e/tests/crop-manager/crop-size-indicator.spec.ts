@@ -3,6 +3,7 @@ import {
   CROP_SIZE_INSIDE_SNAP_THRESHOLD,
   DEFAULT_MONTAGE_SIZE,
   EDGE_IMAGE_CROP_AXIS_BOUNDARY_DRAG_CASES,
+  EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE,
   EDGE_IMAGE_CROP_BOUNDARY_DRAG_CASES,
   EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
   EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS,
@@ -484,6 +485,82 @@ test.describe('Индикатор размеров crop-области', () => {
         expect(Math.round(heldState.rect.height)).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
         expect(indicator.width).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
         expect(indicator.height).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
+      })
+    })
+  })
+
+  test.describe('пропорциональный image crop у серединного guide source', () => {
+    test('после прилипания верхней стороны к середине изображения не уменьшается внутри snap-порога', async({
+      editorModel,
+      crop,
+      images,
+      snapping
+    }) => {
+      const image = await test.step('Добавить изображение 1000x667', async() => {
+        return images.checkCreation({
+          imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+        })
+      })
+
+      const initialState = await test.step('Войти в image crop с сохранением пропорций и запретом выхода за source', async() => {
+        return crop.startImageCrop({
+          id: image.id,
+          allowFrameOverflow: false,
+          preserveAspectRatio: true
+        })
+      })
+
+      const snappedState = await test.step('Потянуть правый верхний угол к горизонтальному guide посередине source', async() => {
+        return crop.dragFrameControlBySourcePixels({
+          control: 'tr',
+          deltaX: -(EDGE_IMAGE_CROP_SOURCE_SIZE.width - EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.width),
+          deltaY: EDGE_IMAGE_CROP_SOURCE_SIZE.height - EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.height,
+          pointerSteps: 8
+        })
+      })
+      const guideState = await snapping.getGuideState()
+
+      const heldState = await test.step('Продолжить уменьшение внутри snap-порога', async() => {
+        return crop.continueFrameResizeBySourcePixels({
+          deltaX: -EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+          deltaY: EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+          pointerSteps: 1
+        })
+      })
+      const guideStateAfterHold = await snapping.getGuideState()
+
+      const indicator = await test.step('Получить индикатор после микродвижения внутри snap-порога', async() => {
+        return editorModel.requireObjectSizeIndicator()
+      })
+
+      await test.step('Завершить resize и закрыть crop mode', async() => {
+        await crop.finishFrameResize()
+        await crop.cancel()
+      })
+
+      await test.step('Проверить что snap удержал размер на нижней границе source', () => {
+        expect(initialState.options.allowFrameOverflow).toBe(false)
+        expect(initialState.options.preserveAspectRatio).toBe(true)
+        expect(Math.round(initialState.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+        expect(Math.round(initialState.rect.height)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.height)
+        expect(guideState.guides).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            type: 'horizontal'
+          })
+        ]))
+        expect(guideStateAfterHold.guides).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            type: 'horizontal'
+          })
+        ]))
+        expect(Math.round(snappedState.rect.width)).toBe(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.width)
+        expect(Math.round(snappedState.rect.height)).toBe(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.height)
+        expect(Math.round(snappedState.rect.top + snappedState.rect.height)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.height)
+        expect(Math.round(heldState.rect.width)).toBe(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.width)
+        expect(Math.round(heldState.rect.height)).toBe(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.height)
+        expect(Math.round(heldState.rect.top + heldState.rect.height)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.height)
+        expect(indicator.width).toBe(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.width)
+        expect(indicator.height).toBe(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE.height)
       })
     })
   })
