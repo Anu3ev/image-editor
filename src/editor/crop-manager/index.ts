@@ -86,6 +86,7 @@ type CropSourceBoundScale = {
 type CropSourceBoundTransform = Transform & {
   cropSourceScaleClamped?: boolean
   cropSourceBoundScale?: CropSourceBoundScale | null
+  cropSourceScalePreserveAspectRatio?: boolean
 }
 
 /**
@@ -564,7 +565,7 @@ export default class CropManager {
   }
 
   /**
-   * Восстанавливает frame, если proportional resize уже упёрся в source на предыдущем live-шаге.
+   * Восстанавливает frame, если resize уже упёрся в source на предыдущем live-шаге.
    */
   private _restoreSourceBoundFrameIfNeeded({
     session,
@@ -616,7 +617,7 @@ export default class CropManager {
   }
 
   /**
-   * Запоминает первую frame geometry, на которой proportional resize упёрся в source.
+   * Запоминает первую frame geometry, на которой resize упёрся в source.
    */
   private _rememberSourceBoundFrameIfNeeded({
     session,
@@ -654,7 +655,11 @@ export default class CropManager {
     session: CropSession
     event?: CropFrameChangeEvent
   }): boolean {
-    if (this._isSourceScaleClamped({ event })) return true
+    if (this._isSourceScaleClamped({ event })) {
+      const preserveAspectRatio = event?.transform?.cropSourceScalePreserveAspectRatio
+
+      return preserveAspectRatio ?? true
+    }
 
     const isShiftPressed = Boolean(event?.e?.shiftKey)
     if (!isShiftPressed) return session.options.preserveAspectRatio

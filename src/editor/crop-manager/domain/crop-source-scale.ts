@@ -197,11 +197,42 @@ function resolveAnchoredSourceSizeLimit({
   const rectEnd = rectStart + rectLength
   const rectCenter = rectStart + (rectLength / 2)
 
-  if (anchor === 'min') return sourceEnd - rectStart
-  if (anchor === 'max') return rectEnd - sourceStart
+  if (anchor === 'min') {
+    const fixedStart = snapSourceBoundaryValue({
+      value: rectStart,
+      boundary: sourceStart
+    })
+
+    return sourceEnd - fixedStart
+  }
+  if (anchor === 'max') {
+    const fixedEnd = snapSourceBoundaryValue({
+      value: rectEnd,
+      boundary: sourceEnd
+    })
+
+    return fixedEnd - sourceStart
+  }
 
   return Math.min(
     rectCenter - sourceStart,
     sourceEnd - rectCenter
   ) * 2
+}
+
+/**
+ * Возвращает source-boundary значение без микрозазора от предыдущего live resize.
+ */
+function snapSourceBoundaryValue({
+  value,
+  boundary
+}: {
+  value: number
+  boundary: number
+}): number {
+  if (Math.abs(value - boundary) <= SOURCE_BOUNDARY_SIZE_EPSILON) {
+    return boundary
+  }
+
+  return value
 }
