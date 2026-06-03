@@ -2,11 +2,41 @@ import { Rect } from 'fabric'
 
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 
+/** Rect fixture, который имитирует crop frame с display-size в source-пикселях. */
 type SourceScaledRect = Rect & {
+  cropSource?: Rect | null
   cropSourceScaleX: number
   cropSourceScaleY: number
   getObjectDisplaySize(): { width: number; height: number }
   getObjectSnappingBounds(): ObjectBounds
+}
+
+/** Параметры создания Rect, чей display-size считается в source-пикселях. */
+type SourceScaledRectParams = {
+  width: number
+  height: number
+  scaleX: number
+  scaleY: number
+  sourceScaleX: number
+  sourceScaleY: number
+  left?: number
+  top?: number
+  sourceBounds?: ObjectBounds
+}
+
+/** Создаёт source-объект с явными snapping-bounds для crop-frame тестов. */
+function createSourceBoundsRect({ bounds }: { bounds: ObjectBounds }): Rect {
+  const source = new Rect({
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.right - bounds.left,
+    height: bounds.bottom - bounds.top,
+    strokeWidth: 0
+  })
+
+  source.getObjectSnappingBounds = () => bounds
+
+  return source
 }
 
 /** Создаёт Rect, чей display-size считается в source-пикселях. */
@@ -18,17 +48,9 @@ export function createSourceScaledRect({
   sourceScaleX,
   sourceScaleY,
   left = 0,
-  top = 0
-}: {
-  width: number
-  height: number
-  scaleX: number
-  scaleY: number
-  sourceScaleX: number
-  sourceScaleY: number
-  left?: number
-  top?: number
-}): SourceScaledRect {
+  top = 0,
+  sourceBounds
+}: SourceScaledRectParams): SourceScaledRect {
   const target = new Rect({
     left,
     top,
@@ -43,6 +65,7 @@ export function createSourceScaledRect({
 
   target.cropSourceScaleX = sourceScaleX
   target.cropSourceScaleY = sourceScaleY
+  target.cropSource = sourceBounds ? createSourceBoundsRect({ bounds: sourceBounds }) : null
   target.getObjectDisplaySize = () => {
     return {
       width: Math.max(1, (target.width * Math.abs(target.scaleX ?? 1)) / sourceScaleX),

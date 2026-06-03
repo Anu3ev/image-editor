@@ -72,6 +72,7 @@ type ScalingAxisRoundingState = {
 
 /** Объект, у которого display-size может жить в source-пикселях, а не в scene-пикселях. */
 type SourceDisplaySizeTarget = FabricObject & {
+  cropSource?: FabricObject | null
   cropSourceScaleX?: number
   cropSourceScaleY?: number
 }
@@ -528,7 +529,7 @@ function resolveGuardedScalingStep({
     effectiveHeight,
     isUniform
   })
-  const shouldPreferInsideCandidate = usesScaledDisplaySizeForSnapGuards({
+  const shouldPreferInsideCandidate = shouldPreferInsideScalingCandidate({
     target,
     snapGuards
   })
@@ -559,6 +560,22 @@ function resolveGuardedScalingStep({
   if (onGuideCandidate) return onGuideCandidate
 
   return fallbackScale
+}
+
+/**
+ * Возвращает true, если source-scaled display-size нужно удерживать внутри guide при округлении.
+ * Для внешней границы source приоритет остаётся у on-guide candidate, чтобы snap не съедал 1px.
+ */
+function shouldPreferInsideScalingCandidate({
+  target,
+  snapGuards
+}: {
+  target: FabricObject
+  snapGuards: ScalingStepSnapGuard[]
+}): boolean {
+  if (!usesScaledDisplaySizeForSnapGuards({ target, snapGuards })) return false
+
+  return !usesSourceBoundarySnapGuards({ target, snapGuards })
 }
 
 /**
@@ -611,6 +628,67 @@ function usesScaledDisplaySizeForSnapGuards({
   })
 
   return usesScaledX || usesScaledY
+}
+
+/**
+ * Возвращает true, если хотя бы один active snap guard приклеен к внешней границе crop source.
+ */
+function usesSourceBoundarySnapGuards({
+  target,
+  snapGuards
+}: {
+  target: FabricObject
+  snapGuards: ScalingStepSnapGuard[]
+}): boolean {
+  const displayTarget = target as SourceDisplaySizeTarget
+  const { cropSource } = displayTarget
+  if (!cropSource) return false
+
+  const sourceBounds = getObjectBounds({ object: cropSource })
+  if (!sourceBounds) return false
+
+  return snapGuards.some((snapGuard) => {
+    return isSnapGuardAtSourceBoundary({
+      snapGuard,
+      sourceBounds
+    })
+  })
+}
+
+/**
+ * Проверяет, совпадает ли snap guard с соответствующей внешней границей crop source.
+ */
+function isSnapGuardAtSourceBoundary({
+  snapGuard,
+  sourceBounds
+}: {
+  snapGuard: ScalingStepSnapGuard
+  sourceBounds: ObjectBounds
+}): boolean {
+  const { edge, position } = snapGuard
+  let boundary = sourceBounds.bottom
+
+  if (edge === 'left') boundary = sourceBounds.left
+  if (edge === 'right') boundary = sourceBounds.right
+  if (edge === 'top') boundary = sourceBounds.top
+
+  return isCloseToSourceBoundary({
+    position,
+    boundary
+  })
+}
+
+/**
+ * Сравнивает guide с source-boundary в той же scene-плоскости.
+ */
+function isCloseToSourceBoundary({
+  position,
+  boundary
+}: {
+  position: number
+  boundary: number
+}): boolean {
+  return Math.abs(position - boundary) <= SNAP_GUARD_POSITION_EPSILON
 }
 
 /**
@@ -696,7 +774,7 @@ function collectScalingStepCandidates({
 }
 
 /**
- * Собирает scale-кандидаты одной оси через round/floor/ceil display-size.
+ * Собирает scale-кандидаты одной оси через текущий display-size и соседние пиксельные размеры.
  */
 function collectAxisScaleCandidates({
   rawScale,
@@ -709,10 +787,15 @@ function collectAxisScaleCandidates({
 
   const scaleSign = rawScale < 0 ? -1 : 1
   const rawDisplaySize = Math.abs(rawScale) * effectiveSize
+  const roundedDisplaySize = Math.round(rawDisplaySize)
+  const floorDisplaySize = Math.floor(rawDisplaySize)
+  const ceilDisplaySize = Math.ceil(rawDisplaySize)
   const displaySizes = [
-    Math.round(rawDisplaySize),
-    Math.floor(rawDisplaySize),
-    Math.ceil(rawDisplaySize)
+    roundedDisplaySize,
+    floorDisplaySize,
+    ceilDisplaySize,
+    floorDisplaySize - 1,
+    ceilDisplaySize + 1
   ]
   const candidates: number[] = []
 
@@ -732,7 +815,7 @@ function collectAxisScaleCandidates({
 }
 
 /**
- * Добавляет scale-кандидат без дублей от round/floor/ceil на целом значении.
+ * Добавляет scale-кандидат без дублей от совпадающих display-size кандидатов.
  */
 function addUniqueScaleCandidate({
   candidates,
