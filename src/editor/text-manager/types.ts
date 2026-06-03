@@ -84,9 +84,17 @@ export type UpdateOptions = {
   syncLineStylesWithText?: boolean
 }
 
+/**
+ * Options snapshot события добавления текста.
+ * `strokeColor: null` означает явно отсутствующую обводку в runtime payload.
+ */
+export interface TextAddedPayloadOptions extends Omit<TextStyleOptions, 'strokeColor'> {
+  strokeColor?: string | null
+}
+
 export type TextAddedPayload = {
   textbox: EditorTextbox
-  options: TextStyleOptions
+  options: TextAddedPayloadOptions
   flags: {
     withoutSelection: boolean
     withoutSave: boolean

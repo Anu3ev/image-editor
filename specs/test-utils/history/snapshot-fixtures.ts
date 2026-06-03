@@ -1,8 +1,8 @@
-import type { CanvasFullState } from '../../src/editor/history-manager'
+import type { CanvasFullState } from '../../../src/editor/history-manager'
 import type {
   SnapshotCanvas,
   SnapshotObject
-} from '../../src/editor/history-manager/types'
+} from '../../../src/editor/history-manager/types'
 
 export interface HistorySnapshotTextObject extends SnapshotObject {
   id: string

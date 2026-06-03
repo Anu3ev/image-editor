@@ -1,3 +1,4 @@
+import type { FabricObject } from 'fabric'
 import MeasurementManager from '../../../../src/editor/measurement-manager'
 import {
   createBoundsObject,
@@ -7,19 +8,153 @@ import {
 import { attachToolbarMock } from '../../../test-utils/managers/toolbar'
 import { mockRaf } from '../../../test-utils/events/raf'
 import * as renderUtils from '../../../../src/editor/utils/render-utils'
+import type { MeasurementGuide } from '../../../../src/editor/measurement-manager/types'
+
+/** Минимальная форма mouse:move события, которую реально использует MeasurementManager. */
+type MeasurementMouseMoveEvent = {
+  e: { altKey: boolean }
+  target: FabricObject | null
+}
+
+/** Canvas-события, через которые MeasurementManager получает runtime-сигналы в unit-тестах. */
+type MeasurementCanvasEventName = 'mouse:move' | 'after:render'
+
+/** Обработчик canvas-события, сохранённый canvas-стабом после подписки manager'а. */
+type MeasurementCanvasHandler = (event?: MeasurementMouseMoveEvent) => void
+
+/** Минимальный canvas-стаб с event registry для проверки подписанного lifecycle. */
+type MeasurementCanvasStub = {
+  __handlers: Partial<Record<MeasurementCanvasEventName, MeasurementCanvasHandler[]>>
+}
+
+/** Boolean-поля runtime-состояния, которые тесты читают как наблюдаемый итог lifecycle. */
+type MeasurementManagerStateKey = 'isAltPressed' | 'isToolbarHidden'
 
 describe('MeasurementManager', () => {
+  /** Восстановление requestAnimationFrame после каждого теста. */
+  let restoreRaf: (() => void) | null = null
+
   beforeEach(() => {
     jest.clearAllMocks()
+    restoreRaf = mockRaf().restore
   })
+
+  afterEach(() => {
+    restoreRaf?.()
+    restoreRaf = null
+  })
+
+  /**
+   * Возвращает активные направляющие manager'а через проверяемую test-only границу.
+   */
+  const getActiveGuides = ({ manager }: { manager: MeasurementManager }): MeasurementGuide[] => {
+    const guides = Reflect.get(manager, 'activeGuides')
+
+    expect(guides).toBeDefined()
+    expect(Array.isArray(guides)).toBe(true)
+
+    if (!Array.isArray(guides)) {
+      throw new Error('activeGuides должен быть массивом направляющих MeasurementManager')
+    }
+
+    return guides as MeasurementGuide[]
+  }
+
+  /**
+   * Возвращает boolean-состояние manager'а через проверяемую test-only границу.
+   */
+  const getBooleanManagerState = ({
+    manager,
+    key
+  }: {
+    manager: MeasurementManager
+    key: MeasurementManagerStateKey
+  }): boolean => {
+    const value = Reflect.get(manager, key)
+
+    expect(value).toBeDefined()
+    expect(typeof value).toBe('boolean')
+
+    if (typeof value !== 'boolean') {
+      throw new Error(`${key} должен быть boolean-состоянием MeasurementManager`)
+    }
+
+    return value
+  }
+
+  /**
+   * Возвращает подписанный canvas handler и явно валидирует тестовый event registry.
+   */
+  const getCanvasHandler = ({
+    canvas,
+    eventName
+  }: {
+    canvas: MeasurementCanvasStub
+    eventName: MeasurementCanvasEventName
+  }): MeasurementCanvasHandler => {
+    const handlers = canvas.__handlers[eventName] ?? []
+    const handler = handlers[0]
+
+    expect(handlers).toHaveLength(1)
+    expect(typeof handler).toBe('function')
+
+    if (typeof handler !== 'function') {
+      throw new Error(`MeasurementManager должен подписаться на ${eventName}`)
+    }
+
+    return handler
+  }
+
+  /**
+   * Собирает минимальное событие движения мыши для MeasurementManager.
+   */
+  const buildEvent = (target: FabricObject | null, altKey = true): MeasurementMouseMoveEvent => ({
+    e: { altKey },
+    target
+  })
+
+  /**
+   * Отправляет mouse:move через тот же canvas handler, который использует runtime.
+   */
+  const fireCanvasMouseMove = ({
+    canvas,
+    target,
+    altKey = true
+  }: {
+    canvas: MeasurementCanvasStub
+    target: FabricObject | null
+    altKey?: boolean
+  }): void => {
+    const handler = getCanvasHandler({ canvas, eventName: 'mouse:move' })
+    handler(buildEvent(target, altKey))
+  }
+
+  /**
+   * Запускает отрисовку направляющих через подписанный after:render handler.
+   */
+  const fireCanvasAfterRender = ({
+    canvas
+  }: {
+    canvas: MeasurementCanvasStub
+  }): void => {
+    const handler = getCanvasHandler({ canvas, eventName: 'after:render' })
+    handler()
+  }
 
   /**
    * Возвращает первое горизонтальное расстояние из активных направляющих.
    */
   const getHorizontalDistance = ({ manager }: { manager: MeasurementManager }): number => {
-    const horizontalGuide = manager.activeGuides.find(({ type }) => type === 'horizontal')
+    const horizontalGuide = getActiveGuides({ manager }).find(({ type }) => type === 'horizontal')
 
-    return horizontalGuide?.distance ?? -1
+    expect(horizontalGuide).toBeDefined()
+    expect(horizontalGuide?.distance).toBeDefined()
+
+    if (!horizontalGuide) {
+      throw new Error('MeasurementManager должен построить горизонтальную направляющую')
+    }
+
+    return horizontalGuide.distance
   }
 
   /**
@@ -44,11 +179,6 @@ describe('MeasurementManager', () => {
     }
   }
 
-  const buildEvent = (target: any, altKey = true) => ({
-    e: { altKey },
-    target
-  }) as any
-
   it('строит вертикальные и горизонтальные направляющие для цели под курсором', () => {
     const { editor, canvas } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })
@@ -56,11 +186,10 @@ describe('MeasurementManager', () => {
     const target = createBoundsObject({ left: 200, top: 120, width: 60, height: 60, id: 'target' })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(target) })
+    fireCanvasMouseMove({ canvas, target })
 
-    const guides = manager.activeGuides
-    const types = guides.map(({ type }: any) => type)
+    const guides = getActiveGuides({ manager })
+    const types = guides.map(({ type }) => type)
     expect(guides.length).toBeGreaterThanOrEqual(2)
     expect(types).toEqual(expect.arrayContaining(['horizontal', 'vertical']))
     expect(canvas.requestRenderAll).toHaveBeenCalled()
@@ -74,12 +203,11 @@ describe('MeasurementManager', () => {
     const active = createBoundsObject({ left: 100, top: 80, width: 40, height: 40 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(null) })
+    fireCanvasMouseMove({ canvas, target: null })
 
-    const guides = manager.activeGuides
-    const horizontal = guides.filter((guide: any) => guide.type === 'horizontal')
-    const vertical = guides.filter((guide: any) => guide.type === 'vertical')
+    const guides = getActiveGuides({ manager })
+    const horizontal = guides.filter((guide) => guide.type === 'horizontal')
+    const vertical = guides.filter((guide) => guide.type === 'vertical')
     expect(horizontal).toHaveLength(2)
     expect(vertical).toHaveLength(2)
 
@@ -92,38 +220,34 @@ describe('MeasurementManager', () => {
     const active = createBoundsObject({ left: -50, top: -50, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(null) })
+    fireCanvasMouseMove({ canvas, target: null })
 
-    expect(manager.activeGuides).toHaveLength(0)
+    expect(getActiveGuides({ manager })).toHaveLength(0)
 
     manager.destroy()
   })
 
   it('пропускает измерение при отсутствии активных объектов', () => {
-    const { editor } = createSnappingTestContext()
+    const { editor, canvas } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })
 
-    manager.isAltPressed = true
-    manager._handleMouseMove(buildEvent(null))
+    fireCanvasMouseMove({ canvas, target: null })
 
-    expect(manager.activeGuides).toHaveLength(0)
+    expect(getActiveGuides({ manager })).toHaveLength(0)
     manager.destroy()
   })
 
   it('использует последнее движение при повторном нажатии ALT без перемещения курсора', () => {
     const { editor, canvas } = createSnappingTestContext()
-    const { restore } = mockRaf()
     const manager = new MeasurementManager({ editor })
     const active = createBoundsObject({ left: 60, top: 60, width: 20, height: 20 })
     const target = createBoundsObject({ left: 150, top: 150, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    manager._handleMouseMove(buildEvent(target))
-    manager._handleKeyDown(new KeyboardEvent('keydown', { key: 'Alt', altKey: true }))
+    fireCanvasMouseMove({ canvas, target, altKey: false })
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Alt', altKey: true }))
 
-    expect(manager.activeGuides.length).toBeGreaterThan(0)
-    restore()
+    expect(getActiveGuides({ manager }).length).toBeGreaterThan(0)
     manager.destroy()
   })
 
@@ -133,10 +257,9 @@ describe('MeasurementManager', () => {
     const active = createBoundsObject({ left: 380, top: 80, width: 40, height: 40 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(null) })
+    fireCanvasMouseMove({ canvas, target: null })
 
-    const guides = manager.activeGuides as Array<{ type: string; distance: number }>
+    const guides = getActiveGuides({ manager })
     const horizontal = guides.filter((guide) => guide.type === 'horizontal')
     expect(horizontal).toHaveLength(1)
     expect(horizontal[0].distance).toBe(380)
@@ -151,12 +274,11 @@ describe('MeasurementManager', () => {
     const active = createBoundsObject({ left: 100, top: 100, width: 40, height: 40 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(null) })
-    manager._handleAfterRender()
+    fireCanvasMouseMove({ canvas, target: null })
+    fireCanvasAfterRender({ canvas })
 
     expect(labelSpy).toHaveBeenCalled()
-    const offsets = labelSpy.mock.calls.map(([args]) => (args as any).offsetAlongAxis)
+    const offsets = labelSpy.mock.calls.map(([args]) => args.offsetAlongAxis)
     expect(offsets.every((val) => val === 0 || val === undefined)).toBe(true)
     labelSpy.mockRestore()
     manager.destroy()
@@ -170,11 +292,10 @@ describe('MeasurementManager', () => {
     const target = createBoundsObject({ left: 150, top: 150, width: 30, height: 30 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(target) })
-    manager._handleAfterRender()
+    fireCanvasMouseMove({ canvas, target })
+    fireCanvasAfterRender({ canvas })
 
-    const offsets = labelSpy.mock.calls.map(([args]) => (args as any).offsetAlongAxis ?? 0)
+    const offsets = labelSpy.mock.calls.map(([args]) => args.offsetAlongAxis ?? 0)
     expect(offsets.some((offset) => offset !== 0)).toBe(true)
     labelSpy.mockRestore()
     manager.destroy()
@@ -188,14 +309,13 @@ describe('MeasurementManager', () => {
     const target = createBoundsObject({ left: 100, top: 80, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(target) })
+    fireCanvasMouseMove({ canvas, target })
     expect(toolbar.hideTemporarily).toHaveBeenCalled()
-    expect(manager.isToolbarHidden).toBe(true)
+    expect(getBooleanManagerState({ manager, key: 'isToolbarHidden' })).toBe(true)
 
-    manager._clearGuides()
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
     expect(toolbar.showAfterTemporary).toHaveBeenCalled()
-    expect(manager.isToolbarHidden).toBe(false)
+    expect(getBooleanManagerState({ manager, key: 'isToolbarHidden' })).toBe(false)
 
     manager.destroy()
   })
@@ -208,13 +328,12 @@ describe('MeasurementManager', () => {
     const target = createBoundsObject({ left: 120, top: 120, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(target) })
-    expect(manager.activeGuides.length).toBeGreaterThan(0)
+    fireCanvasMouseMove({ canvas, target })
+    expect(getActiveGuides({ manager }).length).toBeGreaterThan(0)
 
-    manager._handleWindowBlur()
-    expect(manager.activeGuides).toHaveLength(0)
-    expect(manager.isAltPressed).toBe(false)
+    window.dispatchEvent(new Event('blur'))
+    expect(getActiveGuides({ manager })).toHaveLength(0)
+    expect(getBooleanManagerState({ manager, key: 'isAltPressed' })).toBe(false)
     expect(toolbar.showAfterTemporary).toHaveBeenCalled()
 
     manager.destroy()
@@ -228,12 +347,11 @@ describe('MeasurementManager', () => {
     const target = createBoundsObject({ left: 120, top: 120, width: 20, height: 20 })
     setActiveObjects(canvas, [active])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(target) })
-    expect(manager.activeGuides.length).toBeGreaterThan(0)
+    fireCanvasMouseMove({ canvas, target })
+    expect(getActiveGuides({ manager }).length).toBeGreaterThan(0)
 
-    manager._handleKeyUp(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
-    expect(manager.activeGuides).toHaveLength(0)
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'Alt', altKey: false }))
+    expect(getActiveGuides({ manager })).toHaveLength(0)
     expect(toolbar.showAfterTemporary).toHaveBeenCalled()
 
     manager.destroy()
@@ -250,11 +368,10 @@ describe('MeasurementManager', () => {
     const manager = new MeasurementManager({ editor })
     setActiveObjects(canvas, [center])
 
-    manager.isAltPressed = true
-    manager._updateGuides({ event: buildEvent(left) })
+    fireCanvasMouseMove({ canvas, target: left })
     const leftDistance = getHorizontalDistance({ manager })
 
-    manager._updateGuides({ event: buildEvent(right) })
+    fireCanvasMouseMove({ canvas, target: right })
     const rightDistance = getHorizontalDistance({ manager })
 
     expect(leftDistance).toBe(43)
@@ -272,13 +389,12 @@ describe('MeasurementManager', () => {
     } = createEqualSpacingHorizontalScene()
     const manager = new MeasurementManager({ editor })
 
-    manager.isAltPressed = true
     setActiveObjects(canvas, [center])
-    manager._updateGuides({ event: buildEvent(left) })
+    fireCanvasMouseMove({ canvas, target: left })
     const centerToLeftDistance = getHorizontalDistance({ manager })
 
     setActiveObjects(canvas, [left])
-    manager._updateGuides({ event: buildEvent(center) })
+    fireCanvasMouseMove({ canvas, target: center })
     const leftToCenterDistance = getHorizontalDistance({ manager })
 
     expect(centerToLeftDistance).toBe(43)

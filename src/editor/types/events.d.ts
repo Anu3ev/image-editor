@@ -153,6 +153,13 @@ export type BackgroundChangedPayload = {
   gradientParams?: import('../background-manager').GradientBackground // новый формат градиента
   imageSource?: string | File,
   backgroundObject?: FabricImage | FabricObject | null
+  customData?: object
+  fromTemplate?: boolean
+  withoutSave?: boolean
+}
+
+export type BackgroundRemovedPayload = {
+  withoutSave?: boolean
 }
 
 export type ExternalImagePasteImportOptions = Partial<
@@ -502,7 +509,7 @@ declare module 'fabric' {
     /**
      * Срабатывает при удалении фона.
      */
-    'editor:background:removed': void
+    'editor:background:removed': BackgroundRemovedPayload
 
     /**
      * Срабатывает после применения шаблона к текущей монтажной области.

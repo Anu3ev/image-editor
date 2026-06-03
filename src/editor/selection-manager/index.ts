@@ -1,12 +1,15 @@
 import {
   ActiveSelection,
+  type CanvasEvents,
   type CanvasOptions,
   type FabricObject,
-  type IEvent,
   type TPointerEvent,
   type TPointerEventInfo
 } from 'fabric'
 import { ImageEditor } from '../index'
+
+type TextEditingEnteredEvent = CanvasEvents['text:editing:entered']
+type TextEditingExitedEvent = CanvasEvents['text:editing:exited']
 
 export default class SelectionManager {
   /**
@@ -38,12 +41,12 @@ export default class SelectionManager {
   /**
    * Обработчик входа в редактирование текста.
    */
-  private handleTextEditingEnteredBound: (event: IEvent) => void
+  private handleTextEditingEnteredBound: (event: TextEditingEnteredEvent) => void
 
   /**
    * Обработчик выхода из редактирования текста.
    */
-  private handleTextEditingExitedBound: (event: IEvent) => void
+  private handleTextEditingExitedBound: (event: TextEditingExitedEvent) => void
 
   /**
    * Обработчик фильтрации залоченного выделения.
@@ -171,14 +174,14 @@ export default class SelectionManager {
   /**
    * Отключает мультивыделение при входе в режим редактирования текста.
    */
-  private _handleTextEditingEntered(_event: IEvent): void {
+  private _handleTextEditingEntered(_event: TextEditingEnteredEvent): void {
     this._applySelectionKey({ selectionKey: null })
   }
 
   /**
    * Восстанавливает мультивыделение после выхода из редактирования текста.
    */
-  private _handleTextEditingExited(_event: IEvent): void {
+  private _handleTextEditingExited(_event: TextEditingExitedEvent): void {
     const { selectionKey } = this
     this._applySelectionKey({ selectionKey })
   }
@@ -371,7 +374,7 @@ export default class SelectionManager {
   /**
    * Собирает объекты активного выделения.
    */
-  private static _collectSelectionObjects({ activeObject }: { activeObject: FabricObject | null }): FabricObject[] {
+  private static _collectSelectionObjects({ activeObject }: { activeObject?: FabricObject | null }): FabricObject[] {
     if (!activeObject) return []
 
     if (activeObject instanceof ActiveSelection) {

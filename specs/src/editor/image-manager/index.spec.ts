@@ -635,12 +635,13 @@ describe('ImageManager', () => {
     })
 
     it('calculates scale factor for contain and cover', () => {
+      const image = createMockFabricImage({ width: 200, height: 100 })
       const contain = imageManager.calculateScaleFactor({
-        imageObject: { width: 200, height: 100 } as any,
+        imageObject: image,
         scaleType: 'contain'
       })
       const cover = imageManager.calculateScaleFactor({
-        imageObject: { width: 200, height: 100 } as any,
+        imageObject: image,
         scaleType: 'cover'
       })
 
@@ -650,15 +651,21 @@ describe('ImageManager', () => {
 
     it('returns 1 when montage area is missing', () => {
       const previousMontage = imageManager.editor.montageArea
-      imageManager.editor.montageArea = null
+      const didUnsetMontageArea = Reflect.set(imageManager.editor, 'montageArea', null)
+      expect(didUnsetMontageArea).toBe(true)
 
-      const result = imageManager.calculateScaleFactor({
-        imageObject: { width: 200, height: 100 } as any,
-        scaleType: 'contain'
-      })
+      try {
+        const image = createMockFabricImage({ width: 200, height: 100 })
+        const result = imageManager.calculateScaleFactor({
+          imageObject: image,
+          scaleType: 'contain'
+        })
 
-      expect(result).toBe(1)
-      imageManager.editor.montageArea = previousMontage
+        expect(result).toBe(1)
+      } finally {
+        const didRestoreMontageArea = Reflect.set(imageManager.editor, 'montageArea', previousMontage)
+        expect(didRestoreMontageArea).toBe(true)
+      }
     })
 
     it('extracts format from content type', () => {

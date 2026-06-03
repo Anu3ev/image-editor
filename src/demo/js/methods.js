@@ -1,8 +1,26 @@
+/**
+ * @typedef {import('../../editor').ImageEditor} ImageEditor
+ * @typedef {import('../../editor/background-manager').GradientBackground} GradientBackground
+ * @typedef {{
+ *   centerX?: number,
+ *   centerY?: number,
+ *   radius?: number,
+ *   angle?: string | number,
+ *   colorStops?: Array<{ color: string, offset: number }>
+ * }} DemoGradientOptions
+ */
+
 // Получение масштаба внутри канваса
+/**
+ * @param {ImageEditor} editorInstance
+ */
 function getCanvasResolution(editorInstance) {
   return `${editorInstance.canvas.getWidth()}x${editorInstance.canvas.getHeight()}`
 }
 
+/**
+ * @param {ImageEditor} editorInstance
+ */
 function getMontageAreaResolution(editorInstance) {
   if (!editorInstance.montageArea) return ''
 
@@ -10,11 +28,17 @@ function getMontageAreaResolution(editorInstance) {
 }
 
 // Получение отображемых размеров канваса
+/**
+ * @param {ImageEditor} editorInstance
+ */
 function getCanvasDisplaySize(editorInstance) {
   return `${editorInstance.canvas?.lowerCanvasEl?.style.width}/${editorInstance.canvas?.lowerCanvasEl?.style.height}`
 }
 
 // Получение данных о текущем выделенном объекте
+/**
+ * @param {ImageEditor} editorInstance
+ */
 function getCurrentObjectData(editorInstance) {
   const activeObject = editorInstance.canvas.getActiveObject()
 
@@ -26,25 +50,41 @@ function getCurrentObjectData(editorInstance) {
 }
 
 // Импорт изображения в канвас
+/**
+ * @param {Event} e
+ * @param {ImageEditor} editorInstance
+ */
 function importImage(e, editorInstance) {
-  const { files } = e.target
+  if (!(e.target instanceof HTMLInputElement)) return
 
-  for (let i = 0; i < files.length; i += 1) {
-    (function(file) {
-      editorInstance.imageManager.importImage({ source: file })
-    }(files[i]))
+  const { files } = e.target
+  if (!files) return
+
+  for (let index = 0; index < files.length; index += 1) {
+    const file = files[index]
+    if (!file) continue
+
+    editorInstance.imageManager.importImage({ source: file })
   }
 }
 
 // Сохранение результата
+/**
+ * @param {ImageEditor} editorInstance
+ */
 async function saveResult(editorInstance) {
-  const { image } = await editorInstance.imageManager.exportCanvasAsImageFile({ contentType: 'image/png' })
+  const result = await editorInstance.imageManager.exportCanvasAsImageFile({ contentType: 'image/png' })
+  if (!result) return
+
+  const { image } = result
+  if (typeof image === 'string') return
 
   const url = URL.createObjectURL(image)
   const link = document.createElement('a')
+  const fileName = image instanceof File ? image.name : 'image.png'
 
   link.href = url
-  link.download = image.name
+  link.download = fileName
 
   document.body.appendChild(link)
   link.click()
@@ -54,12 +94,24 @@ async function saveResult(editorInstance) {
 }
 
 // Установка цветового фона
+/**
+ * @param {ImageEditor} editorInstance
+ * @param {string} color
+ */
 function setColorBackground(editorInstance, color) {
   editorInstance.backgroundManager.setColorBackground({ color })
 }
 
 // Установка градиентного фона
+/**
+ * @param {ImageEditor} editorInstance
+ * @param {string} startColor
+ * @param {string} endColor
+ * @param {'linear' | 'radial'} gradientType
+ * @param {DemoGradientOptions} [options]
+ */
 function setGradientBackground(editorInstance, startColor, endColor, gradientType, options = {}) {
+  /** @type {GradientBackground} */
   let gradient
 
   if (gradientType === 'radial') {
@@ -77,7 +129,7 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
   } else {
     gradient = {
       type: 'linear',
-      angle: parseInt(options.angle ?? 0),
+      angle: Number.parseInt(String(options.angle ?? 0)),
       startColor,
       endColor,
       startPosition: 0,
@@ -93,6 +145,10 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
 }
 
 // Установка фона из изображения
+/**
+ * @param {ImageEditor} editorInstance
+ * @param {string | File} file
+ */
 async function setImageBackground(editorInstance, file) {
   await editorInstance.backgroundManager.setImageBackground({
     imageSource: file,
@@ -101,6 +157,9 @@ async function setImageBackground(editorInstance, file) {
 }
 
 // Удаление фона
+/**
+ * @param {ImageEditor} editorInstance
+ */
 function removeBackground(editorInstance) {
   editorInstance.backgroundManager.removeBackground()
 }
