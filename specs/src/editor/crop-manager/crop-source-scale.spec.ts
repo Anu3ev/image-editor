@@ -1,4 +1,7 @@
-import { resolveCropProportionalSourceScaleLimit } from '../../../../src/editor/crop-manager/domain/crop-proportional-source-scale'
+import {
+  resolveCropProportionalSourceScaleLimit,
+  resolveCropSourceAxisScaleLimit
+} from '../../../../src/editor/crop-manager/domain/crop-source-scale'
 
 describe('ограничение proportional scale внутри source', () => {
   it('ограничивает рост сверху фиксированным нижним краем source', () => {
@@ -119,5 +122,68 @@ describe('ограничение proportional scale внутри source', () => 
 
     expect(scale).toBe(1)
     expect(1000 * scale).toBe(1000)
+  })
+})
+
+describe('ограничение независимого axis scale внутри source', () => {
+  it('ограничивает свободный рост сверху фиксированным нижним краем source', () => {
+    const scale = resolveCropSourceAxisScaleLimit({
+      sourceSize: {
+        width: 1000,
+        height: 667
+      },
+      startRect: {
+        left: -255.5,
+        top: -151,
+        width: 511,
+        height: 302
+      },
+      axis: 'y',
+      anchor: 'max'
+    })
+
+    expect(scale).toBeCloseTo(484.5 / 302, 5)
+    expect(302 * scale).toBeCloseTo(484.5, 5)
+  })
+
+  it('не ограничивает свободный рост горизонтальной оси высотой source', () => {
+    const scale = resolveCropSourceAxisScaleLimit({
+      sourceSize: {
+        width: 1000,
+        height: 667
+      },
+      startRect: {
+        left: -150,
+        top: -333.5,
+        width: 300,
+        height: 667
+      },
+      axis: 'x',
+      anchor: 'center'
+    })
+
+    expect(scale).toBeCloseTo(1000 / 300, 5)
+    expect(scale).toBeGreaterThan(1)
+  })
+
+  it('считает почти прижатую к левой границе область стоящей на source-границе при растягивании вправо', () => {
+    const startWidth = 833
+    const scale = resolveCropSourceAxisScaleLimit({
+      sourceSize: {
+        width: 1000,
+        height: 667
+      },
+      startRect: {
+        left: -499.4,
+        top: -333.5,
+        width: startWidth,
+        height: 667
+      },
+      axis: 'x',
+      anchor: 'min'
+    })
+
+    expect(startWidth * scale).toBeCloseTo(1000, 5)
+    expect(scale).toBeGreaterThan(1)
   })
 })

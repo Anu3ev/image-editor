@@ -19,8 +19,9 @@ import type { CropFrameResizeTarget } from '../domain/crop-frame'
 import { getCropFrameSourceSize } from '../domain/crop-frame-size'
 import {
   resolveCropProportionalSourceScaleLimit,
-  type CropProportionalSourceScaleAnchor
-} from '../domain/crop-proportional-source-scale'
+  resolveCropSourceAxisScaleLimit,
+  type CropSourceScaleAnchor
+} from '../domain/crop-source-scale'
 import type {
   CropRect,
   CropSize
@@ -30,6 +31,21 @@ import type {
  * Допуск сравнения client pointer-координат внутри одной Fabric transform-сессии.
  */
 const POINTER_POSITION_EPSILON = 0.001
+
+/**
+ * Допуск source-зазора, при котором live resize уже считается дошедшим до source-границы.
+ */
+const SOURCE_BOUNDARY_SCALE_GAP_PIXELS = 1
+
+/**
+ * Микродопуск для source-зазора после пересчёта scale между canvas и source.
+ */
+const SOURCE_BOUNDARY_SCALE_GAP_EPSILON = 0.000001
+
+/**
+ * Допуск сравнения scale-значений, рассчитанных из разных coordinate-system слоёв.
+ */
+const SCALE_COMPARISON_EPSILON = 0.000000001
 
 /**
  * Угловые controls, которые отвечают за диагональный resize crop frame.
@@ -42,7 +58,7 @@ const CROP_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
 const CROP_SIDE_CONTROL_KEYS = ['ml', 'mr', 'mt', 'mb'] as const
 
 /**
- * Scale, на котором proportional resize уже упёрся в source.
+ * Scale, на котором resize уже упёрся в source.
  */
 type CropSourceBoundScale = {
   scaleX: number
@@ -55,9 +71,10 @@ type CropSourceBoundScale = {
 type CropScaleTransform = Transform & {
   signX?: number
   signY?: number
-  cropProportionalSourceBounds?: CropProportionalSourceBounds | null
+  cropSourceScaleBounds?: CropSourceScaleBounds | null
   cropSourceScaleClamped?: boolean
   cropSourceBoundScale?: CropSourceBoundScale | null
+  cropSourceScalePreserveAspectRatio?: boolean
 }
 
 /**
@@ -71,9 +88,9 @@ type CropFrameScaleTarget = Rect & {
 }
 
 /**
- * Source-границы proportional resize, зафиксированные на старте Fabric transform.
+ * Source-границы resize, зафиксированные на старте Fabric transform.
  */
-type CropProportionalSourceBounds = {
+type CropSourceScaleBounds = {
   sourceSize: CropSize
   startRect: CropRect
 }
@@ -101,6 +118,14 @@ type CropScaleLimits = {
 type CropScaleDimensions = {
   x: number
   y: number
+}
+
+/**
+ * Результат расчёта scale одной оси.
+ */
+type CropAxisScaleResult = {
+  scale: number
+  sourceClamped: boolean
 }
 
 /**
@@ -437,22 +462,31 @@ function applyFreeCornerScale({
   localPoint: { x: number; y: number }
 }): void {
   const { target } = transform
-  const scaleX = resolveAxisScale({
+  resetSourceBoundScale({ transform })
+
+  const scaleXResult = resolveAxisScale({
     transform,
     axis: 'x',
     localPoint
   })
-  const scaleY = resolveAxisScale({
+  const scaleYResult = resolveAxisScale({
     transform,
     axis: 'y',
     localPoint
   })
 
   if (!target.lockScalingX) {
-    target.set('scaleX', scaleX)
+    target.set('scaleX', scaleXResult.scale)
   }
   if (!target.lockScalingY) {
-    target.set('scaleY', scaleY)
+    target.set('scaleY', scaleYResult.scale)
+  }
+
+  if (scaleXResult.sourceClamped || scaleYResult.sourceClamped) {
+    rememberSourceBoundScale({
+      transform,
+      preserveAspectRatio: false
+    })
   }
 }
 
@@ -472,18 +506,26 @@ function applySideScale({
   if (axis === 'x' && target.lockScalingX) return
   if (axis === 'y' && target.lockScalingY) return
 
-  const scale = resolveAxisScale({
+  resetSourceBoundScale({ transform })
+
+  const scaleResult = resolveAxisScale({
     transform,
     axis,
     localPoint
   })
 
   if (axis === 'x') {
-    target.set('scaleX', scale)
-    return
+    target.set('scaleX', scaleResult.scale)
+  } else {
+    target.set('scaleY', scaleResult.scale)
   }
 
-  target.set('scaleY', scale)
+  if (scaleResult.sourceClamped) {
+    rememberSourceBoundScale({
+      transform,
+      preserveAspectRatio: false
+    })
+  }
 }
 
 /**
@@ -501,16 +543,17 @@ function applyProportionalSideScale({
   const { target } = transform
   if (target.lockScalingX || target.lockScalingY) return
 
-  const axisScale = resolveAxisScale({
+  const axisScaleResult = resolveAxisScale({
     transform,
     axis,
-    localPoint
+    localPoint,
+    constrainToSource: false
   })
   const originalAxisScale = axis === 'x'
     ? transform.original.scaleX
     : transform.original.scaleY
   const proportionalScale = originalAxisScale > 0
-    ? axisScale / originalAxisScale
+    ? axisScaleResult.scale / originalAxisScale
     : 1
   const clampedScale = clampProportionalScale({
     target,
@@ -533,25 +576,44 @@ function applyProportionalSideScale({
 function resolveAxisScale({
   transform,
   axis,
-  localPoint
+  localPoint,
+  constrainToSource = true
 }: {
   transform: CropScaleTransform
   axis: CropScaleAxis
   localPoint: { x: number; y: number }
-}): number {
+  constrainToSource?: boolean
+}): CropAxisScaleResult {
   const { target } = transform
   const dimensions = getCropScaleDimensions({ target })
   const limits = getCropScaleLimits({ target })
   const currentScale = axis === 'x'
     ? target.scaleX ?? 1
     : target.scaleY ?? 1
+  const originalScale = axis === 'x'
+    ? transform.original.scaleX
+    : transform.original.scaleY
   const pointValue = axis === 'x' ? localPoint.x : localPoint.y
   const dimension = axis === 'x' ? dimensions.x : dimensions.y
   const minimumScale = axis === 'x' ? limits.minScaleX : limits.minScaleY
-  const maximumScale = axis === 'x' ? limits.maxScaleX : limits.maxScaleY
+  const sourceMaximumScale = constrainToSource
+    ? getSourceAxisMaximumScale({
+      target,
+      transform,
+      axis
+    })
+    : null
+  const maximumScale = resolveAxisMaximumScale({
+    axis,
+    limits,
+    sourceMaximumScale
+  })
 
   if (hasScaleOriginCrossed({ transform, axis, localPoint })) {
-    return minimumScale
+    return {
+      scale: minimumScale,
+      sourceClamped: false
+    }
   }
 
   let nextScale = Math.abs(((pointValue || 0) * currentScale) / dimension)
@@ -560,11 +622,193 @@ function resolveAxisScale({
     nextScale *= 2
   }
 
-  return clampNumber({
+  const clampedScale = clampNumber({
     value: nextScale,
     min: minimumScale,
     max: maximumScale
   })
+  const scale = snapAxisScaleToSourceMaximum({
+    target,
+    axis,
+    scale: clampedScale,
+    maximumScale,
+    sourceMaximumScale
+  })
+
+  return {
+    scale,
+    sourceClamped: isAxisScaleSourceClamped({
+      scale,
+      maximumScale,
+      sourceMaximumScale,
+      originalScale
+    })
+  }
+}
+
+/**
+ * Сбрасывает transient source-bound флаг перед новым free scale-step.
+ */
+function resetSourceBoundScale({ transform }: { transform: CropScaleTransform }): void {
+  transform.cropSourceScaleClamped = false
+  transform.cropSourceBoundScale = null
+  transform.cropSourceScalePreserveAspectRatio = undefined
+}
+
+/**
+ * Запоминает target scale, который уже упёрся в source-границу.
+ */
+function rememberSourceBoundScale({
+  transform,
+  preserveAspectRatio
+}: {
+  transform: CropScaleTransform
+  preserveAspectRatio: boolean
+}): void {
+  const { target } = transform
+
+  transform.cropSourceScaleClamped = true
+  transform.cropSourceScalePreserveAspectRatio = preserveAspectRatio
+  transform.cropSourceBoundScale = {
+    scaleX: target.scaleX ?? 1,
+    scaleY: target.scaleY ?? 1
+  }
+}
+
+/**
+ * Возвращает true, если scale реально дошёл до source maximum из меньшего размера.
+ */
+function isAxisScaleSourceClamped({
+  scale,
+  maximumScale,
+  sourceMaximumScale,
+  originalScale
+}: {
+  scale: number
+  maximumScale: number
+  sourceMaximumScale: number | null
+  originalScale: number
+}): boolean {
+  if (sourceMaximumScale === null) return false
+  if (Math.abs(maximumScale - sourceMaximumScale) > SCALE_COMPARISON_EPSILON) return false
+  if (Math.abs(scale - sourceMaximumScale) > SCALE_COMPARISON_EPSILON) return false
+
+  return Math.abs(Math.abs(originalScale) - sourceMaximumScale) > SCALE_COMPARISON_EPSILON
+}
+
+/**
+ * Дотягивает scale до source maximum, если pointer остановился в пределах видимого source-пикселя.
+ */
+function snapAxisScaleToSourceMaximum({
+  target,
+  axis,
+  scale,
+  maximumScale,
+  sourceMaximumScale
+}: {
+  target: FabricObject
+  axis: CropScaleAxis
+  scale: number
+  maximumScale: number
+  sourceMaximumScale: number | null
+}): number {
+  if (sourceMaximumScale === null) return scale
+  if (Math.abs(maximumScale - sourceMaximumScale) > SCALE_COMPARISON_EPSILON) return scale
+
+  const sourcePixelGap = getAxisScaleSourcePixelGap({
+    target,
+    axis,
+    fromScale: scale,
+    toScale: sourceMaximumScale
+  })
+
+  if (sourcePixelGap <= SOURCE_BOUNDARY_SCALE_GAP_PIXELS + SOURCE_BOUNDARY_SCALE_GAP_EPSILON) {
+    return sourceMaximumScale
+  }
+
+  return scale
+}
+
+/**
+ * Возвращает максимальный scale одной оси с учётом crop-size и source-границ.
+ */
+function resolveAxisMaximumScale({
+  axis,
+  limits,
+  sourceMaximumScale
+}: {
+  axis: CropScaleAxis
+  limits: CropScaleLimits
+  sourceMaximumScale: number | null
+}): number {
+  const minimumScale = axis === 'x' ? limits.minScaleX : limits.minScaleY
+  const cropSizeMaximumScale = axis === 'x' ? limits.maxScaleX : limits.maxScaleY
+
+  if (sourceMaximumScale === null) return cropSizeMaximumScale
+
+  return Math.max(
+    minimumScale,
+    Math.min(cropSizeMaximumScale, sourceMaximumScale)
+  )
+}
+
+/**
+ * Возвращает максимальный scale одной оси, при котором frame остаётся внутри source.
+ */
+function getSourceAxisMaximumScale({
+  target,
+  transform,
+  axis
+}: {
+  target: FabricObject
+  transform: CropScaleTransform
+  axis: CropScaleAxis
+}): number | null {
+  const bounds = getSourceScaleBounds({
+    target,
+    transform
+  })
+  if (!bounds) return null
+
+  const originalScale = axis === 'x'
+    ? transform.original.scaleX
+    : transform.original.scaleY
+  const sourceScaleLimit = resolveCropSourceAxisScaleLimit({
+    sourceSize: bounds.sourceSize,
+    startRect: bounds.startRect,
+    axis,
+    anchor: getTransformAxisAnchor({
+      transform,
+      axis
+    })
+  })
+
+  return Math.abs(originalScale) * sourceScaleLimit
+}
+
+/**
+ * Возвращает расстояние между двумя scale-значениями в source-пикселях выбранной оси.
+ */
+function getAxisScaleSourcePixelGap({
+  target,
+  axis,
+  fromScale,
+  toScale
+}: {
+  target: FabricObject
+  axis: CropScaleAxis
+  fromScale: number
+  toScale: number
+}): number {
+  const cropTarget = target as CropFrameScaleTarget
+  const sourceScale = axis === 'x'
+    ? Math.abs(cropTarget.cropSourceScaleX ?? 1) || 1
+    : Math.abs(cropTarget.cropSourceScaleY ?? 1) || 1
+  const targetLength = axis === 'x'
+    ? target.width
+    : target.height
+
+  return (Math.abs(toScale - fromScale) * Math.max(1, targetLength)) / sourceScale
 }
 
 /**
@@ -696,6 +940,7 @@ function clampProportionalScale({
     Math.min(cropSizeMaxScale, sourceMaxScale ?? cropSizeMaxScale)
   )
   transform.cropSourceScaleClamped = !forceMinimum && scale > maxScale
+  transform.cropSourceScalePreserveAspectRatio = transform.cropSourceScaleClamped
   let nextScale = minScale
 
   if (!forceMinimum) {
@@ -716,6 +961,7 @@ function clampProportionalScale({
     }
   } else {
     transform.cropSourceBoundScale = null
+    transform.cropSourceScalePreserveAspectRatio = undefined
   }
 
   return {
@@ -734,7 +980,7 @@ function getProportionalSourceMaxScale({
   target: FabricObject
   transform: CropScaleTransform
 }): number | null {
-  const bounds = getProportionalSourceBounds({
+  const bounds = getSourceScaleBounds({
     target,
     transform
   })
@@ -749,27 +995,27 @@ function getProportionalSourceMaxScale({
 }
 
 /**
- * Возвращает source-границы proportional resize или null для режима allow overflow.
+ * Возвращает source-границы resize или null для режима allow overflow.
  */
-function getProportionalSourceBounds({
+function getSourceScaleBounds({
   target,
   transform
 }: {
   target: FabricObject
   transform: CropScaleTransform
-}): CropProportionalSourceBounds | null {
-  if (transform.cropProportionalSourceBounds) {
-    return transform.cropProportionalSourceBounds
+}): CropSourceScaleBounds | null {
+  if (transform.cropSourceScaleBounds !== undefined) {
+    return transform.cropSourceScaleBounds
   }
 
   const cropTarget = target as CropFrameScaleTarget
   if (cropTarget.cropAllowFrameOverflow !== false || !cropTarget.cropSource) {
-    transform.cropProportionalSourceBounds = null
+    transform.cropSourceScaleBounds = null
 
     return null
   }
 
-  transform.cropProportionalSourceBounds = {
+  transform.cropSourceScaleBounds = {
     sourceSize: getSourceSize({ source: cropTarget.cropSource }),
     startRect: getCropRectInSource({
       source: cropTarget.cropSource,
@@ -777,13 +1023,28 @@ function getProportionalSourceBounds({
     })
   }
 
-  return transform.cropProportionalSourceBounds
+  return transform.cropSourceScaleBounds
+}
+
+/**
+ * Возвращает fixed anchor по указанной оси для текущего Fabric transform.
+ */
+function getTransformAxisAnchor({
+  transform,
+  axis
+}: {
+  transform: Transform
+  axis: CropScaleAxis
+}): CropSourceScaleAnchor {
+  if (axis === 'x') return getTransformAnchorX({ transform })
+
+  return getTransformAnchorY({ transform })
 }
 
 /**
  * Возвращает fixed anchor по горизонтали для текущего Fabric transform.
  */
-function getTransformAnchorX({ transform }: { transform: Transform }): CropProportionalSourceScaleAnchor {
+function getTransformAnchorX({ transform }: { transform: Transform }): CropSourceScaleAnchor {
   if (transform.corner === 'tl' || transform.corner === 'bl' || transform.corner === 'ml') {
     return 'max'
   }
@@ -800,7 +1061,7 @@ function getTransformAnchorX({ transform }: { transform: Transform }): CropPropo
 /**
  * Возвращает fixed anchor по вертикали для текущего Fabric transform.
  */
-function getTransformAnchorY({ transform }: { transform: Transform }): CropProportionalSourceScaleAnchor {
+function getTransformAnchorY({ transform }: { transform: Transform }): CropSourceScaleAnchor {
   if (transform.corner === 'tl' || transform.corner === 'tr' || transform.corner === 'mt') {
     return 'max'
   }
