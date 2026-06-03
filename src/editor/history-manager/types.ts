@@ -7,7 +7,7 @@ export type CanvasStateObject = {
   type?: string
   width?: number
   height?: number
-  customData?: object
+  customData?: object | string
   objects?: CanvasStateObject[]
 }
 

@@ -136,6 +136,9 @@ const createMockCanvasElement = (dataUrl: string) => {
   return canvas
 }
 
+/**
+ * Создаёт FabricImage на основе реального image/canvas элемента для совместимости с контрактом Fabric.
+ */
 export const createMockFabricImage = ({
   width = 100,
   height = 100,
@@ -147,13 +150,15 @@ export const createMockFabricImage = ({
   src?: string
   elementType?: 'img' | 'canvas'
 } = {}) => {
-  const image = new FabricImage({ width, height, src })
-  image.width = width
-  image.height = height
-
   const element = elementType === 'canvas'
     ? createMockCanvasElement(src)
     : createMockImageElement(src)
+  element.width = width
+  element.height = height
+
+  const image = new FabricImage(element, { width, height })
+  image.width = width
+  image.height = height
 
   image.getElement = jest.fn(() => element)
 

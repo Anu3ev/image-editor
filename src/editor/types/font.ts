@@ -1,3 +1,11 @@
+export interface EditorFontFaceDescriptors extends FontFaceDescriptors {
+  /**
+   * CSS font-variant descriptor поддерживается в @font-face, но отсутствует
+   * в текущих DOM typings TypeScript.
+   */
+  variant?: string
+}
+
 export interface EditorFontDefinition {
   /**
    * Имя семейства шрифта, которое будет использоваться в редакторе.
@@ -10,5 +18,5 @@ export interface EditorFontDefinition {
   /**
    * Дополнительные дескрипторы шрифта из FontFace API.
    */
-  descriptors?: FontFaceDescriptors
+  descriptors?: EditorFontFaceDescriptors
 }

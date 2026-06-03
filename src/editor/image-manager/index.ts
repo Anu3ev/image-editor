@@ -67,7 +67,59 @@ export type exportCanvasAsImageFileOptions = {
   exportAsBlob?: boolean
 }
 
-type JsPDFModule = {
+/**
+ * Нормализованное значение scale для импорта изображения.
+ */
+type ResolvedImportScale = NonNullable<ImportImageOptions['scale']>
+
+/**
+ * Внутренний import request до runtime-проверки source.
+ */
+interface ImportImageRequest {
+  source: unknown
+  scale: ResolvedImportScale
+  withoutSave: boolean
+  fromClipboard: boolean
+  isBackground: boolean
+  withoutSelection: boolean
+  withoutAdding: boolean
+  customData: object | null
+  contentType: string
+  format: string
+}
+
+/**
+ * Внутренний import request после проверки, что source можно загрузить.
+ */
+interface SupportedImportImageRequest extends ImportImageRequest {
+  source: File | string
+}
+
+/**
+ * Payload для worker resize-команды.
+ */
+interface ImageResizeWorkerPayload {
+  dataURL: string
+  sizeType: 'max' | 'min'
+  contentType: string
+  quality: number
+  maxWidth: number
+  maxHeight: number
+  minWidth: number
+  minHeight: number
+}
+
+/**
+ * Сериализованный объект canvas из initial/history state.
+ */
+interface SerializedCanvasObject {
+  [key: string]: unknown
+}
+
+/**
+ * Runtime-форма lazy-loaded jspdf module.
+ */
+interface JsPDFModule {
   jsPDF: typeof jsPDF
 }
 
@@ -120,47 +172,50 @@ export default class ImageManager {
     const { objects = [] } = clonedState
 
     console.log('objects', objects)
-    for (let index = 0; index < objects.length; index += 1) {
-      const object = objects[index] as Record<string, unknown>
-
-      // eslint-disable-next-line no-await-in-loop
-      await this._replaceImageSrcInObject({ object, cache })
-    }
+    await this._replaceImageSrcInObjects({ objects, cache })
 
     return clonedState
   }
 
   /**
-   * Рекурсивно заменяет src у изображений в объекте на blob-URL.
+   * Заменяет src у изображений в сериализованном состоянии на blob-URL.
    */
-  private async _replaceImageSrcInObject({
-    object,
+  private async _replaceImageSrcInObjects({
+    objects,
     cache
   }: {
-    object: Record<string, unknown>
+    objects: unknown[]
     cache: Map<string, string>
   }): Promise<void> {
-    if (!object) return
+    const pendingObjects = [...objects]
 
-    const { type, src, objects } = object
+    for (let index = 0; index < pendingObjects.length; index += 1) {
+      const object = pendingObjects[index]
 
-    console.log('_replaceImageSrcInObject', { type, src, objects })
-    if (type?.toLowerCase() === 'image') {
-      const blobUrl = await this._getOrCreateBlobUrl({ src, cache })
+      if (!ImageManager._isSerializedObject(object)) continue
 
-      if (blobUrl) {
-        object.src = blobUrl
-      }
-    }
+      const { type, src, objects: childObjects } = object
+      const normalizedType = typeof type === 'string' ? type.toLowerCase() : ''
 
-    if (Array.isArray(objects)) {
-      for (let index = 0; index < objects.length; index += 1) {
-        const childObject = objects[index] as Record<string, unknown>
+      console.log('_replaceImageSrcInObject', { type, src, objects: childObjects })
 
+      if (normalizedType === 'image' && typeof src === 'string') {
         // eslint-disable-next-line no-await-in-loop
-        await this._replaceImageSrcInObject({ object: childObject, cache })
+        const blobUrl = await this._getOrCreateBlobUrl({ src, cache })
+        if (blobUrl) object.src = blobUrl
+      }
+
+      if (Array.isArray(childObjects)) {
+        pendingObjects.push(...childObjects)
       }
     }
+  }
+
+  /**
+   * Проверяет, что значение можно читать как сериализованный canvas object.
+   */
+  private static _isSerializedObject(value: unknown): value is SerializedCanvasObject {
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
   }
 
   /**
@@ -234,9 +289,52 @@ export default class ImageManager {
    * @returns возвращает Promise с объектом изображения или null в случае ошибки
    */
   public async importImage(options: ImportImageOptions): Promise<SuccessulImageImportResult | null> {
+    const request = await this._createImportImageRequest({ options })
+    if (!request) return null
+
+    const { historyManager } = this.editor
+    historyManager.suspendHistory()
+
+    try {
+      const { source } = request
+
+      if (!ImageManager._isSupportedImageSource(source)) {
+        this._emitInvalidSourceTypeError({ request })
+        historyManager.resumeHistory()
+
+        return null
+      }
+
+      const supportedRequest: SupportedImportImageRequest = { ...request, source }
+      const dataUrl = await this._resolveImportImageUrl({ request: supportedRequest })
+      const loadedImage = await this._loadImportImage({ dataUrl, format: request.format })
+      const image = await this._resizeImportImageIfNeeded({
+        image: loadedImage,
+        contentType: request.contentType
+      })
+
+      this._applyImportedImageProperties({ image, request: supportedRequest })
+      this._placeImportedImage({ image, request: supportedRequest })
+
+      return this._completeImportImage({ image, request: supportedRequest })
+    } catch (error) {
+      this._emitImportFailed({ error, request })
+      historyManager.resumeHistory()
+
+      return null
+    }
+  }
+
+  /**
+   * Создаёт внутренний request и отсекает только пустой source и неподдержанный contentType.
+   */
+  private async _createImportImageRequest({
+    options
+  }: {
+    options: ImportImageOptions
+  }): Promise<ImportImageRequest | null> {
     const {
       source,
-      scale = `image-${this.options.scaleType}`,
       withoutSave = false,
       fromClipboard = false,
       isBackground = false,
@@ -247,221 +345,369 @@ export default class ImageManager {
 
     if (!source) return null
 
-    const {
-      canvas,
-      canvasManager,
-      montageArea,
-      transformManager,
-      historyManager,
-      errorManager
-    } = this.editor
-
-    const contentType = await this.getContentType(source)
+    const scale: ResolvedImportScale = options.scale ?? (
+      this.options.scaleType === 'cover' ? 'image-cover' : 'image-contain'
+    )
+    const contentType = ImageManager._isSupportedImageSource(source)
+      ? await this.getContentType(source)
+      : ImageManager._getInvalidSourceContentType({ source })
     const format = this.getFormatFromContentType(contentType)
-
-    const { acceptContentTypes, acceptFormats } = this
-
-    if (!this.isAllowedContentType(contentType)) {
-      // eslint-disable-next-line max-len
-      const message = `Неверный contentType для изображения: ${contentType}. Ожидается один из: ${this.acceptContentTypes.join(', ')}.`
-
-      errorManager.emitError({
-        origin: 'ImageManager',
-        method: 'importImage',
-        code: 'INVALID_CONTENT_TYPE',
-        message,
-        data: {
-          source,
-          format,
-          contentType,
-          acceptContentTypes,
-          acceptFormats,
-          fromClipboard,
-          isBackground,
-          withoutSelection,
-          withoutAdding,
-          customData
-        }
-      })
-
-      return null
+    const request = {
+      source,
+      scale,
+      withoutSave,
+      fromClipboard,
+      isBackground,
+      withoutSelection,
+      withoutAdding,
+      customData,
+      contentType,
+      format
     }
 
-    historyManager.suspendHistory()
+    if (!ImageManager._isSupportedImageSource(source)) return request
+    if (this.isAllowedContentType(contentType)) return request
 
-    try {
-      let dataUrl
-      let img
+    this._emitInvalidContentTypeError({ request })
 
-      if (source instanceof File) {
-        dataUrl = URL.createObjectURL(source)
-        this._createdBlobUrls.push(dataUrl)
-      } else if (typeof source === 'string') {
-        dataUrl = await this._fetchAsBlobUrl({ src: source })
-      } else {
-        errorManager.emitError({
-          origin: 'ImageManager',
-          method: 'importImage',
-          code: 'INVALID_SOURCE_TYPE',
-          message: 'Неверный тип источника изображения. Ожидается URL или объект File.',
-          data: {
-            source,
-            format,
-            contentType,
-            acceptContentTypes,
-            acceptFormats,
-            fromClipboard,
-            isBackground,
-            withoutSelection,
-            withoutAdding,
-            customData
-          }
-        })
+    return null
+  }
 
-        historyManager.resumeHistory()
-        return null
-      }
+  /**
+   * Проверяет runtime-тип source, потому что публичный API может вызываться из JS.
+   */
+  private static _isSupportedImageSource(source: unknown): source is File | string {
+    if (source instanceof File) return true
+    if (typeof source === 'string') return true
 
-      // SVG: парсим через loadSVGFromURL и группируем в один объект
-      if (format === 'svg') {
-        const svgData = await loadSVGFromURL(dataUrl)
+    return false
+  }
 
-        img = util.groupSVGElements(svgData.objects as FabricObject[], svgData.options)
-      } else {
-        // Создаем объект FabricImage из blobURL
-        img = await FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
-      }
+  /**
+   * Достаёт contentType из невалидного source только для диагностического payload.
+   */
+  private static _getInvalidSourceContentType({ source }: { source: unknown }): string {
+    if (!ImageManager._isSerializedObject(source)) return 'application/octet-stream'
 
-      const { width: imageWidth, height: imageHeight } = img
+    const { type } = source
+    if (typeof type === 'string') return type
 
-      if (img instanceof FabricImage) {
-        const imageElement = img.getElement()
+    return 'application/octet-stream'
+  }
 
-        let imageSrc: string = ''
+  /**
+   * Отправляет ошибку неподдержанного contentType до начала history transaction.
+   */
+  private _emitInvalidContentTypeError({ request }: { request: ImportImageRequest }): void {
+    const { acceptContentTypes, acceptFormats } = this
+    const {
+      source,
+      format,
+      contentType,
+      fromClipboard,
+      isBackground,
+      withoutSelection,
+      withoutAdding,
+      customData
+    } = request
+    // eslint-disable-next-line max-len
+    const message = `Неверный contentType для изображения: ${contentType}. Ожидается один из: ${acceptContentTypes.join(', ')}.`
 
-        if (imageElement instanceof HTMLImageElement) {
-          imageSrc = imageElement.src
-        } else if (imageElement instanceof HTMLCanvasElement) {
-          imageSrc = imageElement.toDataURL()
-        }
-
-        // Если изображение больше максимальных размеров, то даунскейлим его
-        if (imageHeight > CANVAS_MAX_HEIGHT || imageWidth > CANVAS_MAX_WIDTH) {
-          const resizedBlob = await this.resizeImageToBoundaries({
-            dataURL: imageSrc,
-            sizeType: 'max',
-            contentType
-          })
-          const resizedBlobURL = URL.createObjectURL(resizedBlob)
-          this._createdBlobUrls.push(resizedBlobURL)
-
-          // Создаем новый объект FabricImage из уменьшенного dataURL
-          img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
-        } else if (imageHeight < CANVAS_MIN_HEIGHT || imageWidth < CANVAS_MIN_WIDTH) {
-          // Если изображение меньше минимальных размеров, то апскейлим его
-          const resizedBlob = await this.resizeImageToBoundaries({
-            dataURL: imageSrc,
-            sizeType: 'min',
-            contentType
-          })
-          const resizedBlobURL = URL.createObjectURL(resizedBlob)
-          this._createdBlobUrls.push(resizedBlobURL)
-
-          // Создаем новый объект FabricImage из увеличенного dataURL
-          img = await FabricImage.fromURL(resizedBlobURL, { crossOrigin: 'anonymous' })
-        }
-      }
-
-      img.set({
-        id: `${img.type}-${nanoid()}`,
-        format,
-        contentType,
-        customData: customData || null,
-        originX: 'left',
-        originY: 'top'
-      })
-
-      // Растягиваем монтажную область под изображение или наоборот
-      if (scale === 'scale-montage') {
-        this.editor.canvasManager.scaleMontageAreaToImage({ object: img, withoutSave: true })
-      } else {
-        const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
-
-        const scaleFactor = this.calculateScaleFactor({ imageObject: img, scaleType: scale })
-
-        if (scale === 'image-contain' && scaleFactor < 1) {
-          transformManager.fitObject({ object: img, type: 'contain', withoutSave: true })
-        } else if (
-          scale === 'image-cover'
-          && (imageWidth > montageAreaWidth || imageHeight > montageAreaHeight)
-        ) {
-          transformManager.fitObject({ object: img, type: 'cover', withoutSave: true })
-        }
-      }
-
-      const result = {
-        image: img,
-        format,
-        contentType,
-        scale,
-        withoutSave,
+    this.editor.errorManager.emitError({
+      origin: 'ImageManager',
+      method: 'importImage',
+      code: 'INVALID_CONTENT_TYPE',
+      message,
+      data: {
         source,
+        format,
+        contentType,
+        acceptContentTypes,
+        acceptFormats,
         fromClipboard,
         isBackground,
         withoutSelection,
         withoutAdding,
         customData
       }
+    })
+  }
 
-      if (withoutAdding) {
-        historyManager.resumeHistory()
+  /**
+   * Отправляет ошибку неподдержанного runtime-типа source внутри history transaction.
+   */
+  private _emitInvalidSourceTypeError({ request }: { request: ImportImageRequest }): void {
+    const { acceptContentTypes, acceptFormats } = this
+    const {
+      source,
+      format,
+      contentType,
+      fromClipboard,
+      isBackground,
+      withoutSelection,
+      withoutAdding,
+      customData
+    } = request
 
-        canvas.fire('editor:image-imported', result)
-        return result
+    this.editor.errorManager.emitError({
+      origin: 'ImageManager',
+      method: 'importImage',
+      code: 'INVALID_SOURCE_TYPE',
+      message: 'Неверный тип источника изображения. Ожидается URL или объект File.',
+      data: {
+        source,
+        format,
+        contentType,
+        acceptContentTypes,
+        acceptFormats,
+        fromClipboard,
+        isBackground,
+        withoutSelection,
+        withoutAdding,
+        customData
       }
+    })
+  }
 
-      // Добавляем изображение, центрируем его и перерисовываем канвас
-      canvas.add(img)
-      canvasManager.centerObjectToMontageArea({ object: img })
+  /**
+   * Возвращает URL, который Fabric может загрузить как изображение.
+   */
+  private async _resolveImportImageUrl({ request }: { request: SupportedImportImageRequest }): Promise<string> {
+    const { source } = request
 
-      if (!withoutSelection) {
-        canvas.setActiveObject(img)
-      }
+    if (source instanceof File) {
+      const dataUrl = URL.createObjectURL(source)
+      this._createdBlobUrls.push(dataUrl)
 
-      canvas.renderAll()
+      return dataUrl
+    }
 
+    const dataUrl = await this._fetchAsBlobUrl({ src: source })
+    if (!dataUrl) {
+      throw new Error('Не удалось загрузить изображение по URL')
+    }
+
+    return dataUrl
+  }
+
+  /**
+   * Создаёт Fabric object из подготовленного image URL.
+   */
+  private async _loadImportImage({
+    dataUrl,
+    format
+  }: {
+    dataUrl: string
+    format: string
+  }): Promise<FabricImage | FabricObject> {
+    if (format === 'svg') {
+      const svgData = await loadSVGFromURL(dataUrl)
+
+      return util.groupSVGElements(svgData.objects as FabricObject[], svgData.options)
+    }
+
+    return FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
+  }
+
+  /**
+   * Масштабирует слишком большие или слишком маленькие raster-изображения.
+   */
+  private async _resizeImportImageIfNeeded({
+    image,
+    contentType
+  }: {
+    image: FabricImage | FabricObject
+    contentType: string
+  }): Promise<FabricImage | FabricObject> {
+    if (!(image instanceof FabricImage)) return image
+
+    const { width: imageWidth, height: imageHeight } = image
+    if (imageHeight > CANVAS_MAX_HEIGHT || imageWidth > CANVAS_MAX_WIDTH) {
+      return this._resizeImportImageToBoundaries({
+        image,
+        contentType,
+        sizeType: 'max'
+      })
+    }
+
+    if (imageHeight < CANVAS_MIN_HEIGHT || imageWidth < CANVAS_MIN_WIDTH) {
+      return this._resizeImportImageToBoundaries({
+        image,
+        contentType,
+        sizeType: 'min'
+      })
+    }
+
+    return image
+  }
+
+  /**
+   * Делегирует resize worker-у и загружает результат обратно в FabricImage.
+   */
+  private async _resizeImportImageToBoundaries({
+    image,
+    contentType,
+    sizeType
+  }: {
+    image: FabricImage
+    contentType: string
+    sizeType: 'max' | 'min'
+  }): Promise<FabricImage> {
+    const imageSrc = ImageManager._getImageElementSource({ image })
+    const resizedBlob = await this.resizeImageToBoundaries({
+      dataURL: imageSrc,
+      sizeType,
+      contentType
+    })
+    const resizedBlobUrl = URL.createObjectURL(resizedBlob)
+    this._createdBlobUrls.push(resizedBlobUrl)
+
+    return FabricImage.fromURL(resizedBlobUrl, { crossOrigin: 'anonymous' })
+  }
+
+  /**
+   * Возвращает source raster-изображения для resize.
+   */
+  private static _getImageElementSource({ image }: { image: FabricImage }): string {
+    const imageElement = image.getElement()
+
+    if (imageElement instanceof HTMLImageElement) return imageElement.src
+    if (imageElement instanceof HTMLCanvasElement) return imageElement.toDataURL()
+
+    throw new Error('Не удалось получить источник изображения для resize')
+  }
+
+  /**
+   * Проставляет editor metadata на загруженное изображение.
+   */
+  private _applyImportedImageProperties({
+    image,
+    request
+  }: {
+    image: FabricImage | FabricObject
+    request: SupportedImportImageRequest
+  }): void {
+    image.set({
+      id: `${image.type}-${nanoid()}`,
+      format: request.format,
+      contentType: request.contentType,
+      customData: request.customData ?? null,
+      originX: 'left',
+      originY: 'top'
+    })
+  }
+
+  /**
+   * Применяет выбранную стратегию размещения импортированного изображения.
+   */
+  private _placeImportedImage({
+    image,
+    request
+  }: {
+    image: FabricImage | FabricObject
+    request: SupportedImportImageRequest
+  }): void {
+    if (request.scale === 'scale-montage') {
+      this.editor.canvasManager.scaleMontageAreaToImage({ object: image, withoutSave: true })
+      return
+    }
+
+    const { montageArea, transformManager } = this.editor
+    const { width: montageAreaWidth, height: montageAreaHeight } = montageArea
+    const { width: imageWidth, height: imageHeight } = image
+    const scaleFactor = this.calculateScaleFactor({ imageObject: image, scaleType: request.scale })
+
+    if (request.scale === 'image-contain' && scaleFactor < 1) {
+      transformManager.fitObject({ object: image, type: 'contain', withoutSave: true })
+      return
+    }
+
+    if (request.scale !== 'image-cover') return
+    if (imageWidth <= montageAreaWidth && imageHeight <= montageAreaHeight) return
+
+    transformManager.fitObject({ object: image, type: 'cover', withoutSave: true })
+  }
+
+  /**
+   * Завершает import transaction, добавляет объект на canvas и отправляет событие.
+   */
+  private _completeImportImage({
+    image,
+    request
+  }: {
+    image: FabricImage | FabricObject
+    request: SupportedImportImageRequest
+  }): SuccessulImageImportResult {
+    const { canvas, canvasManager, historyManager } = this.editor
+    const {
+      format,
+      contentType,
+      scale,
+      withoutSave,
+      source,
+      fromClipboard,
+      isBackground,
+      withoutSelection,
+      withoutAdding,
+      customData
+    } = request
+    const result = {
+      image,
+      format,
+      contentType,
+      scale,
+      withoutSave,
+      source,
+      fromClipboard,
+      isBackground,
+      withoutSelection,
+      withoutAdding,
+      customData
+    }
+
+    if (withoutAdding) {
       historyManager.resumeHistory()
-
-      if (!withoutSave) {
-        historyManager.saveState()
-      }
-
       canvas.fire('editor:image-imported', result)
 
       return result
-    } catch (error) {
-      errorManager.emitError({
-        origin: 'ImageManager',
-        method: 'importImage',
-        code: 'IMPORT_FAILED',
-        message: `Ошибка импорта изображения: ${(error as Error).message}`,
-        data: {
-          source,
-          format,
-          contentType,
-          scale,
-          withoutSave,
-          fromClipboard,
-          isBackground,
-          withoutSelection,
-          withoutAdding,
-          customData
-        }
-      })
-
-      historyManager.resumeHistory()
-      return null
     }
+
+    canvas.add(image)
+    canvasManager.centerObjectToMontageArea({ object: image })
+
+    if (!withoutSelection) {
+      canvas.setActiveObject(image)
+    }
+
+    canvas.renderAll()
+    historyManager.resumeHistory()
+
+    if (!withoutSave) {
+      historyManager.saveState()
+    }
+
+    canvas.fire('editor:image-imported', result)
+
+    return result
+  }
+
+  /**
+   * Отправляет общую ошибку import path после начала history transaction.
+   */
+  private _emitImportFailed({
+    error,
+    request
+  }: {
+    error: unknown
+    request: ImportImageRequest
+  }): void {
+    this.editor.errorManager.emitError({
+      origin: 'ImageManager',
+      method: 'importImage',
+      code: 'IMPORT_FAILED',
+      message: `Ошибка импорта изображения: ${(error as Error).message}`,
+      data: request
+    })
   }
 
   /**
@@ -482,6 +728,16 @@ export default class ImageManager {
    * @returns возвращает Promise с Blob или base64 в зависимости от опций
    */
   public async resizeImageToBoundaries(
+    options: ResizeImageToBoundariesOptions & { asBase64: true }
+  ): Promise<Base64URLString>
+
+  // eslint-disable-next-line no-dupe-class-members
+  public async resizeImageToBoundaries(
+    options: ResizeImageToBoundariesOptions & { asBase64?: false }
+  ): Promise<Blob>
+
+  // eslint-disable-next-line no-dupe-class-members
+  public async resizeImageToBoundaries(
     options: ResizeImageToBoundariesOptions
   ): Promise<Blob | Base64URLString> {
     const {
@@ -497,9 +753,9 @@ export default class ImageManager {
       emitMessage = true
     } = options
 
-    const { errorManager, workerManager } = this.editor
+    const { workerManager } = this.editor
 
-    const data = {
+    const data: ImageResizeWorkerPayload = {
       dataURL,
       sizeType,
       contentType,
@@ -511,21 +767,7 @@ export default class ImageManager {
     }
 
     if (emitMessage) {
-      // eslint-disable-next-line max-len
-      let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${maxWidth}x${maxHeight}`
-
-      if (sizeType === 'min') {
-        // eslint-disable-next-line max-len
-        message = `Размер изображения меньше минимального размера канваса, поэтому оно будет увеличено до минимальных размеров c сохранением пропорций: ${minWidth}x${minHeight}`
-      }
-
-      errorManager.emitWarning({
-        origin: 'ImageManager',
-        method: 'resizeImageToBoundaries',
-        code: 'IMAGE_RESIZE_WARNING',
-        message,
-        data
-      })
+      this._emitImageResizeWarning({ data })
     }
 
     const resizedBlob = await workerManager.post('resizeImage', data) as Blob
@@ -542,6 +784,31 @@ export default class ImageManager {
     }
 
     return resizedBlob
+  }
+
+  private _emitImageResizeWarning({ data }: { data: ImageResizeWorkerPayload }): void {
+    const {
+      sizeType,
+      maxWidth,
+      maxHeight,
+      minWidth,
+      minHeight
+    } = data
+    // eslint-disable-next-line max-len
+    let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${maxWidth}x${maxHeight}`
+
+    if (sizeType === 'min') {
+      // eslint-disable-next-line max-len
+      message = `Размер изображения меньше минимального размера канваса, поэтому оно будет увеличено до минимальных размеров c сохранением пропорций: ${minWidth}x${minHeight}`
+    }
+
+    this.editor.errorManager.emitWarning({
+      origin: 'ImageManager',
+      method: 'resizeImageToBoundaries',
+      code: 'IMAGE_RESIZE_WARNING',
+      message,
+      data
+    })
   }
 
   /**

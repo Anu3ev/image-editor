@@ -25,7 +25,7 @@ test.describe('Индикатор размеров текстового объе
         deltaX: 28,
         deltaY: 0,
         objectIndex: 0,
-        steps: 8
+        pointerSteps: 8
       })
     })
 
@@ -51,7 +51,7 @@ test.describe('Индикатор размеров текстового объе
         deltaX: 25,
         deltaY: 18,
         objectIndex: 0,
-        steps: 8
+        pointerSteps: 8
       })
     })
 

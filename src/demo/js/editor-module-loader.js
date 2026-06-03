@@ -4,6 +4,7 @@ const JSDELIVR_NPM_ORIGIN = 'https://cdn.jsdelivr.net/npm'
 const ESM_SH_BUNDLE_PATTERN = /export \* from "([^"]+\.mjs)"/
 const VITE_WORKER_ASSET_PATTERN = /new URL\(["']([^"']*worker[^"']*\.js)["'],\s*import\.meta\.url\)/
 
+/** @type {Map<string, string>} */
 const publishedWorkerBlobUrls = new Map()
 let publishedWorkerProxyInstalled = false
 
@@ -17,6 +18,7 @@ function getRequestedEditorVersion() {
 
 /**
  * Загружает текстовый CDN-asset и явно падает, если CDN вернул ошибку.
+ * @param {string | URL} url
  */
 async function fetchText(url) {
   const response = await fetch(url)
@@ -30,8 +32,10 @@ async function fetchText(url) {
 
 /**
  * Находит реальный bundled module, который esm.sh сгенерировал для npm-пакета.
+ * @param {{ entrySource: string, moduleUrl: string }} params
  */
-function resolveEsmShBundleUrl({ entrySource, moduleUrl }) {
+function resolveEsmShBundleUrl(params) {
+  const { entrySource, moduleUrl } = params
   const match = entrySource.match(ESM_SH_BUNDLE_PATTERN)
   const bundlePath = match?.[1]
 
@@ -44,8 +48,10 @@ function resolveEsmShBundleUrl({ entrySource, moduleUrl }) {
 
 /**
  * Достаёт путь к Vite worker asset из bundled module опубликованной версии.
+ * @param {{ bundledSource: string }} params
  */
-function resolveViteWorkerAssetPath({ bundledSource }) {
+function resolveViteWorkerAssetPath(params) {
+  const { bundledSource } = params
   const match = bundledSource.match(VITE_WORKER_ASSET_PATTERN)
 
   return match?.[1] || null
@@ -53,8 +59,10 @@ function resolveViteWorkerAssetPath({ bundledSource }) {
 
 /**
  * Строит URL worker-файла внутри реального npm package.
+ * @param {{ version: string, workerAssetPath: string }} params
  */
-function resolvePublishedWorkerAssetUrl({ version, workerAssetPath }) {
+function resolvePublishedWorkerAssetUrl(params) {
+  const { version, workerAssetPath } = params
   const workerFileName = workerAssetPath.split('/').pop()
 
   if (!workerFileName) {
@@ -66,6 +74,7 @@ function resolvePublishedWorkerAssetUrl({ version, workerAssetPath }) {
 
 /**
  * Подменяет только тот worker URL, который указывает на несуществующий asset в esm.sh.
+ * @param {string | URL} scriptUrl
  */
 function resolveWorkerScriptUrl(scriptUrl) {
   const scriptUrlString = String(scriptUrl)
@@ -82,6 +91,10 @@ function installPublishedWorkerProxy() {
   const NativeWorker = window.Worker
 
   window.Worker = class DemoWorker extends NativeWorker {
+    /**
+     * @param {string | URL} scriptUrl
+     * @param {WorkerOptions} [options]
+     */
     constructor(scriptUrl, options) {
       const workerScriptUrl = resolveWorkerScriptUrl(scriptUrl)
 
@@ -94,8 +107,10 @@ function installPublishedWorkerProxy() {
 
 /**
  * Готовит same-origin Blob URL для worker-а опубликованной версии.
+ * @param {{ moduleUrl: string, version: string }} params
  */
-async function preparePublishedWorkerProxy({ moduleUrl, version }) {
+async function preparePublishedWorkerProxy(params) {
+  const { moduleUrl, version } = params
   const entrySource = await fetchText(moduleUrl)
   const esmShBundleUrl = resolveEsmShBundleUrl({ entrySource, moduleUrl })
   const bundledSource = await fetchText(esmShBundleUrl)
@@ -114,8 +129,10 @@ async function preparePublishedWorkerProxy({ moduleUrl, version }) {
 
 /**
  * Загружает опубликованную npm-версию редактора через browser-ready ESM.
+ * @param {{ version: string }} params
  */
-async function loadPublishedEditorModule({ version }) {
+async function loadPublishedEditorModule(params) {
+  const { version } = params
   const moduleUrl = `${ESM_SH_ORIGIN}/${PACKAGE_NAME}@${version}`
 
   // esm.sh делает браузерный ESM из npm-пакета, но не отдаёт рядом файлы из dist/assets.

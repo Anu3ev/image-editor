@@ -1,4 +1,4 @@
-import type { EditorFontDefinition } from '../types/font'
+import type { EditorFontDefinition, EditorFontFaceDescriptors } from '../types/font'
 
 type MaybeDocument = typeof document | undefined
 
@@ -10,6 +10,23 @@ type DescriptorSnapshot = {
   variant: string
   featureSettings: string
   display: string
+}
+
+interface FontFaceSnapshot extends FontFace {
+  readonly variant?: string
+}
+
+interface FontDescriptorCssMap {
+  style?: string
+  weight?: string
+  stretch?: string
+  unicodeRange?: string
+  variant?: string
+  featureSettings?: string
+  display?: string
+  ascentOverride?: string
+  descentOverride?: string
+  lineGapOverride?: string
 }
 
 type InjectFontFaceParams = {
@@ -164,7 +181,7 @@ export default class FontManager {
     return family.trim().replace(/^['"]+|['"]+$/g, '').toLowerCase()
   }
 
-  private static getDescriptorSnapshot(descriptors?: Partial<FontFaceDescriptors>): DescriptorSnapshot {
+  private static getDescriptorSnapshot(descriptors?: Partial<EditorFontFaceDescriptors>): DescriptorSnapshot {
     const defaults = FontManager.descriptorDefaults
 
     return {
@@ -224,14 +241,15 @@ export default class FontManager {
         const existingFamily = FontManager.normalizeFamilyName(fontFace.family)
         if (existingFamily !== targetFamily) return
 
+        const fontFaceSnapshot = fontFace as FontFaceSnapshot
         const existingDescriptors = FontManager.getDescriptorSnapshot({
-          style: fontFace.style,
-          weight: fontFace.weight,
-          stretch: fontFace.stretch,
-          unicodeRange: fontFace.unicodeRange,
-          variant: fontFace.variant,
-          featureSettings: fontFace.featureSettings,
-          display: fontFace.display
+          style: fontFaceSnapshot.style,
+          weight: fontFaceSnapshot.weight,
+          stretch: fontFaceSnapshot.stretch,
+          unicodeRange: fontFaceSnapshot.unicodeRange,
+          variant: fontFaceSnapshot.variant,
+          featureSettings: fontFaceSnapshot.featureSettings,
+          display: fontFaceSnapshot.display
         })
 
         if (FontManager.areDescriptorSnapshotsEqual(descriptors, existingDescriptors)) {
@@ -246,10 +264,10 @@ export default class FontManager {
     return matched
   }
 
-  private static descriptorsToCss(descriptors?: FontFaceDescriptors): string[] {
+  private static descriptorsToCss(descriptors?: EditorFontFaceDescriptors): string[] {
     if (!descriptors) return []
 
-    const descriptorMap: Partial<Record<keyof FontFaceDescriptors, string>> = {
+    const descriptorMap = {
       style: 'font-style',
       weight: 'font-weight',
       stretch: 'font-stretch',
@@ -260,12 +278,12 @@ export default class FontManager {
       ascentOverride: 'ascent-override',
       descentOverride: 'descent-override',
       lineGapOverride: 'line-gap-override'
-    }
+    } satisfies FontDescriptorCssMap
 
     return Object.entries(descriptors)
       .filter(([, value]) => value !== undefined && value !== null && `${value}`.length > 0)
       .map(([key, value]) => {
-        const cssKey = descriptorMap[key as keyof FontFaceDescriptors] ?? key
+        const cssKey = descriptorMap[key as keyof FontDescriptorCssMap] ?? key
         return `${cssKey}: ${value};`
       })
   }
