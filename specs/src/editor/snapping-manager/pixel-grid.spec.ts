@@ -14,6 +14,16 @@ const SOURCE_BOUNDS = {
   centerY: 171
 } as const
 
+/** Source bounds прямоугольного изображения 1000x667 после scale 0.512 и округления source guides. */
+const RECTANGULAR_SOURCE_BOUNDS = {
+  left: 0,
+  top: 0,
+  right: 512,
+  bottom: 342,
+  centerX: 256,
+  centerY: 171
+} as const
+
 /** Внешние source-границы, которые test fixture может проверить без отдельной placement-модели. */
 const SOURCE_BOUNDARY_GUIDE_CASES = [
   {
@@ -87,6 +97,36 @@ describe('SnappingManager pixel-grid contract', () => {
     const displaySize = getRoundedDisplaySize({ target })
 
     expect(displaySize.width).toBe(333)
+    expect(displaySize.height).toBe(333)
+    expect(target.scaleX).toBeCloseTo(0.255616, 6)
+    expect(target.scaleY).toBeCloseTo(0.255616, 6)
+  })
+
+  it('для прямоугольного crop frame у внутреннего guide не выбирает меньший соседний пиксель', () => {
+    const target = createSourceScaledRect({
+      width: 1000,
+      height: 667,
+      scaleX: 0.25560881346968983,
+      scaleY: 0.25560881346968983,
+      sourceScaleX: 0.512,
+      sourceScaleY: 0.512,
+      sourceBounds: RECTANGULAR_SOURCE_BOUNDS
+    })
+
+    applyScalingStep({
+      target,
+      snapGuards: [
+        {
+          type: 'horizontal',
+          edge: 'bottom',
+          position: 171
+        }
+      ]
+    })
+
+    const displaySize = getRoundedDisplaySize({ target })
+
+    expect(displaySize.width).toBe(499)
     expect(displaySize.height).toBe(333)
     expect(target.scaleX).toBeCloseTo(0.255616, 6)
     expect(target.scaleY).toBeCloseTo(0.255616, 6)
