@@ -91,14 +91,12 @@ export const buildSpacingPatterns = ({
 }): { vertical: SpacingPattern[]; horizontal: SpacingPattern[] } => {
   const vertical = buildAxisSpacingPatterns({
     bounds,
-    axis: 'centerX',
     type: 'vertical',
     primaryStart: 'top',
     primaryEnd: 'bottom'
   })
   const horizontal = buildAxisSpacingPatterns({
     bounds,
-    axis: 'centerY',
     type: 'horizontal',
     primaryStart: 'left',
     primaryEnd: 'right'
