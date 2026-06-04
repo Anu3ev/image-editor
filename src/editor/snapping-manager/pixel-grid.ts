@@ -27,6 +27,9 @@ const SNAP_PLAN_DISPLAY_SIZE_EPSILON = 0.02
 /** Допуск сравнения scale source-плоскости с scene-плоскостью. */
 const SOURCE_DISPLAY_SCALE_EPSILON = 0.000001
 
+/** Допуск удержания source-scaled crop frame около внутреннего guide после pixel-grid movement. */
+const SOURCE_SCALED_GUIDE_HOLD_EPSILON = 1
+
 /** Активное ребро, которое уже было приклеено к guide текущим scaling snap. */
 export type ScalingStepSnapGuard = {
   type: 'vertical' | 'horizontal'
@@ -66,6 +69,7 @@ type ScalingStepPlacementPreserver = {
 /** Параметры выбора pixel-scale, который сохраняет активные snap guards. */
 type GuardedScalingStepParams = {
   target: FabricObject
+  transform?: Transform | null
   rawScaleX: number
   rawScaleY: number
   effectiveWidth: number
@@ -269,6 +273,7 @@ export function applyScalingStep({
   })
   const snappedScale = resolveSnappedScalingStep({
     target,
+    transform,
     rawScaleX,
     rawScaleY,
     effectiveWidth,
@@ -407,6 +412,7 @@ function shouldRoundScalingAxis({
  */
 function resolveSnappedScalingStep({
   target,
+  transform,
   rawScaleX,
   rawScaleY,
   effectiveWidth,
@@ -415,6 +421,7 @@ function resolveSnappedScalingStep({
   snapGuards
 }: {
   target: FabricObject
+  transform?: Transform | null
   rawScaleX: number
   rawScaleY: number
   effectiveWidth: number
@@ -433,6 +440,7 @@ function resolveSnappedScalingStep({
 
   return resolveGuardedScalingStep({
     target,
+    transform,
     rawScaleX,
     rawScaleY,
     effectiveWidth,
@@ -528,6 +536,7 @@ function resolveRoundedAxisScale({
  */
 function resolveGuardedScalingStep({
   target,
+  transform,
   rawScaleX,
   rawScaleY,
   effectiveWidth,
@@ -546,6 +555,16 @@ function resolveGuardedScalingStep({
       scaleY: rawScaleY
     }
   }
+
+  const sourceScaledGuideHoldCandidate = resolveSourceScaledGuideHoldCandidate({
+    target,
+    transform,
+    effectiveWidth,
+    effectiveHeight,
+    preservePlacement,
+    snapGuards
+  })
+  if (sourceScaledGuideHoldCandidate) return sourceScaledGuideHoldCandidate
 
   const candidates = collectScalingStepCandidates({
     rawScaleX,
@@ -572,6 +591,119 @@ function resolveGuardedScalingStep({
   })
 
   return guardedCandidate ?? fallbackScale
+}
+
+/**
+ * Возвращает scale со старта Fabric transform, если crop frame уже удерживался у внутреннего source guide.
+ */
+function resolveSourceScaledGuideHoldCandidate({
+  target,
+  transform,
+  effectiveWidth,
+  effectiveHeight,
+  preservePlacement,
+  snapGuards
+}: {
+  target: FabricObject
+  transform?: Transform | null
+  effectiveWidth: number
+  effectiveHeight: number
+  preservePlacement?: ScalingStepPlacementPreserver
+  snapGuards: ScalingStepSnapGuard[]
+}): ScalingStepCandidate | null {
+  if (!shouldPreferInsideScalingCandidate({ target, snapGuards })) return null
+
+  const {
+    scaleX,
+    scaleY
+  } = transform?.original ?? {}
+  if (typeof scaleX !== 'number' || typeof scaleY !== 'number') return null
+  if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY)) return null
+
+  const candidate = {
+    scaleX,
+    scaleY
+  }
+  const isNearGuide = isScalingCandidateNearSnapGuards({
+    target,
+    candidate,
+    preservePlacement,
+    snapGuards
+  })
+  const isInsideSourceGuideLimit = isScalingCandidateInsideSourceGuideDisplayLimits({
+    target,
+    candidate,
+    effectiveWidth,
+    effectiveHeight,
+    snapGuards
+  })
+
+  if (!isNearGuide) return null
+  if (!isInsideSourceGuideLimit) return null
+
+  return candidate
+}
+
+/**
+ * Проверяет, что candidate остаётся около guide, от которого уже удерживался scale.
+ */
+function isScalingCandidateNearSnapGuards({
+  target,
+  candidate,
+  preservePlacement,
+  snapGuards
+}: {
+  target: FabricObject
+  candidate: ScalingStepCandidate
+  preservePlacement?: ScalingStepPlacementPreserver
+  snapGuards: ScalingStepSnapGuard[]
+}): boolean {
+  const bounds = readScalingStepCandidateBounds({
+    target,
+    candidate,
+    preservePlacement
+  })
+  if (!bounds) return false
+
+  for (const snapGuard of snapGuards) {
+    const distance = getObjectBoundsSnapGuardDistance({
+      bounds,
+      snapGuard
+    })
+    if (distance > SOURCE_SCALED_GUIDE_HOLD_EPSILON) return false
+  }
+
+  return true
+}
+
+/**
+ * Проверяет, что удерживаемый display-size не выходит за source-часть по внутреннюю сторону guide.
+ */
+function isScalingCandidateInsideSourceGuideDisplayLimits({
+  target,
+  candidate,
+  effectiveWidth,
+  effectiveHeight,
+  snapGuards
+}: {
+  target: FabricObject
+  candidate: ScalingStepCandidate
+  effectiveWidth: number
+  effectiveHeight: number
+  snapGuards: ScalingStepSnapGuard[]
+}): boolean {
+  for (const snapGuard of snapGuards) {
+    const displaySize = snapGuard.type === 'vertical'
+      ? Math.abs(candidate.scaleX) * effectiveWidth
+      : Math.abs(candidate.scaleY) * effectiveHeight
+    if (!isInsideSourceGuideDisplayLimit({
+      target,
+      displaySize,
+      snapGuard
+    })) return false
+  }
+
+  return true
 }
 
 /**

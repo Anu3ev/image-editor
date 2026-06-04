@@ -396,6 +396,8 @@ export default class SnappingManager {
       originY,
       scaleX,
       scaleY,
+      originalScaleX: transform.original?.scaleX,
+      originalScaleY: transform.original?.scaleY,
       shouldUseUniformScaleSnap: shouldUseUniformScale,
       verticalSnap: snapState.verticalSnap,
       horizontalSnap: snapState.horizontalSnap

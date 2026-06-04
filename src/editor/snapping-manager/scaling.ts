@@ -29,6 +29,9 @@ type AxisSnapResult = {
 /** Допуск сравнения uniform scale-factor для осей одного scaling-step. */
 const UNIFORM_SCALE_FACTOR_EPSILON = 0.000001
 
+/** Допуск удержания crop frame у guide, рядом с которым начался live scale. */
+const SOURCE_SCALED_GUIDE_HOLD_EPSILON = 1
+
 export type ScalingAxisState = {
   isCornerHandle: boolean
   shouldSnapX: boolean
@@ -71,6 +74,8 @@ type ScaleSnapContext = {
   originY: Transform['originY']
   scaleX: number
   scaleY: number
+  originalScaleX?: number | null
+  originalScaleY?: number | null
   verticalSnap: AxisSnapResult
   horizontalSnap: AxisSnapResult
 }
@@ -279,11 +284,14 @@ export function resolveTextResizeSnapPlan({
 }
 
 function resolveUniformScaleUpdatePlan({
+  target,
   bounds,
   originX,
   originY,
   scaleX,
   scaleY,
+  originalScaleX,
+  originalScaleY,
   verticalSnap,
   horizontalSnap
 }: ScaleSnapContext): ScaleUpdatePlan | null {
@@ -302,13 +310,286 @@ function resolveUniformScaleUpdatePlan({
     scaleFactor,
     snapGuards
   } = uniformResult
+  const nextScaleFactor = resolveSourceScaledGuideHoldScaleFactor({
+    target,
+    bounds,
+    originX,
+    originY,
+    scaleX,
+    scaleY,
+    originalScaleX,
+    originalScaleY,
+    snapGuards
+  }) ?? scaleFactor
 
   return {
     guides: [guide],
     snapGuards,
-    nextScaleX: scaleX * scaleFactor,
-    nextScaleY: scaleY * scaleFactor
+    nextScaleX: scaleX * nextScaleFactor,
+    nextScaleY: scaleY * nextScaleFactor
   }
+}
+
+function resolveSourceScaledGuideHoldScaleFactor({
+  target,
+  bounds,
+  originX,
+  originY,
+  scaleX,
+  scaleY,
+  originalScaleX,
+  originalScaleY,
+  snapGuards
+}: {
+  target: FabricObject
+  bounds: Bounds
+  originX: Transform['originX']
+  originY: Transform['originY']
+  scaleX: number
+  scaleY: number
+  originalScaleX?: number | null
+  originalScaleY?: number | null
+  snapGuards: ScalingStepSnapGuard[]
+}): number | null {
+  if (!isSourceScaledCropFrame({ target })) return null
+
+  const scaleFactor = resolveOriginalUniformScaleFactor({
+    scaleX,
+    scaleY,
+    originalScaleX,
+    originalScaleY,
+    snapGuards
+  })
+  if (scaleFactor === null) return null
+
+  const originalBounds = resolveUniformScaledBounds({
+    bounds,
+    originX,
+    originY,
+    scaleFactor
+  })
+  if (!areBoundsNearSnapGuards({
+    bounds: originalBounds,
+    snapGuards
+  })) return null
+
+  return scaleFactor
+}
+
+function isSourceScaledCropFrame({ target }: { target: FabricObject }): boolean {
+  const cropTarget = target as CropFrameSnapTarget
+
+  return Boolean(cropTarget.cropSource)
+}
+
+function resolveOriginalUniformScaleFactor({
+  scaleX,
+  scaleY,
+  originalScaleX,
+  originalScaleY,
+  snapGuards
+}: {
+  scaleX: number
+  scaleY: number
+  originalScaleX?: number | null
+  originalScaleY?: number | null
+  snapGuards: ScalingStepSnapGuard[]
+}): number | null {
+  const scaleFactors: number[] = []
+
+  for (const snapGuard of snapGuards) {
+    const scaleFactor = resolveOriginalScaleFactorForSnapGuard({
+      snapGuard,
+      scaleX,
+      scaleY,
+      originalScaleX,
+      originalScaleY
+    })
+    if (scaleFactor === null) return null
+
+    scaleFactors.push(scaleFactor)
+  }
+
+  const [scaleFactor] = scaleFactors
+  if (scaleFactor === undefined) return null
+  if (!Number.isFinite(scaleFactor) || scaleFactor <= 0) return null
+
+  for (const nextScaleFactor of scaleFactors) {
+    if (Math.abs(nextScaleFactor - scaleFactor) > UNIFORM_SCALE_FACTOR_EPSILON) return null
+  }
+
+  return scaleFactor
+}
+
+function resolveOriginalScaleFactorForSnapGuard({
+  snapGuard,
+  scaleX,
+  scaleY,
+  originalScaleX,
+  originalScaleY
+}: {
+  snapGuard: ScalingStepSnapGuard
+  scaleX: number
+  scaleY: number
+  originalScaleX?: number | null
+  originalScaleY?: number | null
+}): number | null {
+  const currentScale = snapGuard.type === 'vertical' ? scaleX : scaleY
+  const originalScale = snapGuard.type === 'vertical' ? originalScaleX : originalScaleY
+
+  if (typeof originalScale !== 'number') return null
+  if (!Number.isFinite(originalScale) || !Number.isFinite(currentScale)) return null
+  if (Math.abs(currentScale) <= UNIFORM_SCALE_FACTOR_EPSILON) return null
+
+  return originalScale / currentScale
+}
+
+function resolveUniformScaledBounds({
+  bounds,
+  originX,
+  originY,
+  scaleFactor
+}: {
+  bounds: Bounds
+  originX: Transform['originX']
+  originY: Transform['originY']
+  scaleFactor: number
+}): Bounds {
+  const horizontalBounds = resolveUniformScaledHorizontalBounds({
+    bounds,
+    originX,
+    scaleFactor
+  })
+  const verticalBounds = resolveUniformScaledVerticalBounds({
+    bounds,
+    originY,
+    scaleFactor
+  })
+
+  return {
+    ...horizontalBounds,
+    ...verticalBounds,
+    centerX: horizontalBounds.left + ((horizontalBounds.right - horizontalBounds.left) / 2),
+    centerY: verticalBounds.top + ((verticalBounds.bottom - verticalBounds.top) / 2)
+  }
+}
+
+function resolveUniformScaledHorizontalBounds({
+  bounds,
+  originX,
+  scaleFactor
+}: {
+  bounds: Bounds
+  originX: Transform['originX']
+  scaleFactor: number
+}): Pick<Bounds, 'left' | 'right'> {
+  const {
+    left,
+    right,
+    centerX
+  } = bounds
+  const width = (right - left) * scaleFactor
+  const resolvedOriginX = resolveScaleOriginX({ originX })
+
+  if (resolvedOriginX === 'right') {
+    return {
+      left: right - width,
+      right
+    }
+  }
+  if (resolvedOriginX === 'center') {
+    return {
+      left: centerX - (width / 2),
+      right: centerX + (width / 2)
+    }
+  }
+
+  return {
+    left,
+    right: left + width
+  }
+}
+
+function resolveUniformScaledVerticalBounds({
+  bounds,
+  originY,
+  scaleFactor
+}: {
+  bounds: Bounds
+  originY: Transform['originY']
+  scaleFactor: number
+}): Pick<Bounds, 'top' | 'bottom'> {
+  const {
+    top,
+    bottom,
+    centerY
+  } = bounds
+  const height = (bottom - top) * scaleFactor
+  const resolvedOriginY = resolveScaleOriginY({ originY })
+
+  if (resolvedOriginY === 'bottom') {
+    return {
+      top: bottom - height,
+      bottom
+    }
+  }
+  if (resolvedOriginY === 'center') {
+    return {
+      top: centerY - (height / 2),
+      bottom: centerY + (height / 2)
+    }
+  }
+
+  return {
+    top,
+    bottom: top + height
+  }
+}
+
+function resolveScaleOriginX({ originX }: { originX: Transform['originX'] }): 'left' | 'center' | 'right' {
+  if (originX === 'center' || originX === 'right') return originX
+
+  return 'left'
+}
+
+function resolveScaleOriginY({ originY }: { originY: Transform['originY'] }): 'top' | 'center' | 'bottom' {
+  if (originY === 'center' || originY === 'bottom') return originY
+
+  return 'top'
+}
+
+function areBoundsNearSnapGuards({
+  bounds,
+  snapGuards
+}: {
+  bounds: Bounds
+  snapGuards: ScalingStepSnapGuard[]
+}): boolean {
+  for (const snapGuard of snapGuards) {
+    const distance = getBoundsSnapGuardDistance({
+      bounds,
+      snapGuard
+    })
+    if (distance > SOURCE_SCALED_GUIDE_HOLD_EPSILON) return false
+  }
+
+  return true
+}
+
+function getBoundsSnapGuardDistance({
+  bounds,
+  snapGuard
+}: {
+  bounds: Bounds
+  snapGuard: ScalingStepSnapGuard
+}): number {
+  const { edge, position } = snapGuard
+
+  if (edge === 'left') return Math.abs(bounds.left - position)
+  if (edge === 'right') return Math.abs(bounds.right - position)
+  if (edge === 'top') return Math.abs(bounds.top - position)
+
+  return Math.abs(bounds.bottom - position)
 }
 
 function resolveAxisScaleUpdatePlan(params: ScaleSnapContext): ScaleUpdatePlan | null {
