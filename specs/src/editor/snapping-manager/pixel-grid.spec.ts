@@ -1,3 +1,5 @@
+import type { Transform } from 'fabric'
+
 import { applyScalingStep } from '../../../../src/editor/snapping-manager/pixel-grid'
 import {
   createSourceScaledRect,
@@ -130,5 +132,101 @@ describe('SnappingManager pixel-grid contract', () => {
     expect(displaySize.height).toBe(333)
     expect(target.scaleX).toBeCloseTo(0.255616, 6)
     expect(target.scaleY).toBeCloseTo(0.255616, 6)
+  })
+
+  it('для source-scaled crop frame у внутренних guide возвращает scale со старта transform', () => {
+    const rawScale = 0.21959820089955023
+    const originalScale = 0.22030584707646178
+    const target = createSourceScaledRect({
+      width: 1000,
+      height: 667,
+      scaleX: rawScale,
+      scaleY: rawScale,
+      sourceScaleX: 0.512,
+      sourceScaleY: 0.512,
+      left: 256 - (1000 * rawScale),
+      top: 195,
+      sourceBounds: RECTANGULAR_SOURCE_BOUNDS
+    })
+    const transform = {
+      scaleX: target.scaleX,
+      scaleY: target.scaleY,
+      original: {
+        scaleX: originalScale,
+        scaleY: originalScale
+      }
+    } as Transform
+
+    applyScalingStep({
+      target,
+      transform,
+      snapGuards: [
+        {
+          type: 'vertical',
+          edge: 'right',
+          position: 256
+        },
+        {
+          type: 'horizontal',
+          edge: 'top',
+          position: 195
+        }
+      ]
+    })
+
+    const displaySize = getRoundedDisplaySize({ target })
+
+    expect(displaySize.width).toBe(430)
+    expect(displaySize.height).toBe(287)
+    expect(target.scaleX).toBeCloseTo(originalScale, 6)
+    expect(transform.scaleX).toBeCloseTo(originalScale, 6)
+  })
+
+  it('для source-scaled crop frame у внутренних guide не возвращает исходный scale при переходе на следующий source-пиксель', () => {
+    const rawScale = 0.21959820089955023
+    const originalScale = 0.22030584707646178
+    const target = createSourceScaledRect({
+      width: 1000,
+      height: 667,
+      scaleX: rawScale,
+      scaleY: rawScale,
+      sourceScaleX: 0.512,
+      sourceScaleY: 0.512,
+      left: 220 - (1000 * rawScale),
+      top: 195,
+      sourceBounds: RECTANGULAR_SOURCE_BOUNDS
+    })
+    const transform = {
+      scaleX: target.scaleX,
+      scaleY: target.scaleY,
+      original: {
+        scaleX: originalScale,
+        scaleY: originalScale
+      }
+    } as Transform
+
+    applyScalingStep({
+      target,
+      transform,
+      snapGuards: [
+        {
+          type: 'vertical',
+          edge: 'right',
+          position: 220
+        },
+        {
+          type: 'horizontal',
+          edge: 'top',
+          position: 195
+        }
+      ]
+    })
+
+    const displaySize = getRoundedDisplaySize({ target })
+
+    expect(displaySize.width).toBe(428)
+    expect(displaySize.height).toBe(285)
+    expect(target.scaleX).not.toBeCloseTo(originalScale, 6)
+    expect(transform.scaleX).not.toBeCloseTo(originalScale, 6)
   })
 })

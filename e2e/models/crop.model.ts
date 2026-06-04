@@ -89,6 +89,12 @@ type CropFrameControlSourceDragContinuationParams = {
   pointerSteps?: number
 }
 
+/** Параметры переноса граней active crop frame к центральным guide монтажной области. */
+type CropFrameMontageCenterGuideMoveParams = {
+  horizontalEdge: 'left' | 'right'
+  verticalEdge: 'top' | 'bottom'
+}
+
 /** Параметры пошагового resize crop frame до набора live-размеров. */
 type CropFrameResizeToSizesParams = {
   control: CropControlKey
@@ -104,6 +110,12 @@ interface CreatedCropImage extends EditorObjectInfo {
 /** Параметры подготовки image crop для созданного изображения. */
 type ImageCropSetupParams = {
   image: CreatedCropImage
+}
+
+/** Параметры подготовки пропорционального image crop у центральных guide монтажной области. */
+type ProportionalImageCropAtMontageCenterGuidesParams = ImageCropSetupParams & {
+  size: CropSizeInfo
+  alignedEdges: CropFrameMontageCenterGuideMoveParams
 }
 
 /** Параметры переноса active image crop к правой границе source. */
@@ -292,6 +304,34 @@ export class CropModel {
     expect(startedState.options.preserveAspectRatio).toBe(true)
 
     return this.moveActiveCropFrameToImageRightEdge({ image })
+  }
+
+  /** Включает пропорциональный image crop, уменьшает его и переносит выбранные грани к центру монтажной области. */
+  async startProportionalImageCropAtMontageCenterGuides({
+    image,
+    size,
+    alignedEdges
+  }: ProportionalImageCropAtMontageCenterGuidesParams): Promise<CropStateInfo> {
+    const startedState = await this.startImageCrop({
+      id: image.id,
+      allowFrameOverflow: false,
+      preserveAspectRatio: true
+    })
+    const resizedState = await this.dragFrameFromControlToSize({
+      control: 'br',
+      size
+    })
+    const committedState = await this.finishFrameResize()
+    const movedState = await this.moveFrameEdgesToMontageCenterGuides(alignedEdges)
+
+    expect(startedState.options.allowFrameOverflow).toBe(false)
+    expect(startedState.options.preserveAspectRatio).toBe(true)
+    expect(Math.round(resizedState.rect.width)).toBe(Math.round(size.width))
+    expect(Math.round(resizedState.rect.height)).toBe(Math.round(size.height))
+    expect(Math.round(committedState.rect.width)).toBe(Math.round(resizedState.rect.width))
+    expect(Math.round(committedState.rect.height)).toBe(Math.round(resizedState.rect.height))
+
+    return movedState
   }
 
   /** Переносит active crop frame к правой границе изображения и завершает drag. */
@@ -722,6 +762,53 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
 
     return this.requireState()
+  }
+
+  /** Переносит выбранные грани active crop frame к центральным guide монтажной области. */
+  async moveFrameEdgesToMontageCenterGuides(
+    params: CropFrameMontageCenterGuideMoveParams
+  ): Promise<CropStateInfo> {
+    const stateBeforeMove = await this.requireState()
+    const delta = await this.page.evaluate((payload) => {
+      const { editor } = window as any
+      const cropState = editor.cropManager.getState()
+      if (!cropState) return null
+
+      const { frame } = cropState
+      const frameBounds = frame.getObjectSnappingBounds?.()
+      if (!frameBounds) return null
+
+      editor.montageArea.setCoords()
+      const montageBounds = editor.montageArea.getBoundingRect(false, true)
+      const montageCenterX = montageBounds.left + (montageBounds.width / 2)
+      const montageCenterY = montageBounds.top + (montageBounds.height / 2)
+      const frameEdgeX = payload.horizontalEdge === 'right'
+        ? frameBounds.right
+        : frameBounds.left
+      const frameEdgeY = payload.verticalEdge === 'bottom'
+        ? frameBounds.bottom
+        : frameBounds.top
+
+      return {
+        deltaX: montageCenterX - frameEdgeX,
+        deltaY: montageCenterY - frameEdgeY
+      }
+    }, params)
+
+    expect(delta, 'нужно вычислить смещение crop frame к центральным guide').not.toBeNull()
+    if (!delta) {
+      throw new Error('Не удалось вычислить смещение crop frame к центральным guide')
+    }
+
+    const liveState = await this.dragFrameByOffset(delta)
+    const movedState = await this.finishFrameMove()
+
+    expect(Math.round(liveState.rect.width)).toBe(Math.round(stateBeforeMove.rect.width))
+    expect(Math.round(liveState.rect.height)).toBe(Math.round(stateBeforeMove.rect.height))
+    expect(Math.round(movedState.rect.width)).toBe(Math.round(stateBeforeMove.rect.width))
+    expect(Math.round(movedState.rect.height)).toBe(Math.round(stateBeforeMove.rect.height))
+
+    return movedState
   }
 
   /** Выполняет реальный двойной клик по центру активной crop-области. */
