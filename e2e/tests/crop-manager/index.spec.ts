@@ -55,6 +55,84 @@ test.describe('Crop mode', () => {
     })
   })
 
+  test('при Shift resize можно переключить active crop в свободный режим без повторной фиксации пропорций', async({ crop }) => {
+    const initialState = await test.step('Войти в crop с квадратной областью', async() => {
+      return crop.startCanvasCrop({
+        aspectRatio: {
+          width: 1,
+          height: 1
+        },
+        preserveAspectRatio: true
+      })
+    })
+
+    await test.step('Подписаться на первый свободный live resize и переключить base режим', async() => {
+      await crop.switchToFreeResizeOnNextFreeLiveResize()
+    })
+
+    const switchedState = await test.step('Потянуть область из угла с Shift и переключить base режим', async() => {
+      return crop.dragFrameFromControl({
+        control: 'br',
+        widthRatio: 1.45,
+        heightRatio: 1.1,
+        shiftKey: true
+      })
+    })
+
+    await test.step('Проверить что первый Shift resize остался свободным', async() => {
+      const initialRatio = initialState.rect.width / initialState.rect.height
+      const switchedRatio = switchedState.rect.width / switchedState.rect.height
+
+      expect(switchedState.options.preserveAspectRatio).toBe(false)
+      expect(Math.abs(switchedRatio - initialRatio)).toBeGreaterThan(0.1)
+    })
+
+    const continuedState = await test.step('Продолжить тот же Shift drag после переключения base режима', async() => {
+      return crop.continueFrameResizeFromControl({
+        control: 'br',
+        widthRatio: 1.1,
+        heightRatio: 1.4,
+        shiftKey: true
+      })
+    })
+
+    await test.step('Проверить что Shift не включил пропорциональный resize обратно', async() => {
+      const switchedRatio = switchedState.rect.width / switchedState.rect.height
+      const continuedRatio = continuedState.rect.width / continuedState.rect.height
+
+      expect(continuedState.options.preserveAspectRatio).toBe(false)
+      expect(Math.abs(continuedRatio - switchedRatio)).toBeGreaterThan(0.05)
+    })
+
+    const finishedState = await test.step('Завершить Shift drag', async() => {
+      return crop.finishFrameResize()
+    })
+
+    await test.step('Проверить что после mouseup base режим остался свободным', async() => {
+      const continuedRatio = continuedState.rect.width / continuedState.rect.height
+      const finishedRatio = finishedState.rect.width / finishedState.rect.height
+
+      expect(finishedState.options.preserveAspectRatio).toBe(false)
+      expect(finishedRatio).toBeCloseTo(continuedRatio, 3)
+    })
+
+    const nextFreeState = await test.step('Потянуть область без Shift после завершения предыдущего drag', async() => {
+      return crop.resizeFrameFromControl({
+        control: 'br',
+        widthRatio: 1.08,
+        heightRatio: 1.35
+      })
+    })
+
+    await test.step('Проверить что после отпускания Shift resize всё ещё свободный', async() => {
+      const finishedRatio = finishedState.rect.width / finishedState.rect.height
+      const nextRatio = nextFreeState.rect.width / nextFreeState.rect.height
+
+      expect(nextFreeState.options.preserveAspectRatio).toBe(false)
+      expect(Math.abs(nextRatio - finishedRatio)).toBeGreaterThan(0.05)
+    })
+  })
+
   test('resize правой стороны сохраняет пропорции без Shift и снимает ограничение с Shift', async({ crop }) => {
     const initialState = await test.step('Войти в crop с квадратной областью', async() => {
       return crop.startCanvasCrop({
@@ -265,11 +343,11 @@ test.describe('Crop mode', () => {
       })
 
       const baseCursor = await test.step('Навести курсор на side-control без Shift', async() => {
-        return crop.getFrameControlCursor({ control })
+        return crop.frameControls.getControlCursor({ control })
       })
 
       const shiftedCursor = await test.step('Зажать Shift и повторно навести курсор на тот же control', async() => {
-        return crop.getFrameControlCursor({
+        return crop.frameControls.getControlCursor({
           control,
           shiftKey: true
         })
@@ -292,13 +370,13 @@ test.describe('Crop mode', () => {
       })
 
       const freeBaseCursor = await test.step('Навести курсор на side-control без Shift при preserveAspectRatio = false', async() => {
-        return crop.getFrameControlCursor({ control })
+        return crop.frameControls.getControlCursor({ control })
       })
 
       const freeShiftedCursor = await test.step(
         'Зажать Shift и повторно навести курсор на тот же control при preserveAspectRatio = false',
         async() => {
-          return crop.getFrameControlCursor({
+          return crop.frameControls.getControlCursor({
             control,
             shiftKey: true
           })

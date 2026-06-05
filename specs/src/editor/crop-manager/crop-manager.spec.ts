@@ -5,6 +5,13 @@ import { CropFrame } from '../../../../src/editor/crop-manager/domain/crop-frame
 import CropManager from '../../../../src/editor/crop-manager'
 import { createEditorStub } from '../../../test-utils/editor/editor-stub'
 
+/** Активный CropManager с минимальной runtime-сессией. */
+type ActiveCropManagerFixture = {
+  cropManager: CropManager
+  session: CropSession
+}
+
+/** Создаёт минимальную runtime-сессию crop manager для unit-проверок. */
 const createMinimalSession = ({
   preserveAspectRatio = true
 }: {
@@ -31,7 +38,25 @@ const createMinimalSession = ({
     interactivity: [],
     sourceBoundFrameState: null,
     effectivePreserveAspectRatio: preserveAspectRatio
-  } as CropSession
+  }
+}
+
+/** Создаёт CropManager с активной минимальной runtime-сессией. */
+const createActiveCropManager = ({
+  preserveAspectRatio = true
+}: {
+  preserveAspectRatio?: boolean
+} = {}): ActiveCropManagerFixture => {
+  const editor = createEditorStub() as ImageEditor
+  const cropManager = new CropManager({ editor })
+  const session = createMinimalSession({ preserveAspectRatio })
+
+  cropManager['_session'] = session
+
+  return {
+    cropManager,
+    session
+  }
 }
 
 describe('CropManager', () => {
@@ -45,35 +70,69 @@ describe('CropManager', () => {
     })
 
     it('возвращает кэшированное значение из активной сессии', () => {
-      const editor = createEditorStub() as ImageEditor
-      const cropManager = new CropManager({ editor })
-      const session = createMinimalSession({ preserveAspectRatio: false });
-      (cropManager as any)._session = session
+      const { cropManager } = createActiveCropManager({
+        preserveAspectRatio: false
+      })
 
       expect(cropManager.effectivePreserveAspectRatio).toBe(false)
       expect(cropManager.isActive).toBe(true)
     })
 
     it('обновляется на false после setPreserveAspectRatio(false)', () => {
-      const editor = createEditorStub() as ImageEditor
-      const cropManager = new CropManager({ editor })
-      const session = createMinimalSession({ preserveAspectRatio: true });
-      (cropManager as any)._session = session
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: true
+      })
+
       cropManager.setPreserveAspectRatio({ preserveAspectRatio: false })
 
       expect(cropManager.effectivePreserveAspectRatio).toBe(false)
       expect(session.options.preserveAspectRatio).toBe(false)
     })
+
+    it('сохраняет текущий resize-режим при keepCurrentResizeMode внутри live resize change', () => {
+      const {
+        cropManager,
+        session
+      } = createActiveCropManager({
+        preserveAspectRatio: true
+      })
+
+      session.effectivePreserveAspectRatio = false
+      cropManager['_canKeepCurrentResizeMode'] = true
+      cropManager.setPreserveAspectRatio({
+        preserveAspectRatio: false,
+        keepCurrentResizeMode: true
+      })
+
+      expect(session.options.preserveAspectRatio).toBe(false)
+      expect(cropManager.effectivePreserveAspectRatio).toBe(false)
+      expect((session.frame as CropFrame).cropActiveResizePreserveAspectRatio).toBe(false)
+    })
+
+    it('игнорирует keepCurrentResizeMode вне live resize change', () => {
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: false
+      })
+
+      session.effectivePreserveAspectRatio = true
+      cropManager.setPreserveAspectRatio({
+        preserveAspectRatio: false,
+        keepCurrentResizeMode: true
+      })
+
+      expect(session.options.preserveAspectRatio).toBe(false)
+      expect(cropManager.effectivePreserveAspectRatio).toBe(false)
+      expect((session.frame as CropFrame).cropActiveResizePreserveAspectRatio).toBeNull()
+    })
   })
 
   describe('_getEffectivePreserveAspectRatio', () => {
     it('возвращает базовое значение без зажатого Shift', () => {
-      const editor = createEditorStub() as ImageEditor
-      const cropManager = new CropManager({ editor })
-      const session = createMinimalSession({ preserveAspectRatio: true });
-      (cropManager as any)._session = session
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: true
+      })
 
-      const result = (cropManager as any)._getEffectivePreserveAspectRatio({
+      const result = cropManager['_getEffectivePreserveAspectRatio']({
         e: { shiftKey: false }
       })
 
@@ -82,12 +141,11 @@ describe('CropManager', () => {
     })
 
     it('инвертирует базовое значение при зажатом Shift', () => {
-      const editor = createEditorStub() as ImageEditor
-      const cropManager = new CropManager({ editor })
-      const session = createMinimalSession({ preserveAspectRatio: true });
-      (cropManager as any)._session = session
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: true
+      })
 
-      const result = (cropManager as any)._getEffectivePreserveAspectRatio({
+      const result = cropManager['_getEffectivePreserveAspectRatio']({
         e: { shiftKey: true }
       })
 
@@ -96,12 +154,11 @@ describe('CropManager', () => {
     })
 
     it('возвращает true при source-clamped transform без явного флага', () => {
-      const editor = createEditorStub() as ImageEditor
-      const cropManager = new CropManager({ editor })
-      const session = createMinimalSession({ preserveAspectRatio: false });
-      (cropManager as any)._session = session
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: false
+      })
 
-      const result = (cropManager as any)._getEffectivePreserveAspectRatio({
+      const result = cropManager['_getEffectivePreserveAspectRatio']({
         transform: { cropSourceScaleClamped: true }
       })
 
@@ -113,7 +170,7 @@ describe('CropManager', () => {
       const editor = createEditorStub() as ImageEditor
       const cropManager = new CropManager({ editor })
 
-      const result = (cropManager as any)._getEffectivePreserveAspectRatio()
+      const result = cropManager['_getEffectivePreserveAspectRatio']()
 
       expect(result).toBe(true)
       expect(cropManager.isActive).toBe(false)

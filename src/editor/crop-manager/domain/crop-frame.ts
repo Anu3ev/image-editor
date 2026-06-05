@@ -34,6 +34,7 @@ interface CropFrameOptions extends Partial<RectProps> {
  */
 export interface CropFrameResizeTarget extends FabricObject {
   preserveAspectRatio?: boolean
+  cropActiveResizePreserveAspectRatio?: boolean | null
 }
 
 /**
@@ -66,6 +67,12 @@ export class CropFrame extends Rect {
   public preserveAspectRatio: boolean
 
   /**
+   * Фактический режим сохранения пропорций текущего live resize.
+   * null означает, что режим считается из base preserveAspectRatio и Shift.
+   */
+  public cropActiveResizePreserveAspectRatio: boolean | null
+
+  /**
    * Показывать ли сетку внутри crop frame.
    */
   private readonly _showGrid: boolean
@@ -91,6 +98,7 @@ export class CropFrame extends Rect {
     this.cropSourceScaleX = sourceScaleX
     this.cropSourceScaleY = sourceScaleY
     this.preserveAspectRatio = preserveAspectRatio
+    this.cropActiveResizePreserveAspectRatio = null
   }
 
   /**
@@ -179,6 +187,23 @@ export function createCropFrame({
   applyCropResizeControls({ target: frame })
 
   return frame
+}
+
+/**
+ * Синхронизирует transient live resize override у crop frame.
+ */
+export function setCropFrameActiveResizePreserveAspectRatio({
+  frame,
+  preserveAspectRatio
+}: {
+  frame: Rect
+  preserveAspectRatio: boolean | null
+}): void {
+  if (!(frame instanceof CropFrame)) {
+    throw new Error('Crop session frame должен быть CropFrame')
+  }
+
+  frame.cropActiveResizePreserveAspectRatio = preserveAspectRatio
 }
 
 /**
