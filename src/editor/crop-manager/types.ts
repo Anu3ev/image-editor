@@ -22,6 +22,11 @@ export type CropAspectRatio = {
 }
 
 /**
+ * Способ масштабирования crop frame к монтажной области.
+ */
+export type CropFrameFitType = 'contain' | 'cover'
+
+/**
  * Опции старта кропа монтажной области.
  */
 export type StartCanvasCropOptions = {

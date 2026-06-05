@@ -8,6 +8,7 @@ import { createEditorStub } from '../../../test-utils/editor/editor-stub'
 /** Активный CropManager с минимальной runtime-сессией. */
 type ActiveCropManagerFixture = {
   cropManager: CropManager
+  editor: ImageEditor
   session: CropSession
 }
 
@@ -61,6 +62,7 @@ const createActiveCropManager = ({
 
   return {
     cropManager,
+    editor,
     session
   }
 }
@@ -207,6 +209,37 @@ describe('CropManager', () => {
 
       expect(result).toBe(true)
       expect(cropManager.isActive).toBe(false)
+    })
+  })
+
+  describe('fitFrame', () => {
+    it('масштабирует active crop через transformManager и возвращает crop state', () => {
+      const {
+        cropManager,
+        editor,
+        session
+      } = createActiveCropManager()
+
+      const state = cropManager.fitFrame({ type: 'cover' })
+
+      expect(editor.transformManager.fitObject).toHaveBeenCalledWith({
+        object: session.frame,
+        type: 'cover',
+        withoutSave: true,
+        fitAsOneObject: true
+      })
+      expect(state?.frame).toBe(session.frame)
+      expect(editor.canvas.requestRenderAll).toHaveBeenCalled()
+    })
+
+    it('возвращает null без active crop mode', () => {
+      const editor = createEditorStub() as ImageEditor
+      const cropManager = new CropManager({ editor })
+
+      const state = cropManager.fitFrame({ type: 'contain' })
+
+      expect(state).toBeNull()
+      expect(editor.transformManager.fitObject).not.toHaveBeenCalled()
     })
   })
 })
