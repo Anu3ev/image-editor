@@ -883,6 +883,49 @@ test.describe('Crop mode', () => {
     })
   })
 
+  test('fit crop изображения не выпускает область за изображение, когда overflow выключен', async({
+    crop,
+    images
+  }) => {
+    const image = await test.step('Добавить изображение меньше монтажной области', async() => {
+      return images.checkCreation({
+        imageObject: await images.addFilledImage({
+          width: 120,
+          height: 90
+        })
+      })
+    })
+
+    await test.step('Войти в crop изображения с выключенным overflow', async() => {
+      const cropState = await crop.startImageCrop({
+        id: image.id,
+        size: {
+          width: 80,
+          height: 60
+        },
+        allowFrameOverflow: false
+      })
+
+      expect(cropState.options.allowFrameOverflow).toBe(false)
+      expect(cropState.rect.width).toBe(80)
+      expect(cropState.rect.height).toBe(60)
+    })
+
+    for (const type of ['cover', 'contain'] as const) {
+      const cropState = await test.step(`Нажать ${type} для active crop`, async() => {
+        return crop.fitFrame({ type })
+      })
+
+      await test.step(`Проверить что ${type} остался внутри изображения`, async() => {
+        expect(cropState.options.allowFrameOverflow).toBe(false)
+        expect(cropState.rect.left).toBeGreaterThanOrEqual(-0.5)
+        expect(cropState.rect.top).toBeGreaterThanOrEqual(-0.5)
+        expect(cropState.rect.left + cropState.rect.width).toBeLessThanOrEqual(image.width + 0.5)
+        expect(cropState.rect.top + cropState.rect.height).toBeLessThanOrEqual(image.height + 0.5)
+      })
+    }
+  })
+
   test('Space + ЛКМ двигает viewport и не сбрасывает crop монтажной области', async({
     editorModel,
     crop

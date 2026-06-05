@@ -1,6 +1,5 @@
 import {
   FabricImage,
-  Point,
   Rect,
   type BasicTransformEvent,
   type Canvas,
@@ -30,6 +29,11 @@ import {
   setCropFrameActiveResizePreserveAspectRatio
 } from './domain/crop-frame'
 import {
+  applyCropFrameTransformState,
+  getCropFrameTransformState,
+  getCropFrameTransformStateFromSourceRect
+} from './domain/crop-frame-transform-state'
+import {
   isCropFrameResizeTransform,
   resolveCropFrameResizePreserveAspectRatio
 } from './domain/crop-resize-mode'
@@ -44,6 +48,7 @@ import {
 import type {
   CropApplyResult,
   CropAspectRatio,
+  CropFrameFitType,
   CropFrameTransformState,
   CropObjectInteractivity,
   CropRect,
@@ -310,10 +315,11 @@ export default class CropManager {
       transform: transform as CropSourceBoundTransform,
       plan: sourcePlan
     })
-    this._applyFrameTransformState({
-      session,
-      state: this._getFrameTransformStateFromSourceRect({
-        session,
+    applyCropFrameTransformState({
+      frame: session.frame,
+      state: getCropFrameTransformStateFromSourceRect({
+        source: session.source,
+        frame: session.frame,
         rect: sourcePlan.rect,
         scale: sourcePlan.scale
       })
@@ -477,6 +483,33 @@ export default class CropManager {
     })
 
     return this.getState()
+  }
+
+  /**
+   * Масштабирует active crop frame к монтажной области с учётом source-bound ограничений crop mode.
+   */
+  public fitFrame({ type }: { type: CropFrameFitType }): CropState | null {
+    const { _session: session } = this
+    if (!session) return null
+
+    this.editor.transformManager.fitObject({
+      object: session.frame,
+      type,
+      withoutSave: true,
+      fitAsOneObject: true
+    })
+    this._clampFrameIfNeeded({
+      session,
+      preserveAspectRatio: true
+    })
+
+    const state = this.getState()
+    if (!state) return null
+
+    this.editor.canvas.fire('editor:crop:changed', state)
+    this.editor.canvas.requestRenderAll()
+
+    return state
   }
 
   /**
@@ -783,8 +816,8 @@ export default class CropManager {
     }) ?? session.sourceBoundFrameState
     if (!state) return false
 
-    this._applyFrameTransformState({
-      session,
+    applyCropFrameTransformState({
+      frame: session.frame,
       state
     })
 
@@ -807,8 +840,9 @@ export default class CropManager {
 
     const sourceRect = this._getSourceBoundRectFromEvent({ event })
     if (sourceRect) {
-      return this._getFrameTransformStateFromSourceRect({
-        session,
+      return getCropFrameTransformStateFromSourceRect({
+        source: session.source,
+        frame: session.frame,
         rect: sourceRect,
         scale
       })
@@ -889,10 +923,11 @@ export default class CropManager {
     })
     if (!rect) return false
 
-    this._applyFrameTransformState({
-      session,
-      state: this._getFrameTransformStateFromSourceRect({
-        session,
+    applyCropFrameTransformState({
+      frame: session.frame,
+      state: getCropFrameTransformStateFromSourceRect({
+        source: session.source,
+        frame: session.frame,
         rect,
         scale: {
           scaleX: session.frame.scaleX ?? 1,
@@ -977,36 +1012,6 @@ export default class CropManager {
   }
 
   /**
-   * Возвращает frame geometry, материализованную из source-rect.
-   */
-  private _getFrameTransformStateFromSourceRect({
-    session,
-    rect,
-    scale
-  }: {
-    session: CropSession
-    rect: CropRect
-    scale: CropSourceBoundScale
-  }): CropFrameTransformState {
-    const center = new Point(
-      rect.left + (rect.width / 2),
-      rect.top + (rect.height / 2)
-    ).transform(session.source.calcTransformMatrix())
-    const position = session.frame.translateToOriginPoint(
-      center,
-      session.frame.originX,
-      session.frame.originY
-    )
-
-    return {
-      left: position.x,
-      top: position.y,
-      scaleX: scale.scaleX,
-      scaleY: scale.scaleY
-    }
-  }
-
-  /**
    * Возвращает start координату source-bound rect с учётом fixed anchor.
    */
   private _resolveAnchoredSourceBoundStart({
@@ -1041,7 +1046,7 @@ export default class CropManager {
       return
     }
 
-    session.sourceBoundFrameState = this._getFrameTransformState({ session })
+    session.sourceBoundFrameState = getCropFrameTransformState({ frame: session.frame })
   }
 
   /**
@@ -1166,37 +1171,6 @@ export default class CropManager {
     if (transform.originY === 'bottom' || transform.originY === 1) return 'max'
 
     return 'center'
-  }
-
-  /**
-   * Возвращает geometry crop frame, достаточную для восстановления live resize.
-   */
-  private _getFrameTransformState({ session }: { session: CropSession }): CropFrameTransformState {
-    return {
-      left: session.frame.left,
-      top: session.frame.top,
-      scaleX: session.frame.scaleX ?? 1,
-      scaleY: session.frame.scaleY ?? 1
-    }
-  }
-
-  /**
-   * Восстанавливает geometry crop frame внутри текущей live resize-сессии.
-   */
-  private _applyFrameTransformState({
-    session,
-    state
-  }: {
-    session: CropSession
-    state: CropFrameTransformState
-  }): void {
-    session.frame.set({
-      left: state.left,
-      top: state.top,
-      scaleX: state.scaleX,
-      scaleY: state.scaleY
-    })
-    session.frame.setCoords()
   }
 
   /**

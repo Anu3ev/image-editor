@@ -433,6 +433,20 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Масштабирует активную crop-область к монтажной области через публичный API crop manager. */
+  async fitFrame(params: { type: 'contain' | 'cover' }): Promise<CropStateInfo> {
+    const state = await this.page.evaluate((payload) => {
+      const { editor } = window as any
+
+      return editor.cropManager.fitFrame(payload)
+    }, params)
+
+    expect(state, 'active crop должен масштабироваться к монтажной области').not.toBeNull()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
   /** Применяет активный crop mode. */
   async apply(): Promise<void> {
     const result = await this.page.evaluate(() => {
