@@ -4,10 +4,12 @@ import {
   DEFAULT_MONTAGE_SIZE,
   EDGE_IMAGE_CROP_AXIS_BOUNDARY_DRAG_CASES,
   EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE,
+  EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE,
   EDGE_IMAGE_CROP_BOUNDARY_DRAG_CASES,
   EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
   EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS,
   EDGE_IMAGE_CROP_MIDDLE_GUIDE_DRAG_CASES,
+  EDGE_IMAGE_CROP_SLOW_SNAP_STEPS,
   EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE,
   EDGE_IMAGE_CROP_SOURCE_SIZE,
   EDGE_IMAGE_CROP_SQUARE_SIZE,
@@ -322,7 +324,7 @@ test.describe('Индикатор размеров crop-области', () => {
     }
 
     for (const cropCase of EDGE_IMAGE_CROP_MIDDLE_GUIDE_DRAG_CASES) {
-      test(`при точном уменьшении до половины source из ${cropCase.title} не показывает плюс пиксель`, async({
+      test(`при точном уменьшении до половины source из ${cropCase.title} округляет индикатор вверх`, async({
         editorModel,
         crop,
         images
@@ -360,7 +362,7 @@ test.describe('Индикатор размеров crop-области', () => {
           await crop.cancel()
         })
 
-        await test.step('Проверить что indicator не округлил половину source вверх', () => {
+        await test.step('Проверить что indicator округлил половину source вверх', () => {
           expect(liveState.options.allowFrameOverflow).toBe(false)
           expect(liveState.options.preserveAspectRatio).toBe(true)
           expect(indicator.width).toBe(EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE)
@@ -369,7 +371,7 @@ test.describe('Индикатор размеров crop-области', () => {
       })
     }
 
-    test('после snap к серединному guide не показывает плюс пиксель при микродвижении из левого верхнего угла', async({
+    test('после snap к серединному guide сохраняет округление вверх при микродвижении из левого верхнего угла', async({
       editorModel,
       crop,
       images
@@ -490,6 +492,95 @@ test.describe('Индикатор размеров crop-области', () => {
   })
 
   test.describe('пропорциональный image crop у серединного guide source', () => {
+    test('после прилипания левой и нижней сторон к середине изображения не теряет пиксель внутри snap-порога', async({
+      crop,
+      images,
+      snapping
+    }) => {
+      const image = await test.step('Добавить изображение 1000x667', async() => {
+        return images.checkCreation({
+          imageObject: await images.addFilledImage(EDGE_IMAGE_CROP_SOURCE_SIZE)
+        })
+      })
+
+      const initialState = await test.step('Войти в image crop с сохранением пропорций и запретом выхода за source', async() => {
+        return crop.startImageCrop({
+          id: image.id,
+          allowFrameOverflow: false,
+          preserveAspectRatio: true
+        })
+      })
+
+      const liveSteps = await test.step('Медленно потянуть левый нижний угол чуть дальше середины source', async() => {
+        return crop.dragFrameControlSlowlyBySourcePixels({
+          control: 'bl',
+          deltaX: (EDGE_IMAGE_CROP_SOURCE_SIZE.width / 2) + EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS,
+          deltaY: -((EDGE_IMAGE_CROP_SOURCE_SIZE.height / 2) + EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS),
+          steps: EDGE_IMAGE_CROP_SLOW_SNAP_STEPS
+        })
+      })
+      const guideState = await snapping.getGuideState()
+
+      const visibleSteps = liveSteps.filter((step) => {
+        return step.indicator.visible
+          && step.indicator.width !== null
+          && step.indicator.height !== null
+      })
+      const lastVisibleStep = visibleSteps[visibleSteps.length - 1]
+      const observedSizes = visibleSteps.map((step) => {
+        return `${step.indicator.width}x${step.indicator.height}`
+      })
+      const observedDetails = visibleSteps.map((step) => {
+        return `${step.indicator.width}x${step.indicator.height}`
+          + ` rect=${step.state.rect.width.toFixed(6)}x${step.state.rect.height.toFixed(6)}`
+      })
+      const expectedSize = `${EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE.width}`
+        + `x${EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE.height}`
+      const firstHeldStepIndex = observedSizes.indexOf(expectedSize)
+      const heldSizes = firstHeldStepIndex >= 0
+        ? observedSizes.slice(firstHeldStepIndex)
+        : []
+      const heldDetails = firstHeldStepIndex >= 0
+        ? observedDetails.slice(firstHeldStepIndex)
+        : []
+
+      expect(visibleSteps.length, 'медленный resize должен показать live-индикатор').toBeGreaterThan(0)
+      expect(lastVisibleStep, 'последний видимый live-индикатор должен существовать').toBeDefined()
+      if (!lastVisibleStep) {
+        throw new Error('Последний видимый live-индикатор должен существовать')
+      }
+
+      await test.step('Завершить resize и закрыть crop mode', async() => {
+        await crop.finishFrameResize()
+        await crop.cancel()
+      })
+
+      await test.step('Проверить что половина source осталась 500px во всей snap-зоне', () => {
+        expect(initialState.options.allowFrameOverflow).toBe(false)
+        expect(initialState.options.preserveAspectRatio).toBe(true)
+        expect(Math.round(initialState.rect.width)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+        expect(Math.round(initialState.rect.height)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.height)
+        expect(guideState.guides.length).toBeGreaterThan(0)
+        expect(firstHeldStepIndex, `live-размеры: ${observedDetails.join(' -> ')}`).toBeGreaterThanOrEqual(0)
+        expect(heldSizes.length, 'snap-зона должна содержать хотя бы один live-step').toBeGreaterThan(0)
+        for (const size of heldSizes) {
+          expect(size, `live-размеры после первого ${expectedSize}: ${heldDetails.join(' -> ')}`).toBe(expectedSize)
+        }
+        expect(lastVisibleStep.indicator.width, `live-размеры: ${observedDetails.join(' -> ')}`)
+          .toBe(EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE.width)
+        expect(lastVisibleStep.indicator.height, `live-размеры: ${observedDetails.join(' -> ')}`)
+          .toBe(EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE.height)
+        expect(Math.round(lastVisibleStep.state.rect.left)).toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width / 2)
+        expect(Math.round(lastVisibleStep.state.rect.top)).toBe(0)
+        expect(Math.round(lastVisibleStep.state.rect.left + lastVisibleStep.state.rect.width))
+          .toBe(EDGE_IMAGE_CROP_SOURCE_SIZE.width)
+        expect(lastVisibleStep.state.rect.width)
+          .toBe(EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE.width)
+        expect(lastVisibleStep.state.rect.height)
+          .toBe(EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE.height)
+      })
+    })
+
     test('после прилипания верхней стороны к середине изображения не уменьшается внутри snap-порога', async({
       editorModel,
       crop,

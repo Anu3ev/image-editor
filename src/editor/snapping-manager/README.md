@@ -21,7 +21,8 @@
 
 - Если active snap axis использует `getObjectDisplaySize()` в source-пикселях, `pixel-grid` не может обращаться с ним как с обычным scene-size.
 - Для внутренних guide у source-scaled crop frame приоритет у inside-candidate.
-  Это удерживает размер “внутри” guide и не даёт лишний +1 пиксель от округления.
+  Это удерживает geometry “внутри” guide, а display-size сравнивает с округлённой source-частью guide.
+  Для нечётного source половина `667 / 2` показывается как `334`, потому что indicator округляет source display-size до ближайшего пикселя.
 - Но `inside-candidate` не должен быть просто первым ближайшим к raw pointer scale.
   Если `on-guide` уже даёт целый source display-size и не превышает source-часть по внутреннюю сторону guide, нужно оставить `on-guide`; иначе микродвижение внутри snap-порога может съесть лишний пиксель.
 - Если uniform scale начался уже около внутреннего guide, исходный scale из Fabric transform считается удерживаемым кандидатом.
@@ -30,12 +31,18 @@
   Иначе snap на границе source съедает 1 пиксель и индикатор показывает `666` вместо `667`.
 - Одних `round/floor/ceil` для display-size недостаточно.
   В guarded rounding нужно рассматривать и соседние пиксельные размеры, иначе корректный кандидат около guide может вообще не попасть в перебор.
+- Если snap scale-plan для active crop frame выходит за source, `SnappingManager` не должен отключать guides или применять generic scale как для обычного объекта.
+  Он отдаёт plan в `CropManager.applyFrameSourceBoundScalePlan()`, а после generic snap/pixel-grid вызывает `restoreFrameScaleAnchorAfterSnap()`.
+  Так crop остаётся внутри source, а противоположный угол не участвует в resize.
+- `applyFrameSourceBoundScalePlan()` применяет **пропорциональный** source-bound limit. Поэтому его нужно вызывать только при uniform/proportional scale snap (`shouldUseUniformScaleSnap === true`).
+  Для свободного (free) resize за ограничение отвечает per-axis clamp в `crop-controls.ts`, а финальная подгонка происходит в `CropManager._clampFrameIfNeeded()`.
 
 ## Что здесь легко сломать
 
 - Сравнить source-size с scene-guide без явного преобразования.
 - Привязать логику к направлению pointer вместо active edge из `snapGuards`.
 - Починить boundary-case и случайно сломать middle-guide-case, или наоборот.
+- Убрать source-bound bridge к `CropManager` и получить борьбу между source-границей и внутренними guide во время live resize.
 - Считать, что green e2e уже доказал корневой контракт.
   Для source-scaled rounding надёжнее держать отдельный unit-regression на уровне `pixel-grid`.
 

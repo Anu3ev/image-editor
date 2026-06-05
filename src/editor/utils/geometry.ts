@@ -199,6 +199,58 @@ function isFiniteObjectBounds({ bounds }: { bounds: ObjectBounds }): boolean {
 }
 
 /**
+ * Возвращает точный bounding box объекта с учётом трансформации.
+ */
+export const getObjectExactBounds = ({
+  object
+}: {
+  object?: FabricObject | null
+}): ObjectBounds | null => {
+  if (!object) return null
+
+  const customBounds = object.getObjectSnappingBounds?.()
+  if (customBounds && isFiniteObjectBounds({ bounds: customBounds })) {
+    return customBounds
+  }
+
+  return getObjectVisualBounds({ object })
+}
+
+/**
+ * Возвращает visual bounding box объекта без custom snapping bounds.
+ */
+function getObjectVisualBounds({
+  object
+}: {
+  object: FabricObject
+}): ObjectBounds | null {
+  try {
+    object.setCoords()
+    const rect = object.getBoundingRect()
+    const {
+      left: rawLeft = 0,
+      top: rawTop = 0,
+      width = 0,
+      height = 0
+    } = rect
+
+    const left = rawLeft
+    const top = rawTop
+
+    return {
+      left,
+      right: left + width,
+      top,
+      bottom: top + height,
+      centerX: left + (width / 2),
+      centerY: top + (height / 2)
+    }
+  } catch {
+    return null
+  }
+}
+
+/**
  * Возвращает bounding box объекта с учётом трансформации и округлением до целых пикселей.
  */
 export const getObjectBounds = ({
@@ -213,34 +265,20 @@ export const getObjectBounds = ({
     return customBounds
   }
 
-  try {
-    object.setCoords()
-    const rect = object.getBoundingRect()
-    const {
-      left: rawLeft = 0,
-      top: rawTop = 0,
-      width = 0,
-      height = 0
-    } = rect
+  const bounds = getObjectVisualBounds({ object })
+  if (!bounds) return null
 
-    const left = rawLeft
-    const top = rawTop
-    const roundedWidth = Math.round(width)
-    const roundedHeight = Math.round(height)
-    const right = left + roundedWidth
-    const bottom = top + roundedHeight
-    const centerX = left + (roundedWidth / 2)
-    const centerY = top + (roundedHeight / 2)
+  const roundedWidth = Math.round(bounds.right - bounds.left)
+  const roundedHeight = Math.round(bounds.bottom - bounds.top)
+  const right = bounds.left + roundedWidth
+  const bottom = bounds.top + roundedHeight
 
-    return {
-      left,
-      right,
-      top,
-      bottom,
-      centerX,
-      centerY
-    }
-  } catch {
-    return null
+  return {
+    left: bounds.left,
+    right,
+    top: bounds.top,
+    bottom,
+    centerX: bounds.left + (roundedWidth / 2),
+    centerY: bounds.top + (roundedHeight / 2)
   }
 }

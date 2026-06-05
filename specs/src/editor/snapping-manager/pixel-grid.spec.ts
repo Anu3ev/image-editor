@@ -75,14 +75,15 @@ describe('SnappingManager pixel-grid contract', () => {
     })
   }
 
-  it('для crop frame с размером в source-пикселях оставляет размер внутри guide вместо округления вверх', () => {
+  it('для crop frame с размером в source-пикселях округляет половину нечётного source вверх', () => {
     const target = createSourceScaledRect({
       width: 667,
       height: 667,
       scaleX: 0.256,
       scaleY: 0.256,
       sourceScaleX: 0.512,
-      sourceScaleY: 0.512
+      sourceScaleY: 0.512,
+      sourceBounds: SOURCE_BOUNDS
     })
 
     applyScalingStep({
@@ -98,18 +99,18 @@ describe('SnappingManager pixel-grid contract', () => {
 
     const displaySize = getRoundedDisplaySize({ target })
 
-    expect(displaySize.width).toBe(333)
-    expect(displaySize.height).toBe(333)
-    expect(target.scaleX).toBeCloseTo(0.255616, 6)
-    expect(target.scaleY).toBeCloseTo(0.255616, 6)
+    expect(displaySize.width).toBe(334)
+    expect(displaySize.height).toBe(334)
+    expect(target.scaleX).toBeCloseTo(0.256, 6)
+    expect(target.scaleY).toBeCloseTo(0.256, 6)
   })
 
-  it('для прямоугольного crop frame у внутреннего guide не выбирает меньший соседний пиксель', () => {
+  it('для прямоугольного crop frame у внутреннего guide оставляет raw-размер на guide', () => {
     const target = createSourceScaledRect({
       width: 1000,
       height: 667,
-      scaleX: 0.25560881346968983,
-      scaleY: 0.25560881346968983,
+      scaleX: 0.256,
+      scaleY: 0.256,
       sourceScaleX: 0.512,
       sourceScaleY: 0.512,
       sourceBounds: RECTANGULAR_SOURCE_BOUNDS
@@ -128,10 +129,10 @@ describe('SnappingManager pixel-grid contract', () => {
 
     const displaySize = getRoundedDisplaySize({ target })
 
-    expect(displaySize.width).toBe(499)
-    expect(displaySize.height).toBe(333)
-    expect(target.scaleX).toBeCloseTo(0.255616, 6)
-    expect(target.scaleY).toBeCloseTo(0.255616, 6)
+    expect(displaySize.width).toBe(500)
+    expect(displaySize.height).toBe(334)
+    expect(target.scaleX).toBeCloseTo(0.256, 6)
+    expect(target.scaleY).toBeCloseTo(0.256, 6)
   })
 
   it('для source-scaled crop frame у внутренних guide возвращает scale со старта transform', () => {
@@ -185,6 +186,7 @@ describe('SnappingManager pixel-grid contract', () => {
   it('для source-scaled crop frame у внутренних guide не возвращает исходный scale при переходе на следующий source-пиксель', () => {
     const rawScale = 0.21959820089955023
     const originalScale = 0.22030584707646178
+    const nextSourcePixelGuidePosition = 219.5
     const target = createSourceScaledRect({
       width: 1000,
       height: 667,
@@ -192,7 +194,7 @@ describe('SnappingManager pixel-grid contract', () => {
       scaleY: rawScale,
       sourceScaleX: 0.512,
       sourceScaleY: 0.512,
-      left: 220 - (1000 * rawScale),
+      left: nextSourcePixelGuidePosition - (1000 * rawScale),
       top: 195,
       sourceBounds: RECTANGULAR_SOURCE_BOUNDS
     })
@@ -212,7 +214,7 @@ describe('SnappingManager pixel-grid contract', () => {
         {
           type: 'vertical',
           edge: 'right',
-          position: 220
+          position: nextSourcePixelGuidePosition
         },
         {
           type: 'horizontal',
@@ -224,8 +226,8 @@ describe('SnappingManager pixel-grid contract', () => {
 
     const displaySize = getRoundedDisplaySize({ target })
 
-    expect(displaySize.width).toBe(428)
-    expect(displaySize.height).toBe(285)
+    expect(displaySize.width).toBe(429)
+    expect(displaySize.height).toBe(286)
     expect(target.scaleX).not.toBeCloseTo(originalScale, 6)
     expect(transform.scaleX).not.toBeCloseTo(originalScale, 6)
   })

@@ -48,7 +48,10 @@ import {
   buildSpacingPatterns,
   pushBoundsToAnchors
 } from './utils'
-import { getObjectBounds } from '../utils/geometry'
+import {
+  getObjectBounds,
+  getObjectExactBounds
+} from '../utils/geometry'
 import {
   collectExcludedObjects,
   shouldIgnoreObject
@@ -61,6 +64,10 @@ type TransformEvent = BasicTransformEvent<TPointerEvent> & {
 
 type MouseEventInfo = TPointerEventInfo<TPointerEvent> & {
   target?: FabricObject | null
+}
+
+type CropFrameSnapTarget = FabricObject & {
+  cropSource?: FabricObject | null
 }
 
 /**
@@ -412,15 +419,26 @@ export default class SnappingManager {
       return
     }
 
-    this._applyScaleUpdatePlan({
-      target,
-      transform,
-      originX,
-      originY,
-      plan: scalePlan
-    })
+    const appliedSourceBoundScalePlan = shouldUseUniformScale
+      ? this.editor.cropManager.applyFrameSourceBoundScalePlan({
+        target,
+        transform,
+        nextScaleX: scalePlan.nextScaleX,
+        nextScaleY: scalePlan.nextScaleY
+      })
+      : false
 
-    if (canApplyPixelScalingStep) {
+    if (!appliedSourceBoundScalePlan) {
+      this._applyScaleUpdatePlan({
+        target,
+        transform,
+        originX,
+        originY,
+        plan: scalePlan
+      })
+    }
+
+    if (canApplyPixelScalingStep && !appliedSourceBoundScalePlan) {
       const scaleStepPlacement = this.editor.canvasManager.getObjectPlacement({
         object: target,
         originX,
@@ -442,6 +460,11 @@ export default class SnappingManager {
         snapGuards: scalePlan.snapGuards
       })
     }
+
+    this.editor.cropManager.restoreFrameScaleAnchorAfterSnap({
+      target,
+      transform
+    })
 
     if (this._shouldHideOverflowingCropFrameGuides({ target })) return
 
@@ -902,7 +925,10 @@ export default class SnappingManager {
     const targetBounds: Bounds[] = []
 
     for (const object of targets) {
-      const bounds = getObjectBounds({ object })
+      const bounds = this._getTargetBounds({
+        object,
+        activeObject
+      })
       if (!bounds) continue
       pushBoundsToAnchors({ anchors: nextAnchors, bounds })
       targetBounds.push(bounds)
@@ -952,13 +978,51 @@ export default class SnappingManager {
     const boundsList: Bounds[] = []
 
     for (const object of targets) {
-      const bounds = getObjectBounds({ object })
+      const bounds = this._getTargetBounds({
+        object,
+        activeObject
+      })
       if (!bounds) continue
 
       boundsList.push(bounds)
     }
 
     return boundsList
+  }
+
+  /**
+   * Возвращает bounds target-object для live snap.
+   */
+  private _getTargetBounds({
+    object,
+    activeObject
+  }: {
+    object: FabricObject
+    activeObject?: FabricObject | null
+  }): Bounds | null {
+    if (this._isActiveCropSource({
+      object,
+      activeObject
+    })) {
+      return getObjectExactBounds({ object })
+    }
+
+    return getObjectBounds({ object })
+  }
+
+  /**
+   * Возвращает true, если object является source активного crop frame.
+   */
+  private _isActiveCropSource({
+    object,
+    activeObject
+  }: {
+    object: FabricObject
+    activeObject?: FabricObject | null
+  }): boolean {
+    const cropTarget = activeObject as CropFrameSnapTarget | null | undefined
+
+    return cropTarget?.cropSource === object
   }
 
   /**

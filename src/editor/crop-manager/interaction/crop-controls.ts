@@ -74,6 +74,8 @@ type CropScaleTransform = Transform & {
   cropSourceScaleBounds?: CropSourceScaleBounds | null
   cropSourceScaleClamped?: boolean
   cropSourceBoundScale?: CropSourceBoundScale | null
+  cropSourceScaleAnchorX?: CropSourceScaleAnchor
+  cropSourceScaleAnchorY?: CropSourceScaleAnchor
   cropSourceScalePreserveAspectRatio?: boolean
 }
 
@@ -652,6 +654,8 @@ function resolveAxisScale({
 function resetSourceBoundScale({ transform }: { transform: CropScaleTransform }): void {
   transform.cropSourceScaleClamped = false
   transform.cropSourceBoundScale = null
+  transform.cropSourceScaleAnchorX = undefined
+  transform.cropSourceScaleAnchorY = undefined
   transform.cropSourceScalePreserveAspectRatio = undefined
 }
 
@@ -669,6 +673,8 @@ function rememberSourceBoundScale({
 
   transform.cropSourceScaleClamped = true
   transform.cropSourceScalePreserveAspectRatio = preserveAspectRatio
+  transform.cropSourceScaleAnchorX = getTransformAnchorX({ transform })
+  transform.cropSourceScaleAnchorY = getTransformAnchorY({ transform })
   transform.cropSourceBoundScale = {
     scaleX: target.scaleX ?? 1,
     scaleY: target.scaleY ?? 1
@@ -955,12 +961,16 @@ function clampProportionalScale({
   const scaleY = transform.original.scaleY * nextScale
 
   if (transform.cropSourceScaleClamped) {
+    transform.cropSourceScaleAnchorX = getTransformAnchorX({ transform })
+    transform.cropSourceScaleAnchorY = getTransformAnchorY({ transform })
     transform.cropSourceBoundScale = {
       scaleX,
       scaleY
     }
   } else {
     transform.cropSourceBoundScale = null
+    transform.cropSourceScaleAnchorX = undefined
+    transform.cropSourceScaleAnchorY = undefined
     transform.cropSourceScalePreserveAspectRatio = undefined
   }
 

@@ -101,6 +101,24 @@ describe('ObjectSizeIndicatorManager', () => {
     expect(target.getScaledHeight).not.toHaveBeenCalled()
   })
 
+  it('округляет размер на границе половины пикселя без потери одного пикселя от floating-point погрешности', () => {
+    const {
+      manager,
+      mockCanvas,
+      target
+    } = createObjectSizeIndicatorManagerFixture({
+      indicatorSize: {
+        width: 500,
+        height: 333.49999999999994
+      }
+    })
+
+    getCanvasHandler(mockCanvas, 'object:scaling')(createObjectSizeTransformEvent({ target }))
+
+    expect(manager.el.style.display).toBe('block')
+    expect(manager.el.textContent).toBe('ширина: 500 высота: 334')
+  })
+
   it('не показывает индикатор на mouse:move, если активная трансформация не меняет размер', () => {
     const {
       manager,

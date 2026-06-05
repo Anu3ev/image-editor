@@ -19,6 +19,9 @@ type ObjectDisplaySize = {
   width: number
 }
 
+/** Допуск для форматирования размеров на границе .5 после floating-point вычислений. */
+const SIZE_FORMAT_EPSILON = 0.000001
+
 /**
  * Canvas Fabric во время drag-трансформации хранит активный transform во внутреннем поле.
  */
@@ -228,7 +231,7 @@ export default class ObjectSizeIndicatorManager {
    * Форматирует размер как целое число с пробелами между тысячами.
    */
   private static _formatDimension({ value }: { value: number }): string {
-    const roundedValue = Math.round(value)
+    const roundedValue = Math.round(value + SIZE_FORMAT_EPSILON)
 
     return roundedValue.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
   }
