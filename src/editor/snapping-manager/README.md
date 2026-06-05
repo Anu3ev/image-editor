@@ -12,6 +12,8 @@
 
 - `snapGuards` описывают уже приклеенный active edge.
   Для отладки важно смотреть не на направление курсора, а на то, какая грань реально удерживается guide.
+- В movement flow `pixel-grid` может округлять координаты до `MOVE_SNAP_STEP`, но только пока эта ось не приклеена к guide.
+  После `calculateSnap()` guide-координата считается более сильным контрактом: финальное округление не должно сдвигать уже snapped edge.
 - Для обычных объектов bounds и display-size живут в одной scene-плоскости.
   Для crop frame это не так: `getObjectSnappingBounds()` остаётся в scene-пикселях, а `getObjectDisplaySize()` может жить в source-пикселях через `cropSourceScaleX/Y`.
 - `shouldUseUniformScaleSnap()` для crop frame обязан зеркалить правило `preserveAspectRatio` из `CropManager`, включая инверсию по `Shift`.
@@ -41,6 +43,7 @@
 
 - Сравнить source-size с scene-guide без явного преобразования.
 - Привязать логику к направлению pointer вместо active edge из `snapGuards`.
+- Округлить `left/top` после guide snap и тем самым получить fixed edge на `499`, хотя guide стоит на `500`.
 - Починить boundary-case и случайно сломать middle-guide-case, или наоборот.
 - Убрать source-bound bridge к `CropManager` и получить борьбу между source-границей и внутренними guide во время live resize.
 - Считать, что green e2e уже доказал корневой контракт.

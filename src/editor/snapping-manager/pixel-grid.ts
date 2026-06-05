@@ -22,6 +22,12 @@ type ScalingAxisRoundingState = {
   shouldRoundScaleY: boolean
 }
 
+/** Оси movement-step, которые можно округлять к pixel-grid. */
+type MovementStepRoundingOptions = {
+  roundX?: boolean
+  roundY?: boolean
+}
+
 /**
  * Возвращает true, если live-scaling объекта нужно округлять до целого пиксельного размера.
  * Для изображений и текста сохраняем их собственный runtime-контракт без дополнительной квантизации.
@@ -40,22 +46,55 @@ export function shouldApplyPixelScalingStep({ target }: { target: FabricObject }
  */
 export function applyMovementStep({
   target,
-  transform
+  transform,
+  roundX = true,
+  roundY = true
 }: {
   target: FabricObject
   transform?: Transform | null
-}): void {
-  const { left = 0, top = 0 } = target
-  const snappedLeft = Math.round(left / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
-  const snappedTop = Math.round(top / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
+} & MovementStepRoundingOptions): void {
+  if (!roundX && !roundY) return
+
+  const {
+    left = 0,
+    top = 0
+  } = target
   const originalLeft = typeof transform?.original?.left === 'number'
     ? transform.original.left
     : null
   const originalTop = typeof transform?.original?.top === 'number'
     ? transform.original.top
     : null
-  const shouldSnapX = originalLeft === null || originalLeft !== left
-  const shouldSnapY = originalTop === null || originalTop !== top
+  const shouldSnapX = roundX && (originalLeft === null || originalLeft !== left)
+  const shouldSnapY = roundY && (originalTop === null || originalTop !== top)
+
+  applyResolvedMovementStep({
+    target,
+    left,
+    top,
+    shouldSnapX,
+    shouldSnapY
+  })
+}
+
+/**
+ * Применяет рассчитанное округление координат к target.
+ */
+function applyResolvedMovementStep({
+  target,
+  left,
+  top,
+  shouldSnapX,
+  shouldSnapY
+}: {
+  target: FabricObject
+  left: number
+  top: number
+  shouldSnapX: boolean
+  shouldSnapY: boolean
+}): void {
+  const snappedLeft = Math.round(left / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
+  const snappedTop = Math.round(top / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
   const updates: Partial<Record<'left' | 'top', number>> = {}
 
   if (shouldSnapX && snappedLeft !== left) {

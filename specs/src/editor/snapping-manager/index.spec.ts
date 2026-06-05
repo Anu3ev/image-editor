@@ -1378,6 +1378,27 @@ describe('SnappingManager', () => {
   })
 
   describe('пропуск movementStep после spacing snap', () => {
+    it('не сдвигает грань с направляющей финальным округлением', () => {
+      const { editor } = createSnappingTestContext()
+      const active = createBoundsObject({ left: 148.7, top: 73.7, width: 50.4, height: 20, id: 'active' })
+      active.getObjectSnappingBounds = () => ({
+        left: active.left,
+        right: active.left + active.width,
+        top: active.top,
+        bottom: active.top + active.height,
+        centerX: active.left + (active.width / 2),
+        centerY: active.top + (active.height / 2)
+      })
+
+      const snappingManager = new SnappingManager({ editor })
+      const snappingManagerState = snappingManager as any
+      snappingManagerState._handleMouseDown({ target: active })
+      snappingManagerState._handleObjectMoving({ target: active })
+
+      expect(active.left + active.width).toBe(200)
+      expect(active.top).toBe(Math.round(73.7 / MOVE_SNAP_STEP) * MOVE_SNAP_STEP)
+    })
+
     it('сохраняет суб-пиксельную позицию после spacing snap (не округляет до MOVE_SNAP_STEP)', () => {
       const { editor, objects } = createSnappingTestContext()
       const first = createBoundsObject({ left: 0, top: 0, width: 20, height: 20, id: 'obj-1' })

@@ -21,7 +21,7 @@ import {
   resolveCropSize
 } from './domain/crop-geometry'
 import {
-  resolveCropProportionalSourceScaleLimit,
+  resolveCropProportionalSourceSnapPlan,
   type CropSourceScaleAnchor
 } from './domain/crop-source-scale'
 import {
@@ -70,6 +70,11 @@ const SOURCE_BOUNDS_OVERFLOW_EPSILON = 0.5
  * Допуск сравнения snap scale-plan с source-bound limit crop frame.
  */
 const SOURCE_SCALE_PLAN_EPSILON = 0.000000001
+
+/**
+ * Source-зазор, в котором snap scale-plan уже считается дошедшим до source-boundary.
+ */
+const SOURCE_SCALE_PLAN_SNAP_GAP_PIXELS = 1
 
 /**
  * Часть internal Fabric canvas state, нужная только чтобы погасить текущий pointer event.
@@ -985,34 +990,35 @@ export default class CropManager {
 
     const anchorX = transform.cropSourceScaleAnchorX ?? this._getTransformAnchorX({ transform })
     const anchorY = transform.cropSourceScaleAnchorY ?? this._getTransformAnchorY({ transform })
-    const sourceMaxScale = resolveCropProportionalSourceScaleLimit({
+    const sourcePlan = resolveCropProportionalSourceSnapPlan({
       sourceSize: bounds.sourceSize,
       startRect: bounds.startRect,
       anchorX,
       anchorY
     })
+    if (!sourcePlan) return null
+
     const proposedScale = Math.max(
       Math.abs(scaleX / originalScaleX),
       Math.abs(scaleY / originalScaleY)
     )
+    const sourceScaleGap = Math.max(0, sourcePlan.scale - proposedScale)
+      * Math.min(bounds.startRect.width, bounds.startRect.height)
 
-    if (proposedScale <= sourceMaxScale + SOURCE_SCALE_PLAN_EPSILON) return null
+    if (
+      proposedScale <= sourcePlan.scale + SOURCE_SCALE_PLAN_EPSILON
+      && sourceScaleGap > SOURCE_SCALE_PLAN_SNAP_GAP_PIXELS
+    ) return null
 
     const sourceBoundScale = {
-      scaleX: originalScaleX * sourceMaxScale,
-      scaleY: originalScaleY * sourceMaxScale
+      scaleX: originalScaleX * sourcePlan.scale,
+      scaleY: originalScaleY * sourcePlan.scale
     }
-    const rect = this._getSourceBoundRectForScalePlan({
-      bounds,
-      anchorX,
-      anchorY,
-      scale: sourceMaxScale
-    })
 
     return {
       anchorX,
       anchorY,
-      rect,
+      rect: sourcePlan.rect,
       scale: sourceBoundScale
     }
   }
@@ -1034,31 +1040,6 @@ export default class CropManager {
     transform.cropSourceBoundScale = plan.scale
     transform.scaleX = plan.scale.scaleX
     transform.scaleY = plan.scale.scaleY
-  }
-
-  /**
-   * Возвращает source-rect для ограниченного snap scale-plan.
-   */
-  private _getSourceBoundRectForScalePlan({
-    bounds,
-    anchorX,
-    anchorY,
-    scale
-  }: {
-    bounds: CropSourceScaleBounds
-    anchorX: CropSourceScaleAnchor
-    anchorY: CropSourceScaleAnchor
-    scale: number
-  }): CropRect {
-    return this._getAnchoredSourceBoundRect({
-      bounds,
-      anchorX,
-      anchorY,
-      size: {
-        width: bounds.startRect.width * scale,
-        height: bounds.startRect.height * scale
-      }
-    })
   }
 
   /**

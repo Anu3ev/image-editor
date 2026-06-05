@@ -175,7 +175,8 @@ export function resolveGuardedScalingStep({
 }
 
 /**
- * Возвращает текущий raw scale, если snap-plan уже поставил source-scaled crop frame на guide.
+ * Возвращает текущий raw scale, если snap-plan уже поставил source-scaled crop frame на внутренний guide.
+ * Для внешней source-границы raw scale не подходит: там приоритет у on-guide candidate.
  */
 function resolveSourceScaledRawGuideCandidate({
   target,
@@ -195,6 +196,7 @@ function resolveSourceScaledRawGuideCandidate({
   snapGuards: ScalingStepSnapGuard[]
 }): ScalingStepCandidate | null {
   if (!usesScaledDisplaySizeForSnapGuards({ target, snapGuards })) return null
+  if (usesSourceBoundarySnapGuards({ target, snapGuards })) return null
 
   const candidate = {
     scaleX: rawScaleX,

@@ -19,6 +19,9 @@
   Поэтому обычный Fabric bounds живёт в scene-пикселях, а `frame.getObjectDisplaySize()` возвращает размер crop-результата в source-пикселях.
 - `frame.getObjectSnappingBounds()` намеренно исключает stroke.
   Snapping должен работать по геометрии crop-результата, а не по визуальной обводке frame.
+- При переносе crop frame к guide исходной точкой для последующего resize становится фактическое положение frame.
+  Если соседняя подсистема уже сдвинула fixed edge с guide, source-bound resize не должен “угадывать” потерянный пиксель обратно.
+  Такой баг нужно чинить в snapping flow, а не в clamp-математике `CropManager`.
 - `allowFrameOverflow = false` включает source-bound поведение.
   В этом режиме clamp и scale-limit должны опираться на `getCropRectInSource()` и `getSourceSize()`, а не на сырой bounding box на canvas.
 - `preserveAspectRatio` по умолчанию включён. `Shift` не “добавляет” пропорции, а инвертирует текущее правило.

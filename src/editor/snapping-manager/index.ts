@@ -71,6 +71,29 @@ type CropFrameSnapTarget = FabricObject & {
 }
 
 /**
+ * Проверенный target и активные оси текущего object scaling.
+ */
+type ObjectScalingTargetContext = {
+  event: TransformEvent
+  target: FabricObject
+  transform: Transform
+  canApplyPixelScalingStep: boolean
+  isCornerHandle: boolean
+  shouldSnapX: boolean
+  shouldSnapY: boolean
+}
+
+/**
+ * Полный snap-plan для текущего object scaling step.
+ */
+type ObjectScalingPlanContext = ObjectScalingTargetContext & {
+  originX: Transform['originX']
+  originY: Transform['originY']
+  shouldUseUniformScale: boolean
+  scalePlan: ScaleUpdatePlan
+}
+
+/**
  * Менеджер отвечает за отображение направляющих и прилипающее выравнивание объектов.
  */
 export default class SnappingManager {
@@ -261,6 +284,12 @@ export default class SnappingManager {
       threshold,
       anchors: this.anchors
     })
+    const hasGuideSnapX = snapResult.deltaX !== 0 || snapResult.guides.some((guide) => {
+      return guide.type === 'vertical'
+    })
+    const hasGuideSnapY = snapResult.deltaY !== 0 || snapResult.guides.some((guide) => {
+      return guide.type === 'horizontal'
+    })
     activeBounds = this._applyMovementDelta({
       target,
       activeBounds,
@@ -287,7 +316,9 @@ export default class SnappingManager {
     if (!hasSpacingSnap) {
       applyMovementStep({
         target,
-        transform
+        transform,
+        roundX: !hasGuideSnapX,
+        roundY: !hasGuideSnapY
       })
     }
 
@@ -303,11 +334,28 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его масштабировании.
    */
   private _handleObjectScaling(event: TransformEvent): void {
+    const targetContext = this._resolveObjectScalingTargetContext({ event })
+    if (!targetContext) return
+
+    const planContext = this._resolveObjectScalingPlanContext(targetContext)
+    if (!planContext) return
+
+    this._applyObjectScalingSnapPlan(planContext)
+  }
+
+  /**
+   * Возвращает target-context для object scaling или завершает шаг без snap.
+   */
+  private _resolveObjectScalingTargetContext({
+    event
+  }: {
+    event: TransformEvent
+  }): ObjectScalingTargetContext | null {
     const { target, transform } = event
 
     if (!target || !transform) {
       this._clearGuides()
-      return
+      return null
     }
 
     const canApplyPixelScalingStep = shouldApplyPixelScalingStep({
@@ -320,14 +368,14 @@ export default class SnappingManager {
       canApplyPixelScalingStep
     })) {
       this._clearGuides()
-      return
+      return null
     }
     if (!this._hasObjectScaleChanged({
       target,
       transform
     })) {
       this._clearGuides()
-      return
+      return null
     }
 
     const {
@@ -342,7 +390,7 @@ export default class SnappingManager {
         transform,
         canApplyPixelScalingStep
       })
-      return
+      return null
     }
 
     const { anchors } = this
@@ -354,14 +402,41 @@ export default class SnappingManager {
       this._cacheAnchors({ activeObject: target })
     }
 
+    return {
+      event,
+      target,
+      transform,
+      canApplyPixelScalingStep,
+      isCornerHandle,
+      shouldSnapX,
+      shouldSnapY
+    }
+  }
+
+  /**
+   * Возвращает snap-plan для текущего object scaling или завершает шаг без snap.
+   */
+  private _resolveObjectScalingPlanContext(
+    context: ObjectScalingTargetContext
+  ): ObjectScalingPlanContext | null {
+    const {
+      event,
+      target,
+      transform,
+      canApplyPixelScalingStep,
+      isCornerHandle,
+      shouldSnapX,
+      shouldSnapY
+    } = context
     const activeBounds = getObjectBounds({ object: target })
+
     if (!activeBounds) {
       this._finishObjectScalingWithoutSnap({
         target,
         transform,
         canApplyPixelScalingStep
       })
-      return
+      return null
     }
 
     const threshold = SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
@@ -388,7 +463,7 @@ export default class SnappingManager {
         transform,
         canApplyPixelScalingStep
       })
-      return
+      return null
     }
 
     const shouldUseUniformScale = shouldUseUniformScaleSnap({
@@ -416,9 +491,30 @@ export default class SnappingManager {
         transform,
         canApplyPixelScalingStep
       })
-      return
+      return null
     }
 
+    return {
+      ...context,
+      originX,
+      originY,
+      shouldUseUniformScale,
+      scalePlan
+    }
+  }
+
+  /**
+   * Применяет snap-plan, source-bound bridge и pixel-grid для object scaling.
+   */
+  private _applyObjectScalingSnapPlan({
+    target,
+    transform,
+    originX,
+    originY,
+    canApplyPixelScalingStep,
+    shouldUseUniformScale,
+    scalePlan
+  }: ObjectScalingPlanContext): void {
     const appliedSourceBoundScalePlan = shouldUseUniformScale
       ? this.editor.cropManager.applyFrameSourceBoundScalePlan({
         target,
@@ -439,24 +535,11 @@ export default class SnappingManager {
     }
 
     if (canApplyPixelScalingStep && !appliedSourceBoundScalePlan) {
-      const scaleStepPlacement = this.editor.canvasManager.getObjectPlacement({
-        object: target,
-        originX,
-        originY
-      })
-
-      applyScalingStep({
+      this._applyObjectScalingPixelStep({
         target,
         transform,
-        preservePlacement: {
-          placement: scaleStepPlacement,
-          applyPlacement: (placement) => {
-            this.editor.canvasManager.applyObjectPlacement({
-              object: target,
-              placement
-            })
-          }
-        },
+        originX,
+        originY,
         snapGuards: scalePlan.snapGuards
       })
     }
@@ -471,6 +554,44 @@ export default class SnappingManager {
     this._applyGuides({
       guides: scalePlan.guides,
       spacingGuides: []
+    })
+  }
+
+  /**
+   * Квантует scale после snap, сохраняя fixed placement текущего transform.
+   */
+  private _applyObjectScalingPixelStep({
+    target,
+    transform,
+    originX,
+    originY,
+    snapGuards
+  }: {
+    target: FabricObject
+    transform: Transform
+    originX: Transform['originX']
+    originY: Transform['originY']
+    snapGuards: ScaleUpdatePlan['snapGuards']
+  }): void {
+    const scaleStepPlacement = this.editor.canvasManager.getObjectPlacement({
+      object: target,
+      originX,
+      originY
+    })
+
+    applyScalingStep({
+      target,
+      transform,
+      preservePlacement: {
+        placement: scaleStepPlacement,
+        applyPlacement: (placement) => {
+          this.editor.canvasManager.applyObjectPlacement({
+            object: target,
+            placement
+          })
+        }
+      },
+      snapGuards
     })
   }
 
@@ -506,11 +627,6 @@ export default class SnappingManager {
     event: TransformEvent
     canApplyPixelScalingStep: boolean
   }): boolean {
-    if (this.editor.cropManager.isFrameSourceScaleClamped({ target, transform })) {
-      this._clearGuides()
-      return true
-    }
-
     if (event.e?.ctrlKey) {
       this._clearGuides()
       if (canApplyPixelScalingStep) {
