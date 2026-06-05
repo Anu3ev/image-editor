@@ -215,6 +215,7 @@ export const createEditorStub = () => {
       Object.assign(montageArea, updates)
     }),
     setCoords: jest.fn(),
+    calcTransformMatrix: jest.fn().mockReturnValue([1, 0, 0, 1, 0, 0]),
     id: 'montage-area'
   }
 
@@ -294,6 +295,10 @@ export const createEditorStub = () => {
     backgroundManager: {
       backgroundObject: null,
       refresh: jest.fn()
+    },
+    toolbar: {
+      hideTemporarily: jest.fn(),
+      showAfterTemporary: jest.fn()
     },
     shapeManager: {
       addRectangle: jest.fn(),

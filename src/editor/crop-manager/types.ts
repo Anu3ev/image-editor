@@ -96,6 +96,7 @@ type BaseCropSession = {
   previousActiveObject: FabricObject | null
   interactivity: CropObjectInteractivity[]
   sourceBoundFrameState: CropFrameTransformState | null
+  effectivePreserveAspectRatio: boolean
 }
 
 /**

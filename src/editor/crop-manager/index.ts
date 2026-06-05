@@ -188,6 +188,37 @@ export default class CropManager {
     }
   }
 
+  /**
+   * Возвращает фактическое состояние сохранения пропорций с учётом зажатого Shift.
+   * Если crop mode не активен, возвращает true.
+   */
+  public get effectivePreserveAspectRatio(): boolean {
+    return this._session?.effectivePreserveAspectRatio ?? true
+  }
+
+  /**
+   * Возвращает фактическое состояние сохранения пропорций по переданному событию.
+   * Учитывает зажатый Shift и source-bound clamp.
+   * Если crop mode не активен, возвращает true.
+   */
+  private _getEffectivePreserveAspectRatio(
+    event?: CropFrameChangeEvent
+  ): boolean {
+    const { _session: session } = this
+    if (!session) return true
+
+    if (this._isSourceScaleClamped({ event })) {
+      const preserveAspectRatio = event?.transform?.cropSourceScalePreserveAspectRatio
+
+      return preserveAspectRatio ?? true
+    }
+
+    const isShiftPressed = Boolean(event?.e?.shiftKey)
+    if (!isShiftPressed) return session.options.preserveAspectRatio
+
+    return !session.options.preserveAspectRatio
+  }
+
   /** Возвращает true, если текущий live-step вынес crop frame за пределы source и будет зажат clamp-ом. */
   public isFrameOverflowingSource({ target }: { target?: FabricObject | null }): boolean {
     const { _session: session } = this
@@ -383,6 +414,7 @@ export default class CropManager {
     if (!session) return null
 
     session.options.preserveAspectRatio = preserveAspectRatio
+    session.effectivePreserveAspectRatio = preserveAspectRatio
     this._setFramePreserveAspectRatio({
       frame: session.frame,
       preserveAspectRatio
@@ -480,7 +512,8 @@ export default class CropManager {
       options: sessionOptions,
       previousActiveObject: this.editor.canvas.getActiveObject() ?? null,
       interactivity: [],
-      sourceBoundFrameState: null
+      sourceBoundFrameState: null,
+      effectivePreserveAspectRatio: sessionOptions.preserveAspectRatio
     }
   }
 
@@ -509,7 +542,8 @@ export default class CropManager {
       options: sessionOptions,
       previousActiveObject: this.editor.canvas.getActiveObject() ?? null,
       interactivity: [],
-      sourceBoundFrameState: null
+      sourceBoundFrameState: null,
+      effectivePreserveAspectRatio: sessionOptions.preserveAspectRatio
     }
   }
 
@@ -644,6 +678,8 @@ export default class CropManager {
     const { _session: session } = this
     if (!session) return
 
+    session.effectivePreserveAspectRatio = this._getEffectivePreserveAspectRatio(event)
+
     const restoredSourceBoundFrame = this._restoreSourceBoundFrameIfNeeded({
       session,
       event
@@ -651,10 +687,7 @@ export default class CropManager {
 
     this._clampFrameIfNeeded({
       session,
-      preserveAspectRatio: this._shouldPreserveAspectRatioOnFrameClamp({
-        session,
-        event
-      })
+      preserveAspectRatio: session.effectivePreserveAspectRatio
     })
     this._restoreFrameScaleAnchorFromEventIfNeeded({
       session,
@@ -1074,28 +1107,6 @@ export default class CropManager {
     if (transform.originY === 'bottom' || transform.originY === 1) return 'max'
 
     return 'center'
-  }
-
-  /**
-   * Возвращает true, если source-clamp текущего live-step должен сохранять пропорции crop frame.
-   */
-  private _shouldPreserveAspectRatioOnFrameClamp({
-    session,
-    event
-  }: {
-    session: CropSession
-    event?: CropFrameChangeEvent
-  }): boolean {
-    if (this._isSourceScaleClamped({ event })) {
-      const preserveAspectRatio = event?.transform?.cropSourceScalePreserveAspectRatio
-
-      return preserveAspectRatio ?? true
-    }
-
-    const isShiftPressed = Boolean(event?.e?.shiftKey)
-    if (!isShiftPressed) return session.options.preserveAspectRatio
-
-    return !session.options.preserveAspectRatio
   }
 
   /**

@@ -64,6 +64,7 @@ export const createCanvasStub = () => {
     clear: jest.fn(),
     add: jest.fn(),
     remove: jest.fn(),
+    bringObjectToFront: jest.fn(),
     getObjects: jest.fn().mockReturnValue([]),
     clipPath,
     editorContainer: null as HTMLElement | null,
