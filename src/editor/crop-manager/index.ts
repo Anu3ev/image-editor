@@ -26,8 +26,13 @@ import {
 } from './domain/crop-source-scale'
 import {
   CropFrame,
-  createCropFrame
+  createCropFrame,
+  setCropFrameActiveResizePreserveAspectRatio
 } from './domain/crop-frame'
+import {
+  isCropFrameResizeTransform,
+  resolveCropFrameResizePreserveAspectRatio
+} from './domain/crop-resize-mode'
 import {
   getCropSessionResultRect,
   getRoundedCropRect
@@ -46,6 +51,7 @@ import type {
   CropSessionOptions,
   CropSize,
   CropState,
+  SetCropPreserveAspectRatioOptions,
   StartCanvasCropOptions,
   StartImageCropOptions
 } from './types'
@@ -136,6 +142,17 @@ type CropFrameChangeEvent = (
 }
 
 /**
+ * Минимальная часть live-event, которая влияет на effective resize mode.
+ */
+type CropResizeModeEvent = {
+  e?: Pick<TPointerEvent, 'shiftKey'>
+  transform?: Pick<
+    CropSourceBoundTransform,
+    'cropSourceScaleClamped' | 'cropSourceScalePreserveAspectRatio'
+  >
+}
+
+/**
  * Управляет transient crop mode для монтажной области и выбранного изображения.
  */
 export default class CropManager {
@@ -150,12 +167,18 @@ export default class CropManager {
   private _session: CropSession | null
 
   /**
+   * Разрешает setPreserveAspectRatio сохранить текущий resize-режим внутри live change event.
+   */
+  private _canKeepCurrentResizeMode: boolean
+
+  /**
    * @param options
    * @param options.editor - экземпляр редактора
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this._session = null
+    this._canKeepCurrentResizeMode = false
   }
 
   /**
@@ -202,7 +225,7 @@ export default class CropManager {
    * Если crop mode не активен, возвращает true.
    */
   private _getEffectivePreserveAspectRatio(
-    event?: CropFrameChangeEvent
+    event?: CropResizeModeEvent
   ): boolean {
     const { _session: session } = this
     if (!session) return true
@@ -213,10 +236,10 @@ export default class CropManager {
       return preserveAspectRatio ?? true
     }
 
-    const isShiftPressed = Boolean(event?.e?.shiftKey)
-    if (!isShiftPressed) return session.options.preserveAspectRatio
-
-    return !session.options.preserveAspectRatio
+    return resolveCropFrameResizePreserveAspectRatio({
+      target: session.frame,
+      shiftKey: event?.e?.shiftKey
+    })
   }
 
   /** Возвращает true, если текущий live-step вынес crop frame за пределы source и будет зажат clamp-ом. */
@@ -406,19 +429,33 @@ export default class CropManager {
    * Переключает сохранение пропорций при resize активной crop-области.
    */
   public setPreserveAspectRatio({
-    preserveAspectRatio
-  }: {
-    preserveAspectRatio: boolean
-  }): CropState | null {
+    preserveAspectRatio,
+    keepCurrentResizeMode = false
+  }: SetCropPreserveAspectRatioOptions): CropState | null {
     const { _session: session } = this
     if (!session) return null
 
+    const currentResizeMode = session.effectivePreserveAspectRatio
+
     session.options.preserveAspectRatio = preserveAspectRatio
-    session.effectivePreserveAspectRatio = preserveAspectRatio
     this._setFramePreserveAspectRatio({
       frame: session.frame,
       preserveAspectRatio
     })
+    setCropFrameActiveResizePreserveAspectRatio({
+      frame: session.frame,
+      preserveAspectRatio: null
+    })
+
+    session.effectivePreserveAspectRatio = preserveAspectRatio
+    if (keepCurrentResizeMode && this._canKeepCurrentResizeMode) {
+      session.effectivePreserveAspectRatio = currentResizeMode
+      setCropFrameActiveResizePreserveAspectRatio({
+        frame: session.frame,
+        preserveAspectRatio: currentResizeMode
+      })
+    }
+
     this.editor.canvas.requestRenderAll()
 
     return this.getState()
@@ -639,7 +676,7 @@ export default class CropManager {
   private _bindCropFrameEvents({ frame }: { frame: Rect }): void {
     frame.on('moving', this._handleCropFrameChanged)
     frame.on('scaling', this._handleCropFrameChanged)
-    frame.on('modified', this._handleCropFrameChanged)
+    frame.on('modified', this._handleCropFrameModified)
   }
 
   /**
@@ -648,7 +685,7 @@ export default class CropManager {
   private _unbindCropFrameEvents({ frame }: { frame: Rect }): void {
     frame.off('moving', this._handleCropFrameChanged)
     frame.off('scaling', this._handleCropFrameChanged)
-    frame.off('modified', this._handleCropFrameChanged)
+    frame.off('modified', this._handleCropFrameModified)
   }
 
   /**
@@ -699,8 +736,33 @@ export default class CropManager {
         event
       })
     }
-    this.editor.canvas.fire('editor:crop:changed', this.getState())
+    const previousCanKeepCurrentResizeMode = this._canKeepCurrentResizeMode
+
+    this._canKeepCurrentResizeMode = isCropFrameResizeTransform({
+      transform: event?.transform
+    })
+    try {
+      this.editor.canvas.fire('editor:crop:changed', this.getState())
+    } finally {
+      this._canKeepCurrentResizeMode = previousCanKeepCurrentResizeMode
+    }
     this.editor.canvas.requestRenderAll()
+  }
+
+  /**
+   * Обрабатывает завершение изменения crop frame и очищает live resize override.
+   */
+  private readonly _handleCropFrameModified = (event?: CropFrameChangeEvent): void => {
+    this._handleCropFrameChanged(event)
+
+    const { _session: session } = this
+    if (!session) return
+
+    setCropFrameActiveResizePreserveAspectRatio({
+      frame: session.frame,
+      preserveAspectRatio: null
+    })
+    session.effectivePreserveAspectRatio = session.options.preserveAspectRatio
   }
 
   /**
@@ -991,7 +1053,7 @@ export default class CropManager {
   private _isSourceScaleClamped({
     event
   }: {
-    event?: CropFrameChangeEvent
+    event?: CropResizeModeEvent
   }): boolean {
     return event?.transform?.cropSourceScaleClamped === true
   }

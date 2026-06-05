@@ -13,6 +13,7 @@ type CropFrameTargetStub = {
   scaleY: number
   cropSource?: FabricObject | null
   preserveAspectRatio?: boolean
+  cropActiveResizePreserveAspectRatio?: boolean | null
 }
 
 /** Минимальный snap-result stub для unit-тестов scaling snap. */
@@ -54,7 +55,8 @@ export function createCropFrameTarget({
   scaleX = 1,
   scaleY = 1,
   hasCropSource = true,
-  preserveAspectRatio
+  preserveAspectRatio,
+  activeResizePreserveAspectRatio
 }: {
   width?: number
   height?: number
@@ -62,6 +64,7 @@ export function createCropFrameTarget({
   scaleY?: number
   hasCropSource?: boolean
   preserveAspectRatio?: boolean
+  activeResizePreserveAspectRatio?: boolean | null
 } = {}): FabricObject {
   const target: CropFrameTargetStub = {
     width,
@@ -76,6 +79,10 @@ export function createCropFrameTarget({
 
   if (preserveAspectRatio !== undefined) {
     target.preserveAspectRatio = preserveAspectRatio
+  }
+
+  if (activeResizePreserveAspectRatio !== undefined) {
+    target.cropActiveResizePreserveAspectRatio = activeResizePreserveAspectRatio
   }
 
   return target as FabricObject

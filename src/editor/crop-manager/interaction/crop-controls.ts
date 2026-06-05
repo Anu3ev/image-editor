@@ -15,8 +15,8 @@ import {
   MIN_CROP_FRAME_HEIGHT,
   MIN_CROP_FRAME_WIDTH
 } from '../domain/crop-geometry'
-import type { CropFrameResizeTarget } from '../domain/crop-frame'
 import { getCropFrameSourceSize } from '../domain/crop-frame-size'
+import { resolveCropFrameResizePreserveAspectRatio } from '../domain/crop-resize-mode'
 import {
   resolveCropProportionalSourceScaleLimit,
   resolveCropSourceAxisScaleLimit,
@@ -1158,12 +1158,10 @@ function shouldPreserveCropFrameAspectRatioOnResize({
   eventData: { shiftKey?: boolean }
   target: FabricObject
 }): boolean {
-  const cropTarget = target as CropFrameResizeTarget
-  const preserveAspectRatio = cropTarget.preserveAspectRatio ?? true
-
-  if (!eventData.shiftKey) return preserveAspectRatio
-
-  return !preserveAspectRatio
+  return resolveCropFrameResizePreserveAspectRatio({
+    target,
+    shiftKey: eventData.shiftKey
+  })
 }
 
 /**

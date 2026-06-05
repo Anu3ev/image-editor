@@ -57,6 +57,14 @@ export type CropSessionOptions = {
 }
 
 /**
+ * Параметры переключения сохранения пропорций у активной crop-области.
+ */
+export type SetCropPreserveAspectRatioOptions = {
+  preserveAspectRatio: boolean
+  keepCurrentResizeMode?: boolean
+}
+
+/**
  * Crop rect в координатах результата: для canvas от top-left монтажной области,
  * для image от top-left текущей видимой области изображения.
  */

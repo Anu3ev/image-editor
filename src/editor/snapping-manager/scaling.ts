@@ -12,6 +12,7 @@ import type {
   GuideLine
 } from './types'
 import type { ScalingStepSnapGuard } from './pixel-grid'
+import { resolveCropFrameResizePreserveAspectRatio } from '../crop-manager/domain/crop-resize-mode'
 
 type AxisSnapEdge = 'left' | 'right' | 'top' | 'bottom'
 
@@ -40,7 +41,6 @@ export type ScalingAxisState = {
 
 type CropFrameSnapTarget = FabricObject & {
   cropSource?: FabricObject | null
-  preserveAspectRatio?: boolean
 }
 
 export type ScalingTransformState = {
@@ -161,11 +161,10 @@ export function shouldUseUniformScaleSnap({
 }): boolean {
   const cropTarget = target as CropFrameSnapTarget
   if (cropTarget.cropSource) {
-    const preserveAspectRatio = cropTarget.preserveAspectRatio ?? true
-
-    if (!event.e?.shiftKey) return preserveAspectRatio
-
-    return !preserveAspectRatio
+    return resolveCropFrameResizePreserveAspectRatio({
+      target,
+      shiftKey: event.e?.shiftKey
+    })
   }
 
   return isCornerHandle

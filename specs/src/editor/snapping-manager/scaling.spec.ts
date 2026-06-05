@@ -72,6 +72,27 @@ describe('SnappingManager scaling contract', () => {
     expect(withShift).toBe(true)
   })
 
+  it('для crop frame с active resize override не включает uniform snap из-за Shift', () => {
+    const target = createCropFrameTarget({
+      preserveAspectRatio: false,
+      activeResizePreserveAspectRatio: false
+    })
+
+    const withoutShift = shouldUseUniformScaleSnap({
+      target,
+      event: createScalingEvent(),
+      isCornerHandle: true
+    })
+    const withShift = shouldUseUniformScaleSnap({
+      target,
+      event: createScalingEvent({ shiftKey: true }),
+      isCornerHandle: true
+    })
+
+    expect(withoutShift).toBe(false)
+    expect(withShift).toBe(false)
+  })
+
   it('для правого верхнего control использует верхнюю грань для snap по высоте, даже если originY уже указывает на top', () => {
     const snapState = resolveScaleAxisSnaps({
       bounds: createScalingBounds({

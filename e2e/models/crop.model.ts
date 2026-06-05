@@ -10,6 +10,7 @@ import {
   resolveSourceBoundaryDragDelta,
   type CropFramePointerDelta
 } from './crop-source-boundary.model'
+import { CropFrameControlModel } from './crop-frame-control.model'
 import type {
   CropControlKey,
   CropImageSourceInfo,
@@ -169,6 +170,29 @@ type CropFrameSourceBoundaryResizeResult = {
   stateAfterExtraDrag: CropStateInfo
 }
 
+/** Listener события изменения crop mode в browser runtime. */
+type CropResizeModeChangeListener = () => void
+
+/** Browser-side editor contract для переключения base resize mode во время live crop resize. */
+type BrowserCropResizeModeEditor = {
+  canvas: {
+    on: (eventName: 'editor:crop:changed', listener: CropResizeModeChangeListener) => void
+    off: (eventName: 'editor:crop:changed', listener: CropResizeModeChangeListener) => void
+  }
+  cropManager: {
+    effectivePreserveAspectRatio: boolean
+    setPreserveAspectRatio: (params: {
+      preserveAspectRatio: boolean
+      keepCurrentResizeMode?: boolean
+    }) => CropStateInfo | null
+  }
+}
+
+/** Browser window с editor runtime для переключения base resize mode. */
+type BrowserCropResizeModeWindow = Window & {
+  editor?: BrowserCropResizeModeEditor
+}
+
 /** Live-шаги уменьшения квадратной crop-области перед переносом в середину. */
 const CENTERED_SQUARE_CROP_SHRINK_DELTAS = [48, 96, 144]
 
@@ -190,6 +214,9 @@ const OPPOSITE_CROP_CONTROL = {
 export class CropModel {
   private readonly page: Page
 
+  /** E2E-модель hover/cursor действий над controls активной crop-области. */
+  readonly frameControls: CropFrameControlModel
+
   /** Pointer-позиция последнего незавершённого resize crop frame. */
   private lastResizePointer: CropResizePointer | null = null
 
@@ -198,6 +225,7 @@ export class CropModel {
 
   constructor(page: Page) {
     this.page = page
+    this.frameControls = new CropFrameControlModel(page)
   }
 
   /** Возвращает true, если crop mode активен. */
@@ -427,6 +455,33 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Переключает base resize mode в свободный на следующем live-step, где Shift снял фиксацию пропорций. */
+  async switchToFreeResizeOnNextFreeLiveResize(): Promise<void> {
+    await this.page.evaluate(() => {
+      const { editor } = window as BrowserCropResizeModeWindow
+      if (!editor) {
+        throw new Error('Editor runtime должен быть доступен перед подпиской на crop resize')
+      }
+
+      /** Переключает base режим в свободный, сохраняя текущий live resize mode. */
+      const switchToFreeResize = (): void => {
+        if (editor.cropManager.effectivePreserveAspectRatio !== false) return
+
+        editor.canvas.off('editor:crop:changed', switchToFreeResize)
+
+        const state = editor.cropManager.setPreserveAspectRatio({
+          preserveAspectRatio: false,
+          keepCurrentResizeMode: true
+        })
+        if (!state) {
+          throw new Error('Active crop должен существовать во время переключения resize mode')
+        }
+      }
+
+      editor.canvas.on('editor:crop:changed', switchToFreeResize)
+    })
+  }
+
   /** Применяет активный crop mode. */
   async apply(): Promise<void> {
     const result = await this.page.evaluate(() => {
@@ -480,7 +535,7 @@ export class CropModel {
       deltaY,
       pointerSteps = 8
     } = params
-    const point = await this.resolveFrameControlPoint({ control })
+    const point = await this.frameControls.resolveControlPoint({ control })
     const nextPoint = {
       x: point.x + deltaX,
       y: point.y + deltaY,
@@ -554,7 +609,7 @@ export class CropModel {
       throw new Error('Параметры медленного resize crop frame должны быть валидными')
     }
 
-    const point = await this.resolveFrameControlPoint({ control: params.control })
+    const point = await this.frameControls.resolveControlPoint({ control: params.control })
     const pointerDelta = await this.resolveSourcePixelPointerDelta({
       deltaX: params.deltaX,
       deltaY: params.deltaY
@@ -592,7 +647,7 @@ export class CropModel {
     }
 
     return this.dragFrameControlSlowlyBetweenClientPoints({
-      startPoint: await this.resolveFrameControlPoint({ control: params.control }),
+      startPoint: await this.frameControls.resolveControlPoint({ control: params.control }),
       targetPoint: await this.resolveSourcePointAsClientPoint(params.sourcePoint),
       steps: params.steps
     })
@@ -929,40 +984,6 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
 
     return this.requireState()
-  }
-
-  /** Наводит курсор на указанный resize control активной crop-области. */
-  async hoverFrameControl(params: { control: CropControlKey }): Promise<void> {
-    const point = await this.resolveFrameControlPoint(params)
-
-    await this.page.mouse.move(point.x, point.y)
-    await waitForCanvasRender({ page: this.page })
-  }
-
-  /** Возвращает cursor canvas после hover указанного resize control. */
-  async getFrameControlCursor(
-    params: { control: CropControlKey, shiftKey?: boolean }
-  ): Promise<string> {
-    const {
-      control,
-      shiftKey = false
-    } = params
-
-    if (!shiftKey) {
-      await this.hoverFrameControl({ control })
-
-      return this.readCanvasCursor()
-    }
-
-    await this.page.keyboard.down('Shift')
-
-    try {
-      await this.hoverFrameControl({ control })
-
-      return await this.readCanvasCursor()
-    } finally {
-      await this.page.keyboard.up('Shift')
-    }
   }
 
   /** Завершает активный resize crop frame через mouseup. */
@@ -1426,51 +1447,6 @@ export class CropModel {
     }
 
     return state
-  }
-
-  /** Возвращает viewport-координаты resize control активной crop-области. */
-  private async resolveFrameControlPoint(
-    { control }: { control: CropControlKey }
-  ): Promise<{ x: number, y: number }> {
-    const point = await this.page.evaluate(({ control: controlKey }) => {
-      const { editor } = window as any
-      const cropState = editor.cropManager.getState()
-      if (!cropState) return null
-
-      const { frame } = cropState
-
-      editor.canvas.setActiveObject(frame)
-      frame.setCoords()
-      editor.canvas.renderAll()
-
-      const frameControl = frame.oCoords?.[controlKey]
-      if (!frameControl || typeof frameControl.x !== 'number' || typeof frameControl.y !== 'number') {
-        return null
-      }
-
-      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-
-      return {
-        x: canvasRect.left + frameControl.x,
-        y: canvasRect.top + frameControl.y
-      }
-    }, { control })
-
-    expect(point, 'для hover crop-control должны существовать client-координаты').not.toBeNull()
-    if (!point) {
-      throw new Error('Не удалось получить client-координаты crop-control')
-    }
-
-    return point
-  }
-
-  /** Возвращает текущее значение cursor у верхнего canvas слоя. */
-  private async readCanvasCursor(): Promise<string> {
-    return this.page.evaluate(() => {
-      const { editor } = window as any
-
-      return editor.canvas.upperCanvasEl.style.cursor ?? ''
-    })
   }
 
   /** Преобразует желаемый размер результата crop в ratio-параметры resize control. */
