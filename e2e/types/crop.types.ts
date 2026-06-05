@@ -46,6 +46,7 @@ export interface CropStateInfo {
   mode: CropModeInfo
   targetId: string | null
   options: CropSessionOptionsInfo
+  effectivePreserveAspectRatio: boolean
   rect: CropRectInfo
   frame: CropFrameInfo
 }

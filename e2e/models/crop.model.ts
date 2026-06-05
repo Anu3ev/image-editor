@@ -170,29 +170,6 @@ type CropFrameSourceBoundaryResizeResult = {
   stateAfterExtraDrag: CropStateInfo
 }
 
-/** Listener события изменения crop mode в browser runtime. */
-type CropResizeModeChangeListener = () => void
-
-/** Browser-side editor contract для переключения base resize mode во время live crop resize. */
-type BrowserCropResizeModeEditor = {
-  canvas: {
-    on: (eventName: 'editor:crop:changed', listener: CropResizeModeChangeListener) => void
-    off: (eventName: 'editor:crop:changed', listener: CropResizeModeChangeListener) => void
-  }
-  cropManager: {
-    effectivePreserveAspectRatio: boolean
-    setPreserveAspectRatio: (params: {
-      preserveAspectRatio: boolean
-      keepCurrentResizeMode?: boolean
-    }) => CropStateInfo | null
-  }
-}
-
-/** Browser window с editor runtime для переключения base resize mode. */
-type BrowserCropResizeModeWindow = Window & {
-  editor?: BrowserCropResizeModeEditor
-}
-
 /** Live-шаги уменьшения квадратной crop-области перед переносом в середину. */
 const CENTERED_SQUARE_CROP_SHRINK_DELTAS = [48, 96, 144]
 
@@ -261,6 +238,7 @@ export class CropModel {
         mode: state.mode,
         targetId: state.target?.id ?? null,
         options: state.options,
+        effectivePreserveAspectRatio: state.effectivePreserveAspectRatio,
         rect: state.rect,
         frame: {
           id: frame.id ?? null,
@@ -441,7 +419,7 @@ export class CropModel {
 
   /** Переключает сохранение пропорций у resize crop-области через публичный API редактора. */
   async setPreserveAspectRatio(
-    params: { preserveAspectRatio: boolean }
+    params: { preserveAspectRatio: boolean, keepCurrentResizeMode?: boolean }
   ): Promise<CropStateInfo> {
     const state = await this.page.evaluate((payload) => {
       const { editor } = window as any
@@ -453,33 +431,6 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
 
     return this.requireState()
-  }
-
-  /** Переключает base resize mode в свободный на следующем live-step, где Shift снял фиксацию пропорций. */
-  async switchToFreeResizeOnNextFreeLiveResize(): Promise<void> {
-    await this.page.evaluate(() => {
-      const { editor } = window as BrowserCropResizeModeWindow
-      if (!editor) {
-        throw new Error('Editor runtime должен быть доступен перед подпиской на crop resize')
-      }
-
-      /** Переключает base режим в свободный, сохраняя текущий live resize mode. */
-      const switchToFreeResize = (): void => {
-        if (editor.cropManager.effectivePreserveAspectRatio !== false) return
-
-        editor.canvas.off('editor:crop:changed', switchToFreeResize)
-
-        const state = editor.cropManager.setPreserveAspectRatio({
-          preserveAspectRatio: false,
-          keepCurrentResizeMode: true
-        })
-        if (!state) {
-          throw new Error('Active crop должен существовать во время переключения resize mode')
-        }
-      }
-
-      editor.canvas.on('editor:crop:changed', switchToFreeResize)
-    })
   }
 
   /** Применяет активный crop mode. */
