@@ -20,6 +20,12 @@ export const PROPORTIONAL_CENTER_GUIDE_CROP_SIZE = {
 /** Небольшой drag в source-пикселях, который должен остаться внутри snap-порога. */
 export const PROPORTIONAL_CENTER_GUIDE_HOLD_DRAG_PIXELS = 4
 
+/** Drag в source-пикселях, который должен довести crop-область до source-границы. */
+export const PROPORTIONAL_CENTER_GUIDE_BOUNDARY_DRAG_PIXELS = 180
+
+/** Число live-шагов медленного drag к source-границе. */
+export const PROPORTIONAL_CENTER_GUIDE_SLOW_BOUNDARY_STEPS = 80
+
 /** Углы proportional crop, которые не должны менять размер у центральных guide монтажной области. */
 export const PROPORTIONAL_CENTER_GUIDE_HOLD_CASES = [
   {

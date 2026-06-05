@@ -39,20 +39,34 @@ export const EDGE_IMAGE_CROP_SQUARE_SIZE = 667
 /** Небольшой drag внутри snap-порога для proportional image crop у границы source. */
 export const EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS = 1
 
+/** Число live-шагов для медленного resize внутри snap-порога. */
+export const EDGE_IMAGE_CROP_SLOW_SNAP_STEPS = 80
+
 /** Небольшой экранный drag внутри snap-порога для proportional image crop у границы source. */
 export const EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS = 1
 
 /** Размер crop-области после уменьшения квадратного image crop до серединных guide source. */
-export const EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE = Math.floor(EDGE_IMAGE_CROP_SQUARE_SIZE / 2)
+export const EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE = Math.round(EDGE_IMAGE_CROP_SQUARE_SIZE / 2)
 
-const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT = Math.floor(EDGE_IMAGE_CROP_SOURCE_SIZE.height / 2)
+const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT = EDGE_IMAGE_CROP_SOURCE_SIZE.height / 2
 
 /** Размер пропорционального image crop после прилипания верхней стороны к середине source. */
 export const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE = {
-  height: EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT,
+  height: Math.round(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT),
   width: Math.round(
     (EDGE_IMAGE_CROP_SOURCE_SIZE.width * EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT)
     / EDGE_IMAGE_CROP_SOURCE_SIZE.height
+  )
+} as const
+
+const EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_WIDTH = EDGE_IMAGE_CROP_SOURCE_SIZE.width / 2
+
+/** Размер индикатора после прилипания левой стороны к вертикальной середине source. */
+export const EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE = {
+  width: EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_WIDTH,
+  height: Math.round(
+    (EDGE_IMAGE_CROP_SOURCE_SIZE.height * EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_WIDTH)
+    / EDGE_IMAGE_CROP_SOURCE_SIZE.width
   )
 } as const
 

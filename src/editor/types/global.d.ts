@@ -1,7 +1,8 @@
-import { ImageEditor } from './initEditor'
-
 declare global {
   interface Window {
-    [key: string]: ImageEditor
+    /** Инстансы редактора доступны на window по id контейнера из src/main.ts. */
+    [key: string]: unknown
   }
 }
+
+export {}

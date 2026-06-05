@@ -8,8 +8,12 @@ import {
 } from './crop-geometry'
 import type {
   CropRect,
-  CropSession
+  CropSession,
+  CropSize
 } from '../types'
+
+/** Допуск округления crop-result на границе .5 после floating-point вычислений. */
+const CROP_RESULT_ROUNDING_EPSILON = 0.000001
 
 /**
  * Возвращает crop rect в координатах результата текущей session.
@@ -26,15 +30,60 @@ export function getCropSessionResultRect({ session }: { session: CropSession }):
 }
 
 /**
- * Возвращает rounded crop rect без отрицательных размеров.
+ * Возвращает pixel-rect без отрицательных размеров.
  */
-export function getRoundedCropRect({ rect }: { rect: CropRect }): CropRect {
+export function getRoundedCropRect({
+  rect,
+  sourceSize
+}: {
+  rect: CropRect
+  sourceSize?: CropSize
+}): CropRect {
+  const width = Math.max(0, roundCropValue({ value: rect.width }))
+  const height = Math.max(0, roundCropValue({ value: rect.height }))
+
   return {
-    left: Math.round(rect.left),
-    top: Math.round(rect.top),
-    width: Math.round(rect.width),
-    height: Math.round(rect.height)
+    left: resolveRoundedCropStart({
+      start: rect.left,
+      length: width,
+      sourceLength: sourceSize?.width
+    }),
+    top: resolveRoundedCropStart({
+      start: rect.top,
+      length: height,
+      sourceLength: sourceSize?.height
+    }),
+    width,
+    height
   }
+}
+
+/**
+ * Округляет crop-координату или размер с микродопуском к погрешности double arithmetic.
+ */
+function roundCropValue({ value }: { value: number }): number {
+  return Math.round(value + CROP_RESULT_ROUNDING_EPSILON)
+}
+
+/**
+ * Возвращает округлённую start-координату, не выпуская rect за source при известной source-size.
+ */
+function resolveRoundedCropStart({
+  start,
+  length,
+  sourceLength
+}: {
+  start: number
+  length: number
+  sourceLength?: number
+}): number {
+  const roundedStart = roundCropValue({ value: start })
+  if (sourceLength === undefined) return roundedStart
+
+  const roundedSourceLength = Math.max(0, roundCropValue({ value: sourceLength }))
+  const maxStart = Math.max(0, roundedSourceLength - length)
+
+  return Math.min(Math.max(0, roundedStart), maxStart)
 }
 
 /**

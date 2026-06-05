@@ -19,6 +19,7 @@ import type {
   CropStartParams,
   CropStateInfo,
   EditorObjectInfo,
+  ObjectSizeIndicatorInfo,
   ObjectTargetParams
 } from '../types'
 
@@ -40,6 +41,12 @@ type CropMovePointer = {
 /** Результат browser-side шага drag crop frame. */
 type CropResizeDragResult = {
   point: CropResizePointer
+}
+
+/** Live-состояние медленного resize crop frame. */
+type CropSlowResizeState = {
+  state: CropStateInfo
+  indicator: ObjectSizeIndicatorInfo
 }
 
 /** Результат browser-side шага drag crop frame за центр. */
@@ -80,6 +87,24 @@ type CropFrameControlSourceDragParams = {
   deltaX: number
   deltaY: number
   pointerSteps?: number
+}
+
+/** Параметры медленного drag resize control crop frame в source-пикселях. */
+type CropFrameControlSlowSourceDragParams = {
+  control: CropControlKey
+  deltaX: number
+  deltaY: number
+  steps: number
+}
+
+/** Параметры медленного drag resize control crop frame к source-точке. */
+type CropFrameControlSlowSourcePointDragParams = {
+  control: CropControlKey
+  sourcePoint: {
+    x: number
+    y: number
+  }
+  steps: number
 }
 
 /** Параметры продолжения drag resize control crop frame в source-пикселях. */
@@ -505,6 +530,71 @@ export class CropModel {
       deltaX: pointerDelta.deltaX,
       deltaY: pointerDelta.deltaY,
       pointerSteps
+    })
+  }
+
+  /** Медленно тянет resize control crop frame и возвращает состояние после каждого live-step. */
+  async dragFrameControlSlowlyBySourcePixels(
+    params: CropFrameControlSlowSourceDragParams
+  ): Promise<CropSlowResizeState[]> {
+    expect(
+      this.lastResizePointer,
+      'нельзя начинать новый resize drag crop frame, пока не завершён предыдущий'
+    ).toBeNull()
+    expect(Number.isInteger(params.steps), 'число slow-step для resize crop frame должно быть целым').toBe(true)
+    expect(params.steps, 'для медленного resize crop frame должен быть хотя бы один шаг').toBeGreaterThan(0)
+    expect(Number.isFinite(params.deltaX), 'source-смещение crop frame по X должно быть конечным числом').toBe(true)
+    expect(Number.isFinite(params.deltaY), 'source-смещение crop frame по Y должно быть конечным числом').toBe(true)
+    const hasInvalidParams = !Number.isInteger(params.steps)
+      || params.steps <= 0
+      || !Number.isFinite(params.deltaX)
+      || !Number.isFinite(params.deltaY)
+
+    if (hasInvalidParams) {
+      throw new Error('Параметры медленного resize crop frame должны быть валидными')
+    }
+
+    const point = await this.resolveFrameControlPoint({ control: params.control })
+    const pointerDelta = await this.resolveSourcePixelPointerDelta({
+      deltaX: params.deltaX,
+      deltaY: params.deltaY
+    })
+
+    return this.dragFrameControlSlowlyBetweenClientPoints({
+      startPoint: point,
+      targetPoint: {
+        x: point.x + pointerDelta.deltaX,
+        y: point.y + pointerDelta.deltaY
+      },
+      steps: params.steps
+    })
+  }
+
+  /** Медленно тянет resize control crop frame к точке внутри source и возвращает live-состояния. */
+  async dragFrameControlSlowlyToSourcePoint(
+    params: CropFrameControlSlowSourcePointDragParams
+  ): Promise<CropSlowResizeState[]> {
+    expect(
+      this.lastResizePointer,
+      'нельзя начинать новый resize drag crop frame, пока не завершён предыдущий'
+    ).toBeNull()
+    expect(Number.isInteger(params.steps), 'число slow-step для resize crop frame должно быть целым').toBe(true)
+    expect(params.steps, 'для медленного resize crop frame должен быть хотя бы один шаг').toBeGreaterThan(0)
+    expect(Number.isFinite(params.sourcePoint.x), 'source-точка crop frame по X должна быть конечным числом').toBe(true)
+    expect(Number.isFinite(params.sourcePoint.y), 'source-точка crop frame по Y должна быть конечным числом').toBe(true)
+    const hasInvalidParams = !Number.isInteger(params.steps)
+      || params.steps <= 0
+      || !Number.isFinite(params.sourcePoint.x)
+      || !Number.isFinite(params.sourcePoint.y)
+
+    if (hasInvalidParams) {
+      throw new Error('Параметры медленного resize crop frame к source-точке должны быть валидными')
+    }
+
+    return this.dragFrameControlSlowlyBetweenClientPoints({
+      startPoint: await this.resolveFrameControlPoint({ control: params.control }),
+      targetPoint: await this.resolveSourcePointAsClientPoint(params.sourcePoint),
+      steps: params.steps
     })
   }
 
@@ -1014,6 +1104,73 @@ export class CropModel {
     return zoom
   }
 
+  /** Возвращает текущее состояние DOM-индикатора размеров объекта. */
+  private async getObjectSizeIndicator(): Promise<ObjectSizeIndicatorInfo> {
+    return this.page.evaluate(() => {
+      const indicator = document.querySelector('.fabric-editor-object-size-indicator')
+      if (!(indicator instanceof HTMLDivElement)) {
+        return {
+          visible: false,
+          text: '',
+          width: null,
+          height: null
+        }
+      }
+
+      const style = window.getComputedStyle(indicator)
+      const bounds = indicator.getBoundingClientRect()
+      const text = indicator.textContent ?? ''
+      const match = text.match(/ширина:\s*([\d\s]+)\s+высота:\s*([\d\s]+)/)
+      const width = match ? Number(match[1].replace(/\s/g, '')) : null
+      const height = match ? Number(match[2].replace(/\s/g, '')) : null
+
+      return {
+        visible: style.display !== 'none'
+          && style.visibility !== 'hidden'
+          && bounds.width > 0
+          && bounds.height > 0,
+        text,
+        width,
+        height
+      }
+    })
+  }
+
+  private async dragFrameControlSlowlyBetweenClientPoints({
+    startPoint,
+    targetPoint,
+    steps
+  }: {
+    startPoint: { x: number, y: number }
+    targetPoint: { x: number, y: number }
+    steps: number
+  }): Promise<CropSlowResizeState[]> {
+    const states: CropSlowResizeState[] = []
+
+    await this.page.mouse.move(startPoint.x, startPoint.y)
+    await this.page.mouse.down()
+
+    for (let index = 1; index <= steps; index += 1) {
+      const nextPoint = {
+        x: startPoint.x + (((targetPoint.x - startPoint.x) * index) / steps),
+        y: startPoint.y + (((targetPoint.y - startPoint.y) * index) / steps),
+        shiftKey: false
+      }
+
+      await this.page.mouse.move(nextPoint.x, nextPoint.y)
+      await waitForCanvasRender({ page: this.page })
+      states.push({
+        state: await this.requireState(),
+        indicator: await this.getObjectSizeIndicator()
+      })
+      this.lastResizePointer = nextPoint
+    }
+
+    expect(states.length, 'число live-состояний crop должно совпадать с числом slow-step').toBe(steps)
+
+    return states
+  }
+
   /** Пересчитывает source-пиксели active crop frame в client-смещение pointer. */
   private async resolveSourcePixelPointerDelta({
     deltaX,
@@ -1037,6 +1194,43 @@ export class CropModel {
       deltaX: deltaX * scaleX * canvasZoom,
       deltaY: deltaY * scaleY * canvasZoom
     }
+  }
+
+  /** Переводит source-точку active image crop в client-координаты браузера. */
+  private async resolveSourcePointAsClientPoint(
+    point: { x: number, y: number }
+  ): Promise<{ x: number, y: number }> {
+    const clientPoint = await this.page.evaluate((sourcePoint) => {
+      const { editor } = window as any
+      const cropState = editor.cropManager.getState()
+      if (!cropState?.target) return null
+
+      const source = cropState.target
+      const center = source.getCenterPoint()
+      const width = source.width ?? 0
+      const height = source.height ?? 0
+      const scaleX = source.scaleX ?? 1
+      const scaleY = source.scaleY ?? 1
+      const angle = ((source.angle ?? 0) * Math.PI) / 180
+      const localX = (sourcePoint.x - (width / 2)) * scaleX
+      const localY = (sourcePoint.y - (height / 2)) * scaleY
+      const sceneX = center.x + (localX * Math.cos(angle)) - (localY * Math.sin(angle))
+      const sceneY = center.y + (localX * Math.sin(angle)) + (localY * Math.cos(angle))
+      const [a, b, c, d, tx, ty] = editor.canvas.viewportTransform
+      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: canvasRect.left + (a * sceneX) + (c * sceneY) + tx,
+        y: canvasRect.top + (b * sceneX) + (d * sceneY) + ty
+      }
+    }, point)
+
+    expect(clientPoint, 'для source-точки active crop должны существовать client-координаты').not.toBeNull()
+    if (!clientPoint) {
+      throw new Error('Для source-точки active crop должны существовать client-координаты')
+    }
+
+    return clientPoint
   }
 
   /** Выполняет browser-side drag crop-control и возвращает pointer для завершения drag. */
