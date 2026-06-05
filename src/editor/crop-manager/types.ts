@@ -136,6 +136,7 @@ export type CropState = {
   frame: Rect
   options: CropSessionOptions
   target: FabricImage | null
+  effectivePreserveAspectRatio: boolean
   rect: CropRect
 }
 

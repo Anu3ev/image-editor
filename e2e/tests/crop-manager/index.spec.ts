@@ -66,11 +66,7 @@ test.describe('Crop mode', () => {
       })
     })
 
-    await test.step('Подписаться на первый свободный live resize и переключить base режим', async() => {
-      await crop.switchToFreeResizeOnNextFreeLiveResize()
-    })
-
-    const switchedState = await test.step('Потянуть область из угла с Shift и переключить base режим', async() => {
+    const shiftedState = await test.step('Потянуть область из угла с Shift', async() => {
       return crop.dragFrameFromControl({
         control: 'br',
         widthRatio: 1.45,
@@ -79,12 +75,29 @@ test.describe('Crop mode', () => {
       })
     })
 
-    await test.step('Проверить что первый Shift resize остался свободным', async() => {
+    await test.step('Проверить что первый Shift resize стал свободным', async() => {
       const initialRatio = initialState.rect.width / initialState.rect.height
+      const shiftedRatio = shiftedState.rect.width / shiftedState.rect.height
+
+      expect(shiftedState.options.preserveAspectRatio).toBe(true)
+      expect(shiftedState.effectivePreserveAspectRatio).toBe(false)
+      expect(Math.abs(shiftedRatio - initialRatio)).toBeGreaterThan(0.1)
+    })
+
+    const switchedState = await test.step('Переключить base режим после live Shift resize', async() => {
+      return crop.setPreserveAspectRatio({
+        preserveAspectRatio: false,
+        keepCurrentResizeMode: true
+      })
+    })
+
+    await test.step('Проверить что переключение сохранило текущий свободный resize', async() => {
+      const shiftedRatio = shiftedState.rect.width / shiftedState.rect.height
       const switchedRatio = switchedState.rect.width / switchedState.rect.height
 
       expect(switchedState.options.preserveAspectRatio).toBe(false)
-      expect(Math.abs(switchedRatio - initialRatio)).toBeGreaterThan(0.1)
+      expect(switchedState.effectivePreserveAspectRatio).toBe(false)
+      expect(switchedRatio).toBeCloseTo(shiftedRatio, 3)
     })
 
     const continuedState = await test.step('Продолжить тот же Shift drag после переключения base режима', async() => {
@@ -101,6 +114,7 @@ test.describe('Crop mode', () => {
       const continuedRatio = continuedState.rect.width / continuedState.rect.height
 
       expect(continuedState.options.preserveAspectRatio).toBe(false)
+      expect(continuedState.effectivePreserveAspectRatio).toBe(false)
       expect(Math.abs(continuedRatio - switchedRatio)).toBeGreaterThan(0.05)
     })
 
@@ -113,6 +127,7 @@ test.describe('Crop mode', () => {
       const finishedRatio = finishedState.rect.width / finishedState.rect.height
 
       expect(finishedState.options.preserveAspectRatio).toBe(false)
+      expect(finishedState.effectivePreserveAspectRatio).toBe(false)
       expect(finishedRatio).toBeCloseTo(continuedRatio, 3)
     })
 
@@ -129,7 +144,39 @@ test.describe('Crop mode', () => {
       const nextRatio = nextFreeState.rect.width / nextFreeState.rect.height
 
       expect(nextFreeState.options.preserveAspectRatio).toBe(false)
+      expect(nextFreeState.effectivePreserveAspectRatio).toBe(false)
       expect(Math.abs(nextRatio - finishedRatio)).toBeGreaterThan(0.05)
+    })
+
+    const nextShiftState = await test.step('Потянуть область с Shift после перехода в свободный режим', async() => {
+      return crop.dragFrameFromControl({
+        control: 'br',
+        widthRatio: 1.2,
+        heightRatio: 0.7,
+        shiftKey: true
+      })
+    })
+
+    await test.step('Проверить что новый Shift resize снова сохраняет пропорции', async() => {
+      const nextRatio = nextFreeState.rect.width / nextFreeState.rect.height
+      const nextShiftRatio = nextShiftState.rect.width / nextShiftState.rect.height
+
+      expect(nextShiftState.options.preserveAspectRatio).toBe(false)
+      expect(nextShiftState.effectivePreserveAspectRatio).toBe(true)
+      expect(nextShiftRatio).toBeCloseTo(nextRatio, 3)
+    })
+
+    const finishedShiftState = await test.step('Завершить новый Shift resize', async() => {
+      return crop.finishFrameResize()
+    })
+
+    await test.step('Проверить что после mouseup base режим остался свободным', async() => {
+      const nextShiftRatio = nextShiftState.rect.width / nextShiftState.rect.height
+      const finishedShiftRatio = finishedShiftState.rect.width / finishedShiftState.rect.height
+
+      expect(finishedShiftState.options.preserveAspectRatio).toBe(false)
+      expect(finishedShiftState.effectivePreserveAspectRatio).toBe(false)
+      expect(finishedShiftRatio).toBeCloseTo(nextShiftRatio, 3)
     })
   })
 

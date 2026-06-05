@@ -18,10 +18,16 @@ const createMinimalSession = ({
   preserveAspectRatio?: boolean
 } = {}): CropSession => {
   const source = new Rect({ width: 100, height: 100 })
-  const frame = new CropFrame({ width: 50, height: 50, showGrid: false })
+  const frame = new CropFrame({
+    width: 50,
+    height: 50,
+    showGrid: false,
+    preserveAspectRatio
+  })
 
   source.calcTransformMatrix = jest.fn().mockReturnValue([1, 0, 0, 1, 0, 0])
   frame.calcTransformMatrix = jest.fn().mockReturnValue([1, 0, 0, 1, 0, 0])
+  frame.off = jest.fn()
 
   return {
     mode: 'canvas',
@@ -75,6 +81,7 @@ describe('CropManager', () => {
       })
 
       expect(cropManager.effectivePreserveAspectRatio).toBe(false)
+      expect(cropManager.getState()?.effectivePreserveAspectRatio).toBe(false)
       expect(cropManager.isActive).toBe(true)
     })
 
@@ -89,7 +96,7 @@ describe('CropManager', () => {
       expect(session.options.preserveAspectRatio).toBe(false)
     })
 
-    it('сохраняет текущий resize-режим при keepCurrentResizeMode внутри live resize change', () => {
+    it('сохраняет текущий resize-режим при keepCurrentResizeMode во время active resize', () => {
       const {
         cropManager,
         session
@@ -98,7 +105,7 @@ describe('CropManager', () => {
       })
 
       session.effectivePreserveAspectRatio = false
-      cropManager['_canKeepCurrentResizeMode'] = true
+      cropManager['_activeResizePreserveAspectRatio'] = false
       cropManager.setPreserveAspectRatio({
         preserveAspectRatio: false,
         keepCurrentResizeMode: true
@@ -106,6 +113,7 @@ describe('CropManager', () => {
 
       expect(session.options.preserveAspectRatio).toBe(false)
       expect(cropManager.effectivePreserveAspectRatio).toBe(false)
+      expect(cropManager['_activeResizePreserveAspectRatio']).toBe(false)
       expect((session.frame as CropFrame).cropActiveResizePreserveAspectRatio).toBe(false)
     })
 
@@ -123,6 +131,18 @@ describe('CropManager', () => {
       expect(session.options.preserveAspectRatio).toBe(false)
       expect(cropManager.effectivePreserveAspectRatio).toBe(false)
       expect((session.frame as CropFrame).cropActiveResizePreserveAspectRatio).toBeNull()
+    })
+
+    it('очищает текущий resize-режим после cancel', () => {
+      const { cropManager } = createActiveCropManager({
+        preserveAspectRatio: true
+      })
+
+      cropManager['_activeResizePreserveAspectRatio'] = false
+
+      expect(cropManager.cancel()).toBe(true)
+      expect(cropManager['_activeResizePreserveAspectRatio']).toBeNull()
+      expect(cropManager.isActive).toBe(false)
     })
   })
 
@@ -151,6 +171,19 @@ describe('CropManager', () => {
 
       expect(result).toBe(false)
       expect(session.options.preserveAspectRatio).toBe(true)
+    })
+
+    it('включает сохранение пропорций по Shift при базовом свободном resize', () => {
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: false
+      })
+
+      const result = cropManager['_getEffectivePreserveAspectRatio']({
+        e: { shiftKey: true }
+      })
+
+      expect(result).toBe(true)
+      expect(session.options.preserveAspectRatio).toBe(false)
     })
 
     it('возвращает true при source-clamped transform без явного флага', () => {

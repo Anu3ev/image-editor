@@ -167,9 +167,9 @@ export default class CropManager {
   private _session: CropSession | null
 
   /**
-   * Разрешает setPreserveAspectRatio сохранить текущий resize-режим внутри live change event.
+   * Фактический resize-режим текущего active resize interaction.
    */
-  private _canKeepCurrentResizeMode: boolean
+  private _activeResizePreserveAspectRatio: boolean | null
 
   /**
    * @param options
@@ -178,7 +178,7 @@ export default class CropManager {
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this._session = null
-    this._canKeepCurrentResizeMode = false
+    this._activeResizePreserveAspectRatio = null
   }
 
   /**
@@ -204,6 +204,7 @@ export default class CropManager {
       frame: session.frame,
       options: session.options,
       target: session.target,
+      effectivePreserveAspectRatio: session.effectivePreserveAspectRatio,
       rect: getRoundedCropRect({
         rect,
         sourceSize
@@ -435,7 +436,7 @@ export default class CropManager {
     const { _session: session } = this
     if (!session) return null
 
-    const currentResizeMode = session.effectivePreserveAspectRatio
+    const currentResizeMode = this._activeResizePreserveAspectRatio
 
     session.options.preserveAspectRatio = preserveAspectRatio
     this._setFramePreserveAspectRatio({
@@ -448,7 +449,7 @@ export default class CropManager {
     })
 
     session.effectivePreserveAspectRatio = preserveAspectRatio
-    if (keepCurrentResizeMode && this._canKeepCurrentResizeMode) {
+    if (keepCurrentResizeMode && currentResizeMode !== null) {
       session.effectivePreserveAspectRatio = currentResizeMode
       setCropFrameActiveResizePreserveAspectRatio({
         frame: session.frame,
@@ -736,16 +737,11 @@ export default class CropManager {
         event
       })
     }
-    const previousCanKeepCurrentResizeMode = this._canKeepCurrentResizeMode
-
-    this._canKeepCurrentResizeMode = isCropFrameResizeTransform({
-      transform: event?.transform
-    })
-    try {
-      this.editor.canvas.fire('editor:crop:changed', this.getState())
-    } finally {
-      this._canKeepCurrentResizeMode = previousCanKeepCurrentResizeMode
+    if (isCropFrameResizeTransform({ transform: event?.transform })) {
+      this._activeResizePreserveAspectRatio = session.effectivePreserveAspectRatio
     }
+
+    this.editor.canvas.fire('editor:crop:changed', this.getState())
     this.editor.canvas.requestRenderAll()
   }
 
@@ -762,6 +758,7 @@ export default class CropManager {
       frame: session.frame,
       preserveAspectRatio: null
     })
+    this._activeResizePreserveAspectRatio = null
     session.effectivePreserveAspectRatio = session.options.preserveAspectRatio
   }
 
@@ -1395,6 +1392,7 @@ export default class CropManager {
     this.editor.canvas.remove(session.frame)
     this._restoreSceneObjects({ interactivity: session.interactivity })
     this.editor.historyManager.resumeHistory()
+    this._activeResizePreserveAspectRatio = null
     this._session = null
     this._restoreActiveObject({ object: nextActiveObject })
     this.editor.toolbar.showAfterTemporary()
