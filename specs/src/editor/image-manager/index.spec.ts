@@ -537,6 +537,8 @@ describe('ImageManager', () => {
 
     it('exports FabricImage as base64', async() => {
       const image = createMockFabricImage({ width: 200, height: 150 })
+      const toCanvasElementMock = jest.fn()
+      Object.assign(image, { toCanvasElement: toCanvasElementMock })
       mockCanvas.getActiveObject.mockReturnValue(image)
 
       mockWorkerManager.post.mockResolvedValueOnce('data:image/png;base64,object')
@@ -546,6 +548,38 @@ describe('ImageManager', () => {
       expect(result).toEqual(expect.objectContaining({
         image: 'data:image/png;base64,object'
       }))
+      expect(mockCreateImageBitmap).toHaveBeenCalledWith(image.getElement())
+      expect(toCanvasElementMock).not.toHaveBeenCalled()
+    })
+
+    it('exports cropped FabricImage as rendered object base64', async() => {
+      const image = createMockFabricImage({ width: 200, height: 150 })
+      const renderedBlob = new Blob(['cropped-image'], { type: 'image/png' })
+      const renderedCanvas = {
+        toBlob: jest.fn((callback: (value: Blob | null) => void) => {
+          callback(renderedBlob)
+        })
+      }
+      mockCanvas.getActiveObject.mockReturnValue(image)
+      image.set({
+        cropX: 40,
+        cropY: 20,
+        width: 120,
+        height: 90
+      })
+      const toCanvasElementMock = jest.fn(() => renderedCanvas)
+      Object.assign(image, { toCanvasElement: toCanvasElementMock })
+
+      mockWorkerManager.post.mockResolvedValueOnce('data:image/png;base64,cropped')
+
+      const result = await imageManager.exportObjectAsImageFile({ exportAsBase64: true })
+
+      expect(result).toEqual(expect.objectContaining({
+        image: 'data:image/png;base64,cropped'
+      }))
+      expect(toCanvasElementMock).toHaveBeenCalledWith({ enableRetinaScaling: false })
+      expect(renderedCanvas.toBlob).toHaveBeenCalled()
+      expect(mockCreateImageBitmap).toHaveBeenCalledWith(renderedBlob)
     })
 
     it('exports object as Blob when exportAsBlob is true', async() => {
