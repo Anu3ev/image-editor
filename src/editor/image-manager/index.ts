@@ -68,6 +68,32 @@ export type exportCanvasAsImageFileOptions = {
 }
 
 /**
+ * Подготовленный request для экспорта одного объекта.
+ */
+interface ObjectExportRequest {
+  object?: FabricObject
+  contentType: string
+  format: string
+  fileName: string
+  exportAsBase64: boolean
+  exportAsBlob: boolean
+}
+
+/**
+ * Request экспорта после проверки, что объект существует.
+ */
+interface ResolvedObjectExportRequest extends ObjectExportRequest {
+  object: FabricObject
+}
+
+/**
+ * Результат экспорта одного объекта с исходным Fabric-объектом в payload события.
+ */
+interface ObjectExportResult extends SuccessfulExportResult {
+  object: FabricObject
+}
+
+/**
  * Нормализованное значение scale для импорта изображения.
  */
 type ResolvedImportScale = NonNullable<ImportImageOptions['scale']>
@@ -1063,136 +1089,27 @@ export default class ImageManager {
   ): Promise<SuccessfulExportResult | null> {
     const {
       object,
-      fileName,
-      contentType,
       exportAsBase64 = false,
       exportAsBlob = false
     } = options
 
-    const { canvas, workerManager } = this.editor
+    const { canvas } = this.editor
 
     const activeObject = object || canvas.getActiveObject()
-    const fallbackContentType = contentType ?? 'image/png'
-    const fallbackFormat = this.getFormatFromContentType(fallbackContentType) || 'png'
-    const fallbackFileName = fileName ?? `image.${fallbackFormat}`
+    const request = this._createObjectExportRequest({
+      object: activeObject ?? undefined,
+      options
+    })
 
-    if (!activeObject) {
+    if (!ImageManager._hasExportObject({ request })) {
       this.editor.errorManager.emitError({
         origin: 'ImageManager',
         method: 'exportObjectAsImageFile',
         code: 'NO_OBJECT_SELECTED',
         message: 'Не выбран объект для экспорта',
-        data: { contentType: fallbackContentType, fileName: fallbackFileName, exportAsBase64, exportAsBlob }
-      })
-
-      return null
-    }
-
-    const { contentType: objectContentType, format: objectFormat = '' } = activeObject as {
-      contentType?: string
-      format?: string
-    }
-    const processedContentType = contentType ?? objectContentType ?? 'image/png'
-    const format = this.getFormatFromContentType(processedContentType)
-      || objectFormat
-      || 'png'
-    const processedFileName = fileName ?? `image.${format}`
-
-    try {
-      if (format === 'svg') {
-      // Конвертируем fabric.Object в SVG-строку
-        const svgString = activeObject.toSVG()
-
-        const svg = ImageManager._exportSVGStringAsFile(svgString, {
-          exportAsBase64,
-          exportAsBlob,
-          fileName: processedFileName
-        })
-
-        const data = {
-          object: activeObject,
-          image: svg,
-          format,
-          contentType: 'image/svg+xml',
-          fileName: processedFileName.replace(/\.[^/.]+$/, '.svg')
-        }
-
-        canvas.fire('editor:object-exported', data)
-        return data
-      }
-
-      if (exportAsBase64 && activeObject instanceof FabricImage) {
-        const bitmap = await createImageBitmap(activeObject.getElement())
-        const dataUrl = await workerManager.post(
-          'toDataURL',
-          {
-            contentType: processedContentType,
-            quality: 1,
-            bitmap
-          },
-          [bitmap]
-        )
-
-        const data = {
-          object: activeObject,
-          image: dataUrl,
-          format,
-          contentType: processedContentType,
-          fileName: processedFileName
-        }
-
-        canvas.fire('editor:object-exported', data)
-        return data
-      }
-
-      const activeObjectCanvas = activeObject.toCanvasElement({
-        enableRetinaScaling: false
-      })
-      const activeObjectBlob: Blob = await new Promise((resolve, reject) => {
-        activeObjectCanvas.toBlob((blob) => {
-          if (blob) {
-            resolve(blob)
-          } else {
-            reject(new Error('Failed to create Blob from canvas'))
-          }
-        })
-      })
-
-      if (exportAsBlob) {
-        const data = {
-          object: activeObject,
-          image: activeObjectBlob,
-          format,
-          contentType: processedContentType,
-          fileName: processedFileName
-        }
-
-        canvas.fire('editor:object-exported', data)
-        return data
-      }
-
-      // Преобразуем Blob в File
-      const file = new File([activeObjectBlob], processedFileName, { type: processedContentType })
-
-      const data = {
-        object: activeObject,
-        image: file,
-        format,
-        contentType: processedContentType,
-        fileName: processedFileName
-      }
-
-      canvas.fire('editor:object-exported', data)
-      return data
-    } catch (error) {
-      this.editor.errorManager.emitError({
-        origin: 'ImageManager',
-        method: 'exportObjectAsImageFile',
-        code: 'IMAGE_EXPORT_FAILED',
-        message: `Ошибка экспорта объекта: ${(error as Error).message}`,
         data: {
-          contentType: processedContentType,
-          fileName: processedFileName,
+          contentType: request.contentType,
+          fileName: request.fileName,
           exportAsBase64,
           exportAsBlob
         }
@@ -1200,6 +1117,295 @@ export default class ImageManager {
 
       return null
     }
+
+    try {
+      if (request.format === 'svg') {
+        return this._exportSvgObject({ request })
+      }
+
+      if (ImageManager._canExportImageElementAsBase64({ request })) {
+        return await this._exportImageElementAsBase64({ request })
+      }
+
+      return await this._exportRenderedObject({ request })
+    } catch (error) {
+      this.editor.errorManager.emitError({
+        origin: 'ImageManager',
+        method: 'exportObjectAsImageFile',
+        code: 'IMAGE_EXPORT_FAILED',
+        message: `Ошибка экспорта объекта: ${(error as Error).message}`,
+        data: {
+          contentType: request.contentType,
+          fileName: request.fileName,
+          exportAsBase64,
+          exportAsBlob
+        }
+      })
+
+      return null
+    }
+  }
+
+  /**
+   * Создаёт request экспорта объекта даже при пустом object, чтобы error payload был консистентным.
+   */
+  private _createObjectExportRequest({
+    object,
+    options
+  }: {
+    object?: FabricObject
+    options: ExportObjectAsImageFileParameters
+  }): ObjectExportRequest {
+    const {
+      fileName,
+      contentType,
+      exportAsBase64 = false,
+      exportAsBlob = false
+    } = options
+    const objectMetadata = object as {
+      contentType?: string
+      format?: string
+    } | undefined
+    const { contentType: objectContentType, format: objectFormat = '' } = objectMetadata || {}
+    const resolvedContentType = contentType ?? objectContentType ?? 'image/png'
+    const format = this.getFormatFromContentType(resolvedContentType)
+      || objectFormat
+      || 'png'
+
+    return {
+      object,
+      contentType: resolvedContentType,
+      format,
+      fileName: fileName ?? `image.${format}`,
+      exportAsBase64,
+      exportAsBlob
+    }
+  }
+
+  /**
+   * Проверяет, что request содержит объект для экспорта.
+   */
+  private static _hasExportObject({
+    request
+  }: {
+    request: ObjectExportRequest
+  }): request is ResolvedObjectExportRequest {
+    return Boolean(request.object)
+  }
+
+  /**
+   * Проверяет, можно ли использовать быстрый экспорт raw image element без потери crop-состояния.
+   */
+  private static _canExportImageElementAsBase64({
+    request
+  }: {
+    request: ResolvedObjectExportRequest
+  }): request is ResolvedObjectExportRequest & { object: FabricImage } {
+    if (!request.exportAsBase64) return false
+    if (!(request.object instanceof FabricImage)) return false
+
+    return !ImageManager._hasVisibleImageCrop({ image: request.object })
+  }
+
+  /**
+   * Проверяет, отличается ли видимая область FabricImage от исходного element.
+   */
+  private static _hasVisibleImageCrop({ image }: { image: FabricImage }): boolean {
+    const cropX = Number(image.cropX ?? 0)
+    const cropY = Number(image.cropY ?? 0)
+    const width = Number(image.width ?? 0)
+    const height = Number(image.height ?? 0)
+    const sourceSize = ImageManager._getImageElementSize({ image })
+
+    return Boolean(
+      cropX
+      || cropY
+      || (sourceSize.width && width && width < sourceSize.width)
+      || (sourceSize.height && height && height < sourceSize.height)
+    )
+  }
+
+  /**
+   * Возвращает размер исходного element у FabricImage.
+   */
+  private static _getImageElementSize({
+    image
+  }: {
+    image: FabricImage
+  }): { width: number, height: number } {
+    const element = image.getElement() as {
+      naturalWidth?: number
+      naturalHeight?: number
+      videoWidth?: number
+      videoHeight?: number
+      width?: number
+      height?: number
+    }
+
+    return {
+      width: element.naturalWidth || element.videoWidth || element.width || 0,
+      height: element.naturalHeight || element.videoHeight || element.height || 0
+    }
+  }
+
+  /**
+   * Экспортирует SVG-объект без rasterize.
+   */
+  private _exportSvgObject({ request }: { request: ResolvedObjectExportRequest }): ObjectExportResult {
+    const { canvas } = this.editor
+    const svgString = request.object.toSVG()
+    const svg = ImageManager._exportSVGStringAsFile(svgString, {
+      exportAsBase64: request.exportAsBase64,
+      exportAsBlob: request.exportAsBlob,
+      fileName: request.fileName
+    })
+    const data = {
+      object: request.object,
+      image: svg,
+      format: request.format,
+      contentType: 'image/svg+xml',
+      fileName: request.fileName.replace(/\.[^/.]+$/, '.svg')
+    }
+
+    canvas.fire('editor:object-exported', data)
+
+    return data
+  }
+
+  /**
+   * Быстро экспортирует исходный image element через worker, когда crop-состояния нет.
+   */
+  private async _exportImageElementAsBase64({
+    request
+  }: {
+    request: ResolvedObjectExportRequest & { object: FabricImage }
+  }): Promise<ObjectExportResult> {
+    const { canvas, workerManager } = this.editor
+    const bitmap = await createImageBitmap(request.object.getElement())
+    const dataUrl = await workerManager.post(
+      'toDataURL',
+      {
+        contentType: request.contentType,
+        quality: 1,
+        bitmap
+      },
+      [bitmap]
+    ) as Base64URLString
+    const data = {
+      object: request.object,
+      image: dataUrl,
+      format: request.format,
+      contentType: request.contentType,
+      fileName: request.fileName
+    }
+
+    canvas.fire('editor:object-exported', data)
+
+    return data
+  }
+
+  /**
+   * Экспортирует rendered snapshot объекта, включая crop и другие свойства Fabric-объекта.
+   */
+  private async _exportRenderedObject({
+    request
+  }: {
+    request: ResolvedObjectExportRequest
+  }): Promise<ObjectExportResult> {
+    const { canvas } = this.editor
+    const objectBlob = await this._createObjectBlob({ request })
+
+    if (request.exportAsBlob) {
+      const data = {
+        object: request.object,
+        image: objectBlob,
+        format: request.format,
+        contentType: request.contentType,
+        fileName: request.fileName
+      }
+
+      canvas.fire('editor:object-exported', data)
+
+      return data
+    }
+
+    if (request.exportAsBase64) {
+      const dataUrl = await this._convertBlobToDataUrl({
+        blob: objectBlob,
+        contentType: request.contentType
+      })
+      const data = {
+        object: request.object,
+        image: dataUrl,
+        format: request.format,
+        contentType: request.contentType,
+        fileName: request.fileName
+      }
+
+      canvas.fire('editor:object-exported', data)
+
+      return data
+    }
+
+    const file = new File([objectBlob], request.fileName, { type: request.contentType })
+    const data = {
+      object: request.object,
+      image: file,
+      format: request.format,
+      contentType: request.contentType,
+      fileName: request.fileName
+    }
+
+    canvas.fire('editor:object-exported', data)
+
+    return data
+  }
+
+  /**
+   * Рендерит объект в canvas и создаёт Blob.
+   */
+  private async _createObjectBlob({ request }: { request: ResolvedObjectExportRequest }): Promise<Blob> {
+    const objectCanvas = request.object.toCanvasElement({
+      enableRetinaScaling: false
+    })
+
+    return new Promise((resolve, reject) => {
+      objectCanvas.toBlob(
+        (blob) => {
+          if (blob) {
+            resolve(blob)
+          } else {
+            reject(new Error('Failed to create Blob from canvas'))
+          }
+        },
+        request.contentType,
+        1
+      )
+    })
+  }
+
+  /**
+   * Конвертирует Blob в data URL через worker.
+   */
+  private async _convertBlobToDataUrl({
+    blob,
+    contentType
+  }: {
+    blob: Blob
+    contentType: string
+  }): Promise<Base64URLString> {
+    const { workerManager } = this.editor
+    const bitmap = await createImageBitmap(blob)
+
+    return workerManager.post(
+      'toDataURL',
+      {
+        contentType,
+        quality: 1,
+        bitmap
+      },
+      [bitmap]
+    ) as Promise<Base64URLString>
   }
 
   /**

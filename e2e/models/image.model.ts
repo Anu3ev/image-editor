@@ -7,6 +7,14 @@ import type {
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
+/** RGBA-цвет пикселя в data URL изображении. */
+type ImagePixelColor = {
+  red: number
+  green: number
+  blue: number
+  alpha: number
+}
+
 export class ImageModel {
   private readonly page: Page
 
@@ -67,6 +75,118 @@ export class ImageModel {
 
       return helpers.serializeEditorObject(result.image)
     }, params)
+  }
+
+  /** Добавляет изображение из двух вертикальных цветовых блоков через публичный API ImageManager. */
+  async addVerticalSplitImage(
+    params: {
+      width: number
+      height: number
+      leftFill: string
+      rightFill: string
+      scale?: 'image-contain' | 'image-cover' | 'scale-montage'
+      withoutSelection?: boolean
+    }
+  ): Promise<EditorObjectInfo | null> {
+    return this.page.evaluate(async({
+      width,
+      height,
+      leftFill,
+      rightFill,
+      scale = 'image-contain',
+      withoutSelection = false
+    }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+
+      const context = canvas.getContext('2d')
+      if (!context) return null
+
+      context.fillStyle = leftFill
+      context.fillRect(0, 0, width / 2, height)
+      context.fillStyle = rightFill
+      context.fillRect(width / 2, 0, width / 2, height)
+
+      const result = await editor.imageManager.importImage({
+        source: canvas.toDataURL('image/png'),
+        scale,
+        withoutSelection
+      })
+      if (!result?.image) return null
+
+      return helpers.serializeEditorObject(result.image)
+    }, params)
+  }
+
+  /** Экспортирует image-объект через публичный API ImageManager в data URL. */
+  async exportObjectAsBase64(params: ObjectTargetParams = {}): Promise<string> {
+    const dataUrl = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      return editor.imageManager.exportObjectAsImageFile({
+        object: target,
+        contentType: 'image/png',
+        exportAsBase64: true
+      }).then((result: { image?: unknown } | null) => (
+        typeof result?.image === 'string' ? result.image : null
+      ))
+    }, params)
+
+    expect(dataUrl, 'экспорт image-объекта должен вернуть data URL').not.toBeNull()
+    if (!dataUrl) {
+      throw new Error('Не удалось экспортировать image-объект в data URL')
+    }
+
+    return dataUrl
+  }
+
+  /** Возвращает цвет пикселя из data URL изображения. */
+  async getDataUrlPixelColor(params: { dataUrl: string, x: number, y: number }): Promise<ImagePixelColor> {
+    const pixel = await this.page.evaluate(async({ dataUrl, x, y }) => {
+      const image = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('Не удалось загрузить data URL изображение'))
+        image.src = dataUrl
+      })
+
+      const canvas = document.createElement('canvas')
+      canvas.width = image.width
+      canvas.height = image.height
+
+      const context = canvas.getContext('2d')
+      if (!context) return null
+
+      context.drawImage(image, 0, 0)
+
+      const [red, green, blue, alpha] = context.getImageData(x, y, 1, 1).data
+
+      return {
+        red,
+        green,
+        blue,
+        alpha
+      }
+    }, params)
+
+    expect(pixel, 'цвет пикселя должен читаться из data URL').not.toBeNull()
+    if (!pixel) {
+      throw new Error('Не удалось прочитать цвет пикселя из data URL')
+    }
+
+    return pixel
   }
 
   /** Возвращает текущее состояние изображения по id или индексу canvas. */
