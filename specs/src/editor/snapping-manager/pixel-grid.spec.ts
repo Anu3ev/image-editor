@@ -279,4 +279,59 @@ describe('SnappingManager pixel-grid contract', () => {
     expect(target.scaleX).not.toBeCloseTo(originalScale, 6)
     expect(transform.scaleX).not.toBeCloseTo(originalScale, 6)
   })
+
+  it('для свободного crop frame не уводит верхнюю сторону с guide при округлении scale', () => {
+    const rawScaleY = 255.752 / 512
+    const fixedBottom = 512
+    const target = createSourceScaledRect({
+      width: 512,
+      height: 512,
+      scaleX: 0.5,
+      scaleY: rawScaleY,
+      sourceScaleX: 1,
+      sourceScaleY: 1,
+      left: 0,
+      top: fixedBottom - (512 * rawScaleY)
+    })
+
+    applyScalingStep({
+      target,
+      preservePlacement: {
+        placement: {
+          left: 0,
+          top: fixedBottom,
+          originX: 'left',
+          originY: 'bottom'
+        },
+        applyPlacement: () => {
+          target.set({
+            left: 0,
+            top: fixedBottom - (512 * Math.abs(target.scaleY ?? 1))
+          })
+          target.setCoords()
+        }
+      },
+      snapGuards: [
+        {
+          type: 'vertical',
+          edge: 'right',
+          position: 256
+        },
+        {
+          type: 'horizontal',
+          edge: 'top',
+          position: 256.248
+        }
+      ]
+    })
+
+    const displaySize = getRoundedDisplaySize({ target })
+    const bounds = target.getObjectSnappingBounds()
+
+    expect(displaySize.width).toBe(256)
+    expect(displaySize.height).toBe(256)
+    expect(bounds.top).toBeCloseTo(256.248, 6)
+    expect(target.scaleX).toBeCloseTo(0.5, 6)
+    expect(target.scaleY).toBeCloseTo(rawScaleY, 6)
+  })
 })

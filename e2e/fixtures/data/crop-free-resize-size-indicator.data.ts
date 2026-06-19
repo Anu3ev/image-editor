@@ -6,6 +6,15 @@ export const FREE_RESIZE_INDICATOR_SOURCE_IMAGE_SIZE = {
   height: 667
 } as const
 
+/** Размер монтажной области из пользовательского сценария canvas crop. */
+export const FREE_RESIZE_INDICATOR_MONTAGE_SIZE = 512
+
+/** Размер crop-области после прилипания правой и верхней сторон к середине canvas. */
+export const FREE_RESIZE_INDICATOR_CENTER_GUIDE_SIZE = FREE_RESIZE_INDICATOR_MONTAGE_SIZE / 2
+
+/** Небольшой экранный drag внутри snap-порога после прилипания к серединному guide. */
+export const FREE_RESIZE_INDICATOR_INSIDE_SNAP_SCREEN_PIXELS = 4
+
 /** Дополнительный drag за source-границу, чтобы control гарантированно уткнулся в clamp. */
 export const FREE_RESIZE_INDICATOR_BOUNDARY_OVERSHOOT_PIXELS = 120
 

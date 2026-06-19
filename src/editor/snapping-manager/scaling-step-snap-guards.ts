@@ -10,9 +10,6 @@ import {
   type ObjectBounds
 } from '../utils/geometry'
 
-/** Допуск сравнения guide с целой пиксельной координатой. */
-const SNAP_GUARD_INTEGER_POSITION_EPSILON = 0.01
-
 /** Допуск subpixel-дрейфа active edge вокруг guide после Fabric resize. */
 const SNAP_GUARD_POSITION_EPSILON = 0.1
 
@@ -81,17 +78,27 @@ type ScalingStepCandidateSnapMatch = {
   distance: number
 }
 
-/** Параметры выбора candidate, который сохраняет active snap guards. */
-type GuardedScalingCandidateSelectorParams = {
+/** Параметры перебора scale-кандидатов относительно active snap guards. */
+interface GuardedScalingCandidateMatchParams {
   target: FabricObject
+  candidates: ScalingStepCandidate[]
+  preservePlacement?: ScalingStepPlacementPreserver
+  snapGuards: ScalingStepSnapGuard[]
+}
+
+/** Параметры выбора candidate, который сохраняет active snap guards. */
+interface GuardedScalingCandidateSelectorParams extends GuardedScalingCandidateMatchParams {
   rawScaleX: number
   rawScaleY: number
   effectiveWidth: number
   effectiveHeight: number
-  candidates: ScalingStepCandidate[]
-  preservePlacement?: ScalingStepPlacementPreserver
   shouldPreferInsideCandidate: boolean
-  snapGuards: ScalingStepSnapGuard[]
+}
+
+/** Лучшие candidates для режима с приоритетом внутреннего положения. */
+interface InsideFirstScalingCandidateSelection {
+  insideCandidate: ScalingStepCandidate | null
+  onGuideCandidate: ScalingStepCandidate | null
 }
 
 /** Объект, у которого display-size может жить в source-пикселях, а не в scene-пикселях. */
@@ -116,7 +123,7 @@ export function resolveGuardedScalingStep({
   preservePlacement,
   snapGuards
 }: GuardedScalingStepParams): ScalingStepCandidate {
-  if (shouldKeepCurrentIntegerGuideSnap({
+  if (shouldKeepCurrentGuideSnap({
     target,
     snapGuards
   })) {
@@ -403,35 +410,24 @@ function selectGuardedScalingCandidate({
   shouldPreferInsideCandidate,
   snapGuards
 }: GuardedScalingCandidateSelectorParams): ScalingStepCandidate | null {
-  let onGuideCandidate: ScalingStepCandidate | null = null
-  let insideCandidate: ScalingStepCandidate | null = null
-  let insideCandidateDistance = Number.POSITIVE_INFINITY
-
-  for (const candidate of candidates) {
-    const snapMatch = resolveScalingStepCandidateSnapMatch({
+  if (!shouldPreferInsideCandidate) {
+    return selectOnGuideFirstScalingCandidate({
       target,
-      candidate,
+      candidates,
       preservePlacement,
       snapGuards
     })
-
-    if (snapMatch.state === 'on-guide') {
-      if (!shouldPreferInsideCandidate) return candidate
-
-      if (!onGuideCandidate) {
-        onGuideCandidate = candidate
-      }
-    }
-    if (snapMatch.state === 'inside') {
-      if (!shouldPreferInsideCandidate && !insideCandidate) {
-        insideCandidate = candidate
-      }
-      if (shouldPreferInsideCandidate && snapMatch.distance < insideCandidateDistance) {
-        insideCandidate = candidate
-        insideCandidateDistance = snapMatch.distance
-      }
-    }
   }
+
+  const {
+    insideCandidate,
+    onGuideCandidate
+  } = selectInsideFirstScalingCandidates({
+    target,
+    candidates,
+    preservePlacement,
+    snapGuards
+  })
 
   if (onGuideCandidate && shouldKeepOnGuideScalingCandidate({
     target,
@@ -447,6 +443,72 @@ function selectGuardedScalingCandidate({
   if (onGuideCandidate) return onGuideCandidate
 
   return null
+}
+
+/**
+ * Выбирает первый candidate прямо на guide, fallback — первый candidate внутри guide.
+ */
+function selectOnGuideFirstScalingCandidate({
+  target,
+  candidates,
+  preservePlacement,
+  snapGuards
+}: GuardedScalingCandidateMatchParams): ScalingStepCandidate | null {
+  let insideCandidate: ScalingStepCandidate | null = null
+
+  for (const candidate of candidates) {
+    const snapMatch = resolveScalingStepCandidateSnapMatch({
+      target,
+      candidate,
+      preservePlacement,
+      snapGuards
+    })
+
+    if (snapMatch.state === 'on-guide') return candidate
+
+    if (snapMatch.state === 'inside' && !insideCandidate) {
+      insideCandidate = candidate
+    }
+  }
+
+  return insideCandidate
+}
+
+/**
+ * Лучшие candidates для режима, где внутренний candidate предпочтительнее попадания ровно на guide.
+ */
+function selectInsideFirstScalingCandidates({
+  target,
+  candidates,
+  preservePlacement,
+  snapGuards
+}: GuardedScalingCandidateMatchParams): InsideFirstScalingCandidateSelection {
+  let onGuideCandidate: ScalingStepCandidate | null = null
+  let insideCandidate: ScalingStepCandidate | null = null
+  let insideCandidateDistance = Number.POSITIVE_INFINITY
+
+  for (const candidate of candidates) {
+    const snapMatch = resolveScalingStepCandidateSnapMatch({
+      target,
+      candidate,
+      preservePlacement,
+      snapGuards
+    })
+
+    if (snapMatch.state === 'on-guide' && !onGuideCandidate) {
+      onGuideCandidate = candidate
+    }
+
+    if (snapMatch.state === 'inside' && snapMatch.distance < insideCandidateDistance) {
+      insideCandidate = candidate
+      insideCandidateDistance = snapMatch.distance
+    }
+  }
+
+  return {
+    insideCandidate,
+    onGuideCandidate
+  }
 }
 
 /**
@@ -621,10 +683,10 @@ function shouldPreferInsideScalingCandidate({
 }
 
 /**
- * Возвращает true, если raw scale уже удерживает edge на integer guide
+ * Возвращает true, если raw scale уже удерживает edge на guide
  * и display-size объекта живёт в той же pixel-плоскости, что и сам guide.
  */
-function shouldKeepCurrentIntegerGuideSnap({
+function shouldKeepCurrentGuideSnap({
   target,
   snapGuards
 }: {
@@ -637,7 +699,6 @@ function shouldKeepCurrentIntegerGuideSnap({
   if (!bounds) return false
 
   for (const snapGuard of snapGuards) {
-    if (!isSnapGuardPositionPixelAligned({ snapGuard })) return false
     if (!isObjectBoundsOnSnapGuide({ bounds, snapGuard })) return false
     if (!hasValidRoundedBoundsSize({ bounds, snapGuard })) return false
   }
@@ -740,19 +801,6 @@ function isSceneDisplayScale({ scale }: { scale?: number }): boolean {
   const safeScale = Math.abs(scale ?? 1)
 
   return Math.abs(safeScale - 1) <= SOURCE_DISPLAY_SCALE_EPSILON
-}
-
-/**
- * Проверяет, что guide находится на целой пиксельной координате.
- */
-function isSnapGuardPositionPixelAligned({
-  snapGuard
-}: {
-  snapGuard: ScalingStepSnapGuard
-}): boolean {
-  const integerPosition = Math.round(snapGuard.position)
-
-  return Math.abs(snapGuard.position - integerPosition) <= SNAP_GUARD_INTEGER_POSITION_EPSILON
 }
 
 /**
