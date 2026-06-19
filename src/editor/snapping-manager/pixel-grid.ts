@@ -9,12 +9,12 @@ import {
 import {
   resolveGuardedScalingStep,
   type ScalingStepCandidate,
-  type ScalingStepPlacementPreserver,
-  type ScalingStepSnapGuard
+  type ScalingStepPlacementPreserver
 } from './scaling-step-snap-guards'
+import type { ScalingStepSnapGuard } from './scaling-snap-guard'
 import { MOVE_SNAP_STEP } from './constants'
 
-export type { ScalingStepSnapGuard } from './scaling-step-snap-guards'
+export type { ScalingStepSnapGuard } from './scaling-snap-guard'
 
 /** Оси scale, которые реально меняются в текущем Fabric transform. */
 type ScalingAxisRoundingState = {
