@@ -9,39 +9,36 @@ import {
   getObjectExactBounds,
   type ObjectBounds
 } from '../utils/geometry'
+import {
+  SNAP_GUARD_POSITION_EPSILON,
+  SOURCE_SCALED_GUIDE_HOLD_EPSILON,
+  getBoundsSnapGuardDistance,
+  isBoundsInsideSnapGuard,
+  isBoundsOnSnapGuide,
+  type ScalingStepSnapGuard
+} from './scaling-snap-guard'
 
-/** Допуск subpixel-дрейфа active edge вокруг guide после Fabric resize. */
-const SNAP_GUARD_POSITION_EPSILON = 0.1
+export type { ScalingStepSnapGuard } from './scaling-snap-guard'
 
-/** Допуск raw source-scaled candidate около дробного guide после округления target bounds. */
+/** Допуск текущего scale около дробного guide после округления bounds. */
 const SOURCE_SCALED_RAW_GUIDE_POSITION_EPSILON = 0.5
 
-/** Допуск сравнения source display-size с целым пикселем. */
+/** Допуск сравнения размера в исходном изображении с целым пикселем. */
 const DISPLAY_SIZE_INTEGER_EPSILON = 0.000001
 
-/** Допуск materialization-дрейфа display-size после snap-плана. */
+/** Допуск дрейфа размера после применения resize-плана. */
 const SNAP_PLAN_DISPLAY_SIZE_EPSILON = 0.02
 
-/** Допуск сравнения scale source-плоскости с scene-плоскостью. */
+/** Допуск сравнения scale исходного изображения с scale canvas. */
 const SOURCE_DISPLAY_SCALE_EPSILON = 0.000001
 
-/** Допуск удержания source-scaled crop frame около внутреннего guide после pixel-grid movement. */
-const SOURCE_SCALED_GUIDE_HOLD_EPSILON = 1
-
-/** Активное ребро, которое уже было приклеено к guide текущим scaling snap. */
-export type ScalingStepSnapGuard = {
-  type: 'vertical' | 'horizontal'
-  edge: 'left' | 'right' | 'top' | 'bottom'
-  position: number
-}
-
-/** Кандидат scale после округления display-size к целому пикселю. */
+/** Кандидат scale после округления размера к целому пикселю. */
 export type ScalingStepCandidate = {
   scaleX: number
   scaleY: number
 }
 
-/** Fixed anchor, который нужно сохранять во время post-snap округления scale. */
+/** Опорная точка, которую нужно сохранять во время округления scale. */
 type ScalingStepPlacement = {
   left: number
   top: number
@@ -49,13 +46,13 @@ type ScalingStepPlacement = {
   originY: FabricObject['originY']
 }
 
-/** Контракт восстановления fixed anchor во время одного шага pixel-grid округления. */
+/** Контракт восстановления опорной точки во время одного шага округления scale. */
 export type ScalingStepPlacementPreserver = {
   placement: ScalingStepPlacement
   applyPlacement: (placement: ScalingStepPlacement) => void
 }
 
-/** Параметры выбора pixel-scale, который сохраняет активные snap guards. */
+/** Параметры выбора scale, который сохраняет активные guide. */
 export type GuardedScalingStepParams = {
   target: FabricObject
   transform?: Transform | null
@@ -69,16 +66,16 @@ export type GuardedScalingStepParams = {
   snapGuards: ScalingStepSnapGuard[]
 }
 
-/** Положение кандидата относительно snapped guide. */
+/** Положение кандидата относительно удерживаемого guide. */
 type ScalingStepCandidateSnapState = 'on-guide' | 'inside' | 'outside'
 
-/** Проверка кандидата относительно snapped guide. */
+/** Проверка кандидата относительно удерживаемого guide. */
 type ScalingStepCandidateSnapMatch = {
   state: ScalingStepCandidateSnapState
   distance: number
 }
 
-/** Параметры перебора scale-кандидатов относительно active snap guards. */
+/** Параметры перебора scale-кандидатов относительно активных guide. */
 interface GuardedScalingCandidateMatchParams {
   target: FabricObject
   candidates: ScalingStepCandidate[]
@@ -86,7 +83,7 @@ interface GuardedScalingCandidateMatchParams {
   snapGuards: ScalingStepSnapGuard[]
 }
 
-/** Параметры выбора candidate, который сохраняет active snap guards. */
+/** Параметры выбора кандидата, который сохраняет активные guide. */
 interface GuardedScalingCandidateSelectorParams extends GuardedScalingCandidateMatchParams {
   rawScaleX: number
   rawScaleY: number
@@ -95,21 +92,39 @@ interface GuardedScalingCandidateSelectorParams extends GuardedScalingCandidateM
   shouldPreferInsideCandidate: boolean
 }
 
-/** Лучшие candidates для режима с приоритетом внутреннего положения. */
+/** Параметры проверки scale, который уже удерживает грань на guide. */
+interface RetainedGuideScalingCandidateParams {
+  target: FabricObject
+  transform?: Transform | null
+  rawScaleX: number
+  rawScaleY: number
+  effectiveWidth: number
+  effectiveHeight: number
+  preservePlacement?: ScalingStepPlacementPreserver
+  snapGuards: ScalingStepSnapGuard[]
+}
+
+/** Лучшие кандидаты для режима с приоритетом положения внутри guide. */
 interface InsideFirstScalingCandidateSelection {
   insideCandidate: ScalingStepCandidate | null
   onGuideCandidate: ScalingStepCandidate | null
 }
 
-/** Объект, у которого display-size может жить в source-пикселях, а не в scene-пикселях. */
-type SourceDisplaySizeTarget = FabricObject & {
+/** Объект, у которого размер для индикатора может считаться в пикселях исходного изображения. */
+interface SourceDisplaySizeTarget extends FabricObject {
   cropSource?: FabricObject | null
   cropSourceScaleX?: number
   cropSourceScaleY?: number
 }
 
+/** Результат проверки одного кандидата относительно активных guide. */
+interface ScalingStepCandidateMatchResult {
+  candidate: ScalingStepCandidate
+  snapMatch: ScalingStepCandidateSnapMatch
+}
+
 /**
- * Возвращает ближайший pixel-scale, который не переносит snapped edge за его guide.
+ * Возвращает ближайший scale, который не переносит удерживаемую грань за guide.
  */
 export function resolveGuardedScalingStep({
   target,
@@ -123,28 +138,9 @@ export function resolveGuardedScalingStep({
   preservePlacement,
   snapGuards
 }: GuardedScalingStepParams): ScalingStepCandidate {
-  if (shouldKeepCurrentGuideSnap({
+  const retainedGuideCandidate = resolveRetainedGuideScalingCandidate({
     target,
-    snapGuards
-  })) {
-    return {
-      scaleX: rawScaleX,
-      scaleY: rawScaleY
-    }
-  }
-
-  const sourceScaledGuideHoldCandidate = resolveSourceScaledGuideHoldCandidate({
-    target,
-    effectiveWidth,
-    effectiveHeight,
     transform,
-    preservePlacement,
-    snapGuards
-  })
-  if (sourceScaledGuideHoldCandidate) return sourceScaledGuideHoldCandidate
-
-  const sourceScaledRawGuideCandidate = resolveSourceScaledRawGuideCandidate({
-    target,
     rawScaleX,
     rawScaleY,
     effectiveWidth,
@@ -152,7 +148,7 @@ export function resolveGuardedScalingStep({
     preservePlacement,
     snapGuards
   })
-  if (sourceScaledRawGuideCandidate) return sourceScaledRawGuideCandidate
+  if (retainedGuideCandidate) return retainedGuideCandidate
 
   const candidates = collectScalingStepCandidates({
     rawScaleX,
@@ -182,8 +178,52 @@ export function resolveGuardedScalingStep({
 }
 
 /**
- * Возвращает текущий raw scale, если snap-plan уже поставил source-scaled crop frame на внутренний guide.
- * Для внешней source-границы raw scale не подходит: там приоритет у on-guide candidate.
+ * Возвращает scale, если текущий resize уже удерживает нужную грань на guide.
+ */
+function resolveRetainedGuideScalingCandidate({
+  target,
+  transform,
+  rawScaleX,
+  rawScaleY,
+  effectiveWidth,
+  effectiveHeight,
+  preservePlacement,
+  snapGuards
+}: RetainedGuideScalingCandidateParams): ScalingStepCandidate | null {
+  if (shouldKeepCurrentGuideSnap({
+    target,
+    snapGuards
+  })) {
+    return {
+      scaleX: rawScaleX,
+      scaleY: rawScaleY
+    }
+  }
+
+  const heldSourceCandidate = resolveSourceScaledGuideHoldCandidate({
+    target,
+    effectiveWidth,
+    effectiveHeight,
+    transform,
+    preservePlacement,
+    snapGuards
+  })
+  if (heldSourceCandidate) return heldSourceCandidate
+
+  return resolveSourceScaledRawGuideCandidate({
+    target,
+    rawScaleX,
+    rawScaleY,
+    effectiveWidth,
+    effectiveHeight,
+    preservePlacement,
+    snapGuards
+  })
+}
+
+/**
+ * Возвращает текущий scale, если resize-план уже поставил crop frame на внутренний guide.
+ * Для внешней границы исходника текущий scale не подходит: там приоритет у кандидата точно на guide.
  */
 function resolveSourceScaledRawGuideCandidate({
   target,
@@ -280,7 +320,7 @@ function resolveSourceScaledGuideHoldCandidate({
 }
 
 /**
- * Проверяет, что candidate остаётся около guide, от которого уже удерживался scale.
+ * Проверяет, что кандидат остаётся около guide, от которого уже удерживался scale.
  */
 function isScalingCandidateNearSnapGuards({
   target,
@@ -303,7 +343,7 @@ function isScalingCandidateNearSnapGuards({
   if (!bounds) return false
 
   for (const snapGuard of snapGuards) {
-    const distance = getObjectBoundsSnapGuardDistance({
+    const distance = getBoundsSnapGuardDistance({
       bounds,
       snapGuard
     })
@@ -314,7 +354,7 @@ function isScalingCandidateNearSnapGuards({
 }
 
 /**
- * Проверяет, что удерживаемый display-size не выходит за source-часть по внутреннюю сторону guide.
+ * Проверяет, что удерживаемый размер не выходит за часть исходника по внутреннюю сторону guide.
  */
 function isScalingCandidateInsideSourceGuideDisplayLimits({
   target,
@@ -329,22 +369,18 @@ function isScalingCandidateInsideSourceGuideDisplayLimits({
   effectiveHeight: number
   snapGuards: ScalingStepSnapGuard[]
 }): boolean {
-  for (const snapGuard of snapGuards) {
-    const displaySize = snapGuard.type === 'vertical'
-      ? Math.abs(candidate.scaleX) * effectiveWidth
-      : Math.abs(candidate.scaleY) * effectiveHeight
-    if (!isInsideSourceGuideDisplayLimit({
-      target,
-      displaySize,
-      snapGuard
-    })) return false
-  }
-
-  return true
+  return isScalingCandidateInsideSourceGuideLimits({
+    target,
+    candidate,
+    effectiveWidth,
+    effectiveHeight,
+    snapGuards,
+    shouldRoundSourceLimit: false
+  })
 }
 
 /**
- * Проверяет, что округлённый display-size raw guide не больше округлённой source-части.
+ * Проверяет, что округлённый размер около guide не больше округлённой части исходника.
  */
 function isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
   target,
@@ -359,22 +395,101 @@ function isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
   effectiveHeight: number
   snapGuards: ScalingStepSnapGuard[]
 }): boolean {
+  return isScalingCandidateInsideSourceGuideLimits({
+    target,
+    candidate,
+    effectiveWidth,
+    effectiveHeight,
+    snapGuards,
+    shouldRoundSourceLimit: true
+  })
+}
+
+/**
+ * Проверяет размер кандидата по каждой оси, которую удерживает guide.
+ */
+function isScalingCandidateInsideSourceGuideLimits({
+  target,
+  candidate,
+  effectiveWidth,
+  effectiveHeight,
+  snapGuards,
+  shouldRoundSourceLimit
+}: {
+  target: FabricObject
+  candidate: ScalingStepCandidate
+  effectiveWidth: number
+  effectiveHeight: number
+  snapGuards: ScalingStepSnapGuard[]
+  shouldRoundSourceLimit: boolean
+}): boolean {
   for (const snapGuard of snapGuards) {
-    const displaySize = snapGuard.type === 'vertical'
-      ? Math.abs(candidate.scaleX) * effectiveWidth
-      : Math.abs(candidate.scaleY) * effectiveHeight
-    if (!isInsideRoundedSourceGuideDisplayLimit({
-      target,
-      displaySize,
+    const displaySize = getCandidateDisplaySizeForSnapGuard({
+      candidate,
+      effectiveWidth,
+      effectiveHeight,
       snapGuard
-    })) return false
+    })
+    const isInsideLimit = shouldRoundSourceLimit
+      ? isInsideRoundedSourceGuideDisplayLimit({
+        target,
+        displaySize,
+        snapGuard
+      })
+      : isInsideSourceGuideDisplayLimit({
+        target,
+        displaySize,
+        snapGuard
+      })
+
+    if (!isInsideLimit) return false
   }
 
   return true
 }
 
 /**
- * Проверяет rounded display-size относительно source-части по внутреннюю сторону guide.
+ * Возвращает размер кандидата по оси, которую удерживает guide.
+ */
+function getCandidateDisplaySizeForSnapGuard({
+  candidate,
+  effectiveWidth,
+  effectiveHeight,
+  snapGuard
+}: {
+  candidate: ScalingStepCandidate
+  effectiveWidth: number
+  effectiveHeight: number
+  snapGuard: ScalingStepSnapGuard
+}): number {
+  return snapGuard.type === 'vertical'
+    ? Math.abs(candidate.scaleX) * effectiveWidth
+    : Math.abs(candidate.scaleY) * effectiveHeight
+}
+
+/**
+ * Возвращает размер текущего движения по оси, которую удерживает guide.
+ */
+function getRawDisplaySizeForSnapGuard({
+  rawScaleX,
+  rawScaleY,
+  effectiveWidth,
+  effectiveHeight,
+  snapGuard
+}: {
+  rawScaleX: number
+  rawScaleY: number
+  effectiveWidth: number
+  effectiveHeight: number
+  snapGuard: ScalingStepSnapGuard
+}): number {
+  return snapGuard.type === 'vertical'
+    ? Math.abs(rawScaleX) * effectiveWidth
+    : Math.abs(rawScaleY) * effectiveHeight
+}
+
+/**
+ * Проверяет округлённый размер относительно части исходника по внутреннюю сторону guide.
  */
 function isInsideRoundedSourceGuideDisplayLimit({
   target,
@@ -397,7 +512,7 @@ function isInsideRoundedSourceGuideDisplayLimit({
 }
 
 /**
- * Выбирает candidate, который остаётся внутри active snap guards.
+ * Выбирает кандидата, который остаётся внутри активных guide.
  */
 function selectGuardedScalingCandidate({
   target,
@@ -446,7 +561,7 @@ function selectGuardedScalingCandidate({
 }
 
 /**
- * Выбирает первый candidate прямо на guide, fallback — первый candidate внутри guide.
+ * Выбирает первый кандидат прямо на guide, fallback — первый кандидат внутри guide.
  */
 function selectOnGuideFirstScalingCandidate({
   target,
@@ -475,7 +590,7 @@ function selectOnGuideFirstScalingCandidate({
 }
 
 /**
- * Лучшие candidates для режима, где внутренний candidate предпочтительнее попадания ровно на guide.
+ * Лучшие кандидаты для режима, где положение внутри guide предпочтительнее точного попадания на guide.
  */
 function selectInsideFirstScalingCandidates({
   target,
@@ -483,36 +598,63 @@ function selectInsideFirstScalingCandidates({
   preservePlacement,
   snapGuards
 }: GuardedScalingCandidateMatchParams): InsideFirstScalingCandidateSelection {
-  let onGuideCandidate: ScalingStepCandidate | null = null
-  let insideCandidate: ScalingStepCandidate | null = null
-  let insideCandidateDistance = Number.POSITIVE_INFINITY
-
-  for (const candidate of candidates) {
-    const snapMatch = resolveScalingStepCandidateSnapMatch({
-      target,
+  const matches = candidates.map((candidate) => {
+    return {
       candidate,
-      preservePlacement,
-      snapGuards
-    })
-
-    if (snapMatch.state === 'on-guide' && !onGuideCandidate) {
-      onGuideCandidate = candidate
+      snapMatch: resolveScalingStepCandidateSnapMatch({
+        target,
+        candidate,
+        preservePlacement,
+        snapGuards
+      })
     }
-
-    if (snapMatch.state === 'inside' && snapMatch.distance < insideCandidateDistance) {
-      insideCandidate = candidate
-      insideCandidateDistance = snapMatch.distance
-    }
-  }
+  })
 
   return {
-    insideCandidate,
-    onGuideCandidate
+    insideCandidate: findClosestInsideScalingCandidate({ matches }),
+    onGuideCandidate: findFirstOnGuideScalingCandidate({ matches })
   }
 }
 
 /**
- * Оставляет on-guide candidate, если активные source display-оси уже попали в целый пиксель.
+ * Возвращает первого кандидата, который стоит точно на всех guide.
+ */
+function findFirstOnGuideScalingCandidate({
+  matches
+}: {
+  matches: ScalingStepCandidateMatchResult[]
+}): ScalingStepCandidate | null {
+  const match = matches.find((candidateMatch) => {
+    return candidateMatch.snapMatch.state === 'on-guide'
+  })
+
+  return match?.candidate ?? null
+}
+
+/**
+ * Возвращает ближайшего кандидата, который остаётся внутри всех guide.
+ */
+function findClosestInsideScalingCandidate({
+  matches
+}: {
+  matches: ScalingStepCandidateMatchResult[]
+}): ScalingStepCandidate | null {
+  let closestCandidate: ScalingStepCandidate | null = null
+  let closestDistance = Number.POSITIVE_INFINITY
+
+  for (const { candidate, snapMatch } of matches) {
+    if (snapMatch.state !== 'inside') continue
+    if (snapMatch.distance >= closestDistance) continue
+
+    closestCandidate = candidate
+    closestDistance = snapMatch.distance
+  }
+
+  return closestCandidate
+}
+
+/**
+ * Оставляет кандидата на guide, если активные оси уже попали в целый пиксель исходника.
  */
 function shouldKeepOnGuideScalingCandidate({
   target,
@@ -532,21 +674,13 @@ function shouldKeepOnGuideScalingCandidate({
   snapGuards: ScalingStepSnapGuard[]
 }): boolean {
   for (const snapGuard of snapGuards) {
-    const displaySize = snapGuard.type === 'vertical'
-      ? Math.abs(candidate.scaleX) * effectiveWidth
-      : Math.abs(candidate.scaleY) * effectiveHeight
-    const rawDisplaySize = snapGuard.type === 'vertical'
-      ? Math.abs(rawScaleX) * effectiveWidth
-      : Math.abs(rawScaleY) * effectiveHeight
-
-    if (!isIntegerDisplaySize({ displaySize })) return false
-    if (!isSameSnappedDisplaySize({
-      displaySize,
-      rawDisplaySize
-    })) return false
-    if (!isInsideSourceGuideDisplayLimit({
+    if (!shouldKeepOnGuideSnapGuardCandidate({
       target,
-      displaySize,
+      candidate,
+      rawScaleX,
+      rawScaleY,
+      effectiveWidth,
+      effectiveHeight,
       snapGuard
     })) return false
   }
@@ -555,7 +689,54 @@ function shouldKeepOnGuideScalingCandidate({
 }
 
 /**
- * Проверяет, что source display-size уже совпадает с целым пикселем.
+ * Проверяет один guide для кандидата, который стоит точно на guide.
+ */
+function shouldKeepOnGuideSnapGuardCandidate({
+  target,
+  candidate,
+  rawScaleX,
+  rawScaleY,
+  effectiveWidth,
+  effectiveHeight,
+  snapGuard
+}: {
+  target: FabricObject
+  candidate: ScalingStepCandidate
+  rawScaleX: number
+  rawScaleY: number
+  effectiveWidth: number
+  effectiveHeight: number
+  snapGuard: ScalingStepSnapGuard
+}): boolean {
+  const displaySize = getCandidateDisplaySizeForSnapGuard({
+    candidate,
+    effectiveWidth,
+    effectiveHeight,
+    snapGuard
+  })
+  const rawDisplaySize = getRawDisplaySizeForSnapGuard({
+    rawScaleX,
+    rawScaleY,
+    effectiveWidth,
+    effectiveHeight,
+    snapGuard
+  })
+
+  if (!isIntegerDisplaySize({ displaySize })) return false
+  if (!isSameSnappedDisplaySize({
+    displaySize,
+    rawDisplaySize
+  })) return false
+
+  return isInsideSourceGuideDisplayLimit({
+    target,
+    displaySize,
+    snapGuard
+  })
+}
+
+/**
+ * Проверяет, что размер уже совпадает с целым пикселем.
  */
 function isIntegerDisplaySize({ displaySize }: { displaySize: number }): boolean {
   const integerSize = Math.round(displaySize)
@@ -564,7 +745,7 @@ function isIntegerDisplaySize({ displaySize }: { displaySize: number }): boolean
 }
 
 /**
- * Проверяет, что on-guide candidate не увеличивает source display-size, а только убирает float-дрейф.
+ * Проверяет, что кандидат на guide не увеличивает размер, а только убирает float-дрейф.
  */
 function isSameSnappedDisplaySize({
   displaySize,
@@ -577,7 +758,7 @@ function isSameSnappedDisplaySize({
 }
 
 /**
- * Проверяет, что on-guide candidate не стал больше source-части, внутри которой удерживается crop frame.
+ * Проверяет, что кандидат на guide не стал больше части исходника, внутри которой удерживается crop frame.
  */
 function isInsideSourceGuideDisplayLimit({
   target,
@@ -598,7 +779,7 @@ function isInsideSourceGuideDisplayLimit({
 }
 
 /**
- * Возвращает отображаемый source display-size для части source по внутреннюю сторону guide.
+ * Возвращает размер части исходника по внутреннюю сторону guide.
  */
 function resolveSourceGuideDisplayLimit({
   target,
@@ -617,7 +798,7 @@ function resolveSourceGuideDisplayLimit({
 }
 
 /**
- * Возвращает source display-length для части source по внутреннюю сторону guide.
+ * Возвращает длину части исходника по внутреннюю сторону guide.
  */
 function resolveSourceGuideDisplayLength({
   target,
@@ -648,7 +829,7 @@ function resolveSourceGuideDisplayLength({
 }
 
 /**
- * Возвращает scene-длину между внутренним guide и внешней границей source по стороне crop frame.
+ * Возвращает длину на canvas между внутренним guide и внешней границей исходника.
  */
 function getSourceGuideSceneLength({
   sourceBounds,
@@ -667,8 +848,8 @@ function getSourceGuideSceneLength({
 }
 
 /**
- * Возвращает true, если source-scaled display-size нужно удерживать внутри guide при округлении.
- * Для внешней границы source приоритет остаётся у on-guide candidate, чтобы snap не съедал 1px.
+ * Возвращает true, если размер в пикселях исходника нужно удерживать внутри guide при округлении.
+ * Для внешней границы исходника приоритет остаётся у кандидата на guide, чтобы snap не съедал 1px.
  */
 function shouldPreferInsideScalingCandidate({
   target,
@@ -683,8 +864,8 @@ function shouldPreferInsideScalingCandidate({
 }
 
 /**
- * Возвращает true, если raw scale уже удерживает edge на guide
- * и display-size объекта живёт в той же pixel-плоскости, что и сам guide.
+ * Возвращает true, если текущий scale уже удерживает грань на guide,
+ * а размер объекта считается в тех же координатах canvas, что и guide.
  */
 function shouldKeepCurrentGuideSnap({
   target,
@@ -699,7 +880,7 @@ function shouldKeepCurrentGuideSnap({
   if (!bounds) return false
 
   for (const snapGuard of snapGuards) {
-    if (!isObjectBoundsOnSnapGuide({ bounds, snapGuard })) return false
+    if (!isBoundsOnSnapGuide({ bounds, snapGuard })) return false
     if (!hasValidRoundedBoundsSize({ bounds, snapGuard })) return false
   }
 
@@ -707,7 +888,7 @@ function shouldKeepCurrentGuideSnap({
 }
 
 /**
- * Возвращает true, если active snap axis показывает размер в source-пикселях с отдельным scale.
+ * Возвращает true, если активная ось guide показывает размер в пикселях исходника с отдельным scale.
  */
 function usesScaledDisplaySizeForSnapGuards({
   target,
@@ -734,7 +915,7 @@ function usesScaledDisplaySizeForSnapGuards({
 }
 
 /**
- * Возвращает true, если хотя бы один active snap guard приклеен к внешней границе crop source.
+ * Возвращает true, если хотя бы один активный guide приклеен к внешней границе исходника.
  */
 function usesSourceBoundarySnapGuards({
   target,
@@ -759,7 +940,7 @@ function usesSourceBoundarySnapGuards({
 }
 
 /**
- * Проверяет, совпадает ли snap guard с соответствующей внешней границей crop source.
+ * Проверяет, совпадает ли guide с соответствующей внешней границей исходника.
  */
 function isSnapGuardAtSourceBoundary({
   snapGuard,
@@ -782,7 +963,7 @@ function isSnapGuardAtSourceBoundary({
 }
 
 /**
- * Сравнивает guide с source-boundary в той же scene-плоскости.
+ * Сравнивает guide с границей исходника в координатах canvas.
  */
 function isCloseToSourceBoundary({
   position,
@@ -795,7 +976,7 @@ function isCloseToSourceBoundary({
 }
 
 /**
- * Возвращает true, если display-size axis совпадает со scene pixel axis.
+ * Возвращает true, если ось размера совпадает с пиксельной осью canvas.
  */
 function isSceneDisplayScale({ scale }: { scale?: number }): boolean {
   const safeScale = Math.abs(scale ?? 1)
@@ -804,7 +985,7 @@ function isSceneDisplayScale({ scale }: { scale?: number }): boolean {
 }
 
 /**
- * Проверяет, что фактический bounds-size по оси snapped edge можно показать как валидный пиксельный размер.
+ * Проверяет, что фактический размер по оси guide можно показать как валидный пиксельный размер.
  */
 function hasValidRoundedBoundsSize({
   bounds,
@@ -823,7 +1004,7 @@ function hasValidRoundedBoundsSize({
 }
 
 /**
- * Собирает кандидаты округления scale, начиная с ближайших к текущему raw-scale.
+ * Собирает кандидаты округления scale, начиная с ближайших к текущему scale.
  */
 function collectScalingStepCandidates({
   rawScaleX,
@@ -864,7 +1045,7 @@ function collectScalingStepCandidates({
 }
 
 /**
- * Собирает scale-кандидаты одной оси через текущий display-size и соседние пиксельные размеры.
+ * Собирает scale-кандидаты одной оси через текущий размер и соседние пиксельные размеры.
  */
 function collectAxisScaleCandidates({
   rawScale,
@@ -905,7 +1086,7 @@ function collectAxisScaleCandidates({
 }
 
 /**
- * Добавляет scale-кандидат без дублей от совпадающих display-size кандидатов.
+ * Добавляет scale-кандидат без дублей от совпадающих пиксельных размеров.
  */
 function addUniqueScaleCandidate({
   candidates,
@@ -984,7 +1165,7 @@ function collectAxisScaleCandidatePairs({
 }
 
 /**
- * Проверяет rounded scale относительно snapped guide.
+ * Проверяет округлённый scale относительно удерживаемого guide.
  */
 function resolveScalingStepCandidateSnapMatch({
   target,
@@ -1017,7 +1198,7 @@ function resolveScalingStepCandidateSnapMatch({
 }
 
 /**
- * Читает bounds candidate, временно применяя scale и возвращая target в исходное состояние.
+ * Читает bounds кандидата, временно применяя scale и возвращая target в исходное состояние.
  */
 function readScalingStepCandidateBounds({
   target,
@@ -1062,7 +1243,7 @@ function readScalingStepCandidateBounds({
 }
 
 /**
- * Проверяет candidate bounds относительно всех active snap guards.
+ * Проверяет bounds кандидата относительно всех активных guide.
  */
 function resolveBoundsSnapMatch({
   bounds,
@@ -1074,19 +1255,19 @@ function resolveBoundsSnapMatch({
   let isOnGuide = true
   let distance = 0
   for (const snapGuard of snapGuards) {
-    if (!isObjectBoundsInsideSnapGuard({ bounds, snapGuard })) {
+    if (!isBoundsInsideSnapGuard({ bounds, snapGuard })) {
       return {
         state: 'outside',
         distance: Number.POSITIVE_INFINITY
       }
     }
-    if (!isObjectBoundsOnSnapGuide({ bounds, snapGuard })) {
+    if (!isBoundsOnSnapGuide({ bounds, snapGuard })) {
       isOnGuide = false
     }
 
     distance = Math.max(
       distance,
-      getObjectBoundsSnapGuardDistance({
+      getBoundsSnapGuardDistance({
         bounds,
         snapGuard
       })
@@ -1097,61 +1278,4 @@ function resolveBoundsSnapMatch({
     state: isOnGuide ? 'on-guide' : 'inside',
     distance
   }
-}
-
-/**
- * Возвращает расстояние active edge кандидата до guide.
- */
-function getObjectBoundsSnapGuardDistance({
-  bounds,
-  snapGuard
-}: {
-  bounds: ObjectBounds
-  snapGuard: ScalingStepSnapGuard
-}): number {
-  const { edge, position } = snapGuard
-
-  if (edge === 'left') return Math.abs(bounds.left - position)
-  if (edge === 'right') return Math.abs(bounds.right - position)
-  if (edge === 'top') return Math.abs(bounds.top - position)
-
-  return Math.abs(bounds.bottom - position)
-}
-
-/**
- * Проверяет одно активное ребро относительно guide после округления.
- */
-function isObjectBoundsInsideSnapGuard({
-  bounds,
-  snapGuard
-}: {
-  bounds: ObjectBounds
-  snapGuard: ScalingStepSnapGuard
-}): boolean {
-  const { edge, position } = snapGuard
-
-  if (edge === 'left') return bounds.left >= position - SNAP_GUARD_POSITION_EPSILON
-  if (edge === 'right') return bounds.right <= position + SNAP_GUARD_POSITION_EPSILON
-  if (edge === 'top') return bounds.top >= position - SNAP_GUARD_POSITION_EPSILON
-
-  return bounds.bottom <= position + SNAP_GUARD_POSITION_EPSILON
-}
-
-/**
- * Проверяет, стоит ли active edge ровно на guide после округления.
- */
-function isObjectBoundsOnSnapGuide({
-  bounds,
-  snapGuard
-}: {
-  bounds: ObjectBounds
-  snapGuard: ScalingStepSnapGuard
-}): boolean {
-  const { edge, position } = snapGuard
-
-  if (edge === 'left') return Math.abs(bounds.left - position) <= SNAP_GUARD_POSITION_EPSILON
-  if (edge === 'right') return Math.abs(bounds.right - position) <= SNAP_GUARD_POSITION_EPSILON
-  if (edge === 'top') return Math.abs(bounds.top - position) <= SNAP_GUARD_POSITION_EPSILON
-
-  return Math.abs(bounds.bottom - position) <= SNAP_GUARD_POSITION_EPSILON
 }

@@ -1,5 +1,6 @@
 import { loadSVGFromURL } from 'fabric'
 import ImageManager from '../../../../src/editor/image-manager'
+import type { CanvasFullState } from '../../../../src/editor/history-manager'
 import {
   createImageManagerTestSetup,
   createMockCanvasClone,
@@ -256,34 +257,30 @@ describe('ImageManager', () => {
       expect(mockCanvas.add).not.toHaveBeenCalled()
     })
 
-    it('fits object when image-contain with scale factor < 1', async() => {
-      const image = createMockFabricImage({ width: 200, height: 150 })
-      mockFabricImageFromURL(image)
-
-      jest.spyOn(imageManager, 'calculateScaleFactor').mockReturnValue(0.5)
-
-      const file = new File(['mock'], 'image.png', { type: 'image/png' })
-      await imageManager.importImage({ source: file, scale: 'image-contain', withoutAdding: true })
-
-      expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
-        object: image,
-        type: 'contain',
-        withoutSave: true
-      })
-    })
-
-    it('fits object when image-cover and image exceeds montage', async() => {
+    it.each([
+      {
+        fitType: 'contain',
+        name: 'уменьшает изображение в режиме contain, когда оно больше монтажной области',
+        scale: 'image-contain'
+      },
+      {
+        fitType: 'cover',
+        name: 'подгоняет изображение в режиме cover, когда оно больше монтажной области',
+        scale: 'image-cover'
+      }
+    ] as const)('$name', async({ scale, fitType }) => {
       const image = createMockFabricImage({ width: 800, height: 600 })
       mockFabricImageFromURL(image)
 
       const file = new File(['mock'], 'image.png', { type: 'image/png' })
-      await imageManager.importImage({ source: file, scale: 'image-cover', withoutAdding: true })
+      await imageManager.importImage({ source: file, scale, withoutAdding: true })
 
       expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
         object: image,
-        type: 'cover',
+        type: fitType,
         withoutSave: true
       })
+      expect(mockCanvas.add).not.toHaveBeenCalled()
     })
 
     it('returns early when withoutAdding is true', async() => {
@@ -301,46 +298,50 @@ describe('ImageManager', () => {
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:image-imported', expect.any(Object))
     })
 
-    it('downscales oversized image before import', async() => {
-      const original = createMockFabricImage({
-        width: 5000,
-        height: 5000,
-        src: 'data:image/png;base64,original'
-      })
-      const resized = createMockFabricImage({ width: 1000, height: 1000 })
-      mockFabricImageFromURL([original, resized])
-
-      const resizeSpy = jest.spyOn(imageManager, 'resizeImageToBoundaries')
-        .mockResolvedValue(new Blob(['resized'], { type: 'image/png' }))
-
-      const file = new File(['mock'], 'image.png', { type: 'image/png' })
-      await imageManager.importImage({ source: file })
-
-      expect(resizeSpy).toHaveBeenCalledWith(expect.objectContaining({
+    it.each([
+      {
         dataURL: 'data:image/png;base64,original',
+        name: 'импортирует уменьшенную копию, если исходное изображение больше допустимого размера',
+        original: {
+          height: 5000,
+          src: 'data:image/png;base64,original',
+          width: 5000
+        },
+        resized: {
+          height: 1000,
+          width: 1000
+        },
         sizeType: 'max'
-      }))
-      expect(mockCreateObjectURL).toHaveBeenCalledTimes(2)
-    })
-
-    it('upscales undersized image before import', async() => {
-      const original = createMockFabricImage({
-        width: 10,
-        height: 10,
-        src: 'data:image/png;base64,small'
-      })
-      const resized = createMockFabricImage({ width: 32, height: 32 })
+      },
+      {
+        dataURL: 'data:image/png;base64,small',
+        name: 'импортирует увеличенную копию, если исходное изображение меньше допустимого размера',
+        original: {
+          height: 10,
+          src: 'data:image/png;base64,small',
+          width: 10
+        },
+        resized: {
+          height: 32,
+          width: 32
+        },
+        sizeType: 'min'
+      }
+    ] as const)('$name', async({ original: originalOptions, resized: resizedOptions, dataURL, sizeType }) => {
+      const original = createMockFabricImage(originalOptions)
+      const resized = createMockFabricImage(resizedOptions)
       mockFabricImageFromURL([original, resized])
 
-      const resizeSpy = jest.spyOn(imageManager, 'resizeImageToBoundaries')
-        .mockResolvedValue(new Blob(['resized'], { type: 'image/png' }))
-
       const file = new File(['mock'], 'image.png', { type: 'image/png' })
-      await imageManager.importImage({ source: file })
+      const result = await imageManager.importImage({ source: file })
 
-      expect(resizeSpy).toHaveBeenCalledWith(expect.objectContaining({
-        dataURL: 'data:image/png;base64,small',
-        sizeType: 'min'
+      expect(result?.image).toBe(resized)
+      expect(mockCanvas.add).toHaveBeenCalledWith(resized)
+      expect(mockCanvas.add).not.toHaveBeenCalledWith(original)
+      expect(mockWorkerManager.post).toHaveBeenCalledWith('resizeImage', expect.objectContaining({
+        contentType: 'image/png',
+        dataURL,
+        sizeType
       }))
       expect(mockCreateObjectURL).toHaveBeenCalledTimes(2)
     })
@@ -710,14 +711,30 @@ describe('ImageManager', () => {
   })
 
   describe('revokeBlobUrls', () => {
-    it('revokes all created blob URLs', () => {
-      (imageManager as any)._createdBlobUrls = ['blob:mock-1', 'blob:mock-2']
+    it('освобождает blob URL, созданные при подготовке initial state', async() => {
+      const initialState: CanvasFullState = {
+        clipPath: null,
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          { type: 'image', src: 'https://example.com/a.png' },
+          { type: 'image', src: 'https://example.com/b.png' }
+        ]
+      }
+
+      await imageManager.prepareInitialState({ state: initialState })
 
       imageManager.revokeBlobUrls()
 
-      expect(mockRevokeObjectURL.mock.calls[0][0]).toBe('blob:mock-1')
-      expect(mockRevokeObjectURL.mock.calls[1][0]).toBe('blob:mock-2')
-      expect((imageManager as any)._createdBlobUrls).toEqual([])
+      expect(mockRevokeObjectURL).toHaveBeenNthCalledWith(1, 'blob:mock-1')
+      expect(mockRevokeObjectURL).toHaveBeenNthCalledWith(2, 'blob:mock-2')
+      expect(mockRevokeObjectURL).toHaveBeenCalledTimes(2)
+
+      mockRevokeObjectURL.mockClear()
+      imageManager.revokeBlobUrls()
+
+      expect(mockRevokeObjectURL).not.toHaveBeenCalled()
     })
   })
 })

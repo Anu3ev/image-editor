@@ -11,7 +11,11 @@ import type {
   Bounds,
   GuideLine
 } from './types'
-import type { ScalingStepSnapGuard } from './pixel-grid'
+import {
+  SOURCE_SCALED_GUIDE_HOLD_EPSILON,
+  getBoundsSnapGuardDistance,
+  type ScalingStepSnapGuard
+} from './scaling-snap-guard'
 import { resolveCropFrameResizePreserveAspectRatio } from '../crop-manager/domain/crop-resize-mode'
 
 type AxisSnapEdge = 'left' | 'right' | 'top' | 'bottom'
@@ -30,16 +34,13 @@ type AxisSnapResult = {
 /** Допуск сравнения uniform scale-factor для осей одного scaling-step. */
 const UNIFORM_SCALE_FACTOR_EPSILON = 0.000001
 
-/** Допуск удержания crop frame у guide, рядом с которым начался live scale. */
-const SOURCE_SCALED_GUIDE_HOLD_EPSILON = 1
-
 export type ScalingAxisState = {
   isCornerHandle: boolean
   shouldSnapX: boolean
   shouldSnapY: boolean
 }
 
-type CropFrameSnapTarget = FabricObject & {
+interface CropFrameSnapTarget extends FabricObject {
   cropSource?: FabricObject | null
 }
 
@@ -575,22 +576,6 @@ function areBoundsNearSnapGuards({
   return true
 }
 
-function getBoundsSnapGuardDistance({
-  bounds,
-  snapGuard
-}: {
-  bounds: Bounds
-  snapGuard: ScalingStepSnapGuard
-}): number {
-  const { edge, position } = snapGuard
-
-  if (edge === 'left') return Math.abs(bounds.left - position)
-  if (edge === 'right') return Math.abs(bounds.right - position)
-  if (edge === 'top') return Math.abs(bounds.top - position)
-
-  return Math.abs(bounds.bottom - position)
-}
-
 function resolveAxisScaleUpdatePlan(params: ScaleSnapContext): ScaleUpdatePlan | null {
   const scaleXUpdate = resolveScaleXUpdate(params)
   const scaleYUpdate = resolveScaleYUpdate(params)
@@ -1052,7 +1037,7 @@ function addUniformScaleSnapGuardIfMatching({
 }
 
 /**
- * Создаёт guard для последующего pixel-grid округления уже приклеенного active edge.
+ * Создаёт guard для последующего pixel-grid округления уже удерживаемой грани.
  */
 function createScaleSnapGuard({
   type,
@@ -1269,18 +1254,12 @@ function resolveScaleForWidth({
   scaleY: number
   angle: number
 }): number | null {
-  const radians = (angle * Math.PI) / 180
-  const cos = Math.abs(Math.cos(radians))
-  const sin = Math.abs(Math.sin(radians))
-  const widthComponent = baseWidth * cos
-  const heightComponent = baseHeight * scaleY * sin
-
-  if (widthComponent <= 0) return null
-
-  const nextScaleX = (desiredWidth - heightComponent) / widthComponent
-  if (!Number.isFinite(nextScaleX) || nextScaleX <= 0) return null
-
-  return nextScaleX
+  return resolveScaleForRotatedBoundsSize({
+    desiredSize: desiredWidth,
+    baseAxisSize: baseWidth,
+    scaledCrossAxisSize: baseHeight * scaleY,
+    angle
+  })
 }
 
 /**
@@ -1299,18 +1278,40 @@ function resolveScaleForHeight({
   scaleX: number
   angle: number
 }): number | null {
+  return resolveScaleForRotatedBoundsSize({
+    desiredSize: desiredHeight,
+    baseAxisSize: baseHeight,
+    scaledCrossAxisSize: baseWidth * scaleX,
+    angle
+  })
+}
+
+/**
+ * Рассчитывает scale по одной оси для целевого размера повёрнутого bounding-box.
+ */
+function resolveScaleForRotatedBoundsSize({
+  desiredSize,
+  baseAxisSize,
+  scaledCrossAxisSize,
+  angle
+}: {
+  desiredSize: number
+  baseAxisSize: number
+  scaledCrossAxisSize: number
+  angle: number
+}): number | null {
   const radians = (angle * Math.PI) / 180
   const cos = Math.abs(Math.cos(radians))
   const sin = Math.abs(Math.sin(radians))
-  const heightComponent = baseHeight * cos
-  const widthComponent = baseWidth * scaleX * sin
+  const axisComponent = baseAxisSize * cos
+  const crossAxisComponent = scaledCrossAxisSize * sin
 
-  if (heightComponent <= 0) return null
+  if (axisComponent <= 0) return null
 
-  const nextScaleY = (desiredHeight - widthComponent) / heightComponent
-  if (!Number.isFinite(nextScaleY) || nextScaleY <= 0) return null
+  const nextScale = (desiredSize - crossAxisComponent) / axisComponent
+  if (!Number.isFinite(nextScale) || nextScale <= 0) return null
 
-  return nextScaleY
+  return nextScale
 }
 
 /**
