@@ -9,6 +9,16 @@ import * as textGeometry from '../../../../src/editor/text-manager/geometry'
 
 jest.mock('nanoid')
 
+/**
+ * Возвращает только lifecycle-события updateText из общего списка canvas.fire вызовов.
+ */
+const getTextUpdateEventCalls = (
+  fireMock: jest.Mock<void, [string, unknown]>
+): Array<[string, unknown]> => fireMock.mock.calls.filter(([eventName]) => (
+  eventName === 'editor:before:text-updated'
+  || eventName === 'editor:text-updated'
+))
+
 describe('TextManager', () => {
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
 
@@ -261,17 +271,26 @@ describe('TextManager', () => {
         'after'
       ])
 
-      const [beforeEventName, beforePayload] = canvas.fire.mock.calls[0]
-      const [afterEventName, afterPayload] = canvas.fire.mock.calls[1]
+      const textUpdateCalls = getTextUpdateEventCalls(canvas.fire)
 
-      expect(beforeEventName).toBe('editor:before:text-updated')
-      expect(beforePayload.selectionRange).toBeUndefined()
-      expect(beforePayload.selectionStyles).toBeUndefined()
-      expect(afterEventName).toBe('editor:text-updated')
-      expect(afterPayload.after).toEqual(expect.objectContaining({
-        fontSize: 80,
-        left: 123
-      }))
+      expect(textUpdateCalls).toEqual([
+        [
+          'editor:before:text-updated',
+          expect.objectContaining({
+            selectionRange: undefined,
+            selectionStyles: undefined
+          })
+        ],
+        [
+          'editor:text-updated',
+          expect.objectContaining({
+            after: expect.objectContaining({
+              fontSize: 80,
+              left: 123
+            })
+          })
+        ]
+      ])
 
       const state = historyManager.getFullState()
 
@@ -343,24 +362,32 @@ describe('TextManager', () => {
         })
       })
 
-      const [beforeEventName, beforePayload] = canvas.fire.mock.calls[0]
-      const [afterEventName, afterPayload] = canvas.fire.mock.calls[1]
+      const textUpdateCalls = getTextUpdateEventCalls(canvas.fire)
 
-      expect(beforeEventName).toBe('editor:before:text-updated')
-      expect(beforePayload.selectionRange).toEqual({ start: 10, end: 15 })
-      expect(beforePayload.selectionStyles).toMatchObject({
-        fontWeight: 'bold',
-        fontStyle: 'italic',
-        fill: '#ff0000'
-      })
-
-      expect(afterEventName).toBe('editor:text-updated')
-      expect(afterPayload.selectionRange).toEqual({ start: 10, end: 15 })
-      expect(afterPayload.selectionStyles).toMatchObject({
-        fontWeight: 'bold',
-        fontStyle: 'italic',
-        fill: '#ff0000'
-      })
+      expect(textUpdateCalls).toEqual([
+        [
+          'editor:before:text-updated',
+          expect.objectContaining({
+            selectionRange: { start: 10, end: 15 },
+            selectionStyles: expect.objectContaining({
+              fontWeight: 'bold',
+              fontStyle: 'italic',
+              fill: '#ff0000'
+            })
+          })
+        ],
+        [
+          'editor:text-updated',
+          expect.objectContaining({
+            selectionRange: { start: 10, end: 15 },
+            selectionStyles: expect.objectContaining({
+              fontWeight: 'bold',
+              fontStyle: 'italic',
+              fill: '#ff0000'
+            })
+          })
+        ]
+      ])
     })
 
     it('если в однострочном тексте выделена часть строки, шрифт и размер обновляют весь объект', () => {

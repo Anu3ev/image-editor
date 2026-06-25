@@ -3,6 +3,7 @@ import type {
   SnapshotCanvas,
   SnapshotObject
 } from '../../../src/editor/history-manager/types'
+import { createHistoryState } from './state-fixtures'
 
 export interface HistorySnapshotTextObject extends SnapshotObject {
   id: string
@@ -44,14 +45,7 @@ export function createHistoryCanvasState({
 }: {
   overrides?: Partial<CanvasFullState>
 } = {}): CanvasFullState {
-  return {
-    clipPath: null,
-    width: 800,
-    height: 600,
-    version: '5.0.0',
-    objects: [],
-    ...overrides
-  }
+  return createHistoryState(overrides)
 }
 
 /**
@@ -186,4 +180,24 @@ export function serializeSnapshotShapeGroupState({
       lockMovementY: text.lockMovementY
     }]
   }
+}
+
+/**
+ * Создаёт serialized canvas state с одной shape-группой.
+ */
+export function createSnapshotShapeGroupHistoryState({
+  group,
+  text
+}: {
+  group: HistorySnapshotGroupObject
+  text: HistorySnapshotTextObject
+}): CanvasFullState {
+  return createHistoryCanvasState({
+    overrides: {
+      objects: [serializeSnapshotShapeGroupState({
+        group,
+        text
+      })]
+    }
+  })
 }

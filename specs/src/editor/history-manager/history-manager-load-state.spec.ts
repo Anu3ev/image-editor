@@ -1,6 +1,6 @@
 import { nanoid } from 'nanoid'
 import { createHistoryManagerTestSetup } from '../../../test-utils/history/manager-setup'
-import { createHistoryState } from './history-manager.spec-utils'
+import { createHistoryState } from '../../../test-utils/history/state-fixtures'
 
 jest.mock('nanoid')
 

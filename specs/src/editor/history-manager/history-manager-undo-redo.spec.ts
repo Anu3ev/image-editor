@@ -1,11 +1,18 @@
 import { nanoid } from 'nanoid'
 import { createHistoryManagerTestSetup } from '../../../test-utils/history/manager-setup'
 import {
+  createSnapshotShapeGroupHistoryState,
   createSnapshotShapeGroup,
-  createSnapshotTextObject,
-  serializeSnapshotShapeGroupState
+  createSnapshotTextObject
 } from '../../../test-utils/history/snapshot-fixtures'
-import { createHistoryState } from './history-manager.spec-utils'
+import {
+  createHistoryState,
+  createObjectPresenceHistoryStates,
+  saveHistoryStates,
+  saveThreeObjectLeftHistorySteps,
+  setTextboxState,
+  startTextboxEditHistory
+} from '../../../test-utils/history/state-fixtures'
 
 jest.mock('nanoid')
 
@@ -25,34 +32,20 @@ describe('undo/redo', () => {
       mockEditor
     } = createHistoryManagerTestSetup()
 
-    mockEditor.textManager.isTextEditingActive = true
-
-    setCanvasObjects([{
-      id: 'text-1',
-      type: 'textbox',
-      text: 'до редактирования',
+    startTextboxEditHistory({
+      historyManager,
+      setCanvasObjects,
+      textManager: mockEditor.textManager,
+      initialText: 'до редактирования',
+      editedText: 'после редактирования',
       locked: false
-    }] as any[])
-    historyManager.saveState()
-
-    setCanvasObjects([{
-      id: 'text-1',
-      type: 'textbox',
-      text: 'после редактирования',
-      locked: false
-    }] as any[])
-    historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
-    historyManager.scheduleSaveState({
-      delayMs: 100,
-      reason: 'text-edit'
     })
 
-    setCanvasObjects([{
-      id: 'text-1',
-      type: 'textbox',
+    setTextboxState({
+      setCanvasObjects,
       text: 'после редактирования',
       locked: true
-    }] as any[])
+    })
     historyManager.saveState()
 
     expect(historyManager.currentIndex).toBe(2)
@@ -61,10 +54,10 @@ describe('undo/redo', () => {
 
     await historyManager.undo()
 
-    expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+    expect(getCanvasObjects()[0]).toMatchObject({
       text: 'после редактирования',
       locked: false
-    }))
+    })
 
     await historyManager.undo()
 
@@ -82,24 +75,12 @@ describe('undo/redo', () => {
       mockEditor
     } = createHistoryManagerTestSetup()
 
-    mockEditor.textManager.isTextEditingActive = true
-
-    setCanvasObjects([{
-      id: 'text-1',
-      type: 'textbox',
-      text: 'до редактирования'
-    }] as any[])
-    historyManager.saveState()
-
-    setCanvasObjects([{
-      id: 'text-1',
-      type: 'textbox',
-      text: 'после редактирования'
-    }] as any[])
-    historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
-    historyManager.scheduleSaveState({
-      delayMs: 100,
-      reason: 'text-edit'
+    startTextboxEditHistory({
+      historyManager,
+      setCanvasObjects,
+      textManager: mockEditor.textManager,
+      initialText: 'до редактирования',
+      editedText: 'после редактирования'
     })
 
     const didFlush = historyManager.flushPendingSave({ reason: 'text-edit' })
@@ -108,9 +89,9 @@ describe('undo/redo', () => {
     expect(historyManager.currentIndex).toBe(1)
     expect(historyManager.totalChangesCount).toBe(1)
     expect(mockEditor.textManager.isTextEditingActive).toBe(false)
-    expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+    expect(getCanvasObjects()[0]).toMatchObject({
       text: 'после редактирования'
-    }))
+    })
 
     historyManager.saveState()
 
@@ -126,38 +107,32 @@ describe('undo/redo', () => {
       mockEditor
     } = createHistoryManagerTestSetup()
 
-    mockEditor.textManager.isTextEditingActive = true
-
-    setCanvasObjects([{
-      id: 'text-1',
-      type: 'textbox',
-      text: 'до редактирования'
-    }] as any[])
-    historyManager.saveState()
-
-    setCanvasObjects([{
-      id: 'text-1',
-      type: 'textbox',
-      text: 'после редактирования'
-    }] as any[])
-    historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
-    historyManager.scheduleSaveState({
-      delayMs: 100,
-      reason: 'text-edit'
+    startTextboxEditHistory({
+      historyManager,
+      setCanvasObjects,
+      textManager: mockEditor.textManager,
+      initialText: 'до редактирования',
+      editedText: 'после редактирования'
     })
 
     setCanvasObjects([])
     historyManager.saveState()
 
-    expect(historyManager.currentIndex).toBe(2)
-    expect(historyManager.totalChangesCount).toBe(2)
-    expect(mockEditor.textManager.isTextEditingActive).toBe(false)
+    expect({
+      currentIndex: historyManager.currentIndex,
+      totalChangesCount: historyManager.totalChangesCount,
+      isTextEditingActive: mockEditor.textManager.isTextEditingActive
+    }).toEqual({
+      currentIndex: 2,
+      totalChangesCount: 2,
+      isTextEditingActive: false
+    })
 
     await historyManager.undo()
 
-    expect(getCanvasObjects()[0]).toEqual(expect.objectContaining({
+    expect(getCanvasObjects()[0]).toMatchObject({
       text: 'после редактирования'
-    }))
+    })
 
     await historyManager.undo()
 
@@ -174,6 +149,7 @@ describe('undo/redo', () => {
 
     expect(loadSpy).not.toHaveBeenCalled()
     expect(mockEditor.canvas.fire).not.toHaveBeenCalledWith('editor:undo', expect.anything())
+    expect(mockEditor.canvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
 
     loadSpy.mockRestore()
   })
@@ -198,12 +174,14 @@ describe('undo/redo', () => {
 
     setCanvasObjects([{ id: 'object-1', type: 'rect', left: 20 }] as any[])
 
+    mockCanvas.fire.mockClear()
     await historyManager.undo()
 
     expect(historyManager.currentIndex).toBe(currentIndex)
     expect(historyManager.totalChangesCount).toBe(totalChangesCount)
     expect(getCanvasObjects()[0]?.left).toBe(10)
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:undo', expect.anything())
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
   })
 
   it('undo фиксирует отложенное сохранение перед откатом', async() => {
@@ -247,6 +225,7 @@ describe('undo/redo', () => {
 
     expect(loadSpy).not.toHaveBeenCalled()
     expect(historyManager.currentIndex).toBe(0)
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
 
     loadSpy.mockRestore()
   })
@@ -267,18 +246,19 @@ describe('undo/redo', () => {
       ] as any[]
     })
 
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [baseState, nextState]
+    })
     mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
       .mockReturnValueOnce(nextState)
       .mockReturnValueOnce(baseState)
-
-    historyManager.saveState()
-    historyManager.saveState()
 
     expect(historyManager.currentIndex).toBe(1)
     expect(historyManager.totalChangesCount).toBe(1)
 
+    mockCanvas.fire.mockClear()
     await historyManager.undo()
 
     expect(historyManager.currentIndex).toBe(0)
@@ -293,26 +273,26 @@ describe('undo/redo', () => {
     expect(mockCanvas.fire).toHaveBeenCalledWith('editor:history-state-loaded', expect.objectContaining({
       fullState: expect.any(Object)
     }))
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:history-changed', {
+      action: 'undo',
+      currentIndex: 0,
+      totalChangesCount: 0,
+      baseStateChangesCount: 0,
+      patchesCount: 1,
+      canUndo: false,
+      canRedo: true,
+      hasUnsavedChanges: false,
+      currentChangePosition: 0
+    })
   })
 
   it('поддерживает множественные undo', async() => {
     const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
-    const state1 = createHistoryState({ objects: [{ id: 'obj-1', left: 0 }] as any[] })
-    const state2 = createHistoryState({ objects: [{ id: 'obj-1', left: 10 }] as any[] })
-    const state3 = createHistoryState({ objects: [{ id: 'obj-1', left: 20 }] as any[] })
-
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(state1)
-      .mockReturnValueOnce(state2)
-      .mockReturnValueOnce(state3)
-      .mockReturnValueOnce(state3)
-      .mockReturnValueOnce(state2)
-      .mockReturnValueOnce(state1)
-      .mockReturnValueOnce(state2)
-
-    historyManager.saveState()
-    historyManager.saveState()
-    historyManager.saveState()
+    saveThreeObjectLeftHistorySteps({
+      historyManager,
+      mockCanvas,
+      leftValues: [0, 10, 20]
+    })
 
     expect(historyManager.currentIndex).toBe(2)
 
@@ -340,14 +320,14 @@ describe('undo/redo', () => {
       ] as any[]
     })
 
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [baseState, nextState]
+    })
     mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
       .mockReturnValueOnce(nextState)
       .mockReturnValueOnce(baseState)
-
-    historyManager.saveState()
-    historyManager.saveState()
     mockEditor.montageArea.width = 600
     mockEditor.montageArea.height = 300
 
@@ -355,10 +335,19 @@ describe('undo/redo', () => {
 
     await historyManager.undo()
 
-    expect(mockEditor.zoomManager.calculateAndApplyDefaultZoom).toHaveBeenCalledTimes(1)
-    expect(mockEditor.zoomManager.updateDefaultZoom).not.toHaveBeenCalled()
-    expect(mockEditor.canvasManager.refreshMontageDerivedState).toHaveBeenCalledTimes(1)
-    expect(mockEditor.canvasManager.updateCanvas).not.toHaveBeenCalled()
+    const { zoomManager, canvasManager } = mockEditor
+
+    expect({
+      defaultZoomRecalculations: zoomManager.calculateAndApplyDefaultZoom.mock.calls.length,
+      defaultZoomUpdates: zoomManager.updateDefaultZoom.mock.calls.length,
+      montageDerivedRefreshes: canvasManager.refreshMontageDerivedState.mock.calls.length,
+      canvasUpdates: canvasManager.updateCanvas.mock.calls.length
+    }).toEqual({
+      defaultZoomRecalculations: 1,
+      defaultZoomUpdates: 0,
+      montageDerivedRefreshes: 1,
+      canvasUpdates: 0
+    })
   })
 
   it('повторяет действие и генерирует событие redo', async() => {
@@ -375,20 +364,21 @@ describe('undo/redo', () => {
       ] as any[]
     })
 
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [baseState, nextState]
+    })
     mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
       .mockReturnValueOnce(nextState)
       .mockReturnValueOnce(baseState)
-
-    historyManager.saveState()
-    historyManager.saveState()
 
     await historyManager.undo()
 
     expect(historyManager.currentIndex).toBe(0)
     expect(historyManager.totalChangesCount).toBe(0)
 
+    mockCanvas.fire.mockClear()
     await historyManager.redo()
 
     expect(historyManager.currentIndex).toBe(1)
@@ -400,26 +390,26 @@ describe('undo/redo', () => {
       patchesCount: 1,
       patches: expect.any(Array)
     }))
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:history-changed', {
+      action: 'redo',
+      currentIndex: 1,
+      totalChangesCount: 1,
+      baseStateChangesCount: 0,
+      patchesCount: 1,
+      canUndo: true,
+      canRedo: false,
+      hasUnsavedChanges: true,
+      currentChangePosition: 1
+    })
   })
 
   it('поддерживает множественные redo', async() => {
     const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
-    const state1 = createHistoryState({ objects: [{ id: 'obj-1', left: 0 }] as any[] })
-    const state2 = createHistoryState({ objects: [{ id: 'obj-1', left: 10 }] as any[] })
-    const state3 = createHistoryState({ objects: [{ id: 'obj-1', left: 20 }] as any[] })
-
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(state1)
-      .mockReturnValueOnce(state2)
-      .mockReturnValueOnce(state3)
-      .mockReturnValueOnce(state3)
-      .mockReturnValueOnce(state2)
-      .mockReturnValueOnce(state1)
-      .mockReturnValueOnce(state2)
-
-    historyManager.saveState()
-    historyManager.saveState()
-    historyManager.saveState()
+    saveThreeObjectLeftHistorySteps({
+      historyManager,
+      mockCanvas,
+      leftValues: [0, 10, 20]
+    })
 
     await historyManager.undo()
     await historyManager.undo()
@@ -457,11 +447,9 @@ describe('undo/redo', () => {
 
     setCanvasObjects([group])
 
-    mockCanvas.toDatalessObject.mockImplementation(() => createHistoryState({
-      objects: [serializeSnapshotShapeGroupState({
-        group,
-        text
-      })] as any[]
+    mockCanvas.toDatalessObject.mockImplementation(() => createSnapshotShapeGroupHistoryState({
+      group,
+      text
     }))
 
     historyManager.saveState()
@@ -502,30 +490,30 @@ describe('undo/redo', () => {
 
     expect(loadSpy).not.toHaveBeenCalled()
     expect(mockEditor.canvas.fire).not.toHaveBeenCalledWith('editor:redo', expect.anything())
+    expect(mockEditor.canvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
 
     loadSpy.mockRestore()
   })
 
   it('ничего не делает если currentIndex уже на максимуме', async() => {
     const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
-    const state1 = createHistoryState()
-    const state2 = createHistoryState({ objects: [{ id: 'obj-1' }] as any[] })
+    const [state1, state2] = createObjectPresenceHistoryStates()
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(state1)
-      .mockReturnValueOnce(state2)
-      .mockReturnValueOnce(state2)
-
-    historyManager.saveState()
-    historyManager.saveState()
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [state1, state2]
+    })
 
     const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
     const initialIndex = historyManager.currentIndex
 
+    mockCanvas.fire.mockClear()
     await historyManager.redo()
 
     expect(loadSpy).not.toHaveBeenCalled()
     expect(historyManager.currentIndex).toBe(initialIndex)
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
 
     loadSpy.mockRestore()
   })
@@ -537,18 +525,18 @@ describe('undo/redo', () => {
       objects: [{ id: 'object-1', left: 5 }] as any[]
     })
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
-
-    historyManager.saveState()
-    historyManager.saveState()
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [baseState, nextState]
+    })
 
     const initialIndex = historyManager.currentIndex
     const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
 
     historyManager.suspendHistory()
 
+    mockCanvas.fire.mockClear()
     await historyManager.undo()
     await historyManager.redo()
 
@@ -556,6 +544,7 @@ describe('undo/redo', () => {
     expect(historyManager.currentIndex).toBe(initialIndex)
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:undo', expect.anything())
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:redo', expect.anything())
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
 
     historyManager.resumeHistory()
     loadSpy.mockRestore()
@@ -563,20 +552,19 @@ describe('undo/redo', () => {
 
   it('обрабатывает ошибки при undo и вызывает errorManager', async() => {
     const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
-    const baseState = createHistoryState()
-    const nextState = createHistoryState({ objects: [{ id: 'obj-1' }] as any[] })
+    const [baseState, nextState] = createObjectPresenceHistoryStates()
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
-
-    historyManager.saveState()
-    historyManager.saveState()
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [baseState, nextState]
+    })
 
     const error = new Error('Test undo error')
     const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
       .mockRejectedValueOnce(error)
 
+    mockCanvas.fire.mockClear()
     await historyManager.undo()
 
     expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
@@ -586,21 +574,20 @@ describe('undo/redo', () => {
       message: 'Ошибка отмены действия',
       data: error
     })
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
 
     loadSpy.mockRestore()
   })
 
   it('обрабатывает ошибки при redo и вызывает errorManager', async() => {
     const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
-    const baseState = createHistoryState()
-    const nextState = createHistoryState({ objects: [{ id: 'obj-1' }] as any[] })
+    const [baseState, nextState] = createObjectPresenceHistoryStates()
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
-
-    historyManager.saveState()
-    historyManager.saveState()
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [baseState, nextState]
+    })
 
     await historyManager.undo()
 
@@ -608,6 +595,7 @@ describe('undo/redo', () => {
     const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
       .mockRejectedValueOnce(error)
 
+    mockCanvas.fire.mockClear()
     await historyManager.redo()
 
     expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith({
@@ -617,21 +605,20 @@ describe('undo/redo', () => {
       message: 'Ошибка повтора действия',
       data: error
     })
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
 
     loadSpy.mockRestore()
   })
 
   it('resumeHistory вызывается в finally блоке даже при ошибках в undo', async() => {
     const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
-    const baseState = createHistoryState()
-    const nextState = createHistoryState({ objects: [{ id: 'obj-1' }] as any[] })
+    const [baseState, nextState] = createObjectPresenceHistoryStates()
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
-
-    historyManager.saveState()
-    historyManager.saveState()
+    saveHistoryStates({
+      historyManager,
+      mockCanvas,
+      states: [baseState, nextState]
+    })
 
     const resumeSpy = jest.spyOn(historyManager, 'resumeHistory')
     const loadSpy = jest.spyOn(historyManager, 'loadStateFromFullState')
@@ -647,8 +634,7 @@ describe('undo/redo', () => {
 
   it('resumeHistory вызывается в finally блоке даже при ошибках в redo', async() => {
     const { historyManager, mockCanvas } = createHistoryManagerTestSetup()
-    const baseState = createHistoryState()
-    const nextState = createHistoryState({ objects: [{ id: 'obj-1' }] as any[] })
+    const [baseState, nextState] = createObjectPresenceHistoryStates()
 
     mockCanvas.toDatalessObject
       .mockReturnValueOnce(baseState)
