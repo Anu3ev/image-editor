@@ -8,7 +8,11 @@ import {
 import { create as diffPatchCreate } from 'jsondiffpatch/with-text-diffs'
 import type { DiffPatcher, Delta } from 'jsondiffpatch'
 import { nanoid } from 'nanoid'
-import { ImageEditor } from '../index'
+import type { ImageEditor } from '../index'
+import type {
+  HistoryChangedAction,
+  HistoryChangedPayload
+} from '../types/events'
 import { OBJECT_SERIALIZATION_PROPS } from './constants'
 import {
   areStatesEqual,
@@ -23,6 +27,16 @@ import type { CanvasFullState } from './types'
 
 export { OBJECT_SERIALIZATION_PROPS } from './constants'
 export type { CanvasFullState } from './types'
+
+/**
+ * Результат попытки сохранить serialized-состояние в history.
+ */
+type HistorySaveResult = {
+  saved: true
+  patchId: string
+} | {
+  saved: false
+}
 
 export default class HistoryManager {
   /**
@@ -445,20 +459,37 @@ export default class HistoryManager {
   /**
    * Сохраняет уже сериализованное canonical-состояние в историю.
    */
-  private _saveSerializedState({ currentStateObj }: { currentStateObj: CanvasFullState }): void {
+  private _saveSerializedState({ currentStateObj }: { currentStateObj: CanvasFullState }): HistorySaveResult {
     // Если базовое состояние ещё не установлено, сохраняем полное состояние как базу
     if (!this.baseState) {
       this.baseState = currentStateObj
       this.patches = []
       this.currentIndex = 0
       console.log('Базовое состояние сохранено.')
-      return
+      return { saved: false }
     }
 
-    // Вычисляем diff между последним сохранённым полным состоянием и текущим состоянием.
-    // Последнее сохранённое полное состояние – это результат getFullState()
-    const prevState = this.getFullState()
+    const diff = this._resolveStateDiff({ currentStateObj })
+    if (!diff) return { saved: false }
 
+    console.log('baseState', this.baseState)
+    console.log('diff', diff)
+
+    const patchId = this._appendHistoryPatch({ diff })
+
+    console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
+
+    return {
+      saved: true,
+      patchId
+    }
+  }
+
+  /**
+   * Вычисляет diff между текущим сохранённым состоянием и следующим serialized-состоянием.
+   */
+  private _resolveStateDiff({ currentStateObj }: { currentStateObj: CanvasFullState }): Delta | null {
+    const prevState = this.getFullState()
     const {
       prevState: normalizedPrevState,
       nextState: normalizedCurrentState
@@ -471,10 +502,9 @@ export default class HistoryManager {
     console.log('normalizedPrevState', normalizedPrevState)
     console.log('normalizedCurrentState', normalizedCurrentState)
 
-    // Если изменений нет, не сохраняем новый шаг
     if (!diff) {
       console.log('Нет изменений для сохранения.')
-      return
+      return null
     }
 
     const statesEqual = areStatesEqual({
@@ -484,42 +514,103 @@ export default class HistoryManager {
 
     if (statesEqual) {
       console.log('statesEqual. Нет изменений для сохранения.')
-      return
+      return null
     }
 
-    console.log('baseState', this.baseState)
+    return diff
+  }
 
-    // Если мы уже сделали undo и сейчас добавляем новое состояние,
-    // удаляем «редо»-ветку
+  /**
+   * Добавляет diff в историю, удаляя redo-ветку и соблюдая лимит длины history.
+   */
+  private _appendHistoryPatch({ diff }: { diff: Delta }): string {
     if (this.currentIndex < this.patches.length) {
       this.patches.splice(this.currentIndex)
     }
 
-    console.log('diff', diff)
+    const patchId = nanoid()
 
     this.totalChangesCount += 1
-
-    // Сохраняем дифф
-    this.patches.push({ id: nanoid(), diff })
+    this.patches.push({ id: patchId, diff })
     this.currentIndex += 1
 
-    // Если история стала слишком длинной, сбрасываем её: делаем новое базовое состояние
-    if (this.patches.length > this.maxHistoryLength) {
-      // Обновляем базовое состояние, применяя самый старый дифф
-      // Можно также обновить базу, применив все диффы, но здесь мы делаем сдвиг на один шаг
-      this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as CanvasFullState
-      this.patches.shift() // Удаляем первый дифф
-      this.currentIndex -= 1 // Корректируем индекс
+    this._trimHistoryToMaxLength()
 
-      // Увеличиваем счётчик изменений, "свёрнутых" в базовое состояние
-      this.baseStateChangesCount += 1
+    return patchId
+  }
+
+  /**
+   * Сдвигает старейший diff в baseState, когда история превышает maxHistoryLength.
+   */
+  private _trimHistoryToMaxLength(): void {
+    if (this.patches.length <= this.maxHistoryLength) return
+
+    this.baseState = this.diffPatcher.patch(this.baseState, this.patches[0].diff) as CanvasFullState
+    this.patches.shift()
+    this.currentIndex -= 1
+    this.baseStateChangesCount += 1
+  }
+
+  /**
+   * Собирает компактный payload изменения history для внешних подписчиков.
+   */
+  private _createHistoryChangedPayload({
+    action,
+    patchId
+  }: {
+    action: HistoryChangedAction
+    patchId?: string
+  }): HistoryChangedPayload {
+    const payload: HistoryChangedPayload = {
+      action,
+      currentIndex: this.currentIndex,
+      totalChangesCount: this.totalChangesCount,
+      baseStateChangesCount: this.baseStateChangesCount,
+      patchesCount: this.patches.length,
+      canUndo: this.currentIndex > 0,
+      canRedo: this.currentIndex < this.patches.length,
+      hasUnsavedChanges: this.hasUnsavedChanges(),
+      currentChangePosition: this.getCurrentChangePosition()
     }
 
-    console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
+    if (patchId !== undefined) {
+      payload.patchId = patchId
+    }
+
+    return payload
+  }
+
+  /**
+   * Отправляет событие о реальном изменении history-состояния.
+   */
+  private _fireHistoryChanged({
+    action,
+    patchId
+  }: {
+    action: HistoryChangedAction
+    patchId?: string
+  }): void {
+    this.canvas.fire('editor:history-changed', this._createHistoryChangedPayload({
+      action,
+      patchId
+    }))
+  }
+
+  /**
+   * Отправляет history-changed только для saveState, который реально добавил patch.
+   */
+  private _fireHistoryChangedAfterSave(saveResult: HistorySaveResult): void {
+    if (!saveResult.saved) return
+
+    this._fireHistoryChanged({
+      action: 'save',
+      patchId: saveResult.patchId
+    })
   }
 
   /**
    * Сохраняем текущее состояние в виде диффа от последнего сохранённого полного состояния.
+   * @fires editor:history-changed
    */
   public saveState(): void {
     console.log('saveState')
@@ -548,9 +639,10 @@ export default class HistoryManager {
           this._deactivateTextEditing()
         }
 
-        this._saveSerializedState({
+        const pendingSaveResult = this._saveSerializedState({
           currentStateObj: pendingCommittedState.state
         })
+        this._fireHistoryChangedAfterSave(pendingSaveResult)
       }
 
       // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
@@ -561,9 +653,10 @@ export default class HistoryManager {
 
       console.timeEnd('saveState')
 
-      this._saveSerializedState({
+      const saveResult = this._saveSerializedState({
         currentStateObj: currentStateObj as CanvasFullState
       })
+      this._fireHistoryChangedAfterSave(saveResult)
     } finally {
       this._isSavingState = false
     }
@@ -672,6 +765,7 @@ export default class HistoryManager {
   /**
    * Undo – отмена последнего действия, восстанавливая состояние по накопленным диффам.
    * @fires editor:undo
+   * @fires editor:history-changed
    */
   public async undo(): Promise<void> {
     if (this.skipHistory) return
@@ -706,6 +800,7 @@ export default class HistoryManager {
         patchesCount: this.patches.length,
         patches: this.patches
       })
+      this._fireHistoryChanged({ action: 'undo' })
     } catch (error) {
       this.editor.errorManager.emitError({
         origin: 'HistoryManager',
@@ -722,6 +817,7 @@ export default class HistoryManager {
   /**
    * Redo – повтор ранее отменённого действия.
    * @fires editor:redo
+   * @fires editor:history-changed
    */
   public async redo(): Promise<void> {
     if (this.skipHistory) return
@@ -757,6 +853,7 @@ export default class HistoryManager {
         patchesCount: this.patches.length,
         patches: this.patches
       })
+      this._fireHistoryChanged({ action: 'redo' })
     } catch (error) {
       this.editor.errorManager.emitError({
         origin: 'HistoryManager',

@@ -1,8 +1,57 @@
 import { nanoid } from 'nanoid'
 import { createHistoryManagerTestSetup } from '../../../test-utils/history/manager-setup'
-import { createHistoryState } from './history-manager.spec-utils'
+import { createHistoryState } from '../../../test-utils/history/state-fixtures'
 
 jest.mock('nanoid')
+
+type DeferredSaveTestSetup = ReturnType<typeof createHistoryManagerTestSetup>
+
+/**
+ * Параметры подготовки saveState, отложенного из-за заблокированного UI.
+ */
+type StageDeferredSaveParams = {
+  setup: DeferredSaveTestSetup
+  nextLeft: number
+  blockedSaveAttempts?: number
+}
+
+/**
+ * Готовит baseState и ставит следующий saveState в deferred queue через публичный path.
+ */
+const stageDeferredSave = ({
+  setup,
+  nextLeft,
+  blockedSaveAttempts = 1
+}: StageDeferredSaveParams): void => {
+  const { historyManager, mockCanvas, mockEditor } = setup
+  const baseState = createHistoryState({ objects: [{ id: 'object-1', left: 0 }] })
+  const nextState = createHistoryState({ objects: [{ id: 'object-1', left: nextLeft }] })
+
+  mockCanvas.toDatalessObject
+    .mockReturnValueOnce(baseState)
+    .mockReturnValueOnce(nextState)
+
+  mockEditor.interactionBlocker.isBlocked = false
+  historyManager.saveState()
+
+  mockEditor.interactionBlocker.isBlocked = true
+  for (let index = 0; index < blockedSaveAttempts; index += 1) {
+    historyManager.saveState()
+  }
+}
+
+/**
+ * Проверяет, что deferred save сохранил ровно один history step.
+ */
+const expectSingleHistoryStepSaved = ({
+  historyManager,
+  mockCanvas
+}: DeferredSaveTestSetup): void => {
+  expect(historyManager.patches).toHaveLength(1)
+  expect(historyManager.currentIndex).toBe(1)
+  expect(historyManager.totalChangesCount).toBe(1)
+  expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(2)
+}
 
 describe('deferred save при блокировке UI', () => {
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
@@ -13,19 +62,13 @@ describe('deferred save при блокировке UI', () => {
   })
 
   it('не сохраняет состояние во время блокировки UI и сохраняет после flush', () => {
-    const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
-    const baseState = createHistoryState({ objects: [{ id: 'object-1', left: 0 }] as any[] })
-    const nextState = createHistoryState({ objects: [{ id: 'object-1', left: 20 }] as any[] })
+    const setup = createHistoryManagerTestSetup()
+    const { historyManager, mockCanvas, mockEditor } = setup
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
-
-    mockEditor.interactionBlocker.isBlocked = false
-    historyManager.saveState()
-
-    mockEditor.interactionBlocker.isBlocked = true
-    historyManager.saveState()
+    stageDeferredSave({
+      setup,
+      nextLeft: 20
+    })
 
     expect(historyManager.patches).toHaveLength(0)
     expect(historyManager.currentIndex).toBe(0)
@@ -36,28 +79,18 @@ describe('deferred save при блокировке UI', () => {
     const isFlushed = historyManager.flushDeferredSaveAfterUnblock()
 
     expect(isFlushed).toBe(true)
-    expect(historyManager.patches).toHaveLength(1)
-    expect(historyManager.currentIndex).toBe(1)
-    expect(historyManager.totalChangesCount).toBe(1)
-    expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(2)
+    expectSingleHistoryStepSaved(setup)
   })
 
   it('схлопывает множественные saveState во время блокировки в один flush', () => {
-    const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
-    const baseState = createHistoryState({ objects: [{ id: 'object-1', left: 0 }] as any[] })
-    const nextState = createHistoryState({ objects: [{ id: 'object-1', left: 30 }] as any[] })
+    const setup = createHistoryManagerTestSetup()
+    const { historyManager, mockCanvas, mockEditor } = setup
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
-
-    mockEditor.interactionBlocker.isBlocked = false
-    historyManager.saveState()
-
-    mockEditor.interactionBlocker.isBlocked = true
-    historyManager.saveState()
-    historyManager.saveState()
-    historyManager.saveState()
+    stageDeferredSave({
+      setup,
+      nextLeft: 30,
+      blockedSaveAttempts: 3
+    })
 
     expect(historyManager.patches).toHaveLength(0)
     expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(1)
@@ -69,26 +102,17 @@ describe('deferred save при блокировке UI', () => {
 
     expect(firstFlush).toBe(true)
     expect(secondFlush).toBe(false)
-    expect(historyManager.patches).toHaveLength(1)
-    expect(historyManager.currentIndex).toBe(1)
-    expect(historyManager.totalChangesCount).toBe(1)
-    expect(mockCanvas.toDatalessObject).toHaveBeenCalledTimes(2)
+    expectSingleHistoryStepSaved(setup)
   })
 
   it('не сбрасывает отложенное сохранение если flush вызван при suspendHistory', () => {
-    const { historyManager, mockCanvas, mockEditor } = createHistoryManagerTestSetup()
-    const baseState = createHistoryState({ objects: [{ id: 'object-1', left: 0 }] as any[] })
-    const nextState = createHistoryState({ objects: [{ id: 'object-1', left: 15 }] as any[] })
+    const setup = createHistoryManagerTestSetup()
+    const { historyManager, mockEditor } = setup
 
-    mockCanvas.toDatalessObject
-      .mockReturnValueOnce(baseState)
-      .mockReturnValueOnce(nextState)
-
-    mockEditor.interactionBlocker.isBlocked = false
-    historyManager.saveState()
-
-    mockEditor.interactionBlocker.isBlocked = true
-    historyManager.saveState()
+    stageDeferredSave({
+      setup,
+      nextLeft: 15
+    })
 
     mockEditor.interactionBlocker.isBlocked = false
     historyManager.suspendHistory()

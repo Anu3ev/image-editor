@@ -199,24 +199,6 @@ function isFiniteObjectBounds({ bounds }: { bounds: ObjectBounds }): boolean {
 }
 
 /**
- * Возвращает точный bounding box объекта с учётом трансформации.
- */
-export const getObjectExactBounds = ({
-  object
-}: {
-  object?: FabricObject | null
-}): ObjectBounds | null => {
-  if (!object) return null
-
-  const customBounds = object.getObjectSnappingBounds?.()
-  if (customBounds && isFiniteObjectBounds({ bounds: customBounds })) {
-    return customBounds
-  }
-
-  return getObjectVisualBounds({ object })
-}
-
-/**
  * Возвращает visual bounding box объекта без custom snapping bounds.
  */
 function getObjectVisualBounds({
@@ -248,6 +230,24 @@ function getObjectVisualBounds({
   } catch {
     return null
   }
+}
+
+/**
+ * Возвращает точный bounding box объекта с учётом трансформации.
+ */
+export const getObjectExactBounds = ({
+  object
+}: {
+  object?: FabricObject | null
+}): ObjectBounds | null => {
+  if (!object) return null
+
+  const customBounds = object.getObjectSnappingBounds?.()
+  if (customBounds && isFiniteObjectBounds({ bounds: customBounds })) {
+    return customBounds
+  }
+
+  return getObjectVisualBounds({ object })
 }
 
 /**

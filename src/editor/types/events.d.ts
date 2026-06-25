@@ -130,6 +130,27 @@ export type HistoryStateLoadedPayload = {
   patches: object[]
 }
 
+/**
+ * Действие, которое изменило наблюдаемое состояние history.
+ */
+export type HistoryChangedAction = 'save' | 'undo' | 'redo'
+
+/**
+ * Компактное состояние history для внешних controls, autosave и dirty-state.
+ */
+export type HistoryChangedPayload = {
+  action: HistoryChangedAction
+  currentIndex: number
+  totalChangesCount: number
+  baseStateChangesCount: number
+  patchesCount: number
+  canUndo: boolean
+  canRedo: boolean
+  hasUnsavedChanges: boolean
+  currentChangePosition: number
+  patchId?: string
+}
+
 export type ResolutionWidthChangedPayload = {
   width: string | number,
   preserveProportional?: boolean,
@@ -301,6 +322,11 @@ declare module 'fabric' {
      * Срабатывает после загрузки состояния канваса (из JSON истории).
      */
     'editor:history-state-loaded': HistoryStateLoadedPayload
+
+    /**
+     * Срабатывает после реального изменения history-состояния.
+     */
+    'editor:history-changed': HistoryChangedPayload
 
     /**
      * Срабатывает после успешного выполнения публичного добавления текста.
