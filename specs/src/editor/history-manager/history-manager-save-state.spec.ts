@@ -201,7 +201,7 @@ describe('saveState и getFullState', () => {
     }
     const nextMontageArea = {
       ...baseMontageArea,
-      width: 450,
+      width: 450
     }
     const baseState = createMontageAreaHistoryState({
       canvasWidth: 800,

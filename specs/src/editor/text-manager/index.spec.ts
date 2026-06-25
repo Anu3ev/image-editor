@@ -14,10 +14,10 @@ jest.mock('nanoid')
  */
 const getTextUpdateEventCalls = (
   fireMock: jest.Mock<void, [string, unknown]>
-): Array<[string, unknown]> => fireMock.mock.calls.filter(([eventName]) => (
-  eventName === 'editor:before:text-updated'
-  || eventName === 'editor:text-updated'
-))
+): Array<[string, unknown]> => fireMock.mock.calls.filter(([eventName]) => {
+  return eventName === 'editor:before:text-updated'
+    || eventName === 'editor:text-updated'
+})
 
 describe('TextManager', () => {
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
