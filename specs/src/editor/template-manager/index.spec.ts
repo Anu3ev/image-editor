@@ -470,6 +470,84 @@ describe('TemplateManager', () => {
     expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
+  it('готовит image src через ImageManager до восстановления Fabric-объектов', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true,
+      montageBounds: {
+        left: 100,
+        top: 50,
+        width: 810,
+        height: 1080
+      }
+    })
+    const dataUrl = 'data:image/png;base64,bW9jaw=='
+    const template = {
+      id: 'template-data-image',
+      meta: {
+        baseWidth: 810,
+        baseHeight: 1080,
+        positionsNormalized: true
+      },
+      objects: [
+        {
+          type: 'image',
+          id: 'template-image',
+          src: dataUrl,
+          left: 0.2,
+          top: 0.1,
+          width: 300,
+          height: 300,
+          originX: 'left',
+          originY: 'top',
+          scaleX: 1,
+          scaleY: 1
+        }
+      ]
+    }
+    const preparedTemplate = {
+      ...template,
+      objects: [
+        {
+          ...template.objects[0],
+          src: 'blob:prepared-image'
+        }
+      ]
+    }
+    const revivedImage = createPlacementTestImage({
+      id: 'template-image',
+      left: 0.2,
+      top: 0.1,
+      width: 300,
+      height: 300,
+      intrinsicWidth: 300,
+      intrinsicHeight: 300
+    })
+    const prepareImageSourcesMock = editor.imageManager.prepareSerializedImageSources as jest.Mock
+    prepareImageSourcesMock.mockResolvedValue(preparedTemplate)
+
+    const enlivenObjectsSpy = jest.spyOn(util, 'enlivenObjects').mockResolvedValue([revivedImage as never])
+
+    const result = await manager.applyTemplate({ template })
+    const [serializedObjects] = enlivenObjectsSpy.mock.calls[0]
+    const [serializedImage] = serializedObjects as Array<Record<string, unknown>>
+
+    expect(result).toEqual([revivedImage])
+    expect(prepareImageSourcesMock).toHaveBeenCalledWith({ state: template })
+    expect(prepareImageSourcesMock.mock.invocationCallOrder[0]).toBeLessThan(
+      enlivenObjectsSpy.mock.invocationCallOrder[0]
+    )
+    expect(serializedImage.src).toBe('blob:prepared-image')
+    expect(template.objects[0].src).toBe(dataUrl)
+    expect(editor.canvas.fire).toHaveBeenCalledWith('editor:template-applied', expect.objectContaining({
+      template
+    }))
+    expect(editor.historyManager.saveState).toHaveBeenCalled()
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+  })
+
   it('после применения шаблона эмитит editor:template-applied с вставленными объектами и bounds монтажной области', async() => {
     const {
       manager,

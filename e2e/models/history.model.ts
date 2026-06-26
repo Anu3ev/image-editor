@@ -46,4 +46,23 @@ export class HistoryModel {
       return editor.historyManager.flushPendingSave()
     })
   }
+
+  /** Возвращает сериализованное состояние history для проверок persistence payload. */
+  async getSerializedState(): Promise<unknown> {
+    return this.page.evaluate(() => {
+      const { editor } = window as any
+      const { historyManager } = editor
+
+      return {
+        baseState: historyManager.baseState,
+        fullState: historyManager.getFullState(),
+        patches: historyManager.patches
+      }
+    })
+  }
+
+  /** Возвращает serialized history строкой для проверок payload. */
+  async getSerializedStateText(): Promise<string> {
+    return JSON.stringify(await this.getSerializedState())
+  }
 }

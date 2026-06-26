@@ -1,7 +1,22 @@
-/** Проверяет, что src уже является локальным blob/data URL и не требует fetch. */
-function isBlobOrDataUrl({ src }: { src: string }): boolean {
-  if (src.startsWith('blob:')) return true
-  if (src.startsWith('data:')) return true
+/** Проверяет, что src уже является локальным blob URL и не требует подготовки. */
+function isBlobUrl({ src }: { src: string }): boolean {
+  return src.startsWith('blob:')
+}
+
+/** Проверяет, что src является data URL и требует локальной подготовки. */
+function isDataUrl({ src }: { src: string }): boolean {
+  return src.toLowerCase().startsWith('data:')
+}
+
+/** Проверяет, что data URL заявлен как image. */
+function isImageDataUrl({ src }: { src: string }): boolean {
+  return src.toLowerCase().startsWith('data:image/')
+}
+
+/** Проверяет, что browser API не смог прочитать image src и можно оставить исходный src. */
+function isRecoverableImageReadError({ error }: { error: unknown }): boolean {
+  if (error instanceof TypeError) return true
+  if (typeof DOMException !== 'undefined' && error instanceof DOMException) return true
 
   return false
 }
@@ -26,7 +41,7 @@ export default class BlobUrlRegistry {
   }
 
   /**
-   * Возвращает blob/data URL как есть или создаёт blob URL для удалённого src с кешированием.
+   * Возвращает blob URL как есть или создаёт blob URL для data/remote src с кешированием.
    */
   public async getOrCreateForSource({
     src,
@@ -35,10 +50,18 @@ export default class BlobUrlRegistry {
     src: string
     cache: Map<string, string>
   }): Promise<string | null> {
-    if (isBlobOrDataUrl({ src })) return src
+    if (isBlobUrl({ src })) return src
 
-    if (cache.has(src)) {
-      return cache.get(src) ?? null
+    const cachedBlobUrl = cache.get(src)
+    if (cachedBlobUrl) return cachedBlobUrl
+
+    if (isDataUrl({ src })) {
+      const blobUrl = await this.createObjectUrlFromDataUrl({ src })
+      if (!blobUrl) return null
+
+      cache.set(src, blobUrl)
+
+      return blobUrl
     }
 
     const blobUrl = await this.fetchAsBlobUrl({ src })
@@ -50,7 +73,38 @@ export default class BlobUrlRegistry {
   }
 
   /**
-   * Загружает изображение по URL и возвращает blob URL. При ошибке возвращает null.
+   * Создаёт blob URL для image data URL. Если browser API не смог прочитать src, возвращает null.
+   */
+  public async createObjectUrlFromDataUrl({ src }: { src: string }): Promise<string | null> {
+    if (!isImageDataUrl({ src })) return null
+
+    const blob = await this.fetchImageDataUrlAsBlob({ src })
+    if (!blob) return null
+
+    return this.createObjectUrl({ source: blob })
+  }
+
+  /**
+   * Читает image data URL через browser fetch/blob API.
+   */
+  private async fetchImageDataUrlAsBlob({ src }: { src: string }): Promise<Blob | null> {
+    try {
+      const response = await fetch(src)
+      if (!response.ok) return null
+
+      const blob = await response.blob()
+      if (!blob.type.toLowerCase().startsWith('image/')) return null
+
+      return blob
+    } catch (error) {
+      if (!isRecoverableImageReadError({ error })) throw error
+
+      return null
+    }
+  }
+
+  /**
+   * Загружает изображение по URL и возвращает blob URL. Если browser API не смог прочитать src, возвращает null.
    */
   public async fetchAsBlobUrl({ src }: { src: string }): Promise<string | null> {
     try {
@@ -62,7 +116,9 @@ export default class BlobUrlRegistry {
       const blobUrl = this.createObjectUrl({ source: blob })
 
       return blobUrl
-    } catch {
+    } catch (error) {
+      if (!isRecoverableImageReadError({ error })) throw error
+
       return null
     }
   }

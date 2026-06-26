@@ -317,7 +317,7 @@ export class ImageEditor {
       this.historyManager.suspendHistory()
 
       try {
-        const preparedState = await this.imageManager.prepareInitialState({
+        const preparedState = await this.imageManager.prepareSerializedImageSources({
           state: initialState as CanvasFullState
         })
 

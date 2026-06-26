@@ -39,6 +39,13 @@ import {
   TEMPLATE_STANDALONE_TEXT_TALL_RESOLUTION,
   TEMPLATE_STANDALONE_TEXT_TEMPLATE
 } from '../../fixtures/data/template-manager.data'
+import { IMAGE_SCALING_FACTOR } from '../../fixtures/data/image.data'
+import {
+  IMAGE_SOURCE_RESTORE_CASES,
+  IMAGE_SOURCE_RESTORE_OBJECT_COUNT,
+  IMAGE_SOURCE_RESTORE_RESOLUTION,
+  IMAGE_SOURCE_RESTORE_ROUTE_MOCK
+} from '../../fixtures/data/image-source-restore.data'
 
 test.describe('Готовый шаблон', () => {
   test('готовый шаблон появляется внутри монтажной области', async({
@@ -306,6 +313,79 @@ test.describe('Картинка из шаблона после замены src'
           expect(Math.abs(image.centerY - expectedCenterY)).toBeLessThanOrEqual(TEMPLATE_BOUNDS_TOLERANCE)
         })
       }
+    })
+  }
+})
+
+test.describe('Картинка из шаблона после подготовки src', () => {
+  test.use({
+    editorRouteMocks: [IMAGE_SOURCE_RESTORE_ROUTE_MOCK]
+  })
+
+  for (const sourceCase of IMAGE_SOURCE_RESTORE_CASES) {
+    test(sourceCase.templateTestName, async({
+      canvas,
+      editorModel,
+      history,
+      images,
+      template
+    }) => {
+      await test.step('Применить шаблон с картинкой', async() => {
+        await canvas.setMontageResolution(IMAGE_SOURCE_RESTORE_RESOLUTION)
+
+        const insertedCount = await template.applyTemplate({
+          template: sourceCase.template
+        })
+
+        expect(insertedCount).toBe(IMAGE_SOURCE_RESTORE_OBJECT_COUNT)
+        await editorModel.checkObjectCount({ count: IMAGE_SOURCE_RESTORE_OBJECT_COUNT })
+      })
+
+      await test.step('Проверить что картинка загружена как blob-ссылка', async() => {
+        const sourceInfo = await images.getSourceInfo({ objectIndex: 0 })
+
+        expect(sourceInfo.runtimeSrc.startsWith('blob:')).toBe(true)
+        expect(sourceInfo.runtimeSrc).not.toBe(sourceCase.source)
+        expect(sourceInfo.sourceWidth).toBeGreaterThan(0)
+        expect(sourceInfo.sourceHeight).toBeGreaterThan(0)
+      })
+
+      const initialSnapshot = await test.step('Получить геометрию до scale', async() => {
+        return images.getSnapshot({ objectIndex: 0 })
+      })
+
+      await test.step('Масштабировать картинку вправо', async() => {
+        await images.scaleHorizontallyFromRight({
+          objectIndex: 0,
+          scaleX: IMAGE_SCALING_FACTOR
+        })
+      })
+
+      const finalSnapshot = await test.step('Завершить scale и сохранить состояние', async() => {
+        const snapshot = await images.finishScale({ objectIndex: 0 })
+
+        await history.saveState()
+
+        return snapshot
+      })
+
+      await test.step('Проверить что после scale картинка осталась blob-ссылкой', async() => {
+        const sourceInfo = await images.getSourceInfo({ objectIndex: 0 })
+
+        expect(finalSnapshot.boundsWidth).toBeLessThan(initialSnapshot.boundsWidth)
+        expect(sourceInfo.runtimeSrc.startsWith('blob:')).toBe(true)
+        expect(sourceInfo.runtimeSrc).not.toBe(sourceCase.source)
+      })
+
+      await test.step('Проверить что история не содержит исходные данные картинки', async() => {
+        const serializedHistoryText = await history.getSerializedStateText()
+
+        expect(serializedHistoryText).toContain('blob:')
+
+        for (const forbiddenPayload of sourceCase.historyForbiddenPayloads) {
+          expect(serializedHistoryText).not.toContain(forbiddenPayload)
+        }
+      })
     })
   }
 })

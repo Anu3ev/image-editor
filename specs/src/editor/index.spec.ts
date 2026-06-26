@@ -18,7 +18,7 @@ jest.mock('../../../src/editor/image-manager', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
     importImage: jest.fn().mockResolvedValue(undefined),
-    prepareInitialState: jest.fn().mockImplementation(async({ state }) => state),
+    prepareSerializedImageSources: jest.fn().mockImplementation(async({ state }) => state),
     calculateScaleFactor: jest.fn().mockReturnValue(1),
     revokeBlobUrls: jest.fn()
   }))
@@ -205,16 +205,16 @@ describe('ImageEditor', () => {
       expect(editor.historyManager.loadStateFromFullState).toHaveBeenCalledWith({ test: 'state' })
     })
 
-    it('должен подготовить initialState через imageManager.prepareInitialState перед загрузкой в историю', async() => {
+    it('должен подготовить initialState через imageManager.prepareSerializedImageSources перед загрузкой в историю', async() => {
       const initialState = { test: 'state' }
       const preparedState = { prepared: true }
 
       const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
-      const prepareInitialState = jest.fn().mockResolvedValue(preparedState)
+      const prepareSerializedImageSources = jest.fn().mockResolvedValue(preparedState)
 
       ImageManagerMock.mockImplementationOnce(() => ({
         importImage: jest.fn().mockResolvedValue(undefined),
-        prepareInitialState,
+        prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
         revokeBlobUrls: jest.fn()
       }))
@@ -235,7 +235,7 @@ describe('ImageEditor', () => {
       const editor = createEditorWithMocks({ initialState })
       await editor.init()
 
-      expect(prepareInitialState).toHaveBeenCalledWith({ state: initialState })
+      expect(prepareSerializedImageSources).toHaveBeenCalledWith({ state: initialState })
       expect(loadStateFromFullState).toHaveBeenCalledWith(preparedState)
       expect(suspendHistory).toHaveBeenCalled()
       expect(resumeHistory).toHaveBeenCalled()
@@ -247,11 +247,11 @@ describe('ImageEditor', () => {
 
       const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
       const importImage = jest.fn().mockResolvedValue(undefined)
-      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+      const prepareSerializedImageSources = jest.fn().mockResolvedValue(initialState)
 
       ImageManagerMock.mockImplementationOnce(() => ({
         importImage,
-        prepareInitialState,
+        prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
         revokeBlobUrls: jest.fn()
       }))
@@ -285,7 +285,7 @@ describe('ImageEditor', () => {
 
       await editor.init()
 
-      expect(prepareInitialState).toHaveBeenCalledWith({ state: initialState })
+      expect(prepareSerializedImageSources).toHaveBeenCalledWith({ state: initialState })
       expect(importImage).toHaveBeenCalledWith({
         source: 'test-image.jpg',
         scale: 'image-contain',
@@ -307,11 +307,11 @@ describe('ImageEditor', () => {
 
       const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
       const importImage = jest.fn().mockResolvedValue(undefined)
-      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+      const prepareSerializedImageSources = jest.fn().mockResolvedValue(initialState)
 
       ImageManagerMock.mockImplementationOnce(() => ({
         importImage,
-        prepareInitialState,
+        prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
         revokeBlobUrls: jest.fn()
       }))
@@ -343,11 +343,11 @@ describe('ImageEditor', () => {
 
       const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
       const importImage = jest.fn().mockResolvedValue(undefined)
-      const prepareInitialState = jest.fn().mockResolvedValue(initialState)
+      const prepareSerializedImageSources = jest.fn().mockResolvedValue(initialState)
 
       ImageManagerMock.mockImplementationOnce(() => ({
         importImage,
-        prepareInitialState,
+        prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
         revokeBlobUrls: jest.fn()
       }))
