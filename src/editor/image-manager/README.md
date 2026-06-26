@@ -6,8 +6,8 @@ The main rule for this module is simple: keep the public user scenarios in [`ind
 
 ## Responsibility split
 
-- [`index.ts`](./index.ts) is the public scenario owner. It keeps `importImage()`, `prepareInitialState()`, `exportCanvasAsImageFile()`, `exportObjectAsImageFile()`, `resizeImageToBoundaries()`, content-type helpers, scale calculation, and blob URL cleanup.
-- [`import-image.ts`](./import-image.ts) contains the private import pipeline steps: request creation, source validation, Fabric image loading, import-time resize, placement, canvas insertion, history completion, error emission, and initial state image source replacement.
+- [`index.ts`](./index.ts) is the public scenario owner. It keeps `importImage()`, `prepareSerializedImageSources()`, `exportCanvasAsImageFile()`, `exportObjectAsImageFile()`, `resizeImageToBoundaries()`, content-type helpers, scale calculation, and blob URL cleanup.
+- [`import-image.ts`](./import-image.ts) contains the private import pipeline steps: request creation, source validation, Fabric image loading, import-time resize, placement, canvas insertion, history completion, error emission, and serialized image source replacement.
 - [`canvas-export.ts`](./canvas-export.ts) contains the private canvas export pipeline: export request normalization, cloned canvas preparation, montage-area snapshot creation, SVG/raster/PDF export branches, and `editor:canvas-exported` payload creation.
 - [`object-export.ts`](./object-export.ts) contains the private object export pipeline: selected-object request normalization, SVG export, direct image-element base64 export, rendered object export, crop-aware object rendering, and `editor:object-exported` payload creation.
 - [`export-utils.ts`](./export-utils.ts) contains export operations shared by canvas and object export: SVG string packaging and Blob-to-data-URL conversion through the worker.
@@ -47,13 +47,27 @@ The main rule for this module is simple: keep the public user scenarios in [`ind
 5. Otherwise render the Fabric object to an offscreen canvas so crop and other Fabric state are preserved.
 6. Fire `editor:object-exported`, or emit `IMAGE_EXPORT_FAILED` and return `null`.
 
+`ImageManager.prepareSerializedImageSources()` is the restore-time image source boundary:
+
+1. Deep-clone the serialized state or template passed by the caller.
+2. Walk `objects` recursively, including nested group objects.
+3. Leave `blob:` sources unchanged.
+4. Convert valid `data:image/...` sources to managed `blob:` URLs through `BlobUrlRegistry`.
+5. Fetch remote image URLs into managed `blob:` URLs when possible.
+6. Keep the original `src` when parsing or fetching fails.
+7. Return the prepared clone without mutating the caller's object.
+
 ## Important contracts
 
 - The public API is `editor.imageManager.*`. Do not move user-facing calls to helper modules.
 - Helper files must not accept `ImageManager` as an argument. Pass only the real dependencies a step needs: `editor`, `blobUrls`, `request`, `image`, or `acceptContentTypes`.
 - Do not duplicate format parsing. Use [`image-format.ts`](./image-format.ts) for `contentType -> format` and content-type detection.
 - Blob URLs created for import and state restore must go through `BlobUrlRegistry`, so `ImageManager.revokeBlobUrls()` can release them on editor destroy.
-- `prepareInitialState()` works on serialized state and replaces image `src` values with blob URLs when possible. It must not mutate the caller's original state object.
+- `prepareSerializedImageSources()` is the shared restore-time implementation for `initialState` and templates.
+- Runtime `blob:` URLs are not a persistence contract for library users. They are materialized state for the current editor instance and are released by `revokeBlobUrls()`.
+- `BlobUrlRegistry` reads `data:image/...` through browser `fetch().blob()`. Do not add a local base64 parser here.
+- Invalid or non-image `data:` URLs must not break restore. Leave them unchanged so Fabric or caller-side validation can handle them.
+- Recoverable browser read failures, such as CORS, invalid URL, or data URL decode failures, leave the original `src` unchanged. Unexpected errors should propagate.
 - Import history must be resumed on every path after `suspendHistory()`. A failed import must not leave history suspended.
 - Resize worker calls must check returned values. `resizeImage` is expected to return a `Blob`; `toDataURL` is expected to return a string.
 - Object export must preserve visible image crop. Direct image-element export is allowed only when the Fabric image is not visibly cropped.
@@ -86,7 +100,7 @@ The main rule for this module is simple: keep the public user scenarios in [`ind
 For focused changes in this folder, run:
 
 ```bash
-rtk ./node_modules/.bin/tsc --noEmit --pretty false
+npm run typecheck
 rtk ./node_modules/.bin/eslint src/editor/image-manager/**/*.ts
 rtk ./node_modules/.bin/playwright test e2e/tests/image-manager/index.spec.ts --project=chromium
 ```

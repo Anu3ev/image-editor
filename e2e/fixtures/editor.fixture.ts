@@ -42,13 +42,23 @@ interface EditorFixtures {
   crop: CropModel
 }
 
-interface EditorInternalFixtures {
-  holdBrowserAfterTest: void
+type EditorRouteMock = {
+  body: string
+  contentType: string
+  status?: number
+  url: string
 }
 
 type EditorDemoInitOptions = {
-  fonts: typeof E2E_EDITOR_FONTS
-  showToolbar: boolean
+  fonts?: typeof E2E_EDITOR_FONTS
+  initialState?: object | null
+  showToolbar?: boolean
+}
+
+interface EditorInternalFixtures {
+  editorInitOptions: EditorDemoInitOptions
+  editorRouteMocks: readonly EditorRouteMock[]
+  holdBrowserAfterTest: void
 }
 
 interface EditorDemoWindow extends Window {
@@ -56,6 +66,10 @@ interface EditorDemoWindow extends Window {
 }
 
 export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
+  editorInitOptions: [{}, { option: true }],
+
+  editorRouteMocks: [[], { option: true }],
+
   holdBrowserAfterTest: [async({ page: _page }, use, testInfo) => {
     await use()
 
@@ -65,19 +79,38 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     await delay(holdMs)
   }, { auto: true }],
 
-  editorModel: async({ page }, use) => {
+  editorModel: async({
+    editorInitOptions,
+    editorRouteMocks,
+    page
+  }, use) => {
     const model = new EditorModel(page)
+    const demoInitOptions: EditorDemoInitOptions = {
+      ...editorInitOptions,
+      fonts: editorInitOptions.fonts ?? E2E_EDITOR_FONTS,
+      showToolbar: editorInitOptions.showToolbar ?? true
+    }
 
-    await page.addInitScript(({ fonts }) => {
+    await page.addInitScript(({ initOptions }) => {
       const demoWindow = window as EditorDemoWindow
 
-      demoWindow.__EDITOR_DEMO_INIT_OPTIONS = {
-        fonts,
-        showToolbar: true
-      }
+      demoWindow.__EDITOR_DEMO_INIT_OPTIONS = initOptions
     }, {
-      fonts: E2E_EDITOR_FONTS
+      initOptions: demoInitOptions
     })
+
+    for (const routeMock of editorRouteMocks) {
+      await page.route(routeMock.url, async(route) => {
+        await route.fulfill({
+          body: routeMock.body,
+          contentType: routeMock.contentType,
+          headers: {
+            'access-control-allow-origin': '*'
+          },
+          status: routeMock.status ?? 200
+        })
+      })
+    }
 
     await page.route('**/__e2e/fonts/**', async(route) => {
       const requestUrl = new URL(route.request().url())

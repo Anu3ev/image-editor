@@ -1,6 +1,6 @@
 {
   "name": "@anu3ev/fabric-image-editor",
-  "version": "0.9.27",
+  "version": "0.10.0",
   "description": "TypeScript image editor library built on FabricJS, allowing you to create instances with an integrated montage area and providing an API to modify and manage state.",
   "module": "dist/main.js",
   "files": [
@@ -20,6 +20,7 @@
     "build:docs": "vite build --config vite.config.docs.js",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{js,ts}\" \"e2e/**/*.{js,ts}\" \"specs/**/*.{js,ts}\"",
+    "typecheck": "tsc --noEmit --pretty false",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --watchAll=false",

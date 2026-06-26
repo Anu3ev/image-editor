@@ -10,7 +10,7 @@ import {
 } from 'fabric'
 import { nanoid } from 'nanoid'
 
-import { ImageEditor } from '../index'
+import type { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import { OBJECT_SERIALIZATION_PROPS } from '../history-manager'
 import {
@@ -215,7 +215,8 @@ export default class TemplateManager {
       errorManager,
       backgroundManager,
       shapeManager,
-      textManager
+      textManager,
+      imageManager
     } = this.editor
 
     const { objects, meta: templateMeta, id: templateId } = template ?? {}
@@ -254,9 +255,12 @@ export default class TemplateManager {
     historyManager.suspendHistory()
 
     try {
+      const preparedTemplate = await imageManager.prepareSerializedImageSources({ state: template })
+      const preparedObjects = Array.isArray(preparedTemplate.objects) ? preparedTemplate.objects : []
+
       // Восстанавливаем Fabric-объекты из сохранённых данных шаблона
       const enlivenedObjects = await TemplateManager._enlivenObjects({
-        objects,
+        objects: preparedObjects,
         baseWidth: meta.baseWidth,
         baseHeight: meta.baseHeight,
         useRelativePositions

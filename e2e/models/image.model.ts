@@ -15,6 +15,18 @@ type ImagePixelColor = {
   alpha: number
 }
 
+/** Источник live image-объекта в Fabric. */
+type ImageSourceInfo = {
+  id: string | null
+  src: string | null
+  elementSrc: string | null
+  runtimeSrc: string
+  width: number
+  height: number
+  sourceWidth: number
+  sourceHeight: number
+}
+
 export class ImageModel {
   private readonly page: Page
 
@@ -219,6 +231,43 @@ export class ImageModel {
     expect(snapshot, 'должен существовать snapshot изображения').not.toBeNull()
 
     return snapshot as SnappingObjectSnapshot
+  }
+
+  /** Возвращает runtime source изображения. */
+  async getSourceInfo(params: ObjectTargetParams = {}): Promise<ImageSourceInfo> {
+    const info = await this.page.evaluate((targetParams) => {
+      const runtimeWindow = window as any
+      const target = runtimeWindow.__editorHelpers.resolveCanvasObject(
+        targetParams.objectIndex,
+        targetParams.id
+      )
+      if (!target) return null
+
+      const source = target.getElement?.()
+      const elementSrc = typeof source?.src === 'string' ? source.src : null
+      const rawSrc = typeof target.getSrc === 'function'
+        ? target.getSrc()
+        : target.src ?? null
+      const src = typeof rawSrc === 'string' ? rawSrc : null
+
+      return {
+        id: target.id ?? null,
+        src,
+        elementSrc,
+        runtimeSrc: src ?? elementSrc ?? '',
+        width: target.width ?? 0,
+        height: target.height ?? 0,
+        sourceWidth: source?.naturalWidth ?? source?.width ?? 0,
+        sourceHeight: source?.naturalHeight ?? source?.height ?? 0
+      }
+    }, params)
+
+    expect(info, 'должно существовать runtime source-состояние изображения').not.toBeNull()
+    if (!info) {
+      throw new Error('Не удалось получить runtime source-состояние изображения')
+    }
+
+    return info
   }
 
   /** Масштабирует изображение вправо через реальную drag-сессию с фиксированной левой верхней точкой. */

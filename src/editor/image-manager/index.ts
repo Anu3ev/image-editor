@@ -1,6 +1,5 @@
 import { CanvasOptions, FabricObject, FabricImage } from 'fabric'
 
-import type { CanvasFullState } from '../history-manager'
 import BlobUrlRegistry from './blob-url-registry'
 import {
   createCanvasExportRequest,
@@ -93,15 +92,19 @@ export default class ImageManager {
   }
 
   /**
-   * Подготавливает initialState: заменяет src у изображений на blob-URL с кешированием.
+   * Подготавливает serialized state: заменяет src у изображений на blob URL с кешированием.
    * Если запрос не удался (например, CORS), src остаётся исходным.
    */
-  public async prepareInitialState({ state }: { state: CanvasFullState }): Promise<CanvasFullState> {
+  public async prepareSerializedImageSources<State extends { objects?: unknown[] } | null | undefined>({
+    state
+  }: {
+    state: State
+  }): Promise<State> {
     if (!state) return state
 
-    const clonedState = JSON.parse(JSON.stringify(state)) as CanvasFullState
+    const clonedState = JSON.parse(JSON.stringify(state)) as NonNullable<State>
     const cache = new Map<string, string>()
-    const { objects = [] } = clonedState
+    const objects = Array.isArray(clonedState.objects) ? clonedState.objects : []
 
     await replaceImageSrcInObjects({
       objects,
@@ -109,7 +112,7 @@ export default class ImageManager {
       blobUrls: this._blobUrls
     })
 
-    return clonedState
+    return clonedState as State
   }
 
   /**

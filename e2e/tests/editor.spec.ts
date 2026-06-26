@@ -1,4 +1,10 @@
 import { test, expect } from '../fixtures/editor.fixture'
+import { IMAGE_SCALING_FACTOR } from '../fixtures/data/image.data'
+import {
+  IMAGE_SOURCE_RESTORE_CASES,
+  IMAGE_SOURCE_RESTORE_OBJECT_COUNT,
+  IMAGE_SOURCE_RESTORE_ROUTE_MOCK
+} from '../fixtures/data/image-source-restore.data'
 
 test.describe('Инициализация редактора', () => {
   test('canvas создан и доступен', async({ editorModel }) => {
@@ -72,4 +78,87 @@ test.describe('Состояние canvas после инициализации',
       expect(state.zoom).toBeLessThanOrEqual(1)
     })
   })
+})
+
+test.describe('Картинка из начального состояния', () => {
+  for (const sourceCase of IMAGE_SOURCE_RESTORE_CASES) {
+    test.describe(sourceCase.label, () => {
+      test.use({
+        editorInitOptions: {
+          initialState: sourceCase.initialState
+        },
+        editorRouteMocks: [IMAGE_SOURCE_RESTORE_ROUTE_MOCK]
+      })
+
+      test(sourceCase.initialStateTestName, async({
+        editorModel,
+        history,
+        images
+      }) => {
+        const imageTarget = {
+          id: sourceCase.initialStateImageId
+        }
+
+        await test.step('Проверить что картинка появилась на canvas', async() => {
+          await editorModel.checkObjectCount({ count: IMAGE_SOURCE_RESTORE_OBJECT_COUNT })
+        })
+
+        await test.step('Проверить что картинка загружена как blob-ссылка', async() => {
+          const sourceInfo = await images.getSourceInfo(imageTarget)
+
+          expect(sourceInfo.runtimeSrc.startsWith('blob:')).toBe(true)
+          expect(sourceInfo.runtimeSrc).not.toBe(sourceCase.source)
+          expect(sourceInfo.sourceWidth).toBeGreaterThan(0)
+          expect(sourceInfo.sourceHeight).toBeGreaterThan(0)
+        })
+
+        await test.step('Проверить что история после init не содержит исходные данные картинки', async() => {
+          const serializedHistoryText = await history.getSerializedStateText()
+
+          expect(serializedHistoryText).toContain('blob:')
+
+          for (const forbiddenPayload of sourceCase.historyForbiddenPayloads) {
+            expect(serializedHistoryText).not.toContain(forbiddenPayload)
+          }
+        })
+
+        const initialSnapshot = await test.step('Получить геометрию до scale', async() => {
+          return images.getSnapshot(imageTarget)
+        })
+
+        await test.step('Масштабировать картинку вправо', async() => {
+          await images.scaleHorizontallyFromRight({
+            ...imageTarget,
+            scaleX: IMAGE_SCALING_FACTOR
+          })
+        })
+
+        const finalSnapshot = await test.step('Завершить scale и сохранить состояние', async() => {
+          const snapshot = await images.finishScale(imageTarget)
+
+          await history.saveState()
+
+          return snapshot
+        })
+
+        await test.step('Проверить что после scale картинка осталась blob-ссылкой', async() => {
+          const sourceInfo = await images.getSourceInfo(imageTarget)
+
+          expect(finalSnapshot.boundsWidth).toBeLessThan(initialSnapshot.boundsWidth)
+          expect(sourceInfo.runtimeSrc.startsWith('blob:')).toBe(true)
+          expect(sourceInfo.runtimeSrc).not.toBe(sourceCase.source)
+        })
+
+        await test.step('Проверить что история не содержит исходные данные картинки', async() => {
+          const serializedHistoryText = await history.getSerializedStateText()
+
+          expect(serializedHistoryText).toContain('blob:')
+
+          for (const forbiddenPayload of sourceCase.historyForbiddenPayloads) {
+            expect(serializedHistoryText).not.toContain(forbiddenPayload)
+          }
+        })
+      })
+    })
+  }
 })

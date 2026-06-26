@@ -42,7 +42,16 @@ describe('ImageManager', () => {
     restoreGlobals()
   })
 
-  describe('prepareInitialState', () => {
+  describe('prepareSerializedImageSources', () => {
+    const createStateWithImageSrc = (src: string): any => ({
+      version: '5.0.0',
+      width: 100,
+      height: 100,
+      objects: [
+        { type: 'image', src }
+      ]
+    })
+
     it('заменяет src у image-объектов на blob URL и не мутирует исходный state', async() => {
       const initialState: any = {
         version: '5.0.0',
@@ -54,7 +63,7 @@ describe('ImageManager', () => {
         ]
       }
 
-      const prepared = await imageManager.prepareInitialState({ state: initialState })
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
 
       expect(initialState.objects[0].src).toBe('https://example.com/a.png')
       expect(prepared.objects?.[0].src).toMatch(/^blob:mock-\d+$/)
@@ -74,7 +83,7 @@ describe('ImageManager', () => {
         ]
       }
 
-      const prepared = await imageManager.prepareInitialState({ state: initialState })
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
 
       expect(mockFetch).toHaveBeenCalledTimes(1)
       expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
@@ -97,29 +106,121 @@ describe('ImageManager', () => {
         ]
       }
 
-      const prepared = await imageManager.prepareInitialState({ state: initialState })
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
 
       const nestedSrc = prepared.objects?.[0]?.objects?.[0]?.src
       expect(nestedSrc).toMatch(/^blob:mock-\d+$/)
       expect(mockFetch).toHaveBeenCalledWith('https://example.com/nested.png', { mode: 'cors' })
     })
 
-    it('не трогает blob/data URL и не делает fetch', async() => {
+    it('не трогает blob URL и не делает fetch', async() => {
       const initialState: any = {
         version: '5.0.0',
         width: 100,
         height: 100,
         objects: [
-          { type: 'image', src: 'blob:already' },
-          { type: 'image', src: 'data:image/png;base64,abc' }
+          { type: 'image', src: 'blob:already' }
         ]
       }
 
-      const prepared = await imageManager.prepareInitialState({ state: initialState })
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
 
       expect(prepared.objects?.[0].src).toBe('blob:already')
-      expect(prepared.objects?.[1].src).toBe('data:image/png;base64,abc')
       expect(mockFetch).not.toHaveBeenCalled()
+      expect(mockCreateObjectURL).not.toHaveBeenCalled()
+    })
+
+    it('заменяет base64 data image src на blob URL', async() => {
+      const dataUrl = 'data:image/png;base64,bW9jaw=='
+      const initialState = createStateWithImageSrc(dataUrl)
+
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
+      const [createdBlob] = mockCreateObjectURL.mock.calls[0]
+
+      expect(initialState.objects[0].src).toBe(dataUrl)
+      expect(prepared.objects?.[0].src).toBe('blob:mock-1')
+      expect(createdBlob).toBeInstanceOf(Blob)
+      expect(createdBlob.type).toBe('image/png')
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
+    })
+
+    it('заменяет url-encoded SVG data image src на blob URL', async() => {
+      const dataUrl = [
+        'data:image/svg+xml;charset=utf-8,',
+        encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"></svg>')
+      ].join('')
+      const initialState = createStateWithImageSrc(dataUrl)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        blob: async() => new Blob(['<svg></svg>'], { type: 'image/svg+xml' }),
+        headers: { get: jest.fn(() => 'image/svg+xml') }
+      })
+
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
+      const [createdBlob] = mockCreateObjectURL.mock.calls[0]
+
+      expect(prepared.objects?.[0].src).toBe('blob:mock-1')
+      expect(createdBlob).toBeInstanceOf(Blob)
+      expect(createdBlob.type).toBe('image/svg+xml')
+      expect(mockFetch).toHaveBeenCalledWith(dataUrl)
+    })
+
+    it('кеширует blob URL для одинаковых data image src', async() => {
+      const dataUrl = 'data:image/png;base64,bW9jaw=='
+      const initialState: any = {
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          { type: 'image', src: dataUrl },
+          { type: 'image', src: dataUrl }
+        ]
+      }
+
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
+
+      expect(prepared.objects?.[0].src).toBe('blob:mock-1')
+      expect(prepared.objects?.[1].src).toBe('blob:mock-1')
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockFetch).toHaveBeenCalledWith(dataUrl)
+      expect(mockCreateObjectURL).toHaveBeenCalledTimes(1)
+    })
+
+    it('оставляет некорректные и не-image data URL без замены', async() => {
+      const textDataUrl = 'data:text/plain;base64,bW9jaw=='
+      const invalidImageDataUrl = 'data:image/png;base64,%'
+      const initialState: any = {
+        version: '5.0.0',
+        width: 100,
+        height: 100,
+        objects: [
+          { type: 'image', src: textDataUrl },
+          { type: 'image', src: invalidImageDataUrl }
+        ]
+      }
+      mockFetch.mockRejectedValueOnce(new TypeError('Invalid data URL'))
+
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
+
+      expect(prepared.objects?.[0].src).toBe(textDataUrl)
+      expect(prepared.objects?.[1].src).toBe(invalidImageDataUrl)
+      expect(mockFetch).toHaveBeenCalledTimes(1)
+      expect(mockFetch).toHaveBeenCalledWith(invalidImageDataUrl)
+      expect(mockCreateObjectURL).not.toHaveBeenCalled()
+    })
+
+    it('не скрывает неожиданные ошибки подготовки data image src', async() => {
+      const dataUrl = 'data:image/png;base64,bW9jaw=='
+      const initialState = createStateWithImageSrc(dataUrl)
+      const unexpectedError = new Error('Unexpected decoder failure')
+      mockFetch.mockRejectedValueOnce(unexpectedError)
+
+      await expect(imageManager.prepareSerializedImageSources({ state: initialState })).rejects.toThrow(
+        unexpectedError
+      )
+
+      expect(initialState.objects[0].src).toBe(dataUrl)
+      expect(mockFetch).toHaveBeenCalledWith(dataUrl)
       expect(mockCreateObjectURL).not.toHaveBeenCalled()
     })
 
@@ -139,10 +240,30 @@ describe('ImageManager', () => {
         ]
       }
 
-      const prepared = await imageManager.prepareInitialState({ state: initialState })
+      const prepared = await imageManager.prepareSerializedImageSources({ state: initialState })
 
       expect(prepared.objects?.[0].src).toBe('https://example.com/fail.png')
       expect(mockCreateObjectURL).not.toHaveBeenCalled()
+    })
+
+    it('prepareSerializedImageSources подготавливает generic serialized state и не мутирует оригинал', async() => {
+      const dataUrl = 'data:image/png;base64,bW9jaw=='
+      const serializedState = {
+        id: 'template',
+        objects: [
+          { type: 'image', src: dataUrl }
+        ]
+      }
+
+      const prepared = await imageManager.prepareSerializedImageSources({ state: serializedState })
+
+      expect(serializedState.objects[0].src).toBe(dataUrl)
+      expect(prepared).toEqual({
+        id: 'template',
+        objects: [
+          { type: 'image', src: 'blob:mock-1' }
+        ]
+      })
     })
   })
 
@@ -711,7 +832,7 @@ describe('ImageManager', () => {
   })
 
   describe('revokeBlobUrls', () => {
-    it('освобождает blob URL, созданные при подготовке initial state', async() => {
+    it('освобождает blob URL, созданные при подготовке serialized state', async() => {
       const initialState: CanvasFullState = {
         clipPath: null,
         version: '5.0.0',
@@ -719,17 +840,19 @@ describe('ImageManager', () => {
         height: 100,
         objects: [
           { type: 'image', src: 'https://example.com/a.png' },
-          { type: 'image', src: 'https://example.com/b.png' }
+          { type: 'image', src: 'https://example.com/b.png' },
+          { type: 'image', src: 'data:image/png;base64,bW9jaw==' }
         ]
       }
 
-      await imageManager.prepareInitialState({ state: initialState })
+      await imageManager.prepareSerializedImageSources({ state: initialState })
 
       imageManager.revokeBlobUrls()
 
       expect(mockRevokeObjectURL).toHaveBeenNthCalledWith(1, 'blob:mock-1')
       expect(mockRevokeObjectURL).toHaveBeenNthCalledWith(2, 'blob:mock-2')
-      expect(mockRevokeObjectURL).toHaveBeenCalledTimes(2)
+      expect(mockRevokeObjectURL).toHaveBeenNthCalledWith(3, 'blob:mock-3')
+      expect(mockRevokeObjectURL).toHaveBeenCalledTimes(3)
 
       mockRevokeObjectURL.mockClear()
       imageManager.revokeBlobUrls()

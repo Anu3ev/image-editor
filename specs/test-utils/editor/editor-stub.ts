@@ -290,7 +290,8 @@ export const createEditorStub = () => {
     },
     imageManager: {
       calculateScaleFactor: jest.fn().mockReturnValue(1),
-      importImage: jest.fn()
+      importImage: jest.fn(),
+      prepareSerializedImageSources: jest.fn().mockImplementation(async({ state }) => state)
     },
     backgroundManager: {
       backgroundObject: null,
