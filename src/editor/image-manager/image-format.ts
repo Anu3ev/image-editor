@@ -6,6 +6,11 @@ interface MimeTypeByExtension {
   [extension: string]: string
 }
 
+/** Проверяет, что source является runtime blob URL. */
+function isBlobUrl({ src }: { src: string }): boolean {
+  return src.startsWith('blob:')
+}
+
 /** Возвращает subtype из MIME-типа, например `png`, `jpeg` или `svg`. */
 export function getFormatFromContentType(contentType = ''): string {
   const match = contentType.match(/^[^/]+\/([^+;]+)/)
@@ -75,7 +80,23 @@ export function getContentTypeFromExtension({
   }
 }
 
-/** Получает MIME-тип изображения через data URL, HEAD-запрос или расширение URL. */
+/** Получает MIME-тип изображения из blob URL через browser Blob API. */
+async function getContentTypeFromBlobUrl({ src }: { src: string }): Promise<string> {
+  try {
+    const response = await fetch(src)
+    const blob = await response.blob()
+
+    if (blob.type && blob.type.startsWith('image/')) {
+      return blob.type.split(';')[0]
+    }
+  } catch (error) {
+    console.warn('Не удалось определить MIME-тип blob URL:', error)
+  }
+
+  return FALLBACK_CONTENT_TYPE
+}
+
+/** Получает MIME-тип изображения через blob URL, data URL, HEAD-запрос или расширение URL. */
 export async function getContentTypeFromUrl({
   src,
   acceptContentTypes
@@ -83,6 +104,10 @@ export async function getContentTypeFromUrl({
   src: string
   acceptContentTypes: string[]
 }): Promise<string> {
+  if (isBlobUrl({ src })) {
+    return getContentTypeFromBlobUrl({ src })
+  }
+
   if (src.startsWith('data:')) {
     const match = src.match(/^data:([^;]+)/)
 

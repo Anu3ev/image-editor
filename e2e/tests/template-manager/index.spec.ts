@@ -14,6 +14,9 @@ import {
   PRODUCT_CARD_TEMPLATE_UPDATED_TITLE,
   TEMPLATE_ALIGNMENT_TOLERANCE,
   TEMPLATE_BOUNDS_TOLERANCE,
+  TEMPLATE_IMAGE_BACKGROUND_OBJECT_COUNT,
+  TEMPLATE_IMAGE_BACKGROUND_RESOLUTION,
+  TEMPLATE_IMAGE_BACKGROUND_TEMPLATE,
   TEMPLATE_REPLACED_IMAGE_CASES,
   TEMPLATE_REPLACED_IMAGE_CENTER,
   TEMPLATE_REPLACED_IMAGE_RESOLUTIONS,
@@ -109,6 +112,34 @@ test.describe('Готовый шаблон', () => {
       expect(objects.some((object) => object.id === 'background')).toBe(false)
       expect(backgroundObject?.backgroundType).toBe('color')
       expect(backgroundObject?.fill).toBe(PRODUCT_CARD_TEMPLATE_BACKGROUND_COLOR)
+    })
+  })
+
+  test('шаблон с картинкой в фоне применяет её как фон, а не обычный объект', async({
+    background,
+    canvas,
+    editorModel,
+    template
+  }) => {
+    await test.step('Подготовить монтажную область и применить шаблон с картинкой в фоне', async() => {
+      await canvas.setMontageResolution(TEMPLATE_IMAGE_BACKGROUND_RESOLUTION)
+
+      const insertedCount = await template.applyTemplate({
+        template: TEMPLATE_IMAGE_BACKGROUND_TEMPLATE
+      })
+
+      expect(insertedCount).toBe(TEMPLATE_IMAGE_BACKGROUND_OBJECT_COUNT)
+      await editorModel.checkObjectCount({ count: TEMPLATE_IMAGE_BACKGROUND_OBJECT_COUNT })
+    })
+
+    await test.step('Проверить что картинка применена именно как фон', async() => {
+      const objects = await editorModel.getObjects()
+      const backgroundObject = await background.getObject()
+
+      expect(objects.some((object) => object.id === 'background')).toBe(false)
+      expect(backgroundObject?.backgroundType).toBe('image')
+      expect(backgroundObject?.boundsWidth).toBeGreaterThan(0)
+      expect(backgroundObject?.boundsHeight).toBeGreaterThan(0)
     })
   })
 
