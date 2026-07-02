@@ -761,6 +761,17 @@ describe('ImageManager', () => {
       expect(result).toBe('image/webp')
     })
 
+    it('для blob-ссылки получает MIME-тип через Blob API', async() => {
+      mockFetch.mockResolvedValueOnce({
+        blob: async() => new Blob(['mock'], { type: 'image/png' })
+      })
+
+      const result = await imageManager.getContentTypeFromUrl('blob:mock-1')
+
+      expect(result).toBe('image/png')
+      expect(mockFetch).toHaveBeenCalledWith('blob:mock-1')
+    })
+
     it('gets content type from HEAD response', async() => {
       mockFetch.mockResolvedValueOnce({
         headers: { get: jest.fn(() => 'image/jpeg; charset=utf-8') }

@@ -22,8 +22,9 @@ import {
 } from '../utils/geometry'
 import { materializeObjectIdentity } from '../utils/object-identity'
 import {
-  convertGradientToOptions
-} from '../utils/gradient'
+  applyTemplateBackgroundObject,
+  extractTemplateBackgroundObject
+} from './background'
 
 type Bounds = {
   left: number
@@ -64,6 +65,12 @@ type ImageRestorePropsParams = {
   baseScaleY: number
 }
 
+/** Результат применения подготовленных объектов шаблона. */
+type AppliedTemplateObjects = {
+  insertedObjects: FabricObject[]
+  shouldSaveHistory: boolean
+}
+
 export type TemplateMeta = {
   baseWidth: number
   baseHeight: number
@@ -91,6 +98,7 @@ type TemplateCustomData = Record<string, unknown> & {
 }
 
 export type TemplateObjectData = Record<string, unknown> & {
+  id?: unknown
   left?: number
   top?: number
   scaleX?: number
@@ -105,6 +113,22 @@ export type TemplateDefinition = {
   id: string
   meta: TemplateMeta
   objects: TemplateObjectData[]
+}
+
+/** Подготовленные Fabric-объекты шаблона вместе с исходным serialized background. */
+type PreparedTemplateObjects = {
+  backgroundObject: FabricObject | null
+  serializedBackgroundObject: TemplateObjectData | null
+  contentObjects: FabricObject[]
+}
+
+/** Проверенный контекст применения шаблона к текущей монтажной области. */
+type ApplyTemplateContext = {
+  templateId?: string
+  meta: TemplateMeta
+  scale: number
+  montageBounds: Bounds
+  useRelativePositions: boolean
 }
 
 export type SerializeTemplateOptions = {
@@ -209,16 +233,157 @@ export default class TemplateManager {
     template
   }: ApplyTemplateOptions): Promise<FabricObject[] | null> {
     const {
-      canvas,
       montageArea,
       historyManager,
       errorManager,
       backgroundManager,
-      shapeManager,
-      textManager,
       imageManager
     } = this.editor
+    const context = TemplateManager._resolveApplyTemplateContext({
+      template,
+      montageArea,
+      errorManager
+    })
 
+    if (!context) return null
+
+    const {
+      templateId,
+      meta,
+      scale,
+      montageBounds,
+      useRelativePositions
+    } = context
+
+    let shouldSaveHistory = false
+
+    historyManager.suspendHistory()
+
+    try {
+      const preparedTemplateObjects = await TemplateManager._prepareTemplateObjectsForApply({
+        template,
+        imageManager,
+        baseWidth: meta.baseWidth,
+        baseHeight: meta.baseHeight,
+        useRelativePositions,
+        errorManager
+      })
+
+      if (!preparedTemplateObjects) return null
+
+      const appliedTemplateObjects = await this._applyPreparedTemplateObjects({
+        preparedTemplateObjects,
+        template,
+        backgroundManager,
+        errorManager,
+        scale,
+        montageBounds,
+        baseWidth: meta.baseWidth,
+        baseHeight: meta.baseHeight,
+        useRelativePositions
+      })
+
+      if (!appliedTemplateObjects) return null
+
+      shouldSaveHistory = appliedTemplateObjects.shouldSaveHistory
+
+      return appliedTemplateObjects.insertedObjects
+    } catch (error) {
+      errorManager.emitError({
+        origin: 'TemplateManager',
+        method: 'applyTemplate',
+        code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
+        message: 'Ошибка применения шаблона',
+        data: {
+          templateId,
+          error
+        }
+      })
+      return null
+    } finally {
+      historyManager.resumeHistory()
+      if (shouldSaveHistory) {
+        historyManager.saveState()
+      }
+    }
+  }
+
+  /**
+   * Применяет background, вставляет content-объекты и отправляет событие применения шаблона.
+   */
+  private async _applyPreparedTemplateObjects({
+    preparedTemplateObjects,
+    template,
+    backgroundManager,
+    errorManager,
+    scale,
+    montageBounds,
+    baseWidth,
+    baseHeight,
+    useRelativePositions
+  }: {
+    preparedTemplateObjects: PreparedTemplateObjects
+    template: TemplateDefinition
+    backgroundManager: ImageEditor['backgroundManager']
+    errorManager: ImageEditor['errorManager']
+    scale: number
+    montageBounds: Bounds
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+  }): Promise<AppliedTemplateObjects | null> {
+    const { canvas } = this.editor
+    let backgroundApplied = false
+
+    if (preparedTemplateObjects.backgroundObject) {
+      backgroundApplied = await applyTemplateBackgroundObject({
+        backgroundObject: preparedTemplateObjects.backgroundObject,
+        serializedBackgroundObject: preparedTemplateObjects.serializedBackgroundObject,
+        backgroundManager,
+        errorManager
+      })
+    }
+
+    const insertedObjects = this._insertTemplateContentObjects({
+      objects: preparedTemplateObjects.contentObjects,
+      scale,
+      bounds: montageBounds,
+      baseWidth,
+      baseHeight,
+      useRelativePositions
+    })
+
+    if (!insertedObjects.length && !backgroundApplied) return null
+
+    if (insertedObjects.length) {
+      TemplateManager._activateObjects({ canvas, objects: insertedObjects })
+    }
+
+    canvas.requestRenderAll()
+    canvas.fire('editor:template-applied', {
+      template,
+      objects: insertedObjects,
+      bounds: montageBounds
+    })
+
+    return {
+      insertedObjects,
+      shouldSaveHistory: insertedObjects.length > 0 || backgroundApplied
+    }
+  }
+
+  /**
+   * Проверяет входной шаблон и вычисляет геометрию применения.
+   */
+  private static _resolveApplyTemplateContext({
+    template,
+    montageArea,
+    errorManager
+  }: {
+    template: TemplateDefinition
+    montageArea?: FabricObject | null
+    errorManager: ImageEditor['errorManager']
+  }): ApplyTemplateContext | null {
     const { objects, meta: templateMeta, id: templateId } = template ?? {}
 
     if (!objects?.length) {
@@ -243,119 +408,66 @@ export default class TemplateManager {
       return null
     }
 
-    // Нормализуем метаданные и вычисляем масштаб относительно текущей монтажной области
     const targetSize = TemplateManager._getMontageSize({ montageArea, bounds: montageBounds })
     const meta = TemplateManager._normalizeMeta({ meta: templateMeta, fallback: targetSize })
     const scale = TemplateManager._calculateScale({ meta, target: targetSize })
-    const useRelativePositions = Boolean(meta.positionsNormalized)
 
-    let shouldSaveHistory = false
-    let backgroundApplied = false
+    return {
+      templateId,
+      meta,
+      scale,
+      montageBounds,
+      useRelativePositions: Boolean(meta.positionsNormalized)
+    }
+  }
 
-    historyManager.suspendHistory()
+  /**
+   * Материализует type-specific geometry, трансформирует координаты и добавляет объекты на canvas.
+   */
+  private _insertTemplateContentObjects({
+    objects,
+    scale,
+    bounds,
+    baseWidth,
+    baseHeight,
+    useRelativePositions
+  }: {
+    objects: FabricObject[]
+    scale: number
+    bounds: Bounds
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+  }): FabricObject[] {
+    const {
+      canvas,
+      shapeManager,
+      textManager
+    } = this.editor
 
-    try {
-      const preparedTemplate = await imageManager.prepareSerializedImageSources({ state: template })
-      const preparedObjects = Array.isArray(preparedTemplate.objects) ? preparedTemplate.objects : []
-
-      // Восстанавливаем Fabric-объекты из сохранённых данных шаблона
-      const enlivenedObjects = await TemplateManager._enlivenObjects({
-        objects: preparedObjects,
-        baseWidth: meta.baseWidth,
-        baseHeight: meta.baseHeight,
+    return objects.map((object) => {
+      this._adaptTextboxWidth({ object, baseWidth })
+      this._transformObject({
+        object,
+        scale,
+        bounds,
+        baseWidth,
+        baseHeight,
         useRelativePositions
       })
 
-      if (!enlivenedObjects.length) {
-        errorManager.emitWarning({
-          origin: 'TemplateManager',
-          method: 'applyTemplate',
-          code: errorCodes.TEMPLATE_MANAGER.INVALID_TEMPLATE,
-          message: 'Не удалось создать объекты шаблона'
-        })
-        return null
-      }
-
-      // Отделяем фон от контента, фон применяем через менеджер фона
-      const { backgroundObject, contentObjects } = TemplateManager._extractBackgroundObject(enlivenedObjects)
-
-      if (backgroundObject) {
-        backgroundApplied = await TemplateManager._applyBackgroundFromObject({
-          backgroundObject,
-          backgroundManager,
-          errorManager
-        })
-      }
-
-      // Материализуем type-specific geometry, трансформируем координаты и добавляем объекты на канвас
-      const insertedObjects = contentObjects.map((object) => {
-        this._adaptTextboxWidth({
-          object,
-          baseWidth: meta.baseWidth
-        })
-
-        this._transformObject({
-          object,
-          scale,
-          bounds: montageBounds,
-          baseWidth: meta.baseWidth,
-          baseHeight: meta.baseHeight,
-          useRelativePositions
-        })
-
-        textManager.commitStandaloneTextScale({
-          target: object
-        })
-        shapeManager.commitRehydratedShapeLayout({
-          target: object,
-          textScale: scale
-        })
-
-        snapObjectToPixelGrid({ object })
-
-        materializeObjectIdentity({
-          rootObject: object
-        })
-
-        canvas.add(object)
-
-        return object
+      textManager.commitStandaloneTextScale({ target: object })
+      shapeManager.commitRehydratedShapeLayout({
+        target: object,
+        textScale: scale
       })
 
-      if (!insertedObjects.length && !backgroundApplied) return null
+      snapObjectToPixelGrid({ object })
+      materializeObjectIdentity({ rootObject: object })
+      canvas.add(object)
 
-      shouldSaveHistory = insertedObjects.length > 0 || backgroundApplied
-
-      if (insertedObjects.length) {
-        TemplateManager._activateObjects({ canvas, objects: insertedObjects })
-      }
-
-      canvas.requestRenderAll()
-      canvas.fire('editor:template-applied', {
-        template,
-        objects: insertedObjects,
-        bounds: montageBounds
-      })
-
-      return insertedObjects
-    } catch (error) {
-      errorManager.emitError({
-        origin: 'TemplateManager',
-        method: 'applyTemplate',
-        code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
-        message: 'Ошибка применения шаблона',
-        data: {
-          templateId,
-          error
-        }
-      })
-      return null
-    } finally {
-      historyManager.resumeHistory()
-      if (shouldSaveHistory) {
-        historyManager.saveState()
-      }
-    }
+      return object
+    })
   }
 
   /**
@@ -450,6 +562,55 @@ export default class TemplateManager {
     }))
 
     return revivedList.filter((object): object is FabricObject => Boolean(object))
+  }
+
+  /**
+   * Подготавливает serialized sources и возвращает background отдельно от контента.
+   */
+  private static async _prepareTemplateObjectsForApply({
+    template,
+    imageManager,
+    baseWidth,
+    baseHeight,
+    useRelativePositions,
+    errorManager
+  }: {
+    template: TemplateDefinition
+    imageManager: ImageEditor['imageManager']
+    baseWidth: number
+    baseHeight: number
+    useRelativePositions: boolean
+    errorManager: ImageEditor['errorManager']
+  }): Promise<PreparedTemplateObjects | null> {
+    const { objects } = template
+    const { backgroundObject: serializedBackgroundObject } = extractTemplateBackgroundObject({ objects })
+    const preparedTemplate = await imageManager.prepareSerializedImageSources({ state: template })
+    const preparedObjects = Array.isArray(preparedTemplate.objects) ? preparedTemplate.objects : []
+    const enlivenedObjects = await TemplateManager._enlivenObjects({
+      objects: preparedObjects,
+      baseWidth,
+      baseHeight,
+      useRelativePositions
+    })
+
+    if (!enlivenedObjects.length) {
+      errorManager.emitWarning({
+        origin: 'TemplateManager',
+        method: 'applyTemplate',
+        code: errorCodes.TEMPLATE_MANAGER.INVALID_TEMPLATE,
+        message: 'Не удалось создать объекты шаблона'
+      })
+
+      return null
+    }
+
+    const { backgroundObject, contentObjects } = extractTemplateBackgroundObject({ objects: enlivenedObjects })
+
+    return {
+      backgroundObject,
+      serializedBackgroundObject,
+      contentObjects
+    }
   }
 
   /**
@@ -1270,92 +1431,6 @@ export default class TemplateManager {
   }
 
   /**
-   * Делит список объектов на фон и контент по id === 'background'.
-   */
-  private static _extractBackgroundObject(objects: FabricObject[]): {
-    backgroundObject: FabricObject | null
-    contentObjects: FabricObject[]
-  } {
-    const index = objects.findIndex((object) => object.id === 'background')
-
-    if (index === -1) {
-      return { backgroundObject: null, contentObjects: objects }
-    }
-
-    const backgroundObject = objects[index]
-    const contentObjects = objects.filter((_, i) => i !== index)
-
-    return { backgroundObject, contentObjects }
-  }
-
-  /**
-   * Применяет фоновый объект шаблона к текущему холсту через BackgroundManager.
-   */
-  private static async _applyBackgroundFromObject({
-    backgroundObject,
-    backgroundManager,
-    errorManager
-  }: {
-    backgroundObject: FabricObject
-    backgroundManager: ImageEditor['backgroundManager']
-    errorManager: ImageEditor['errorManager']
-  }): Promise<boolean> {
-    try {
-      const { fill, customData: rawCustomData } = backgroundObject
-      const { backgroundType } = (backgroundObject as FabricObject & { backgroundType?: unknown })
-      const customData = TemplateManager._cloneCustomData(rawCustomData)
-
-      if (backgroundType === 'color' && typeof fill === 'string') {
-        backgroundManager.setColorBackground({
-          color: fill,
-          customData,
-          fromTemplate: true,
-          withoutSave: true
-        })
-        return true
-      }
-
-      if (backgroundType === 'gradient') {
-        const gradient = convertGradientToOptions(fill)
-
-        if (gradient) {
-          backgroundManager.setGradientBackground({
-            gradient,
-            customData,
-            fromTemplate: true,
-            withoutSave: true
-          })
-          return true
-        }
-      }
-
-      if (backgroundType === 'image') {
-        const src = TemplateManager._getImageSource(backgroundObject)
-
-        if (src) {
-          await backgroundManager.setImageBackground({
-            imageSource: src,
-            customData,
-            fromTemplate: true,
-            withoutSave: true
-          })
-          return true
-        }
-      }
-    } catch (error) {
-      errorManager.emitWarning({
-        origin: 'TemplateManager',
-        method: 'applyTemplate',
-        code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
-        message: 'Не удалось применить фон из шаблона',
-        data: error as object
-      })
-    }
-
-    return false
-  }
-
-  /**
    * Возвращает размеры монтажной области с учётом размеров маркера и его bounds.
    */
   private static _getMontageSize({
@@ -1379,41 +1454,6 @@ export default class TemplateManager {
       width: boundsWidth,
       height: boundsHeight
     }
-  }
-
-  /**
-   * Создаёт неглубокую копию customData или возвращает undefined.
-   */
-  private static _cloneCustomData(customData: unknown): Record<string, unknown> | undefined {
-    if (!customData || typeof customData !== 'object') return undefined
-    return { ...(customData as Record<string, unknown>) }
-  }
-
-  /**
-   * Извлекает src изображения из FabricImage или его исходного элемента.
-   */
-  private static _getImageSource(image: FabricObject): string | null {
-    const asImage = image as FabricImage
-
-    if ('getSrc' in image && typeof asImage.getSrc === 'function') {
-      const src = asImage.getSrc()
-      if (src) return src
-    }
-
-    if ('getElement' in image && typeof asImage.getElement === 'function') {
-      const element = asImage.getElement()
-
-      if (element instanceof HTMLImageElement) {
-        return element.currentSrc || element.src || null
-      }
-    }
-
-    const imageWithSource = image as FabricObject & { src?: unknown }
-    if (typeof imageWithSource.src === 'string') {
-      return imageWithSource.src
-    }
-
-    return null
   }
 
   /**

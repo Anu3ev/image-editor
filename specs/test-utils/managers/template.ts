@@ -168,3 +168,50 @@ export const createImageTemplateDefinition = ({
     }
   ]
 })
+
+/**
+ * Создаёт template definition с image-фоном и одним content-объектом.
+ */
+export const createImageBackgroundTemplateDefinition = ({
+  source,
+  originalUrl,
+  presetSource
+}: {
+  source?: unknown
+  originalUrl?: unknown
+  presetSource?: unknown
+}): TemplateDefinition => {
+  const customData: Record<string, unknown> = {}
+
+  if (originalUrl !== undefined) {
+    customData.originalUrl = originalUrl
+  }
+
+  if (presetSource !== undefined) {
+    customData.src = presetSource
+  }
+
+  const backgroundObject: TemplateDefinition['objects'][number] = {
+    type: 'image',
+    id: 'background',
+    backgroundType: 'image',
+    customData
+  }
+
+  if (source !== undefined) {
+    backgroundObject.src = source
+  }
+
+  return {
+    id: 'template-with-image-background',
+    meta: {
+      baseWidth: 400,
+      baseHeight: 300,
+      positionsNormalized: true
+    },
+    objects: [
+      backgroundObject,
+      { type: 'shape-group', left: 100, top: 100, shapePresetKey: 'square' }
+    ]
+  }
+}

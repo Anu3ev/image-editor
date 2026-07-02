@@ -196,6 +196,88 @@ export const PRODUCT_CARD_TEMPLATE_UPDATED_TITLE = 'НАУШНИКИ SONY'
 /** Цвет фона, который должен быть применён как background-object, а не как обычный canvas-объект. */
 export const PRODUCT_CARD_TEMPLATE_BACKGROUND_COLOR = '#fcf4ff'
 
+const TEMPLATE_IMAGE_BACKGROUND_MARKUP = [
+  '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160">',
+  '<rect width="160" height="160" fill="#31a473"/>',
+  '<circle cx="80" cy="80" r="48" fill="#ffffff"/>',
+  '</svg>'
+].join('')
+
+const TEMPLATE_IMAGE_BACKGROUND_SOURCE = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+  TEMPLATE_IMAGE_BACKGROUND_MARKUP
+)}`
+
+/** Разрешение монтажной области для проверки шаблона с image-фоном. */
+export const TEMPLATE_IMAGE_BACKGROUND_RESOLUTION = {
+  width: 400,
+  height: 300
+} as const
+
+/** Количество обычных объектов после применения шаблона с image-фоном. */
+export const TEMPLATE_IMAGE_BACKGROUND_OBJECT_COUNT = 1
+
+/** Шаблон с image-фоном, который должен применяться через BackgroundManager. */
+export const TEMPLATE_IMAGE_BACKGROUND_TEMPLATE: TemplateDefinition = {
+  id: 'template-with-image-background',
+  meta: {
+    baseWidth: TEMPLATE_IMAGE_BACKGROUND_RESOLUTION.width,
+    baseHeight: TEMPLATE_IMAGE_BACKGROUND_RESOLUTION.height,
+    positionsNormalized: true
+  },
+  objects: [
+    {
+      cropX: 0,
+      cropY: 0,
+      id: 'background',
+      backgroundType: 'image',
+      customData: {
+        type: 'image',
+        originalUrl: TEMPLATE_IMAGE_BACKGROUND_SOURCE
+      },
+      format: 'svg',
+      width: 160,
+      height: 160,
+      originX: 'left',
+      originY: 'top',
+      evented: false,
+      selectable: false,
+      type: 'Image',
+      version: '7.2.0',
+      left: 0,
+      top: 0,
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      flipX: false,
+      flipY: false,
+      opacity: 1,
+      visible: true,
+      src: TEMPLATE_IMAGE_BACKGROUND_SOURCE,
+      crossOrigin: 'anonymous',
+      filters: []
+    },
+    {
+      id: 'template-image-background-content',
+      type: 'Rect',
+      version: '7.2.0',
+      originX: 'left',
+      originY: 'top',
+      left: 0.25,
+      top: 0.25,
+      width: 120,
+      height: 80,
+      fill: '#ffffff',
+      stroke: null,
+      strokeWidth: 0,
+      scaleX: 1,
+      scaleY: 1,
+      angle: 0,
+      opacity: 1,
+      visible: true
+    }
+  ]
+}
+
 /** Базовое разрешение для шаблона с текстом внутри фигуры. */
 export const TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION = {
   width: 810,
