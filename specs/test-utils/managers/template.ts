@@ -21,6 +21,7 @@ type TemplateManagerEditorStub = BaseEditorStub & {
     setColorBackground: jest.Mock
     setGradientBackground: jest.Mock
     setImageBackground: jest.Mock
+    setPreparedImageBackground: jest.Mock
   }
 }
 
@@ -67,7 +68,8 @@ export const createTemplateManagerTestSetup = ({
     ...editor.backgroundManager,
     setColorBackground: jest.fn(),
     setGradientBackground: jest.fn(),
-    setImageBackground: jest.fn()
+    setImageBackground: jest.fn(),
+    setPreparedImageBackground: jest.fn()
   }
 
   if (useRealCanvasManager) {
@@ -174,23 +176,11 @@ export const createImageTemplateDefinition = ({
  */
 export const createImageBackgroundTemplateDefinition = ({
   source,
-  originalUrl,
-  presetSource
+  customData = {}
 }: {
   source?: unknown
-  originalUrl?: unknown
-  presetSource?: unknown
+  customData?: Record<string, unknown>
 }): TemplateDefinition => {
-  const customData: Record<string, unknown> = {}
-
-  if (originalUrl !== undefined) {
-    customData.originalUrl = originalUrl
-  }
-
-  if (presetSource !== undefined) {
-    customData.src = presetSource
-  }
-
   const backgroundObject: TemplateDefinition['objects'][number] = {
     type: 'image',
     id: 'background',

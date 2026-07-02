@@ -732,84 +732,68 @@ describe('TemplateManager', () => {
     expect(result).toEqual([contentObject])
   })
 
-  for (const sourceCase of [
-    {
-      testName: 'применяет image-фон из шаблона по исходному URL, а не по runtime blob-ссылке',
-      template: createImageBackgroundTemplateDefinition({
-        source: 'https://example.com/background.png',
-        originalUrl: 'https://example.com/background.png'
-      }),
-      expectedSource: 'https://example.com/background.png'
-    },
-    {
-      testName: 'если serialized src уже стал blob-ссылкой, берёт image-фон из originalUrl',
-      template: createImageBackgroundTemplateDefinition({
-        source: 'blob:serialized-background',
-        originalUrl: 'https://example.com/background-from-original-url.png'
-      }),
-      expectedSource: 'https://example.com/background-from-original-url.png'
-    },
-    {
-      testName: 'если image-фон задан preset-map, берёт стабильный URL из customData src',
-      template: createImageBackgroundTemplateDefinition({
-        presetSource: {
-          '1920x1920': 'https://example.com/background-1920.png',
-          '4096x4096': 'https://example.com/background-4096.png'
-        }
-      }),
-      expectedSource: 'https://example.com/background-4096.png'
+  it('применяет подготовленный image-фон из шаблона без чтения source из customData', async() => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup()
+    const runtimeBlobSource = 'blob:prepared-background'
+    const backgroundCustomData = {
+      originalUrl: 'https://example.com/metadata-original-url.png',
+      src: {
+        '4096x4096': 'https://example.com/metadata-preset-url.png'
+      },
+      presetHandle: 'texture-1'
     }
-  ]) {
-    it(sourceCase.testName, async() => {
-      const {
-        manager,
-        editor
-      } = createTemplateManagerTestSetup()
-      const runtimeBlobSource = 'blob:prepared-background'
-      const backgroundObject = createMockShapeNode({ id: 'background' }) as ReturnType<typeof createMockShapeNode> & {
-        backgroundType?: 'image'
-        getSrc?: jest.Mock
-      }
-      const contentObject = new ShapeGroupObject([
-        createMockShapeNode() as never,
-        createMockShapeTextbox({ text: 'Template text' })
-      ], {
-        left: 100,
-        top: 100,
-        shapePresetKey: 'square'
-      })
-
-      backgroundObject.backgroundType = 'image'
-      backgroundObject.getSrc = jest.fn(() => runtimeBlobSource)
-      const prepareSerializedImageSourcesMock = editor.imageManager.prepareSerializedImageSources as jest.Mock
-
-      prepareSerializedImageSourcesMock.mockImplementation(async({ state }) => ({
-        ...state,
-        objects: state.objects.map((object: Record<string, unknown>) => {
-          if (object.id !== 'background') return object
-
-          return { ...object, src: runtimeBlobSource }
-        })
-      }))
-      jest.spyOn(util, 'enlivenObjects')
-        .mockResolvedValueOnce([backgroundObject])
-        .mockResolvedValueOnce([contentObject])
-
-      const result = await manager.applyTemplate({
-        template: sourceCase.template
-      })
-
-      expect(editor.backgroundManager.setImageBackground).toHaveBeenCalledWith({
-        imageSource: sourceCase.expectedSource,
-        customData: undefined,
-        fromTemplate: true,
-        withoutSave: true
-      })
-      expect(backgroundObject.getSrc).not.toHaveBeenCalled()
-      expect(editor.errorManager.emitError).not.toHaveBeenCalled()
-      expect(result).toEqual([contentObject])
+    const backgroundObject = createMockShapeNode({ id: 'background' }) as ReturnType<typeof createMockShapeNode> & {
+      backgroundType?: 'image'
+      customData?: Record<string, unknown>
+      getSrc?: jest.Mock
+    }
+    const contentObject = new ShapeGroupObject([
+      createMockShapeNode() as never,
+      createMockShapeTextbox({ text: 'Template text' })
+    ], {
+      left: 100,
+      top: 100,
+      shapePresetKey: 'square'
     })
-  }
+    const template = createImageBackgroundTemplateDefinition({
+      source: 'https://example.com/background.png',
+      customData: backgroundCustomData
+    })
+
+    backgroundObject.backgroundType = 'image'
+    backgroundObject.customData = backgroundCustomData
+    backgroundObject.getSrc = jest.fn(() => runtimeBlobSource)
+    const prepareSerializedImageSourcesMock = editor.imageManager.prepareSerializedImageSources as jest.Mock
+
+    prepareSerializedImageSourcesMock.mockImplementation(async({ state }) => ({
+      ...state,
+      objects: state.objects.map((object: Record<string, unknown>) => {
+        if (object.id !== 'background') return object
+
+        return { ...object, src: runtimeBlobSource }
+      })
+    }))
+    jest.spyOn(util, 'enlivenObjects')
+      .mockResolvedValueOnce([backgroundObject])
+      .mockResolvedValueOnce([contentObject])
+
+    const result = await manager.applyTemplate({ template })
+
+    expect(prepareSerializedImageSourcesMock).toHaveBeenCalledWith({ state: template })
+    expect(editor.backgroundManager.setPreparedImageBackground).toHaveBeenCalledWith({
+      image: backgroundObject,
+      customData: backgroundCustomData,
+      fromTemplate: true,
+      withoutSave: true
+    })
+    expect(editor.backgroundManager.setImageBackground).not.toHaveBeenCalled()
+    expect(backgroundObject.getSrc).not.toHaveBeenCalled()
+    expect(editor.errorManager.emitError).not.toHaveBeenCalled()
+    expect(result).toEqual([contentObject])
+  })
 
   it('для пустого шаблона возвращает warning и не добавляет объекты', async() => {
     const {

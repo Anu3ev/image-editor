@@ -53,6 +53,14 @@ export type SetImageOptions = {
   withoutSave?: boolean
 }
 
+/** Параметры установки уже подготовленного image-объекта как фона. */
+export type SetPreparedImageOptions = {
+  image: FabricObject
+  customData?: object
+  fromTemplate?: boolean
+  withoutSave?: boolean
+}
+
 interface LinearGradientData {
   type: 'linear'
   coords: {
@@ -405,6 +413,54 @@ export default class BackgroundManager {
   }
 
   /**
+   * Устанавливает уже подготовленный image-объект как фон.
+   * Используется restore/template path, где source уже материализован через ImageManager.
+   */
+  public setPreparedImageBackground({
+    image,
+    customData = {},
+    fromTemplate = false,
+    withoutSave = false
+  }: SetPreparedImageOptions): void {
+    const { historyManager } = this.editor
+    let historySuspended = false
+
+    try {
+      historyManager.suspendHistory()
+      historySuspended = true
+
+      this._setImageBackgroundObject({ image, customData })
+
+      this.editor.canvas.fire('editor:background:changed', {
+        type: 'image',
+        customData,
+        fromTemplate,
+        withoutSave,
+        backgroundObject: this.backgroundObject
+      })
+
+      historyManager.resumeHistory()
+      historySuspended = false
+
+      if (!withoutSave) {
+        historyManager.saveState()
+      }
+    } catch (error) {
+      if (historySuspended) {
+        historyManager.resumeHistory()
+      }
+
+      this.editor.errorManager.emitError({
+        code: 'BACKGROUND_CREATION_FAILED',
+        origin: 'BackgroundManager',
+        method: 'setPreparedImageBackground',
+        message: 'Не удалось установить подготовленное изображение в качестве фона',
+        data: { error, image, customData, fromTemplate, withoutSave }
+      })
+    }
+  }
+
+  /**
    * Удаляет текущий фон.
    * @param options - Опции для удаления фона
    * @param options.withoutSave - Если true, не сохранять состояние в историю
@@ -536,6 +592,19 @@ export default class BackgroundManager {
       throw new Error('Не удалось загрузить изображение')
     }
 
+    this._setImageBackgroundObject({ image, customData })
+  }
+
+  /**
+   * Назначает image-объект текущим фоном и приводит его к background-контракту.
+   */
+  private _setImageBackgroundObject({
+    image,
+    customData
+  }: {
+    image: FabricObject
+    customData: object
+  }): void {
     image.set({
       selectable: false,
       evented: false,
@@ -549,6 +618,10 @@ export default class BackgroundManager {
 
     // Удаляем старый фон перед установкой нового
     this._removeCurrentBackground()
+
+    if (image.canvas !== this.editor.canvas) {
+      this.editor.canvas.add(image)
+    }
 
     this.backgroundObject = image
     this.refresh()

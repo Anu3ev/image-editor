@@ -115,10 +115,9 @@ export type TemplateDefinition = {
   objects: TemplateObjectData[]
 }
 
-/** Подготовленные Fabric-объекты шаблона вместе с исходным serialized background. */
+/** Подготовленные Fabric-объекты шаблона, разделённые на background и контент. */
 type PreparedTemplateObjects = {
   backgroundObject: FabricObject | null
-  serializedBackgroundObject: TemplateObjectData | null
   contentObjects: FabricObject[]
 }
 
@@ -271,7 +270,7 @@ export default class TemplateManager {
 
       if (!preparedTemplateObjects) return null
 
-      const appliedTemplateObjects = await this._applyPreparedTemplateObjects({
+      const appliedTemplateObjects = this._applyPreparedTemplateObjects({
         preparedTemplateObjects,
         template,
         backgroundManager,
@@ -311,7 +310,7 @@ export default class TemplateManager {
   /**
    * Применяет background, вставляет content-объекты и отправляет событие применения шаблона.
    */
-  private async _applyPreparedTemplateObjects({
+  private _applyPreparedTemplateObjects({
     preparedTemplateObjects,
     template,
     backgroundManager,
@@ -331,14 +330,13 @@ export default class TemplateManager {
     baseWidth: number
     baseHeight: number
     useRelativePositions: boolean
-  }): Promise<AppliedTemplateObjects | null> {
+  }): AppliedTemplateObjects | null {
     const { canvas } = this.editor
     let backgroundApplied = false
 
     if (preparedTemplateObjects.backgroundObject) {
-      backgroundApplied = await applyTemplateBackgroundObject({
+      backgroundApplied = applyTemplateBackgroundObject({
         backgroundObject: preparedTemplateObjects.backgroundObject,
-        serializedBackgroundObject: preparedTemplateObjects.serializedBackgroundObject,
         backgroundManager,
         errorManager
       })
@@ -582,8 +580,6 @@ export default class TemplateManager {
     useRelativePositions: boolean
     errorManager: ImageEditor['errorManager']
   }): Promise<PreparedTemplateObjects | null> {
-    const { objects } = template
-    const { backgroundObject: serializedBackgroundObject } = extractTemplateBackgroundObject({ objects })
     const preparedTemplate = await imageManager.prepareSerializedImageSources({ state: template })
     const preparedObjects = Array.isArray(preparedTemplate.objects) ? preparedTemplate.objects : []
     const enlivenedObjects = await TemplateManager._enlivenObjects({
@@ -608,7 +604,6 @@ export default class TemplateManager {
 
     return {
       backgroundObject,
-      serializedBackgroundObject,
       contentObjects
     }
   }
