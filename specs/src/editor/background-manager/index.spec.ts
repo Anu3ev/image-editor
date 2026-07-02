@@ -188,6 +188,64 @@ describe('BackgroundManager', () => {
     })
   })
 
+  describe('setPreparedImageBackground', () => {
+    it('устанавливает подготовленный image-объект как фон без повторного импорта', () => {
+      const mockImage = createMockBackgroundImage({
+        id: 'template-background',
+        selectable: true,
+        evented: true,
+        hasBorders: true,
+        hasControls: true
+      })
+      const customData = { presetHandle: 'texture-1' }
+
+      backgroundManager.setPreparedImageBackground({
+        image: mockImage,
+        customData,
+        fromTemplate: true
+      })
+
+      expect(mockEditor.imageManager.importImage).not.toHaveBeenCalled()
+      expect(mockCanvas.add).toHaveBeenCalledWith(mockImage)
+      expect(mockImage.set).toHaveBeenCalledWith(expect.objectContaining({
+        selectable: false,
+        evented: false,
+        hasBorders: false,
+        hasControls: false,
+        id: 'background',
+        backgroundType: 'image',
+        backgroundId: expect.stringMatching(/^background-/),
+        customData
+      }))
+      expect(mockEditor.transformManager.fitObject).toHaveBeenCalledWith({
+        object: mockImage,
+        withoutSave: true,
+        type: 'cover'
+      })
+      expect(backgroundManager.backgroundObject).toBe(mockImage)
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:background:changed', {
+        type: 'image',
+        backgroundObject: mockImage,
+        customData,
+        fromTemplate: true,
+        withoutSave: false
+      })
+      expect(mockEditor.historyManager.saveState).toHaveBeenCalled()
+    })
+
+    it('не сохраняет подготовленный image-фон в историю при withoutSave: true', () => {
+      const mockImage = createMockBackgroundImage({ id: 'template-background' })
+
+      backgroundManager.setPreparedImageBackground({
+        image: mockImage,
+        withoutSave: true
+      })
+
+      expect(backgroundManager.backgroundObject).toBe(mockImage)
+      expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
+    })
+  })
+
   describe('removeBackground', () => {
     it('должен удалить существующий фон', () => {
       const mockBackground = createMockBackgroundRect()
