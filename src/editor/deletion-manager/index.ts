@@ -192,6 +192,27 @@ export default class DeletionManager {
   }
 
   /**
+   * Возвращает объекты удаления для текущего активного контекста.
+   * Если открыт режим редактирования текста, объектные операции должны работать с владельцем текста,
+   * а не с внутренним временно активным текстовым объектом.
+   */
+  private _resolveObjectsForDelete({
+    objects,
+    withoutSave
+  }: {
+    objects?: FabricObject[]
+    withoutSave: boolean
+  }): FabricObject[] | undefined {
+    if (objects) return objects
+    if (withoutSave) return undefined
+
+    const activeTextEditingOwner = this.editor.textManager.getActiveTextEditingOwner()
+    if (!activeTextEditingOwner) return undefined
+
+    return [activeTextEditingOwner]
+  }
+
+  /**
    * Разгруппировывает группу и собирает разрешённые дочерние объекты для удаления.
    */
   private _collectGroupObjectsForDeletion({
@@ -362,7 +383,7 @@ export default class DeletionManager {
    * @param options.withoutSave - Не сохранять состояние
    * @param options.ignoreDeleteGuard - Не применять внешнюю проверку возможности удаления
    * @param options._isRecursiveCall - Устаревший внутренний параметр, оставлен для совместимости
-   * Если удаление сохраняется в историю и в этот момент открыт text editing,
+   * Если удаление сохраняется в историю и в этот момент открыт режим редактирования текста,
    * менеджер сначала завершает редактирование, чтобы текст сохранился
    * отдельным history-шагом до удаления.
    * @fires editor:objects-deleted
@@ -374,8 +395,12 @@ export default class DeletionManager {
     ignoreDeleteGuard = false
   }: DeleteSelectedObjectsParams = {}): ObjectsDeletedPayload | null {
     const { textManager } = this.editor
-    const deletePlan = this._resolveDeletePlan({
+    const objectsForDelete = this._resolveObjectsForDelete({
       objects,
+      withoutSave
+    })
+    const deletePlan = this._resolveDeletePlan({
+      objects: objectsForDelete,
       ignoreDeleteGuard
     })
 

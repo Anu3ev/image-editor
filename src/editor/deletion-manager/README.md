@@ -8,14 +8,19 @@ The manager does not know application domains. It must not read `customData.hand
 
 `deleteSelectedObjects()` is the transaction boundary:
 
-1. Resolve the requested objects from `options.objects` or from the active canvas selection.
+1. Resolve the requested objects from `options.objects`, from the owner of active text editing, or from the active canvas selection.
 2. Skip locked objects silently.
 3. Ask `editor.options.canDeleteObject(object)` for each unlocked object unless `ignoreDeleteGuard` is set.
-4. Delete only the objects that are actually allowed.
-5. If at least one object was protected by the guard, fire `editor:objects-delete-skipped`.
-6. Save history and fire `editor:objects-deleted` only when something was really removed.
+4. If something can be removed and the call saves history, finish active text editing before mutating canvas.
+5. Delete only the objects that are actually allowed.
+6. If at least one object was protected by the guard, fire `editor:objects-delete-skipped`.
+7. Save history and fire `editor:objects-deleted` only when something was really removed.
 
 If nothing can be deleted, the manager returns `null`. In that case it must not save history, discard selection, render as a delete operation, or finish text editing just because deletion was requested.
+
+When text inside a shape is being edited, Fabric may expose the inner textbox as the active object.
+Object-level deletion must target the shape group that owns that text, not the inner textbox itself.
+`DeletionManager` asks `TextManager` for that owner before it applies delete guards, so a protected owner still keeps the editing session open.
 
 ## Delete Guard
 

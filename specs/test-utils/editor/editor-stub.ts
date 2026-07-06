@@ -295,6 +295,7 @@ export const createEditorStub = () => {
     textManager: {
       isTextEditingActive: false,
       commitStandaloneTextScale: jest.fn(),
+      getActiveTextEditingOwner: jest.fn().mockReturnValue(null),
       exitActiveTextEditing: jest.fn().mockReturnValue(false)
     },
     errorManager: {

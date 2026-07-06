@@ -40,6 +40,54 @@ describe('DeletionManager', () => {
     })
   })
 
+  it('при удалении из режима редактирования текста удаляет владельца текста', () => {
+    const editingTextNode = createMockFabricObject({
+      type: 'textbox',
+      id: 'shape-text-node'
+    })
+    const shapeToDelete = createMockFabricObject({
+      type: 'shape-group',
+      id: 'shape-to-delete'
+    })
+
+    mockEditor.textManager.getActiveTextEditingOwner.mockReturnValue(shapeToDelete)
+    mockCanvas.getActiveObjects.mockReturnValue([editingTextNode])
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(mockEditor.textManager.getActiveTextEditingOwner).toHaveBeenCalledTimes(1)
+    expect(mockEditor.textManager.exitActiveTextEditing).toHaveBeenCalledTimes(1)
+    expect(mockCanvas.getActiveObjects).not.toHaveBeenCalled()
+    expect(mockCanvas.remove).toHaveBeenCalledWith(shapeToDelete)
+    expect(mockCanvas.remove).not.toHaveBeenCalledWith(editingTextNode)
+    expect(result).toEqual({
+      objects: [shapeToDelete],
+      withoutSave: false
+    })
+  })
+
+  it('не завершает редактирование текста, если удаление владельца запрещено', () => {
+    const protectedShape = createMockFabricObject({
+      type: 'shape-group',
+      id: 'protected-shape'
+    })
+
+    mockEditor.options.canDeleteObject = jest.fn(() => false)
+    mockEditor.textManager.getActiveTextEditingOwner.mockReturnValue(protectedShape)
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(result).toBeNull()
+    expect(mockEditor.textManager.exitActiveTextEditing).not.toHaveBeenCalled()
+    expect(mockCanvas.remove).not.toHaveBeenCalled()
+    expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:objects-delete-skipped', {
+      skippedObjects: [protectedShape],
+      requestedObjects: [protectedShape],
+      withoutSave: false
+    })
+  })
+
   it('при удалении без сохранения не завершает редактирование текста отдельно', () => {
     const objectToDelete = {
       id: 'object-1',
