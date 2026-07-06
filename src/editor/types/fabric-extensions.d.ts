@@ -1,4 +1,5 @@
 import 'fabric'
+import type { FabricObject as FabricObjectInstance } from 'fabric'
 import type { EditorFontDefinition } from './font'
 import { ImageEditor } from '..'
 
@@ -166,6 +167,16 @@ declare module 'fabric' {
      * Показывать программные viewport-скроллбары для pan при увеличенном canvas.
      */
     showViewportScrollbars: boolean
+    /**
+     * Проверяет, можно ли удалить объект через операции редактора.
+     * Если не задана, объект можно удалить, кроме заблокированных объектов.
+     */
+    canDeleteObject?: (object: FabricObjectInstance) => boolean
+    /**
+     * Подготавливает клон объекта перед сохранением в буфер или добавлением на canvas.
+     * Коллбэк получает только клон и не должен менять исходный объект.
+     */
+    prepareObjectClone?: (object: FabricObjectInstance) => void
     /**
      * Коллбэк, который будет вызван при готовности редактора.
      * Используется для выполнения действий после полной инициализации редактора.

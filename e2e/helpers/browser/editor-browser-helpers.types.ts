@@ -114,6 +114,15 @@ export type BrowserSnappingSpacingGuideInfo = {
   distance: number
 }
 
+/** Browser-side запись события о пропущенных при удалении объектах. */
+export type BrowserDeleteSkippedEventRecord = {
+  requestedCount: number
+  requestedIds: Array<string | null>
+  skippedCount: number
+  skippedIds: Array<string | null>
+  withoutSave: boolean | null
+}
+
 export type BrowserSnappingGuideState = {
   guides: BrowserSnappingGuideInfo[]
   spacingGuides: BrowserSnappingSpacingGuideInfo[]
@@ -170,6 +179,8 @@ export interface BrowserEditorHelpers {
   getSnappingGuideState: () => BrowserSnappingGuideState
   getTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
   getShapeTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
+  startDeleteSkippedEventRecording: () => void
+  getDeleteSkippedEventRecords: () => BrowserDeleteSkippedEventRecord[]
 }
 
 export interface BoundsInfo {
@@ -195,6 +206,8 @@ export interface BrowserEditorWindow extends Window {
         target?: unknown
       } | null
       getActiveObject: () => unknown
+      on: <EventPayload>(eventName: string, handler: (event: EventPayload) => void) => void
+      off: <EventPayload>(eventName: string, handler: (event: EventPayload) => void) => void
       __onMouseDown: (event: MouseEvent) => void
       __onMouseMove: (event: MouseEvent) => void
       upperCanvasEl: {

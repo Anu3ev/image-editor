@@ -12,6 +12,7 @@ import type {
   ViewportPanInfo,
   ViewportScrollbarInfo,
   ViewportBoundsInfo,
+  DeleteSkippedEventInfo,
   ObjectTargetParams,
   SnappingObjectSnapshot
 } from '../types'
@@ -154,6 +155,101 @@ export class EditorModel {
     })
 
     await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Включает e2e-правило защиты объектов с заданным customData.handle. */
+  async useCustomDataDeleteGuard(params: { handle: string }): Promise<void> {
+    await this.page.evaluate(({ handle }) => {
+      const { editor } = window as any
+      const hasProtectedHandle = (object: any) => object?.customData?.handle === handle
+
+      editor.options.canDeleteObject = (object: any) => !hasProtectedHandle(object)
+      editor.options.prepareObjectClone = (rootObject: any) => {
+        const objectsToPrepare = [rootObject]
+
+        for (let index = 0; index < objectsToPrepare.length; index += 1) {
+          const object = objectsToPrepare[index]
+
+          if (hasProtectedHandle(object)) {
+            delete object.customData.handle
+          }
+
+          if (typeof object?.getObjects !== 'function') continue
+
+          const childObjects = object.getObjects()
+          if (!Array.isArray(childObjects)) continue
+
+          for (let childIndex = 0; childIndex < childObjects.length; childIndex += 1) {
+            objectsToPrepare.push(childObjects[childIndex])
+          }
+        }
+      }
+    }, params)
+  }
+
+  /** Начинает запись событий отказа удаления в browser-side e2e-хелпере. */
+  async startDeleteSkippedEventRecording(): Promise<void> {
+    await this.page.evaluate(() => {
+      const { __editorHelpers: helpers } = window as any
+
+      helpers.startDeleteSkippedEventRecording()
+    })
+  }
+
+  /** Возвращает записанные события отказа удаления. */
+  async getDeleteSkippedEvents(): Promise<DeleteSkippedEventInfo[]> {
+    return this.page.evaluate(() => {
+      const { __editorHelpers: helpers } = window as any
+
+      return helpers.getDeleteSkippedEventRecords()
+    })
+  }
+
+  /** Задаёт customData объекту на canvas через browser-side model boundary. */
+  async setObjectCustomData(params: ObjectTargetParams & { customData: Record<string, unknown> }): Promise<void> {
+    const updated = await this.page.evaluate(({ customData, id, objectIndex }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+
+      if (!target) return false
+
+      if (typeof target.set === 'function') {
+        target.set({ customData })
+      } else {
+        target.customData = customData
+      }
+
+      editor.canvas.requestRenderAll()
+      return true
+    }, params)
+
+    expect(updated, 'объект для установки customData должен существовать').toBe(true)
+    await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Возвращает customData.handle объекта или null. */
+  async getObjectCustomDataHandle(params: ObjectTargetParams = {}): Promise<string | null> {
+    return this.page.evaluate(({ id, objectIndex }) => {
+      const { __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const handle = target?.customData?.handle
+
+      return typeof handle === 'string' ? handle : null
+    }, params)
+  }
+
+  /** Считает пользовательские объекты с заданным customData.handle. */
+  async countObjectsByCustomDataHandle(params: { handle: string }): Promise<number> {
+    return this.page.evaluate(({ handle }) => {
+      const { editor } = window as any
+
+      return editor.canvasManager.getObjects().filter((object: any) => {
+        return object?.customData?.handle === handle
+      }).length
+    }, params)
   }
 
   /** Возвращает снимок текущего состояния canvas */
@@ -732,6 +828,24 @@ export class EditorModel {
     await this._pressEditorHotkey({
       key: 'd',
       code: 'KeyD'
+    })
+  }
+
+  /** Отправляет в редактор клавишу Delete через DOM-событие body. */
+  async pressDeleteKey(): Promise<void> {
+    await this._pressEditorHotkey({
+      key: 'Delete',
+      code: 'Delete',
+      ctrlKey: false
+    })
+  }
+
+  /** Отправляет в редактор клавишу Backspace через DOM-событие body. */
+  async pressBackspaceKey(): Promise<void> {
+    await this._pressEditorHotkey({
+      key: 'Backspace',
+      code: 'Backspace',
+      ctrlKey: false
     })
   }
 

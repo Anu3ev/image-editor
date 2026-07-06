@@ -26,6 +26,8 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 - **Font Loader** - FontManager handles Google Fonts + custom sources with automatic `@font-face` registration
 - **Configurable Toolbar** - Dynamic toolbar with context-sensitive actions
 - **Clipboard Integration** - Native copy/paste support with system clipboard
+- **Deletion Guards** - Application-defined rules can prevent user deletion for protected objects
+- **Clone Preparation** - Applications can sanitize object clones before copy, paste, duplicate, or cut
 
 ### Developer Features
 - **TypeScript Support** - Full type definitions included
@@ -71,6 +73,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('Editor initialized:', editor)
 })
 ```
+
+### Deletion Guards and Clone Preparation
+
+The editor does not know application-specific object roles. If an application needs to protect a domain object from user deletion, pass a rule through `canDeleteObject`.
+
+```javascript
+const MAIN_IMAGE_HANDLE = 'main-image'
+
+const editor = await initEditor('editor', {
+  canDeleteObject: (object) => {
+    return object.customData?.handle !== MAIN_IMAGE_HANDLE
+  }
+})
+```
+
+The rule is checked by shared delete operations, so keyboard deletion, toolbar deletion, direct `DeletionManager` calls, and `cut()` use the same result. Locked objects are still skipped by the editor itself. If a technical operation must delete a protected object, call deletion with `ignoreDeleteGuard: true`.
+
+When deletion is skipped by the guard, the editor fires `editor:objects-delete-skipped`. The event is only a notification for UI code; it does not cancel deletion, because the decision was already made by `canDeleteObject`.
+
+```javascript
+editor.canvas.on('editor:objects-delete-skipped', ({ skippedObjects }) => {
+  console.log('Some objects were not deleted:', skippedObjects)
+})
+```
+
+Use `prepareObjectClone` when copied objects must not keep a domain marker from the source object. The callback receives only clones. The editor calls it for the root clone and for nested objects inside groups or active selections.
+
+```javascript
+const editor = await initEditor('editor', {
+  prepareObjectClone: (object) => {
+    if (object.customData?.handle !== MAIN_IMAGE_HANDLE) return
+
+    delete object.customData.handle
+  }
+})
+```
+
+This hook is used by `copy()`, `cut()`, `copyPaste()`, and `paste()`. Before the hook is called, the editor detaches `customData` on the clone so the callback does not accidentally mutate the original object.
 
 ### Working with Images
 
@@ -398,9 +438,9 @@ The editor follows a modular architecture with specialized managers:
 
 ### Utility Managers
 - **`SelectionManager`** - Object selection and multi-selection handling
-- **`ClipboardManager`** - Copy/paste with system clipboard integration
+- **`ClipboardManager`** - Copy/paste, cut, duplicate, clone preparation, and system clipboard integration
 - **`GroupingManager`** - Object grouping and ungrouping operations
-- **`DeletionManager`** - Object deletion with group handling
+- **`DeletionManager`** - Object deletion, delete guards, skipped-delete events, and group handling
 - **`ShapeManager`** - Preset-based shape groups with inner text, layout, scaling, and style controls
 - **`ObjectLockManager`** - Object locking and unlocking functionality
 - **`SnappingManager`** - Alignment guides and equal-spacing snaps while moving objects
@@ -451,7 +491,13 @@ initEditor(containerId, options): Promise<ImageEditor>
   acceptContentTypes: ['image/png', 'image/jpeg', 'image/svg+xml'],
 
   // Callback when ready
-  _onReadyCallback: (editor) => console.log('Ready!')
+  _onReadyCallback: (editor) => console.log('Ready!'),
+
+  // Optional user-delete rule. Return false to skip this object.
+  canDeleteObject: (object) => true,
+
+  // Optional clone preparation for copy, cut, duplicate, and paste.
+  prepareObjectClone: (object) => {}
 }
 ```
 

@@ -1,4 +1,5 @@
 import type {
+  BrowserDeleteSkippedEventRecord,
   BrowserEditorHelpers,
   BrowserSelectionScaleFromControlParams,
   BrowserSelectionScaleFromControlResult,
@@ -22,6 +23,13 @@ type BrowserControlPoint = {
   y: number
 }
 
+/** Browser-side payload события editor:objects-delete-skipped. */
+type BrowserDeleteSkippedEventPayload = {
+  requestedObjects?: unknown[]
+  skippedObjects?: unknown[]
+  withoutSave?: boolean
+}
+
 /** Window на момент установки helpers: editor может появиться после init приложения. */
 type BrowserEditorWindowInstallerTarget = Window & {
   editor?: BrowserEditorWindow['editor']
@@ -33,6 +41,8 @@ type BrowserEditorWindowInstallerTarget = Window & {
  */
 export function installEditorBrowserHelpers(): void {
   const browserWindow: BrowserEditorWindowInstallerTarget = window
+  let deleteSkippedEventRecords: BrowserDeleteSkippedEventRecord[] = []
+  let deleteSkippedEventHandler: ((event: BrowserDeleteSkippedEventPayload) => void) | null = null
 
   /**
    * Возвращает editor runtime после завершения init приложения.
@@ -120,6 +130,64 @@ export function installEditorBrowserHelpers(): void {
     if (typeof value === 'string') return value
 
     return null
+  }
+
+  /**
+   * Возвращает id объекта для компактной записи события.
+   */
+  function resolveObjectId({ value }: { value: unknown }): string | null {
+    const object = toBrowserObject({ value })
+
+    return resolveNullableString({
+      value: object.id
+    })
+  }
+
+  /**
+   * Создаёт сериализуемую запись события отказа удаления.
+   */
+  function createDeleteSkippedEventRecord({
+    payload
+  }: {
+    payload: BrowserDeleteSkippedEventPayload
+  }): BrowserDeleteSkippedEventRecord {
+    const requestedObjects = Array.isArray(payload.requestedObjects) ? payload.requestedObjects : []
+    const skippedObjects = Array.isArray(payload.skippedObjects) ? payload.skippedObjects : []
+
+    return {
+      requestedCount: requestedObjects.length,
+      requestedIds: requestedObjects.map((object) => resolveObjectId({ value: object })),
+      skippedCount: skippedObjects.length,
+      skippedIds: skippedObjects.map((object) => resolveObjectId({ value: object })),
+      withoutSave: typeof payload.withoutSave === 'boolean' ? payload.withoutSave : null
+    }
+  }
+
+  /**
+   * Начинает запись событий отказа удаления для текущего editor runtime.
+   */
+  function startDeleteSkippedEventRecording(): void {
+    const { canvas } = getEditorRuntime()
+
+    if (deleteSkippedEventHandler) {
+      canvas.off('editor:objects-delete-skipped', deleteSkippedEventHandler)
+    }
+
+    deleteSkippedEventRecords = []
+    deleteSkippedEventHandler = (payload) => {
+      deleteSkippedEventRecords.push(createDeleteSkippedEventRecord({
+        payload
+      }))
+    }
+
+    canvas.on('editor:objects-delete-skipped', deleteSkippedEventHandler)
+  }
+
+  /**
+   * Возвращает записанные события отказа удаления.
+   */
+  function getDeleteSkippedEventRecords(): BrowserDeleteSkippedEventRecord[] {
+    return [...deleteSkippedEventRecords]
   }
 
   /**
@@ -1207,6 +1275,12 @@ export function installEditorBrowserHelpers(): void {
       },
       getShapeTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
         return getShapeTextSelectionStyles(params)
+      },
+      startDeleteSkippedEventRecording() {
+        startDeleteSkippedEventRecording()
+      },
+      getDeleteSkippedEventRecords() {
+        return getDeleteSkippedEventRecords()
       }
     }
 
