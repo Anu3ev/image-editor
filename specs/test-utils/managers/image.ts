@@ -112,6 +112,7 @@ export const createMockCanvasClone = ({
   const clone = {
     enableRetinaScaling: true,
     backgroundColor: '',
+    clipPath: { id: 'area-clip' },
     viewportTransform: [1, 0, 0, 1, 0, 0] as any,
     getObjects: jest.fn().mockReturnValue(objects),
     getElement: jest.fn().mockReturnValue(element),

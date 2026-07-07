@@ -565,6 +565,23 @@ describe('ImageManager', () => {
       expect(clone.backgroundColor).toBe('#ffffff')
     })
 
+    it('убирает canvas clipPath из экспортного клона', async() => {
+      const { clone } = createMockCanvasClone({
+        objects: [{ id: mockEditor.montageArea.id, visible: true }]
+      })
+      let clipPathDuringRender: unknown = null
+
+      clone.renderAll.mockImplementation(() => {
+        clipPathDuringRender = clone.clipPath
+      })
+      mockCanvas.clone.mockResolvedValueOnce(clone)
+
+      await imageManager.exportCanvasAsImageFile({ contentType: 'image/jpeg', exportAsBlob: true })
+
+      expect(clipPathDuringRender).toBeUndefined()
+      expect(clone.clipPath).toBeUndefined()
+    })
+
     it('exports canvas as PDF base64', async() => {
       mockWorkerManager.post.mockResolvedValueOnce('data:image/png;base64,canvas')
 
