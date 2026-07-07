@@ -15,6 +15,12 @@ type ImagePixelColor = {
   alpha: number
 }
 
+/** Размер изображения в data URL. */
+type ImageDataUrlSize = {
+  width: number
+  height: number
+}
+
 /** Источник live image-объекта в Fabric. */
 type ImageSourceInfo = {
   id: string | null
@@ -163,6 +169,49 @@ export class ImageModel {
     return dataUrl
   }
 
+  /** Экспортирует всю монтажную область через публичный API ImageManager в data URL. */
+  async exportCanvasAsBase64(params: { contentType?: string } = {}): Promise<string> {
+    const dataUrl = await this.page.evaluate(({ contentType = 'image/png' }) => {
+      const { editor } = window as any
+
+      return editor.imageManager.exportCanvasAsImageFile({
+        contentType,
+        exportAsBase64: true
+      }).then((result: { image?: unknown } | null) => (
+        typeof result?.image === 'string' ? result.image : null
+      ))
+    }, params)
+
+    expect(dataUrl, 'экспорт монтажной области должен вернуть data URL').not.toBeNull()
+    if (!dataUrl) {
+      throw new Error('Не удалось экспортировать монтажную область в data URL')
+    }
+
+    return dataUrl
+  }
+
+  /** Возвращает размер изображения из data URL. */
+  async getDataUrlSize(params: { dataUrl: string }): Promise<ImageDataUrlSize> {
+    const size = await this.page.evaluate(async({ dataUrl }) => {
+      const image = new Image()
+
+      await new Promise<void>((resolve, reject) => {
+        image.onload = () => resolve()
+        image.onerror = () => reject(new Error('Не удалось загрузить data URL изображение'))
+        image.src = dataUrl
+      })
+
+      return {
+        width: image.width,
+        height: image.height
+      }
+    }, params)
+
+    expect(size, 'размер изображения должен читаться из data URL').not.toBeNull()
+
+    return size
+  }
+
   /** Возвращает цвет пикселя из data URL изображения. */
   async getDataUrlPixelColor(params: { dataUrl: string, x: number, y: number }): Promise<ImagePixelColor> {
     const pixel = await this.page.evaluate(async({ dataUrl, x, y }) => {
@@ -268,6 +317,36 @@ export class ImageModel {
     }
 
     return info
+  }
+
+  /** Переносит левый верхний угол bounds изображения в координаты canvas-сцены. */
+  async moveBoundsTo(
+    params: { left: number, top: number } & ObjectTargetParams
+  ): Promise<SnappingObjectSnapshot> {
+    const snapshot = await this.page.evaluate(({
+      objectIndex,
+      id,
+      left,
+      top
+    }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.set({ left, top })
+      target.setCoords()
+      editor.canvas.renderAll()
+
+      return helpers.serializeSnappingObjectSnapshot(target)
+    }, params)
+
+    await waitForCanvasRender({ page: this.page })
+    expect(snapshot, 'должен существовать snapshot изображения после переноса').not.toBeNull()
+
+    return snapshot as SnappingObjectSnapshot
   }
 
   /** Масштабирует изображение вправо через реальную drag-сессию с фиксированной левой верхней точкой. */

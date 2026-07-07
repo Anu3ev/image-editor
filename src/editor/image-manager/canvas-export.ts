@@ -166,6 +166,11 @@ function prepareClonedCanvasForExport({
   hideMontageArea({ editor, tmpCanvas })
   hideInteractionBlockerOverlay({ editor, tmpCanvas })
 
+  // Экспортный bitmap уже ограничен размерами монтажной области. Если оставить
+  // canvas-level clipPath в клоне, canvas сглаживает этот край, и JPG получает
+  // заметную серую рамку.
+  tmpCanvas.clipPath = undefined
+
   tmpCanvas.viewportTransform = [1, 0, 0, 1, -left, -top]
   tmpCanvas.setDimensions({ width, height }, { backstoreOnly: true })
   tmpCanvas.renderAll()
