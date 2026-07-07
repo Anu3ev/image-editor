@@ -118,6 +118,15 @@ export type ObjectsDeletedPayload = {
 }
 
 /**
+ * Параметры события editor:objects-delete-skipped
+ */
+export type ObjectsDeleteSkippedPayload = {
+  skippedObjects: FabricObject[]
+  requestedObjects: FabricObject[]
+  withoutSave?: boolean
+}
+
+/**
  * Параметры события editor:history-state-loaded
  * @todo: Заменить object на тип который будет соответствовать объекту состояния истории, когда класс будет переписан на TS
  */
@@ -317,6 +326,11 @@ declare module 'fabric' {
      * Срабатывает при удалении выбранных объектов с канваса.
      */
     'editor:objects-deleted': ObjectsDeletedPayload
+
+    /**
+     * Срабатывает, когда часть объектов нельзя удалить через операции редактора.
+     */
+    'editor:objects-delete-skipped': ObjectsDeleteSkippedPayload
 
     /**
      * Срабатывает после загрузки состояния канваса (из JSON истории).

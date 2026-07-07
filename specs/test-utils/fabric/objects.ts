@@ -4,6 +4,17 @@ import {
 } from 'fabric'
 
 /**
+ * Возвращает глубокую копию customData, если объект хранит её как plain object.
+ */
+const cloneCustomData = (object: any) => {
+  if (!object.customData || typeof object.customData !== 'object') {
+    return object.customData
+  }
+
+  return JSON.parse(JSON.stringify(object.customData))
+}
+
+/**
  * Создаёт базовый fabric-like object с clone/set/setCoords контрактом для юнит-тестов.
  */
 export const createMockFabricObject = (props: any = {}) => {
@@ -17,6 +28,7 @@ export const createMockFabricObject = (props: any = {}) => {
     ...props,
     clone: jest.fn().mockImplementation(async() => {
       const cloned = { ...mockObject, ...JSON.parse(JSON.stringify(props)) }
+      cloned.customData = cloneCustomData(mockObject)
       cloned.set = jest.fn().mockImplementation((newProps) => {
         Object.assign(cloned, newProps)
       })
@@ -48,7 +60,10 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
 
   mockSelection.clone = jest.fn().mockImplementation(async() => {
     const clonedObjects = objects.map((object) => {
-      const clonedObject = { ...object }
+      const clonedObject = {
+        ...object,
+        customData: cloneCustomData(object)
+      }
 
       clonedObject.set = jest.fn().mockImplementation((newProps) => {
         Object.assign(clonedObject, newProps)

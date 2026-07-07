@@ -40,6 +40,54 @@ describe('DeletionManager', () => {
     })
   })
 
+  it('при удалении из режима редактирования текста удаляет владельца текста', () => {
+    const editingTextNode = createMockFabricObject({
+      type: 'textbox',
+      id: 'shape-text-node'
+    })
+    const shapeToDelete = createMockFabricObject({
+      type: 'shape-group',
+      id: 'shape-to-delete'
+    })
+
+    mockEditor.textManager.getActiveTextEditingOwner.mockReturnValue(shapeToDelete)
+    mockCanvas.getActiveObjects.mockReturnValue([editingTextNode])
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(mockEditor.textManager.getActiveTextEditingOwner).toHaveBeenCalledTimes(1)
+    expect(mockEditor.textManager.exitActiveTextEditing).toHaveBeenCalledTimes(1)
+    expect(mockCanvas.getActiveObjects).not.toHaveBeenCalled()
+    expect(mockCanvas.remove).toHaveBeenCalledWith(shapeToDelete)
+    expect(mockCanvas.remove).not.toHaveBeenCalledWith(editingTextNode)
+    expect(result).toEqual({
+      objects: [shapeToDelete],
+      withoutSave: false
+    })
+  })
+
+  it('не завершает редактирование текста, если удаление владельца запрещено', () => {
+    const protectedShape = createMockFabricObject({
+      type: 'shape-group',
+      id: 'protected-shape'
+    })
+
+    mockEditor.options.canDeleteObject = jest.fn(() => false)
+    mockEditor.textManager.getActiveTextEditingOwner.mockReturnValue(protectedShape)
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(result).toBeNull()
+    expect(mockEditor.textManager.exitActiveTextEditing).not.toHaveBeenCalled()
+    expect(mockCanvas.remove).not.toHaveBeenCalled()
+    expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:objects-delete-skipped', {
+      skippedObjects: [protectedShape],
+      requestedObjects: [protectedShape],
+      withoutSave: false
+    })
+  })
+
   it('при удалении без сохранения не завершает редактирование текста отдельно', () => {
     const objectToDelete = {
       id: 'object-1',
@@ -90,6 +138,124 @@ describe('DeletionManager', () => {
     expect(mockEditor.historyManager.saveState).toHaveBeenCalledTimes(1)
     expect(result).toEqual({
       objects: [groupToDelete, childRect, childCircle],
+      withoutSave: false
+    })
+  })
+
+  it('не удаляет объект, запрещённый правилом удаления, и сообщает о пропуске', () => {
+    const protectedObject = createMockFabricObject({
+      type: 'image',
+      id: 'protected-object'
+    })
+
+    mockEditor.options.canDeleteObject = jest.fn(() => false)
+    mockCanvas.getActiveObjects.mockReturnValue([protectedObject])
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(result).toBeNull()
+    expect(mockCanvas.remove).not.toHaveBeenCalled()
+    expect(mockEditor.textManager.exitActiveTextEditing).not.toHaveBeenCalled()
+    expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:objects-delete-skipped', {
+      skippedObjects: [protectedObject],
+      requestedObjects: [protectedObject],
+      withoutSave: false
+    })
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:objects-deleted', expect.any(Object))
+  })
+
+  it('при массовом удалении удаляет разрешённые объекты и сообщает о запрещённых', () => {
+    const removableObject = createMockFabricObject({
+      type: 'rect',
+      id: 'removable-object'
+    })
+    const protectedObject = createMockFabricObject({
+      type: 'image',
+      id: 'protected-object'
+    })
+
+    mockEditor.options.canDeleteObject = jest.fn((object) => object !== protectedObject)
+    mockCanvas.getActiveObjects.mockReturnValue([removableObject, protectedObject])
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(result).toEqual({
+      objects: [removableObject],
+      withoutSave: false
+    })
+    expect(mockCanvas.remove).toHaveBeenCalledWith(removableObject)
+    expect(mockCanvas.remove).not.toHaveBeenCalledWith(protectedObject)
+    expect(mockEditor.historyManager.saveState).toHaveBeenCalledTimes(1)
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:objects-delete-skipped', {
+      skippedObjects: [protectedObject],
+      requestedObjects: [removableObject, protectedObject],
+      withoutSave: false
+    })
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:objects-deleted', {
+      objects: [removableObject],
+      withoutSave: false
+    })
+  })
+
+  it('удаляет запрещённый объект при явном обходе правила удаления', () => {
+    const protectedObject = createMockFabricObject({
+      type: 'image',
+      id: 'protected-object'
+    })
+    const canDeleteObject = jest.fn(() => false)
+
+    mockEditor.options.canDeleteObject = canDeleteObject
+
+    const result = deletionManager.deleteSelectedObjects({
+      objects: [protectedObject],
+      ignoreDeleteGuard: true
+    })
+
+    expect(result).toEqual({
+      objects: [protectedObject],
+      withoutSave: false
+    })
+    expect(canDeleteObject).not.toHaveBeenCalled()
+    expect(mockCanvas.remove).toHaveBeenCalledWith(protectedObject)
+    expect(mockEditor.historyManager.saveState).toHaveBeenCalledTimes(1)
+    expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:objects-delete-skipped', expect.any(Object))
+  })
+
+  it('при удалении группы оставляет запрещённые дочерние объекты', () => {
+    const protectedChild = createMockFabricObject({
+      type: 'image',
+      id: 'protected-child'
+    })
+    const removableChild = createMockFabricObject({
+      type: 'rect',
+      id: 'removable-child'
+    })
+    const groupToDelete = createMockGroup([protectedChild, removableChild], {
+      id: 'mixed-group'
+    })
+
+    mockEditor.options.canDeleteObject = jest.fn((object) => object !== protectedChild)
+    mockCanvas.getActiveObjects.mockReturnValue([groupToDelete])
+    mockEditor.groupingManager.ungroup.mockReturnValue({
+      ungroupedObjects: [protectedChild, removableChild]
+    })
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(mockEditor.groupingManager.ungroup).toHaveBeenCalledWith({
+      target: groupToDelete,
+      withoutSave: true
+    })
+    expect(mockCanvas.remove).toHaveBeenCalledWith(removableChild)
+    expect(mockCanvas.remove).not.toHaveBeenCalledWith(protectedChild)
+    expect(result).toEqual({
+      objects: [groupToDelete, removableChild],
+      withoutSave: false
+    })
+    expect(mockCanvas.fire).toHaveBeenCalledWith('editor:objects-delete-skipped', {
+      skippedObjects: [protectedChild],
+      requestedObjects: [groupToDelete],
       withoutSave: false
     })
   })

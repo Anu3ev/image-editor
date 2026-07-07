@@ -24,6 +24,14 @@ type ClipboardTextObject = {
   uppercase?: boolean
 }
 
+type ClipboardCustomDataObject = {
+  customData?: {
+    handle?: string
+    keep?: string
+  }
+  id?: string
+}
+
 type AddedCanvasObject = {
   id?: string
   evented?: boolean
@@ -112,6 +120,78 @@ describe('ClipboardManager', () => {
       expect(clipboardManager.clipboard).toBeNull()
       expect(mockCanvas.fire).not.toHaveBeenCalled()
     })
+
+    it('перед сохранением в буфер подготавливает клон, а не исходный объект', async() => {
+      const mockObject = createMockFabricObject({
+        type: 'image',
+        id: 'main-image',
+        customData: {
+          handle: 'main-image',
+          keep: 'asset-id'
+        }
+      })
+
+      mockEditor.options.prepareObjectClone = jest.fn((object: ClipboardCustomDataObject) => {
+        if (object.customData?.handle !== 'main-image') return
+
+        delete object.customData.handle
+      })
+      mockCanvas.getActiveObject.mockReturnValue(mockObject)
+
+      clipboardManager.copy()
+      await new Promise(process.nextTick)
+
+      const clipboardObject = clipboardManager.clipboard as ClipboardCustomDataObject | null
+
+      expect(mockEditor.options.prepareObjectClone).toHaveBeenCalledTimes(1)
+      expect(clipboardObject?.customData).toEqual({
+        keep: 'asset-id'
+      })
+      expect(mockObject.customData).toEqual({
+        handle: 'main-image',
+        keep: 'asset-id'
+      })
+    })
+
+    it('отделяет customData клона перед внешней подготовкой', async() => {
+      const sharedCustomData = {
+        handle: 'main-image',
+        keep: 'asset-id'
+      }
+      const sourceObject = createMockFabricObject({
+        type: 'image',
+        id: 'source-main-image',
+        customData: sharedCustomData
+      })
+      const clonedObject = createMockFabricObject({
+        type: 'image',
+        id: 'cloned-main-image',
+        customData: sharedCustomData
+      })
+
+      sourceObject.clone.mockResolvedValue(clonedObject)
+      mockEditor.options.prepareObjectClone = jest.fn((object: ClipboardCustomDataObject) => {
+        if (object.customData?.handle !== 'main-image') return
+
+        delete object.customData.handle
+      })
+      mockCanvas.getActiveObject.mockReturnValue(sourceObject)
+
+      clipboardManager.copy()
+      await new Promise(process.nextTick)
+
+      const clipboardObject = clipboardManager.clipboard as ClipboardCustomDataObject | null
+
+      expect(clipboardObject).toBe(clonedObject)
+      expect(clipboardObject?.customData).toEqual({
+        keep: 'asset-id'
+      })
+      expect(sourceObject.customData).toEqual({
+        handle: 'main-image',
+        keep: 'asset-id'
+      })
+      expect(clipboardObject?.customData).not.toBe(sourceObject.customData)
+    })
   })
 
   describe('cut', () => {
@@ -190,6 +270,75 @@ describe('ClipboardManager', () => {
         message: 'Ошибка клонирования объекта для внутреннего буфера',
         data: expect.any(Error)
       })
+    })
+
+    it('вырезает из массового выделения только объекты, которые реально можно удалить', async() => {
+      const removableObject = createMockFabricObject({
+        type: 'rect',
+        id: 'cut-removable-object'
+      })
+      const protectedObject = createMockFabricObject({
+        type: 'image',
+        id: 'cut-protected-object',
+        customData: {
+          handle: 'main-image'
+        }
+      })
+      const selectedObjects = [removableObject, protectedObject]
+      const selection = createMockActiveSelection(selectedObjects, { left: 100, top: 100 })
+
+      mockCanvas.getActiveObject.mockReturnValue(selection)
+      mockEditor.deletionManager.resolveDeleteTargets.mockReturnValue({
+        requestedObjects: selectedObjects,
+        deletableObjects: [removableObject],
+        skippedObjects: [protectedObject]
+      })
+      mockEditor.deletionManager.deleteSelectedObjects.mockReturnValue({
+        objects: [removableObject],
+        withoutSave: false
+      })
+
+      const result = await clipboardManager.cut()
+      const clipboardObject = clipboardManager.clipboard as ClipboardCustomDataObject | null
+
+      expect(result).toBe(true)
+      expect(clipboardObject?.id).toBe('cut-removable-object')
+      expect(clipboardObject?.customData?.handle).toBeUndefined()
+      expect(mockEditor.deletionManager.deleteSelectedObjects).toHaveBeenCalledWith({
+        objects: selectedObjects
+      })
+      expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-copied', {
+        object: expect.objectContaining({
+          id: 'cut-removable-object'
+        })
+      })
+    })
+
+    it('не заполняет буфер, если в выделении нет удаляемых объектов', async() => {
+      const protectedObject = createMockFabricObject({
+        type: 'image',
+        id: 'cut-protected-object',
+        customData: {
+          handle: 'main-image'
+        }
+      })
+
+      mockCanvas.getActiveObject.mockReturnValue(protectedObject)
+      mockEditor.deletionManager.resolveDeleteTargets.mockReturnValue({
+        requestedObjects: [protectedObject],
+        deletableObjects: [],
+        skippedObjects: [protectedObject]
+      })
+      mockEditor.deletionManager.deleteSelectedObjects.mockReturnValue(null)
+
+      const result = await clipboardManager.cut()
+
+      expect(result).toBe(false)
+      expect(clipboardManager.clipboard).toBeNull()
+      expect(mockEditor.deletionManager.deleteSelectedObjects).toHaveBeenCalledWith({
+        objects: [protectedObject]
+      })
+      expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:object-copied', expect.any(Object))
     })
   })
 
@@ -348,6 +497,52 @@ describe('ClipboardManager', () => {
       expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
         mockCanvas.add.mock.invocationCallOrder[0]
       )
+    })
+
+    it('при дублировании выделения подготавливает каждый вложенный клон', async() => {
+      const protectedObject = createMockFabricObject({
+        type: 'image',
+        id: 'duplicate-protected-object',
+        customData: {
+          handle: 'main-image',
+          keep: 'asset-id'
+        }
+      })
+      const regularObject = createMockFabricObject({
+        type: 'rect',
+        id: 'duplicate-regular-object',
+        customData: {
+          keep: 'regular-id'
+        }
+      })
+      const selection = createMockActiveSelection([protectedObject, regularObject], {
+        left: 100,
+        top: 80
+      })
+
+      mockEditor.options.prepareObjectClone = jest.fn((object: ClipboardCustomDataObject) => {
+        if (object.customData?.handle !== 'main-image') return
+
+        delete object.customData.handle
+      })
+      mockCanvas.getActiveObject.mockReturnValue(selection)
+
+      const result = await clipboardManager.copyPaste()
+      const addedObjects = (mockCanvas.add.mock.calls as Array<[ClipboardCustomDataObject]>).map(([object]) => object)
+
+      expect(result).toBe(true)
+      expect(mockEditor.options.prepareObjectClone).toHaveBeenCalledTimes(3)
+      expect(addedObjects).toHaveLength(2)
+      expect(addedObjects[0].customData).toEqual({
+        keep: 'asset-id'
+      })
+      expect(addedObjects[1].customData).toEqual({
+        keep: 'regular-id'
+      })
+      expect(protectedObject.customData).toEqual({
+        handle: 'main-image',
+        keep: 'asset-id'
+      })
     })
   })
 
@@ -638,6 +833,37 @@ describe('ClipboardManager', () => {
       expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
         mockCanvas.add.mock.invocationCallOrder[0]
       )
+    })
+
+    it('при вставке подготавливает клон из старого внутреннего буфера', async() => {
+      const clipboardObject = createMockFabricObject({
+        type: 'image',
+        id: 'clipboard-main-image',
+        customData: {
+          handle: 'main-image',
+          keep: 'asset-id'
+        }
+      })
+
+      mockEditor.options.prepareObjectClone = jest.fn((object: ClipboardCustomDataObject) => {
+        if (object.customData?.handle !== 'main-image') return
+
+        delete object.customData.handle
+      })
+      clipboardManager.clipboard = clipboardObject
+
+      const result = await clipboardManager.paste()
+      const addedObject = mockCanvas.add.mock.calls[0][0] as ClipboardCustomDataObject
+
+      expect(result).toBe(true)
+      expect(mockEditor.options.prepareObjectClone).toHaveBeenCalledTimes(1)
+      expect(addedObject.customData).toEqual({
+        keep: 'asset-id'
+      })
+      expect(clipboardObject.customData).toEqual({
+        handle: 'main-image',
+        keep: 'asset-id'
+      })
     })
   })
 

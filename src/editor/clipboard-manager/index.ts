@@ -1,4 +1,4 @@
-import { ActiveSelection, FabricObject } from 'fabric'
+import { ActiveSelection, FabricObject, Group } from 'fabric'
 import { CLIPBOARD_DATA_PREFIX, CLIPBOARD_CLONE_OBJECT_KEYS } from '../constants'
 
 import { ImageEditor } from '../index'
@@ -34,28 +34,86 @@ export default class ClipboardManager {
     const activeObject = canvas.getActiveObject()
     if (!activeObject || activeObject.locked) return
 
-    // Асинхронно клонируем объект для внутреннего буфера (не блокирует систему)
-    this._cloneToInternalClipboard(activeObject)
-
-    this._copyToSystemClipboardInBackground({
-      activeObject,
+    this._copyObjectToClipboard({
+      object: activeObject,
       method: 'copy'
     })
   }
 
   /**
-   * Асинхронное клонирование для внутреннего буфера
+   * Клонирует объект и даёт внешнему коду подготовить клон.
    */
-  private async _cloneToInternalClipboard(activeObject: FabricObject): Promise<boolean> {
+  private async _cloneObject({ object }: { object: FabricObject }): Promise<FabricObject> {
+    const clonedObject = await object.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
+
+    this._prepareObjectClone({
+      clonedObject
+    })
+
+    return clonedObject
+  }
+
+  /**
+   * Отделяет customData клона от исходного объекта перед внешней подготовкой.
+   */
+  private _detachObjectCustomData({ object }: { object: FabricObject }): void {
+    const { customData } = object
+
+    if (!customData || typeof customData !== 'object') return
+
+    object.customData = JSON.parse(JSON.stringify(customData)) as object
+  }
+
+  /**
+   * Подготавливает корневой клон и все вложенные объекты без знания их доменной роли.
+   */
+  private _prepareObjectClone({ clonedObject }: { clonedObject: FabricObject }): void {
+    const { prepareObjectClone } = this.editor.options
+    const objectsToPrepare: FabricObject[] = [clonedObject]
+
+    for (let index = 0; index < objectsToPrepare.length; index += 1) {
+      const object = objectsToPrepare[index]
+
+      this._detachObjectCustomData({ object })
+      prepareObjectClone?.(object)
+
+      if (!(object instanceof ActiveSelection) && !(object instanceof Group)) continue
+
+      const childObjects = object.getObjects()
+
+      for (let childIndex = 0; childIndex < childObjects.length; childIndex += 1) {
+        objectsToPrepare.push(childObjects[childIndex])
+      }
+    }
+  }
+
+  /**
+   * Клонирует объект, сохраняет его во внутренний буфер и запускает системное копирование.
+   */
+  private async _copyObjectToClipboard({
+    object,
+    method
+  }: {
+    object: FabricObject
+    method: 'copy' | 'cut'
+  }): Promise<boolean> {
     const { canvas, errorManager } = this.editor
 
     try {
-      const clonedObject = await activeObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
+      const clonedObject = await this._cloneObject({ object })
+
       this._materializeCloneGeometry({
         clonedObject
       })
+
       this.clipboard = clonedObject
       canvas.fire('editor:object-copied', { object: clonedObject })
+
+      this._copyToSystemClipboardInBackground({
+        object: clonedObject,
+        method
+      })
+
       return true
     } catch (error) {
       errorManager.emitError({
@@ -73,13 +131,13 @@ export default class ClipboardManager {
    * Фоновое копирование объекта в системный буфер без блокировки действия пользователя.
    */
   private _copyToSystemClipboardInBackground({
-    activeObject,
+    object,
     method
   }: {
-    activeObject: FabricObject
+    object: FabricObject
     method: 'copy' | 'cut'
   }): void {
-    this._copyToSystemClipboard(activeObject).catch((error) => {
+    this._copyToSystemClipboard(object).catch((error) => {
       this.editor.errorManager.emitWarning({
         origin: 'ClipboardManager',
         method,
@@ -360,7 +418,7 @@ export default class ClipboardManager {
 
     try {
       // Используем асинхронное клонирование для корректной работы с SVG и сложными объектами
-      const clonedObject = await targetObject.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
+      const clonedObject = await this._cloneObject({ object: targetObject })
 
       materializeObjectIdentity({
         rootObject: clonedObject
@@ -407,17 +465,35 @@ export default class ClipboardManager {
     if (!activeObject || activeObject.locked) return false
 
     try {
-      const copied = await this._cloneToInternalClipboard(activeObject)
-      if (!copied) return false
-
-      this._copyToSystemClipboardInBackground({
-        activeObject,
-        method: 'cut'
-      })
-
       const objectsToDelete = activeObject instanceof ActiveSelection
         ? activeObject.getObjects()
         : [activeObject]
+      const deleteTargets = deletionManager.resolveDeleteTargets({
+        objects: objectsToDelete
+      })
+
+      if (!deleteTargets.deletableObjects.length) {
+        deletionManager.deleteSelectedObjects({
+          objects: objectsToDelete
+        })
+
+        return false
+      }
+
+      const cutSourceObject = this._createCutSourceObject({
+        activeObject,
+        objectsToCut: deleteTargets.deletableObjects
+      })
+
+      if (!cutSourceObject) return false
+
+      const copied = await this._copyObjectToClipboard({
+        object: cutSourceObject,
+        method: 'cut'
+      })
+
+      if (!copied) return false
+
       const result = deletionManager.deleteSelectedObjects({
         objects: objectsToDelete
       })
@@ -433,6 +509,26 @@ export default class ClipboardManager {
       })
       return false
     }
+  }
+
+  /**
+   * Собирает объект, который должен попасть в буфер при вырезании.
+   */
+  private _createCutSourceObject({
+    activeObject,
+    objectsToCut
+  }: {
+    activeObject: FabricObject
+    objectsToCut: FabricObject[]
+  }): FabricObject | null {
+    if (!(activeObject instanceof ActiveSelection)) return activeObject
+    if (!objectsToCut.length) return null
+    if (objectsToCut.length === activeObject.getObjects().length) return activeObject
+    if (objectsToCut.length === 1) return objectsToCut[0]
+
+    return new ActiveSelection(objectsToCut, {
+      canvas: this.editor.canvas
+    })
   }
 
   /**
@@ -517,7 +613,7 @@ export default class ClipboardManager {
 
     try {
       // Клонируем объект асинхронно (правильно для всех типов объектов)
-      const clonedObj = await this.clipboard.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
+      const clonedObj = await this._cloneObject({ object: this.clipboard })
 
       canvas.discardActiveObject()
 

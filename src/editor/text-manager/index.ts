@@ -371,6 +371,20 @@ export default class TextManager {
   }
 
   /**
+   * Возвращает объект, который владеет активным редактируемым текстом.
+   * Для самостоятельного текста это сам текстовый объект, для текста внутри фигуры — группа фигуры.
+   */
+  public getActiveTextEditingOwner(): FabricObject | null {
+    const activeObject = this.canvas.getActiveObject()
+
+    if (!TextManager._isTextbox(activeObject)) return null
+    if (activeObject.isEditing !== true) return null
+    if (!TextManager._isShapeOwnedTextbox(activeObject)) return activeObject
+
+    return activeObject.group ?? activeObject
+  }
+
+  /**
    * Завершает активное редактирование текста перед внешним прерывающим действием.
    * Используется там, где следующее действие должно зафиксировать введённый текст
    * отдельным history-шагом до собственной мутации.

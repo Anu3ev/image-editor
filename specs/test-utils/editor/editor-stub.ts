@@ -1,4 +1,5 @@
 import { Point } from 'fabric'
+import type { FabricObject } from 'fabric'
 import { createCanvasStub } from '../canvas/canvas-stub'
 
 type PlacementOriginX = 'left' | 'center' | 'right'
@@ -274,7 +275,19 @@ export const createEditorStub = () => {
     },
     layerManager: { bringToFront: jest.fn() },
     selectionManager: { selectAll: jest.fn() },
-    deletionManager: { deleteSelectedObjects: jest.fn() },
+    deletionManager: {
+      deleteSelectedObjects: jest.fn(),
+      resolveDeleteTargets: jest.fn(({ objects }: { objects?: FabricObject[] } = {}) => {
+        const requestedObjects = objects ?? canvas.getActiveObjects()
+        const deletableObjects = requestedObjects.filter((object: FabricObject) => !object.locked)
+
+        return {
+          requestedObjects,
+          deletableObjects,
+          skippedObjects: []
+        }
+      })
+    },
     clipboardManager: { copy: jest.fn(), handlePasteEvent: jest.fn() },
     objectLockManager: {
       lockObject: jest.fn()
@@ -282,6 +295,7 @@ export const createEditorStub = () => {
     textManager: {
       isTextEditingActive: false,
       commitStandaloneTextScale: jest.fn(),
+      getActiveTextEditingOwner: jest.fn().mockReturnValue(null),
       exitActiveTextEditing: jest.fn().mockReturnValue(false)
     },
     errorManager: {

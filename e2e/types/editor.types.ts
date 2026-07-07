@@ -138,6 +138,15 @@ export interface ObjectTargetParams {
   id?: string
 }
 
+/** Событие о пропущенных при удалении объектах, записанное e2e-хелпером. */
+export interface DeleteSkippedEventInfo {
+  requestedCount: number
+  requestedIds: Array<string | null>
+  skippedCount: number
+  skippedIds: Array<string | null>
+  withoutSave: boolean | null
+}
+
 /** Параметры сериализации шаблона из текущего выделения */
 export interface SerializeTemplateParams {
   templateId?: string
