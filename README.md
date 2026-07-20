@@ -6,6 +6,40 @@ A modern, powerful browser-based image editor built with [FabricJS](https://fabr
 
 🚀 **[Live Demo](https://anu3ev.github.io/image-editor/)**
 
+## Why this project matters
+
+This project demonstrates the architecture behind complex browser-based visual tools, not just a collection of canvas controls.
+
+It keeps FabricJS rendering concerns separate from workflows such as canvas state management, history, layers, crop sessions, text editing, background composition, and export. The result is a TypeScript editor that host applications can integrate through a focused public API and editor events.
+
+## See it in action
+
+The live demo exercises the same workflows exposed through the public API.
+
+### Crop flow
+
+![Crop an image with a fixed ratio and a dimmed area outside the crop frame](./assets/image-crop-example.gif)
+
+### Layers and history
+
+[Watch the layers and history demo](./assets/layers-history-demo.gif)
+
+### Text styling
+
+[Watch the text styling demo](./assets/text-background-export-demo.gif)
+
+## For hiring managers
+
+This repository is relevant for teams building design tools, visual editors, CMS and editorial workflows, e-commerce creative tools, and AI-assisted content interfaces.
+
+It demonstrates practical work with:
+
+- stateful browser interactions built on top of a canvas runtime;
+- undoable workflows, serialization, template restore, and export;
+- modular TypeScript architecture with explicit manager ownership;
+- public APIs and events designed for host-application integration;
+- regression coverage for interaction-heavy scenarios such as crop, selection, scaling, snapping, and text editing.
+
 ## ✨ Features
 
 ### Core Editing
