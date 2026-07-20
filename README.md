@@ -22,11 +22,11 @@ The live demo exercises the same workflows exposed through the public API.
 
 ### Layers and history
 
-[Watch the layers and history demo](./assets/layers-history-demo.gif)
+![Watch the layers and history demo](./assets/layers-history-demo.gif)
 
 ### Text styling
 
-[Watch the text styling demo](./assets/text-background-export-demo.gif)
+![Watch the text styling demo](./assets/text-background-export-demo.gif)
 
 ## For hiring managers
 
