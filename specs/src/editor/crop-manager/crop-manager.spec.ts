@@ -1,6 +1,18 @@
-import { Rect } from 'fabric'
+import {
+  Rect,
+  type Canvas,
+  type FabricObject
+} from 'fabric'
 import type { ImageEditor } from '../../../../src/editor'
-import type { CropSession } from '../../../../src/editor/crop-manager/types'
+import type {
+  CropSession,
+  StartCanvasCropOptions,
+  StartImageCropOptions
+} from '../../../../src/editor/crop-manager/types'
+import {
+  CropDimmingOverlay,
+  installCropDimmingOverlay
+} from '../../../../src/editor/crop-manager/domain/crop-dimming-overlay'
 import { CropFrame } from '../../../../src/editor/crop-manager/domain/crop-frame'
 import CropManager from '../../../../src/editor/crop-manager'
 import { createEditorStub } from '../../../test-utils/editor/editor-stub'
@@ -14,9 +26,11 @@ type ActiveCropManagerFixture = {
 
 /** Создаёт минимальную runtime-сессию crop manager для unit-проверок. */
 const createMinimalSession = ({
-  preserveAspectRatio = true
+  preserveAspectRatio = true,
+  showDimmedArea = true
 }: {
   preserveAspectRatio?: boolean
+  showDimmedArea?: boolean
 } = {}): CropSession => {
   const source = new Rect({ width: 100, height: 100 })
   const frame = new CropFrame({
@@ -28,6 +42,7 @@ const createMinimalSession = ({
 
   source.calcTransformMatrix = jest.fn().mockReturnValue([1, 0, 0, 1, 0, 0])
   frame.calcTransformMatrix = jest.fn().mockReturnValue([1, 0, 0, 1, 0, 0])
+  frame.on = jest.fn()
   frame.off = jest.fn()
 
   return {
@@ -39,7 +54,8 @@ const createMinimalSession = ({
       preserveAspectRatio,
       allowFrameOverflow: true,
       showGrid: true,
-      cancelOnSelectionClear: true
+      cancelOnSelectionClear: true,
+      showDimmedArea
     },
     previousActiveObject: null,
     interactivity: [],
@@ -48,15 +64,33 @@ const createMinimalSession = ({
   }
 }
 
+/** Устанавливает исходные canvas-настройки, которые должен восстановить crop overlay. */
+const prepareCanvasOverlayState = ({
+  canvas,
+  overlayImage
+}: {
+  canvas: Canvas
+  overlayImage: FabricObject
+}): void => {
+  canvas.overlayImage = overlayImage
+  canvas.overlayVpt = true
+  canvas.controlsAboveOverlay = false
+}
+
 /** Создаёт CropManager с активной минимальной runtime-сессией. */
 const createActiveCropManager = ({
-  preserveAspectRatio = true
+  preserveAspectRatio = true,
+  showDimmedArea = true
 }: {
   preserveAspectRatio?: boolean
+  showDimmedArea?: boolean
 } = {}): ActiveCropManagerFixture => {
   const editor = createEditorStub() as ImageEditor
   const cropManager = new CropManager({ editor })
-  const session = createMinimalSession({ preserveAspectRatio })
+  const session = createMinimalSession({
+    preserveAspectRatio,
+    showDimmedArea
+  })
 
   cropManager['_session'] = session
 
@@ -68,6 +102,186 @@ const createActiveCropManager = ({
 }
 
 describe('CropManager', () => {
+  describe('showDimmedArea', () => {
+    it('по умолчанию включает затемнение вне crop-области для canvas и image crop', () => {
+      const editor = createEditorStub() as ImageEditor
+      const cropManager = new CropManager({ editor })
+      const canvasOptions = cropManager['_resolveSessionOptions']({
+        options: {} satisfies StartCanvasCropOptions
+      })
+      const imageOptions = cropManager['_resolveSessionOptions']({
+        options: {} satisfies StartImageCropOptions
+      })
+
+      expect(canvasOptions.showDimmedArea).toBe(true)
+      expect(imageOptions.showDimmedArea).toBe(true)
+    })
+
+    it('сохраняет явное отключение затемнения для canvas и image crop', () => {
+      const editor = createEditorStub() as ImageEditor
+      const cropManager = new CropManager({ editor })
+      const canvasOptions = cropManager['_resolveSessionOptions']({
+        options: { showDimmedArea: false } satisfies StartCanvasCropOptions
+      })
+      const imageOptions = cropManager['_resolveSessionOptions']({
+        options: { showDimmedArea: false } satisfies StartImageCropOptions
+      })
+
+      expect(canvasOptions.showDimmedArea).toBe(false)
+      expect(imageOptions.showDimmedArea).toBe(false)
+    })
+
+    it('отдаёт настройку затемнения в публичном состоянии активного crop mode', () => {
+      const { cropManager, session } = createActiveCropManager({
+        showDimmedArea: false
+      })
+      const state = cropManager.getState()
+
+      expect(session.options.showDimmedArea).toBe(false)
+      expect(state?.options.showDimmedArea).toBe(false)
+    })
+
+    it('не заменяет существующий canvas overlay при выключенном затемнении', () => {
+      const editor = createEditorStub() as ImageEditor
+      const cropManager = new CropManager({ editor })
+      const session = createMinimalSession({ showDimmedArea: false })
+      const previousOverlay = new Rect({ width: 10, height: 10 })
+      const canvas = editor.canvas as Canvas
+
+      prepareCanvasOverlayState({
+        canvas,
+        overlayImage: previousOverlay
+      })
+      cropManager['_createCanvasSession'] = jest.fn().mockReturnValue(session)
+
+      const state = cropManager.startCanvasCrop({ showDimmedArea: false })
+
+      expect(state?.options.showDimmedArea).toBe(false)
+      expect(canvas.overlayImage).toBe(previousOverlay)
+      expect(canvas.overlayVpt).toBe(true)
+    })
+  })
+
+  describe('dimming overlay lifecycle', () => {
+    it('восстанавливает предыдущие canvas overlay-настройки после cancel', () => {
+      const { cropManager, editor, session } = createActiveCropManager()
+      const previousOverlay = new Rect({ width: 10, height: 10 })
+      const canvas = editor.canvas as Canvas
+
+      prepareCanvasOverlayState({
+        canvas,
+        overlayImage: previousOverlay
+      })
+      installCropDimmingOverlay({
+        canvas,
+        frame: session.frame
+      })
+
+      const cancelled = cropManager.cancel()
+
+      expect(cancelled).toBe(true)
+      expect(canvas.overlayImage).toBe(previousOverlay)
+      expect(canvas.overlayVpt).toBe(true)
+      expect(canvas.controlsAboveOverlay).toBe(false)
+    })
+
+    it('восстанавливает предыдущие canvas overlay-настройки после apply', () => {
+      const { cropManager, editor, session } = createActiveCropManager()
+      const previousOverlay = new Rect({ width: 10, height: 10 })
+      const canvas = editor.canvas as Canvas
+
+      prepareCanvasOverlayState({
+        canvas,
+        overlayImage: previousOverlay
+      })
+      installCropDimmingOverlay({
+        canvas,
+        frame: session.frame
+      })
+      cropManager['_applySessionCrop'] = jest.fn().mockReturnValue({
+        mode: 'canvas',
+        target: null,
+        rect: {
+          left: 0,
+          top: 0,
+          width: 100,
+          height: 100
+        }
+      })
+
+      const result = cropManager.apply()
+
+      expect(result?.mode).toBe('canvas')
+      expect(canvas.overlayImage).toBe(previousOverlay)
+      expect(canvas.overlayVpt).toBe(true)
+      expect(canvas.controlsAboveOverlay).toBe(false)
+    })
+
+    it('восстанавливает предыдущие canvas overlay-настройки при destroy', () => {
+      const { cropManager, editor, session } = createActiveCropManager()
+      const previousOverlay = new Rect({ width: 10, height: 10 })
+      const canvas = editor.canvas as Canvas
+
+      prepareCanvasOverlayState({
+        canvas,
+        overlayImage: previousOverlay
+      })
+      installCropDimmingOverlay({
+        canvas,
+        frame: session.frame
+      })
+
+      cropManager.destroy()
+
+      expect(cropManager.isActive).toBe(false)
+      expect(canvas.overlayImage).toBe(previousOverlay)
+      expect(canvas.overlayVpt).toBe(true)
+      expect(canvas.controlsAboveOverlay).toBe(false)
+    })
+
+    it('не теряет предыдущие canvas overlay-настройки при повторном входе в crop mode', () => {
+      const editor = createEditorStub() as ImageEditor
+      const cropManager = new CropManager({ editor })
+      const firstSession = createMinimalSession()
+      const secondSession = createMinimalSession()
+      const previousOverlay = new Rect({ width: 10, height: 10 })
+      const canvas = editor.canvas as Canvas
+
+      prepareCanvasOverlayState({
+        canvas,
+        overlayImage: previousOverlay
+      })
+      jest.spyOn(editor.canvasManager, 'getObjects').mockReturnValue([])
+      const sessions = [firstSession, secondSession]
+      let nextSessionIndex = 0
+
+      cropManager['_createCanvasSession'] = jest.fn(() => {
+        const session = sessions[nextSessionIndex]
+
+        if (!session) {
+          throw new Error('Повторный вход в crop mode не должен создавать третью session')
+        }
+
+        nextSessionIndex += 1
+
+        return session
+      })
+
+      cropManager.startCanvasCrop()
+      const firstOverlay = canvas.overlayImage
+      cropManager.startCanvasCrop()
+      const secondOverlay = canvas.overlayImage
+      cropManager.cancel()
+
+      expect(firstOverlay).toBeInstanceOf(CropDimmingOverlay)
+      expect(secondOverlay).toBeInstanceOf(CropDimmingOverlay)
+      expect(secondOverlay).not.toBe(firstOverlay)
+      expect(canvas.overlayImage).toBe(previousOverlay)
+      expect(canvas.overlayVpt).toBe(true)
+      expect(canvas.controlsAboveOverlay).toBe(false)
+    })
+  })
+
   describe('effectivePreserveAspectRatio', () => {
     it('возвращает true, когда crop mode не активен', () => {
       const editor = createEditorStub() as ImageEditor

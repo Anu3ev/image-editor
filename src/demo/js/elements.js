@@ -60,6 +60,8 @@ const cropHeightInput = document.getElementById('crop-height-input')
 const cropAllowOverflowCheckbox = document.getElementById('crop-allow-overflow-checkbox')
 /** Checkbox отображения сетки crop frame. */
 const cropShowGridCheckbox = document.getElementById('crop-show-grid-checkbox')
+/** Checkbox затемнения области за пределами crop frame. */
+const cropShowDimmedAreaCheckbox = document.getElementById('crop-show-dimmed-area-checkbox')
 /** Checkbox сохранения текущих пропорций при resize crop frame. */
 const cropPreserveAspectRatioCheckbox = document.getElementById('crop-preserve-aspect-ratio-checkbox')
 /** Checkbox отмены crop mode при сбросе выделения. */
@@ -317,6 +319,7 @@ export const cropControls = {
   cropHeightInput,
   cropPreserveAspectRatioCheckbox,
   cropRatioSelect,
+  cropShowDimmedAreaCheckbox,
   cropShowGridCheckbox,
   cropWidthInput,
   startCanvasCropBtn,

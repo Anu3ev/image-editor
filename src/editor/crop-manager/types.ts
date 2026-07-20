@@ -34,6 +34,7 @@ export type StartCanvasCropOptions = {
   aspectRatio?: CropAspectRatio
   allowFrameOverflow?: boolean
   showGrid?: boolean
+  showDimmedArea?: boolean
   cancelOnSelectionClear?: boolean
   preserveAspectRatio?: boolean
 }
@@ -47,6 +48,7 @@ export type StartImageCropOptions = {
   aspectRatio?: CropAspectRatio
   allowFrameOverflow?: boolean
   showGrid?: boolean
+  showDimmedArea?: boolean
   cancelOnSelectionClear?: boolean
   preserveAspectRatio?: boolean
 }
@@ -57,6 +59,7 @@ export type StartImageCropOptions = {
 export type CropSessionOptions = {
   allowFrameOverflow: boolean
   showGrid: boolean
+  showDimmedArea: boolean
   cancelOnSelectionClear: boolean
   preserveAspectRatio: boolean
 }

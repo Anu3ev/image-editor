@@ -11,6 +11,15 @@
   When overflow is allowed, negative `left/top` values remain valid results for transparent margins.
 - `CropFrame` also exists only inside an active crop session. It is marked `excludeFromExport` and must not be included in exports.
 
+## Dimmed area
+
+- `showDimmedArea` is an optional crop start option and defaults to `true`. It paints `#000000` at 25% opacity everywhere on the Fabric canvas bitmap except for the active crop frame.
+  The dimmed area is not limited to the montage area: it also covers the rest of the Fabric canvas, but never the editor's DOM controls.
+- The option is read when a crop session starts, like `showGrid`. There is intentionally no live setter for an already active session.
+- The dimming overlay is transient session state. It must not be serialized, added to history, or included in image, JSON, SVG, or template exports.
+- Crop mode temporarily owns the native Fabric `overlayImage` slot and restores the previous `overlayImage`, `overlayVpt`, and `controlsAboveOverlay` values when the session finishes, restarts, or the editor is destroyed.
+  Fabric has one native overlay slot, so crop mode restores a pre-existing overlay but does not compose it with the crop dimming overlay.
+
 ## Important crop-time contracts
 
 - `CropFrame` stores `cropSource`, `cropAllowFrameOverflow`, `cropSourceScaleX`, `cropSourceScaleY`, and `preserveAspectRatio`.

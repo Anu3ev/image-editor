@@ -24,6 +24,7 @@ export interface CropRectInfo {
 export interface CropSessionOptionsInfo {
   allowFrameOverflow: boolean
   showGrid: boolean
+  showDimmedArea: boolean
   cancelOnSelectionClear: boolean
   preserveAspectRatio: boolean
 }
@@ -62,12 +63,31 @@ export interface CropImageSourceInfo {
   sourceHeight: number
 }
 
+/** Цвет одного пикселя lower Fabric canvas. */
+export interface CropCanvasPixelInfo {
+  red: number
+  green: number
+  blue: number
+  alpha: number
+}
+
+/** Визуальное состояние transient затемнения активной crop-сессии. */
+export interface CropDimmingOverlaySnapshot {
+  hasOverlayImage: boolean
+  overlayVpt: boolean
+  controlsAboveOverlay: boolean
+  insideFrame: CropCanvasPixelInfo | null
+  outsideFrame: CropCanvasPixelInfo | null
+  outsideMontage: CropCanvasPixelInfo
+}
+
 /** Параметры старта crop mode через e2e-модель. */
 export interface CropStartParams extends ObjectTargetParams {
   size?: CropSizeInfo
   aspectRatio?: CropSizeInfo
   allowFrameOverflow?: boolean
   showGrid?: boolean
+  showDimmedArea?: boolean
   cancelOnSelectionClear?: boolean
   preserveAspectRatio?: boolean
 }

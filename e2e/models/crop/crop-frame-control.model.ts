@@ -1,7 +1,7 @@
 import { type Page, expect } from '@playwright/test'
 
-import { waitForCanvasRender } from '../helpers/canvas-render.helper'
-import type { CropControlKey } from '../types'
+import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
+import type { CropControlKey } from '../../types'
 
 /** Client-точка crop frame control. */
 type CropFrameControlPoint = {

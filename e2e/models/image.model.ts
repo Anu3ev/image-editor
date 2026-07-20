@@ -319,6 +319,30 @@ export class ImageModel {
     return info
   }
 
+  /** Устанавливает абсолютный угол изображения через публичный TransformManager. */
+  async setAngle(params: { angle: number } & ObjectTargetParams): Promise<void> {
+    expect(Number.isFinite(params.angle), 'угол изображения должен быть конечным числом').toBe(true)
+    if (!Number.isFinite(params.angle)) {
+      throw new Error('Угол изображения должен быть конечным числом')
+    }
+
+    const updated = await this.page.evaluate(({ angle, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return false
+
+      editor.transformManager.setAngle(target, angle)
+
+      return true
+    }, params)
+
+    expect(updated, 'изображение должно существовать для изменения угла').toBe(true)
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Переносит левый верхний угол bounds изображения в координаты canvas-сцены. */
   async moveBoundsTo(
     params: { left: number, top: number } & ObjectTargetParams

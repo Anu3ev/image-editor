@@ -22,7 +22,7 @@ import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
 import { ClipboardModel } from './clipboard.model'
 import { TemplateModel } from './template.model'
-import { TextModel } from './text.model'
+import { TextModel } from './text/text.model'
 import { SnappingModel } from './snapping.model'
 import { BackgroundModel } from './background.model'
 import { InteractionBlockerModel } from './interaction-blocker.model'
@@ -30,7 +30,7 @@ import { ImageModel } from './image.model'
 import { ToolbarModel } from './toolbar.model'
 import { SelectionModel } from './selection.model'
 import { GroupingModel } from './grouping.model'
-import { CropModel } from './crop.model'
+import { CropModel } from './crop/crop.model'
 
 /** Результат отправки DOM input-событий в canvas wrapper. */
 type WheelInputDispatchState = {
