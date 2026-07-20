@@ -3,7 +3,7 @@ import type {
   CropControlKey,
   CropRectInfo,
   CropStateInfo
-} from '../types'
+} from '../../types'
 
 /** Изображение, размеры которого нужны для расчёта source-boundary resize. */
 export type CropSourceBoundaryImage = {

@@ -7,6 +7,7 @@ const getCropBehaviorOptions = ({ controls }) => {
   return {
     allowFrameOverflow: controls.cropAllowOverflowCheckbox.checked,
     showGrid: controls.cropShowGridCheckbox.checked,
+    showDimmedArea: controls.cropShowDimmedAreaCheckbox.checked,
     cancelOnSelectionClear: controls.cropCancelOnSelectionClearCheckbox.checked,
     preserveAspectRatio: controls.cropPreserveAspectRatioCheckbox.checked
   }

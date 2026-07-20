@@ -42,6 +42,10 @@ import {
   getRoundedCropRect
 } from './domain/crop-result'
 import {
+  installCropDimmingOverlay,
+  restoreCropDimmingOverlay
+} from './domain/crop-dimming-overlay'
+import {
   applyCanvasCrop,
   applyImageCrop
 } from './mutation/crop-apply'
@@ -67,6 +71,7 @@ import type {
 const DEFAULT_CROP_SESSION_OPTIONS = {
   allowFrameOverflow: true,
   showGrid: true,
+  showDimmedArea: true,
   cancelOnSelectionClear: true,
   preserveAspectRatio: true
 } satisfies CropSessionOptions
@@ -642,6 +647,7 @@ export default class CropManager {
     return {
       allowFrameOverflow: options.allowFrameOverflow ?? DEFAULT_CROP_SESSION_OPTIONS.allowFrameOverflow,
       showGrid: options.showGrid ?? DEFAULT_CROP_SESSION_OPTIONS.showGrid,
+      showDimmedArea: options.showDimmedArea ?? DEFAULT_CROP_SESSION_OPTIONS.showDimmedArea,
       cancelOnSelectionClear: options.cancelOnSelectionClear ?? DEFAULT_CROP_SESSION_OPTIONS.cancelOnSelectionClear,
       preserveAspectRatio: options.preserveAspectRatio
         ?? DEFAULT_CROP_SESSION_OPTIONS.preserveAspectRatio
@@ -705,6 +711,9 @@ export default class CropManager {
     session.interactivity = this._disableSceneObjects()
 
     this._session = session
+    if (session.options.showDimmedArea) {
+      installCropDimmingOverlay({ canvas, frame: session.frame })
+    }
     this._bindCropFrameEvents({ frame: session.frame })
 
     canvas.add(session.frame)
@@ -1376,6 +1385,7 @@ export default class CropManager {
 
     this._unbindCropFrameEvents({ frame: session.frame })
     this._unbindCanvasSelectionEvents()
+    restoreCropDimmingOverlay({ canvas: this.editor.canvas })
     this.editor.canvas.remove(session.frame)
     this._restoreSceneObjects({ interactivity: session.interactivity })
     this.editor.historyManager.resumeHistory()

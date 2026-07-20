@@ -2,7 +2,7 @@
 /* eslint-disable no-use-before-define -- Public e2e model держим выше private scenario helpers. */
 import { type Page, expect } from '@playwright/test'
 
-import { waitForCanvasRender } from '../helpers/canvas-render.helper'
+import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import {
   resolveExpectedFreeSourceBoundaryRect,
   resolveExpectedSourceBoundaryRect,
@@ -11,6 +11,7 @@ import {
   type CropFramePointerDelta
 } from './crop-source-boundary.model'
 import { CropFrameControlModel } from './crop-frame-control.model'
+import { CropDimmingOverlayModel } from './crop-dimming-overlay.model'
 import type {
   CropControlKey,
   CropImageSourceInfo,
@@ -22,7 +23,7 @@ import type {
   EditorObjectInfo,
   ObjectSizeIndicatorInfo,
   ObjectTargetParams
-} from '../types'
+} from '../../types'
 
 /** Последняя pointer-позиция live resize crop frame. */
 type CropResizePointer = {
@@ -194,6 +195,9 @@ export class CropModel {
   /** E2E-модель hover/cursor действий над controls активной crop-области. */
   readonly frameControls: CropFrameControlModel
 
+  /** E2E-модель визуального затемнения вне active crop frame. */
+  readonly dimmingOverlay: CropDimmingOverlayModel
+
   /** Pointer-позиция последнего незавершённого resize crop frame. */
   private lastResizePointer: CropResizePointer | null = null
 
@@ -203,6 +207,7 @@ export class CropModel {
   constructor(page: Page) {
     this.page = page
     this.frameControls = new CropFrameControlModel(page)
+    this.dimmingOverlay = new CropDimmingOverlayModel(page)
   }
 
   /** Возвращает true, если crop mode активен. */

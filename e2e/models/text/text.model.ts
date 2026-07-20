@@ -17,16 +17,16 @@ import type {
   TextSelectionStyleInfo,
   TextTemplateApplyParams,
   TextUpdateStyleParams
-} from '../types'
-import { waitForCanvasRender } from '../helpers/canvas-render.helper'
+} from '../../types'
+import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import {
   TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR,
   TEXT_RESIZING_REGRESSION_ADD_OPTIONS,
   TEXT_RESIZING_REGRESSION_LINE_DEFAULTS,
   TEXT_RESIZING_REGRESSION_SECOND_LINE_STYLE,
   TEXT_RESIZING_REGRESSION_TEMPLATE
-} from '../fixtures/data/text-resizing.data'
-import TextResizeSession from './text/text-resize-session'
+} from '../../fixtures/data/text-resizing.data'
+import TextResizeSession from './text-resize-session'
 
 export class TextModel {
   private readonly page: Page
