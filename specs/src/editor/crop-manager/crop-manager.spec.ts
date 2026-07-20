@@ -212,6 +212,38 @@ describe('CropManager', () => {
     })
   })
 
+  describe('resetFrameToSource', () => {
+    it('разворачивает frame до максимального размера с текущими пропорциями, когда keep ratio включён', () => {
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: true
+      })
+
+      session.source.set({ width: 1000, height: 667 })
+      session.frame.set({ width: 300, height: 300 })
+
+      const state = cropManager.resetFrameToSource({ target: session.frame })
+
+      expect(state).not.toBeNull()
+      expect(session.frame.width).toBeCloseTo(667, 5)
+      expect(session.frame.height).toBeCloseTo(667, 5)
+    })
+
+    it('разворачивает frame до полного размера source, когда keep ratio выключен', () => {
+      const { cropManager, session } = createActiveCropManager({
+        preserveAspectRatio: false
+      })
+
+      session.source.set({ width: 1000, height: 667 })
+      session.frame.set({ width: 300, height: 300 })
+
+      const state = cropManager.resetFrameToSource({ target: session.frame })
+
+      expect(state).not.toBeNull()
+      expect(session.frame.width).toBeCloseTo(1000, 5)
+      expect(session.frame.height).toBeCloseTo(667, 5)
+    })
+  })
+
   describe('fitFrame', () => {
     it('масштабирует active crop через transformManager и возвращает crop state', () => {
       const {

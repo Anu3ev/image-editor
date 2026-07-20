@@ -1,64 +1,67 @@
 # CropManager
 
-`CropManager` управляет временным crop mode для монтажной области и изображения. Его главная задача не в том, чтобы хранить итоговый crop, а в том, чтобы безопасно провести сессию редактирования: создать `CropFrame`, ограничить его границами исходного изображения, отдать наружу текущее состояние и затем либо применить результат, либо отменить сессию.
+`CropManager` manages temporary crop mode for the montage area and images. Its job is not to persist the final crop, but to safely run an editing session: create a `CropFrame`, constrain it to the source bounds, expose the current state, and then either apply the result or cancel the session.
 
-## Где хранится состояние
+## State ownership
 
-- Активная сессия живёт в `CropManager._session`. Это временное состояние во время редактирования: оно не сериализуется, не попадает в history и не должно утекать в сохраняемую модель.
-- Публичное состояние crop mode возвращает `getState()`. Итоговый прямоугольник считается не из сырой геометрии Fabric frame:
-  во время resize используется неокруглённый `getCropSessionResultRect()`, наружу `getState()` отдаёт округлённый результат через `getRoundedCropRect()`.
-- Округлённый результат crop приводит `width/height` к целым пикселям и ограничивает `left/top` внутри исходного изображения только при `allowFrameOverflow = false`.
-  При разрешённом overflow отрицательные `left/top` остаются валидным результатом для прозрачных полей.
-- `CropFrame` тоже существует только внутри активной crop session. Он помечен `excludeFromExport` и не должен попадать в экспорт.
+- The active session lives in `CropManager._session`. It is transient editing state: it is not serialized, does not enter history, and must not leak into the persisted model.
+- `getState()` returns the public crop-mode state. The final rectangle is not derived directly from raw Fabric frame geometry:
+  resize uses the unrounded `getCropSessionResultRect()`, while `getState()` exposes the rounded result through `getRoundedCropRect()`.
+- The rounded crop result converts `width/height` to integer pixels and constrains `left/top` to the source image only when `allowFrameOverflow = false`.
+  When overflow is allowed, negative `left/top` values remain valid results for transparent margins.
+- `CropFrame` also exists only inside an active crop session. It is marked `excludeFromExport` and must not be included in exports.
 
-## Важные контракты во время crop
+## Important crop-time contracts
 
-- `CropFrame` хранит `cropSource`, `cropAllowFrameOverflow`, `cropSourceScaleX`, `cropSourceScaleY` и `preserveAspectRatio`.
-  Эти поля определяют не только UI, но и то, как resize/snap должны интерпретировать размер frame.
-- `CropFrame.scaleX/scaleY` на старте совпадают со scale исходного изображения.
-  Поэтому обычный Fabric bounds показывает геометрию frame на canvas, а `frame.getObjectDisplaySize()` возвращает размер crop-результата в пикселях исходного изображения.
-- `frame.getObjectSnappingBounds()` намеренно исключает stroke.
-  Snapping должен работать по геометрии crop-результата, а не по визуальной обводке frame.
-- При переносе crop frame к guide исходной точкой для последующего resize становится фактическое положение frame.
-  Если соседняя подсистема уже сдвинула зафиксированную грань с guide, resize с ограничением по исходному изображению не должен “угадывать” потерянный пиксель обратно.
-  Такой баг нужно чинить в `SnappingManager`, а не в clamp-математике `CropManager`.
-- Canvas crop тоже проходит через `CropFrame`, но обычно имеет `cropSourceScaleX/Y = 1`.
-  В этом режиме размер индикатора и геометрия frame на canvas совпадают, но удержание грани на guide всё равно остаётся ответственностью `SnappingManager`.
-  Округление до целых пикселей после расчёта guide не должно сдвигать эту грань.
-- `allowFrameOverflow = false` включает ограничение crop frame границами исходного изображения.
-  В этом режиме clamp и scale-limit должны опираться на `getCropRectInSource()` и `getSourceSize()`, а не на сырой bounding box на canvas.
-- `preserveAspectRatio` по умолчанию включён. `Shift` не “добавляет” пропорции, а инвертирует текущее правило.
-  Этот контракт должен совпадать с `crop-controls` и `snapping-manager`.
+- `CropFrame` stores `cropSource`, `cropAllowFrameOverflow`, `cropSourceScaleX`, `cropSourceScaleY`, and `preserveAspectRatio`.
+  These fields define not only the UI, but also how resize and snapping interpret the frame size.
+- `CropFrame.scaleX/scaleY` initially match the source image scale.
+  Regular Fabric bounds therefore describe frame geometry on the canvas, while `frame.getObjectDisplaySize()` returns the crop-result size in source-image pixels.
+- `frame.getObjectSnappingBounds()` intentionally excludes the stroke.
+  Snapping must use crop-result geometry, not the visible frame outline.
+- After moving a crop frame to a guide, its actual position becomes the reference point for the next resize.
+  If another subsystem has already moved the fixed edge away from the guide, source-bound resize must not try to guess the missing pixel back.
+  Fix this kind of bug in `SnappingManager`, not in `CropManager` clamp math.
+- Canvas crop also goes through `CropFrame`, but usually uses `cropSourceScaleX/Y = 1`.
+  In this mode, the size indicator and frame geometry on the canvas match, but holding an edge on a guide remains `SnappingManager` responsibility.
+  Rounding to integer pixels after guide calculation must not move that edge.
+- `allowFrameOverflow = false` constrains the crop frame to source-image bounds.
+  In this mode, clamp and scale limits must rely on `getCropRectInSource()` and `getSourceSize()`, not a raw canvas bounding box.
+- `preserveAspectRatio` is enabled by default. `Shift` does not add aspect-ratio preservation; it inverts the current rule.
+  This contract must match `crop-controls` and `snapping-manager`.
+- Double-clicking an active crop frame calls `resetFrameToSource()`. With `preserveAspectRatio` disabled, the frame returns to the full source size.
+  With the mode enabled, it expands to the largest size inside the source while keeping the frame's current aspect ratio.
+  Use the unrounded `CropFrame` size in source pixels for this calculation, not the initial preset or public `getState().rect`.
 
-## Resize и clamp
+## Resize and clamp
 
-- `crop-controls` вычисляет ограничения scale по исходному изображению и помечает текущий `Transform` служебными флагами:
+- `crop-controls` calculates source-bound scale limits and annotates the current `Transform` with transient fields:
   `cropSourceScaleBounds`, `cropSourceScaleAnchorX/Y`, `cropSourceScaleClamped`, `cropSourceBoundScale`,
   `cropSourceScalePreserveAspectRatio`.
-- Эти поля существуют только внутри текущей resize-сессии.
-  Их нельзя рассматривать как сохраняемое состояние и нельзя переносить в доменную модель.
-- Resize с ограничением по исходному изображению держит две системы координат отдельно:
-  `getCropRectInSource()` возвращает rect в координатах исходного изображения, `getCropSessionResultRect()` возвращает неокруглённый crop-result,
-  а публичный `getState().rect` отдаёт округлённый результат.
-  Нельзя использовать публичный result-rect как входные координаты для размещения frame при восстановлении из координат исходного изображения.
-- `CropManager._handleCropFrameChanged()` сначала собирает состояние ограничения по исходному изображению из текущего `Transform`, затем делает общий clamp по исходнику и после него восстанавливает фиксированную опорную точку через `startRect + anchors + итоговый размер`.
-  Это нужно, потому что общий clamp может поменять размер, но не должен сдвигать противоположный угол crop-области.
-- Во время Fabric resize у frame может временно измениться `originX/originY`.
-  При обратном переводе source-rect в frame state нужно переводить центр rect в текущий Fabric origin через `translateToOriginPoint()`, а не записывать центр как сырой `left/top`.
+- These fields exist only for the current resize session.
+  Do not treat them as persisted state or copy them into the domain model.
+- Resize constrained by the source image keeps two coordinate systems separate:
+  `getCropRectInSource()` returns a rectangle in source-image coordinates, `getCropSessionResultRect()` returns an unrounded crop result,
+  and public `getState().rect` returns the rounded result.
+  Do not use the public result rectangle as input when restoring frame placement from source-image coordinates.
+- `CropManager._handleCropFrameChanged()` first collects source-bound state from the current `Transform`, then applies a common source clamp and restores the fixed anchor through `startRect + anchors + final size`.
+  This is necessary because the common clamp may change the size, but must not move the opposite crop-frame corner.
+- During Fabric resize, `originX/originY` may temporarily change on the frame.
+  When mapping a source rectangle back to frame state, translate the rectangle center to the current Fabric origin with `translateToOriginPoint()` instead of assigning it directly as raw `left/top`.
 
-## Что здесь легко сломать
+## Easy ways to break it
 
-- Смешать пиксели исходного изображения и координаты canvas в одном сравнении.
-- Перенести временные поля `Transform` в session/model “для удобства”.
-- Починить только один путь resize и забыть про `apply`, `cancel`, повторный `start*Crop()` и восстановление geometry после clamp.
-- Изменить правило `Shift` только в одном месте.
+- Mix source-image pixels and canvas coordinates in one comparison.
+- Copy transient `Transform` fields into session or model state “for convenience”.
+- Fix only one resize path and forget `apply`, `cancel`, repeated `start*Crop()`, or geometry restoration after clamp.
+- Change the `Shift` rule in only one place.
 
-## Перед правкой
+## Before making a change
 
-- Сначала определяй, где живёт проблема: в жизненном цикле сессии, геометрии/clamp или snapping.
-- Если меняется поведение `CropFrame`, проверяй оба контракта:
-  размер индикатора через `getObjectDisplaySize()` и snapping bounds через `getObjectSnappingBounds()`.
-- Если меняется resize с ограничением по исходному изображению, сразу перечитывай:
+- First determine where the problem belongs: session lifecycle, geometry/clamp, or snapping.
+- When changing `CropFrame` behavior, verify both contracts:
+  the size indicator through `getObjectDisplaySize()` and snapping bounds through `getObjectSnappingBounds()`.
+- When changing source-bound resize, immediately reread:
   [`domain/crop-frame.ts`](./domain/crop-frame.ts),
   [`interaction/crop-controls.ts`](./interaction/crop-controls.ts),
   [`index.ts`](./index.ts).

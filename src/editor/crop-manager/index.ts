@@ -469,17 +469,30 @@ export default class CropManager {
   }
 
   /**
-   * Сбрасывает активный crop frame к полному размеру source.
+   * Разворачивает active crop frame до source, сохраняя текущие пропорции при включённом keep ratio.
    */
   public resetFrameToSource({ target }: { target?: FabricObject | null }): CropState | null {
     const { _session: session } = this
     if (!session || session.frame !== target) return null
 
     const sourceSize = getSourceSize({ source: session.source })
+    let size = sourceSize
+
+    if (session.options.preserveAspectRatio) {
+      if (!(session.frame instanceof CropFrame)) {
+        throw new Error('Crop session frame должен быть CropFrame')
+      }
+
+      size = resolveCropSize({
+        sourceSize,
+        aspectRatio: session.frame.getObjectDisplaySize(),
+        allowOverflow: session.options.allowFrameOverflow
+      })
+    }
 
     this._applyFrameSize({
       session,
-      size: sourceSize
+      size
     })
 
     return this.getState()
