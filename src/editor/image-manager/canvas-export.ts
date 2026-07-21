@@ -65,7 +65,7 @@ export function createCanvasExportRequest({
     exportAsBlob = false
   } = options
   const isPDF = contentType === 'application/pdf'
-  const exportContentType = isPDF ? 'image/jpg' : contentType
+  const exportContentType = isPDF ? 'image/jpeg' : contentType
   const format = getFormatFromContentType(exportContentType)
 
   return {

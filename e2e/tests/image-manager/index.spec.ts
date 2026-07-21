@@ -3,6 +3,7 @@ import {
   IMAGE_BASE_SIZE,
   IMAGE_EXPORT_EDGE_COLOR_TOLERANCE,
   IMAGE_EXPORT_EDGE_FILL,
+  IMAGE_EXPORT_FORMATS,
   IMAGE_EXPORT_MONTAGE_SIZE,
   IMAGE_EXPORT_WHITE_PIXEL_MIN_CHANNEL,
   IMAGE_OUTSIDE_MONTAGE_OBJECT,
@@ -193,5 +194,32 @@ test.describe('Экспорт изображения', () => {
       expect(pixel.blue).toBeGreaterThan(240)
       expect(pixel.alpha).toBe(255)
     })
+  })
+  test('экспортирует монтажную область в JPG, JPEG, PNG, WEBP и PDF', async({ images }) => {
+    for (const exportFormat of IMAGE_EXPORT_FORMATS) {
+      const {
+        contentType,
+        fileName,
+        format,
+        label,
+        signatures
+      } = exportFormat
+
+      const exportedFile = await test.step(`Экспортировать монтажную область в ${label}`, () => {
+        return images.exportCanvasAsFile({ contentType, fileName })
+      })
+
+      await test.step(`Проверить формат и содержимое ${label} файла`, () => {
+        expect(exportedFile.contentType).toBe(contentType)
+        expect(exportedFile.fileName).toBe(fileName)
+        expect(exportedFile.format).toBe(format)
+
+        for (const signature of signatures) {
+          const signatureEnd = signature.offset + signature.bytes.length
+
+          expect(exportedFile.header.slice(signature.offset, signatureEnd)).toEqual(signature.bytes)
+        }
+      })
+    }
   })
 })

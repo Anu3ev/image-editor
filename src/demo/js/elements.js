@@ -2,6 +2,8 @@
 const chooseImageBtn = document.getElementById('choose-images-btn')
 /** Кнопка сохранения текущего результата редактора в файл. */
 const saveCanvasBtn = document.getElementById('save-canvas')
+/** Select выбора формата экспортируемого файла. */
+const exportFormatSelect = document.getElementById('export-format-select')
 /** Input для выбора одного или нескольких файлов изображений. */
 const fileInput = document.getElementById('file-input')
 /** Кнопка полной очистки canvas от объектов. */
@@ -284,6 +286,7 @@ const removeBackgroundBtn = document.getElementById('remove-background-btn')
 export const toolbarControls = {
   chooseImageBtn,
   saveCanvasBtn,
+  exportFormatSelect,
   fileInput,
   clearBtn,
   bringToFrontBtn,

@@ -35,3 +35,60 @@ export const IMAGE_OUTSIDE_MONTAGE_OBJECT = {
 
 /** Нижняя граница белого пикселя после JPEG-кодирования. */
 export const IMAGE_EXPORT_WHITE_PIXEL_MIN_CHANNEL = 245
+
+/** Ожидаемая последовательность байтов в экспортированном файле. */
+export type ImageExportFileSignature = {
+  bytes: number[]
+  offset: number
+}
+
+/** Параметры формата, в который экспортируется монтажная область. */
+export type ImageExportFormat = {
+  contentType: string
+  fileName: string
+  format: string
+  label: string
+  signatures: ImageExportFileSignature[]
+}
+
+/** Поддерживаемые варианты публичного экспорта монтажной области. */
+export const IMAGE_EXPORT_FORMATS: ImageExportFormat[] = [
+  {
+    label: 'JPG',
+    contentType: 'image/jpeg',
+    fileName: 'image.jpg',
+    format: 'jpeg',
+    signatures: [{ offset: 0, bytes: [0xff, 0xd8] }]
+  },
+  {
+    label: 'JPEG',
+    contentType: 'image/jpeg',
+    fileName: 'image.jpeg',
+    format: 'jpeg',
+    signatures: [{ offset: 0, bytes: [0xff, 0xd8] }]
+  },
+  {
+    label: 'PNG',
+    contentType: 'image/png',
+    fileName: 'image.png',
+    format: 'png',
+    signatures: [{ offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] }]
+  },
+  {
+    label: 'WEBP',
+    contentType: 'image/webp',
+    fileName: 'image.webp',
+    format: 'webp',
+    signatures: [
+      { offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] },
+      { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] }
+    ]
+  },
+  {
+    label: 'PDF',
+    contentType: 'application/pdf',
+    fileName: 'image.pdf',
+    format: 'pdf',
+    signatures: [{ offset: 0, bytes: [0x25, 0x50, 0x44, 0x46] }]
+  }
+]

@@ -78,9 +78,23 @@
               <div class="d-flex gap-2">
                 <input type="file" id="file-input" multiple accept="image/*" style="display:none;" />
                 <button class="btn btn-outline-primary btn-sm w-100" id="choose-images-btn">Import Image</button>
-                <button class="btn btn-outline-primary btn-sm w-100" id="save-canvas">Save result</button>
                 <button class="btn btn-outline-primary btn-sm w-100" id="clear-btn">Clear Canvas</button>
               </div>
+            </div>
+
+            <div class="export-controls">
+              <div class="h6">Export</div>
+
+              <label for="export-format-select" class="form-label">Format</label>
+              <select class="form-select form-select-sm" id="export-format-select">
+                <option value="jpg">JPG</option>
+                <option value="jpeg">JPEG</option>
+                <option value="png" selected>PNG</option>
+                <option value="webp">WEBP</option>
+                <option value="pdf">PDF</option>
+              </select>
+
+              <button class="btn btn-primary btn-sm w-100 mt-2" id="save-canvas">Save result</button>
             </div>
 
             <div class="state-controls">
