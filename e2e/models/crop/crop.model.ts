@@ -452,6 +452,20 @@ export class CropModel {
     return this.requireState()
   }
 
+  /** Разворачивает active image crop до source без передачи Fabric event target. */
+  async resetFrameToSource(): Promise<CropStateInfo> {
+    const state = await this.page.evaluate(() => {
+      const { editor } = window as any
+
+      return editor.cropManager.resetFrameToSource()
+    })
+
+    expect(state, 'active image crop должен сбрасываться до source без event target').not.toBeNull()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.requireState()
+  }
+
   /** Применяет активный crop mode. */
   async apply(): Promise<void> {
     const result = await this.page.evaluate(() => {

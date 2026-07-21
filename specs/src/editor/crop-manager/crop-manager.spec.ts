@@ -15,6 +15,7 @@ import {
 } from '../../../../src/editor/crop-manager/domain/crop-dimming-overlay'
 import { CropFrame } from '../../../../src/editor/crop-manager/domain/crop-frame'
 import CropManager from '../../../../src/editor/crop-manager'
+import { createCropImageTarget } from '../../../test-utils/crop/image-crop'
 import { createEditorStub } from '../../../test-utils/editor/editor-stub'
 
 /** Активный CropManager с минимальной runtime-сессией. */
@@ -456,10 +457,60 @@ describe('CropManager', () => {
       expect(session.frame.width).toBeCloseTo(1000, 5)
       expect(session.frame.height).toBeCloseTo(667, 5)
     })
+
+    it('разворачивает image crop без target, используя source активной сессии', () => {
+      const { cropManager } = createActiveCropManager()
+      const image = createCropImageTarget({ width: 1000, height: 667 })
+      image.calcTransformMatrix = jest.fn().mockReturnValue([1, 0, 0, 1, 0, 0])
+      const imageSession = {
+        ...createMinimalSession(),
+        mode: 'image',
+        source: image,
+        target: image
+      } satisfies CropSession
+
+      cropManager['_session'] = imageSession
+
+      const state = cropManager.resetFrameToSource()
+
+      expect(state).not.toBeNull()
+      expect(state?.target).toBe(image)
+      expect(imageSession.frame.width).toBeCloseTo(667, 5)
+      expect(imageSession.frame.height).toBeCloseTo(667, 5)
+    })
+
+    it('не сбрасывает image crop по явному null target', () => {
+      const { cropManager } = createActiveCropManager()
+      const image = createCropImageTarget({ width: 1000, height: 667 })
+      const imageSession = {
+        ...createMinimalSession(),
+        mode: 'image',
+        source: image,
+        target: image
+      } satisfies CropSession
+
+      cropManager['_session'] = imageSession
+
+      const state = cropManager.resetFrameToSource({ target: null })
+
+      expect(state).toBeNull()
+      expect(imageSession.frame.width).toBe(50)
+      expect(imageSession.frame.height).toBe(50)
+    })
+
+    it('не сбрасывает canvas crop без target', () => {
+      const { cropManager, session } = createActiveCropManager()
+
+      const state = cropManager.resetFrameToSource()
+
+      expect(state).toBeNull()
+      expect(session.frame.width).toBe(50)
+      expect(session.frame.height).toBe(50)
+    })
   })
 
   describe('fitFrame', () => {
-    it('масштабирует active crop через transformManager и возвращает crop state', () => {
+    it('масштабирует active crop с разрешённым overflow через transformManager и возвращает crop state', () => {
       const {
         cropManager,
         editor,
@@ -476,6 +527,34 @@ describe('CropManager', () => {
       })
       expect(state?.frame).toBe(session.frame)
       expect(editor.canvas.requestRenderAll).toHaveBeenCalled()
+    })
+
+    it.each([
+      {
+        name: 'contain',
+        type: 'contain'
+      },
+      {
+        name: 'cover',
+        type: 'cover'
+      }
+    ] as const)('при выключенном Allow outside source $name разворачивает crop-область до source', ({ type }) => {
+      const {
+        cropManager,
+        editor,
+        session
+      } = createActiveCropManager()
+
+      session.options.allowFrameOverflow = false
+      session.source.set({ width: 1000, height: 667 })
+      session.frame.set({ width: 300, height: 300 })
+
+      const state = cropManager.fitFrame({ type })
+
+      expect(state).not.toBeNull()
+      expect(session.frame.width).toBeCloseTo(667, 5)
+      expect(session.frame.height).toBeCloseTo(667, 5)
+      expect(editor.transformManager.fitObject).not.toHaveBeenCalled()
     })
 
     it('возвращает null без active crop mode', () => {

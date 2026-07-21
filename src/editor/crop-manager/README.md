@@ -36,11 +36,15 @@
   Rounding to integer pixels after guide calculation must not move that edge.
 - `allowFrameOverflow = false` constrains the crop frame to source-image bounds.
   In this mode, clamp and scale limits must rely on `getCropRectInSource()` and `getSourceSize()`, not a raw canvas bounding box.
+- `fitFrame({ type })` uses montage-area `contain` and `cover` only when `allowFrameOverflow = true`.
+  With overflow disabled, both values use the same source-bound reset geometry, so fitting expands the current frame without re-centering it to the montage area.
 - `preserveAspectRatio` is enabled by default. `Shift` does not add aspect-ratio preservation; it inverts the current rule.
   This contract must match `crop-controls` and `snapping-manager`.
 - Double-clicking an active crop frame calls `resetFrameToSource()`. With `preserveAspectRatio` disabled, the frame returns to the full source size.
   With the mode enabled, it expands to the largest size inside the source while keeping the frame's current aspect ratio.
   Use the unrounded `CropFrame` size in source pixels for this calculation, not the initial preset or public `getState().rect`.
+- The `target` of `resetFrameToSource()` is a Fabric event target, not an image source.
+  A programmatic image crop may call `resetFrameToSource()` without it; canvas crop and an explicit `null` remain no-ops so a double-click outside the frame cannot reset the session.
 
 ## Resize and clamp
 

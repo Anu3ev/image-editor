@@ -883,11 +883,11 @@ test.describe('Crop mode', () => {
     })
   })
 
-  test('fit crop изображения не выпускает область за изображение, когда overflow выключен', async({
+  test('contain и cover при выключенном Allow outside source разворачивают crop-область без сдвига влево', async({
     crop,
     images
   }) => {
-    const image = await test.step('Добавить изображение меньше монтажной области', async() => {
+    const image = await test.step('Добавить горизонтальное изображение', async() => {
       return images.checkCreation({
         imageObject: await images.addFilledImage({
           width: 120,
@@ -896,33 +896,42 @@ test.describe('Crop mode', () => {
       })
     })
 
-    await test.step('Войти в crop изображения с выключенным overflow', async() => {
-      const cropState = await crop.startImageCrop({
-        id: image.id,
-        size: {
-          width: 80,
-          height: 60
-        },
-        allowFrameOverflow: false
-      })
-
-      expect(cropState.options.allowFrameOverflow).toBe(false)
-      expect(cropState.rect.width).toBe(80)
-      expect(cropState.rect.height).toBe(60)
-    })
+    const expectedSize = image.height
+    const expectedLeft = image.width - expectedSize
 
     for (const type of ['cover', 'contain'] as const) {
+      const initialState = await test.step(`Войти в crop ${type} с квадратной областью и выключенным Allow outside source`, async() => {
+        return crop.startImageCrop({
+          id: image.id,
+          size: {
+            width: 60,
+            height: 60
+          },
+          allowFrameOverflow: false,
+          preserveAspectRatio: true
+        })
+      })
+
+      const stateAtRightEdge = await test.step('Перенести crop-область к правой границе изображения', async() => {
+        return crop.moveActiveCropFrameToImageRightEdge({ image })
+      })
+
       const cropState = await test.step(`Нажать ${type} для active crop`, async() => {
         return crop.fitFrame({ type })
       })
 
-      await test.step(`Проверить что ${type} остался внутри изображения`, async() => {
-        expect(cropState.options.allowFrameOverflow).toBe(false)
-        expect(cropState.rect.left).toBeGreaterThanOrEqual(-0.5)
-        expect(cropState.rect.top).toBeGreaterThanOrEqual(-0.5)
+      await test.step(`Проверить что ${type} сохранил позицию crop-области у source`, async() => {
+        expect(initialState.options.allowFrameOverflow).toBe(false)
+        expect(stateAtRightEdge.rect.left + stateAtRightEdge.rect.width).toBeCloseTo(image.width, 1)
+        expect(cropState.rect.width).toBeCloseTo(expectedSize, 1)
+        expect(cropState.rect.height).toBeCloseTo(expectedSize, 1)
+        expect(cropState.rect.left).toBeCloseTo(expectedLeft, 1)
+        expect(cropState.rect.top).toBeCloseTo(0, 1)
+        expect(cropState.rect.width / cropState.rect.height).toBeCloseTo(1, 5)
         expect(cropState.rect.left + cropState.rect.width).toBeLessThanOrEqual(image.width + 0.5)
-        expect(cropState.rect.top + cropState.rect.height).toBeLessThanOrEqual(image.height + 0.5)
       })
+
+      await crop.cancel()
     }
   })
 
