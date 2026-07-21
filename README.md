@@ -68,7 +68,7 @@ It demonstrates practical work with:
 - **Modular Architecture** - Clean separation of concerns with manager classes
 - **Event System** - Rich event handling for integration
 - **Responsive Design** - Adapts to different screen sizes and containers
-- **Testing Infrastructure** - Jest test suite with 45%+ coverage
+- **Testing Infrastructure** - Jest test suite with 80%+ coverage
 - **Web Worker Support** - Background processing for heavy operations
 
 ## 📦 Installation
