@@ -21,6 +21,17 @@ type ImageDataUrlSize = {
   height: number
 }
 
+/** Сводка экспортированного файла с первыми байтами для проверки фактического формата. */
+type CanvasFileExportInfo = {
+  contentType: string
+  fileName: string
+  format: string
+  header: number[]
+}
+
+/** Длина заголовка, достаточная для проверки PNG, JPEG, WEBP и PDF. */
+const EXPORTED_FILE_HEADER_LENGTH = 12
+
 /** Источник live image-объекта в Fabric. */
 type ImageSourceInfo = {
   id: string | null
@@ -188,6 +199,46 @@ export class ImageModel {
     }
 
     return dataUrl
+  }
+
+  /** Экспортирует монтажную область в File и возвращает метаданные с первыми байтами результата. */
+  async exportCanvasAsFile(
+    params: {
+      contentType: string
+      fileName: string
+    }
+  ): Promise<CanvasFileExportInfo> {
+    const result = await this.page.evaluate(async({ contentType, fileName, headerLength }) => {
+      const { editor } = window as any
+      const exported = await editor.imageManager.exportCanvasAsImageFile({
+        contentType,
+        fileName
+      })
+
+      if (!exported || !(exported.image instanceof File)) return null
+
+      const fileBuffer = await exported.image.slice(0, headerLength).arrayBuffer()
+      const header = Array.from(new Uint8Array(fileBuffer))
+
+      return {
+        contentType: exported.contentType,
+        fileName: exported.fileName,
+        format: exported.format,
+        header
+      }
+    }, {
+      ...params,
+      headerLength: EXPORTED_FILE_HEADER_LENGTH
+    })
+
+    expect(result, 'экспорт монтажной области должен вернуть файл').not.toBeNull()
+    if (!result) {
+      throw new Error('Не удалось экспортировать монтажную область в файл')
+    }
+
+    expect(result.header, 'экспортированный файл должен содержать заголовок').not.toHaveLength(0)
+
+    return result
   }
 
   /** Возвращает размер изображения из data URL. */

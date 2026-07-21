@@ -12,6 +12,7 @@ export default ({ editorInstance, controls, historyControls }) => {
   const {
     chooseImageBtn,
     saveCanvasBtn,
+    exportFormatSelect,
     fileInput,
     clearBtn,
     bringToFrontBtn,
@@ -171,7 +172,7 @@ export default ({ editorInstance, controls, historyControls }) => {
     })
 
     saveCanvasBtn.addEventListener('click', () => {
-      saveResult(editorInstance)
+      saveResult(editorInstance, exportFormatSelect.value)
     })
   }
 

@@ -591,6 +591,11 @@ describe('ImageManager', () => {
       })
 
       expect(mockModuleLoader.loadModule).toHaveBeenCalled()
+      expect(mockWorkerManager.post).toHaveBeenCalledWith(
+        'toDataURL',
+        expect.objectContaining({ contentType: 'image/jpeg' }),
+        expect.any(Array)
+      )
       expect(result).toEqual(expect.objectContaining({
         format: 'pdf',
         contentType: 'application/pdf',

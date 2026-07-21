@@ -8,7 +8,33 @@
  *   angle?: string | number,
  *   colorStops?: Array<{ color: string, offset: number }>
  * }} DemoGradientOptions
+ * @typedef {{ contentType: string, fileName: string }} DemoExportOptions
  */
+
+/** Сопоставляет значение Demo selector со стандартным MIME и именем скачиваемого файла. */
+/** @type {Record<string, DemoExportOptions>} */
+const EXPORT_OPTIONS_BY_FORMAT = {
+  jpg: {
+    contentType: 'image/jpeg',
+    fileName: 'image.jpg'
+  },
+  jpeg: {
+    contentType: 'image/jpeg',
+    fileName: 'image.jpeg'
+  },
+  png: {
+    contentType: 'image/png',
+    fileName: 'image.png'
+  },
+  webp: {
+    contentType: 'image/webp',
+    fileName: 'image.webp'
+  },
+  pdf: {
+    contentType: 'application/pdf',
+    fileName: 'image.pdf'
+  }
+}
 
 // Получение масштаба внутри канваса
 /**
@@ -68,20 +94,21 @@ function importImage(e, editorInstance) {
   }
 }
 
-// Сохранение результата
 /**
+ * Экспортирует монтажную область в выбранном формате и запускает браузерское скачивание.
  * @param {ImageEditor} editorInstance
+ * @param {string} [format]
  */
-async function saveResult(editorInstance) {
-  const result = await editorInstance.imageManager.exportCanvasAsImageFile({ contentType: 'image/png' })
+async function saveResult(editorInstance, format = 'png') {
+  const exportOptions = EXPORT_OPTIONS_BY_FORMAT[format] ?? EXPORT_OPTIONS_BY_FORMAT.png
+  const result = await editorInstance.imageManager.exportCanvasAsImageFile(exportOptions)
   if (!result) return
 
-  const { image } = result
+  const { fileName, image } = result
   if (typeof image === 'string') return
 
   const url = URL.createObjectURL(image)
   const link = document.createElement('a')
-  const fileName = image instanceof File ? image.name : 'image.png'
 
   link.href = url
   link.download = fileName
