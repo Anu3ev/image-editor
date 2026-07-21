@@ -475,10 +475,16 @@ export default class CropManager {
 
   /**
    * Разворачивает active crop frame до source, сохраняя текущие пропорции при включённом keep ratio.
+   * Для image crop разрешён прямой вызов без Fabric event target.
    */
-  public resetFrameToSource({ target }: { target?: FabricObject | null }): CropState | null {
+  public resetFrameToSource(
+    { target }: { target?: FabricObject | null } = {}
+  ): CropState | null {
     const { _session: session } = this
-    if (!session || session.frame !== target) return null
+    if (!session) return null
+
+    const usesActiveImageCropFrame = target === undefined && session.mode === 'image'
+    if (session.frame !== target && !usesActiveImageCropFrame) return null
 
     const sourceSize = getSourceSize({ source: session.source })
     let size = sourceSize
@@ -504,11 +510,21 @@ export default class CropManager {
   }
 
   /**
-   * Масштабирует active crop frame к монтажной области с учётом source-bound ограничений crop mode.
+   * Масштабирует active crop frame к монтажной области, когда разрешён выход за source.
+   * В strict crop contain и cover разворачивают frame до source с одной и той же геометрией reset.
    */
   public fitFrame({ type }: { type: CropFrameFitType }): CropState | null {
     const { _session: session } = this
     if (!session) return null
+
+    if (!session.options.allowFrameOverflow) {
+      const state = this.resetFrameToSource({ target: session.frame })
+      if (!state) return null
+
+      this.editor.canvas.fire('editor:crop:changed', state)
+
+      return state
+    }
 
     this.editor.transformManager.fitObject({
       object: session.frame,

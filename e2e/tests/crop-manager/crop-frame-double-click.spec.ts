@@ -124,4 +124,43 @@ test.describe('Двойной клик по crop-области изображе
         .toBeCloseTo(image.width / image.height, 5)
     })
   })
+
+  test('сбрасывает image crop через API без Fabric event target', async({
+    crop,
+    images
+  }) => {
+    const image = await test.step('Добавить горизонтальное изображение', async() => {
+      return images.checkCreation({
+        imageObject: await images.addFilledImage({
+          width: 1000,
+          height: 667
+        })
+      })
+    })
+
+    const initialState = await test.step('Войти в небольшой квадратный image crop', async() => {
+      return crop.startImageCrop({
+        id: image.id,
+        size: {
+          width: 300,
+          height: 300
+        },
+        allowFrameOverflow: false,
+        preserveAspectRatio: true
+      })
+    })
+
+    const resetState = await test.step('Сбросить crop через API без target', async() => {
+      return crop.resetFrameToSource()
+    })
+
+    await test.step('Проверить что crop развернулся до source с текущими пропорциями', () => {
+      expect(initialState.rect.width).toBe(300)
+      expect(initialState.rect.height).toBe(300)
+      expect(resetState.targetId).toBe(image.id)
+      expect(resetState.rect.width).toBeCloseTo(image.height, 1)
+      expect(resetState.rect.height).toBeCloseTo(image.height, 1)
+      expect(resetState.rect.width / resetState.rect.height).toBeCloseTo(1, 5)
+    })
+  })
 })
