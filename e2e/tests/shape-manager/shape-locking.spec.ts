@@ -552,7 +552,7 @@ test.describe('Ручка поворота у фигуры', () => {
     })
 
     await test.step('Завершить pointer-взаимодействие', async() => {
-      await shapes.finishPointerInteraction()
+      await shapes.finishRotation()
     })
   })
 
@@ -588,7 +588,7 @@ test.describe('Ручка поворота у фигуры', () => {
     })
 
     await test.step('Завершить pointer-взаимодействие', async() => {
-      await shapes.finishPointerInteraction()
+      await shapes.finishRotation()
     })
   })
 })

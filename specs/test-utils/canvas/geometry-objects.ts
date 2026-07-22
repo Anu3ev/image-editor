@@ -130,7 +130,8 @@ export const createSnappingTestContext = () => {
   return {
     editor,
     canvas,
-    objects
+    objects,
+    selectionContext
   }
 }
 

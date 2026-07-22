@@ -1,4 +1,8 @@
-import { getObjectBounds, snapObjectToPixelGrid } from '../../../../src/editor/utils/geometry'
+import {
+  getObjectBounds,
+  getObjectExactBounds,
+  snapObjectToPixelGrid
+} from '../../../../src/editor/utils/geometry'
 import { createBoundsObject, createPixelGridObject } from '../../../test-utils/canvas/geometry-objects'
 
 describe('getObjectBounds', () => {
@@ -130,6 +134,81 @@ describe('getObjectBounds', () => {
     }
 
     expect(getObjectBounds({ object: obj })).toBeNull()
+  })
+})
+
+describe('getObjectExactBounds', () => {
+  it('сохраняет точные дробные границы visual bbox', () => {
+    const obj = createBoundsObject({ left: 100, top: 200, width: 33, height: 43 })
+    obj.getBoundingRect.mockReturnValue({ left: 100.3, top: 200.7, width: 33.6, height: 43.4 })
+
+    const bounds = getObjectExactBounds({ object: obj })
+
+    expect(bounds?.right).toBeCloseTo(133.9, 10)
+    expect(bounds?.bottom).toBeCloseTo(244.1, 10)
+    expect(bounds?.centerX).toBeCloseTo(117.1, 10)
+    expect(bounds?.centerY).toBeCloseTo(222.4, 10)
+  })
+
+  it('выводит центры custom bounds из точных границ', () => {
+    const obj = createBoundsObject({ left: 0, top: 0, width: 10, height: 10 })
+    obj.getObjectSnappingBounds = jest.fn(() => ({
+      left: 10.25,
+      right: 40.75,
+      top: 20.5,
+      bottom: 50.5,
+      centerX: 999,
+      centerY: 999
+    }))
+
+    const bounds = getObjectExactBounds({ object: obj })
+
+    expect(bounds?.centerX).toBe(25.5)
+    expect(bounds?.centerY).toBe(35.5)
+    expect(bounds?.left).toBe(10.25)
+    expect(bounds?.bottom).toBe(50.5)
+  })
+
+  it('завершается ошибкой для невалидных custom bounds', () => {
+    const unordered = createBoundsObject({ left: 0, top: 0, width: 10, height: 10 })
+    const nonFinite = createBoundsObject({ left: 0, top: 0, width: 10, height: 10 })
+    unordered.getObjectSnappingBounds = jest.fn(() => ({
+      left: 20,
+      right: 10,
+      top: 0,
+      bottom: 10,
+      centerX: 15,
+      centerY: 5
+    }))
+    nonFinite.getObjectSnappingBounds = jest.fn(() => ({
+      left: 0,
+      right: Number.NaN,
+      top: 0,
+      bottom: 10,
+      centerX: 5,
+      centerY: 5
+    }))
+
+    expect(() => getObjectExactBounds({ object: unordered })).toThrow('custom snapping bounds')
+    expect(() => getObjectExactBounds({ object: nonFinite })).toThrow('custom snapping bounds')
+  })
+
+  it('завершается ошибкой для невалидных visual bounds', () => {
+    const unordered = createBoundsObject({ left: 0, top: 0, width: 10, height: 10 })
+    const nonFinite = createBoundsObject({ left: 0, top: 0, width: 10, height: 10 })
+    const missingEdge = createBoundsObject({ left: 0, top: 0, width: 10, height: 10 })
+    unordered.getBoundingRect.mockReturnValue({ left: 20, top: 0, width: -10, height: 10 })
+    nonFinite.getBoundingRect.mockReturnValue({
+      left: Number.NaN,
+      top: 0,
+      width: 10,
+      height: 10
+    })
+    missingEdge.getBoundingRect.mockReturnValue({ top: 0, width: 10, height: 10 })
+
+    expect(() => getObjectExactBounds({ object: unordered })).toThrow('visual bounds')
+    expect(() => getObjectExactBounds({ object: nonFinite })).toThrow('visual bounds')
+    expect(() => getObjectExactBounds({ object: missingEdge })).toThrow('visual bounds')
   })
 })
 

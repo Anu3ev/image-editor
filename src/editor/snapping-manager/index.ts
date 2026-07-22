@@ -17,10 +17,19 @@ import {
   SPACING_SNAP_HOLD_MARGIN
 } from './constants'
 import {
-  calculateSnap,
+  calculateSnap
+} from './calculations'
+import {
   calculateSpacingSnap,
   type SpacingContextByAxis
-} from './calculations'
+} from './spacing'
+import {
+  createScaleSnapCandidates,
+  type ScaleSnapCandidateSource,
+  type ScaleSnapEnvironment
+} from './scale-snap-candidates'
+import type { VerifiedScaleGuide } from './scale-snapping-resolver'
+import type { ScaleSceneEdge } from './scale-projection'
 import { drawSpacingGuide } from './renderer'
 import {
   applyMovementStep,
@@ -34,7 +43,9 @@ import {
   resolveScalingTransformState,
   resolveTextResizeSnapPlan,
   shouldUseUniformScaleSnap,
-  type ScaleUpdatePlan
+  type ScaleAxisSnapState,
+  type ScaleUpdatePlan,
+  type TextResizeSnapPlan
 } from './scaling'
 import type {
   AnchorBuckets,
@@ -56,6 +67,7 @@ import {
   collectExcludedObjects,
   shouldIgnoreObject
 } from '../utils/object-filter'
+import { resolveDisplayDistance } from '../utils/distance'
 
 type TransformEvent = BasicTransformEvent<TPointerEvent> & {
   target?: FabricObject | null
@@ -70,8 +82,43 @@ type CropFrameSnapTarget = FabricObject & {
   cropSource?: FabricObject | null
 }
 
+/** Способ расчёта границ в текущем кеше целей прилипания. */
+type AnchorBoundsMode = 'exact' | 'rounded'
+
+/** Проверенный контекст одного шага перемещения объекта. */
+type ObjectMovementContext = {
+  target: FabricObject
+  transform?: Transform
+  activeBounds: Bounds
+  threshold: number
+}
+
+/** Результат прилипания к обычным направляющим во время движения. */
+type MovementGuideSnapResult = {
+  activeBounds: Bounds
+  hasGuideSnapX: boolean
+  hasGuideSnapY: boolean
+}
+
+/** Данные от кастомной ручки изменения ширины текста. */
+type TextResizingSnapRequest = {
+  target?: FabricObject | null
+  transform?: Transform | null
+  event?: TPointerEvent | null
+}
+
+/** Проверенный контекст горизонтального изменения ширины текста. */
+type TextResizingTargetContext = {
+  target: Textbox
+  activeBounds: Bounds
+  originX: Transform['originX']
+  originY: Transform['originY']
+  verticalAnchors: number[]
+  threshold: number
+}
+
 /**
- * Проверенный target и активные оси текущего object scaling.
+ * Объект и доступные оси текущего скейлинга.
  */
 type ObjectScalingTargetContext = {
   event: TransformEvent
@@ -84,13 +131,23 @@ type ObjectScalingTargetContext = {
 }
 
 /**
- * Полный snap-plan для текущего object scaling step.
+ * Полный план прилипания для одного шага скейлинга.
  */
 type ObjectScalingPlanContext = ObjectScalingTargetContext & {
   originX: Transform['originX']
   originY: Transform['originY']
   shouldUseUniformScale: boolean
   scalePlan: ScaleUpdatePlan
+}
+
+/** Геометрия прилипания для типов, которые ещё не переведены на новый контракт. */
+type ObjectScalingSnapGeometry = {
+  activeBounds: Bounds
+  originX: Transform['originX']
+  originY: Transform['originY']
+  scaleX: number
+  scaleY: number
+  snapState: ScaleAxisSnapState
 }
 
 /**
@@ -111,6 +168,9 @@ export default class SnappingManager {
    * Кешированные линии для привязки.
    */
   private anchors: AnchorBuckets = { vertical: [], horizontal: [] }
+
+  /** Способ расчёта границ в текущем кеше целей. */
+  private anchorBoundsMode: AnchorBoundsMode | null = null
 
   /**
    * Кешированные интервалы между объектами.
@@ -147,6 +207,9 @@ export default class SnappingManager {
    * Границы, в пределах которых рисуются направляющие.
    */
   private guideBounds: GuideBounds | null = null
+
+  /** События указателя, уже обработанные менеджером конкретного типа объекта. */
+  private readonly handledScaleStepEvents = new WeakSet<object>()
 
   /**
    * Обработчик начала перетаскивания объекта.
@@ -206,6 +269,65 @@ export default class SnappingManager {
   }
 
   /**
+   * Сохраняет точные цели и масштаб canvas в начале скейлинга.
+   */
+  public captureScaleSnapEnvironment({
+    activeObject,
+    targetEdges
+  }: {
+    activeObject: FabricObject
+    targetEdges: readonly ScaleSceneEdge[]
+  }): ScaleSnapEnvironment {
+    const sources: ScaleSnapCandidateSource[] = []
+    const targets = this._collectTargets({ activeObject })
+
+    for (let index = 0; index < targets.length; index += 1) {
+      const object = targets[index]
+      const bounds = getObjectExactBounds({ object })
+      if (!bounds) continue
+
+      sources.push({
+        id: `object:${index}:${object.id ?? object.type}`,
+        bounds
+      })
+    }
+
+    const montageBounds = getObjectExactBounds({ object: this.editor.montageArea })
+    if (montageBounds) {
+      sources.push({
+        id: 'montage-area',
+        bounds: montageBounds,
+        edgeCategory: 'domain-boundary'
+      })
+    }
+
+    return Object.freeze({
+      candidates: createScaleSnapCandidates({ targetEdges, sources }),
+      zoom: this.canvas.getZoom() || 1
+    })
+  }
+
+  /**
+   * Помечает событие указателя уже обработанным менеджером объекта.
+   */
+  public markScaleStepHandled({ marker }: { marker: object }): void {
+    this.handledScaleStepEvents.add(marker)
+  }
+
+  /**
+   * Показывает направляющие, подтверждённые по уже применённой геометрии.
+   */
+  public publishVerifiedScaleGuides({ guides }: { guides: readonly VerifiedScaleGuide[] }): void {
+    this._applyGuides({
+      guides: guides.map(({ axis, position }) => ({
+        type: axis === 'x' ? 'vertical' : 'horizontal',
+        position
+      })),
+      spacingGuides: []
+    })
+  }
+
+  /**
    * Навешивает обработчики событий канваса.
    */
   private _bindEvents(): void {
@@ -243,72 +365,75 @@ export default class SnappingManager {
       return
     }
 
-    this._cacheAnchors({ activeObject: target })
+    this._cacheAnchors({ activeObject: target, mode: 'rounded' })
   }
 
   /**
    * Выполняет привязку объекта к ближайшим линиям при его перемещении.
    */
   private _handleObjectMoving(event: TransformEvent): void {
+    const context = this._resolveObjectMovementContext({ event })
+    if (!context) return
+
+    this._applyObjectMovementSnap(context)
+  }
+
+  /** Подготавливает объект и точную геометрию для одного шага перемещения. */
+  private _resolveObjectMovementContext({
+    event
+  }: {
+    event: TransformEvent
+  }): ObjectMovementContext | null {
     const { target, transform } = event
 
     if (!target) {
       this._clearSpacingContexts()
       this._clearGuides()
-      return
+      return null
     }
 
-    if (this._shouldAbortObjectMoving({ target, event })) {
-      return
-    }
+    if (this._shouldAbortObjectMoving({ target, event })) return null
 
-    applyMovementStep({
-      target,
-      transform
-    })
+    applyMovementStep({ target, transform })
+    this._ensureAnchorBounds({ activeObject: target, mode: 'exact' })
 
-    if (!this.anchors.vertical.length && !this.anchors.horizontal.length) {
-      this._cacheAnchors({ activeObject: target })
-    }
-
-    let activeBounds = getObjectBounds({ object: target })
+    const activeBounds = getObjectExactBounds({ object: target })
     if (!activeBounds) {
       this._clearSpacingContexts()
       this._clearGuides()
-      return
+      return null
     }
 
-    const threshold = SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
-    const snapResult = calculateSnap({
-      activeBounds,
-      threshold,
-      anchors: this.anchors
-    })
-    const hasGuideSnapX = snapResult.deltaX !== 0 || snapResult.guides.some((guide) => {
-      return guide.type === 'vertical'
-    })
-    const hasGuideSnapY = snapResult.deltaY !== 0 || snapResult.guides.some((guide) => {
-      return guide.type === 'horizontal'
-    })
-    activeBounds = this._applyMovementDelta({
+    return {
       target,
       activeBounds,
-      deltaX: snapResult.deltaX,
-      deltaY: snapResult.deltaY
-    })
+      threshold: SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
+    }
+  }
 
-    const candidateBounds = this._resolveCurrentTargetBounds({ activeObject: target })
+  /** Применяет обычные и равноудалённые направляющие одного шага перемещения. */
+  private _applyObjectMovementSnap({
+    target,
+    transform,
+    activeBounds,
+    threshold
+  }: ObjectMovementContext): void {
+    const guideSnap = this._applyMovementGuideSnap({ target, activeBounds, threshold })
+    const candidateBounds = this._resolveCurrentTargetBounds({
+      activeObject: target,
+      mode: 'exact'
+    })
     const spacingResult = this._calculateSpacingResult({
-      activeBounds,
+      activeBounds: guideSnap.activeBounds,
       candidateBounds,
       threshold
     })
     this.spacingContexts = spacingResult.contexts
 
     const hasSpacingSnap = spacingResult.deltaX !== 0 || spacingResult.deltaY !== 0
-    activeBounds = this._applyMovementDelta({
+    const spacedBounds = this._applyMovementDelta({
       target,
-      activeBounds,
+      activeBounds: guideSnap.activeBounds,
       deltaX: spacingResult.deltaX,
       deltaY: spacingResult.deltaY
     })
@@ -317,23 +442,51 @@ export default class SnappingManager {
       applyMovementStep({
         target,
         transform,
-        roundX: !hasGuideSnapX,
-        roundY: !hasGuideSnapY
+        roundX: !guideSnap.hasGuideSnapX,
+        roundY: !guideSnap.hasGuideSnapY
       })
     }
 
-    const finalBounds = getObjectBounds({ object: target }) ?? activeBounds
-    this._applyMovementVisualGuides({
-      activeBounds: finalBounds,
-      candidateBounds,
-      threshold
+    const finalBounds = getObjectExactBounds({ object: target }) ?? spacedBounds
+    this._applyMovementVisualGuides({ activeBounds: finalBounds, candidateBounds, threshold })
+  }
+
+  /** Применяет ближайшие линейные направляющие и возвращает актуальные точные границы. */
+  private _applyMovementGuideSnap({
+    target,
+    activeBounds,
+    threshold
+  }: {
+    target: FabricObject
+    activeBounds: Bounds
+    threshold: number
+  }): MovementGuideSnapResult {
+    const snapResult = calculateSnap({ activeBounds, threshold, anchors: this.anchors })
+    const hasGuideSnapX = snapResult.deltaX !== 0 || snapResult.guides.some((guide) => {
+      return guide.type === 'vertical'
     })
+    const hasGuideSnapY = snapResult.deltaY !== 0 || snapResult.guides.some((guide) => {
+      return guide.type === 'horizontal'
+    })
+
+    return {
+      activeBounds: this._applyMovementDelta({
+        target,
+        activeBounds,
+        deltaX: snapResult.deltaX,
+        deltaY: snapResult.deltaY
+      }),
+      hasGuideSnapX,
+      hasGuideSnapY
+    }
   }
 
   /**
    * Выполняет привязку объекта к ближайшим линиям при его масштабировании.
    */
   private _handleObjectScaling(event: TransformEvent): void {
+    if (event.e && this.handledScaleStepEvents.has(event.e)) return
+
     const targetContext = this._resolveObjectScalingTargetContext({ event })
     if (!targetContext) return
 
@@ -344,7 +497,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Возвращает target-context для object scaling или завершает шаг без snap.
+   * Проверяет объект для скейлинга или завершает шаг без прилипания.
    */
   private _resolveObjectScalingTargetContext({
     event
@@ -393,14 +546,7 @@ export default class SnappingManager {
       return null
     }
 
-    const { anchors } = this
-    const {
-      vertical: verticalAnchors,
-      horizontal: horizontalAnchors
-    } = anchors
-    if (!verticalAnchors.length && !horizontalAnchors.length) {
-      this._cacheAnchors({ activeObject: target })
-    }
+    this._ensureAnchorBounds({ activeObject: target, mode: 'rounded' })
 
     return {
       event,
@@ -414,7 +560,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Возвращает snap-plan для текущего object scaling или завершает шаг без snap.
+   * Рассчитывает план прилипания или завершает шаг без направляющих.
    */
   private _resolveObjectScalingPlanContext(
     context: ObjectScalingTargetContext
@@ -424,47 +570,19 @@ export default class SnappingManager {
       target,
       transform,
       canApplyPixelScalingStep,
-      isCornerHandle,
-      shouldSnapX,
-      shouldSnapY
+      isCornerHandle
     } = context
-    const activeBounds = getObjectBounds({ object: target })
+    const snapGeometry = this._resolveObjectScalingSnapGeometry(context)
+    if (!snapGeometry) return null
 
-    if (!activeBounds) {
-      this._finishObjectScalingWithoutSnap({
-        target,
-        transform,
-        canApplyPixelScalingStep
-      })
-      return null
-    }
-
-    const threshold = SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
     const {
+      activeBounds,
       originX,
       originY,
       scaleX,
-      scaleY
-    } = resolveScalingTransformState({ target, transform })
-    const snapState = resolveScaleAxisSnaps({
-      bounds: activeBounds,
-      corner: transform.corner,
-      originX,
-      originY,
-      shouldSnapX,
-      shouldSnapY,
-      threshold,
-      anchors: this.anchors
-    })
-
-    if (!snapState) {
-      this._finishObjectScalingWithoutSnap({
-        target,
-        transform,
-        canApplyPixelScalingStep
-      })
-      return null
-    }
+      scaleY,
+      snapState
+    } = snapGeometry
 
     const shouldUseUniformScale = shouldUseUniformScaleSnap({
       target,
@@ -503,8 +621,39 @@ export default class SnappingManager {
     }
   }
 
+  /** Собирает округлённые границы и прилипание для ещё не перенесённых типов объектов. */
+  private _resolveObjectScalingSnapGeometry(
+    context: ObjectScalingTargetContext
+  ): ObjectScalingSnapGeometry | null {
+    const { target, transform, canApplyPixelScalingStep, shouldSnapX, shouldSnapY } = context
+    const activeBounds = getObjectBounds({ object: target })
+    if (!activeBounds) {
+      this._finishObjectScalingWithoutSnap({ target, transform, canApplyPixelScalingStep })
+      return null
+    }
+
+    const transformState = resolveScalingTransformState({ target, transform })
+    const { originX, originY } = transformState
+    const snapState = resolveScaleAxisSnaps({
+      bounds: activeBounds,
+      corner: transform.corner,
+      originX,
+      originY,
+      shouldSnapX,
+      shouldSnapY,
+      threshold: SNAP_THRESHOLD / (this.canvas.getZoom() || 1),
+      anchors: this.anchors
+    })
+    if (!snapState) {
+      this._finishObjectScalingWithoutSnap({ target, transform, canApplyPixelScalingStep })
+      return null
+    }
+
+    return { activeBounds, ...transformState, snapState }
+  }
+
   /**
-   * Применяет snap-plan, source-bound bridge и pixel-grid для object scaling.
+   * Применяет план прилипания, ограничения CropFrame и округление до пикселей.
    */
   private _applyObjectScalingSnapPlan({
     target,
@@ -558,7 +707,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Квантует scale после snap, сохраняя fixed placement текущего transform.
+   * Округляет скейлинг, не сдвигая неподвижную сторону текущего преобразования.
    */
   private _applyObjectScalingPixelStep({
     target,
@@ -615,7 +764,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Возвращает true, если scaling нужно прервать до расчёта snap-плана. */
+  /** Проверяет, нужно ли завершить скейлинг до расчёта прилипания. */
   private _shouldAbortObjectScaling({
     target,
     transform,
@@ -638,7 +787,7 @@ export default class SnappingManager {
     return false
   }
 
-  /** Завершает scaling-шаг без snap-направляющих и сохраняет обычное pixel-rounding поведение. */
+  /** Завершает шаг без направляющих, сохраняя прежнее округление до пикселей. */
   private _finishObjectScalingWithoutSnap({
     target,
     transform,
@@ -655,7 +804,7 @@ export default class SnappingManager {
     this._clearGuides()
   }
 
-  /** Возвращает true, если текущий scale отличается от стартового scale Fabric transform. */
+  /** Проверяет, изменился ли скейлинг относительно начала преобразования Fabric. */
   private _hasObjectScaleChanged({
     target,
     transform
@@ -710,10 +859,10 @@ export default class SnappingManager {
     })
     target.setCoords()
 
-    return getObjectBounds({ object: target }) ?? activeBounds
+    return getObjectExactBounds({ object: target }) ?? activeBounds
   }
 
-  /** Рассчитывает snap по равноудалённым интервалам для текущего состояния moving. */
+  /** Рассчитывает прилипание к равноудалённым интервалам во время перемещения. */
   private _calculateSpacingResult({
     activeBounds,
     candidateBounds,
@@ -740,7 +889,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Пересчитывает и показывает финальные moving-guides по уже скорректированным bounds. */
+  /** Пересчитывает направляющие по окончательным границам шага перемещения. */
   private _applyMovementVisualGuides({
     activeBounds,
     candidateBounds,
@@ -774,7 +923,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Применяет рассчитанные scale-обновления к target и текущему Fabric transform. */
+  /** Применяет рассчитанный скейлинг к объекту и текущему преобразованию Fabric. */
   private _applyScaleUpdatePlan({
     target,
     transform,
@@ -827,60 +976,13 @@ export default class SnappingManager {
     target,
     transform,
     event
-  }: {
-    target?: FabricObject | null
-    transform?: Transform | null
-    event?: TPointerEvent | null
-  }): void {
-    if (!target || !(target instanceof Textbox)) return
+  }: TextResizingSnapRequest): void {
+    const context = this._resolveTextResizingTargetContext({ target, transform, event })
+    if (!context) return
 
-    if (!transform) {
-      this._clearGuides()
-      return
-    }
-
-    const isCtrlPressed = Boolean(event?.ctrlKey)
-    if (isCtrlPressed) {
-      this._clearGuides()
-      return
-    }
-
-    const { corner = '' } = transform
-    const isHorizontalHandle = corner === 'ml' || corner === 'mr'
-    if (!isHorizontalHandle) {
-      this._clearGuides()
-      return
-    }
-
-    const { anchors } = this
-    const {
-      vertical: verticalAnchors,
-      horizontal: horizontalAnchors
-    } = anchors
-    if (!verticalAnchors.length && !horizontalAnchors.length) {
-      this._cacheAnchors({ activeObject: target })
-    }
-
-    const activeBounds = getObjectBounds({ object: target })
-    if (!activeBounds) {
-      this._clearGuides()
-      return
-    }
-
-    const { canvas } = this
-    const zoom = canvas.getZoom() || 1
-    const threshold = SNAP_THRESHOLD / zoom
-
-    const { originX: transformOriginX, originY: transformOriginY } = transform
-    const {
-      originX: targetOriginX = 'left',
-      originY: targetOriginY = 'top'
-    } = target
-    const originX = transformOriginX ?? targetOriginX
-    const originY = transformOriginY ?? targetOriginY
-
+    const { activeBounds, originX, verticalAnchors, threshold } = context
     const snapPlan = resolveTextResizeSnapPlan({
-      target,
+      target: context.target,
       bounds: activeBounds,
       originX,
       verticalAnchors,
@@ -892,6 +994,54 @@ export default class SnappingManager {
       return
     }
 
+    this._applyTextResizingSnapPlan({ context, snapPlan })
+  }
+
+  /** Проверяет изменение ширины текста и собирает геометрию для прилипания. */
+  private _resolveTextResizingTargetContext({
+    target,
+    transform,
+    event
+  }: TextResizingSnapRequest): TextResizingTargetContext | null {
+    if (!target || !(target instanceof Textbox)) return null
+
+    if (!transform || event?.ctrlKey) {
+      this._clearGuides()
+      return null
+    }
+
+    const { corner = '' } = transform
+    if (corner !== 'ml' && corner !== 'mr') {
+      this._clearGuides()
+      return null
+    }
+
+    this._ensureAnchorBounds({ activeObject: target, mode: 'rounded' })
+    const activeBounds = getObjectBounds({ object: target })
+    if (!activeBounds) {
+      this._clearGuides()
+      return null
+    }
+
+    return {
+      target,
+      activeBounds,
+      originX: transform.originX ?? target.originX ?? 'left',
+      originY: transform.originY ?? target.originY ?? 'top',
+      verticalAnchors: this.anchors.vertical,
+      threshold: SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
+    }
+  }
+
+  /** Применяет рассчитанную ширину текста, не сдвигая неподвижную сторону. */
+  private _applyTextResizingSnapPlan({
+    context,
+    snapPlan
+  }: {
+    context: TextResizingTargetContext
+    snapPlan: TextResizeSnapPlan
+  }): void {
+    const { target, originX, originY } = context
     const { guide, nextWidth } = snapPlan
     const { width: currentWidth = 0 } = target
     if (nextWidth !== currentWidth) {
@@ -949,15 +1099,39 @@ export default class SnappingManager {
     const { left, right, top, bottom } = bounds
     const { viewportTransform } = canvas
     const zoom = canvas.getZoom() || 1
+    const spacingGuideLabels = this.activeSpacingGuides.map(({ distance }) => {
+      return resolveDisplayDistance({ distance }).toString()
+    })
 
     context.save()
-    if (Array.isArray(viewportTransform)) {
-      context.transform(...viewportTransform)
+    try {
+      if (Array.isArray(viewportTransform)) {
+        context.transform(...viewportTransform)
+      }
+      context.lineWidth = GUIDE_WIDTH / zoom
+      context.strokeStyle = GUIDE_COLOR
+      context.setLineDash([4, 4])
+      this._drawActiveLineGuides({ context, left, right, top, bottom })
+      this._drawActiveSpacingGuides({ context, zoom, labels: spacingGuideLabels })
+    } finally {
+      context.restore()
     }
-    context.lineWidth = GUIDE_WIDTH / zoom
-    context.strokeStyle = GUIDE_COLOR
-    context.setLineDash([4, 4])
+  }
 
+  /** Рисует активные линейные направляющие в пределах монтажной области или canvas. */
+  private _drawActiveLineGuides({
+    context,
+    left,
+    right,
+    top,
+    bottom
+  }: {
+    context: CanvasRenderingContext2D
+    left: number
+    right: number
+    top: number
+    bottom: number
+  }): void {
     for (const guide of this.activeGuides) {
       context.beginPath()
       if (guide.type === 'vertical') {
@@ -969,16 +1143,25 @@ export default class SnappingManager {
       }
       context.stroke()
     }
+  }
 
-    for (const spacingGuide of this.activeSpacingGuides) {
-      drawSpacingGuide({
-        context,
-        guide: spacingGuide,
-        zoom
-      })
+  /** Рисует направляющие равноудалённости с уже проверенными подписями. */
+  private _drawActiveSpacingGuides({
+    context,
+    zoom,
+    labels
+  }: {
+    context: CanvasRenderingContext2D
+    zoom: number
+    labels: string[]
+  }): void {
+    for (let index = 0; index < this.activeSpacingGuides.length; index += 1) {
+      const guide = this.activeSpacingGuides[index]
+      const distanceLabel = labels[index]
+      if (!guide || distanceLabel === undefined) continue
+
+      drawSpacingGuide({ context, guide, zoom, distanceLabel })
     }
-
-    context.restore()
   }
 
   /**
@@ -1017,6 +1200,7 @@ export default class SnappingManager {
    */
   private _clearAnchors(): void {
     this.anchors = { vertical: [], horizontal: [] }
+    this.anchorBoundsMode = null
     this.spacingPatterns = { vertical: [], horizontal: [] }
     this.cachedTargetBounds = []
     this._clearSpacingContexts()
@@ -1033,9 +1217,31 @@ export default class SnappingManager {
   }
 
   /**
+   * Гарантирует, что временный кеш построен в нужном геометрическом режиме.
+   */
+  private _ensureAnchorBounds({
+    activeObject,
+    mode
+  }: {
+    activeObject: FabricObject
+    mode: AnchorBoundsMode
+  }): void {
+    const hasAnchors = Boolean(this.anchors.vertical.length || this.anchors.horizontal.length)
+    if (hasAnchors && this.anchorBoundsMode === mode) return
+
+    this._cacheAnchors({ activeObject, mode })
+  }
+
+  /**
    * Сохраняет линии для прилипания от всех доступных объектов и монтажной области.
    */
-  private _cacheAnchors({ activeObject }: { activeObject?: FabricObject | null }): void {
+  private _cacheAnchors({
+    activeObject,
+    mode
+  }: {
+    activeObject?: FabricObject | null
+    mode: AnchorBoundsMode
+  }): void {
     const targets = this._collectTargets({ activeObject })
     const nextAnchors: AnchorBuckets = { vertical: [], horizontal: [] }
     const targetBounds: Bounds[] = []
@@ -1043,7 +1249,8 @@ export default class SnappingManager {
     for (const object of targets) {
       const bounds = this._getTargetBounds({
         object,
-        activeObject
+        activeObject,
+        mode
       })
       if (!bounds) continue
       pushBoundsToAnchors({ anchors: nextAnchors, bounds })
@@ -1051,7 +1258,9 @@ export default class SnappingManager {
     }
 
     const { montageArea } = this.editor
-    const montageBounds = getObjectBounds({ object: montageArea })
+    const montageBounds = mode === 'exact'
+      ? getObjectExactBounds({ object: montageArea })
+      : getObjectBounds({ object: montageArea })
 
     if (montageBounds) {
       pushBoundsToAnchors({ anchors: nextAnchors, bounds: montageBounds })
@@ -1067,6 +1276,7 @@ export default class SnappingManager {
     }
 
     this.anchors = nextAnchors
+    this.anchorBoundsMode = mode
     this.spacingPatterns = buildSpacingPatterns({ bounds: targetBounds })
     this.cachedTargetBounds = targetBounds
   }
@@ -1089,14 +1299,21 @@ export default class SnappingManager {
   /**
    * Возвращает актуальные границы объектов-целей для расчёта равноудалённого прилипания.
    */
-  private _resolveCurrentTargetBounds({ activeObject }: { activeObject: FabricObject }): Bounds[] {
+  private _resolveCurrentTargetBounds({
+    activeObject,
+    mode
+  }: {
+    activeObject: FabricObject
+    mode: AnchorBoundsMode
+  }): Bounds[] {
     const targets = this._collectTargets({ activeObject })
     const boundsList: Bounds[] = []
 
     for (const object of targets) {
       const bounds = this._getTargetBounds({
         object,
-        activeObject
+        activeObject,
+        mode
       })
       if (!bounds) continue
 
@@ -1107,15 +1324,19 @@ export default class SnappingManager {
   }
 
   /**
-   * Возвращает bounds target-object для live snap.
+   * Возвращает актуальные границы цели прилипания.
    */
   private _getTargetBounds({
     object,
-    activeObject
+    activeObject,
+    mode
   }: {
     object: FabricObject
     activeObject?: FabricObject | null
+    mode: AnchorBoundsMode
   }): Bounds | null {
+    if (mode === 'exact') return getObjectExactBounds({ object })
+
     if (this._isActiveCropSource({
       object,
       activeObject

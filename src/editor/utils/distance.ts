@@ -1,22 +1,24 @@
 /**
- * Нормализует расстояние для отображения в пикселях, округляя до ближайшего целого.
+ * Округляет конечное расстояние для отображения и завершает расчёт при невалидной геометрии.
  */
 export const resolveDisplayDistance = ({
   distance
 }: {
   distance: number
 }): number => {
-  if (!Number.isFinite(distance)) return 0
+  if (!Number.isFinite(distance)) {
+    throw new Error('Display distance must be finite')
+  }
 
   return Math.round(Math.max(0, distance))
 }
 
 /**
- * Максимально допустимая разница между display-расстояниями,
- * при которой их можно считать эквивалентными для UI.
+ * Максимальная разница между двумя подписями, при которой расстояния считаются равными.
  */
-export const MAX_DISPLAY_DISTANCE_DIFF = 1
+export const MAX_DISPLAY_DISTANCE_DIFF = 0
 
+/** Округлённые значения двух расстояний и результат их сравнения для интерфейса. */
 export type CommonDisplayDistance = {
   firstDisplayDistance: number
   secondDisplayDistance: number
@@ -25,7 +27,7 @@ export type CommonDisplayDistance = {
 }
 
 /**
- * Сравнивает два расстояния в display-пикселях и возвращает общее значение для интерфейса.
+ * Сравнивает две округлённые подписи расстояния и возвращает общее значение для интерфейса.
  */
 export const resolveCommonDisplayDistance = ({
   firstDistance,

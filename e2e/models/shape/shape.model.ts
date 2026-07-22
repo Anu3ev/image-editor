@@ -37,6 +37,7 @@ import type {
 } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import { ShapeScalingSession, type ShapeDiagonalScaleCorner } from './shape-scaling-session'
+import { ShapeRotationSession } from './shape-rotation-session'
 
 type ShapeScaleLiveState = {
   snapshot: ShapeScaleSnapshot
@@ -55,11 +56,14 @@ const SHAPE_DIAGONAL_LIVE_SHRINK_DISTANCES = [120, 60, 30, 15, 8, 4, 2, 1]
 export class ShapeModel {
   private readonly page: Page
 
-  private readonly scalingController: ShapeScalingSession
+  private readonly scalingSession: ShapeScalingSession
+
+  private readonly rotationSession: ShapeRotationSession
 
   constructor(page: Page) {
     this.page = page
-    this.scalingController = new ShapeScalingSession(page)
+    this.scalingSession = new ShapeScalingSession(page)
+    this.rotationSession = new ShapeRotationSession(page)
   }
 
   /** Возвращает viewport-координаты центра фигуры для реальных mouse-событий. */
@@ -215,52 +219,6 @@ export class ShapeModel {
     return {
       insetPoint,
       textPoint
-    }
-  }
-
-  /** Возвращает viewport-координаты control-handle фигуры для реальных mouse-событий. */
-  private async _resolveControlPoint(
-    {
-      corner,
-      ...targetParams
-    }: {
-      corner: 'mtr'
-    } & ObjectTargetParams
-  ): Promise<{ x: number, y: number }> {
-    const point = await this.page.evaluate(({ corner: controlCorner, objectIndex, id }) => {
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
-
-      const target = helpers.resolveCanvasObject(objectIndex, id)
-      if (!target) return null
-
-      editor.canvas.setActiveObject(target)
-      target.setCoords()
-      editor.canvas.renderAll()
-
-      const control = target.oCoords?.[controlCorner]
-      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') {
-        return null
-      }
-
-      const canvasRect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-
-      return {
-        x: canvasRect.left + control.x,
-        y: canvasRect.top + control.y
-      }
-    }, {
-      corner,
-      ...targetParams
-    })
-
-    expect(point, 'для взаимодействия с ручкой фигуры должны существовать координаты на canvas').not.toBeNull()
-
-    return point as {
-      x: number
-      y: number
     }
   }
 
@@ -484,35 +442,35 @@ export class ShapeModel {
   async shrinkToMinimumWidth(
     params: ({ edge?: 'left' | 'right' } & ObjectTargetParams) = {}
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.shrinkToMinimumWidth(params)
+    return this.scalingSession.shrinkToMinimumWidth(params)
   }
 
   /** Масштабирует текущий target на canvas по горизонтали за правую ручку и возвращает live snapshot. */
   async scaleHorizontallyFromRight(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.scaleHorizontallyFromRight(params)
+    return this.scalingSession.scaleHorizontallyFromRight(params)
   }
 
   /** Масштабирует shape по горизонтали за левую ручку и возвращает live snapshot. */
   async scaleHorizontallyFromLeft(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.scaleHorizontallyFromLeft(params)
+    return this.scalingSession.scaleHorizontallyFromLeft(params)
   }
 
   /** Масштабирует текущий target на canvas по вертикали за нижнюю ручку и возвращает live snapshot. */
   async scaleVerticallyFromBottom(
     params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.scaleVerticallyFromBottom(params)
+    return this.scalingSession.scaleVerticallyFromBottom(params)
   }
 
   /** Масштабирует shape по вертикали за верхнюю ручку и возвращает live snapshot. */
   async scaleVerticallyFromTop(
     params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.scaleVerticallyFromTop(params)
+    return this.scalingSession.scaleVerticallyFromTop(params)
   }
 
   /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает явную передачу Shift и отключение snap через Ctrl. */
@@ -525,7 +483,7 @@ export class ShapeModel {
       ctrlKey?: boolean
     } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.scaleDiagonally(params)
+    return this.scalingSession.scaleDiagonally(params)
   }
 
   /** Масштабирует shape по диагонали пропорционально за угловую ручку и возвращает live snapshot. */
@@ -535,7 +493,14 @@ export class ShapeModel {
       corner: ShapeDiagonalScaleCorner
     } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.scaleDiagonallyProportionally(params)
+    return this.scalingSession.scaleDiagonallyProportionally(params)
+  }
+
+  /** Начинает scale фигуры реальным mousedown на угловой ручке. */
+  async startScaleFromCorner(
+    params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
+  ): Promise<void> {
+    await this.scalingSession.startScaleFromCorner(params)
   }
 
   /** Масштабирует shape за выбранную боковую ручку и возвращает live snapshot. */
@@ -589,49 +554,49 @@ export class ShapeModel {
       corner: ShapeDiagonalScaleCorner
     } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.shrinkDiagonallyToMinimum(params)
+    return this.scalingSession.shrinkDiagonallyToMinimum(params)
   }
 
   /** Имитирует масштабирование shape и запекание результата через object:modified. */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
-    await this.scalingController.simulateScale(params)
+    await this.scalingSession.simulateScale(params)
   }
 
   /** Выполняет один live-шаг интерактивного масштабирования и возвращает проверенный snapshot. */
   async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.simulateScaleStep(params)
+    return this.scalingSession.simulateScaleStep(params)
   }
 
   /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.simulateScaleMouseMoveStep(params)
+    return this.scalingSession.simulateScaleMouseMoveStep(params)
   }
 
   /** Продолжает текущий drag хэндла shape и возвращает live snapshot. */
   async dragActiveScaleHandleBy(params: { deltaX: number, deltaY: number }): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.dragActiveScaleHandleBy(params)
+    return this.scalingSession.dragActiveScaleHandleBy(params)
   }
 
   /** Продолжает текущий drag хэндла shape в сторону anchor текущей drag-сессии. */
   async dragActiveScaleHandleTowardAnchor(params: { distance: number }): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.dragActiveScaleHandleTowardAnchor(params)
+    return this.scalingSession.dragActiveScaleHandleTowardAnchor(params)
   }
 
   /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */
   async shrinkToMinimumHeight(
     params: ({ edge?: 'top' | 'bottom' } & ObjectTargetParams) = {}
   ): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.shrinkToMinimumHeight(params)
+    return this.scalingSession.shrinkToMinimumHeight(params)
   }
 
   /** Завершает активное интерактивное масштабирование и возвращает итоговый snapshot. */
   async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
-    return this.scalingController.finishScale(params)
+    return this.scalingSession.finishScale(params)
   }
 
   /** Завершает активное интерактивное масштабирование, если drag-сессия ещё открыта. */
   async finishScaleIfActive(): Promise<ShapeScaleSnapshot | null> {
-    return this.scalingController.finishScaleIfActive()
+    return this.scalingSession.finishScaleIfActive()
   }
 
   /** Пошагово сужает shape с выбранной стороны и возвращает live-состояния каждого шага. */
@@ -1044,31 +1009,17 @@ export class ShapeModel {
 
   /** Наводит курсор на ручку поворота фигуры. */
   async hoverRotateHandle(params: ObjectTargetParams = {}): Promise<void> {
-    const point = await this._resolveControlPoint({
-      corner: 'mtr',
-      ...params
-    })
-
-    await this.page.mouse.move(point.x, point.y)
-    await waitForCanvasRender({ page: this.page })
+    await this.rotationSession.hoverRotateHandle(params)
   }
 
-  /** Начинает взаимодействие с ручкой поворота фигуры. */
+  /** Начинает поворот фигуры реальным mousedown на ручке. */
   async startRotateFromHandle(params: ObjectTargetParams = {}): Promise<void> {
-    const point = await this._resolveControlPoint({
-      corner: 'mtr',
-      ...params
-    })
-
-    await this.page.mouse.move(point.x, point.y)
-    await this.page.mouse.down()
-    await waitForCanvasRender({ page: this.page })
+    await this.rotationSession.startRotateFromHandle(params)
   }
 
-  /** Завершает текущее pointer-взаимодействие с canvas. */
-  async finishPointerInteraction(): Promise<void> {
-    await this.page.mouse.up()
-    await waitForCanvasRender({ page: this.page })
+  /** Завершает поворот фигуры реальным mouseup. */
+  async finishRotation(): Promise<void> {
+    await this.rotationSession.finishRotation()
   }
 
   /** Включает режим редактирования текста внутри shape */

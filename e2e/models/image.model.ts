@@ -44,18 +44,22 @@ type ImageSourceInfo = {
   sourceHeight: number
 }
 
+/** Незавершённый скейлинг изображения. */
+type ActiveImageScaleInteraction = {
+  point: {
+    x: number
+    y: number
+  }
+  mode?: 'browser-pointer'
+  corner: 'mr'
+  objectIndex?: number
+  id?: string
+}
+
 export class ImageModel {
   private readonly page: Page
 
-  private activeScaleInteraction: {
-    point: {
-      x: number
-      y: number
-    }
-    corner: 'mr'
-    objectIndex?: number
-    id?: string
-  } | null
+  private activeScaleInteraction: ActiveImageScaleInteraction | null
 
   constructor(page: Page) {
     this.page = page
@@ -424,7 +428,88 @@ export class ImageModel {
     return snapshot as SnappingObjectSnapshot
   }
 
-  /** Масштабирует изображение вправо через реальную drag-сессию с фиксированной левой верхней точкой. */
+  /** Начинает скейлинг изображения за правую боковую ручку реальной мышью. */
+  async startScaleFromRightHandle(
+    params: ObjectTargetParams = {}
+  ): Promise<SnappingObjectSnapshot> {
+    expect(this.activeScaleInteraction, 'перед началом скейлинга изображения не должно быть другого жеста').toBeNull()
+
+    const point = await this._resolveScaleHandlePoint({
+      ...params,
+      corner: 'mr'
+    })
+
+    await this.page.mouse.move(point.x, point.y)
+    await this.page.mouse.down()
+    await waitForCanvasRender({ page: this.page })
+
+    const transformStarted = await this.page.evaluate(({ objectIndex, id }) => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+
+      return Boolean(target && editor.canvas._currentTransform?.target === target)
+    }, params)
+
+    expect(transformStarted, 'mousedown должен начать скейлинг нужного изображения').toBe(true)
+
+    this.activeScaleInteraction = {
+      point,
+      mode: 'browser-pointer',
+      corner: 'mr',
+      objectIndex: params.objectIndex,
+      id: params.id
+    }
+
+    const snapshot = await this.getSnapshot(params)
+
+    expect(
+      snapshot.boundsWidth,
+      'ширина изображения в начале скейлинга должна быть положительной'
+    ).toBeGreaterThan(0)
+    expect(
+      snapshot.boundsHeight,
+      'высота изображения в начале скейлинга должна быть положительной'
+    ).toBeGreaterThan(0)
+
+    return snapshot
+  }
+
+  /** Двигает активную ручку скейлинга изображения реальной мышью. */
+  async dragActiveScaleHandleBy(
+    params: { deltaX: number, deltaY: number, pointerSteps?: number }
+  ): Promise<SnappingObjectSnapshot> {
+    expect(this.activeScaleInteraction, 'для движения ручки скейлинга нужен активный жест').not.toBeNull()
+    expect(
+      this.activeScaleInteraction?.mode,
+      'движение должно продолжать скейлинг, начатый мышью'
+    ).toBe('browser-pointer')
+
+    if (!this.activeScaleInteraction || this.activeScaleInteraction.mode !== 'browser-pointer') {
+      throw new Error('Должен существовать активный скейлинг изображения, начатый мышью')
+    }
+
+    const {
+      deltaX,
+      deltaY,
+      pointerSteps = 1
+    } = params
+    const nextPoint = {
+      x: this.activeScaleInteraction.point.x + deltaX,
+      y: this.activeScaleInteraction.point.y + deltaY
+    }
+
+    await this.page.mouse.move(nextPoint.x, nextPoint.y, { steps: pointerSteps })
+    await waitForCanvasRender({ page: this.page })
+
+    this.activeScaleInteraction.point = nextPoint
+
+    return this.getSnapshot({
+      objectIndex: this.activeScaleInteraction.objectIndex,
+      id: this.activeScaleInteraction.id
+    })
+  }
+
+  /** Масштабирует изображение вправо прямым вызовом Fabric handler с фиксированной левой верхней точкой. */
   async scaleHorizontallyFromRight(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<SnappingObjectSnapshot> {
@@ -445,67 +530,84 @@ export class ImageModel {
     })
   }
 
-  /** Завершает интерактивный scale изображения через реальный mouseup. */
+  /** Завершает скейлинг изображения тем же способом, которым он был начат. */
   async finishScale(params: ObjectTargetParams = {}): Promise<SnappingObjectSnapshot> {
     if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
-      const {
-        point,
-        corner,
-        objectIndex,
-        id
-      } = this.activeScaleInteraction
-      const snapshot = await this.page.evaluate((payload) => {
-        const {
-          point: interactionPoint,
-          corner: controlCorner,
-          objectIndex: targetObjectIndex,
-          id: targetId
-        } = payload
-        const {
-          editor,
-          __editorHelpers: helpers
-        } = window as any
+      const interaction = this.activeScaleInteraction
+      let snapshot: SnappingObjectSnapshot
 
-        const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
-        if (!target) return null
+      if (interaction.mode === 'browser-pointer') {
+        snapshot = await this._finishBrowserScaleInteraction(interaction)
+      } else {
+        snapshot = await this._finishFabricScaleInteraction(interaction)
+      }
 
-        target.setCoords()
-
-        const currentControl = target.oCoords?.[controlCorner]
-        const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-        const releasePoint = currentControl
-          && typeof currentControl.x === 'number'
-          && typeof currentControl.y === 'number'
-          ? {
-            x: rect.left + currentControl.x,
-            y: rect.top + currentControl.y
-          }
-          : interactionPoint
-
-        editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
-          bubbles: true,
-          button: 0,
-          buttons: 0,
-          clientX: releasePoint.x,
-          clientY: releasePoint.y
-        }))
-
-        return helpers.serializeSnappingObjectSnapshot(target)
-      }, {
-        point,
-        corner,
-        objectIndex,
-        id
-      })
-
-      await waitForCanvasRender({ page: this.page })
       this.activeScaleInteraction = null
 
-      expect(snapshot, 'должно существовать состояние после завершения scale изображения').not.toBeNull()
+      expect(snapshot, 'должно существовать состояние после завершения скейлинга изображения').not.toBeNull()
+      expect(snapshot.boundsWidth, 'ширина изображения после скейлинга должна быть положительной').toBeGreaterThan(0)
 
-      return snapshot as SnappingObjectSnapshot
+      return snapshot
     }
 
+    return this._finishModifiedScale(params)
+  }
+
+  /** Завершает скейлинг изображения, начатый мышью, настоящим mouseup. */
+  private async _finishBrowserScaleInteraction(
+    interaction: ActiveImageScaleInteraction
+  ): Promise<SnappingObjectSnapshot> {
+    expect(interaction.mode, 'этот mouseup должен завершать скейлинг, начатый мышью').toBe('browser-pointer')
+    expect(Number.isFinite(interaction.point.x), 'координата X для mouseup должна быть конечной').toBe(true)
+
+    await this.page.mouse.up()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getSnapshot({
+      objectIndex: interaction.objectIndex,
+      id: interaction.id
+    })
+  }
+
+  /** Завершает скейлинг изображения, начатый прямым вызовом Fabric handler. */
+  private async _finishFabricScaleInteraction(
+    interaction: ActiveImageScaleInteraction
+  ): Promise<SnappingObjectSnapshot> {
+    const snapshot = await this.page.evaluate((payload) => {
+      const { point, corner, objectIndex, id } = payload
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+
+      const control = target.oCoords?.[corner]
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const releasePoint = control && Number.isFinite(control.x) && Number.isFinite(control.y)
+        ? { x: rect.left + control.x, y: rect.top + control.y }
+        : point
+
+      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        buttons: 0,
+        clientX: releasePoint.x,
+        clientY: releasePoint.y
+      }))
+
+      return helpers.serializeSnappingObjectSnapshot(target)
+    }, interaction)
+
+    expect(snapshot, 'Fabric mouseup должен вернуть snapshot изображения').not.toBeNull()
+    expect(Number.isFinite(snapshot?.boundsWidth), 'ширина после Fabric mouseup должна быть конечной').toBe(true)
+
+    await waitForCanvasRender({ page: this.page })
+
+    return snapshot as SnappingObjectSnapshot
+  }
+
+  /** Завершает программно изменённое изображение через observable object:modified. */
+  private async _finishModifiedScale(params: ObjectTargetParams): Promise<SnappingObjectSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
@@ -522,9 +624,40 @@ export class ImageModel {
       return helpers.serializeSnappingObjectSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должно существовать состояние после завершения scale изображения').not.toBeNull()
+    expect(snapshot, 'должно существовать состояние после завершения скейлинга изображения').not.toBeNull()
+    expect(Number.isFinite(snapshot?.boundsWidth), 'итоговая ширина изображения должна быть конечной').toBe(true)
 
     return snapshot as SnappingObjectSnapshot
+  }
+
+  /** Возвращает координаты указанной ручки скейлинга изображения в viewport. */
+  private async _resolveScaleHandlePoint(
+    params: { corner: 'mr' } & ObjectTargetParams
+  ): Promise<{ x: number, y: number }> {
+    const point = await this.page.evaluate(({ corner, objectIndex, id }) => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      editor.canvas.setActiveObject(target)
+      target.setCoords()
+      editor.canvas.renderAll()
+
+      const control = target.oCoords?.[corner]
+      if (!control || !Number.isFinite(control.x) || !Number.isFinite(control.y)) return null
+
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: rect.left + control.x,
+        y: rect.top + control.y
+      }
+    }, params)
+
+    expect(point, 'должны существовать координаты ручки скейлинга изображения в viewport').not.toBeNull()
+    expect(Number.isFinite(point?.x), 'координата X ручки скейлинга в viewport должна быть конечной').toBe(true)
+
+    return point as { x: number, y: number }
   }
 
   /** Проверяет что изображение было добавлено и возвращает объект с обязательным id. */

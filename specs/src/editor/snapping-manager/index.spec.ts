@@ -3,7 +3,7 @@ import SnappingManager from '../../../../src/editor/snapping-manager'
 import {
   calculateHorizontalSpacing,
   calculateVerticalSpacing
-} from '../../../../src/editor/snapping-manager/calculations'
+} from '../../../../src/editor/snapping-manager/spacing'
 import {
   CENTERING_STEP,
   MOVE_SNAP_STEP,
@@ -818,6 +818,7 @@ describe('SnappingManager', () => {
     const snappingManager = new SnappingManager({ editor })
     const snappingManagerState = snappingManager as any
     snappingManagerState.anchors = { vertical: [400], horizontal: [] }
+    snappingManagerState.anchorBoundsMode = 'rounded'
     snappingManagerState._handleObjectScaling({
       target: active,
       transform: {
@@ -853,6 +854,7 @@ describe('SnappingManager', () => {
     const snappingManager = new SnappingManager({ editor })
     const snappingManagerState = snappingManager as any
     snappingManagerState.anchors = { vertical: [200], horizontal: [] }
+    snappingManagerState.anchorBoundsMode = 'rounded'
     const textbox = new Textbox('Test', {
       left: 204,
       top: 50,
@@ -883,6 +885,34 @@ describe('SnappingManager', () => {
         })
       ])
     )
+  })
+
+  it('скрывает направляющие при Ctrl и при ресайзе текста не за боковую ручку', () => {
+    const { editor, canvas } = createSnappingTestContext()
+    const snappingManager = new SnappingManager({ editor })
+    const snappingManagerState = snappingManager as any
+    const textbox = new Textbox('Test', { left: 204, top: 50, width: 100 })
+    textbox.canvas = canvas as any
+
+    snappingManagerState.activeGuides = [{ type: 'vertical', position: 200 }]
+    snappingManager.applyTextResizingSnap({
+      target: textbox,
+      transform: { corner: 'mr' } as any,
+      event: { ctrlKey: true } as any
+    })
+
+    expect(snappingManagerState.activeGuides).toHaveLength(0)
+    expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
+
+    snappingManagerState.activeGuides = [{ type: 'vertical', position: 200 }]
+    snappingManager.applyTextResizingSnap({
+      target: textbox,
+      transform: { corner: 'mt' } as any,
+      event: null
+    })
+
+    expect(snappingManagerState.activeGuides).toHaveLength(0)
+    expect(canvas.requestRenderAll).toHaveBeenCalledTimes(2)
   })
 
   describe('pixel-snap масштабирования', () => {
