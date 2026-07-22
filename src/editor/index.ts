@@ -437,6 +437,7 @@ export class ImageEditor {
    */
   public destroy(): void {
     this.listeners.destroy()
+    this.shapeManager?.destroy()
     this.snappingManager?.destroy()
     this.measurementManager?.destroy()
     this.toolbar.destroy()

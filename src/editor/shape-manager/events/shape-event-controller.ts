@@ -7,6 +7,7 @@ import type { ObjectPlacement } from '../../canvas-manager'
 import type { ImageEditor } from '../../index'
 import type ShapeEditingController from '../editing/shape-editing-controller'
 import type ShapeLifecycleController from '../lifecycle/shape-lifecycle-controller'
+import ShapeScaleInteractionController from '../scaling/shape-scale-interaction-controller'
 import type ShapeScalingController from '../scaling/shape-scaling-controller'
 import { isShapeGroup } from '../domain/shape-reference'
 import type {
@@ -21,19 +22,27 @@ import type {
 } from '../../text-manager/types'
 
 /**
- * Нормализованная форма canvas-события, с которой работает ShapeManager event path.
+ * Данные события canvas, которые нужны обработчикам ShapeManager.
  */
 type ShapeCanvasEvent = {
   target?: FabricObject | null
   e?: Event | MouseEvent
+  pointer?: {
+    x: number
+    y: number
+  }
+  scenePoint?: {
+    x: number
+    y: number
+  }
   subTargets?: FabricObject[]
   transform?: import('fabric').Transform | null
 }
 
 /**
- * Runtime-зависимости, которые event controller использует для shape lifecycle сценариев.
+ * Зависимости обработчиков событий ShapeManager.
  */
-type ShapeEventRuntime = {
+type ShapeEventDependencies = {
   editor: ImageEditor
   scalingController: ShapeScalingController
   editingController: ShapeEditingController
@@ -58,84 +67,105 @@ type ShapeEventRuntime = {
 }
 
 /**
- * Минимальное отклонение scale ActiveSelection, после которого mutation path считается реальным.
+ * Минимальное изменение scale, которое считается реальным изменением ActiveSelection.
  */
 const ACTIVE_SELECTION_SCALE_EPSILON = 0.0001
 
 /**
- * Владеет подписками ShapeManager на события canvas и переводит их
- * в lifecycle/scaling/editing сценарии для shape-групп.
+ * Подписывает ShapeManager на события canvas и передаёт их нужным контроллерам.
  */
 export default class ShapeEventController {
   /**
-   * Runtime-зависимости, через которые контроллер работает с ShapeManager без прямого доступа к нему.
+   * Зависимости обработчиков событий.
    */
-  private readonly runtime: ShapeEventRuntime
+  private readonly dependencies: ShapeEventDependencies
 
   /**
-   * Инициализирует event controller с уже собранным runtime-контрактом ShapeManager.
+   * Управляет snapping во время scale одиночного Shape.
    */
-  constructor({ runtime }: { runtime: ShapeEventRuntime }) {
-    this.runtime = runtime
+  private readonly scaleInteractionController: ShapeScaleInteractionController
+
+  /**
+   * Принимает зависимости обработчиков и создаёт контроллер scale-жеста.
+   */
+  constructor({ runtime: dependencies }: { runtime: ShapeEventDependencies }) {
+    this.dependencies = dependencies
+    this.scaleInteractionController = new ShapeScaleInteractionController({
+      editor: dependencies.editor,
+      scalingController: dependencies.scalingController
+    })
   }
 
   /**
-   * Подписывает обработчики shape-событий на canvas редактора.
+   * Подписывает ShapeManager на события canvas и окна.
    */
   public bind(): void {
-    const { canvas } = this.runtime.editor
+    const { canvas } = this.dependencies.editor
 
     canvas.on('object:scaling', this._handleObjectScaling)
     canvas.on('object:modified', this._handleObjectModified)
     canvas.on('mouse:move', this._handleMouseMove)
     canvas.on('mouse:down', this._handleMouseDown)
-    canvas.on('mouse:up', this._handleMouseUp)
+    canvas.on('mouse:up', this._handleScaleInteractionFinished)
+    canvas.on('object:removed', this._handleObjectRemoved)
+    canvas.on('selection:created', this._handleScaleInteractionFinished)
+    canvas.on('selection:updated', this._handleScaleInteractionFinished)
+    canvas.on('selection:cleared', this._handleScaleInteractionFinished)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
     canvas.on('text:changed', this._handleTextChanged)
     canvas.on('editor:before:text-updated', this._handleBeforeTextUpdated)
     canvas.on('editor:text-updated', this._handleTextUpdated)
+
+    window.addEventListener('pointercancel', this._handlePointerCancel)
+    window.addEventListener('touchcancel', this._handlePointerCancel)
+    window.addEventListener('blur', this._handleWindowBlur)
   }
 
   /**
-   * Снимает все canvas-подписки, которыми владеет контроллер.
+   * Снимает подписки ShapeManager и очищает активный scale-жест.
    */
   public destroy(): void {
-    const { canvas } = this.runtime.editor
+    this.scaleInteractionController.destroy()
+
+    const { canvas } = this.dependencies.editor
 
     canvas.off('object:scaling', this._handleObjectScaling)
     canvas.off('object:modified', this._handleObjectModified)
     canvas.off('mouse:move', this._handleMouseMove)
     canvas.off('mouse:down', this._handleMouseDown)
-    canvas.off('mouse:up', this._handleMouseUp)
+    canvas.off('mouse:up', this._handleScaleInteractionFinished)
+    canvas.off('object:removed', this._handleObjectRemoved)
+    canvas.off('selection:created', this._handleScaleInteractionFinished)
+    canvas.off('selection:updated', this._handleScaleInteractionFinished)
+    canvas.off('selection:cleared', this._handleScaleInteractionFinished)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:changed', this._handleTextChanged)
     canvas.off('editor:before:text-updated', this._handleBeforeTextUpdated)
     canvas.off('editor:text-updated', this._handleTextUpdated)
+
+    window.removeEventListener('pointercancel', this._handlePointerCancel)
+    window.removeEventListener('touchcancel', this._handlePointerCancel)
+    window.removeEventListener('blur', this._handleWindowBlur)
   }
 
   /**
-   * Начинает resize lifecycle для всех shape-групп, попавших в scaling событие.
+   * Начинает resize для затронутых Shape и применяет текущий scale.
    */
   private _handleObjectScaling = (event: ShapeCanvasEvent): void => {
-    const groups = this.runtime.collectShapeGroupsFromTarget({
-      target: event.target,
-      subTargets: event.subTargets
-    })
+    this._beginResize({ event })
 
-    groups.forEach((group) => {
-      this.runtime.lifecycleController.beginResize({ group })
-    })
+    if (this.scaleInteractionController.handleObjectScaling(event)) return
 
-    this.runtime.scalingController.handleObjectScaling(event)
+    this.dependencies.scalingController.handleObjectScaling(event)
   }
 
   /**
-   * Завершает scaling path для одиночной группы или ActiveSelection.
+   * Фиксирует результат scale для одиночного Shape или ActiveSelection.
    */
   private _handleObjectModified = (event: ShapeCanvasEvent): void => {
-    const groups = this.runtime.collectShapeGroupsFromTarget({
+    const groups = this.dependencies.collectShapeGroupsFromTarget({
       target: event.target
     })
 
@@ -145,49 +175,91 @@ export default class ShapeEventController {
         transform: event.transform
       })
       groups.forEach((group) => {
-        this.runtime.scalingController.clearState({ group })
+        this.dependencies.scalingController.clearState({ group })
       })
     } else {
-      this.runtime.scalingController.handleObjectModified(event)
+      this.dependencies.scalingController.handleObjectModified(event)
     }
 
     groups.forEach((group) => {
-      this.runtime.lifecycleController.finishResize({ group })
+      this.dependencies.lifecycleController.finishResize({ group })
     })
   }
 
   /**
-   * Прокидывает live mouse-move в scaling controller.
+   * Обрабатывает mouse:move, когда Fabric не отправил object:scaling.
    */
   private _handleMouseMove = (event: ShapeCanvasEvent): void => {
-    this.runtime.scalingController.handleCanvasMouseMove(event)
+    if (this.scaleInteractionController.handleCanvasMouseMove(event)) {
+      if (event.transform?.actionPerformed) {
+        this._beginResize({ event })
+      }
+      return
+    }
+
+    this.dependencies.scalingController.handleCanvasMouseMove(event)
   }
 
-  /**
-   * Фиксирует resize start snapshot и передаёт событие в editing controller.
-   */
-  private _handleMouseDown = (event: ShapeCanvasEvent): void => {
-    const groups = this.runtime.collectShapeGroupsFromTarget({
+  /** Начинает отслеживать resize для Shape, затронутых событием. */
+  private _beginResize({ event }: { event: ShapeCanvasEvent }): void {
+    const groups = this.dependencies.collectShapeGroupsFromTarget({
       target: event.target,
       subTargets: event.subTargets
     })
 
     groups.forEach((group) => {
-      this.runtime.lifecycleController.captureResizeStart({ group })
+      this.dependencies.lifecycleController.beginResize({ group })
+    })
+  }
+
+  /**
+   * Сохраняет Shape до возможного resize и запускает обработчики mouse:down.
+   */
+  private _handleMouseDown = (event: ShapeCanvasEvent): void => {
+    const groups = this.dependencies.collectShapeGroupsFromTarget({
+      target: event.target,
+      subTargets: event.subTargets
     })
 
-    this.runtime.editingController.handleMouseDown(event)
+    groups.forEach((group) => {
+      this.dependencies.lifecycleController.captureResizeStart({ group })
+    })
+
+    this.scaleInteractionController.beginGesture(event)
+    this.dependencies.editingController.handleMouseDown(event)
+  }
+
+  /** Очищает данные завершённого scale-жеста. */
+  private _handleScaleInteractionFinished = (): void => {
+    this.scaleInteractionController.finishGesture()
+    this.dependencies.lifecycleController.clearResizeStarts()
+  }
+
+  /** Завершает scale-жест, если его Shape удалили с canvas. */
+  private _handleObjectRemoved = (event: ShapeCanvasEvent): void => {
+    const { target } = event
+    if (!target) return
+    if (!this.scaleInteractionController.finishGestureForTarget({ target })) return
+
+    this.dependencies.lifecycleController.clearResizeStarts()
+  }
+
+  /** Прерывает scale после pointercancel или touchcancel. */
+  private _handlePointerCancel = (event: PointerEvent | TouchEvent): void => {
+    if (!this.scaleInteractionController.interruptGesture({ event })) return
+
+    this.dependencies.lifecycleController.clearResizeStarts()
+  }
+
+  /** Прерывает scale, когда окно теряет фокус. */
+  private _handleWindowBlur = (): void => {
+    if (!this.scaleInteractionController.interruptGesture()) return
+
+    this.dependencies.lifecycleController.clearResizeStarts()
   }
 
   /**
-   * Сбрасывает временные resize snapshots после завершения pointer action.
-   */
-  private _handleMouseUp = (): void => {
-    this.runtime.lifecycleController.clearResizeStarts()
-  }
-
-  /**
-   * Завершает text-editing lifecycle для текста внутри shape-группы.
+   * Завершает редактирование текста внутри Shape.
    */
   private _handleTextEditingExited = (event: ShapeCanvasEvent): void => {
     let completedEditing: {
@@ -200,7 +272,7 @@ export default class ShapeEventController {
       const { group } = textNode
 
       if (isShapeGroup(group)) {
-        this.runtime.editingPlacements.delete(group)
+        this.dependencies.editingPlacements.delete(group)
         completedEditing = {
           group,
           textNode
@@ -208,15 +280,15 @@ export default class ShapeEventController {
       }
     }
 
-    this.runtime.editingController.handleTextEditingExited(event)
+    this.dependencies.editingController.handleTextEditingExited(event)
 
     if (!completedEditing) return
 
-    this.runtime.lifecycleController.finishTextEditing(completedEditing)
+    this.dependencies.lifecycleController.finishTextEditing(completedEditing)
   }
 
   /**
-   * Переводит shape-группу в режим text editing и запоминает её placement.
+   * Подготавливает Shape к редактированию текста и запоминает его положение.
    */
   private _handleTextEditingEntered = (event: ShapeCanvasEvent): void => {
     if (event.target instanceof Textbox) {
@@ -224,20 +296,20 @@ export default class ShapeEventController {
       const { group } = textNode
 
       if (isShapeGroup(group)) {
-        this.runtime.detachShapeGroupAutoLayout({ group })
-        this.runtime.lifecycleController.beginTextEditing({ group })
-        this.runtime.editingPlacements.set(
+        this.dependencies.detachShapeGroupAutoLayout({ group })
+        this.dependencies.lifecycleController.beginTextEditing({ group })
+        this.dependencies.editingPlacements.set(
           group,
-          this.runtime.editor.canvasManager.getObjectPlacement({ object: group })
+          this.dependencies.editor.canvasManager.getObjectPlacement({ object: group })
         )
       }
     }
 
-    this.runtime.editingController.handleTextEditingEntered(event)
+    this.dependencies.editingController.handleTextEditingEntered(event)
   }
 
   /**
-   * Синхронизирует layout группы после live-изменения текста внутри фигуры.
+   * Обновляет layout Shape после изменения текста во время редактирования.
    */
   private _handleTextChanged = (event: ShapeCanvasEvent): void => {
     if (!(event.target instanceof Textbox)) return
@@ -246,23 +318,23 @@ export default class ShapeEventController {
 
     if (!isShapeGroup(textNode.group)) return
 
-    // ShapeManager получает text:changed раньше TextManager,
-    // поэтому line defaults должны попасть в runtime styles до layout-измерения.
-    this.runtime.editor.textManager.syncLineStylesWithText({
+    // ShapeManager получает text:changed раньше TextManager, поэтому сначала
+    // синхронизируем стили строк, от которых зависит измерение layout.
+    this.dependencies.editor.textManager.syncLineStylesWithText({
       textbox: textNode
     })
 
-    const wasSynchronized = this.runtime.syncShapeTextLayoutAfterTextMutation({
+    const wasSynchronized = this.dependencies.syncShapeTextLayoutAfterTextMutation({
       textNode
     })
 
     if (!wasSynchronized) return
 
-    this.runtime.editor.canvas.requestRenderAll()
+    this.dependencies.editor.canvas.requestRenderAll()
   }
 
   /**
-   * Выполняет pre-history синхронизацию shape-layout перед программным text update.
+   * Обновляет layout Shape до сохранения предыдущего состояния текста в history.
    */
   private _handleBeforeTextUpdated = (
     event: BeforeTextUpdatedPayload
@@ -275,41 +347,41 @@ export default class ShapeEventController {
     const { group } = textNode
 
     if (!isShapeGroup(group)) return
-    if (this.runtime.internalTextUpdates.has(textNode)) return
+    if (this.dependencies.internalTextUpdates.has(textNode)) return
 
-    const lifecycle = this.runtime.lifecycleController.beginTextUpdate({
+    const lifecycle = this.dependencies.lifecycleController.beginTextUpdate({
       group,
       textNode,
       withoutSave: event.options.withoutSave
     })
-    const wasSynchronized = this.runtime.syncShapeTextLayoutAfterTextMutation({
+    const wasSynchronized = this.dependencies.syncShapeTextLayoutAfterTextMutation({
       textNode,
       textStyle: style
     })
 
     if (!wasSynchronized) {
-      this.runtime.lifecycleController.cancelTextUpdate({ textNode })
+      this.dependencies.lifecycleController.cancelTextUpdate({ textNode })
       return
     }
 
-    this.runtime.lifecycleController.fireBefore({ lifecycle })
+    this.dependencies.lifecycleController.fireBefore({ lifecycle })
   }
 
   /**
-   * Завершает lifecycle программного обновления текста внутри shape-группы.
+   * Завершает программное обновление текста внутри Shape.
    */
   private _handleTextUpdated = (event: TextUpdatedPayload): void => {
     const { textbox } = event
 
     if (!(textbox instanceof Textbox)) return
 
-    this.runtime.lifecycleController.finishTextUpdate({
+    this.dependencies.lifecycleController.finishTextUpdate({
       textNode: textbox as ShapeTextNode
     })
   }
 
   /**
-   * Запекает scale ActiveSelection в дочерние shape-группы и восстанавливает выделение.
+   * Применяет scale ActiveSelection к дочерним Shape и восстанавливает выделение.
    */
   private _commitActiveSelectionShapeScaling({
     selection,
@@ -325,24 +397,24 @@ export default class ShapeEventController {
 
     if (!shapeGroups.length) return
 
-    const { scaleX, scaleY } = this.runtime.scalingController.resolveActiveSelectionCommittedScale({
+    const { scaleX, scaleY } = this.dependencies.scalingController.resolveActiveSelectionCommittedScale({
       selection
     })
     const hasScaleChange = Math.abs(scaleX - 1) > ACTIVE_SELECTION_SCALE_EPSILON
       || Math.abs(scaleY - 1) > ACTIVE_SELECTION_SCALE_EPSILON
 
     if (!hasScaleChange) {
-      this.runtime.scalingController.clearActiveSelectionState({ selection })
+      this.dependencies.scalingController.clearActiveSelectionState({ selection })
       return
     }
 
-    const { canvas, canvasManager } = this.runtime.editor
+    const { canvas, canvasManager } = this.dependencies.editor
 
     canvas.discardActiveObject()
 
     shapeGroups.forEach((group) => {
       const placement = canvasManager.getObjectPlacement({ object: group })
-      const didCommitScaling = this.runtime.scalingController.commitActiveSelectionGroupScaling({
+      const didCommitScaling = this.dependencies.scalingController.commitActiveSelectionGroupScaling({
         group,
         scaleX,
         scaleY,
@@ -358,7 +430,7 @@ export default class ShapeEventController {
       group.setCoords()
     })
 
-    this.runtime.scalingController.clearActiveSelectionState({ selection })
+    this.dependencies.scalingController.clearActiveSelectionState({ selection })
     canvas.setActiveObject(new ActiveSelection(objects, { canvas }))
     canvas.requestRenderAll()
   }

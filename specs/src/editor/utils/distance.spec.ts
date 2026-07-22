@@ -15,10 +15,27 @@ describe('resolveDisplayDistance', () => {
     expect(resolveDisplayDistance({ distance: 26.49 })).toBe(26)
   })
 
-  it('возвращает 0 для отрицательных и невалидных значений', () => {
+  it.each([
+    [0, 0],
+    [0.49, 0],
+    [0.5, 1],
+    [1.49, 1],
+    [1.5, 2]
+  ])('для расстояния %s возвращает display-значение %s', (distance, expected) => {
+    const result = resolveDisplayDistance({ distance })
+
+    expect(result).toBe(expected)
+    expect(result).toBeGreaterThanOrEqual(0)
+  })
+
+  it('возвращает 0 для отрицательного расстояния', () => {
     expect(resolveDisplayDistance({ distance: -5 })).toBe(0)
-    expect(resolveDisplayDistance({ distance: Number.NaN })).toBe(0)
-    expect(resolveDisplayDistance({ distance: Number.POSITIVE_INFINITY })).toBe(0)
+    expect(resolveDisplayDistance({ distance: -0.49 })).toBe(0)
+  })
+
+  it('завершает расчёт с ошибкой для нечислового расстояния', () => {
+    expect(() => resolveDisplayDistance({ distance: Number.NaN })).toThrow('finite')
+    expect(() => resolveDisplayDistance({ distance: Number.POSITIVE_INFINITY })).toThrow('finite')
   })
 
   it('возвращает 0 для нулевого расстояния', () => {
@@ -53,6 +70,7 @@ describe('resolveCommonDisplayDistance', () => {
     expect(result.firstDisplayDistance).toBe(25)
     expect(result.secondDisplayDistance).toBe(26)
     expect(result.displayDistanceDiff).toBe(1)
+    expect(result.displayDistanceDiff).toBeGreaterThan(MAX_DISPLAY_DISTANCE_DIFF)
   })
 
   it('определяет displayDistanceDiff > MAX_DISPLAY_DISTANCE_DIFF для далёких расстояний', () => {

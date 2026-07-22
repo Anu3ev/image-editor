@@ -69,6 +69,7 @@ for a genuinely independent one-file domain.
 | `history.model.ts` | History save, undo, redo, and serialized history state. |
 | `image.model.ts` | Image creation, source and transform operations, image/canvas export, and image snapshots. |
 | `interaction-blocker.model.ts` | Interaction-blocker and AI-overlay state. |
+| `scale-interaction-trace.model.ts` | Canvas event order and state snapshots for focused scaling scenarios. |
 | `selection.model.ts` | Active Fabric selection geometry and control scaling. |
 | `snapping.model.ts` | Snapping guides and snap-governed object movement. |
 | `template.model.ts` | Template serialization and application. |
@@ -80,6 +81,7 @@ for a genuinely independent one-file domain.
 | `text/text.model.ts` | Text creation, content and style updates, editing, selection, scaling, and resize scenarios. |
 | `text/text-resize-session.ts` | Live text-resize pointer interaction and intermediate states, composed by `TextModel`. |
 | `shape/shape.model.ts` | Shape creation, presets, style, text, selection, editing, and scaling scenarios. |
+| `shape/shape-rotation-session.ts` | Real pointer interaction with a shape rotation handle, composed by `ShapeModel`. |
 | `shape/shape-scaling-session.ts` | Live shape-scaling pointer interaction and intermediate states, composed by `ShapeModel`. |
 
 Before adding a model, check this table and the existing domain folder. If an

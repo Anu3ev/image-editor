@@ -1,10 +1,12 @@
 import { Point, Textbox, type FabricObject } from 'fabric'
 
+/** Размер объекта в координатах его текущего геометрического контракта. */
 export type Dimensions = {
   width: number
   height: number
 }
 
+/** Грани объекта и центры, рассчитанные в координатах сцены. */
 export type ObjectBounds = {
   left: number
   right: number
@@ -13,6 +15,9 @@ export type ObjectBounds = {
   centerX: number
   centerY: number
 }
+
+/** Способ чтения точных или совместимых со старым кодом округлённых границ. */
+type VisualBoundsMode = 'exact' | 'compatible'
 
 /**
  * Возвращает числовое значение или fallback, если value некорректно.
@@ -199,41 +204,86 @@ function isFiniteObjectBounds({ bounds }: { bounds: ObjectBounds }): boolean {
 }
 
 /**
- * Возвращает visual bounding box объекта без custom snapping bounds.
+ * Собирает границы объекта и рассчитывает центры из тех же точных значений.
+ */
+function createObjectBounds({
+  left,
+  right,
+  top,
+  bottom
+}: {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}): ObjectBounds {
+  return {
+    left,
+    right,
+    top,
+    bottom,
+    centerX: left + ((right - left) / 2),
+    centerY: top + ((bottom - top) / 2)
+  }
+}
+
+/**
+ * Проверяет точные границы объекта перед использованием.
+ */
+function assertExactObjectBounds({
+  bounds,
+  source
+}: {
+  bounds: ObjectBounds
+  source: 'custom snapping bounds' | 'visual bounds'
+}): void {
+  const { left, right, top, bottom } = bounds
+  const hasFiniteEdges = Number.isFinite(left)
+    && Number.isFinite(right)
+    && Number.isFinite(top)
+    && Number.isFinite(bottom)
+
+  if (!hasFiniteEdges) {
+    throw new Error(`Invalid ${source}: edges must be finite`)
+  }
+
+  if (right < left || bottom < top) {
+    throw new Error(`Invalid ${source}: edges must be ordered`)
+  }
+}
+
+/**
+ * Возвращает видимые границы объекта без пользовательской геометрии прилипания.
  */
 function getObjectVisualBounds({
-  object
+  object,
+  mode
 }: {
   object: FabricObject
+  mode: VisualBoundsMode
 }): ObjectBounds | null {
   try {
     object.setCoords()
     const rect = object.getBoundingRect()
-    const {
-      left: rawLeft = 0,
-      top: rawTop = 0,
-      width = 0,
-      height = 0
-    } = rect
+    const left = mode === 'compatible' ? rect.left ?? 0 : rect.left
+    const top = mode === 'compatible' ? rect.top ?? 0 : rect.top
+    const width = mode === 'compatible' ? rect.width ?? 0 : rect.width
+    const height = mode === 'compatible' ? rect.height ?? 0 : rect.height
 
-    const left = rawLeft
-    const top = rawTop
-
-    return {
+    return createObjectBounds({
       left,
       right: left + width,
       top,
-      bottom: top + height,
-      centerX: left + (width / 2),
-      centerY: top + (height / 2)
-    }
+      bottom: top + height
+    })
   } catch {
     return null
   }
 }
 
 /**
- * Возвращает точный bounding box объекта с учётом трансформации.
+ * Возвращает точные границы объекта в координатах сцены с учётом трансформации.
+ * Некорректные пользовательские границы приводят к ошибке вместо подмены другой геометрией.
  */
 export const getObjectExactBounds = ({
   object
@@ -243,11 +293,24 @@ export const getObjectExactBounds = ({
   if (!object) return null
 
   const customBounds = object.getObjectSnappingBounds?.()
-  if (customBounds && isFiniteObjectBounds({ bounds: customBounds })) {
-    return customBounds
+  if (customBounds) {
+    assertExactObjectBounds({
+      bounds: customBounds,
+      source: 'custom snapping bounds'
+    })
+
+    return createObjectBounds(customBounds)
   }
 
-  return getObjectVisualBounds({ object })
+  const visualBounds = getObjectVisualBounds({ object, mode: 'exact' })
+  if (!visualBounds) return null
+
+  assertExactObjectBounds({
+    bounds: visualBounds,
+    source: 'visual bounds'
+  })
+
+  return visualBounds
 }
 
 /**
@@ -265,7 +328,7 @@ export const getObjectBounds = ({
     return customBounds
   }
 
-  const bounds = getObjectVisualBounds({ object })
+  const bounds = getObjectVisualBounds({ object, mode: 'compatible' })
   if (!bounds) return null
 
   const roundedWidth = Math.round(bounds.right - bounds.left)

@@ -6,7 +6,7 @@ import {
 } from 'fabric'
 
 import { ImageEditor } from '..'
-import { getObjectBounds } from '../utils/geometry'
+import { getObjectExactBounds } from '../utils/geometry'
 import {
   collectExcludedObjects,
   shouldIgnoreObject
@@ -19,8 +19,21 @@ import {
 } from './constants'
 import type { Bounds, MeasurementGuide } from './types'
 
+/** Событие движения мыши Fabric с необязательным объектом под курсором. */
 type MouseMoveEvent = TPointerEventInfo<TPointerEvent> & {
   target?: FabricObject | null
+}
+
+/** Цель измерения и её точные границы в координатах сцены. */
+type MeasurementTargetContext = {
+  targetBounds: Bounds
+  targetIsMontageArea: boolean
+}
+
+/** Направляющая измерения с готовой подписью расстояния. */
+type MeasurementRenderGuide = {
+  guide: MeasurementGuide
+  label: string
 }
 
 /**
@@ -275,7 +288,7 @@ export default class MeasurementManager {
       return
     }
 
-    const { canvas, editor } = this
+    const { canvas } = this
     const activeObject = canvas.getActiveObject()
 
     if (!activeObject) {
@@ -283,33 +296,26 @@ export default class MeasurementManager {
       return
     }
 
-    const activeBounds = getObjectBounds({ object: activeObject })
+    const activeBounds = getObjectExactBounds({ object: activeObject })
 
     if (!activeBounds) {
       this._clearGuides()
       return
     }
 
-    const targetObject = MeasurementManager._resolveTarget({
+    const targetContext = this._resolveMeasurementTargetContext({
       event,
       activeObject
     })
-    const { montageArea } = editor
-    const fallbackTarget = targetObject ?? montageArea
-    const targetIsMontageArea = fallbackTarget === montageArea
-    const targetBounds = getObjectBounds({ object: fallbackTarget })
-
-    if (!targetBounds) {
+    if (!targetContext) {
       this._clearGuides()
       return
     }
 
-    const isActiveOutsideMontage = targetIsMontageArea && (
-      activeBounds.right <= targetBounds.left
-      || activeBounds.left >= targetBounds.right
-      || activeBounds.bottom <= targetBounds.top
-      || activeBounds.top >= targetBounds.bottom
-    )
+    const { targetBounds, targetIsMontageArea } = targetContext
+
+    const isActiveOutsideMontage = targetIsMontageArea
+      && MeasurementManager._isOutsideBounds({ activeBounds, targetBounds })
     if (isActiveOutsideMontage) {
       this._clearGuides()
       return
@@ -330,6 +336,40 @@ export default class MeasurementManager {
     this.activeGuides = guides
     this._hideToolbar()
     canvas.requestRenderAll()
+  }
+
+  /** Возвращает объект под курсором или монтажную область вместе с точными bounds. */
+  private _resolveMeasurementTargetContext({
+    event,
+    activeObject
+  }: {
+    event: MouseMoveEvent
+    activeObject: FabricObject
+  }): MeasurementTargetContext | null {
+    const targetObject = MeasurementManager._resolveTarget({ event, activeObject })
+    const { montageArea } = this.editor
+    const fallbackTarget = targetObject ?? montageArea
+    const targetBounds = getObjectExactBounds({ object: fallbackTarget })
+    if (!targetBounds) return null
+
+    return {
+      targetBounds,
+      targetIsMontageArea: fallbackTarget === montageArea
+    }
+  }
+
+  /** Проверяет, что активный объект целиком находится за пределами цели. */
+  private static _isOutsideBounds({
+    activeBounds,
+    targetBounds
+  }: {
+    activeBounds: Bounds
+    targetBounds: Bounds
+  }): boolean {
+    return activeBounds.right <= targetBounds.left
+      || activeBounds.left >= targetBounds.right
+      || activeBounds.bottom <= targetBounds.top
+      || activeBounds.top >= targetBounds.bottom
   }
 
   /**
@@ -624,23 +664,50 @@ export default class MeasurementManager {
     const hasHorizontal = this.activeGuides.some((guide) => guide.type === 'horizontal')
     const hasBothDirections = hasVertical && hasHorizontal && !this.isTargetMontageArea
     const labelOffset = hasBothDirections ? 12 / zoom : 0
+    const renderGuides: MeasurementRenderGuide[] = this.activeGuides.map((guide) => ({
+      guide,
+      label: resolveDisplayDistance({ distance: guide.distance }).toString()
+    }))
 
     context.save()
-    if (Array.isArray(viewportTransform)) {
-      context.transform(...viewportTransform)
+    try {
+      if (Array.isArray(viewportTransform)) {
+        context.transform(...viewportTransform)
+      }
+      context.lineWidth = MEASUREMENT_LINE_WIDTH / zoom
+      context.strokeStyle = MEASUREMENT_COLOR
+      context.setLineDash([])
+      this._drawMeasurementGuides({
+        context,
+        renderGuides,
+        zoom,
+        labelOffset,
+        hasBothDirections
+      })
+    } finally {
+      context.restore()
     }
-    context.lineWidth = MEASUREMENT_LINE_WIDTH / zoom
-    context.strokeStyle = MEASUREMENT_COLOR
-    context.setLineDash([])
+  }
 
-    for (const guide of this.activeGuides) {
-      const { type, axis, start, end, distance } = guide
+  /** Рисует проверенные направляющие измерения и подписи расстояний. */
+  private _drawMeasurementGuides({
+    context,
+    renderGuides,
+    zoom,
+    labelOffset,
+    hasBothDirections
+  }: {
+    context: CanvasRenderingContext2D
+    renderGuides: MeasurementRenderGuide[]
+    zoom: number
+    labelOffset: number
+    hasBothDirections: boolean
+  }): void {
+    for (const { guide, label } of renderGuides) {
+      const { type, axis, start, end } = guide
       const gap = Math.abs(end - start)
       const sign = start <= end ? -1 : 1
-      const offsetAlongAxis = hasBothDirections
-        ? sign * ((gap / 2) + labelOffset)
-        : 0
-      const offsetPerpendicular = 0
+      const offsetAlongAxis = hasBothDirections ? sign * ((gap / 2) + labelOffset) : 0
 
       context.beginPath()
       if (type === 'vertical') {
@@ -658,16 +725,14 @@ export default class MeasurementManager {
         axis,
         start,
         end,
-        text: resolveDisplayDistance({ distance }).toString(),
+        text: label,
         zoom,
         color: MEASUREMENT_COLOR,
         lineWidth: MEASUREMENT_LINE_WIDTH,
         offsetAlongAxis,
-        offsetPerpendicular
+        offsetPerpendicular: 0
       })
     }
-
-    context.restore()
   }
 
   /**

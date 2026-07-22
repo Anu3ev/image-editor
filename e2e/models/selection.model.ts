@@ -3,24 +3,40 @@ import { type Page, expect } from '@playwright/test'
 import type { SnappingObjectSnapshot } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
+/** Ручка, за которую можно изменить размер активного составного объекта. */
 type SelectionControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
+/** Угловая ручка активного составного объекта. */
 type SelectionDiagonalControlKey = Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
 
+/** Состояние незавершённого скейлинга составного объекта. */
 type SelectionScaleInteraction = {
   point: {
     x: number
     y: number
   }
+  mode: 'browser-pointer' | 'fabric-handler'
   control: SelectionControlKey
   shiftKey: boolean
 }
 
+/** Смещение активной ручки на одном шаге скейлинга. */
 type DragActiveScaleHandleParams = {
   deltaX: number
   deltaY: number
+  pointerSteps?: number
 }
 
+/** Результат шага при прямом вызове обработчика Fabric. */
+type SelectionScaleStepResult = {
+  point: {
+    x: number
+    y: number
+  }
+  snapshot: SnappingObjectSnapshot
+}
+
+/** Параметры прямого скейлинга общего выделения через обработчики Fabric. */
 type ScaleSelectionFromControlParams = {
   startControl: SelectionControlKey
   oppositeControl: SelectionControlKey
@@ -31,13 +47,14 @@ type ScaleSelectionFromControlParams = {
   shiftKey?: boolean
 }
 
+/** Минимальный размер, до которого нужно сжать общее выделение. */
 type SelectionMinimumSizeParams = {
   minimumSize: number
   shiftKey?: boolean
 }
 
 /**
- * Расхождение между scene-bounds активного объекта и его отрисованной областью выделения.
+ * Расхождение между границами активного объекта и отрисованной рамкой выделения.
  */
 type SelectionFrameAlignmentInfo = {
   bottomRightDeltaX: number
@@ -47,12 +64,14 @@ type SelectionFrameAlignmentInfo = {
   topLeftDeltaY: number
 }
 
+/** Точка объекта в системе координат canvas. */
 type SelectionScenePoint = {
   x: number
   y: number
   transform?: (matrix: number[]) => SelectionScenePoint
 }
 
+/** Минимальный контракт объекта для проверки положения рамки выделения. */
 type SelectionVisualTarget = {
   group?: {
     calcTransformMatrix?: () => number[]
@@ -60,17 +79,35 @@ type SelectionVisualTarget = {
   getPointByOrigin: (originX: string, originY: string) => SelectionScenePoint
 }
 
+/** Ручки и состав текущего активного объекта. */
+export interface SelectionScaleCapability {
+  targetId: string | null
+  targetType: string
+  childIds: string[]
+  availableScaleHandles: string[]
+  snapshot: SnappingObjectSnapshot
+}
+
+/** Состояния до движения, во время скейлинга и после mouseup. */
+export interface SelectionScaleGestureResult {
+  started: SnappingObjectSnapshot
+  live: SnappingObjectSnapshot
+  committed: SnappingObjectSnapshot
+}
+
+/** Действия и проверки для активного общего выделения или группы. */
 export class SelectionModel {
   private readonly page: Page
 
   private activeScaleInteraction: SelectionScaleInteraction | null
 
+  /** Создаёт модель действий над составными объектами редактора. */
   constructor(page: Page) {
     this.page = page
     this.activeScaleInteraction = null
   }
 
-  /** Возвращает состояние текущего общего выделения. */
+  /** Возвращает состояние текущего активного составного объекта. */
   async getSnapshot(): Promise<SnappingObjectSnapshot> {
     const snapshot = await this.page.evaluate(() => {
       const {
@@ -83,9 +120,49 @@ export class SelectionModel {
       return helpers.serializeSnappingObjectSnapshot(target)
     })
 
-    expect(snapshot, 'должно существовать текущее общее выделение').not.toBeNull()
+    expect(snapshot, 'должен существовать текущий активный объект').not.toBeNull()
 
-    return snapshot as SnappingObjectSnapshot
+    if (!snapshot) throw new Error('Активный объект должен существовать')
+
+    return snapshot
+  }
+
+  /** Возвращает доступные ручки, дочерние id и границы активного объекта. */
+  async getScaleCapability(): Promise<SelectionScaleCapability> {
+    const capability = await this.page.evaluate(() => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = editor.canvas.getActiveObject()
+      if (!target) return null
+
+      target.setCoords()
+
+      const scaleHandles = ['tl', 'tr', 'br', 'bl', 'ml', 'mt', 'mr', 'mb']
+      const availableScaleHandles = scaleHandles.filter((handle) => {
+        const point = target.oCoords?.[handle]
+        const isVisible = typeof target.isControlVisible !== 'function' || target.isControlVisible(handle)
+
+        return Boolean(point && Number.isFinite(point.x) && Number.isFinite(point.y) && isVisible)
+      })
+      const childIds = (target.getObjects?.() ?? [])
+        .map((child: { id?: unknown }) => child.id)
+        .filter((id: unknown): id is string => typeof id === 'string')
+
+      return {
+        targetId: typeof target.id === 'string' ? target.id : null,
+        targetType: target.type,
+        childIds,
+        availableScaleHandles,
+        snapshot: helpers.serializeSnappingObjectSnapshot(target)
+      }
+    })
+
+    expect(capability, 'активный объект должен существовать').not.toBeNull()
+    expect(capability?.availableScaleHandles, 'должен существовать список доступных ручек')
+      .toBeInstanceOf(Array)
+
+    if (!capability) throw new Error('Активный объект должен существовать')
+
+    return capability
   }
 
   /** Возвращает смещение области выделения относительно активного объекта без принудительного setCoords(). */
@@ -361,96 +438,162 @@ export class SelectionModel {
     })
   }
 
-  /** Завершает активное масштабирование общего выделения через настоящий mouseup. */
-  async finishScale(): Promise<SnappingObjectSnapshot> {
-    expect(
-      this.activeScaleInteraction,
-      'должна существовать активная drag-сессия масштабирования общего выделения'
-    ).not.toBeNull()
+  /** Начинает реальный скейлинг общего выделения или группы. */
+  async startScaleFromControl(
+    params: { control: SelectionControlKey }
+  ): Promise<SnappingObjectSnapshot> {
+    expect(this.activeScaleInteraction, 'перед скейлингом не должно быть другой активной сессии').toBeNull()
 
-    if (!this.activeScaleInteraction) {
-      throw new Error('должна существовать активная drag-сессия масштабирования общего выделения')
+    const point = await this._resolveScaleControlPoint(params)
+
+    await this.page.mouse.move(point.x, point.y)
+    await this.page.mouse.down()
+    await waitForCanvasRender({ page: this.page })
+
+    const transform = await this.page.evaluate(({ control }) => {
+      const { editor } = window as any
+      const target = editor.canvas.getActiveObject()
+      const activeTransform = editor.canvas._currentTransform
+
+      return {
+        childCount: target?.getObjects?.().length ?? 0,
+        started: Boolean(target && activeTransform?.target === target),
+        control: activeTransform?.corner ?? null,
+        requestedControl: control
+      }
+    }, params)
+
+    expect(transform.started, 'mousedown должен начать скейлинг активного объекта').toBe(true)
+    expect(transform.control, 'Fabric transform должен использовать выбранную ручку').toBe(transform.requestedControl)
+    expect(transform.childCount, 'общее выделение или группа должны содержать минимум два объекта')
+      .toBeGreaterThanOrEqual(2)
+
+    this.activeScaleInteraction = {
+      point,
+      mode: 'browser-pointer',
+      control: params.control,
+      shiftKey: false
     }
 
-    const snapshot = await this.page.evaluate((payload) => {
-      const {
-        point: interactionPoint,
-        control,
-        shiftKey
-      } = payload
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
-      const target = editor.canvas.getActiveObject()
-      if (!target) return null
+    return this.getSnapshot()
+  }
 
-      target.setCoords()
+  /** Завершает скейлинг тем же способом, которым он был начат. */
+  async finishScale(): Promise<SnappingObjectSnapshot> {
+    expect(this.activeScaleInteraction, 'для mouseup нужна активная scale-сессия').not.toBeNull()
+    if (!this.activeScaleInteraction) {
+      throw new Error('Активная scale-сессия составного объекта должна существовать')
+    }
 
-      const currentControl = target.oCoords?.[control]
-      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-      let releasePoint = interactionPoint
+    const interaction = this.activeScaleInteraction
+    let snapshot: SnappingObjectSnapshot
 
-      if (
-        currentControl
-        && typeof currentControl.x === 'number'
-        && typeof currentControl.y === 'number'
-      ) {
-        releasePoint = {
-          x: rect.left + currentControl.x,
-          y: rect.top + currentControl.y
-        }
-      }
-
-      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
-        bubbles: true,
-        button: 0,
-        buttons: 0,
-        clientX: releasePoint.x,
-        clientY: releasePoint.y,
-        shiftKey
-      }))
-
-      const snapshotTarget = editor.canvas.getActiveObject() ?? target
-      snapshotTarget.setCoords()
-
-      return helpers.serializeSnappingObjectSnapshot(snapshotTarget)
-    }, this.activeScaleInteraction)
+    if (interaction.mode === 'browser-pointer') {
+      snapshot = await this._finishBrowserScaleInteraction(interaction)
+    } else {
+      snapshot = await this._finishFabricScaleInteraction(interaction)
+    }
 
     this.activeScaleInteraction = null
 
-    expect(snapshot, 'должно существовать состояние общего выделения после mouseup').not.toBeNull()
+    expect(snapshot.boundsWidth, 'ширина выделения после mouseup должна быть положительной').toBeGreaterThan(0)
+    expect(snapshot.boundsHeight, 'высота выделения после mouseup должна быть положительной').toBeGreaterThan(0)
 
-    await waitForCanvasRender({ page: this.page })
-
-    return snapshot as SnappingObjectSnapshot
+    return snapshot
   }
 
-  /** Продолжает текущий drag хэндла общего выделения и возвращает live-состояние. */
+  /** Продолжает движение активной ручки составного объекта. */
   async dragActiveScaleHandleBy(
     params: DragActiveScaleHandleParams
   ): Promise<SnappingObjectSnapshot> {
-    expect(
-      this.activeScaleInteraction,
-      'должна существовать активная drag-сессия масштабирования общего выделения'
-    ).not.toBeNull()
-
+    expect(this.activeScaleInteraction, 'для движения ручки нужна активная scale-сессия').not.toBeNull()
     if (!this.activeScaleInteraction) {
-      throw new Error('должна существовать активная drag-сессия масштабирования общего выделения')
+      throw new Error('Активная scale-сессия составного объекта должна существовать')
     }
 
-    const result = await this.page.evaluate((payload) => {
-      const {
-        point,
-        control,
-        deltaX,
-        deltaY,
-        shiftKey
-      } = payload
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
+    if (this.activeScaleInteraction.mode === 'browser-pointer') {
+      return this._dragBrowserScaleHandleBy(params)
+    }
+
+    return this._dragFabricScaleHandleBy(params)
+  }
+
+  /** Выполняет полный скейлинг за правую нижнюю ручку. */
+  async scaleFromBottomRightBy(params: DragActiveScaleHandleParams): Promise<SelectionScaleGestureResult> {
+    const started = await this.startScaleFromControl({ control: 'br' })
+    const live = await this.dragActiveScaleHandleBy(params)
+    const committed = await this.finishScale()
+
+    expect(live.boundsWidth, 'ширина во время скейлинга должна быть положительной').toBeGreaterThan(0)
+    expect(committed.boundsWidth, 'ширина после mouseup должна быть положительной')
+      .toBeGreaterThan(0)
+
+    return { started, live, committed }
+  }
+
+  /** Двигает ручку составного объекта настоящим mousemove. */
+  private async _dragBrowserScaleHandleBy(
+    params: DragActiveScaleHandleParams
+  ): Promise<SnappingObjectSnapshot> {
+    const interaction = this.activeScaleInteraction
+    expect(interaction?.mode, 'реальный mousemove должен продолжать ту же сессию').toBe('browser-pointer')
+    if (!interaction || interaction.mode !== 'browser-pointer') {
+      throw new Error('Должна существовать активная сессия скейлинга составного объекта')
+    }
+
+    const nextPoint = {
+      x: interaction.point.x + params.deltaX,
+      y: interaction.point.y + params.deltaY
+    }
+
+    await this.page.mouse.move(nextPoint.x, nextPoint.y, { steps: params.pointerSteps ?? 1 })
+    await waitForCanvasRender({ page: this.page })
+    interaction.point = nextPoint
+
+    const snapshot = await this.getSnapshot()
+
+    expect(snapshot.boundsWidth, 'ширина активного объекта во время движения должна быть положительной')
+      .toBeGreaterThan(0)
+    expect(snapshot.boundsHeight, 'высота активного объекта во время движения должна быть положительной')
+      .toBeGreaterThan(0)
+
+    return snapshot
+  }
+
+  /** Продолжает скейлинг прямым вызовом обработчика Fabric. */
+  private async _dragFabricScaleHandleBy(
+    params: DragActiveScaleHandleParams
+  ): Promise<SnappingObjectSnapshot> {
+    const interaction = this.activeScaleInteraction
+    expect(interaction?.mode, 'Fabric mousemove должен продолжать сессию прямых вызовов').toBe('fabric-handler')
+    if (!interaction || interaction.mode !== 'fabric-handler') {
+      throw new Error('Должна существовать сессия скейлинга через обработчики Fabric')
+    }
+
+    const result = await this._moveFabricScaleHandle({
+      ...interaction,
+      ...params
+    })
+
+    expect(result, 'Fabric mousemove должен вернуть live-состояние общего выделения').not.toBeNull()
+    if (!result) {
+      throw new Error('Fabric mousemove должен вернуть live-состояние общего выделения')
+    }
+
+    await waitForCanvasRender({ page: this.page })
+
+    interaction.point = result.point
+
+    return result.snapshot
+  }
+
+  /** Выполняет один прямой Fabric mousemove и читает новое положение ручки. */
+  private async _moveFabricScaleHandle(
+    payload: SelectionScaleInteraction & DragActiveScaleHandleParams
+  ): Promise<SelectionScaleStepResult | null> {
+    return this.page.evaluate((interaction) => {
+      const { point, control, deltaX, deltaY, shiftKey } = interaction
+      const { editor, __editorHelpers: helpers } = window as any
       const target = editor.canvas.getActiveObject()
       if (!target) return null
 
@@ -473,47 +616,104 @@ export class SelectionModel {
 
       const currentControl = snapshotTarget.oCoords?.[control]
       const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-      const currentPoint = currentControl
-        && typeof currentControl.x === 'number'
-        && typeof currentControl.y === 'number'
-        ? {
-          x: rect.left + currentControl.x,
-          y: rect.top + currentControl.y
-        }
+      const currentPoint = currentControl && Number.isFinite(currentControl.x) && Number.isFinite(currentControl.y)
+        ? { x: rect.left + currentControl.x, y: rect.top + currentControl.y }
         : movePoint
 
       return {
         point: currentPoint,
         snapshot: helpers.serializeSnappingObjectSnapshot(snapshotTarget)
       }
-    }, {
-      ...this.activeScaleInteraction,
-      ...params
-    })
+    }, payload)
+  }
 
-    expect(result, 'должно существовать live-состояние общего выделения после продолжения drag').not.toBeNull()
+  /** Завершает реальный скейлинг составного объекта настоящим mouseup. */
+  private async _finishBrowserScaleInteraction(
+    interaction: SelectionScaleInteraction
+  ): Promise<SnappingObjectSnapshot> {
+    expect(interaction.mode, 'mouseup должен завершать реальную сессию').toBe('browser-pointer')
+    expect(Number.isFinite(interaction.point.x), 'координата X при mouseup должна быть конечной').toBe(true)
+
+    await this.page.mouse.up()
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getSnapshot()
+  }
+
+  /** Завершает скейлинг прямым вызовом обработчика Fabric. */
+  private async _finishFabricScaleInteraction(
+    interaction: SelectionScaleInteraction
+  ): Promise<SnappingObjectSnapshot> {
+    const snapshot = await this.page.evaluate((payload) => {
+      const { point, control, shiftKey } = payload
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = editor.canvas.getActiveObject()
+      if (!target) return null
+
+      target.setCoords()
+
+      const currentControl = target.oCoords?.[control]
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const releasePoint = currentControl && Number.isFinite(currentControl.x) && Number.isFinite(currentControl.y)
+        ? { x: rect.left + currentControl.x, y: rect.top + currentControl.y }
+        : point
+
+      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        buttons: 0,
+        clientX: releasePoint.x,
+        clientY: releasePoint.y,
+        shiftKey
+      }))
+
+      const snapshotTarget = editor.canvas.getActiveObject() ?? target
+      snapshotTarget.setCoords()
+
+      return helpers.serializeSnappingObjectSnapshot(snapshotTarget)
+    }, interaction)
+
+    expect(snapshot, 'Fabric mouseup должен вернуть состояние общего выделения').not.toBeNull()
+    expect(Number.isFinite(snapshot?.boundsWidth), 'ширина после Fabric mouseup должна быть конечной').toBe(true)
 
     await waitForCanvasRender({ page: this.page })
 
-    const {
-      point,
-      snapshot
-    } = result as {
-      point: {
-        x: number
-        y: number
-      }
-      snapshot: SnappingObjectSnapshot
-    }
-
-    this.activeScaleInteraction = {
-      ...this.activeScaleInteraction,
-      point
-    }
-
-    return snapshot
+    return snapshot as SnappingObjectSnapshot
   }
 
+  /** Возвращает экранные координаты ручки общего выделения или группы. */
+  private async _resolveScaleControlPoint(
+    params: { control: SelectionControlKey }
+  ): Promise<{ x: number, y: number }> {
+    const point = await this.page.evaluate(({ control }) => {
+      const { editor } = window as any
+      const target = editor.canvas.getActiveObject()
+      if (!target) return null
+
+      target.setCoords()
+      editor.canvas.renderAll()
+
+      const controlPoint = target.oCoords?.[control]
+      if (!controlPoint || !Number.isFinite(controlPoint.x) || !Number.isFinite(controlPoint.y)) return null
+
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: rect.left + controlPoint.x,
+        y: rect.top + controlPoint.y
+      }
+    }, params)
+
+    expect(point, 'координаты ручки активного объекта должны существовать').not.toBeNull()
+    expect(Number.isFinite(point?.x), 'координата X ручки должна быть конечной').toBe(true)
+    expect(Number.isFinite(point?.y), 'координата Y ручки должна быть конечной').toBe(true)
+
+    if (!point) throw new Error('Координаты ручки активного объекта должны существовать')
+
+    return point
+  }
+
+  /** Выполняет или продолжает скейлинг через прямой вызов обработчиков Fabric. */
   private async _scaleFromControl(
     params: ScaleSelectionFromControlParams
   ): Promise<SnappingObjectSnapshot> {
@@ -559,6 +759,7 @@ export class SelectionModel {
 
     this.activeScaleInteraction = {
       point,
+      mode: 'fabric-handler',
       control: params.startControl,
       shiftKey: interactionShiftKey
     }
@@ -566,6 +767,7 @@ export class SelectionModel {
     return snapshot
   }
 
+  /** Сжимает составной объект до минимального размера из указанного угла. */
   private async _shrinkDiagonallyToMinimum(params: {
     corner: Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
     minimumSize: number
@@ -586,6 +788,7 @@ export class SelectionModel {
     })
   }
 
+  /** Возвращает ручку, противоположную указанному углу. */
   private _resolveOppositeDiagonalControl(
     corner: Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
   ): Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'> {
@@ -596,6 +799,7 @@ export class SelectionModel {
     return 'tr'
   }
 
+  /** Проверяет, что следующий шаг совместим с уже начатым скейлингом. */
   private _assertScaleInteractionCanContinue(params: {
     activeScaleInteraction: SelectionScaleInteraction | null
     startControl: SelectionControlKey
@@ -609,6 +813,10 @@ export class SelectionModel {
 
     if (!activeScaleInteraction) return
 
+    expect(
+      activeScaleInteraction.mode,
+      'прямой тестовый API должен продолжать только сессию обработчиков Fabric'
+    ).toBe('fabric-handler')
     expect(
       activeScaleInteraction.control,
       'нельзя продолжать активную drag-сессию общего выделения через другую ручку'

@@ -9,6 +9,9 @@ import { attachToolbarMock } from '../../../test-utils/managers/toolbar'
 import { mockRaf } from '../../../test-utils/events/raf'
 import * as renderUtils from '../../../../src/editor/utils/render-utils'
 import type { MeasurementGuide } from '../../../../src/editor/measurement-manager/types'
+import { calculateHorizontalSpacing } from '../../../../src/editor/snapping-manager/spacing'
+import { getObjectExactBounds } from '../../../../src/editor/utils/geometry'
+import { resolveDisplayDistance } from '../../../../src/editor/utils/distance'
 
 /** Минимальная форма mouse:move события, которую реально использует MeasurementManager. */
 type MeasurementMouseMoveEvent = {
@@ -194,6 +197,84 @@ describe('MeasurementManager', () => {
     expect(types).toEqual(expect.arrayContaining(['horizontal', 'vertical']))
     expect(canvas.requestRenderAll).toHaveBeenCalled()
 
+    manager.destroy()
+  })
+
+  it('измеряет дробный зазор по фактическим границам объектов', () => {
+    const { editor, canvas } = createSnappingTestContext()
+    const manager = new MeasurementManager({ editor })
+    const active = createBoundsObject({ left: 10.2, top: 40, width: 20.2, height: 20 })
+    const target = createBoundsObject({ left: 60.7, top: 40, width: 20, height: 20 })
+    setActiveObjects(canvas, [active])
+
+    fireCanvasMouseMove({ canvas, target })
+
+    const guide = getActiveGuides({ manager }).find(({ type }) => type === 'horizontal')
+    expect(guide).toBeDefined()
+    expect(guide?.start).toBeCloseTo(30.4, 8)
+    expect(guide?.end).toBeCloseTo(60.7, 8)
+    expect(guide?.distance).toBeCloseTo(30.3, 8)
+
+    manager.destroy()
+  })
+
+  it('показывает одинаковое расстояние в spacing-гайде и ALT-измерении дробного зазора', () => {
+    const { editor, canvas } = createSnappingTestContext()
+    const manager = new MeasurementManager({ editor })
+    const referenceBefore = createBoundsObject({ left: 0.1, top: 40, width: 20.1, height: 20 })
+    const referenceAfter = createBoundsObject({ left: 81.6, top: 40, width: 20, height: 20 })
+    const active = createBoundsObject({ left: 163, top: 40, width: 20, height: 20 })
+    setActiveObjects(canvas, [referenceBefore])
+
+    fireCanvasMouseMove({ canvas, target: referenceAfter })
+
+    const measurementGuide = getActiveGuides({ manager }).find(({ type }) => type === 'horizontal')
+    const beforeBounds = getObjectExactBounds({ object: referenceBefore })
+    const afterBounds = getObjectExactBounds({ object: referenceAfter })
+    const activeBounds = getObjectExactBounds({ object: active })
+    if (!measurementGuide || !beforeBounds || !afterBounds || !activeBounds) {
+      throw new Error('Дробные bounds должны сформировать measurement и spacing-гайды')
+    }
+
+    const spacingResult = calculateHorizontalSpacing({
+      activeBounds,
+      candidates: [afterBounds],
+      threshold: 5,
+      patterns: [{
+        type: 'horizontal',
+        axis: beforeBounds.centerY,
+        start: beforeBounds.right,
+        end: afterBounds.left,
+        distance: afterBounds.left - beforeBounds.right
+      }]
+    })
+    const spacingGuide = spacingResult.guides[0]
+
+    expect(spacingGuide).toBeDefined()
+    if (!spacingGuide) throw new Error('Spacing должен вернуть guide для дробного reference gap')
+
+    expect(measurementGuide.distance).toBeCloseTo(61.4, 8)
+    expect(spacingGuide.activeEnd - spacingGuide.activeStart).toBeCloseTo(61.4, 8)
+    expect(resolveDisplayDistance({ distance: measurementGuide.distance })).toBe(spacingGuide.distance)
+
+    manager.destroy()
+  })
+
+  it('не показывает расстояние и метку для пересекающихся объектов', () => {
+    const { editor, canvas } = createSnappingTestContext()
+    const labelSpy = jest.spyOn(renderUtils, 'drawGuideLabel')
+    const manager = new MeasurementManager({ editor })
+    const active = createBoundsObject({ left: 40.2, top: 40.2, width: 30, height: 30 })
+    const target = createBoundsObject({ left: 50.4, top: 50.4, width: 30, height: 30 })
+    setActiveObjects(canvas, [active])
+
+    fireCanvasMouseMove({ canvas, target })
+    fireCanvasAfterRender({ canvas })
+
+    expect(getActiveGuides({ manager })).toHaveLength(0)
+    expect(labelSpy).not.toHaveBeenCalled()
+
+    labelSpy.mockRestore()
     manager.destroy()
   })
 

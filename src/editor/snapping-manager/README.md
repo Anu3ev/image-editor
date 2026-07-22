@@ -1,67 +1,74 @@
 # SnappingManager
 
-`SnappingManager` отвечает за прилипание объектов к guide во время перемещения и изменения размера. Для crop важно не смешивать две системы координат: координаты canvas, где находятся frame и guide, и координаты исходного изображения, где считается размер crop-результата для индикатора.
+`SnappingManager` finds guides, resolves snapping, and renders only the guides that the object actually reaches. It does not change the canonical dimensions of composite objects; those remain the responsibility of the manager that owns the corresponding object type.
 
-## Как разделена ответственность
+The new two-phase contract is currently used when scaling a regular top-level shape. Images, standalone text, `ActiveSelection`, and `CropFrame` still use the legacy path. The exact migration boundary and the recommended order for continuing the work are documented in [`technical-specifications/unified-scale-snapping-current-state.md`](../../../technical-specifications/unified-scale-snapping-current-state.md).
 
-- [`scaling.ts`](./scaling.ts) решает, к каким guide можно приклеиться на текущем шаге resize, и должен ли scale быть пропорциональным.
-- [`pixel-grid.ts`](./pixel-grid.ts) округляет resize до целых пикселей после расчёта guide. Округление не должно сдвигать грань, которая уже прилипла к guide.
-- [`index.ts`](./index.ts) собирает общий сценарий и вызывает округление до пикселей только для объектов, которым это нужно по контракту.
+## Responsibilities
 
-## Ключевые контракты
+- [`scale-snap-candidates.ts`](./scale-snap-candidates.ts) captures exact snap targets at the start of a gesture. The active object and its descendants are excluded from this snapshot.
+- [`scale-snapping-resolver.ts`](./scale-snapping-resolver.ts) selects guides and maintains independent hold states for the X and Y axes. It does not mutate the canvas.
+- [`scale-projection.ts`](./scale-projection.ts) describes the linear relationship between scale factors and object edges.
+- [`scale-snapping-runtime.ts`](./scale-snapping-runtime.ts) connects raw pointer intent, mutation-free resolution, and verification of the geometry that was actually applied.
+- [`calculations.ts`](./calculations.ts) resolves ordinary line snapping while an object is moving.
+- [`spacing.ts`](./spacing.ts) resolves equal spacing and returns the actual segments to render.
+- [`scaling.ts`](./scaling.ts) and [`pixel-grid.ts`](./pixel-grid.ts) support resize scenarios that have not yet been migrated, including `CropFrame`.
+- [`index.ts`](./index.ts) owns the target snapshot, publishes verified guides, and preserves the legacy handling for object types that do not yet have an owner for the new contract.
+- [`../utils/geometry.ts`](../utils/geometry.ts) returns exact object bounds in scene coordinates and separately provides the rounded representation required by legacy code.
 
-- `snapGuards` описывают грань, которая уже прилипла к guide.
-  Для отладки важно смотреть не на направление курсора, а на то, какую грань guide реально удерживает.
-- При перемещении `pixel-grid` может округлять координаты до `MOVE_SNAP_STEP`, но только пока эта ось не приклеена к guide.
-  После `calculateSnap()` координата guide сильнее финального округления: округление не должно сдвигать уже прилипшую грань.
-- Для обычных объектов геометрия на canvas и размер для индикатора считаются в одних координатах.
-  Для crop frame это не всегда так: `getObjectSnappingBounds()` возвращает геометрию frame на canvas, а `getObjectDisplaySize()` может вернуть размер crop-результата в пикселях исходного изображения через `cropSourceScaleX/Y`.
-- `shouldUseUniformScaleSnap()` для crop frame обязан зеркалить правило `preserveAspectRatio` из `CropManager`, включая инверсию по `Shift`.
-- Округление до целых пикселей не должно менять ось, которую пользователь сейчас не тянет, и не должно переносить прилипшую грань за guide.
-- Даже когда crop frame и индикатор считаются в одних координатах canvas, guide остаётся сильнее округления до целых пикселей.
-  Если грань уже прилипла к guide с дробной координатой, а размер crop после округления всё ещё валиден, нужно оставить текущий scale.
-  Иначе маленькое движение внутри зоны прилипания может превратить `256x256` в `256x255`.
+## Contract for a single scaling step
 
-## Crop frame с размером в пикселях исходного изображения
+```text
+gesture-start state
+  → pointer intent
+  → mutation-free snap resolution
+  → one application by the object manager
+  → verification of the actual bounds
+  → guide publication
+```
 
-- Если ось сработавшего guide использует `getObjectDisplaySize()` в пикселях исходного изображения, `pixel-grid` не может обращаться с этим размером как с обычным размером на canvas.
-- Для внутренних guide у такого crop frame приоритет у `inside-candidate`: это вариант, где crop-область остаётся внутри guide.
-  Это удерживает crop-область внутри guide, а размер для индикатора сравнивает с округлённой частью исходного изображения.
-  Для исходника с нечётной высотой половина `667 / 2` показывается как `334`, потому что indicator округляет размер crop-результата до ближайшего пикселя.
-- Но `inside-candidate` не должен быть просто первым вариантом, ближайшим к scale текущего движения pointer.
-  Если `on-guide` уже даёт целый размер в пикселях исходного изображения и не выходит за внутреннюю сторону guide, нужно оставить `on-guide`.
-  Иначе микродвижение внутри зоны прилипания может съесть лишний пиксель.
-- Если пропорциональный resize начался уже около внутреннего guide, исходный scale из Fabric transform считается удерживаемым кандидатом.
-  Scale текущего движения pointer может уже быть чуть меньше из-за пересчёта guide и пропорций, поэтому его нельзя автоматически принимать как новый размер.
-- Для внешней границы исходного изображения правило другое: приоритет у `on-guide`, то есть у варианта, где грань стоит точно на guide.
-  Иначе прилипание к границе исходника съедает 1 пиксель и индикатор показывает `666` вместо `667`.
-- Одних `round/floor/ceil` для размера в индикаторе недостаточно.
-  В округлении с защитой от сдвига guide нужно рассматривать и соседние пиксельные размеры, иначе корректный вариант около guide может вообще не попасть в перебор.
-- Если план resize для активного crop frame выходит за исходное изображение, `SnappingManager` не должен отключать guides или применять общий resize как для обычного объекта.
-  Он отдаёт план в `CropManager.applyFrameSourceBoundScalePlan()`, а после общего resize и округления вызывает `restoreFrameScaleAnchorAfterSnap()`.
-  Так crop остаётся внутри исходного изображения, а противоположный угол не участвует в resize.
-- `applyFrameSourceBoundScalePlan()` применяет **пропорциональное** ограничение по исходному изображению.
-  Поэтому его нужно вызывать только когда resize идёт пропорционально (`shouldUseUniformScaleSnap === true`).
-  Для свободного (free) resize за ограничение отвечает per-axis clamp в `crop-controls.ts`, а финальная подгонка происходит в `CropManager._clampFrameIfNeeded()`.
+The following rules are mandatory:
 
-## Что здесь легко сломать
+- every new `mousemove` is resolved from the state captured on `mousedown`, not from the result of the previous snapped step;
+- `object:scaling` and the following `mouse:move` with the same `event.e` represent one step;
+- a guide remains held until the raw pointer intent crosses the release threshold;
+- when both axes are available, acquiring or releasing one guide must not reset the other;
+- rounding must not move an edge that is already constrained by a guide;
+- a guide is published only after the exact bounds of the applied result have been verified;
+- `mouseup` must not change the last visible state.
 
-- Сравнить размер в пикселях исходного изображения с guide на canvas без явного преобразования.
-- Привязать логику к направлению pointer вместо грани, записанной в `snapGuards`.
-- Округлить `left/top` после прилипшего guide и тем самым поставить зафиксированную грань на `499`, хотя guide стоит на `500`.
-- Починить прилипание к границе исходного изображения и случайно сломать прилипание к центральному guide, или наоборот.
-- Убрать связь с `CropManager` для ограничения по исходному изображению и получить конфликт между границей исходника и внутренними guide во время resize.
-- Считать, что зелёный e2e уже доказал корневой контракт.
-  Для округления размера в пикселях исходного изображения надёжнее держать отдельный unit-тест на уровне `pixel-grid`.
+## ShapeManager integration
 
-## Перед правкой
+For a regular shape, the geometry snapshot is captured on `mousedown`. `ShapeManager` resolves the active control mode and remains the sole owner of minimum size, layout, text wrapping, and canonical dimension commits. `SnappingManager` provides the resolved constraints and verifies the resulting bounds after they have been applied.
 
-- Сначала фиксируй, где именно баг:
-  в поиске guide, в выборе пропорционального resize, в округлении до пикселей или в протоколе браузерных событий.
-- Если правка касается crop frame, сразу перечитывай:
-  [`scaling.ts`](./scaling.ts),
-  [`pixel-grid.ts`](./pixel-grid.ts),
-  [`../crop-manager/domain/crop-frame.ts`](../crop-manager/domain/crop-frame.ts).
-- Для регрессий вокруг границ исходного изображения опирайся на unit-контракты в:
-  [`../../../specs/src/editor/snapping-manager/scaling.spec.ts`](../../../specs/src/editor/snapping-manager/scaling.spec.ts),
-  [`../../../specs/src/editor/snapping-manager/pixel-grid.spec.ts`](../../../specs/src/editor/snapping-manager/pixel-grid.spec.ts).
+The new path supports side and corner controls, rotation, centred scaling, free corner scaling with Shift, and disabling snapping with Ctrl. Skewed, flipped, nested, or axis-locked shapes, `ActiveSelection`, and gestures that cross the fixed point are explicitly routed to the legacy path before the new owner performs its first mutation.
+
+Gesture state is cleared on `mouseup`, selection changes, object removal, `pointercancel`, `touchcancel`, window blur, and manager destruction.
+
+## Geometry, distances, and MeasurementManager
+
+- Movement, equal-spacing snapping, and `MeasurementManager` use `getObjectExactBounds()`. All compared edges are expressed in scene coordinates, and centres are derived from those same bounds.
+- Custom exact bounds must contain finite, ordered values. Invalid geometry fails before guides are resolved or rendered.
+- An equal-spacing guide stores the actual bounds of both gaps. Its label is rendered only when both distances produce the same display value.
+- `resolveDisplayDistance()` rounds finite values only. Negative distances become zero, while `NaN` and `Infinity` are treated as contract violations.
+
+## CropFrame on the legacy path
+
+`CropFrame` geometry is expressed in canvas coordinates, while the resulting crop size may be calculated in source-image pixels. These values must not be compared without an explicit conversion.
+
+Until `CropFrame` is migrated:
+
+- `getObjectSnappingBounds()` returns the frame bounds on the canvas;
+- `getObjectDisplaySize()` may return the resulting size through `cropSourceScaleX/Y`;
+- `shouldUseUniformScaleSnap()` mirrors the `preserveAspectRatio` rule, including its Shift inversion;
+- when proportional scaling crosses a source-image boundary, the plan is delegated to `CropManager.applyFrameSourceBoundScalePlan()`;
+- free scaling remains subject to per-axis constraints in `crop-controls.ts` and final verification in `CropManager._clampFrameIfNeeded()`.
+
+These formulas must not be moved into the shared resolver. `CropManager` must apply source-image constraints once and return the actual bounds for shared verification.
+
+## Before making the next change
+
+- First identify where the defect lives: target selection, guide holding, domain application, result verification, or rendering.
+- For a new object type, start with one real browser regression and then connect its owner to the shared runtime.
+- Do not consider an object type migrated because one test is green. Cover side and corner controls, rotation, Ctrl and Shift, repeated pointer positions, `mouseup`, history, and gesture interruption paths.
+- Before changing `CropFrame`, reread [`../crop-manager/README.md`](../crop-manager/README.md), [`scaling.ts`](./scaling.ts), [`pixel-grid.ts`](./pixel-grid.ts), and [`../crop-manager/domain/crop-frame.ts`](../crop-manager/domain/crop-frame.ts).

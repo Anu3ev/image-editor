@@ -1,5 +1,173 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import { SNAPPING_TOLERANCE } from '../../fixtures/data/snapping.data'
+import type { EditorModel } from '../../models/editor.model'
+import type { ShapeModel } from '../../models/shape/shape.model'
+import type { SnappingModel } from '../../models/snapping.model'
+import type { TextModel } from '../../models/text/text.model'
+import type {
+  SnappingGuideState,
+  SnappingObjectSnapshot,
+  TextResizeSnapshot
+} from '../../types'
+
+/** Точность сравнения live-геометрии при неподвижном pointer. */
+const TEXT_HOLD_GEOMETRY_PRECISION = 5
+
+/** Поля текста, которые не должны меняться при удержании на направляющей. */
+const STABLE_TEXT_HOLD_FIELDS = [
+  'boundsLeft', 'boundsTop', 'boundsRight', 'boundsBottom',
+  'boundsWidth', 'boundsHeight', 'width', 'fontSize'
+] as const
+
+/** Состояние текста и направляющих на одном шаге скейлинга. */
+type RotatedTextHoldState = {
+  snapshot: TextResizeSnapshot
+  guides: SnappingGuideState
+}
+
+/** Состояния удержания и завершения скейлинга повёрнутого текста. */
+type RotatedTextHoldInteraction = {
+  committed: TextResizeSnapshot
+  guideState: SnappingGuideState
+  heldState: RotatedTextHoldState
+  repeatedState: RotatedTextHoldState
+}
+
+/** Создаёт повёрнутый текст и ставит опорную фигуру у его правой границы. */
+async function createRotatedTextHoldSetup(params: {
+  editorModel: EditorModel
+  shapes: ShapeModel
+  text: TextModel
+  snapping: SnappingModel
+}): Promise<SnappingObjectSnapshot> {
+  const { editorModel, shapes, text, snapping } = params
+  const montage = await editorModel.getMontageAreaBounds()
+  const textObject = await text.add({
+    id: 'rotated-text',
+    text: 'Новый заголовок',
+    left: montage.left + 150,
+    top: montage.top + 190,
+    width: 220,
+    fontSize: 32,
+    autoExpand: false
+  })
+
+  text.checkCreation({ textObject })
+
+  const rotatedText = text.checkCreation({
+    textObject: await text.rotate({ id: 'rotated-text', angle: 55 })
+  })
+  const initial = await text.getResizeSnapshot({ id: 'rotated-text' })
+  const referenceShape = await shapes.addAtBounds({
+    presetKey: 'square',
+    options: {
+      id: 'reference-shape',
+      left: initial.boundsRight,
+      top: montage.top + 20,
+      width: 40,
+      height: 40,
+      text: ''
+    }
+  })
+
+  shapes.checkCreation({ shape: referenceShape, presetKey: 'square' })
+
+  const reference = await snapping.getObjectSnapshot({ id: 'reference-shape' })
+
+  expect(rotatedText.angle).toBeCloseTo(55, TEXT_HOLD_GEOMETRY_PRECISION)
+  expect(reference.boundsLeft).toBeCloseTo(initial.boundsRight, TEXT_HOLD_GEOMETRY_PRECISION)
+
+  return reference
+}
+
+/** Удерживает ручку текста на месте и завершает скейлинг. */
+async function holdRotatedTextOnGuide(params: {
+  text: TextModel
+  snapping: SnappingModel
+}): Promise<RotatedTextHoldInteraction> {
+  const { text, snapping } = params
+  const heldState = {
+    snapshot: await text.dragScaleHandleBy({
+      id: 'rotated-text',
+      corner: 'br',
+      deltaX: -1,
+      deltaY: -1,
+      pointerSteps: 1
+    }),
+    guides: await snapping.getGuideState()
+  }
+  const repeatedState = {
+    snapshot: await text.continueScaleHandleBy({ deltaX: 0, deltaY: 0 }),
+    guides: await snapping.getGuideState()
+  }
+  const committed = await text.finishScale({ id: 'rotated-text' })
+
+  expect(heldState.snapshot.boundsWidth, 'ширина текста на первом шаге должна быть положительной')
+    .toBeGreaterThan(0)
+  expect(repeatedState.snapshot.boundsWidth, 'ширина текста на повторном шаге должна быть положительной')
+    .toBeGreaterThan(0)
+
+  return {
+    committed,
+    guideState: await snapping.getGuideState(),
+    heldState,
+    repeatedState
+  }
+}
+
+/** Проверяет, что удержание и mouseup не меняют геометрию повёрнутого текста. */
+function expectRotatedTextHoldStable(params: {
+  reference: SnappingObjectSnapshot
+  interaction: RotatedTextHoldInteraction
+}): void {
+  const { reference, interaction } = params
+
+  for (const state of [interaction.heldState, interaction.repeatedState]) {
+    for (const field of STABLE_TEXT_HOLD_FIELDS) {
+      expect(state.snapshot[field])
+        .toBeCloseTo(interaction.heldState.snapshot[field], TEXT_HOLD_GEOMETRY_PRECISION)
+    }
+    expect(state.guides.guides).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'vertical', position: reference.boundsLeft })
+    ]))
+  }
+
+  for (const field of STABLE_TEXT_HOLD_FIELDS) {
+    expect(interaction.committed[field])
+      .toBeCloseTo(interaction.repeatedState.snapshot[field], TEXT_HOLD_GEOMETRY_PRECISION)
+  }
+  expect(interaction.guideState.guides).toHaveLength(0)
+  expect(interaction.guideState.spacingGuides).toHaveLength(0)
+}
+
+/** Добавляет опорную фигуру, обычный текст и такой же текст из шаблона. */
+async function addTextResizeComparisonObjects(params: {
+  shapes: ShapeModel
+  text: TextModel
+}): Promise<void> {
+  const { shapes, text } = params
+  const reference = shapes.checkCreation({
+    shape: await shapes.add({
+      presetKey: 'square',
+      options: {
+        id: 'reference-shape',
+        left: 340,
+        top: 220,
+        width: 80,
+        height: 80,
+        text: ''
+      }
+    }),
+    presetKey: 'square'
+  })
+  const directText = text.checkCreation({
+    textObject: await text.addRegressionText({ left: 281, top: 352 })
+  })
+  const templateText = text.checkCreation({ textObject: await text.applyRegressionTemplate() })
+
+  expect(reference.id).toBe('reference-shape')
+  expect(directText.id).not.toBe(templateText.id)
+}
 
 test.describe('Горизонтальный ресайз текстового объекта с прилипаниями', () => {
   test('при сужении справа текстовый объект прилипает правой границей к направляющей', async({
@@ -202,31 +370,13 @@ test.describe('Горизонтальный ресайз текстового о
     snapping
   }) => {
     await test.step('Добавить опорную фигуру, прямой текстовый объект и объект из шаблона', async() => {
-      const reference = await shapes.add({
-        presetKey: 'square',
-        options: {
-          id: 'reference-shape',
-          left: 340,
-          top: 220,
-          width: 80,
-          height: 80,
-          text: ''
-        }
-      })
-      const directTextObject = await text.addRegressionText({
-        left: 281,
-        top: 352
-      })
-      const templateTextObject = await text.applyRegressionTemplate()
-
-      shapes.checkCreation({ shape: reference, presetKey: 'square' })
-      text.checkCreation({ textObject: directTextObject })
-      text.checkCreation({ textObject: templateTextObject })
+      await addTextResizeComparisonObjects({ shapes, text })
     })
 
-    const referenceSnapshot = await test.step('Получить положение опорной фигуры', async() => {
-      return snapping.getObjectSnapshot({ id: 'reference-shape' })
-    })
+    const referenceSnapshot = await test.step(
+      'Получить положение опорной фигуры',
+      () => snapping.getObjectSnapshot({ id: 'reference-shape' })
+    )
 
     const directSnappedSnapshot = await test.step('Сузить прямой текст почти до направляющей справа', async() => {
       return text.resizeFromRightToGuide({
@@ -235,9 +385,10 @@ test.describe('Горизонтальный ресайз текстового о
       })
     })
 
-    await test.step('Завершить сужение прямого текста перед переходом ко второму объекту', async() => {
-      await text.finishResize({ objectIndex: 1 })
-    })
+    await test.step(
+      'Завершить сужение прямого текста перед переходом ко второму объекту',
+      () => text.finishResize({ objectIndex: 1 })
+    )
 
     const templateSnappedSnapshot = await test.step('Сузить текст из шаблона почти до той же направляющей справа', async() => {
       return text.resizeFromRightToGuide({
@@ -246,9 +397,7 @@ test.describe('Горизонтальный ресайз текстового о
       })
     })
 
-    await test.step('Завершить сужение текста из шаблона', async() => {
-      await text.finishResize({ objectIndex: 2 })
-    })
+    await test.step('Завершить сужение текста из шаблона', () => text.finishResize({ objectIndex: 2 }))
 
     await test.step('Проверить что оба текста одинаково прилипли к одной и той же направляющей', async() => {
       expect(Math.abs(directSnappedSnapshot.boundsRight - referenceSnapshot.boundsLeft))
@@ -257,6 +406,32 @@ test.describe('Горизонтальный ресайз текстового о
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
       expect(Math.abs(directSnappedSnapshot.boundsRight - templateSnappedSnapshot.boundsRight))
         .toBeLessThanOrEqual(SNAPPING_TOLERANCE.position)
+    })
+  })
+})
+
+test.describe('Скейлинг повёрнутого текста с прилипаниями', () => {
+  test.fixme('при неподвижной мыши повёрнутый текст не сужается и не расширяется на направляющей', async({
+    editorModel,
+    shapes,
+    text,
+    snapping
+  }) => {
+    const reference = await test.step('Добавить и повернуть текст рядом с опорной фигурой', async() => {
+      return createRotatedTextHoldSetup({
+        editorModel,
+        shapes,
+        text,
+        snapping
+      })
+    })
+
+    const interaction = await test.step('Подержать ручку неподвижно и завершить scale', async() => {
+      return holdRotatedTextOnGuide({ text, snapping })
+    })
+
+    await test.step('Проверить стабильную геометрию, гайды и состояние после mouseup', async() => {
+      expectRotatedTextHoldStable({ reference, interaction })
     })
   })
 })

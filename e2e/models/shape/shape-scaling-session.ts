@@ -9,24 +9,44 @@ import type {
 } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
+/** Координаты активной scale-ручки на странице. */
+type ScaleInteractionPoint = {
+  x: number
+  y: number
+}
+
+/** Состояние незавершённого scale фигуры. */
 type ActiveScaleInteraction = {
-  point: {
-    x: number
-    y: number
-  }
-  mode: 'interactive' | 'synthetic-mouse-move'
+  point: ScaleInteractionPoint
+  mode: 'interactive' | 'synthetic-mouse-move' | 'browser-pointer'
   corner: ShapeScaleCorner
   objectIndex?: number
   id?: string
 }
 
+/** Смещение активной scale-ручки на странице. */
 type DragActiveScaleHandleParams = {
   deltaX: number
   deltaY: number
 }
 
+/** Угловая ручка пропорционального scale фигуры. */
 export type ShapeDiagonalScaleCorner = Extract<ShapeScaleCorner, 'tl' | 'tr' | 'bl' | 'br'>
 
+/** Результат одного шага scale фигуры. */
+type ScaleDragResult = {
+  corner: ShapeScaleCorner
+  point: ScaleInteractionPoint
+  snapshot: ShapeScaleSnapshot
+}
+
+/** Состояние фигуры и ручка активного преобразования Fabric. */
+type ActiveScaleSnapshot = {
+  corner: ShapeScaleCorner
+  snapshot: ShapeScaleSnapshot
+}
+
+/** Параметры минимального диагонального scale для одной ручки. */
 type DiagonalScaleHandle = {
   pointerX: number
   pointerY: number
@@ -296,6 +316,43 @@ export class ShapeScalingSession {
       objectIndex,
       id
     })
+  }
+
+  /** Начинает scale фигуры реальным mousedown на угловой ручке. */
+  async startScaleFromCorner(
+    params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
+  ): Promise<void> {
+    expect(this.activeScaleInteraction, 'нельзя начать новый scale до завершения предыдущего').toBeNull()
+
+    if (this.activeScaleInteraction) {
+      throw new Error('нельзя начать новый scale до завершения предыдущего')
+    }
+
+    const {
+      corner,
+      objectIndex,
+      id
+    } = params
+    const point = await this._resolveBrowserScaleControlPoint(params)
+
+    await this.page.mouse.move(point.x, point.y)
+    await waitForCanvasRender({ page: this.page })
+    await this.page.mouse.down()
+
+    this.activeScaleInteraction = {
+      point,
+      mode: 'browser-pointer',
+      corner,
+      objectIndex,
+      id
+    }
+
+    await waitForCanvasRender({ page: this.page })
+
+    const transformState = await this._getActiveScaleTransformState(params)
+
+    expect(transformState.targetMatches, 'mousedown должен начать scale выбранной фигуры').toBe(true)
+    expect(transformState.corner, 'активное преобразование Fabric должно использовать выбранную ручку').toBe(corner)
   }
 
   /** Сжимает shape до minimum по диагонали и возвращает live snapshot текущего кадра. */
@@ -861,12 +918,20 @@ export class ShapeScalingSession {
       throw new Error('должна существовать активная drag-сессия масштабирования shape')
     }
 
-    const result = await this._continueActiveScaleDrag({
+    const dragParams = {
       ...this.activeScaleInteraction,
       ...params
-    })
+    }
+    let result: ScaleDragResult
 
-    expect(result, 'должен существовать live snapshot после продолжения drag shape').not.toBeNull()
+    if (this.activeScaleInteraction.mode === 'browser-pointer') {
+      result = await this._dragScaleHandleWithBrowserPointer(dragParams)
+    } else {
+      result = await this._dragScaleHandleThroughFabricHandler(dragParams)
+    }
+
+    expect(result, 'после mousemove должно существовать состояние фигуры').not.toBeNull()
+    expect(result.snapshot, 'снимок фигуры после mousemove должен существовать').not.toBeNull()
 
     await waitForCanvasRender({ page: this.page })
 
@@ -874,14 +939,7 @@ export class ShapeScalingSession {
       corner,
       point,
       snapshot
-    } = result as {
-      corner: ShapeScaleCorner
-      point: {
-        x: number
-        y: number
-      }
-      snapshot: ShapeScaleSnapshot
-    }
+    } = result
 
     this.activeScaleInteraction = {
       ...this.activeScaleInteraction,
@@ -933,14 +991,48 @@ export class ShapeScalingSession {
     })
   }
 
-  private async _continueActiveScaleDrag(params: ActiveScaleInteraction & DragActiveScaleHandleParams): Promise<{
-    corner: ShapeScaleCorner
-    point: {
-      x: number
-      y: number
+  /** Перемещает угловую ручку реальным mousemove. */
+  private async _dragScaleHandleWithBrowserPointer(
+    params: ActiveScaleInteraction & DragActiveScaleHandleParams
+  ): Promise<ScaleDragResult> {
+    const {
+      point,
+      deltaX,
+      deltaY,
+      corner,
+      objectIndex,
+      id
+    } = params
+    const movePoint = {
+      x: point.x + deltaX,
+      y: point.y + deltaY
     }
-    snapshot: ShapeScaleSnapshot
-  }> {
+
+    expect(Number.isFinite(movePoint.x), 'координата X ручки после mousemove должна быть конечным числом').toBe(true)
+    expect(Number.isFinite(movePoint.y), 'координата Y ручки после mousemove должна быть конечным числом').toBe(true)
+
+    await this.page.mouse.move(movePoint.x, movePoint.y)
+    await waitForCanvasRender({ page: this.page })
+
+    const result = await this._readActiveScaleSnapshot({
+      corner,
+      objectIndex,
+      id
+    })
+
+    expect(result, 'после реального mousemove должно существовать состояние фигуры').not.toBeNull()
+    expect(result.snapshot, 'снимок фигуры после реального mousemove должен существовать').not.toBeNull()
+
+    return {
+      ...result,
+      point: movePoint
+    }
+  }
+
+  /** Продолжает скейлинг прямым вызовом обработчика Fabric. */
+  private async _dragScaleHandleThroughFabricHandler(
+    params: ActiveScaleInteraction & DragActiveScaleHandleParams
+  ): Promise<ScaleDragResult> {
     const result = await this.page.evaluate((payload) => {
       const {
         point,
@@ -984,17 +1076,11 @@ export class ShapeScalingSession {
     }, params)
 
     expect(result, 'должен существовать live snapshot после продолжения drag shape').not.toBeNull()
+    expect(result?.snapshot, 'прямой вызов Fabric должен вернуть состояние фигуры').not.toBeNull()
 
     await waitForCanvasRender({ page: this.page })
 
-    return result as {
-      corner: ShapeScaleCorner
-      point: {
-        x: number
-        y: number
-      }
-      snapshot: ShapeScaleSnapshot
-    }
+    return result as ScaleDragResult
   }
 
   /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */
@@ -1038,93 +1124,114 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Завершает активное интерактивное масштабирование через реальный mouseup, а для synthetic-сценариев остаётся на object:modified. */
+  /** Завершает scale тем же способом, которым он был начат. */
   async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
+    let snapshot: ShapeScaleSnapshot
+
     if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
-      const {
-        point,
-        mode,
-        corner,
-        objectIndex,
-        id
-      } = this.activeScaleInteraction
-      const snapshot = await this.page.evaluate((payload) => {
-        const {
-          point: interactionPoint,
-          mode: interactionMode,
-          corner: controlCorner,
-          objectIndex: targetObjectIndex,
-          id: targetId
-        } = payload
-        const {
-          editor,
-          __editorHelpers: helpers
-        } = window as any
+      const interaction = this.activeScaleInteraction
 
-        const target = helpers.resolveCanvasObjectOrActive(targetObjectIndex, targetId)
-        if (!target) return null
+      if (interaction.mode === 'browser-pointer') {
+        snapshot = await this._finishScaleWithBrowserPointer(interaction)
+      } else {
+        snapshot = await this._finishScaleThroughFabricHandler(interaction)
+      }
 
-        target.setCoords()
-
-        const currentControl = target.oCoords?.[controlCorner]
-        const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-        const releasePoint = currentControl
-          && typeof currentControl.x === 'number'
-          && typeof currentControl.y === 'number'
-          ? {
-            x: rect.left + currentControl.x,
-            y: rect.top + currentControl.y
-          }
-          : interactionPoint
-
-        editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
-          bubbles: true,
-          button: 0,
-          buttons: 0,
-          clientX: releasePoint.x,
-          clientY: releasePoint.y
-        }))
-
-        if (interactionMode === 'synthetic-mouse-move') {
-          editor.canvas.fire('object:modified', {
-            target
-          })
-        }
-
-        return helpers.serializeShapeScaleSnapshot(target)
-      }, {
-        point,
-        mode,
-        corner,
-        objectIndex,
-        id
-      })
-
-      await waitForCanvasRender({ page: this.page })
       this.activeScaleInteraction = null
-
-      expect(snapshot, 'должен существовать snapshot после завершения масштабирования').not.toBeNull()
-
-      return snapshot as ShapeScaleSnapshot
+    } else {
+      snapshot = await this._finishScaleWithoutActiveInteraction(params)
     }
 
-    const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
+    expect(snapshot, 'после завершения scale должно существовать состояние фигуры').not.toBeNull()
+    expect(Number.isFinite(snapshot.groupBoundsWidth), 'ширина фигуры после scale должна быть конечной').toBe(true)
 
+    return snapshot
+  }
+
+  /** Завершает реальный scale событием mouseup. */
+  private async _finishScaleWithBrowserPointer(
+    interaction: ActiveScaleInteraction
+  ): Promise<ShapeScaleSnapshot> {
+    expect(interaction.mode, 'реальный mouseup допустим только после scale через mouse').toBe('browser-pointer')
+    expect(Number.isFinite(interaction.point.x), 'координата X ручки перед mouseup должна быть конечной').toBe(true)
+
+    await this.page.mouse.up()
+    await waitForCanvasRender({ page: this.page })
+
+    const result = await this._readActiveScaleSnapshot(interaction)
+
+    expect(result, 'после реального mouseup должно существовать состояние фигуры').not.toBeNull()
+    expect(result.snapshot, 'снимок фигуры после реального mouseup должен существовать').not.toBeNull()
+
+    return result.snapshot
+  }
+
+  /** Завершает скейлинг прямым вызовом Fabric mouseup. */
+  private async _finishScaleThroughFabricHandler(
+    interaction: ActiveScaleInteraction
+  ): Promise<ShapeScaleSnapshot> {
+    const snapshot = await this.page.evaluate((payload) => {
+      const {
+        point,
+        mode,
+        corner,
+        objectIndex,
+        id
+      } = payload
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+      const control = target.oCoords?.[corner]
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const releasePoint = control && Number.isFinite(control.x) && Number.isFinite(control.y)
+        ? { x: rect.left + control.x, y: rect.top + control.y }
+        : point
+
+      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        buttons: 0,
+        clientX: releasePoint.x,
+        clientY: releasePoint.y
+      }))
+
+      if (mode === 'synthetic-mouse-move') editor.canvas.fire('object:modified', { target })
+
+      return helpers.serializeShapeScaleSnapshot(target)
+    }, interaction)
+
+    expect(snapshot, 'прямой вызов Fabric должен вернуть состояние фигуры').not.toBeNull()
+    expect(
+      Number.isFinite(snapshot?.groupBoundsWidth),
+      'ширина фигуры после Fabric mouseup должна быть конечной'
+    ).toBe(true)
+
+    await waitForCanvasRender({ page: this.page })
+
+    return snapshot as ShapeScaleSnapshot
+  }
+
+  /** Завершает программный скейлинг без активного движения мыши. */
+  private async _finishScaleWithoutActiveInteraction(
+    params: ObjectTargetParams
+  ): Promise<ShapeScaleSnapshot> {
+    const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
+      const { editor, __editorHelpers: helpers } = window as any
       const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
-      editor.canvas.fire('object:modified', {
-        target
-      })
+      editor.canvas.fire('object:modified', { target })
 
       return helpers.serializeShapeScaleSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должен существовать snapshot после завершения масштабирования').not.toBeNull()
+    expect(snapshot, 'программное завершение должно вернуть состояние фигуры').not.toBeNull()
+    expect(
+      Number.isFinite(snapshot?.groupBoundsWidth),
+      'ширина фигуры после object:modified должна быть конечной'
+    ).toBe(true)
 
     return snapshot as ShapeScaleSnapshot
   }
@@ -1142,6 +1249,88 @@ export class ShapeScalingSession {
       objectIndex,
       id
     })
+  }
+
+  /** Возвращает координаты угловой scale-ручки выбранной фигуры. */
+  private async _resolveBrowserScaleControlPoint(
+    params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
+  ): Promise<ScaleInteractionPoint> {
+    const point = await this.page.evaluate(({ corner, objectIndex, id }) => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
+      if (!target) return null
+
+      editor.canvas.setActiveObject(target)
+      target.setCoords()
+      editor.canvas.renderAll()
+
+      const control = target.oCoords?.[corner]
+      if (!control || !Number.isFinite(control.x) || !Number.isFinite(control.y)) return null
+
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+
+      return {
+        x: rect.left + control.x,
+        y: rect.top + control.y
+      }
+    }, params)
+
+    expect(point, 'угловая scale-ручка выбранной фигуры должна существовать').not.toBeNull()
+    expect(Number.isFinite(point?.x), 'координата X scale-ручки должна быть конечным числом').toBe(true)
+    expect(Number.isFinite(point?.y), 'координата Y scale-ручки должна быть конечным числом').toBe(true)
+
+    return point as ScaleInteractionPoint
+  }
+
+  /** Возвращает активное преобразование Fabric после реального mousedown. */
+  private async _getActiveScaleTransformState(
+    params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
+  ): Promise<{ targetMatches: boolean, corner: string | null }> {
+    const state = await this.page.evaluate(({ objectIndex, id }) => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
+      if (!target) return null
+
+      const transform = editor.canvas._currentTransform
+
+      return {
+        targetMatches: Boolean(transform && transform.target === target),
+        corner: typeof transform?.corner === 'string' ? transform.corner : null
+      }
+    }, params)
+
+    expect(state, 'после mousedown должно существовать состояние преобразования Fabric').not.toBeNull()
+    expect(typeof state?.targetMatches, 'состояние должно указывать, выбрана ли нужная фигура').toBe('boolean')
+
+    return state as {
+      targetMatches: boolean
+      corner: string | null
+    }
+  }
+
+  /** Считывает состояние фигуры после реального mouse-события. */
+  private async _readActiveScaleSnapshot(
+    params: { corner: ShapeScaleCorner } & ObjectTargetParams
+  ): Promise<ActiveScaleSnapshot> {
+    const result = await this.page.evaluate(({ corner, objectIndex, id }) => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObjectOrActive(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+
+      const transform = editor.canvas._currentTransform
+
+      return {
+        corner: typeof transform?.corner === 'string' ? transform.corner : corner,
+        snapshot: helpers.serializeShapeScaleSnapshot(target)
+      }
+    }, params)
+
+    expect(result, 'после реального mouse-события должно существовать состояние фигуры').not.toBeNull()
+    expect(result?.snapshot, 'снимок фигуры после реального mouse-события должен существовать').not.toBeNull()
+
+    return result as ActiveScaleSnapshot
   }
 
   private async _startScaleInteractionIfNeeded(params: ShapeScaleStepParams): Promise<void> {

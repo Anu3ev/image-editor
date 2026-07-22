@@ -1332,6 +1332,7 @@ export default class ShapeScalingController {
    */
   public clearState({ group }: { group: ShapeGroup }): void {
     this.scalingState.delete(group)
+    group.shapeScalingNoopTransform = false
   }
 
   /**

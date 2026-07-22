@@ -28,20 +28,24 @@ import {
 } from '../../fixtures/data/text-resizing.data'
 import TextResizeSession from './text-resize-session'
 
+/** Незавершённый скейлинг отдельного текстового объекта. */
+type ActiveTextScaleInteraction = {
+  point: {
+    x: number
+    y: number
+  }
+  mode?: 'browser-pointer'
+  corner: TextScaleHandleCorner
+  objectIndex?: number
+  id?: string
+}
+
 export class TextModel {
   private readonly page: Page
 
   private readonly resizeSession: TextResizeSession
 
-  private activeScaleInteraction: {
-    point: {
-      x: number
-      y: number
-    }
-    corner: TextScaleHandleCorner
-    objectIndex?: number
-    id?: string
-  } | null
+  private activeScaleInteraction: ActiveTextScaleInteraction | null
 
   constructor(page: Page) {
     this.page = page
@@ -797,6 +801,7 @@ export class TextModel {
 
     this.activeScaleInteraction = {
       point: nextPoint,
+      mode: 'browser-pointer',
       corner,
       objectIndex,
       id
@@ -950,68 +955,84 @@ export class TextModel {
     return currentSnapshot
   }
 
-  /** Завершает интерактивный scale текстового объекта через реальный mouseup. */
+  /** Завершает скейлинг текста тем же способом, которым он был начат. */
   async finishScale(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
-      const {
-        point,
-        corner,
-        objectIndex,
-        id
-      } = this.activeScaleInteraction
-      const snapshot = await this.page.evaluate((payload) => {
-        const {
-          point: interactionPoint,
-          corner: controlCorner,
-          objectIndex: targetObjectIndex,
-          id: targetId
-        } = payload
-        const {
-          editor,
-          __editorHelpers: helpers
-        } = window as any
+      const interaction = this.activeScaleInteraction
+      let snapshot: TextResizeSnapshot
 
-        const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
-        if (!target) return null
+      if (interaction.mode === 'browser-pointer') {
+        snapshot = await this._finishBrowserScaleInteraction(interaction)
+      } else {
+        snapshot = await this._finishFabricScaleInteraction(interaction)
+      }
 
-        target.setCoords()
-
-        const currentControl = target.oCoords?.[controlCorner]
-        const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-        const releasePoint = currentControl
-          && typeof currentControl.x === 'number'
-          && typeof currentControl.y === 'number'
-          ? {
-            x: rect.left + currentControl.x,
-            y: rect.top + currentControl.y
-          }
-          : interactionPoint
-
-        editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
-          bubbles: true,
-          button: 0,
-          buttons: 0,
-          clientX: releasePoint.x,
-          clientY: releasePoint.y
-        }))
-
-        return helpers.serializeTextResizeSnapshot(target)
-      }, {
-        point,
-        corner,
-        objectIndex,
-        id
-      })
-
-      await waitForCanvasRender({ page: this.page })
       this.activeScaleInteraction = null
 
-      expect(snapshot, 'должно существовать состояние после завершения scale текстового объекта').not.toBeNull()
+      expect(snapshot, 'должно существовать состояние после завершения скейлинга текстового объекта').not.toBeNull()
+      expect(snapshot.width, 'ширина текста после скейлинга должна быть положительной').toBeGreaterThan(0)
 
-      return snapshot as TextResizeSnapshot
+      return snapshot
     }
 
     return this._finishModifiedTransform(params)
+  }
+
+  /** Завершает скейлинг текста, начатый мышью Playwright, настоящим mouseup. */
+  private async _finishBrowserScaleInteraction(
+    interaction: ActiveTextScaleInteraction
+  ): Promise<TextResizeSnapshot> {
+    expect(interaction.mode, 'этот mouseup должен завершать скейлинг, начатый мышью').toBe('browser-pointer')
+    expect(Number.isFinite(interaction.point.x), 'координата X для mouseup должна быть конечной').toBe(true)
+
+    await this.page.mouse.up()
+    await waitForCanvasRender({ page: this.page })
+
+    const snapshot = await this.getResizeSnapshot({
+      objectIndex: interaction.objectIndex,
+      id: interaction.id
+    })
+
+    expect(snapshot.width, 'ширина текста после mouseup должна быть положительной').toBeGreaterThan(0)
+    expect(snapshot.fontSize, 'размер шрифта после mouseup должен быть положительным').toBeGreaterThan(0)
+
+    return snapshot
+  }
+
+  /** Завершает скейлинг текста, начатый прямым вызовом Fabric handler. */
+  private async _finishFabricScaleInteraction(
+    interaction: ActiveTextScaleInteraction
+  ): Promise<TextResizeSnapshot> {
+    const snapshot = await this.page.evaluate((payload) => {
+      const { point, corner, objectIndex, id } = payload
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      target.setCoords()
+      const control = target.oCoords?.[corner]
+      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const releasePoint = control && Number.isFinite(control.x) && Number.isFinite(control.y)
+        ? { x: rect.left + control.x, y: rect.top + control.y }
+        : point
+
+      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
+        bubbles: true,
+        button: 0,
+        buttons: 0,
+        clientX: releasePoint.x,
+        clientY: releasePoint.y
+      }))
+
+      return helpers.serializeTextResizeSnapshot(target)
+    }, interaction)
+
+    expect(snapshot, 'Fabric mouseup должен вернуть snapshot текста').not.toBeNull()
+    expect(Number.isFinite(snapshot?.width), 'ширина текста после Fabric mouseup должна быть конечной').toBe(true)
+
+    await waitForCanvasRender({ page: this.page })
+
+    return snapshot as TextResizeSnapshot
   }
 
   /** Завершает активный интерактивный scale, если drag-сессия ещё открыта. */
