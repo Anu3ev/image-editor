@@ -253,28 +253,26 @@ export default class CropManager {
     })
   }
 
-  /** Возвращает true, если текущий live-step вынес crop frame за пределы source и будет зажат clamp-ом. */
-  public isFrameOverflowingSource({ target }: { target?: FabricObject | null }): boolean {
+  /** Возвращает true, если live-step вынес crop frame за source по выбранной оси и будет зажат clamp-ом. */
+  public isFrameOverflowingSource({
+    target,
+    axis
+  }: { target?: FabricObject | null; axis?: 'x' | 'y' }): boolean {
     const { _session: session } = this
     if (!session || !target) return false
     if (session.options.allowFrameOverflow) return false
-
     if (session.frame !== target) return false
 
-    const rect = getCropRectInSource({
-      source: session.source,
-      frame: session.frame
-    })
+    const rect = getCropRectInSource({ source: session.source, frame: session.frame })
     const sourceSize = getSourceSize({ source: session.source })
     const minLeft = (-sourceSize.width / 2) - SOURCE_BOUNDS_OVERFLOW_EPSILON
     const minTop = (-sourceSize.height / 2) - SOURCE_BOUNDS_OVERFLOW_EPSILON
     const maxRight = (sourceSize.width / 2) + SOURCE_BOUNDS_OVERFLOW_EPSILON
     const maxBottom = (sourceSize.height / 2) + SOURCE_BOUNDS_OVERFLOW_EPSILON
+    const overflowsX = rect.left < minLeft || rect.left + rect.width > maxRight
+    const overflowsY = rect.top < minTop || rect.top + rect.height > maxBottom
 
-    return rect.left < minLeft
-      || rect.top < minTop
-      || rect.left + rect.width > maxRight
-      || rect.top + rect.height > maxBottom
+    return (axis !== 'y' && overflowsX) || (axis !== 'x' && overflowsY)
   }
 
   /** Возвращает true, если active crop frame уже зажат source-границей в текущем scale-step. */

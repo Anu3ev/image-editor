@@ -85,12 +85,20 @@ type CropFrameSnapTarget = FabricObject & {
 /** Способ расчёта границ в текущем кеше целей прилипания. */
 type AnchorBoundsMode = 'exact' | 'rounded'
 
+/** Оси, по которым текущий шаг перемещения может использовать прилипание. */
+type MovementSnapAxisState = {
+  canSnapX: boolean
+  canSnapY: boolean
+}
+
 /** Проверенный контекст одного шага перемещения объекта. */
 type ObjectMovementContext = {
   target: FabricObject
   transform?: Transform
   activeBounds: Bounds
   threshold: number
+  canSnapX: boolean
+  canSnapY: boolean
 }
 
 /** Результат прилипания к обычным направляющим во время движения. */
@@ -392,9 +400,17 @@ export default class SnappingManager {
       return null
     }
 
-    if (this._shouldAbortObjectMoving({ target, event })) return null
+    if (this._shouldAbortObjectMoving({ event })) return null
 
-    applyMovementStep({ target, transform })
+    const { canSnapX, canSnapY } = this._resolveMovementSnapAxes({ target, transform })
+
+    if (!canSnapX && !canSnapY) {
+      this._clearSpacingContexts()
+      this._clearGuides()
+      return null
+    }
+
+    applyMovementStep({ target, transform, roundX: canSnapX, roundY: canSnapY })
     this._ensureAnchorBounds({ activeObject: target, mode: 'exact' })
 
     const activeBounds = getObjectExactBounds({ object: target })
@@ -407,7 +423,31 @@ export default class SnappingManager {
     return {
       target,
       activeBounds,
-      threshold: SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
+      threshold: SNAP_THRESHOLD / (this.canvas.getZoom() || 1),
+      canSnapX,
+      canSnapY
+    }
+  }
+
+  /** Отключает только те оси crop frame, которые будут возвращены внутрь source clamp-ом. */
+  private _resolveMovementSnapAxes({
+    target,
+    transform
+  }: {
+    target: FabricObject
+    transform?: Transform
+  }): MovementSnapAxisState {
+    const isOverflowingX = this.editor.cropManager.isFrameOverflowingSource({ target, axis: 'x' })
+    const isOverflowingY = this.editor.cropManager.isFrameOverflowingSource({ target, axis: 'y' })
+    const hasSourceOverflow = isOverflowingX || isOverflowingY
+    const originalLeft = transform?.original?.left
+    const originalTop = transform?.original?.top
+    const hasMovedX = typeof originalLeft !== 'number' || target.left !== originalLeft
+    const hasMovedY = typeof originalTop !== 'number' || target.top !== originalTop
+
+    return {
+      canSnapX: !isOverflowingX && (!hasSourceOverflow || hasMovedX),
+      canSnapY: !isOverflowingY && (!hasSourceOverflow || hasMovedY)
     }
   }
 
@@ -416,9 +456,17 @@ export default class SnappingManager {
     target,
     transform,
     activeBounds,
-    threshold
+    threshold,
+    canSnapX,
+    canSnapY
   }: ObjectMovementContext): void {
-    const guideSnap = this._applyMovementGuideSnap({ target, activeBounds, threshold })
+    const guideSnap = this._applyMovementGuideSnap({
+      target,
+      activeBounds,
+      threshold,
+      canSnapX,
+      canSnapY
+    })
     const candidateBounds = this._resolveCurrentTargetBounds({
       activeObject: target,
       mode: 'exact'
@@ -426,7 +474,9 @@ export default class SnappingManager {
     const spacingResult = this._calculateSpacingResult({
       activeBounds: guideSnap.activeBounds,
       candidateBounds,
-      threshold
+      threshold,
+      canSnapX,
+      canSnapY
     })
     this.spacingContexts = spacingResult.contexts
 
@@ -442,26 +492,43 @@ export default class SnappingManager {
       applyMovementStep({
         target,
         transform,
-        roundX: !guideSnap.hasGuideSnapX,
-        roundY: !guideSnap.hasGuideSnapY
+        roundX: canSnapX && !guideSnap.hasGuideSnapX,
+        roundY: canSnapY && !guideSnap.hasGuideSnapY
       })
     }
 
     const finalBounds = getObjectExactBounds({ object: target }) ?? spacedBounds
-    this._applyMovementVisualGuides({ activeBounds: finalBounds, candidateBounds, threshold })
+    this._applyMovementVisualGuides({
+      activeBounds: finalBounds,
+      candidateBounds,
+      threshold,
+      canSnapX,
+      canSnapY
+    })
   }
 
   /** Применяет ближайшие линейные направляющие и возвращает актуальные точные границы. */
   private _applyMovementGuideSnap({
     target,
     activeBounds,
-    threshold
+    threshold,
+    canSnapX,
+    canSnapY
   }: {
     target: FabricObject
     activeBounds: Bounds
     threshold: number
+    canSnapX: boolean
+    canSnapY: boolean
   }): MovementGuideSnapResult {
-    const snapResult = calculateSnap({ activeBounds, threshold, anchors: this.anchors })
+    const snapResult = calculateSnap({
+      activeBounds,
+      threshold,
+      anchors: {
+        vertical: canSnapX ? this.anchors.vertical : [],
+        horizontal: canSnapY ? this.anchors.horizontal : []
+      }
+    })
     const hasGuideSnapX = snapResult.deltaX !== 0 || snapResult.guides.some((guide) => {
       return guide.type === 'vertical'
     })
@@ -746,10 +813,8 @@ export default class SnappingManager {
 
   /** Возвращает true, если движение нужно прервать до расчёта направляющих. */
   private _shouldAbortObjectMoving({
-    target,
     event
   }: {
-    target: FabricObject
     event: TransformEvent
   }): boolean {
     if (event.e?.ctrlKey) {
@@ -758,10 +823,7 @@ export default class SnappingManager {
       return true
     }
 
-    return this._shouldHideOverflowingCropFrameGuides({
-      target,
-      clearSpacingContexts: true
-    })
+    return false
   }
 
   /** Проверяет, нужно ли завершить скейлинг до расчёта прилипания. */
@@ -819,19 +881,13 @@ export default class SnappingManager {
     return target.scaleX !== originalScaleX || target.scaleY !== originalScaleY
   }
 
-  /** Скрывает направляющие для crop frame, если текущий шаг уже вышел за source и будет зажат clamp-ом. */
+  /** Скрывает scale-направляющие crop frame, если текущий шаг будет зажат source clamp-ом. */
   private _shouldHideOverflowingCropFrameGuides({
-    target,
-    clearSpacingContexts = false
+    target
   }: {
     target: FabricObject
-    clearSpacingContexts?: boolean
   }): boolean {
     if (!this.editor.cropManager.isFrameOverflowingSource({ target })) return false
-
-    if (clearSpacingContexts) {
-      this._clearSpacingContexts()
-    }
 
     this._clearGuides()
 
@@ -866,11 +922,15 @@ export default class SnappingManager {
   private _calculateSpacingResult({
     activeBounds,
     candidateBounds,
-    threshold
+    threshold,
+    canSnapX,
+    canSnapY
   }: {
     activeBounds: Bounds
     candidateBounds: Bounds[]
     threshold: number
+    canSnapX: boolean
+    canSnapY: boolean
   }) {
     const hasActiveSpacingContext = Boolean(
       this.spacingContexts.vertical || this.spacingContexts.horizontal
@@ -879,7 +939,7 @@ export default class SnappingManager {
       ? (SNAP_THRESHOLD + SPACING_SNAP_HOLD_MARGIN) / (this.canvas.getZoom() || 1)
       : threshold
 
-    return calculateSpacingSnap({
+    const result = calculateSpacingSnap({
       activeBounds,
       candidates: candidateBounds,
       threshold: spacingThreshold,
@@ -887,22 +947,42 @@ export default class SnappingManager {
       previousContexts: this.spacingContexts,
       switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
     })
+
+    if (!canSnapX) {
+      result.deltaX = 0
+      result.guides = result.guides.filter((guide) => guide.type !== 'horizontal')
+      result.contexts.horizontal = null
+    }
+    if (!canSnapY) {
+      result.deltaY = 0
+      result.guides = result.guides.filter((guide) => guide.type !== 'vertical')
+      result.contexts.vertical = null
+    }
+
+    return result
   }
 
   /** Пересчитывает направляющие по окончательным границам шага перемещения. */
   private _applyMovementVisualGuides({
     activeBounds,
     candidateBounds,
-    threshold
+    threshold,
+    canSnapX,
+    canSnapY
   }: {
     activeBounds: Bounds
     candidateBounds: Bounds[]
     threshold: number
+    canSnapX: boolean
+    canSnapY: boolean
   }): void {
     const visualSnapResult = calculateSnap({
       activeBounds,
       threshold,
-      anchors: this.anchors
+      anchors: {
+        vertical: canSnapX ? this.anchors.vertical : [],
+        horizontal: canSnapY ? this.anchors.horizontal : []
+      }
     })
     const visualSpacingResult = calculateSpacingSnap({
       activeBounds,
@@ -912,6 +992,16 @@ export default class SnappingManager {
       previousContexts: this.spacingContexts,
       switchDistance: SPACING_CONTEXT_SWITCH_DISTANCE
     })
+    if (!canSnapX) {
+      visualSpacingResult.deltaX = 0
+      visualSpacingResult.guides = visualSpacingResult.guides.filter((guide) => guide.type !== 'horizontal')
+      visualSpacingResult.contexts.horizontal = null
+    }
+    if (!canSnapY) {
+      visualSpacingResult.deltaY = 0
+      visualSpacingResult.guides = visualSpacingResult.guides.filter((guide) => guide.type !== 'vertical')
+      visualSpacingResult.contexts.vertical = null
+    }
     this.spacingContexts = visualSpacingResult.contexts
 
     const isSpacingPositionExact = visualSpacingResult.deltaX === 0

@@ -7,7 +7,62 @@ import {
   BLOCKED_CROP_SCALE_CASES
 } from '../../fixtures/data/crop-frame-guides.data'
 
+/** Размер уменьшенной crop-области для одновременной проверки source-bound clamp и центрального guide. */
+const CENTER_GUIDE_CROP_FRAME_SIZE = {
+  width: 100,
+  height: 100
+} as const
+
+/** Смещение crop-области от центра source перед контрольным диагональным drag. */
+const CENTER_GUIDE_CROP_OFFSET_Y = 20
+
 test.describe('Направляющие при ограничении crop-области изображения', () => {
+  test('показывает горизонтальную направляющую при выравнивании по центру во время удержания у правой границы изображения', async({
+    images,
+    crop,
+    snapping
+  }) => {
+    const image = await images.checkCreation({
+      imageObject: await images.addFilledImage(BLOCKED_CROP_IMAGE_SIZE)
+    })
+    expect(image, 'изображение должно добавиться для проверки направляющей').not.toBeNull()
+    expect(image?.id, 'у изображения должен быть id').toBeDefined()
+    if (!image) throw new Error('Не удалось добавить изображение для проверки направляющей')
+
+    await crop.startImageCrop({
+      id: image.id,
+      allowFrameOverflow: false
+    })
+    const centeredState = await crop.setSize(CENTER_GUIDE_CROP_FRAME_SIZE)
+    await crop.dragFrameByOffset({
+      deltaX: 0,
+      deltaY: -CENTER_GUIDE_CROP_OFFSET_Y * centeredState.frame.scaleY
+    })
+    const offsetState = await crop.finishFrameMove()
+
+    const targetTop = (BLOCKED_CROP_IMAGE_SIZE.height - offsetState.rect.height) / 2
+    const deltaToRightEdge = BLOCKED_CROP_IMAGE_SIZE.width
+      - offsetState.rect.left
+      - offsetState.rect.width
+    const liveState = await crop.dragFrameByOffset({
+      deltaX: (deltaToRightEdge * offsetState.frame.scaleX) + BLOCKED_CROP_DRAG_OFFSET.deltaX,
+      deltaY: (targetTop - offsetState.rect.top) * offsetState.frame.scaleY
+    })
+    const liveGuides = await snapping.getGuideState()
+    const releasedState = await crop.finishFrameMove()
+    const releasedGuides = await snapping.getGuideState()
+    await crop.cancel()
+
+    expect(liveState.rect.left + liveState.rect.width).toBeCloseTo(BLOCKED_CROP_IMAGE_SIZE.width, 6)
+    expect(liveGuides.guides).toEqual([
+      expect.objectContaining({ type: 'horizontal' })
+    ])
+    expect(liveGuides.spacingGuides).toHaveLength(0)
+    expect(liveState.rect.top).toBeCloseTo(targetTop, 6)
+    expect(releasedState.rect).toEqual(liveState.rect)
+    expect(releasedGuides).toEqual({ guides: [], spacingGuides: [] })
+  })
+
   test('не показывает направляющие при попытке сдвинуть полную crop-область вправо за пределы изображения', async({
     images,
     shapes,

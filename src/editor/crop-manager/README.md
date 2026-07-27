@@ -36,6 +36,7 @@
   Rounding to integer pixels after guide calculation must not move that edge.
 - `allowFrameOverflow = false` constrains the crop frame to source-image bounds.
   In this mode, clamp and scale limits must rely on `getCropRectInSource()` and `getSourceSize()`, not a raw canvas bounding box.
+- `isFrameOverflowingSource({ target, axis })` reports transient overflow before the source-bound move clamp runs. Without `axis`, it preserves the combined check used by scaling; with `x` or `y`, it lets movement snapping disable only the constrained axis.
 - `fitFrame({ type })` uses montage-area `contain` and `cover` only when `allowFrameOverflow = true`.
   With overflow disabled, both values use the same source-bound reset geometry, so fitting expands the current frame without re-centering it to the montage area.
 - `preserveAspectRatio` is enabled by default. `Shift` does not add aspect-ratio preservation; it inverts the current rule.
