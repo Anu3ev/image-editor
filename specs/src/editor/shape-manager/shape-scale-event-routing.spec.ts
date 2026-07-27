@@ -1,4 +1,9 @@
+import {
+  ActiveSelection,
+  Rect
+} from 'fabric'
 import ShapeEventController from '../../../../src/editor/shape-manager/events/shape-event-controller'
+import { ShapeGroupObject } from '../../../../src/editor/shape-manager/domain/shape-group'
 import ShapeScaleInteractionController from '../../../../src/editor/shape-manager/scaling/shape-scale-interaction-controller'
 import { getRequiredCanvasHandler } from '../../../test-utils/canvas/handlers'
 import { createMockCanvas } from '../../../test-utils/shape/factories'
@@ -48,7 +53,11 @@ function getRequiredWindowListener({
 /** Создаёт изолированный ShapeEventController с наблюдаемыми зависимостями. */
 function createRoutingHarness() {
   const canvas = createMockCanvas()
-  const group = {}
+  const child = new Rect({
+    width: 20,
+    height: 20
+  })
+  const group = new ShapeGroupObject([child], {})
   const scalingController = {
     handleObjectScaling: jest.fn(),
     handleCanvasMouseMove: jest.fn()
@@ -62,16 +71,16 @@ function createRoutingHarness() {
     clearResizeStarts: jest.fn()
   }
   const controller = new ShapeEventController({
-    runtime: {
+    dependencies: {
       editor: { canvas },
       scalingController,
       editingController,
       lifecycleController,
-      editingPlacements: new WeakMap(),
-      internalTextUpdates: new WeakSet(),
-      collectShapeGroupsFromTarget: jest.fn(() => [group]),
-      detachShapeGroupAutoLayout: jest.fn(),
-      syncShapeTextLayoutAfterTextMutation: jest.fn()
+      layoutController: {},
+      textNodeController: {
+        isInternalUpdate: jest.fn()
+      },
+      editingPlacements: new WeakMap()
     } as never
   })
 
@@ -80,8 +89,10 @@ function createRoutingHarness() {
 
   return {
     canvas,
+    child,
     controller,
     editingController,
+    group,
     lifecycleController,
     scalingController
   }
@@ -125,6 +136,41 @@ it('подписывается на все canvas- и window-события и �
   expect(removeEventListenerSpy).toHaveBeenCalledWith('blur', blurListener)
 })
 
+it('находит затронутый шейп по группе, дочернему узлу и ActiveSelection без дубликатов', () => {
+  const harness = createRoutingHarness()
+  const mouseDownHandler = getRequiredCanvasHandler({
+    canvas: harness.canvas,
+    eventName: 'mouse:down'
+  })
+
+  mouseDownHandler({ target: harness.group })
+
+  expect(harness.lifecycleController.captureResizeStart).toHaveBeenCalledTimes(1)
+  expect(harness.lifecycleController.captureResizeStart).toHaveBeenLastCalledWith({
+    group: harness.group
+  })
+
+  harness.lifecycleController.captureResizeStart.mockClear()
+  mouseDownHandler({ target: harness.child })
+
+  expect(harness.lifecycleController.captureResizeStart).toHaveBeenCalledTimes(1)
+  expect(harness.lifecycleController.captureResizeStart).toHaveBeenLastCalledWith({
+    group: harness.group
+  })
+
+  harness.lifecycleController.captureResizeStart.mockClear()
+  const selection = new ActiveSelection([harness.group])
+  mouseDownHandler({
+    target: selection,
+    subTargets: [harness.child, harness.group]
+  })
+
+  expect(harness.lifecycleController.captureResizeStart).toHaveBeenCalledTimes(1)
+  expect(harness.lifecycleController.captureResizeStart).toHaveBeenLastCalledWith({
+    group: harness.group
+  })
+})
+
 it('сохраняет порядок начала и завершения жеста скейлинга', () => {
   const beginGestureSpy = jest
     .spyOn(ShapeScaleInteractionController.prototype, 'beginGesture')
@@ -137,7 +183,7 @@ it('сохраняет порядок начала и завершения же�
     .mockImplementation(() => {})
   const harness = createRoutingHarness()
   const event = {
-    target: null,
+    target: harness.group,
     e: new Event('pointerdown'),
     pointer: { x: 12, y: 18 },
     scenePoint: { x: 12, y: 18 }
@@ -172,7 +218,7 @@ it('не обрабатывает шаг повторно, если контро
     .mockReturnValue(true)
   const harness = createRoutingHarness()
   const event = {
-    target: null,
+    target: harness.group,
     e: new Event('pointermove'),
     pointer: { x: 24, y: 36 },
     scenePoint: { x: 24, y: 36 },
@@ -195,7 +241,7 @@ it('начинает resize при первом изменении геомет�
     .mockReturnValue(true)
   const harness = createRoutingHarness()
   const event = {
-    target: null,
+    target: harness.group,
     e: new Event('pointermove'),
     pointer: { x: 24, y: 36 },
     scenePoint: { x: 24, y: 36 },
@@ -215,7 +261,7 @@ it('не начинает resize из mouse:move, если геометрия н
     .mockReturnValue(true)
   const harness = createRoutingHarness()
   const event = {
-    target: null,
+    target: harness.group,
     e: new Event('pointermove'),
     transform: { actionPerformed: false }
   }
@@ -235,7 +281,7 @@ it('передаёт неподдержанный шаг обычной обра
     .mockReturnValue(false)
   const harness = createRoutingHarness()
   const event = {
-    target: null,
+    target: harness.group,
     e: new Event('pointermove')
   }
 

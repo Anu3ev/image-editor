@@ -115,6 +115,8 @@ export default ({ editorInstance, controls }) => {
   let shapeFillButtons = []
   /** @type {HTMLButtonElement[]} */
   let shapeStrokeButtons = []
+  /** @type {ShapeObject | null} */
+  let latestPaddingTarget = null
   const horizontalAlignOptions = ['left', 'center', 'right', 'justify']
   const verticalAlignOptions = ['top', 'middle', 'bottom']
 
@@ -452,11 +454,29 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет внутренний отступ текста к активной фигуре.
+   * Возвращает фигуру для live-изменения или его завершающего сохранения.
+   * @param {{ withoutSave: boolean }} params
+   */
+  const resolveShapePaddingTarget = ({ withoutSave }) => {
+    if (withoutSave) {
+      const activeShape = getActiveShape()
+      latestPaddingTarget = activeShape
+
+      return activeShape
+    }
+
+    const shapeGroup = latestPaddingTarget ?? getActiveShape()
+    latestPaddingTarget = null
+
+    return shapeGroup
+  }
+
+  /**
+   * Применяет внутренний отступ текста к фигуре, на которой началось изменение.
    * @param {{ side: 'top' | 'right' | 'bottom' | 'left', value: number, withoutSave?: boolean }} params
    */
   const applyShapePadding = async({ side, value, withoutSave = false }) => {
-    const shapeGroup = getActiveShape()
+    const shapeGroup = resolveShapePaddingTarget({ withoutSave })
     if (!shapeGroup) return
 
     const updated = await editorInstance.shapeManager.update({

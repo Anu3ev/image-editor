@@ -6,20 +6,22 @@ The main rule for this module is that a shape is a domain object, not a generic 
 
 ## Responsibility split
 
-- [`index.ts`](./index.ts) is the public facade. It owns `add()`, `update()`, `remove()`, style and text commands, target resolution, placement, history transactions, and controller composition.
-- [`domain/shape-group.ts`](./domain/shape-group.ts) defines and registers the `shape-group` Fabric class. It restores runtime invariants after direct creation, clone, deserialization, history restore, and template application.
+- [`index.ts`](./index.ts) is the public facade. It composes the internal controllers, exposes shape commands, and owns canvas insertion, placement, selection, `editor:shape-added`, and the history transaction for `add()`.
+- [`domain/shape-group.ts`](./domain/shape-group.ts) defines and registers the `shape-group` Fabric class together with its persisted metadata contract. It restores runtime invariants after direct creation, clone, deserialization, history restore, and template application.
 - [`domain/shape-presets.ts`](./domain/shape-presets.ts) is the canonical preset registry and defines preset dimensions, geometry, internal text insets, defaults, and rounded variants.
 - [`domain/shape-nodes.ts`](./domain/shape-nodes.ts), [`domain/shape-reference.ts`](./domain/shape-reference.ts), and [`domain/shape-runtime.ts`](./domain/shape-runtime.ts) resolve the group and its child roles, restore interactivity, prepare the embedded text node, and detach Fabric's automatic group layout.
+- [`creation/shape-group-factory.ts`](./creation/shape-group-factory.ts) materializes a complete off-canvas group for `add()`: it normalizes the requested state, creates both child nodes, applies persisted metadata and runtime invariants, and runs the canonical initial layout. It does not insert or select the group, save history, or emit editor events.
 - [`creation/shape-node-factory.ts`](./creation/shape-node-factory.ts) creates and resizes Fabric shape nodes for supported preset types, applies visual styles, and builds rounded geometry where the preset allows it.
 - [`layout/`](./layout) owns text measurement, wrapping, user padding, preset and stroke insets, automatic expansion, fixed-width layout, and application of canonical shape and text geometry.
 - [`mutation/shape-update-pipeline.ts`](./mutation/shape-update-pipeline.ts) prepares the complete next preset, dimensions, text, style, padding, and layout state before the live group is mutated.
 - [`mutation/shape-mutation-controller.ts`](./mutation/shape-mutation-controller.ts) applies prepared updates, replaces only the inner shape node when necessary, coordinates lifecycle events, and wraps on-canvas programmatic mutations in a history transaction.
 - [`mutation/shape-rehydration.ts`](./mutation/shape-rehydration.ts) resolves dimensions and embedded text scale for objects restored or transformed outside the regular shape update flow.
 - [`editing/shape-editing-controller.ts`](./editing/shape-editing-controller.ts) owns entry into embedded text editing, temporary interaction flags, target resolution during editing, and restoration of normal group interaction on exit.
-- [`events/shape-event-controller.ts`](./events/shape-event-controller.ts) connects Fabric pointer, scaling, selection, removal, and text events to the corresponding editing, scaling, snapping, and lifecycle controllers.
+- [`events/shape-event-controller.ts`](./events/shape-event-controller.ts) connects Fabric pointer, scaling, selection, removal, and text events to the corresponding editing, scaling, snapping, and lifecycle controllers. It normalizes direct targets, child nodes, sub-targets, and `ActiveSelection`, and orchestrates shape layout after text events.
 - [`lifecycle/shape-lifecycle-controller.ts`](./lifecycle/shape-lifecycle-controller.ts) captures before and after snapshots for programmatic updates, text editing, text updates, and resize gestures.
 - [`scaling/`](./scaling) owns live shape layout during scale, minimum-size and text-fit constraints, fixed-anchor restoration, ActiveSelection handling, snapping projection, and final materialization of dimensions.
-- [`types.ts`](./types.ts) contains the public shape options and results together with the internal domain contracts shared by these modules.
+- [`text/shape-text-node-controller.ts`](./text/shape-text-node-controller.ts) is the explicit adapter between shape-owned text nodes and `TextManager`. It creates embedded textboxes, applies programmatic text updates, resolves staged style state, and suppresses only the events caused by its own updates. `TextManager` is resolved when an operation starts because ShapeManager must bind its Fabric listeners first; this is a composition-order constraint, not permission to access unrelated editor state.
+- [`types.ts`](./types.ts) contains the public shape options and results together with shared internal contracts such as shape dimensions and inset resolvers.
 
 ## Domain and state model
 
@@ -28,7 +30,7 @@ The main rule for this module is that a shape is a domain object, not a generic 
 Shape state is split into three categories:
 
 - Persisted state includes the preset key, canonical dimensions, manual base dimensions, replacement box, automatic text expansion mode, text alignment, user padding, visual style, rounding, and child node roles.
-- Derived state includes preset-specific internal text insets, stroke-aware content insets, text measurements, roundability, and the current displayed dimensions calculated from canonical dimensions and a live Fabric transform.
+- Derived state includes preset-specific internal text insets, stroke-aware content insets, text measurements, roundability, and the current displayed dimensions calculated from canonical dimensions and a live Fabric transform. `shapeLayoutSignature` is the only derived validation marker deliberately carried in persisted state; it is regenerated after every completed layout and never replaces those source values.
 - Transient runtime state includes editing snapshots, resize snapshots, scaling sessions, snapping sessions, cached measurements, temporary interaction flags, and no-op transform markers. It must not be copied into serialized shape metadata.
 
 `ShapeGroupObject.rehydrateRuntimeState()` restores the runtime defaults that must survive every materialization path: shape identity, interactivity, padding defaults, rounding capability, custom controls, embedded text behaviour, group opacity normalization, detached Fabric auto-layout, and fresh coordinates.
@@ -42,14 +44,14 @@ Shape state is split into three categories:
 | `remove()` | Removes an existing unlocked shape group and saves the resulting canvas state unless `withoutSave` is set. |
 | `setFill()`, `setStroke()`, `setOpacity()`, `setRounding()` | Apply shape-level visual changes through the same lifecycle and history boundary. |
 | `getTextNode()`, `updateTextStyle()`, `setTextAlign()` | Expose the embedded text contract without treating the text node as standalone text. |
-| `commitRehydratedShapeLayout()` | Internal cross-manager entry point that materializes restored, cloned, grouped, or externally transformed shape geometry. It is technically public for manager integration, but it is not a user-facing shape command. |
+| `commitRehydratedShapeLayout()` | Internal cross-manager entry point that materializes restored, cloned, grouped, or externally transformed shape geometry. It preserves current visual bounds when persisted layout inputs are unchanged and recalculates automatic expansion when those inputs were intentionally edited. It is technically public for manager integration, but it is not a user-facing shape command. |
 | `destroy()` | Removes ShapeManager's canvas and window event subscriptions and clears the active unified-snapping session together with its verified guides. |
 
 Methods that accept `target` can resolve a shape group instance, its id, one of its child nodes, or the active shape when the target is omitted. User-facing mutating commands ignore missing or locked shapes instead of partially updating their children.
 
 ## Creation and update flow
 
-`add()` resolves a preset, normalizes dimensions, style, rounding, padding, and alignment, creates the embedded text node through `TextManager`, creates the visual node through the shape factory, and applies one canonical layout before placement. Explicit `width` and `height` describe the requested shape box unless `preserveAspectRatio` is enabled, while `shapeTextAutoExpand` may still grow the final layout to fit the text. With no explicit coordinates, the completed group is centred in the montage area.
+`add()` delegates off-canvas materialization to `ShapeGroupFactory`. The factory resolves the preset, normalizes dimensions, style, rounding, padding, and alignment, creates the embedded text node through `ShapeTextNodeController`, creates the visual node through the shape-node factory, and applies one canonical layout before returning the group. The facade then owns placement, optional canvas insertion and selection, one add-history transaction, and `editor:shape-added`. Explicit `width` and `height` describe the requested shape box unless `preserveAspectRatio` is enabled, while `shapeTextAutoExpand` may still grow the final layout to fit the text. With no explicit coordinates, the completed group is centred in the montage area.
 
 `update()` follows a prepare-then-apply flow. The update pipeline resolves the complete next state without mutating the live group, including a replacement shape node when the preset changes. The mutation controller then applies that state to the existing outer group, preserves placement and non-scale transformations, folds the current scale into canonical dimensions, updates metadata, runs layout once, and emits the shape lifecycle events.
 
@@ -74,15 +76,17 @@ Fabric's automatic fit-content group layout is detached after creation and rehyd
 
 A second click on an already selected shape enters text editing when both the group and its embedded `Textbox` are unlocked. During editing, group movement and selection are temporarily disabled, the embedded `Textbox` becomes the active object, and the target resolver keeps clicks inside the shape directed to that textbox. On exit, normal interaction is restored and the outer group becomes active again.
 
-`ShapeManager` synchronizes text line styles before measuring a live `text:changed` update, recalculates the shape layout while preserving placement, and emits one shape-level update only when the before and after snapshots differ. Programmatic text changes are coordinated through `editor:before:text-updated` and `editor:text-updated` so shape layout is updated before the final history state is recorded.
+`ShapeEventController` synchronizes text line styles before measuring a live `text:changed` update, recalculates the shape layout while preserving placement, and emits one shape-level update only when the before and after snapshots differ. Programmatic text changes are coordinated through `editor:before:text-updated` and `editor:text-updated` so shape layout is updated before the final history state is recorded. Its internal-update guard belongs to `ShapeTextNodeController`, so event handling does not depend on a raw shared `WeakSet`.
 
 ## Restore and materialization
 
-Restore is a two-step process. `ShapeGroupObject.fromObject()` first restores Fabric children, enlivable properties, the layout manager, and shape runtime invariants. `commitRehydratedShapeLayout()` then folds live group scale into canonical, manual, and replacement dimensions, scales the embedded text state and padding when required, and reapplies layout without changing the object's placement.
+Restore is a two-step process. `ShapeGroupObject.fromObject()` first restores Fabric children, enlivable properties, the layout manager, and shape runtime invariants. `commitRehydratedShapeLayout()` then folds live group scale into canonical, manual, and replacement dimensions, scales the embedded text state and padding when required, and reapplies the internal layout without changing the object's placement. Materialization preserves the current visual bounds for an already completed layout, but still runs automatic expansion when serialized content or another persisted layout input was intentionally changed.
+
+Each completed layout stores `shapeLayoutSignature`, a compact derived signature of the text, size-affecting text styles, shape padding, preset, stroke, rounding, and automatic expansion mode used to calculate it. History, clipboard, unchanged templates, ungrouping, and transform fitting therefore preserve their current bounds. If serialized content was intentionally changed after the layout was saved, the signature no longer matches and materialization runs the normal auto-expand calculation. Legacy states without a signature preserve their serialized visual bounds.
 
 The same materialization entry point is used after history restore, template application, clipboard cloning, ungrouping, and transform-manager fitting. A change to rehydration therefore affects every one of these paths and must not be implemented only in the caller that first exposed the bug.
 
-Programmatic on-canvas mutations suspend history while the group and its children are being updated, resume it in a finalization path, and save one resulting state unless `withoutSave` is set. Live pointer transformations use the editor's shared Fabric event and history lifecycle instead.
+Programmatic on-canvas mutations owned by `ShapeMutationController` suspend history while the group and its children are being updated, resume it in a finalization path, and save one resulting state unless `withoutSave` is set. The facade keeps the same short transaction specifically for `add()`, because canvas insertion belongs there. Controllers receive explicit dependencies; there is no shared function-bag runtime that forwards private facade methods. Live pointer transformations use the editor's shared Fabric event and history lifecycle instead.
 
 ## Scaling and snapping
 

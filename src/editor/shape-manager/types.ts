@@ -30,6 +30,22 @@ export type ShapePadding = {
   left: number
 }
 
+/**
+ * Пара width/height для current, manual или replacement shape-контекста.
+ */
+export type ShapeDimensions = {
+  width: number
+  height: number
+}
+
+/**
+ * Вычисляет внутренний text inset для конкретных размеров шейпа.
+ */
+export type ShapeInsetResolver = ({
+  width,
+  height
+}: ShapeDimensions) => ShapePadding
+
 export type ShapePaddingRatio = {
   top: number
   right: number
@@ -124,6 +140,7 @@ export type ShapeGroupMetadata = {
   shapeReplaceBoxWidth: number
   shapeReplaceBoxHeight: number
   shapeTextAutoExpand: boolean
+  shapeLayoutSignature?: string
   shapeAlignHorizontal: ShapeHorizontalAlign
   shapeAlignVertical: ShapeVerticalAlign
   shapePaddingTop: number

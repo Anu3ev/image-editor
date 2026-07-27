@@ -1,3 +1,4 @@
+import type { Canvas } from 'fabric'
 import {
   DEFAULT_SHAPE_PRESET_KEY,
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
@@ -20,14 +21,22 @@ import {
 import {
   getShapeNodes
 } from '../domain/shape-nodes'
+import { resolveShapeGroup } from '../domain/shape-reference'
+import { resolveShapeStyle } from '../domain/shape-style'
+import type CanvasManager from '../../canvas-manager'
 import type { ObjectPlacement } from '../../canvas-manager'
+import type ShapeLayoutController from '../layout/shape-layout-controller'
+import type ShapeLifecycleController from '../lifecycle/shape-lifecycle-controller'
+import type ShapeTextNodeController from '../text/shape-text-node-controller'
 import type {
+  ShapeDimensions,
   ShapeGroup,
   ShapeHorizontalAlign,
   ShapeNode,
   ShapePadding,
   ShapePaddingChangeMap,
   ShapeReference,
+  ShapeInsetResolver,
   ShapeTextNode,
   ShapeTextStyleOptions,
   ShapeUpdateLifecycleContext,
@@ -35,11 +44,17 @@ import type {
   ShapeVerticalAlign,
   ShapeVisualStyle
 } from '../types'
-import type {
-  ShapeGroupDimensions,
-  ShapeInsetResolver,
-  ShapeMutationRuntime
-} from './shape-mutation-runtime'
+
+/**
+ * Конкретные зависимости prepare-этапа shape update.
+ */
+type ShapeUpdatePipelineDependencies = {
+  canvas: Canvas
+  canvasManager: CanvasManager
+  lifecycleController: ShapeLifecycleController
+  layoutController: ShapeLayoutController
+  textNodeController: ShapeTextNodeController
+}
 
 /**
  * Текущие узлы группы, которые будут использованы при применении подготовленного update.
@@ -62,8 +77,8 @@ type PreparedShapeUpdateNext = {
   style: ShapeVisualStyle
   shapeTextAutoExpand: boolean
   userPadding: ShapePadding
-  replaceBox: ShapeGroupDimensions
-  manual: ShapeGroupDimensions
+  replaceBox: ShapeDimensions
+  manual: ShapeDimensions
   shouldFitReplacementToPreset: boolean
 }
 
@@ -114,9 +129,9 @@ type ShapeUpdateContext = {
   requestedPresetKey: string
   basePreset: NonNullable<ReturnType<typeof getShapePreset>>
   placement: ObjectPlacement
-  currentDimensions: ShapeGroupDimensions
-  currentManualDimensions: ShapeGroupDimensions
-  currentReplaceBoxDimensions: ShapeGroupDimensions
+  currentDimensions: ShapeDimensions
+  currentManualDimensions: ShapeDimensions
+  currentReplaceBoxDimensions: ShapeDimensions
 }
 
 /**
@@ -148,9 +163,9 @@ type ResolvedUpdateStyle = {
  * Размеры update до создания нового shape-узла.
  */
 type ResolvedUpdateDimensions = {
-  nextCurrentDimensions: ShapeGroupDimensions
-  manualDimensions: ShapeGroupDimensions
-  nextReplaceBoxDimensions: ShapeGroupDimensions | null
+  nextCurrentDimensions: ShapeDimensions
+  manualDimensions: ShapeDimensions
+  nextReplaceBoxDimensions: ShapeDimensions | null
   nextShapeTextAutoExpand: boolean
   shouldFitReplacementToPreset: boolean
 }
@@ -173,7 +188,7 @@ type PreparedUpdateResultInput = {
   options: ShapeUpdateOptions
   current: PreparedShapeUpdateCurrent
   shape: ShapeNode
-  replaceBox: ShapeGroupDimensions
+  replaceBox: ShapeDimensions
   layoutDimensions: PreparedLayoutDimensions
   presetState: ResolvedUpdatePreset
   styleState: ResolvedUpdateStyle
@@ -203,15 +218,15 @@ export const SHAPE_TEXT_LAYOUT_RESET_STATE = {
  */
 export class ShapeUpdatePipeline {
   /**
-   * Runtime-контракт mutation-модуля, через который preparation читает состояние ShapeManager.
+   * Зависимости preparation без доступа к mutation/history internals.
    */
-  private readonly runtime: ShapeMutationRuntime
+  private readonly dependencies: ShapeUpdatePipelineDependencies
 
   /**
-   * Инициализирует pipeline update общим mutation runtime.
+   * Инициализирует pipeline только нужными prepare-зависимостями.
    */
-  constructor({ runtime }: { runtime: ShapeMutationRuntime }) {
-    this.runtime = runtime
+  constructor({ dependencies }: { dependencies: ShapeUpdatePipelineDependencies }) {
+    this.dependencies = dependencies
   }
 
   /**
@@ -274,7 +289,10 @@ export class ShapeUpdatePipeline {
     presetKey?: string
     options: ShapeUpdateOptions
   }): ShapeUpdateContext | null {
-    const currentGroup = this.runtime.resolveShapeGroup({ target })
+    const currentGroup = resolveShapeGroup({
+      canvas: this.dependencies.canvas,
+      target
+    })
 
     if (!currentGroup || currentGroup.locked) return null
 
@@ -289,16 +307,22 @@ export class ShapeUpdatePipeline {
       currentPresetKey,
       requestedPresetKey,
       basePreset,
-      placement: this.runtime.editor.canvasManager.resolveObjectPlacement({
+      placement: this.dependencies.canvasManager.resolveObjectPlacement({
         object: currentGroup,
         left: options.left,
         top: options.top,
         originX: options.originX,
         originY: options.originY
       }),
-      currentDimensions: this.runtime.resolveCurrentDimensions({ group: currentGroup }),
-      currentManualDimensions: this.runtime.resolveManualDimensions({ group: currentGroup }),
-      currentReplaceBoxDimensions: this.runtime.resolveReplaceBoxDimensions({ group: currentGroup })
+      currentDimensions: this.dependencies.layoutController.resolveCurrentDimensions({
+        group: currentGroup
+      }),
+      currentManualDimensions: this.dependencies.layoutController.resolveManualDimensions({
+        group: currentGroup
+      }),
+      currentReplaceBoxDimensions: this.dependencies.layoutController.resolveReplaceBoxDimensions({
+        group: currentGroup
+      })
     }
   }
 
@@ -350,7 +374,7 @@ export class ShapeUpdatePipeline {
     presetKey?: string
     options: ShapeUpdateOptions
   }): ResolvedUpdateDimensions {
-    const currentShapeTextAutoExpand = this.runtime.isShapeTextAutoExpandEnabled({
+    const currentShapeTextAutoExpand = this.dependencies.layoutController.isShapeTextAutoExpandEnabled({
       group: context.currentGroup
     })
     const nextShapeTextAutoExpand = options.shapeTextAutoExpand !== undefined
@@ -398,9 +422,9 @@ export class ShapeUpdatePipeline {
     options
   }: {
     shouldFitReplacementToPreset: boolean
-    currentReplaceBoxDimensions: ShapeGroupDimensions
+    currentReplaceBoxDimensions: ShapeDimensions
     options: ShapeUpdateOptions
-  }): ShapeGroupDimensions | null {
+  }): ShapeDimensions | null {
     if (!shouldFitReplacementToPreset) return null
 
     return {
@@ -419,12 +443,12 @@ export class ShapeUpdatePipeline {
     options
   }: {
     presetState: ResolvedUpdatePreset
-    nextReplaceBoxDimensions: ShapeGroupDimensions | null
-    currentDimensions: ShapeGroupDimensions
+    nextReplaceBoxDimensions: ShapeDimensions | null
+    currentDimensions: ShapeDimensions
     options: ShapeUpdateOptions
-  }): ShapeGroupDimensions {
+  }): ShapeDimensions {
     if (nextReplaceBoxDimensions) {
-      return this.runtime.resolveAspectRatioFittedDimensions({
+      return this.dependencies.layoutController.resolveAspectRatioFittedDimensions({
         targetWidth: nextReplaceBoxDimensions.width,
         targetHeight: nextReplaceBoxDimensions.height,
         aspectWidth: presetState.presetWidth,
@@ -453,11 +477,11 @@ export class ShapeUpdatePipeline {
     isPresetReplace: boolean
     currentShapeTextAutoExpand: boolean
     nextShapeTextAutoExpand: boolean
-    nextCurrentDimensions: ShapeGroupDimensions
-    currentDimensions: ShapeGroupDimensions
-    currentManualDimensions: ShapeGroupDimensions
+    nextCurrentDimensions: ShapeDimensions
+    currentDimensions: ShapeDimensions
+    currentManualDimensions: ShapeDimensions
     options: ShapeUpdateOptions
-  }): ShapeGroupDimensions {
+  }): ShapeDimensions {
     if (isPresetReplace) return nextCurrentDimensions
 
     const {
@@ -492,7 +516,7 @@ export class ShapeUpdatePipeline {
     presetState
   }: {
     currentGroup: ShapeGroup
-    nextDimensions: ShapeGroupDimensions
+    nextDimensions: ShapeDimensions
     options: ShapeUpdateOptions
     presetState: ResolvedUpdatePreset
   }): ResolvedUpdateStyle {
@@ -503,13 +527,15 @@ export class ShapeUpdatePipeline {
       ?? currentGroup.shapeAlignVertical
       ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     const nextUserPadding = mergeShapePadding({
-      base: this.runtime.resolveGroupUserPadding({ group: currentGroup }),
+      base: this.dependencies.layoutController.resolveGroupUserPadding({
+        group: currentGroup
+      }),
       override: options.textPadding
     })
     const changedPadding = getShapePaddingChangeMap({
       padding: options.textPadding
     })
-    const style = this.runtime.resolveShapeStyle({
+    const style = resolveShapeStyle({
       options,
       fallback: currentGroup
     })
@@ -568,6 +594,7 @@ export class ShapeUpdatePipeline {
     if (!current) return null
 
     const layoutDimensions = this._resolvePreparedLayoutDimensions({
+      currentGroup: context.currentGroup,
       currentTextNode: current.text,
       currentDimensions: context.currentDimensions,
       options,
@@ -636,7 +663,7 @@ export class ShapeUpdatePipeline {
         options
       }),
       placement: context.placement,
-      lifecycle: this.runtime.lifecycleController.createContext({
+      lifecycle: this.dependencies.lifecycleController.createContext({
         group: context.currentGroup,
         source: 'update',
         target,
@@ -686,7 +713,7 @@ export class ShapeUpdatePipeline {
     dimensionState
   }: {
     shape: ShapeNode
-    replaceBox: ShapeGroupDimensions
+    replaceBox: ShapeDimensions
     presetState: ResolvedUpdatePreset
     styleState: ResolvedUpdateStyle
     dimensionState: ResolvedUpdateDimensions
@@ -761,10 +788,10 @@ export class ShapeUpdatePipeline {
     dimensionState,
     options
   }: {
-    currentReplaceBoxDimensions: ShapeGroupDimensions
+    currentReplaceBoxDimensions: ShapeDimensions
     dimensionState: ResolvedUpdateDimensions
     options: ShapeUpdateOptions
-  }): ShapeGroupDimensions {
+  }): ShapeDimensions {
     return {
       width: dimensionState.nextReplaceBoxDimensions?.width
         ?? (options.width !== undefined ? Math.max(1, options.width) : currentReplaceBoxDimensions.width),
@@ -777,19 +804,22 @@ export class ShapeUpdatePipeline {
    * Определяет финальные width/height, которые будут материализованы в новый shape-узел.
    */
   private _resolvePreparedLayoutDimensions({
+    currentGroup,
     currentTextNode,
     currentDimensions,
     options,
     styleState,
     dimensionState
   }: {
+    currentGroup: ShapeGroup
     currentTextNode: ShapeTextNode
-    currentDimensions: ShapeGroupDimensions
+    currentDimensions: ShapeDimensions
     options: ShapeUpdateOptions
     styleState: ResolvedUpdateStyle
     dimensionState: ResolvedUpdateDimensions
   }): PreparedLayoutDimensions {
     const stagedTextNode = this._createStagedTextNode({
+      currentGroup,
       currentTextNode,
       currentWidth: currentDimensions.width,
       horizontalAlign: styleState.horizontalAlign,
@@ -811,6 +841,7 @@ export class ShapeUpdatePipeline {
    * Строит временный text node для безопасного измерения layout до мутации текущей группы.
    */
   private _createStagedTextNode({
+    currentGroup,
     currentTextNode,
     currentWidth,
     horizontalAlign,
@@ -818,6 +849,7 @@ export class ShapeUpdatePipeline {
     textStyle,
     syncLineStylesWithText
   }: {
+    currentGroup: ShapeGroup
     currentTextNode: ShapeTextNode
     currentWidth: number
     horizontalAlign: ShapeHorizontalAlign
@@ -828,9 +860,10 @@ export class ShapeUpdatePipeline {
     const currentTextNodeWithRawText = currentTextNode as ShapeTextNode & {
       textCaseRaw?: string
     }
-    const stagedTextNode = this.runtime.createTextNode({
+    const stagedTextNode = this.dependencies.textNodeController.create({
       text: currentTextNodeWithRawText.textCaseRaw ?? currentTextNode.text ?? '',
-      textStyle: this.runtime.resolveCurrentTextStyle({
+      textStyle: this.dependencies.textNodeController.resolveCurrentStyle({
+        group: currentGroup,
         textNode: currentTextNode
       }),
       width: Math.max(1, currentTextNode.width ?? currentWidth),
@@ -838,7 +871,7 @@ export class ShapeUpdatePipeline {
     })
 
     stagedTextNode.set(SHAPE_TEXT_LAYOUT_RESET_STATE)
-    this.runtime.applyTextUpdates({
+    this.dependencies.textNodeController.applyUpdates({
       textNode: stagedTextNode,
       text,
       textStyle,
@@ -859,7 +892,7 @@ export class ShapeUpdatePipeline {
     styleState,
     dimensionState
   }: {
-    currentDimensions: ShapeGroupDimensions
+    currentDimensions: ShapeDimensions
     options: ShapeUpdateOptions
     stagedTextNode: ShapeTextNode
     styleState: ResolvedUpdateStyle
@@ -871,7 +904,7 @@ export class ShapeUpdatePipeline {
       && options.shapeTextAutoExpand === undefined
       && options.rounding === undefined
       && options.text === undefined
-      && !this.runtime.hasShapeTextSizeAffectingStyleChanges({
+      && !this.dependencies.textNodeController.hasSizeAffectingStyleChanges({
         textStyle: options.textStyle
       })
 
@@ -893,7 +926,7 @@ export class ShapeUpdatePipeline {
     }
 
     return {
-      width: this.runtime.resolveShapeLayoutWidth({
+      width: this.dependencies.layoutController.resolveShapeLayoutWidth({
         text: stagedTextNode,
         currentWidth: dimensionState.nextCurrentDimensions.width,
         manualWidth: dimensionState.manualDimensions.width,
@@ -931,7 +964,7 @@ export class ShapeUpdatePipeline {
       height
     } = dimensionState.nextCurrentDimensions
     const aspectRatio = height / Math.max(1, width)
-    const resolvedWidth = this.runtime.resolveShapeLayoutWidth({
+    const resolvedWidth = this.dependencies.layoutController.resolveShapeLayoutWidth({
       text: stagedTextNode,
       currentWidth: width,
       manualWidth: width,

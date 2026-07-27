@@ -331,6 +331,11 @@ declare module 'fabric' {
     shapeTextAutoExpand?: boolean;
 
     /**
+     * Подпись persisted-входов, для которых рассчитан текущий shape layout.
+     */
+    shapeLayoutSignature?: string;
+
+    /**
      * Горизонтальное выравнивание текста внутри фигуры.
      */
     shapeAlignHorizontal?: 'left' | 'center' | 'right' | 'justify';

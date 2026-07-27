@@ -1,3 +1,4 @@
+import type { Canvas } from 'fabric'
 import {
   DEFAULT_SHAPE_PRESET_KEY,
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
@@ -11,15 +12,24 @@ import {
   getShapeNodes
 } from '../domain/shape-nodes'
 import {
-  applyRehydratedShapeTextScale,
-  resolveRehydratedShapeDimensions
+  prepareRehydratedShapeLayout
 } from './shape-rehydration'
 import {
   SHAPE_TEXT_LAYOUT_RESET_STATE,
   ShapeUpdatePipeline
 } from './shape-update-pipeline'
-import { ShapeGroupObject } from '../domain/shape-group'
+import {
+  applyShapeGroupMetadata,
+  ShapeGroupObject
+} from '../domain/shape-group'
+import { resolveShapeGroup } from '../domain/shape-reference'
+import { detachShapeGroupAutoLayout } from '../domain/shape-runtime'
+import type CanvasManager from '../../canvas-manager'
 import type { ObjectPlacement } from '../../canvas-manager'
+import type HistoryManager from '../../history-manager'
+import type ShapeLayoutController from '../layout/shape-layout-controller'
+import type ShapeLifecycleController from '../lifecycle/shape-lifecycle-controller'
+import type ShapeTextNodeController from '../text/shape-text-node-controller'
 import type {
   ShapeGroup,
   ShapeHorizontalAlign,
@@ -29,24 +39,53 @@ import type {
   ShapeTextAlignOptions,
   ShapeTextNode,
   ShapeTextStyleOptions,
+  ShapeUpdateLifecycleContext,
   ShapeUpdateOptions,
   ShapeVerticalAlign
 } from '../types'
 import type {
-  ShapeMutationRuntime
-} from './shape-mutation-runtime'
-import type {
   PreparedShapeUpdate
 } from './shape-update-pipeline'
+
+/**
+ * Конкретные зависимости команд, которые изменяют shape-группу.
+ */
+type ShapeMutationDependencies = {
+  canvas: Canvas
+  canvasManager: CanvasManager
+  historyManager: HistoryManager
+  lifecycleController: ShapeLifecycleController
+  layoutController: ShapeLayoutController
+  textNodeController: ShapeTextNodeController
+  editingPlacements: WeakMap<ShapeGroup, ObjectPlacement>
+}
+
+/**
+ * Одна programmatic mutation с общим shape lifecycle и history boundary.
+ */
+type ShapeLifecycleMutation = {
+  lifecycle: ShapeUpdateLifecycleContext
+  withoutSave?: boolean
+  mutate: () => void
+}
+
+/**
+ * Разрешённая группа и её обязательный visual node для mutation-команд.
+ */
+type ShapeMutationTarget = {
+  group: ShapeGroup
+  shape: ShapeNode
+  text: ShapeTextNode | null
+}
 
 /**
  * Владеет командами изменения shape-группы и порядком подготовки/применения update.
  */
 export default class ShapeMutationController {
   /**
-   * Runtime-зависимости мутаций, вынесенные из ShapeManager facade.
+   * Явные зависимости mutation и history lifecycle.
    */
-  private readonly runtime: ShapeMutationRuntime
+  private readonly dependencies: ShapeMutationDependencies
 
   /**
    * Pipeline update вынесен отдельно, чтобы controller не смешивал расчёты и применение мутаций.
@@ -54,11 +93,19 @@ export default class ShapeMutationController {
   private readonly updatePipeline: ShapeUpdatePipeline
 
   /**
-   * Инициализирует mutation controller готовым runtime-контрактом ShapeManager.
+   * Инициализирует mutation controller конкретными domain dependencies.
    */
-  constructor({ runtime }: { runtime: ShapeMutationRuntime }) {
-    this.runtime = runtime
-    this.updatePipeline = new ShapeUpdatePipeline({ runtime })
+  constructor({ dependencies }: { dependencies: ShapeMutationDependencies }) {
+    this.dependencies = dependencies
+    this.updatePipeline = new ShapeUpdatePipeline({
+      dependencies: {
+        canvas: dependencies.canvas,
+        canvasManager: dependencies.canvasManager,
+        lifecycleController: dependencies.lifecycleController,
+        layoutController: dependencies.layoutController,
+        textNodeController: dependencies.textNodeController
+      }
+    })
   }
 
   /**
@@ -82,32 +129,32 @@ export default class ShapeMutationController {
     if (!preparedUpdate) return null
 
     const { group } = preparedUpdate.current
-    const wasOnCanvas = this.runtime.isOnCanvas({ object: group })
+    const wasOnCanvas = this._isOnCanvas({ group })
 
     if (!wasOnCanvas) {
       this._applyPreparedUpdate({ preparedUpdate })
-      this.runtime.lifecycleController.fireBefore({ lifecycle: preparedUpdate.lifecycle })
-      this.runtime.lifecycleController.fireUpdated({ lifecycle: preparedUpdate.lifecycle })
+      this.dependencies.lifecycleController.fireBefore({ lifecycle: preparedUpdate.lifecycle })
+      this.dependencies.lifecycleController.fireUpdated({ lifecycle: preparedUpdate.lifecycle })
 
       return group
     }
 
-    this.runtime.beginMutation()
+    this._beginMutation()
 
     try {
       this._applyPreparedUpdate({ preparedUpdate })
 
       if (!preparedUpdate.current.text.isEditing && !preparedUpdate.withoutSelection) {
-        this.runtime.editor.canvas.setActiveObject(group)
+        this.dependencies.canvas.setActiveObject(group)
       }
 
-      this.runtime.lifecycleController.fireBefore({ lifecycle: preparedUpdate.lifecycle })
-      this.runtime.editor.canvas.requestRenderAll()
+      this.dependencies.lifecycleController.fireBefore({ lifecycle: preparedUpdate.lifecycle })
+      this.dependencies.canvas.requestRenderAll()
     } finally {
-      this.runtime.endMutation({ withoutSave: preparedUpdate.withoutSave })
+      this._endMutation({ withoutSave: preparedUpdate.withoutSave })
     }
 
-    this.runtime.lifecycleController.fireUpdated({ lifecycle: preparedUpdate.lifecycle })
+    this.dependencies.lifecycleController.fireUpdated({ lifecycle: preparedUpdate.lifecycle })
 
     return group
   }
@@ -126,13 +173,13 @@ export default class ShapeMutationController {
 
     if (!group) return false
 
-    this.runtime.beginMutation()
+    this._beginMutation()
 
     try {
-      this.runtime.editor.canvas.remove(group)
-      this.runtime.editor.canvas.requestRenderAll()
+      this.dependencies.canvas.remove(group)
+      this.dependencies.canvas.requestRenderAll()
     } finally {
-      this.runtime.endMutation({ withoutSave })
+      this._endMutation({ withoutSave })
     }
 
     return true
@@ -150,38 +197,31 @@ export default class ShapeMutationController {
     fill: string
     withoutSave?: boolean
   }): ShapeGroup | null {
-    const group = this._resolveUnlockedGroup({ target })
+    const current = this._resolveUnlockedShapeTarget({ target })
+    if (!current) return null
 
-    if (!group) return null
+    const { group, shape } = current
 
-    const { shape } = getShapeNodes({ group })
-
-    if (!shape) return null
-
-    const lifecycle = this.runtime.lifecycleController.createContext({
+    const lifecycle = this.dependencies.lifecycleController.createContext({
       group,
       source: 'fill',
       target,
       withoutSave
     })
 
-    this.runtime.beginMutation()
+    this._commitLifecycleMutation({
+      lifecycle,
+      withoutSave,
+      mutate: () => {
+        applyShapeStyle({
+          shape,
+          style: { fill }
+        })
 
-    try {
-      applyShapeStyle({
-        shape,
-        style: { fill }
-      })
-
-      group.shapeFill = fill
-      group.setCoords()
-      this.runtime.lifecycleController.fireBefore({ lifecycle })
-      this.runtime.editor.canvas.requestRenderAll()
-    } finally {
-      this.runtime.endMutation({ withoutSave })
-    }
-
-    this.runtime.lifecycleController.fireUpdated({ lifecycle })
+        group.shapeFill = fill
+        group.setCoords()
+      }
+    })
 
     return group
   }
@@ -198,41 +238,34 @@ export default class ShapeMutationController {
   }: {
     target?: ShapeReference
   } & ShapeStrokeOptions): ShapeGroup | null {
-    const group = this._resolveUnlockedGroup({ target })
+    const current = this._resolveUnlockedShapeTarget({ target })
+    if (!current) return null
 
-    if (!group) return null
+    const { group, shape, text } = current
 
-    const { shape, text } = getShapeNodes({ group })
-
-    if (!shape) return null
-
-    const lifecycle = this.runtime.lifecycleController.createContext({
+    const lifecycle = this.dependencies.lifecycleController.createContext({
       group,
       source: 'stroke',
       target,
       withoutSave
     })
 
-    this.runtime.beginMutation()
+    this._commitLifecycleMutation({
+      lifecycle,
+      withoutSave,
+      mutate: () => {
+        this._applyStrokeAndTextLayout({
+          group,
+          shape,
+          text,
+          stroke,
+          strokeWidth,
+          dash
+        })
 
-    try {
-      this._applyStrokeAndTextLayout({
-        group,
-        shape,
-        text,
-        stroke,
-        strokeWidth,
-        dash
-      })
-
-      group.setCoords()
-      this.runtime.lifecycleController.fireBefore({ lifecycle })
-      this.runtime.editor.canvas.requestRenderAll()
-    } finally {
-      this.runtime.endMutation({ withoutSave })
-    }
-
-    this.runtime.lifecycleController.fireUpdated({ lifecycle })
+        group.setCoords()
+      }
+    })
 
     return group
   }
@@ -251,44 +284,37 @@ export default class ShapeMutationController {
     applyToText?: boolean
     withoutSave?: boolean
   }): ShapeGroup | null {
-    const group = this._resolveUnlockedGroup({ target })
+    const current = this._resolveUnlockedShapeTarget({ target })
+    if (!current) return null
 
-    if (!group) return null
+    const { group, shape, text } = current
 
-    const { shape, text } = getShapeNodes({ group })
-
-    if (!shape) return null
-
-    const lifecycle = this.runtime.lifecycleController.createContext({
+    const lifecycle = this.dependencies.lifecycleController.createContext({
       group,
       source: 'opacity',
       target,
       withoutSave
     })
 
-    this.runtime.beginMutation()
+    this._commitLifecycleMutation({
+      lifecycle,
+      withoutSave,
+      mutate: () => {
+        applyShapeStyle({
+          shape,
+          style: { opacity }
+        })
 
-    try {
-      applyShapeStyle({
-        shape,
-        style: { opacity }
-      })
+        if (applyToText && text) {
+          text.set({ opacity })
+          text.setCoords()
+        }
 
-      if (applyToText && text) {
-        text.set({ opacity })
-        text.setCoords()
+        group.shapeOpacity = opacity
+        group.set({ opacity: 1 })
+        group.setCoords()
       }
-
-      group.shapeOpacity = opacity
-      group.set({ opacity: 1 })
-      group.setCoords()
-      this.runtime.lifecycleController.fireBefore({ lifecycle })
-      this.runtime.editor.canvas.requestRenderAll()
-    } finally {
-      this.runtime.endMutation({ withoutSave })
-    }
-
-    this.runtime.lifecycleController.fireUpdated({ lifecycle })
+    })
 
     return group
   }
@@ -305,49 +331,43 @@ export default class ShapeMutationController {
     style?: ShapeTextStyleOptions
     withoutSave?: boolean
   } = {}): ShapeGroup | null {
-    const group = this._resolveUnlockedGroup({ target })
+    const current = this._resolveUnlockedShapeTarget({ target })
+    if (!current) return null
 
-    if (!group) return null
-
-    const { shape, text } = getShapeNodes({ group })
+    const { group, shape, text } = current
     const hasStyleUpdates = Object.keys(style).length > 0
 
-    if (!shape || !text) return null
+    if (!text) return null
     if (!hasStyleUpdates) return group
 
-    const manualDimensions = this.runtime.resolveManualDimensions({ group })
-    const placement = this.runtime.editor.canvasManager.getObjectPlacement({ object: group })
-    const alignH = this.runtime.resolveShapeTextHorizontalAlign({
+    const manualDimensions = this.dependencies.layoutController.resolveManualDimensions({ group })
+    const placement = this.dependencies.canvasManager.getObjectPlacement({ object: group })
+    const alignH = this.dependencies.layoutController.resolveShapeTextHorizontalAlign({
       group,
       textStyle: style
     })
-    const lifecycle = this.runtime.lifecycleController.createContext({
+    const lifecycle = this.dependencies.lifecycleController.createContext({
       group,
       source: 'text-style',
       target,
       withoutSave
     })
 
-    this.runtime.beginMutation()
-
-    try {
-      this._applyTextStyleAndLayout({
-        group,
-        shape,
-        text,
-        placement,
-        style,
-        height: manualDimensions.height,
-        alignH
-      })
-
-      this.runtime.lifecycleController.fireBefore({ lifecycle })
-      this.runtime.editor.canvas.requestRenderAll()
-    } finally {
-      this.runtime.endMutation({ withoutSave })
-    }
-
-    this.runtime.lifecycleController.fireUpdated({ lifecycle })
+    this._commitLifecycleMutation({
+      lifecycle,
+      withoutSave,
+      mutate: () => {
+        this._applyTextStyleAndLayout({
+          group,
+          shape,
+          text,
+          placement,
+          style,
+          height: manualDimensions.height,
+          alignH
+        })
+      }
+    })
 
     return group
   }
@@ -363,48 +383,41 @@ export default class ShapeMutationController {
   }: {
     target?: ShapeReference
   } & ShapeTextAlignOptions): ShapeGroup | null {
-    const group = this._resolveUnlockedGroup({ target })
+    const current = this._resolveUnlockedShapeTarget({ target })
+    if (!current) return null
 
-    if (!group) return null
+    const { group, shape, text } = current
+    if (!text) return null
 
-    const { shape, text } = getShapeNodes({ group })
-
-    if (!shape || !text) return null
-
-    const dimensions = this.runtime.resolveCurrentDimensions({ group })
+    const dimensions = this.dependencies.layoutController.resolveCurrentDimensions({ group })
     const alignH = horizontal
       ?? group.shapeAlignHorizontal
       ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
     const alignV = vertical
       ?? group.shapeAlignVertical
       ?? SHAPE_DEFAULT_VERTICAL_ALIGN
-    const lifecycle = this.runtime.lifecycleController.createContext({
+    const lifecycle = this.dependencies.lifecycleController.createContext({
       group,
       source: 'text-align',
       target,
       withoutSave
     })
 
-    this.runtime.beginMutation()
-
-    try {
-      this._applyTextAlignAndLayout({
-        group,
-        shape,
-        text,
-        width: dimensions.width,
-        height: dimensions.height,
-        alignH,
-        alignV
-      })
-
-      this.runtime.lifecycleController.fireBefore({ lifecycle })
-      this.runtime.editor.canvas.requestRenderAll()
-    } finally {
-      this.runtime.endMutation({ withoutSave })
-    }
-
-    this.runtime.lifecycleController.fireUpdated({ lifecycle })
+    this._commitLifecycleMutation({
+      lifecycle,
+      withoutSave,
+      mutate: () => {
+        this._applyTextAlignAndLayout({
+          group,
+          shape,
+          text,
+          width: dimensions.width,
+          height: dimensions.height,
+          alignH,
+          alignV
+        })
+      }
+    })
 
     return group
   }
@@ -440,7 +453,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Материализует rehydrated shape-группу обратно в канонический layout-контракт.
+   * Материализует rehydrated shape-группу и пересчитывает auto-expand только для изменённых входов.
    */
   public commitRehydratedShapeLayout({
     target,
@@ -451,7 +464,10 @@ export default class ShapeMutationController {
     textScale?: number
     shapeTextAutoExpand?: boolean
   }): boolean {
-    const group = this.runtime.resolveShapeGroup({ target })
+    const group = resolveShapeGroup({
+      canvas: this.dependencies.canvas,
+      target
+    })
 
     if (!group) return false
 
@@ -459,34 +475,29 @@ export default class ShapeMutationController {
 
     if (!shape || !text) return false
 
-    const placement = this.runtime.editor.canvasManager.getObjectPlacement({ object: group })
-    const {
-      currentDimensions,
-      manualDimensions,
-      replaceBoxDimensions
-    } = resolveRehydratedShapeDimensions({ group })
-
-    applyRehydratedShapeTextScale({
+    const placement = this.dependencies.canvasManager.getObjectPlacement({ object: group })
+    const preparedLayout = prepareRehydratedShapeLayout({
       group,
       text,
-      textScale
+      textScale,
+      shapeTextAutoExpand
     })
+    const {
+      currentDimensions,
+      replaceBoxDimensions,
+      shouldRecalculateLayout
+    } = preparedLayout
 
-    this.runtime.detachShapeGroupAutoLayout({ group })
-
-    if (shapeTextAutoExpand !== undefined) {
-      group.shapeTextAutoExpand = shapeTextAutoExpand
-    }
-
-    group.shapeManualBaseWidth = manualDimensions.width
-    group.shapeManualBaseHeight = manualDimensions.height
-
-    this.runtime.applyCurrentLayout({
+    this.dependencies.layoutController.applyCurrentLayout({
       group,
       shape,
       text,
       placement,
+      width: shouldRecalculateLayout
+        ? undefined
+        : currentDimensions.width,
       height: currentDimensions.height,
+      expandShapeHeightToFitText: shouldRecalculateLayout,
       alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
       alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
     })
@@ -501,11 +512,35 @@ export default class ShapeMutationController {
    * Пропускает дальше только существующую и незаблокированную shape-группу.
    */
   private _resolveUnlockedGroup({ target }: { target?: ShapeReference }): ShapeGroup | null {
-    const group = this.runtime.resolveShapeGroup({ target })
+    const group = resolveShapeGroup({
+      canvas: this.dependencies.canvas,
+      target
+    })
 
     if (!group || group.locked) return null
 
     return group
+  }
+
+  /**
+   * Разрешает незаблокированную группу вместе с обязательным visual node.
+   */
+  private _resolveUnlockedShapeTarget({
+    target
+  }: {
+    target?: ShapeReference
+  }): ShapeMutationTarget | null {
+    const group = this._resolveUnlockedGroup({ target })
+    if (!group) return null
+
+    const { shape, text } = getShapeNodes({ group })
+    if (!shape) return null
+
+    return {
+      group,
+      shape,
+      text
+    }
   }
 
   /**
@@ -546,9 +581,9 @@ export default class ShapeMutationController {
 
     if (!text) return
 
-    const currentDimensions = this.runtime.resolveCurrentDimensions({ group })
+    const currentDimensions = this.dependencies.layoutController.resolveCurrentDimensions({ group })
 
-    this.runtime.applyCurrentLayout({
+    this.dependencies.layoutController.applyCurrentLayout({
       group,
       shape,
       text,
@@ -577,13 +612,13 @@ export default class ShapeMutationController {
     height: number
     alignH: ShapeHorizontalAlign
   }): void {
-    this.runtime.applyTextUpdates({
+    this.dependencies.textNodeController.applyUpdates({
       textNode: text,
       textStyle: style,
       align: alignH
     })
 
-    this.runtime.applyCurrentLayout({
+    this.dependencies.layoutController.applyCurrentLayout({
       group,
       shape,
       text,
@@ -613,12 +648,12 @@ export default class ShapeMutationController {
     alignH: ShapeHorizontalAlign
     alignV: ShapeVerticalAlign
   }): void {
-    this.runtime.applyTextUpdates({
+    this.dependencies.textNodeController.applyUpdates({
       textNode: text,
       align: alignH
     })
 
-    this.runtime.applyCurrentLayout({
+    this.dependencies.layoutController.applyCurrentLayout({
       group,
       shape,
       text,
@@ -649,9 +684,9 @@ export default class ShapeMutationController {
       text
     } = preparedUpdate
 
-    this.runtime.detachShapeGroupAutoLayout({ group: current.group })
+    detachShapeGroupAutoLayout({ group: current.group })
     current.text.set(SHAPE_TEXT_LAYOUT_RESET_STATE)
-    this.runtime.applyTextUpdates({
+    this.dependencies.textNodeController.applyUpdates({
       textNode: current.text,
       text: text.value,
       textStyle: text.style,
@@ -689,22 +724,24 @@ export default class ShapeMutationController {
       layout
     } = preparedUpdate
 
-    this.runtime.applyShapeGroupMetadata({
+    applyShapeGroupMetadata({
       group: current.group,
-      presetKey: next.presetKey,
-      presetCanRound: next.presetCanRound,
-      width: layout.width,
-      height: layout.height,
-      manualWidth: next.manual.width,
-      manualHeight: next.manual.height,
-      replaceBoxWidth: next.replaceBox.width,
-      replaceBoxHeight: next.replaceBox.height,
-      shapeTextAutoExpand: next.shapeTextAutoExpand,
-      alignH: text.horizontalAlign,
-      alignV: text.verticalAlign,
-      padding: next.userPadding,
-      style: next.style,
-      rounding: next.rounding
+      metadata: {
+        presetKey: next.presetKey,
+        presetCanRound: next.presetCanRound,
+        width: layout.width,
+        height: layout.height,
+        manualWidth: next.manual.width,
+        manualHeight: next.manual.height,
+        replaceBoxWidth: next.replaceBox.width,
+        replaceBoxHeight: next.replaceBox.height,
+        shapeTextAutoExpand: next.shapeTextAutoExpand,
+        alignH: text.horizontalAlign,
+        alignV: text.verticalAlign,
+        padding: next.userPadding,
+        style: next.style,
+        rounding: next.rounding
+      }
     })
   }
 
@@ -720,7 +757,7 @@ export default class ShapeMutationController {
       placement
     } = preparedUpdate
 
-    this.runtime.applyCurrentLayout({
+    this.dependencies.layoutController.applyCurrentLayout({
       group: current.group,
       shape: next.shape,
       text: current.text,
@@ -754,7 +791,59 @@ export default class ShapeMutationController {
     }
 
     if (current.text.isEditing) {
-      this.runtime.editingPlacements.set(current.group, placement)
+      this.dependencies.editingPlacements.set(current.group, placement)
     }
+  }
+
+  /**
+   * Выполняет mutation внутри одной history-транзакции и эмитит общий shape lifecycle.
+   */
+  private _commitLifecycleMutation({
+    lifecycle,
+    withoutSave,
+    mutate
+  }: ShapeLifecycleMutation): void {
+    this._beginMutation()
+
+    try {
+      mutate()
+      this.dependencies.lifecycleController.fireBefore({ lifecycle })
+      this.dependencies.canvas.requestRenderAll()
+    } finally {
+      this._endMutation({ withoutSave })
+    }
+
+    this.dependencies.lifecycleController.fireUpdated({ lifecycle })
+  }
+
+  /**
+   * Начинает programmatic shape mutation с временно отключённой историей.
+   */
+  private _beginMutation(): void {
+    this.dependencies.historyManager.suspendHistory()
+  }
+
+  /**
+   * Завершает shape mutation и сохраняет только итоговое canvas state.
+   */
+  private _endMutation({ withoutSave }: { withoutSave?: boolean }): void {
+    this.dependencies.historyManager.resumeHistory()
+
+    if (!withoutSave) {
+      this.dependencies.historyManager.saveState()
+    }
+  }
+
+  /**
+   * Проверяет, находится ли shape-группа непосредственно на canvas.
+   */
+  private _isOnCanvas({ group }: { group: ShapeGroup }): boolean {
+    const objects = this.dependencies.canvas.getObjects()
+
+    for (let index = 0; index < objects.length; index += 1) {
+      if (objects[index] === group) return true
+    }
+
+    return false
   }
 }

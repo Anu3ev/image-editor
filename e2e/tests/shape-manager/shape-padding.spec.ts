@@ -3,6 +3,7 @@ import { SHAPE_SCALING_TOLERANCE } from '../../fixtures/data/shape-scaling.data'
 import {
   SHAPE_PADDING_BASE_OPTIONS,
   SHAPE_PADDING_DIRECTIONAL_SCALING_SCENARIOS,
+  SHAPE_PADDING_HISTORY_SEPARATE_UPDATES,
   SHAPE_PADDING_HISTORY_UPDATED,
   SHAPE_PADDING_INITIAL,
   SHAPE_PADDING_NORMALIZED_INPUT,
@@ -450,6 +451,53 @@ test.describe('Внутренние отступы текста внутри ф�
       expect(redoneShape?.shapePaddingRight).toBe(updatedShape?.shapePaddingRight)
       expect(redoneShape?.shapePaddingBottom).toBe(updatedShape?.shapePaddingBottom)
       expect(redoneShape?.shapePaddingLeft).toBe(updatedShape?.shapePaddingLeft)
+    })
+  })
+
+  test('после двух отдельных изменений отступов undo отменяет только последнее', async({ history, shapes }) => {
+    const shapeId = 'shape-padding-separate-history-steps'
+
+    await test.step('Добавить фигуру с текстом', async() => {
+      await shapes.add({
+        presetKey: 'square',
+        options: {
+          ...SHAPE_PADDING_BASE_OPTIONS,
+          id: shapeId
+        }
+      })
+    })
+
+    await test.step('Задать правый отступ', async() => {
+      await shapes.update({
+        id: shapeId,
+        options: {
+          textPadding: {
+            right: SHAPE_PADDING_HISTORY_SEPARATE_UPDATES.right
+          }
+        }
+      })
+    })
+
+    await test.step('Задать левый отступ', async() => {
+      await shapes.update({
+        id: shapeId,
+        options: {
+          textPadding: {
+            left: SHAPE_PADDING_HISTORY_SEPARATE_UPDATES.left
+          }
+        }
+      })
+    })
+
+    const shapeAfterUndo = await test.step('Сделать undo и получить состояние фигуры', async() => {
+      await history.undo()
+
+      return shapes.getObject({ id: shapeId })
+    })
+
+    await test.step('Проверить что правый отступ сохранился, а левый отменён', () => {
+      expect(shapeAfterUndo?.shapePaddingRight).toBe(SHAPE_PADDING_HISTORY_SEPARATE_UPDATES.right)
+      expect(shapeAfterUndo?.shapePaddingLeft).toBe(0)
     })
   })
 

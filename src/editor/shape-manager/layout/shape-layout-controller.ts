@@ -18,6 +18,7 @@ import type { ObjectPlacement } from '../../canvas-manager'
 import type { ImageEditor } from '../../index'
 import type {
   ShapeGroupLike,
+  ShapeDimensions,
   ShapeHorizontalAlign,
   ShapeNode,
   ShapePadding,
@@ -27,14 +28,6 @@ import type {
   ShapeTextStyleOptions,
   ShapeVerticalAlign
 } from '../types'
-
-/**
- * Пара визуальных размеров shape-группы в текущем layout-контракте.
- */
-type ShapeGroupDimensions = {
-  width: number
-  height: number
-}
 
 /**
  * Содержит чистую layout-логику ShapeManager: размеры, padding и финальное размещение.
@@ -65,7 +58,7 @@ export default class ShapeLayoutController {
     targetHeight?: number
     aspectWidth: number
     aspectHeight: number
-  }): ShapeGroupDimensions {
+  }): ShapeDimensions {
     const safeAspectWidth = Math.max(1, aspectWidth)
     const safeAspectHeight = Math.max(1, aspectHeight)
     const safeTargetWidth = targetWidth !== undefined
@@ -118,7 +111,7 @@ export default class ShapeLayoutController {
     group
   }: {
     group: ShapeGroupLike
-  }): ShapeGroupDimensions {
+  }): ShapeDimensions {
     const width = Math.max(
       1,
       (group.shapeBaseWidth ?? group.width ?? 1) * (Math.abs(group.scaleX ?? 1) || 1)
@@ -141,7 +134,7 @@ export default class ShapeLayoutController {
     group
   }: {
     group: ShapeGroupLike
-  }): ShapeGroupDimensions {
+  }): ShapeDimensions {
     const width = Math.max(
       1,
       group.shapeManualBaseWidth ?? group.shapeBaseWidth ?? group.width ?? 1
@@ -164,7 +157,7 @@ export default class ShapeLayoutController {
     group
   }: {
     group: ShapeGroupLike
-  }): ShapeGroupDimensions {
+  }): ShapeDimensions {
     const currentDimensions = this.resolveCurrentDimensions({ group })
 
     return {
