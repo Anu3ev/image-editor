@@ -61,6 +61,7 @@ Until `CropFrame` is migrated:
 - `getObjectSnappingBounds()` returns the frame bounds on the canvas;
 - `getObjectDisplaySize()` may return the resulting size through `cropSourceScaleX/Y`;
 - `shouldUseUniformScaleSnap()` mirrors the `preserveAspectRatio` rule, including its Shift inversion;
+- during movement with `allowFrameOverflow = false`, source overflow is resolved per axis: snapping is disabled only on the axis that will be clamped, while a guide reached by movement on the other axis remains active;
 - when proportional scaling crosses a source-image boundary, the plan is delegated to `CropManager.applyFrameSourceBoundScalePlan()`;
 - free scaling remains subject to per-axis constraints in `crop-controls.ts` and final verification in `CropManager._clampFrameIfNeeded()`.
 

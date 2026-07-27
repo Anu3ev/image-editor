@@ -427,6 +427,28 @@ describe('CropManager', () => {
     })
   })
 
+  describe('isFrameOverflowingSource', () => {
+    it('сообщает о выходе только по X, когда crop frame пересёк правую границу source', () => {
+      const { cropManager, session } = createActiveCropManager()
+      session.options.allowFrameOverflow = false
+      session.frame.calcTransformMatrix = jest.fn().mockReturnValue([1, 0, 0, 1, 26, 0])
+
+      expect(cropManager.isFrameOverflowingSource({ target: session.frame })).toBe(true)
+      expect(cropManager.isFrameOverflowingSource({ target: session.frame, axis: 'x' })).toBe(true)
+      expect(cropManager.isFrameOverflowingSource({ target: session.frame, axis: 'y' })).toBe(false)
+    })
+
+    it('сообщает о выходе только по Y, когда crop frame пересёк верхнюю границу source', () => {
+      const { cropManager, session } = createActiveCropManager()
+      session.options.allowFrameOverflow = false
+      session.frame.calcTransformMatrix = jest.fn().mockReturnValue([1, 0, 0, 1, 0, -26])
+
+      expect(cropManager.isFrameOverflowingSource({ target: session.frame })).toBe(true)
+      expect(cropManager.isFrameOverflowingSource({ target: session.frame, axis: 'x' })).toBe(false)
+      expect(cropManager.isFrameOverflowingSource({ target: session.frame, axis: 'y' })).toBe(true)
+    })
+  })
+
   describe('resetFrameToSource', () => {
     it('разворачивает frame до максимального размера с текущими пропорциями, когда keep ratio включён', () => {
       const { cropManager, session } = createActiveCropManager({
