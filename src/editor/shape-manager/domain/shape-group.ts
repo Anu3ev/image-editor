@@ -16,6 +16,7 @@ import {
 import {
   normalizeShapeUserPadding
 } from '../layout/shape-padding'
+import { normalizeShapeRounding } from './shape-rounding'
 import {
   getShapeNodes
 } from './shape-nodes'
@@ -28,7 +29,11 @@ import {
 import { applyShapeCornerFreeScaleControls } from '../scaling/shape-controls'
 import type {
   ShapeGroupLike,
-  ShapeGroupMetadata
+  ShapeGroupMetadata,
+  ShapeHorizontalAlign,
+  ShapePadding,
+  ShapeVerticalAlign,
+  ShapeVisualStyle
 } from '../types'
 
 /**
@@ -65,6 +70,70 @@ type RegisteredLayoutStrategyClass = {
  * Fabric type для custom shape group object.
  */
 const SHAPE_GROUP_TYPE = 'shape-group'
+
+/**
+ * Сохраняемое shape-состояние, одинаково применяемое при create и update.
+ */
+export type ShapeGroupMetadataInput = {
+  presetKey: string
+  presetCanRound: boolean
+  width: number
+  height: number
+  manualWidth?: number
+  manualHeight?: number
+  replaceBoxWidth?: number
+  replaceBoxHeight?: number
+  shapeTextAutoExpand: boolean
+  alignH: ShapeHorizontalAlign
+  alignV: ShapeVerticalAlign
+  padding: ShapePadding
+  style: ShapeVisualStyle
+  rounding?: number
+}
+
+/**
+ * Применяет к shape-группе полное сохраняемое доменное состояние.
+ */
+export const applyShapeGroupMetadata = ({
+  group,
+  metadata
+}: {
+  group: ShapeGroupLike
+  metadata: ShapeGroupMetadataInput
+}): void => {
+  const { padding, style } = metadata
+  const strokeDashArray = style.strokeDashArray
+    ? style.strokeDashArray.slice()
+    : style.strokeDashArray ?? null
+  const normalizedRounding = metadata.presetCanRound
+    ? normalizeShapeRounding({ rounding: metadata.rounding })
+    : 0
+
+  group.set({
+    shapeComposite: true,
+    shapePresetKey: metadata.presetKey,
+    shapeBaseWidth: metadata.width,
+    shapeBaseHeight: metadata.height,
+    shapeManualBaseWidth: Math.max(1, metadata.manualWidth ?? metadata.width),
+    shapeManualBaseHeight: Math.max(1, metadata.manualHeight ?? metadata.height),
+    shapeReplaceBoxWidth: Math.max(1, metadata.replaceBoxWidth ?? metadata.width),
+    shapeReplaceBoxHeight: Math.max(1, metadata.replaceBoxHeight ?? metadata.height),
+    shapeTextAutoExpand: metadata.shapeTextAutoExpand,
+    shapeAlignHorizontal: metadata.alignH,
+    shapeAlignVertical: metadata.alignV,
+    shapePaddingTop: padding.top,
+    shapePaddingRight: padding.right,
+    shapePaddingBottom: padding.bottom,
+    shapePaddingLeft: padding.left,
+    shapeFill: style.fill,
+    shapeStroke: style.stroke,
+    shapeStrokeWidth: style.strokeWidth,
+    shapeStrokeDashArray: strokeDashArray,
+    shapeOpacity: style.opacity,
+    shapeRounding: normalizedRounding,
+    shapeCanRound: metadata.presetCanRound
+  })
+}
 
 /**
  * Создаёт временный layout manager без реального layout, используемый только на стадии deserialization.

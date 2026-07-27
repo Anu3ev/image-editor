@@ -17,6 +17,7 @@ import {
   resolveSplitByGraphemeForFrame,
   resolveVerticalTop
 } from './shape-text-measurement'
+import { resolveShapeLayoutSignature } from '../domain/shape-layout-signature'
 import {
   ShapeLayoutInput,
   ShapeTextMeasurementCache,
@@ -478,6 +479,10 @@ function applyResolvedShapeTextLayout({
     scaleY: 1
   })
 
+  group.shapeLayoutSignature = resolveShapeLayoutSignature({
+    group,
+    text
+  })
   group.set('dirty', true)
   group.setCoords()
 }

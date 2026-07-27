@@ -2,26 +2,30 @@ import {
   applyScaledTextboxVisualState,
   captureTextScaleBase
 } from '../../text-manager/scaling/text-scaling-materialization'
+import { hasShapeLayoutInputsChanged } from '../domain/shape-layout-signature'
+import { detachShapeGroupAutoLayout } from '../domain/shape-runtime'
 import type {
+  ShapeDimensions,
   ShapeGroup,
   ShapeTextNode
 } from '../types'
 
 /**
- * Пара размеров shape-группы, восстановленная из rehydrated metadata.
+ * Размеры и режим повторного применения layout после подготовки shape-группы.
  */
-type ShapeGroupDimensions = {
-  width: number
-  height: number
+type PreparedRehydratedShapeLayout = {
+  currentDimensions: ShapeDimensions
+  replaceBoxDimensions: ShapeDimensions
+  shouldRecalculateLayout: boolean
 }
 
 /**
  * Пересчитывает base/manual/replace-box размеры после восстановления группы из внешнего path.
  */
 export function resolveRehydratedShapeDimensions({ group }: { group: ShapeGroup }): {
-  currentDimensions: ShapeGroupDimensions
-  manualDimensions: ShapeGroupDimensions
-  replaceBoxDimensions: ShapeGroupDimensions
+  currentDimensions: ShapeDimensions
+  manualDimensions: ShapeDimensions
+  replaceBoxDimensions: ShapeDimensions
 } {
   const scaleX = Math.abs(group.scaleX ?? 1) || 1
   const scaleY = Math.abs(group.scaleY ?? 1) || 1
@@ -74,4 +78,50 @@ export function applyRehydratedShapeTextScale({
   group.shapePaddingRight = Math.max(0, (group.shapePaddingRight ?? 0) * resolvedTextScale)
   group.shapePaddingBottom = Math.max(0, (group.shapePaddingBottom ?? 0) * resolvedTextScale)
   group.shapePaddingLeft = Math.max(0, (group.shapePaddingLeft ?? 0) * resolvedTextScale)
+}
+
+/**
+ * Запекает transient-состояние и определяет, можно ли сохранить serialized visual bounds.
+ */
+export function prepareRehydratedShapeLayout({
+  group,
+  text,
+  textScale,
+  shapeTextAutoExpand
+}: {
+  group: ShapeGroup
+  text: ShapeTextNode
+  textScale: number
+  shapeTextAutoExpand?: boolean
+}): PreparedRehydratedShapeLayout {
+  const {
+    currentDimensions,
+    manualDimensions,
+    replaceBoxDimensions
+  } = resolveRehydratedShapeDimensions({ group })
+
+  if (shapeTextAutoExpand !== undefined) {
+    group.shapeTextAutoExpand = shapeTextAutoExpand
+  }
+
+  const shouldRecalculateLayout = hasShapeLayoutInputsChanged({
+    group,
+    text
+  })
+
+  applyRehydratedShapeTextScale({
+    group,
+    text,
+    textScale
+  })
+  detachShapeGroupAutoLayout({ group })
+
+  group.shapeManualBaseWidth = manualDimensions.width
+  group.shapeManualBaseHeight = manualDimensions.height
+
+  return {
+    currentDimensions,
+    replaceBoxDimensions,
+    shouldRecalculateLayout
+  }
 }

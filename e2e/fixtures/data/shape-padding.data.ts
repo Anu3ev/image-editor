@@ -51,6 +51,11 @@ export const SHAPE_PADDING_HISTORY_UPDATED: ShapePaddingParams = {
   left: 7
 }
 
+export const SHAPE_PADDING_HISTORY_SEPARATE_UPDATES = {
+  right: 50,
+  left: 50
+} satisfies Required<Pick<ShapePaddingParams, 'right' | 'left'>>
+
 export const SHAPE_PADDING_TOP_THEN_RIGHT_OPTIONS: NonNullable<ShapeAddParams['options']> = {
   id: 'shape-padding-top-then-right',
   width: 300,

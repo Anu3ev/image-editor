@@ -6,13 +6,23 @@ import {
 import type { ObjectPlacement } from '../../canvas-manager'
 import type { ImageEditor } from '../../index'
 import type ShapeEditingController from '../editing/shape-editing-controller'
+import {
+  getShapeNodes
+} from '../domain/shape-nodes'
+import {
+  isShapeGroup,
+  resolveShapeGroupFromTarget
+} from '../domain/shape-reference'
+import {
+  detachShapeGroupAutoLayout
+} from '../domain/shape-runtime'
+import type ShapeLayoutController from '../layout/shape-layout-controller'
 import type ShapeLifecycleController from '../lifecycle/shape-lifecycle-controller'
+import type ShapeTextNodeController from '../text/shape-text-node-controller'
 import ShapeScaleInteractionController from '../scaling/shape-scale-interaction-controller'
 import type ShapeScalingController from '../scaling/shape-scaling-controller'
-import { isShapeGroup } from '../domain/shape-reference'
 import type {
   ShapeGroup,
-  ShapeGroupLike,
   ShapeTextNode,
   ShapeTextStyleOptions
 } from '../types'
@@ -47,23 +57,9 @@ type ShapeEventDependencies = {
   scalingController: ShapeScalingController
   editingController: ShapeEditingController
   lifecycleController: ShapeLifecycleController
+  layoutController: ShapeLayoutController
+  textNodeController: ShapeTextNodeController
   editingPlacements: WeakMap<ShapeGroup, ObjectPlacement>
-  internalTextUpdates: WeakSet<ShapeTextNode>
-  collectShapeGroupsFromTarget: ({
-    target,
-    subTargets
-  }: {
-    target?: FabricObject | null
-    subTargets?: FabricObject[]
-  }) => ShapeGroup[]
-  detachShapeGroupAutoLayout: ({ group }: { group: ShapeGroupLike }) => void
-  syncShapeTextLayoutAfterTextMutation: ({
-    textNode,
-    textStyle
-  }: {
-    textNode: ShapeTextNode
-    textStyle?: ShapeTextStyleOptions
-  }) => boolean
 }
 
 /**
@@ -88,7 +84,7 @@ export default class ShapeEventController {
   /**
    * Принимает зависимости обработчиков и создаёт контроллер scale-жеста.
    */
-  constructor({ runtime: dependencies }: { runtime: ShapeEventDependencies }) {
+  constructor({ dependencies }: { dependencies: ShapeEventDependencies }) {
     this.dependencies = dependencies
     this.scaleInteractionController = new ShapeScaleInteractionController({
       editor: dependencies.editor,
@@ -165,7 +161,7 @@ export default class ShapeEventController {
    * Фиксирует результат scale для одиночного Shape или ActiveSelection.
    */
   private _handleObjectModified = (event: ShapeCanvasEvent): void => {
-    const groups = this.dependencies.collectShapeGroupsFromTarget({
+    const groups = this._collectShapeGroupsFromTarget({
       target: event.target
     })
 
@@ -202,7 +198,7 @@ export default class ShapeEventController {
 
   /** Начинает отслеживать resize для Shape, затронутых событием. */
   private _beginResize({ event }: { event: ShapeCanvasEvent }): void {
-    const groups = this.dependencies.collectShapeGroupsFromTarget({
+    const groups = this._collectShapeGroupsFromTarget({
       target: event.target,
       subTargets: event.subTargets
     })
@@ -216,7 +212,7 @@ export default class ShapeEventController {
    * Сохраняет Shape до возможного resize и запускает обработчики mouse:down.
    */
   private _handleMouseDown = (event: ShapeCanvasEvent): void => {
-    const groups = this.dependencies.collectShapeGroupsFromTarget({
+    const groups = this._collectShapeGroupsFromTarget({
       target: event.target,
       subTargets: event.subTargets
     })
@@ -296,7 +292,7 @@ export default class ShapeEventController {
       const { group } = textNode
 
       if (isShapeGroup(group)) {
-        this.dependencies.detachShapeGroupAutoLayout({ group })
+        detachShapeGroupAutoLayout({ group })
         this.dependencies.lifecycleController.beginTextEditing({ group })
         this.dependencies.editingPlacements.set(
           group,
@@ -324,7 +320,7 @@ export default class ShapeEventController {
       textbox: textNode
     })
 
-    const wasSynchronized = this.dependencies.syncShapeTextLayoutAfterTextMutation({
+    const wasSynchronized = this._syncShapeTextLayoutAfterTextMutation({
       textNode
     })
 
@@ -347,14 +343,14 @@ export default class ShapeEventController {
     const { group } = textNode
 
     if (!isShapeGroup(group)) return
-    if (this.dependencies.internalTextUpdates.has(textNode)) return
+    if (this.dependencies.textNodeController.isInternalUpdate({ textNode })) return
 
     const lifecycle = this.dependencies.lifecycleController.beginTextUpdate({
       group,
       textNode,
       withoutSave: event.options.withoutSave
     })
-    const wasSynchronized = this.dependencies.syncShapeTextLayoutAfterTextMutation({
+    const wasSynchronized = this._syncShapeTextLayoutAfterTextMutation({
       textNode,
       textStyle: style
     })
@@ -378,6 +374,74 @@ export default class ShapeEventController {
     this.dependencies.lifecycleController.finishTextUpdate({
       textNode: textbox as ShapeTextNode
     })
+  }
+
+  /**
+   * Синхронизирует layout группы после изменения принадлежащего ей текста.
+   */
+  private _syncShapeTextLayoutAfterTextMutation({
+    textNode,
+    textStyle
+  }: {
+    textNode: ShapeTextNode
+    textStyle?: ShapeTextStyleOptions
+  }): boolean {
+    const { group } = textNode
+    if (!isShapeGroup(group)) return false
+
+    const { shape, text } = getShapeNodes({ group })
+    if (!shape || !text) return false
+
+    const { layoutController, editingPlacements, editor } = this.dependencies
+    const placement = editingPlacements.get(group)
+      ?? editor.canvasManager.getObjectPlacement({ object: group })
+
+    detachShapeGroupAutoLayout({ group })
+
+    layoutController.applyCurrentLayout({
+      group,
+      shape,
+      text,
+      placement,
+      height: layoutController.resolveManualDimensions({ group }).height,
+      alignH: layoutController.resolveShapeTextHorizontalAlign({
+        group,
+        textStyle
+      })
+    })
+
+    return true
+  }
+
+  /**
+   * Собирает уникальные shape-группы из target, subTargets и ActiveSelection.
+   */
+  private _collectShapeGroupsFromTarget({
+    target,
+    subTargets = []
+  }: {
+    target?: FabricObject | null
+    subTargets?: FabricObject[]
+  }): ShapeGroup[] {
+    const groups = new Set<ShapeGroup>()
+    const targets = target ? [target, ...subTargets] : subTargets
+
+    for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
+      const candidate = targets[targetIndex]
+      const objects = candidate instanceof ActiveSelection
+        ? candidate.getObjects()
+        : [candidate]
+
+      for (let objectIndex = 0; objectIndex < objects.length; objectIndex += 1) {
+        const group = resolveShapeGroupFromTarget({
+          target: objects[objectIndex]
+        })
+
+        if (group) groups.add(group)
+      }
+    }
+
+    return Array.from(groups)
   }
 
   /**

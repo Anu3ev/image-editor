@@ -1,6 +1,10 @@
-import { FabricObject, Group } from 'fabric'
+import {
+  FabricObject,
+  Group
+} from 'fabric'
+import type { Canvas } from 'fabric'
 import { ShapeGroupObject } from './shape-group'
-import type { ShapeGroup } from '../types'
+import type { ShapeGroup, ShapeReference } from '../types'
 
 /**
  * Проверяет, что объект является shape-группой.
@@ -33,4 +37,59 @@ export const resolveShapeGroupFromTarget = ({
   }
 
   return null
+}
+
+/**
+ * Возвращает shape-группу из активного объекта canvas.
+ */
+const resolveActiveShapeGroup = ({ canvas }: { canvas: Canvas }): ShapeGroup | null => {
+  return resolveShapeGroupFromTarget({
+    target: canvas.getActiveObject()
+  })
+}
+
+/**
+ * Возвращает shape-группу по её стабильному идентификатору на canvas.
+ */
+const resolveShapeGroupById = ({
+  canvas,
+  id
+}: {
+  canvas: Canvas
+  id: string
+}): ShapeGroup | null => {
+  const objects = canvas.getObjects()
+
+  for (let index = 0; index < objects.length; index += 1) {
+    const object = objects[index]
+    const objectWithId = object as FabricObject & {
+      id?: string
+    }
+
+    if (objectWithId.id === id && isShapeGroup(object)) return object
+  }
+
+  return null
+}
+
+/**
+ * Разрешает shape-группу из активного объекта, id или вложенного узла композиции.
+ */
+export const resolveShapeGroup = ({
+  canvas,
+  target
+}: {
+  canvas: Canvas
+  target?: ShapeReference
+}): ShapeGroup | null => {
+  if (!target) return resolveActiveShapeGroup({ canvas })
+
+  if (typeof target === 'string') {
+    return resolveShapeGroupById({
+      canvas,
+      id: target
+    })
+  }
+
+  return resolveShapeGroupFromTarget({ target })
 }

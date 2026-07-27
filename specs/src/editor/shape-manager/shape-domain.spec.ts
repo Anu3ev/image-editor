@@ -7,8 +7,10 @@ import {
 } from '../../../../src/editor/shape-manager/domain/shape-nodes'
 import {
   isShapeGroup,
+  resolveShapeGroup,
   resolveShapeGroupFromTarget
 } from '../../../../src/editor/shape-manager/domain/shape-reference'
+import { createMockCanvas } from '../../../test-utils/shape/factories'
 
 describe('shape domain', () => {
   it('isShapeGroup возвращает true для ShapeGroupObject и legacy shapeComposite Group', () => {
@@ -49,6 +51,39 @@ describe('shape domain', () => {
     expect(byTarget).toBe(group)
     expect(byNestedTarget).toBe(group)
     expect(bySubTarget).toBe(group)
+  })
+
+  it('resolveShapeGroup находит группу по active object, дочернему узлу и id', () => {
+    const canvas = createMockCanvas()
+    const text = new Textbox('text', {})
+    const group = new ShapeGroupObject([text], {
+      id: 'shape-reference'
+    })
+
+    canvas.add(group)
+    canvas.setActiveObject(group)
+
+    expect(resolveShapeGroup({
+      canvas: canvas as never
+    })).toBe(group)
+    expect(resolveShapeGroup({
+      canvas: canvas as never,
+      target: text
+    })).toBe(group)
+    expect(resolveShapeGroup({
+      canvas: canvas as never,
+      target: 'shape-reference'
+    })).toBe(group)
+    expect(resolveShapeGroup({
+      canvas: canvas as never,
+      target: 'missing-shape'
+    })).toBeNull()
+
+    canvas.discardActiveObject()
+
+    expect(resolveShapeGroup({
+      canvas: canvas as never
+    })).toBeNull()
   })
 
   it('getShapeNode/getShapeTextNode находят узлы по shapeNodeType', () => {

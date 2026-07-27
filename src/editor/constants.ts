@@ -1,3 +1,5 @@
+import { OBJECT_STATE_SERIALIZATION_PROPS } from './object-serialization'
+
 // Минимальный и максимальный зум
 export const MIN_ZOOM = 0.1
 export const MAX_ZOOM = 2
@@ -23,65 +25,7 @@ export const CLIPBOARD_DATA_PREFIX = 'application/image-editor:'
  */
 export const CLIPBOARD_CLONE_OBJECT_KEYS = [
   'id',
-  'customData',
-  'backgroundType',
-  'format',
-  'contentType',
-  'width',
-  'height',
-  'originX',
-  'originY',
-  'locked',
-  'editable',
-  'evented',
-  'selectable',
-  'lockMovementX',
-  'lockMovementY',
-  'lockRotation',
-  'lockScalingX',
-  'lockScalingY',
-  'lockSkewingX',
-  'lockSkewingY',
-  'styles',
-  'lineFontDefaults',
-  'textCaseRaw',
-  'uppercase',
-  'autoExpand',
-  'linethrough',
-  'underline',
-  'fontStyle',
-  'fontWeight',
-  'backgroundOpacity',
-  'paddingTop',
-  'paddingRight',
-  'paddingBottom',
-  'paddingLeft',
-  'radiusTopLeft',
-  'radiusTopRight',
-  'radiusBottomRight',
-  'radiusBottomLeft',
-  'shapeComposite',
-  'shapePresetKey',
-  'shapeBaseWidth',
-  'shapeBaseHeight',
-  'shapeManualBaseWidth',
-  'shapeManualBaseHeight',
-  'shapeReplaceBoxWidth',
-  'shapeReplaceBoxHeight',
-  'shapeTextAutoExpand',
-  'shapeAlignHorizontal',
-  'shapeAlignVertical',
-  'shapePaddingTop',
-  'shapePaddingRight',
-  'shapePaddingBottom',
-  'shapePaddingLeft',
-  'shapeFill',
-  'shapeStroke',
-  'shapeStrokeWidth',
-  'shapeStrokeDashArray',
-  'shapeOpacity',
-  'shapeRounding',
-  'shapeNodeType'
+  ...OBJECT_STATE_SERIALIZATION_PROPS
 ]
 
 /**
