@@ -10,8 +10,6 @@ import {
 
 import { ImageEditor } from '..'
 import {
-  GUIDE_COLOR,
-  GUIDE_WIDTH,
   SNAP_THRESHOLD,
   SPACING_CONTEXT_SWITCH_DISTANCE,
   SPACING_SNAP_HOLD_MARGIN
@@ -30,7 +28,11 @@ import {
 } from './scale-snap-candidates'
 import type { VerifiedScaleGuide } from './scale-snapping-resolver'
 import type { ScaleSceneEdge } from './scale-projection'
-import { drawSpacingGuide } from './renderer'
+import { MovementSnappingController } from './movement-snapping-controller'
+import {
+  calculateSnappingViewportBounds,
+  renderSnappingGuides
+} from './renderer'
 import {
   applyMovementStep,
   applyScalingStep,
@@ -67,7 +69,6 @@ import {
   collectExcludedObjects,
   shouldIgnoreObject
 } from '../utils/object-filter'
-import { resolveDisplayDistance } from '../utils/distance'
 
 type TransformEvent = BasicTransformEvent<TPointerEvent> & {
   target?: FabricObject | null
@@ -75,6 +76,11 @@ type TransformEvent = BasicTransformEvent<TPointerEvent> & {
 }
 
 type MouseEventInfo = TPointerEventInfo<TPointerEvent> & {
+  target?: FabricObject | null
+}
+
+/** Canvas-событие с объектом, который мог быть target активной сессии. */
+type ObjectTargetEvent = {
   target?: FabricObject | null
 }
 
@@ -219,6 +225,12 @@ export default class SnappingManager {
   /** События указателя, уже обработанные менеджером конкретного типа объекта. */
   private readonly handledScaleStepEvents = new WeakSet<object>()
 
+  /** Владелец unified movement-сессии для уже перенесённых типов объектов. */
+  private readonly movementSnappingController: MovementSnappingController
+
+  /** Активный target unified movement-сессии для точной обработки object:removed. */
+  private activeMovementSnappingTarget: FabricObject | null = null
+
   /**
    * Обработчик начала перетаскивания объекта.
    */
@@ -235,9 +247,12 @@ export default class SnappingManager {
   private _onObjectScaling: (event: TransformEvent) => void
 
   /**
-   * Обработчик завершения перетаскивания.
+   * Обработчик завершения или прерывания interaction.
    */
-  private _onMouseUp: () => void
+  private _onInteractionFinished: () => void
+
+  /** Обработчик удаления возможного target активной movement-сессии. */
+  private _onObjectRemoved: (event: ObjectTargetEvent) => void
 
   /**
    * Обработчик очистки перед рендером.
@@ -256,11 +271,13 @@ export default class SnappingManager {
     this.editor = editor
     const { canvas } = editor
     this.canvas = canvas
+    this.movementSnappingController = new MovementSnappingController({ editor })
 
     this._onMouseDown = this._handleMouseDown.bind(this)
     this._onObjectMoving = this._handleObjectMoving.bind(this)
     this._onObjectScaling = this._handleObjectScaling.bind(this)
-    this._onMouseUp = this._handleMouseUp.bind(this)
+    this._onInteractionFinished = this._handleInteractionFinished.bind(this)
+    this._onObjectRemoved = this._handleObjectRemoved.bind(this)
     this._onBeforeRender = this._handleBeforeRender.bind(this)
     this._onAfterRender = this._handleAfterRender.bind(this)
 
@@ -272,8 +289,7 @@ export default class SnappingManager {
    */
   public destroy(): void {
     this._unbindEvents()
-    this._clearGuides()
-    this._clearAnchors()
+    this._finishSnappingInteraction()
   }
 
   /**
@@ -343,9 +359,17 @@ export default class SnappingManager {
     canvas.on('mouse:down', this._onMouseDown)
     canvas.on('object:moving', this._onObjectMoving)
     canvas.on('object:scaling', this._onObjectScaling)
-    canvas.on('mouse:up', this._onMouseUp)
+    canvas.on('mouse:up', this._onInteractionFinished)
+    canvas.on('object:removed', this._onObjectRemoved)
+    canvas.on('selection:created', this._onInteractionFinished)
+    canvas.on('selection:updated', this._onInteractionFinished)
+    canvas.on('selection:cleared', this._onInteractionFinished)
     canvas.on('before:render', this._onBeforeRender)
     canvas.on('after:render', this._onAfterRender)
+
+    window.addEventListener('pointercancel', this._onInteractionFinished)
+    window.addEventListener('touchcancel', this._onInteractionFinished)
+    window.addEventListener('blur', this._onInteractionFinished)
   }
 
   /**
@@ -356,22 +380,31 @@ export default class SnappingManager {
     canvas.off('mouse:down', this._onMouseDown)
     canvas.off('object:moving', this._onObjectMoving)
     canvas.off('object:scaling', this._onObjectScaling)
-    canvas.off('mouse:up', this._onMouseUp)
+    canvas.off('mouse:up', this._onInteractionFinished)
+    canvas.off('object:removed', this._onObjectRemoved)
+    canvas.off('selection:created', this._onInteractionFinished)
+    canvas.off('selection:updated', this._onInteractionFinished)
+    canvas.off('selection:cleared', this._onInteractionFinished)
     canvas.off('before:render', this._onBeforeRender)
     canvas.off('after:render', this._onAfterRender)
+
+    window.removeEventListener('pointercancel', this._onInteractionFinished)
+    window.removeEventListener('touchcancel', this._onInteractionFinished)
+    window.removeEventListener('blur', this._onInteractionFinished)
   }
 
   /**
-   * Кеширует набор опорных линий в момент начала перетаскивания.
+   * Очищает прошлый interaction и фиксирует цели нового gesture.
    */
   private _handleMouseDown(event: MouseEventInfo): void {
     const { target } = event
-    this._clearSpacingContexts()
+    this._clearGuides()
+    this._clearAnchors()
 
-    if (!target) {
-      this._clearAnchors()
-      return
-    }
+    const usesUnifiedMovement = this.movementSnappingController.startGesture({ target })
+    this.activeMovementSnappingTarget = usesUnifiedMovement ? target ?? null : null
+
+    if (!target) return
 
     this._cacheAnchors({ activeObject: target, mode: 'rounded' })
   }
@@ -380,6 +413,15 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его перемещении.
    */
   private _handleObjectMoving(event: TransformEvent): void {
+    const unifiedStep = this.movementSnappingController.handleObjectMoving({ event })
+    if (unifiedStep.handled) {
+      this._applyGuides({
+        guides: [...unifiedStep.guides],
+        spacingGuides: [...unifiedStep.spacingGuides]
+      })
+      return
+    }
+
     const context = this._resolveObjectMovementContext({ event })
     if (!context) return
 
@@ -1155,9 +1197,24 @@ export default class SnappingManager {
   }
 
   /**
-   * Очищает направляющие и кеш после окончания перетаскивания.
+   * Очищает movement-сессию, направляющие и кеш после завершающего события.
    */
-  private _handleMouseUp(): void {
+  private _handleInteractionFinished(): void {
+    this._finishSnappingInteraction()
+  }
+
+  /** Завершает interaction, только если с canvas удалили его активный target. */
+  private _handleObjectRemoved(event: ObjectTargetEvent): void {
+    const { target } = event
+    if (!target || target !== this.activeMovementSnappingTarget) return
+
+    this._finishSnappingInteraction()
+  }
+
+  /** Идемпотентно очищает всё transient-состояние текущего interaction с прилипанием. */
+  private _finishSnappingInteraction(): void {
+    this.movementSnappingController.finishGesture()
+    this.activeMovementSnappingTarget = null
     this._clearGuides()
     this._clearAnchors()
   }
@@ -1178,80 +1235,12 @@ export default class SnappingManager {
    * Отрисовывает активные направляющие после рендера канваса.
    */
   private _handleAfterRender(): void {
-    if (!this.activeGuides.length && !this.activeSpacingGuides.length) return
-
-    const { canvas, guideBounds: cachedGuideBounds } = this
-    const context = canvas.getSelectionContext()
-
-    if (!context) return
-
-    const bounds = cachedGuideBounds ?? this._calculateViewportBounds()
-    const { left, right, top, bottom } = bounds
-    const { viewportTransform } = canvas
-    const zoom = canvas.getZoom() || 1
-    const spacingGuideLabels = this.activeSpacingGuides.map(({ distance }) => {
-      return resolveDisplayDistance({ distance }).toString()
+    renderSnappingGuides({
+      canvas: this.canvas,
+      guideBounds: this.guideBounds,
+      guides: this.activeGuides,
+      spacingGuides: this.activeSpacingGuides
     })
-
-    context.save()
-    try {
-      if (Array.isArray(viewportTransform)) {
-        context.transform(...viewportTransform)
-      }
-      context.lineWidth = GUIDE_WIDTH / zoom
-      context.strokeStyle = GUIDE_COLOR
-      context.setLineDash([4, 4])
-      this._drawActiveLineGuides({ context, left, right, top, bottom })
-      this._drawActiveSpacingGuides({ context, zoom, labels: spacingGuideLabels })
-    } finally {
-      context.restore()
-    }
-  }
-
-  /** Рисует активные линейные направляющие в пределах монтажной области или canvas. */
-  private _drawActiveLineGuides({
-    context,
-    left,
-    right,
-    top,
-    bottom
-  }: {
-    context: CanvasRenderingContext2D
-    left: number
-    right: number
-    top: number
-    bottom: number
-  }): void {
-    for (const guide of this.activeGuides) {
-      context.beginPath()
-      if (guide.type === 'vertical') {
-        context.moveTo(guide.position, top)
-        context.lineTo(guide.position, bottom)
-      } else {
-        context.moveTo(left, guide.position)
-        context.lineTo(right, guide.position)
-      }
-      context.stroke()
-    }
-  }
-
-  /** Рисует направляющие равноудалённости с уже проверенными подписями. */
-  private _drawActiveSpacingGuides({
-    context,
-    zoom,
-    labels
-  }: {
-    context: CanvasRenderingContext2D
-    zoom: number
-    labels: string[]
-  }): void {
-    for (let index = 0; index < this.activeSpacingGuides.length; index += 1) {
-      const guide = this.activeSpacingGuides[index]
-      const distanceLabel = labels[index]
-      if (!guide || distanceLabel === undefined) continue
-
-      drawSpacingGuide({ context, guide, zoom, distanceLabel })
-    }
   }
 
   /**
@@ -1362,7 +1351,7 @@ export default class SnappingManager {
         bottom
       }
     } else {
-      this.guideBounds = this._calculateViewportBounds()
+      this.guideBounds = calculateSnappingViewportBounds({ canvas: this.canvas })
     }
 
     this.anchors = nextAnchors
@@ -1450,35 +1439,5 @@ export default class SnappingManager {
     const cropTarget = activeObject as CropFrameSnapTarget | null | undefined
 
     return cropTarget?.cropSource === object
-  }
-
-  /**
-   * Возвращает границы для рисования направляющих.
-   */
-  private _calculateViewportBounds(): GuideBounds {
-    const { canvas } = this
-    const { viewportTransform } = canvas
-    const width = canvas.getWidth()
-    const height = canvas.getHeight()
-
-    const [
-      scaleX = 1,
-      ,,
-      scaleY = 1,
-      translateX = 0,
-      translateY = 0
-    ] = viewportTransform ?? []
-
-    const left = (0 - translateX) / scaleX
-    const top = (0 - translateY) / scaleY
-    const right = (width - translateX) / scaleX
-    const bottom = (height - translateY) / scaleY
-
-    return {
-      left,
-      right,
-      top,
-      bottom
-    }
   }
 }

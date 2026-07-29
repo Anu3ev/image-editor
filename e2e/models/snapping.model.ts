@@ -11,27 +11,37 @@ import type {
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
-type CanvasPagePoint = {
+/** Координаты указателя в клиентской системе браузера. */
+type CanvasClientPoint = {
   x: number
   y: number
 }
 
+/** Данные Fabric-преобразования, необходимые для следующего шага drag. */
 type DragTransformInfo = {
   offsetX: number
   offsetY: number
-  pointerX: number
-  pointerY: number
   snapshot: SnappingObjectSnapshot
 }
 
+/** Идентификатор объекта и модификатор одного pointer-step. */
+type DragPointerParams = ObjectTargetParams & {
+  ctrlKey?: boolean
+}
+
+/** Управляет пользовательскими drag-сценариями и читает состояние прилипания. */
 export class SnappingModel {
   private readonly page: Page
 
-  private activePointerPagePoint: CanvasPagePoint | null
+  private activePointerClientPoint: CanvasClientPoint | null
 
+  private isControlKeyPressed: boolean
+
+  /** Создаёт модель прилипания для указанной Playwright-страницы. */
   constructor(page: Page) {
     this.page = page
-    this.activePointerPagePoint = null
+    this.activePointerClientPoint = null
+    this.isControlKeyPressed = false
   }
 
   /** Возвращает текущее состояние направляющих SnappingManager. */
@@ -63,8 +73,30 @@ export class SnappingModel {
     return snapshot as SnappingObjectSnapshot
   }
 
-  /** Начинает интерактивное перетаскивание объекта и кеширует anchor-ы для снапа. */
+  /** Начинает реальное перетаскивание выбранного объекта из его центра. */
   async startObjectDrag(params: SnappingDragStartParams = {}): Promise<SnappingObjectSnapshot> {
+    const dragStart = await this._resolveObjectDragStartClientPoint(params)
+
+    await waitForCanvasRender({ page: this.page })
+
+    const { x, y } = dragStart
+    this.activePointerClientPoint = {
+      x,
+      y
+    }
+    await this.page.mouse.move(x, y)
+    await this.page.mouse.down()
+    await waitForCanvasRender({ page: this.page })
+
+    await this._assertObjectDragStarted(params)
+
+    return this.getObjectSnapshot(params)
+  }
+
+  /** Возвращает клиентские координаты центра выбранного объекта. */
+  private async _resolveObjectDragStartClientPoint(
+    params: SnappingDragStartParams
+  ): Promise<CanvasClientPoint> {
     const dragStart = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
@@ -77,16 +109,14 @@ export class SnappingModel {
       editor.canvas.setActiveObject(target)
       target.setCoords()
 
-      const originX = typeof target.originX === 'string' ? target.originX : 'left'
-      const originY = typeof target.originY === 'string' ? target.originY : 'top'
-      const originPoint = typeof target.getPointByOrigin === 'function'
-        ? target.getPointByOrigin(originX, originY)
+      const centerPoint = typeof target.getCenterPoint === 'function'
+        ? target.getCenterPoint()
         : {
           x: typeof target.left === 'number' ? target.left : 0,
           y: typeof target.top === 'number' ? target.top : 0
         }
-      const sceneX = typeof originPoint.x === 'number' ? originPoint.x : 0
-      const sceneY = typeof originPoint.y === 'number' ? originPoint.y : 0
+      const sceneX = typeof centerPoint.x === 'number' ? centerPoint.x : 0
+      const sceneY = typeof centerPoint.y === 'number' ? centerPoint.y : 0
       const [a, b, c, d, tx, ty] = editor.canvas.viewportTransform
       const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
 
@@ -99,59 +129,42 @@ export class SnappingModel {
     }, params)
 
     expect(dragStart, 'должна существовать стартовая pointer-точка для перетаскивания').not.toBeNull()
+    expect(Number.isFinite(dragStart?.x), 'стартовая X-координата drag должна быть конечной').toBe(true)
+    expect(Number.isFinite(dragStart?.y), 'стартовая Y-координата drag должна быть конечной').toBe(true)
 
-    await waitForCanvasRender({ page: this.page })
+    return dragStart as CanvasClientPoint
+  }
 
-    const { x, y } = dragStart as CanvasPagePoint
-    this.activePointerPagePoint = {
-      x,
-      y
-    }
-    await this._dispatchPointerDown({
-      point: this.activePointerPagePoint
-    })
-    await waitForCanvasRender({ page: this.page })
-
-    const transformReady = await this.page.evaluate(({ objectIndex, id }) => {
+  /** Проверяет, что pointerdown начал именно перемещение выбранного объекта. */
+  private async _assertObjectDragStarted(params: SnappingDragStartParams): Promise<void> {
+    const dragTransform = await this.page.evaluate(({ objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
       } = window as any
 
       const target = helpers.resolveCanvasObject(objectIndex, id)
-      if (!target) return false
-
       const transform = editor.canvas._currentTransform
-      if (!transform) return false
+      if (!target || !transform || transform.target !== target) return null
 
-      return transform.target === target
+      return {
+        action: transform.action ?? null
+      }
     }, params)
 
-    expect(transformReady, 'после начала drag должен появиться transform для нужного объекта').toBe(true)
-
-    return this.getObjectSnapshot(params)
+    expect(dragTransform, 'после начала drag должен появиться transform для нужного объекта').not.toBeNull()
+    expect(dragTransform?.action, 'pointerdown должен начать перемещение, а не работу с control').toBe('drag')
   }
 
   /** Перемещает объект в live drag-сессии и возвращает его новый snapshot. */
   async dragObjectTo(params: SnappingDragMoveParams): Promise<SnappingObjectSnapshot> {
     const dragInfo = await this._getDragTransformInfo(params)
-    const targetSceneX = params.left === dragInfo.snapshot.left
-      ? dragInfo.pointerX
-      : params.left + dragInfo.offsetX
-    const targetSceneY = params.top === dragInfo.snapshot.top
-      ? dragInfo.pointerY
-      : params.top + dragInfo.offsetY
-    const pagePoint = await this._resolvePagePointForScenePoint({
-      x: targetSceneX,
-      y: targetSceneY
+    return this._moveDragPointerToFabricPosition({
+      params,
+      dragInfo,
+      left: params.left,
+      top: params.top
     })
-
-    await this._movePointerDuringDrag({
-      point: pagePoint,
-      ctrlKey: params.ctrlKey
-    })
-
-    return this.getObjectSnapshot(params)
   }
 
   /** Перемещает объект в live drag-сессии так, чтобы его bounding box пришёл в нужную позицию. */
@@ -159,23 +172,13 @@ export class SnappingModel {
     const dragInfo = await this._getDragTransformInfo(params)
     const nextLeft = dragInfo.snapshot.left + (params.left - dragInfo.snapshot.boundsLeft)
     const nextTop = dragInfo.snapshot.top + (params.top - dragInfo.snapshot.boundsTop)
-    const targetSceneX = params.left === dragInfo.snapshot.boundsLeft
-      ? dragInfo.pointerX
-      : nextLeft + dragInfo.offsetX
-    const targetSceneY = params.top === dragInfo.snapshot.boundsTop
-      ? dragInfo.pointerY
-      : nextTop + dragInfo.offsetY
-    const pagePoint = await this._resolvePagePointForScenePoint({
-      x: targetSceneX,
-      y: targetSceneY
-    })
 
-    await this._movePointerDuringDrag({
-      point: pagePoint,
-      ctrlKey: params.ctrlKey
+    return this._moveDragPointerToFabricPosition({
+      params,
+      dragInfo,
+      left: nextLeft,
+      top: nextTop
     })
-
-    return this.getObjectSnapshot(params)
   }
 
   /** Выполняет полный drag объекта до нужной позиции bounding box и завершает его через mouseup. */
@@ -192,19 +195,34 @@ export class SnappingModel {
     const dragInfo = await this._getDragTransformInfo(params)
     const nextLeft = dragInfo.snapshot.left + (params.centerX - dragInfo.snapshot.centerX)
     const nextTop = dragInfo.snapshot.top + (params.centerY - dragInfo.snapshot.centerY)
-    const targetSceneX = params.centerX === dragInfo.snapshot.centerX
-      ? dragInfo.pointerX
-      : nextLeft + dragInfo.offsetX
-    const targetSceneY = params.centerY === dragInfo.snapshot.centerY
-      ? dragInfo.pointerY
-      : nextTop + dragInfo.offsetY
-    const pagePoint = await this._resolvePagePointForScenePoint({
-      x: targetSceneX,
-      y: targetSceneY
+
+    return this._moveDragPointerToFabricPosition({
+      params,
+      dragInfo,
+      left: nextLeft,
+      top: nextTop
+    })
+  }
+
+  /** Перемещает реальный указатель в позицию, соответствующую Fabric left/top. */
+  private async _moveDragPointerToFabricPosition({
+    params,
+    dragInfo,
+    left,
+    top
+  }: {
+    params: DragPointerParams
+    dragInfo: DragTransformInfo
+    left: number
+    top: number
+  }): Promise<SnappingObjectSnapshot> {
+    const clientPoint = await this._resolveClientPointForScenePoint({
+      x: left + dragInfo.offsetX,
+      y: top + dragInfo.offsetY
     })
 
     await this._movePointerDuringDrag({
-      point: pagePoint,
+      point: clientPoint,
       ctrlKey: params.ctrlKey
     })
 
@@ -214,19 +232,19 @@ export class SnappingModel {
   /** Завершает pointer-взаимодействие и очищает направляющие как после mouseup. */
   async finishPointerInteraction(): Promise<SnappingGuideState> {
     expect(
-      this.activePointerPagePoint,
+      this.activePointerClientPoint,
       'pointer interaction должна завершаться только после начала drag'
     ).not.toBeNull()
 
-    await this._dispatchPointerUp({
-      point: this.activePointerPagePoint as CanvasPagePoint
-    })
+    await this.page.mouse.up()
     await waitForCanvasRender({ page: this.page })
-    this.activePointerPagePoint = null
+    await this._setControlKeyPressed({ pressed: false })
+    this.activePointerClientPoint = null
 
     return this.getGuideState()
   }
 
+  /** Возвращает текущее Fabric-преобразование и геометрию выбранного объекта. */
   private async _getDragTransformInfo(params: ObjectTargetParams): Promise<DragTransformInfo> {
     const dragInfo = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -243,8 +261,6 @@ export class SnappingModel {
       return {
         offsetX: typeof transform.offsetX === 'number' ? transform.offsetX : 0,
         offsetY: typeof transform.offsetY === 'number' ? transform.offsetY : 0,
-        pointerX: typeof transform.lastX === 'number' ? transform.lastX : 0,
-        pointerY: typeof transform.lastY === 'number' ? transform.lastY : 0,
         snapshot: helpers.serializeSnappingObjectSnapshot(target)
       }
     }, params)
@@ -254,7 +270,10 @@ export class SnappingModel {
     return dragInfo as DragTransformInfo
   }
 
-  private async _resolvePagePointForScenePoint(point: { x: number, y: number }): Promise<CanvasPagePoint> {
+  /** Переводит координаты сцены в клиентские координаты браузера. */
+  private async _resolveClientPointForScenePoint(
+    point: { x: number, y: number }
+  ): Promise<CanvasClientPoint> {
     return this.page.evaluate(({ x, y }) => {
       const {
         editor
@@ -270,100 +289,35 @@ export class SnappingModel {
     }, point)
   }
 
+  /** Выполняет одно реальное перемещение указателя с явно заданным состоянием Ctrl. */
   private async _movePointerDuringDrag({
     point,
     ctrlKey = false
   }: {
-    point: CanvasPagePoint
+    point: CanvasClientPoint
     ctrlKey?: boolean
   }): Promise<void> {
-    await this._dispatchPointerMove({
-      point,
-      ctrlKey
-    })
+    await this._setControlKeyPressed({ pressed: ctrlKey })
+    await this.page.mouse.move(point.x, point.y)
     await waitForCanvasRender({ page: this.page })
-    this.activePointerPagePoint = point
+    this.activePointerClientPoint = point
   }
 
-  private async _dispatchPointerDown({
-    point
+  /** Синхронизирует Ctrl с состоянием модификатора следующего события мыши. */
+  private async _setControlKeyPressed({
+    pressed
   }: {
-    point: CanvasPagePoint
+    pressed: boolean
   }): Promise<void> {
-    await this.page.evaluate(({ x, y }) => {
-      const {
-        editor
-      } = window as any
+    if (pressed === this.isControlKeyPressed) return
 
-      const event = new PointerEvent('pointerdown', {
-        clientX: x,
-        clientY: y,
-        button: 0,
-        buttons: 1,
-        bubbles: true,
-        cancelable: true,
-        pointerId: 1,
-        isPrimary: true
-      })
+    if (pressed) {
+      await this.page.keyboard.down('Control')
+      this.isControlKeyPressed = true
+      return
+    }
 
-      editor.canvas._onMouseDown(event)
-    }, point)
-  }
-
-  private async _dispatchPointerMove({
-    point,
-    ctrlKey
-  }: {
-    point: CanvasPagePoint
-    ctrlKey: boolean
-  }): Promise<void> {
-    await this.page.evaluate(({ x, y, ctrlKey: isCtrlPressed }) => {
-      const {
-        editor
-      } = window as any
-
-      const event = new PointerEvent('pointermove', {
-        clientX: x,
-        clientY: y,
-        button: 0,
-        buttons: 1,
-        bubbles: true,
-        cancelable: true,
-        pointerId: 1,
-        isPrimary: true,
-        ctrlKey: isCtrlPressed
-      })
-
-      editor.canvas._onMouseMove(event)
-    }, {
-      x: point.x,
-      y: point.y,
-      ctrlKey
-    })
-  }
-
-  private async _dispatchPointerUp({
-    point
-  }: {
-    point: CanvasPagePoint
-  }): Promise<void> {
-    await this.page.evaluate(({ x, y }) => {
-      const {
-        editor
-      } = window as any
-
-      const event = new PointerEvent('pointerup', {
-        clientX: x,
-        clientY: y,
-        button: 0,
-        buttons: 0,
-        bubbles: true,
-        cancelable: true,
-        pointerId: 1,
-        isPrimary: true
-      })
-
-      editor.canvas._onMouseUp(event)
-    }, point)
+    await this.page.keyboard.up('Control')
+    this.isControlKeyPressed = false
   }
 }
