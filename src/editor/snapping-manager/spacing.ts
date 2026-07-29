@@ -29,6 +29,22 @@ export type SpacingContextByAxis = {
   horizontal: SpacingSelectionContext | null
 }
 
+/** Стабильные соседи и reference pattern одного выбранного spacing-варианта. */
+export type SpacingSelectionIdentity = Readonly<{
+  kind: SpacingSelectionContext['kind']
+  side: SpacingSelectionContext['side']
+  before: Bounds | null
+  after: Bounds | null
+  pattern: SpacingPattern | null
+}>
+
+/** Выбранный spacing-вариант и его роль в опубликованном наборе guide. */
+export type ResolvedSpacingSelection = Readonly<{
+  guide: SpacingGuide
+  identity: SpacingSelectionIdentity
+  isPrimary: boolean
+}>
+
 /** Положение активного интервала относительно выбранного образца расстояния. */
 type SpacingOptionSide = SpacingSelectionContext['side']
 
@@ -43,6 +59,7 @@ type SpacingOption = {
   side: SpacingOptionSide
   kind: SpacingOptionKind
   contextDistance: number
+  identity: SpacingSelectionIdentity
 }
 
 /**
@@ -284,6 +301,7 @@ type SpacingCalculationResult = {
   delta: number
   guides: SpacingGuide[]
   context: SpacingSelectionContext | null
+  selections: ResolvedSpacingSelection[]
 }
 
 /** Кандидат для прилипания к существующему интервалу. */
@@ -308,6 +326,7 @@ type ResolveReferenceSpacingOptionParams = {
 type ReferenceSpacingOptionContext = {
   active: AxisSpacingGeometry
   neighbor: AxisSpacingGeometry
+  neighborBounds: Bounds
   pattern: SpacingPattern
   candidate: ReferenceSpacingCandidate
   axis: SpacingAxis
@@ -623,6 +642,27 @@ const resolvePrimarySpacingOption = ({
 }
 
 /**
+ * Создаёт стабильный ключ полной геометрии spacing guide.
+ */
+export const createSpacingGuideGeometryKey = ({
+  guide
+}: {
+  guide: SpacingGuide
+}): string => {
+  const {
+    type,
+    axis,
+    refStart,
+    refEnd,
+    activeStart,
+    activeEnd,
+    distance
+  } = guide
+
+  return `${type}:${axis}:${refStart}:${refEnd}:${activeStart}:${activeEnd}:${distance}`
+}
+
+/**
  * Добавляет направляющую без дублей по геометрии и расстоянию.
  */
 const pushUniqueSpacingGuide = ({
@@ -634,16 +674,7 @@ const pushUniqueSpacingGuide = ({
   seenGuideKeys: Set<string>
   guide: SpacingGuide
 }): void => {
-  const {
-    type,
-    axis,
-    refStart,
-    refEnd,
-    activeStart,
-    activeEnd,
-    distance
-  } = guide
-  const key = `${type}:${axis}:${refStart}:${refEnd}:${activeStart}:${activeEnd}:${distance}`
+  const key = createSpacingGuideGeometryKey({ guide })
   if (seenGuideKeys.has(key)) return
 
   seenGuideKeys.add(key)
@@ -713,6 +744,21 @@ const createSpacingGuides = ({
   return guides
 }
 
+/** Связывает каждый отображаемый вариант с identity и отмечает primary correction. */
+const createResolvedSpacingSelections = ({
+  selectedOptions,
+  primaryOption
+}: {
+  selectedOptions: SpacingOption[]
+  primaryOption: SpacingOption
+}): ResolvedSpacingSelection[] => {
+  return selectedOptions.map((option) => ({
+    guide: option.guide,
+    identity: option.identity,
+    isPrimary: option === primaryOption
+  }))
+}
+
 /**
  * Формирует направляющие равноудалённости, не смешивая разные расстояния.
  */
@@ -724,12 +770,13 @@ const resolveSpacingResult = ({
   options: SpacingOption[]
   previousContext?: SpacingSelectionContext | null
   switchDistance?: number
-}): { delta: number; guides: SpacingGuide[]; context: SpacingSelectionContext | null } => {
+}): SpacingCalculationResult => {
   if (!options.length) {
     return {
       delta: 0,
       guides: [],
-      context: null
+      context: null,
+      selections: []
     }
   }
 
@@ -761,6 +808,10 @@ const resolveSpacingResult = ({
     guides: createSpacingGuides({ selectedOptions }),
     context: resolveSpacingContextFromOption({
       option: primaryOption
+    }),
+    selections: createResolvedSpacingSelections({
+      selectedOptions,
+      primaryOption
     })
   }
 }
@@ -794,6 +845,27 @@ const resolveAxisSpacingGeometry = ({
   }
 }
 
+/** Копирует стабильную identity соседей и reference pattern выбранного варианта. */
+const createSpacingSelectionIdentity = ({
+  kind,
+  side,
+  before = null,
+  after = null,
+  pattern = null
+}: {
+  kind: SpacingOptionKind
+  side: SpacingOptionSide
+  before?: Bounds | null
+  after?: Bounds | null
+  pattern?: SpacingPattern | null
+}): SpacingSelectionIdentity => ({
+  kind,
+  side,
+  before: before ? { ...before } : null,
+  after: after ? { ...after } : null,
+  pattern: pattern ? { ...pattern } : null
+})
+
 /** Проверяет перекрытие объектов на перпендикулярной оси. */
 const isBoundsAligned = ({
   activeGeometry,
@@ -822,7 +894,7 @@ const resolveSpacingNeighbors = ({
   axis
 }: {
   activeBounds: Bounds
-  candidates: Bounds[]
+  candidates: readonly Bounds[]
   axis: SpacingAxis
 }): SpacingNeighbors | null => {
   const activeGeometry = resolveAxisSpacingGeometry({ bounds: activeBounds, axis })
@@ -848,6 +920,79 @@ const resolveSpacingNeighbors = ({
     before: beforeIndex === null ? null : items[beforeIndex].bounds,
     after: afterIndex === null ? null : items[afterIndex].bounds
   }
+}
+
+/** Сравнивает точные bounds выбранного и текущего nearest neighbor. */
+const areSpacingBoundsEqual = ({
+  first,
+  second
+}: {
+  first: Bounds | null
+  second: Bounds | null
+}): boolean => {
+  if (!first || !second) return first === second
+
+  return first.left === second.left
+    && first.right === second.right
+    && first.top === second.top
+    && first.bottom === second.bottom
+    && first.centerX === second.centerX
+    && first.centerY === second.centerY
+}
+
+/**
+ * Проверяет, что сохранённый spacing-вариант всё ещё использует тех же ближайших соседей.
+ */
+export const isSpacingSelectionApplicable = ({
+  selection,
+  activeBounds,
+  candidates,
+  tolerance
+}: {
+  selection: ResolvedSpacingSelection
+  activeBounds: Bounds
+  candidates: readonly Bounds[]
+  tolerance: number
+}): boolean => {
+  const { identity, guide } = selection
+  const neighbors = resolveSpacingNeighbors({
+    activeBounds,
+    candidates,
+    axis: guide.type
+  })
+  if (!neighbors) return false
+
+  if (identity.kind === 'center') {
+    return identity.side === 'center'
+      && areSpacingBoundsEqual({ first: neighbors.before, second: identity.before })
+      && areSpacingBoundsEqual({ first: neighbors.after, second: identity.after })
+  }
+
+  const expectedNeighbor = identity.side === 'before' ? identity.before : identity.after
+  const currentNeighbor = identity.side === 'before' ? neighbors.before : neighbors.after
+  if (!areSpacingBoundsEqual({ first: currentNeighbor, second: expectedNeighbor })) return false
+
+  const { pattern } = identity
+  if (!pattern || pattern.type !== guide.type || identity.side === 'center') return false
+
+  const active = resolveAxisSpacingGeometry({
+    bounds: activeBounds,
+    axis: guide.type
+  })
+  const side = resolveReferencePatternSide({
+    patternStart: pattern.start,
+    patternEnd: pattern.end,
+    activeStart: active.start,
+    activeEnd: active.end
+  })
+  if (side !== identity.side) return false
+
+  return isPatternAxisAlignedWithActiveRange({
+    patternAxis: pattern.axis,
+    activeRangeStart: active.crossStart,
+    activeRangeEnd: active.crossEnd,
+    tolerance
+  })
 }
 
 /** Подбирает позицию между соседями на сетке с шагом 0,5 px. */
@@ -950,7 +1095,13 @@ const resolveCenteredSpacingOption = ({
     diff: centered.diff,
     side: 'center',
     kind: 'center',
-    contextDistance: 0
+    contextDistance: 0,
+    identity: createSpacingSelectionIdentity({
+      kind: 'center',
+      side: 'center',
+      before,
+      after
+    })
   }
 }
 
@@ -1006,6 +1157,7 @@ const resolveReferenceSpacingCandidate = ({
 const createReferenceSpacingOption = ({
   active,
   neighbor,
+  neighborBounds,
   pattern,
   candidate,
   axis,
@@ -1031,7 +1183,14 @@ const createReferenceSpacingOption = ({
     diff: candidate.diff,
     side,
     kind: 'reference',
-    contextDistance
+    contextDistance,
+    identity: createSpacingSelectionIdentity({
+      kind: 'reference',
+      side,
+      before: side === 'before' ? neighborBounds : null,
+      after: side === 'after' ? neighborBounds : null,
+      pattern
+    })
   }
 }
 
@@ -1083,6 +1242,7 @@ const resolveReferenceSpacingOption = ({
   return createReferenceSpacingOption({
     active,
     neighbor,
+    neighborBounds,
     pattern,
     candidate,
     axis,
@@ -1133,7 +1293,14 @@ const calculateAxisSpacing = ({
   axis
 }: CalculateAxisSpacingParams): SpacingCalculationResult => {
   const neighbors = resolveSpacingNeighbors({ activeBounds, candidates, axis })
-  if (!neighbors) return { delta: 0, guides: [], context: null }
+  if (!neighbors) {
+    return {
+      delta: 0,
+      guides: [],
+      context: null,
+      selections: []
+    }
+  }
 
   const options = resolveAxisSpacingOptions({
     activeBounds,
