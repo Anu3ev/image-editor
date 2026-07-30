@@ -18,7 +18,7 @@ import {
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type { CropModel } from '../../models/crop/crop.model'
 import type { HistoryModel } from '../../models/history.model'
-import type { ImageModel } from '../../models/image.model'
+import type { ImageModel } from '../../models/image/image.model'
 import type { ShapeModel } from '../../models/shape/shape.model'
 import type { SnappingModel } from '../../models/snapping.model'
 import type {

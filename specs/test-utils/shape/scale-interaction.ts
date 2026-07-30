@@ -7,18 +7,18 @@ import {
 } from 'fabric'
 import { ImageEditor } from '../../../src/editor'
 import SnappingManager from '../../../src/editor/snapping-manager'
-import type { ScaleSnapEnvironment } from '../../../src/editor/snapping-manager/scale-snap-candidates'
-import type { ScaleSnapCandidateInput } from '../../../src/editor/snapping-manager/scale-snapping-resolver'
+import type { ScaleSnapEnvironment } from '../../../src/editor/snapping-manager/scaling/scale-snap-candidates'
+import type { ScaleSnapCandidateInput } from '../../../src/editor/snapping-manager/scaling/scale-snapping-resolver'
 import ShapeScaleInteractionController, {
   type ShapeScaleInteractionEvent
 } from '../../../src/editor/shape-manager/scaling/shape-scale-interaction-controller'
-import type { ShapeScaleControlKey } from '../../../src/editor/shape-manager/scaling/shape-scale-projection'
+import type { RectangularScaleControlKey } from '../../../src/editor/snapping-manager/scaling/rectangular-scale-gesture-projection'
 import ShapeScalingController from '../../../src/editor/shape-manager/scaling/shape-scaling-controller'
 import { ShapeGroupObject } from '../../../src/editor/shape-manager/domain/shape-group'
 import { getObjectExactBounds, type ObjectBounds } from '../../../src/editor/utils/geometry'
 
 /** Ручка Shape, поддерживаемая тестами взаимодействия при скейлинге. */
-export type ShapeScaleInteractionTestControl = Extract<ShapeScaleControlKey, 'br' | 'mr'>
+export type ShapeScaleInteractionTestControl = Extract<RectangularScaleControlKey, 'br' | 'mr'>
 
 /** Множители локальных осей для расчёта положения указателя. */
 export type ShapeScaleInteractionTestMultipliers = Readonly<{

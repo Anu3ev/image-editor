@@ -15,12 +15,10 @@ test.describe('Двойной клик по crop-области изображе
     })
 
     await test.step('Дополнительно уменьшить изображение перед входом в crop mode', async() => {
-      await images.scaleHorizontallyFromRight({
+      await images.scaling.resizeFromRight({
         id: image.id,
         scaleX: 0.38
       })
-
-      await images.finishScale({ id: image.id })
     })
 
     const initialState = await test.step('Войти в image crop с выключенным overflow', async() => {

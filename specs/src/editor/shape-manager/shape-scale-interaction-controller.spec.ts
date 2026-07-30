@@ -1,3 +1,5 @@
+import { Group } from 'fabric'
+
 import {
   createShapeScaleBeginEvent,
   createShapeScaleBottomGuide,
@@ -222,6 +224,29 @@ it('не перехватывает scale перевёрнутого Shape', () 
   expect(harness.captureEnvironmentMock).not.toHaveBeenCalled()
   expect(harness.publishGuidesMock).not.toHaveBeenCalled()
   expect(harness.materializeMock).not.toHaveBeenCalled()
+})
+
+it('не перехватывает scale обычной Fabric group без Shape-контракта', () => {
+  const harness = createShapeScaleInteractionHarness()
+  harness.transform.target = new Group([])
+
+  expect(harness.controller.beginGesture(createShapeScaleBeginEvent({ harness }))).toBe(false)
+  expect(harness.captureEnvironmentMock).not.toHaveBeenCalled()
+  expect(harness.materializeMock).not.toHaveBeenCalled()
+})
+
+it('не перехватывает scale вложенного Shape и Shape со skew', () => {
+  const nested = createShapeScaleInteractionHarness()
+  nested.target.group = new Group([])
+
+  expect(nested.controller.beginGesture(createShapeScaleBeginEvent({ harness: nested }))).toBe(false)
+  expect(nested.captureEnvironmentMock).not.toHaveBeenCalled()
+
+  const skewed = createShapeScaleInteractionHarness()
+  skewed.target.skewX = 5
+
+  expect(skewed.controller.beginGesture(createShapeScaleBeginEvent({ harness: skewed }))).toBe(false)
+  expect(skewed.captureEnvironmentMock).not.toHaveBeenCalled()
 })
 
 it('не перехватывает scale Shape с заблокированной осью', () => {

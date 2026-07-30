@@ -9,7 +9,7 @@ import { attachToolbarMock } from '../../../test-utils/managers/toolbar'
 import { mockRaf } from '../../../test-utils/events/raf'
 import * as renderUtils from '../../../../src/editor/utils/render-utils'
 import type { MeasurementGuide } from '../../../../src/editor/measurement-manager/types'
-import { calculateHorizontalSpacing } from '../../../../src/editor/snapping-manager/spacing'
+import { calculateHorizontalSpacing } from '../../../../src/editor/snapping-manager/movement/spacing'
 import { getObjectExactBounds } from '../../../../src/editor/utils/geometry'
 import { resolveDisplayDistance } from '../../../../src/editor/utils/distance'
 

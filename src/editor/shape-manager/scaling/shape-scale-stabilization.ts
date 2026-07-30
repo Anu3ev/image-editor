@@ -1,24 +1,24 @@
 import {
-  resolveShapeScaleModeProjection,
-  type ShapeScaleGestureMode,
-  type ShapeScaleGestureProjection,
-  type ShapeScaleModeProjection,
-  type ShapeScaleMultipliers,
-  type ShapeScaleProjectionVariable,
-  type ShapeScaleSceneEdge,
-  type ShapeScalePoint
-} from './shape-scale-projection'
+  type RectangularScaleGestureProjection,
+  type RectangularScaleGestureMode,
+  type RectangularScaleModeProjection,
+  type RectangularScaleMultipliers,
+  type RectangularScalePoint,
+  type RectangularScaleProjectionVariable,
+  type RectangularScaleSceneEdge,
+  resolveRectangularScaleModeProjection
+} from '../../snapping-manager/scaling/rectangular-scale-gesture-projection'
 
 /** Данные для округления свободных размеров Shape до целых пикселей. */
 type ShapeScaleStabilizationOptions = Readonly<{
-  projection: ShapeScaleGestureProjection
-  mode: ShapeScaleGestureMode
-  multipliers: ShapeScaleMultipliers
-  protectedEdges: readonly ShapeScaleSceneEdge[]
+  projection: RectangularScaleGestureProjection
+  mode: RectangularScaleGestureMode
+  multipliers: RectangularScaleMultipliers
+  protectedEdges: readonly RectangularScaleSceneEdge[]
 }>
 
 /** Режим scale, в котором ширину и высоту можно менять независимо. */
-type IndependentShapeScaleGestureMode = 'horizontal' | 'vertical' | 'free'
+type IndependentRectangularScaleGestureMode = 'horizontal' | 'vertical' | 'free'
 
 /** Допуск при проверке влияния scale на положение грани. */
 const SHAPE_SCALE_DEPENDENCY_EPSILON = 0.000000001
@@ -41,7 +41,7 @@ function getInitialAxisLength({
   vector,
   name
 }: {
-  vector: ShapeScalePoint
+  vector: RectangularScalePoint
   name: string
 }): number {
   const length = Math.sqrt((vector.x ** 2) + (vector.y ** 2))
@@ -56,10 +56,10 @@ function resolveScaleProjection({
   projection,
   mode
 }: {
-  projection: ShapeScaleGestureProjection
-  mode: ShapeScaleGestureMode
-}): ShapeScaleModeProjection {
-  const modeProjection = resolveShapeScaleModeProjection({ projection, mode })
+  projection: RectangularScaleGestureProjection
+  mode: RectangularScaleGestureMode
+}): RectangularScaleModeProjection {
+  const modeProjection = resolveRectangularScaleModeProjection({ projection, mode })
   if (!modeProjection) {
     throw new Error(`Shape scale mode "${mode}" is not supported by control "${projection.controlKey}"`)
   }
@@ -80,11 +80,11 @@ function resolveSnappedVariables({
   modeProjection,
   protectedEdges
 }: {
-  modeProjection: ShapeScaleModeProjection
-  protectedEdges: readonly ShapeScaleSceneEdge[]
-}): ReadonlySet<ShapeScaleProjectionVariable> {
+  modeProjection: RectangularScaleModeProjection
+  protectedEdges: readonly RectangularScaleSceneEdge[]
+}): ReadonlySet<RectangularScaleProjectionVariable> {
   const snappedEdgeSet = new Set(protectedEdges)
-  const snappedVariables = new Set<ShapeScaleProjectionVariable>()
+  const snappedVariables = new Set<RectangularScaleProjectionVariable>()
 
   modeProjection.edges.forEach(({ edge, coefficients }) => {
     if (!snappedEdgeSet.has(edge)) return
@@ -137,7 +137,7 @@ function createMultipliers({
 }: {
   x: number
   y: number
-}): ShapeScaleMultipliers {
+}): RectangularScaleMultipliers {
   return Object.freeze({ x, y })
 }
 
@@ -151,7 +151,7 @@ function stabilizeAxisMultiplier({
   variable: 'multiplier-x' | 'multiplier-y'
   multiplier: number
   initialLength: number
-  snappedVariables: ReadonlySet<ShapeScaleProjectionVariable>
+  snappedVariables: ReadonlySet<RectangularScaleProjectionVariable>
 }): number {
   if (snappedVariables.has(variable)) return multiplier
 
@@ -166,12 +166,12 @@ function stabilizeIndependentMultipliers({
   height,
   snappedVariables
 }: {
-  mode: IndependentShapeScaleGestureMode
-  multipliers: ShapeScaleMultipliers
+  mode: IndependentRectangularScaleGestureMode
+  multipliers: RectangularScaleMultipliers
   width: number
   height: number
-  snappedVariables: ReadonlySet<ShapeScaleProjectionVariable>
-}): ShapeScaleMultipliers {
+  snappedVariables: ReadonlySet<RectangularScaleProjectionVariable>
+}): RectangularScaleMultipliers {
   const x = mode === 'vertical'
     ? 1
     : stabilizeAxisMultiplier({
@@ -199,11 +199,11 @@ function stabilizeUniformMultipliers({
   height,
   snappedVariables
 }: {
-  multipliers: ShapeScaleMultipliers
+  multipliers: RectangularScaleMultipliers
   width: number
   height: number
-  snappedVariables: ReadonlySet<ShapeScaleProjectionVariable>
-}): ShapeScaleMultipliers {
+  snappedVariables: ReadonlySet<RectangularScaleProjectionVariable>
+}): RectangularScaleMultipliers {
   if (multipliers.x !== multipliers.y) {
     throw new Error('Uniform Shape scale requires equal x and y multipliers')
   }
@@ -224,7 +224,7 @@ export function stabilizeShapeScaleMultipliers({
   mode,
   multipliers,
   protectedEdges
-}: ShapeScaleStabilizationOptions): ShapeScaleMultipliers {
+}: ShapeScaleStabilizationOptions): RectangularScaleMultipliers {
   const width = getInitialAxisLength({ vector: projection.u, name: 'Shape scale initial width' })
   const height = getInitialAxisLength({ vector: projection.v, name: 'Shape scale initial height' })
   assertPositiveFiniteNumber({ value: multipliers.x, name: 'Shape scale multiplier x' })
