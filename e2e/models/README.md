@@ -10,7 +10,7 @@ reimplement FabricJS access, pointer protocols, or browser-side state reads.
 A domain with one model may stay at the root of this directory:
 
 ```text
-e2e/models/image.model.ts
+e2e/models/toolbar.model.ts
 ```
 
 As soon as a manager or domain needs a second related model, interaction
@@ -66,8 +66,7 @@ for a genuinely independent one-file domain.
 | `background.model.ts` | Background colour, gradient, image, and related state. |
 | `clipboard.model.ts` | Copy and paste lifecycle. |
 | `grouping.model.ts` | Grouping, ungrouping, and active-selection behaviour. |
-| `history.model.ts` | History save, undo, redo, and serialized history state. |
-| `image.model.ts` | Image creation, source and transform operations, image/canvas export, and image snapshots. |
+| `history.model.ts` | History save, undo, redo, current position, and serialized history state. |
 | `interaction-blocker.model.ts` | Interaction-blocker and AI-overlay state. |
 | `scale-interaction-trace.model.ts` | Canvas event order and state snapshots for focused scaling scenarios. |
 | `selection.model.ts` | Active Fabric selection geometry and control scaling. |
@@ -78,6 +77,8 @@ for a genuinely independent one-file domain.
 | `crop/crop-dimming-overlay.model.ts` | Visual reads of the transient dimmed area, including canvas pixels and overlay state. |
 | `crop/crop-frame-control.model.ts` | Crop-frame control coordinates, cursor, and hover interaction. |
 | `crop/crop-source-boundary.model.ts` | Crop source-boundary geometry used by the crop facade; it is internal support, not a fixture of its own. |
+| `image/image.model.ts` | Image creation, source operations, image/canvas export, snapshots, and the composed scaling session. |
+| `image/image-scaling-session.ts` | Full browser pointer lifecycle for live image scaling, composed by `ImageModel`. |
 | `text/text.model.ts` | Text creation, content and style updates, editing, selection, scaling, and resize scenarios. |
 | `text/text-resize-session.ts` | Live text-resize pointer interaction and intermediate states, composed by `TextModel`. |
 | `shape/shape.model.ts` | Shape creation, presets, style, text, selection, editing, and scaling scenarios. |

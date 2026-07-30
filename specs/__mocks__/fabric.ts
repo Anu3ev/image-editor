@@ -178,14 +178,46 @@ export class Rect {
 }
 
 export class Control {
+  actionName = 'scale'
+
   actionHandler?: (...args: unknown[]) => unknown
+
+  x = 0
+
+  y = 0
 
   offsetX = 0
 
   offsetY = 0
 
+  transformAnchorPoint?: Readonly<{ x: number; y: number }>
+
   constructor(options: Record<string, unknown> = {}) {
     Object.assign(this, options)
+  }
+
+  /** Возвращает активный handler так же, как стандартный Fabric Control. */
+  getActionHandler() {
+    return this.actionHandler
+  }
+
+  /** Возвращает противоположную точку scale или явно заданный anchor. */
+  getTransformAnchorPoint() {
+    return this.transformAnchorPoint ?? {
+      x: -this.x + 0.5,
+      y: -this.y + 0.5
+    }
+  }
+
+  /** Рассчитывает положение control из относительных координат и affine matrix. */
+  positionHandler(
+    dim: Point,
+    finalMatrix: [number, number, number, number, number, number]
+  ) {
+    return new Point(
+      (this.x * dim.x) + this.offsetX,
+      (this.y * dim.y) + this.offsetY
+    ).transform(finalMatrix)
   }
 }
 
@@ -902,8 +934,40 @@ const stylesFromArray = (styles: MockTextStyleRange[] | MockTextStyles | undefin
   return stylesObject
 }
 
+/** Стандартный handler горизонтального scale или вертикального skew. */
+const DEFAULT_HORIZONTAL_SCALE_HANDLER = jest.fn(() => true)
+
+/** Стандартный handler вертикального scale или горизонтального skew. */
+const DEFAULT_VERTICAL_SCALE_HANDLER = jest.fn(() => true)
+
+/** Стандартный handler пропорционального scale за угол. */
+const DEFAULT_CORNER_SCALE_HANDLER = jest.fn(() => true)
+
+/** Стандартный handler вращения. */
+const DEFAULT_ROTATION_HANDLER = jest.fn(() => true)
+
+/** Создаёт независимый набор стандартных object controls Fabric. */
+function createObjectDefaultControls() {
+  return {
+    ml: new Control({ x: -0.5, y: 0, actionHandler: DEFAULT_HORIZONTAL_SCALE_HANDLER }),
+    mr: new Control({ x: 0.5, y: 0, actionHandler: DEFAULT_HORIZONTAL_SCALE_HANDLER }),
+    mb: new Control({ x: 0, y: 0.5, actionHandler: DEFAULT_VERTICAL_SCALE_HANDLER }),
+    mt: new Control({ x: 0, y: -0.5, actionHandler: DEFAULT_VERTICAL_SCALE_HANDLER }),
+    tl: new Control({ x: -0.5, y: -0.5, actionHandler: DEFAULT_CORNER_SCALE_HANDLER }),
+    tr: new Control({ x: 0.5, y: -0.5, actionHandler: DEFAULT_CORNER_SCALE_HANDLER }),
+    bl: new Control({ x: -0.5, y: 0.5, actionHandler: DEFAULT_CORNER_SCALE_HANDLER }),
+    br: new Control({ x: 0.5, y: 0.5, actionHandler: DEFAULT_CORNER_SCALE_HANDLER }),
+    mtr: new Control({
+      x: 0,
+      y: -0.5,
+      offsetY: -40,
+      actionHandler: DEFAULT_ROTATION_HANDLER
+    })
+  }
+}
+
 export const controlsUtils = {
-  createObjectDefaultControls: jest.fn(() => ({})),
+  createObjectDefaultControls: jest.fn(createObjectDefaultControls),
   createTextboxDefaultControls: jest.fn(() => ({})),
   wrapWithFireEvent: jest.fn((_eventName: string, handler: unknown) => handler),
   wrapWithFixedAnchor: jest.fn((handler: unknown) => handler),

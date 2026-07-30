@@ -16,23 +16,24 @@ import {
 } from './constants'
 import {
   calculateSnap
-} from './calculations'
+} from './movement/line-snapping'
 import {
   calculateSpacingSnap,
   type SpacingContextByAxis
-} from './spacing'
+} from './movement/spacing'
 import {
   createScaleSnapCandidates,
   type ScaleSnapCandidateSource,
   type ScaleSnapEnvironment
-} from './scale-snap-candidates'
-import type { VerifiedScaleGuide } from './scale-snapping-resolver'
-import type { ScaleSceneEdge } from './scale-projection'
-import { MovementSnappingController } from './movement-snapping-controller'
+} from './scaling/scale-snap-candidates'
+import type { VerifiedScaleGuide } from './scaling/scale-snapping-resolver'
+import type { ScaleSceneEdge } from './scaling/scale-projection'
+import { ImageScaleSnappingController } from './scaling/image-scale-snapping-controller'
+import { ImageMovementSnappingController } from './movement/image-movement-snapping-controller'
 import {
   calculateSnappingViewportBounds,
   renderSnappingGuides
-} from './renderer'
+} from './guides/renderer'
 import {
   applyMovementStep,
   applyScalingStep,
@@ -48,7 +49,7 @@ import {
   type ScaleAxisSnapState,
   type ScaleUpdatePlan,
   type TextResizeSnapPlan
-} from './scaling'
+} from './scaling/legacy-scale-snapping'
 import type {
   AnchorBuckets,
   Bounds,
@@ -57,10 +58,8 @@ import type {
   SpacingGuide,
   SpacingPattern
 } from './types'
-import {
-  buildSpacingPatterns,
-  pushBoundsToAnchors
-} from './utils'
+import { buildSpacingPatterns } from './movement/spacing-patterns'
+import { pushBoundsToAnchors } from './guides/anchor-buckets'
 import {
   getObjectBounds,
   getObjectExactBounds
@@ -225,16 +224,22 @@ export default class SnappingManager {
   /** События указателя, уже обработанные менеджером конкретного типа объекта. */
   private readonly handledScaleStepEvents = new WeakSet<object>()
 
-  /** Владелец unified movement-сессии для уже перенесённых типов объектов. */
-  private readonly movementSnappingController: MovementSnappingController
+  /** Владелец unified movement-сессии одиночного Image. */
+  private readonly imageMovementSnappingController: ImageMovementSnappingController
 
-  /** Активный target unified movement-сессии для точной обработки object:removed. */
-  private activeMovementSnappingTarget: FabricObject | null = null
+  /** Владелец unified scale-сессии для уже перенесённых Image controls. */
+  private readonly imageScaleSnappingController: ImageScaleSnappingController
+
+  /** Активный target Image movement-сессии для точной обработки object:removed. */
+  private activeImageMovementSnappingTarget: FabricObject | null = null
 
   /**
    * Обработчик начала перетаскивания объекта.
    */
   private _onMouseDown: (event: MouseEventInfo) => void
+
+  /** Обработчик fallback scale-step без события `object:scaling`. */
+  private _onMouseMove: (event: MouseEventInfo) => void
 
   /**
    * Обработчик перемещения объекта.
@@ -271,9 +276,11 @@ export default class SnappingManager {
     this.editor = editor
     const { canvas } = editor
     this.canvas = canvas
-    this.movementSnappingController = new MovementSnappingController({ editor })
+    this.imageMovementSnappingController = new ImageMovementSnappingController({ editor })
+    this.imageScaleSnappingController = new ImageScaleSnappingController({ editor })
 
     this._onMouseDown = this._handleMouseDown.bind(this)
+    this._onMouseMove = this._handleMouseMove.bind(this)
     this._onObjectMoving = this._handleObjectMoving.bind(this)
     this._onObjectScaling = this._handleObjectScaling.bind(this)
     this._onInteractionFinished = this._handleInteractionFinished.bind(this)
@@ -357,6 +364,7 @@ export default class SnappingManager {
   private _bindEvents(): void {
     const { canvas } = this
     canvas.on('mouse:down', this._onMouseDown)
+    canvas.on('mouse:move', this._onMouseMove)
     canvas.on('object:moving', this._onObjectMoving)
     canvas.on('object:scaling', this._onObjectScaling)
     canvas.on('mouse:up', this._onInteractionFinished)
@@ -378,6 +386,7 @@ export default class SnappingManager {
   private _unbindEvents(): void {
     const { canvas } = this
     canvas.off('mouse:down', this._onMouseDown)
+    canvas.off('mouse:move', this._onMouseMove)
     canvas.off('object:moving', this._onObjectMoving)
     canvas.off('object:scaling', this._onObjectScaling)
     canvas.off('mouse:up', this._onInteractionFinished)
@@ -401,23 +410,42 @@ export default class SnappingManager {
     this._clearGuides()
     this._clearAnchors()
 
-    const usesUnifiedMovement = this.movementSnappingController.startGesture({ target })
-    this.activeMovementSnappingTarget = usesUnifiedMovement ? target ?? null : null
+    const usesUnifiedScale = this.imageScaleSnappingController.startGesture({ event })
+    const movementTarget = !usesUnifiedScale && event.transform?.action === 'drag'
+      ? target
+      : null
+    const usesImageMovementSnapping = this.imageMovementSnappingController.startGesture({
+      target: movementTarget
+    })
+    this.activeImageMovementSnappingTarget = usesImageMovementSnapping ? target ?? null : null
 
     if (!target) return
 
     this._cacheAnchors({ activeObject: target, mode: 'rounded' })
   }
 
+  /** Обрабатывает Image scale-step, для которого Fabric не отправил transform event. */
+  private _handleMouseMove(event: MouseEventInfo): void {
+    const unifiedStep = this.imageScaleSnappingController.handleCanvasMouseMove({ event })
+    if (unifiedStep.handled) {
+      if (unifiedStep.shouldPublishGuides) {
+        this.publishVerifiedScaleGuides({ guides: unifiedStep.guides })
+      }
+      return
+    }
+
+    if (unifiedStep.didFinishSession) this._clearGuides()
+  }
+
   /**
    * Выполняет привязку объекта к ближайшим линиям при его перемещении.
    */
   private _handleObjectMoving(event: TransformEvent): void {
-    const unifiedStep = this.movementSnappingController.handleObjectMoving({ event })
-    if (unifiedStep.handled) {
+    const imageMovementStep = this.imageMovementSnappingController.handleObjectMoving({ event })
+    if (imageMovementStep.handled) {
       this._applyGuides({
-        guides: [...unifiedStep.guides],
-        spacingGuides: [...unifiedStep.spacingGuides]
+        guides: [...imageMovementStep.guides],
+        spacingGuides: [...imageMovementStep.spacingGuides]
       })
       return
     }
@@ -594,6 +622,13 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его масштабировании.
    */
   private _handleObjectScaling(event: TransformEvent): void {
+    const unifiedStep = this.imageScaleSnappingController.handleObjectScaling({ event })
+    if (unifiedStep.handled) {
+      if (unifiedStep.shouldPublishGuides) {
+        this.publishVerifiedScaleGuides({ guides: unifiedStep.guides })
+      }
+      return
+    }
     if (event.e && this.handledScaleStepEvents.has(event.e)) return
 
     const targetContext = this._resolveObjectScalingTargetContext({ event })
@@ -1196,9 +1231,7 @@ export default class SnappingManager {
     })
   }
 
-  /**
-   * Очищает movement-сессию, направляющие и кеш после завершающего события.
-   */
+  /** Очищает unified-сессии, направляющие и кеш после завершающего события. */
   private _handleInteractionFinished(): void {
     this._finishSnappingInteraction()
   }
@@ -1206,15 +1239,22 @@ export default class SnappingManager {
   /** Завершает interaction, только если с canvas удалили его активный target. */
   private _handleObjectRemoved(event: ObjectTargetEvent): void {
     const { target } = event
-    if (!target || target !== this.activeMovementSnappingTarget) return
+    if (!target) return
+
+    const removedMovementTarget = target === this.activeImageMovementSnappingTarget
+    const removedScaleTarget = this.imageScaleSnappingController.finishGestureForTarget({
+      target
+    })
+    if (!removedMovementTarget && !removedScaleTarget) return
 
     this._finishSnappingInteraction()
   }
 
   /** Идемпотентно очищает всё transient-состояние текущего interaction с прилипанием. */
   private _finishSnappingInteraction(): void {
-    this.movementSnappingController.finishGesture()
-    this.activeMovementSnappingTarget = null
+    this.imageMovementSnappingController.finishGesture()
+    this.imageScaleSnappingController.finishGesture()
+    this.activeImageMovementSnappingTarget = null
     this._clearGuides()
     this._clearAnchors()
   }

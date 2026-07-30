@@ -3,7 +3,7 @@ import SnappingManager from '../../../../src/editor/snapping-manager'
 import {
   calculateHorizontalSpacing,
   calculateVerticalSpacing
-} from '../../../../src/editor/snapping-manager/spacing'
+} from '../../../../src/editor/snapping-manager/movement/spacing'
 import {
   CENTERING_STEP,
   MOVE_SNAP_STEP,

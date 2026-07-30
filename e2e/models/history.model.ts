@@ -2,6 +2,12 @@
 import type { Page } from '@playwright/test'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
+/** Позиция в истории и количество сохранённых изменений. */
+export type HistoryPosition = {
+  currentIndex: number
+  patchCount: number
+}
+
 export class HistoryModel {
   private readonly page: Page
 
@@ -44,6 +50,19 @@ export class HistoryModel {
     return this.page.evaluate(() => {
       const { editor } = window as any
       return editor.historyManager.flushPendingSave()
+    })
+  }
+
+  /** Возвращает текущую позицию history без сериализованного canvas payload. */
+  async getPosition(): Promise<HistoryPosition> {
+    return this.page.evaluate(() => {
+      const { editor } = window as any
+      const { historyManager } = editor
+
+      return {
+        currentIndex: historyManager.currentIndex,
+        patchCount: historyManager.patches.length
+      }
     })
   }
 

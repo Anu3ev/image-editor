@@ -1,15 +1,15 @@
 import {
-  createShapeScaleGestureProjection,
-  type ShapeScaleControlKey,
-  type ShapeScaleGestureProjection,
-  type ShapeScaleMultipliers
-} from '../../../../src/editor/shape-manager/scaling/shape-scale-projection'
+  createRectangularScaleGestureProjection,
+  type RectangularScaleControlKey,
+  type RectangularScaleGestureProjection,
+  type RectangularScaleMultipliers
+} from '../../../../src/editor/snapping-manager/scaling/rectangular-scale-gesture-projection'
 import { stabilizeShapeScaleMultipliers } from '../../../../src/editor/shape-manager/scaling/shape-scale-stabilization'
-import { createShapeScaleProjectionFixture } from '../../../test-utils/shape/scale-projection'
+import { createRectangularScaleProjectionFixture } from '../../../test-utils/snapping/rectangular-scale-gesture-projection'
 
 /** Параметры тестовой проекции с минимальной обязательной геометрией. */
 type StabilizationProjectionOptions = Readonly<{
-  controlKey?: ShapeScaleControlKey
+  controlKey?: RectangularScaleControlKey
   angle?: number
   width?: number
   height?: number
@@ -19,8 +19,8 @@ type StabilizationProjectionOptions = Readonly<{
 type SideModeCase = Readonly<{
   mode: 'horizontal' | 'vertical'
   controlKey: 'mr' | 'mb'
-  multipliers: ShapeScaleMultipliers
-  expected: ShapeScaleMultipliers
+  multipliers: RectangularScaleMultipliers
+  expected: RectangularScaleMultipliers
 }>
 
 /** Горизонтальный и вертикальный скейлинг с намеренно изменённой неактивной осью. */
@@ -45,14 +45,14 @@ function createProjection({
   angle = 0,
   width = 100,
   height = 80
-}: StabilizationProjectionOptions = {}): ShapeScaleGestureProjection {
-  const fixture = createShapeScaleProjectionFixture({
+}: StabilizationProjectionOptions = {}): RectangularScaleGestureProjection {
+  const fixture = createRectangularScaleProjectionFixture({
     controlKey,
     angle,
     width,
     height
   })
-  const projection = createShapeScaleGestureProjection({
+  const projection = createRectangularScaleGestureProjection({
     transform: fixture.transform,
     pointerStart: fixture.pointerStart
   })

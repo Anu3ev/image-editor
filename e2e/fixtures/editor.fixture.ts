@@ -11,7 +11,7 @@ import { TextModel } from '../models/text/text.model'
 import { SnappingModel } from '../models/snapping.model'
 import { BackgroundModel } from '../models/background.model'
 import { InteractionBlockerModel } from '../models/interaction-blocker.model'
-import { ImageModel } from '../models/image.model'
+import { ImageModel } from '../models/image/image.model'
 import { ToolbarModel } from '../models/toolbar.model'
 import { SelectionModel } from '../models/selection.model'
 import { GroupingModel } from '../models/grouping.model'
@@ -144,6 +144,7 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     await model.text.finishScaleIfActive()
     await model.text.finishResizeIfActive()
     await model.shapes.finishScaleIfActive()
+    await model.images.scaling.finishIfActive()
   },
 
   shapes: async({ editorModel }, use) => {

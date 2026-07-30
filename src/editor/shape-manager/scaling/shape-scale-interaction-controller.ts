@@ -12,31 +12,28 @@ import {
   createScaleGestureBaseline,
   type FinalScaleGeometry,
   type PlannedScaleConstraint,
-  type ScaleProjectionModeInput,
   type ScaleRawIntent,
   type ScaleSnapPlan
-} from '../../snapping-manager/scale-snapping-resolver'
-import { ScaleSnappingRuntime } from '../../snapping-manager/scale-snapping-runtime'
-import type {
-  ScaleProjectionVariable,
-  ScaleSceneEdge
-} from '../../snapping-manager/scale-projection'
+} from '../../snapping-manager/scaling/scale-snapping-resolver'
+import { ScaleSnappingRuntime } from '../../snapping-manager/scaling/scale-snapping-runtime'
+import type { ScaleSceneEdge } from '../../snapping-manager/scaling/scale-projection'
+import {
+  createRectangularScaleGestureProjection,
+  createRectangularScaleProjectionModes,
+  createRectangularScaleValues,
+  resolveRectangularScaleMovingEdges,
+  resolveRectangularScaleMultipliers,
+  resolveRectangularScalePointerMultipliers,
+  type RectangularScaleGestureMode,
+  type RectangularScaleGestureProjection,
+  type RectangularScaleGestureTransform,
+  type RectangularScaleMultipliers,
+  type RectangularScalePoint
+} from '../../snapping-manager/scaling/rectangular-scale-gesture-projection'
 import type { ShapeGroup } from '../types'
 import { isShapeGroup } from '../domain/shape-reference'
 import type ShapeScalingController from './shape-scaling-controller'
 import type { ShapeScalingPointerEvent } from './shape-scaling-layout'
-import {
-  createShapeScaleGestureProjection,
-  resolveShapeScaleModeProjection,
-  resolveShapeScalePointerMultipliers,
-  type ShapeScaleGestureMode,
-  type ShapeScaleGestureProjection,
-  type ShapeScaleGestureTransform,
-  type ShapeScaleModeProjection,
-  type ShapeScaleMultipliers,
-  type ShapeScalePoint,
-  type ShapeScaleProjectionVariable
-} from './shape-scale-projection'
 import { stabilizeShapeScaleMultipliers } from './shape-scale-stabilization'
 
 /** Данные события, необходимые для scale одиночного Shape. */
@@ -44,8 +41,8 @@ export type ShapeScaleInteractionEvent = Readonly<{
   target?: FabricObject | null
   e?: ShapeScalingPointerEvent | null
   transform?: Transform | null
-  pointer?: ShapeScalePoint
-  scenePoint?: ShapeScalePoint
+  pointer?: RectangularScalePoint
+  scenePoint?: RectangularScalePoint
 }>
 
 /** Свойства Shape, которые должны оставаться неизменными во время scale. */
@@ -64,14 +61,14 @@ type ShapeScaleProtectedState = Readonly<{
 type ShapeScaleGesture = Readonly<{
   target: ShapeGroup
   transform: Transform
-  projectionTransform: ShapeScaleGestureTransform
+  projectionTransform: RectangularScaleGestureTransform
 }>
 
 /** Данные активного scale-жеста одиночного Shape. */
 type ShapeScaleInteractionSession = Readonly<{
   target: ShapeGroup
   transform: Transform
-  projection: ShapeScaleGestureProjection
+  projection: RectangularScaleGestureProjection
   snapping: ScaleSnappingRuntime
   protectedState: ShapeScaleProtectedState
 }>
@@ -82,116 +79,19 @@ type ShapeScalePointSource = 'object-scaling' | 'mouse-move'
 /** Допуск при сравнении scale и свойств Shape. */
 const SHAPE_SCALE_STATE_EPSILON = 0.000000001
 
-/** Соответствие переменных Shape переменным общего snapping-расчёта. */
-const SNAPPING_VARIABLE_BY_SHAPE_VARIABLE: Readonly<Record<
-  ShapeScaleProjectionVariable,
-  ScaleProjectionVariable
->> = Object.freeze({
-  'multiplier-x': 'scale-x',
-  'multiplier-y': 'scale-y',
-  'uniform-multiplier': 'uniform-scale'
-})
+/** Проверяет доменные и affine-ограничения нового Shape scale owner. */
+function isSupportedShapeScaleTarget(target: FabricObject): target is ShapeGroup {
+  if (!isShapeGroup(target) || target.group) return false
+  if (Boolean(target.flipX) || Boolean(target.flipY)) return false
+  if (Boolean(target.locked) || Boolean(target.lockScalingX) || Boolean(target.lockScalingY)) return false
 
-/** Возвращает длину вектора на canvas. */
-function getVectorLength({ vector }: { vector: ShapeScalePoint }): number {
-  return Math.hypot(vector.x, vector.y)
-}
+  const skewX = target.skewX ?? 0
+  const skewY = target.skewY ?? 0
 
-/** Возвращает вклад каждой переменной scale в перемещение ручки. */
-function resolveScaleVariableWeights({
-  projection,
-  mode
-}: {
-  projection: ShapeScaleGestureProjection
-  mode: ShapeScaleGestureMode
-}): readonly number[] {
-  const leverX = projection.control.x - projection.origin.x
-  const leverY = projection.control.y - projection.origin.y
-  const xWeight = Math.abs(leverX) * getVectorLength({ vector: projection.u })
-  const yWeight = Math.abs(leverY) * getVectorLength({ vector: projection.v })
-
-  if (mode === 'horizontal') return Object.freeze([xWeight])
-  if (mode === 'vertical') return Object.freeze([yWeight])
-  if (mode === 'free') return Object.freeze([xWeight, yWeight])
-
-  const uniformVector = {
-    x: (leverX * projection.u.x) + (leverY * projection.v.x),
-    y: (leverX * projection.u.y) + (leverY * projection.v.y)
-  }
-
-  return Object.freeze([getVectorLength({ vector: uniformVector })])
-}
-
-/** Преобразует расчёт Shape в формат общего snapping-resolver. */
-function createScaleProjectionModeInput({
-  projection,
-  modeProjection
-}: {
-  projection: ShapeScaleGestureProjection
-  modeProjection: ShapeScaleModeProjection
-}): ScaleProjectionModeInput {
-  const variables = modeProjection.variables.map((variable) => {
-    return SNAPPING_VARIABLE_BY_SHAPE_VARIABLE[variable]
-  })
-
-  return Object.freeze({
-    id: modeProjection.mode,
-    projection: Object.freeze({
-      variables: Object.freeze(variables),
-      baselineValues: Object.freeze([...modeProjection.baselineValues]),
-      variableSceneWeights: resolveScaleVariableWeights({
-        projection,
-        mode: modeProjection.mode
-      }),
-      edges: Object.freeze(modeProjection.edges.map(({ edge, coefficients }) => {
-        return Object.freeze({ edge, coefficients: Object.freeze([...coefficients]) })
-      }))
-    })
-  })
-}
-
-/** Возвращает варианты scale, доступные выбранной ручке Shape. */
-function createSnappingModes({
-  projection
-}: {
-  projection: ShapeScaleGestureProjection
-}): readonly ScaleProjectionModeInput[] {
-  let modes: readonly ShapeScaleGestureMode[] = ['free', 'uniform']
-
-  if (projection.controlKey === 'ml' || projection.controlKey === 'mr') {
-    modes = ['horizontal']
-  }
-  if (projection.controlKey === 'mt' || projection.controlKey === 'mb') {
-    modes = ['vertical']
-  }
-
-  return Object.freeze(modes.map((mode) => {
-    const modeProjection = resolveShapeScaleModeProjection({ projection, mode })
-    if (!modeProjection) {
-      throw new Error(`Shape scale projection is missing supported mode "${mode}"`)
-    }
-
-    return createScaleProjectionModeInput({ projection, modeProjection })
-  }))
-}
-
-/** Возвращает грани, которые может перемещать выбранная ручка. */
-function resolveMovingEdges({
-  projectionModes
-}: {
-  projectionModes: readonly ScaleProjectionModeInput[]
-}): readonly ScaleSceneEdge[] {
-  const edges = new Set<ScaleSceneEdge>()
-
-  for (const { projection } of projectionModes) {
-    for (const edge of projection.edges) edges.add(edge.edge)
-  }
-
-  if (edges.size === 0) {
-    throw new Error('Shape scale gesture must contain at least one moving edge')
-  }
-
-  return Object.freeze([...edges])
+  return Number.isFinite(skewX)
+    && Number.isFinite(skewY)
+    && Math.abs(skewX) <= SHAPE_SCALE_STATE_EPSILON
+    && Math.abs(skewY) <= SHAPE_SCALE_STATE_EPSILON
 }
 
 /** Проверяет Fabric transform и возвращает данные scale-жеста Shape. */
@@ -202,7 +102,7 @@ function resolveShapeScaleGesture({
 }): ShapeScaleGesture | null {
   const { transform } = event
   if (!transform) return null
-  if (!isShapeGroup(transform.target)) return null
+  if (!isSupportedShapeScaleTarget(transform.target)) return null
 
   const originalScaleX = transform.original?.scaleX
   const originalScaleY = transform.original?.scaleY
@@ -251,9 +151,9 @@ function resolveScaleMode({
   projection,
   pointerEvent
 }: {
-  projection: ShapeScaleGestureProjection
+  projection: RectangularScaleGestureProjection
   pointerEvent: ShapeScalingPointerEvent
-}): ShapeScaleGestureMode {
+}): RectangularScaleGestureMode {
   if (projection.controlKey === 'ml' || projection.controlKey === 'mr') return 'horizontal'
   if (projection.controlKey === 'mt' || projection.controlKey === 'mb') return 'vertical'
 
@@ -266,35 +166,6 @@ function readScaleModifiers({ event }: { event: ShapeScalingPointerEvent }): Sca
     ctrlKey: 'ctrlKey' in event && event.ctrlKey === true,
     shiftKey: 'shiftKey' in event && event.shiftKey === true
   })
-}
-
-/** Преобразует множители Shape в значения выбранного режима scale. */
-function createScaleValues({
-  mode,
-  multipliers
-}: {
-  mode: ShapeScaleGestureMode
-  multipliers: ShapeScaleMultipliers
-}): readonly number[] {
-  if (mode === 'horizontal') return Object.freeze([multipliers.x])
-  if (mode === 'vertical') return Object.freeze([multipliers.y])
-  if (mode === 'uniform') return Object.freeze([multipliers.x])
-
-  return Object.freeze([multipliers.x, multipliers.y])
-}
-
-/** Возвращает множители scale, рассчитанные snapping-resolver. */
-function resolveSnappedMultipliers({ plan }: { plan: ScaleSnapPlan }): ShapeScaleMultipliers {
-  const [first, second] = plan.effectiveValues
-
-  if (plan.projectionMode === 'horizontal') return Object.freeze({ x: first, y: 1 })
-  if (plan.projectionMode === 'vertical') return Object.freeze({ x: 1, y: first })
-  if (plan.projectionMode === 'uniform') return Object.freeze({ x: first, y: first })
-  if (plan.projectionMode === 'free' && second !== undefined) {
-    return Object.freeze({ x: first, y: second })
-  }
-
-  throw new Error(`Unsupported Shape scale projection mode "${plan.projectionMode}"`)
 }
 
 /** Возвращает грани, зафиксированные на guide. */
@@ -360,8 +231,8 @@ function isShapeStatePreserved({
   multipliers
 }: {
   session: ShapeScaleInteractionSession
-  mode: ShapeScaleGestureMode
-  multipliers: ShapeScaleMultipliers
+  mode: RectangularScaleGestureMode
+  multipliers: RectangularScaleMultipliers
 }): boolean {
   if (!isSameScaleGesture({ session })) return false
   if (mode === 'horizontal') return Math.abs(multipliers.y - 1) <= SHAPE_SCALE_STATE_EPSILON
@@ -405,16 +276,16 @@ export default class ShapeScaleInteractionController {
     if (!gesture || !pointerStart) return false
 
     gesture.target.setCoords()
-    const projection = createShapeScaleGestureProjection({
+    const projection = createRectangularScaleGestureProjection({
       transform: gesture.projectionTransform,
       pointerStart
     })
     if (!projection) return false
 
-    const snappingModes = createSnappingModes({ projection })
+    const snappingModes = createRectangularScaleProjectionModes({ projection })
     const snappingEnvironment = this.editor.snappingManager.captureScaleSnapEnvironment({
       activeObject: gesture.target,
-      targetEdges: resolveMovingEdges({ projectionModes: snappingModes })
+      targetEdges: resolveRectangularScaleMovingEdges({ projectionModes: snappingModes })
     })
     const initialGeometry = createScaleGestureBaseline({
       bounds: projection.baselineBounds,
@@ -519,7 +390,7 @@ export default class ShapeScaleInteractionController {
     if (!pointer) return this._continueWithExistingScaling()
 
     const mode = resolveScaleMode({ projection: session.projection, pointerEvent })
-    const rawMultipliers = resolveShapeScalePointerMultipliers({
+    const rawMultipliers = resolveRectangularScalePointerMultipliers({
       projection: session.projection,
       pointer,
       mode
@@ -556,21 +427,24 @@ export default class ShapeScaleInteractionController {
     event: ShapeScaleInteractionEvent
     pointerEvent: ShapeScalingPointerEvent
     session: ShapeScaleInteractionSession
-    mode: ShapeScaleGestureMode
-    rawMultipliers: ShapeScaleMultipliers
+    mode: RectangularScaleGestureMode
+    rawMultipliers: RectangularScaleMultipliers
   }): boolean {
     const snapStep = session.snapping.resolveScalePlan({
       marker: pointerEvent,
       intent: Object.freeze({
         projectionMode: mode,
-        values: createScaleValues({ mode, multipliers: rawMultipliers }),
+        values: createRectangularScaleValues({ mode, multipliers: rawMultipliers }),
         modifiers: readScaleModifiers({ event: pointerEvent })
       })
     })
     if (snapStep.kind === 'duplicate') return true
 
     try {
-      const snappedMultipliers = resolveSnappedMultipliers({ plan: snapStep.plan })
+      const snappedMultipliers = resolveRectangularScaleMultipliers({
+        projectionMode: snapStep.plan.projectionMode,
+        effectiveValues: snapStep.plan.effectiveValues
+      })
       const appliedMultipliers = stabilizeShapeScaleMultipliers({
         projection: session.projection,
         mode,
@@ -602,7 +476,7 @@ export default class ShapeScaleInteractionController {
   }: {
     event: ShapeScaleInteractionEvent
     session: ShapeScaleInteractionSession
-    appliedMultipliers: ShapeScaleMultipliers
+    appliedMultipliers: RectangularScaleMultipliers
   }): void {
     const { target, transform, projection } = session
     const scaleX = projection.originalScales.x * appliedMultipliers.x
@@ -638,7 +512,7 @@ export default class ShapeScaleInteractionController {
   }: {
     session: ShapeScaleInteractionSession
     plan: ScaleSnapPlan
-    mode: ShapeScaleGestureMode
+    mode: RectangularScaleGestureMode
   }): FinalScaleGeometry {
     const bounds = getObjectExactBounds({ object: session.target })
     if (!bounds) throw new Error('Shape must have exact bounds after scale')
@@ -652,7 +526,7 @@ export default class ShapeScaleInteractionController {
     return Object.freeze({
       bounds,
       fixedAnchor: Object.freeze({ x: anchor.x, y: anchor.y }),
-      measuredValues: createScaleValues({ mode, multipliers }),
+      measuredValues: createRectangularScaleValues({ mode, multipliers }),
       domainVerdict: Object.freeze({
         x: didReachGuide({
           constraint: plan.constraints.x,
@@ -676,7 +550,7 @@ export default class ShapeScaleInteractionController {
     session
   }: {
     session: ShapeScaleInteractionSession
-  }): ShapeScaleMultipliers {
+  }): RectangularScaleMultipliers {
     const { target, projection } = session
 
     return Object.freeze({

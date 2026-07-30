@@ -385,19 +385,15 @@ test.describe('Картинка из шаблона после подготов�
         return images.getSnapshot({ objectIndex: 0 })
       })
 
-      await test.step('Масштабировать картинку вправо', async() => {
-        await images.scaleHorizontallyFromRight({
+      const finalSnapshot = await test.step('Масштабировать картинку вправо', async() => {
+        return images.scaling.resizeFromRight({
           objectIndex: 0,
           scaleX: IMAGE_SCALING_FACTOR
         })
       })
 
-      const finalSnapshot = await test.step('Завершить scale и сохранить состояние', async() => {
-        const snapshot = await images.finishScale({ objectIndex: 0 })
-
+      await test.step('Сохранить состояние после scale', async() => {
         await history.saveState()
-
-        return snapshot
       })
 
       await test.step('Проверить что после scale картинка осталась blob-ссылкой', async() => {
