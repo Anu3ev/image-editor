@@ -6,19 +6,19 @@ import type {
 } from '../../../src/editor/snapping-manager/types'
 import { createBoundsObject, createSnappingTestContext } from '../canvas/geometry-objects'
 
-/** Доступная тестам часть transient-состояния SnappingManager. */
+/** Доступная тестам часть временного состояния SnappingManager. */
 type SnappingManagerLifecycleState = {
   activeGuides: GuideLine[]
   activeSpacingGuides: SpacingGuide[]
   anchors: AnchorBuckets
-  activeImageMovementSnappingTarget: object | null
-  imageMovementSnappingController: {
-    startGesture: ({ target }: { target?: object | null }) => boolean
+  movementSnappingController: {
+    startGesture: ({ target }: { target?: object | null }) => void
     finishGesture: () => void
+    finishGestureForTarget: ({ target }: { target: object }) => boolean
   }
 }
 
-/** Видимые направляющие и anchors, общие для lifecycle-сценариев прилипания. */
+/** Направляющие и опорные точки, используемые в сценариях завершения прилипания. */
 export type VisibleSnappingState = {
   activeGuides: GuideLine[]
   activeSpacingGuides: SpacingGuide[]
@@ -26,23 +26,26 @@ export type VisibleSnappingState = {
 }
 
 /**
- * Создаёт SnappingManager и явные spy для проверки terminal lifecycle movement-сессии.
+ * Создаёт SnappingManager и перехватывает вызовы завершения перемещения.
  */
 export const createMovementSnappingLifecycleSetup = () => {
   const { editor, canvas } = createSnappingTestContext()
   const manager = new SnappingManager({ editor })
   const state: SnappingManagerLifecycleState = manager as any
   const startGestureMock = jest
-    .spyOn(state.imageMovementSnappingController, 'startGesture')
-    .mockReturnValue(true)
-  const finishGestureMock = jest.spyOn(state.imageMovementSnappingController, 'finishGesture')
+    .spyOn(state.movementSnappingController, 'startGesture')
+    .mockImplementation(() => undefined)
+  const finishGestureMock = jest.spyOn(state.movementSnappingController, 'finishGesture')
   const activeTarget = createBoundsObject({
     left: 100,
     top: 80,
     width: 40,
     height: 30,
-    id: 'active-image'
+    id: 'active-object'
   })
+  const finishGestureForTargetMock = jest
+    .spyOn(state.movementSnappingController, 'finishGestureForTarget')
+    .mockImplementation(({ target }) => target === activeTarget)
 
   return {
     manager,
@@ -50,11 +53,12 @@ export const createMovementSnappingLifecycleSetup = () => {
     state,
     activeTarget,
     startGestureMock,
-    finishGestureMock
+    finishGestureMock,
+    finishGestureForTargetMock
   }
 }
 
-/** Добавляет видимые guide и anchors, которые обязан очистить terminal event. */
+/** Заполняет направляющие и опорные точки, которые должны очищаться при завершении. */
 export const seedVisibleSnappingState = ({
   state
 }: {

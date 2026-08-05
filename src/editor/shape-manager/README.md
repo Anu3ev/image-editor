@@ -98,6 +98,14 @@ A regular top-level shape uses the two-phase scale-snapping contract described i
 
 Nested, flipped, skewed, or axis-locked shapes, `ActiveSelection`, and unsupported Fabric transforms are deliberately routed to the legacy scaling path before the new owner performs a mutation. If a supported gesture later reaches or crosses its fixed point, the unified session stops and hands subsequent processing to the legacy path. Do not describe the entire ShapeManager as migrated to unified snapping until these fallback paths have been handled explicitly.
 
+## Movement and snapping
+
+A top-level shape uses the shared movement contract from [`../snapping-manager/README.md`](../snapping-manager/README.md). `SnappingManager` captures the gesture baseline, resolves and holds line or equal-spacing constraints independently on both axes, applies one final `left/top` translation, and publishes guides only after verifying the exact resulting bounds.
+
+Movement does not have a shape-specific materialization step. It must not run layout, update canonical dimensions, or change the embedded text. `SnappingManager` owns the movement session and its guides, while the regular Fabric `object:modified` and history lifecycle commits the completed drag. Rotation, skew, and flip do not change this boundary for a top-level shape because movement only translates its exact scene bounds.
+
+Nested shapes, shapes inside `ActiveSelection`, movement without an active browser drag, and direct movement of an embedded text node remain outside this migrated movement boundary.
+
 ## Events and cleanup
 
 - `editor:shape-added` reports the completed shape, effective preset, and add options.

@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный controller расположен перед внутренними преобразованиями результата. */
+/* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними преобразованиями результата. */
 import {
   FabricImage,
   type BasicTransformEvent,
@@ -9,7 +9,8 @@ import {
 import type { ImageEditor } from '../..'
 import {
   createMovementSnapEnvironment,
-  type MovementSnapCandidateSource
+  type MovementSnapCandidateSource,
+  type MovementSnapEnvironment
 } from './movement-snap-candidates'
 import {
   createMovementGestureBaseline,
@@ -33,45 +34,50 @@ import {
   collectExcludedObjects,
   shouldIgnoreObject
 } from '../../utils/object-filter'
+import { isShapeGroup } from '../../shape-manager/domain/shape-reference'
+import type { ShapeGroup } from '../../shape-manager/types'
 
-/** Canvas-событие одного live movement-step. */
-export type ImageMovementTransformEvent = BasicTransformEvent<TPointerEvent> & {
+/** Верхнеуровневые объекты, уже переведённые на общую логику перемещения. */
+type SupportedMovementTarget = FabricImage | ShapeGroup
+
+/** Событие canvas для одного шага перемещения. */
+type ObjectMovementTransformEvent = BasicTransformEvent<TPointerEvent> & {
   target?: FabricObject | null
   e?: TPointerEvent | null
 }
 
-/** Событие обработает legacy movement owner. */
-export type UnhandledImageMovementStep = Readonly<{
+/** Событие остаётся на прежнем пути обработки перемещения. */
+type UnhandledObjectMovementStep = Readonly<{
   handled: false
 }>
 
-/** Событие обработано новым movement owner, включая отсутствие guide. */
-export type HandledImageMovementStep = Readonly<{
+/** Событие обработано общим контроллером, включая шаг без направляющих. */
+type HandledObjectMovementStep = Readonly<{
   handled: true
   guides: readonly GuideLine[]
   spacingGuides: readonly SpacingGuide[]
 }>
 
-/** Результат маршрутизации одного movement-step. */
-export type ImageMovementStepResult = UnhandledImageMovementStep | HandledImageMovementStep
+/** Результат маршрутизации одного шага перемещения. */
+type ObjectMovementStepResult = UnhandledObjectMovementStep | HandledObjectMovementStep
 
-/** Неизменяемый результат для target-ов, которые ещё не мигрированы. */
-const UNHANDLED_IMAGE_MOVEMENT_STEP: UnhandledImageMovementStep = Object.freeze({
+/** Неизменяемый результат для типов объектов, которые ещё не перенесены. */
+const UNHANDLED_OBJECT_MOVEMENT_STEP: UnhandledObjectMovementStep = Object.freeze({
   handled: false
 })
 
 /**
- * Владеет unified movement-сессией одиночного изображения.
- * Остальные target-ы до следующих этапов продолжают использовать legacy owner.
+ * Управляет общей сессией прилипания при перемещении изображения или шейпа.
+ * Остальные типы объектов продолжают использовать прежний путь обработки.
  */
-export class ImageMovementSnappingController {
+export class MovementSnappingController {
   private readonly _editor: ImageEditor
 
   private readonly _runtime = new MovementSnappingRuntime()
 
-  private _activeTarget: FabricImage | null = null
+  private _activeTarget: SupportedMovementTarget | null = null
 
-  /** Создаёт movement owner для canvas текущего редактора. */
+  /** Создаёт контроллер перемещения для canvas текущего редактора. */
   constructor({
     editor
   }: {
@@ -80,18 +86,18 @@ export class ImageMovementSnappingController {
     this._editor = editor
   }
 
-  /** Начинает unified-сессию только для поддержанного одиночного изображения. */
+  /** Начинает общую сессию только для уже перенесённого верхнеуровневого объекта. */
   startGesture({
     target
   }: {
     target?: FabricObject | null
-  }): boolean {
+  }): void {
     this.finishGesture()
-    if (!this._isSupportedTarget(target)) return false
+    if (!this._isSupportedTarget(target)) return
 
     const bounds = getObjectExactBounds({ object: target })
     if (!bounds) {
-      throw new Error('Image movement snapping requires exact target bounds')
+      throw new Error('Object movement snapping requires exact target bounds')
     }
 
     const position = this._readTargetPosition({ target })
@@ -104,19 +110,17 @@ export class ImageMovementSnappingController {
 
     this._runtime.startSession({ baseline })
     this._activeTarget = target
-
-    return true
   }
 
-  /** Рассчитывает, применяет один раз и проверяет текущий Image movement-step. */
+  /** Рассчитывает, один раз применяет и проверяет текущий шаг перемещения. */
   handleObjectMoving({
     event
   }: {
-    event: ImageMovementTransformEvent
-  }): ImageMovementStepResult {
+    event: ObjectMovementTransformEvent
+  }): ObjectMovementStepResult {
     const { target } = event
     const activeTarget = this._activeTarget
-    if (!target || !activeTarget || target !== activeTarget) return UNHANDLED_IMAGE_MOVEMENT_STEP
+    if (!target || !activeTarget || target !== activeTarget) return UNHANDLED_OBJECT_MOVEMENT_STEP
 
     const marker = resolveMovementMarker({ event })
     const duplicate = this._runtime.getDuplicateStep({ marker })
@@ -135,30 +139,45 @@ export class ImageMovementSnappingController {
     return createHandledStepResult({ verification })
   }
 
-  /** Идемпотентно очищает transient movement-состояние. */
+  /** Идемпотентно очищает временное состояние перемещения. */
   finishGesture(): void {
     this._runtime.finishSession()
     this._activeTarget = null
   }
 
-  /** Возвращает true только для top-level FabricImage текущей фазы. */
-  private _isSupportedTarget(
-    target?: FabricObject | null
-  ): target is FabricImage {
-    return target instanceof FabricImage && !target.group
+  /** Завершает сессию, если с canvas удалён перемещаемый объект. */
+  finishGestureForTarget({
+    target
+  }: {
+    target: FabricObject
+  }): boolean {
+    if (target !== this._activeTarget) return false
+
+    this.finishGesture()
+
+    return true
   }
 
-  /** Создаёт raw intent до любой post-Fabric мутации текущего шага. */
+  /** Разрешает обычное перемещение одиночного изображения или шейпа. */
+  private _isSupportedTarget(
+    target?: FabricObject | null
+  ): target is SupportedMovementTarget {
+    if (!target || target.group) return false
+
+    return target instanceof FabricImage || isShapeGroup(target)
+  }
+
+  /** Фиксирует положение объекта после перемещения Fabric, но до применения прилипания. */
   private _createRawIntent({
     target,
     event
   }: {
-    target: FabricImage
-    event: ImageMovementTransformEvent
+    target: SupportedMovementTarget
+    event: ObjectMovementTransformEvent
   }): MovementRawIntent {
     const bounds = getObjectExactBounds({ object: target })
     if (!bounds) {
-      throw new Error('Image movement snapping requires exact raw bounds')
+      throw new Error('Object movement snapping requires exact raw bounds')
     }
 
     return {
@@ -174,12 +193,12 @@ export class ImageMovementSnappingController {
     }
   }
 
-  /** Применяет одну итоговую target translation, если plan изменил raw position. */
+  /** Один раз применяет рассчитанную позицию, если она отличается от позиции Fabric. */
   private _applyMovementPlan({
     target,
     plan
   }: {
-    target: FabricImage
+    target: SupportedMovementTarget
     plan: MovementSnapPlan
   }): void {
     const { left, top } = plan.nextPosition
@@ -193,11 +212,11 @@ export class ImageMovementSnappingController {
   private _readFinalGeometry({
     target
   }: {
-    target: FabricImage
+    target: SupportedMovementTarget
   }): FinalMovementGeometry {
     const bounds = getObjectExactBounds({ object: target })
     if (!bounds) {
-      throw new Error('Image movement snapping requires exact final bounds')
+      throw new Error('Object movement snapping requires exact final bounds')
     }
 
     return {
@@ -206,14 +225,14 @@ export class ImageMovementSnappingController {
     }
   }
 
-  /** Читает конечные Fabric left/top без fallback-нормализации. */
+  /** Читает фактические координаты Fabric без подстановки значений по умолчанию. */
   private _readTargetPosition({
     target
   }: {
-    target: FabricImage
+    target: SupportedMovementTarget
   }): MovementTargetPosition {
     if (!Number.isFinite(target.left) || !Number.isFinite(target.top)) {
-      throw new Error('Image movement snapping requires finite target position')
+      throw new Error('Object movement snapping requires finite target position')
     }
 
     return {
@@ -222,12 +241,12 @@ export class ImageMovementSnappingController {
     }
   }
 
-  /** Фиксирует exact bounds неподвижных целей и montage один раз на gesture. */
+  /** Один раз фиксирует точные границы неподвижных объектов и монтажной области. */
   private _captureEnvironment({
     activeObject
   }: {
-    activeObject: FabricImage
-  }) {
+    activeObject: SupportedMovementTarget
+  }): MovementSnapEnvironment {
     const sources = this._collectCandidateSources({ activeObject })
     const montageBounds = getObjectExactBounds({ object: this._editor.montageArea })
     if (montageBounds) {
@@ -248,7 +267,7 @@ export class ImageMovementSnappingController {
   private _collectCandidateSources({
     activeObject
   }: {
-    activeObject: FabricImage
+    activeObject: SupportedMovementTarget
   }): MovementSnapCandidateSource[] {
     const excluded = collectExcludedObjects({ activeObject })
     const sources: MovementSnapCandidateSource[] = []
@@ -270,11 +289,11 @@ export class ImageMovementSnappingController {
   }
 }
 
-/** Выбирает native event как marker или использует canvas event для тестового пути. */
+/** Выбирает браузерное событие как маркер шага или использует событие canvas. */
 function resolveMovementMarker({
   event
 }: {
-  event: ImageMovementTransformEvent
+  event: ObjectMovementTransformEvent
 }): object {
   const { e } = event
   if ((typeof e === 'object' && e !== null) || typeof e === 'function') return e
@@ -282,12 +301,12 @@ function resolveMovementMarker({
   return event
 }
 
-/** Возвращает уже подтверждённый результат, не читая повторно изменённый target. */
+/** Возвращает уже подтверждённый результат, не читая повторно изменённый объект. */
 function createDuplicateStepResult({
   duplicate
 }: {
   duplicate: DuplicateMovementRuntimeStep
-}): HandledImageMovementStep {
+}): HandledObjectMovementStep {
   if (!duplicate.verification) {
     throw new Error('Duplicate movement step cannot be handled before verification')
   }
@@ -297,12 +316,12 @@ function createDuplicateStepResult({
   })
 }
 
-/** Преобразует verification в renderer-контракт SnappingManager. */
+/** Преобразует проверенный результат в формат отрисовки SnappingManager. */
 function createHandledStepResult({
   verification
 }: {
   verification: MovementSnapVerification
-}): HandledImageMovementStep {
+}): HandledObjectMovementStep {
   return Object.freeze({
     handled: true,
     guides: Object.freeze(createMovementGuideLines({ guides: verification.guides })),

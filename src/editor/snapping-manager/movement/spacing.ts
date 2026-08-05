@@ -1,7 +1,5 @@
-import { CENTERING_STEP } from '../constants'
 import {
   MAX_DISPLAY_DISTANCE_DIFF,
-  resolveCommonDisplayDistance,
   resolveDisplayDistance
 } from '../../utils/distance'
 import type {
@@ -62,6 +60,9 @@ type SpacingOption = {
   identity: SpacingSelectionIdentity
 }
 
+/** Допуск только для погрешности эквивалентных вычислений одного точного сдвига. */
+const SPACING_OPTION_DELTA_EPSILON = 1e-9
+
 /**
  * Возвращает величину перекрытия двух отрезков на оси.
  * Положительное значение означает пересечение, 0 — касание, отрицательное — разрыв.
@@ -77,43 +78,6 @@ const getAxisOverlap = ({
   secondStart: number
   secondEnd: number
 }): number => Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart)
-
-/**
- * Возвращает количество знаков после запятой для шага сетки.
- */
-const resolveStepPrecision = ({
-  step
-}: {
-  step: number
-}): number => {
-  const normalizedStep = Math.abs(step)
-  const stepString = normalizedStep.toString()
-  const dotIndex = stepString.indexOf('.')
-
-  if (dotIndex === -1) return 0
-
-  const decimalPart = stepString.slice(dotIndex + 1)
-
-  return decimalPart.length
-}
-
-/**
- * Приводит значение к ближайшему шагу сетки.
- */
-const snapToStep = ({
-  value,
-  step
-}: {
-  value: number
-  step: number
-}): number => {
-  if (step === 0) return value
-
-  const precision = resolveStepPrecision({ step })
-  const snappedValue = Math.round(value / step) * step
-
-  return Number(snappedValue.toFixed(precision))
-}
 
 /**
  * Возвращает начальную и конечную координаты по выбранной оси.
@@ -374,7 +338,7 @@ const resolveReferencePatternSide = ({
 }
 
 /**
- * Проверяет, что два варианта дают одинаковое смещение и отображаемое расстояние.
+ * Проверяет, что варианты ведут в одну точную позицию и показывают одно расстояние.
  */
 const areSpacingOptionsCompatible = ({
   baseOption,
@@ -392,7 +356,10 @@ const areSpacingOptionsCompatible = ({
     guide: { distance: candidateDistance }
   } = candidateOption
 
-  return baseDelta === candidateDelta && baseDistance === candidateDistance
+  const deltaDifference = Math.abs(baseDelta - candidateDelta)
+
+  return deltaDifference <= SPACING_OPTION_DELTA_EPSILON
+    && baseDistance === candidateDistance
 }
 
 /**
@@ -995,7 +962,7 @@ export const isSpacingSelectionApplicable = ({
   })
 }
 
-/** Подбирает позицию между соседями на сетке с шагом 0,5 px. */
+/** Возвращает точную позицию между двумя соседними объектами. */
 const resolveCenteredEqualSpacing = ({
   activeStart,
   activeEnd,
@@ -1009,39 +976,21 @@ const resolveCenteredEqualSpacing = ({
   afterEdge: number
   threshold: number
 }): EqualSpacingCandidate | null => {
+  const activeSize = activeEnd - activeStart
+  const availableSpace = afterEdge - beforeEdge - activeSize
+  if (availableSpace < 0) return null
+
+  const idealGap = availableSpace / 2
   const rawDelta = ((beforeEdge + afterEdge) - (activeStart + activeEnd)) / 2
-  const snappedDelta = snapToStep({ value: rawDelta, step: CENTERING_STEP })
-  const stepCount = Math.max(1, Math.ceil(threshold / CENTERING_STEP) + 1)
-  let bestCandidate: EqualSpacingCandidate | null = null
+  if (Math.abs(rawDelta) > threshold) return null
 
-  for (let offset = -stepCount; offset <= stepCount; offset += 1) {
-    const delta = snappedDelta + (offset * CENTERING_STEP)
-    const adjustedStart = activeStart + delta
-    const adjustedEnd = activeEnd + delta
-    const gapBefore = adjustedStart - beforeEdge
-    const gapAfter = afterEdge - adjustedEnd
-    if (gapBefore < 0 || gapAfter < 0) continue
-    if (Math.abs(delta) > threshold) continue
-
-    const display = resolveCommonDisplayDistance({
-      firstDistance: gapBefore,
-      secondDistance: gapAfter
-    })
-    if (display.displayDistanceDiff !== 0) continue
-
-    const score = Math.abs(gapBefore - gapAfter) + (Math.abs(delta - rawDelta) * 0.001)
-    if (bestCandidate && score >= bestCandidate.diff) continue
-
-    bestCandidate = {
-      delta,
-      distance: display.commonDisplayDistance,
-      diff: score,
-      activeStart: adjustedStart,
-      activeEnd: adjustedEnd
-    }
+  return {
+    delta: rawDelta,
+    distance: resolveDisplayDistance({ distance: idealGap }),
+    diff: 0,
+    activeStart: activeStart + rawDelta,
+    activeEnd: activeEnd + rawDelta
   }
-
-  return bestCandidate
 }
 
 /** Формирует вариант прилипания по центру между двумя соседями. */
@@ -1105,7 +1054,7 @@ const resolveCenteredSpacingOption = ({
   }
 }
 
-/** Подбирает позицию для совпадения с существующим отображаемым интервалом. */
+/** Рассчитывает точную позицию для совпадения с существующим интервалом. */
 const resolveReferenceSpacingCandidate = ({
   currentGap,
   referenceGap,
@@ -1121,36 +1070,22 @@ const resolveReferenceSpacingCandidate = ({
   activeEnd: number
   threshold: number
 }): ReferenceSpacingCandidate | null => {
-  if (currentGap < 0 || Math.abs(currentGap - referenceGap) > threshold) return null
+  if (currentGap < 0 || referenceGap < 0) return null
+  if (Math.abs(currentGap - referenceGap) > threshold) return null
 
-  const rawDelta = (referenceGap - currentGap) / gapDirection
-  const snappedDelta = snapToStep({ value: rawDelta, step: CENTERING_STEP })
-  const stepCount = Math.max(1, Math.ceil(threshold / CENTERING_STEP) + 1)
-  const referenceDistance = resolveDisplayDistance({ distance: referenceGap })
-  let bestCandidate: ReferenceSpacingCandidate | null = null
+  const gapDifference = referenceGap - currentGap
+  const delta = gapDifference === 0 ? 0 : gapDifference / gapDirection
+  if (Math.abs(delta) > threshold) return null
 
-  for (let offset = -stepCount; offset <= stepCount; offset += 1) {
-    const delta = snappedDelta + (offset * CENTERING_STEP)
-    const adjustedGap = currentGap + (delta * gapDirection)
-    if (adjustedGap < 0 || Math.abs(delta) > threshold) continue
+  const adjustedGap = currentGap + (delta * gapDirection)
 
-    const diff = Math.abs(adjustedGap - referenceGap)
-    if (diff > threshold) continue
-    if (resolveDisplayDistance({ distance: adjustedGap }) !== referenceDistance) continue
-
-    const score = diff + (Math.abs(delta - rawDelta) * 0.001)
-    if (bestCandidate && score >= bestCandidate.diff) continue
-
-    bestCandidate = {
-      delta,
-      distance: referenceDistance,
-      diff: score,
-      adjustedStart: activeStart + delta,
-      adjustedEnd: activeEnd + delta
-    }
+  return {
+    delta,
+    distance: resolveDisplayDistance({ distance: referenceGap }),
+    diff: Math.abs(adjustedGap - referenceGap),
+    adjustedStart: activeStart + delta,
+    adjustedEnd: activeEnd + delta
   }
-
-  return bestCandidate
 }
 
 /** Создаёт вариант прилипания и направляющую для проверенного интервала. */

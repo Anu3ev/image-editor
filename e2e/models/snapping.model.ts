@@ -244,6 +244,13 @@ export class SnappingModel {
     return this.getGuideState()
   }
 
+  /** Завершает начатое моделью перетаскивание или ничего не делает без активного указателя. */
+  async finishPointerInteractionIfActive(): Promise<void> {
+    if (!this.activePointerClientPoint) return
+
+    await this.finishPointerInteraction()
+  }
+
   /** Возвращает текущее Fabric-преобразование и геометрию выбранного объекта. */
   private async _getDragTransformInfo(params: ObjectTargetParams): Promise<DragTransformInfo> {
     const dragInfo = await this.page.evaluate(({ objectIndex, id }) => {

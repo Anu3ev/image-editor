@@ -103,6 +103,28 @@ const RELATED_REFERENCE_SPACING_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
+/** Две направляющие для совместимых интервалов вокруг перемещаемого объекта. */
+const RELATED_REFERENCE_SPACING_GUIDES = [
+  {
+    type: 'horizontal',
+    axis: 5,
+    refStart: -20,
+    refEnd: 0,
+    activeStart: 20,
+    activeEnd: 40,
+    distance: 20
+  },
+  {
+    type: 'horizontal',
+    axis: 5,
+    refStart: 100,
+    refEnd: 120,
+    activeStart: 60,
+    activeEnd: 80,
+    distance: 20
+  }
+] as const
+
 /** Одинаковые spacing-границы в двух непересекающихся рядах. */
 const SAME_SPACING_EDGES_IN_DIFFERENT_ROWS = [
   {
@@ -234,7 +256,7 @@ it('отпускает X независимо от продолжающего у
   expect(released.guides.map((guide) => guide.axis)).toEqual(['y'])
 })
 
-it('Ctrl возвращает raw position и очищает transient hold', () => {
+it('Ctrl возвращает исходную позицию Fabric и очищает временное удержание', () => {
   const baseline = createMovementBaseline({
     sources: [REFERENCE_SOURCE]
   })
@@ -308,7 +330,7 @@ it('переводит acquire-порог из экранных пикселей
   expect(plan.nextPosition).toEqual({ left: 103, top: 103 })
 })
 
-it('включает pixel rounding и равноудалённость в одну итоговую translation', () => {
+it('совмещает округление позиции с точной равноудалённостью', () => {
   const spacingBaseline = createMovementBaseline({
     bounds: createMovementBounds({
       left: 0,
@@ -321,7 +343,7 @@ it('включает pixel rounding и равноудалённость в од�
   const spaced = resolveMovementSnapPlan({
     baseline: spacingBaseline,
     intent: createMovementRawIntent({
-      left: 33,
+      left: 33.19,
       top: 100.6,
       width: 20
     }),
@@ -339,19 +361,68 @@ it('включает pixel rounding и равноудалённость в од�
   const heldSpacing = resolveMovementSnapPlan({
     baseline: spacingBaseline,
     intent: createMovementRawIntent({
-      left: 39,
+      left: 39.27,
       top: 100.6,
       width: 20
     }),
     holdState: verifiedSpacing.holdState
   })
+  const xConstraint = spaced.constraints.x
 
   expect(spaced.nextPosition).toEqual({ left: 35, top: 101 })
-  expect(spaced.constraints.x?.kind).toBe('spacing')
+  expect(xConstraint?.kind).toBe('spacing')
+  if (xConstraint?.kind !== 'spacing') {
+    throw new Error('По X должна быть выбрана точная равноудалённость')
+  }
+
+  expect(xConstraint.selections[0].guide).toEqual({
+    type: 'horizontal',
+    axis: 116,
+    refStart: 20,
+    refEnd: 35,
+    activeStart: 55,
+    activeEnd: 70,
+    distance: 15
+  })
   expect(spaced.constraints.y).toBeNull()
   expect(heldSpacing.nextPosition).toEqual({ left: 35, top: 101 })
   expect(verifiedSpacing.spacingGuides.length).toBeGreaterThan(0)
   expect(verifiedSpacing.holdState.x.kind).toBe('spacing')
+})
+
+it('точно выравнивает равноудалённость по вертикали', () => {
+  const baseline = createMovementBaseline({
+    bounds: createMovementBounds({ left: 0, top: 0, width: 20, height: 20 }),
+    sources: PER_AXIS_SPACING_SOURCES.slice(2)
+  })
+  const plan = resolveMovementSnapPlan({
+    baseline,
+    intent: createMovementRawIntent({
+      left: 0,
+      top: 33.19,
+      width: 20,
+      height: 20,
+      canSnapX: false
+    }),
+    holdState: FREE_MOVEMENT_HOLD_STATE
+  })
+  const yConstraint = plan.constraints.y
+
+  expect(yConstraint?.kind).toBe('spacing')
+  if (yConstraint?.kind !== 'spacing') {
+    throw new Error('По Y должна быть выбрана точная равноудалённость')
+  }
+
+  expect(yConstraint.selections[0].guide).toEqual({
+    type: 'vertical',
+    axis: 10,
+    refStart: 20,
+    refEnd: 35,
+    activeStart: 55,
+    activeEnd: 70,
+    distance: 15
+  })
+  expect(plan.nextPosition).toEqual({ left: 0, top: 35 })
 })
 
 it('заново выбирает равноудалённость после перехода к другим соседям с такими же X-границами', () => {
@@ -461,7 +532,7 @@ it('сохраняет основную равноудалённость, есл
     sources: RELATED_REFERENCE_SPACING_SOURCES
   })
   const rawIntent = createMovementRawIntent({
-    left: 40,
+    left: 40.19,
     top: 3,
     width: 20,
     height: 4
@@ -490,11 +561,101 @@ it('сохраняет основную равноудалённость, есл
 
   expect(initialX.selections.map(({ identity }) => identity.side)).toEqual(['before', 'after'])
   expect(initialX.selections.map(({ isPrimary }) => isPrimary)).toEqual([true, false])
+  expect(initialX.selections.map(({ guide }) => guide)).toEqual(RELATED_REFERENCE_SPACING_GUIDES)
   expect(finalX.selections).toHaveLength(1)
   expect(finalX.selections[0].identity.side).toBe('before')
   expect(finalX.selections[0].isPrimary).toBe(true)
   expect(plan.nextPosition).toEqual({ left: 40, top: 4 })
   expect(plan.constraints.y?.kind).toBe('line')
+})
+
+it('точно выравнивает интервал перед ближайшим объектом', () => {
+  const baseline = createMovementBaseline({
+    bounds: createMovementBounds({ left: 0, top: 0, width: 20, height: 4 }),
+    sources: RELATED_REFERENCE_SPACING_SOURCES.slice(2)
+  })
+  const plan = resolveMovementSnapPlan({
+    baseline,
+    intent: createMovementRawIntent({
+      left: 40.19,
+      top: 0,
+      width: 20,
+      height: 4,
+      canSnapY: false
+    }),
+    holdState: FREE_MOVEMENT_HOLD_STATE
+  })
+  const constraint = plan.constraints.x
+
+  expect(constraint?.kind).toBe('spacing')
+  if (constraint?.kind !== 'spacing') {
+    throw new Error('Перед ближайшим объектом должна быть выбрана равноудалённость')
+  }
+
+  expect(constraint.selections[0].identity.side).toBe('after')
+  expect(constraint.selections[0].guide).toEqual({
+    type: 'horizontal',
+    axis: 2,
+    refStart: 100,
+    refEnd: 120,
+    activeStart: 60,
+    activeEnd: 80,
+    distance: 20
+  })
+  expect(plan.nextPosition).toEqual({ left: 40, top: 0 })
+})
+
+it('не показывает дополнительный интервал, который не совпадает с точной позицией основного', () => {
+  const baseline = createMovementBaseline({
+    bounds: createMovementBounds({ left: 0, top: 0, width: 20, height: 4 }),
+    sources: [
+      {
+        id: 'left-reference-start',
+        bounds: createMovementBounds({ left: -40.1, top: 0, width: 20, height: 4 }),
+        useForSpacing: true
+      },
+      {
+        id: 'left-neighbor',
+        bounds: createMovementBounds({ left: 0, top: 0, width: 20, height: 4 }),
+        useForSpacing: true
+      },
+      {
+        id: 'right-neighbor',
+        bounds: createMovementBounds({ left: 80, top: 0, width: 20, height: 4 }),
+        useForSpacing: true
+      },
+      {
+        id: 'right-reference-end',
+        bounds: createMovementBounds({ left: 120.2, top: 0, width: 20, height: 4 }),
+        useForSpacing: true
+      }
+    ]
+  })
+  const plan = resolveMovementSnapPlan({
+    baseline,
+    intent: createMovementRawIntent({
+      left: 39.9,
+      top: 0,
+      width: 20,
+      height: 4,
+      canSnapY: false
+    }),
+    holdState: FREE_MOVEMENT_HOLD_STATE
+  })
+  const constraint = plan.constraints.x
+
+  expect(constraint?.kind).toBe('spacing')
+  if (constraint?.kind !== 'spacing') {
+    throw new Error('По X должна быть выбрана основная равноудалённость')
+  }
+
+  expect(constraint.selections).toHaveLength(1)
+  expect(constraint.selections[0].identity.side).toBe('after')
+  expect(plan.nextPosition.left).toBeCloseTo(39.8, 10)
+
+  const [selection] = constraint.selections
+  expect(selection.guide.activeEnd - selection.guide.activeStart)
+    .toBeCloseTo(selection.guide.refEnd - selection.guide.refStart, 10)
 })
 
 it('показывает только основной интервал, если дополнительный пропал после фактического перемещения', () => {
