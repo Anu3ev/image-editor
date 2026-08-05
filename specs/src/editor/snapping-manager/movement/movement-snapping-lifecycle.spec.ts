@@ -4,7 +4,7 @@ import {
   seedVisibleSnappingState
 } from '../../../../test-utils/snapping/snapping-lifecycle'
 
-/** Canvas-события, которые завершают текущий snapping interaction. */
+/** События canvas, которые завершают текущее перемещение с прилипанием. */
 const CANVAS_TERMINAL_EVENTS = [
   'mouse:up',
   'selection:created',
@@ -12,14 +12,14 @@ const CANVAS_TERMINAL_EVENTS = [
   'selection:cleared'
 ] as const
 
-/** Window-события, которые прерывают текущий snapping interaction. */
+/** События окна, которые прерывают текущее перемещение с прилипанием. */
 const WINDOW_TERMINAL_EVENTS = [
   'pointercancel',
   'touchcancel',
   'blur'
 ] as const
 
-it('новый mousedown очищает направляющие и кеш предыдущего interaction', () => {
+it('новый mouse:down очищает направляющие и кеш предыдущего перемещения', () => {
   const {
     manager,
     canvas,
@@ -30,18 +30,18 @@ it('новый mousedown очищает направляющие и кеш пр�
   emitCanvasEvent({
     canvas,
     event: 'mouse:down',
-    payload: { target: activeTarget }
+    payload: { target: activeTarget, transform: { action: 'drag' } }
   })
   seedVisibleSnappingState({ state })
 
   emitCanvasEvent({
     canvas,
     event: 'mouse:down',
-    payload: { target: activeTarget }
+    payload: { target: activeTarget, transform: { action: 'drag' } }
   })
 
   expect(startGestureMock).toHaveBeenCalledTimes(2)
-  expect(state.activeImageMovementSnappingTarget).toBe(activeTarget)
+  expect(startGestureMock).toHaveBeenLastCalledWith({ target: activeTarget })
   expect(state.activeGuides).toEqual([])
   expect(state.activeSpacingGuides).toEqual([])
   expect(state.anchors.vertical).not.toContain(100)
@@ -50,7 +50,7 @@ it('новый mousedown очищает направляющие и кеш пр�
   manager.destroy()
 })
 
-it.each(CANVAS_TERMINAL_EVENTS)('%s очищает movement-сессию и видимые направляющие', (event) => {
+it.each(CANVAS_TERMINAL_EVENTS)('%s завершает перемещение и очищает видимые направляющие', (event) => {
   const {
     manager,
     canvas,
@@ -61,14 +61,13 @@ it.each(CANVAS_TERMINAL_EVENTS)('%s очищает movement-сессию и ви
   emitCanvasEvent({
     canvas,
     event: 'mouse:down',
-    payload: { target: activeTarget }
+    payload: { target: activeTarget, transform: { action: 'drag' } }
   })
   seedVisibleSnappingState({ state })
 
   emitCanvasEvent({ canvas, event })
 
   expect(finishGestureMock).toHaveBeenCalledTimes(1)
-  expect(state.activeImageMovementSnappingTarget).toBeNull()
   expect(state.activeGuides).toEqual([])
   expect(state.activeSpacingGuides).toEqual([])
   expect(state.anchors).toEqual({ vertical: [], horizontal: [] })
@@ -76,7 +75,7 @@ it.each(CANVAS_TERMINAL_EVENTS)('%s очищает movement-сессию и ви
   manager.destroy()
 })
 
-it.each(WINDOW_TERMINAL_EVENTS)('%s прерывает movement-сессию и очищает направляющие', (event) => {
+it.each(WINDOW_TERMINAL_EVENTS)('%s прерывает перемещение и очищает направляющие', (event) => {
   const {
     manager,
     canvas,
@@ -87,14 +86,13 @@ it.each(WINDOW_TERMINAL_EVENTS)('%s прерывает movement-сессию и 
   emitCanvasEvent({
     canvas,
     event: 'mouse:down',
-    payload: { target: activeTarget }
+    payload: { target: activeTarget, transform: { action: 'drag' } }
   })
   seedVisibleSnappingState({ state })
 
   window.dispatchEvent(new Event(event))
 
   expect(finishGestureMock).toHaveBeenCalledTimes(1)
-  expect(state.activeImageMovementSnappingTarget).toBeNull()
   expect(state.activeGuides).toEqual([])
   expect(state.activeSpacingGuides).toEqual([])
   expect(state.anchors).toEqual({ vertical: [], horizontal: [] })
@@ -102,18 +100,19 @@ it.each(WINDOW_TERMINAL_EVENTS)('%s прерывает movement-сессию и 
   manager.destroy()
 })
 
-it('удаление активного изображения завершает его movement-сессию', () => {
+it('удаление активного объекта завершает его перемещение', () => {
   const {
     manager,
     canvas,
     state,
     activeTarget,
-    finishGestureMock
+    finishGestureMock,
+    finishGestureForTargetMock
   } = createMovementSnappingLifecycleSetup()
   emitCanvasEvent({
     canvas,
     event: 'mouse:down',
-    payload: { target: activeTarget }
+    payload: { target: activeTarget, transform: { action: 'drag' } }
   })
   seedVisibleSnappingState({ state })
 
@@ -124,7 +123,7 @@ it('удаление активного изображения завершае�
   })
 
   expect(finishGestureMock).toHaveBeenCalledTimes(1)
-  expect(state.activeImageMovementSnappingTarget).toBeNull()
+  expect(finishGestureForTargetMock).toHaveBeenCalledWith({ target: activeTarget })
   expect(state.activeGuides).toEqual([])
   expect(state.activeSpacingGuides).toEqual([])
   expect(state.anchors).toEqual({ vertical: [], horizontal: [] })
@@ -132,29 +131,31 @@ it('удаление активного изображения завершае�
   manager.destroy()
 })
 
-it('удаление другого объекта не прерывает movement активного изображения', () => {
+it('удаление другого объекта не прерывает активное перемещение', () => {
   const {
     manager,
     canvas,
     state,
     activeTarget,
-    finishGestureMock
+    finishGestureMock,
+    finishGestureForTargetMock
   } = createMovementSnappingLifecycleSetup()
   emitCanvasEvent({
     canvas,
     event: 'mouse:down',
-    payload: { target: activeTarget }
+    payload: { target: activeTarget, transform: { action: 'drag' } }
   })
   seedVisibleSnappingState({ state })
 
+  const otherTarget = {}
   emitCanvasEvent({
     canvas,
     event: 'object:removed',
-    payload: { target: {} }
+    payload: { target: otherTarget }
   })
 
   expect(finishGestureMock).not.toHaveBeenCalled()
-  expect(state.activeImageMovementSnappingTarget).toBe(activeTarget)
+  expect(finishGestureForTargetMock).toHaveBeenCalledWith({ target: otherTarget })
   expect(state.activeGuides).toHaveLength(1)
   expect(state.activeSpacingGuides).toHaveLength(1)
   expect(state.anchors).toEqual({ vertical: [100], horizontal: [80] })
@@ -162,8 +163,8 @@ it('удаление другого объекта не прерывает movem
   manager.destroy()
 })
 
-describe('уничтожение SnappingManager во время перемещения изображения', () => {
-  it('destroy очищает interaction и симметрично снимает canvas и window listeners', () => {
+describe('уничтожение SnappingManager во время перемещения объекта', () => {
+  it('destroy очищает временное состояние и снимает обработчики событий canvas и окна', () => {
     const addEventListenerSpy = jest.spyOn(window, 'addEventListener')
     const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener')
 
@@ -178,14 +179,13 @@ describe('уничтожение SnappingManager во время перемещ�
       emitCanvasEvent({
         canvas,
         event: 'mouse:down',
-        payload: { target: activeTarget }
+        payload: { target: activeTarget, transform: { action: 'drag' } }
       })
       seedVisibleSnappingState({ state })
 
       manager.destroy()
 
       expect(finishGestureMock).toHaveBeenCalledTimes(1)
-      expect(state.activeImageMovementSnappingTarget).toBeNull()
       expect(state.activeGuides).toEqual([])
       expect(canvas.off).toHaveBeenCalledWith('object:removed', expect.any(Function))
       expect(canvas.off).toHaveBeenCalledWith('selection:created', expect.any(Function))

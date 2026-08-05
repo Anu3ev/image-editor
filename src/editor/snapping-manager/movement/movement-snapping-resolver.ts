@@ -156,7 +156,7 @@ export type VerifiedMovementGuide = Readonly<{
   snapshotIndex: number
 }>
 
-/** Подтверждённые направляющие и новое transient-состояние movement-жеста. */
+/** Подтверждённые направляющие и новое временное состояние удержания. */
 export type MovementSnapVerification = Readonly<{
   guides: readonly VerifiedMovementGuide[]
   spacingGuides: readonly SpacingGuide[]
@@ -686,7 +686,7 @@ function isBetterMovementCandidate({
   return candidate.snapshotIndex < current.candidate.snapshotIndex
 }
 
-/** Возвращает сдвиг, необходимый для выбранной line. */
+/** Возвращает сдвиг, необходимый для выбранной обычной направляющей. */
 function resolveLineConstraintDelta({
   constraint,
   bounds
@@ -697,7 +697,7 @@ function resolveLineConstraintDelta({
   return constraint.candidate.position - bounds[constraint.activeAnchor]
 }
 
-/** Возвращает correction выбранного line или spacing-ограничения. */
+/** Возвращает сдвиг для выбранной обычной направляющей или равноудалённости. */
 function resolveProposalDelta({
   proposal,
   bounds
@@ -711,7 +711,7 @@ function resolveProposalDelta({
   return resolveLineConstraintDelta({ constraint: proposal, bounds })
 }
 
-/** Адаптирует существующий spacing-calculator к одному именованному constraint. */
+/** Преобразует расчёт равноудалённости в ограничение для одной оси. */
 function resolveSpacingConstraint({
   axis,
   baseline,
@@ -740,17 +740,22 @@ function resolveSpacingConstraint({
   }
 
   const context = freezeSpacingContext({ context: calculation.context })
-  if (!context) {
-    throw new Error('Movement spacing result must contain a context')
-  }
+  if (!context) throw new Error('Movement spacing result must contain a context')
   const selections = freezeSpacingSelections({
     selections: calculation.selections
   })
-  const primarySelections = selections.filter(({ isPrimary }) => isPrimary)
-  if (primarySelections.length !== 1) {
-    throw new Error('Movement spacing result must identify exactly one primary interval')
-  }
-  const [primarySelection] = primarySelections
+  const primarySelection = resolvePrimarySpacingSelection({ selections })
+  const exactDelta = resolveExactSpacingDelta({
+    axis,
+    bounds,
+    identity: primarySelection.identity
+  })
+  const exactSelections = resolveExactSpacingSelections({
+    axis,
+    bounds,
+    selections,
+    exactDelta
+  })
 
   return Object.freeze({
     kind: 'spacing',
@@ -761,13 +766,135 @@ function resolveSpacingConstraint({
       context
     }),
     context,
-    delta: calculation.delta,
-    selections,
+    delta: exactDelta,
+    selections: exactSelections,
     transition
   })
 }
 
-/** Вызывает horizontal или vertical spacing-calculator с порогом конкретной оси. */
+/** Возвращает единственный основной интервал рассчитанной равноудалённости. */
+function resolvePrimarySpacingSelection({
+  selections
+}: {
+  selections: readonly ResolvedSpacingSelection[]
+}): ResolvedSpacingSelection {
+  const primarySelections = selections.filter(({ isPrimary }) => isPrimary)
+  if (primarySelections.length !== 1) {
+    throw new Error('Movement spacing result must identify exactly one primary interval')
+  }
+
+  return primarySelections[0]
+}
+
+/** Рассчитывает точное смещение по выбранным соседям или образцу интервала. */
+function resolveExactSpacingDelta({
+  axis,
+  bounds,
+  identity
+}: {
+  axis: MovementSceneAxis
+  bounds: Bounds
+  identity: SpacingSelectionIdentity
+}): number {
+  const startEdge = axis === 'x' ? 'left' : 'top'
+  const endEdge = axis === 'x' ? 'right' : 'bottom'
+  const { before, after, pattern } = identity
+
+  if (identity.kind === 'center') {
+    if (!before || !after) {
+      throw new Error('Centered movement spacing requires both exact neighbours')
+    }
+
+    const targetSize = bounds[endEdge] - bounds[startEdge]
+    const availableSpace = after[startEdge] - before[endEdge] - targetSize
+    const expectedStart = before[endEdge] + (availableSpace / 2)
+
+    return expectedStart - bounds[startEdge]
+  }
+
+  if (!pattern) {
+    throw new Error('Reference movement spacing requires an exact pattern')
+  }
+  if (identity.side === 'before' && before) {
+    return before[endEdge] + pattern.distance - bounds[startEdge]
+  }
+  if (identity.side === 'after' && after) {
+    return after[startEdge] - pattern.distance - bounds[endEdge]
+  }
+
+  throw new Error('Reference movement spacing requires the selected exact neighbour')
+}
+
+/** Оставляет интервалы, совместимые с точной позицией основного интервала. */
+function resolveExactSpacingSelections({
+  axis,
+  bounds,
+  selections,
+  exactDelta
+}: {
+  axis: MovementSceneAxis
+  bounds: Bounds
+  selections: readonly ResolvedSpacingSelection[]
+  exactDelta: number
+}): readonly ResolvedSpacingSelection[] {
+  const exactSelections: ResolvedSpacingSelection[] = []
+
+  for (const selection of selections) {
+    const selectionDelta = resolveExactSpacingDelta({
+      axis,
+      bounds,
+      identity: selection.identity
+    })
+    if (Math.abs(selectionDelta - exactDelta) > MOVEMENT_CORRECTION_COMPARISON_EPSILON) continue
+
+    exactSelections.push(Object.freeze({
+      ...selection,
+      guide: createExactSpacingGuide({ axis, bounds, selection, exactDelta })
+    }))
+  }
+
+  return Object.freeze(exactSelections)
+}
+
+/** Перестраивает концы направляющей по точным итоговым границам объекта. */
+function createExactSpacingGuide({
+  axis,
+  bounds,
+  selection,
+  exactDelta
+}: {
+  axis: MovementSceneAxis
+  bounds: Bounds
+  selection: ResolvedSpacingSelection
+  exactDelta: number
+}): SpacingGuide {
+  const { guide, identity } = selection
+  const startEdge = axis === 'x' ? 'left' : 'top'
+  const endEdge = axis === 'x' ? 'right' : 'bottom'
+  const finalStart = bounds[startEdge] + exactDelta
+  const finalEnd = bounds[endEdge] + exactDelta
+
+  if (identity.kind === 'center') {
+    return Object.freeze({
+      ...guide,
+      refEnd: finalStart,
+      activeStart: finalEnd
+    })
+  }
+  if (identity.side === 'before') {
+    return Object.freeze({
+      ...guide,
+      activeEnd: finalStart
+    })
+  }
+
+  return Object.freeze({
+    ...guide,
+    activeStart: finalEnd
+  })
+}
+
+/** Рассчитывает равноудалённость с порогом для выбранной оси. */
 function calculateMovementAxisSpacing({
   axis,
   baseline,
@@ -797,7 +924,7 @@ function calculateMovementAxisSpacing({
     : calculateVerticalSpacing(params)
 }
 
-/** Создаёт стабильный идентификатор из полной identity основного spacing-интервала. */
+/** Создаёт стабильный идентификатор по точным данным основного интервала. */
 function createSpacingCandidateId({
   axis,
   identity,
@@ -814,12 +941,12 @@ function createSpacingCandidateId({
   })
 }
 
-/** Сравнивает координаты identity без display rounding. */
+/** Сравнивает точные координаты без округления отображаемого значения. */
 function areNumbersNear(first: number, second: number): boolean {
   return Math.abs(first - second) <= EXACT_BOUNDS_CENTER_EPSILON
 }
 
-/** Рассчитывает единственную позицию target из одного constraint на каждой оси. */
+/** Рассчитывает итоговую позицию объекта по одному ограничению на каждой оси. */
 function resolveNextMovementPosition({
   intent,
   proposals
@@ -843,7 +970,7 @@ function resolveNextMovementPosition({
   })
 }
 
-/** Округляет свободную ось к pixel grid, не меняя защищённую направляющую. */
+/** Округляет свободную ось до пикселя, не сдвигая объект с направляющей. */
 function resolveMovementAxisPosition({
   value,
   delta,
@@ -861,7 +988,7 @@ function resolveMovementAxisPosition({
   return Math.round(value / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
 }
 
-/** Материализует plan constraints и переносит spacing guide по поперечной оси. */
+/** Формирует ограничения плана и сдвигает равноудалённость по поперечной оси. */
 function createPlannedMovementConstraints({
   proposals,
   deltaX,
@@ -877,7 +1004,7 @@ function createPlannedMovementConstraints({
   })
 }
 
-/** Копирует line или фиксирует spacing guide в ожидаемой финальной позиции. */
+/** Сохраняет обычную направляющую или фиксирует равноудалённость в итоговой позиции. */
 function materializeMovementConstraint({
   proposal,
   deltaX,
@@ -906,7 +1033,7 @@ function materializeMovementConstraint({
   })
 }
 
-/** Проверяет выбранное ограничение по общим final bounds, не подменяя его candidate. */
+/** Проверяет выбранное ограничение по итоговым границам, не заменяя его другим. */
 function verifyMovementAxisConstraint({
   baseline,
   constraint,

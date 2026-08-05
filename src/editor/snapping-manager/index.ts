@@ -29,7 +29,7 @@ import {
 import type { VerifiedScaleGuide } from './scaling/scale-snapping-resolver'
 import type { ScaleSceneEdge } from './scaling/scale-projection'
 import { ImageScaleSnappingController } from './scaling/image-scale-snapping-controller'
-import { ImageMovementSnappingController } from './movement/image-movement-snapping-controller'
+import { MovementSnappingController } from './movement/movement-snapping-controller'
 import {
   calculateSnappingViewportBounds,
   renderSnappingGuides
@@ -78,7 +78,7 @@ type MouseEventInfo = TPointerEventInfo<TPointerEvent> & {
   target?: FabricObject | null
 }
 
-/** Canvas-событие с объектом, который мог быть target активной сессии. */
+/** Событие canvas с объектом, который мог участвовать в активной сессии. */
 type ObjectTargetEvent = {
   target?: FabricObject | null
 }
@@ -224,14 +224,11 @@ export default class SnappingManager {
   /** События указателя, уже обработанные менеджером конкретного типа объекта. */
   private readonly handledScaleStepEvents = new WeakSet<object>()
 
-  /** Владелец unified movement-сессии одиночного Image. */
-  private readonly imageMovementSnappingController: ImageMovementSnappingController
+  /** Управляет унифицированным прилипанием при перемещении изображений и шейпов. */
+  private readonly movementSnappingController: MovementSnappingController
 
-  /** Владелец unified scale-сессии для уже перенесённых Image controls. */
+  /** Управляет общей сессией прилипания при скейлинге изображений. */
   private readonly imageScaleSnappingController: ImageScaleSnappingController
-
-  /** Активный target Image movement-сессии для точной обработки object:removed. */
-  private activeImageMovementSnappingTarget: FabricObject | null = null
 
   /**
    * Обработчик начала перетаскивания объекта.
@@ -252,11 +249,11 @@ export default class SnappingManager {
   private _onObjectScaling: (event: TransformEvent) => void
 
   /**
-   * Обработчик завершения или прерывания interaction.
+   * Обработчик завершения или прерывания взаимодействия.
    */
   private _onInteractionFinished: () => void
 
-  /** Обработчик удаления возможного target активной movement-сессии. */
+  /** Обработчик удаления объекта, который мог участвовать в активной сессии перемещения. */
   private _onObjectRemoved: (event: ObjectTargetEvent) => void
 
   /**
@@ -276,7 +273,7 @@ export default class SnappingManager {
     this.editor = editor
     const { canvas } = editor
     this.canvas = canvas
-    this.imageMovementSnappingController = new ImageMovementSnappingController({ editor })
+    this.movementSnappingController = new MovementSnappingController({ editor })
     this.imageScaleSnappingController = new ImageScaleSnappingController({ editor })
 
     this._onMouseDown = this._handleMouseDown.bind(this)
@@ -403,7 +400,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Очищает прошлый interaction и фиксирует цели нового gesture.
+   * Очищает состояние прошлого взаимодействия и фиксирует цели нового.
    */
   private _handleMouseDown(event: MouseEventInfo): void {
     const { target } = event
@@ -414,17 +411,16 @@ export default class SnappingManager {
     const movementTarget = !usesUnifiedScale && event.transform?.action === 'drag'
       ? target
       : null
-    const usesImageMovementSnapping = this.imageMovementSnappingController.startGesture({
+    this.movementSnappingController.startGesture({
       target: movementTarget
     })
-    this.activeImageMovementSnappingTarget = usesImageMovementSnapping ? target ?? null : null
 
     if (!target) return
 
     this._cacheAnchors({ activeObject: target, mode: 'rounded' })
   }
 
-  /** Обрабатывает Image scale-step, для которого Fabric не отправил transform event. */
+  /** Обрабатывает шаг скейлинга изображения без события преобразования от Fabric. */
   private _handleMouseMove(event: MouseEventInfo): void {
     const unifiedStep = this.imageScaleSnappingController.handleCanvasMouseMove({ event })
     if (unifiedStep.handled) {
@@ -441,11 +437,11 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его перемещении.
    */
   private _handleObjectMoving(event: TransformEvent): void {
-    const imageMovementStep = this.imageMovementSnappingController.handleObjectMoving({ event })
-    if (imageMovementStep.handled) {
+    const objectMovementStep = this.movementSnappingController.handleObjectMoving({ event })
+    if (objectMovementStep.handled) {
       this._applyGuides({
-        guides: [...imageMovementStep.guides],
-        spacingGuides: [...imageMovementStep.spacingGuides]
+        guides: [...objectMovementStep.guides],
+        spacingGuides: [...objectMovementStep.spacingGuides]
       })
       return
     }
@@ -1231,17 +1227,17 @@ export default class SnappingManager {
     })
   }
 
-  /** Очищает unified-сессии, направляющие и кеш после завершающего события. */
+  /** Очищает общие сессии прилипания, направляющие и кеш после завершающего события. */
   private _handleInteractionFinished(): void {
     this._finishSnappingInteraction()
   }
 
-  /** Завершает interaction, только если с canvas удалили его активный target. */
+  /** Завершает взаимодействие, только если с canvas удалили участвующий в нём объект. */
   private _handleObjectRemoved(event: ObjectTargetEvent): void {
     const { target } = event
     if (!target) return
 
-    const removedMovementTarget = target === this.activeImageMovementSnappingTarget
+    const removedMovementTarget = this.movementSnappingController.finishGestureForTarget({ target })
     const removedScaleTarget = this.imageScaleSnappingController.finishGestureForTarget({
       target
     })
@@ -1250,11 +1246,10 @@ export default class SnappingManager {
     this._finishSnappingInteraction()
   }
 
-  /** Идемпотентно очищает всё transient-состояние текущего interaction с прилипанием. */
+  /** Идемпотентно очищает всё временное состояние текущего взаимодействия с прилипанием. */
   private _finishSnappingInteraction(): void {
-    this.imageMovementSnappingController.finishGesture()
+    this.movementSnappingController.finishGesture()
     this.imageScaleSnappingController.finishGesture()
-    this.activeImageMovementSnappingTarget = null
     this._clearGuides()
     this._clearAnchors()
   }
