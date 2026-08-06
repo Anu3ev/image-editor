@@ -24,6 +24,7 @@ import { ClipboardModel } from './clipboard.model'
 import { TemplateModel } from './template.model'
 import { TextModel } from './text/text.model'
 import { SnappingModel } from './snapping.model'
+import { MeasurementModel } from './measurement.model'
 import { BackgroundModel } from './background.model'
 import { InteractionBlockerModel } from './interaction-blocker.model'
 import { ScaleInteractionTraceModel } from './scale-interaction-trace.model'
@@ -79,6 +80,8 @@ export class EditorModel {
 
   readonly snapping: SnappingModel
 
+  readonly measurement: MeasurementModel
+
   readonly background: BackgroundModel
 
   readonly interactionBlocker: InteractionBlockerModel
@@ -103,6 +106,7 @@ export class EditorModel {
     this.template = new TemplateModel(page)
     this.text = new TextModel(page)
     this.snapping = new SnappingModel(page)
+    this.measurement = new MeasurementModel(page)
     this.background = new BackgroundModel(page)
     this.interactionBlocker = new InteractionBlockerModel(page)
     this.scaleInteractionTrace = new ScaleInteractionTraceModel(page)

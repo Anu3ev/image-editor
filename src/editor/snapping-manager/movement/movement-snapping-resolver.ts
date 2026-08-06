@@ -7,8 +7,6 @@ import {
 import {
   calculateHorizontalSpacing,
   calculateVerticalSpacing,
-  createSpacingGuideGeometryKey,
-  isSpacingSelectionApplicable,
   type ResolvedSpacingSelection,
   type SpacingSelectionContext,
   type SpacingSelectionIdentity
@@ -18,7 +16,8 @@ import {
   type MovementSceneAxis,
   type MovementSnapCandidate,
   type MovementSnapCandidateCategory,
-  type MovementSnapEnvironment
+  type MovementSnapEnvironment,
+  type MovementSnapSpacingSource
 } from './movement-snap-candidates'
 import type {
   Bounds,
@@ -27,6 +26,19 @@ import type {
   SpacingPattern
 } from '../types'
 import { buildSpacingPatterns } from './spacing-patterns'
+import {
+  ACTIVE_MOVEMENT_SPACING_SOURCE_ID,
+  createMovementSpacingChains,
+  type MovementSpacingChains
+} from './spacing-chains'
+import {
+  MOVEMENT_CORRECTION_COMPARISON_EPSILON,
+  resolveMovementSpacingCorrection
+} from './movement-spacing-correction'
+import {
+  appendVerifiedMovementSpacingGuides,
+  resolveApplicableMovementSpacingSelections
+} from './movement-spacing-verification'
 
 /** Положение Fabric origin перемещаемого объекта. */
 export type MovementTargetPosition = Readonly<{
@@ -78,6 +90,7 @@ export type MovementGestureBaseline = Readonly<{
   position: MovementTargetPosition
   candidates: readonly MovementSnapCandidate[]
   spacingBounds: readonly Bounds[]
+  spacingChains: MovementSpacingChains
   spacingPatterns: Readonly<{
     vertical: readonly SpacingPattern[]
     horizontal: readonly SpacingPattern[]
@@ -118,6 +131,7 @@ export type PlannedMovementSpacingConstraint = Readonly<{
   kind: 'spacing'
   axis: MovementSceneAxis
   candidateId: string
+  chainId: string | null
   context: Readonly<SpacingSelectionContext>
   delta: number
   selections: readonly ResolvedSpacingSelection[]
@@ -190,9 +204,6 @@ export const MOVEMENT_SNAP_VERIFICATION_EPSILON = 0.1
 /** Допуск проверки центров в точных границах. */
 const EXACT_BOUNDS_CENTER_EPSILON = 0.000000001
 
-/** Допуск сравнения двух correction при выборе одного ограничения. */
-const MOVEMENT_CORRECTION_COMPARISON_EPSILON = 0.000000001
-
 /** Число проходов для стабилизации cross-axis spacing после замены constraints. */
 const MOVEMENT_SPACING_COMPATIBILITY_PASSES = 3
 
@@ -232,17 +243,29 @@ export function createMovementGestureBaseline({
 }): MovementGestureBaseline {
   const exactBounds = createExactBoundsSnapshot({ bounds })
   const exactPosition = createPositionSnapshot({ position })
-  const spacingBounds = environment.spacingBounds.map((candidateBounds) => {
-    return createExactBoundsSnapshot({ bounds: candidateBounds })
+  const spacingSources = environment.spacingSources.map(({ id, bounds: candidateBounds }) => {
+    return Object.freeze({
+      id,
+      bounds: createExactBoundsSnapshot({ bounds: candidateBounds })
+    })
   })
+  const spacingBounds = spacingSources.map(({ bounds: candidateBounds }) => candidateBounds)
   const spacingPatterns = buildSpacingPatterns({ bounds: [...spacingBounds] })
+  const activeSpacingSource: MovementSnapSpacingSource = Object.freeze({
+    id: ACTIVE_MOVEMENT_SPACING_SOURCE_ID,
+    bounds: exactBounds
+  })
 
   return Object.freeze({
     bounds: exactBounds,
     position: exactPosition,
     candidates: environment.candidates,
     spacingBounds: Object.freeze(spacingBounds),
-    spacingPatterns: freezeSpacingPatterns({ patterns: spacingPatterns }),
+    spacingChains: createMovementSpacingChains({ sources: [...spacingSources, activeSpacingSource] }),
+    spacingPatterns: Object.freeze({
+      vertical: Object.freeze(spacingPatterns.vertical.map((pattern) => Object.freeze({ ...pattern }))),
+      horizontal: Object.freeze(spacingPatterns.horizontal.map((pattern) => Object.freeze({ ...pattern })))
+    }),
     thresholds: createMovementSnapThresholds({ zoom: environment.zoom })
   })
 }
@@ -563,7 +586,7 @@ function resolveCompatibleSpacingProposal({
 }): MovementAxisProposal | null {
   if (!proposal || proposal.kind === 'line') return proposal
 
-  const selections = resolveApplicableSpacingSelections({
+  const selections = resolveApplicableMovementSpacingSelections({
     constraint: proposal,
     baseline,
     bounds
@@ -581,44 +604,6 @@ function resolveCompatibleSpacingProposal({
   return Object.freeze({
     ...proposal,
     selections: Object.freeze(selections)
-  })
-}
-
-/** Возвращает cross-axis tolerance выбранного acquire или held spacing. */
-function resolveSpacingSelectionTolerance({
-  constraint,
-  baseline
-}: {
-  constraint: PlannedMovementSpacingConstraint
-  baseline: MovementGestureBaseline
-}): number {
-  return constraint.transition === 'held'
-    ? baseline.thresholds.spacingRelease
-    : baseline.thresholds.acquire
-}
-
-/** Оставляет только spacing selections, применимые к заданным общим bounds. */
-function resolveApplicableSpacingSelections({
-  constraint,
-  baseline,
-  bounds
-}: {
-  constraint: PlannedMovementSpacingConstraint
-  baseline: MovementGestureBaseline
-  bounds: Bounds
-}): readonly ResolvedSpacingSelection[] {
-  const tolerance = resolveSpacingSelectionTolerance({
-    constraint,
-    baseline
-  })
-
-  return constraint.selections.filter((selection) => {
-    return isSpacingSelectionApplicable({
-      selection,
-      activeBounds: bounds,
-      candidates: baseline.spacingBounds,
-      tolerance
-    })
   })
 }
 
@@ -739,22 +724,45 @@ function resolveSpacingConstraint({
     throw new Error('Movement spacing result must describe its selected intervals')
   }
 
+  return createPlannedMovementSpacingConstraint({
+    axis,
+    baseline,
+    bounds,
+    threshold,
+    transition,
+    calculation
+  })
+}
+
+/** Создаёт ограничение из проверенного результата расчёта равноудалённости. */
+function createPlannedMovementSpacingConstraint({
+  axis,
+  baseline,
+  bounds,
+  threshold,
+  transition,
+  calculation
+}: {
+  axis: MovementSceneAxis
+  baseline: MovementGestureBaseline
+  bounds: Bounds
+  threshold: number
+  transition: MovementSnapTransition
+  calculation: MovementSpacingCalculation
+}): PlannedMovementSpacingConstraint {
   const context = freezeSpacingContext({ context: calculation.context })
   if (!context) throw new Error('Movement spacing result must contain a context')
   const selections = freezeSpacingSelections({
     selections: calculation.selections
   })
   const primarySelection = resolvePrimarySpacingSelection({ selections })
-  const exactDelta = resolveExactSpacingDelta({
+  const correction = resolveMovementSpacingCorrection({
     axis,
+    baseline,
     bounds,
-    identity: primarySelection.identity
-  })
-  const exactSelections = resolveExactSpacingSelections({
-    axis,
-    bounds,
+    threshold,
     selections,
-    exactDelta
+    primarySelection
   })
 
   return Object.freeze({
@@ -762,12 +770,14 @@ function resolveSpacingConstraint({
     axis,
     candidateId: createSpacingCandidateId({
       axis,
+      chainId: correction.chain?.id ?? null,
       identity: primarySelection.identity,
       context
     }),
+    chainId: correction.chain?.id ?? null,
     context,
-    delta: exactDelta,
-    selections: exactSelections,
+    delta: correction.delta,
+    selections: correction.selections,
     transition
   })
 }
@@ -784,114 +794,6 @@ function resolvePrimarySpacingSelection({
   }
 
   return primarySelections[0]
-}
-
-/** Рассчитывает точное смещение по выбранным соседям или образцу интервала. */
-function resolveExactSpacingDelta({
-  axis,
-  bounds,
-  identity
-}: {
-  axis: MovementSceneAxis
-  bounds: Bounds
-  identity: SpacingSelectionIdentity
-}): number {
-  const startEdge = axis === 'x' ? 'left' : 'top'
-  const endEdge = axis === 'x' ? 'right' : 'bottom'
-  const { before, after, pattern } = identity
-
-  if (identity.kind === 'center') {
-    if (!before || !after) {
-      throw new Error('Centered movement spacing requires both exact neighbours')
-    }
-
-    const targetSize = bounds[endEdge] - bounds[startEdge]
-    const availableSpace = after[startEdge] - before[endEdge] - targetSize
-    const expectedStart = before[endEdge] + (availableSpace / 2)
-
-    return expectedStart - bounds[startEdge]
-  }
-
-  if (!pattern) {
-    throw new Error('Reference movement spacing requires an exact pattern')
-  }
-  if (identity.side === 'before' && before) {
-    return before[endEdge] + pattern.distance - bounds[startEdge]
-  }
-  if (identity.side === 'after' && after) {
-    return after[startEdge] - pattern.distance - bounds[endEdge]
-  }
-
-  throw new Error('Reference movement spacing requires the selected exact neighbour')
-}
-
-/** Оставляет интервалы, совместимые с точной позицией основного интервала. */
-function resolveExactSpacingSelections({
-  axis,
-  bounds,
-  selections,
-  exactDelta
-}: {
-  axis: MovementSceneAxis
-  bounds: Bounds
-  selections: readonly ResolvedSpacingSelection[]
-  exactDelta: number
-}): readonly ResolvedSpacingSelection[] {
-  const exactSelections: ResolvedSpacingSelection[] = []
-
-  for (const selection of selections) {
-    const selectionDelta = resolveExactSpacingDelta({
-      axis,
-      bounds,
-      identity: selection.identity
-    })
-    if (Math.abs(selectionDelta - exactDelta) > MOVEMENT_CORRECTION_COMPARISON_EPSILON) continue
-
-    exactSelections.push(Object.freeze({
-      ...selection,
-      guide: createExactSpacingGuide({ axis, bounds, selection, exactDelta })
-    }))
-  }
-
-  return Object.freeze(exactSelections)
-}
-
-/** Перестраивает концы направляющей по точным итоговым границам объекта. */
-function createExactSpacingGuide({
-  axis,
-  bounds,
-  selection,
-  exactDelta
-}: {
-  axis: MovementSceneAxis
-  bounds: Bounds
-  selection: ResolvedSpacingSelection
-  exactDelta: number
-}): SpacingGuide {
-  const { guide, identity } = selection
-  const startEdge = axis === 'x' ? 'left' : 'top'
-  const endEdge = axis === 'x' ? 'right' : 'bottom'
-  const finalStart = bounds[startEdge] + exactDelta
-  const finalEnd = bounds[endEdge] + exactDelta
-
-  if (identity.kind === 'center') {
-    return Object.freeze({
-      ...guide,
-      refEnd: finalStart,
-      activeStart: finalEnd
-    })
-  }
-  if (identity.side === 'before') {
-    return Object.freeze({
-      ...guide,
-      activeEnd: finalStart
-    })
-  }
-
-  return Object.freeze({
-    ...guide,
-    activeStart: finalEnd
-  })
 }
 
 /** Рассчитывает равноудалённость с порогом для выбранной оси. */
@@ -927,15 +829,18 @@ function calculateMovementAxisSpacing({
 /** Создаёт стабильный идентификатор по точным данным основного интервала. */
 function createSpacingCandidateId({
   axis,
+  chainId,
   identity,
   context
 }: {
   axis: MovementSceneAxis
+  chainId: string | null
   identity: SpacingSelectionIdentity
   context: SpacingSelectionContext
 }): string {
   return JSON.stringify({
     axis,
+    chainId,
     context,
     identity
   })
@@ -1056,7 +961,7 @@ function verifyMovementAxisConstraint({
   if (Math.abs(targetPosition - plannedPosition) > plan.verificationEpsilon) return false
   if (!doesMovementAxisMatchPlan({ axis: constraint.axis, bounds, plan })) return false
   if (constraint.kind === 'spacing') {
-    const selections = resolveApplicableSpacingSelections({
+    const selections = resolveApplicableMovementSpacingSelections({
       constraint,
       baseline,
       bounds
@@ -1161,7 +1066,7 @@ function resolveVerifiedAxisHold({
     return FREE_MOVEMENT_AXIS_HOLD
   }
   if (constraint.kind === 'spacing') {
-    appendVerifiedSpacingGuides({
+    appendVerifiedMovementSpacingGuides({
       baseline,
       bounds,
       guides: spacingGuides,
@@ -1190,45 +1095,6 @@ function resolveVerifiedAxisHold({
     candidate: constraint.candidate,
     activeAnchor: constraint.activeAnchor
   })
-}
-
-/** Переносит сохранённые spacing guide к фактической поперечной позиции target. */
-function appendVerifiedSpacingGuides({
-  baseline,
-  bounds,
-  guides,
-  constraint,
-  plan
-}: {
-  baseline: MovementGestureBaseline
-  bounds: Bounds
-  guides: SpacingGuide[]
-  constraint: PlannedMovementSpacingConstraint
-  plan: MovementSnapPlan
-}): void {
-  const crossAxisDelta = constraint.axis === 'x'
-    ? bounds.centerY - plan.predictedBounds.centerY
-    : bounds.centerX - plan.predictedBounds.centerX
-  const selections = resolveApplicableSpacingSelections({
-    constraint,
-    baseline,
-    bounds
-  })
-  const seenGuideKeys = new Set(guides.map((guide) => {
-    return createSpacingGuideGeometryKey({ guide })
-  }))
-
-  for (const { guide } of selections) {
-    const adjustedGuide = Object.freeze({
-      ...guide,
-      axis: guide.axis + crossAxisDelta
-    })
-    const guideKey = createSpacingGuideGeometryKey({ guide: adjustedGuide })
-    if (seenGuideKeys.has(guideKey)) continue
-
-    seenGuideKeys.add(guideKey)
-    guides.push(adjustedGuide)
-  }
 }
 
 /** Переводит точные границы на рассчитанную дельту без округления. */
@@ -1415,18 +1281,6 @@ function areBoundsDimensionsEqual({
 
   return Math.abs(firstWidth - secondWidth) <= epsilon
     && Math.abs(firstHeight - secondHeight) <= epsilon
-}
-
-/** Копирует и замораживает spacing patterns начального снимка. */
-function freezeSpacingPatterns({
-  patterns
-}: {
-  patterns: { vertical: SpacingPattern[]; horizontal: SpacingPattern[] }
-}): MovementGestureBaseline['spacingPatterns'] {
-  return Object.freeze({
-    vertical: Object.freeze(patterns.vertical.map((pattern) => Object.freeze({ ...pattern }))),
-    horizontal: Object.freeze(patterns.horizontal.map((pattern) => Object.freeze({ ...pattern })))
-  })
 }
 
 /** Копирует и замораживает выбранные spacing-варианты вместе с их identity. */

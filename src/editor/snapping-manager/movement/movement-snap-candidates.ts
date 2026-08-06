@@ -10,7 +10,7 @@ export type MovementBoundsAnchor = 'left' | 'centerX' | 'right' | 'top' | 'cente
 /** Категория направляющей для разрешения равных кандидатов. */
 export type MovementSnapCandidateCategory = 'domain-boundary' | 'edge' | 'center'
 
-/** Объект с точными границами, зафиксированными в начале перемещения. */
+/** Объект с точными границами, сохранёнными в начале перемещения. */
 export type MovementSnapCandidateSource = Readonly<{
   id: string
   bounds: ObjectBounds
@@ -27,10 +27,16 @@ export type MovementSnapCandidate = Readonly<{
   snapshotIndex: number
 }>
 
-/** Цели прилипания и zoom, зафиксированные на один жест перемещения. */
+/** Именованные точные границы одного объекта для снимка равноудалённых цепочек. */
+export type MovementSnapSpacingSource = Readonly<{
+  id: string
+  bounds: ObjectBounds
+}>
+
+/** Цели прилипания и масштаб холста, сохранённые на одно перемещение. */
 export type MovementSnapEnvironment = Readonly<{
   candidates: readonly MovementSnapCandidate[]
-  spacingBounds: readonly ObjectBounds[]
+  spacingSources: readonly MovementSnapSpacingSource[]
   zoom: number
 }>
 
@@ -46,7 +52,7 @@ type MovementSnapSourceLine = Readonly<{
 const EXACT_BOUNDS_CENTER_EPSILON = 0.000000001
 
 /**
- * Создаёт неизменяемый снимок линейных и spacing-целей одного movement-жеста.
+ * Создаёт неизменяемый снимок обычных целей и целей равноудалённости для одного перемещения.
  */
 export function createMovementSnapEnvironment({
   sources,
@@ -58,7 +64,7 @@ export function createMovementSnapEnvironment({
   assertEnvironmentInputs({ sources, zoom })
 
   const candidates: MovementSnapCandidate[] = []
-  const spacingBounds: ObjectBounds[] = []
+  const spacingSources: MovementSnapSpacingSource[] = []
 
   for (const source of sources) {
     for (const line of createSourceLines({ source })) {
@@ -72,18 +78,21 @@ export function createMovementSnapEnvironment({
     }
 
     if (source.useForSpacing) {
-      spacingBounds.push(createBoundsSnapshot({ bounds: source.bounds }))
+      spacingSources.push(Object.freeze({
+        id: source.id,
+        bounds: createBoundsSnapshot({ bounds: source.bounds })
+      }))
     }
   }
 
   return Object.freeze({
     candidates: Object.freeze(candidates),
-    spacingBounds: Object.freeze(spacingBounds),
+    spacingSources: Object.freeze(spacingSources),
     zoom
   })
 }
 
-/** Проверяет zoom, уникальность идентификаторов и точную геометрию источников. */
+/** Проверяет масштаб, уникальность идентификаторов и точную геометрию источников. */
 function assertEnvironmentInputs({
   sources,
   zoom

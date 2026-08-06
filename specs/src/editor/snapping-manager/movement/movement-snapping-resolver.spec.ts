@@ -37,6 +37,64 @@ const HORIZONTAL_SPACING_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
+/** Первые три шейпа из шаблона с точными интервалами `47,25`. */
+const FRACTIONAL_CHAIN_SOURCES = [
+  {
+    id: 'first-fractional-shape',
+    bounds: createMovementBounds({ left: -29.875, top: 229, width: 102, height: 102 }),
+    useForSpacing: true
+  },
+  {
+    id: 'second-fractional-shape',
+    bounds: createMovementBounds({
+      left: 119.375,
+      top: 236.375,
+      width: 87.25,
+      height: 87.25
+    }),
+    useForSpacing: true
+  },
+  {
+    id: 'third-fractional-shape',
+    bounds: createMovementBounds({
+      left: 253.875,
+      top: 230.375,
+      width: 100.625,
+      height: 100.625
+    }),
+    useForSpacing: true
+  }
+] satisfies readonly MovementSnapCandidateSource[]
+
+/** Первые три шейпа вертикального шаблона с точными интервалами `47,25`. */
+const VERTICAL_FRACTIONAL_CHAIN_SOURCES = [
+  {
+    id: 'first-vertical-fractional-shape',
+    bounds: createMovementBounds({ left: 229, top: -29.875, width: 102, height: 102 }),
+    useForSpacing: true
+  },
+  {
+    id: 'second-vertical-fractional-shape',
+    bounds: createMovementBounds({
+      left: 236.375,
+      top: 119.375,
+      width: 87.25,
+      height: 87.25
+    }),
+    useForSpacing: true
+  },
+  {
+    id: 'third-vertical-fractional-shape',
+    bounds: createMovementBounds({
+      left: 230.375,
+      top: 253.875,
+      width: 100.625,
+      height: 100.625
+    }),
+    useForSpacing: true
+  }
+] satisfies readonly MovementSnapCandidateSource[]
+
 /** Spacing-цели, у которых после сдвига по Y появляется новый ближайший сосед. */
 const CHANGING_NEIGHBOR_SOURCES = [
   {
@@ -388,6 +446,170 @@ it('совмещает округление позиции с точной ра�
   expect(heldSpacing.nextPosition).toEqual({ left: 35, top: 101 })
   expect(verifiedSpacing.spacingGuides.length).toBeGreaterThan(0)
   expect(verifiedSpacing.holdState.x.kind).toBe('spacing')
+})
+
+it('не меняет исходную геометрию дробной цепочки при повторном прилипании', () => {
+  const fourthBounds = createMovementBounds({ left: 401.75, top: 229, width: 102, height: 102 })
+  const baseline = createMovementBaseline({
+    bounds: fourthBounds,
+    sources: FRACTIONAL_CHAIN_SOURCES
+  })
+  const plan = resolveMovementSnapPlan({
+    baseline,
+    intent: createMovementRawIntent({
+      left: 398.75,
+      top: 229,
+      width: 102,
+      height: 102,
+      canSnapY: false
+    }),
+    holdState: FREE_MOVEMENT_HOLD_STATE
+  })
+  const verification = verifyMovementSnapPlan({
+    baseline,
+    plan,
+    finalGeometry: createFinalMovementGeometry({
+      left: 401.75,
+      top: 229,
+      width: 102,
+      height: 102
+    })
+  })
+  const xConstraint = plan.constraints.x
+
+  expect(xConstraint?.kind).toBe('spacing')
+  if (xConstraint?.kind !== 'spacing') {
+    throw new Error('По X должна быть выбрана цепочка равноудалённости')
+  }
+
+  expect(plan.nextPosition).toEqual({ left: 401.75, top: 229 })
+  expect(xConstraint.chainId).not.toBeNull()
+  expect(verification.spacingGuides).toHaveLength(2)
+  expect(verification.spacingGuides.every(({ distance }) => distance === 47)).toBe(true)
+})
+
+it('не меняет исходную геометрию вертикальной дробной цепочки при удержании', () => {
+  const fourthBounds = createMovementBounds({ left: 229, top: 401.75, width: 102, height: 102 })
+  const baseline = createMovementBaseline({
+    bounds: fourthBounds,
+    sources: VERTICAL_FRACTIONAL_CHAIN_SOURCES
+  })
+  const plan = resolveMovementSnapPlan({
+    baseline,
+    intent: createMovementRawIntent({
+      left: 229,
+      top: 398.75,
+      width: 102,
+      height: 102,
+      canSnapX: false
+    }),
+    holdState: FREE_MOVEMENT_HOLD_STATE
+  })
+  const verification = verifyMovementSnapPlan({
+    baseline,
+    plan,
+    finalGeometry: createFinalMovementGeometry({
+      left: 229,
+      top: 401.75,
+      width: 102,
+      height: 102
+    })
+  })
+  const yConstraint = plan.constraints.y
+
+  expect(yConstraint?.kind).toBe('spacing')
+  if (yConstraint?.kind !== 'spacing') {
+    throw new Error('По Y должна быть выбрана цепочка равноудалённости')
+  }
+
+  expect(plan.nextPosition).toEqual({ left: 229, top: 401.75 })
+  expect(yConstraint.chainId).not.toBeNull()
+  expect(verification.spacingGuides).toHaveLength(2)
+  expect(verification.spacingGuides.every(({ type, distance }) => {
+    return type === 'vertical' && distance === 47
+  })).toBe(true)
+})
+
+it('при расстояниях 47 и 48 ставит средний объект в точную равноудалённую позицию', () => {
+  const middleBounds = createMovementBounds({ left: 147, top: 0, width: 100, height: 100 })
+  const baseline = createMovementBaseline({
+    bounds: middleBounds,
+    sources: [
+      {
+        id: 'first-three-shape-chain-object',
+        bounds: createMovementBounds({ left: 0, top: 0, width: 100, height: 100 }),
+        useForSpacing: true
+      },
+      {
+        id: 'third-three-shape-chain-object',
+        bounds: createMovementBounds({ left: 295, top: 0, width: 100, height: 100 }),
+        useForSpacing: true
+      }
+    ]
+  })
+  const plan = resolveMovementSnapPlan({
+    baseline,
+    intent: createMovementRawIntent({
+      left: 144,
+      top: 0,
+      width: 100,
+      height: 100,
+      canSnapY: false
+    }),
+    holdState: FREE_MOVEMENT_HOLD_STATE
+  })
+  const verification = verifyMovementSnapPlan({
+    baseline,
+    plan,
+    finalGeometry: createFinalMovementGeometry({
+      left: 147.5,
+      top: 0,
+      width: 100,
+      height: 100
+    })
+  })
+  const xConstraint = plan.constraints.x
+
+  expect(xConstraint?.kind).toBe('spacing')
+  if (xConstraint?.kind !== 'spacing') {
+    throw new Error('По X должна быть выбрана точная равноудалённая позиция')
+  }
+
+  expect(plan.nextPosition).toEqual({ left: 147.5, top: 0 })
+  expect(xConstraint.chainId).toBeNull()
+  expect(verification.spacingGuides).toHaveLength(1)
+  expect(verification.spacingGuides[0]?.distance).toBe(48)
+})
+
+it('не возвращает объект в исходное место при прилипании к другой части той же цепочки', () => {
+  const baseline = createMovementBaseline({
+    bounds: createMovementBounds({ left: 0, top: 0, width: 20, height: 20 }),
+    sources: [70, 140, 210].map((left, index) => ({
+      id: `chain-shape-${index + 2}`,
+      bounds: createMovementBounds({ left, top: 0, width: 20, height: 20 }),
+      useForSpacing: true
+    }))
+  })
+  const plan = resolveMovementSnapPlan({
+    baseline,
+    intent: createMovementRawIntent({
+      left: 280,
+      top: 0,
+      width: 20,
+      height: 20,
+      canSnapY: false
+    }),
+    holdState: FREE_MOVEMENT_HOLD_STATE
+  })
+  const xConstraint = plan.constraints.x
+
+  expect(xConstraint?.kind).toBe('spacing')
+  if (xConstraint?.kind !== 'spacing') {
+    throw new Error('По X должна быть выбрана равноудалённость в другом месте цепочки')
+  }
+
+  expect(plan.nextPosition).toEqual({ left: 280, top: 0 })
+  expect(xConstraint.chainId).toBeNull()
 })
 
 it('точно выравнивает равноудалённость по вертикали', () => {

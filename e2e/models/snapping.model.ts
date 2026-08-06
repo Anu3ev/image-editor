@@ -2,11 +2,14 @@
 import { type Page, expect } from '@playwright/test'
 import type {
   SnappingDragBoundsParams,
+  SnappingDragBoundsWithHoldParams,
   SnappingDragCenterParams,
+  SnappingDragHoldTrace,
   ObjectTargetParams,
   SnappingDragMoveParams,
   SnappingDragStartParams,
   SnappingGuideState,
+  SnappingObservedDragStep,
   SnappingObjectSnapshot
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
@@ -188,6 +191,36 @@ export class SnappingModel {
     await this.finishPointerInteraction()
 
     return this.getObjectSnapshot(params)
+  }
+
+  /** Выполняет полное перетаскивание и сохраняет состояния внутри удержания. */
+  async dragObjectBoundsWithHold({
+    heldPositions,
+    ...params
+  }: SnappingDragBoundsWithHoldParams): Promise<SnappingDragHoldTrace> {
+    await this.startObjectDrag(params)
+    const acquiredSnapshot = await this.dragObjectBoundsTo(params)
+    const acquired = Object.freeze({
+      snapshot: acquiredSnapshot,
+      guides: await this.getGuideState()
+    })
+    const held: SnappingObservedDragStep[] = []
+
+    for (const position of heldPositions) {
+      const snapshot = await this.dragObjectBoundsTo({ ...params, ...position })
+      held.push(Object.freeze({
+        snapshot,
+        guides: await this.getGuideState()
+      }))
+    }
+
+    await this.finishPointerInteraction()
+
+    return Object.freeze({
+      acquired,
+      held: Object.freeze(held),
+      committed: await this.getObjectSnapshot(params)
+    })
   }
 
   /** Перемещает объект в live drag-сессии так, чтобы центр его bounding box пришёл в нужную позицию. */

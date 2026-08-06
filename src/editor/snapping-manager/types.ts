@@ -7,6 +7,7 @@ export type AnchorBuckets = {
   horizontal: number[]
 }
 
+/** Точный интервал между соседними объектами. */
 export type SpacingPattern = {
   type: 'vertical' | 'horizontal'
   axis: number

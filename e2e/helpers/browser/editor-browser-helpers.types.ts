@@ -128,6 +128,22 @@ export type BrowserSnappingGuideState = {
   spacingGuides: BrowserSnappingSpacingGuideInfo[]
 }
 
+/** Browser-side направляющая MeasurementManager с точным расстоянием. */
+export type BrowserMeasurementGuideInfo = {
+  type: 'vertical' | 'horizontal'
+  axis: number
+  start: number
+  end: number
+  distance: number
+}
+
+/** Browser-side состояние направляющих во время Alt-измерения. */
+export type BrowserMeasurementGuideState = {
+  guides: BrowserMeasurementGuideInfo[]
+  isAltPressed: boolean
+  isTargetMontageArea: boolean
+}
+
 export type BrowserTextSelectionStyleParams = {
   objectIndex?: number
   id?: string
@@ -177,6 +193,7 @@ export interface BrowserEditorHelpers {
     params: BrowserSelectionScaleFromControlParams
   ) => BrowserSelectionScaleFromControlResult | null
   getSnappingGuideState: () => BrowserSnappingGuideState
+  getMeasurementGuideState: () => BrowserMeasurementGuideState
   getTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
   getShapeTextSelectionStyles: (params: BrowserTextSelectionStyleParams) => BrowserTextSelectionStyleInfo | null
   startDeleteSkippedEventRecording: () => void
@@ -235,6 +252,7 @@ export interface BrowserEditorWindow extends Window {
     shapeManager: {
       getTextNode: (params: { target: unknown }) => unknown
     }
+    measurementManager: unknown
     snappingManager: unknown
   }
   __editorHelpers: BrowserEditorHelpers

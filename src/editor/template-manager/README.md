@@ -11,9 +11,9 @@
 3. Suspend history.
 4. Ask `ImageManager.prepareSerializedImageSources()` to prepare a cloned template.
 5. Restore Fabric objects from the prepared clone.
-6. Apply background objects through `BackgroundManager`; add content objects to the canvas.
-7. Rehydrate text and shape geometry before the objects are inserted.
-8. Materialize fresh object ids, render, fire `editor:template-applied`, resume history, and save state when something was inserted.
+6. Apply background objects through `BackgroundManager`.
+7. Transform content for the current montage area and rehydrate text and shape geometry without independently snapping each object to the pixel grid.
+8. Materialize fresh object ids, insert the objects, render, fire `editor:template-applied`, resume history, and save state when something was inserted.
 
 The event payload keeps the original template object. Runtime-only `blob:` URLs from image source preparation must not be exposed as a new public template format.
 
@@ -29,10 +29,17 @@ Image objects in templates can contain remote URLs, `blob:` URLs, or `data:image
 
 This keeps large base64 image payloads out of Fabric live objects and out of template-created history snapshots after user actions such as scaling.
 
+## Geometry Preservation
+
+Template application preserves the exact fractional scene geometry produced by the template transform and type-specific rehydration. It does not round the position or size of each content object independently because that would change alignment and equal-spacing relationships stored in the template.
+
+If bulk pixel alignment is introduced later, it must be a group-level algorithm with an explicit contract for relative distances, anchors, and outer bounds. Reusing a per-object pixel-grid helper for template content is not compatible with this contract.
+
 ## When Changing This Manager
 
 - Keep restore-time source preparation before `_enlivenObjects()`. Fabric should receive already prepared image `src` values.
 - Do not add image-specific parsing here. If the rule is about image source materialization, it belongs in `ImageManager` or `BlobUrlRegistry`.
 - Keep geometry rehydration before `canvas.add()`. Text, shape, and image dimensions should be canonical before the object enters the live canvas.
+- Preserve exact fractional geometry and relationships between template objects. Do not align content objects to the pixel grid independently.
 - Keep `editor:template-applied` stable for users: original template in the event, inserted Fabric objects in `objects`, montage bounds in `bounds`.
 - When changing apply behavior, test template insertion, background extraction, history save, object identity materialization, and image scaling after insertion.

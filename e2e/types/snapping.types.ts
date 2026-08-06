@@ -23,13 +23,13 @@ export interface SnappingSpacingGuideInfo {
   distance: number
 }
 
-/** Текущее состояние направляющих SnappingManager. */
+/** Текущее состояние направляющих менеджера прилипания. */
 export interface SnappingGuideState {
   guides: SnappingGuideInfo[]
   spacingGuides: SnappingSpacingGuideInfo[]
 }
 
-/** Snapshot объекта canvas с текущим bounding box для snapping-assertions. */
+/** Снимок объекта с текущими границами для проверки прилипания. */
 export interface SnappingObjectSnapshot extends EditorObjectInfo {
   boundsLeft: number
   boundsTop: number
@@ -44,21 +44,45 @@ export interface SnappingObjectSnapshot extends EditorObjectInfo {
 /** Параметры начала интерактивного перетаскивания объекта. */
 export type SnappingDragStartParams = ObjectTargetParams
 
-/** Параметры одного live-шага перетаскивания по внутренним координатам объекта. */
+/** Параметры одного шага перетаскивания по внутренним координатам объекта. */
 export interface SnappingDragMoveParams extends ObjectTargetParams {
   left: number
   top: number
   ctrlKey?: boolean
 }
 
-/** Параметры одного live-шага перетаскивания по границам объекта. */
+/** Параметры одного шага перетаскивания по границам объекта. */
 export interface SnappingDragBoundsParams extends ObjectTargetParams {
   left: number
   top: number
   ctrlKey?: boolean
 }
 
-/** Параметры одного live-шага перетаскивания по центру bounding box. */
+/** Положение границ объекта во время удержания прилипания. */
+export type SnappingDragBoundsPosition = Readonly<{
+  left: number
+  top: number
+}>
+
+/** Параметры полного перетаскивания с несколькими шагами внутри удержания. */
+export interface SnappingDragBoundsWithHoldParams extends SnappingDragBoundsParams {
+  heldPositions: readonly SnappingDragBoundsPosition[]
+}
+
+/** Состояние объекта и направляющих на одном шаге перетаскивания. */
+export type SnappingObservedDragStep = Readonly<{
+  snapshot: SnappingObjectSnapshot
+  guides: SnappingGuideState
+}>
+
+/** Наблюдаемые состояния полного перетаскивания с удержанием. */
+export type SnappingDragHoldTrace = Readonly<{
+  acquired: SnappingObservedDragStep
+  held: readonly SnappingObservedDragStep[]
+  committed: SnappingObjectSnapshot
+}>
+
+/** Параметры одного шага перетаскивания по центру границ объекта. */
 export interface SnappingDragCenterParams extends ObjectTargetParams {
   centerX: number
   centerY: number
