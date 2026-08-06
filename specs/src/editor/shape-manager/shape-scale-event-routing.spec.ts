@@ -60,7 +60,9 @@ function createRoutingHarness() {
   const group = new ShapeGroupObject([child], {})
   const scalingController = {
     handleObjectScaling: jest.fn(),
-    handleCanvasMouseMove: jest.fn()
+    handleCanvasMouseMove: jest.fn(),
+    handleObjectModified: jest.fn(),
+    clearState: jest.fn()
   }
   const editingController = {
     handleMouseDown: jest.fn()
@@ -68,7 +70,8 @@ function createRoutingHarness() {
   const lifecycleController = {
     beginResize: jest.fn(),
     captureResizeStart: jest.fn(),
-    clearResizeStarts: jest.fn()
+    clearResizeStarts: jest.fn(),
+    finishResize: jest.fn()
   }
   const controller = new ShapeEventController({
     dependencies: {
@@ -290,6 +293,21 @@ it('передаёт неподдержанный шаг обычной обра
 
   expect(harness.scalingController.handleObjectScaling).toHaveBeenCalledWith(event)
   expect(harness.scalingController.handleCanvasMouseMove).toHaveBeenCalledWith(event)
+})
+
+it('не фиксирует остаточный scale шейпа после обычного перемещения', () => {
+  const harness = createRoutingHarness()
+  const event = {
+    target: harness.group,
+    transform: {
+      action: 'drag'
+    }
+  }
+
+  getRequiredCanvasHandler({ canvas: harness.canvas, eventName: 'object:modified' })(event)
+
+  expect(harness.scalingController.handleObjectModified).not.toHaveBeenCalled()
+  expect(harness.lifecycleController.finishResize).toHaveBeenCalledWith({ group: harness.group })
 })
 
 it('завершает жест скейлинга при любом изменении selection', () => {

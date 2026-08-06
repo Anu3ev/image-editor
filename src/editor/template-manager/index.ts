@@ -16,7 +16,6 @@ import { OBJECT_SERIALIZATION_PROPS } from '../history-manager'
 import {
   denormalizePlacement,
   resolveNormalizedPlacement,
-  snapObjectToPixelGrid,
   toNumber,
   type Dimensions
 } from '../utils/geometry'
@@ -460,7 +459,6 @@ export default class TemplateManager {
         textScale: scale
       })
 
-      snapObjectToPixelGrid({ object })
       materializeObjectIdentity({ rootObject: object })
       canvas.add(object)
 

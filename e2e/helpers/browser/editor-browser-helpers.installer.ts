@@ -1,6 +1,8 @@
 import type {
   BrowserDeleteSkippedEventRecord,
   BrowserEditorHelpers,
+  BrowserMeasurementGuideInfo,
+  BrowserMeasurementGuideState,
   BrowserSelectionScaleFromControlParams,
   BrowserSelectionScaleFromControlResult,
   BoundsInfo,
@@ -513,6 +515,51 @@ export function installEditorBrowserHelpers(): void {
     }
 
     return guides
+  }
+
+  /** Сериализует одну направляющую MeasurementManager с проверкой runtime-контракта. */
+  function resolveMeasurementGuide({
+    value,
+    index
+  }: {
+    value: unknown
+    index: number
+  }): BrowserMeasurementGuideInfo {
+    const guide = toBrowserObject({ value })
+    const { type, axis, start, end, distance } = guide
+    if (type !== 'vertical' && type !== 'horizontal') {
+      throw new Error(`Measurement guide ${index} должен содержать известное направление`)
+    }
+    if (
+      typeof axis !== 'number'
+      || typeof start !== 'number'
+      || typeof end !== 'number'
+      || typeof distance !== 'number'
+      || ![axis, start, end, distance].every(Number.isFinite)
+    ) {
+      throw new Error(`Measurement guide ${index} должен содержать конечную геометрию`)
+    }
+
+    return { type, axis, start, end, distance }
+  }
+
+  /** Возвращает точные направляющие и состояние текущего Alt-измерения. */
+  function resolveMeasurementGuideState(): BrowserMeasurementGuideState {
+    const editorObject = toBrowserObject({ value: getEditorRuntime() })
+    const measurementManager = toBrowserObject({ value: editorObject.measurementManager })
+    const { activeGuides, isAltPressed, isTargetMontageArea } = measurementManager
+    if (!Array.isArray(activeGuides)) {
+      throw new Error('MeasurementManager должен содержать массив активных направляющих')
+    }
+    if (typeof isAltPressed !== 'boolean' || typeof isTargetMontageArea !== 'boolean') {
+      throw new Error('MeasurementManager должен содержать состояние Alt и цели измерения')
+    }
+
+    const guides = activeGuides.map((guide, index) => {
+      return resolveMeasurementGuide({ value: guide, index })
+    })
+
+    return { guides, isAltPressed, isTargetMontageArea }
   }
 
   /**
@@ -1269,6 +1316,9 @@ export function installEditorBrowserHelpers(): void {
           guides: resolveSnappingGuides(),
           spacingGuides: resolveSnappingSpacingGuides()
         }
+      },
+      getMeasurementGuideState() {
+        return resolveMeasurementGuideState()
       },
       getTextSelectionStyles(params: BrowserTextSelectionStyleParams) {
         return getTextSelectionStyles(params)

@@ -9,6 +9,7 @@ import { ClipboardModel } from '../models/clipboard.model'
 import { TemplateModel } from '../models/template.model'
 import { TextModel } from '../models/text/text.model'
 import { SnappingModel } from '../models/snapping.model'
+import { MeasurementModel } from '../models/measurement.model'
 import { BackgroundModel } from '../models/background.model'
 import { InteractionBlockerModel } from '../models/interaction-blocker.model'
 import { ImageModel } from '../models/image/image.model'
@@ -33,6 +34,7 @@ interface EditorFixtures {
   template: TemplateModel
   text: TextModel
   snapping: SnappingModel
+  measurement: MeasurementModel
   background: BackgroundModel
   interactionBlocker: InteractionBlockerModel
   images: ImageModel
@@ -210,6 +212,10 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
   snapping: async({ editorModel }, use) => {
     await use(editorModel.snapping)
+  },
+
+  measurement: async({ editorModel }, use) => {
+    await use(editorModel.measurement)
   },
 
   background: async({ editorModel }, use) => {

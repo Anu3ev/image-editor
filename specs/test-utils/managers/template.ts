@@ -1,5 +1,6 @@
 import CanvasManager from '../../../src/editor/canvas-manager'
 import TemplateManager, { TemplateDefinition } from '../../../src/editor/template-manager'
+import { createPlacementTestObject } from '../canvas/placement'
 import { createEditorStub } from '../editor/editor-stub'
 
 type BaseEditorStub = ReturnType<typeof createEditorStub>
@@ -22,6 +23,51 @@ type TemplateManagerEditorStub = BaseEditorStub & {
     setGradientBackground: jest.Mock
     setImageBackground: jest.Mock
     setPreparedImageBackground: jest.Mock
+  }
+}
+
+/** Геометрия цепочки с тремя точными интервалами 47,25 пикселя. */
+const EQUAL_FRACTIONAL_SPACING_GEOMETRY = [
+  { center: 21.125, size: 102 },
+  { center: 163, size: 87.25 },
+  { center: 304.1875, size: 100.625 },
+  { center: 452.75, size: 102 }
+] as const
+
+/** Ось дробной равноудалённости в тестовом шаблоне. */
+type FractionalSpacingTemplateAxis = 'x' | 'y'
+
+/** Собирает шаблон и восстановленные объекты с равными дробными интервалами. */
+export function createFractionalSpacingTemplateScenario({
+  axis
+}: {
+  axis: FractionalSpacingTemplateAxis
+}) {
+  const objects = EQUAL_FRACTIONAL_SPACING_GEOMETRY.map(({ center, size }, index) => ({
+    id: `equal-spacing-${index + 1}`,
+    type: 'rect',
+    left: axis === 'x' ? center / 512 : 0.5,
+    top: axis === 'y' ? center / 512 : 0.5,
+    width: size,
+    height: size,
+    originX: 'center' as const,
+    originY: 'center' as const
+  }))
+  const revivedObjects = objects.map((object) => Object.assign(
+    createPlacementTestObject(object),
+    {
+      _templateAnchorX: 'start' as const,
+      _templateAnchorY: 'center' as const
+    }
+  ))
+
+  return {
+    revivedObjects,
+    template: {
+      id: 'equal-fractional-spacing',
+      meta: { baseWidth: 512, baseHeight: 512, positionsNormalized: true },
+      objects
+    } satisfies TemplateDefinition
   }
 }
 

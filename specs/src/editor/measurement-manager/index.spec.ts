@@ -218,6 +218,28 @@ describe('MeasurementManager', () => {
     manager.destroy()
   })
 
+  it('показывает 47 для вертикального зазора 47,25 пикселя', () => {
+    const { editor, canvas } = createSnappingTestContext()
+    const labelSpy = jest.spyOn(renderUtils, 'drawGuideLabel')
+    const manager = new MeasurementManager({ editor })
+    const active = createBoundsObject({ left: 40, top: 10.2, width: 20, height: 20 })
+    const target = createBoundsObject({ left: 40, top: 77.45, width: 20, height: 20 })
+    setActiveObjects(canvas, [active])
+
+    fireCanvasMouseMove({ canvas, target })
+    fireCanvasAfterRender({ canvas })
+
+    const guide = getActiveGuides({ manager }).find(({ type }) => type === 'vertical')
+    expect(guide?.distance).toBeCloseTo(47.25, 8)
+    expect(labelSpy).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'vertical',
+      text: '47'
+    }))
+
+    labelSpy.mockRestore()
+    manager.destroy()
+  })
+
   it('показывает одинаковое расстояние в spacing-гайде и ALT-измерении дробного зазора', () => {
     const { editor, canvas } = createSnappingTestContext()
     const manager = new MeasurementManager({ editor })

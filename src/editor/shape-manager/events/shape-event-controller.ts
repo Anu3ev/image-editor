@@ -21,6 +21,7 @@ import type ShapeLifecycleController from '../lifecycle/shape-lifecycle-controll
 import type ShapeTextNodeController from '../text/shape-text-node-controller'
 import ShapeScaleInteractionController from '../scaling/shape-scale-interaction-controller'
 import type ShapeScalingController from '../scaling/shape-scaling-controller'
+import { resolveShapeScaleActionAxes } from '../scaling/shape-scaling-transform'
 import type {
   ShapeGroup,
   ShapeTextNode,
@@ -158,14 +159,20 @@ export default class ShapeEventController {
   }
 
   /**
-   * Фиксирует результат scale для одиночного Shape или ActiveSelection.
+   * Фиксирует результат скейлинга одиночного шейпа или ActiveSelection.
    */
   private _handleObjectModified = (event: ShapeCanvasEvent): void => {
     const groups = this._collectShapeGroupsFromTarget({
       target: event.target
     })
+    const resolvedAxes = event.transform
+      ? resolveShapeScaleActionAxes({ transform: event.transform })
+      : null
+    const isScaleCommit = !resolvedAxes
+      || resolvedAxes.canScaleWidth
+      || resolvedAxes.canScaleHeight
 
-    if (event.target instanceof ActiveSelection) {
+    if (event.target instanceof ActiveSelection && isScaleCommit) {
       this._commitActiveSelectionShapeScaling({
         selection: event.target,
         transform: event.transform
@@ -173,7 +180,7 @@ export default class ShapeEventController {
       groups.forEach((group) => {
         this.dependencies.scalingController.clearState({ group })
       })
-    } else {
+    } else if (isScaleCommit) {
       this.dependencies.scalingController.handleObjectModified(event)
     }
 

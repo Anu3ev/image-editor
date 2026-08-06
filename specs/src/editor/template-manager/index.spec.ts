@@ -19,6 +19,7 @@ import {
 import {
   createImageBackgroundTemplateDefinition,
   createImageTemplateDefinition,
+  createFractionalSpacingTemplateScenario,
   createShapeTemplateDefinition,
   createStandaloneTextTemplateDefinition,
   createTemplateManagerTestSetup
@@ -73,6 +74,40 @@ describe('TemplateManager', () => {
     expect(editor.historyManager.suspendHistory).toHaveBeenCalled()
     expect(editor.historyManager.resumeHistory).toHaveBeenCalled()
     expect(editor.historyManager.saveState).toHaveBeenCalled()
+  })
+
+  it.each([
+    { title: 'по горизонтали', axis: 'x' },
+    { title: 'по вертикали', axis: 'y' }
+  ] as const)('сохраняет одинаковые дробные интервалы между объектами шаблона $title', async({ axis }) => {
+    const { manager } = createTemplateManagerTestSetup({
+      montageBounds: { left: 0, top: 0, width: 512, height: 512 }
+    })
+    const { revivedObjects, template } = createFractionalSpacingTemplateScenario({ axis })
+    let revivedIndex = 0
+    jest.spyOn(util, 'enlivenObjects').mockImplementation(async() => {
+      const object = revivedObjects[revivedIndex]
+      revivedIndex += 1
+
+      return object ? [object as never] : []
+    })
+
+    const result = await manager.applyTemplate({ template })
+    expect(result).not.toBeNull()
+    if (!result) throw new Error('Объекты шаблона должны быть добавлены на canvas')
+
+    const bounds = result.map((object) => object.getBoundingRect())
+    const gaps = bounds.slice(1).map((current, index) => {
+      const previous = bounds[index]
+      if (!previous) throw new Error('Перед каждым интервалом должен существовать объект')
+
+      return axis === 'x'
+        ? current.left - (previous.left + previous.width)
+        : current.top - (previous.top + previous.height)
+    })
+
+    expect(result).toHaveLength(4)
+    expect(gaps).toEqual([47.25, 47.25, 47.25])
   })
 
   it('текст внутри фигуры из шаблона пересчитывается с масштабом монтажной области', async() => {

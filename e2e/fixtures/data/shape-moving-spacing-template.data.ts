@@ -411,3 +411,55 @@ export const FOUR_SHAPE_EQUAL_SPACING_TEMPLATE = {
     })
   ]
 } satisfies TemplateDefinition
+
+/** Вертикальная транспозиция пользовательского шаблона с тремя интервалами 47,25 пикселя. */
+export const FOUR_SHAPE_VERTICAL_EQUAL_SPACING_TEMPLATE = {
+  id: 'template-four-shape-vertical-equal-spacing',
+  meta: {
+    baseWidth: 512,
+    baseHeight: 512,
+    positionsNormalized: true
+  },
+  objects: [
+    createSpacingShape({
+      id: 'vertical-shape-group-1',
+      shapeNodeId: 'vertical-rect-1',
+      textNodeId: 'vertical-background-textbox-1',
+      size: 102,
+      left: 0.546875,
+      top: 0.041259765625,
+      anchorX: 'center',
+      anchorY: 'start'
+    }),
+    createSpacingShape({
+      id: 'vertical-shape-group-2',
+      shapeNodeId: 'vertical-rect-2',
+      textNodeId: 'vertical-background-textbox-2',
+      size: 87.25,
+      left: 0.546875,
+      top: 0.318359375,
+      anchorX: 'center',
+      anchorY: 'start'
+    }),
+    createSpacingShape({
+      id: 'vertical-shape-group-3',
+      shapeNodeId: 'vertical-rect-3',
+      textNodeId: 'vertical-background-textbox-3',
+      size: 100.625,
+      left: 0.5482177734375,
+      top: 0.5941162109375,
+      anchorX: 'center',
+      anchorY: 'end'
+    }),
+    createSpacingShape({
+      id: 'vertical-shape-group-4',
+      shapeNodeId: 'vertical-rect-4',
+      textNodeId: 'vertical-background-textbox-4',
+      size: 102,
+      left: 0.546875,
+      top: 0.88427734375,
+      anchorX: 'center',
+      anchorY: 'end'
+    })
+  ]
+} satisfies TemplateDefinition

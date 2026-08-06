@@ -41,9 +41,13 @@ it('фиксирует стабильный порядок линий и отд�
     category: 'domain-boundary',
     snapshotIndex: 6
   }))
-  expect(environment.spacingBounds).toEqual([referenceBounds])
+  expect(environment.spacingSources).toEqual([{
+    id: 'reference',
+    bounds: referenceBounds
+  }])
   expect(environment.zoom).toBe(2)
   expect(Object.isFrozen(environment.candidates)).toBe(true)
+  expect(Object.isFrozen(environment.spacingSources)).toBe(true)
 })
 
 it('отклоняет неуникальные id, некорректные центры и zoom', () => {
