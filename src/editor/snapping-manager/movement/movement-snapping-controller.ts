@@ -1,5 +1,6 @@
 /* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними преобразованиями результата. */
 import {
+  ActiveSelection,
   FabricImage,
   Textbox,
   type BasicTransformEvent,
@@ -39,7 +40,7 @@ import { isShapeGroup } from '../../shape-manager/domain/shape-reference'
 import type { ShapeGroup } from '../../shape-manager/types'
 
 /** Верхнеуровневые объекты, уже переведённые на общую логику перемещения. */
-type SupportedMovementTarget = FabricImage | ShapeGroup | Textbox
+type SupportedMovementTarget = ActiveSelection | FabricImage | ShapeGroup | Textbox
 
 /** Событие canvas для одного шага перемещения. */
 type ObjectMovementTransformEvent = BasicTransformEvent<TPointerEvent> & {
@@ -68,7 +69,7 @@ const UNHANDLED_OBJECT_MOVEMENT_STEP: UnhandledObjectMovementStep = Object.freez
 })
 
 /**
- * Управляет общей сессией прилипания при перемещении изображения, шейпа или отдельного текста.
+ * Управляет общей сессией прилипания при перемещении одиночного или составного объекта.
  * Остальные типы объектов продолжают использовать прежний путь обработки.
  */
 export class MovementSnappingController {
@@ -146,26 +147,53 @@ export class MovementSnappingController {
     this._activeTarget = null
   }
 
-  /** Завершает сессию, если с canvas удалён перемещаемый объект. */
+  /** Завершает сессию, если удалён перемещаемый объект или дочерний объект общего выделения. */
   finishGestureForTarget({
     target
   }: {
     target: FabricObject
   }): boolean {
-    if (target !== this._activeTarget) return false
+    const activeTarget = this._activeTarget
+    const isActiveSelectionChild = activeTarget instanceof ActiveSelection
+      && activeTarget.getObjects().includes(target)
+    if (target !== activeTarget && !isActiveSelectionChild) return false
 
     this.finishGesture()
 
     return true
   }
 
-  /** Разрешает обычное перемещение одиночного изображения, шейпа или отдельного текста. */
+  /** Разрешает обычное перемещение поддерживаемого верхнеуровневого объекта. */
   private _isSupportedTarget(
     target?: FabricObject | null
   ): target is SupportedMovementTarget {
     if (!target || target.group) return false
 
+    if (target instanceof ActiveSelection) {
+      return this._isSupportedActiveSelection({ selection: target })
+    }
+
     return target instanceof FabricImage || target instanceof Textbox || isShapeGroup(target)
+  }
+
+  /** Проверяет состав, родительские связи и безопасное состояние масштаба общего выделения. */
+  private _isSupportedActiveSelection({
+    selection
+  }: {
+    selection: ActiveSelection
+  }): boolean {
+    const objects = selection.getObjects()
+    if (objects.length < 2) return false
+    if (
+      objects.some((object) => object instanceof Textbox)
+      && (selection.scaleX !== 1 || selection.scaleY !== 1)
+    ) return false
+
+    return objects.every((object) => {
+      if (object.parent) return false
+
+      return object instanceof FabricImage || object instanceof Textbox || isShapeGroup(object)
+    })
   }
 
   /** Фиксирует положение объекта после перемещения Fabric, но до применения прилипания. */

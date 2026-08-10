@@ -1,3 +1,4 @@
+import { ActiveSelection } from 'fabric'
 import SnappingManager from '../../../src/editor/snapping-manager'
 import type {
   AnchorBuckets,
@@ -5,6 +6,7 @@ import type {
   SpacingGuide
 } from '../../../src/editor/snapping-manager/types'
 import { createBoundsObject, createSnappingTestContext } from '../canvas/geometry-objects'
+import { createMovementRoutingTarget } from './movement-snapping-routing'
 
 /** Доступная тестам часть временного состояния SnappingManager. */
 type SnappingManagerLifecycleState = {
@@ -55,6 +57,29 @@ export const createMovementSnappingLifecycleSetup = () => {
     startGestureMock,
     finishGestureMock,
     finishGestureForTargetMock
+  }
+}
+
+/** Создаёт реальную сессию перемещения общего выделения для проверки завершающих событий. */
+export const createActiveSelectionMovementLifecycleSetup = () => {
+  const { editor, canvas, objects } = createSnappingTestContext()
+  const manager = new SnappingManager({ editor })
+  const state: SnappingManagerLifecycleState = manager as any
+  const activeTarget = createMovementRoutingTarget({ kind: 'active-selection' })
+  if (!(activeTarget instanceof ActiveSelection)) {
+    throw new Error('Для проверки завершения нужен ActiveSelection')
+  }
+
+  activeTarget.canvas = canvas
+  objects.push(activeTarget)
+  editor.snappingManager = manager
+
+  return {
+    activeTarget,
+    canvas,
+    children: activeTarget.getObjects(),
+    manager,
+    state
   }
 }
 

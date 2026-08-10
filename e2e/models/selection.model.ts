@@ -95,6 +95,12 @@ export interface SelectionScaleGestureResult {
   committed: SnappingObjectSnapshot
 }
 
+/** Снимок активного составного объекта и его прямых дочерних объектов. */
+export interface SelectionCompositionSnapshot {
+  selection: SnappingObjectSnapshot
+  children: Array<SnappingObjectSnapshot & { id: string }>
+}
+
 /** Действия и проверки для активного общего выделения или группы. */
 export class SelectionModel {
   private readonly page: Page
@@ -125,6 +131,43 @@ export class SelectionModel {
     if (!snapshot) throw new Error('Активный объект должен существовать')
 
     return snapshot
+  }
+
+  /** Возвращает геометрию активного составного объекта и всех его прямых дочерних объектов. */
+  async getCompositionSnapshot(): Promise<SelectionCompositionSnapshot> {
+    const composition = await this.page.evaluate(() => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = editor.canvas.getActiveObject()
+      const objects = target?.getObjects?.()
+      if (!target || !Array.isArray(objects) || objects.length < 2) return null
+
+      const children = objects.map((object: { id?: unknown }) => {
+        if (typeof object.id !== 'string') return null
+
+        return {
+          ...helpers.serializeSnappingObjectSnapshot(object),
+          id: object.id
+        }
+      })
+      if (children.some((child: unknown) => child === null)) return null
+
+      return {
+        selection: helpers.serializeSnappingObjectSnapshot(target),
+        children
+      }
+    })
+
+    expect(composition, 'активный составной объект должен содержать дочерние объекты с id').not.toBeNull()
+    expect(composition?.children.length, 'составной объект должен содержать минимум два дочерних объекта')
+      .toBeGreaterThanOrEqual(2)
+    if (!composition) {
+      throw new Error('Не удалось получить состав текущего активного объекта')
+    }
+
+    return composition
   }
 
   /** Возвращает доступные ручки, дочерние id и границы активного объекта. */

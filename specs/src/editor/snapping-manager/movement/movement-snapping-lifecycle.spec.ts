@@ -1,5 +1,6 @@
 import { emitCanvasEvent } from '../../../../test-utils/canvas/events'
 import {
+  createActiveSelectionMovementLifecycleSetup,
   createMovementSnappingLifecycleSetup,
   seedVisibleSnappingState
 } from '../../../../test-utils/snapping/snapping-lifecycle'
@@ -127,6 +128,43 @@ it('удаление активного объекта завершает его
   expect(state.activeGuides).toEqual([])
   expect(state.activeSpacingGuides).toEqual([])
   expect(state.anchors).toEqual({ vertical: [], horizontal: [] })
+
+  manager.destroy()
+})
+
+it('удаление дочернего объекта завершает перемещение общего выделения', () => {
+  const {
+    activeTarget,
+    canvas,
+    children,
+    manager,
+    state
+  } = createActiveSelectionMovementLifecycleSetup()
+  const [firstChild, secondChild] = children
+
+  expect(firstChild).toBeDefined()
+  expect(secondChild).toBeDefined()
+  if (!firstChild || !secondChild) {
+    throw new Error('Для проверки завершения нужны два дочерних объекта общего выделения')
+  }
+
+  emitCanvasEvent({
+    canvas,
+    event: 'mouse:down',
+    payload: { target: activeTarget, transform: { action: 'drag' } }
+  })
+  seedVisibleSnappingState({ state })
+
+  emitCanvasEvent({
+    canvas,
+    event: 'object:removed',
+    payload: { target: secondChild }
+  })
+
+  expect(state.activeGuides).toEqual([])
+  expect(state.activeSpacingGuides).toEqual([])
+  expect(state.anchors).toEqual({ vertical: [], horizontal: [] })
+  expect(state.movementSnappingController.finishGestureForTarget({ target: firstChild })).toBe(false)
 
   manager.destroy()
 })

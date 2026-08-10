@@ -10,7 +10,11 @@ import {
 const UNIFIED_MOVEMENT_TARGETS = [
   { kind: 'image', label: 'изображения' },
   { kind: 'shape', label: 'шейпа' },
-  { kind: 'text', label: 'отдельного текста' }
+  { kind: 'text', label: 'отдельного текста' },
+  { kind: 'active-selection', label: 'смешанного общего выделения' },
+  { kind: 'active-selection-images', label: 'общего выделения изображений' },
+  { kind: 'active-selection-shapes', label: 'общего выделения шейпов' },
+  { kind: 'active-selection-texts', label: 'общего выделения отдельных текстов' }
 ] satisfies ReadonlyArray<{
   kind: MovementRoutingTargetKind
   label: string
@@ -18,7 +22,13 @@ const UNIFIED_MOVEMENT_TARGETS = [
 
 /** Типы объектов, которые пока используют прежнюю логику перемещения. */
 const LEGACY_MOVEMENT_TARGETS = [
-  { kind: 'active-selection', label: 'выделения нескольких объектов' },
+  { kind: 'active-selection-with-crop-frame', label: 'общего выделения с кроп-областью' },
+  { kind: 'active-selection-with-group', label: 'общего выделения с обычной группой' },
+  { kind: 'active-selection-with-nested-image', label: 'общего выделения с вложенным изображением' },
+  { kind: 'active-selection-with-scaled-text', label: 'масштабированного общего выделения с текстом' },
+  { kind: 'active-selection-with-unknown-object', label: 'общего выделения с неизвестным объектом' },
+  { kind: 'active-selection-empty', label: 'пустого общего выделения' },
+  { kind: 'active-selection-single-image', label: 'общего выделения из одного объекта' },
   { kind: 'crop-frame', label: 'кроп-области' },
   { kind: 'group', label: 'обычной группы объектов' },
   { kind: 'nested-image', label: 'вложенного изображения' },

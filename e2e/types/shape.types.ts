@@ -113,6 +113,7 @@ export interface ShapeAddParams {
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
     textPadding?: ShapePaddingParams
+    withoutSelection?: boolean
   }
 }
 
@@ -136,6 +137,7 @@ export interface ShapeAddAtBoundsParams {
     alignH?: ShapeHorizontalAlign
     alignV?: ShapeVerticalAlign
     textPadding?: ShapePaddingParams
+    withoutSelection?: boolean
   }
 }
 
