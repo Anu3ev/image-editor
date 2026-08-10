@@ -21,6 +21,7 @@ export type MovementRoutingTargetKind =
   | 'image'
   | 'nested-image'
   | 'nested-shape'
+  | 'nested-text'
   | 'shape'
   | 'text'
 
@@ -119,8 +120,11 @@ export function createMovementRoutingTarget({
     return applyMovementGeometry({ target: new ActiveSelection([], {}), id: kind })
   }
 
-  if (kind === 'text') {
-    return applyMovementGeometry({ target: new Textbox('Text', {}), id: kind })
+  if (kind === 'text' || kind === 'nested-text') {
+    const textbox = applyMovementGeometry({ target: new Textbox('Text', {}), id: kind })
+    if (kind === 'nested-text') textbox.group = new Group([], {})
+
+    return textbox
   }
 
   const cropFrame = applyMovementGeometry({ target: new Rect({}), id: kind })

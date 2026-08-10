@@ -2,7 +2,7 @@
 
 `SnappingManager` finds guides and coordinates both verified and legacy snapping paths. Migrated interactions publish guides only after the object reaches them, while legacy interactions keep their existing calculated-guide contract. Canonical dimensions of composite objects remain the responsibility of the manager that owns the corresponding object type.
 
-The two-phase contract is currently used when scaling a regular top-level shape, when moving a standalone top-level `FabricImage` or top-level shape, and when scaling a supported top-level `FabricImage` through any of the eight standard Fabric controls. Movement of standalone text, `ActiveSelection`, `Group`, and `CropFrame` still uses the legacy path. Nested images and shapes also remain on that path. Unsupported image scale geometries and controls with custom scale behaviour or geometry are not routed through the migrated scale owner. The exact migration boundary and the recommended order for continuing the work are documented in [`technical-specifications/unified-scale-snapping-current-state.md`](../../../technical-specifications/unified-scale-snapping-current-state.md).
+The two-phase contract is currently used when scaling a regular top-level shape, when moving a standalone top-level `FabricImage`, top-level shape, or standalone top-level `Textbox`, and when scaling a supported top-level `FabricImage` through any of the eight standard Fabric controls. Movement of nested text, `ActiveSelection`, `Group`, and `CropFrame` still uses the legacy path. Nested images and shapes also remain on that path. Unsupported image scale geometries and controls with custom scale behaviour or geometry are not routed through the migrated scale owner. The exact migration boundary and the recommended order for continuing the work are documented in [`technical-specifications/unified-scale-snapping-current-state.md`](../../../technical-specifications/unified-scale-snapping-current-state.md).
 
 ## Responsibilities
 
@@ -18,7 +18,7 @@ The two-phase contract is currently used when scaling a regular top-level shape,
 - [`movement/movement-spacing-correction.ts`](./movement/movement-spacing-correction.ts) keeps exact correction separate from display rounding. An object that already belonged to a logical chain at `mousedown` returns to its initial position on the constrained axis, while a new isolated interval continues to use the selected exact neighbours or reference interval.
 - [`movement/movement-spacing-verification.ts`](./movement/movement-spacing-verification.ts) verifies the selected intervals against the final bounds and builds guides for every interval of a confirmed logical chain.
 - [`movement/movement-snapping-runtime.ts`](./movement/movement-snapping-runtime.ts) gives one movement plan to each native pointer marker and updates line and spacing hold state only after verification.
-- [`movement/movement-snapping-controller.ts`](./movement/movement-snapping-controller.ts) captures an immutable movement session and applies one final Fabric translation for standalone top-level images and top-level shapes. Other object types are deliberately routed to the existing owner.
+- [`movement/movement-snapping-controller.ts`](./movement/movement-snapping-controller.ts) captures an immutable movement session and applies one final Fabric translation for standalone top-level images, top-level shapes, and standalone top-level `Textbox` objects. Other object types are deliberately routed to the existing owner.
 - [`scaling/image-scale-snapping-controller.ts`](./scaling/image-scale-snapping-controller.ts) owns supported scale sessions for a top-level `FabricImage`, applies both resolved scale factors once around the fixed scene point, and returns only guides verified against the exact final bounds.
 - [`movement/line-snapping.ts`](./movement/line-snapping.ts) resolves ordinary line snapping for movement targets that have not yet been migrated.
 - [`movement/spacing.ts`](./movement/spacing.ts) resolves equal spacing and returns every selected interval with its exact nearest-neighbour or reference-pattern identity, whether it is primary or related, and the segment to render.
@@ -58,9 +58,9 @@ The new path supports side and corner controls, rotation, centred scaling, free 
 
 Gesture state is cleared on `mouseup`, selection changes, object removal, `pointercancel`, `touchcancel`, window blur, and manager destruction.
 
-## Image and shape movement integration
+## Image, shape, and standalone text movement integration
 
-For a standalone top-level image or top-level shape, `mousedown` captures exact initial bounds, Fabric `left/top`, zoom, named line candidates, and a full equal-spacing snapshot that includes the active object. Every `object:moving` step reads the raw Fabric result, resolves line and equal-spacing hold state independently by axis, includes pixel rounding in the same final position, applies at most one post-Fabric translation, and verifies the resulting exact bounds before publishing guides.
+For a standalone top-level image, top-level shape, or standalone top-level `Textbox`, `mousedown` captures exact initial bounds, Fabric `left/top`, zoom, named line candidates, and a full equal-spacing snapshot that includes the active object. Every `object:moving` step reads the raw Fabric result, resolves line and equal-spacing hold state independently by axis, includes pixel rounding in the same final position, applies at most one post-Fabric translation, and verifies the resulting exact bounds before publishing guides.
 
 Exact correction and the displayed distance are deliberately separate. Centred placement and a newly acquired reference interval use exact scene bounds without quantizing the correction to a half-pixel step. An existing chain is accepted only when the spread between its minimum and maximum exact intervals is at most `0.001` scene pixels, every interval resolves to the same display value, and every object intersects one shared perpendicular corridor. The representative distance is then calculated from the complete chain, and every guide uses the shared display value and the centre of the common corridor. These rules are identical for horizontal and vertical chains.
 
@@ -70,9 +70,9 @@ When the active object already belongs to a confirmed chain at `mousedown`, snap
 
 Ctrl returns the unrounded raw Fabric position and clears both line and spacing hold state. A repeated native marker reuses its verified result without reading or changing the target again. A new `mousedown` first ends the previous movement session and clears visible guides and legacy anchor caches before the new snapshot and anchors are captured. The movement session and visible guides are also cleared on `mouseup`, selection changes, removal of the active target, `pointercancel`, `touchcancel`, window blur, and manager destruction.
 
-Shape movement remains a plain Fabric translation: it does not run shape layout, change canonical dimensions, or alter the embedded text. On a drag `object:modified` event, ShapeManager still performs its normal interaction cleanup but skips scale materialization because a move must not reinterpret pre-existing `scaleX/scaleY` as a resize. The regular Fabric history lifecycle still commits the completed drag.
+Shape movement remains a plain Fabric translation: it does not run shape layout, change canonical dimensions, or alter the embedded text. On a drag `object:modified` event, ShapeManager still performs its normal interaction cleanup but skips scale materialization because a move must not reinterpret pre-existing `scaleX/scaleY` as a resize. Standalone text movement is also a plain Fabric translation and does not change its text, dimensions, font size, padding, corner radii, angle, or scale factors. The regular Fabric history lifecycle commits both completed drag types without an additional save from their domain managers.
 
-This phase intentionally handles only an active browser drag of a top-level `FabricImage` or top-level shape. Movement without an active browser gesture, nested images and shapes, standalone text, `ActiveSelection`, `Group`, and `CropFrame` continue through the legacy path.
+This phase intentionally handles only an active browser drag of a top-level `FabricImage`, top-level shape, or standalone top-level `Textbox`. Movement without an active browser gesture, nested images, nested shapes, nested text, `ActiveSelection`, `Group`, and `CropFrame` continue through the legacy path.
 
 ## Image scale integration
 
@@ -110,6 +110,7 @@ These formulas must not be moved into the shared resolver. `CropManager` must ap
 
 - First identify where the defect lives: target selection, guide holding, domain application, result verification, or rendering.
 - For a new object type, start with one real browser regression and then connect its owner to the shared runtime.
-- Do not consider an object type migrated because one test is green. Cover side and corner controls, rotation, Ctrl and Shift, repeated pointer positions, `mouseup`, history, and gesture interruption paths.
-- Image scale is complete for the supported top-level `FabricImage` boundary, and movement is complete for top-level images and shapes. The next movement slice is standalone text, followed by `ActiveSelection` and `Group` after their own capability audits.
+- Do not consider movement migrated because one test is green. Cover line and equal-spacing hold, independent axis release, Ctrl, rotation, zoom and pan, `mouseup`, history, and gesture interruption paths.
+- Do not consider scaling migrated because one control is green. Cover every supported side and corner control, rotation, Ctrl and Shift, repeated pointer positions, `mouseup`, history, and gesture interruption paths.
+- Image scale is complete for the supported top-level `FabricImage` boundary, and movement is complete for top-level images, shapes, and standalone `Textbox` objects. The next movement slices are `ActiveSelection` and then `Group`, each after its own capability audit.
 - Before changing `CropFrame`, reread [`../crop-manager/README.md`](../crop-manager/README.md), [`scaling/legacy-scale-snapping.ts`](./scaling/legacy-scale-snapping.ts), [`pixel-grid.ts`](./pixel-grid.ts), and [`../crop-manager/domain/crop-frame.ts`](../crop-manager/domain/crop-frame.ts).

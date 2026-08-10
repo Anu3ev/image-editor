@@ -9,7 +9,8 @@ import {
 /** Типы объектов, для которых уже используется унифицированный расчёт перемещения. */
 const UNIFIED_MOVEMENT_TARGETS = [
   { kind: 'image', label: 'изображения' },
-  { kind: 'shape', label: 'шейпа' }
+  { kind: 'shape', label: 'шейпа' },
+  { kind: 'text', label: 'отдельного текста' }
 ] satisfies ReadonlyArray<{
   kind: MovementRoutingTargetKind
   label: string
@@ -22,7 +23,7 @@ const LEGACY_MOVEMENT_TARGETS = [
   { kind: 'group', label: 'обычной группы объектов' },
   { kind: 'nested-image', label: 'вложенного изображения' },
   { kind: 'nested-shape', label: 'вложенного шейпа' },
-  { kind: 'text', label: 'отдельного текста' }
+  { kind: 'nested-text', label: 'вложенного текста' }
 ] satisfies ReadonlyArray<{
   kind: MovementRoutingTargetKind
   label: string

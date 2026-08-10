@@ -224,7 +224,7 @@ export default class SnappingManager {
   /** События указателя, уже обработанные менеджером конкретного типа объекта. */
   private readonly handledScaleStepEvents = new WeakSet<object>()
 
-  /** Управляет унифицированным прилипанием при перемещении изображений и шейпов. */
+  /** Управляет унифицированным прилипанием при перемещении изображений, шейпов и отдельного текста. */
   private readonly movementSnappingController: MovementSnappingController
 
   /** Управляет общей сессией прилипания при скейлинге изображений. */
