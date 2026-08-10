@@ -1,6 +1,7 @@
 /* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними преобразованиями результата. */
 import {
   FabricImage,
+  Textbox,
   type BasicTransformEvent,
   type FabricObject,
   type TPointerEvent
@@ -38,7 +39,7 @@ import { isShapeGroup } from '../../shape-manager/domain/shape-reference'
 import type { ShapeGroup } from '../../shape-manager/types'
 
 /** Верхнеуровневые объекты, уже переведённые на общую логику перемещения. */
-type SupportedMovementTarget = FabricImage | ShapeGroup
+type SupportedMovementTarget = FabricImage | ShapeGroup | Textbox
 
 /** Событие canvas для одного шага перемещения. */
 type ObjectMovementTransformEvent = BasicTransformEvent<TPointerEvent> & {
@@ -67,7 +68,7 @@ const UNHANDLED_OBJECT_MOVEMENT_STEP: UnhandledObjectMovementStep = Object.freez
 })
 
 /**
- * Управляет общей сессией прилипания при перемещении изображения или шейпа.
+ * Управляет общей сессией прилипания при перемещении изображения, шейпа или отдельного текста.
  * Остальные типы объектов продолжают использовать прежний путь обработки.
  */
 export class MovementSnappingController {
@@ -158,13 +159,13 @@ export class MovementSnappingController {
     return true
   }
 
-  /** Разрешает обычное перемещение одиночного изображения или шейпа. */
+  /** Разрешает обычное перемещение одиночного изображения, шейпа или отдельного текста. */
   private _isSupportedTarget(
     target?: FabricObject | null
   ): target is SupportedMovementTarget {
     if (!target || target.group) return false
 
-    return target instanceof FabricImage || isShapeGroup(target)
+    return target instanceof FabricImage || target instanceof Textbox || isShapeGroup(target)
   }
 
   /** Фиксирует положение объекта после перемещения Fabric, но до применения прилипания. */
