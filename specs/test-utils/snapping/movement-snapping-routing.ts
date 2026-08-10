@@ -16,6 +16,16 @@ import { createMockFabricImage } from '../managers/image'
 /** Тип объекта в проверке маршрутизации перемещения. */
 export type MovementRoutingTargetKind =
   | 'active-selection'
+  | 'active-selection-empty'
+  | 'active-selection-images'
+  | 'active-selection-shapes'
+  | 'active-selection-single-image'
+  | 'active-selection-texts'
+  | 'active-selection-with-crop-frame'
+  | 'active-selection-with-group'
+  | 'active-selection-with-nested-image'
+  | 'active-selection-with-scaled-text'
+  | 'active-selection-with-unknown-object'
   | 'crop-frame'
   | 'group'
   | 'image'
@@ -86,12 +96,12 @@ function applyMovementGeometry<T extends FabricObject>({
   return target
 }
 
-/** Создаёт один из допустимых или оставленных на прежнем пути объектов. */
-export function createMovementRoutingTarget({
+/** Создаёт одиночный объект для проверки маршрутизации перемещения. */
+function createSingleMovementRoutingTarget({
   kind
 }: {
   kind: MovementRoutingTargetKind
-}): FabricObject {
+}): FabricObject | null {
   if (kind === 'image' || kind === 'nested-image') {
     const image = applyMovementGeometry({
       target: createMockFabricImage({ width: 30, height: 30 }),
@@ -116,10 +126,6 @@ export function createMovementRoutingTarget({
     return applyMovementGeometry({ target: new Group([], {}), id: kind })
   }
 
-  if (kind === 'active-selection') {
-    return applyMovementGeometry({ target: new ActiveSelection([], {}), id: kind })
-  }
-
   if (kind === 'text' || kind === 'nested-text') {
     const textbox = applyMovementGeometry({ target: new Textbox('Text', {}), id: kind })
     if (kind === 'nested-text') textbox.group = new Group([], {})
@@ -127,12 +133,135 @@ export function createMovementRoutingTarget({
     return textbox
   }
 
+  if (kind !== 'crop-frame') return null
+
   const cropFrame = applyMovementGeometry({ target: new Rect({}), id: kind })
   Object.assign(cropFrame, {
     cropSource: new Rect({})
   })
 
   return cropFrame
+}
+
+/** Создаёт поддерживаемый состав общего выделения. */
+function createSupportedActiveSelection({
+  kind
+}: {
+  kind: MovementRoutingTargetKind
+}): FabricObject | null {
+  const supportedKinds: MovementRoutingTargetKind[] = [
+    'active-selection',
+    'active-selection-images',
+    'active-selection-shapes',
+    'active-selection-texts'
+  ]
+  if (!supportedKinds.includes(kind)) return null
+
+  const image = createMockFabricImage({ width: 30, height: 30 })
+  const secondImage = createMockFabricImage({ width: 30, height: 30 })
+  const shape = new ShapeGroupObject([], {})
+  const secondShape = new ShapeGroupObject([], {})
+  const text = new Textbox('Text', {})
+  const secondText = new Textbox('Second text', {})
+  let objects: FabricObject[] = [image, shape, text]
+
+  if (kind === 'active-selection-images') objects = [image, secondImage]
+  if (kind === 'active-selection-shapes') objects = [shape, secondShape]
+  if (kind === 'active-selection-texts') objects = [text, secondText]
+
+  return applyMovementGeometry({
+    target: new ActiveSelection(objects, {}),
+    id: kind
+  })
+}
+
+/** Создаёт некорректное состояние общего выделения для проверки отказа от нового пути. */
+function createInvalidActiveSelectionState({
+  kind
+}: {
+  kind: MovementRoutingTargetKind
+}): FabricObject | null {
+  if (kind === 'active-selection-empty' || kind === 'active-selection-single-image') {
+    const objects = kind === 'active-selection-empty'
+      ? []
+      : [createMockFabricImage({ width: 30, height: 30 })]
+
+    return applyMovementGeometry({
+      target: new ActiveSelection(objects, {}),
+      id: kind
+    })
+  }
+
+  if (kind === 'active-selection-with-nested-image') {
+    const nestedImage = createMockFabricImage({ width: 30, height: 30 })
+    const parent = new Group([nestedImage], {})
+    const selection = new ActiveSelection([nestedImage, new Textbox('Text', {})], {})
+    nestedImage.parent = parent
+
+    return applyMovementGeometry({
+      target: selection,
+      id: kind
+    })
+  }
+
+  if (kind === 'active-selection-with-scaled-text') {
+    const selection = new ActiveSelection([
+      new Textbox('Text', {}),
+      createMockFabricImage({ width: 30, height: 30 })
+    ], {})
+    const target = applyMovementGeometry({ target: selection, id: kind })
+    target.set({ scaleX: 1.2, scaleY: 1.2 })
+
+    return target
+  }
+
+  return null
+}
+
+/** Создаёт неподдерживаемый состав общего выделения. */
+function createUnsupportedActiveSelection({
+  kind
+}: {
+  kind: MovementRoutingTargetKind
+}): FabricObject | null {
+  if (kind === 'active-selection-with-group') {
+    return applyMovementGeometry({
+      target: new ActiveSelection([new Group([], {}), new Textbox('Text', {})], {}),
+      id: kind
+    })
+  }
+
+  if (kind === 'active-selection-with-unknown-object' || kind === 'active-selection-with-crop-frame') {
+    const unsupportedObject = new Rect({})
+    if (kind === 'active-selection-with-crop-frame') {
+      Object.assign(unsupportedObject, { cropSource: new Rect({}) })
+    }
+
+    return applyMovementGeometry({
+      target: new ActiveSelection([unsupportedObject, new Textbox('Text', {})], {}),
+      id: kind
+    })
+  }
+
+  return null
+}
+
+/** Создаёт один из допустимых или оставленных на прежнем пути объектов. */
+export function createMovementRoutingTarget({
+  kind
+}: {
+  kind: MovementRoutingTargetKind
+}): FabricObject {
+  const target = createSingleMovementRoutingTarget({ kind })
+    ?? createSupportedActiveSelection({ kind })
+    ?? createInvalidActiveSelectionState({ kind })
+    ?? createUnsupportedActiveSelection({ kind })
+
+  if (!target) {
+    throw new Error(`Неизвестный тип объекта для проверки перемещения: ${kind}`)
+  }
+
+  return target
 }
 
 /** Создаёт SnappingManager с наблюдаемой прежней веткой перемещения. */

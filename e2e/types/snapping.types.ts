@@ -3,6 +3,11 @@ import type {
   ObjectTargetParams
 } from './editor.types'
 
+/** Взаимоисключающий выбор canvas-объекта по идентификатору или текущего активного объекта. */
+export type SnappingTargetParams =
+  | (ObjectTargetParams & { activeObject?: never })
+  | { activeObject: true; id?: never; objectIndex?: never }
+
 /** Направление обычной направляющей прилипания. */
 export type SnappingGuideAxis = 'vertical' | 'horizontal'
 
@@ -42,17 +47,17 @@ export interface SnappingObjectSnapshot extends EditorObjectInfo {
 }
 
 /** Параметры начала интерактивного перетаскивания объекта. */
-export type SnappingDragStartParams = ObjectTargetParams
+export type SnappingDragStartParams = SnappingTargetParams
 
 /** Параметры одного шага перетаскивания по внутренним координатам объекта. */
-export interface SnappingDragMoveParams extends ObjectTargetParams {
+export type SnappingDragMoveParams = SnappingTargetParams & {
   left: number
   top: number
   ctrlKey?: boolean
 }
 
 /** Параметры одного шага перетаскивания по границам объекта. */
-export interface SnappingDragBoundsParams extends ObjectTargetParams {
+export type SnappingDragBoundsParams = SnappingTargetParams & {
   left: number
   top: number
   ctrlKey?: boolean
@@ -65,7 +70,7 @@ export type SnappingDragBoundsPosition = Readonly<{
 }>
 
 /** Параметры полного перетаскивания с несколькими шагами внутри удержания. */
-export interface SnappingDragBoundsWithHoldParams extends SnappingDragBoundsParams {
+export type SnappingDragBoundsWithHoldParams = SnappingDragBoundsParams & {
   heldPositions: readonly SnappingDragBoundsPosition[]
 }
 
@@ -83,7 +88,7 @@ export type SnappingDragHoldTrace = Readonly<{
 }>
 
 /** Параметры одного шага перетаскивания по центру границ объекта. */
-export interface SnappingDragCenterParams extends ObjectTargetParams {
+export type SnappingDragCenterParams = SnappingTargetParams & {
   centerX: number
   centerY: number
   ctrlKey?: boolean

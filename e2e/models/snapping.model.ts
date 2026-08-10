@@ -5,12 +5,12 @@ import type {
   SnappingDragBoundsWithHoldParams,
   SnappingDragCenterParams,
   SnappingDragHoldTrace,
-  ObjectTargetParams,
   SnappingDragMoveParams,
   SnappingDragStartParams,
   SnappingGuideState,
   SnappingObservedDragStep,
-  SnappingObjectSnapshot
+  SnappingObjectSnapshot,
+  SnappingTargetParams
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
@@ -28,7 +28,7 @@ type DragTransformInfo = {
 }
 
 /** Идентификатор объекта и модификатор одного pointer-step. */
-type DragPointerParams = ObjectTargetParams & {
+type DragPointerParams = SnappingTargetParams & {
   ctrlKey?: boolean
 }
 
@@ -59,13 +59,16 @@ export class SnappingModel {
   }
 
   /** Возвращает snapshot объекта canvas с актуальным bounding box. */
-  async getObjectSnapshot(params: ObjectTargetParams = {}): Promise<SnappingObjectSnapshot> {
-    const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
+  async getObjectSnapshot(params: SnappingTargetParams = {}): Promise<SnappingObjectSnapshot> {
+    const snapshot = await this.page.evaluate(({ activeObject, objectIndex, id }) => {
       const {
+        editor,
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = activeObject
+        ? editor.canvas.getActiveObject()
+        : helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
       return helpers.serializeSnappingObjectSnapshot(target)
@@ -100,13 +103,15 @@ export class SnappingModel {
   private async _resolveObjectDragStartClientPoint(
     params: SnappingDragStartParams
   ): Promise<CanvasClientPoint> {
-    const dragStart = await this.page.evaluate(({ objectIndex, id }) => {
+    const dragStart = await this.page.evaluate(({ activeObject, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = activeObject
+        ? editor.canvas.getActiveObject()
+        : helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
       editor.canvas.setActiveObject(target)
@@ -140,13 +145,15 @@ export class SnappingModel {
 
   /** Проверяет, что pointerdown начал именно перемещение выбранного объекта. */
   private async _assertObjectDragStarted(params: SnappingDragStartParams): Promise<void> {
-    const dragTransform = await this.page.evaluate(({ objectIndex, id }) => {
+    const dragTransform = await this.page.evaluate(({ activeObject, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = activeObject
+        ? editor.canvas.getActiveObject()
+        : helpers.resolveCanvasObject(objectIndex, id)
       const transform = editor.canvas._currentTransform
       if (!target || !transform || transform.target !== target) return null
 
@@ -285,14 +292,16 @@ export class SnappingModel {
   }
 
   /** Возвращает текущее Fabric-преобразование и геометрию выбранного объекта. */
-  private async _getDragTransformInfo(params: ObjectTargetParams): Promise<DragTransformInfo> {
-    const dragInfo = await this.page.evaluate(({ objectIndex, id }) => {
+  private async _getDragTransformInfo(params: SnappingTargetParams): Promise<DragTransformInfo> {
+    const dragInfo = await this.page.evaluate(({ activeObject, objectIndex, id }) => {
       const {
         editor,
         __editorHelpers: helpers
       } = window as any
 
-      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const target = activeObject
+        ? editor.canvas.getActiveObject()
+        : helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
       const transform = editor.canvas._currentTransform
