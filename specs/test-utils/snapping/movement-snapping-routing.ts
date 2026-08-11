@@ -29,6 +29,7 @@ export type MovementRoutingTargetKind =
   | 'crop-frame'
   | 'group'
   | 'image'
+  | 'nested-group'
   | 'nested-image'
   | 'nested-shape'
   | 'nested-text'
@@ -96,6 +97,26 @@ function applyMovementGeometry<T extends FabricObject>({
   return target
 }
 
+/** Создаёт верхнеуровневую или вложенную группу для проверки маршрутизации. */
+function createGroupMovementRoutingTarget({
+  kind
+}: {
+  kind: MovementRoutingTargetKind
+}): Group | null {
+  if (kind !== 'group' && kind !== 'nested-group') return null
+
+  const group = applyMovementGeometry({
+    target: new Group([
+      new Rect({ width: 10, height: 10 }),
+      new Rect({ width: 10, height: 10 })
+    ], {}),
+    id: kind
+  })
+  if (kind === 'nested-group') group.group = new Group([], {})
+
+  return group
+}
+
 /** Создаёт одиночный объект для проверки маршрутизации перемещения. */
 function createSingleMovementRoutingTarget({
   kind
@@ -122,9 +143,8 @@ function createSingleMovementRoutingTarget({
     return shape
   }
 
-  if (kind === 'group') {
-    return applyMovementGeometry({ target: new Group([], {}), id: kind })
-  }
+  const group = createGroupMovementRoutingTarget({ kind })
+  if (group) return group
 
   if (kind === 'text' || kind === 'nested-text') {
     const textbox = applyMovementGeometry({ target: new Textbox('Text', {}), id: kind })

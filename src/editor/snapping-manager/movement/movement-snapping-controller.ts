@@ -2,6 +2,7 @@
 import {
   ActiveSelection,
   FabricImage,
+  Group,
   Textbox,
   type BasicTransformEvent,
   type FabricObject,
@@ -37,10 +38,9 @@ import {
   shouldIgnoreObject
 } from '../../utils/object-filter'
 import { isShapeGroup } from '../../shape-manager/domain/shape-reference'
-import type { ShapeGroup } from '../../shape-manager/types'
 
 /** Верхнеуровневые объекты, уже переведённые на общую логику перемещения. */
-type SupportedMovementTarget = ActiveSelection | FabricImage | ShapeGroup | Textbox
+type SupportedMovementTarget = ActiveSelection | FabricImage | Group | Textbox
 
 /** Событие canvas для одного шага перемещения. */
 type ObjectMovementTransformEvent = BasicTransformEvent<TPointerEvent> & {
@@ -173,7 +173,7 @@ export class MovementSnappingController {
       return this._isSupportedActiveSelection({ selection: target })
     }
 
-    return target instanceof FabricImage || target instanceof Textbox || isShapeGroup(target)
+    return target instanceof FabricImage || target instanceof Group || target instanceof Textbox
   }
 
   /** Проверяет состав, родительские связи и безопасное состояние масштаба общего выделения. */
