@@ -182,6 +182,35 @@ describe('Расчёт прилипания при скейлинге', () => {
     expect(outsideThreshold.effectiveValues[0]).toBeCloseTo(0.9749, 8)
   })
 
+  it('использует точную геометрию текущего шага вместо исходной проекции жеста', () => {
+    const baseline = createScaleBaseline({
+      candidates: [createScaleCandidate({ id: 'right', axis: 'x', position: 100 })]
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ values: [0.5, 1] }),
+      holdState: FREE_SCALE_HOLD_STATE,
+      stepProjection: {
+        bounds: createScaleBounds({ left: 0, top: 0, right: 98, bottom: 100 }),
+        projection: {
+          variables: ['scale-x', 'scale-y'],
+          baselineValues: [0.5, 1],
+          variableSceneWeights: [100, 100],
+          edges: [
+            { edge: 'right', coefficients: [100, 0] },
+            { edge: 'bottom', coefficients: [0, 100] }
+          ]
+        }
+      }
+    })
+
+    expect(plan.rawPositions.right).toBe(98)
+    expect(plan.constraints.x?.candidate.id).toBe('right')
+    expect(plan.effectiveValues[0]).toBeCloseTo(0.52, 8)
+    expect(plan.effectivePositions.right).toBeCloseTo(100, 8)
+    expect(Object.isFrozen(plan.projection)).toBe(true)
+  })
+
   it('при независимом scale одновременно прилипает по X и Y', () => {
     const baseline = createScaleBaseline({
       candidates: [

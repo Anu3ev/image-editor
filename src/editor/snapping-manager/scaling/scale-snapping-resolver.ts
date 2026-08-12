@@ -113,11 +113,23 @@ export type ScaleSnapModifiers = Readonly<{
   shiftKey: boolean
 }>
 
-/** Исходные значения scale и режим, выбранный менеджером объекта. */
+/** Исходные канонические значения и режим, выбранный менеджером объекта. */
 export type ScaleRawIntent = Readonly<{
   projectionMode: string
   values: readonly number[]
   modifiers: ScaleSnapModifiers
+}>
+
+/** Точные границы и зависимость граней от размеров на текущем шаге. */
+export type ScaleStepProjectionInput = Readonly<{
+  bounds: ObjectBounds
+  projection: ScaleProjectionInput
+}>
+
+/** Точная проекция и канонические значения после уточнения по фактической геометрии объекта. */
+export type ScaleSnapPlanRefinement = Readonly<{
+  effectiveValues: readonly number[]
+  stepProjection: ScaleStepProjectionInput
 }>
 
 /** Способ выбора ограничения на текущем шаге указателя. */
@@ -131,7 +143,7 @@ export type PlannedScaleConstraint = Readonly<{
   expectedPosition: number
 }>
 
-/** Неизменяемый результат расчёта прилипания для одного шага scale. */
+/** Неизменяемый результат расчёта прилипания для одного изменения размера. */
 export type ScaleSnapPlan = Readonly<{
   projectionMode: string
   projection: ScaleProjection
@@ -191,7 +203,7 @@ type ScaleAxisProposal = Readonly<{
   transition: ScaleSnapTransition
 }>
 
-/** Совместимые ограничения и рассчитанные для них значения scale. */
+/** Совместимые ограничения и рассчитанные для них канонические значения. */
 type ResolvedScaleProposals = Readonly<{
   x: ScaleAxisProposal | null
   y: ScaleAxisProposal | null
@@ -254,13 +266,16 @@ export function createScaleGestureBaseline({
 export function resolveScaleSnapPlan({
   baseline,
   intent,
-  holdState
+  holdState,
+  stepProjection
 }: {
   baseline: ScaleGestureBaseline
   intent: ScaleRawIntent
   holdState: ScaleHoldState
+  stepProjection?: ScaleStepProjectionInput
 }): ScaleSnapPlan {
-  const projectionMode = resolveProjectionMode({ baseline, modeId: intent.projectionMode })
+  const baselineMode = resolveProjectionMode({ baseline, modeId: intent.projectionMode })
+  const projectionMode = resolveStepProjectionMode({ baselineMode, stepProjection })
   assertScaleRawIntent({ projection: projectionMode.projection, intent })
   assertScaleHoldState({ baseline, holdState })
 
@@ -275,6 +290,89 @@ export function resolveScaleSnapPlan({
   const resolved = resolveCompatibleProposals({ baseline, projectionMode, rawValues, x, y })
 
   return createScaleSnapPlan({ baseline, projectionMode, rawValues, rawPositions, resolved })
+}
+
+/**
+ * Уточняет значения уже выбранных ограничений по фактической геометрии объекта.
+ * Выбранные кандидаты, исходное положение указателя и состояние удержания не меняются.
+ */
+export function refineScaleSnapPlan({
+  plan,
+  refinement
+}: {
+  plan: ScaleSnapPlan
+  refinement: ScaleSnapPlanRefinement
+}): ScaleSnapPlan {
+  if (!plan.constraints.x && !plan.constraints.y) {
+    throw new Error('Scale plan without constraints cannot be refined')
+  }
+
+  const projectionMode = resolveStepProjectionMode({
+    baselineMode: Object.freeze({ id: plan.projectionMode, projection: plan.projection }),
+    stepProjection: refinement.stepProjection
+  })
+  const effectiveValues = Object.freeze([...refinement.effectiveValues])
+  assertScaleValues({ projection: projectionMode.projection, values: effectiveValues })
+
+  const effectivePositions = projectScaleEdgePositions({
+    projection: projectionMode.projection,
+    values: effectiveValues
+  })
+  assertRefinedConstraintsReached({
+    bounds: refinement.stepProjection.bounds,
+    effectivePositions,
+    plan
+  })
+
+  return Object.freeze({
+    ...plan,
+    projection: projectionMode.projection,
+    variables: projectionMode.projection.variables,
+    effectiveValues,
+    effectivePositions
+  })
+}
+
+/**
+ * Использует исходную проекцию жеста либо точную локальную модель текущего шага.
+ */
+function resolveStepProjectionMode({
+  baselineMode,
+  stepProjection
+}: {
+  baselineMode: ScaleProjectionMode
+  stepProjection?: ScaleStepProjectionInput
+}): ScaleProjectionMode {
+  if (!stepProjection) return baselineMode
+
+  const bounds = createExactBoundsSnapshot({ bounds: stepProjection.bounds })
+  const projection = createScaleProjection({ bounds, input: stepProjection.projection })
+  assertStepProjectionContract({ baseline: baselineMode.projection, step: projection })
+
+  return Object.freeze({ id: baselineMode.id, projection })
+}
+
+/** Проверяет, что локальная проекция сохраняет параметры и движущиеся грани жеста. */
+function assertStepProjectionContract({
+  baseline,
+  step
+}: {
+  baseline: ScaleProjection
+  step: ScaleProjection
+}): void {
+  const hasSameVariables = baseline.variables.length === step.variables.length
+    && baseline.variables.every((variable, index) => variable === step.variables[index])
+  if (!hasSameVariables) {
+    throw new Error('Scale step projection must preserve gesture variables')
+  }
+
+  const baselineEdges = baseline.edges.map(({ edge }) => edge).sort()
+  const stepEdges = step.edges.map(({ edge }) => edge).sort()
+  const hasSameEdges = baselineEdges.length === stepEdges.length
+    && baselineEdges.every((edge, index) => edge === stepEdges[index])
+  if (!hasSameEdges) {
+    throw new Error('Scale step projection must preserve gesture edges')
+  }
 }
 
 /**
@@ -464,7 +562,7 @@ function assertScaleCandidate({
 }
 
 /**
- * Проверяет исходные значения scale для выбранного режима.
+ * Проверяет исходные канонические значения для выбранного режима.
  */
 function assertScaleRawIntent({
   projection,
@@ -481,6 +579,46 @@ function assertScaleRawIntent({
   }
   if (typeof intent.modifiers.ctrlKey !== 'boolean' || typeof intent.modifiers.shiftKey !== 'boolean') {
     throw new Error('Scale raw intent modifiers must be boolean')
+  }
+}
+
+/** Проверяет канонические значения уточнённой проекции. */
+function assertScaleValues({
+  projection,
+  values
+}: {
+  projection: ScaleProjection
+  values: readonly number[]
+}): void {
+  if (values.length !== projection.variables.length) {
+    throw new Error('Scale refinement has invalid values length')
+  }
+  if (!values.every(Number.isFinite)) {
+    throw new Error('Scale refinement values must be finite')
+  }
+}
+
+/** Проверяет достижение исходных ограничений точной геометрией уточнённого плана. */
+function assertRefinedConstraintsReached({
+  bounds,
+  effectivePositions,
+  plan
+}: {
+  bounds: ObjectBounds
+  effectivePositions: ProjectedScaleEdgePositions
+  plan: ScaleSnapPlan
+}): void {
+  for (const constraint of [plan.constraints.x, plan.constraints.y]) {
+    if (!constraint) continue
+
+    const { edge } = constraint.candidate
+    const projectedPosition = effectivePositions[edge]
+    const exactPosition = bounds[edge]
+    if (projectedPosition === null
+      || Math.abs(projectedPosition - constraint.expectedPosition) > plan.verificationEpsilon
+      || Math.abs(exactPosition - constraint.expectedPosition) > plan.verificationEpsilon) {
+      throw new Error(`Refined scale plan does not reach ${edge} constraint`)
+    }
   }
 }
 

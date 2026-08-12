@@ -3,18 +3,86 @@ import type {
   TextAddParams,
   TextInlineStyle,
   TextLineDefaults,
+  TextResizeGuideAxis,
+  TextResizeSide,
   TextScaleDragStep,
   TextScaleHandleCase
 } from '../../types'
 
-/** Допуски для standalone text resize assertions. */
+/** Один браузерный сценарий боковой ручки и направляющей в координатах сцены. */
+export type TextSideResizeControlCase = Readonly<{
+  angle: number
+  axis: TextResizeGuideAxis
+  guideType: 'horizontal' | 'vertical'
+  side: TextResizeSide
+  title: string
+}>
+
+/** Обе боковые ручки без поворота и после поворота на 90 градусов. */
+export const TEXT_SIDE_RESIZE_CONTROL_CASES: readonly TextSideResizeControlCase[] = Object.freeze([
+  {
+    angle: 0,
+    axis: 'x',
+    guideType: 'vertical',
+    side: 'right',
+    title: 'правая ручка обычного текста прилипает к вертикальной направляющей'
+  },
+  {
+    angle: 0,
+    axis: 'x',
+    guideType: 'vertical',
+    side: 'left',
+    title: 'левая ручка обычного текста прилипает к вертикальной направляющей'
+  },
+  {
+    angle: 90,
+    axis: 'y',
+    guideType: 'horizontal',
+    side: 'right',
+    title: 'правая ручка повёрнутого текста прилипает к горизонтальной направляющей'
+  },
+  {
+    angle: 90,
+    axis: 'y',
+    guideType: 'horizontal',
+    side: 'left',
+    title: 'левая ручка повёрнутого текста прилипает к горизонтальной направляющей'
+  }
+])
+
+/** Микродвижения указателя внутри зоны удержания повёрнутого текста. */
+export const TEXT_SIDE_RESIZE_HOLD_STEPS = Object.freeze([
+  Object.freeze({ deltaX: 1, deltaY: 0 }),
+  Object.freeze({ deltaX: 1, deltaY: 0 }),
+  Object.freeze({ deltaX: 1, deltaY: 0 })
+])
+
+/** Допуски проверок изменения ширины отдельного текста. */
 export const TEXT_RESIZING_TOLERANCE = {
   anchor: 1.5,
   mouseupJump: 1.5
 }
 
-/** Целевая внутренняя ширина текста для reflow-сценариев resize. */
+/** Целевая внутренняя ширина текста для сценариев с переносом строк. */
 export const TEXT_RESIZING_REGRESSION_WIDTH = 125
+
+/** Ширина меньше самой длинной строки для проверки упора боковой ручки. */
+export const TEXT_RESIZING_MINIMUM_WIDTH_PROBE = 20
+
+/** Дальнейшее движение боковой ручки после упора в минимальную ширину. */
+export const TEXT_RESIZING_MINIMUM_WIDTH_HOLD_DELTA = 8
+
+/** Настройки текста из сценария с упором боковой ручки в минимальную ширину строки. */
+export const TEXT_RESIZING_MINIMUM_WIDTH_ADD_OPTIONS: TextAddParams = {
+  text: 'Новый текст',
+  autoExpand: false,
+  fontFamily: 'Open Sans',
+  fontSize: 48,
+  lineHeight: 1.16,
+  width: 240,
+  left: 281,
+  top: 352
+}
 
 /** Целевая внутренняя ширина текста для сценариев со скейлингом после ручного сужения. */
 export const TEXT_SCALING_REGRESSION_WIDTH = 180
@@ -31,14 +99,14 @@ export const TEXT_DIAGONAL_SCALING_FACTORS = {
 /** Коэффициент горизонтального скейлинга для проверки текущей базовой ширины. */
 export const TEXT_HORIZONTAL_SCALING_FACTOR = 1.35
 
-/** Последовательность сужения текста скейлингом для проверки плавного live-поведения. */
+/** Последовательность сужения текста скейлингом для проверки промежуточных состояний. */
 export const TEXT_HORIZONTAL_SCALING_NARROW_STEPS = [
   0.92,
   0.62,
   0.42
 ]
 
-/** Создаёт повторяющиеся pointer-шаги для live-сужения текста за scale-угол. */
+/** Создаёт последовательность движений указателя для сужения текста за угловую ручку. */
 const createTextScaleDragSteps = ({
   deltaX,
   deltaY,
@@ -61,7 +129,7 @@ const createTextScaleDragSteps = ({
   return steps
 }
 
-/** Реальные pointer-сценарии сужения текста за диагональные углы для проверки live-переносов. */
+/** Сценарии сужения текста настоящей мышью для проверки переносов строк на каждом движении. */
 export const TEXT_DIAGONAL_SCALING_NARROW_DRAG_CASES = [
   {
     title: 'правый верхний угол',
@@ -101,10 +169,10 @@ export const TEXT_DIAGONAL_SCALING_NARROW_DRAG_CASES = [
   }
 ] satisfies TextScaleHandleCase[]
 
-/** Минимальный размер шрифта при скейлинге standalone text. */
+/** Минимальный размер шрифта при скейлинге отдельного текста. */
 export const TEXT_SCALING_MINIMUM_FONT_SIZE = 8
 
-/** Коэффициент для проверки дальнейшего сужения после упора в минимум в той же drag-сессии. */
+/** Коэффициент для проверки дальнейшего сужения после упора в минимум без отпускания ручки. */
 export const TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR = 0.05
 
 /** Коэффициент для возврата текста назад без завершения текущего диагонального скейлинга. */
@@ -138,7 +206,7 @@ export const TEXT_MINIMUM_SCALING_ADD_OPTIONS: TextAddParams = {
   top: 352
 }
 
-/** Конфигурация standalone text-объекта, воспроизводящая resize/reflow регрессию. */
+/** Настройки отдельного текста, воспроизводящие ошибку переноса строк при сужении. */
 export const TEXT_RESIZING_REGRESSION_ADD_OPTIONS: TextAddParams = {
   text: '69\nЧасов музыки',
   autoExpand: false,
@@ -185,7 +253,7 @@ export const TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION = {
   end: 15
 }
 
-/** Template JSON standalone text-объекта из регрессии resize/reflow. */
+/** JSON шаблона с отдельным текстом из сценария с переносом строк при сужении. */
 export const TEXT_RESIZING_REGRESSION_TEMPLATE: TemplateDefinition = {
   id: 'template-tpKVnnCeBLwc7PcNTWW21',
   meta: {
@@ -310,7 +378,7 @@ export const TEXT_RESIZING_REGRESSION_TEMPLATE: TemplateDefinition = {
   ]
 }
 
-/** Template JSON из регрессии, где standalone text дрожит при сужении за правый верхний угол. */
+/** JSON шаблона из сценария, где отдельный текст дрожит при сужении за правый верхний угол. */
 export const TEXT_TOP_RIGHT_SCALING_REGRESSION_TEMPLATE: TemplateDefinition = {
   id: 'template-li-6iWreVuR-zClIK1_iN',
   meta: {

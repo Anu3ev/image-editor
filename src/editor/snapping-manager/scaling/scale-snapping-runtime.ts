@@ -1,6 +1,7 @@
 /* eslint-disable no-use-before-define -- публичный класс объявлен перед внутренними проверками. */
 import {
   FREE_SCALE_HOLD_STATE,
+  refineScaleSnapPlan,
   resolveScaleSnapPlan,
   verifyScaleSnapPlan,
   type FinalScaleGeometry,
@@ -8,7 +9,9 @@ import {
   type ScaleHoldState,
   type ScaleRawIntent,
   type ScaleSnapPlan,
+  type ScaleSnapPlanRefinement,
   type ScaleSnapVerification,
+  type ScaleStepProjectionInput,
   type VerifiedScaleGuide
 } from './scale-snapping-resolver'
 
@@ -37,7 +40,7 @@ export type DuplicateScaleRuntimeStep = Readonly<{
 /** Результат обработки одного события указателя. */
 export type ScaleRuntimeStep = PlannedScaleRuntimeStep | DuplicateScaleRuntimeStep
 
-/** Результат идемпотентного завершения активного snapping-жеста. */
+/** Результат идемпотентного завершения жеста прилипания. */
 export type ScaleRuntimeCleanup = Readonly<{
   didCleanup: boolean
   hiddenGuides: readonly VerifiedScaleGuide[]
@@ -51,7 +54,7 @@ type ScaleRuntimeStepRecord = {
   verification: ScaleSnapVerification | null
 }
 
-/** Изменяемое состояние активного scale-жеста. */
+/** Изменяемое состояние активного изменения размера. */
 type ActiveScaleRuntimeSession = {
   id: number
   baseline: ScaleGestureBaseline
@@ -62,7 +65,7 @@ type ActiveScaleRuntimeSession = {
   nextStep: number
 }
 
-/** Следующий локальный идентификатор scale-жеста. */
+/** Следующий локальный идентификатор изменения размера. */
 let nextScaleRuntimeSessionId = 1
 
 /** Неизменяемый результат повторного завершения уже очищенного жеста. */
@@ -116,10 +119,12 @@ export class ScaleSnappingRuntime {
    */
   resolveScalePlan({
     marker,
-    intent
+    intent,
+    stepProjection
   }: {
     marker: object
     intent: ScaleRawIntent
+    stepProjection?: ScaleStepProjectionInput
   }): ScaleRuntimeStep {
     const session = this._getActiveSession()
     const duplicateRecord = session.markerRecords.get(marker)
@@ -138,7 +143,8 @@ export class ScaleSnappingRuntime {
     const plan = resolveScaleSnapPlan({
       baseline: session.baseline,
       intent,
-      holdState: session.holdState
+      holdState: session.holdState,
+      stepProjection
     })
     const token = this._createPlanToken({ session })
     const stepRecord = {
@@ -151,6 +157,28 @@ export class ScaleSnappingRuntime {
     session.pendingStep = stepRecord
 
     return Object.freeze({ kind: 'planned', token, plan })
+  }
+
+  /** Уточняет текущий план по точной геометрии домена до его применения. */
+  refineScalePlan({
+    token,
+    refinement
+  }: {
+    token: ScalePlanToken
+    refinement: ScaleSnapPlanRefinement
+  }): ScaleSnapPlan {
+    const session = this._getActiveSession()
+    this._assertUsableToken({ session, token })
+
+    const { pendingStep } = session
+    if (!pendingStep) {
+      throw new Error('Scale snapping runtime has no pointer step to refine')
+    }
+
+    const refinedPlan = refineScaleSnapPlan({ plan: pendingStep.plan, refinement })
+    pendingStep.plan = refinedPlan
+
+    return refinedPlan
   }
 
   /**

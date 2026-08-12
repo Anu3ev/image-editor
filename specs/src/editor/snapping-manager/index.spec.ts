@@ -849,18 +849,13 @@ describe('SnappingManager', () => {
     )
   })
 
-  it('применяет snap для текстового ресайза по горизонтали и фиксирует правый край', () => {
+  it('прежняя логика изменения ширины фиксирует край текста на направляющей', () => {
     const { editor, canvas } = createSnappingTestContext()
     const snappingManager = new SnappingManager({ editor })
     const snappingManagerState = snappingManager as any
     snappingManagerState.anchors = { vertical: [200], horizontal: [] }
     snappingManagerState.anchorBoundsMode = 'rounded'
-    const textbox = new Textbox('Test', {
-      left: 204,
-      top: 50,
-      width: 100
-    })
-
+    const textbox = new Textbox('Test', { left: 204, top: 50, width: 100 })
     textbox.canvas = canvas as any
 
     snappingManager.applyTextResizingSnap({
@@ -875,19 +870,14 @@ describe('SnappingManager', () => {
 
     expect(textbox.width).toBe(104)
     expect(textbox.left).toBe(200)
-
-    const { activeGuides } = snappingManager as any
-    expect(activeGuides).toEqual(
+    expect(snappingManagerState.activeGuides).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          type: 'vertical',
-          position: 200
-        })
+        expect.objectContaining({ type: 'vertical', position: 200 })
       ])
     )
   })
 
-  it('скрывает направляющие при Ctrl и при ресайзе текста не за боковую ручку', () => {
+  it('прежняя логика скрывает направляющие при Ctrl и для другой ручки', () => {
     const { editor, canvas } = createSnappingTestContext()
     const snappingManager = new SnappingManager({ editor })
     const snappingManagerState = snappingManager as any

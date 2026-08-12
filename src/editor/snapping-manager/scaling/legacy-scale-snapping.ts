@@ -233,7 +233,7 @@ export function resolveScaleUpdatePlan(params: ScaleUpdatePlanParams): ScaleUpda
   return resolveAxisScaleUpdatePlan(params)
 }
 
-/** Рассчитывает snap-план для горизонтального изменения ширины текстового объекта. */
+/** Рассчитывает прежний план прилипания при горизонтальном изменении ширины текста. */
 export function resolveTextResizeSnapPlan({
   target,
   bounds,
@@ -261,17 +261,10 @@ export function resolveTextResizeSnapPlan({
   const { guidePosition } = verticalSnap
   if (guidePosition === null) return null
 
-  const desiredWidth = resolveDesiredWidth({
-    bounds,
-    originX,
-    snap: verticalSnap
-  })
+  const desiredWidth = resolveDesiredWidth({ bounds, originX, snap: verticalSnap })
   if (desiredWidth === null) return null
 
-  const nextWidth = resolveTextWidthForBounds({
-    target,
-    boundsWidth: desiredWidth
-  })
+  const nextWidth = resolveTextWidthForBounds({ target, boundsWidth: desiredWidth })
   if (nextWidth === null) return null
 
   return {
@@ -1314,9 +1307,7 @@ function resolveScaleForRotatedBoundsSize({
   return nextScale
 }
 
-/**
- * Приводит ширину bounding-box текста к ширине текстового блока.
- */
+/** Преобразует ширину рамки текста в его каноническую ширину. */
 function resolveTextWidthForBounds({
   target,
   boundsWidth
@@ -1329,7 +1320,6 @@ function resolveTextWidthForBounds({
     paddingRight = 0,
     strokeWidth = 0
   } = target
-
   const rawWidth = boundsWidth - paddingLeft - paddingRight - strokeWidth
   if (!Number.isFinite(rawWidth) || rawWidth <= 0) return null
 

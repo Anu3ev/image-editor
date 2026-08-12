@@ -438,6 +438,7 @@ export class ImageEditor {
   public destroy(): void {
     this.listeners.destroy()
     this.shapeManager?.destroy()
+    this.textManager?.destroy()
     this.snappingManager?.destroy()
     this.measurementManager?.destroy()
     this.toolbar.destroy()
@@ -445,7 +446,6 @@ export class ImageEditor {
     this.objectSizeIndicator?.destroy()
     this.viewportScrollbars?.destroy()
     this.cropManager?.destroy()
-    this.textManager?.destroy()
     this.selectionManager.destroy()
     this.canvas.dispose()
     this.workerManager.worker.terminate()

@@ -422,10 +422,14 @@ describe('ImageEditor', () => {
       const mockRevokeBlobUrls = jest.fn()
       const mockCleanBuffer = jest.fn()
       const mockShapeDestroy = jest.fn()
+      const mockTextDestroy = jest.fn()
+      const mockSnappingDestroy = jest.fn()
 
       const editor = {
         listeners: { destroy: mockDestroy },
         shapeManager: { destroy: mockShapeDestroy },
+        textManager: { destroy: mockTextDestroy },
+        snappingManager: { destroy: mockSnappingDestroy },
         toolbar: { destroy: mockDestroy },
         selectionManager: { destroy: mockDestroy },
         canvas: { dispose: mockDispose },
@@ -439,6 +443,11 @@ describe('ImageEditor', () => {
 
       expect(mockDestroy).toHaveBeenCalledTimes(3) // listeners + toolbar + selectionManager
       expect(mockShapeDestroy).toHaveBeenCalledTimes(1)
+      expect(mockTextDestroy).toHaveBeenCalledTimes(1)
+      expect(mockSnappingDestroy).toHaveBeenCalledTimes(1)
+      expect(mockTextDestroy.mock.invocationCallOrder[0]).toBeLessThan(
+        mockSnappingDestroy.mock.invocationCallOrder[0]
+      )
       expect(mockDispose).toHaveBeenCalled()
       expect(mockTerminate).toHaveBeenCalled()
       expect(mockRevokeBlobUrls).toHaveBeenCalled()

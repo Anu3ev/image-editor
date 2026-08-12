@@ -4,19 +4,19 @@ import type { ObjectBounds } from '../../utils/geometry'
 /** Ось координат, по которой проверяется направляющая. */
 export type ScaleSceneAxis = 'x' | 'y'
 
-/** Грань видимой ограничивающей рамки, положение которой меняется при scale. */
+/** Грань видимой ограничивающей рамки, положение которой меняется вместе с размером объекта. */
 export type ScaleSceneEdge = 'left' | 'right' | 'top' | 'bottom'
 
-/** Параметр scale, которым конкретный менеджер изменяет объект. */
-export type ScaleProjectionVariable = 'scale-x' | 'scale-y' | 'uniform-scale'
+/** Канонический параметр, которым конкретный менеджер изменяет размер объекта. */
+export type ScaleProjectionVariable = 'scale-x' | 'scale-y' | 'uniform-scale' | 'text-width'
 
-/** Коэффициенты зависимости положения движущейся грани от значений scale. */
+/** Коэффициенты зависимости положения движущейся грани от канонических параметров размера. */
 export type ScaleProjectionEdgeInput = Readonly<{
   edge: ScaleSceneEdge
   coefficients: readonly number[]
 }>
 
-/** Исходные данные линейной модели выбранного режима scale. */
+/** Исходные данные линейной модели выбранного режима изменения размера. */
 export type ScaleProjectionInput = Readonly<{
   variables: readonly ScaleProjectionVariable[]
   baselineValues: readonly number[]
@@ -41,7 +41,7 @@ export type ScaleProjection = Readonly<{
   edges: readonly ScaleProjectionEdge[]
 }>
 
-/** Положения всех граней, движущихся в выбранном режиме scale. */
+/** Положения всех граней, движущихся в выбранном режиме изменения размера. */
 export type ProjectedScaleEdgePositions = Readonly<{
   left: number | null
   right: number | null
@@ -56,7 +56,7 @@ export type ScaleProjectionConstraint = Readonly<{
   position: number
 }>
 
-/** Значения scale и положения граней после применения ограничений. */
+/** Канонические значения и положения граней после применения ограничений. */
 export type ScaleProjectionSolution = Readonly<{
   values: readonly number[]
   positions: ProjectedScaleEdgePositions
@@ -65,7 +65,7 @@ export type ScaleProjectionSolution = Readonly<{
 /** Минимальный относительный допуск для проверки ранга линейной проекции. */
 const PROJECTION_RANK_EPSILON = 0.000000001
 
-/** Максимальное число степеней свободы поддерживаемого scale-жеста. */
+/** Максимальное число степеней свободы поддерживаемого изменения размера. */
 const MAX_SCALE_PROJECTION_VARIABLES = 2
 
 /** Пустые позиции до расчёта движущихся граней. */
@@ -123,7 +123,7 @@ export function getScaleProjectionEdge({
 }
 
 /**
- * Рассчитывает положения всех движущихся граней для указанных значений scale.
+ * Рассчитывает положения всех движущихся граней для указанных канонических значений.
  */
 export function projectScaleEdgePositions({
   projection,
@@ -143,7 +143,7 @@ export function projectScaleEdgePositions({
 }
 
 /**
- * Подбирает значения scale, при которых выполняются одно или два ограничения.
+ * Подбирает канонические значения, при которых выполняются одно или два ограничения.
  */
 export function resolveScaleProjection({
   projection,
@@ -170,7 +170,7 @@ export function resolveScaleProjection({
 }
 
 /**
- * Возвращает величину изменения scale, необходимого для одного ограничения.
+ * Возвращает величину изменения канонических параметров, необходимую для одного ограничения.
  */
 export function getScaleProjectionCorrectionMagnitude({
   projection,
@@ -202,7 +202,7 @@ export function resolveScaleSceneEdgeAxis({ edge }: { edge: ScaleSceneEdge }): S
 }
 
 /**
- * Проверяет параметры scale, их исходные значения и веса.
+ * Проверяет канонические параметры размера, их исходные значения и веса.
  */
 function assertProjectionVariables({ input }: { input: ScaleProjectionInput }): void {
   const { variables, baselineValues, variableSceneWeights } = input

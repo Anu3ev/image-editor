@@ -2,69 +2,66 @@
 import { type Page, expect } from '@playwright/test'
 import type {
   ObjectTargetParams,
+  TextResizeContinueParams,
   TextResizeFromLeftParams,
   TextResizeFromRightParams,
+  TextResizeGuideAxis,
   TextResizeSnapshot,
+  TextResizeSide,
   TextResizeStepParams,
+  TextResizeToGuideParams,
   TextResizeUntilWrapParams
 } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
-/**
- * Открытая drag-сессия resize текстового объекта.
- */
+/** Открытое перетаскивание боковой ручки текста. */
 type ActiveTextResizeInteraction = {
   point: {
     x: number
     y: number
   }
   corner: 'ml' | 'mr'
+  centered: boolean
   originX: 'left' | 'right'
   originY: 'top' | 'center' | 'bottom'
   objectIndex?: number
   id?: string
 }
 
-/**
- * Viewport-координаты Fabric control для реального mouse-события.
- */
+/** Координаты ручки в окне браузера. */
 type TextResizeControlPoint = {
   x: number
   y: number
 }
 
-/**
- * Результат live-шагa resize после перемещения control.
- */
-type TextResizeMoveResult = {
-  point: TextResizeControlPoint
-  snapshot: TextResizeSnapshot
+/** Движущаяся внешняя грань и её смещение при изменении канонической ширины. */
+type TextResizeGuideGeometry = Readonly<{
+  coefficient: number
+  edge: 'boundsBottom' | 'boundsLeft' | 'boundsRight' | 'boundsTop'
+}>
+
+/** Ближайшие состояния по разные стороны от границы переноса строк. */
+type TextWrapWidthRange = {
+  unwrapped: TextResizeSnapshot
+  wrapped: TextResizeSnapshot
 }
 
-/**
- * Управляет live-resize действиями standalone text-объекта в e2e.
- */
+/** Управляет изменением ширины отдельного текста через настоящие события мыши. */
 export default class TextResizeSession {
   /**
    * Playwright page с открытым demo-редактором.
    */
   private readonly page: Page
 
-  /**
-   * Текущая незавершённая drag-сессия resize.
-   */
+  /** Текущее незавершённое перетаскивание боковой ручки. */
   private activeInteraction: ActiveTextResizeInteraction | null = null
 
-  /**
-   * Создаёт session для resize-сценариев текста.
-   */
+  /** Создаёт модель изменения ширины текста. */
   constructor(page: Page) {
     this.page = page
   }
 
-  /**
-   * Возвращает текущее состояние resize текстового объекта.
-   */
+  /** Возвращает текущее состояние текста при изменении ширины. */
   async getResizeSnapshot(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -77,18 +74,17 @@ export default class TextResizeSession {
       return helpers.serializeTextResizeSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должно существовать состояние resize текстового объекта').not.toBeNull()
+    expect(snapshot, 'должно существовать состояние текстового объекта').not.toBeNull()
+    if (!snapshot) throw new Error('состояние текстового объекта должно существовать')
 
-    return snapshot as TextResizeSnapshot
+    return snapshot
   }
 
-  /**
-   * Выполняет live horizontal resize текстового объекта справа до заданной внутренней ширины.
-   */
+  /** Изменяет ширину текста справа до заданного значения. */
   async resizeFromRightToWidth(params: TextResizeFromRightParams): Promise<TextResizeSnapshot> {
     const {
       width,
-      originY = 'top',
+      centered,
       ctrlKey,
       objectIndex,
       id
@@ -98,20 +94,19 @@ export default class TextResizeSession {
       width,
       corner: 'mr',
       originX: 'left',
-      originY,
+      originY: 'center',
+      centered,
       ctrlKey,
       objectIndex,
       id
     })
   }
 
-  /**
-   * Выполняет live horizontal resize текстового объекта слева до заданной внутренней ширины.
-   */
+  /** Изменяет ширину текста слева до заданного значения. */
   async resizeFromLeftToWidth(params: TextResizeFromLeftParams): Promise<TextResizeSnapshot> {
     const {
       width,
-      originY = 'top',
+      centered,
       ctrlKey,
       objectIndex,
       id
@@ -121,7 +116,8 @@ export default class TextResizeSession {
       width,
       corner: 'ml',
       originX: 'right',
-      originY,
+      originY: 'center',
+      centered,
       ctrlKey,
       objectIndex,
       id
@@ -133,13 +129,17 @@ export default class TextResizeSession {
    */
   async resizeFromRightToGuide(
     params: {
+      centered?: boolean
       x: number
-      originY?: 'top' | 'center' | 'bottom'
     } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
-    return this._resizeToGuide({
-      edge: 'right',
-      ...params
+    return this.resizeSideToGuide({
+      axis: 'x',
+      position: params.x,
+      side: 'right',
+      centered: params.centered,
+      objectIndex: params.objectIndex,
+      id: params.id
     })
   }
 
@@ -148,14 +148,23 @@ export default class TextResizeSession {
    */
   async resizeFromLeftToGuide(
     params: {
+      centered?: boolean
       x: number
-      originY?: 'top' | 'center' | 'bottom'
     } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
-    return this._resizeToGuide({
-      edge: 'left',
-      ...params
+    return this.resizeSideToGuide({
+      axis: 'x',
+      position: params.x,
+      side: 'left',
+      centered: params.centered,
+      objectIndex: params.objectIndex,
+      id: params.id
     })
+  }
+
+  /** Подводит внешнюю грань выбранной боковой ручки к направляющей. */
+  async resizeSideToGuide(params: TextResizeToGuideParams): Promise<TextResizeSnapshot> {
+    return this._resizeToGuide(params)
   }
 
   /**
@@ -182,9 +191,7 @@ export default class TextResizeSession {
     })
   }
 
-  /**
-   * Завершает активный resize через реальный mouseup, а без active drag-сессии завершает его через object:modified.
-   */
+  /** Завершает перетаскивание ручки или отправляет итоговое событие для уже изменённого объекта. */
   async finishResize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     if (this.activeInteraction && this._matchesActiveTarget(params)) {
       return this._finishActiveResize()
@@ -193,63 +200,29 @@ export default class TextResizeSession {
     return this._finishModifiedTransform(params)
   }
 
-  /**
-   * Закрывает текущую открытую resize-сессию через настоящий mouseup.
-   */
+  /** Закрывает текущее перетаскивание настоящим отпусканием кнопки мыши. */
   private async _finishActiveResize(): Promise<TextResizeSnapshot> {
     const interaction = this.activeInteraction
-    expect(interaction, 'должна существовать активная resize-сессия текста').not.toBeNull()
+    expect(interaction, 'боковая ручка текста должна быть захвачена').not.toBeNull()
     if (!interaction) {
-      throw new Error('активная resize-сессия текста должна существовать перед mouseup')
+      throw new Error('перед отпусканием кнопки мыши боковая ручка текста должна быть захвачена')
     }
 
-    const snapshot = await this.page.evaluate((payload) => {
-      const {
-        point,
-        corner,
-        objectIndex,
-        id
-      } = payload
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
-      const target = helpers.resolveCanvasObject(objectIndex, id)
-      if (!target) return null
-
-      target.setCoords()
-
-      const control = target.oCoords?.[corner]
-      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-      const releasePoint = control && typeof control.x === 'number' && typeof control.y === 'number'
-        ? {
-          x: rect.left + control.x,
-          y: rect.top + control.y
-        }
-        : point
-
-      editor.canvas.__onMouseUp(new MouseEvent('mouseup', {
-        bubbles: true,
-        button: 0,
-        buttons: 0,
-        clientX: releasePoint.x,
-        clientY: releasePoint.y
-      }))
-
-      return helpers.serializeTextResizeSnapshot(target)
-    }, interaction)
-
+    try {
+      await this.page.mouse.up()
+    } finally {
+      if (interaction.centered) await this.page.keyboard.up('Alt')
+    }
     await waitForCanvasRender({ page: this.page })
     this.activeInteraction = null
 
-    expect(snapshot, 'должно существовать состояние после завершения resize текстового объекта').not.toBeNull()
-
-    return snapshot as TextResizeSnapshot
+    return this.getResizeSnapshot({
+      objectIndex: interaction.objectIndex,
+      id: interaction.id
+    })
   }
 
-  /**
-   * Завершает активный интерактивный resize, если drag-сессия ещё открыта.
-   */
+  /** Завершает изменение ширины, если боковая ручка ещё захвачена. */
   async finishResizeIfActive(): Promise<TextResizeSnapshot | null> {
     if (!this.activeInteraction) return null
 
@@ -264,30 +237,63 @@ export default class TextResizeSession {
     })
   }
 
-  /**
-   * Выполняет один live-шаг horizontal resize текста через настоящую drag-сессию Fabric.
-   */
+  /** Продолжает перетаскивание боковой ручки относительным движением указателя. */
+  async continueResizeHandleBy(params: TextResizeContinueParams): Promise<TextResizeSnapshot> {
+    const interaction = this.activeInteraction
+    expect(interaction, 'боковая ручка текста должна быть захвачена').not.toBeNull()
+    if (!interaction) {
+      throw new Error('перед следующим движением боковая ручка текста должна быть захвачена')
+    }
+
+    const requestedPoint = {
+      x: interaction.point.x + params.deltaX,
+      y: interaction.point.y + params.deltaY
+    }
+    const movedPoint = await this._moveResizePointer({
+      point: requestedPoint,
+      ctrlKey: params.ctrlKey,
+      pointerSteps: params.pointerSteps,
+      objectIndex: interaction.objectIndex,
+      id: interaction.id
+    })
+    expect(movedPoint, 'следующее движение ручки должно вернуть положение указателя').not.toBeNull()
+    if (!movedPoint) throw new Error('после движения ручки должно существовать положение указателя')
+
+    this.activeInteraction = {
+      ...interaction,
+      point: movedPoint
+    }
+    await waitForCanvasRender({ page: this.page })
+
+    return this.getResizeSnapshot({
+      objectIndex: interaction.objectIndex,
+      id: interaction.id
+    })
+  }
+
+  /** Выполняет одно изменение ширины через настоящее перетаскивание ручки Fabric. */
   private async _performInteractiveResizeStep(params: TextResizeStepParams): Promise<TextResizeSnapshot> {
     await this._startResizeInteractionIfNeeded(params)
 
-    const point = await this._resolveResizeControlPoint(params)
-    const result = await this._moveResizePointer({
-      point,
+    const requestedPoint = await this._resolveResizeControlPoint(params)
+    const movedPoint = await this._moveResizePointer({
+      point: requestedPoint,
       ctrlKey: params.ctrlKey,
       objectIndex: params.objectIndex,
       id: params.id
     })
 
-    expect(result, 'должно существовать состояние live resize текстового объекта').not.toBeNull()
+    expect(movedPoint, 'после движения ручки должно существовать положение указателя').not.toBeNull()
 
     await waitForCanvasRender({ page: this.page })
 
-    if (!result) {
-      throw new Error('live resize текста должен вернуть новое состояние')
+    if (!movedPoint) {
+      throw new Error('изменение ширины текста должно вернуть положение указателя')
     }
 
     this.activeInteraction = {
-      point: result.point,
+      point: movedPoint,
+      centered: Boolean(params.centered),
       corner: params.corner,
       originX: params.originX,
       originY: params.originY,
@@ -295,19 +301,18 @@ export default class TextResizeSession {
       id: params.id
     }
 
-    return result.snapshot
+    return this.getResizeSnapshot({
+      objectIndex: params.objectIndex,
+      id: params.id
+    })
   }
 
-  /**
-   * Рассчитывает viewport-точку control, которая соответствует нужной ширине текста.
-   */
+  /** Рассчитывает положение ручки для заданной ширины без изменения объекта. */
   private async _resolveResizeControlPoint(params: TextResizeStepParams): Promise<TextResizeControlPoint> {
     const point = await this.page.evaluate((payload) => {
       const {
         width,
         corner,
-        originX,
-        originY,
         objectIndex,
         id
       } = payload
@@ -321,107 +326,77 @@ export default class TextResizeSession {
       const transform = editor.canvas._currentTransform
       if (!transform || transform.target !== target) return null
 
-      const activeCorner = typeof transform.corner === 'string' && transform.corner
-        ? transform.corner
-        : corner
-      const activeOriginX = typeof transform.originX === 'string'
-        ? transform.originX
-        : originX
-      const activeOriginY = typeof transform.originY === 'string'
-        ? transform.originY
-        : originY
-      const paddingLeft = typeof target.paddingLeft === 'number' ? target.paddingLeft : 0
-      const paddingRight = typeof target.paddingRight === 'number' ? target.paddingRight : 0
-      const anchorPoint = target.getPointByOrigin(activeOriginX, activeOriginY)
-      const visualWidth = Math.max(1, width + paddingLeft + paddingRight)
-      const previousState = {
-        width: typeof target.width === 'number' ? target.width : visualWidth,
-        left: typeof target.left === 'number' ? target.left : 0,
-        top: typeof target.top === 'number' ? target.top : 0
-      }
-
-      target.set({ width: visualWidth })
-      target.setPositionByOrigin(
-        anchorPoint,
-        activeOriginX,
-        activeOriginY
-      )
       target.setCoords()
-
+      const activeCorner = transform.corner || corner
       const control = target.oCoords?.[activeCorner]
+      const currentWidth = target.width
       const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      const canvasWidth = editor.canvas.getWidth()
+      const canvasHeight = editor.canvas.getHeight()
+      if (!control || !Number.isFinite(currentWidth)) return null
+      if (Math.abs(rect.width - canvasWidth) > 0.01 || Math.abs(rect.height - canvasHeight) > 0.01) return null
 
-      target.set(previousState)
-      target.setCoords()
-
-      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') return null
+      const centered = (transform.originX === 'center' || transform.originX === 0.5)
+        && (transform.originY === 'center' || transform.originY === 0.5)
+      const direction = activeCorner === 'mr' ? 1 : -1
+      const widthFactor = centered ? 0.5 : 1
+      const [objectX, objectY] = target.calcTransformMatrix()
+      const canonicalDelta = direction * (Math.max(1, width) - currentWidth) * widthFactor
+      const sceneDeltaX = objectX * canonicalDelta
+      const sceneDeltaY = objectY * canonicalDelta
+      const [a, b, c, d] = editor.canvas.viewportTransform
 
       return {
-        x: rect.left + control.x,
-        y: rect.top + control.y
+        x: rect.left + control.x + (a * sceneDeltaX) + (c * sceneDeltaY),
+        y: rect.top + control.y + (b * sceneDeltaX) + (d * sceneDeltaY)
       }
     }, params)
 
-    expect(point, 'должна существовать точка resize-ручки текста для заданной ширины').not.toBeNull()
+    expect(point, 'должно существовать положение боковой ручки для заданной ширины').not.toBeNull()
     if (!point) {
-      throw new Error('точка resize-ручки текста должна существовать для заданной ширины')
+      throw new Error('не удалось рассчитать положение боковой ручки для заданной ширины')
     }
 
     return point
   }
 
-  /**
-   * Двигает указатель в рассчитанную точку resize и возвращает live-состояние текста.
-   */
+  /** Двигает указатель в рассчитанную точку и подтверждает, что выбранный текст существует. */
   private async _moveResizePointer(
     params: {
       point: TextResizeControlPoint
       ctrlKey?: boolean
+      pointerSteps?: number
     } & ObjectTargetParams
-  ): Promise<TextResizeMoveResult | null> {
+  ): Promise<TextResizeControlPoint | null> {
+    const { point, ctrlKey = false, pointerSteps = 1 } = params
+
+    if (ctrlKey) await this.page.keyboard.down('Control')
+
+    try {
+      await this.page.mouse.move(point.x, point.y, { steps: pointerSteps })
+    } finally {
+      if (ctrlKey) await this.page.keyboard.up('Control')
+    }
+
     return this.page.evaluate((payload) => {
       const {
-        point,
-        ctrlKey = false,
+        point: movedPoint,
         objectIndex,
         id
       } = payload
       const {
-        editor,
         __editorHelpers: helpers
       } = window as any
       const target = helpers.resolveCanvasObject(objectIndex, id)
       if (!target) return null
 
-      const transform = editor.canvas._currentTransform
-      if (!transform || transform.target !== target) return null
-
-      editor.canvas.__onMouseMove(new MouseEvent('mousemove', {
-        bubbles: true,
-        button: 0,
-        buttons: 1,
-        clientX: point.x,
-        clientY: point.y,
-        ctrlKey
-      }))
-      editor.canvas.fire('object:resizing', {
-        target,
-        e: { ctrlKey },
-        transform
-      })
-
       target.setCoords()
 
-      return {
-        point,
-        snapshot: helpers.serializeTextResizeSnapshot(target)
-      }
+      return movedPoint
     }, params)
   }
 
-  /**
-   * Сужает текстовый объект до первого live-состояния, где число строк увеличилось.
-   */
+  /** Сужает текст до первого состояния, в котором увеличилось число строк. */
   private async _resizeUntilTextWraps(
     params: {
       edge: 'left' | 'right'
@@ -429,116 +404,175 @@ export default class TextResizeSession {
   ): Promise<TextResizeSnapshot> {
     const {
       edge,
-      originY = 'top',
-      ctrlKey,
+      ctrlKey = true,
       objectIndex,
       id
     } = params
-    const minimumWidth = 40
-    const widthStep = 12
     const initialSnapshot = await this.getResizeSnapshot({
       objectIndex,
       id
     })
-    let currentSnapshot = initialSnapshot
-
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      const nextWidth = Math.max(
-        minimumWidth,
-        Math.floor(currentSnapshot.width - widthStep)
-      )
-
-      if (nextWidth >= currentSnapshot.width) {
-        break
-      }
-
-      currentSnapshot = edge === 'right'
-        ? await this.resizeFromRightToWidth({
-          width: nextWidth,
-          originY,
-          ctrlKey,
-          objectIndex,
-          id
-        })
-        : await this.resizeFromLeftToWidth({
-          width: nextWidth,
-          originY,
-          ctrlKey,
-          objectIndex,
-          id
-        })
-
-      if (currentSnapshot.lineCount > initialSnapshot.lineCount) {
-        return currentSnapshot
-      }
-    }
-
-    expect(
-      currentSnapshot.lineCount,
-      'текст должен перейти на новую строку после сужения'
-    ).toBeGreaterThan(initialSnapshot.lineCount)
-
-    return currentSnapshot
-  }
-
-  /**
-   * Подводит выбранную границу текста к вертикальной направляющей.
-   */
-  private async _resizeToGuide(
-    params: {
-      edge: 'left' | 'right'
-      x: number
-      originY?: 'top' | 'center' | 'bottom'
-    } & ObjectTargetParams
-  ): Promise<TextResizeSnapshot> {
-    const {
+    const range = await this._findTextWrapWidthRange({
       edge,
-      x,
-      originY = 'top',
-      objectIndex,
-      id
-    } = params
-    const guideTolerance = 1.5
-    let currentSnapshot = await this.getResizeSnapshot({
+      ctrlKey,
+      initialSnapshot,
       objectIndex,
       id
     })
-    let nextWidth = edge === 'right'
-      ? x - currentSnapshot.boundsLeft - currentSnapshot.paddingLeft - currentSnapshot.paddingRight
-      : currentSnapshot.boundsRight - x - currentSnapshot.paddingLeft - currentSnapshot.paddingRight
 
-    for (let attempt = 0; attempt < 6; attempt += 1) {
-      currentSnapshot = edge === 'right'
-        ? await this.resizeFromRightToWidth({
-          width: Math.max(1, nextWidth),
-          originY,
-          objectIndex,
-          id
-        })
-        : await this.resizeFromLeftToWidth({
-          width: Math.max(1, nextWidth),
-          originY,
-          objectIndex,
-          id
-        })
+    expect(range, 'при сужении должна существовать граница переноса строки').not.toBeNull()
+    if (!range) throw new Error('не удалось найти границу переноса строки')
 
-      const guideDelta = edge === 'right'
-        ? x - currentSnapshot.boundsRight
-        : currentSnapshot.boundsLeft - x
-
-      if (Math.abs(guideDelta) <= guideTolerance) {
-        return currentSnapshot
-      }
-
-      nextWidth += guideDelta
-    }
-
-    return currentSnapshot
+    return this._refineTextWrapWidthRange({ edge, ctrlKey, range, objectIndex, id })
   }
 
-  /**
-   * Завершает resize без открытой drag-сессии через object:modified.
-   */
+  /** Находит соседние ширины до и после появления новой строки. */
+  private async _findTextWrapWidthRange({
+    edge,
+    ctrlKey,
+    initialSnapshot,
+    objectIndex,
+    id
+  }: {
+    edge: 'left' | 'right'
+    ctrlKey: boolean
+    initialSnapshot: TextResizeSnapshot
+  } & ObjectTargetParams): Promise<TextWrapWidthRange | null> {
+    let unwrapped = initialSnapshot
+
+    for (let attempt = 1; attempt <= 40; attempt += 1) {
+      const width = Math.max(40, Math.floor(initialSnapshot.width - (12 * attempt)))
+      if (width >= unwrapped.width) return null
+
+      const snapshot = await this._resizeFromSideToWidth({ edge, width, ctrlKey, objectIndex, id })
+      if (snapshot.lineCount > initialSnapshot.lineCount) return { unwrapped, wrapped: snapshot }
+
+      unwrapped = snapshot
+    }
+
+    return null
+  }
+
+  /** Сужает интервал границы переноса строк последовательным делением пополам. */
+  private async _refineTextWrapWidthRange({
+    edge,
+    ctrlKey,
+    range,
+    objectIndex,
+    id
+  }: {
+    edge: 'left' | 'right'
+    ctrlKey: boolean
+    range: TextWrapWidthRange
+  } & ObjectTargetParams): Promise<TextResizeSnapshot> {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const width = (range.wrapped.width + range.unwrapped.width) / 2
+      const snapshot = await this._resizeFromSideToWidth({ edge, width, ctrlKey, objectIndex, id })
+
+      if (snapshot.lineCount > range.unwrapped.lineCount) {
+        range.wrapped = snapshot
+      } else {
+        range.unwrapped = snapshot
+      }
+    }
+
+    return this._resizeFromSideToWidth({
+      edge,
+      width: range.wrapped.width,
+      ctrlKey,
+      objectIndex,
+      id
+    })
+  }
+
+  /** Изменяет ширину через выбранную боковую ручку. */
+  private _resizeFromSideToWidth({
+    edge,
+    width,
+    ctrlKey,
+    objectIndex,
+    id
+  }: {
+    edge: 'left' | 'right'
+    width: number
+    ctrlKey: boolean
+  } & ObjectTargetParams): Promise<TextResizeSnapshot> {
+    if (edge === 'right') {
+      return this.resizeFromRightToWidth({ width, ctrlKey, objectIndex, id })
+    }
+
+    return this.resizeFromLeftToWidth({ width, ctrlKey, objectIndex, id })
+  }
+
+  /** Подводит выбранную внешнюю грань текста к направляющей по заданной оси. */
+  private async _resizeToGuide(params: TextResizeToGuideParams): Promise<TextResizeSnapshot> {
+    const {
+      position,
+      side,
+      objectIndex,
+      id
+    } = params
+    const snapProbeDistance = 3
+    const geometry = await this._resolveResizeGuideGeometry(params)
+    const currentSnapshot = await this.getResizeSnapshot({
+      objectIndex,
+      id
+    })
+    const pointerEdgePosition = position - (Math.sign(geometry.coefficient) * snapProbeDistance)
+    const nextWidth = currentSnapshot.width
+      + ((pointerEdgePosition - currentSnapshot[geometry.edge]) / geometry.coefficient)
+
+    return side === 'right'
+      ? this.resizeFromRightToWidth({
+        width: Math.max(1, nextWidth),
+        centered: params.centered,
+        objectIndex,
+        id
+      })
+      : this.resizeFromLeftToWidth({
+        width: Math.max(1, nextWidth),
+        centered: params.centered,
+        objectIndex,
+        id
+      })
+  }
+
+  /** Читает из Fabric матрицу и определяет внешнюю грань выбранной ручки. */
+  private async _resolveResizeGuideGeometry(
+    params: {
+      axis: TextResizeGuideAxis
+      centered?: boolean
+      side: TextResizeSide
+    } & ObjectTargetParams
+  ): Promise<TextResizeGuideGeometry> {
+    const geometry = await this.page.evaluate(({ axis, centered, side, objectIndex, id }) => {
+      const { __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      const matrix = target.calcTransformMatrix()
+      const direction = side === 'right' ? 1 : -1
+      const centeredMultiplier = centered ? 0.5 : 1
+      const coefficient = matrix[axis === 'x' ? 0 : 1] * direction * centeredMultiplier
+      if (!Number.isFinite(coefficient) || Math.abs(coefficient) <= 0.000000001) return null
+
+      let edge: TextResizeGuideGeometry['edge']
+      if (axis === 'x') {
+        edge = coefficient > 0 ? 'boundsRight' : 'boundsLeft'
+      } else {
+        edge = coefficient > 0 ? 'boundsBottom' : 'boundsTop'
+      }
+
+      return { coefficient, edge }
+    }, params)
+
+    expect(geometry, 'должна существовать проекция боковой ручки на выбранную ось').not.toBeNull()
+    if (!geometry) throw new Error('боковая ручка текста должна двигать грань по выбранной оси')
+
+    return geometry
+  }
+
+  /** Завершает изменение ширины без захваченной ручки через итоговое событие Fabric. */
   private async _finishModifiedTransform(params: ObjectTargetParams): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -556,26 +590,29 @@ export default class TextResizeSession {
       return helpers.serializeTextResizeSnapshot(target)
     }, params)
 
-    expect(snapshot, 'должно существовать состояние после завершения resize текстового объекта').not.toBeNull()
+    expect(snapshot, 'должно существовать состояние после завершения изменения ширины').not.toBeNull()
+    if (!snapshot) throw new Error('после завершения изменения ширины должно существовать состояние текста')
 
-    return snapshot as TextResizeSnapshot
+    return snapshot
   }
 
-  /**
-   * Открывает интерактивную drag-сессию resize для текстового объекта через реальный mousedown по ручке.
-   */
+  /** Захватывает боковую ручку текста настоящим нажатием кнопки мыши. */
   private async _startResizeInteractionIfNeeded(params: TextResizeStepParams): Promise<void> {
     if (this.activeInteraction) {
       this._expectActiveInteractionMatches(params)
       return
     }
 
+    const beforeMouseDown = await this.getResizeSnapshot(params)
     const point = await this._openResizeInteraction(params)
+    const afterMouseDown = await this.getResizeSnapshot(params)
+    this._expectMouseDownPreservedGeometry({ beforeMouseDown, afterMouseDown })
 
     await waitForCanvasRender({ page: this.page })
 
     this.activeInteraction = {
       point,
+      centered: Boolean(params.centered),
       corner: params.corner,
       originX: params.originX,
       originY: params.originY,
@@ -584,22 +621,55 @@ export default class TextResizeSession {
     }
   }
 
-  /**
-   * Начинает Fabric resize-сессию через mousedown по нужной ручке.
-   */
+  /** Проверяет, что нажатие на ручку не изменило текст до движения указателя. */
+  private _expectMouseDownPreservedGeometry({
+    beforeMouseDown,
+    afterMouseDown
+  }: {
+    beforeMouseDown: TextResizeSnapshot
+    afterMouseDown: TextResizeSnapshot
+  }): void {
+    expect(afterMouseDown.width).toBe(beforeMouseDown.width)
+    expect(afterMouseDown.height).toBe(beforeMouseDown.height)
+    expect(afterMouseDown.lineCount).toBe(beforeMouseDown.lineCount)
+    expect([
+      afterMouseDown.boundsLeft,
+      afterMouseDown.boundsTop,
+      afterMouseDown.boundsRight,
+      afterMouseDown.boundsBottom
+    ]).toEqual([
+      beforeMouseDown.boundsLeft,
+      beforeMouseDown.boundsTop,
+      beforeMouseDown.boundsRight,
+      beforeMouseDown.boundsBottom
+    ])
+  }
+
+  /** Начинает изменение ширины Fabric нажатием на нужную ручку. */
   private async _openResizeInteraction(params: TextResizeStepParams): Promise<TextResizeControlPoint> {
-    const {
-      corner,
-      originX,
-      originY,
-      objectIndex,
-      id
-    } = params
+    const point = await this._resolveInitialResizeControlPoint(params)
+
+    if (params.centered) await this.page.keyboard.down('Alt')
+
+    try {
+      await this.page.mouse.move(point.x, point.y)
+      await this.page.mouse.down()
+      await this._assertResizeInteractionStarted(params)
+    } catch (error) {
+      if (params.centered) await this.page.keyboard.up('Alt')
+      throw error
+    }
+
+    return point
+  }
+
+  /** Возвращает положение выбранной боковой ручки в окне браузера. */
+  private async _resolveInitialResizeControlPoint(
+    params: TextResizeStepParams
+  ): Promise<TextResizeControlPoint> {
     const point = await this.page.evaluate((payload) => {
       const {
         corner: controlCorner,
-        originX: resizeOriginX,
-        originY: resizeOriginY,
         objectIndex: targetObjectIndex,
         id: targetId
       } = payload
@@ -626,75 +696,70 @@ export default class TextResizeSession {
         y: rect.top + control.y
       }
 
-      editor.canvas.__onMouseDown(new MouseEvent('mousedown', {
-        bubbles: true,
-        button: 0,
-        buttons: 1,
-        clientX: pointInfo.x,
-        clientY: pointInfo.y
-      }))
-
-      const transform = editor.canvas._currentTransform
-      if (!transform || transform.target !== target) {
-        return null
-      }
-
-      transform.originX = resizeOriginX
-      transform.originY = resizeOriginY
-
-      if (transform.original) {
-        transform.original.originX = resizeOriginX
-        transform.original.originY = resizeOriginY
-      }
-
       return pointInfo
-    }, {
-      corner,
-      originX,
-      originY,
-      objectIndex,
-      id
-    })
+    }, params)
 
-    expect(point, 'должна существовать стартовая точка для интерактивного resize текста').not.toBeNull()
+    expect(point, 'должно существовать начальное положение боковой ручки текста').not.toBeNull()
     if (!point) {
-      throw new Error('стартовая точка для интерактивного resize текста должна существовать')
+      throw new Error('не удалось определить начальное положение боковой ручки текста')
     }
 
     return point
   }
 
-  /**
-   * Проверяет, что продолжается та же resize-сессия текста.
-   */
+  /** Проверяет, что Fabric начал изменять ширину нужного текста выбранной ручкой. */
+  private async _assertResizeInteractionStarted(params: TextResizeStepParams): Promise<void> {
+    const state = await this.page.evaluate(({ objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      const transform = editor.canvas._currentTransform
+
+      return {
+        hasTarget: Boolean(target),
+        matchesTarget: Boolean(target) && transform?.target === target,
+        corner: transform?.corner ?? null
+      }
+    }, params)
+
+    expect(state.hasTarget, 'для начала изменения ширины должен существовать текст').toBe(true)
+    expect(state.matchesTarget, 'Fabric должен начать изменять ширину выбранного текста').toBe(true)
+    expect(state.corner, 'Fabric должен захватить выбранную боковую ручку').toBe(params.corner)
+  }
+
+  /** Проверяет, что продолжается то же перетаскивание боковой ручки. */
   private _expectActiveInteractionMatches(params: TextResizeStepParams): void {
     const interaction = this.activeInteraction
-    expect(interaction, 'должна существовать активная resize-сессия текста').not.toBeNull()
+    expect(interaction, 'боковая ручка текста должна быть захвачена').not.toBeNull()
     if (!interaction) {
-      throw new Error('активная resize-сессия текста должна существовать перед live-шагом')
+      throw new Error('перед следующим движением боковая ручка текста должна быть захвачена')
     }
 
     expect(
       this._matchesActiveTarget(params),
-      'нельзя начинать resize другого текстового объекта, пока не завершён текущий resize'
+      'нельзя изменять ширину другого текста, пока не завершено текущее перетаскивание'
     ).toBe(true)
     expect(
       interaction.corner,
-      'нельзя продолжать активную drag-сессию resize через другую ручку'
+      'нельзя продолжать изменение ширины другой ручкой'
     ).toBe(params.corner)
     expect(
       interaction.originX,
-      'нельзя продолжать активную drag-сессию resize с другой горизонтальной опорой'
+      'нельзя продолжать изменение ширины с другой горизонтальной опорой'
     ).toBe(params.originX)
     expect(
       interaction.originY,
-      'нельзя продолжать активную drag-сессию resize с другой вертикальной опорой'
+      'нельзя продолжать изменение ширины с другой вертикальной опорой'
     ).toBe(params.originY)
+    expect(
+      interaction.centered,
+      'нельзя менять режим относительно центра во время перетаскивания ручки'
+    ).toBe(Boolean(params.centered))
   }
 
-  /**
-   * Возвращает true, если активная resize-сессия относится к тому же текстовому объекту.
-   */
+  /** Проверяет, относится ли текущее перетаскивание к тому же тексту. */
   private _matchesActiveTarget(params: ObjectTargetParams): boolean {
     if (!this.activeInteraction) return false
 

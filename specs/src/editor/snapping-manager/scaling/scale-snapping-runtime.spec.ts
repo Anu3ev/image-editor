@@ -40,6 +40,59 @@ describe('Жизненный цикл прилипания во время ск�
     expect(verification.guides).toHaveLength(1)
   })
 
+  it('сохраняет уточнённый план для проверки и повторного события', () => {
+    const runtime = new ScaleSnappingRuntime()
+    const marker = {}
+    const intent = createScaleRawIntent({ values: [0.98, 1] })
+    runtime.startSession({
+      baseline: createScaleBaseline({
+        candidates: [createScaleCandidate({ id: 'right', axis: 'x', position: 100 })]
+      })
+    })
+    const planned = runtime.resolveScalePlan({ marker, intent })
+    if (planned.kind !== 'planned') throw new Error('Первое событие должно создать план')
+
+    const refinedPlan = runtime.refineScalePlan({
+      token: planned.token,
+      refinement: {
+        effectiveValues: [1.002, 1],
+        stepProjection: {
+          bounds: {
+            left: 0,
+            right: 100,
+            top: 0,
+            bottom: 100,
+            centerX: 50,
+            centerY: 50
+          },
+          projection: {
+            variables: ['scale-x', 'scale-y'],
+            baselineValues: [1.002, 1],
+            variableSceneWeights: [100, 100],
+            edges: [
+              { edge: 'right', coefficients: [100, 0] },
+              { edge: 'bottom', coefficients: [0, 100] }
+            ]
+          }
+        }
+      }
+    })
+    const duplicate = runtime.getDuplicateStep({ marker })
+    const verification = runtime.verifyScalePlan({
+      token: planned.token,
+      finalGeometry: createFinalScaleGeometry({
+        right: 100,
+        bottom: 100,
+        measuredValues: [1.002, 1]
+      })
+    })
+
+    expect(refinedPlan.effectiveValues).toEqual([1.002, 1])
+    expect(duplicate?.plan).toBe(refinedPlan)
+    expect(verification.guides).toHaveLength(1)
+    expect(verification.holdState.x.kind).toBe('held')
+  })
+
   it('отклоняет повторную обработку события с другими параметрами скейлинга', () => {
     const runtime = new ScaleSnappingRuntime()
     const marker = {}

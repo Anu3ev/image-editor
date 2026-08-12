@@ -1,5 +1,11 @@
 import { test, expect } from '../../fixtures/editor.fixture'
-import { TEXT_RESIZING_TOLERANCE } from '../../fixtures/data/text-resizing.data'
+import {
+  TEXT_RESIZING_MINIMUM_WIDTH_ADD_OPTIONS,
+  TEXT_RESIZING_MINIMUM_WIDTH_HOLD_DELTA,
+  TEXT_RESIZING_MINIMUM_WIDTH_PROBE,
+  TEXT_RESIZING_TOLERANCE
+} from '../../fixtures/data/text-resizing.data'
+import { createTextResizeTemplateRoundtripSetup } from '../../fixtures/text-width-resizing.fixture'
 
 test.describe('Горизонтальный ресайз текстового объекта', () => {
   test.describe('объект создан напрямую', () => {
@@ -7,7 +13,7 @@ test.describe('Горизонтальный ресайз текстового о
       await text.addRegressionText()
     })
 
-    test('не смещает объект вниз при сужении справа, когда текст переносится на новую строку', async({
+    test('сохраняет неподвижную сторону при сужении справа и переносе текста', async({
       text
     }) => {
       const initialSnapshot = await test.step('Получить исходное состояние текстового объекта', async() => {
@@ -20,11 +26,11 @@ test.describe('Горизонтальный ресайз текстового о
         })
       })
 
-      await test.step('Проверить что текст перенёсся, а верхний левый угол остался на месте', () => {
+      await test.step('Проверить что текст перенёсся, а левая сторона осталась на месте', () => {
         expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
-        expect(liveSnapshot.leftTopX).toBeCloseTo(initialSnapshot.leftTopX, 1)
-        expect(liveSnapshot.leftTopY).toBeCloseTo(initialSnapshot.leftTopY, 1)
+        expect(liveSnapshot.leftCenterX).toBeCloseTo(initialSnapshot.leftCenterX, 1)
+        expect(liveSnapshot.leftCenterY).toBeCloseTo(initialSnapshot.leftCenterY, 1)
       })
 
       const finalSnapshot = await test.step('Завершить ресайз и получить финальное состояние', async() => {
@@ -41,7 +47,7 @@ test.describe('Горизонтальный ресайз текстового о
       })
     })
 
-    test('не смещает объект вниз при сужении слева, когда текст переносится на новую строку', async({
+    test('сохраняет неподвижную сторону при сужении слева и переносе текста', async({
       text
     }) => {
       const initialSnapshot = await test.step('Получить исходное состояние текстового объекта', async() => {
@@ -54,11 +60,11 @@ test.describe('Горизонтальный ресайз текстового о
         })
       })
 
-      await test.step('Проверить что текст перенёсся, а верхний правый угол остался на месте', () => {
+      await test.step('Проверить что текст перенёсся, а правая сторона осталась на месте', () => {
         expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
-        expect(liveSnapshot.rightTopX).toBeCloseTo(initialSnapshot.rightTopX, 1)
-        expect(liveSnapshot.rightTopY).toBeCloseTo(initialSnapshot.rightTopY, 1)
+        expect(liveSnapshot.rightCenterX).toBeCloseTo(initialSnapshot.rightCenterX, 1)
+        expect(liveSnapshot.rightCenterY).toBeCloseTo(initialSnapshot.rightCenterY, 1)
       })
 
       const finalSnapshot = await test.step('Завершить ресайз и получить финальное состояние', async() => {
@@ -92,7 +98,6 @@ test.describe('Горизонтальный ресайз текстового о
       const liveSnapshot = await test.step('Сузить повёрнутый объект слева с опорой по центру', async() => {
         return text.resizeFromLeftToWidth({
           width: targetWidth,
-          originY: 'center',
           objectIndex: 0
         })
       })
@@ -116,12 +121,80 @@ test.describe('Горизонтальный ресайз текстового о
     })
   })
 
+  test.describe('минимальная ширина строки', () => {
+    test.beforeEach(async({ text }) => {
+      const created = await text.add(TEXT_RESIZING_MINIMUM_WIDTH_ADD_OPTIONS)
+
+      expect(created).not.toBeNull()
+      if (!created) throw new Error('текст для проверки минимальной ширины должен быть создан')
+      expect(created.width).toBeGreaterThan(TEXT_RESIZING_MINIMUM_WIDTH_PROBE)
+    })
+
+    test('останавливает правую ручку на ширине самой длинной строки', async({ text }) => {
+      const initial = await text.getResizeSnapshot({ objectIndex: 0 })
+      const minimum = await text.resizeFromRightToWidth({
+        objectIndex: 0,
+        width: TEXT_RESIZING_MINIMUM_WIDTH_PROBE
+      })
+
+      expect(initial.lineCount).toBe(2)
+      expect(minimum.width).toBeGreaterThan(TEXT_RESIZING_MINIMUM_WIDTH_PROBE)
+      expect(minimum.lineCount).toBe(initial.lineCount)
+      expect(minimum.leftCenterX).toBeCloseTo(initial.leftCenterX, 1)
+      expect(minimum.leftCenterY).toBeCloseTo(initial.leftCenterY, 1)
+
+      const held = await text.continueResizeHandleBy({
+        deltaX: -TEXT_RESIZING_MINIMUM_WIDTH_HOLD_DELTA,
+        deltaY: 0
+      })
+
+      expect(held.width).toBeCloseTo(minimum.width, 4)
+      expect(held.leftCenterX).toBeCloseTo(minimum.leftCenterX, 4)
+      expect(held.rightCenterX).toBeCloseTo(minimum.rightCenterX, 4)
+
+      const committed = await text.finishResize({ objectIndex: 0 })
+
+      expect(committed.width).toBeCloseTo(held.width, 4)
+      expect(committed.leftCenterX).toBeCloseTo(held.leftCenterX, 4)
+      expect(committed.rightCenterX).toBeCloseTo(held.rightCenterX, 4)
+    })
+
+    test('останавливает левую ручку на ширине самой длинной строки', async({ text }) => {
+      const initial = await text.getResizeSnapshot({ objectIndex: 0 })
+      const minimum = await text.resizeFromLeftToWidth({
+        objectIndex: 0,
+        width: TEXT_RESIZING_MINIMUM_WIDTH_PROBE
+      })
+
+      expect(initial.lineCount).toBe(2)
+      expect(minimum.width).toBeGreaterThan(TEXT_RESIZING_MINIMUM_WIDTH_PROBE)
+      expect(minimum.lineCount).toBe(initial.lineCount)
+      expect(minimum.rightCenterX).toBeCloseTo(initial.rightCenterX, 1)
+      expect(minimum.rightCenterY).toBeCloseTo(initial.rightCenterY, 1)
+
+      const held = await text.continueResizeHandleBy({
+        deltaX: TEXT_RESIZING_MINIMUM_WIDTH_HOLD_DELTA,
+        deltaY: 0
+      })
+
+      expect(held.width).toBeCloseTo(minimum.width, 4)
+      expect(held.leftCenterX).toBeCloseTo(minimum.leftCenterX, 4)
+      expect(held.rightCenterX).toBeCloseTo(minimum.rightCenterX, 4)
+
+      const committed = await text.finishResize({ objectIndex: 0 })
+
+      expect(committed.width).toBeCloseTo(held.width, 4)
+      expect(committed.leftCenterX).toBeCloseTo(held.leftCenterX, 4)
+      expect(committed.rightCenterX).toBeCloseTo(held.rightCenterX, 4)
+    })
+  })
+
   test.describe('объект восстановлен из шаблона', () => {
     test.beforeEach(async({ text }) => {
       await text.applyRegressionTemplate()
     })
 
-    test('не смещает объект вниз при сужении справа после восстановления из шаблона', async({
+    test('сохраняет неподвижную сторону при сужении справа после восстановления из шаблона', async({
       text
     }) => {
       const initialSnapshot = await test.step('Получить исходное состояние объекта из шаблона', async() => {
@@ -134,15 +207,15 @@ test.describe('Горизонтальный ресайз текстового о
         })
       })
 
-      await test.step('Проверить что текст перенёсся, а верхний левый угол остался на месте', () => {
+      await test.step('Проверить что текст перенёсся, а левая сторона осталась на месте', () => {
         expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
-        expect(liveSnapshot.leftTopX).toBeCloseTo(initialSnapshot.leftTopX, 1)
-        expect(liveSnapshot.leftTopY).toBeCloseTo(initialSnapshot.leftTopY, 1)
+        expect(liveSnapshot.leftCenterX).toBeCloseTo(initialSnapshot.leftCenterX, 1)
+        expect(liveSnapshot.leftCenterY).toBeCloseTo(initialSnapshot.leftCenterY, 1)
       })
     })
 
-    test('не смещает объект вниз при сужении слева после восстановления из шаблона', async({
+    test('сохраняет неподвижную сторону при сужении слева после восстановления из шаблона', async({
       text
     }) => {
       const initialSnapshot = await test.step('Получить исходное состояние объекта из шаблона', async() => {
@@ -155,15 +228,15 @@ test.describe('Горизонтальный ресайз текстового о
         })
       })
 
-      await test.step('Проверить что текст перенёсся, а верхний правый угол остался на месте', () => {
+      await test.step('Проверить что текст перенёсся, а правая сторона осталась на месте', () => {
         expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
-        expect(liveSnapshot.rightTopX).toBeCloseTo(initialSnapshot.rightTopX, 1)
-        expect(liveSnapshot.rightTopY).toBeCloseTo(initialSnapshot.rightTopY, 1)
+        expect(liveSnapshot.rightCenterX).toBeCloseTo(initialSnapshot.rightCenterX, 1)
+        expect(liveSnapshot.rightCenterY).toBeCloseTo(initialSnapshot.rightCenterY, 1)
       })
     })
 
-    test('после undo и redo объект из шаблона всё ещё не прыгает вниз при повторном сужении', async({
+    test('после undo и redo объект из шаблона сохраняет неподвижную сторону при повторном сужении', async({
       history,
       text
     }) => {
@@ -203,7 +276,7 @@ test.describe('Горизонтальный ресайз текстового о
       })
 
       await test.step('Проверить что redo вернул узкое состояние без смещения объекта', () => {
-        expect(afterRedoSnapshot.width).toBe(resizedSnapshot.width)
+        expect(afterRedoSnapshot.width).toBeCloseTo(resizedSnapshot.width, 4)
         expect(afterRedoSnapshot.lineCount).toBe(resizedSnapshot.lineCount)
         expect(afterRedoSnapshot.leftTopX).toBeCloseTo(resizedSnapshot.leftTopX, 1)
         expect(afterRedoSnapshot.leftTopY).toBeCloseTo(resizedSnapshot.leftTopY, 1)
@@ -215,11 +288,11 @@ test.describe('Горизонтальный ресайз текстового о
         })
       })
 
-      await test.step('Проверить что повторное сужение после redo снова не двигает объект вниз', () => {
+      await test.step('Проверить что повторное сужение после redo сохраняет левую сторону', () => {
         expect(secondLiveSnapshot.width).toBeLessThan(afterRedoSnapshot.width)
         expect(secondLiveSnapshot.lineCount).toBeGreaterThan(afterRedoSnapshot.lineCount)
-        expect(secondLiveSnapshot.leftTopX).toBeCloseTo(afterRedoSnapshot.leftTopX, 1)
-        expect(secondLiveSnapshot.leftTopY).toBeCloseTo(afterRedoSnapshot.leftTopY, 1)
+        expect(secondLiveSnapshot.leftCenterX).toBeCloseTo(afterRedoSnapshot.leftCenterX, 1)
+        expect(secondLiveSnapshot.leftCenterY).toBeCloseTo(afterRedoSnapshot.leftCenterY, 1)
       })
     })
 
@@ -289,22 +362,22 @@ test.describe('Горизонтальный ресайз текстового о
       expect(newLiveSnapshot.lineCount).toBeGreaterThan(newInitialSnapshot.lineCount)
       expect(templateLiveSnapshot.lineCount).toBeGreaterThan(templateInitialSnapshot.lineCount)
       expect(newLiveSnapshot.lineCount).toBe(templateLiveSnapshot.lineCount)
-      expect(newLiveSnapshot.leftTopX).toBeCloseTo(newInitialSnapshot.leftTopX, 1)
-      expect(newLiveSnapshot.leftTopY).toBeCloseTo(newInitialSnapshot.leftTopY, 1)
-      expect(templateLiveSnapshot.leftTopX).toBeCloseTo(templateInitialSnapshot.leftTopX, 1)
-      expect(templateLiveSnapshot.leftTopY).toBeCloseTo(templateInitialSnapshot.leftTopY, 1)
+      expect(newLiveSnapshot.leftCenterX).toBeCloseTo(newInitialSnapshot.leftCenterX, 1)
+      expect(newLiveSnapshot.leftCenterY).toBeCloseTo(newInitialSnapshot.leftCenterY, 1)
+      expect(templateLiveSnapshot.leftCenterX).toBeCloseTo(templateInitialSnapshot.leftCenterX, 1)
+      expect(templateLiveSnapshot.leftCenterY).toBeCloseTo(templateInitialSnapshot.leftCenterY, 1)
     })
 
-    await test.step('Проверить что вертикальное смещение у обоих объектов остаётся в одном допуске', () => {
-      expect(Math.abs(newLiveSnapshot.leftTopY - newInitialSnapshot.leftTopY))
+    await test.step('Проверить что неподвижная сторона обоих объектов остаётся в одном допуске', () => {
+      expect(Math.abs(newLiveSnapshot.leftCenterY - newInitialSnapshot.leftCenterY))
         .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.anchor)
-      expect(Math.abs(templateLiveSnapshot.leftTopY - templateInitialSnapshot.leftTopY))
+      expect(Math.abs(templateLiveSnapshot.leftCenterY - templateInitialSnapshot.leftCenterY))
         .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.anchor)
     })
   })
 
   test.describe('объект из буфера', () => {
-    test('объект из буфера не смещается вниз при сужении справа', async({
+    test('объект из буфера сохраняет неподвижную сторону при сужении справа', async({
       clipboard,
       editorModel,
       text
@@ -344,11 +417,11 @@ test.describe('Горизонтальный ресайз текстового о
         })
       })
 
-      await test.step('Проверить что текст перенёсся, а верхний левый угол остался на месте', () => {
+      await test.step('Проверить что текст перенёсся, а левая сторона осталась на месте', () => {
         expect(liveSnapshot.width).toBeLessThan(initialSnapshot.width)
         expect(liveSnapshot.lineCount).toBeGreaterThan(initialSnapshot.lineCount)
-        expect(liveSnapshot.leftTopX).toBeCloseTo(initialSnapshot.leftTopX, 1)
-        expect(liveSnapshot.leftTopY).toBeCloseTo(initialSnapshot.leftTopY, 1)
+        expect(liveSnapshot.leftCenterX).toBeCloseTo(initialSnapshot.leftCenterX, 1)
+        expect(liveSnapshot.leftCenterY).toBeCloseTo(initialSnapshot.leftCenterY, 1)
       })
     })
   })
@@ -358,45 +431,8 @@ test.describe('Горизонтальный ресайз текстового о
     template,
     text
   }) => {
-    await test.step('Добавить исходный текстовый объект и сохранить его в шаблон', async() => {
-      await text.addRegressionText({
-        top: 96
-      })
-      await text.select({ objectIndex: 0 })
-    })
-
-    const serializedTemplate = await test.step('Сериализовать выделенный текстовый объект', () => {
-      return template.serializeSelection()
-    })
-
-    await test.step('Применить сохранённый шаблон и убедиться что на canvas два объекта', async() => {
-      expect(serializedTemplate).not.toBeNull()
-
-      const insertedCount = await template.applyTemplate({
-        template: serializedTemplate!
-      })
-
-      expect(insertedCount).toBe(1)
-      await editorModel.checkObjectCount({ count: 2 })
-    })
-
-    await test.step('Разнести исходный объект и объект из шаблона по вертикали', async() => {
-      const sourceSnapshot = await text.getResizeSnapshot({ objectIndex: 0 })
-
-      await text.updateStyle({
-        objectIndex: 1,
-        style: {
-          left: sourceSnapshot.left,
-          top: sourceSnapshot.top + 90
-        }
-      })
-    })
-
-    const sourceInitialSnapshot = await test.step('Получить исходное состояние исходного объекта', async() => {
-      return text.getResizeSnapshot({ objectIndex: 0 })
-    })
-    const templateInitialSnapshot = await test.step('Получить исходное состояние объекта из повторно применённого шаблона', async() => {
-      return text.getResizeSnapshot({ objectIndex: 1 })
+    const setup = await test.step('Сохранить исходный текст в шаблон и применить его повторно', async() => {
+      return createTextResizeTemplateRoundtripSetup({ editorModel, template, text })
     })
 
     const sourceLiveSnapshot = await test.step('Сузить справа исходный объект', async() => {
@@ -416,16 +452,16 @@ test.describe('Горизонтальный ресайз текстового о
     })
 
     await test.step('Проверить что оба объекта одинаково переносят текст и остаются на месте', () => {
-      expect(sourceLiveSnapshot.width).toBeLessThan(sourceInitialSnapshot.width)
-      expect(templateLiveSnapshot.width).toBeLessThan(templateInitialSnapshot.width)
-      expect(sourceLiveSnapshot.lineCount).toBeGreaterThan(sourceInitialSnapshot.lineCount)
-      expect(templateLiveSnapshot.lineCount).toBeGreaterThan(templateInitialSnapshot.lineCount)
+      expect(sourceLiveSnapshot.width).toBeLessThan(setup.sourceInitial.width)
+      expect(templateLiveSnapshot.width).toBeLessThan(setup.templateInitial.width)
+      expect(sourceLiveSnapshot.lineCount).toBeGreaterThan(setup.sourceInitial.lineCount)
+      expect(templateLiveSnapshot.lineCount).toBeGreaterThan(setup.templateInitial.lineCount)
       expect(sourceLiveSnapshot.lineCount).toBe(templateLiveSnapshot.lineCount)
       expect(sourceLiveSnapshot.width).toBe(templateLiveSnapshot.width)
-      expect(sourceLiveSnapshot.leftTopX).toBeCloseTo(sourceInitialSnapshot.leftTopX, 1)
-      expect(sourceLiveSnapshot.leftTopY).toBeCloseTo(sourceInitialSnapshot.leftTopY, 1)
-      expect(templateLiveSnapshot.leftTopX).toBeCloseTo(templateInitialSnapshot.leftTopX, 1)
-      expect(templateLiveSnapshot.leftTopY).toBeCloseTo(templateInitialSnapshot.leftTopY, 1)
+      expect(sourceLiveSnapshot.leftCenterX).toBeCloseTo(setup.sourceInitial.leftCenterX, 1)
+      expect(sourceLiveSnapshot.leftCenterY).toBeCloseTo(setup.sourceInitial.leftCenterY, 1)
+      expect(templateLiveSnapshot.leftCenterX).toBeCloseTo(setup.templateInitial.leftCenterX, 1)
+      expect(templateLiveSnapshot.leftCenterY).toBeCloseTo(setup.templateInitial.leftCenterY, 1)
     })
   })
 })

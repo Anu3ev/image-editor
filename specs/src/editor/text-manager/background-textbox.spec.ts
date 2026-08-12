@@ -447,6 +447,43 @@ describe('BackgroundTextbox', () => {
       })
     })
 
+    it('сохраняет дробную ширину фиксированного текста после восстановления', async() => {
+      const textbox = new BackgroundTextbox('Текст с переносом на несколько строк', {
+        autoExpand: false,
+        width: 127
+      })
+      const fractionalWidth = 126.6222
+      textbox.shouldRoundDimensionsOnInit = false
+      textbox.set({ width: fractionalWidth })
+      textbox.shouldRoundDimensionsOnInit = undefined
+
+      const serialized = textbox.toObject(['autoExpand'])
+      const restored = await BackgroundTextbox.fromObject(serialized)
+
+      expect(serialized.width).toBe(fractionalWidth)
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      if (!(restored instanceof BackgroundTextbox)) {
+        throw new Error('После восстановления должен существовать BackgroundTextbox')
+      }
+      expect(restored.width).toBe(fractionalWidth)
+      expect(restored.autoExpand).toBe(false)
+    })
+
+    it('не меняет правила восстановления текста внутри шейпа', async() => {
+      const serialized = new BackgroundTextbox('Текст внутри шейпа', {
+        autoExpand: false,
+        width: 127
+      }).toObject(['autoExpand', 'shapeNodeType'])
+      serialized.width = 126.6222
+      serialized.shapeNodeType = 'text'
+
+      const restored = await BackgroundTextbox.fromObject(serialized)
+
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      expect(restored.width).toBe(127)
+      expect(restored.shapeNodeType).toBe('text')
+    })
+
     it('оставляет в сериализованных styles только реальные отличия от стиля строки', () => {
       const textbox = new BackgroundTextbox('AB', {
         fontFamily: 'Arial',
