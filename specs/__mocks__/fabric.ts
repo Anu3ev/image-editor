@@ -640,6 +640,9 @@ export class Textbox extends FabricObject {
 
   public id?: string
 
+  /** Минимальная ширина строки, рассчитанная Textbox. */
+  public dynamicMinWidth: number
+
   public controls: Record<string, any> = {}
 
   public uppercase?: boolean
@@ -681,6 +684,20 @@ export class Textbox extends FabricObject {
   constructor(text: string, options: Record<string, any> = {}) {
     super(options)
     this.text = text
+    this.dynamicMinWidth = options.dynamicMinWidth ?? 2
+  }
+
+  /**
+   * Восстанавливает Textbox тем же статическим путём, который использует Fabric.
+   */
+  static async fromObject(object: Record<string, any>): Promise<Textbox> {
+    const normalizedObject: Record<string, any> = {
+      ...object,
+      // eslint-disable-next-line no-use-before-define
+      styles: stylesFromArray(object.styles, object.text ?? '')
+    }
+
+    return new this(normalizedObject.text ?? '', normalizedObject)
   }
 
   set(props: Record<string, any>) {

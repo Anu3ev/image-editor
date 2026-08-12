@@ -3,9 +3,12 @@ import {
   Point,
   Textbox,
   util,
+  type FabricText,
   type GraphemeBBox,
+  type SerializedTextProps,
   type SerializedTextboxProps,
   type TClassProperties,
+  type TOptions,
   type TextboxProps,
   classRegistry
 } from 'fabric'
@@ -14,6 +17,7 @@ import {
   rehydrateTextboxLineDefaults,
   resolveSerializableTextboxState
 } from './line-defaults'
+import { applyCanonicalTextboxWidth } from './scaling/text-width-materialization'
 
 export type LineFontDefault = {
   fill?: string
@@ -142,6 +146,29 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
   public radiusTopLeft?: number
 
   public radiusTopRight?: number
+
+  /** Восстанавливает дробную ширину, оставляя высоту результатом переноса строк. */
+  public static override fromObject<
+    T extends TOptions<SerializedTextProps>,
+    S extends FabricText
+  >(object: T): Promise<S> {
+    return super.fromObject<T, S>(object).then((textbox) => {
+      if (!(textbox instanceof BackgroundTextbox)) return textbox
+
+      const serialized = object as T & {
+        autoExpand?: boolean
+        shapeNodeType?: string
+      }
+      const { width } = serialized
+      if (serialized.shapeNodeType === 'text') return textbox
+      if (serialized.autoExpand !== false || typeof width !== 'number' || !Number.isFinite(width)) return textbox
+
+      applyCanonicalTextboxWidth({ textbox, width })
+      textbox.setCoords()
+
+      return textbox
+    })
+  }
 
   constructor(text: string, options: BackgroundTextboxProps = {}) {
     super(text, options)

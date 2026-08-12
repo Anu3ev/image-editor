@@ -1,3 +1,4 @@
+import { Path } from 'fabric'
 import { BackgroundTextbox } from '../../../../src/editor/text-manager/background-textbox'
 import {
   createTemplateLikeTextbox
@@ -602,7 +603,7 @@ describe('TextManager layout', () => {
       expect(templateAfterAnchor.y).toBeCloseTo(templateBeforeAnchor.y, 5)
     })
 
-    it('вызывает snappingManager.applyTextResizingSnap при изменении размера', () => {
+    it('передаёт изменение ширины без активного жеста прежней логике прилипания', () => {
       const { textManager, canvas, editor } = createTextManagerTestSetup()
       const textbox = textManager.addText({ text: 'Test' })
       const transform = { corner: 'mr' }
@@ -614,15 +615,51 @@ describe('TextManager layout', () => {
         e: event
       })
 
-      const { snappingManager } = editor
-      const { applyTextResizingSnap } = snappingManager
-
+      const { applyTextResizingSnap } = editor.snappingManager
       expect(applyTextResizingSnap).toHaveBeenCalledTimes(1)
       expect(applyTextResizingSnap).toHaveBeenCalledWith({
         target: textbox,
         transform,
         event
       })
+    })
+
+    it.each([
+      {
+        name: 'отражённого текста',
+        prepare: (textbox: BackgroundTextbox) => { textbox.flipX = true }
+      },
+      {
+        name: 'наклонённого текста',
+        prepare: (textbox: BackgroundTextbox) => { textbox.skewY = 10 }
+      },
+      {
+        name: 'текста по контуру',
+        prepare: (textbox: BackgroundTextbox) => { textbox.path = new Path('M 0 0 L 100 0') }
+      },
+      {
+        name: 'текста внутри группы',
+        prepare: (textbox: BackgroundTextbox) => { textbox.group = {} as BackgroundTextbox['group'] }
+      }
+    ])('сохраняет прежнюю логику прилипания для $name', ({ prepare }) => {
+      const { textManager, canvas, editor } = createTextManagerTestSetup()
+      const textbox = textManager.addText({ text: 'Test', autoExpand: true })
+      prepare(textbox)
+      const transform = {
+        action: 'resizing',
+        corner: 'mr',
+        originX: 'left',
+        originY: 'center',
+        target: textbox
+      }
+      const event = { ctrlKey: false }
+
+      canvas.fire('mouse:down', { target: textbox, transform, e: event })
+      canvas.fire('object:resizing', { target: textbox, transform, e: event })
+
+      const { applyTextResizingSnap } = editor.snappingManager
+      expect(applyTextResizingSnap).toHaveBeenCalledWith({ target: textbox, transform, event })
+      expect(textbox.autoExpand).toBe(false)
     })
   })
 })

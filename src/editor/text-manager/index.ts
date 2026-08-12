@@ -7,8 +7,10 @@ import {
 } from 'fabric'
 import type {
   BasicTransformEvent,
+  ModifiedEvent,
   TextboxProps,
   TPointerEvent,
+  TPointerEventInfo,
   Transform
 } from 'fabric'
 import { nanoid } from 'nanoid'
@@ -25,6 +27,7 @@ import {
   DIMENSION_EPSILON
 } from './constants'
 import TextScalingController from './scaling/text-scaling'
+import TextWidthResizeInteractionController from './scaling/text-width-resize-interaction-controller'
 import {
   syncLineFontDefaultsAfterTextChange
 } from './line-defaults'
@@ -65,6 +68,14 @@ type TextManagerTransformEvent = BasicTransformEvent<TPointerEvent> & TextManage
   transform?: Transform | null
 }
 
+/** Событие Fabric с возможным активным преобразованием. */
+type TextManagerPointerEvent = TPointerEventInfo<TPointerEvent> & TextManagerTargetEvent & {
+  transform?: Transform | null
+}
+
+/** Финальное событие изменения текстового объекта. */
+type TextManagerModifiedEvent = ModifiedEvent<TPointerEvent> & TextManagerTargetEvent
+
 /**
  * Менеджер текста для редактора.
  * Управляет добавлением и обновлением текстовых объектов, а также синхронизацией размера шрифта при трансформациях.
@@ -89,6 +100,9 @@ export default class TextManager {
    * Контроллер масштабирования standalone-textbox.
    */
   private scalingController: TextScalingController
+
+  /** Контроллер изменения ширины отдельного текста с общей логикой прилипания. */
+  private widthResizeInteractionController: TextWidthResizeInteractionController
 
   /**
    * Контроллер программного обновления standalone-textbox.
@@ -123,6 +137,7 @@ export default class TextManager {
         })
       }
     })
+    this.widthResizeInteractionController = new TextWidthResizeInteractionController({ editor })
     this.updateController = new TextUpdateController({
       runtime: {
         canvas: this.canvas,
@@ -407,13 +422,24 @@ export default class TextManager {
    */
   public destroy(): void {
     const { canvas } = this
+    this.widthResizeInteractionController.finishGesture()
     canvas.off('object:scaling', this.scalingController.handleObjectScaling)
     canvas.off('object:resizing', this._handleObjectResizing)
-    canvas.off('object:modified', this.scalingController.handleObjectModified)
+    canvas.off('object:modified', this._handleObjectModified)
     canvas.off('mouse:move', this.scalingController.handleMouseMove)
+    canvas.off('mouse:down', this._handleMouseDown)
+    canvas.off('mouse:up', this._handleResizeInteractionFinished)
+    canvas.off('object:removed', this._handleObjectRemoved)
+    canvas.off('selection:created', this._handleResizeInteractionFinished)
+    canvas.off('selection:updated', this._handleResizeInteractionFinished)
+    canvas.off('selection:cleared', this._handleResizeInteractionFinished)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
     canvas.off('text:changed', this._handleTextChanged)
+
+    window.removeEventListener('pointercancel', this._handlePointerCancel)
+    window.removeEventListener('touchcancel', this._handlePointerCancel)
+    window.removeEventListener('blur', this._handleWindowBlur)
   }
 
   /**
@@ -639,11 +665,55 @@ export default class TextManager {
     const { canvas } = this
     canvas.on('object:scaling', this.scalingController.handleObjectScaling)
     canvas.on('object:resizing', this._handleObjectResizing)
-    canvas.on('object:modified', this.scalingController.handleObjectModified)
+    canvas.on('object:modified', this._handleObjectModified)
     canvas.on('mouse:move', this.scalingController.handleMouseMove)
+    canvas.on('mouse:down', this._handleMouseDown)
+    canvas.on('mouse:up', this._handleResizeInteractionFinished)
+    canvas.on('object:removed', this._handleObjectRemoved)
+    canvas.on('selection:created', this._handleResizeInteractionFinished)
+    canvas.on('selection:updated', this._handleResizeInteractionFinished)
+    canvas.on('selection:cleared', this._handleResizeInteractionFinished)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
     canvas.on('text:changed', this._handleTextChanged)
+
+    window.addEventListener('pointercancel', this._handlePointerCancel)
+    window.addEventListener('touchcancel', this._handlePointerCancel)
+    window.addEventListener('blur', this._handleWindowBlur)
+  }
+
+  /** Фиксирует исходную геометрию изменения ширины отдельного текста. */
+  private _handleMouseDown = (event: TextManagerPointerEvent): void => {
+    this.widthResizeInteractionController.beginGesture(event)
+  }
+
+  /** Завершает временное состояние изменения ширины. */
+  private _handleResizeInteractionFinished = (): void => {
+    this.widthResizeInteractionController.finishGesture()
+  }
+
+  /** Завершает изменение ширины, если соответствующий текст удалён с холста. */
+  private _handleObjectRemoved = (event: TextManagerTargetEvent): void => {
+    const { target } = event
+    if (!target) return
+
+    this.widthResizeInteractionController.finishGestureForTarget({ target })
+  }
+
+  /** Прерывает изменение ширины после отмены события указателя. */
+  private _handlePointerCancel = (event: PointerEvent | TouchEvent): void => {
+    this.widthResizeInteractionController.interruptGesture({ event })
+  }
+
+  /** Прерывает изменение ширины при потере фокуса окном. */
+  private _handleWindowBlur = (): void => {
+    this.widthResizeInteractionController.interruptGesture()
+  }
+
+  /** Завершает изменение ширины и передаёт итоговое событие контроллеру скейлинга текста. */
+  private _handleObjectModified = (event: TextManagerModifiedEvent): void => {
+    this.widthResizeInteractionController.finishGesture()
+    this.scalingController.handleObjectModified(event)
   }
 
   /**
@@ -912,6 +982,8 @@ export default class TextManager {
    * Любой ручной horizontal resize переводит textbox в fixed-width режим.
    */
   private _handleObjectResizing = (event: TextManagerTransformEvent): void => {
+    if (this.widthResizeInteractionController.handleObjectResizing(event)) return
+
     const { target, transform, e } = event
     if (!TextManager._isTextbox(target)) return
     if (TextManager._isShapeOwnedTextbox(target)) return

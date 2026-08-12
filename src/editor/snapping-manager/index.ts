@@ -113,14 +113,14 @@ type MovementGuideSnapResult = {
   hasGuideSnapY: boolean
 }
 
-/** Данные от кастомной ручки изменения ширины текста. */
+/** Данные прежнего пути изменения ширины текста. */
 type TextResizingSnapRequest = {
   target?: FabricObject | null
   transform?: Transform | null
   event?: TPointerEvent | null
 }
 
-/** Проверенный контекст горизонтального изменения ширины текста. */
+/** Проверенный контекст прежнего горизонтального изменения ширины текста. */
 type TextResizingTargetContext = {
   target: Textbox
   activeBounds: Bounds
@@ -1132,9 +1132,7 @@ export default class SnappingManager {
     target.setCoords()
   }
 
-  /**
-   * Применяет прилипания при горизонтальном ресайзе текстового объекта.
-   */
+  /** Применяет прежнюю логику прилипания для ещё не переведённых вариантов Textbox. */
   public applyTextResizingSnap({
     target,
     transform,
@@ -1143,15 +1141,13 @@ export default class SnappingManager {
     const context = this._resolveTextResizingTargetContext({ target, transform, event })
     if (!context) return
 
-    const { activeBounds, originX, verticalAnchors, threshold } = context
     const snapPlan = resolveTextResizeSnapPlan({
       target: context.target,
-      bounds: activeBounds,
-      originX,
-      verticalAnchors,
-      threshold
+      bounds: context.activeBounds,
+      originX: context.originX,
+      verticalAnchors: context.verticalAnchors,
+      threshold: context.threshold
     })
-
     if (!snapPlan) {
       this._clearGuides()
       return
@@ -1160,7 +1156,7 @@ export default class SnappingManager {
     this._applyTextResizingSnapPlan({ context, snapPlan })
   }
 
-  /** Проверяет изменение ширины текста и собирает геометрию для прилипания. */
+  /** Проверяет входные данные прежнего пути и собирает геометрию прилипания. */
   private _resolveTextResizingTargetContext({
     target,
     transform,
@@ -1196,7 +1192,7 @@ export default class SnappingManager {
     }
   }
 
-  /** Применяет рассчитанную ширину текста, не сдвигая неподвижную сторону. */
+  /** Применяет прежний план ширины, сохраняя неподвижную сторону Textbox. */
   private _applyTextResizingSnapPlan({
     context,
     snapPlan
@@ -1221,10 +1217,7 @@ export default class SnappingManager {
       })
     }
 
-    this._applyGuides({
-      guides: [guide],
-      spacingGuides: []
-    })
+    this._applyGuides({ guides: [guide], spacingGuides: [] })
   }
 
   /** Очищает общие сессии прилипания, направляющие и кеш после завершающего события. */

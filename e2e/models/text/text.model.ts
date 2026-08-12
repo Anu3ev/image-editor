@@ -8,7 +8,9 @@ import type {
   TextRangeStyleParams,
   TextResizeFromLeftParams,
   TextResizeFromRightParams,
+  TextResizeContinueParams,
   TextResizeSnapshot,
+  TextResizeToGuideParams,
   TextResizeUntilWrapParams,
   TextRotateParams,
   TextScaleDragStep,
@@ -94,7 +96,7 @@ export class TextModel {
     }
   }
 
-  /** Добавляет текстовый объект на canvas. */
+  /** Добавляет текстовый объект на холст. */
   async add(params: TextAddParams = {}): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate((payload) => {
       const {
@@ -202,7 +204,7 @@ export class TextModel {
     return this.getObject({ id: appliedTextObject.id })
   }
 
-  /** Возвращает текстовый объект по id или индексу canvas. */
+  /** Возвращает текстовый объект по id или индексу на холсте. */
   async getObject(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -216,7 +218,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Делает текстовый объект активным объектом canvas. */
+  /** Делает текстовый объект активным объектом холста. */
   async select(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -244,7 +246,7 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Кликает по текстовому объекту на canvas через реальные координаты viewport. */
+  /** Нажимает на текстовый объект настоящей мышью в координатах окна браузера. */
   async clickOnCanvas(
     params: ({
       point?: 'center' | 'bottom-right'
@@ -291,7 +293,7 @@ export class TextModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Открывает редактирование текста через реальный двойной клик по canvas. */
+  /** Открывает редактирование текста настоящим двойным нажатием на холст. */
   async openTextEditingFromCanvas(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     const point = await this._resolveTargetCenterPoint(params)
 
@@ -583,26 +585,31 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Возвращает текущее состояние resize текстового объекта. */
+  /** Возвращает текущее состояние текста при изменении ширины. */
   async getResizeSnapshot(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     return this.resizeSession.getResizeSnapshot(params)
   }
 
-  /** Выполняет live horizontal resize текстового объекта справа до заданной внутренней ширины. */
+  /** Изменяет ширину текста справа до заданного значения. */
   async resizeFromRightToWidth(params: TextResizeFromRightParams): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromRightToWidth(params)
   }
 
-  /** Выполняет live horizontal resize текстового объекта слева до заданной внутренней ширины. */
+  /** Изменяет ширину текста слева до заданного значения. */
   async resizeFromLeftToWidth(params: TextResizeFromLeftParams): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromLeftToWidth(params)
+  }
+
+  /** Продолжает перетаскивание боковой ручки относительным движением указателя. */
+  async continueResizeHandleBy(params: TextResizeContinueParams): Promise<TextResizeSnapshot> {
+    return this.resizeSession.continueResizeHandleBy(params)
   }
 
   /** Подводит правую границу текста к заданной вертикальной направляющей. */
   async resizeFromRightToGuide(
     params: {
+      centered?: boolean
       x: number
-      originY?: 'top' | 'center' | 'bottom'
     } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromRightToGuide(params)
@@ -611,11 +618,16 @@ export class TextModel {
   /** Подводит левую границу текста к заданной вертикальной направляющей. */
   async resizeFromLeftToGuide(
     params: {
+      centered?: boolean
       x: number
-      originY?: 'top' | 'center' | 'bottom'
     } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromLeftToGuide(params)
+  }
+
+  /** Подводит внешнюю грань выбранной боковой ручки к направляющей. */
+  async resizeSideToGuide(params: TextResizeToGuideParams): Promise<TextResizeSnapshot> {
+    return this.resizeSession.resizeSideToGuide(params)
   }
 
   /** Сужает текстовый объект справа до первого состояния, где текст переносится на новую строку. */
@@ -632,12 +644,12 @@ export class TextModel {
     return this.resizeSession.resizeFromLeftUntilTextWraps(params)
   }
 
-  /** Завершает активный resize через реальный mouseup, а без active drag-сессии завершает его через object:modified. */
+  /** Завершает перетаскивание ручки или отправляет итоговое событие для уже изменённого объекта. */
   async finishResize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     return this.resizeSession.finishResize(params)
   }
 
-  /** Завершает активный интерактивный resize, если drag-сессия ещё открыта. */
+  /** Завершает изменение ширины, если боковая ручка ещё захвачена. */
   async finishResizeIfActive(): Promise<TextResizeSnapshot | null> {
     return this.resizeSession.finishResizeIfActive()
   }
@@ -702,7 +714,7 @@ export class TextModel {
     })
   }
 
-  /** Сжимает standalone text за выбранный угол и возвращает live-состояния после каждого шага. */
+  /** Сужает отдельный текст за выбранный угол и возвращает состояние после каждого движения. */
   async shrinkFromScaleCornerInLiveSteps(
     params: {
       corner: TextScaleHandleCorner
@@ -751,7 +763,7 @@ export class TextModel {
     return states
   }
 
-  /** Тянет ручку масштабирования текстового объекта реальной мышью и оставляет drag-сессию открытой. */
+  /** Тянет ручку скейлинга текста настоящей мышью и не отпускает её. */
   async dragScaleHandleBy(
     params: {
       corner: TextScaleHandleCorner
@@ -810,7 +822,7 @@ export class TextModel {
     return snapshot
   }
 
-  /** Продолжает открытую drag-сессию масштабирования текстового объекта реальным движением мыши. */
+  /** Продолжает скейлинг текста настоящим движением мыши без отпускания ручки. */
   async continueScaleHandleBy(
     params: {
       deltaX: number
@@ -918,7 +930,7 @@ export class TextModel {
     return point
   }
 
-  /** Сжимает текст по диагонали до стабильного live-состояния, где дальше он уже не уменьшается. */
+  /** Сужает текст по диагонали до состояния, после которого он больше не уменьшается. */
   async shrinkDiagonallyToMinimumSize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     const {
       objectIndex,
@@ -978,7 +990,7 @@ export class TextModel {
     return this._finishModifiedTransform(params)
   }
 
-  /** Завершает скейлинг текста, начатый мышью Playwright, настоящим mouseup. */
+  /** Завершает скейлинг текста настоящим отпусканием кнопки мыши. */
   private async _finishBrowserScaleInteraction(
     interaction: ActiveTextScaleInteraction
   ): Promise<TextResizeSnapshot> {
@@ -1035,7 +1047,7 @@ export class TextModel {
     return snapshot as TextResizeSnapshot
   }
 
-  /** Завершает активный интерактивный scale, если drag-сессия ещё открыта. */
+  /** Завершает скейлинг, если ручка текста ещё захвачена. */
   async finishScaleIfActive(): Promise<TextResizeSnapshot | null> {
     if (!this.activeScaleInteraction) return null
 
@@ -1129,7 +1141,7 @@ export class TextModel {
     return textObject as TextObjectInfo
   }
 
-  /** Выполняет один live-шаг scale текстового объекта через активную drag-сессию. */
+  /** Выполняет один шаг скейлинга текста без отпускания ручки. */
   private async _performInteractiveScaleStep(
     params: {
       scaleX: number
