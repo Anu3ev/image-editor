@@ -626,6 +626,7 @@ export default class SnappingManager {
       return
     }
     if (event.e && this.handledScaleStepEvents.has(event.e)) return
+    if (this.editor.textManager.handleStandaloneTextCornerScaling(event)) return
 
     const targetContext = this._resolveObjectScalingTargetContext({ event })
     if (!targetContext) return

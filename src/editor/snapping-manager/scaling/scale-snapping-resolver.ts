@@ -126,8 +126,15 @@ export type ScaleStepProjectionInput = Readonly<{
   projection: ScaleProjectionInput
 }>
 
-/** Точная проекция и канонические значения после уточнения по фактической геометрии объекта. */
+/** Ограничения по двум осям, выбранные для одного шага скейлинга. */
+export type ScaleSnapConstraints = Readonly<{
+  x: PlannedScaleConstraint | null
+  y: PlannedScaleConstraint | null
+}>
+
+/** Точная проекция, канонические значения и достигнутые ограничения после уточнения. */
 export type ScaleSnapPlanRefinement = Readonly<{
+  constraints: ScaleSnapConstraints
   effectiveValues: readonly number[]
   stepProjection: ScaleStepProjectionInput
 }>
@@ -152,10 +159,8 @@ export type ScaleSnapPlan = Readonly<{
   effectiveValues: readonly number[]
   rawPositions: ProjectedScaleEdgePositions
   effectivePositions: ProjectedScaleEdgePositions
-  constraints: Readonly<{
-    x: PlannedScaleConstraint | null
-    y: PlannedScaleConstraint | null
-  }>
+  constraints: ScaleSnapConstraints
+  refinementCandidates: ScaleSnapConstraints
   proposedHoldState: ScaleHoldState
   fixedAnchor: ScaleScenePoint
   verificationEpsilon: number
@@ -282,19 +287,40 @@ export function resolveScaleSnapPlan({
   const rawValues = Object.freeze([...intent.values])
   const rawPositions = projectScaleEdgePositions({ projection: projectionMode.projection, values: rawValues })
   if (intent.modifiers.ctrlKey) {
-    return createScaleSnapPlan({ baseline, projectionMode, rawValues, rawPositions, resolved: null })
+    return createScaleSnapPlan({
+      baseline,
+      projectionMode,
+      rawValues,
+      rawPositions,
+      proposals: Object.freeze({ x: null, y: null }),
+      resolved: null
+    })
   }
 
-  const x = resolveAxisProposal({ axis: 'x', baseline, projectionMode, rawPositions, hold: holdState.x })
-  const y = resolveAxisProposal({ axis: 'y', baseline, projectionMode, rawPositions, hold: holdState.y })
-  const resolved = resolveCompatibleProposals({ baseline, projectionMode, rawValues, x, y })
+  const axisProposalContext = { baseline, projectionMode, rawPositions, rawValues }
+  const x = resolveAxisProposal({ ...axisProposalContext, axis: 'x', hold: holdState.x })
+  const y = resolveAxisProposal({ ...axisProposalContext, axis: 'y', hold: holdState.y })
+  const resolved = resolveCompatibleProposals({
+    baseline,
+    projectionMode,
+    rawValues,
+    x,
+    y
+  })
 
-  return createScaleSnapPlan({ baseline, projectionMode, rawValues, rawPositions, resolved })
+  return createScaleSnapPlan({
+    baseline,
+    projectionMode,
+    rawValues,
+    rawPositions,
+    proposals: Object.freeze({ x, y }),
+    resolved
+  })
 }
 
 /**
- * Уточняет значения уже выбранных ограничений по фактической геометрии объекта.
- * Выбранные кандидаты, исходное положение указателя и состояние удержания не меняются.
+ * Уточняет значения и применимые ограничения по фактической геометрии объекта.
+ * Исходное положение указателя и доступные для уточнения кандидаты не меняются.
  */
 export function refineScaleSnapPlan({
   plan,
@@ -303,16 +329,16 @@ export function refineScaleSnapPlan({
   plan: ScaleSnapPlan
   refinement: ScaleSnapPlanRefinement
 }): ScaleSnapPlan {
-  if (!plan.constraints.x && !plan.constraints.y) {
-    throw new Error('Scale plan without constraints cannot be refined')
-  }
-
   const projectionMode = resolveStepProjectionMode({
     baselineMode: Object.freeze({ id: plan.projectionMode, projection: plan.projection }),
     stepProjection: refinement.stepProjection
   })
   const effectiveValues = Object.freeze([...refinement.effectiveValues])
   assertScaleValues({ projection: projectionMode.projection, values: effectiveValues })
+  const constraints = createRefinedScaleConstraints({
+    candidates: plan.refinementCandidates,
+    constraints: refinement.constraints
+  })
 
   const effectivePositions = projectScaleEdgePositions({
     projection: projectionMode.projection,
@@ -320,8 +346,9 @@ export function refineScaleSnapPlan({
   })
   assertRefinedConstraintsReached({
     bounds: refinement.stepProjection.bounds,
+    constraints,
     effectivePositions,
-    plan
+    verificationEpsilon: plan.verificationEpsilon
   })
 
   return Object.freeze({
@@ -329,7 +356,9 @@ export function refineScaleSnapPlan({
     projection: projectionMode.projection,
     variables: projectionMode.projection.variables,
     effectiveValues,
-    effectivePositions
+    effectivePositions,
+    constraints,
+    proposedHoldState: createHoldStateFromConstraints(constraints)
   })
 }
 
@@ -601,25 +630,59 @@ function assertScaleValues({
 /** Проверяет достижение исходных ограничений точной геометрией уточнённого плана. */
 function assertRefinedConstraintsReached({
   bounds,
+  constraints,
   effectivePositions,
-  plan
+  verificationEpsilon
 }: {
   bounds: ObjectBounds
+  constraints: ScaleSnapConstraints
   effectivePositions: ProjectedScaleEdgePositions
-  plan: ScaleSnapPlan
+  verificationEpsilon: number
 }): void {
-  for (const constraint of [plan.constraints.x, plan.constraints.y]) {
+  for (const constraint of [constraints.x, constraints.y]) {
     if (!constraint) continue
 
     const { edge } = constraint.candidate
     const projectedPosition = effectivePositions[edge]
     const exactPosition = bounds[edge]
     if (projectedPosition === null
-      || Math.abs(projectedPosition - constraint.expectedPosition) > plan.verificationEpsilon
-      || Math.abs(exactPosition - constraint.expectedPosition) > plan.verificationEpsilon) {
+      || Math.abs(projectedPosition - constraint.expectedPosition) > verificationEpsilon
+      || Math.abs(exactPosition - constraint.expectedPosition) > verificationEpsilon) {
       throw new Error(`Refined scale plan does not reach ${edge} constraint`)
     }
   }
+}
+
+/** Проверяет выбранные ограничения и создаёт их неизменяемый снимок. */
+function createRefinedScaleConstraints({
+  candidates,
+  constraints
+}: {
+  candidates: ScaleSnapConstraints
+  constraints: ScaleSnapConstraints
+}): ScaleSnapConstraints {
+  return Object.freeze({
+    x: resolveRefinedScaleConstraint({ axis: 'x', candidate: candidates.x, constraint: constraints.x }),
+    y: resolveRefinedScaleConstraint({ axis: 'y', candidate: candidates.y, constraint: constraints.y })
+  })
+}
+
+/** Проверяет выбранное ограничение и возвращает снимок из исходного плана. */
+function resolveRefinedScaleConstraint({
+  axis,
+  candidate,
+  constraint
+}: {
+  axis: ScaleSceneAxis
+  candidate: PlannedScaleConstraint | null
+  constraint: PlannedScaleConstraint | null
+}): PlannedScaleConstraint | null {
+  if (!constraint) return null
+  if (!candidate || !arePlannedScaleConstraintsEqual({ first: candidate, second: constraint })) {
+    throw new Error(`Refined ${axis} constraint does not belong to scale plan candidates`)
+  }
+
+  return candidate
 }
 
 /**
@@ -654,12 +717,14 @@ function resolveAxisProposal({
   baseline,
   projectionMode,
   rawPositions,
+  rawValues,
   hold
 }: {
   axis: ScaleSceneAxis
   baseline: ScaleGestureBaseline
   projectionMode: ScaleProjectionMode
   rawPositions: ProjectedScaleEdgePositions
+  rawValues: readonly number[]
   hold: ScaleAxisHold
 }): ScaleAxisProposal | null {
   if (hold.kind === 'held') {
@@ -667,12 +732,20 @@ function resolveAxisProposal({
     const releaseThreshold = hold.candidate.category === 'spacing'
       ? baseline.thresholds.spacingRelease
       : baseline.thresholds.release
-    if (rawPosition !== null && Math.abs(rawPosition - hold.candidate.position) <= releaseThreshold) {
+    if (rawPosition !== null
+      && Math.abs(rawPosition - hold.candidate.position) <= releaseThreshold
+      && canProjectScaleCandidate({ baseline, candidate: hold.candidate, projectionMode, rawValues })) {
       return Object.freeze({ axis, candidate: hold.candidate, transition: 'held' })
     }
   }
 
-  const candidate = findBestScaleCandidate({ axis, baseline, projectionMode, rawPositions })
+  const candidate = findBestScaleCandidate({
+    axis,
+    baseline,
+    projectionMode,
+    rawPositions,
+    rawValues
+  })
   if (!candidate) return null
 
   return Object.freeze({ axis, candidate, transition: 'acquired' })
@@ -685,12 +758,14 @@ function findBestScaleCandidate({
   axis,
   baseline,
   projectionMode,
-  rawPositions
+  rawPositions,
+  rawValues
 }: {
   axis: ScaleSceneAxis
   baseline: ScaleGestureBaseline
   projectionMode: ScaleProjectionMode
   rawPositions: ProjectedScaleEdgePositions
+  rawValues: readonly number[]
 }): ScaleSnapCandidate | null {
   let bestCandidate: ScaleSnapCandidate | null = null
   let bestDistance = Number.POSITIVE_INFINITY
@@ -703,6 +778,7 @@ function findBestScaleCandidate({
     if (rawPosition === null) continue
     const distance = Math.abs(candidate.position - rawPosition)
     if (distance > baseline.thresholds.acquire) continue
+    if (!canProjectScaleCandidate({ baseline, candidate, projectionMode, rawValues })) continue
     if (isScaleCandidatePreferred({ candidate, distance, bestCandidate, bestDistance })) {
       bestCandidate = candidate
       bestDistance = distance
@@ -710,6 +786,30 @@ function findBestScaleCandidate({
   }
 
   return bestCandidate
+}
+
+/** Проверяет, можно ли выполнить ограничение кандидата в локальной проекции шага. */
+function canProjectScaleCandidate({
+  baseline,
+  candidate,
+  projectionMode,
+  rawValues
+}: {
+  baseline: ScaleGestureBaseline
+  candidate: ScaleSnapCandidate
+  projectionMode: ScaleProjectionMode
+  rawValues: readonly number[]
+}): boolean {
+  return resolveScaleProjection({
+    projection: projectionMode.projection,
+    rawValues,
+    constraints: [{
+      axis: candidate.axis,
+      edge: candidate.edge,
+      position: candidate.position
+    }],
+    epsilon: baseline.thresholds.verification
+  }) !== null
 }
 
 /**
@@ -873,19 +973,28 @@ function createScaleSnapPlan({
   projectionMode,
   rawValues,
   rawPositions,
+  proposals,
   resolved
 }: {
   baseline: ScaleGestureBaseline
   projectionMode: ScaleProjectionMode
   rawValues: readonly number[]
   rawPositions: ProjectedScaleEdgePositions
+  proposals: Readonly<{
+    x: ScaleAxisProposal | null
+    y: ScaleAxisProposal | null
+  }>
   resolved: ResolvedScaleProposals | null
 }): ScaleSnapPlan {
   const effectiveValues = resolved ? resolved.solution.values : rawValues
   const effectivePositions = resolved ? resolved.solution.positions : rawPositions
-  const x = resolved?.x ? createPlannedConstraint(resolved.x) : null
-  const y = resolved?.y ? createPlannedConstraint(resolved.y) : null
-  const constraints = Object.freeze({ x, y })
+  const constraints = createPlannedScaleConstraints({ x: resolved?.x ?? null, y: resolved?.y ?? null })
+  const refinementCandidates = createPlannedScaleConstraints(proposals)
+  assertEffectiveConstraintsReached({
+    constraints,
+    effectivePositions,
+    verificationEpsilon: baseline.thresholds.verification
+  })
 
   return Object.freeze({
     projectionMode: projectionMode.id,
@@ -896,10 +1005,45 @@ function createScaleSnapPlan({
     rawPositions,
     effectivePositions,
     constraints,
-    proposedHoldState: createHoldStateFromConstraints({ x, y }),
+    refinementCandidates,
+    proposedHoldState: createHoldStateFromConstraints(constraints),
     fixedAnchor: baseline.fixedAnchor,
     verificationEpsilon: baseline.thresholds.verification
   })
+}
+
+/** Преобразует предложения по осям в неизменяемые ограничения плана. */
+function createPlannedScaleConstraints({
+  x,
+  y
+}: {
+  x: ScaleAxisProposal | null
+  y: ScaleAxisProposal | null
+}): ScaleSnapConstraints {
+  return Object.freeze({
+    x: x ? createPlannedConstraint(x) : null,
+    y: y ? createPlannedConstraint(y) : null
+  })
+}
+
+/** Проверяет, что применимые ограничения соответствуют рассчитанным граням. */
+function assertEffectiveConstraintsReached({
+  constraints,
+  effectivePositions,
+  verificationEpsilon
+}: {
+  constraints: ScaleSnapConstraints
+  effectivePositions: ProjectedScaleEdgePositions
+  verificationEpsilon: number
+}): void {
+  for (const constraint of [constraints.x, constraints.y]) {
+    if (!constraint) continue
+
+    const position = effectivePositions[constraint.candidate.edge]
+    if (position === null || Math.abs(position - constraint.expectedPosition) > verificationEpsilon) {
+      throw new Error(`Scale plan does not reach ${constraint.candidate.edge} constraint`)
+    }
+  }
 }
 
 /**
@@ -920,10 +1064,7 @@ function createPlannedConstraint(proposal: ScaleAxisProposal): PlannedScaleConst
 function createHoldStateFromConstraints({
   x,
   y
-}: {
-  x: PlannedScaleConstraint | null
-  y: PlannedScaleConstraint | null
-}): ScaleHoldState {
+}: ScaleSnapConstraints): ScaleHoldState {
   return Object.freeze({
     x: createAxisHold({ constraint: x }),
     y: createAxisHold({ constraint: y })
@@ -1094,4 +1235,18 @@ function areScaleCandidatesEqual({
     && first.position === second.position
     && first.category === second.category
     && first.snapshotIndex === second.snapshotIndex
+}
+
+/** Проверяет полное совпадение ограничений одного кандидата. */
+function arePlannedScaleConstraintsEqual({
+  first,
+  second
+}: {
+  first: PlannedScaleConstraint
+  second: PlannedScaleConstraint
+}): boolean {
+  return first.axis === second.axis
+    && first.transition === second.transition
+    && first.expectedPosition === second.expectedPosition
+    && areScaleCandidatesEqual({ first: first.candidate, second: second.candidate })
 }

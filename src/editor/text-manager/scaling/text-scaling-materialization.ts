@@ -66,7 +66,6 @@ type ScaledAutoExpandOptions = {
   base: TextScaleBaseState
   committedWidth: number
   shouldScaleFontSize: boolean
-  shouldRoundDimensions: boolean
 }
 
 /**
@@ -92,27 +91,6 @@ const resolveRenderedLineCount = ({
   return Array.isArray(textLines) && textLines.length > 0
     ? textLines.length
     : fallbackLineCount
-}
-
-/**
- * Пересчитывает Fabric dimensions с явным управлением локальным правилом округления.
- */
-const recalculateTextboxDimensions = ({
-  textbox,
-  shouldRoundDimensions
-}: {
-  textbox: EditorTextbox
-  shouldRoundDimensions: boolean
-}): void => {
-  const previousShouldRoundDimensionsOnInit = textbox.shouldRoundDimensionsOnInit
-
-  textbox.shouldRoundDimensionsOnInit = shouldRoundDimensions
-
-  try {
-    textbox.initDimensions()
-  } finally {
-    textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
-  }
 }
 
 /**
@@ -145,8 +123,7 @@ const preserveScaledAutoExpandLineCount = ({
   canvasManager,
   base,
   committedWidth,
-  shouldScaleFontSize,
-  shouldRoundDimensions
+  shouldScaleFontSize
 }: ScaledAutoExpandOptions): void => {
   if (!shouldScaleFontSize) return
   if (textbox.autoExpand === false) return
@@ -170,10 +147,7 @@ const preserveScaledAutoExpandLineCount = ({
   if (maxWidth <= currentWidth + DIMENSION_EPSILON) return
 
   textbox.set({ width: maxWidth })
-  recalculateTextboxDimensions({
-    textbox,
-    shouldRoundDimensions
-  })
+  textbox.initDimensions()
 
   const text = typeof textbox.text === 'string' ? textbox.text : ''
   const targetWidth = Math.min(
@@ -185,10 +159,7 @@ const preserveScaledAutoExpandLineCount = ({
   )
 
   textbox.set({ width: targetWidth })
-  recalculateTextboxDimensions({
-    textbox,
-    shouldRoundDimensions
-  })
+  textbox.initDimensions()
 }
 
 /**
@@ -384,13 +355,50 @@ export const applyScaledTextboxVisualState = ({
   })
 }
 
-/**
- * Материализует transient scale standalone-textbox в канонические width/font/padding/radius значения.
- * `placement` здесь означает стабильный placement самого объекта,
- * а `anchorPlacement` — временную точку удержания текущего drag.
- */
-export const commitStandaloneTextboxScale = (
-  {
+/** Восстанавливает обычное положение объекта или неподвижную точку текущего жеста. */
+function restoreScaledTextboxPlacement({
+  anchorPlacement,
+  canvasManager,
+  committedWidth,
+  dimensionsRounded,
+  placement,
+  textbox
+}: {
+  anchorPlacement?: ObjectPlacement
+  canvasManager: CanvasManager
+  committedWidth: number
+  dimensionsRounded: boolean
+  placement: ObjectPlacement
+  textbox: EditorTextbox
+}): CommitStandaloneTextScaleResult {
+  if (anchorPlacement) {
+    textbox.set({ originX: placement.originX, originY: placement.originY })
+    textbox.setPositionByOrigin(
+      new Point(anchorPlacement.left, anchorPlacement.top),
+      anchorPlacement.originX,
+      anchorPlacement.originY
+    )
+  } else {
+    canvasManager.applyObjectPlacement({ object: textbox, placement })
+  }
+
+  textbox.setCoords()
+
+  return {
+    appliedWidth: textbox.width ?? committedWidth,
+    dimensionsRounded
+  }
+}
+
+/** Применяет канонические свойства текста и восстанавливает положение объекта. */
+function materializeStandaloneTextboxScale({
+  options,
+  shouldRoundDimensions
+}: {
+  options: CommitStandaloneTextScaleOptions
+  shouldRoundDimensions: boolean
+}): CommitStandaloneTextScaleResult {
+  const {
     textbox,
     canvasManager,
     base,
@@ -401,20 +409,13 @@ export const commitStandaloneTextboxScale = (
     shouldScaleFontSize,
     shouldScalePadding,
     shouldScaleRadii,
-    shouldDisableAutoExpandOnHorizontalChange = false,
-    shouldRoundDimensions = true
-  }: CommitStandaloneTextScaleOptions
-): CommitStandaloneTextScaleResult => {
-  const { width: baseWidth } = base
-  const nextWidth = Math.max(1, baseWidth * widthScale)
-  const roundedNextWidth = Math.max(1, Math.round(nextWidth))
-  const committedWidth = shouldRoundDimensions ? roundedNextWidth : nextWidth
-  const currentWidth = textbox.width ?? baseWidth
-  const widthChanged = Math.abs(committedWidth - currentWidth) > DIMENSION_EPSILON
+    shouldDisableAutoExpandOnHorizontalChange = false
+  } = options
+  const nextWidth = Math.max(1, base.width * widthScale)
+  const committedWidth = shouldRoundDimensions ? Math.max(1, Math.round(nextWidth)) : nextWidth
+  const widthChanged = Math.abs(committedWidth - (textbox.width ?? base.width)) > DIMENSION_EPSILON
 
-  if (shouldDisableAutoExpandOnHorizontalChange && widthChanged) {
-    textbox.autoExpand = false
-  }
+  if (shouldDisableAutoExpandOnHorizontalChange && widthChanged) textbox.autoExpand = false
 
   applyScaledTextboxVisualState({
     textbox,
@@ -424,61 +425,44 @@ export const commitStandaloneTextboxScale = (
     shouldScalePadding,
     shouldScaleRadii
   })
-
-  textbox.set({
-    width: committedWidth,
-    scaleX: 1,
-    scaleY: 1
-  })
-
-  recalculateTextboxDimensions({
-    textbox,
-    shouldRoundDimensions
-  })
-
+  textbox.set({ width: committedWidth, scaleX: 1, scaleY: 1 })
+  textbox.initDimensions()
   preserveScaledAutoExpandLineCount({
     textbox,
     canvasManager,
     base,
     committedWidth,
-    shouldScaleFontSize,
-    shouldRoundDimensions
+    shouldScaleFontSize
   })
 
-  const dimensionsRounded = shouldRoundDimensions
-    ? roundTextboxDimensions({ textbox })
-    : false
+  const dimensionsRounded = shouldRoundDimensions ? roundTextboxDimensions({ textbox }) : false
+  if (dimensionsRounded) textbox.dirty = true
 
-  if (dimensionsRounded) {
-    textbox.dirty = true
-  }
-
-  if (anchorPlacement) {
-    textbox.set({
-      originX: placement.originX,
-      originY: placement.originY
-    })
-    textbox.setPositionByOrigin(
-      new Point(anchorPlacement.left, anchorPlacement.top),
-      anchorPlacement.originX,
-      anchorPlacement.originY
-    )
-    textbox.setCoords()
-
-    return {
-      appliedWidth: textbox.width ?? committedWidth,
-      dimensionsRounded
-    }
-  }
-
-  canvasManager.applyObjectPlacement({
-    object: textbox,
-    placement
+  return restoreScaledTextboxPlacement({
+    anchorPlacement,
+    canvasManager,
+    committedWidth,
+    dimensionsRounded,
+    placement,
+    textbox
   })
-  textbox.setCoords()
+}
 
-  return {
-    appliedWidth: textbox.width ?? committedWidth,
-    dimensionsRounded
+/**
+ * Переносит временный масштаб отдельного текста в его ширину, размер шрифта, отступы и скругления.
+ * Обычное положение берётся из `placement`, а неподвижная точка текущего жеста — из `anchorPlacement`.
+ */
+export const commitStandaloneTextboxScale = (
+  options: CommitStandaloneTextScaleOptions
+): CommitStandaloneTextScaleResult => {
+  const shouldRoundDimensions = options.shouldRoundDimensions ?? true
+  const { textbox } = options
+  const previousShouldRoundDimensionsOnInit = textbox.shouldRoundDimensionsOnInit
+
+  textbox.shouldRoundDimensionsOnInit = shouldRoundDimensions
+  try {
+    return materializeStandaloneTextboxScale({ options, shouldRoundDimensions })
+  } finally {
+    textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
   }
 }

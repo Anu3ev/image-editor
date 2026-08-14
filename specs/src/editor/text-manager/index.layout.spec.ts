@@ -192,11 +192,13 @@ describe('TextManager layout', () => {
       const lineWidthSpy = jest.spyOn(textbox, 'getLineWidth').mockReturnValue(240)
 
       canvas.fire('text:editing:entered', { target: textbox })
+      textbox.preserveExactTextGeometry = true
       textbox.text = 'Longer text'
       canvas.fire('text:changed', { target: textbox })
 
       expect(textbox.width).toBe(240)
       expect(textbox.top).toBe(70)
+      expect(textbox.preserveExactTextGeometry).toBe(false)
 
       lineWidthSpy.mockRestore()
     })
@@ -324,6 +326,19 @@ describe('TextManager layout', () => {
 
       expect(textbox.width).toBe(76)
       expect(textbox.height).toBe(24)
+    })
+
+    it('после редактирования не сохраняет округлённые размеры как точные', () => {
+      const { canvas, textManager } = createTextManagerTestSetup()
+      const textbox = textManager.addText({ text: 'Редактирование' })
+
+      textbox.set({ width: 120.6, height: 33.3 })
+      textbox.preserveExactTextGeometry = true
+      canvas.fire('text:editing:exited', { target: textbox })
+
+      expect(textbox.width).toBe(121)
+      expect(textbox.height).toBe(33)
+      expect(textbox.preserveExactTextGeometry).toBe(false)
     })
   })
 
@@ -644,6 +659,7 @@ describe('TextManager layout', () => {
     ])('сохраняет прежнюю логику прилипания для $name', ({ prepare }) => {
       const { textManager, canvas, editor } = createTextManagerTestSetup()
       const textbox = textManager.addText({ text: 'Test', autoExpand: true })
+      textbox.preserveExactTextGeometry = true
       prepare(textbox)
       const transform = {
         action: 'resizing',
@@ -660,6 +676,7 @@ describe('TextManager layout', () => {
       const { applyTextResizingSnap } = editor.snappingManager
       expect(applyTextResizingSnap).toHaveBeenCalledWith({ target: textbox, transform, event })
       expect(textbox.autoExpand).toBe(false)
+      expect(textbox.preserveExactTextGeometry).toBe(false)
     })
   })
 })

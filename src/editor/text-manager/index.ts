@@ -27,6 +27,7 @@ import {
   DIMENSION_EPSILON
 } from './constants'
 import TextScalingController from './scaling/text-scaling'
+import TextCornerScaleInteractionController from './scaling/text-corner-scale-interaction-controller'
 import TextWidthResizeInteractionController from './scaling/text-width-resize-interaction-controller'
 import {
   syncLineFontDefaultsAfterTextChange
@@ -65,11 +66,15 @@ type TextManagerTargetEvent = {
  */
 type TextManagerTransformEvent = BasicTransformEvent<TPointerEvent> & TextManagerTargetEvent & {
   e?: TPointerEvent | null
+  pointer?: Readonly<{ x: number; y: number }>
+  scenePoint?: Readonly<{ x: number; y: number }>
   transform?: Transform | null
 }
 
 /** Событие Fabric с возможным активным преобразованием. */
 type TextManagerPointerEvent = TPointerEventInfo<TPointerEvent> & TextManagerTargetEvent & {
+  pointer?: Readonly<{ x: number; y: number }>
+  scenePoint?: Readonly<{ x: number; y: number }>
   transform?: Transform | null
 }
 
@@ -101,6 +106,9 @@ export default class TextManager {
    */
   private scalingController: TextScalingController
 
+  /** Контроллер углового скейлинга отдельного текста с общей логикой прилипания. */
+  private cornerScaleInteractionController: TextCornerScaleInteractionController
+
   /** Контроллер изменения ширины отдельного текста с общей логикой прилипания. */
   private widthResizeInteractionController: TextWidthResizeInteractionController
 
@@ -130,12 +138,18 @@ export default class TextManager {
     this.scalingController = new TextScalingController({
       canvas: editor.canvas,
       canvasManager: editor.canvasManager,
-      persistScaledTextbox: ({ target, style }) => {
-        this.updateText({
+      persistScaledTextbox: ({ target, style, shouldRoundDimensions }) => {
+        const updated = this.updateController.updateText({
           target,
-          style
+          style,
+          shouldRoundDimensions
         })
+        if (!updated) throw new Error('Итоговый размер текста должен сохраниться через общий механизм обновления')
       }
+    })
+    this.cornerScaleInteractionController = new TextCornerScaleInteractionController({
+      editor,
+      scalingController: this.scalingController
     })
     this.widthResizeInteractionController = new TextWidthResizeInteractionController({ editor })
     this.updateController = new TextUpdateController({
@@ -422,17 +436,18 @@ export default class TextManager {
    */
   public destroy(): void {
     const { canvas } = this
+    this.cornerScaleInteractionController.finishGesture()
     this.widthResizeInteractionController.finishGesture()
-    canvas.off('object:scaling', this.scalingController.handleObjectScaling)
+    canvas.off('object:scaling', this._handleObjectScaling)
     canvas.off('object:resizing', this._handleObjectResizing)
     canvas.off('object:modified', this._handleObjectModified)
-    canvas.off('mouse:move', this.scalingController.handleMouseMove)
+    canvas.off('mouse:move', this._handleCanvasMouseMove)
     canvas.off('mouse:down', this._handleMouseDown)
-    canvas.off('mouse:up', this._handleResizeInteractionFinished)
+    canvas.off('mouse:up', this._handleScaleInteractionFinished)
     canvas.off('object:removed', this._handleObjectRemoved)
-    canvas.off('selection:created', this._handleResizeInteractionFinished)
-    canvas.off('selection:updated', this._handleResizeInteractionFinished)
-    canvas.off('selection:cleared', this._handleResizeInteractionFinished)
+    canvas.off('selection:created', this._handleScaleInteractionFinished)
+    canvas.off('selection:updated', this._handleScaleInteractionFinished)
+    canvas.off('selection:cleared', this._handleScaleInteractionFinished)
     canvas.off('text:editing:exited', this._handleTextEditingExited)
     canvas.off('text:editing:entered', this._handleTextEditingEntered)
     canvas.off('text:changed', this._handleTextChanged)
@@ -443,22 +458,24 @@ export default class TextManager {
   }
 
   /**
-   * Запекает текущий transient scale standalone-textbox в каноническую геометрию.
-   * После materialization также возвращает standalone-textbox в базовое runtime-состояние.
-   * Используется для live-scaling, history/template rehydration и групповых трансформаций.
+   * Переносит текущий scale отдельного текста в его геометрию и возвращает объект к scale 1.
+   * По умолчанию размеры округляются. Для точного восстановления округление отключается явно.
    */
   public commitStandaloneTextScale(
     {
       target,
-      shouldDisableAutoExpandOnHorizontalChange = false
+      shouldDisableAutoExpandOnHorizontalChange = false,
+      shouldRoundDimensions = true
     }: {
       target?: FabricObject | null
       shouldDisableAutoExpandOnHorizontalChange?: boolean
+      shouldRoundDimensions?: boolean
     }
   ): boolean {
     const scaleCommitted = this.scalingController.commitStandaloneTextScale({
       target,
-      shouldDisableAutoExpandOnHorizontalChange
+      shouldDisableAutoExpandOnHorizontalChange,
+      shouldRoundDimensions
     })
 
     if (!TextManager._isTextbox(target)) return scaleCommitted
@@ -480,6 +497,14 @@ export default class TextManager {
     textbox.setCoords()
 
     return scaleCommitted
+  }
+
+  /**
+   * Пытается обработать угловой скейлинг отдельного текста через общую логику прилипания.
+   * Возвращает true, если прежнюю обработку запускать не нужно.
+   */
+  public handleStandaloneTextCornerScaling(event: TextManagerTransformEvent): boolean {
+    return this.cornerScaleInteractionController.handleObjectScaling(event)
   }
 
   /**
@@ -547,8 +572,8 @@ export default class TextManager {
   /**
    * Нормализует standalone-геометрию текстового объекта после layout-изменений.
    * При включённом autoExpand пересчитывает ширину по фактической ширине текста.
-    * При shouldRefreshDimensions сначала сбрасывает measurement cache Fabric через initDimensions.
-    * В остальных случаях только округляет размеры и восстанавливает placement.
+   * При shouldRefreshDimensions сначала сбрасывает кэш измерений Fabric через initDimensions.
+   * Округление сохраняется по умолчанию и отключается только общим угловым скейлингом.
    */
   private _normalizeTextboxAfterContentChange(
     {
@@ -556,13 +581,15 @@ export default class TextManager {
       placement,
       shouldAutoExpand,
       clampToMontage = true,
-      shouldRefreshDimensions = false
+      shouldRefreshDimensions = false,
+      shouldRoundDimensions = true
     }: {
       textbox: EditorTextbox
       placement?: ObjectPlacement | null
       shouldAutoExpand: boolean
       clampToMontage?: boolean
       shouldRefreshDimensions?: boolean
+      shouldRoundDimensions?: boolean
     }
   ): boolean {
     let geometryAdjusted = false
@@ -577,16 +604,10 @@ export default class TextManager {
     let dimensionsRecalculated = false
     let dimensionsRounded = false
     if (!geometryAdjusted && shouldRefreshDimensions) {
-      const previousWidth = textbox.width ?? 0
-      const previousHeight = textbox.height ?? 0
-
-      textbox.initDimensions()
-
-      dimensionsRecalculated = Math.abs((textbox.width ?? 0) - previousWidth) > DIMENSION_EPSILON
-        || Math.abs((textbox.height ?? 0) - previousHeight) > DIMENSION_EPSILON
+      dimensionsRecalculated = this._recalculateTextboxDimensions({ textbox })
     }
 
-    if (!geometryAdjusted) {
+    if (!geometryAdjusted && shouldRoundDimensions) {
       dimensionsRounded = roundTextboxDimensions({ textbox })
     }
 
@@ -608,6 +629,17 @@ export default class TextManager {
     }
 
     return geometryAdjusted || dimensionsRecalculated || dimensionsRounded
+  }
+
+  /** Пересчитывает размеры текста и сообщает, изменилась ли его геометрия. */
+  private _recalculateTextboxDimensions({ textbox }: { textbox: EditorTextbox }): boolean {
+    const previousWidth = textbox.width ?? 0
+    const previousHeight = textbox.height ?? 0
+
+    textbox.initDimensions()
+
+    return Math.abs((textbox.width ?? 0) - previousWidth) > DIMENSION_EPSILON
+      || Math.abs((textbox.height ?? 0) - previousHeight) > DIMENSION_EPSILON
   }
 
   /**
@@ -663,16 +695,16 @@ export default class TextManager {
    */
   private _bindEvents(): void {
     const { canvas } = this
-    canvas.on('object:scaling', this.scalingController.handleObjectScaling)
+    canvas.on('object:scaling', this._handleObjectScaling)
     canvas.on('object:resizing', this._handleObjectResizing)
     canvas.on('object:modified', this._handleObjectModified)
-    canvas.on('mouse:move', this.scalingController.handleMouseMove)
+    canvas.on('mouse:move', this._handleCanvasMouseMove)
     canvas.on('mouse:down', this._handleMouseDown)
-    canvas.on('mouse:up', this._handleResizeInteractionFinished)
+    canvas.on('mouse:up', this._handleScaleInteractionFinished)
     canvas.on('object:removed', this._handleObjectRemoved)
-    canvas.on('selection:created', this._handleResizeInteractionFinished)
-    canvas.on('selection:updated', this._handleResizeInteractionFinished)
-    canvas.on('selection:cleared', this._handleResizeInteractionFinished)
+    canvas.on('selection:created', this._handleScaleInteractionFinished)
+    canvas.on('selection:updated', this._handleScaleInteractionFinished)
+    canvas.on('selection:cleared', this._handleScaleInteractionFinished)
     canvas.on('text:editing:entered', this._handleTextEditingEntered)
     canvas.on('text:editing:exited', this._handleTextEditingExited)
     canvas.on('text:changed', this._handleTextChanged)
@@ -682,38 +714,58 @@ export default class TextManager {
     window.addEventListener('blur', this._handleWindowBlur)
   }
 
-  /** Фиксирует исходную геометрию изменения ширины отдельного текста. */
+  /** Фиксирует исходную геометрию изменения ширины и углового скейлинга текста. */
   private _handleMouseDown = (event: TextManagerPointerEvent): void => {
+    this.cornerScaleInteractionController.beginGesture(event)
     this.widthResizeInteractionController.beginGesture(event)
   }
 
-  /** Завершает временное состояние изменения ширины. */
-  private _handleResizeInteractionFinished = (): void => {
+  /** Завершает временное состояние изменения размера текста. */
+  private _handleScaleInteractionFinished = (): void => {
+    this.cornerScaleInteractionController.finishGesture()
     this.widthResizeInteractionController.finishGesture()
   }
 
-  /** Завершает изменение ширины, если соответствующий текст удалён с холста. */
+  /** Завершает изменение размера, если соответствующий текст удалён с холста. */
   private _handleObjectRemoved = (event: TextManagerTargetEvent): void => {
     const { target } = event
     if (!target) return
 
+    this.cornerScaleInteractionController.finishGestureForTarget({ target })
     this.widthResizeInteractionController.finishGestureForTarget({ target })
   }
 
-  /** Прерывает изменение ширины после отмены события указателя. */
+  /** Прерывает изменение размера после отмены события указателя. */
   private _handlePointerCancel = (event: PointerEvent | TouchEvent): void => {
+    this.cornerScaleInteractionController.interruptGesture({ event })
     this.widthResizeInteractionController.interruptGesture({ event })
   }
 
-  /** Прерывает изменение ширины при потере фокуса окном. */
+  /** Прерывает изменение размера при потере фокуса окном. */
   private _handleWindowBlur = (): void => {
+    this.cornerScaleInteractionController.interruptGesture()
     this.widthResizeInteractionController.interruptGesture()
   }
 
-  /** Завершает изменение ширины и передаёт итоговое событие контроллеру скейлинга текста. */
+  /** Фиксирует итог скейлинга и очищает временное состояние изменения размера текста. */
   private _handleObjectModified = (event: TextManagerModifiedEvent): void => {
     this.widthResizeInteractionController.finishGesture()
     this.scalingController.handleObjectModified(event)
+    this.cornerScaleInteractionController.finishGesture()
+  }
+
+  /** Применяет угловой скейлинг через общую логику прилипания или сохраняет прежнюю обработку. */
+  private _handleObjectScaling = (event: TextManagerTransformEvent): void => {
+    if (this.cornerScaleInteractionController.handleObjectScaling(event)) return
+
+    this.scalingController.handleObjectScaling(event)
+  }
+
+  /** Продолжает угловой скейлинг между событиями Fabric или передаёт жест прежней логике. */
+  private _handleCanvasMouseMove = (event: TextManagerPointerEvent): void => {
+    if (this.cornerScaleInteractionController.handleCanvasMouseMove(event)) return
+
+    this.scalingController.handleMouseMove(event)
   }
 
   /**
@@ -775,6 +827,7 @@ export default class TextManager {
 
     if (isShapeOwnedTextbox) {
       this.syncLineStylesWithText({ textbox: target })
+      target.preserveExactTextGeometry = false
       return
     }
 
@@ -788,6 +841,7 @@ export default class TextManager {
       shouldAutoExpand: isAutoExpandEnabled,
       shouldRefreshDimensions: true
     })
+    target.preserveExactTextGeometry = false
   }
 
   /**
@@ -948,6 +1002,7 @@ export default class TextManager {
       const dimensionsRoundedAfterEditing = roundTextboxDimensions({ textbox: target })
 
       if (dimensionsRoundedAfterEditing) {
+        target.preserveExactTextGeometry = false
         target.setCoords()
         target.dirty = true
         this.canvas.requestRenderAll()
@@ -1025,6 +1080,7 @@ export default class TextManager {
       transform,
       event: e ?? null
     })
+    target.preserveExactTextGeometry = false
   }
 
   /**

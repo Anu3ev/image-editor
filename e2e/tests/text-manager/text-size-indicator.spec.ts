@@ -20,12 +20,9 @@ test.describe('Индикатор размеров текстового объе
     text
   }) => {
     const liveSnapshot = await test.step('Потянуть текст за правую ручку', async() => {
-      return text.dragScaleHandleBy({
-        corner: 'mr',
-        deltaX: 28,
-        deltaY: 0,
+      return text.resizeFromRightToWidth({
         objectIndex: 0,
-        pointerSteps: 8
+        width: 115
       })
     })
 
@@ -46,7 +43,7 @@ test.describe('Индикатор размеров текстового объе
     text
   }) => {
     const liveSnapshot = await test.step('Потянуть текст за правый нижний угол', async() => {
-      return text.dragScaleHandleBy({
+      return text.scaling.dragBy({
         corner: 'br',
         deltaX: 25,
         deltaY: 18,

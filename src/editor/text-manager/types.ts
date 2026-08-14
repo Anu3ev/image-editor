@@ -62,6 +62,7 @@ export type TextStyleOptions = {
     | 'shadow'
     | 'textTransform'
     | 'autoExpand'
+    | 'preserveExactTextGeometry'
   >
 >
 
@@ -187,5 +188,7 @@ export type ScalingState = {
   minimumWidthScale: number
   minimumFontScale: number
   minimumProportionalScale: number
+  /** Определяет, нужно ли округлить размеры при завершении жеста. */
+  shouldRoundDimensionsOnCommit: boolean
   hasScalingChange: boolean
 }

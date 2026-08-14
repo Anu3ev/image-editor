@@ -461,6 +461,11 @@ export class FabricObject {
     Object.assign(this, options)
   }
 
+  /** Освобождает ресурсы объекта в тестах так же, как FabricObject. */
+  public dispose() {
+    // Упрощённый объект не создаёт ресурсов, требующих очистки.
+  }
+
   transformMatrixKey() {
     const {
       left = 0,
@@ -985,7 +990,7 @@ function createObjectDefaultControls() {
 
 export const controlsUtils = {
   createObjectDefaultControls: jest.fn(createObjectDefaultControls),
-  createTextboxDefaultControls: jest.fn(() => ({})),
+  createTextboxDefaultControls: jest.fn(createObjectDefaultControls),
   wrapWithFireEvent: jest.fn((_eventName: string, handler: unknown) => handler),
   wrapWithFixedAnchor: jest.fn((handler: unknown) => handler),
   scalingEqually: jest.fn(() => true),

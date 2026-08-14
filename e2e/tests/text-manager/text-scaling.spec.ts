@@ -196,45 +196,30 @@ test.describe('Скейлинг текстового объекта', () => {
       })
 
       const initialSecondLineStyle = await test.step('Прочитать размер шрифта второй строки до скейлинга', async() => {
-        await text.enterTextEditing({ objectIndex: 0 })
-        await text.setTextSelection({
+        return text.getSelectionStyles({
           objectIndex: 0,
           start: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.start,
           end: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.end
         })
-
-        const selectionStyle = await text.getSelectionStyles({ objectIndex: 0 })
-
-        await text.exitTextEditing({ objectIndex: 0 })
-
-        return selectionStyle
       })
 
       await test.step('Масштабировать текст по диагонали', async() => {
-        await text.scaleDiagonallyFromBottomRight({
-          objectIndex: 0,
-          scaleX: TEXT_DIAGONAL_SCALING_FACTORS.scaleX,
-          scaleY: TEXT_DIAGONAL_SCALING_FACTORS.scaleY
+        await text.scaling.start({ corner: 'br', objectIndex: 0 })
+        await text.scaling.dragToScale({
+          scale: TEXT_DIAGONAL_SCALING_FACTORS.scaleX
         })
       })
 
       const finalSnapshot = await test.step('Завершить скейлинг и получить финальное состояние', async() => {
-        return text.finishScale({ objectIndex: 0 })
+        return text.scaling.finish({ objectIndex: 0 })
       })
 
       const finalSecondLineStyle = await test.step('Прочитать размер шрифта второй строки после завершения скейлинга', async() => {
-        await text.enterTextEditing({ objectIndex: 0 })
-        await text.setTextSelection({
+        return text.getSelectionStyles({
           objectIndex: 0,
           start: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.start,
           end: TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION.end
         })
-
-        const selectionStyle = await text.getSelectionStyles({ objectIndex: 0 })
-
-        await text.exitTextEditing({ objectIndex: 0 })
-
-        return selectionStyle
       })
 
       await test.step('Проверить что относительная разница между строками сохраняется после mouseup', () => {
@@ -569,52 +554,45 @@ test.describe('Скейлинг текстового объекта', () => {
       test(`при сужении за ${scalingCase.title} текст остаётся в одну строку во время drag`, async({
         text
       }) => {
-        await test.step('Явно выбрать текстовый объект перед началом скейлинга', async() => {
+        const state = await test.step(`Сузить текст за ${scalingCase.title} и завершить скейлинг`, async() => {
           await text.select({ objectIndex: 0 })
-        })
-
-        const initialSnapshot = await test.step('Получить исходное состояние текста из шаблона', async() => {
-          return text.getResizeSnapshot({ objectIndex: 0 })
-        })
-
-        const liveStates = await test.step(`Сузить текст за ${scalingCase.title} по live-шагам`, async() => {
-          return text.shrinkFromScaleCornerInLiveSteps({
+          const initial = await text.getResizeSnapshot({ objectIndex: 0 })
+          const live = await text.scaling.dragInSteps({
             objectIndex: 0,
             corner: scalingCase.corner,
             steps: scalingCase.steps
           })
-        })
+          const final = await text.scaling.finish({ objectIndex: 0 })
 
-        const finalSnapshot = await test.step('Отпустить мышь и получить итоговое состояние текста', async() => {
-          return text.finishScale({ objectIndex: 0 })
+          return { final, initial, live }
         })
 
         await test.step('Проверить что во время drag текст ни разу не перепрыгнул на две строки', () => {
-          expect(initialSnapshot.text).toBe('Новый текст')
-          expect(initialSnapshot.lineCount).toBe(1)
-          expect(liveStates.length).toBe(scalingCase.steps.length)
+          expect(state.initial.text).toBe('Новый текст')
+          expect(state.initial.lineCount).toBe(1)
+          expect(state.live.length).toBe(scalingCase.steps.length)
 
-          for (let index = 0; index < liveStates.length; index += 1) {
-            const state = liveStates[index]
+          for (let index = 0; index < state.live.length; index += 1) {
+            const liveState = state.live[index]
 
-            expect(state, 'live-состояние текста должно существовать').toBeDefined()
+            expect(liveState, 'live-состояние текста должно существовать').toBeDefined()
 
-            if (!state) {
+            if (!liveState) {
               throw new Error('live-состояние текста должно существовать')
             }
 
-            expect(state.text).toBe(initialSnapshot.text)
+            expect(liveState.text).toBe(state.initial.text)
             expect(
-              state.lineCount,
-              `шаг ${index + 1}: width=${state.width}, height=${state.height}, fontSize=${state.fontSize}`
+              liveState.lineCount,
+              `шаг ${index + 1}: width=${liveState.width}, height=${liveState.height}, fontSize=${liveState.fontSize}`
             ).toBe(1)
-            expect(state.width).toBeLessThan(initialSnapshot.width)
-            expect(state.fontSize).toBeLessThan(initialSnapshot.fontSize)
+            expect(liveState.width).toBeLessThan(state.initial.width)
+            expect(liveState.fontSize).toBeLessThan(state.initial.fontSize)
           }
         })
 
         await test.step('Проверить что после mouseup текст остался в одну строку без скачка размеров', () => {
-          const lastLiveState = liveStates[liveStates.length - 1]
+          const lastLiveState = state.live[state.live.length - 1]
 
           expect(lastLiveState, 'последнее live-состояние текста должно существовать').toBeDefined()
 
@@ -622,14 +600,14 @@ test.describe('Скейлинг текстового объекта', () => {
             throw new Error('последнее live-состояние текста должно существовать')
           }
 
-          expect(finalSnapshot.text).toBe(initialSnapshot.text)
-          expect(finalSnapshot.lineCount).toBe(1)
-          expect(Math.abs(finalSnapshot.width - lastLiveState.width))
+          expect(state.final.text).toBe(state.initial.text)
+          expect(state.final.lineCount).toBe(1)
+          expect(Math.abs(state.final.width - lastLiveState.width))
             .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
-          expect(Math.abs(finalSnapshot.height - lastLiveState.height))
+          expect(Math.abs(state.final.height - lastLiveState.height))
             .toBeLessThanOrEqual(TEXT_RESIZING_TOLERANCE.mouseupJump)
-          expect(finalSnapshot.scaleX).toBe(1)
-          expect(finalSnapshot.scaleY).toBe(1)
+          expect(state.final.scaleX).toBe(1)
+          expect(state.final.scaleY).toBe(1)
         })
       })
     }

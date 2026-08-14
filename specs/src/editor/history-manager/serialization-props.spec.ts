@@ -13,4 +13,9 @@ describe('HistoryManager serialization props', () => {
     expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeReplaceBoxWidth')
     expect(OBJECT_SERIALIZATION_PROPS).toContain('shapeReplaceBoxHeight')
   })
+
+  it('при сохранении истории записывается режим точной геометрии без временного флага пересчёта', () => {
+    expect(OBJECT_SERIALIZATION_PROPS).toContain('preserveExactTextGeometry')
+    expect(OBJECT_SERIALIZATION_PROPS).not.toContain('shouldRoundDimensionsOnInit')
+  })
 })

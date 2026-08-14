@@ -398,7 +398,7 @@ describe('BackgroundTextbox', () => {
           fontSize: 30
         }
       } satisfies LineFontDefaults
-      const textbox = new BackgroundTextbox('Serialize', {
+      const expectedProperties = {
         paddingTop: 1,
         paddingRight: 2,
         paddingBottom: 3,
@@ -409,42 +409,22 @@ describe('BackgroundTextbox', () => {
         radiusBottomLeft: 8,
         backgroundColor: '#abcdef',
         backgroundOpacity: 0.7,
+        preserveExactTextGeometry: false,
         lineFontDefaults
-      })
+      }
+      const textbox = new BackgroundTextbox('Serialize', expectedProperties)
 
       const obj = textbox.toObject()
       expect(obj).toMatchObject({
         type: 'background-textbox',
-        paddingTop: 1,
-        paddingRight: 2,
-        paddingBottom: 3,
-        paddingLeft: 4,
-        radiusTopLeft: 5,
-        radiusTopRight: 6,
-        radiusBottomRight: 7,
-        radiusBottomLeft: 8,
-        backgroundColor: '#abcdef',
-        backgroundOpacity: 0.7,
-        lineFontDefaults
+        ...expectedProperties
       })
 
       registerBackgroundTextbox()
       const [restored] = await (fabric as any).util.enlivenObjects([obj])
 
       expect(restored).toBeInstanceOf(BackgroundTextbox)
-      expect(restored).toMatchObject({
-        paddingTop: 1,
-        paddingRight: 2,
-        paddingBottom: 3,
-        paddingLeft: 4,
-        radiusTopLeft: 5,
-        radiusTopRight: 6,
-        radiusBottomRight: 7,
-        radiusBottomLeft: 8,
-        backgroundColor: '#abcdef',
-        backgroundOpacity: 0.7,
-        lineFontDefaults
-      })
+      expect(restored).toMatchObject(expectedProperties)
     })
 
     it('сохраняет дробную ширину фиксированного текста после восстановления', async() => {
@@ -453,20 +433,72 @@ describe('BackgroundTextbox', () => {
         width: 127
       })
       const fractionalWidth = 126.6222
+      textbox.initDimensions()
       textbox.shouldRoundDimensionsOnInit = false
       textbox.set({ width: fractionalWidth })
       textbox.shouldRoundDimensionsOnInit = undefined
+      textbox.preserveExactTextGeometry = true
 
       const serialized = textbox.toObject(['autoExpand'])
       const restored = await BackgroundTextbox.fromObject(serialized)
 
       expect(serialized.width).toBe(fractionalWidth)
+      expect(Number.isInteger(serialized.height)).toBe(true)
       expect(restored).toBeInstanceOf(BackgroundTextbox)
       if (!(restored instanceof BackgroundTextbox)) {
         throw new Error('После восстановления должен существовать BackgroundTextbox')
       }
       expect(restored.width).toBe(fractionalWidth)
       expect(restored.autoExpand).toBe(false)
+      expect(restored.preserveExactTextGeometry).toBe(true)
+    })
+
+    it('сохраняет дробную ширину автоматически расширяемого текста после восстановления', async() => {
+      const textbox = new BackgroundTextbox('Текст', {
+        autoExpand: true,
+        width: 127
+      })
+      const fractionalWidth = 126.6222
+      textbox.shouldRoundDimensionsOnInit = false
+      textbox.set({ width: fractionalWidth })
+      textbox.shouldRoundDimensionsOnInit = undefined
+      textbox.preserveExactTextGeometry = true
+
+      const serialized = textbox.toObject(['autoExpand'])
+      const restored = await BackgroundTextbox.fromObject(serialized)
+
+      expect(serialized.width).toBe(fractionalWidth)
+      expect(Number.isInteger(serialized.width)).toBe(false)
+      expect(serialized.preserveExactTextGeometry).toBe(true)
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      if (!(restored instanceof BackgroundTextbox)) {
+        throw new Error('После восстановления должен существовать BackgroundTextbox')
+      }
+      expect(restored.width).toBe(fractionalWidth)
+      expect(restored.autoExpand).toBe(true)
+      expect(restored.preserveExactTextGeometry).toBe(true)
+    })
+
+    it('сохраняет рассчитанную дробную высоту после восстановления', async() => {
+      const textbox = new BackgroundTextbox('Текст', {
+        autoExpand: false,
+        fontSize: 25,
+        lineHeight: 1.13,
+        width: 126.5
+      })
+      textbox.shouldRoundDimensionsOnInit = false
+      textbox.initDimensions()
+      textbox.shouldRoundDimensionsOnInit = undefined
+      textbox.preserveExactTextGeometry = true
+
+      const serialized = textbox.toObject(['autoExpand'])
+      const restored = await BackgroundTextbox.fromObject(serialized)
+
+      expect(Number.isInteger(serialized.height)).toBe(false)
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      expect(restored.width).toBe(serialized.width)
+      expect(restored.height).toBeCloseTo(serialized.height, 10)
+      expect(restored.height).toBeCloseTo(restored.calcTextHeight(), 10)
     })
 
     it('не меняет правила восстановления текста внутри шейпа', async() => {
@@ -476,12 +508,36 @@ describe('BackgroundTextbox', () => {
       }).toObject(['autoExpand', 'shapeNodeType'])
       serialized.width = 126.6222
       serialized.shapeNodeType = 'text'
+      serialized.preserveExactTextGeometry = true
 
       const restored = await BackgroundTextbox.fromObject(serialized)
 
       expect(restored).toBeInstanceOf(BackgroundTextbox)
+      if (!(restored instanceof BackgroundTextbox)) {
+        throw new Error('После восстановления должен существовать BackgroundTextbox')
+      }
       expect(restored.width).toBe(127)
       expect(restored.shapeNodeType).toBe('text')
+      expect(restored.preserveExactTextGeometry).toBe(false)
+    })
+
+    it('не включает точное восстановление для прежнего объекта без явного признака', async() => {
+      const serialized = new BackgroundTextbox('Прежний текст', {
+        autoExpand: false,
+        width: 127
+      }).toObject(['autoExpand'])
+      serialized.width = 126.6222
+      delete serialized.preserveExactTextGeometry
+
+      const restored = await BackgroundTextbox.fromObject(serialized)
+
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      if (!(restored instanceof BackgroundTextbox)) {
+        throw new Error('После восстановления должен существовать BackgroundTextbox')
+      }
+      expect(restored.width).toBe(126.6222)
+      expect(restored.autoExpand).toBe(false)
+      expect(restored.preserveExactTextGeometry).toBe(false)
     })
 
     it('оставляет в сериализованных styles только реальные отличия от стиля строки', () => {

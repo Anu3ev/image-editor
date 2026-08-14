@@ -28,6 +28,91 @@ describe('масштабирование текста', () => {
   })
 
   describe('скейлинг по диагонали', () => {
+    it('при угловом скейлинге сохраняет дробную ширину', () => {
+      const {
+        controller,
+        persistScaledTextbox,
+        textbox
+      } = createTextScalingRuntimeSetup({
+        width: 101,
+        fontSize: 32,
+        autoExpand: false
+      })
+      const transform = createTextScalingTransform({ textbox })
+      const fixedAnchor = textbox.getPointByOrigin(transform.originX, transform.originY)
+
+      expect(controller.beginStandaloneCornerScale({ target: textbox, transform })).toBe(true)
+
+      const applied = controller.applyStandaloneCornerScale({
+        fixedAnchor,
+        scale: 0.5,
+        target: textbox,
+        transform
+      })
+
+      expect(textbox.width).toBe(50.5)
+      expect(textbox.fontSize).toBe(16)
+      expect(textbox.scaleX).toBe(1)
+      expect(textbox.scaleY).toBe(1)
+      expect(applied.scale).toBe(0.5)
+      expect(textbox.preserveExactTextGeometry).toBe(false)
+
+      controller.handleObjectModified({ target: textbox } as never)
+
+      expect(persistScaledTextbox).toHaveBeenCalledWith(expect.objectContaining({
+        shouldRoundDimensions: false,
+        style: expect.objectContaining({ width: 50.5 })
+      }))
+      expect(textbox.preserveExactTextGeometry).toBe(false)
+    })
+
+    it('не меняет режим точной геометрии, если угловой скейлинг не изменил размер', () => {
+      const {
+        controller,
+        persistScaledTextbox,
+        textbox
+      } = createTextScalingRuntimeSetup()
+      const transform = createTextScalingTransform({ textbox })
+      const fixedAnchor = textbox.getPointByOrigin(transform.originX, transform.originY)
+
+      expect(controller.beginStandaloneCornerScale({ target: textbox, transform })).toBe(true)
+
+      controller.applyStandaloneCornerScale({ fixedAnchor, scale: 1, target: textbox, transform })
+      controller.handleObjectModified({ target: textbox } as never)
+
+      expect(textbox.preserveExactTextGeometry).toBe(false)
+      expect(persistScaledTextbox).not.toHaveBeenCalled()
+    })
+
+    it('после перехода на прежнюю логику завершает скейлинг с округлением', () => {
+      const {
+        controller,
+        persistScaledTextbox,
+        textbox
+      } = createTextScalingRuntimeSetup({ width: 101 })
+      const transform = createTextScalingTransform({ textbox })
+      const fixedAnchor = textbox.getPointByOrigin(transform.originX, transform.originY)
+      textbox.preserveExactTextGeometry = true
+      persistScaledTextbox.mockImplementation(({ target, shouldRoundDimensions }) => {
+        target.preserveExactTextGeometry = !shouldRoundDimensions
+      })
+
+      expect(controller.beginStandaloneCornerScale({ target: textbox, transform })).toBe(true)
+
+      controller.applyStandaloneCornerScale({ fixedAnchor, scale: 0.505, target: textbox, transform })
+      controller.prepareStandaloneCornerScaleForLegacyCommit({ target: textbox })
+      textbox.scaleX = 0.98
+      textbox.scaleY = 0.98
+      controller.handleObjectScaling({ target: textbox, transform } as never)
+      controller.handleObjectModified({ target: textbox } as never)
+
+      expect(persistScaledTextbox).toHaveBeenCalledWith(expect.objectContaining({
+        shouldRoundDimensions: true,
+        target: textbox
+      }))
+      expect(textbox.preserveExactTextGeometry).toBe(false)
+    })
+
     it('при сильном уменьшении останавливается на минимальном размере шрифта', () => {
       const {
         controller,
@@ -277,6 +362,7 @@ describe('масштабирование текста', () => {
       } as never)
 
       expect(persistScaledTextbox).toHaveBeenCalledWith(expect.objectContaining({
+        shouldRoundDimensions: true,
         target: textbox,
         style: expect.objectContaining({
           fontSize: 30,

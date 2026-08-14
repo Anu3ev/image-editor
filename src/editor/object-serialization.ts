@@ -23,6 +23,7 @@ export const OBJECT_STATE_SERIALIZATION_PROPS = [
   'lockSkewingY',
   'styles',
   'lineFontDefaults',
+  'preserveExactTextGeometry',
   'textCaseRaw',
   'uppercase',
   'autoExpand',

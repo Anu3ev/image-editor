@@ -248,7 +248,8 @@ describe('TemplateManager', () => {
 
     expect(result).toEqual([textbox])
     expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
-      target: textbox
+      target: textbox,
+      shouldRoundDimensions: false
     })
     expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
       editor.canvas.add.mock.invocationCallOrder[0]
@@ -294,7 +295,8 @@ describe('TemplateManager', () => {
 
     expect(result).toEqual([textbox])
     expect(commitStandaloneTextScaleMock).toHaveBeenCalledWith({
-      target: textbox
+      target: textbox,
+      shouldRoundDimensions: false
     })
     expect(commitStandaloneTextScaleMock.mock.invocationCallOrder[0]).toBeLessThan(
       editor.canvas.add.mock.invocationCallOrder[0]

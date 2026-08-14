@@ -207,6 +207,7 @@ function applyTextWidth({
   )
   target.setCoords()
   target.dirty = true
+  target.preserveExactTextGeometry = false
 }
 
 /** Проверяет, что выбранная направляющая достигнута после пересчёта текста. */
@@ -534,6 +535,7 @@ export default class TextWidthResizeInteractionController {
     const refinedPlan = session.runtime.refineScalePlan({
       token,
       refinement: Object.freeze({
+        constraints: plan.constraints,
         effectiveValues: Object.freeze([measurement.width]),
         stepProjection: measurement.projection
       })

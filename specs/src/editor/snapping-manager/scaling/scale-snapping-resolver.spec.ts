@@ -1,6 +1,7 @@
 import {
   FREE_SCALE_HOLD_STATE,
   createScaleGestureBaseline,
+  refineScaleSnapPlan,
   resolveScaleSnapPlan,
   verifyScaleSnapPlan
 } from '../../../../../src/editor/snapping-manager/scaling/scale-snapping-resolver'
@@ -209,6 +210,34 @@ describe('Расчёт прилипания при скейлинге', () => {
     expect(plan.effectiveValues[0]).toBeCloseTo(0.52, 8)
     expect(plan.effectivePositions.right).toBeCloseTo(100, 8)
     expect(Object.isFrozen(plan.projection)).toBe(true)
+  })
+
+  it('не выбирает направляющую, если фактическая грань вышла за порог прилипания', () => {
+    const baseline = createScaleBaseline({
+      candidates: [createScaleCandidate({ id: 'right', axis: 'x', position: 100 })]
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ values: [0.98, 1] }),
+      holdState: FREE_SCALE_HOLD_STATE,
+      stepProjection: {
+        bounds: createScaleBounds({ left: 0, top: 0, right: 94, bottom: 100 }),
+        projection: {
+          variables: ['scale-x', 'scale-y'],
+          baselineValues: [0.98, 1],
+          variableSceneWeights: [100, 100],
+          edges: [
+            { edge: 'right', coefficients: [100, 0] },
+            { edge: 'bottom', coefficients: [0, 100] }
+          ]
+        }
+      }
+    })
+
+    expect(plan.rawPositions.right).toBe(94)
+    expect(plan.constraints.x).toBeNull()
+    expect(plan.refinementCandidates.x).toBeNull()
+    expect(plan.effectiveValues).toEqual([0.98, 1])
   })
 
   it('при независимом scale одновременно прилипает по X и Y', () => {
@@ -472,6 +501,77 @@ describe('Расчёт прилипания при скейлинге', () => {
     expect(plan.effectivePositions).toEqual({ left: null, right: 100, top: null, bottom: 200 })
   })
 
+  it('при округлении сохраняет достигнутую направляющую и корректирует вторую грань', () => {
+    const bounds = createScaleBounds({ left: 0, top: 0, right: 100, bottom: 100 })
+    const baseline = createScaleGestureBaseline({
+      bounds,
+      fixedAnchor: { x: 0, y: 0 },
+      projectionModes: [{
+        id: 'uniform',
+        projection: {
+          variables: ['uniform-scale'],
+          baselineValues: [1],
+          variableSceneWeights: [100],
+          edges: [
+            { edge: 'right', coefficients: [100] },
+            { edge: 'bottom', coefficients: [0] }
+          ]
+        }
+      }],
+      candidates: [
+        createScaleCandidate({ id: 'right', axis: 'x', position: 102 }),
+        createScaleCandidate({ id: 'bottom', axis: 'y', position: 100 })
+      ],
+      zoom: 1
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ projectionMode: 'uniform', values: [1] }),
+      holdState: FREE_SCALE_HOLD_STATE
+    })
+
+    expect(plan.constraints.x?.candidate.id).toBe('right')
+    expect(plan.constraints.y?.candidate.id).toBe('bottom')
+    expect(plan.effectiveValues[0]).toBeCloseTo(1.02, 8)
+    expect(plan.effectivePositions.right).toBeCloseTo(102, 8)
+    expect(plan.effectivePositions.bottom).toBe(100)
+  })
+
+  it('не выбирает направляющую, недостижимую при текущем положении неподвижной грани', () => {
+    const bounds = createScaleBounds({ left: 0, top: 0, right: 100, bottom: 100 })
+    const baseline = createScaleGestureBaseline({
+      bounds,
+      fixedAnchor: { x: 0, y: 0 },
+      projectionModes: [{
+        id: 'uniform',
+        projection: {
+          variables: ['uniform-scale'],
+          baselineValues: [1],
+          variableSceneWeights: [100],
+          edges: [
+            { edge: 'right', coefficients: [100] },
+            { edge: 'bottom', coefficients: [0] }
+          ]
+        }
+      }],
+      candidates: [
+        createScaleCandidate({ id: 'right', axis: 'x', position: 102 }),
+        createScaleCandidate({ id: 'bottom', axis: 'y', position: 101 })
+      ],
+      zoom: 1
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ projectionMode: 'uniform', values: [1] }),
+      holdState: FREE_SCALE_HOLD_STATE
+    })
+
+    expect(plan.constraints.x?.candidate.id).toBe('right')
+    expect(plan.constraints.y).toBeNull()
+    expect(plan.effectiveValues[0]).toBeCloseTo(1.02, 8)
+    expect(plan.effectivePositions.bottom).toBe(100)
+  })
+
   it('при несовместимых направляющих выбирает ту, которая требует меньшей коррекции scale', () => {
     const baseline = createScaleBaseline({
       width: 100,
@@ -491,6 +591,146 @@ describe('Расчёт прилипания при скейлинге', () => {
     expect(plan.constraints.y?.candidate.id).toBe('bottom')
     expect(plan.effectiveValues[0]).toBeCloseTo(0.99, 8)
     expect(plan.effectivePositions.bottom).toBeCloseTo(198, 8)
+  })
+
+  it('хранит отдельно применимую направляющую и кандидатов для проверки геометрии объекта', () => {
+    const baseline = createScaleBaseline({
+      width: 100,
+      height: 200,
+      candidates: [
+        createScaleCandidate({ id: 'right', axis: 'x', position: 104 }),
+        createScaleCandidate({ id: 'bottom', axis: 'y', position: 198 })
+      ]
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ projectionMode: 'uniform', values: [1] }),
+      holdState: FREE_SCALE_HOLD_STATE
+    })
+
+    expect(plan.constraints.x).toBeNull()
+    expect(plan.constraints.y?.candidate.id).toBe('bottom')
+    expect(plan.refinementCandidates.x?.candidate.id).toBe('right')
+    expect(plan.refinementCandidates.y?.candidate.id).toBe('bottom')
+    expect(plan.effectiveValues[0]).toBeCloseTo(0.99, 8)
+    expect(plan.effectivePositions.bottom).toBeCloseTo(198, 8)
+  })
+
+  it('после проверки геометрии объекта заменяет одну направляющую двумя достигнутыми', () => {
+    const baseline = createScaleBaseline({
+      width: 100,
+      height: 200,
+      candidates: [
+        createScaleCandidate({ id: 'right', axis: 'x', position: 104 }),
+        createScaleCandidate({ id: 'bottom', axis: 'y', position: 198 })
+      ]
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ projectionMode: 'uniform', values: [1] }),
+      holdState: FREE_SCALE_HOLD_STATE
+    })
+    const refined = refineScaleSnapPlan({
+      plan,
+      refinement: {
+        constraints: plan.refinementCandidates,
+        effectiveValues: [1.02],
+        stepProjection: {
+          bounds: createScaleBounds({ left: 0, top: 0, right: 104, bottom: 198 }),
+          projection: {
+            variables: ['uniform-scale'],
+            baselineValues: [1.02],
+            variableSceneWeights: [100],
+            edges: [
+              { edge: 'right', coefficients: [100] },
+              { edge: 'bottom', coefficients: [200] }
+            ]
+          }
+        }
+      }
+    })
+
+    expect(refined.constraints.x?.candidate.id).toBe('right')
+    expect(refined.constraints.y?.candidate.id).toBe('bottom')
+    expect(refined.constraints.x).toBe(plan.refinementCandidates.x)
+    expect(refined.constraints.y).toBe(plan.refinementCandidates.y)
+    expect(refined.effectivePositions.right).toBeCloseTo(104, 8)
+    expect(refined.effectivePositions.bottom).toBeCloseTo(198, 8)
+    expect(refined.proposedHoldState.x.kind).toBe('held')
+    expect(refined.proposedHoldState.y.kind).toBe('held')
+  })
+
+  it('после проверки геометрии объекта может удалить все предварительно выбранные направляющие', () => {
+    const baseline = createScaleBaseline({
+      candidates: [createScaleCandidate({ id: 'right', axis: 'x', position: 100 })]
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ values: [0.98, 1] }),
+      holdState: FREE_SCALE_HOLD_STATE
+    })
+    const refined = refineScaleSnapPlan({
+      plan,
+      refinement: {
+        constraints: { x: null, y: null },
+        effectiveValues: [0.98, 1],
+        stepProjection: {
+          bounds: createScaleBounds({ left: 0, top: 0, right: 98, bottom: 100 }),
+          projection: {
+            variables: ['scale-x', 'scale-y'],
+            baselineValues: [0.98, 1],
+            variableSceneWeights: [100, 100],
+            edges: [
+              { edge: 'right', coefficients: [100, 0] },
+              { edge: 'bottom', coefficients: [0, 100] }
+            ]
+          }
+        }
+      }
+    })
+
+    expect(refined.constraints).toEqual({ x: null, y: null })
+    expect(refined.proposedHoldState.x.kind).toBe('free')
+    expect(refined.proposedHoldState.y.kind).toBe('free')
+    expect(refined.effectiveValues).toEqual([0.98, 1])
+  })
+
+  it('не принимает ограничение, которого не было среди кандидатов шага', () => {
+    const baseline = createScaleBaseline({
+      candidates: [createScaleCandidate({ id: 'right', axis: 'x', position: 100 })]
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ values: [0.98, 1] }),
+      holdState: FREE_SCALE_HOLD_STATE
+    })
+    const xCandidate = plan.refinementCandidates.x
+    if (!xCandidate) throw new Error('У шага должен быть кандидат по X')
+    const foreignConstraint = Object.freeze({
+      ...xCandidate,
+      candidate: Object.freeze({ ...xCandidate.candidate, id: 'foreign-right' })
+    })
+
+    expect(plan.refinementCandidates.x?.candidate.id).toBe('right')
+    expect(() => refineScaleSnapPlan({
+      plan,
+      refinement: {
+        constraints: { x: foreignConstraint, y: null },
+        effectiveValues: [1, 1],
+        stepProjection: {
+          bounds: createScaleBounds({ left: 0, top: 0, right: 100, bottom: 100 }),
+          projection: {
+            variables: ['scale-x', 'scale-y'],
+            baselineValues: [1, 1],
+            variableSceneWeights: [100, 100],
+            edges: [
+              { edge: 'right', coefficients: [100, 0] },
+              { edge: 'bottom', coefficients: [0, 100] }
+            ]
+          }
+        }
+      }
+    })).toThrow('does not belong to scale plan candidates')
   })
 
   it('при одинаковой коррекции по X и Y стабильно выбирает X', () => {

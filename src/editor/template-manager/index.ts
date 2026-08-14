@@ -13,6 +13,7 @@ import { nanoid } from 'nanoid'
 import type { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
 import { OBJECT_SERIALIZATION_PROPS } from '../history-manager'
+import type { EditorTextbox } from '../text-manager/types'
 import {
   denormalizePlacement,
   resolveNormalizedPlacement,
@@ -443,22 +444,32 @@ export default class TemplateManager {
     } = this.editor
 
     return objects.map((object) => {
-      this._adaptTextboxWidth({ object, baseWidth })
-      this._transformObject({
-        object,
-        scale,
-        bounds,
-        baseWidth,
-        baseHeight,
-        useRelativePositions
-      })
+      const textbox = object instanceof Textbox ? object as EditorTextbox : null
+      let shouldPreserveExactTextGeometry = false
 
-      textManager.commitStandaloneTextScale({ target: object })
-      shapeManager.commitRehydratedShapeLayout({
-        target: object,
-        textScale: scale
-      })
+      if (textbox) {
+        shouldPreserveExactTextGeometry = textbox.preserveExactTextGeometry === true
+          || scale !== 1
+          || (textbox.scaleX ?? 1) !== 1
+          || (textbox.scaleY ?? 1) !== 1
+      }
 
+      const previousShouldRoundDimensionsOnInit = textbox?.shouldRoundDimensionsOnInit
+
+      if (textbox && shouldPreserveExactTextGeometry) textbox.shouldRoundDimensionsOnInit = false
+      try {
+        this._adaptTextboxWidth({ object, baseWidth })
+      } finally {
+        if (textbox) textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
+      }
+
+      this._transformObject({ object, scale, bounds, baseWidth, baseHeight, useRelativePositions })
+      if (shouldPreserveExactTextGeometry) {
+        textManager.commitStandaloneTextScale({ target: object, shouldRoundDimensions: false })
+      } else {
+        textManager.commitStandaloneTextScale({ target: object })
+      }
+      shapeManager.commitRehydratedShapeLayout({ target: object, textScale: scale })
       materializeObjectIdentity({ rootObject: object })
       canvas.add(object)
 

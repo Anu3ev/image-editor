@@ -1,6 +1,7 @@
 import type {
   TemplateDefinition,
   TextAddParams,
+  TextCornerScaleHandle,
   TextInlineStyle,
   TextLineDefaults,
   TextResizeGuideAxis,
@@ -8,6 +9,120 @@ import type {
   TextScaleDragStep,
   TextScaleHandleCase
 } from '../../types'
+
+/** Горизонтальная граница, которой управляет угловая ручка текста. */
+type TextCornerScaleHorizontalEdge = 'boundsLeft' | 'boundsRight'
+
+/** Вертикальная граница, которой управляет угловая ручка текста. */
+type TextCornerScaleVerticalEdge = 'boundsTop' | 'boundsBottom'
+
+/** Координата неподвижного угла текста во время скейлинга. */
+type TextCornerScaleFixedPoint = Readonly<{
+  x: 'leftTopX' | 'leftBottomX' | 'rightTopX' | 'rightBottomX'
+  y: 'leftTopY' | 'leftBottomY' | 'rightTopY' | 'rightBottomY'
+}>
+
+/** Наблюдаемый контракт одной угловой ручки отдельного текста. */
+export type TextCornerScaleControlCase = Readonly<{
+  corner: TextCornerScaleHandle
+  fixedPoint: TextCornerScaleFixedPoint
+  movingEdgeX: TextCornerScaleHorizontalEdge
+  movingEdgeY: TextCornerScaleVerticalEdge
+  outwardStep: Readonly<{
+    deltaX: number
+    deltaY: number
+  }>
+  title: string
+}>
+
+/** Все угловые ручки отдельного текста и противоположные неподвижные точки. */
+export const TEXT_CORNER_SCALE_CONTROL_CASES = [
+  {
+    corner: 'tl',
+    fixedPoint: { x: 'rightBottomX', y: 'rightBottomY' },
+    movingEdgeX: 'boundsLeft',
+    movingEdgeY: 'boundsTop',
+    outwardStep: { deltaX: -24, deltaY: -24 },
+    title: 'левая верхняя ручка прилипает по обеим осям'
+  },
+  {
+    corner: 'tr',
+    fixedPoint: { x: 'leftBottomX', y: 'leftBottomY' },
+    movingEdgeX: 'boundsRight',
+    movingEdgeY: 'boundsTop',
+    outwardStep: { deltaX: 24, deltaY: -24 },
+    title: 'правая верхняя ручка прилипает по обеим осям'
+  },
+  {
+    corner: 'bl',
+    fixedPoint: { x: 'rightTopX', y: 'rightTopY' },
+    movingEdgeX: 'boundsLeft',
+    movingEdgeY: 'boundsBottom',
+    outwardStep: { deltaX: -24, deltaY: 24 },
+    title: 'левая нижняя ручка прилипает по обеим осям'
+  },
+  {
+    corner: 'br',
+    fixedPoint: { x: 'leftTopX', y: 'leftTopY' },
+    movingEdgeX: 'boundsRight',
+    movingEdgeY: 'boundsBottom',
+    outwardStep: { deltaX: 24, deltaY: 24 },
+    title: 'правая нижняя ручка прилипает по обеим осям'
+  }
+] as const satisfies readonly TextCornerScaleControlCase[]
+
+/** Множитель, который отличает целевое прилипание от исходного размера текста. */
+export const TEXT_CORNER_SCALE_TARGET_MULTIPLIER = 1.25
+
+/** Допустимое расхождение итоговой грани текста и выбранной направляющей в координатах сцены. */
+export const TEXT_CORNER_SCALE_GUIDE_TOLERANCE = 0.1
+
+/** Канонические свойства, которые пропорционально увеличиваются при скейлинге текста. */
+export const TEXT_CORNER_SCALE_GROWING_FIELDS = [
+  'width',
+  'height',
+  'fontSize',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft'
+] as const
+
+/** Последовательные движения указателя внутри зоны удержания углового скейлинга. */
+export const TEXT_CORNER_SCALE_HOLD_STEPS = [
+  { deltaX: 0, deltaY: 0 },
+  { deltaX: 1, deltaY: 1 },
+  { deltaX: -1, deltaY: -1 }
+] as const
+
+/** Смещение за пределы исходных и противоположных граней опорной фигуры. */
+export const TEXT_CORNER_SCALE_RELEASE_DELTA = 72
+
+/** Свойства текста, которые не должны меняться внутри одного удержания. */
+export const TEXT_CORNER_SCALE_STABLE_FIELDS = [
+  'boundsLeft',
+  'boundsTop',
+  'boundsRight',
+  'boundsBottom',
+  'boundsWidth',
+  'boundsHeight',
+  'width',
+  'height',
+  'fontSize',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'radiusTopLeft',
+  'radiusTopRight',
+  'radiusBottomRight',
+  'radiusBottomLeft',
+  'lineCount'
+] as const
 
 /** Один браузерный сценарий боковой ручки и направляющей в координатах сцены. */
 export type TextSideResizeControlCase = Readonly<{
@@ -174,6 +289,9 @@ export const TEXT_SCALING_MINIMUM_FONT_SIZE = 8
 
 /** Коэффициент для проверки дальнейшего сужения после упора в минимум без отпускания ручки. */
 export const TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR = 0.05
+
+/** Положение указателя ниже минимального размера для проверки нового углового скейлинга. */
+export const TEXT_CORNER_SCALE_BELOW_MINIMUM_MULTIPLIER = 0.5
 
 /** Коэффициент для возврата текста назад без завершения текущего диагонального скейлинга. */
 export const TEXT_DIAGONAL_RECOVERY_SCALING_FACTOR = 1.35

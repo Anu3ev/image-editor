@@ -33,6 +33,7 @@ export type LineFontDefault = {
 
 export type LineFontDefaults = Record<number, LineFontDefault>
 
+/** Сериализуемые свойства, которыми редактор дополняет обычный Fabric Textbox. */
 type BackgroundTextboxSerializedProps = {
   backgroundColor?: string
   backgroundOpacity?: number
@@ -41,11 +42,15 @@ type BackgroundTextboxSerializedProps = {
   paddingLeft?: number
   paddingRight?: number
   paddingTop?: number
+  preserveExactTextGeometry?: boolean
   radiusBottomLeft?: number
   radiusBottomRight?: number
   radiusTopLeft?: number
   radiusTopRight?: number
 }
+
+/** Полное сериализованное состояние BackgroundTextbox. */
+type SerializedBackgroundTextboxProps = SerializedTextboxProps & BackgroundTextboxSerializedProps
 
 export type BackgroundTextboxProps = Partial<TextboxProps> & BackgroundTextboxSerializedProps & {
   autoExpand?: boolean
@@ -92,7 +97,7 @@ const clampNumber = ({
   value: number
 }): number => Math.min(Math.max(value, min), max)
 
-export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
+export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, SerializedBackgroundTextboxProps> {
   static override type = 'background-textbox'
 
   static override cacheProperties = [
@@ -119,6 +124,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
     'paddingRight',
     'paddingBottom',
     'paddingLeft',
+    'preserveExactTextGeometry',
     'radiusTopLeft',
     'radiusTopRight',
     'radiusBottomRight',
@@ -128,6 +134,9 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
   public backgroundOpacity?: number
 
   public lineFontDefaults?: LineFontDefaults
+
+  /** Сохраняет канонические размеры текста без округления при восстановлении объекта. */
+  public preserveExactTextGeometry: boolean
 
   public shouldRoundDimensionsOnInit?: boolean
 
@@ -147,7 +156,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
 
   public radiusTopRight?: number
 
-  /** Восстанавливает дробную ширину, оставляя высоту результатом переноса строк. */
+  /** Восстанавливает сохранённую дробную геометрию отдельного текста без потери точности. */
   public static override fromObject<
     T extends TOptions<SerializedTextProps>,
     S extends FabricText
@@ -157,13 +166,36 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
 
       const serialized = object as T & {
         autoExpand?: boolean
+        preserveExactTextGeometry?: boolean
         shapeNodeType?: string
+        width?: number
       }
-      const { width } = serialized
-      if (serialized.shapeNodeType === 'text') return textbox
-      if (serialized.autoExpand !== false || typeof width !== 'number' || !Number.isFinite(width)) return textbox
+      if (serialized.shapeNodeType === 'text') {
+        textbox.preserveExactTextGeometry = false
+        return textbox
+      }
 
-      applyCanonicalTextboxWidth({ textbox, width })
+      const { width } = serialized
+      const hasSerializedWidth = typeof width === 'number' && Number.isFinite(width)
+      const shouldRestoreFixedWidth = serialized.autoExpand === false && hasSerializedWidth
+      const shouldRestoreExactGeometry = serialized.preserveExactTextGeometry === true
+
+      if (!shouldRestoreExactGeometry) {
+        if (!shouldRestoreFixedWidth) return textbox
+
+        applyCanonicalTextboxWidth({ textbox, width })
+        textbox.setCoords()
+        return textbox
+      }
+
+      const previousShouldRoundDimensionsOnInit = textbox.shouldRoundDimensionsOnInit
+      textbox.shouldRoundDimensionsOnInit = false
+      try {
+        if (hasSerializedWidth) textbox.set({ width })
+        textbox.initDimensions()
+      } finally {
+        textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
+      }
       textbox.setCoords()
 
       return textbox
@@ -175,6 +207,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
 
     this.backgroundOpacity = options.backgroundOpacity ?? 1
     this.lineFontDefaults = options.lineFontDefaults ?? undefined
+    this.preserveExactTextGeometry = options.preserveExactTextGeometry === true
     this.paddingTop = options.paddingTop ?? 0
     this.paddingRight = options.paddingRight ?? 0
     this.paddingBottom = options.paddingBottom ?? 0
@@ -246,9 +279,9 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
    * Возвращает сериализованное представление с учётом фона, отступов и скруглений.
    */
   public override toObject<
-    T extends Omit<BackgroundTextboxProps & TClassProperties<this>, keyof SerializedTextboxProps>,
+    T extends Omit<BackgroundTextboxProps & TClassProperties<this>, keyof SerializedBackgroundTextboxProps>,
     K extends keyof T = never
-  >(propertiesToInclude: K[] = []): Pick<T, K> & SerializedTextboxProps & BackgroundTextboxSerializedProps {
+  >(propertiesToInclude: K[] = []): Pick<T, K> & SerializedBackgroundTextboxProps {
     const baseObject = super.toObject<T, K>(propertiesToInclude)
     const {
       lineFontDefaults,
@@ -261,6 +294,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps> {
       // Полные стили строк сериализуем в lineFontDefaults,
       // а в styles оставляем только реальные inline overrides.
       lineFontDefaults,
+      preserveExactTextGeometry: this.preserveExactTextGeometry === true,
       styles: util.stylesToArray(styles, this.text ?? ''),
       paddingTop: this.paddingTop,
       paddingRight: this.paddingRight,

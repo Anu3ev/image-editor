@@ -11,6 +11,9 @@ export type TextResizeOriginX = 'left' | 'right'
 export type TextResizeOriginY = 'top' | 'center' | 'bottom'
 export type TextScaleHandleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'mb' | 'mr'
 
+/** Угловые ручки пропорционального скейлинга отдельного текста. */
+export type TextCornerScaleHandle = Extract<TextScaleHandleCorner, 'tl' | 'tr' | 'bl' | 'br'>
+
 /** Одно движение указателя при настоящем перетаскивании ручки скейлинга отдельного текста. */
 export interface TextScaleDragStep {
   deltaX: number
@@ -21,7 +24,7 @@ export interface TextScaleDragStep {
 /** Браузерный сценарий сужения отдельного текста за конкретный угол. */
 export interface TextScaleHandleCase {
   title: string
-  corner: TextScaleHandleCorner
+  corner: TextCornerScaleHandle
   steps: TextScaleDragStep[]
 }
 
@@ -133,6 +136,12 @@ export interface TextResizeSnapshot extends TextObjectInfo {
   rightBottomY: number
   textAreaLeftTopX: number
   textAreaLeftTopY: number
+}
+
+/** Состояние текста со всеми углами, необходимыми для проверки углового скейлинга. */
+export interface TextCornerScaleSnapshot extends TextResizeSnapshot {
+  leftBottomX: number
+  leftBottomY: number
 }
 
 /** Диапазон текста для выделения или частичного обновления стиля. */

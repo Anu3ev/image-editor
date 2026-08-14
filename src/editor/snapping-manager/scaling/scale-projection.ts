@@ -10,7 +10,7 @@ export type ScaleSceneEdge = 'left' | 'right' | 'top' | 'bottom'
 /** Канонический параметр, которым конкретный менеджер изменяет размер объекта. */
 export type ScaleProjectionVariable = 'scale-x' | 'scale-y' | 'uniform-scale' | 'text-width'
 
-/** Коэффициенты зависимости положения движущейся грани от канонических параметров размера. */
+/** Коэффициенты зависимости положения проверяемой грани от канонических параметров размера. */
 export type ScaleProjectionEdgeInput = Readonly<{
   edge: ScaleSceneEdge
   coefficients: readonly number[]
@@ -25,7 +25,7 @@ export type ScaleProjectionInput = Readonly<{
   edges: readonly ScaleProjectionEdgeInput[]
 }>
 
-/** Проверенная линейная модель одной движущейся грани. */
+/** Проверенная линейная модель одной участвующей грани. */
 export type ScaleProjectionEdge = Readonly<{
   axis: ScaleSceneAxis
   edge: ScaleSceneEdge
@@ -33,7 +33,7 @@ export type ScaleProjectionEdge = Readonly<{
   coefficients: readonly number[]
 }>
 
-/** Модель движущихся граней и веса для сравнения смещений. */
+/** Модель участвующих граней и веса для сравнения смещений. */
 export type ScaleProjection = Readonly<{
   variables: readonly ScaleProjectionVariable[]
   baselineValues: readonly number[]
@@ -41,7 +41,7 @@ export type ScaleProjection = Readonly<{
   edges: readonly ScaleProjectionEdge[]
 }>
 
-/** Положения всех граней, движущихся в выбранном режиме изменения размера. */
+/** Положения всех граней, участвующих в выбранном режиме изменения размера. */
 export type ProjectedScaleEdgePositions = Readonly<{
   left: number | null
   right: number | null
@@ -49,7 +49,7 @@ export type ProjectedScaleEdgePositions = Readonly<{
   bottom: number | null
 }>
 
-/** Ограничение, совмещающее конкретную движущуюся грань с направляющей. */
+/** Ограничение, совмещающее конкретную проверяемую грань с направляющей. */
 export type ScaleProjectionConstraint = Readonly<{
   axis: ScaleSceneAxis
   edge: ScaleSceneEdge
@@ -68,7 +68,7 @@ const PROJECTION_RANK_EPSILON = 0.000000001
 /** Максимальное число степеней свободы поддерживаемого изменения размера. */
 const MAX_SCALE_PROJECTION_VARIABLES = 2
 
-/** Пустые позиции до расчёта движущихся граней. */
+/** Пустые позиции до расчёта участвующих граней. */
 const EMPTY_PROJECTED_EDGE_POSITIONS: ProjectedScaleEdgePositions = Object.freeze({
   left: null,
   right: null,
@@ -100,6 +100,7 @@ export function createScaleProjection({
 
     return createProjectionEdge({ bounds, input: edgeInput, variableCount: input.variables.length })
   })
+  assertProjectionVariablesAffectGeometry({ edges, variables: input.variables })
 
   return Object.freeze({
     variables: Object.freeze([...input.variables]),
@@ -110,7 +111,7 @@ export function createScaleProjection({
 }
 
 /**
- * Возвращает модель конкретной грани или null, если выбранный режим её не двигает.
+ * Возвращает модель конкретной грани или null, если она не участвует в выбранном режиме.
  */
 export function getScaleProjectionEdge({
   projection,
@@ -123,7 +124,7 @@ export function getScaleProjectionEdge({
 }
 
 /**
- * Рассчитывает положения всех движущихся граней для указанных канонических значений.
+ * Рассчитывает положения всех участвующих граней для указанных канонических значений.
  */
 export function projectScaleEdgePositions({
   projection,
@@ -163,7 +164,7 @@ export function resolveScaleProjection({
     return createProjectionSolution({ projection, values: rawValues })
   }
   if (constraints.length === 1) {
-    return resolveSingleConstraint({ projection, rawValues, constraint: constraints[0] })
+    return resolveSingleConstraint({ projection, rawValues, constraint: constraints[0], epsilon })
   }
 
   return resolveConstraintPair({ projection, rawValues, constraints, epsilon })
@@ -227,7 +228,7 @@ function assertProjectionVariables({ input }: { input: ScaleProjectionInput }): 
 }
 
 /**
- * Создаёт и проверяет линейную модель одной движущейся грани.
+ * Создаёт и проверяет линейную модель одной участвующей грани.
  */
 function createProjectionEdge({
   bounds,
@@ -245,16 +246,29 @@ function createProjectionEdge({
     throw new Error(`Scale projection coefficients for ${input.edge} edge must be finite`)
   }
 
-  const coefficientNorm = Math.hypot(...input.coefficients)
-  if (coefficientNorm <= PROJECTION_RANK_EPSILON) {
-    throw new Error(`Scale projection coefficients for ${input.edge} edge must affect its position`)
-  }
-
   return Object.freeze({
     axis: resolveScaleSceneEdgeAxis({ edge: input.edge }),
     edge: input.edge,
     baselinePosition: bounds[input.edge],
     coefficients: Object.freeze([...input.coefficients])
+  })
+}
+
+/** Проверяет, что каждый канонический параметр меняет хотя бы одну грань. */
+function assertProjectionVariablesAffectGeometry({
+  edges,
+  variables
+}: {
+  edges: readonly ScaleProjectionEdge[]
+  variables: readonly ScaleProjectionVariable[]
+}): void {
+  variables.forEach((variable, index) => {
+    const affectsGeometry = edges.some(({ coefficients }) => {
+      return Math.abs(coefficients[index]) > PROJECTION_RANK_EPSILON
+    })
+    if (!affectsGeometry) {
+      throw new Error(`Scale projection variable "${variable}" must affect at least one edge`)
+    }
   })
 }
 
@@ -310,7 +324,7 @@ function assertProjectionConstraints({
 }
 
 /**
- * Вычисляет положение одной движущейся грани.
+ * Вычисляет положение одной участвующей грани.
  */
 function projectEdgePosition({
   projection,
@@ -335,12 +349,14 @@ function projectEdgePosition({
 function resolveSingleConstraint({
   projection,
   rawValues,
-  constraint
+  constraint,
+  epsilon
 }: {
   projection: ScaleProjection
   rawValues: readonly number[]
   constraint: ScaleProjectionConstraint
-}): ScaleProjectionSolution {
+  epsilon: number
+}): ScaleProjectionSolution | null {
   const projectionEdge = getScaleProjectionEdge({ projection, edge: constraint.edge })
   if (!projectionEdge) {
     throw new Error(`Scale projection does not contain ${constraint.edge} edge`)
@@ -352,13 +368,20 @@ function resolveSingleConstraint({
     throw new Error(`Scale projection did not resolve ${constraint.edge} position`)
   }
 
+  const positionCorrection = constraint.position - rawPosition
+  const coefficientNorm = Math.hypot(...projectionEdge.coefficients)
+  if (coefficientNorm <= PROJECTION_RANK_EPSILON) {
+    return Math.abs(positionCorrection) <= epsilon
+      ? createProjectionSolution({ projection, values: rawValues })
+      : null
+  }
+
   const inverseMetricCoefficients = projectionEdge.coefficients.map((coefficient, index) => {
     return coefficient / (projection.variableSceneWeights[index] ** 2)
   })
   const constraintMetricNorm = projectionEdge.coefficients.reduce((sum, coefficient, index) => {
     return sum + (coefficient * inverseMetricCoefficients[index])
   }, 0)
-  const positionCorrection = constraint.position - rawPosition
   const values = rawValues.map((value, index) => {
     return value + ((inverseMetricCoefficients[index] * positionCorrection) / constraintMetricNorm)
   })
@@ -388,8 +411,8 @@ function resolveConstraintPair({
   }
 
   for (const constraint of constraints) {
-    const solution = resolveSingleConstraint({ projection, rawValues, constraint })
-    if (areConstraintsSatisfied({ solution, constraints, epsilon })) return solution
+    const solution = resolveSingleConstraint({ projection, rawValues, constraint, epsilon })
+    if (solution && areConstraintsSatisfied({ solution, constraints, epsilon })) return solution
   }
 
   return null
@@ -416,6 +439,7 @@ function resolveTwoVariableConstraintPair({
   const [secondA, secondB] = secondEdge.coefficients
   const firstNorm = Math.hypot(firstA, firstB)
   const secondNorm = Math.hypot(secondA, secondB)
+  if (firstNorm <= PROJECTION_RANK_EPSILON || secondNorm <= PROJECTION_RANK_EPSILON) return null
   const normalizedFirstA = firstA / firstNorm
   const normalizedFirstB = firstB / firstNorm
   const normalizedSecondA = secondA / secondNorm
