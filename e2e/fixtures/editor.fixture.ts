@@ -147,6 +147,7 @@ async function openEditorPage({
 /** Завершает браузерные взаимодействия, которые тест оставил активными. */
 async function finishEditorInteractions({ model }: { model: EditorModel }): Promise<void> {
   await model.snapping.finishPointerInteractionIfActive()
+  await model.text.scaling.finishIfActive()
   await model.text.finishScaleIfActive()
   await model.text.finishResizeIfActive()
   await model.shapes.finishScaleIfActive()

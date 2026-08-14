@@ -257,6 +257,7 @@ describe('масштабирование текста', () => {
       expect(textbox.width).toBe(50.5)
       expect(result.appliedWidth).toBe(50.5)
       expect(result.dimensionsRounded).toBe(false)
+      expect(textbox.preserveExactTextGeometry).toBe(false)
     })
 
     it('после live шага возвращает прежнее правило округления', () => {
@@ -291,6 +292,62 @@ describe('масштабирование текста', () => {
       })
 
       expect(textbox.shouldRoundDimensionsOnInit).toBe(true)
+      expect(textbox.preserveExactTextGeometry).toBe(false)
+    })
+
+    it('не меняет сохранённый режим точной геометрии при обычном скейлинге', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Обычный скейлинг', {
+        preserveExactTextGeometry: true,
+        width: 101
+      })
+      const base = captureTextScaleBase({ textbox })
+
+      const result = commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 0.5,
+        heightScale: 0.5,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: true,
+        shouldScalePadding: true,
+        shouldScaleRadii: true,
+        shouldRoundDimensions: true
+      })
+
+      expect(textbox.width).toBe(51)
+      expect(result.appliedWidth).toBe(51)
+      expect(result.dimensionsRounded).toBe(false)
+      expect(Number.isInteger(textbox.width)).toBe(true)
+      expect(textbox.preserveExactTextGeometry).toBe(true)
+    })
+
+    it('не меняет сохранённый режим, если пересчёт завершился ошибкой', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Ошибка пересчёта', {
+        preserveExactTextGeometry: false,
+        width: 101
+      })
+      const base = captureTextScaleBase({ textbox })
+      jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+        throw new Error('Не удалось пересчитать текст')
+      })
+
+      expect(() => commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 0.5,
+        heightScale: 0.5,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: true,
+        shouldScalePadding: true,
+        shouldScaleRadii: true,
+        shouldRoundDimensions: false
+      })).toThrow('Не удалось пересчитать текст')
+      expect(textbox.preserveExactTextGeometry).toBe(false)
+      expect(textbox.shouldRoundDimensionsOnInit).toBeUndefined()
     })
 
     it('во время live шага держит точку, от которой тянут объект, но сохраняет origin текста', () => {

@@ -1,9 +1,8 @@
 import { Point } from 'fabric'
-import { BackgroundTextbox, type BackgroundTextboxProps } from '../background-textbox'
 import type { EditorTextbox } from '../types'
-import { cloneLineFontDefaults } from '../line-defaults'
 import type { ScaleStepProjectionInput } from '../../snapping-manager/scaling/scale-snapping-resolver'
 import { applyCanonicalTextboxWidth } from './text-width-materialization'
+import { createTextScalingMeasurementTextbox } from './text-scaling-measurement'
 import {
   createTextWidthResizeStepProjection,
   type TextWidthResizeGestureProjection
@@ -14,72 +13,6 @@ export type TextWidthResizeMeasurement = Readonly<{
   projection: ScaleStepProjectionInput
   width: number
 }>
-
-/** Создаёт копию посимвольных стилей для независимого измерительного Textbox. */
-function cloneTextboxStyles({ textbox }: { textbox: EditorTextbox }): EditorTextbox['styles'] {
-  const styles: NonNullable<EditorTextbox['styles']> = {}
-
-  Object.entries(textbox.styles ?? {}).forEach(([lineIndex, lineStyles]) => {
-    if (!lineStyles) return
-
-    const clonedLineStyles: typeof lineStyles = {}
-    Object.entries(lineStyles).forEach(([characterIndex, characterStyle]) => {
-      if (!characterStyle) return
-
-      clonedLineStyles[characterIndex] = { ...characterStyle }
-    })
-    styles[lineIndex] = clonedLineStyles
-  })
-
-  return styles
-}
-
-/** Собирает свойства, влияющие на перенос строк и точную геометрию текста. */
-function createMeasurementTextboxOptions({
-  target,
-  gesture
-}: {
-  target: EditorTextbox
-  gesture: TextWidthResizeGestureProjection
-}): BackgroundTextboxProps {
-  return {
-    left: target.left,
-    top: target.top,
-    originX: target.originX,
-    originY: target.originY,
-    angle: target.angle,
-    scaleX: target.scaleX,
-    scaleY: target.scaleY,
-    width: gesture.baselineWidth,
-    fontFamily: target.fontFamily,
-    fontSize: target.fontSize,
-    fontStyle: target.fontStyle,
-    fontWeight: target.fontWeight,
-    lineHeight: target.lineHeight,
-    charSpacing: target.charSpacing,
-    textAlign: target.textAlign,
-    direction: target.direction,
-    splitByGrapheme: target.splitByGrapheme,
-    fill: target.fill,
-    stroke: target.stroke,
-    strokeWidth: target.strokeWidth,
-    strokeUniform: target.strokeUniform,
-    paintFirst: target.paintFirst,
-    styles: cloneTextboxStyles({ textbox: target }),
-    lineFontDefaults: cloneLineFontDefaults({ lineFontDefaults: target.lineFontDefaults }),
-    backgroundColor: target.backgroundColor,
-    backgroundOpacity: target.backgroundOpacity,
-    paddingTop: target.paddingTop,
-    paddingRight: target.paddingRight,
-    paddingBottom: target.paddingBottom,
-    paddingLeft: target.paddingLeft,
-    radiusTopLeft: target.radiusTopLeft,
-    radiusTopRight: target.radiusTopRight,
-    radiusBottomRight: target.radiusBottomRight,
-    radiusBottomLeft: target.radiusBottomLeft,
-    autoExpand: false
-  }
-}
 
 /** Измеряет перенос строк вне живого объекта текущего взаимодействия. */
 export default class TextWidthResizeMeasurer {
@@ -98,10 +31,10 @@ export default class TextWidthResizeMeasurer {
     gesture: TextWidthResizeGestureProjection
   }) {
     this.gesture = gesture
-    this.textbox = new BackgroundTextbox(
-      target.text ?? '',
-      createMeasurementTextboxOptions({ target, gesture })
-    )
+    this.textbox = createTextScalingMeasurementTextbox({
+      target,
+      options: { autoExpand: false }
+    })
   }
 
   /** Возвращает точную геометрию после переноса строк при заданной ширине. */

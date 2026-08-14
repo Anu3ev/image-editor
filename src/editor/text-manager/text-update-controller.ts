@@ -56,6 +56,7 @@ type TextUpdateRuntime = {
     shouldAutoExpand: boolean
     clampToMontage?: boolean
     shouldRefreshDimensions?: boolean
+    shouldRoundDimensions: boolean
   }) => void
   restoreTextboxContentPlacement: (params: {
     textbox: EditorTextbox
@@ -120,7 +121,25 @@ type PreparedTextUpdate = {
   styleMaps: TextStyleMaps
   contentUpdate: TextContentUpdate
   contentPlacement: ObjectPlacement | null
+  shouldRoundDimensions: boolean
 }
+
+/** Полностью нормализованные параметры подготовки текстового обновления. */
+type PrepareTextUpdateOptions = {
+  emitLifecycleEvents: boolean
+  selectionRangeOverride?: TextSelectionRange | null
+  shouldRoundDimensions: boolean
+  skipRender?: boolean
+  style: TextStyleOptions
+  syncLineStylesWithText: boolean
+  target?: TextReference
+  withoutSave?: boolean
+}
+
+/** Внутренние параметры обновления, не входящие в публичный API TextManager. */
+type TextUpdateControllerOptions = UpdateOptions & Readonly<{
+  shouldRoundDimensions?: boolean
+}>
 
 /**
  * Владеет программным update pipeline для standalone text objects.
@@ -148,8 +167,9 @@ export default class TextUpdateController {
     skipRender,
     selectionRange: selectionRangeOverride,
     emitLifecycleEvents = true,
-    syncLineStylesWithText = true
-  }: UpdateOptions = {}): EditorTextbox | null {
+    syncLineStylesWithText = true,
+    shouldRoundDimensions = true
+  }: TextUpdateControllerOptions = {}): EditorTextbox | null {
     const preparedUpdate = this._prepareUpdate({
       target,
       style,
@@ -157,7 +177,8 @@ export default class TextUpdateController {
       skipRender,
       selectionRangeOverride,
       emitLifecycleEvents,
-      syncLineStylesWithText
+      syncLineStylesWithText,
+      shouldRoundDimensions
     })
 
     if (!preparedUpdate) return null
@@ -178,16 +199,9 @@ export default class TextUpdateController {
     skipRender,
     selectionRangeOverride,
     emitLifecycleEvents,
-    syncLineStylesWithText
-  }: {
-    target?: TextReference
-    style: TextStyleOptions
-    withoutSave?: boolean
-    skipRender?: boolean
-    selectionRangeOverride?: TextSelectionRange | null
-    emitLifecycleEvents: boolean
-    syncLineStylesWithText: boolean
-  }): PreparedTextUpdate | null {
+    syncLineStylesWithText,
+    shouldRoundDimensions
+  }: PrepareTextUpdateOptions): PreparedTextUpdate | null {
     const textbox = this.runtime.resolveTextObject(target)
 
     if (!textbox || textbox.locked) return null
@@ -196,14 +210,10 @@ export default class TextUpdateController {
 
     const currentText = textbox.text ?? ''
     const selection = this._createSelectionContext({
-      textbox,
-      currentText,
-      selectionRangeOverride
+      textbox, currentText, selectionRangeOverride
     })
     const styleMaps = this._buildStyleMaps({
-      textbox,
-      style,
-      selection
+      textbox, style, selection
     })
     const placement = this.runtime.canvasManager.resolveObjectPlacement({
       object: textbox,
@@ -213,10 +223,7 @@ export default class TextUpdateController {
       originY: style.originY
     })
     const contentUpdate = this._applyTextContentUpdate({
-      textbox,
-      style,
-      updates: styleMaps.updates,
-      currentText
+      textbox, style, updates: styleMaps.updates, currentText
     })
     const contentPlacement = this._resolveContentPlacement({
       textbox,
@@ -240,7 +247,8 @@ export default class TextUpdateController {
       selection,
       styleMaps,
       contentUpdate,
-      contentPlacement
+      contentPlacement,
+      shouldRoundDimensions
     }
   }
 
@@ -779,36 +787,32 @@ export default class TextUpdateController {
       styleMaps,
       contentUpdate,
       contentPlacement,
-      syncLineStylesWithText
+      syncLineStylesWithText,
+      shouldRoundDimensions
     } = preparedUpdate
+    const previousShouldRoundDimensionsOnInit = textbox.shouldRoundDimensionsOnInit
 
-    textbox.set(styleMaps.updates)
+    textbox.shouldRoundDimensionsOnInit = shouldRoundDimensions
+    try {
+      textbox.set(styleMaps.updates)
 
-    this._applyWholeTextStyles({
-      textbox,
-      selection,
-      styleMaps
-    })
-    this._applySelectionStyles({
-      textbox,
-      selection,
-      styleMaps
-    })
-    this._applyLineDefaultUpdates({
-      textbox,
-      style,
-      selection,
-      styleMaps
-    })
-    this._applyPostStyleLayout({
-      textbox,
-      placement,
-      style,
-      styleMaps,
-      contentUpdate,
-      contentPlacement,
-      syncLineStylesWithText
-    })
+      this._applyWholeTextStyles({ textbox, selection, styleMaps })
+      this._applySelectionStyles({ textbox, selection, styleMaps })
+      this._applyLineDefaultUpdates({ textbox, style, selection, styleMaps })
+      this._applyPostStyleLayout({
+        textbox,
+        placement,
+        style,
+        styleMaps,
+        contentUpdate,
+        contentPlacement,
+        syncLineStylesWithText,
+        shouldRoundDimensions
+      })
+      textbox.preserveExactTextGeometry = !shouldRoundDimensions
+    } finally {
+      textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
+    }
 
     textbox.setCoords()
   }
@@ -1038,7 +1042,8 @@ export default class TextUpdateController {
     styleMaps,
     contentUpdate,
     contentPlacement,
-    syncLineStylesWithText
+    syncLineStylesWithText,
+    shouldRoundDimensions
   }: {
     textbox: EditorTextbox
     placement: ObjectPlacement
@@ -1047,6 +1052,7 @@ export default class TextUpdateController {
     contentUpdate: TextContentUpdate
     contentPlacement: ObjectPlacement | null
     syncLineStylesWithText: boolean
+    shouldRoundDimensions: boolean
   }): void {
     const nextRenderedText = textbox.text ?? ''
     const hasBackgroundStyleUpdate = this._hasBackgroundStyleUpdate({ style })
@@ -1061,9 +1067,7 @@ export default class TextUpdateController {
       shouldRefreshDimensions
     })
 
-    if (hasBackgroundStyleUpdate) {
-      textbox.dirty = true
-    }
+    if (hasBackgroundStyleUpdate) textbox.dirty = true
 
     this._applyAutoExpandPreference({
       textbox,
@@ -1080,15 +1084,13 @@ export default class TextUpdateController {
       textbox,
       placement,
       shouldAutoExpand,
-      shouldRefreshDimensions
+      shouldRefreshDimensions,
+      shouldRoundDimensions
     })
 
-    if (contentPlacement) {
-      this.runtime.restoreTextboxContentPlacement({
-        textbox,
-        contentPlacement
-      })
-    }
+    if (!contentPlacement) return
+
+    this.runtime.restoreTextboxContentPlacement({ textbox, contentPlacement })
   }
 
   /**

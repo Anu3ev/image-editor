@@ -13,7 +13,6 @@ import type {
   TextResizeToGuideParams,
   TextResizeUntilWrapParams,
   TextRotateParams,
-  TextScaleDragStep,
   TextScaleHandleCorner,
   TextSelectionParams,
   TextSelectionStyleInfo,
@@ -29,6 +28,7 @@ import {
   TEXT_RESIZING_REGRESSION_TEMPLATE
 } from '../../fixtures/data/text-resizing.data'
 import TextResizeSession from './text-resize-session'
+import TextScalingSession from './text-scaling-session'
 
 /** Незавершённый скейлинг отдельного текстового объекта. */
 type ActiveTextScaleInteraction = {
@@ -36,7 +36,6 @@ type ActiveTextScaleInteraction = {
     x: number
     y: number
   }
-  mode?: 'browser-pointer'
   corner: TextScaleHandleCorner
   objectIndex?: number
   id?: string
@@ -47,11 +46,15 @@ export class TextModel {
 
   private readonly resizeSession: TextResizeSession
 
+  /** Полный цикл браузерного скейлинга отдельного текста. */
+  readonly scaling: TextScalingSession
+
   private activeScaleInteraction: ActiveTextScaleInteraction | null
 
   constructor(page: Page) {
     this.page = page
     this.resizeSession = new TextResizeSession(page)
+    this.scaling = new TextScalingSession(page)
     this.activeScaleInteraction = null
   }
 
@@ -714,222 +717,6 @@ export class TextModel {
     })
   }
 
-  /** Сужает отдельный текст за выбранный угол и возвращает состояние после каждого движения. */
-  async shrinkFromScaleCornerInLiveSteps(
-    params: {
-      corner: TextScaleHandleCorner
-      steps: TextScaleDragStep[]
-    } & ObjectTargetParams
-  ): Promise<TextResizeSnapshot[]> {
-    const {
-      corner,
-      steps,
-      objectIndex,
-      id
-    } = params
-
-    expect(steps.length, 'для live-сужения текста должен быть хотя бы один шаг').toBeGreaterThan(0)
-
-    const firstStep = steps[0]
-    expect(firstStep, 'первый шаг live-сужения текста должен существовать').toBeDefined()
-
-    if (!firstStep) {
-      throw new Error('первый шаг live-сужения текста должен существовать')
-    }
-
-    const states = [
-      await this.dragScaleHandleBy({
-        corner,
-        objectIndex,
-        id,
-        ...firstStep
-      })
-    ]
-
-    for (let index = 1; index < steps.length; index += 1) {
-      const step = steps[index]
-
-      expect(step, 'каждый шаг live-сужения текста должен существовать').toBeDefined()
-
-      if (!step) {
-        throw new Error('каждый шаг live-сужения текста должен существовать')
-      }
-
-      states.push(await this.continueScaleHandleBy(step))
-    }
-
-    expect(states.length, 'число live-состояний текста должно совпадать с числом шагов').toBe(steps.length)
-
-    return states
-  }
-
-  /** Тянет ручку скейлинга текста настоящей мышью и не отпускает её. */
-  async dragScaleHandleBy(
-    params: {
-      corner: TextScaleHandleCorner
-      deltaX: number
-      deltaY: number
-      pointerSteps?: number
-    } & ObjectTargetParams
-  ): Promise<TextResizeSnapshot> {
-    expect(
-      this.activeScaleInteraction,
-      'нельзя начинать новый scale drag текста, пока не завершён предыдущий'
-    ).toBeNull()
-
-    const {
-      corner,
-      deltaX,
-      deltaY,
-      pointerSteps = 8,
-      objectIndex,
-      id
-    } = params
-    const point = await this._resolveScaleHandlePoint({
-      corner,
-      objectIndex,
-      id
-    })
-    const nextPoint = {
-      x: point.x + deltaX,
-      y: point.y + deltaY
-    }
-
-    await this.page.mouse.move(point.x, point.y)
-    await this.page.mouse.down()
-    await this.page.mouse.move(nextPoint.x, nextPoint.y, { steps: pointerSteps })
-    await waitForCanvasRender({ page: this.page })
-
-    const snapshot = await this.getResizeSnapshot({ objectIndex, id })
-
-    expect(
-      snapshot.width,
-      'после drag ручки масштабирования текста ширина должна быть положительной'
-    ).toBeGreaterThan(0)
-    expect(
-      snapshot.height,
-      'после drag ручки масштабирования текста высота должна быть положительной'
-    ).toBeGreaterThan(0)
-
-    this.activeScaleInteraction = {
-      point: nextPoint,
-      mode: 'browser-pointer',
-      corner,
-      objectIndex,
-      id
-    }
-
-    return snapshot
-  }
-
-  /** Продолжает скейлинг текста настоящим движением мыши без отпускания ручки. */
-  async continueScaleHandleBy(
-    params: {
-      deltaX: number
-      deltaY: number
-      pointerSteps?: number
-    }
-  ): Promise<TextResizeSnapshot> {
-    expect(
-      this.activeScaleInteraction,
-      'нельзя продолжать scale drag текста без активной drag-сессии'
-    ).not.toBeNull()
-
-    if (!this.activeScaleInteraction) {
-      throw new Error('активная drag-сессия scale текста должна существовать')
-    }
-
-    const {
-      deltaX,
-      deltaY,
-      pointerSteps = 1
-    } = params
-    const {
-      point,
-      objectIndex,
-      id
-    } = this.activeScaleInteraction
-    const nextPoint = {
-      x: point.x + deltaX,
-      y: point.y + deltaY
-    }
-
-    await this.page.mouse.move(nextPoint.x, nextPoint.y, { steps: pointerSteps })
-    await waitForCanvasRender({ page: this.page })
-
-    const snapshot = await this.getResizeSnapshot({ objectIndex, id })
-
-    expect(
-      snapshot.width,
-      'после продолжения drag масштабирования текста ширина должна быть положительной'
-    ).toBeGreaterThan(0)
-    expect(
-      snapshot.height,
-      'после продолжения drag масштабирования текста высота должна быть положительной'
-    ).toBeGreaterThan(0)
-
-    this.activeScaleInteraction = {
-      ...this.activeScaleInteraction,
-      point: nextPoint
-    }
-
-    return snapshot
-  }
-
-  /** Возвращает viewport-точку ручки масштабирования текстового объекта. */
-  private async _resolveScaleHandlePoint(
-    params: {
-      corner: TextScaleHandleCorner
-    } & ObjectTargetParams
-  ): Promise<{ x: number, y: number }> {
-    const {
-      corner,
-      objectIndex,
-      id
-    } = params
-    const point = await this.page.evaluate((payload) => {
-      const {
-        corner: controlCorner,
-        objectIndex: targetObjectIndex,
-        id: targetId
-      } = payload
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
-      const target = helpers.resolveCanvasObject(targetObjectIndex, targetId)
-      if (!target) return null
-
-      editor.canvas.setActiveObject(target)
-      target.setCoords()
-      editor.canvas.renderAll()
-
-      const control = target.oCoords?.[controlCorner]
-      if (!control || typeof control.x !== 'number' || typeof control.y !== 'number') return null
-
-      const rect = editor.canvas.upperCanvasEl.getBoundingClientRect()
-
-      return {
-        x: rect.left + control.x,
-        y: rect.top + control.y
-      }
-    }, {
-      corner,
-      objectIndex,
-      id
-    })
-
-    expect(point, 'должна существовать стартовая точка ручки масштабирования текста').not.toBeNull()
-    if (!point) {
-      throw new Error('стартовая точка ручки масштабирования текста должна существовать')
-    }
-
-    expect(Number.isFinite(point.x), 'x-координата ручки масштабирования текста должна быть конечным числом').toBe(true)
-    expect(Number.isFinite(point.y), 'y-координата ручки масштабирования текста должна быть конечным числом').toBe(true)
-
-    return point
-  }
-
   /** Сужает текст по диагонали до состояния, после которого он больше не уменьшается. */
   async shrinkDiagonallyToMinimumSize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     const {
@@ -967,17 +754,11 @@ export class TextModel {
     return currentSnapshot
   }
 
-  /** Завершает скейлинг текста тем же способом, которым он был начат. */
+  /** Завершает скейлинг текста, начатый прямым вызовом обработчика Fabric. */
   async finishScale(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
       const interaction = this.activeScaleInteraction
-      let snapshot: TextResizeSnapshot
-
-      if (interaction.mode === 'browser-pointer') {
-        snapshot = await this._finishBrowserScaleInteraction(interaction)
-      } else {
-        snapshot = await this._finishFabricScaleInteraction(interaction)
-      }
+      const snapshot = await this._finishFabricScaleInteraction(interaction)
 
       this.activeScaleInteraction = null
 
@@ -990,28 +771,7 @@ export class TextModel {
     return this._finishModifiedTransform(params)
   }
 
-  /** Завершает скейлинг текста настоящим отпусканием кнопки мыши. */
-  private async _finishBrowserScaleInteraction(
-    interaction: ActiveTextScaleInteraction
-  ): Promise<TextResizeSnapshot> {
-    expect(interaction.mode, 'этот mouseup должен завершать скейлинг, начатый мышью').toBe('browser-pointer')
-    expect(Number.isFinite(interaction.point.x), 'координата X для mouseup должна быть конечной').toBe(true)
-
-    await this.page.mouse.up()
-    await waitForCanvasRender({ page: this.page })
-
-    const snapshot = await this.getResizeSnapshot({
-      objectIndex: interaction.objectIndex,
-      id: interaction.id
-    })
-
-    expect(snapshot.width, 'ширина текста после mouseup должна быть положительной').toBeGreaterThan(0)
-    expect(snapshot.fontSize, 'размер шрифта после mouseup должен быть положительным').toBeGreaterThan(0)
-
-    return snapshot
-  }
-
-  /** Завершает скейлинг текста, начатый прямым вызовом Fabric handler. */
+  /** Завершает скейлинг текста, начатый прямым вызовом обработчика Fabric. */
   private async _finishFabricScaleInteraction(
     interaction: ActiveTextScaleInteraction
   ): Promise<TextResizeSnapshot> {

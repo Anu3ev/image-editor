@@ -20,7 +20,8 @@ type TextScalingTransformOriginal = Transform['original'] & {
   width?: number
 }
 
-type TextScalingPointerStep = {
+/** Относительное изменение масштаба по положению указателя и признак перехода через неподвижную точку. */
+export type TextScalingPointerStep = {
   passedOriginX: boolean
   passedOriginY: boolean
   stepScaleX: number

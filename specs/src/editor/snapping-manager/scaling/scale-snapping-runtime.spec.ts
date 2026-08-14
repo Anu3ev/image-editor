@@ -55,6 +55,7 @@ describe('Жизненный цикл прилипания во время ск�
     const refinedPlan = runtime.refineScalePlan({
       token: planned.token,
       refinement: {
+        constraints: planned.plan.constraints,
         effectiveValues: [1.002, 1],
         stepProjection: {
           bounds: {
@@ -91,6 +92,59 @@ describe('Жизненный цикл прилипания во время ск�
     expect(duplicate?.plan).toBe(refinedPlan)
     expect(verification.guides).toHaveLength(1)
     expect(verification.holdState.x.kind).toBe('held')
+  })
+
+  it('после уточнения не восстанавливает снятую направляющую', () => {
+    const runtime = new ScaleSnappingRuntime()
+    const marker = {}
+    runtime.startSession({
+      baseline: createScaleBaseline({
+        candidates: [createScaleCandidate({ id: 'right', axis: 'x', position: 100 })]
+      })
+    })
+    const planned = runtime.resolveScalePlan({
+      marker,
+      intent: createScaleRawIntent({ values: [0.98, 1] })
+    })
+    if (planned.kind !== 'planned') throw new Error('Первое событие должно создать план')
+
+    const refined = runtime.refineScalePlan({
+      token: planned.token,
+      refinement: {
+        constraints: { x: null, y: null },
+        effectiveValues: [0.98, 1],
+        stepProjection: {
+          bounds: {
+            left: 0,
+            right: 98,
+            top: 0,
+            bottom: 100,
+            centerX: 49,
+            centerY: 50
+          },
+          projection: {
+            variables: ['scale-x', 'scale-y'],
+            baselineValues: [0.98, 1],
+            variableSceneWeights: [100, 100],
+            edges: [
+              { edge: 'right', coefficients: [100, 0] },
+              { edge: 'bottom', coefficients: [0, 100] }
+            ]
+          }
+        }
+      }
+    })
+    const verification = runtime.verifyScalePlan({
+      token: planned.token,
+      finalGeometry: createFinalScaleGeometry({ right: 98, bottom: 100, measuredValues: [0.98, 1] })
+    })
+    const duplicate = runtime.getDuplicateStep({ marker })
+
+    expect(refined.constraints.x).toBeNull()
+    expect(verification.guides).toHaveLength(0)
+    expect(verification.holdState.x.kind).toBe('free')
+    expect(duplicate?.plan).toBe(refined)
+    expect(duplicate?.verification).toBe(verification)
   })
 
   it('отклоняет повторную обработку события с другими параметрами скейлинга', () => {
