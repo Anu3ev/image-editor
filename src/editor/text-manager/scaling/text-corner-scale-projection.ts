@@ -104,7 +104,11 @@ export function createTextCornerScaleGestureProjection({
   })
 }
 
-/** Возвращает пропорциональный множитель из положения указателя относительно начала жеста. */
+/**
+ * Возвращает пропорциональный множитель из положения указателя относительно начала жеста.
+ * После пересечения неподвижной точки возвращает ноль, чтобы измеритель сохранил минимальный
+ * размер текста, а текущая сессия могла продолжиться при обратном движении.
+ */
 export function resolveTextCornerScalePointerMultiplier({
   gesture,
   pointer
@@ -112,12 +116,15 @@ export function resolveTextCornerScalePointerMultiplier({
   gesture: TextCornerScaleGestureProjection
   pointer: RectangularScalePoint
 }): number | null {
+  if (!Number.isFinite(pointer.x) || !Number.isFinite(pointer.y)) return null
+
   const multipliers = resolveRectangularScalePointerMultipliers({
     projection: gesture.rectangular,
     pointer,
     mode: TEXT_CORNER_SCALE_PROJECTION_MODE
   })
-  if (!multipliers || !Number.isFinite(multipliers.x) || multipliers.x <= 0) return null
+  if (!multipliers) return 0
+  if (!Number.isFinite(multipliers.x) || multipliers.x < 0) return null
 
   return multipliers.x
 }

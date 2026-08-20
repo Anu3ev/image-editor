@@ -112,6 +112,8 @@ The resolver may select one guide or a compatible pair that can be reached by th
 
 Corner-scale hold is always resolved from the immutable gesture baseline. Small pointer movements inside the hold zone keep the canonical text state and selected guides stable, and `mouseup` preserves the last live geometry while clearing transient guides.
 
+If the pointer reaches or crosses the fixed point during a fast shrink, the text stays at its minimum canonical size without ending the migrated session. Fabric flipping is temporarily disabled for that gesture and the original setting is restored when the gesture ends. Moving the pointer back can therefore enlarge the text and acquire guides again without an intermediate `mouseup`.
+
 Corner scaling keeps fractional canonical width and derived height instead of rounding them during the live step or on `mouseup`. The same exact geometry is restored through history, clipboard operations, and template application, including templates applied to a montage area with a different size. Legacy text interactions retain their existing dimension rounding.
 
 `preserveExactTextGeometry` is the persisted restoration contract for this result. Successful unified corner scaling stores `true`; side-width resizing and legacy text interactions store `false`. Older serialized text without this property keeps the legacy rounding rules, and the transient `shouldRoundDimensionsOnInit` flag is never persisted.

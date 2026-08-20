@@ -1,6 +1,7 @@
 import { test, expect } from '../../../fixtures/editor.fixture'
 import {
   TEXT_CORNER_SCALE_BELOW_MINIMUM_MULTIPLIER,
+  TEXT_CORNER_SCALE_CONTROL_CASES,
   TEXT_CORNER_SCALE_GUIDE_TOLERANCE,
   TEXT_CORNER_SCALE_TARGET_MULTIPLIER,
   TEXT_SCALING_MINIMUM_FONT_SIZE
@@ -82,6 +83,55 @@ test('при уменьшении за угол текст останавлив�
   expect(committed.scaleX).toBe(1)
   expect(committed.scaleY).toBe(1)
 })
+
+for (const controlCase of TEXT_CORNER_SCALE_CONTROL_CASES) {
+  test(`${controlCase.title} при увеличении после минимального размера в той же сессии`, async({
+    editorModel,
+    shapes,
+    snapping,
+    text
+  }) => {
+    const setup = await createTextCornerScaleSetup({
+      corner: controlCase.corner,
+      editorModel,
+      shapes,
+      snapping,
+      text
+    })
+
+    await text.scaling.start({ corner: controlCase.corner, id: setup.textId })
+    const minimum = await text.scaling.dragPastFixedPoint()
+    const minimumGuides = await snapping.getGuideState()
+    const reacquired = await text.scaling.dragTowardScale({
+      scale: TEXT_CORNER_SCALE_TARGET_MULTIPLIER - 0.02
+    })
+    const reacquiredGuides = await snapping.getGuideState()
+
+    expect(minimum.fontSize).toBe(TEXT_SCALING_MINIMUM_FONT_SIZE)
+    expect(minimum[controlCase.fixedPoint.x]).toBeCloseTo(setup.initial[controlCase.fixedPoint.x], 5)
+    expect(minimum[controlCase.fixedPoint.y]).toBeCloseTo(setup.initial[controlCase.fixedPoint.y], 5)
+    expect(minimumGuides.guides).toHaveLength(0)
+    expect(reacquired.fontSize).toBeGreaterThan(minimum.fontSize)
+    expect(Math.abs(reacquired[controlCase.movingEdgeX] - setup.snapPoint.x))
+      .toBeLessThanOrEqual(TEXT_CORNER_SCALE_GUIDE_TOLERANCE)
+    expect(Math.abs(reacquired[controlCase.movingEdgeY] - setup.snapPoint.y))
+      .toBeLessThanOrEqual(TEXT_CORNER_SCALE_GUIDE_TOLERANCE)
+    expect(reacquired[controlCase.fixedPoint.x]).toBeCloseTo(setup.initial[controlCase.fixedPoint.x], 5)
+    expect(reacquired[controlCase.fixedPoint.y]).toBeCloseTo(setup.initial[controlCase.fixedPoint.y], 5)
+    expect(reacquiredGuides.guides).toEqual(expect.arrayContaining([
+      { type: 'vertical', position: setup.snapPoint.x },
+      { type: 'horizontal', position: setup.snapPoint.y }
+    ]))
+    expect(reacquiredGuides.guides).toHaveLength(2)
+    expect(reacquired.scaleX).toBe(1)
+    expect(reacquired.scaleY).toBe(1)
+
+    const committed = await text.scaling.finish({ id: setup.textId })
+
+    expect(committed).toEqual(reacquired)
+    expect((await snapping.getGuideState()).guides).toHaveLength(0)
+  })
+}
 
 test('Shift не меняет пропорциональный скейлинг текста при неравномерном движении указателя', async({
   editorModel,
