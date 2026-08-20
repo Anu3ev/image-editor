@@ -88,6 +88,50 @@ it('при угловом скейлинге сохраняет запрет п�
   expect(interaction.applyScaleMock).toHaveBeenCalledTimes(1)
 })
 
+it('после минимального размера снова выбирает направляющую в той же сессии', () => {
+  const interaction = createTextCornerScaleInteractionHarness()
+  harness = interaction
+  interaction.target.lockScalingFlip = false
+  const minimumScale = 0.5
+  const guideScale = 1.04
+  const guide = createTextCornerScaleRightGuide({ harness: interaction, scale: guideScale })
+  setTextCornerScaleEnvironment({
+    harness: interaction,
+    environment: Object.freeze({ candidates: [guide], zoom: 1 })
+  })
+  jest.spyOn(TextCornerScaleMeasurer.prototype, 'measure').mockImplementation(({ scale }) => {
+    return createTextCornerScaleInteractionMeasurement({
+      harness: interaction,
+      scale: Math.max(minimumScale, scale)
+    })
+  })
+
+  expect(interaction.target.lockScalingFlip).toBe(false)
+  expect(interaction.controller.beginGesture(createTextCornerScaleBeginEvent({ harness: interaction }))).toBe(true)
+  expect(interaction.target.lockScalingFlip).toBe(true)
+  expect(interaction.controller.handleObjectScaling(createTextCornerScaleStepEvent({
+    harness: interaction,
+    marker: new MouseEvent('pointermove'),
+    scale: -0.2
+  }))).toBe(true)
+  expect(interaction.controller.handleCanvasMouseMove(createTextCornerScaleStepEvent({
+    harness: interaction,
+    marker: new MouseEvent('pointermove'),
+    scale: guideScale
+  }))).toBe(true)
+
+  expect(interaction.applyScaleMock).toHaveBeenCalledTimes(2)
+  expect(interaction.applyScaleMock.mock.calls[0]?.[0].scale).toBeCloseTo(minimumScale, 9)
+  expect(interaction.applyScaleMock.mock.calls[1]?.[0].scale).toBeCloseTo(guideScale, 9)
+  expect(interaction.prepareLegacyCommitMock).not.toHaveBeenCalled()
+  expect(interaction.publishGuidesMock).toHaveBeenLastCalledWith({
+    guides: [expect.objectContaining({ axis: 'x', position: guide.position })]
+  })
+
+  expect(interaction.controller.finishGesture()).toBe(true)
+  expect(interaction.target.lockScalingFlip).toBe(false)
+})
+
 it('очищает исходное состояние, если сессия прилипания не была создана', () => {
   const interaction = createTextCornerScaleInteractionHarness()
   harness = interaction

@@ -1,4 +1,7 @@
-import { createTextCornerScaleStepProjection } from '../../../../../src/editor/text-manager/scaling/text-corner-scale-projection'
+import {
+  createTextCornerScaleStepProjection,
+  resolveTextCornerScalePointerMultiplier
+} from '../../../../../src/editor/text-manager/scaling/text-corner-scale-projection'
 import { createTextCornerScaleInteractionHarness } from '../../../../test-utils/text/corner-scale-interaction'
 import { createMeasuredTextCornerScaleProjectionSetup } from '../../../../test-utils/text/corner-scale-projection'
 
@@ -79,4 +82,15 @@ it('использует сторону, с которой грань дейст
   expect(rightEdge?.coefficients[0]).toBeCloseTo(300, 9)
   expect(bottomEdge?.coefficients[0]).toBeCloseTo(100, 9)
   expect(step.projection.baselineValues).toEqual([scale])
+})
+
+it('возвращает нулевой множитель в неподвижной точке и после её пересечения', () => {
+  const { fixedAnchor, gesture, pointerStart } = createTextCornerScaleInteractionHarness()
+  const crossedPoint = {
+    x: fixedAnchor.x - ((pointerStart.x - fixedAnchor.x) * 0.2),
+    y: fixedAnchor.y - ((pointerStart.y - fixedAnchor.y) * 0.2)
+  }
+
+  expect(resolveTextCornerScalePointerMultiplier({ gesture, pointer: fixedAnchor })).toBe(0)
+  expect(resolveTextCornerScalePointerMultiplier({ gesture, pointer: crossedPoint })).toBe(0)
 })

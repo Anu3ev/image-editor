@@ -48,12 +48,13 @@ export type TextCornerScaleInteractionEvent = Readonly<{
   scenePoint?: Readonly<{ x: number; y: number }>
 }>
 
-/** Свойства текста и преобразования, которые угловой скейлинг не должен менять. */
+/** Исходные свойства текста и преобразования, которые должны сохраниться после жеста. */
 type TextCornerScaleProtectedState = Readonly<{
   angle: number
   controlKey: string
   flipX: boolean
   flipY: boolean
+  lockScalingFlip: boolean
   originX: Transform['originX']
   originY: Transform['originY']
   skewX: number
@@ -191,6 +192,7 @@ function captureProtectedTextState({
     controlKey: transform.corner,
     flipX: Boolean(target.flipX),
     flipY: Boolean(target.flipY),
+    lockScalingFlip: Boolean(target.lockScalingFlip),
     originX: transform.originX,
     originY: transform.originY,
     skewX: target.skewX ?? 0,
@@ -282,6 +284,7 @@ export default class TextCornerScaleInteractionController {
 
     try {
       this.session = this._createSession({ gesture, resolved })
+      resolved.target.lockScalingFlip = true
     } catch (error) {
       this.scalingController.clearStandaloneCornerScale({ target: resolved.target })
       throw error
@@ -309,6 +312,7 @@ export default class TextCornerScaleInteractionController {
     const { session } = this
     if (!session) return false
 
+    session.target.lockScalingFlip = session.protectedState.lockScalingFlip
     const cleanup = session.runtime.finishSession()
     session.measurer.dispose()
     this.session = null

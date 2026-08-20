@@ -245,6 +245,30 @@ export default class TextScalingSession {
     return this.getSnapshot(interaction)
   }
 
+  /** Резко уменьшает текст, перетаскивая активную угловую ручку за неподвижную точку. */
+  async dragPastFixedPoint({
+    distanceFactor = 0.2
+  }: {
+    distanceFactor?: number
+  } = {}): Promise<TextCornerScaleSnapshot> {
+    expect(Number.isFinite(distanceFactor), 'доля движения за неподвижную точку должна быть конечной').toBe(true)
+    expect(distanceFactor, 'доля движения за неподвижную точку должна быть положительной').toBeGreaterThan(0)
+
+    const interaction = this._getActiveInteraction()
+    const { fixed, moving } = resolveCornerScaleScenePoints({
+      centered: interaction.centered,
+      corner: interaction.corner,
+      snapshot: interaction.baseline
+    })
+
+    return this.dragToScenePoint({
+      point: {
+        x: fixed.x - ((moving.x - fixed.x) * distanceFactor),
+        y: fixed.y - ((moving.y - fixed.y) * distanceFactor)
+      }
+    })
+  }
+
   /** Возвращает точку выбранного множителя в координатах окна браузера. */
   private async _resolveScaleViewportPoint({
     interaction,
