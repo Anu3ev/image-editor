@@ -9,27 +9,27 @@ import {
   resolveGroupingShapeOptions
 } from '../../fixtures/data/grouping-manager.data'
 
-test.describe('Группировка шейпов', () => {
-  test.beforeEach(async({ editorModel, shapes }) => {
-    const montageBounds = await editorModel.getMontageAreaBounds()
+test.beforeEach(async({ editorModel, shapes }) => {
+  const montageBounds = await editorModel.getMontageAreaBounds()
 
-    for (const shape of GROUPING_SHAPE_SEEDS) {
-      const createdShape = await shapes.addAtBounds({
-        presetKey: 'square',
-        options: resolveGroupingShapeOptions({
-          montageLeft: montageBounds.left,
-          montageTop: montageBounds.top,
-          shape
-        })
+  for (const shape of GROUPING_SHAPE_SEEDS) {
+    const createdShape = await shapes.addAtBounds({
+      presetKey: 'square',
+      options: resolveGroupingShapeOptions({
+        montageLeft: montageBounds.left,
+        montageTop: montageBounds.top,
+        shape
       })
+    })
 
-      shapes.checkCreation({
-        shape: createdShape,
-        presetKey: 'square'
-      })
-    }
-  })
+    shapes.checkCreation({
+      shape: createdShape,
+      presetKey: 'square'
+    })
+  }
+})
 
+test.describe('Сужение группы по горизонтали и редактирование шейпа', () => {
   for (const scenario of GROUPING_HORIZONTAL_UNGROUP_EDITING_SCENARIOS) {
     test(scenario.title, async({
       editorModel,
@@ -44,16 +44,12 @@ test.describe('Группировка шейпов', () => {
         await grouping.groupActiveSelection()
 
         if (scenario.side === 'right') {
-          await selection.scaleHorizontallyFromRight({
-            scaleX: scenario.scaleX
-          })
+          await selection.scaling.scaleHorizontallyFromRight({ scaleX: scenario.scaleX })
         } else {
-          await selection.scaleHorizontallyFromLeft({
-            scaleX: scenario.scaleX
-          })
+          await selection.scaling.scaleHorizontallyFromLeft({ scaleX: scenario.scaleX })
         }
 
-        await selection.finishScale()
+        await selection.scaling.finish()
       })
 
       await test.step('Разгруппировать изменённую группу', async() => {
@@ -85,18 +81,14 @@ test.describe('Группировка шейпов', () => {
         expect(Math.abs(editingShape.groupBoundsHeight - resizedShape.groupBoundsHeight))
           .toBeLessThanOrEqual(GROUPING_SIZE_TOLERANCE)
 
-        shapes.checkNodeInsideGroup({
-          snapshot: editingShape,
-          kind: 'shape'
-        })
-        shapes.checkNodeInsideGroup({
-          snapshot: editingShape,
-          kind: 'text'
-        })
+        shapes.checkNodeInsideGroup({ snapshot: editingShape, kind: 'shape' })
+        shapes.checkNodeInsideGroup({ snapshot: editingShape, kind: 'text' })
       })
     })
   }
+})
 
+test.describe('Сужение группы по вертикали и перемещение шейпа', () => {
   for (const scenario of GROUPING_VERTICAL_UNGROUP_MOVE_SCENARIOS) {
     test(scenario.title, async({
       editorModel,
@@ -112,16 +104,12 @@ test.describe('Группировка шейпов', () => {
         await grouping.groupActiveSelection()
 
         if (scenario.side === 'top') {
-          await selection.scaleVerticallyFromTop({
-            scaleY: scenario.scaleY
-          })
+          await selection.scaling.scaleVerticallyFromTop({ scaleY: scenario.scaleY })
         } else {
-          await selection.scaleVerticallyFromBottom({
-            scaleY: scenario.scaleY
-          })
+          await selection.scaling.scaleVerticallyFromBottom({ scaleY: scenario.scaleY })
         }
 
-        await selection.finishScale()
+        await selection.scaling.finish()
       })
 
       await test.step('Разгруппировать изменённую группу', async() => {
@@ -154,19 +142,11 @@ test.describe('Группировка шейпов', () => {
           .toBeLessThanOrEqual(GROUPING_SIZE_TOLERANCE)
         expect(Math.abs(movedShape.groupBoundsHeight - resizedShape.groupBoundsHeight))
           .toBeLessThanOrEqual(GROUPING_SIZE_TOLERANCE)
-        expect(Math.abs(movedObject.boundsLeft - resizedObject.boundsLeft))
-          .toBeGreaterThan(1)
-        expect(Math.abs(movedObject.boundsTop - resizedObject.boundsTop))
-          .toBeGreaterThan(1)
+        expect(Math.abs(movedObject.boundsLeft - resizedObject.boundsLeft)).toBeGreaterThan(1)
+        expect(Math.abs(movedObject.boundsTop - resizedObject.boundsTop)).toBeGreaterThan(1)
 
-        shapes.checkNodeInsideGroup({
-          snapshot: movedShape,
-          kind: 'shape'
-        })
-        shapes.checkNodeInsideGroup({
-          snapshot: movedShape,
-          kind: 'text'
-        })
+        shapes.checkNodeInsideGroup({ snapshot: movedShape, kind: 'shape' })
+        shapes.checkNodeInsideGroup({ snapshot: movedShape, kind: 'text' })
       })
     })
   }

@@ -3,8 +3,6 @@ import {
   FabricImage,
   Point,
   controlsUtils,
-  type TOriginX,
-  type TOriginY,
   type Transform
 } from 'fabric'
 
@@ -25,11 +23,12 @@ import { getObjectExactBounds, type ObjectBounds } from '../../../src/editor/uti
 import { createMockFabricImage } from '../managers/image'
 import {
   createRectangularScaleProjectionFixture,
+  installRectangularScaleGeometryContract,
   moveFixturePointer,
   type RectangularScaleProjectionFixture
 } from './rectangular-scale-gesture-projection'
 
-/** Параметры тестового Image scale-жеста. */
+/** Параметры тестового скейлинга изображения. */
 export type ImageScaleSnappingHarnessOptions = Readonly<{
   angle?: number
   centered?: boolean
@@ -42,7 +41,7 @@ export type ImageScaleSnappingHarnessOptions = Readonly<{
   width?: number
 }>
 
-/** Наблюдаемые зависимости и исходная геометрия одного Image scale-жеста. */
+/** Наблюдаемые зависимости и исходная геометрия одного скейлинга изображения. */
 export type ImageScaleSnappingHarness = Readonly<{
   baselineBounds: ObjectBounds
   captureEnvironmentMock: jest.MockedFunction<
@@ -50,6 +49,7 @@ export type ImageScaleSnappingHarness = Readonly<{
   >
   controlKey: RectangularScaleControlKey
   controller: ImageScaleSnappingController
+  endCurrentTransformMock: jest.MockedFunction<Canvas['endCurrentTransform']>
   fixedAnchor: Point
   pointerStart: Point
   setMock: jest.SpiedFunction<FabricImage['set']>
@@ -60,19 +60,14 @@ export type ImageScaleSnappingHarness = Readonly<{
   resolvePointer: (multipliers: RectangularScaleMultipliers) => Point
 }>
 
-/** Векторы текущих локальных осей тестового Image. */
-type ImageScaleGeometryBasis = Readonly<{
-  u: Readonly<{ x: number; y: number }>
-  v: Readonly<{ x: number; y: number }>
-}>
-
-/** Editor и наблюдаемое окружение, необходимые Image scale-controller. */
+/** Редактор и наблюдаемое окружение контроллера скейлинга изображения. */
 type ImageScaleControllerDependencies = Readonly<{
   captureEnvironmentMock: ImageScaleSnappingHarness['captureEnvironmentMock']
   editor: ImageEditor
+  endCurrentTransformMock: ImageScaleSnappingHarness['endCurrentTransformMock']
 }>
 
-/** Создаёт реальный FabricImage с управляемой исходной геометрией. */
+/** Создаёт FabricImage с управляемой исходной геометрией. */
 function createImageScaleTarget({
   angle,
   height,
@@ -86,14 +81,14 @@ function createImageScaleTarget({
   originalScaleY: number
   width: number
 }): FabricImage {
-  if (!Number.isFinite(width) || width <= 0) throw new Error('Ширина тестового Image должна быть положительной')
-  if (!Number.isFinite(height) || height <= 0) throw new Error('Высота тестового Image должна быть положительной')
-  if (!Number.isFinite(angle)) throw new Error('Угол тестового Image должен быть конечным')
+  if (!Number.isFinite(width) || width <= 0) throw new Error('Ширина тестового изображения должна быть положительной')
+  if (!Number.isFinite(height) || height <= 0) throw new Error('Высота тестового изображения должна быть положительной')
+  if (!Number.isFinite(angle)) throw new Error('Угол тестового изображения должен быть конечным')
   if (!Number.isFinite(originalScaleX) || originalScaleX <= 0) {
-    throw new Error('Исходный scaleX тестового Image должен быть положительным')
+    throw new Error('Исходный scaleX тестового изображения должен быть положительным')
   }
   if (!Number.isFinite(originalScaleY) || originalScaleY <= 0) {
-    throw new Error('Исходный scaleY тестового Image должен быть положительным')
+    throw new Error('Исходный scaleY тестового изображения должен быть положительным')
   }
 
   const target = createMockFabricImage({ width, height })
@@ -119,7 +114,7 @@ function createImageScaleTarget({
   return target
 }
 
-/** Имитирует ограничение положительного scale, которое Fabric применяет внутри `set`. */
+/** Имитирует минимальный положительный масштаб, который Fabric применяет внутри `set`. */
 function installImageMinimumScaleContract({
   minScaleLimit,
   target
@@ -129,7 +124,7 @@ function installImageMinimumScaleContract({
 }): void {
   if (minScaleLimit === undefined) return
   if (!Number.isFinite(minScaleLimit) || minScaleLimit <= 0) {
-    throw new Error('Минимальный scale тестового Image должен быть положительным')
+    throw new Error('Минимальный масштаб тестового изображения должен быть положительным')
   }
 
   let scaleX = target.scaleX
@@ -155,116 +150,7 @@ function installImageMinimumScaleContract({
   })
 }
 
-/** Переводит Fabric origin одной оси в нормализованную координату. */
-function resolveOriginCoordinate({
-  end,
-  origin,
-  start
-}: {
-  end: 'right' | 'bottom'
-  origin: TOriginX | TOriginY
-  start: 'left' | 'top'
-}): number {
-  if (typeof origin === 'number') return origin
-  if (origin === start) return 0
-  if (origin === end) return 1
-
-  return 0.5
-}
-
-/** Масштабирует исходные оси fixture по текущим scale Image. */
-function resolveScaledFixtureBasis({
-  fixture,
-  target
-}: {
-  fixture: RectangularScaleProjectionFixture
-  target: FabricImage
-}): ImageScaleGeometryBasis {
-  const multiplierX = target.scaleX / fixture.transformOriginal.scaleX
-  const multiplierY = target.scaleY / fixture.transformOriginal.scaleY
-
-  return {
-    u: {
-      x: fixture.u.x * multiplierX,
-      y: fixture.u.y * multiplierX
-    },
-    v: {
-      x: fixture.v.x * multiplierY,
-      y: fixture.v.y * multiplierY
-    }
-  }
-}
-
-/** Возвращает axis-aligned bounds четырёх углов тестового Image. */
-function createImageScaleBoundingRect({
-  points
-}: {
-  points: readonly Point[]
-}): Readonly<{ left: number; top: number; width: number; height: number }> {
-  const xCoordinates = points.map(({ x }) => x)
-  const yCoordinates = points.map(({ y }) => y)
-  const left = Math.min(...xCoordinates)
-  const top = Math.min(...yCoordinates)
-
-  return {
-    left,
-    top,
-    width: Math.max(...xCoordinates) - left,
-    height: Math.max(...yCoordinates) - top
-  }
-}
-
-/** Устанавливает FabricImage детерминированный affine-контракт тестового прямоугольника. */
-function installImageScaleGeometryContract({
-  fixture,
-  target
-}: {
-  fixture: RectangularScaleProjectionFixture
-  target: FabricImage
-}): void {
-  let topLeft = new Point(fixture.topLeft.x, fixture.topLeft.y)
-
-  const projectPoint = (originX: TOriginX, originY: TOriginY) => {
-    const x = resolveOriginCoordinate({ origin: originX, start: 'left', end: 'right' })
-    const y = resolveOriginCoordinate({ origin: originY, start: 'top', end: 'bottom' })
-    const { u, v } = resolveScaledFixtureBasis({ fixture, target })
-
-    return new Point(
-      topLeft.x + (x * u.x) + (y * v.x),
-      topLeft.y + (x * u.y) + (y * v.y)
-    )
-  }
-
-  target.getPointByOrigin = projectPoint
-  target.getCoords = () => [
-    projectPoint('left', 'top'),
-    projectPoint('right', 'top'),
-    projectPoint('right', 'bottom'),
-    projectPoint('left', 'bottom')
-  ]
-  target.getBoundingRect = () => createImageScaleBoundingRect({
-    points: target.getCoords()
-  })
-  target.setPositionByOrigin = (point, originX, originY) => {
-    const x = resolveOriginCoordinate({ origin: originX, start: 'left', end: 'right' })
-    const y = resolveOriginCoordinate({ origin: originY, start: 'top', end: 'bottom' })
-    const { u, v } = resolveScaledFixtureBasis({ fixture, target })
-    topLeft = new Point(
-      point.x - (x * u.x) - (y * v.x),
-      point.y - (x * u.y) - (y * v.y)
-    )
-    const ownOrigin = projectPoint(target.originX, target.originY)
-    target.left = ownOrigin.x
-    target.top = ownOrigin.y
-  }
-  target.setCoords = () => undefined
-
-  const ownOrigin = projectPoint(target.originX, target.originY)
-  target.left = ownOrigin.x
-  target.top = ownOrigin.y
-}
-
-/** Создаёт полный Fabric transform выбранной ручки. */
+/** Создаёт полное описание преобразования Fabric для выбранной ручки. */
 function createImageScaleTransform({
   fixture,
   target
@@ -311,7 +197,7 @@ function createImageScaleTransform({
   }
 }
 
-/** Создаёт editor dependencies без запуска полного ImageEditor lifecycle. */
+/** Создаёт зависимости контроллера без запуска полного жизненного цикла ImageEditor. */
 function createImageScaleControllerDependencies({
   target,
   uniformScaling
@@ -326,8 +212,10 @@ function createImageScaleControllerDependencies({
   const snappingManager: SnappingManager = Object.create(SnappingManager.prototype)
   snappingManager.captureScaleSnapEnvironment = captureEnvironmentMock
   const editor: ImageEditor = Object.create(ImageEditor.prototype)
+  const endCurrentTransformMock: ImageScaleSnappingHarness['endCurrentTransformMock'] = jest.fn()
   const canvas = Object.assign(Object.create(Canvas.prototype), {
     altActionKey: 'shiftKey',
+    endCurrentTransform: endCurrentTransformMock,
     uniformScaling,
     uniScaleKey: 'shiftKey',
     viewportTransform: [1, 0, 0, 1, 0, 0]
@@ -336,35 +224,39 @@ function createImageScaleControllerDependencies({
   editor.snappingManager = snappingManager
   target.canvas = canvas
 
-  return Object.freeze({ captureEnvironmentMock, editor })
+  return Object.freeze({
+    captureEnvironmentMock,
+    editor,
+    endCurrentTransformMock
+  })
 }
 
-/** Возвращает точные границы тестового Image или завершает тест с ошибкой. */
+/** Возвращает точные границы тестового изображения или завершает тест с ошибкой. */
 export function getRequiredImageScaleBounds({
   target
 }: {
   target: FabricImage
 }): ObjectBounds {
   const bounds = getObjectExactBounds({ object: target })
-  if (!bounds) throw new Error('Тестовый Image должен иметь точные границы')
+  if (!bounds) throw new Error('Тестовое изображение должно иметь точные границы')
   if (bounds.right <= bounds.left || bounds.bottom <= bounds.top) {
-    throw new Error('Точные границы тестового Image должны иметь положительный размер')
+    throw new Error('Точные границы тестового изображения должны иметь положительный размер')
   }
 
   return bounds
 }
 
-/** Проверяет оба множителя, используемых test-support слоем. */
+/** Проверяет оба множителя, используемых тестовой инфраструктурой. */
 function assertFiniteMultipliers({
   multipliers
 }: {
   multipliers: RectangularScaleMultipliers
 }): void {
-  if (!Number.isFinite(multipliers.x)) throw new Error('Raw multiplier X тестового Image должен быть конечным')
-  if (!Number.isFinite(multipliers.y)) throw new Error('Raw multiplier Y тестового Image должен быть конечным')
+  if (!Number.isFinite(multipliers.x)) throw new Error('Множитель X тестового изображения должен быть конечным')
+  if (!Number.isFinite(multipliers.y)) throw new Error('Множитель Y тестового изображения должен быть конечным')
 }
 
-/** Создаёт независимый расчёт pointer position через общую affine fixture. */
+/** Рассчитывает положение указателя по общей модели прямоугольного скейлинга. */
 function createPointerResolver({
   fixture
 }: {
@@ -378,7 +270,7 @@ function createPointerResolver({
   }
 }
 
-/** Создаёт Image scale-controller с реальным runtime и наблюдаемым окружением. */
+/** Создаёт контроллер скейлинга изображения с рабочей логикой и наблюдаемым окружением. */
 export function createImageScaleSnappingHarness({
   angle = 0,
   centered = false,
@@ -403,23 +295,25 @@ export function createImageScaleSnappingHarness({
   const target = createImageScaleTarget(options)
   installImageMinimumScaleContract({ minScaleLimit, target })
   target.controls = controlsUtils.createObjectDefaultControls()
-  installImageScaleGeometryContract({ fixture, target })
+  installRectangularScaleGeometryContract({ sourceGeometry: fixture, target })
   const transform = createImageScaleTransform({ fixture, target })
   const pointerStart = new Point(fixture.pointerStart.x, fixture.pointerStart.y)
   const fixedAnchor = target.getPointByOrigin(transform.originX, transform.originY)
   const baselineBounds = getRequiredImageScaleBounds({ target })
   const originalSetPositionByOrigin = target.setPositionByOrigin.bind(target)
   const originalSetCoords = target.setCoords.bind(target)
-  const { captureEnvironmentMock, editor } = createImageScaleControllerDependencies({
-    target,
-    uniformScaling
-  })
+  const {
+    captureEnvironmentMock,
+    editor,
+    endCurrentTransformMock
+  } = createImageScaleControllerDependencies({ target, uniformScaling })
 
   return Object.freeze({
     baselineBounds,
     captureEnvironmentMock,
     controlKey,
     controller: new ImageScaleSnappingController({ editor }),
+    endCurrentTransformMock,
     fixedAnchor,
     pointerStart,
     target,
@@ -437,17 +331,17 @@ export function createImageScaleSnappingHarness({
   })
 }
 
-/** Создаёт mouse:down с Fabric transform выбранной ручки. */
+/** Создаёт `mouse:down` с преобразованием Fabric для выбранной ручки. */
 export function createImageScaleStartEvent({
   harness
 }: {
   harness: ImageScaleSnappingHarness
 }): ImageScaleStartEvent {
   if (harness.transform.target !== harness.target) {
-    throw new Error('Начальный transform должен принадлежать тестовому Image')
+    throw new Error('Начальное преобразование должно принадлежать тестовому изображению')
   }
   if (harness.transform.corner !== harness.controlKey) {
-    throw new Error('Начальный transform должен использовать выбранную ручку')
+    throw new Error('Начальное преобразование должно использовать выбранную ручку')
   }
 
   return Object.freeze({
@@ -460,7 +354,7 @@ export function createImageScaleStartEvent({
   }) as ImageScaleStartEvent
 }
 
-/** Преобразует короткий scalar input теста в множители выбранной ручки. */
+/** Преобразует одно значение из теста в множители выбранной ручки. */
 function resolveScaleStepMultipliers({
   controlKey,
   multiplier
@@ -478,7 +372,7 @@ function resolveScaleStepMultipliers({
   return Object.freeze({ x: multiplier, y: multiplier })
 }
 
-/** Имитирует Fabric preview и создаёт соответствующее событие `object:scaling`. */
+/** Имитирует предварительный результат Fabric и создаёт событие `object:scaling`. */
 export function createImageScaleStepEvent({
   harness,
   marker,
@@ -505,7 +399,7 @@ export function createImageScaleStepEvent({
   }) as ImageScaleTransformEvent
 }
 
-/** Создаёт `mouse:move` fallback без предварительной мутации активного Image. */
+/** Создаёт резервное событие `mouse:move` без предварительного изменения изображения. */
 export function createImageScaleMouseMoveEvent({
   harness,
   marker,
@@ -525,37 +419,4 @@ export function createImageScaleMouseMoveEvent({
     pointer,
     scenePoint: pointer
   }) as ImageScaleMouseMoveEvent
-}
-
-/** Устанавливает одну направляющую относительно исходной границы Image. */
-export function useImageScaleGuide({
-  axis,
-  edge,
-  harness,
-  offset,
-  zoom = 1
-}: {
-  axis: 'x' | 'y'
-  edge: 'left' | 'right' | 'top' | 'bottom'
-  harness: ImageScaleSnappingHarness
-  offset: number
-  zoom?: number
-}): number {
-  if (!Number.isFinite(offset)) throw new Error('Смещение тестовой направляющей должно быть конечным')
-  if (!Number.isFinite(zoom) || zoom <= 0) throw new Error('Zoom тестового окружения должен быть положительным')
-
-  const position = harness.baselineBounds[edge] + offset
-  const candidate: ScaleSnapEnvironment['candidates'][number] = Object.freeze({
-    id: `image-${edge}-guide`,
-    axis,
-    edge,
-    position,
-    category: 'edge'
-  })
-  harness.captureEnvironmentMock.mockReturnValue(Object.freeze({
-    candidates: Object.freeze([candidate]),
-    zoom
-  }))
-
-  return position
 }

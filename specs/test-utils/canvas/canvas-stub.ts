@@ -43,6 +43,7 @@ export const createCanvasStub = () => {
     }),
     set: jest.fn(),
     setCursor: jest.fn(),
+    endCurrentTransform: jest.fn(),
     requestRenderAll: jest.fn(),
     setViewportTransform: jest.fn(),
     discardActiveObject: jest.fn(),

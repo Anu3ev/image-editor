@@ -10,19 +10,19 @@ import {
   createImageScaleSnappingHarness,
   createImageScaleStartEvent,
   createImageScaleStepEvent,
-  getRequiredImageScaleBounds,
-  useImageScaleGuide
+  getRequiredImageScaleBounds
 } from '../../../../test-utils/snapping/image-scale-snapping-controller'
+import { useRectangularScaleGuide } from '../../../../test-utils/snapping/rectangular-scale-gesture-projection'
 
 afterEach(jest.restoreAllMocks)
 
-/** Ожидаемые moving edges одной стандартной ручки Image. */
+/** Изменяемые грани для одной стандартной ручки изображения. */
 type ControlCase = Readonly<{
   controlKey: RectangularScaleControlKey
   movingEdges: readonly string[]
 }>
 
-/** Fabric-настройки и ожидаемый результат одного scale-режима. */
+/** Настройки Fabric и ожидаемый результат одного режима скейлинга. */
 type ScaleModeCase = Readonly<{
   controlKey: RectangularScaleControlKey
   expected: RectangularScaleMultipliers
@@ -32,7 +32,7 @@ type ScaleModeCase = Readonly<{
   uniformScaling: boolean
 }>
 
-/** Параметры прилипания одной боковой ручки Image. */
+/** Параметры прилипания одной боковой ручки изображения. */
 type SideSnapCase = Readonly<{
   axis: 'x' | 'y'
   controlKey: RectangularScaleControlKey
@@ -42,7 +42,7 @@ type SideSnapCase = Readonly<{
   oppositeEdge: 'left' | 'right' | 'top' | 'bottom'
 }>
 
-/** Полная wiring-матрица восьми стандартных ручек Image. */
+/** Набор проверок всех восьми стандартных ручек изображения. */
 const CONTROL_CASES: readonly ControlCase[] = Object.freeze([
   { controlKey: 'tl', movingEdges: ['left', 'top'] },
   { controlKey: 'tr', movingEdges: ['right', 'top'] },
@@ -54,7 +54,7 @@ const CONTROL_CASES: readonly ControlCase[] = Object.freeze([
   { controlKey: 'mb', movingEdges: ['bottom'] }
 ])
 
-/** Horizontal, vertical, free и uniform режимы Image scale. */
+/** Горизонтальный, вертикальный, свободный и пропорциональный скейлинг изображения. */
 const SCALE_MODE_CASES: readonly ScaleModeCase[] = Object.freeze([
   {
     controlKey: 'mr',
@@ -175,7 +175,7 @@ it.each(SCALE_MODE_CASES)(
   }
 )
 
-it('при достижении minScaleLimit синхронизирует Image, Fabric transform и итоговую геометрию', () => {
+it('при достижении minScaleLimit синхронизирует изображение, преобразование Fabric и итоговую геометрию', () => {
   const verifyScalePlanMock = jest.spyOn(ScaleSnappingRuntime.prototype, 'verifyScalePlan')
   const harness = createImageScaleSnappingHarness({
     controlKey: 'mr',
@@ -217,8 +217,9 @@ it.each(SIDE_SNAP_CASES)(
     oppositeEdge
   }) => {
     const harness = createImageScaleSnappingHarness({ controlKey })
-    const guidePosition = useImageScaleGuide({
+    const guidePosition = useRectangularScaleGuide({
       axis,
+      candidateIdPrefix: 'image',
       edge,
       harness,
       offset
@@ -238,7 +239,7 @@ it.each(SIDE_SNAP_CASES)(
     const finalBounds = getRequiredImageScaleBounds({ target: harness.target })
 
     expect(result.handled).toBe(true)
-    if (!result.handled) throw new Error('Боковая ручка Image должна обработать прилипание')
+    if (!result.handled) throw new Error('Боковая ручка изображения должна обработать прилипание')
     expect(result.guides).toHaveLength(1)
     expect(result.guides[0]).toMatchObject({ axis, edge, position: guidePosition })
     expect(finalBounds[edge]).toBeCloseTo(guidePosition, 9)
@@ -249,7 +250,7 @@ it.each(SIDE_SNAP_CASES)(
   }
 )
 
-it('один раз применяет scale и возвращает направляющую только после проверки итоговой геометрии', () => {
+it('один раз применяет масштаб и возвращает направляющую только после проверки итоговой геометрии', () => {
   const verifyScalePlanMock = jest.spyOn(ScaleSnappingRuntime.prototype, 'verifyScalePlan')
   const harness = createImageScaleSnappingHarness()
   const canonicalState = {
@@ -258,8 +259,9 @@ it('один раз применяет scale и возвращает напра�
     height: harness.target.height,
     width: harness.target.width
   }
-  const guidePosition = useImageScaleGuide({
+  const guidePosition = useRectangularScaleGuide({
     axis: 'x',
+    candidateIdPrefix: 'image',
     edge: 'right',
     harness,
     offset: 10
@@ -277,7 +279,7 @@ it('один раз применяет scale и возвращает напра�
     })
   })
   expect(result.handled).toBe(true)
-  if (!result.handled) throw new Error('Поддержанный scale-step Image должен быть обработан')
+  if (!result.handled) throw new Error('Шаг скейлинга изображения должен быть обработан')
 
   const finalBounds = getRequiredImageScaleBounds({ target: harness.target })
 
@@ -305,7 +307,7 @@ it('один раз применяет scale и возвращает напра�
   }])
 })
 
-it('сохраняет центр и угол повёрнутого Image при скейлинге по диагонали от центра', () => {
+it('сохраняет центр и угол повёрнутого изображения при скейлинге по диагонали от центра', () => {
   const harness = createImageScaleSnappingHarness({
     angle: 32,
     centered: true,
@@ -341,11 +343,12 @@ it('сохраняет центр и угол повёрнутого Image пр�
   expect(harness.target.scaleY).toBeCloseTo(1.18, 9)
 })
 
-it('не применяет и не публикует повторно уже проверенный marker', () => {
+it('не применяет и не публикует результат повторно для одного события указателя', () => {
   const verifyScalePlanMock = jest.spyOn(ScaleSnappingRuntime.prototype, 'verifyScalePlan')
   const harness = createImageScaleSnappingHarness()
-  useImageScaleGuide({
+  useRectangularScaleGuide({
     axis: 'x',
+    candidateIdPrefix: 'image',
     edge: 'right',
     harness,
     offset: 10
@@ -363,7 +366,7 @@ it('не применяет и не публикует повторно уже �
   expect(firstResult.handled).toBe(true)
   expect(repeatedResult.handled).toBe(true)
   if (!firstResult.handled || !repeatedResult.handled) {
-    throw new Error('Оба вызова одного Image marker должны считаться обработанными')
+    throw new Error('Оба вызова для одного события изображения должны считаться обработанными')
   }
   expect(firstResult.shouldPublishGuides).toBe(true)
   expect(repeatedResult.shouldPublishGuides).toBe(false)
@@ -373,10 +376,11 @@ it('не применяет и не публикует повторно уже �
   expect(verifyScalePlanMock).toHaveBeenCalledTimes(1)
 })
 
-it('с Ctrl применяет raw scale от начала жеста вместо удержанного значения', () => {
+it('с Ctrl применяет масштаб без прилипания от начала жеста вместо удержанного значения', () => {
   const harness = createImageScaleSnappingHarness()
-  useImageScaleGuide({
+  useRectangularScaleGuide({
     axis: 'x',
+    candidateIdPrefix: 'image',
     edge: 'right',
     harness,
     offset: 10
@@ -404,7 +408,7 @@ it('с Ctrl применяет raw scale от начала жеста вмест
     })
   })
   expect(rawResult.handled).toBe(true)
-  if (!rawResult.handled) throw new Error('Scale-step Image с Ctrl должен остаться обработанным')
+  if (!rawResult.handled) throw new Error('Шаг скейлинга с Ctrl должен остаться обработанным')
 
   const finalBounds = getRequiredImageScaleBounds({ target: harness.target })
 
@@ -415,7 +419,7 @@ it('с Ctrl применяет raw scale от начала жеста вмест
   expect(harness.setMock).toHaveBeenCalledTimes(2)
 })
 
-it('обрабатывает mouse:move fallback и дедуплицирует его с тем же marker', () => {
+it('обрабатывает резервный mouse:move и не повторяет работу для одного события', () => {
   const harness = createImageScaleSnappingHarness()
   const marker = new MouseEvent('pointermove')
 
@@ -434,7 +438,7 @@ it('обрабатывает mouse:move fallback и дедуплицирует �
   expect(firstResult.handled).toBe(true)
   expect(repeatedResult.handled).toBe(true)
   if (!firstResult.handled || !repeatedResult.handled) {
-    throw new Error('Mouse fallback одного Image marker должен остаться обработанным')
+    throw new Error('Повторный mouse:move одного события должен остаться обработанным')
   }
   expect(firstResult.shouldPublishGuides).toBe(true)
   expect(repeatedResult.shouldPublishGuides).toBe(false)
@@ -443,7 +447,7 @@ it('обрабатывает mouse:move fallback и дедуплицирует �
   expect(harness.setMock).toHaveBeenCalledTimes(1)
 })
 
-it('при Shift на боковой ручке завершает scale-сессию до стандартного Fabric skew', () => {
+it('при Shift на боковой ручке завершает сессию скейлинга до перехода Fabric к наклону', () => {
   const harness = createImageScaleSnappingHarness({ controlKey: 'mr' })
 
   expect(harness.controller.startGesture({
@@ -459,20 +463,20 @@ it('при Shift на боковой ручке завершает scale-сес�
   })
 
   expect(skewResult.handled).toBe(true)
-  if (!skewResult.handled) throw new Error('Переход боковой ручки в skew должен быть обработан')
+  if (!skewResult.handled) throw new Error('Переход боковой ручки к наклону должен быть обработан')
   expect(skewResult.guides).toEqual([])
   expect(skewResult.shouldPublishGuides).toBe(true)
   expect(harness.setMock).not.toHaveBeenCalled()
   expect(harness.controller.finishGesture()).toBe(false)
 })
 
-it('оставляет legacy владельцу custom handler правой ручки при стандартном action scaleX', () => {
+it('не перехватывает правую ручку с собственным обработчиком скейлинга', () => {
   const harness = createImageScaleSnappingHarness({ controlKey: 'mr' })
   const rightControl = harness.target.controls.mr
   const customScaleHandler = jest.fn(() => true)
 
   expect(rightControl).toBeDefined()
-  if (!rightControl) throw new Error('Тестовый Image должен иметь правую ручку')
+  if (!rightControl) throw new Error('Тестовое изображение должно иметь правую ручку')
 
   harness.target.controls = {
     ...harness.target.controls,
@@ -490,12 +494,12 @@ it('оставляет legacy владельцу custom handler правой р�
   expect(customScaleHandler).not.toHaveBeenCalled()
 })
 
-it('оставляет legacy владельцу правую ручку со смещённой геометрией', () => {
+it('не перехватывает правую ручку с нестандартным положением', () => {
   const harness = createImageScaleSnappingHarness({ controlKey: 'mr' })
   const rightControl = harness.target.controls.mr
 
   expect(rightControl).toBeDefined()
-  if (!rightControl) throw new Error('Тестовый Image должен иметь правую ручку')
+  if (!rightControl) throw new Error('Тестовое изображение должно иметь правую ручку')
 
   harness.target.controls = {
     ...harness.target.controls,
@@ -517,7 +521,7 @@ it('поддерживает визуальное оформление стан�
   const rightControl = harness.target.controls.mr
 
   expect(rightControl).toBeDefined()
-  if (!rightControl) throw new Error('Тестовый Image должен иметь правую ручку')
+  if (!rightControl) throw new Error('Тестовое изображение должно иметь правую ручку')
 
   harness.target.controls = {
     ...harness.target.controls,
@@ -535,9 +539,11 @@ it('поддерживает визуальное оформление стан�
   expect(harness.captureEnvironmentMock).toHaveBeenCalledTimes(1)
 })
 
-it('оставляет legacy владельцу grouped, locked, flipped и custom-action Image', () => {
+it('не перехватывает вложенное, заблокированное, отражённое и нестандартное изображение', () => {
   const grouped = createImageScaleSnappingHarness()
   grouped.target.group = Object.create(Group.prototype)
+  const nested = createImageScaleSnappingHarness()
+  nested.target.parent = Object.create(Group.prototype)
   const locked = createImageScaleSnappingHarness()
   locked.target.lockScalingX = true
   const flipped = createImageScaleSnappingHarness()
@@ -549,6 +555,10 @@ it('оставляет legacy владельцу grouped, locked, flipped и cus
     event: createImageScaleStartEvent({ harness: grouped })
   })).toBe(false)
   expect(grouped.captureEnvironmentMock).not.toHaveBeenCalled()
+  expect(nested.controller.startGesture({
+    event: createImageScaleStartEvent({ harness: nested })
+  })).toBe(false)
+  expect(nested.captureEnvironmentMock).not.toHaveBeenCalled()
   expect(locked.controller.startGesture({
     event: createImageScaleStartEvent({ harness: locked })
   })).toBe(false)
@@ -563,7 +573,7 @@ it('оставляет legacy владельцу grouped, locked, flipped и cus
   expect(customAction.captureEnvironmentMock).not.toHaveBeenCalled()
 })
 
-it('поддерживает обычный stroke и оставляет scale-independent stroke legacy владельцу', () => {
+it('обрабатывает обычную обводку и не перехватывает скейлинг с постоянной шириной обводки', () => {
   const regularStroke = createImageScaleSnappingHarness()
   regularStroke.target.stroke = '#000000'
   regularStroke.target.strokeWidth = 4
@@ -583,7 +593,7 @@ it('поддерживает обычный stroke и оставляет scale-i
   expect(scaleIndependentStroke.captureEnvironmentMock).not.toHaveBeenCalled()
 })
 
-it('завершает сессию без apply для чужого события и пересечения неподвижной точки', () => {
+it('завершает сессию без применения результата для другого объекта и пересечения неподвижной точки', () => {
   const foreignHarness = createImageScaleSnappingHarness()
   const foreignTarget = createImageScaleSnappingHarness().target
 
@@ -604,7 +614,7 @@ it('завершает сессию без apply для чужого событ�
   })
 
   expect(foreignResult.handled).toBe(false)
-  if (foreignResult.handled) throw new Error('Чужое событие не должно обрабатываться Image owner')
+  if (foreignResult.handled) throw new Error('Событие другого объекта не должно обрабатываться контроллером изображения')
   expect(foreignResult.didFinishSession).toBe(true)
   expect(foreignHarness.setMock).not.toHaveBeenCalled()
 
@@ -622,12 +632,14 @@ it('завершает сессию без apply для чужого событ�
   })
 
   expect(crossingResult.handled).toBe(false)
-  if (crossingResult.handled) throw new Error('Пересечение fixed point не должно обрабатываться Image owner')
+  if (crossingResult.handled) {
+    throw new Error('Пересечение неподвижной точки не должно обрабатываться контроллером изображения')
+  }
   expect(crossingResult.didFinishSession).toBe(true)
   expect(crossingHarness.setMock).not.toHaveBeenCalled()
 })
 
-it('очищает transient scale-сессию один раз и после этого возвращает unhandled', () => {
+it('после завершения один раз очищает сессию и больше не обрабатывает движение', () => {
   const harness = createImageScaleSnappingHarness()
 
   expect(harness.controller.startGesture({
@@ -645,7 +657,22 @@ it('очищает transient scale-сессию один раз и после э
   })
 
   expect(result.handled).toBe(false)
-  if (result.handled) throw new Error('Завершённая Image scale-сессия не должна обрабатывать mouse:move')
+  if (result.handled) throw new Error('Завершённая сессия изображения не должна обрабатывать mouse:move')
   expect(result.didFinishSession).toBe(false)
   expect(harness.setMock).not.toHaveBeenCalled()
+})
+
+it('при отмене жеста завершает преобразование Fabric и очищает сессию один раз', () => {
+  const harness = createImageScaleSnappingHarness()
+  const event = new Event('pointercancel') as PointerEvent
+
+  expect(harness.controller.startGesture({
+    event: createImageScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.controller.interruptGesture({ event })).toBe(true)
+  expect(harness.controller.interruptGesture({ event })).toBe(false)
+
+  expect(harness.endCurrentTransformMock).toHaveBeenCalledTimes(1)
+  expect(harness.endCurrentTransformMock).toHaveBeenCalledWith(event)
+  expect(harness.controller.finishGesture()).toBe(false)
 })

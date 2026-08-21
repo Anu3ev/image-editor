@@ -1,23 +1,16 @@
-/* eslint-disable no-use-before-define -- Публичный controller расположен перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними проверками. */
 import {
   FabricImage,
-  Point,
-  controlsUtils,
-  type Control,
   type FabricObject,
   type TPointerEvent,
   type Transform
 } from 'fabric'
 
 import type { ImageEditor } from '../..'
-import { getObjectExactBounds, type ObjectBounds } from '../../utils/geometry'
 import {
   createRectangularScaleGestureProjection,
   createRectangularScaleProjectionModes,
-  createRectangularScaleValues,
   resolveRectangularScaleMovingEdges,
-  resolveRectangularScaleMultipliers,
-  resolveRectangularScalePointerMultipliers,
   type RectangularScaleGestureMode,
   type RectangularScaleGestureProjection,
   type RectangularScaleGestureTransform,
@@ -26,16 +19,23 @@ import {
 } from './rectangular-scale-gesture-projection'
 import {
   createScaleGestureBaseline,
-  type FinalScaleGeometry,
-  type PlannedScaleConstraint,
   type ScaleRawIntent,
-  type ScaleSnapPlan,
-  type ScaleScenePoint,
   type VerifiedScaleGuide
 } from './scale-snapping-resolver'
 import { ScaleSnappingRuntime } from './scale-snapping-runtime'
+import {
+  applyRectangularScalePlan,
+  readAppliedRectangularScaleMultipliers,
+  readFinalRectangularScaleGeometry,
+  resolveRectangularScaleStepInput,
+  type RectangularScaleIntentSource
+} from './rectangular-scale-interaction'
+import {
+  didSideScaleSwitchToSkew,
+  isStandardRectangularScaleControl
+} from './standard-scale-control'
 
-/** Данные Fabric-события, необходимые для одного шага scale изображения. */
+/** Данные Fabric-события, необходимые для одного шага скейлинга изображения. */
 export type ImageScaleInteractionEvent = Readonly<{
   target?: FabricObject | null
   e?: TPointerEvent | null
@@ -44,32 +44,32 @@ export type ImageScaleInteractionEvent = Readonly<{
   scenePoint?: RectangularScalePoint
 }>
 
-/** Mouse-событие, на котором Fabric уже создал transform выбранной ручки. */
+/** Событие нажатия мыши, для которого Fabric уже создал преобразование выбранной ручки. */
 export type ImageScaleStartEvent = ImageScaleInteractionEvent
 
-/** Canvas `object:scaling` одного live scale-step изображения. */
+/** Событие `object:scaling` для одного текущего шага скейлинга изображения. */
 export type ImageScaleTransformEvent = ImageScaleInteractionEvent
 
-/** Canvas `mouse:move`, который может быть fallback одного live scale-step. */
+/** Событие `mouse:move`, которое может заменить отсутствующий `object:scaling`. */
 export type ImageScaleMouseMoveEvent = ImageScaleInteractionEvent
 
-/** Событие должен обработать legacy scale owner. */
+/** Событие должен обработать прежний владелец скейлинга. */
 export type UnhandledImageScaleStep = Readonly<{
   handled: false
   didFinishSession: boolean
 }>
 
-/** Событие полностью обработано новым Image scale owner. */
+/** Событие полностью обработано новым владельцем скейлинга изображения. */
 export type HandledImageScaleStep = Readonly<{
   handled: true
   guides: readonly VerifiedScaleGuide[]
   shouldPublishGuides: boolean
 }>
 
-/** Результат маршрутизации одного Image scale-step. */
+/** Результат маршрутизации одного шага скейлинга изображения. */
 export type ImageScaleStepResult = UnhandledImageScaleStep | HandledImageScaleStep
 
-/** Свойства Image и Fabric transform, которые scale не должен менять. */
+/** Свойства изображения и преобразования Fabric, которые не должны меняться при скейлинге. */
 type ImageScaleProtectedState = Readonly<{
   action: Transform['action']
   angle: number
@@ -90,14 +90,14 @@ type ImageScaleProtectedState = Readonly<{
   width: number
 }>
 
-/** Проверенные данные одного поддерживаемого Image scale-жеста. */
+/** Проверенные данные одного поддерживаемого жеста скейлинга изображения. */
 type ImageScaleGesture = Readonly<{
   projectionTransform: RectangularScaleGestureTransform
   target: FabricImage
   transform: Transform
 }>
 
-/** Transient-состояние одного активного Image scale-жеста. */
+/** Временное состояние одного активного жеста скейлинга изображения. */
 type ImageScaleSession = Readonly<{
   projection: RectangularScaleGestureProjection
   protectedState: ImageScaleProtectedState
@@ -106,35 +106,27 @@ type ImageScaleSession = Readonly<{
   transform: Transform
 }>
 
-/** Источник raw scale для текущего pointer step. */
-type ImageScaleIntentSource = 'fabric-preview' | 'pointer-projection'
-
-/** Неизменяемый ответ при отсутствии активной unified-сессии. */
+/** Неизменяемый ответ при отсутствии активной унифицированной сессии. */
 const UNHANDLED_IMAGE_SCALE_STEP: UnhandledImageScaleStep = Object.freeze({
   handled: false,
   didFinishSession: false
 })
 
-/** Допуск при сравнении scale и защищённых свойств Image. */
+/** Допуск при сравнении коэффициентов масштаба и защищённых свойств изображения. */
 const IMAGE_SCALE_STATE_EPSILON = 0.000000001
 
-/** Эталонные Fabric controls, с которыми совместим unified Image scale. */
-const STANDARD_IMAGE_SCALE_CONTROLS: Readonly<Record<string, Control>> = Object.freeze(
-  controlsUtils.createObjectDefaultControls()
-)
-
 /**
- * Владеет unified scale-сессией одиночного top-level FabricImage.
- * Неподдерживаемые affine и custom-control сценарии остаются на legacy path.
+ * Владеет унифицированной сессией скейлинга одиночного верхнеуровневого FabricImage.
+ * Неподдерживаемые геометрические состояния и нестандартные ручки остаются на прежнем пути.
  */
 export class ImageScaleSnappingController {
-  /** Редактор с canvas и общим окружением прилипания. */
+  /** Редактор с холстом и общим окружением прилипания. */
   private readonly _editor: ImageEditor
 
-  /** Текущий поддержанный жест или null для legacy-сценария. */
+  /** Текущий поддерживаемый жест или null для прежнего сценария. */
   private _session: ImageScaleSession | null = null
 
-  /** Создаёт Image scale owner для canvas текущего редактора. */
+  /** Создаёт владельца скейлинга изображения для текущего холста. */
   constructor({
     editor
   }: {
@@ -143,7 +135,7 @@ export class ImageScaleSnappingController {
     this._editor = editor
   }
 
-  /** Фиксирует immutable baseline поддержанного Image scale-жеста. */
+  /** Фиксирует неизменяемое исходное состояние поддерживаемого жеста. */
   startGesture({
     event
   }: {
@@ -183,11 +175,10 @@ export class ImageScaleSnappingController {
       target: gesture.target,
       transform: gesture.transform
     })
-
     return true
   }
 
-  /** Обрабатывает raw scale, уже применённый стандартным Fabric handler. */
+  /** Обрабатывает исходный масштаб, уже применённый стандартным обработчиком Fabric. */
   handleObjectScaling({
     event
   }: {
@@ -199,7 +190,7 @@ export class ImageScaleSnappingController {
     })
   }
 
-  /** Обрабатывает новый mouse marker, если Fabric не отправил `object:scaling`. */
+  /** Обрабатывает новое движение мыши, если Fabric не отправил `object:scaling`. */
   handleCanvasMouseMove({
     event
   }: {
@@ -211,7 +202,7 @@ export class ImageScaleSnappingController {
     })
   }
 
-  /** Идемпотентно завершает transient scale-сессию и сообщает о выполненной очистке. */
+  /** Идемпотентно завершает временную сессию скейлинга и сообщает об очистке. */
   finishGesture(): boolean {
     const didCleanup = this._session?.runtime.finishSession().didCleanup ?? false
     this._session = null
@@ -219,7 +210,24 @@ export class ImageScaleSnappingController {
     return didCleanup
   }
 
-  /** Завершает scale-сессию, только если удалён её активный Image. */
+  /** Прерывает активное преобразование Fabric и гарантированно очищает сессию. */
+  interruptGesture({
+    event
+  }: {
+    event?: TPointerEvent
+  } = {}): boolean {
+    if (!this._session) return false
+
+    try {
+      this._editor.canvas.endCurrentTransform(event)
+    } finally {
+      this.finishGesture()
+    }
+
+    return true
+  }
+
+  /** Завершает сессию скейлинга, только если удалено её активное изображение. */
   finishGestureForTarget({
     target
   }: {
@@ -232,13 +240,13 @@ export class ImageScaleSnappingController {
     return true
   }
 
-  /** Выполняет один scale-step либо передаёт его прежнему владельцу без частичного apply. */
+  /** Выполняет один шаг скейлинга либо целиком передаёт его прежнему владельцу. */
   private _handleScaleStep({
     event,
     intentSource
   }: {
     event: ImageScaleInteractionEvent
-    intentSource: ImageScaleIntentSource
+    intentSource: RectangularScaleIntentSource
   }): ImageScaleStepResult {
     const { _session: session } = this
     if (!session) return UNHANDLED_IMAGE_SCALE_STEP
@@ -250,69 +258,77 @@ export class ImageScaleSnappingController {
     const pointerEvent = event.e
     if (!pointerEvent) return this._continueWithLegacyScale()
     if (!doesEventBelongToSession({ event, session })) return this._continueWithLegacyScale()
-    if (isSideSkewStep({ session, pointerEvent })) return this._finishBeforeSkew()
+    if (didSideScaleSwitchToSkew({
+      controlKey: session.projection.controlKey,
+      pointerEvent,
+      target: session.target
+    })) return this._finishBeforeSkew()
     if (!isSameImageScaleGesture({ session })) return this._continueWithLegacyScale()
 
-    const mode = resolveImageScaleMode({
-      projection: session.projection,
-      pointerEvent,
-      editor: this._editor
-    })
-    const multipliers = resolveImageScaleRawMultipliers({
+    const stepInput = resolveRectangularScaleStepInput({
+      canvas: this._editor.canvas,
       event,
       intentSource,
-      mode,
-      session
+      projection: session.projection,
+      target: session.target
     })
-    if (!multipliers || multipliers.x <= 0 || multipliers.y <= 0) {
-      return this._continueWithLegacyScale()
-    }
+    if (!stepInput) return this._continueWithLegacyScale()
 
     return this._applyScaleStep({
+      intent: stepInput.intent,
       marker,
-      mode,
-      multipliers,
-      pointerEvent,
+      mode: stepInput.mode,
       session
     })
   }
 
-  /** Рассчитывает, применяет один раз и проверяет текущий Image scale-step. */
+  /** Рассчитывает, один раз применяет и проверяет текущий шаг скейлинга изображения. */
   private _applyScaleStep({
+    intent,
     marker,
     mode,
-    multipliers,
-    pointerEvent,
     session
   }: {
+    intent: ScaleRawIntent
     marker: object
     mode: RectangularScaleGestureMode
-    multipliers: RectangularScaleMultipliers
-    pointerEvent: TPointerEvent
     session: ImageScaleSession
   }): HandledImageScaleStep {
-    const intent = createImageScaleRawIntent({
-      mode,
-      multipliers,
-      pointerEvent
-    })
     const step = session.runtime.resolveScalePlan({ marker, intent })
     if (step.kind === 'duplicate') {
-      throw new Error('Image scale marker became duplicate after the initial runtime check')
+      throw new Error('Шаг скейлинга изображения стал повторным после начальной проверки сессии')
     }
 
     try {
-      this._applyScalePlan({ plan: step.plan, session })
-      const finalGeometry = readFinalImageScaleGeometry({
-        mode,
+      applyRectangularScalePlan({
         plan: step.plan,
-        session
+        projection: session.projection,
+        target: session.target,
+        transform: session.transform
+      })
+      const appliedMultipliers = readAppliedRectangularScaleMultipliers({
+        projection: session.projection,
+        target: session.target
+      })
+      const finalGeometry = readFinalRectangularScaleGeometry({
+        mode,
+        multipliers: appliedMultipliers,
+        plan: step.plan,
+        protectedStatePreserved: isProtectedImageScaleStatePreserved({
+          mode,
+          multipliers: appliedMultipliers,
+          session
+        }),
+        target: session.target,
+        transform: session.transform
       })
       const verification = session.runtime.verifyScalePlan({
         token: step.token,
         finalGeometry
       })
-      if (didImageScaleChange({ session })) session.transform.actionPerformed = true
+      if (didImageScaleChange({ multipliers: appliedMultipliers })) {
+        session.transform.actionPerformed = true
+      }
 
       return createHandledImageScaleStep({
         guides: verification.guides,
@@ -324,36 +340,7 @@ export class ImageScaleSnappingController {
     }
   }
 
-  /** Применяет оба рассчитанных multiplier относительно исходного Fabric scale. */
-  private _applyScalePlan({
-    plan,
-    session
-  }: {
-    plan: ScaleSnapPlan
-    session: ImageScaleSession
-  }): void {
-    const multipliers = resolveRectangularScaleMultipliers({
-      projectionMode: plan.projectionMode,
-      effectiveValues: plan.effectiveValues
-    })
-    if (multipliers.x <= 0 || multipliers.y <= 0) {
-      throw new Error('Image scale plan must contain positive multipliers')
-    }
-
-    const scaleX = session.projection.originalScales.x * multipliers.x
-    const scaleY = session.projection.originalScales.y * multipliers.y
-    session.target.set({ scaleX, scaleY })
-    session.transform.scaleX = session.target.scaleX
-    session.transform.scaleY = session.target.scaleY
-    session.target.setPositionByOrigin(
-      new Point(session.projection.fixedAnchor.x, session.projection.fixedAnchor.y),
-      session.transform.originX,
-      session.transform.originY
-    )
-    session.target.setCoords()
-  }
-
-  /** Завершает unified-сессию до запуска существующего legacy scale path. */
+  /** Завершает унифицированную сессию до запуска прежней логики скейлинга. */
   private _continueWithLegacyScale(): UnhandledImageScaleStep {
     return Object.freeze({
       handled: false,
@@ -361,7 +348,7 @@ export class ImageScaleSnappingController {
     })
   }
 
-  /** Завершает scale-сессию и не запускает legacy scale поверх Fabric skew. */
+  /** Завершает сессию и не запускает прежнюю логику скейлинга поверх наклона Fabric. */
   private _finishBeforeSkew(): HandledImageScaleStep {
     return createHandledImageScaleStep({
       guides: [],
@@ -370,7 +357,7 @@ export class ImageScaleSnappingController {
   }
 }
 
-/** Проверяет mouse:down и возвращает данные поддержанного Image scale. */
+/** Проверяет `mouse:down` и возвращает данные поддерживаемого скейлинга изображения. */
 function resolveImageScaleGesture({
   event
 }: {
@@ -379,7 +366,7 @@ function resolveImageScaleGesture({
   const { target, transform } = event
   if (!(target instanceof FabricImage) || !transform) return null
   if (transform.target !== target || !isSupportedImageScaleTarget({ target })) return null
-  if (!isStandardImageScaleControl({ target, transform })) return null
+  if (!isStandardRectangularScaleControl({ target, transform })) return null
 
   return Object.freeze({
     projectionTransform: Object.freeze({
@@ -398,40 +385,7 @@ function resolveImageScaleGesture({
   })
 }
 
-/** Проверяет handler и геометрию активной ручки по стандартному Fabric-контракту. */
-function isStandardImageScaleControl({
-  target,
-  transform
-}: {
-  target: FabricImage
-  transform: Transform
-}): boolean {
-  const control = target.controls[transform.corner]
-  const standardControl = STANDARD_IMAGE_SCALE_CONTROLS[transform.corner]
-  if (!control || !standardControl) return false
-
-  const behaviorMatches = [
-    control.actionHandler === standardControl.actionHandler,
-    control.getActionHandler === standardControl.getActionHandler,
-    control.positionHandler === standardControl.positionHandler,
-    control.getTransformAnchorPoint === standardControl.getTransformAnchorPoint,
-    control.transformAnchorPoint === standardControl.transformAnchorPoint
-  ]
-  if (!behaviorMatches.every(Boolean)) return false
-
-  const geometryPairs = [
-    [control.x, standardControl.x],
-    [control.y, standardControl.y],
-    [control.offsetX, standardControl.offsetX],
-    [control.offsetY, standardControl.offsetY]
-  ]
-
-  return geometryPairs.every(([value, standardValue]) => {
-    return areNumbersNear({ first: value, second: standardValue })
-  })
-}
-
-/** Проверяет доменные и affine-ограничения нового Image scale owner. */
+/** Проверяет доменные и геометрические ограничения нового владельца скейлинга. */
 function isSupportedImageScaleTarget({
   target
 }: {
@@ -439,6 +393,7 @@ function isSupportedImageScaleTarget({
 }): boolean {
   const hasUnsupportedState = [
     target.group,
+    target.parent,
     target.flipX,
     target.flipY,
     target.lockScalingX,
@@ -469,7 +424,7 @@ function isSupportedImageScaleTarget({
   return Math.abs(target.strokeWidth ?? 0) <= IMAGE_SCALE_STATE_EPSILON
 }
 
-/** Сохраняет canonical и affine свойства, которые scale не должен менять. */
+/** Сохраняет канонические и геометрические свойства, которые не должны меняться. */
 function captureProtectedImageScaleState({
   target,
   transform
@@ -495,7 +450,7 @@ function captureProtectedImageScaleState({
   })
 }
 
-/** Проверяет принадлежность события исходным target и Fabric transform. */
+/** Проверяет принадлежность события исходному изображению и преобразованию Fabric. */
 function doesEventBelongToSession({
   event,
   session
@@ -509,7 +464,7 @@ function doesEventBelongToSession({
   return true
 }
 
-/** Проверяет, что Fabric не переключил текущий жест на другой transform. */
+/** Проверяет, что Fabric не переключил текущий жест на другое преобразование. */
 function isSameImageScaleGesture({
   session
 }: {
@@ -528,190 +483,7 @@ function isSameImageScaleGesture({
     && Boolean(target.flipY) === protectedState.flipY
 }
 
-/** Проверяет, что модификатор переключил боковую ручку со scale на skew. */
-function isSideSkewStep({
-  session,
-  pointerEvent
-}: {
-  session: ImageScaleSession
-  pointerEvent: TPointerEvent
-}): boolean {
-  const { controlKey } = session.projection
-  const isSideControl = controlKey === 'ml'
-    || controlKey === 'mr'
-    || controlKey === 'mt'
-    || controlKey === 'mb'
-  if (!isSideControl) return false
-
-  const altActionKey = session.target.canvas?.altActionKey
-  if (!altActionKey) return false
-
-  return Reflect.get(pointerEvent, altActionKey) === true
-}
-
-/** Выбирает scale-режим по ручке и текущей настройке proportional scale Fabric. */
-function resolveImageScaleMode({
-  projection,
-  pointerEvent,
-  editor
-}: {
-  projection: RectangularScaleGestureProjection
-  pointerEvent: TPointerEvent
-  editor: ImageEditor
-}): RectangularScaleGestureMode {
-  const { controlKey } = projection
-  if (controlKey === 'ml' || controlKey === 'mr') return 'horizontal'
-  if (controlKey === 'mt' || controlKey === 'mb') return 'vertical'
-
-  const { uniformScaling, uniScaleKey } = editor.canvas
-  const uniformIsToggled = Boolean(
-    uniScaleKey && Reflect.get(pointerEvent, uniScaleKey) === true
-  )
-  const usesUniformScale = (uniformScaling && !uniformIsToggled)
-    || (!uniformScaling && uniformIsToggled)
-
-  return usesUniformScale ? 'uniform' : 'free'
-}
-
-/** Читает raw multiplier из Fabric preview или исходной pointer-проекции. */
-function resolveImageScaleRawMultipliers({
-  event,
-  intentSource,
-  mode,
-  session
-}: {
-  event: ImageScaleInteractionEvent
-  intentSource: ImageScaleIntentSource
-  mode: RectangularScaleGestureMode
-  session: ImageScaleSession
-}): RectangularScaleMultipliers | null {
-  if (intentSource === 'pointer-projection') {
-    if (!event.scenePoint) return null
-
-    return resolveRectangularScalePointerMultipliers({
-      projection: session.projection,
-      pointer: event.scenePoint,
-      mode
-    })
-  }
-
-  const multipliers = readFabricPreviewMultipliers({ session })
-  if (!multipliers) return null
-  if (mode === 'uniform' && !areNumbersNear({
-    first: multipliers.x,
-    second: multipliers.y
-  })) return null
-
-  return multipliers
-}
-
-/** Читает оба scale multiplier относительно immutable начала жеста. */
-function readFabricPreviewMultipliers({
-  session
-}: {
-  session: ImageScaleSession
-}): RectangularScaleMultipliers | null {
-  const { originalScales } = session.projection
-  const x = session.target.scaleX / originalScales.x
-  const y = session.target.scaleY / originalScales.y
-  if (!Number.isFinite(x) || !Number.isFinite(y)) return null
-
-  return Object.freeze({ x, y })
-}
-
-/** Формирует raw intent общего resolver для выбранного Image scale-режима. */
-function createImageScaleRawIntent({
-  mode,
-  multipliers,
-  pointerEvent
-}: {
-  mode: RectangularScaleGestureMode
-  multipliers: RectangularScaleMultipliers
-  pointerEvent: TPointerEvent
-}): ScaleRawIntent {
-  return Object.freeze({
-    projectionMode: mode,
-    values: createRectangularScaleValues({ mode, multipliers }),
-    modifiers: Object.freeze({
-      ctrlKey: 'ctrlKey' in pointerEvent && pointerEvent.ctrlKey === true,
-      shiftKey: 'shiftKey' in pointerEvent && pointerEvent.shiftKey === true
-    })
-  })
-}
-
-/** Читает точные границы, fixed anchor и multiplier после единственного apply. */
-function readFinalImageScaleGeometry({
-  mode,
-  plan,
-  session
-}: {
-  mode: RectangularScaleGestureMode
-  plan: ScaleSnapPlan
-  session: ImageScaleSession
-}): FinalScaleGeometry {
-  const bounds = getObjectExactBounds({ object: session.target })
-  if (!bounds) throw new Error('Image scale snapping requires exact final bounds')
-
-  const anchor = session.target.getPointByOrigin(
-    session.transform.originX,
-    session.transform.originY
-  )
-  const multipliers = readRequiredAppliedMultipliers({ session })
-
-  return Object.freeze({
-    bounds,
-    fixedAnchor: createScaleScenePoint({ point: anchor }),
-    measuredValues: createRectangularScaleValues({ mode, multipliers }),
-    domainVerdict: Object.freeze({
-      x: didReachScaleConstraint({
-        bounds,
-        constraint: plan.constraints.x,
-        epsilon: plan.verificationEpsilon
-      }) ? 'satisfied' : 'blocked',
-      y: didReachScaleConstraint({
-        bounds,
-        constraint: plan.constraints.y,
-        epsilon: plan.verificationEpsilon
-      }) ? 'satisfied' : 'blocked',
-      protectedState: isProtectedImageScaleStatePreserved({
-        mode,
-        multipliers,
-        session
-      }) ? 'preserved' : 'changed'
-    })
-  })
-}
-
-/** Возвращает применённые множители или завершает шаг на нарушении Fabric state. */
-function readRequiredAppliedMultipliers({
-  session
-}: {
-  session: ImageScaleSession
-}): RectangularScaleMultipliers {
-  const multipliers = readFabricPreviewMultipliers({ session })
-  if (!multipliers || multipliers.x <= 0 || multipliers.y <= 0) {
-    throw new Error('Image scale must contain positive applied multipliers')
-  }
-
-  return multipliers
-}
-
-/** Проверяет, что итоговая грань дошла до выбранной направляющей. */
-function didReachScaleConstraint({
-  bounds,
-  constraint,
-  epsilon
-}: {
-  bounds: ObjectBounds
-  constraint: PlannedScaleConstraint | null
-  epsilon: number
-}): boolean {
-  if (!constraint) return true
-
-  return Math.abs(bounds[constraint.candidate.edge] - constraint.expectedPosition) <= epsilon
-}
-
-/** Проверяет canonical свойства Image и неактивные степени свободы scale. */
+/** Проверяет канонические свойства изображения и неизменяемые оси скейлинга. */
 function isProtectedImageScaleStatePreserved({
   mode,
   multipliers,
@@ -731,7 +503,7 @@ function isProtectedImageScaleStatePreserved({
   return true
 }
 
-/** Проверяет canonical и affine свойства, которые applicator не должен менять. */
+/** Проверяет канонические и геометрические свойства, которые не должны меняться. */
 function isCanonicalImageScaleStatePreserved({
   session
 }: {
@@ -750,19 +522,17 @@ function isCanonicalImageScaleStatePreserved({
     && target.originY === protectedState.targetOriginY
 }
 
-/** Проверяет, отличается ли хотя бы одна scale-ось от начала gesture. */
+/** Проверяет, изменился ли масштаб хотя бы по одной оси относительно начала жеста. */
 function didImageScaleChange({
-  session
+  multipliers
 }: {
-  session: ImageScaleSession
+  multipliers: RectangularScaleMultipliers
 }): boolean {
-  const multipliers = readRequiredAppliedMultipliers({ session })
-
   return !areNumbersNear({ first: multipliers.x, second: 1 })
     || !areNumbersNear({ first: multipliers.y, second: 1 })
 }
 
-/** Сравнивает два конечных числа в пределах допуска protected state. */
+/** Сравнивает два конечных числа в пределах допуска защищённого состояния. */
 function areNumbersNear({
   first,
   second
@@ -775,20 +545,7 @@ function areNumbersNear({
     && Math.abs(first - second) <= IMAGE_SCALE_STATE_EPSILON
 }
 
-/** Копирует конечную точку в координатах canvas-сцены. */
-function createScaleScenePoint({
-  point
-}: {
-  point: RectangularScalePoint
-}): ScaleScenePoint {
-  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-    throw new Error('Image scale scene point must contain finite coordinates')
-  }
-
-  return Object.freeze({ x: point.x, y: point.y })
-}
-
-/** Выбирает native pointer event как marker или использует canvas event в тестах. */
+/** Использует исходное событие указателя как идентификатор шага, а при его отсутствии — событие холста. */
 function resolveScaleMarker({
   event
 }: {
@@ -800,14 +557,14 @@ function resolveScaleMarker({
   return event
 }
 
-/** Формирует ответ без повторной публикации уже проверенного runtime-step. */
+/** Формирует ответ без повторной публикации уже проверенного шага. */
 function createDuplicateImageScaleStep({
   duplicate
 }: {
   duplicate: NonNullable<ReturnType<ScaleSnappingRuntime['getDuplicateStep']>>
 }): HandledImageScaleStep {
   if (!duplicate.verification) {
-    throw new Error('Duplicate Image scale step cannot be handled before verification')
+    throw new Error('Повторный шаг скейлинга изображения не может завершиться до проверки результата')
   }
 
   return createHandledImageScaleStep({

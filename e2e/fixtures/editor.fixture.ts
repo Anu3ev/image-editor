@@ -14,7 +14,7 @@ import { BackgroundModel } from '../models/background.model'
 import { InteractionBlockerModel } from '../models/interaction-blocker.model'
 import { ImageModel } from '../models/image/image.model'
 import { ToolbarModel } from '../models/toolbar.model'
-import { SelectionModel } from '../models/selection.model'
+import { SelectionModel } from '../models/selection/selection.model'
 import { GroupingModel } from '../models/grouping.model'
 import { CropModel } from '../models/crop/crop.model'
 import { bypassCertificateWarning } from '../helpers/certificate.helper'
@@ -146,6 +146,7 @@ async function openEditorPage({
 
 /** Завершает браузерные взаимодействия, которые тест оставил активными. */
 async function finishEditorInteractions({ model }: { model: EditorModel }): Promise<void> {
+  await model.selection.scaling.finishIfActive()
   await model.snapping.finishPointerInteractionIfActive()
   await model.text.scaling.finishIfActive()
   await model.text.finishScaleIfActive()
