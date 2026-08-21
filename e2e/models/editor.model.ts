@@ -30,7 +30,7 @@ import { InteractionBlockerModel } from './interaction-blocker.model'
 import { ScaleInteractionTraceModel } from './scale-interaction-trace.model'
 import { ImageModel } from './image/image.model'
 import { ToolbarModel } from './toolbar.model'
-import { SelectionModel } from './selection.model'
+import { SelectionModel } from './selection/selection.model'
 import { GroupingModel } from './grouping.model'
 import { CropModel } from './crop/crop.model'
 
@@ -112,7 +112,11 @@ export class EditorModel {
     this.scaleInteractionTrace = new ScaleInteractionTraceModel(page)
     this.images = new ImageModel(page)
     this.toolbar = new ToolbarModel(page)
-    this.selection = new SelectionModel(page)
+    this.selection = new SelectionModel({
+      page,
+      scaleInteractionTrace: this.scaleInteractionTrace,
+      shapes: this.shapes
+    })
     this.grouping = new GroupingModel(page)
     this.crop = new CropModel(page)
   }

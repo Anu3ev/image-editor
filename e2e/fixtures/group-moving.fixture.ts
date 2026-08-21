@@ -6,7 +6,7 @@ import type { ImageModel } from '../models/image/image.model'
 import type {
   SelectionCompositionSnapshot,
   SelectionModel
-} from '../models/selection.model'
+} from '../models/selection/selection.model'
 import type { ShapeModel } from '../models/shape/shape.model'
 import type { SnappingModel } from '../models/snapping.model'
 import type {
@@ -183,7 +183,7 @@ async function createGroupedObjects({
   if (!groupId) throw new Error('Созданная группа должна получить строковый id')
 
   if (options.scaleBeforeMove) {
-    await models.selection.scaleFromBottomRightBy({
+    await models.selection.scaling.scaleFromBottomRightBy({
       deltaX: 40,
       deltaY: 30,
       pointerSteps: 3

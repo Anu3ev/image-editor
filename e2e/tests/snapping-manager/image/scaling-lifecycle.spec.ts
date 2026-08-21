@@ -1,6 +1,4 @@
-import { test, expect } from '../../../fixtures/editor.fixture'
-import { SNAPPING_IMAGE_SCALE_SIZE } from '../../../fixtures/data/snapping-image-scaling.data'
-import type { SnappingObjectSnapshot } from '../../../types'
+import { test, expect } from '../../../fixtures/image-scaling.fixture'
 
 /** Геометрия, которая должна полностью восстановиться через undo и redo. */
 const IMAGE_SCALE_HISTORY_FIELDS = [
@@ -16,34 +14,9 @@ const IMAGE_SCALE_HISTORY_FIELDS = [
   'scaleY'
 ] as const
 
-/** Исходное состояние одного изолированного scale-жеста. */
-type ImageScaleLifecycleSetup = {
-  baseline: SnappingObjectSnapshot
-  imageId: string
-}
-
-let setup: ImageScaleLifecycleSetup
-
-test.beforeEach(async({
-  history,
-  images
-}) => {
-  const importedImage = await images.addFilledImage(SNAPPING_IMAGE_SCALE_SIZE)
-  const image = images.checkCreation({ imageObject: importedImage })
-
-  const setupFlushed = await history.flushPendingSave()
-
-  expect(setupFlushed, 'beforeEach не должен оставлять отложенное сохранение').toBe(false)
-  expect(image.id).toBeTruthy()
-
-  setup = {
-    baseline: await images.getSnapshot({ id: image.id }),
-    imageId: image.id
-  }
-})
-
 test('при обычном растяжении сохраняет live-геометрию после mouseup', async({
   editorModel,
+  imageScaleReferenceSetup: setup,
   images,
   snapping
 }) => {
@@ -57,7 +30,7 @@ test('при обычном растяжении сохраняет live-гео�
   expect(started.boundsWidth).toBeGreaterThan(0)
 
   const live = await images.scaling.dragControlBy({
-    deltaX: 24,
+    deltaX: 4,
     deltaY: 0
   })
   const liveIndicator = await editorModel.requireObjectSizeIndicator()
@@ -86,8 +59,43 @@ test('при обычном растяжении сохраняет live-гео�
   expect(clearedGuides.spacingGuides).toHaveLength(0)
 })
 
+test('после отмены указателя очищает направляющие и начинает новую сессию', async({
+  imageScaleReferenceSetup: setup,
+  images,
+  snapping
+}) => {
+  await images.scaling.startFromControl({ control: 'mr', id: setup.imageId })
+  await images.scaling.dragRightEdgeTo({
+    boundsRight: setup.guides.right - (2 * setup.scenePixel)
+  })
+
+  expect((await snapping.getGuideState()).guides).toHaveLength(1)
+
+  const cancelled = await images.scaling.cancelWithPointerEvent({ id: setup.imageId })
+  const clearedGuides = await snapping.getGuideState()
+
+  expect(cancelled.boundsRight).toBeCloseTo(setup.guides.right, 5)
+  expect(clearedGuides.guides).toHaveLength(0)
+  expect(clearedGuides.spacingGuides).toHaveLength(0)
+
+  await images.scaling.startFromControl({ control: 'mr', id: setup.imageId })
+  const reacquired = await images.scaling.dragRightEdgeTo({
+    boundsRight: setup.guides.right - (2 * setup.scenePixel)
+  })
+  const guides = await snapping.getGuideState()
+
+  expect(reacquired.boundsRight).toBeCloseTo(setup.guides.right, 5)
+  expect(guides.guides).toEqual([{
+    type: 'vertical',
+    position: setup.guides.right
+  }])
+
+  await images.scaling.finish({ id: setup.imageId })
+})
+
 test('после скейлинга за угол создаёт одну запись в истории и восстанавливает обе оси через undo/redo', async({
   history,
+  imageScaleReferenceSetup: setup,
   images
 }) => {
   const historyBefore = await history.getPosition()

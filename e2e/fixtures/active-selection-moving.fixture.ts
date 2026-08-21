@@ -5,7 +5,7 @@ import type { ImageModel } from '../models/image/image.model'
 import type {
   SelectionCompositionSnapshot,
   SelectionModel
-} from '../models/selection.model'
+} from '../models/selection/selection.model'
 import type { ShapeModel } from '../models/shape/shape.model'
 import type { SnappingModel } from '../models/snapping.model'
 import type { TextModel } from '../models/text/text.model'
@@ -287,7 +287,7 @@ async function createCompositionScene({
   const childIds = await addCompositionChildren({ kind, models, montage, rotated })
   await models.editorModel.selectAllObjects()
   if (scaleBeforeMove) {
-    await models.selection.scaleFromBottomRightBy({ deltaX: 40, deltaY: 30, pointerSteps: 3 })
+    await models.selection.scaling.scaleFromBottomRightBy({ deltaX: 40, deltaY: 30, pointerSteps: 3 })
   }
 
   const initialComposition = await models.selection.getCompositionSnapshot()

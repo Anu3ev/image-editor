@@ -28,7 +28,7 @@ import {
 } from './scaling/scale-snap-candidates'
 import type { VerifiedScaleGuide } from './scaling/scale-snapping-resolver'
 import type { ScaleSceneEdge } from './scaling/scale-projection'
-import { ImageScaleSnappingController } from './scaling/image-scale-snapping-controller'
+import { ImageScaleSnappingController, type ImageScaleStepResult } from './scaling/image-scale-snapping-controller'
 import { MovementSnappingController } from './movement/movement-snapping-controller'
 import {
   calculateSnappingViewportBounds,
@@ -253,6 +253,9 @@ export default class SnappingManager {
    */
   private _onInteractionFinished: () => void
 
+  /** Обработчик внешней отмены текущего взаимодействия. */
+  private _onInteractionCancelled: (event: Event) => void
+
   /** Обработчик удаления объекта, который мог участвовать в активной сессии перемещения. */
   private _onObjectRemoved: (event: ObjectTargetEvent) => void
 
@@ -281,6 +284,7 @@ export default class SnappingManager {
     this._onObjectMoving = this._handleObjectMoving.bind(this)
     this._onObjectScaling = this._handleObjectScaling.bind(this)
     this._onInteractionFinished = this._handleInteractionFinished.bind(this)
+    this._onInteractionCancelled = this._handleInteractionCancelled.bind(this)
     this._onObjectRemoved = this._handleObjectRemoved.bind(this)
     this._onBeforeRender = this._handleBeforeRender.bind(this)
     this._onAfterRender = this._handleAfterRender.bind(this)
@@ -372,9 +376,9 @@ export default class SnappingManager {
     canvas.on('before:render', this._onBeforeRender)
     canvas.on('after:render', this._onAfterRender)
 
-    window.addEventListener('pointercancel', this._onInteractionFinished)
-    window.addEventListener('touchcancel', this._onInteractionFinished)
-    window.addEventListener('blur', this._onInteractionFinished)
+    window.addEventListener('pointercancel', this._onInteractionCancelled)
+    window.addEventListener('touchcancel', this._onInteractionCancelled)
+    window.addEventListener('blur', this._onInteractionCancelled)
   }
 
   /**
@@ -394,9 +398,9 @@ export default class SnappingManager {
     canvas.off('before:render', this._onBeforeRender)
     canvas.off('after:render', this._onAfterRender)
 
-    window.removeEventListener('pointercancel', this._onInteractionFinished)
-    window.removeEventListener('touchcancel', this._onInteractionFinished)
-    window.removeEventListener('blur', this._onInteractionFinished)
+    window.removeEventListener('pointercancel', this._onInteractionCancelled)
+    window.removeEventListener('touchcancel', this._onInteractionCancelled)
+    window.removeEventListener('blur', this._onInteractionCancelled)
   }
 
   /**
@@ -422,7 +426,13 @@ export default class SnappingManager {
 
   /** Обрабатывает шаг скейлинга изображения без события преобразования от Fabric. */
   private _handleMouseMove(event: MouseEventInfo): void {
-    const unifiedStep = this.imageScaleSnappingController.handleCanvasMouseMove({ event })
+    let unifiedStep: ImageScaleStepResult
+    try {
+      unifiedStep = this.imageScaleSnappingController.handleCanvasMouseMove({ event })
+    } catch (error) {
+      this._finishSnappingInteraction()
+      throw error
+    }
     if (unifiedStep.handled) {
       if (unifiedStep.shouldPublishGuides) {
         this.publishVerifiedScaleGuides({ guides: unifiedStep.guides })
@@ -618,7 +628,13 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его масштабировании.
    */
   private _handleObjectScaling(event: TransformEvent): void {
-    const unifiedStep = this.imageScaleSnappingController.handleObjectScaling({ event })
+    let unifiedStep: ImageScaleStepResult
+    try {
+      unifiedStep = this.imageScaleSnappingController.handleObjectScaling({ event })
+    } catch (error) {
+      this._finishSnappingInteraction()
+      throw error
+    }
     if (unifiedStep.handled) {
       if (unifiedStep.shouldPublishGuides) {
         this.publishVerifiedScaleGuides({ guides: unifiedStep.guides })
@@ -1223,6 +1239,13 @@ export default class SnappingManager {
 
   /** Очищает общие сессии прилипания, направляющие и кеш после завершающего события. */
   private _handleInteractionFinished(): void {
+    this._finishSnappingInteraction()
+  }
+
+  /** Завершает преобразование изображения после отмены события или потери фокуса. */
+  private _handleInteractionCancelled(event: Event): void {
+    const pointerEvent = event.type === 'blur' ? undefined : event as TPointerEvent
+    this.imageScaleSnappingController.interruptGesture({ event: pointerEvent })
     this._finishSnappingInteraction()
   }
 

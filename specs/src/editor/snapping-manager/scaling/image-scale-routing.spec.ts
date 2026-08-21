@@ -10,15 +10,19 @@ import {
 } from '../../../../test-utils/snapping/image-scale-routing'
 import { seedVisibleSnappingState } from '../../../../test-utils/snapping/snapping-lifecycle'
 
-/** По одному canvas и window событию, завершающему scale interaction. */
-const TERMINAL_SCALE_EVENTS = [
-  {
-    event: 'mouse:up',
-    source: 'canvas'
-  },
+/** События окна, которые прерывают скейлинг изображения. */
+const INTERRUPTED_SCALE_EVENTS = [
   {
     event: 'pointercancel',
-    source: 'window'
+    forwardsEvent: true
+  },
+  {
+    event: 'touchcancel',
+    forwardsEvent: true
+  },
+  {
+    event: 'blur',
+    forwardsEvent: false
   }
 ] as const
 
@@ -177,28 +181,62 @@ it('Shift на боковой ручке очищает scale-гайды и не
   expect(setup.image.setMock).not.toHaveBeenCalled()
 })
 
-it.each(TERMINAL_SCALE_EVENTS)(
-  '$event завершает Image scale-сессию и очищает временные данные прилипания',
-  ({ event, source }) => {
+it('при ошибке шага очищает сессию, направляющие и кеш целей', () => {
+  const startEvent = createImageScaleStartEvent({ harness: setup.image })
+  emitCanvasEvent({ canvas: setup.canvas, event: 'mouse:down', payload: startEvent })
+  seedVisibleSnappingState({ state: setup.state })
+  setup.image.setMock.mockImplementationOnce(() => {
+    throw new Error('Ошибка применения плана')
+  })
+
+  expect(() => emitCanvasEvent({
+    canvas: setup.canvas,
+    event: 'object:scaling',
+    payload: createImageScaleStepEvent({
+      harness: setup.image,
+      marker: new MouseEvent('pointermove')
+    })
+  })).toThrow('Ошибка применения плана')
+  expect(setup.state.activeGuides).toEqual([])
+  expect(setup.state.activeSpacingGuides).toEqual([])
+  expect(setup.state.anchors).toEqual({ vertical: [], horizontal: [] })
+})
+
+it('mouseup завершает скейлинг изображения без повторного завершения Fabric transform', () => {
+  const startEvent = createImageScaleStartEvent({ harness: setup.image })
+  emitCanvasEvent({
+    canvas: setup.canvas,
+    event: 'mouse:down',
+    payload: startEvent
+  })
+  seedVisibleSnappingState({ state: setup.state })
+
+  emitCanvasEvent({ canvas: setup.canvas, event: 'mouse:up' })
+
+  expect(setup.canvas.endCurrentTransform).not.toHaveBeenCalled()
+  expect(setup.state.activeGuides).toEqual([])
+  expect(setup.state.activeSpacingGuides).toEqual([])
+  expect(setup.state.anchors).toEqual({ vertical: [], horizontal: [] })
+})
+
+it.each(INTERRUPTED_SCALE_EVENTS)(
+  '$event завершает преобразование Fabric и очищает временные данные прилипания',
+  ({ event, forwardsEvent }) => {
     const startEvent = createImageScaleStartEvent({ harness: setup.image })
     emitCanvasEvent({
       canvas: setup.canvas,
       event: 'mouse:down',
       payload: startEvent
     })
-    const finishGestureMock = jest.spyOn(
-      setup.state.imageScaleSnappingController,
-      'finishGesture'
-    )
     seedVisibleSnappingState({ state: setup.state })
+    const cancellationEvent = new Event(event)
 
-    if (source === 'canvas') {
-      emitCanvasEvent({ canvas: setup.canvas, event })
-    } else {
-      window.dispatchEvent(new Event(event))
-    }
+    window.dispatchEvent(cancellationEvent)
 
-    expect(finishGestureMock).toHaveBeenCalledTimes(1)
+    expect(setup.canvas.endCurrentTransform).toHaveBeenCalledTimes(1)
+    expect(setup.canvas.endCurrentTransform).toHaveBeenCalledWith(
+      forwardsEvent ? cancellationEvent : undefined
+    )
     expect(setup.state.activeGuides).toEqual([])
     expect(setup.state.activeSpacingGuides).toEqual([])
     expect(setup.state.anchors).toEqual({ vertical: [], horizontal: [] })

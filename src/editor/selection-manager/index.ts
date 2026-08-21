@@ -7,13 +7,14 @@ import {
   type TPointerEventInfo
 } from 'fabric'
 import { ImageEditor } from '../index'
+import ActiveSelectionScaleInteractionController from './scaling/active-selection-scale-interaction-controller'
 
 type TextEditingEnteredEvent = CanvasEvents['text:editing:entered']
 type TextEditingExitedEvent = CanvasEvents['text:editing:exited']
 
 export default class SelectionManager {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Ссылка на редактор, содержащий холст.
    */
   public editor: ImageEditor
 
@@ -37,6 +38,9 @@ export default class SelectionManager {
    * Флаг, предотвращающий повторное слияние выделения.
    */
   private isSelectionMergeInProgress: boolean = false
+
+  /** Управляет унифицированным скейлингом поддерживаемого общего выделения. */
+  private readonly scaleInteractionController: ActiveSelectionScaleInteractionController
 
   /**
    * Обработчик входа в редактирование текста.
@@ -82,8 +86,10 @@ export default class SelectionManager {
    */
   private handleSelectionBoxEndBound: (options: TPointerEventInfo<TPointerEvent>) => void
 
+  /** Создаёт менеджер выделения и подключает его обработчики к холсту. */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
+    this.scaleInteractionController = new ActiveSelectionScaleInteractionController({ editor })
 
     this.selectionKey = this._resolveSelectionKey()
 
@@ -96,6 +102,7 @@ export default class SelectionManager {
     this.handleSelectionBoxStartBound = this._handleSelectionBoxStart.bind(this)
     this.handleSelectionBoxEndBound = this._handleSelectionBoxEnd.bind(this)
 
+    this.scaleInteractionController.bind()
     this._applySelectionKey({ selectionKey: this.selectionKey })
     this._bindEvents()
   }
@@ -132,6 +139,7 @@ export default class SelectionManager {
    */
   public destroy(): void {
     const { canvas } = this.editor
+    this.scaleInteractionController.destroy()
     canvas.off('mouse:down', this.handleSelectionBoxStartBound)
     canvas.off('mouse:up', this.handleSelectionBoxEndBound)
     canvas.off('text:editing:entered', this.handleTextEditingEnteredBound)

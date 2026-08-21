@@ -1,8 +1,11 @@
 import {
   Point,
   Rect,
-  type FabricObject
+  type FabricObject,
+  type TOriginX,
+  type TOriginY
 } from 'fabric'
+import type { ImageEditor } from '../../../src/editor'
 import type {
   RectangularScaleControlKey,
   RectangularScaleGestureMode,
@@ -10,6 +13,7 @@ import type {
   RectangularScaleMultipliers,
   RectangularScalePoint
 } from '../../../src/editor/snapping-manager/scaling/rectangular-scale-gesture-projection'
+import type { ScaleSnapEnvironment } from '../../../src/editor/snapping-manager/scaling/scale-snap-candidates'
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 
 /** Параметры тестовой геометрии одного прямоугольного scale-жеста. */
@@ -49,6 +53,31 @@ export type RectangularScaleProjectionFixture = Readonly<{
 export type RectangularScaleControlRotationCase = Readonly<{
   controlKey: RectangularScaleControlKey
   angle: number
+}>
+
+/** Исходная геометрия прямоугольного объекта до начала скейлинга. */
+type RectangularScaleSourceGeometry = Readonly<{
+  topLeft: RectangularScalePoint
+  u: RectangularScalePoint
+  v: RectangularScalePoint
+  transformOriginal: Readonly<{
+    scaleX: number
+    scaleY: number
+  }>
+}>
+
+/** Минимальный контракт тестового окружения для установки направляющей. */
+type RectangularScaleGuideHarness = Readonly<{
+  baselineBounds: ObjectBounds
+  captureEnvironmentMock: jest.MockedFunction<
+    ImageEditor['snappingManager']['captureScaleSnapEnvironment']
+  >
+}>
+
+/** Векторы локальных осей прямоугольника в текущем масштабе. */
+type RectangularScaleBasis = Readonly<{
+  u: RectangularScalePoint
+  v: RectangularScalePoint
 }>
 
 /** Все восемь ручек прямоугольного скейлинга. */
@@ -197,6 +226,126 @@ function createFixtureBounds({ points }: { points: readonly RectangularScalePoin
     centerX: left + ((right - left) / 2),
     centerY: top + ((bottom - top) / 2)
   }
+}
+
+/** Переводит точку привязки Fabric в нормализованную координату одной оси. */
+function resolveOriginCoordinate({
+  end,
+  origin,
+  start
+}: {
+  end: 'bottom' | 'right'
+  origin: TOriginX | TOriginY
+  start: 'left' | 'top'
+}): number {
+  if (typeof origin === 'number') return origin
+  if (origin === start) return 0
+  if (origin === end) return 1
+
+  return 0.5
+}
+
+/** Проверяет исходную геометрию тестового прямоугольника. */
+function assertSourceGeometry({
+  sourceGeometry
+}: {
+  sourceGeometry: RectangularScaleSourceGeometry
+}): void {
+  const { topLeft, transformOriginal, u, v } = sourceGeometry
+  const coordinates = [topLeft.x, topLeft.y, u.x, u.y, v.x, v.y]
+
+  if (!coordinates.every(Number.isFinite)) {
+    throw new Error('Исходная геометрия тестового прямоугольника должна содержать конечные числа')
+  }
+  if (transformOriginal.scaleX <= 0 || transformOriginal.scaleY <= 0) {
+    throw new Error('Исходный масштаб тестового прямоугольника должен быть положительным')
+  }
+}
+
+/** Масштабирует исходные оси прямоугольника по текущему состоянию объекта. */
+function resolveCurrentBasis({
+  sourceGeometry,
+  target
+}: {
+  sourceGeometry: RectangularScaleSourceGeometry
+  target: FabricObject
+}): RectangularScaleBasis {
+  const multiplierX = target.scaleX / sourceGeometry.transformOriginal.scaleX
+  const multiplierY = target.scaleY / sourceGeometry.transformOriginal.scaleY
+
+  return {
+    u: {
+      x: sourceGeometry.u.x * multiplierX,
+      y: sourceGeometry.u.y * multiplierX
+    },
+    v: {
+      x: sourceGeometry.v.x * multiplierY,
+      y: sourceGeometry.v.y * multiplierY
+    }
+  }
+}
+
+/** Возвращает ограничивающий прямоугольник четырёх углов объекта. */
+function createBoundingRect({
+  points
+}: {
+  points: readonly RectangularScalePoint[]
+}): Readonly<{ left: number; top: number; width: number; height: number }> {
+  const bounds = createFixtureBounds({ points })
+
+  return {
+    left: bounds.left,
+    top: bounds.top,
+    width: bounds.right - bounds.left,
+    height: bounds.bottom - bounds.top
+  }
+}
+
+/** Устанавливает общую детерминированную геометрию прямоугольного объекта. */
+export function installRectangularScaleGeometryContract({
+  sourceGeometry,
+  target
+}: {
+  sourceGeometry: RectangularScaleSourceGeometry
+  target: FabricObject
+}): void {
+  assertSourceGeometry({ sourceGeometry })
+  let topLeft = new Point(sourceGeometry.topLeft.x, sourceGeometry.topLeft.y)
+
+  const projectPoint = (originX: TOriginX, originY: TOriginY): Point => {
+    const x = resolveOriginCoordinate({ origin: originX, start: 'left', end: 'right' })
+    const y = resolveOriginCoordinate({ origin: originY, start: 'top', end: 'bottom' })
+    const { u, v } = resolveCurrentBasis({ sourceGeometry, target })
+
+    return new Point(
+      topLeft.x + (x * u.x) + (y * v.x),
+      topLeft.y + (x * u.y) + (y * v.y)
+    )
+  }
+
+  target.getPointByOrigin = projectPoint
+  target.getCoords = () => [
+    projectPoint('left', 'top'),
+    projectPoint('right', 'top'),
+    projectPoint('right', 'bottom'),
+    projectPoint('left', 'bottom')
+  ]
+  target.getBoundingRect = () => createBoundingRect({ points: target.getCoords() })
+  target.setPositionByOrigin = (point, originX, originY) => {
+    const projectedOrigin = projectPoint(originX, originY)
+    topLeft = new Point(
+      topLeft.x + point.x - projectedOrigin.x,
+      topLeft.y + point.y - projectedOrigin.y
+    )
+    const ownOrigin = projectPoint(target.originX, target.originY)
+    target.left = ownOrigin.x
+    target.top = ownOrigin.y
+  }
+  target.setCoords = jest.fn()
+
+  const ownOrigin = projectPoint(target.originX, target.originY)
+  target.left = ownOrigin.x
+  target.top = ownOrigin.y
 }
 
 /** Создаёт тестовый прямоугольник с управляемым результатом getCoords. */
@@ -357,4 +506,41 @@ export function projectFixtureBounds({
   })
 
   return createFixtureBounds({ points })
+}
+
+/** Устанавливает одну направляющую относительно исходной границы прямоугольного объекта. */
+export function useRectangularScaleGuide({
+  axis,
+  candidateIdPrefix,
+  edge,
+  harness,
+  offset,
+  zoom = 1
+}: {
+  axis: 'x' | 'y'
+  candidateIdPrefix: string
+  edge: 'bottom' | 'left' | 'right' | 'top'
+  harness: RectangularScaleGuideHarness
+  offset: number
+  zoom?: number
+}): number {
+  if (!Number.isFinite(offset)) throw new Error('Смещение тестовой направляющей должно быть конечным')
+  if (!Number.isFinite(zoom) || zoom <= 0) {
+    throw new Error('Масштаб тестового окружения должен быть положительным')
+  }
+
+  const position = harness.baselineBounds[edge] + offset
+  const candidate: ScaleSnapEnvironment['candidates'][number] = Object.freeze({
+    id: `${candidateIdPrefix}-${edge}-guide`,
+    axis,
+    edge,
+    position,
+    category: 'edge'
+  })
+  harness.captureEnvironmentMock.mockReturnValue(Object.freeze({
+    candidates: Object.freeze([candidate]),
+    zoom
+  }))
+
+  return position
 }

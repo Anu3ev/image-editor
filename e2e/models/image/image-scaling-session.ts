@@ -334,6 +334,38 @@ export class ImageScalingSession {
     }
   }
 
+  /** Прерывает скейлинг изображения событием отмены указателя. */
+  async cancelWithPointerEvent(
+    params: ObjectTargetParams = {}
+  ): Promise<ImageScaleSnapshot> {
+    const interaction = this._getActiveInteraction()
+    expect(
+      this._matchesTarget({ interaction, target: params }),
+      'нельзя отменить скейлинг другого изображения'
+    ).toBe(true)
+
+    try {
+      await this.page.evaluate(() => window.dispatchEvent(new PointerEvent('pointercancel')))
+      await waitForCanvasRender({ page: this.page })
+
+      const hasCurrentTransform = await this.page.evaluate(() => {
+        const { editor } = window as any
+
+        return editor.canvas._currentTransform !== null
+      })
+      expect(hasCurrentTransform, 'отмена указателя должна завершить преобразование Fabric').toBe(false)
+
+      return await this.getSnapshot(params)
+    } finally {
+      await this.page.mouse.up()
+      await this._setModifierState({
+        current: interaction.modifiers,
+        next: RELEASED_IMAGE_SCALE_MODIFIERS
+      })
+      this.activeInteraction = null
+    }
+  }
+
   /** Завершает незакрытый scale-жест во время teardown теста. */
   async finishIfActive(): Promise<ImageScaleSnapshot | null> {
     if (!this.activeInteraction) return null
