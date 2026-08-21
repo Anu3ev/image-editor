@@ -31,6 +31,7 @@ export type CropFrameFitType = 'contain' | 'cover'
  */
 export type StartCanvasCropOptions = {
   size?: CropSize
+  /** Видимая пропорция crop-области на холсте. */
   aspectRatio?: CropAspectRatio
   allowFrameOverflow?: boolean
   showGrid?: boolean
@@ -45,6 +46,7 @@ export type StartCanvasCropOptions = {
 export type StartImageCropOptions = {
   target?: FabricImage
   size?: CropSize
+  /** Видимая пропорция crop-области на холсте. */
   aspectRatio?: CropAspectRatio
   allowFrameOverflow?: boolean
   showGrid?: boolean
