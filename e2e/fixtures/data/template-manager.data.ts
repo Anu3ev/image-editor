@@ -1230,6 +1230,15 @@ export const TEMPLATE_ROUNDTRIP_BASE_RESOLUTION = {
   height: 512
 } as const
 
+/** Исходный размер изображения для проверки сохранения масштаба в шаблоне. */
+export const TEMPLATE_ROUNDTRIP_IMAGE_SIZE = {
+  width: 120,
+  height: 99
+} as const
+
+/** Горизонтальный масштаб изображения перед сохранением в шаблон. */
+export const TEMPLATE_ROUNDTRIP_IMAGE_SCALE_X = 2.5
+
 /** Увеличенное разрешение для проверки нормализованных позиций после roundtrip. */
 export const TEMPLATE_ROUNDTRIP_EXPANDED_RESOLUTION = {
   width: 768,

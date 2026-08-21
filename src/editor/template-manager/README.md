@@ -33,6 +33,8 @@ This keeps large base64 image payloads out of Fabric live objects and out of tem
 
 Template application preserves the exact fractional scene geometry produced by the template transform and type-specific rehydration. It does not round the position or size of each content object independently because that would change alignment and equal-spacing relationships stored in the template.
 
+When `serializeSelection()` captures an image whose X and Y scales differ, it records `customData.imageFit: 'stretch'`. This preserves the image's displayed width and height when the generated template is applied again. Templates without an explicit `imageFit` still use `contain`, so replacing `src` with an image of different intrinsic proportions keeps the existing fit behavior.
+
 If bulk pixel alignment is introduced later, it must be a group-level algorithm with an explicit contract for relative distances, anchors, and outer bounds. Reusing a per-object pixel-grid helper for template content is not compatible with this contract.
 
 ## When Changing This Manager
@@ -40,6 +42,7 @@ If bulk pixel alignment is introduced later, it must be a group-level algorithm 
 - Keep restore-time source preparation before `_enlivenObjects()`. Fabric should receive already prepared image `src` values.
 - Do not add image-specific parsing here. If the rule is about image source materialization, it belongs in `ImageManager` or `BlobUrlRegistry`.
 - Keep geometry rehydration before `canvas.add()`. Text, shape, and image dimensions should be canonical before the object enters the live canvas.
+- Keep the two image restore contracts separate: a non-uniformly scaled selection must round-trip with the same displayed bounds, while an unmarked template with a replaced source must still use `contain`.
 - Preserve exact fractional geometry and relationships between template objects. Do not align content objects to the pixel grid independently.
 - Keep `editor:template-applied` stable for users: original template in the event, inserted Fabric objects in `objects`, montage bounds in `bounds`.
 - When changing apply behavior, test template insertion, background extraction, history save, object identity materialization, and image scaling after insertion.

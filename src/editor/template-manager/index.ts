@@ -84,6 +84,9 @@ export type TemplateMeta = {
 const TEMPLATE_ANCHOR_X_KEY = '_templateAnchorX'
 const TEMPLATE_ANCHOR_Y_KEY = '_templateAnchorY'
 
+/** Допуск для определения одинакового масштаба изображения по обеим осям. */
+const IMAGE_SCALE_EQUALITY_EPSILON = 0.000001
+
 type TemplateAnchor = 'start' | 'center' | 'end'
 
 type TemplateAnchors = {
@@ -1372,6 +1375,29 @@ export default class TemplateManager {
   }
 
   /**
+   * Записывает режим, который сохраняет текущий размер растянутого изображения при восстановлении.
+   */
+  private static _preserveSerializedImageGeometry({
+    object,
+    serialized
+  }: {
+    object: FabricObject
+    serialized: TemplateObjectData
+  }): void {
+    const objectType = typeof object.type === 'string' ? object.type.toLowerCase() : ''
+    if (objectType !== 'image') return
+
+    const scaleX = toNumber({ value: object.scaleX, fallback: 1 })
+    const scaleY = toNumber({ value: object.scaleY, fallback: 1 })
+    if (Math.abs(scaleX - scaleY) <= IMAGE_SCALE_EQUALITY_EPSILON) return
+
+    serialized.customData = {
+      ...serialized.customData,
+      imageFit: 'stretch'
+    }
+  }
+
+  /**
    * Сериализует объект относительно монтажной области.
    */
   private _serializeObject({
@@ -1386,6 +1412,7 @@ export default class TemplateManager {
     baseHeight: number
   }): TemplateObjectData {
     const serialized = object.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as TemplateObjectData
+    TemplateManager._preserveSerializedImageGeometry({ object, serialized })
 
     if (TemplateManager._isSvgObject(object)) {
       const svgMarkup = TemplateManager._extractSvgMarkup(object)
