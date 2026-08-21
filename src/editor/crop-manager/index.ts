@@ -17,6 +17,7 @@ import {
   clampCropFrameToSourcePreservingAspectRatio,
   getCropRectInSource,
   getSourceSize,
+  resolveImageCropSourceAspectRatio,
   resolveCropSize
 } from './domain/crop-geometry'
 import {
@@ -394,16 +395,19 @@ export default class CropManager {
   }
 
   /**
-   * Обновляет crop frame по заданной пропорции.
+   * Обновляет crop-область по заданной видимой пропорции.
    */
   public setAspectRatio({ aspectRatio }: { aspectRatio: CropAspectRatio | null }): CropState | null {
     const { _session: session } = this
     if (!session) return null
 
     const sourceSize = getSourceSize({ source: session.source })
+    const sourceAspectRatio = aspectRatio && session.mode === 'image'
+      ? resolveImageCropSourceAspectRatio({ source: session.source, aspectRatio })
+      : aspectRatio
     const nextSize = resolveCropSize({
       sourceSize,
-      aspectRatio: aspectRatio ?? undefined,
+      aspectRatio: sourceAspectRatio ?? undefined,
       allowOverflow: session.options.allowFrameOverflow
     })
 
@@ -683,10 +687,13 @@ export default class CropManager {
     sessionOptions: CropSessionOptions
   }): Rect {
     const sourceSize = getSourceSize({ source })
+    const sourceAspectRatio = options.aspectRatio && source instanceof FabricImage
+      ? resolveImageCropSourceAspectRatio({ source, aspectRatio: options.aspectRatio })
+      : options.aspectRatio
     const cropSize = resolveCropSize({
       sourceSize,
       size: options.size,
-      aspectRatio: options.aspectRatio,
+      aspectRatio: sourceAspectRatio,
       allowOverflow: sessionOptions.allowFrameOverflow
     })
 

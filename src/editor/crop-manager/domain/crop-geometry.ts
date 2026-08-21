@@ -79,6 +79,25 @@ export function resolveCropSize({
 }
 
 /**
+ * Переводит видимую пропорцию crop-области в локальные координаты изображения.
+ */
+export function resolveImageCropSourceAspectRatio({
+  source,
+  aspectRatio
+}: {
+  source: Pick<FabricObject, 'scaleX' | 'scaleY'>
+  aspectRatio: CropAspectRatio
+}): CropAspectRatio {
+  const scaleX = Math.abs(source.scaleX ?? 1)
+  const scaleY = Math.abs(source.scaleY ?? 1)
+
+  return {
+    width: aspectRatio.width / scaleX,
+    height: aspectRatio.height / scaleY
+  }
+}
+
+/**
  * Возвращает локальный size источника crop mode.
  */
 export function getSourceSize({ source }: { source: FabricObject }): CropSize {

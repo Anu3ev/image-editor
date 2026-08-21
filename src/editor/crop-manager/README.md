@@ -26,6 +26,7 @@
   These fields define not only the UI, but also how resize and snapping interpret the frame size.
 - `CropFrame.scaleX/scaleY` initially match the source image scale.
   Regular Fabric bounds therefore describe frame geometry on the canvas, while `frame.getObjectDisplaySize()` returns the crop-result size in source-image pixels.
+- For image crop, `aspectRatio` describes the visible `CropFrame` on the canvas. If the source has different X and Y scales, `CropManager` converts the requested ratio into source-image coordinates before resolving the local frame size. `startImageCrop()` and `setAspectRatio()` share this rule; explicit `size`, `getState().rect`, and the ratio used by `resetFrameToSource()` remain source-pixel values and are not converted again.
 - `CropFrame` does not inherit `flipX/flipY` from the source. During source-bound resize, the visually fixed side is converted to the opposite source-side on each flipped axis, while `getCropRectInSource()` still uses the full source matrix to calculate the correct crop result. For centered resize, Fabric's center origin takes precedence over the control name.
 - `frame.getObjectSnappingBounds()` intentionally excludes the stroke.
   Snapping must use crop-result geometry, not the visible frame outline.

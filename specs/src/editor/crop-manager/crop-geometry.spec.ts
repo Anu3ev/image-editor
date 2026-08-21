@@ -6,6 +6,7 @@ import {
   MAX_CROP_FRAME_HEIGHT,
   MAX_CROP_FRAME_WIDTH,
   MIN_CROP_FRAME_SIZE,
+  resolveImageCropSourceAspectRatio,
   resolveCropSize
 } from '../../../../src/editor/crop-manager/domain/crop-geometry'
 
@@ -117,6 +118,93 @@ describe('crop geometry', () => {
     expect(tallSize).toEqual({
       width: 225,
       height: 300
+    })
+  })
+
+  it('сохраняет видимую пропорцию после уменьшения изображения по высоте', () => {
+    const scaleX = 0.25
+    const scaleY = 0.125
+    const aspectRatio = resolveImageCropSourceAspectRatio({
+      source: {
+        scaleX,
+        scaleY
+      },
+      aspectRatio: {
+        width: 1,
+        height: 1
+      }
+    })
+    const size = resolveCropSize({
+      sourceSize: {
+        width: 2000,
+        height: 2000
+      },
+      aspectRatio,
+      allowOverflow: false
+    })
+
+    expect((size.width * scaleX) / (size.height * scaleY)).toBeCloseTo(1, 6)
+    expect(size).toEqual({
+      width: 1000,
+      height: 2000
+    })
+  })
+
+  it('сохраняет видимую пропорцию после уменьшения изображения по ширине', () => {
+    const scaleX = 0.125
+    const scaleY = 0.25
+    const aspectRatio = resolveImageCropSourceAspectRatio({
+      source: {
+        scaleX,
+        scaleY
+      },
+      aspectRatio: {
+        width: 1,
+        height: 1
+      }
+    })
+    const size = resolveCropSize({
+      sourceSize: {
+        width: 2000,
+        height: 2000
+      },
+      aspectRatio,
+      allowOverflow: false
+    })
+
+    expect((size.width * scaleX) / (size.height * scaleY)).toBeCloseTo(1, 6)
+    expect(size).toEqual({
+      width: 2000,
+      height: 1000
+    })
+  })
+
+  it('не меняет пропорцию при равномерном скейлинге изображения', () => {
+    const scaleX = 0.25
+    const scaleY = 0.25
+    const aspectRatio = resolveImageCropSourceAspectRatio({
+      source: {
+        scaleX,
+        scaleY
+      },
+      aspectRatio: {
+        width: 4,
+        height: 3
+      }
+    })
+    const size = resolveCropSize({
+      sourceSize: {
+        width: 1200,
+        height: 1200
+      },
+      aspectRatio,
+      allowOverflow: false
+    })
+
+    expect((size.width * scaleX) / (size.height * scaleY)).toBeCloseTo(4 / 3, 6)
+    expect(size).toEqual({
+      width: 1200,
+      height: 900
     })
   })
 
