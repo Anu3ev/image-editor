@@ -21,6 +21,7 @@ import {
 } from './domain/crop-geometry'
 import {
   resolveCropProportionalSourceSnapPlan,
+  resolveCropSourceScaleAnchor,
   type CropSourceScaleAnchor
 } from './domain/crop-source-scale'
 import {
@@ -308,6 +309,7 @@ export default class CropManager {
 
     const sourcePlan = this._resolveSourceBoundScalePlan({
       target,
+      source: session.source,
       transform: transform as CropSourceBoundTransform,
       nextScaleX,
       nextScaleY
@@ -874,7 +876,10 @@ export default class CropManager {
     if (!scale) return null
     if (!Number.isFinite(scale.scaleX) || !Number.isFinite(scale.scaleY)) return null
 
-    const sourceRect = this._getSourceBoundRectFromEvent({ event })
+    const sourceRect = this._getSourceBoundRectFromEvent({
+      source: session.source,
+      event
+    })
     if (sourceRect) {
       return getCropFrameTransformStateFromSourceRect({
         source: session.source,
@@ -896,8 +901,10 @@ export default class CropManager {
    * Возвращает source-rect для текущего source-bound transform.
    */
   private _getSourceBoundRectFromEvent({
+    source,
     event
   }: {
+    source: FabricObject
     event?: CropFrameChangeEvent
   }): CropRect | null {
     const transform = event?.transform
@@ -912,6 +919,7 @@ export default class CropManager {
     if (originalScaleX === 0 || originalScaleY === 0) return null
 
     return this._getAnchoredSourceBoundRectFromEvent({
+      source,
       event,
       size: {
         width: bounds.startRect.width * Math.abs(scale.scaleX / originalScaleX),
@@ -951,6 +959,7 @@ export default class CropManager {
   }): boolean {
     const currentRect = getCropSessionResultRect({ session })
     const rect = this._getAnchoredSourceBoundRectFromTransform({
+      source: session.source,
       transform,
       size: {
         width: currentRect.width,
@@ -979,9 +988,11 @@ export default class CropManager {
    * Возвращает source-rect заданного размера с учётом fixed anchor текущего transform.
    */
   private _getAnchoredSourceBoundRectFromEvent({
+    source,
     event,
     size
   }: {
+    source: FabricObject
     event?: CropFrameChangeEvent
     size: CropSize
   }): CropRect | null {
@@ -989,6 +1000,7 @@ export default class CropManager {
     if (!transform) return null
 
     return this._getAnchoredSourceBoundRectFromTransform({
+      source,
       transform,
       size
     })
@@ -998,9 +1010,11 @@ export default class CropManager {
    * Возвращает source-rect заданного размера по fixed anchor текущего transform.
    */
   private _getAnchoredSourceBoundRectFromTransform({
+    source,
     transform,
     size
   }: {
+    source: FabricObject
     transform: CropSourceBoundTransform
     size: CropSize
   }): CropRect | null {
@@ -1010,8 +1024,16 @@ export default class CropManager {
     return this._getAnchoredSourceBoundRect({
       bounds,
       size,
-      anchorX: transform.cropSourceScaleAnchorX ?? this._getTransformAnchorX({ transform }),
-      anchorY: transform.cropSourceScaleAnchorY ?? this._getTransformAnchorY({ transform })
+      anchorX: transform.cropSourceScaleAnchorX ?? resolveCropSourceScaleAnchor({
+        source,
+        transform,
+        axis: 'x'
+      }),
+      anchorY: transform.cropSourceScaleAnchorY ?? resolveCropSourceScaleAnchor({
+        source,
+        transform,
+        axis: 'y'
+      })
     })
   }
 
@@ -1101,11 +1123,13 @@ export default class CropManager {
    */
   private _resolveSourceBoundScalePlan({
     target,
+    source,
     transform,
     nextScaleX,
     nextScaleY
   }: {
     target: FabricObject
+    source: FabricObject
     transform: CropSourceBoundTransform
     nextScaleX: number | null
     nextScaleY: number | null
@@ -1121,8 +1145,10 @@ export default class CropManager {
     const scaleY = nextScaleY ?? target.scaleY ?? originalScaleY
     if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY)) return null
 
-    const anchorX = transform.cropSourceScaleAnchorX ?? this._getTransformAnchorX({ transform })
-    const anchorY = transform.cropSourceScaleAnchorY ?? this._getTransformAnchorY({ transform })
+    const anchorX = transform.cropSourceScaleAnchorX
+      ?? resolveCropSourceScaleAnchor({ source, transform, axis: 'x' })
+    const anchorY = transform.cropSourceScaleAnchorY
+      ?? resolveCropSourceScaleAnchor({ source, transform, axis: 'y' })
     const sourcePlan = resolveCropProportionalSourceSnapPlan({
       sourceSize: bounds.sourceSize,
       startRect: bounds.startRect,
@@ -1173,40 +1199,6 @@ export default class CropManager {
     transform.cropSourceBoundScale = plan.scale
     transform.scaleX = plan.scale.scaleX
     transform.scaleY = plan.scale.scaleY
-  }
-
-  /**
-   * Возвращает fixed source anchor по горизонтали для Fabric transform.
-   */
-  private _getTransformAnchorX({ transform }: { transform: Transform }): CropSourceScaleAnchor {
-    if (transform.corner === 'tl' || transform.corner === 'bl' || transform.corner === 'ml') {
-      return 'max'
-    }
-    if (transform.corner === 'tr' || transform.corner === 'br' || transform.corner === 'mr') {
-      return 'min'
-    }
-
-    if (transform.originX === 'left' || transform.originX === 0) return 'min'
-    if (transform.originX === 'right' || transform.originX === 1) return 'max'
-
-    return 'center'
-  }
-
-  /**
-   * Возвращает fixed source anchor по вертикали для Fabric transform.
-   */
-  private _getTransformAnchorY({ transform }: { transform: Transform }): CropSourceScaleAnchor {
-    if (transform.corner === 'tl' || transform.corner === 'tr' || transform.corner === 'mt') {
-      return 'max'
-    }
-    if (transform.corner === 'bl' || transform.corner === 'br' || transform.corner === 'mb') {
-      return 'min'
-    }
-
-    if (transform.originY === 'top' || transform.originY === 0) return 'min'
-    if (transform.originY === 'bottom' || transform.originY === 1) return 'max'
-
-    return 'center'
   }
 
   /**

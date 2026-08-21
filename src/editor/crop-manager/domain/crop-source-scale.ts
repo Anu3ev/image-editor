@@ -1,5 +1,10 @@
 /* eslint-disable no-use-before-define -- Публичную domain-функцию держим выше private helper. */
 import type {
+  FabricObject,
+  Transform
+} from 'fabric'
+
+import type {
   CropRect,
   CropSize
 } from '../types'
@@ -18,6 +23,58 @@ const SOURCE_SCALE_LIMIT_EPSILON = 0.000000001
  * Какая сторона crop rect остаётся неподвижной во время source-bound scale.
  */
 export type CropSourceScaleAnchor = 'min' | 'center' | 'max'
+
+/** Source с признаками отражения, если текущий CropFrame связан с source. */
+type CropScaleAnchorSource = Pick<FabricObject, 'flipX' | 'flipY'>
+
+/** Часть Fabric transform, которая определяет неподвижную сторону resize. */
+type CropScaleAnchorTransform = Pick<Transform, 'corner' | 'originX' | 'originY'>
+
+/** Визуально неподвижные стороны для каждой ручки crop-области. */
+const CROP_CONTROL_VISUAL_ANCHORS: {
+  [control: string]: {
+    x?: CropSourceScaleAnchor
+    y?: CropSourceScaleAnchor
+  }
+} = {
+  tl: { x: 'max', y: 'max' },
+  tr: { x: 'min', y: 'max' },
+  bl: { x: 'max', y: 'min' },
+  br: { x: 'min', y: 'min' },
+  ml: { x: 'max' },
+  mr: { x: 'min' },
+  mt: { y: 'max' },
+  mb: { y: 'min' }
+}
+
+/** Визуально неподвижные стороны для Fabric origin по каждой оси. */
+const CROP_ORIGIN_VISUAL_ANCHORS: {
+  x: { [origin: string]: CropSourceScaleAnchor }
+  y: { [origin: string]: CropSourceScaleAnchor }
+} = {
+  x: { left: 'min', center: 'center', right: 'max', 0: 'min', 0.5: 'center', 1: 'max' },
+  y: { top: 'min', center: 'center', bottom: 'max', 0: 'min', 0.5: 'center', 1: 'max' }
+}
+
+/**
+ * Возвращает неподвижную сторону resize в локальных координатах source.
+ */
+export function resolveCropSourceScaleAnchor({
+  source,
+  transform,
+  axis
+}: {
+  source?: CropScaleAnchorSource | null
+  transform: CropScaleAnchorTransform
+  axis: 'x' | 'y'
+}): CropSourceScaleAnchor {
+  const visualAnchor = resolveCropVisualScaleAnchor({ transform, axis })
+  const sourceFlipped = axis === 'x' ? source?.flipX === true : source?.flipY === true
+
+  if (!sourceFlipped || visualAnchor === 'center') return visualAnchor
+
+  return visualAnchor === 'min' ? 'max' : 'min'
+}
 
 /**
  * Source-bound snap plan для proportional resize.
@@ -53,6 +110,27 @@ type ResolveCropProportionalSourceScaleLimitParams = {
 type CropSourceAxisSnapLimit = {
   sizeLimit: number
   scale: number
+}
+
+/**
+ * Возвращает визуально неподвижную сторону resize до преобразования в source-координаты.
+ */
+function resolveCropVisualScaleAnchor({
+  transform,
+  axis
+}: {
+  transform: CropScaleAnchorTransform
+  axis: 'x' | 'y'
+}): CropSourceScaleAnchor {
+  const { corner } = transform
+  const origin = axis === 'x' ? transform.originX : transform.originY
+  const originAnchor = CROP_ORIGIN_VISUAL_ANCHORS[axis][String(origin)]
+  if (originAnchor === 'center') return originAnchor
+
+  const controlAnchor = CROP_CONTROL_VISUAL_ANCHORS[corner]?.[axis]
+  if (controlAnchor) return controlAnchor
+
+  return originAnchor ?? 'center'
 }
 
 /**
