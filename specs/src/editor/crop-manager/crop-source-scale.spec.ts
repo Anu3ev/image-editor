@@ -1,7 +1,164 @@
 import {
   resolveCropProportionalSourceScaleLimit,
+  resolveCropSourceScaleAnchor,
   resolveCropSourceAxisScaleLimit
 } from '../../../../src/editor/crop-manager/domain/crop-source-scale'
+
+/** Реальные Fabric origins и неподвижные стороны для всех ручек crop-области. */
+const CROP_CONTROL_ANCHOR_CASES = [
+  {
+    title: 'левой верхней ручки',
+    corner: 'tl',
+    originX: 'right',
+    originY: 'bottom',
+    anchorX: 'max',
+    anchorY: 'max',
+    anchorAfterFlipX: 'min',
+    anchorAfterFlipY: 'min'
+  },
+  {
+    title: 'правой верхней ручки',
+    corner: 'tr',
+    originX: 'left',
+    originY: 'bottom',
+    anchorX: 'min',
+    anchorY: 'max',
+    anchorAfterFlipX: 'max',
+    anchorAfterFlipY: 'min'
+  },
+  {
+    title: 'левой нижней ручки',
+    corner: 'bl',
+    originX: 'right',
+    originY: 'top',
+    anchorX: 'max',
+    anchorY: 'min',
+    anchorAfterFlipX: 'min',
+    anchorAfterFlipY: 'max'
+  },
+  {
+    title: 'правой нижней ручки',
+    corner: 'br',
+    originX: 'left',
+    originY: 'top',
+    anchorX: 'min',
+    anchorY: 'min',
+    anchorAfterFlipX: 'max',
+    anchorAfterFlipY: 'max'
+  },
+  {
+    title: 'левой боковой ручки',
+    corner: 'ml',
+    originX: 'right',
+    originY: 'center',
+    anchorX: 'max',
+    anchorY: 'center',
+    anchorAfterFlipX: 'min',
+    anchorAfterFlipY: 'center'
+  },
+  {
+    title: 'правой боковой ручки',
+    corner: 'mr',
+    originX: 'left',
+    originY: 'center',
+    anchorX: 'min',
+    anchorY: 'center',
+    anchorAfterFlipX: 'max',
+    anchorAfterFlipY: 'center'
+  },
+  {
+    title: 'верхней боковой ручки',
+    corner: 'mt',
+    originX: 'center',
+    originY: 'bottom',
+    anchorX: 'center',
+    anchorY: 'max',
+    anchorAfterFlipX: 'center',
+    anchorAfterFlipY: 'min'
+  },
+  {
+    title: 'нижней боковой ручки',
+    corner: 'mb',
+    originX: 'center',
+    originY: 'top',
+    anchorX: 'center',
+    anchorY: 'min',
+    anchorAfterFlipX: 'center',
+    anchorAfterFlipY: 'max'
+  }
+] as const
+
+describe('неподвижная сторона crop resize в координатах source', () => {
+  it.each(CROP_CONTROL_ANCHOR_CASES)('для $title учитывает флип только по его оси', ({
+    corner,
+    originX,
+    originY,
+    anchorX,
+    anchorY,
+    anchorAfterFlipX,
+    anchorAfterFlipY
+  }) => {
+    const transform = {
+      corner,
+      originX,
+      originY
+    } as const
+    const regularAnchorX = resolveCropSourceScaleAnchor({
+      source: { flipX: false, flipY: false },
+      transform,
+      axis: 'x'
+    })
+    const regularAnchorY = resolveCropSourceScaleAnchor({
+      source: { flipX: false, flipY: false },
+      transform,
+      axis: 'y'
+    })
+    const horizontalFlipAnchorX = resolveCropSourceScaleAnchor({
+      source: { flipX: true, flipY: false },
+      transform,
+      axis: 'x'
+    })
+    const horizontalFlipAnchorY = resolveCropSourceScaleAnchor({
+      source: { flipX: true, flipY: false },
+      transform,
+      axis: 'y'
+    })
+    const verticalFlipAnchorX = resolveCropSourceScaleAnchor({
+      source: { flipX: false, flipY: true },
+      transform,
+      axis: 'x'
+    })
+    const verticalFlipAnchorY = resolveCropSourceScaleAnchor({
+      source: { flipX: false, flipY: true },
+      transform,
+      axis: 'y'
+    })
+
+    expect(regularAnchorX).toBe(anchorX)
+    expect(regularAnchorY).toBe(anchorY)
+    expect(horizontalFlipAnchorX).toBe(anchorAfterFlipX)
+    expect(horizontalFlipAnchorY).toBe(anchorY)
+    expect(verticalFlipAnchorX).toBe(anchorX)
+    expect(verticalFlipAnchorY).toBe(anchorAfterFlipY)
+  })
+
+  it('для реальной угловой ручки сохраняет центр после флипа при скейлинге от центра', () => {
+    const transform = {
+      corner: 'tr',
+      originX: 'center',
+      originY: 'center'
+    } as const
+
+    expect(resolveCropSourceScaleAnchor({ source: null, transform, axis: 'x' })).toBe('center')
+    expect(resolveCropSourceScaleAnchor({ source: null, transform, axis: 'y' })).toBe('center')
+    expect(resolveCropSourceScaleAnchor({
+      source: { flipX: true, flipY: true }, transform, axis: 'x'
+    })).toBe('center')
+    expect(resolveCropSourceScaleAnchor({
+      source: { flipX: true, flipY: true }, transform, axis: 'y'
+    })).toBe('center')
+  })
+})
 
 describe('ограничение proportional scale внутри source', () => {
   it('ограничивает рост сверху фиксированным нижним краем source', () => {

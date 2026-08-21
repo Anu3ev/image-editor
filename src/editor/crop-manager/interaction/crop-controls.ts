@@ -19,6 +19,7 @@ import { getCropFrameSourceSize } from '../domain/crop-frame-size'
 import { resolveCropFrameResizePreserveAspectRatio } from '../domain/crop-resize-mode'
 import {
   resolveCropProportionalSourceScaleLimit,
+  resolveCropSourceScaleAnchor,
   resolveCropSourceAxisScaleLimit,
   type CropSourceScaleAnchor
 } from '../domain/crop-source-scale'
@@ -673,8 +674,16 @@ function rememberSourceBoundScale({
 
   transform.cropSourceScaleClamped = true
   transform.cropSourceScalePreserveAspectRatio = preserveAspectRatio
-  transform.cropSourceScaleAnchorX = getTransformAnchorX({ transform })
-  transform.cropSourceScaleAnchorY = getTransformAnchorY({ transform })
+  transform.cropSourceScaleAnchorX = getTransformAxisAnchor({
+    target,
+    transform,
+    axis: 'x'
+  })
+  transform.cropSourceScaleAnchorY = getTransformAxisAnchor({
+    target,
+    transform,
+    axis: 'y'
+  })
   transform.cropSourceBoundScale = {
     scaleX: target.scaleX ?? 1,
     scaleY: target.scaleY ?? 1
@@ -784,6 +793,7 @@ function getSourceAxisMaximumScale({
     startRect: bounds.startRect,
     axis,
     anchor: getTransformAxisAnchor({
+      target,
       transform,
       axis
     })
@@ -961,8 +971,16 @@ function clampProportionalScale({
   const scaleY = transform.original.scaleY * nextScale
 
   if (transform.cropSourceScaleClamped) {
-    transform.cropSourceScaleAnchorX = getTransformAnchorX({ transform })
-    transform.cropSourceScaleAnchorY = getTransformAnchorY({ transform })
+    transform.cropSourceScaleAnchorX = getTransformAxisAnchor({
+      target,
+      transform,
+      axis: 'x'
+    })
+    transform.cropSourceScaleAnchorY = getTransformAxisAnchor({
+      target,
+      transform,
+      axis: 'y'
+    })
     transform.cropSourceBoundScale = {
       scaleX,
       scaleY
@@ -999,8 +1017,8 @@ function getProportionalSourceMaxScale({
   return resolveCropProportionalSourceScaleLimit({
     sourceSize: bounds.sourceSize,
     startRect: bounds.startRect,
-    anchorX: getTransformAnchorX({ transform }),
-    anchorY: getTransformAnchorY({ transform })
+    anchorX: getTransformAxisAnchor({ target, transform, axis: 'x' }),
+    anchorY: getTransformAxisAnchor({ target, transform, axis: 'y' })
   })
 }
 
@@ -1040,49 +1058,17 @@ function getSourceScaleBounds({
  * Возвращает fixed anchor по указанной оси для текущего Fabric transform.
  */
 function getTransformAxisAnchor({
+  target,
   transform,
   axis
 }: {
+  target: FabricObject
   transform: Transform
   axis: CropScaleAxis
 }): CropSourceScaleAnchor {
-  if (axis === 'x') return getTransformAnchorX({ transform })
+  const source = (target as CropFrameScaleTarget).cropSource
 
-  return getTransformAnchorY({ transform })
-}
-
-/**
- * Возвращает fixed anchor по горизонтали для текущего Fabric transform.
- */
-function getTransformAnchorX({ transform }: { transform: Transform }): CropSourceScaleAnchor {
-  if (transform.corner === 'tl' || transform.corner === 'bl' || transform.corner === 'ml') {
-    return 'max'
-  }
-  if (transform.corner === 'tr' || transform.corner === 'br' || transform.corner === 'mr') {
-    return 'min'
-  }
-
-  if (transform.originX === 'left' || transform.originX === 0) return 'min'
-  if (transform.originX === 'right' || transform.originX === 1) return 'max'
-
-  return 'center'
-}
-
-/**
- * Возвращает fixed anchor по вертикали для текущего Fabric transform.
- */
-function getTransformAnchorY({ transform }: { transform: Transform }): CropSourceScaleAnchor {
-  if (transform.corner === 'tl' || transform.corner === 'tr' || transform.corner === 'mt') {
-    return 'max'
-  }
-  if (transform.corner === 'bl' || transform.corner === 'br' || transform.corner === 'mb') {
-    return 'min'
-  }
-
-  if (transform.originY === 'top' || transform.originY === 0) return 'min'
-  if (transform.originY === 'bottom' || transform.originY === 1) return 'max'
-
-  return 'center'
+  return resolveCropSourceScaleAnchor({ source, transform, axis })
 }
 
 /**

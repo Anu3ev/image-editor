@@ -436,6 +436,44 @@ export class ImageModel {
     await waitForCanvasRender({ page: this.page })
   }
 
+  /** Отражает изображение по выбранной оси через публичный TransformManager. */
+  async flip(
+    params: { axis: 'x' | 'y' } & ObjectTargetParams
+  ): Promise<EditorObjectInfo> {
+    const result = await this.page.evaluate(({ axis, objectIndex, id }) => {
+      const {
+        editor,
+        __editorHelpers: helpers
+      } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target) return null
+
+      const previousValue = axis === 'x' ? target.flipX : target.flipY
+
+      editor.canvas.setActiveObject(target)
+      if (axis === 'x') {
+        editor.transformManager.flipX()
+      } else {
+        editor.transformManager.flipY()
+      }
+
+      return {
+        previousValue,
+        image: helpers.serializeEditorObject(target)
+      }
+    }, params)
+
+    expect(result, 'изображение должно существовать для отражения').not.toBeNull()
+    if (!result) throw new Error('Изображение должно существовать для отражения')
+
+    const nextValue = params.axis === 'x' ? result.image.flipX : result.image.flipY
+
+    expect(nextValue, 'состояние отражения изображения должно измениться').toBe(!result.previousValue)
+    await waitForCanvasRender({ page: this.page })
+
+    return result.image
+  }
+
   /** Переносит левый верхний угол bounds изображения в координаты canvas-сцены. */
   async moveBoundsTo(
     params: { left: number, top: number } & ObjectTargetParams
