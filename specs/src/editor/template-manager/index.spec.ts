@@ -1025,6 +1025,55 @@ describe('TemplateManager', () => {
     }))
   })
 
+  it('при сохранении изображения с разным масштабом по осям записывает stretch-режим', () => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const existingCustomData = {
+      templateField: 'product-image',
+      assetId: 'asset-42'
+    }
+    const image = createPlacementTestImage({
+      id: 'scaled-image',
+      left: 120,
+      top: 160,
+      width: 120,
+      height: 99,
+      scaleX: 2.5,
+      scaleY: 0.8,
+      intrinsicWidth: 120,
+      intrinsicHeight: 99
+    })
+    const serializedImage = image.toDatalessObject()
+
+    image.toDatalessObject.mockReturnValue({
+      ...serializedImage,
+      customData: existingCustomData
+    })
+    editor.canvas.getActiveObject.mockReturnValue(image)
+
+    const template = manager.serializeSelection()
+
+    expect(template).not.toBeNull()
+    expect(template?.objects).toHaveLength(1)
+    expect(template?.objects[0]).toEqual(expect.objectContaining({
+      scaleX: 2.5,
+      scaleY: 0.8,
+      customData: {
+        templateField: 'product-image',
+        assetId: 'asset-42',
+        imageFit: 'stretch'
+      }
+    }))
+    expect(existingCustomData).toEqual({
+      templateField: 'product-image',
+      assetId: 'asset-42'
+    })
+  })
+
   it('один и тот же объект сохраняется одинаково сам по себе и в выделении из нескольких объектов', () => {
     const directSetup = createTemplateManagerTestSetup({
       useRealCanvasManager: true
