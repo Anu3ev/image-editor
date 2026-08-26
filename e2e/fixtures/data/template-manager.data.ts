@@ -1239,6 +1239,22 @@ export const TEMPLATE_ROUNDTRIP_IMAGE_SIZE = {
 /** Горизонтальный масштаб изображения перед сохранением в шаблон. */
 export const TEMPLATE_ROUNDTRIP_IMAGE_SCALE_X = 2.5
 
+/** Исходное изображение для проверки crop после повторного применения шаблона. */
+export const TEMPLATE_ROUNDTRIP_CROPPED_IMAGE_SOURCE = {
+  width: 2000,
+  height: 2000,
+  topLeftFill: '#ef4444',
+  topRightFill: '#3b82f6',
+  bottomLeftFill: '#22c55e',
+  bottomRightFill: '#eab308'
+} as const
+
+/** Размер crop-области, сохраняемой в шаблоне. */
+export const TEMPLATE_ROUNDTRIP_IMAGE_CROP_SIZE = {
+  width: 858,
+  height: 858
+} as const
+
 /** Увеличенное разрешение для проверки нормализованных позиций после roundtrip. */
 export const TEMPLATE_ROUNDTRIP_EXPANDED_RESOLUTION = {
   width: 768,

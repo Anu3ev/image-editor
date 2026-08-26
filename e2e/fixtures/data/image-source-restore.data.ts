@@ -21,11 +21,21 @@ type ImageSourceRestoreRouteMock = {
   url: string
 }
 
+/** Размер тестовой картинки для всех source-кейсов. */
+export const IMAGE_SOURCE_RESTORE_SOURCE_SIZE = {
+  width: 160,
+  height: 120
+} as const
+
 /** SVG-разметка тестовой картинки для всех source-кейсов. */
 const IMAGE_SOURCE_RESTORE_MARKUP = [
-  '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="120">',
-  '<rect width="160" height="120" fill="#f28f3b"/>',
-  '<rect x="80" width="80" height="120" fill="#2457ff"/>',
+  '<svg xmlns="http://www.w3.org/2000/svg"',
+  ` width="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.width}" height="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.height}">`,
+  `<rect width="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.width}"`,
+  ` height="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.height}" fill="#f28f3b"/>`,
+  `<rect x="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.width / 2}"`,
+  ` width="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.width / 2}"`,
+  ` height="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.height}" fill="#2457ff"/>`,
   '</svg>'
 ].join('')
 

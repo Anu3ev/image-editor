@@ -173,7 +173,7 @@ export const createStandaloneTextTemplateDefinition = (): TemplateDefinition => 
 })
 
 /**
- * Создаёт image template definition для проверок rehydration и placement.
+ * Создаёт шаблон с изображением для проверки восстановления и положения.
  */
 export const createImageTemplateDefinition = ({
   left,
@@ -181,14 +181,32 @@ export const createImageTemplateDefinition = ({
   width,
   height,
   positionsNormalized = true,
-  imageFit
+  src,
+  imageFit,
+  imageCrop,
+  legacyCropMode = false,
+  scaleX = 1,
+  scaleY = 1,
+  cropX = 0,
+  cropY = 0
 }: {
   left: number
   top: number
   width: number
   height: number
   positionsNormalized?: boolean
+  src?: string
   imageFit?: 'contain' | 'stretch'
+  imageCrop?: {
+    source: string
+    sourceWidth: number
+    sourceHeight: number
+  }
+  legacyCropMode?: boolean
+  scaleX?: number
+  scaleY?: number
+  cropX?: number
+  cropY?: number
 }): TemplateDefinition => ({
   id: 'template-image-placement',
   meta: {
@@ -199,6 +217,7 @@ export const createImageTemplateDefinition = ({
   objects: [
     {
       type: 'image',
+      src,
       id: 'template-image',
       left,
       top,
@@ -206,12 +225,15 @@ export const createImageTemplateDefinition = ({
       height,
       originX: 'left',
       originY: 'top',
-      scaleX: 1,
-      scaleY: 1,
-      customData: imageFit
+      scaleX,
+      scaleY,
+      cropX,
+      cropY,
+      customData: imageFit || imageCrop || legacyCropMode
         ? {
-          imageFit
-        }
+          imageFit: legacyCropMode ? 'crop' : imageFit,
+          imageCrop
+        } as TemplateDefinition['objects'][number]['customData']
         : undefined
     }
   ]

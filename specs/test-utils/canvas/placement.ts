@@ -29,6 +29,7 @@ export type PlacementTestObject = {
   strokeWidth: number
   strokeUniform: boolean
   visible: boolean
+  customData?: object
   group?: PlacementGroup | null
   set: jest.Mock
   setCoords: jest.Mock
@@ -39,8 +40,32 @@ export type PlacementTestObject = {
   toDatalessObject: jest.Mock
 }
 
+/** Тестовое изображение с управляемыми исходным размером и crop-состоянием. */
 export type PlacementImageTestObject = PlacementTestObject & {
+  cropX: number
+  cropY: number
   getElement: jest.Mock
+  getOriginalSize: jest.Mock<{ width: number, height: number }, []>
+  hasCrop: jest.Mock<boolean, []>
+}
+
+/** Параметры тестового изображения с управляемыми положением и исходным размером. */
+type PlacementTestImageOptions = {
+  id: string
+  left: number
+  top: number
+  width: number
+  height: number
+  originX?: PlacementOriginX
+  originY?: PlacementOriginY
+  scaleX?: number
+  scaleY?: number
+  cropX?: number
+  cropY?: number
+  cropped?: boolean
+  customData?: object
+  intrinsicWidth: number
+  intrinsicHeight: number
 }
 
 /**
@@ -315,7 +340,7 @@ export const createPlacementSelection = ({
 }
 
 /**
- * Восстанавливает placement-aware объект из сериализованного шаблонного состояния.
+ * Создаёт объект из сериализованного состояния шаблона.
  */
 export const createRevivedTemplateObject = ({
   serialized
@@ -339,7 +364,29 @@ export const createRevivedTemplateObject = ({
 }
 
 /**
- * Создаёт placement-aware image object c controllable intrinsic size.
+ * Создаёт элемент изображения с заданным исходным размером.
+ */
+function createPlacementImageElement({
+  width,
+  height
+}: {
+  width: number
+  height: number
+}): HTMLImageElement {
+  const element = document.createElement('img')
+
+  Object.defineProperties(element, {
+    naturalWidth: { configurable: true, get: () => width },
+    naturalHeight: { configurable: true, get: () => height },
+    width: { configurable: true, get: () => width },
+    height: { configurable: true, get: () => height }
+  })
+
+  return element
+}
+
+/**
+ * Создаёт тестовое изображение с управляемыми положением и исходным размером.
  */
 export const createPlacementTestImage = ({
   id,
@@ -351,21 +398,13 @@ export const createPlacementTestImage = ({
   originY = 'top',
   scaleX = 1,
   scaleY = 1,
+  cropX = 0,
+  cropY = 0,
+  cropped = false,
+  customData,
   intrinsicWidth,
   intrinsicHeight
-}: {
-  id: string
-  left: number
-  top: number
-  width: number
-  height: number
-  originX?: PlacementOriginX
-  originY?: PlacementOriginY
-  scaleX?: number
-  scaleY?: number
-  intrinsicWidth: number
-  intrinsicHeight: number
-}): PlacementImageTestObject => {
+}: PlacementTestImageOptions): PlacementImageTestObject => {
   const image = createPlacementTestObject({
     id,
     type: 'image',
@@ -378,28 +417,26 @@ export const createPlacementTestImage = ({
     scaleX,
     scaleY
   }) as PlacementImageTestObject
-  const element = document.createElement('img')
-
-  Object.defineProperties(element, {
-    naturalWidth: {
-      configurable: true,
-      get: () => intrinsicWidth
-    },
-    naturalHeight: {
-      configurable: true,
-      get: () => intrinsicHeight
-    },
-    width: {
-      configurable: true,
-      get: () => intrinsicWidth
-    },
-    height: {
-      configurable: true,
-      get: () => intrinsicHeight
-    }
+  const element = createPlacementImageElement({
+    width: intrinsicWidth,
+    height: intrinsicHeight
   })
+  const serializeBaseObject = image.toDatalessObject
 
+  image.cropX = cropX
+  image.cropY = cropY
+  image.customData = customData
   image.getElement = jest.fn(() => element)
+  image.getOriginalSize = jest.fn(() => ({
+    width: intrinsicWidth,
+    height: intrinsicHeight
+  }))
+  image.hasCrop = jest.fn(() => cropped)
+  image.toDatalessObject = jest.fn(() => ({
+    ...serializeBaseObject(),
+    cropX: image.cropX,
+    cropY: image.cropY
+  }))
 
   return image
 }

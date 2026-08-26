@@ -46,6 +46,21 @@ type ImageSourceInfo = {
   sourceHeight: number
 }
 
+/** Способ начального вписывания импортированного изображения. */
+type ImageImportScale = 'image-contain' | 'image-cover' | 'scale-montage'
+
+/** Полное описание цветного растрового источника для тестов. */
+type ColorGridImageParams = {
+  width: number
+  height: number
+  topLeftFill: string
+  topRightFill: string
+  bottomLeftFill: string
+  bottomRightFill: string
+  scale: ImageImportScale
+  withoutSelection: boolean
+}
+
 export class ImageModel {
   private readonly page: Page
 
@@ -63,62 +78,77 @@ export class ImageModel {
       width: number
       height: number
       fill?: string
-      scale?: 'image-contain' | 'image-cover' | 'scale-montage'
+      scale?: ImageImportScale
       withoutSelection?: boolean
     }
   ): Promise<EditorObjectInfo | null> {
-    return this.page.evaluate(async({
+    const {
       width,
       height,
       fill = '#f28f3b',
       scale = 'image-contain',
       withoutSelection = false
-    }) => {
-      const {
-        editor,
-        __editorHelpers: helpers
-      } = window as any
+    } = params
 
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-
-      const context = canvas.getContext('2d')
-      if (!context) return null
-
-      context.fillStyle = fill
-      context.fillRect(0, 0, width, height)
-
-      const source = canvas.toDataURL('image/png')
-      const result = await editor.imageManager.importImage({
-        source,
-        scale,
-        withoutSelection
-      })
-      if (!result?.image) return null
-
-      return helpers.serializeEditorObject(result.image)
-    }, params)
+    return this._addImageFromColorGrid({
+      width,
+      height,
+      topLeftFill: fill,
+      topRightFill: fill,
+      bottomLeftFill: fill,
+      bottomRightFill: fill,
+      scale,
+      withoutSelection
+    })
   }
 
-  /** Добавляет изображение из двух вертикальных цветовых блоков через публичный API ImageManager. */
-  async addVerticalSplitImage(
+  /** Добавляет изображение из четырёх цветовых областей через публичный API ImageManager. */
+  async addColorGridImage(
     params: {
       width: number
       height: number
-      leftFill: string
-      rightFill: string
-      scale?: 'image-contain' | 'image-cover' | 'scale-montage'
+      topLeftFill: string
+      topRightFill: string
+      bottomLeftFill?: string
+      bottomRightFill?: string
+      scale?: ImageImportScale
       withoutSelection?: boolean
     }
   ): Promise<EditorObjectInfo | null> {
+    const {
+      width,
+      height,
+      topLeftFill,
+      topRightFill,
+      bottomLeftFill = topLeftFill,
+      bottomRightFill = topRightFill,
+      scale = 'image-contain',
+      withoutSelection = false
+    } = params
+
+    return this._addImageFromColorGrid({
+      width,
+      height,
+      topLeftFill,
+      topRightFill,
+      bottomLeftFill,
+      bottomRightFill,
+      scale,
+      withoutSelection
+    })
+  }
+
+  /** Создаёт цветной растровый источник и добавляет его через публичный API ImageManager. */
+  private async _addImageFromColorGrid(params: ColorGridImageParams): Promise<EditorObjectInfo | null> {
     return this.page.evaluate(async({
       width,
       height,
-      leftFill,
-      rightFill,
-      scale = 'image-contain',
-      withoutSelection = false
+      topLeftFill,
+      topRightFill,
+      bottomLeftFill,
+      bottomRightFill,
+      scale,
+      withoutSelection
     }) => {
       const {
         editor,
@@ -132,10 +162,14 @@ export class ImageModel {
       const context = canvas.getContext('2d')
       if (!context) return null
 
-      context.fillStyle = leftFill
-      context.fillRect(0, 0, width / 2, height)
-      context.fillStyle = rightFill
-      context.fillRect(width / 2, 0, width / 2, height)
+      context.fillStyle = topLeftFill
+      context.fillRect(0, 0, width / 2, height / 2)
+      context.fillStyle = topRightFill
+      context.fillRect(width / 2, 0, width / 2, height / 2)
+      context.fillStyle = bottomLeftFill
+      context.fillRect(0, height / 2, width / 2, height / 2)
+      context.fillStyle = bottomRightFill
+      context.fillRect(width / 2, height / 2, width / 2, height / 2)
 
       const result = await editor.imageManager.importImage({
         source: canvas.toDataURL('image/png'),
