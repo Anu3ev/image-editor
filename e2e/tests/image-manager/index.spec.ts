@@ -153,11 +153,11 @@ test.describe('Экспорт изображения', () => {
     images
   }) => {
     const image = await test.step('Добавить изображение с красной и синей половинами', async() => {
-      const imageObject = await images.addVerticalSplitImage({
+      const imageObject = await images.addColorGridImage({
         width: 200,
         height: 100,
-        leftFill: '#ff0000',
-        rightFill: '#0000ff'
+        topLeftFill: '#ff0000',
+        topRightFill: '#0000ff'
       })
 
       return images.checkCreation({ imageObject })
