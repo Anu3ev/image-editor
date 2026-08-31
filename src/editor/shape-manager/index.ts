@@ -1,3 +1,8 @@
+import {
+  ActiveSelection,
+  type FabricObject,
+  type Transform
+} from 'fabric'
 import type { ImageEditor } from '../index'
 import type { ObjectPlacement } from '../canvas-manager'
 import {
@@ -6,6 +11,13 @@ import {
 } from './domain/shape-presets'
 import ShapeGroupFactory from './creation/shape-group-factory'
 import ShapeScalingController from './scaling/shape-scaling-controller'
+import type { ActiveSelectionAppliedScale } from './scaling/active-selection-scaling-controller'
+import type { ShapeScalingPointerEvent } from './scaling/shape-scaling-layout'
+import {
+  isShapeCornerScaleControl,
+  resolveShapeCornerScaleMode,
+  type ShapeCornerScaleMode
+} from './scaling/shape-controls'
 import ShapeEditingController from './editing/shape-editing-controller'
 import ShapeEventController from './events/shape-event-controller'
 import ShapeLayoutController from './layout/shape-layout-controller'
@@ -19,6 +31,7 @@ import {
   getShapeNodes
 } from './domain/shape-nodes'
 import {
+  isShapeGroup,
   resolveShapeGroup
 } from './domain/shape-reference'
 import type {
@@ -32,6 +45,81 @@ import type {
   ShapeTextNode,
   ShapeUpdateOptions
 } from './types'
+
+/** Допуск проверки канонического состояния шейпов в общем выделении. */
+const ACTIVE_SELECTION_SHAPE_STATE_EPSILON = 0.000000001
+
+/** Проверяет состояния шейпа, которые пока остаются на прежнем пути скейлинга. */
+function hasUnsupportedActiveSelectionShapeState({
+  group
+}: {
+  group: ShapeGroup
+}): boolean {
+  const blockedState = [
+    group.flipX,
+    group.flipY,
+    group.locked,
+    group.lockScalingX,
+    group.lockScalingY
+  ].some(Boolean)
+  if (blockedState) return true
+
+  const values = [
+    group.width,
+    group.height,
+    group.scaleX,
+    group.scaleY,
+    group.angle ?? 0,
+    group.skewX ?? 0,
+    group.skewY ?? 0
+  ]
+
+  return !values.every(Number.isFinite)
+    || group.width <= 0
+    || group.height <= 0
+    || group.scaleX <= 0
+    || group.scaleY <= 0
+    || Math.abs(group.scaleX - 1) > ACTIVE_SELECTION_SHAPE_STATE_EPSILON
+    || Math.abs(group.scaleY - 1) > ACTIVE_SELECTION_SHAPE_STATE_EPSILON
+    || Math.abs(group.angle ?? 0) > ACTIVE_SELECTION_SHAPE_STATE_EPSILON
+    || Math.abs(group.skewX ?? 0) > ACTIVE_SELECTION_SHAPE_STATE_EPSILON
+    || Math.abs(group.skewY ?? 0) > ACTIVE_SELECTION_SHAPE_STATE_EPSILON
+}
+
+/** Возвращает все шейпы только для полностью поддерживаемого состава выделения. */
+function resolveSupportedActiveSelectionShapes({
+  selection
+}: {
+  selection: ActiveSelection
+}): ShapeGroup[] | null {
+  const objects = selection.getObjects()
+  if (objects.length < 2) return null
+
+  const groups: ShapeGroup[] = []
+
+  for (const object of objects) {
+    if (!isShapeGroup(object) || Boolean(object.parent)) return null
+    if (hasUnsupportedActiveSelectionShapeState({ group: object })) return null
+
+    const { shape, text } = getShapeNodes({ group: object })
+    if (!shape || !text) return null
+
+    groups.push(object)
+  }
+
+  return groups
+}
+
+/** Проверяет результат компоновки перед возвратом общему владельцу жеста. */
+function isPositiveFiniteScale({
+  scaleX,
+  scaleY
+}: ActiveSelectionAppliedScale): boolean {
+  return Number.isFinite(scaleX)
+    && Number.isFinite(scaleY)
+    && scaleX > 0
+    && scaleY > 0
+}
 
 /**
  * Менеджер фигур и композитных объектов "фигура + текст".
@@ -430,6 +518,104 @@ export default class ShapeManager {
       textScale,
       shapeTextAutoExpand
     })
+  }
+
+  /**
+   * Проверяет, что временное выделение целиком состоит из шейпов,
+   * которые ShapeManager может безопасно пересчитать во время общего скейлинга.
+   */
+  public supportsActiveSelectionScaling({
+    selection
+  }: {
+    selection: ActiveSelection
+  }): boolean {
+    return resolveSupportedActiveSelectionShapes({ selection }) !== null
+  }
+
+  /** Возвращает режим угловой ручки, которую ShapeManager установил для общего выделения. */
+  public resolveActiveSelectionScaleControlMode({
+    selection,
+    transform,
+    event
+  }: {
+    selection: ActiveSelection
+    transform: Transform
+    event?: ShapeScalingPointerEvent | null
+  }): ShapeCornerScaleMode | null {
+    if (transform.target !== selection) return null
+    if (!isShapeCornerScaleControl({ target: selection, transform })) return null
+    if (!this.supportsActiveSelectionScaling({ selection })) return null
+
+    return resolveShapeCornerScaleMode({
+      shiftKey: Boolean(event && 'shiftKey' in event && event.shiftKey)
+    })
+  }
+
+  /**
+   * Один раз применяет ограничения и компоновку шейпов во время движения ручки
+   * к уже рассчитанному масштабу временного выделения.
+   */
+  public applyActiveSelectionScalePreview({
+    selection,
+    transform,
+    event
+  }: {
+    selection: ActiveSelection
+    transform: Transform
+    event?: ShapeScalingPointerEvent
+  }): ActiveSelectionAppliedScale | null {
+    const groups = resolveSupportedActiveSelectionShapes({ selection })
+    if (!groups || transform.target !== selection) return null
+
+    for (const group of groups) {
+      this.lifecycleController.beginResize({ group })
+    }
+
+    this.scalingController.handleObjectScaling({
+      target: selection,
+      transform,
+      e: event
+    })
+
+    const appliedScale = this.scalingController.resolveActiveSelectionCommittedScale({ selection })
+    if (!isPositiveFiniteScale(appliedScale)) {
+      throw new Error('ShapeManager должен применить положительный конечный масштаб общего выделения')
+    }
+
+    transform.scaleX = selection.scaleX
+    transform.scaleY = selection.scaleY
+
+    return appliedScale
+  }
+
+  /** Очищает оставшееся временное состояние скейлинга общего выделения. */
+  public clearActiveSelectionScalePreviewState({
+    selection,
+    children
+  }: {
+    selection: ActiveSelection
+    children: readonly FabricObject[]
+  }): void {
+    if (children.length < 2) {
+      throw new Error('Для очистки общего скейлинга нужны минимум два дочерних шейпа')
+    }
+
+    const groups: ShapeGroup[] = []
+
+    for (const child of children) {
+      if (!isShapeGroup(child)) {
+        throw new Error('Доменную сессию шейпов можно очистить только для shape-групп')
+      }
+
+      groups.push(child)
+    }
+
+    this.scalingController.clearActiveSelectionState({ selection })
+
+    for (const group of groups) {
+      this.scalingController.clearState({ group })
+      this.lifecycleController.cancelResize({ group })
+    }
   }
 
   /**

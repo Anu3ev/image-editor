@@ -3,7 +3,7 @@ import {
   expect
 } from '../../../fixtures/active-selection-scaling.fixture'
 import {
-  ACTIVE_SELECTION_IMAGE_SCALE_CONTROL_CASES,
+  ACTIVE_SELECTION_SCALE_CONTROL_CASES,
   type ActiveSelectionScaleEdge
 } from '../../../fixtures/data/active-selection-scaling.data'
 
@@ -48,7 +48,7 @@ type ExpectedScaleGuide = {
   type: 'horizontal' | 'vertical'
 }
 
-for (const controlCase of ACTIVE_SELECTION_IMAGE_SCALE_CONTROL_CASES) {
+for (const controlCase of ACTIVE_SELECTION_SCALE_CONTROL_CASES) {
   test(`${controlCase.title} прилипает подвижными гранями и сохраняет неподвижные`, async({
     activeSelectionImageScaleSetup: setup,
     selection,

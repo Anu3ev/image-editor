@@ -7,7 +7,10 @@ import {
   type TPointerEventInfo
 } from 'fabric'
 import { ImageEditor } from '../index'
-import ActiveSelectionScaleInteractionController from './scaling/active-selection-scale-interaction-controller'
+import ActiveSelectionScaleInteractionController, {
+  type ActiveSelectionScaleInteractionEvent,
+  type ActiveSelectionShapeCommitMode
+} from './scaling/active-selection-scale-interaction-controller'
 
 type TextEditingEnteredEvent = CanvasEvents['text:editing:entered']
 type TextEditingExitedEvent = CanvasEvents['text:editing:exited']
@@ -132,6 +135,48 @@ export default class SelectionManager {
     canvas.requestRenderAll()
 
     canvas.fire('editor:all-objects-selected', { selected: object })
+  }
+
+  /** Передаёт шаг скейлинга выделения из шейпов единому владельцу до прежней обработки. */
+  public handleShapeSelectionScaleStep({
+    event,
+    intentSource
+  }: {
+    event: ActiveSelectionScaleInteractionEvent
+    intentSource: 'fabric-preview' | 'pointer-projection'
+  }): boolean {
+    if (!(event.target instanceof ActiveSelection) || !event.transform) return false
+
+    return this.scaleInteractionController.handleShapeSelectionScaleStep({
+      event,
+      intentSource
+    })
+  }
+
+  /** Выполняет фиксацию шейпов, не позволяя внутренним событиям смены выделения прервать сессию. */
+  public commitShapeSelectionScale({
+    selection,
+    commit
+  }: {
+    selection: ActiveSelection
+    commit: (mode: ActiveSelectionShapeCommitMode) => void
+  }): boolean {
+    const mode = this.scaleInteractionController.beginShapeSelectionCommit({ selection })
+    if (!mode) return false
+
+    let didFinish = false
+
+    try {
+      commit(mode)
+    } finally {
+      didFinish = this.scaleInteractionController.finishShapeSelectionCommit({ selection })
+    }
+
+    if (!didFinish) {
+      throw new Error('Сессия скейлинга шейпов должна завершиться после фиксации')
+    }
+
+    return true
   }
 
   /**

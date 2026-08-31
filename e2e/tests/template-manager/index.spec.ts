@@ -921,6 +921,67 @@ test.describe('Сохранение выделения в шаблон', () => {
       expect(appliedText.boundsRight).toBeLessThanOrEqual(appliedMontageBounds.right + TEMPLATE_BOUNDS_TOLERANCE)
     })
   })
+
+  test('после скейлинга и поворота фигура и отдельный текст сохраняют геометрию в шаблоне', async({
+    canvas,
+    editorModel,
+    selection,
+    shapes,
+    template,
+    text
+  }) => {
+    await canvas.setMontageResolution(TEMPLATE_ROUNDTRIP_BASE_RESOLUTION)
+    shapes.checkCreation({
+      shape: await shapes.addAtBounds({
+        presetKey: 'square',
+        options: TEMPLATE_ROUNDTRIP_MIXED_SHAPE
+      }),
+      presetKey: 'square'
+    })
+    text.checkCreation({ textObject: await text.add(TEMPLATE_ROUNDTRIP_MIXED_TEXT) })
+    await editorModel.selectAllObjects()
+    await selection.scaling.scaleFromBottomRightBy({ deltaX: 48, deltaY: 32, pointerSteps: 3 })
+    await selection.setAngle({ angle: 20 })
+
+    const sourceShape = await editorModel.getObjectSnapshot({ id: TEMPLATE_ROUNDTRIP_MIXED_SHAPE.id })
+    const sourceText = await editorModel.getObjectSnapshot({ id: TEMPLATE_ROUNDTRIP_MIXED_TEXT.id })
+    const sourceTextObject = text.checkCreation({
+      textObject: await text.getObject({ id: TEMPLATE_ROUNDTRIP_MIXED_TEXT.id })
+    })
+    const serializedTemplate = await template.serializeSelection()
+
+    expect(serializedTemplate).not.toBeNull()
+    if (!serializedTemplate) throw new Error('Преобразованное выделение должно сохраниться в шаблон')
+    expect(serializedTemplate.objects).toHaveLength(2)
+    for (const object of serializedTemplate.objects) {
+      expect(object.angle).toBeCloseTo(20, 5)
+    }
+
+    await canvas.clearCanvas()
+    expect(await template.applyTemplate({ template: serializedTemplate })).toBe(2)
+
+    const appliedShape = await editorModel.getObjectSnapshot({ objectIndex: 0 })
+    const appliedText = await editorModel.getObjectSnapshot({ objectIndex: 1 })
+    const appliedTextObject = text.checkCreation({ textObject: await text.getObject({ objectIndex: 1 }) })
+
+    expect(appliedTextObject.text).toBe(TEMPLATE_ROUNDTRIP_MIXED_TEXT.text)
+    expect(appliedTextObject.fontSize * Math.abs(appliedTextObject.scaleY))
+      .toBeCloseTo(sourceTextObject.fontSize * Math.abs(sourceTextObject.scaleY), 2)
+    expect(appliedTextObject.lineCount).toBe(sourceTextObject.lineCount)
+    expect(appliedShape.type).toBe(sourceShape.type)
+    expect(appliedShape.angle).toBeCloseTo(20, 5)
+    expect(appliedText.angle).toBeCloseTo(20, 5)
+    for (const [source, applied] of [[sourceShape, appliedShape], [sourceText, appliedText]]) {
+      expect(Math.abs(applied.boundsLeft - source.boundsLeft))
+        .toBeLessThanOrEqual(TEMPLATE_ROUNDTRIP_POSITION_TOLERANCE)
+      expect(Math.abs(applied.boundsTop - source.boundsTop))
+        .toBeLessThanOrEqual(TEMPLATE_ROUNDTRIP_POSITION_TOLERANCE)
+      expect(Math.abs(applied.boundsRight - source.boundsRight))
+        .toBeLessThanOrEqual(TEMPLATE_ROUNDTRIP_POSITION_TOLERANCE)
+      expect(Math.abs(applied.boundsBottom - source.boundsBottom))
+        .toBeLessThanOrEqual(TEMPLATE_ROUNDTRIP_POSITION_TOLERANCE)
+    }
+  })
 })
 
 test.describe('Шаблон после undo, redo и ресайза', () => {

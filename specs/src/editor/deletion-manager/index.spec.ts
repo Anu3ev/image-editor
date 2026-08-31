@@ -1,3 +1,4 @@
+import { ActiveSelection } from 'fabric'
 import DeletionManager from '../../../../src/editor/deletion-manager'
 import { createManagerTestMocks } from '../../../test-utils/editor/manager-test-mocks'
 import { createMockFabricObject, createMockGroup } from '../../../test-utils/fabric/objects'
@@ -38,6 +39,69 @@ describe('DeletionManager', () => {
       objects: [objectToDelete],
       withoutSave: false
     })
+  })
+
+  it('перед удалением фиксирует активное преобразование внутри той же операции истории', () => {
+    const objectToDelete = {
+      id: 'object-in-active-transform',
+      locked: false
+    } as any
+
+    mockCanvas._currentTransform = { target: objectToDelete }
+    mockCanvas.getActiveObjects.mockReturnValue([objectToDelete])
+
+    const result = deletionManager.deleteSelectedObjects()
+
+    expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalledTimes(1)
+    expect(mockCanvas.endCurrentTransform).toHaveBeenCalledTimes(1)
+    expect(mockCanvas.endCurrentTransform.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCanvas.remove.mock.invocationCallOrder[0]
+    )
+    expect(mockEditor.historyManager.suspendHistory.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCanvas.endCurrentTransform.mock.invocationCallOrder[0]
+    )
+    expect(mockEditor.historyManager.saveState).toHaveBeenCalledTimes(1)
+    expect(result).toEqual({
+      objects: [objectToDelete],
+      withoutSave: false
+    })
+  })
+
+  it('перед удалением дочернего объекта фиксирует преобразование общего выделения', () => {
+    const objectToDelete = createMockFabricObject({ id: 'selected-object' })
+    const otherObject = createMockFabricObject({ id: 'other-selected-object' })
+    const selection = new ActiveSelection([objectToDelete, otherObject])
+
+    mockCanvas._currentTransform = { target: selection }
+
+    const result = deletionManager.deleteSelectedObjects({ objects: [objectToDelete] })
+
+    expect(result).not.toBeNull()
+    if (!result) throw new Error('Удаление дочернего объекта должно вернуть результат')
+
+    expect(mockCanvas.endCurrentTransform).toHaveBeenCalledTimes(1)
+    expect(mockCanvas.endCurrentTransform.mock.invocationCallOrder[0]).toBeLessThan(
+      mockCanvas.remove.mock.invocationCallOrder[0]
+    )
+    expect(mockCanvas.remove).toHaveBeenCalledWith(objectToDelete)
+    expect(result.objects).toEqual([objectToDelete])
+  })
+
+  it('не фиксирует постороннее преобразование до удаления объекта', () => {
+    const objectToDelete = createMockFabricObject({ id: 'object-to-delete' })
+    const transformedObject = createMockFabricObject({ id: 'transformed-object' })
+
+    mockCanvas._currentTransform = { target: transformedObject }
+
+    const result = deletionManager.deleteSelectedObjects({ objects: [objectToDelete] })
+
+    expect(result).not.toBeNull()
+    if (!result) throw new Error('Удаление объекта должно вернуть результат')
+
+    expect(mockCanvas.endCurrentTransform).not.toHaveBeenCalled()
+    expect(mockCanvas.remove).toHaveBeenCalledWith(objectToDelete)
+    expect(mockCanvas.discardActiveObject).toHaveBeenCalledTimes(1)
+    expect(result.objects).toEqual([objectToDelete])
   })
 
   it('при удалении из режима редактирования текста удаляет владельца текста', () => {

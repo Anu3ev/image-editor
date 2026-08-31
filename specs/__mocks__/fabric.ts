@@ -226,6 +226,10 @@ export class ActiveSelection {
 
   canvas: any = null
 
+  left = 0
+
+  top = 0
+
   private objects: any[]
 
   constructor(objects: any[], public options: any = {}) {
@@ -241,6 +245,11 @@ export class ActiveSelection {
     this.objects.forEach(callback)
   }
 
+  /** Возвращает матрицу самого тестового выделения. */
+  calcOwnMatrix() {
+    return [1, 0, 0, 1, this.left, this.top]
+  }
+
   set(key: string | Record<string, any>, value?: any) {
     if (typeof key === 'string') {
       (this as any)[key] = value
@@ -248,6 +257,22 @@ export class ActiveSelection {
     }
     Object.assign(this, key)
   }
+
+  /** Возвращает центр тестового общего выделения. */
+  getCenterPoint() {
+    return new Point(this.left, this.top)
+  }
+
+  /** Устанавливает положение тестового общего выделения относительно переданного origin. */
+  setPositionByOrigin(point: Point) {
+    this.left = point.x
+    this.top = point.y
+
+    return this
+  }
+
+  /** Имитирует обновление координат Fabric без дополнительной геометрии. */
+  setCoords() {}
 
   async clone() {
     // Глубокое копирование objects и options для избежания shared references
@@ -1092,7 +1117,32 @@ export const classRegistry = {
   }
 }
 
+/** Применяет перенос тестовой матрицы; отдельные тесты могут переопределить остальные компоненты. */
+const addTransformToObjectMock = jest.fn((target: any, matrix: number[]) => {
+  const offsetX = matrix[4] ?? 0
+  const offsetY = matrix[5] ?? 0
+
+  target.set({
+    left: target.left + offsetX,
+    top: target.top + offsetY
+  })
+})
+
+/** Возвращает те же свойства преобразования, которые сохраняет Fabric. */
+const saveObjectTransformMock = jest.fn((target: any) => ({
+  angle: target.angle,
+  flipX: target.flipX,
+  flipY: target.flipY,
+  left: target.left,
+  scaleX: target.scaleX,
+  scaleY: target.scaleY,
+  skewX: target.skewX,
+  skewY: target.skewY,
+  top: target.top
+}))
+
 export const util = {
+  addTransformToObject: addTransformToObjectMock,
   enlivenObjects: async(objects: any[]) => objects.map((obj) => {
     const Cls = classRegistry.getClass(obj.type)
     if (!Cls) return obj
@@ -1122,6 +1172,7 @@ export const util = {
       ((b * e) - (a * f)) / determinant
     ] as [number, number, number, number, number, number]
   },
+  saveObjectTransform: saveObjectTransformMock,
   stylesFromArray,
   stylesToArray
 }

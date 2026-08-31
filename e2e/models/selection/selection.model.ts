@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type Page, expect } from '@playwright/test'
 import type { SnappingObjectSnapshot } from '../../types'
+import type { ShapeTextInfo } from '../../types/shape.types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type { ScaleInteractionTraceModel } from '../scale-interaction-trace.model'
 import type { ShapeModel } from '../shape/shape.model'
@@ -58,9 +59,23 @@ export interface SelectionCompositionSnapshot {
   children: SelectionCompositionChildSnapshot[]
 }
 
+/** Снимок одного шейпа и его текста внутри общего выделения. */
+export interface ShapeSelectionChildSnapshot {
+  shape: SelectionCompositionChildSnapshot
+  text: ShapeTextInfo
+}
+
+/** Снимок общего выделения из шейпов с доступным состоянием текста. */
+export interface ShapeSelectionCompositionSnapshot {
+  selection: SelectionCompositionSnapshot['selection']
+  children: ShapeSelectionChildSnapshot[]
+}
+
 /** Действия и проверки для активного общего выделения или группы. */
 export class SelectionModel {
   private readonly page: Page
+
+  private readonly shapes: ShapeModel
 
   /** Полный жест указателя при скейлинге активного составного объекта. */
   readonly scaling: SelectionScalingSession
@@ -76,6 +91,7 @@ export class SelectionModel {
     shapes: ShapeModel
   }) {
     this.page = page
+    this.shapes = shapes
     this.scaling = new SelectionScalingSession({ page, scaleInteractionTrace, shapes })
   }
 
@@ -120,6 +136,51 @@ export class SelectionModel {
     }
 
     return composition
+  }
+
+  /** Возвращает фактический наклон текущего общего выделения. */
+  async getSkew(): Promise<{ skewX: number; skewY: number }> {
+    const skew = await this.page.evaluate(() => {
+      const { editor } = window as any
+      const target = editor.canvas.getActiveObject()
+      const objects = target?.getObjects?.()
+      if (target?.type !== 'activeselection' || !Array.isArray(objects) || objects.length < 2) return null
+
+      return {
+        skewX: target.skewX ?? 0,
+        skewY: target.skewY ?? 0
+      }
+    })
+
+    expect(skew, 'активным объектом должно быть общее выделение').not.toBeNull()
+    expect(
+      skew && Number.isFinite(skew.skewX) && Number.isFinite(skew.skewY),
+      'наклон общего выделения должен состоять из конечных чисел'
+    ).toBe(true)
+    if (!skew) throw new Error('Не удалось получить наклон текущего общего выделения')
+
+    return skew
+  }
+
+  /** Возвращает геометрию каждого шейпа и его текст в текущем общем выделении. */
+  async getShapeCompositionSnapshot(): Promise<ShapeSelectionCompositionSnapshot> {
+    const composition = await this.getCompositionSnapshot()
+    const children = await Promise.all(composition.children.map(async(shape) => {
+      const text = await this.shapes.getTextNode({ id: shape.id })
+
+      expect(text, `в шейпе ${shape.id} должен существовать текст`).not.toBeNull()
+      if (!text) throw new Error(`Не удалось получить текст шейпа ${shape.id}`)
+
+      return { shape, text }
+    }))
+
+    expect(children).toHaveLength(composition.children.length)
+    expect(children.length, 'общее выделение должно содержать минимум два шейпа').toBeGreaterThanOrEqual(2)
+
+    return {
+      selection: composition.selection,
+      children
+    }
   }
 
   /** Устанавливает угол текущего общего выделения через публичный TransformManager. */

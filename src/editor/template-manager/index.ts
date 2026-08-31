@@ -18,6 +18,7 @@ import {
   toNumber,
   type Dimensions
 } from '../utils/geometry'
+import { withActiveSelectionTransformForSerialization } from '../utils/active-selection-serialization'
 import { materializeObjectIdentity } from '../utils/object-identity'
 import {
   applyTemplateBackgroundObject,
@@ -131,13 +132,16 @@ export default class TemplateManager {
     const baseWidth = baseSize.width
     const baseHeight = baseSize.height
 
-    const serializedObjects = serializableObjects
-      .map((object) => this._serializeObject({
-        object,
-        bounds: referenceBounds,
-        baseWidth,
-        baseHeight
-      }))
+    const activeSelection = activeObject instanceof ActiveSelection
+      ? activeObject
+      : null
+    const serializedObjects = serializableObjects.map((object) => this._serializeObject({
+      object,
+      activeSelection,
+      bounds: referenceBounds,
+      baseWidth,
+      baseHeight
+    }))
     const inheritedPreviewId = typeof meta.previewId === 'string'
       ? meta.previewId
       : undefined
@@ -963,16 +967,22 @@ export default class TemplateManager {
    */
   private _serializeObject({
     object,
+    activeSelection,
     bounds,
     baseWidth,
     baseHeight
   }: {
     object: FabricObject
+    activeSelection: ActiveSelection | null
     bounds: Bounds | null
     baseWidth: number
     baseHeight: number
   }): TemplateObjectData {
-    const serialized = object.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as TemplateObjectData
+    const serialized = withActiveSelectionTransformForSerialization({
+      object,
+      selection: activeSelection,
+      callback: () => object.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as TemplateObjectData
+    })
     preserveSerializedImageGeometry({ object, serialized })
 
     if (TemplateManager._isSvgObject(object)) {
@@ -985,7 +995,35 @@ export default class TemplateManager {
       }
     }
 
-    if (!bounds) return serialized
+    this._applySerializedObjectPlacement({
+      object,
+      activeSelection,
+      serialized,
+      bounds,
+      baseWidth,
+      baseHeight
+    })
+
+    return serialized
+  }
+
+  /** Сохраняет положение и привязки объекта относительно монтажной области. */
+  private _applySerializedObjectPlacement({
+    object,
+    activeSelection,
+    serialized,
+    bounds,
+    baseWidth,
+    baseHeight
+  }: {
+    object: FabricObject
+    activeSelection: ActiveSelection | null
+    serialized: TemplateObjectData
+    bounds: Bounds | null
+    baseWidth: number
+    baseHeight: number
+  }): void {
+    if (!bounds) return
 
     const {
       left: boundsLeft,
@@ -996,10 +1034,17 @@ export default class TemplateManager {
     const rect = TemplateManager._getBoundingRect(object)
     const safeWidth = baseWidth || boundsWidth || 1
     const safeHeight = baseHeight || boundsHeight || 1
-    const placement = this.editor.canvasManager.getObjectPlacement({ object })
+    const livePlacement = this.editor.canvasManager.getObjectPlacement({ object })
+    const usesRealizedSelectionTransform = activeSelection && object.group === activeSelection
+    const placementLeft = usesRealizedSelectionTransform
+      ? toNumber({ value: serialized.left, fallback: livePlacement.left })
+      : livePlacement.left
+    const placementTop = usesRealizedSelectionTransform
+      ? toNumber({ value: serialized.top, fallback: livePlacement.top })
+      : livePlacement.top
     const placementForStorage = {
-      x: (placement.left - boundsLeft) / safeWidth,
-      y: (placement.top - boundsTop) / safeHeight
+      x: (placementLeft - boundsLeft) / safeWidth,
+      y: (placementTop - boundsTop) / safeHeight
     }
 
     const normalizedLeft = (rect.left - boundsLeft) / safeWidth
@@ -1018,8 +1063,6 @@ export default class TemplateManager {
 
     serialized.left = placementForStorage.x
     serialized.top = placementForStorage.y
-
-    return serialized
   }
 
   /**

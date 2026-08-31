@@ -1074,6 +1074,56 @@ describe('TemplateManager', () => {
     })
   })
 
+  it('учитывает разный масштаб общей рамки при сохранении изображения', () => {
+    const {
+      manager,
+      editor
+    } = createTemplateManagerTestSetup({
+      useRealCanvasManager: true
+    })
+    const image = createPlacementTestImage({
+      id: 'selection-image',
+      left: 40,
+      top: 50,
+      width: 120,
+      height: 99,
+      intrinsicWidth: 120,
+      intrinsicHeight: 99
+    })
+    const sibling = createPlacementTestObject({
+      id: 'selection-sibling',
+      left: 220,
+      top: 50,
+      width: 60,
+      height: 60
+    })
+    const selection = createPlacementSelection({
+      objects: [image, sibling],
+      offsetX: 20,
+      offsetY: 30
+    })
+    const addTransformMock = util.addTransformToObject as jest.MockedFunction<
+      typeof util.addTransformToObject
+    >
+
+    addTransformMock.mockImplementationOnce((object) => {
+      object.set({ scaleX: 2.5, scaleY: 0.8 })
+    })
+    editor.canvas.getActiveObject.mockReturnValue(selection)
+
+    const template = manager.serializeSelection()
+    const serializedImage = template?.objects.find(({ id }) => id === image.id)
+
+    expect(serializedImage).toEqual(expect.objectContaining({
+      scaleX: 2.5,
+      scaleY: 0.8,
+      customData: { imageFit: 'stretch' }
+    }))
+    expect(addTransformMock).toHaveBeenCalledWith(image, selection.calcOwnMatrix())
+    expect(image.scaleX).toBe(1)
+    expect(image.scaleY).toBe(1)
+  })
+
   it('один и тот же объект сохраняется одинаково сам по себе и в выделении из нескольких объектов', () => {
     const directSetup = createTemplateManagerTestSetup({
       useRealCanvasManager: true

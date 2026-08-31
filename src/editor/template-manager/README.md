@@ -35,7 +35,11 @@ This keeps large base64 image payloads out of Fabric live objects and out of tem
 
 Template application preserves the exact fractional scene geometry produced by the template transform and type-specific rehydration. It does not round the position or size of each content object independently because that would change alignment and equal-spacing relationships stored in the template.
 
-For images without `imageCrop`, `customData.imageFit` controls source fitting. The `stretch` value preserves independent displayed dimensions on both axes, while an absent value or `contain` fits the source uniformly into the saved area.
+When `serializeSelection()` receives an `ActiveSelection`, it temporarily applies the selection transform only while each child is converted to serialized data. The live selection and its children are restored immediately and keep the same geometry for the next interaction. This is required because an `ActiveSelection` is temporary and is not stored in a template.
+
+The realized placement must come from the same temporary transform as the serialized angle, scale, and skew. Mixing those properties with the child's placement inside the temporary selection shifts individually rotated children after a non-uniform selection scale. Fabric may represent the same flattened affine matrix with different angle and skew values, so the standalone control rectangle can differ from the temporary grouped rectangle even when the rendered matrix, source dimensions, and visual position are preserved.
+
+For images without `imageCrop`, `customData.imageFit` controls source fitting. The `stretch` value preserves independent displayed dimensions on both axes, while an absent value or `contain` fits the source uniformly into the saved area. The fitting mode is derived from the serialized scale, so a non-uniform transform applied through an `ActiveSelection` is preserved as well.
 
 When `serializeSelection()` captures a cropped image, it records `customData.imageCrop` with the current `src` and intrinsic source dimensions. If the `src` and dimensions are unchanged, the serialized `width`, `height`, `cropX`, `cropY`, and scales are preserved.
 

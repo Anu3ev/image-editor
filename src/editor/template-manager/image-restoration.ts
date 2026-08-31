@@ -482,8 +482,8 @@ export function preserveSerializedImageGeometry({
 
   const image = object as FabricImage
   const customData = { ...serialized.customData }
-  const scaleX = toNumber({ value: image.scaleX, fallback: 1 })
-  const scaleY = toNumber({ value: image.scaleY, fallback: 1 })
+  const scaleX = toNumber({ value: serialized.scaleX, fallback: image.scaleX ?? 1 })
+  const scaleY = toNumber({ value: serialized.scaleY, fallback: image.scaleY ?? 1 })
 
   delete customData.imageCrop
   delete customData.imageFit

@@ -16,6 +16,42 @@ type ShapeCornerControl = Control & {
   shapeFreeScaleCornerControl?: boolean
 }
 
+/** Режим углового скейлинга, заданный контролами шейпа. */
+export type ShapeCornerScaleMode = 'uniform' | 'free'
+
+/** Минимальный Fabric-контракт для проверки активной угловой ручки шейпа. */
+type ShapeCornerControlTransform = Readonly<{
+  action?: Transform['action']
+  corner: string
+  target: FabricObject
+}>
+
+/** Проверяет угловую ручку с геометрией Fabric и правилами скейлинга шейпа. */
+export const isShapeCornerScaleControl = ({
+  target,
+  transform
+}: {
+  target: FabricObject
+  transform: ShapeCornerControlTransform
+}): boolean => {
+  const controlKey = transform.corner
+  const isCorner = SHAPE_CORNER_CONTROL_KEYS.some((key) => key === controlKey)
+  if (!isCorner || transform.action !== 'scale') return false
+
+  const control = target.controls[controlKey] as ShapeCornerControl | undefined
+
+  return Boolean(control?.shapeFreeScaleCornerControl)
+}
+
+/** Возвращает тот же режим, который угловая ручка шейпа применяет к Fabric transform. */
+export const resolveShapeCornerScaleMode = ({
+  shiftKey
+}: {
+  shiftKey: boolean
+}): ShapeCornerScaleMode => {
+  return shiftKey ? 'free' : 'uniform'
+}
+
 /**
  * Возвращает true, если transform использует центр объекта как anchor.
  */
@@ -102,9 +138,11 @@ const createShapeCornerScalingActionHandler = (): NonNullable<Control['actionHan
 
   return (eventData, transform, x, y) => {
     const { canvas } = transform.target
-    const isFreeScale = Boolean(eventData.shiftKey)
+    const mode = resolveShapeCornerScaleMode({
+      shiftKey: Boolean(eventData.shiftKey)
+    })
 
-    if (!canvas || isFreeScale) {
+    if (!canvas || mode === 'free') {
       return freeScaleHandler(eventData, transform, x, y)
     }
 

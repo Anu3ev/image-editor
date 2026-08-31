@@ -7,9 +7,9 @@ An `ActiveSelection` is a temporary Fabric container, not persisted editor conte
 ## Responsibility split
 
 - [`index.ts`](./index.ts) is the manager facade. It owns selection keys, locked-object filtering, box-selection merging, selection restoration, event subscriptions, and composition of the scale interaction owner.
-- [`scaling/active-selection-scale-interaction-controller.ts`](./scaling/active-selection-scale-interaction-controller.ts) owns the unified scale session for an `ActiveSelection` made only of direct top-level images.
+- [`scaling/active-selection-scale-interaction-controller.ts`](./scaling/active-selection-scale-interaction-controller.ts) owns the unified scale session for an `ActiveSelection` made only of direct top-level images or only of direct top-level shapes.
 - [`../snapping-manager/scaling/rectangular-scale-gesture-projection.ts`](../snapping-manager/scaling/rectangular-scale-gesture-projection.ts) captures the immutable geometry of standard Fabric side and corner controls.
-- [`../snapping-manager/scaling/rectangular-scale-interaction.ts`](../snapping-manager/scaling/rectangular-scale-interaction.ts) resolves the Fabric scale mode and raw intent, applies one scale plan around the fixed point, and reads the exact final geometry shared by single-image and image-only selection controllers.
+- [`../snapping-manager/scaling/rectangular-scale-interaction.ts`](../snapping-manager/scaling/rectangular-scale-interaction.ts) resolves the Fabric scale mode or accepts an explicit domain mode, builds the raw intent, applies one scale plan around the fixed point, and reads the exact final geometry shared by single-object and supported selection controllers.
 - [`../snapping-manager/scaling/standard-scale-control.ts`](../snapping-manager/scaling/standard-scale-control.ts) verifies that the active control still follows the standard Fabric scale contract and detects when a side control switches from scaling to skew.
 - [`../snapping-manager/scaling/scale-snapping-runtime.ts`](../snapping-manager/scaling/scale-snapping-runtime.ts) resolves hold and release state and publishes a result only after the applied geometry has been verified.
 
@@ -21,36 +21,37 @@ The configured `selectionKey` defaults to Ctrl or Cmd. Text editing temporarily 
 
 `lastSelection`, box-selection flags, the active Fabric transform, and scale sessions are transient runtime state. They are never serialized into templates or history.
 
-## Image-only scaling
+## Image-only and shape-only scaling
 
-The migrated scale path accepts an `ActiveSelection` only when it contains at least two direct top-level `FabricImage` children and the selection uses a standard scale control with positive scale, no parent, no skew or flip, and no locked scale axis. Every other composition returns to the existing Fabric and domain-manager lifecycle before the new owner mutates anything.
+The migrated scale path accepts an `ActiveSelection` when it contains at least two direct top-level `FabricImage` children or at least two canonical shape groups. The selection must use a supported scale control with positive scale, no parent, no skew or flip, and no locked scale axis. A supported shape must have complete visual and text nodes, canonical unit scale, zero angle, and no parent, skew, flip, or locked scale axis. Every other composition returns to the existing Fabric and domain-manager lifecycle before the new owner mutates anything.
 
-At `mousedown`, the controller captures exact selection bounds, the fixed point, original scale, candidates, zoom, the selected control, and protected local state for every image. Each pointer step follows one contract:
+At `mousedown`, the controller captures exact selection bounds, the fixed point, original scale, candidates, zoom, the selected control, and the protected state required by the selected composition. Each pointer step follows one contract:
 
 ```text
 immutable gesture baseline
   → raw Fabric preview or pointer projection
   → shared snapping plan
   → one scale application to ActiveSelection
+  → ShapeManager constraints and layout when the children are shapes
   → verification of exact bounds and protected child state
   → publication of verified guides
 ```
 
-All eight standard side and corner controls are supported. The same path handles proportional and Shift-controlled free corner scaling, scaling relative to the centre, rotation, independent X/Y hold and release, Ctrl, zoom, and pan. A side control that Fabric switches to skew ends the scale session without applying a second scale transform.
+All eight side and corner controls are supported. The same path handles proportional and Shift-controlled free corner scaling, scaling relative to the centre, rotation of the entire `ActiveSelection`, independent X/Y hold and release, Ctrl, zoom, and pan. Individually rotated shape children remain on the existing path because non-uniform parent scaling cannot be materialized back into their canonical zero-skew geometry without a separate affine contract. When a side control switches to skew, the existing Fabric transform remains responsible for that part of the gesture, scale snapping stops for every skew frame, and stale guides are cleared. Releasing the modifier continues through the existing scale path, and pressing it again cannot run shape scaling over Fabric skew.
 
-The live transform changes only the temporary selection scale and position around its fixed point. Each image keeps its local position, dimensions, scale, crop, angle, skew, flip, and origins. `mouseup` preserves the final live geometry and lets the existing Fabric listener create one history entry. After undo or redo, the temporary selection does not exist, so restored top-level images may carry the equivalent scale themselves while preserving the same visible bounds.
+For images, the temporary selection owns the scale and position while every image keeps its local position, dimensions, scale, crop, angle, skew, flip, and origins. For shapes, `ShapeManager` intersects the minimum-size and text-layout constraints of all children, recalculates their layout once, preserves the fixed point, and returns the scale that was actually applied. On `object:modified`, a rectangular scale is materialized into canonical child dimensions and the selection is restored without a second snapping session. Rotation of the whole selection remains on the restored selection instead of being transferred to each shape, so another scale gesture uses the same unified path. If a side control introduced skew, the current Fabric selection is left intact and no rectangular shape materialization runs over it. Exact materialization and history or template round trips for skew are outside this migration phase. A completed rectangular scale creates one history entry through the regular Fabric lifecycle.
 
 ## Lifecycle and cleanup
 
-The scale session is ended on `mouseup`, a selection change, removal of the active selection or any image captured at gesture start, `pointercancel`, `touchcancel`, window blur, a new `mousedown`, and manager destruction. Pointer cancellation and window blur end the current Fabric transform before clearing the snapping session and verified guides. Cleanup is idempotent, and removing an unrelated object does not interrupt the gesture.
+The scale session is ended on `mouseup`, a selection change, removal of the active selection or any child captured at gesture start, `pointercancel`, `touchcancel`, window blur, a new `mousedown`, and manager destruction. Pointer cancellation, window blur, and editor-owned deletion finish an affected Fabric transform while the original selection still exists, so ShapeManager can commit the last visible rectangular geometry before transient scaling and resize state is cleared. Manager destruction only clears the transient session before the canvas is disposed and does not promise to persist unfinished geometry. A skew step stays on the existing Fabric path and only clears the unified scale state and guides. Selection events fired while ShapeManager rebuilds the temporary selection are part of the same rectangular commit and cannot clear the domain state early. Cleanup is idempotent. An unrelated `object:removed` event does not end the session; `DeletionManager` retains its existing selection cleanup after a successful delete.
 
 The captured child list, rather than the current mutable contents of `ActiveSelection`, determines whether an `object:removed` event belongs to the active session. This keeps cleanup correct even if Fabric changes the selection contents before delivering the event.
 
 ## Migration boundary
 
-Shape-only, standalone-text-only, and mixed selections still use their existing scale paths. ShapeManager is registered before SelectionManager and currently performs shape preview and materialization for a shape-containing selection before the new image-only controller would run. TextManager has a separate commit path for standalone text. Extending the image matcher would therefore create multiple mutation owners for one pointer step.
+Standalone-text-only and mixed selections still use their existing scale paths. `ShapeManager` is registered before `SelectionManager`, so its event controller asks the unified owner to process a shape-only step immediately. If that owner declines the step, the same event continues through the existing shape path; an accepted step is not processed twice when the later `SelectionManager` listener receives it. `SelectionManager` delegates only shape constraints, text layout, canonical materialization, and cleanup of remaining transient state back to `ShapeManager`; it does not start a second snapping session. `TextManager` still has a separate commit path for standalone text.
 
-The next stages must introduce an explicit composite routing boundary, collect the applicable child constraints, apply one selection transform, and delegate canonical shape or text materialization without starting another snapping session. `Group`, `CropFrame`, nested objects, and unknown child types remain outside the supported boundary until their product contract is established separately.
+The next stages must apply the same single-owner boundary to standalone-text-only selections and then to mixed image, shape, and text selections. `Group`, `CropFrame`, nested objects, and unknown child types remain outside the supported boundary until their product contract is established separately.
 
 ## Before changing this manager
 

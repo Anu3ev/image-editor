@@ -46,6 +46,9 @@ type ImageSourceInfo = {
   sourceHeight: number
 }
 
+/** Матрица преобразования изображения в координатах сцены. */
+type ImageTransformMatrix = [number, number, number, number, number, number]
+
 /** Способ начального вписывания импортированного изображения. */
 type ImageImportScale = 'image-contain' | 'image-cover' | 'scale-montage'
 
@@ -360,6 +363,24 @@ export class ImageModel {
     expect(snapshot, 'должен существовать snapshot изображения').not.toBeNull()
 
     return snapshot as SnappingObjectSnapshot
+  }
+
+  /** Возвращает фактическую матрицу отрисовки изображения в координатах сцены. */
+  async getTransformMatrix(params: ObjectTargetParams = {}): Promise<ImageTransformMatrix> {
+    const matrix = await this.page.evaluate(({ objectIndex, id }) => {
+      const { __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(objectIndex, id)
+      if (!target || typeof target.calcTransformMatrix !== 'function') return null
+
+      return target.calcTransformMatrix()
+    }, params)
+
+    expect(matrix, 'у изображения должна существовать матрица преобразования').not.toBeNull()
+    expect(matrix).toHaveLength(6)
+    expect(matrix?.every(Number.isFinite), 'компоненты матрицы изображения должны быть конечными').toBe(true)
+    if (!matrix) throw new Error('Не удалось получить матрицу преобразования изображения')
+
+    return matrix as ImageTransformMatrix
   }
 
   /** Возвращает runtime source изображения. */

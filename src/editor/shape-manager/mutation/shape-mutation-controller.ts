@@ -1,4 +1,4 @@
-import type { Canvas } from 'fabric'
+import { ActiveSelection, type Canvas } from 'fabric'
 import {
   DEFAULT_SHAPE_PRESET_KEY,
   SHAPE_DEFAULT_HORIZONTAL_ALIGN,
@@ -46,6 +46,7 @@ import type {
 import type {
   PreparedShapeUpdate
 } from './shape-update-pipeline'
+import { isCurrentTransformAffectedByRemoval } from '../../utils/current-transform'
 
 /**
  * Конкретные зависимости команд, которые изменяют shape-группу.
@@ -176,8 +177,20 @@ export default class ShapeMutationController {
     this._beginMutation()
 
     try {
-      this.dependencies.canvas.remove(group)
-      this.dependencies.canvas.requestRenderAll()
+      const { canvas } = this.dependencies
+
+      // Фиксируем преобразование до удаления шейпа, пока исходное выделение ещё существует.
+      if (isCurrentTransformAffectedByRemoval({ canvas, objects: [group] })) {
+        canvas.endCurrentTransform()
+      }
+
+      const activeObject = canvas.getActiveObject()
+      if (activeObject instanceof ActiveSelection && activeObject.getObjects().includes(group)) {
+        canvas.discardActiveObject()
+      }
+
+      canvas.remove(group)
+      canvas.requestRenderAll()
     } finally {
       this._endMutation({ withoutSave })
     }

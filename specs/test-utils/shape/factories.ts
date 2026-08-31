@@ -11,7 +11,9 @@ const SPACE_WIDTH_RATIO = 0.3
 type GroupOrigin = 'left' | 'center' | 'right' | 'top' | 'bottom'
 
 export type MockCanvas = {
+  _currentTransform?: unknown
   add: jest.Mock
+  endCurrentTransform: jest.Mock
   remove: jest.Mock
   on: jest.Mock
   off: jest.Mock
@@ -90,6 +92,7 @@ export const createMockCanvas = (): MockCanvas => {
     add: jest.fn((object: unknown) => {
       objects.push(object)
     }),
+    endCurrentTransform: jest.fn(),
     remove: jest.fn((object: unknown) => {
       const objectIndex = objects.indexOf(object)
       if (objectIndex >= 0) {

@@ -26,8 +26,13 @@ const ALL_SCALE_HANDLES = ['tl', 'tr', 'br', 'bl', 'ml', 'mt', 'mr', 'mb'] as co
 /** Scale-ручки общего выделения, в котором отдельный текст запрещает вертикальный resize. */
 const TEXT_SELECTION_SCALE_HANDLES = ['tl', 'tr', 'br', 'bl', 'ml', 'mr'] as const
 
-/** События scale, при котором составной объект сохраняет scaleX и scaleY. */
-const DIRECT_SCALE_EVENTS = ['object:scaling', 'mouse:move', 'object:modified', 'mouse:up'] as const
+/** События scale с одним завершающим `object:modified`. */
+const SINGLE_COMMIT_SCALE_EVENTS = [
+  'object:scaling',
+  'mouse:move',
+  'object:modified',
+  'mouse:up'
+] as const
 
 /** События scale с переносом результата в размеры дочерних объектов. */
 const RESIZED_CHILD_SCALE_EVENTS = [
@@ -74,9 +79,9 @@ test('увеличивает два шейпа в общем выделении 
     actual: result.capability,
     expected: { childIds, handles: ALL_SCALE_HANDLES, targetId: null, targetType: 'activeselection' }
   })
-  expectSelectionScaleGeometry({ result, eventOrder: RESIZED_CHILD_SCALE_EVENTS })
+  expectSelectionScaleGeometry({ result, eventOrder: SINGLE_COMMIT_SCALE_EVENTS })
   expectChildrenScaleWithoutMouseupJump(result.trace)
-  expectAllChildScalesSavedInSizes(result.trace)
+  expectAllShapeSizesSavedInSingleCommit(result.trace)
 })
 
 test('увеличивает два изображения и сохраняет их размер после mouseup', async({
@@ -102,7 +107,7 @@ test('увеличивает два изображения и сохраняет
     actual: result.capability,
     expected: { childIds, handles: ALL_SCALE_HANDLES, targetId: null, targetType: 'activeselection' }
   })
-  expectSelectionScaleGeometry({ result, eventOrder: DIRECT_SCALE_EVENTS })
+  expectSelectionScaleGeometry({ result, eventOrder: SINGLE_COMMIT_SCALE_EVENTS })
   expectChildrenScaleWithoutMouseupJump(result.trace)
   expectContainerKeepsScale(result.trace)
 })
@@ -237,7 +242,7 @@ test('обычная группа масштабируется через угл
     actual: result.capability,
     expected: { childIds, handles: ALL_SCALE_HANDLES, targetId: group.id, targetType: 'group' }
   })
-  expectSelectionScaleGeometry({ result, eventOrder: DIRECT_SCALE_EVENTS })
+  expectSelectionScaleGeometry({ result, eventOrder: SINGLE_COMMIT_SCALE_EVENTS })
   expectChildrenScaleWithoutMouseupJump(result.trace)
   expectContainerKeepsScale(result.trace)
 })
@@ -352,6 +357,25 @@ function expectChildrenScaleWithoutMouseupJump(trace: ScaleInteractionTrace): vo
       .toBeLessThanOrEqual(MOUSEUP_BOUNDS_TOLERANCE)
     expect(Math.abs(finalChild.boundsHeight - liveChild.boundsHeight), `${baselineChild.id}: mouseup не должен менять высоту`)
       .toBeLessThanOrEqual(MOUSEUP_BOUNDS_TOLERANCE)
+  }
+}
+
+/** Проверяет каноническую фиксацию размеров всех шейпов одним завершающим событием. */
+function expectAllShapeSizesSavedInSingleCommit(trace: ScaleInteractionTrace): void {
+  const modified = trace.events.filter(({ name }) => name === 'object:modified')
+
+  expect(modified, 'унифицированный скейлинг шейпов должен завершаться одним modified-событием')
+    .toHaveLength(1)
+  expect(trace.final.snapshot.scaleX, 'после mouseup выделение должно сбросить scaleX').toBe(1)
+  expect(trace.final.snapshot.scaleY, 'после mouseup выделение должно сбросить scaleY').toBe(1)
+
+  for (const baseline of trace.baseline.childSnapshots) {
+    const resized = requireChild({ children: trace.final.childSnapshots, id: baseline.id })
+
+    expect(resized.width, `${baseline.id}: собственная width должна увеличиться`).toBeGreaterThan(baseline.width)
+    expect(resized.height, `${baseline.id}: собственная height должна увеличиться`).toBeGreaterThan(baseline.height)
+    expect(resized.scaleX, `${baseline.id}: итоговый scaleX должен быть сброшен`).toBe(1)
+    expect(resized.scaleY, `${baseline.id}: итоговый scaleY должен быть сброшен`).toBe(1)
   }
 }
 

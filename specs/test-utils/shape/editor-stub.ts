@@ -5,6 +5,7 @@ import { createMockCanvas, createMockShapeTextbox } from './factories'
 type PlacementOriginX = 'left' | 'center' | 'right'
 type PlacementOriginY = 'top' | 'center' | 'bottom'
 
+/** Создаёт минимальный редактор для unit-тестов ShapeManager. */
 export const createShapeManagerEditorStub = ({
   canvas,
   montageAreaWidth
@@ -128,6 +129,10 @@ export const createShapeManagerEditorStub = ({
       suspendHistory: jest.fn(),
       resumeHistory: jest.fn(),
       saveState: jest.fn()
+    },
+    selectionManager: {
+      handleShapeSelectionScaleStep: jest.fn().mockReturnValue(false),
+      commitShapeSelectionScale: jest.fn().mockReturnValue(false)
     },
     montageArea
   }

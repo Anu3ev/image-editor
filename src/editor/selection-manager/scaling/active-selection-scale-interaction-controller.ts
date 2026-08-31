@@ -20,7 +20,8 @@ import {
 } from '../../snapping-manager/scaling/rectangular-scale-gesture-projection'
 import {
   createScaleGestureBaseline,
-  type ScaleRawIntent
+  type ScaleRawIntent,
+  type ScaleSnapPlan
 } from '../../snapping-manager/scaling/scale-snapping-resolver'
 import { ScaleSnappingRuntime } from '../../snapping-manager/scaling/scale-snapping-runtime'
 import {
@@ -64,11 +65,34 @@ type ProtectedSelectionImageState = Readonly<{
   width: number
 }>
 
+/** Свойства шейпа, которые не должна менять компоновка во время общего скейлинга. */
+type ProtectedSelectionShapeState = Readonly<{
+  angle: number
+  flipX: boolean
+  flipY: boolean
+  originX: FabricObject['originX']
+  originY: FabricObject['originY']
+  scaleX: number
+  scaleY: number
+  skewX: number
+  skewY: number
+  target: FabricObject
+}>
+
+/** Состав выделения определяет доменное применение рассчитанного масштаба. */
+type ActiveSelectionScaleComposition = Readonly<{
+  children: readonly ProtectedSelectionImageState[]
+  kind: 'images'
+}> | Readonly<{
+  children: readonly ProtectedSelectionShapeState[]
+  kind: 'shapes'
+}>
+
 /** Свойства выделения и преобразования Fabric, которые должны сохраниться во время жеста. */
 type ActiveSelectionScaleProtectedState = Readonly<{
   action: Transform['action']
   angle: number
-  children: readonly ProtectedSelectionImageState[]
+  composition: ActiveSelectionScaleComposition
   controlKey: string
   flipX: boolean
   flipY: boolean
@@ -83,28 +107,37 @@ type ActiveSelectionScaleProtectedState = Readonly<{
   width: number
 }>
 
-/** Проверенные данные поддерживаемого жеста выделения из изображений. */
+/** Проверенные данные поддерживаемого жеста общего выделения. */
 type ActiveSelectionScaleGesture = Readonly<{
+  compositionKind: ActiveSelectionScaleComposition['kind']
   projectionTransform: RectangularScaleGestureTransform
   target: ActiveSelection
   transform: Transform
 }>
 
+/** Текущий этап обработки одного жеста скейлинга общего выделения. */
+type ActiveSelectionScaleSessionPhase = 'unified' | 'legacy-passthrough' | 'skew-passthrough'
+
+/** Способ фиксации шейпов после общей сессии скейлинга. */
+export type ActiveSelectionShapeCommitMode = 'canonical-scale' | 'fabric-transform'
+
 /** Временное состояние одного жеста скейлинга общего выделения. */
-type ActiveSelectionScaleSession = Readonly<{
-  projection: RectangularScaleGestureProjection
-  protectedState: ActiveSelectionScaleProtectedState
-  runtime: ScaleSnappingRuntime
-  target: ActiveSelection
-  transform: Transform
-}>
+type ActiveSelectionScaleSession = {
+  hasSkewStep: boolean
+  phase: ActiveSelectionScaleSessionPhase
+  readonly projection: RectangularScaleGestureProjection
+  readonly protectedState: ActiveSelectionScaleProtectedState
+  readonly runtime: ScaleSnappingRuntime
+  readonly target: ActiveSelection
+  readonly transform: Transform
+}
 
 /** Допуск сравнения защищённых числовых свойств выделения. */
 const ACTIVE_SELECTION_SCALE_STATE_EPSILON = 0.000000001
 
 /**
- * Владеет общей сессией скейлинга ActiveSelection, состоящего только из изображений.
- * Выделения другого состава пока используют прежнюю логику.
+ * Владеет общей сессией скейлинга ActiveSelection из изображений или шейпов.
+ * Остальные составы пока используют прежнюю логику.
  */
 export default class ActiveSelectionScaleInteractionController {
   /** Редактор с холстом и общим окружением прилипания. */
@@ -112,6 +145,9 @@ export default class ActiveSelectionScaleInteractionController {
 
   /** Текущий поддерживаемый жест или null для прежнего пути. */
   private session: ActiveSelectionScaleSession | null = null
+
+  /** Сессия шейпов, которую ShapeManager сейчас фиксирует через `object:modified`. */
+  private shapeCommitSession: ActiveSelectionScaleSession | null = null
 
   /** Создаёт владельца скейлинга общего выделения. */
   constructor({ editor }: { editor: ImageEditor }) {
@@ -140,6 +176,10 @@ export default class ActiveSelectionScaleInteractionController {
   public destroy(): void {
     const { canvas } = this.editor
 
+    if (this.session) {
+      this.interruptGesture()
+    }
+
     canvas.off('mouse:down', this._handleMouseDown)
     canvas.off('mouse:move', this._handleMouseMove)
     canvas.off('object:scaling', this._handleObjectScaling)
@@ -152,7 +192,7 @@ export default class ActiveSelectionScaleInteractionController {
     window.removeEventListener('pointercancel', this._handlePointerCancel)
     window.removeEventListener('touchcancel', this._handlePointerCancel)
     window.removeEventListener('blur', this._handleWindowBlur)
-    this._finishAndClearGuides()
+    this._cancelAndClearGuides()
   }
 
   /** Фиксирует исходную геометрию поддерживаемого общего выделения. */
@@ -161,9 +201,9 @@ export default class ActiveSelectionScaleInteractionController {
   }: {
     event: ActiveSelectionScaleInteractionEvent
   }): boolean {
-    this._finishAndClearGuides()
+    this._cancelAndClearGuides()
 
-    const gesture = resolveActiveSelectionScaleGesture({ event })
+    const gesture = resolveActiveSelectionScaleGesture({ editor: this.editor, event })
     const pointerStart = event.scenePoint ?? event.pointer
     if (!gesture || !pointerStart) return false
 
@@ -206,20 +246,67 @@ export default class ActiveSelectionScaleInteractionController {
     const { session } = this
     if (!session) return false
 
-    const { didCleanup } = session.runtime.finishSession()
+    session.runtime.finishSession()
     this.session = null
+    if (this.shapeCommitSession === session) {
+      this.shapeCommitSession = null
+    }
 
-    return didCleanup
+    return true
   }
 
-  /** Завершает жест при удалении выделения или одного из его изображений. */
+  /** Защищает фиксацию шейпов от промежуточных событий смены выделения. */
+  public beginShapeSelectionCommit({
+    selection
+  }: {
+    selection: ActiveSelection
+  }): ActiveSelectionShapeCommitMode | null {
+    const { session } = this
+    if (!session || session.target !== selection) return null
+    if (session.protectedState.composition.kind !== 'shapes') return null
+    if (this.shapeCommitSession) {
+      throw new Error('Фиксация общего выделения из шейпов уже выполняется')
+    }
+
+    this.shapeCommitSession = session
+
+    return session.hasSkewStep ? 'fabric-transform' : 'canonical-scale'
+  }
+
+  /** Завершает общую сессию после фиксации геометрии или преобразования шейпов. */
+  public finishShapeSelectionCommit({ selection }: { selection: ActiveSelection }): boolean {
+    const { shapeCommitSession } = this
+    if (!shapeCommitSession || shapeCommitSession.target !== selection) return false
+
+    this.shapeCommitSession = null
+
+    return this._finishAndClearGuides()
+  }
+
+  /** Завершает жест при удалении выделения или одного из его дочерних объектов. */
   public finishGestureForTarget({ target }: { target: FabricObject }): boolean {
     const { session } = this
     if (!session) return false
-    const belongsToSelection = session.protectedState.children.some((child) => child.target === target)
+    const belongsToSelection = session.protectedState.composition.children
+      .some((child) => child.target === target)
     if (target !== session.target && !belongsToSelection) return false
 
-    return this.finishGesture()
+    return this._cancelAndClearGuides()
+  }
+
+  /** Обрабатывает шаг шейпов до прежнего обработчика ShapeManager. */
+  public handleShapeSelectionScaleStep({
+    event,
+    intentSource
+  }: {
+    event: ActiveSelectionScaleInteractionEvent
+    intentSource: RectangularScaleIntentSource
+  }): boolean {
+    const { session } = this
+    if (!session || session.protectedState.composition.kind !== 'shapes') return false
+    if (!doesEventBelongToSession({ event, session })) return false
+
+    return this._handleScaleStep({ event, intentSource })
   }
 
   /** Завершает преобразование Fabric после внешнего прерывания указателя. */
@@ -229,7 +316,7 @@ export default class ActiveSelectionScaleInteractionController {
     try {
       this.editor.canvas.endCurrentTransform(event)
     } finally {
-      this._finishAndClearGuides()
+      this._cancelAndClearGuides()
     }
 
     return true
@@ -245,6 +332,12 @@ export default class ActiveSelectionScaleInteractionController {
   }): boolean {
     const { session } = this
     if (!session) return false
+    if (session.phase === 'legacy-passthrough') {
+      return this._handleLegacyPassthroughStep({ event, session })
+    }
+    if (session.phase === 'skew-passthrough') {
+      return this._handleSkewPassthroughStep({ event, session })
+    }
 
     const marker = resolveScaleMarker({ event })
     const duplicate = session.runtime.getDuplicateStep({ marker })
@@ -266,10 +359,18 @@ export default class ActiveSelectionScaleInteractionController {
     })) return this._finishBeforeSkew({ marker })
     if (!isSameActiveSelectionScaleGesture({ session })) return this._continueWithExistingScaling()
 
+    const shapeControlMode = session.protectedState.composition.kind === 'shapes'
+      ? this.editor.shapeManager.resolveActiveSelectionScaleControlMode({
+        selection: session.target,
+        transform: session.transform,
+        event: pointerEvent
+      })
+      : null
     const stepInput = resolveRectangularScaleStepInput({
       canvas: this.editor.canvas,
       event,
       intentSource,
+      mode: shapeControlMode ?? undefined,
       projection: session.projection,
       target: session.target
     })
@@ -279,8 +380,60 @@ export default class ActiveSelectionScaleInteractionController {
       intent: stepInput.intent,
       marker,
       mode: stepInput.mode,
+      pointerEvent,
       session
     })
+  }
+
+  /** Снова блокирует расчёт скейлинга шейпов, если боковая ручка вернулась к наклону. */
+  private _handleLegacyPassthroughStep({
+    event,
+    session
+  }: {
+    event: ActiveSelectionScaleInteractionEvent
+    session: ActiveSelectionScaleSession
+  }): boolean {
+    if (!doesEventBelongToSession({ event, session })) return false
+
+    const pointerEvent = event.e
+    if (!pointerEvent || !didSideScaleSwitchToSkew({
+      controlKey: session.projection.controlKey,
+      pointerEvent,
+      target: session.target
+    })) return false
+
+    session.phase = 'skew-passthrough'
+    session.hasSkewStep = true
+    this.editor.snappingManager.markScaleStepHandled({ marker: resolveScaleMarker({ event }) })
+    this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
+
+    return true
+  }
+
+  /** Не даёт ShapeManager повторно применить скейлинг, пока Fabric выполняет наклон боковой ручкой. */
+  private _handleSkewPassthroughStep({
+    event,
+    session
+  }: {
+    event: ActiveSelectionScaleInteractionEvent
+    session: ActiveSelectionScaleSession
+  }): boolean {
+    if (!doesEventBelongToSession({ event, session })) return false
+
+    const pointerEvent = event.e
+    const remainsSkew = !pointerEvent || didSideScaleSwitchToSkew({
+      controlKey: session.projection.controlKey,
+      pointerEvent,
+      target: session.target
+    })
+    if (!remainsSkew) {
+      session.phase = 'legacy-passthrough'
+      return false
+    }
+
+    this.editor.snappingManager.markScaleStepHandled({ marker: resolveScaleMarker({ event }) })
+
+    return true
   }
 
   /** Рассчитывает, один раз применяет и проверяет текущий шаг общего выделения. */
@@ -288,11 +441,13 @@ export default class ActiveSelectionScaleInteractionController {
     intent,
     marker,
     mode,
+    pointerEvent,
     session
   }: {
     intent: ScaleRawIntent
     marker: object
     mode: RectangularScaleGestureMode
+    pointerEvent: TPointerEvent
     session: ActiveSelectionScaleSession
   }): boolean {
     const step = session.runtime.resolveScalePlan({ marker, intent })
@@ -301,15 +456,14 @@ export default class ActiveSelectionScaleInteractionController {
     }
 
     try {
-      applyRectangularScalePlan({
+      const appliedMultipliers = applyActiveSelectionScalePlan({
+        editor: this.editor,
         plan: step.plan,
+        pointerEvent,
         projection: session.projection,
+        protectedState: session.protectedState,
         target: session.target,
         transform: session.transform
-      })
-      const appliedMultipliers = readAppliedRectangularScaleMultipliers({
-        projection: session.projection,
-        target: session.target
       })
       const finalGeometry = readFinalRectangularScaleGeometry({
         mode,
@@ -333,21 +487,42 @@ export default class ActiveSelectionScaleInteractionController {
 
       return true
     } catch (error) {
-      this._finishAndClearGuides()
+      this._cancelAndClearGuides()
       throw error
     }
   }
 
   /** Завершает общую сессию перед продолжением прежнего пути Fabric. */
   private _continueWithExistingScaling(): false {
+    const { session } = this
+    if (session?.protectedState.composition.kind === 'shapes') {
+      session.runtime.finishSession()
+      session.phase = 'legacy-passthrough'
+      this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
+
+      return false
+    }
+
     this._finishAndClearGuides()
 
     return false
   }
 
-  /** Завершает сессию, не запуская прежнюю логику скейлинга поверх наклона Fabric. */
+  /** Отключает прилипание перед наклоном, но сохраняет владельца завершающего события. */
   private _finishBeforeSkew({ marker }: { marker: object }): true {
-    this._finishAndClearGuides()
+    const { session } = this
+    if (!session) {
+      throw new Error('Переход к наклону требует активной сессии общего выделения')
+    }
+
+    if (session.protectedState.composition.kind === 'shapes') {
+      session.runtime.finishSession()
+      session.phase = 'skew-passthrough'
+      session.hasSkewStep = true
+      this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
+    } else {
+      this._finishAndClearGuides()
+    }
     this.editor.snappingManager.markScaleStepHandled({ marker })
 
     return true
@@ -360,6 +535,30 @@ export default class ActiveSelectionScaleInteractionController {
     this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
 
     return true
+  }
+
+  /** Очищает общую сессию и оставшееся временное состояние шейпов. */
+  private _cancelAndClearGuides(): boolean {
+    const { session } = this
+    if (!session) return false
+
+    this._clearShapePreviewState({ session })
+
+    return this._finishAndClearGuides()
+  }
+
+  /** Очищает временные данные ShapeManager, если сессия принадлежит шейпам. */
+  private _clearShapePreviewState({
+    session
+  }: {
+    session: ActiveSelectionScaleSession
+  }): void {
+    if (session.protectedState.composition.kind !== 'shapes') return
+
+    this.editor.shapeManager.clearActiveSelectionScalePreviewState({
+      selection: session.target,
+      children: session.protectedState.composition.children.map(({ target }) => target)
+    })
   }
 
   /** Начинает новый поддерживаемый жест на `mouse:down`. */
@@ -379,7 +578,10 @@ export default class ActiveSelectionScaleInteractionController {
 
   /** Очищает сессию на любом терминальном событии. */
   private readonly _handleInteractionFinished = (): void => {
-    this._finishAndClearGuides()
+    const { session } = this
+    if (session && this.shapeCommitSession === session) return
+
+    this._cancelAndClearGuides()
   }
 
   /** Завершает преобразование после отмены события указателя. */
@@ -392,16 +594,56 @@ export default class ActiveSelectionScaleInteractionController {
     this.interruptGesture()
   }
 
-  /** Очищает сессию при удалении выделения или одного из его изображений. */
+  /** Очищает сессию при удалении выделения или одного из его дочерних объектов. */
   private readonly _handleObjectRemoved = ({
     target
   }: {
     target?: FabricObject | null
   }): void => {
-    if (!target || !this.finishGestureForTarget({ target })) return
+    if (!target) return
 
-    this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
+    this.finishGestureForTarget({ target })
   }
+}
+
+/** Применяет общий план и передаёт шейпам расчёт их компоновки. */
+function applyActiveSelectionScalePlan({
+  editor,
+  plan,
+  pointerEvent,
+  projection,
+  protectedState,
+  target,
+  transform
+}: {
+  editor: ImageEditor
+  plan: ScaleSnapPlan
+  pointerEvent: TPointerEvent
+  projection: RectangularScaleGestureProjection
+  protectedState: ActiveSelectionScaleProtectedState
+  target: ActiveSelection
+  transform: Transform
+}): RectangularScaleMultipliers {
+  applyRectangularScalePlan({ plan, projection, target, transform })
+
+  if (protectedState.composition.kind === 'shapes') {
+    const appliedScale = editor.shapeManager.applyActiveSelectionScalePreview({
+      selection: target,
+      transform,
+      event: pointerEvent
+    })
+    if (!appliedScale) {
+      throw new Error('Поддерживаемое выделение из шейпов должно принять рассчитанный масштаб')
+    }
+    if (
+      !areNumbersNear({ first: target.scaleX, second: appliedScale.scaleX })
+      || !areNumbersNear({ first: target.scaleY, second: appliedScale.scaleY })
+    ) {
+      throw new Error('Масштаб выделения должен совпасть с результатом ShapeManager')
+    }
+  }
+
+  return readAppliedRectangularScaleMultipliers({ projection, target })
 }
 
 /** Создаёт сессию расчёта и неизменяемое окружение текущего жеста. */
@@ -429,25 +671,41 @@ function createActiveSelectionScaleSession({
   const runtime = new ScaleSnappingRuntime()
   runtime.startSession({ baseline })
 
-  return Object.freeze({
+  return {
+    hasSkewStep: false,
+    phase: 'unified',
     projection,
     protectedState: captureProtectedActiveSelectionState(gesture),
     runtime,
     target: gesture.target,
     transform: gesture.transform
-  })
+  }
 }
 
 /** Проверяет `mouse:down` и возвращает данные поддерживаемого общего выделения. */
 function resolveActiveSelectionScaleGesture({
+  editor,
   event
 }: {
+  editor: ImageEditor
   event: ActiveSelectionScaleInteractionEvent
 }): ActiveSelectionScaleGesture | null {
   const { target, transform } = event
   if (!(target instanceof ActiveSelection) || !transform) return null
-  if (transform.target !== target || !isSupportedImageSelection({ target })) return null
-  if (!isStandardRectangularScaleControl({ target, transform })) return null
+  if (transform.target !== target || !isSupportedActiveSelectionGeometry({ target })) return null
+
+  const compositionKind = resolveActiveSelectionScaleCompositionKind({ editor, target })
+  if (!compositionKind) return null
+  const shapeControlMode = compositionKind === 'shapes'
+    ? editor.shapeManager.resolveActiveSelectionScaleControlMode({
+      selection: target,
+      transform,
+      event: event.e
+    })
+    : null
+  const usesSupportedControl = isStandardRectangularScaleControl({ target, transform })
+    || shapeControlMode !== null
+  if (!usesSupportedControl) return null
 
   const originalScaleX = transform.original?.scaleX
   const originalScaleY = transform.original?.scaleY
@@ -455,6 +713,7 @@ function resolveActiveSelectionScaleGesture({
   if (typeof originalScaleY !== 'number' || !Number.isFinite(originalScaleY) || originalScaleY <= 0) return null
 
   return Object.freeze({
+    compositionKind,
     projectionTransform: Object.freeze({
       target,
       action: transform.action,
@@ -468,12 +727,31 @@ function resolveActiveSelectionScaleGesture({
   })
 }
 
-/** Проверяет состав и геометрическое состояние выделения, поддерживаемого на текущем этапе. */
+/** Возвращает поддерживаемый однородный состав общего выделения. */
+function resolveActiveSelectionScaleCompositionKind({
+  editor,
+  target
+}: {
+  editor: ImageEditor
+  target: ActiveSelection
+}): ActiveSelectionScaleComposition['kind'] | null {
+  if (isSupportedImageSelection({ target })) return 'images'
+  if (editor.shapeManager.supportsActiveSelectionScaling({ selection: target })) return 'shapes'
+
+  return null
+}
+
+/** Проверяет состав выделения только из прямых изображений. */
 function isSupportedImageSelection({ target }: { target: ActiveSelection }): boolean {
   const objects = target.getObjects()
   if (objects.length < 2) return false
   if (objects.some((object) => !(object instanceof FabricImage) || Boolean(object.parent))) return false
 
+  return true
+}
+
+/** Проверяет общую геометрию выделения до определения его доменного состава. */
+function isSupportedActiveSelectionGeometry({ target }: { target: ActiveSelection }): boolean {
   const hasUnsupportedState = [
     target.group,
     target.parent,
@@ -498,17 +776,16 @@ function isSupportedImageSelection({ target }: { target: ActiveSelection }): boo
     && Math.abs(target.skewY ?? 0) <= ACTIVE_SELECTION_SCALE_STATE_EPSILON
 }
 
-/** Сохраняет свойства выделения и локальную геометрию его изображений. */
+/** Сохраняет свойства выделения и защищённое состояние его дочерних объектов. */
 function captureProtectedActiveSelectionState({
   target,
-  transform
+  transform,
+  compositionKind
 }: ActiveSelectionScaleGesture): ActiveSelectionScaleProtectedState {
   return Object.freeze({
     action: transform.action,
     angle: target.angle ?? 0,
-    children: Object.freeze(target.getObjects().map((object) => {
-      return captureProtectedSelectionImageState({ target: object as FabricImage })
-    })),
+    composition: captureProtectedSelectionComposition({ compositionKind, target }),
     controlKey: transform.corner,
     flipX: Boolean(target.flipX),
     flipY: Boolean(target.flipY),
@@ -521,6 +798,31 @@ function captureProtectedActiveSelectionState({
     targetOriginX: target.originX,
     targetOriginY: target.originY,
     width: target.width
+  })
+}
+
+/** Сохраняет защищённые свойства дочерних объектов с учётом состава выделения. */
+function captureProtectedSelectionComposition({
+  compositionKind,
+  target
+}: {
+  compositionKind: ActiveSelectionScaleComposition['kind']
+  target: ActiveSelection
+}): ActiveSelectionScaleComposition {
+  if (compositionKind === 'images') {
+    return Object.freeze({
+      children: Object.freeze(target.getObjects().map((object) => {
+        return captureProtectedSelectionImageState({ target: object as FabricImage })
+      })),
+      kind: 'images'
+    })
+  }
+
+  return Object.freeze({
+    children: Object.freeze(target.getObjects().map((object) => {
+      return captureProtectedSelectionShapeState({ target: object })
+    })),
+    kind: 'shapes'
   })
 }
 
@@ -547,6 +849,26 @@ function captureProtectedSelectionImageState({
     target,
     top: target.top,
     width: target.width
+  })
+}
+
+/** Сохраняет свойства одного шейпа, которые не зависят от текущей компоновки. */
+function captureProtectedSelectionShapeState({
+  target
+}: {
+  target: FabricObject
+}): ProtectedSelectionShapeState {
+  return Object.freeze({
+    angle: target.angle ?? 0,
+    flipX: Boolean(target.flipX),
+    flipY: Boolean(target.flipY),
+    originX: target.originX,
+    originY: target.originY,
+    scaleX: target.scaleX,
+    scaleY: target.scaleY,
+    skewX: target.skewX ?? 0,
+    skewY: target.skewY ?? 0,
+    target
   })
 }
 
@@ -601,15 +923,16 @@ function isProtectedActiveSelectionStatePreserved({
   return true
 }
 
-/** Проверяет, что общее преобразование не изменило локальные свойства выделения и изображений. */
+/** Проверяет общие свойства выделения и защищённые свойства его состава. */
 function isCanonicalActiveSelectionStatePreserved({
   session
 }: {
   session: ActiveSelectionScaleSession
 }): boolean {
   const { protectedState, target } = session
+  const { composition } = protectedState
   const children = target.getObjects()
-  if (children.length !== protectedState.children.length) return false
+  if (children.length !== composition.children.length) return false
 
   return isSameActiveSelectionScaleGesture({ session })
     && areNumbersNear({ first: target.width, second: protectedState.width })
@@ -617,9 +940,26 @@ function isCanonicalActiveSelectionStatePreserved({
     && target.originX === protectedState.targetOriginX
     && target.originY === protectedState.targetOriginY
     && Boolean(target.lockScalingFlip) === protectedState.lockScalingFlip
-    && protectedState.children.every((state, index) => {
+    && isProtectedSelectionCompositionPreserved({ children, composition })
+}
+
+/** Проверяет неизменяемые свойства изображений или шейпов внутри выделения. */
+function isProtectedSelectionCompositionPreserved({
+  children,
+  composition
+}: {
+  children: FabricObject[]
+  composition: ActiveSelectionScaleComposition
+}): boolean {
+  if (composition.kind === 'images') {
+    return composition.children.every((state, index) => {
       return children[index] === state.target && isProtectedSelectionImageStatePreserved({ state })
     })
+  }
+
+  return composition.children.every((state, index) => {
+    return children[index] === state.target && isProtectedSelectionShapeStatePreserved({ state })
+  })
 }
 
 /** Проверяет локальные свойства одного изображения после общего преобразования выделения. */
@@ -641,6 +981,25 @@ function isProtectedSelectionImageStatePreserved({
     && areNumbersNear({ first: target.skewY ?? 0, second: state.skewY })
     && areNumbersNear({ first: target.cropX ?? 0, second: state.cropX })
     && areNumbersNear({ first: target.cropY ?? 0, second: state.cropY })
+    && Boolean(target.flipX) === state.flipX
+    && Boolean(target.flipY) === state.flipY
+    && target.originX === state.originX
+    && target.originY === state.originY
+}
+
+/** Проверяет свойства шейпа, которые компоновка во время жеста не должна менять. */
+function isProtectedSelectionShapeStatePreserved({
+  state
+}: {
+  state: ProtectedSelectionShapeState
+}): boolean {
+  const { target } = state
+
+  return areNumbersNear({ first: target.scaleX, second: state.scaleX })
+    && areNumbersNear({ first: target.scaleY, second: state.scaleY })
+    && areNumbersNear({ first: target.angle ?? 0, second: state.angle })
+    && areNumbersNear({ first: target.skewX ?? 0, second: state.skewX })
+    && areNumbersNear({ first: target.skewY ?? 0, second: state.skewY })
     && Boolean(target.flipX) === state.flipX
     && Boolean(target.flipY) === state.flipY
     && target.originX === state.originX

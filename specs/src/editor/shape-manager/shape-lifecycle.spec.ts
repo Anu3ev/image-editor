@@ -1,5 +1,6 @@
 import ShapeLifecycleController from '../../../../src/editor/shape-manager/lifecycle/shape-lifecycle-controller'
 import {
+  createMockCanvas,
   createMockShapeGroup,
   createMockShapeNode,
   createMockShapeTextbox
@@ -41,5 +42,21 @@ describe('shape-lifecycle', () => {
     expect(snapshot.manualBaseHeight).toBe(100)
     expect(snapshot.currentWidth).toBe(400)
     expect(snapshot.currentHeight).toBe(360)
+  })
+
+  it('cancelResize удаляет начальное и отложенное состояние прерванного скейлинга', () => {
+    const canvas = createMockCanvas()
+    const controller = new ShapeLifecycleController({ canvas: canvas as never })
+    const group = createMockShapeGroup({
+      shape: createMockShapeNode(),
+      text: createMockShapeTextbox()
+    })
+
+    controller.captureResizeStart({ group })
+    controller.beginResize({ group })
+    controller.cancelResize({ group })
+
+    expect(controller.finishResize({ group })).toBeNull()
+    expect(canvas.fire).not.toHaveBeenCalled()
   })
 })
