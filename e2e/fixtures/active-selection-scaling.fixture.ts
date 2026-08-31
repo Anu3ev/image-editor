@@ -19,8 +19,8 @@ const ACTIVE_SELECTION_SCALE_REFERENCE_WIDTH_PX = 8
 /** Расстояние от исходной левой границы выделения до опорного шейпа в экранных пикселях. */
 const ACTIVE_SELECTION_SCALE_REFERENCE_GAP_PX = 40
 
-/** Сцена для проверки скейлинга общего выделения из изображений. */
-export type ActiveSelectionImageScaleSetup = Readonly<{
+/** Общая геометрия сцены для проверки скейлинга составного выделения. */
+type ActiveSelectionScaleSetup = Readonly<{
   guides: Readonly<{
     bottom: number
     left: number
@@ -33,9 +33,18 @@ export type ActiveSelectionImageScaleSetup = Readonly<{
   targetMultiplier: number
 }>
 
+/** Сцена для проверки скейлинга общего выделения из изображений. */
+export type ActiveSelectionImageScaleSetup = ActiveSelectionScaleSetup
+
+/** Сцена для проверки скейлинга общего выделения из шейпов. */
+export type ActiveSelectionShapeScaleSetup = ActiveSelectionScaleSetup & Readonly<{
+  shapeIds: readonly [string, string]
+}>
+
 /** Дополнительные данные для скейлинга общего выделения. */
 interface ActiveSelectionScalingFixtures {
   activeSelectionImageScaleSetup: ActiveSelectionImageScaleSetup
+  activeSelectionShapeScaleSetup: ActiveSelectionShapeScaleSetup
 }
 
 /** Модели, необходимые для подготовки выделения из изображений. */
@@ -43,6 +52,13 @@ type ActiveSelectionImageModels = Readonly<{
   editorModel: EditorModel
   images: ImageModel
   selection: SelectionModel
+}>
+
+/** Модели, необходимые для подготовки выделения из шейпов. */
+type ActiveSelectionShapeModels = Readonly<{
+  editorModel: EditorModel
+  selection: SelectionModel
+  shapes: ShapeModel
 }>
 
 /** Геометрия четырёх опорных шейпов вокруг общего выделения. */
@@ -56,10 +72,42 @@ type ActiveSelectionScaleReferenceBounds = Readonly<{
 
 /** Результат подготовки опорных направляющих. */
 type ActiveSelectionScaleReferences = Readonly<{
-  guides: ActiveSelectionImageScaleSetup['guides']
+  guides: ActiveSelectionScaleSetup['guides']
   leftReference: SnappingObjectSnapshot
   targetMultiplier: number
 }>
+
+/** Добавляет два шейпа с текстом и возвращает их обязательные id. */
+async function addShapeSelectionObjects({
+  montage,
+  shapes
+}: {
+  montage: MontageAreaBoundsInfo
+  shapes: ShapeModel
+}): Promise<readonly [string, string]> {
+  const bounds = [
+    { left: montage.left + 110, top: montage.top + 105, width: 100, height: 90, text: 'Один' },
+    { left: montage.left + 255, top: montage.top + 175, width: 110, height: 105, text: 'Два' }
+  ] as const
+  const ids: string[] = []
+
+  for (const options of bounds) {
+    const shape = shapes.checkCreation({
+      shape: await shapes.addAtBounds({
+        presetKey: 'square',
+        options: { ...options, withoutSelection: true }
+      }),
+      presetKey: 'square'
+    })
+
+    expect(typeof shape.id, 'каждый шейп должен иметь id').toBe('string')
+    ids.push(shape.id as string)
+  }
+
+  if (ids.length !== 2) throw new Error('Сцена должна содержать ровно два шейпа')
+
+  return [ids[0] as string, ids[1] as string]
+}
 
 /** Создаёт и выделяет два изображения внутри монтажной области. */
 async function createImageSelection({
@@ -104,6 +152,40 @@ async function createImageSelection({
   expect(initial.children).toHaveLength(2)
 
   return { initial, montage, scenePixel: 1 / zoom }
+}
+
+/** Создаёт и выделяет два шейпа с текстом внутри монтажной области. */
+async function createShapeSelection({
+  editorModel,
+  selection,
+  shapes
+}: ActiveSelectionShapeModels): Promise<Readonly<{
+  initial: SelectionCompositionSnapshot
+  montage: MontageAreaBoundsInfo
+  scenePixel: number
+  shapeIds: readonly [string, string]
+}>> {
+  const montage = await editorModel.getMontageAreaBounds()
+  const { zoom } = await editorModel.getCanvasState()
+
+  expect(Number.isFinite(zoom), 'масштаб холста должен быть конечным').toBe(true)
+  expect(zoom, 'масштаб холста должен быть положительным').toBeGreaterThan(0)
+
+  const shapeIds = await addShapeSelectionObjects({ montage, shapes })
+
+  await editorModel.selectAllObjects()
+
+  const initial = await selection.getCompositionSnapshot()
+
+  expect(initial.selection.type).toBe('activeselection')
+  expect(initial.children).toHaveLength(2)
+
+  return {
+    initial,
+    montage,
+    scenePixel: 1 / zoom,
+    shapeIds
+  }
 }
 
 /** Рассчитывает четыре совместимые направляющие для одного пропорционального множителя. */
@@ -248,6 +330,43 @@ export const test = editorTest.extend<ActiveSelectionScalingFixtures>({
       initial,
       leftReference,
       scenePixel,
+      targetMultiplier
+    })
+  },
+
+  activeSelectionShapeScaleSetup: async({
+    editorModel,
+    history,
+    selection,
+    shapes,
+    snapping
+  }, use) => {
+    const {
+      initial,
+      montage,
+      scenePixel,
+      shapeIds
+    } = await createShapeSelection({ editorModel, selection, shapes })
+    const referenceBounds = createScaleReferenceBounds({ initial, montage, scenePixel })
+    const { guides, leftReference, targetMultiplier } = await addScaleReferences({
+      ...referenceBounds,
+      initial,
+      scenePixel,
+      shapes,
+      snapping
+    })
+    const setupFlushed = await history.flushPendingSave()
+
+    expect((initial.selection.boundsRight - guides.left) / initial.selection.boundsWidth)
+      .toBeCloseTo(targetMultiplier, 5)
+    expect(setupFlushed, 'fixture не должен оставлять отложенное сохранение').toBe(false)
+
+    await use({
+      guides,
+      initial,
+      leftReference,
+      scenePixel,
+      shapeIds,
       targetMultiplier
     })
   }

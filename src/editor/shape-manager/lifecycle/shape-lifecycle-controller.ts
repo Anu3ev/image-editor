@@ -284,6 +284,16 @@ export default class ShapeLifecycleController {
     this.resizeStartSnapshots.clear()
   }
 
+  /** Удаляет начальное и отложенное состояние прерванного resize одной shape-группы. */
+  public cancelResize({
+    group
+  }: {
+    group: ShapeGroup
+  }): void {
+    this.resizeStartSnapshots.delete(group)
+    this.pendingResizeUpdates.delete(group)
+  }
+
   /**
    * Завершает lifecycle ресайза shape после commit геометрии.
    */

@@ -12,8 +12,8 @@ export type ActiveSelectionScaleControlCase = Readonly<{
   verticalGuide?: Extract<ActiveSelectionScaleEdge, 'bottom' | 'top'>
 }>
 
-/** Все восемь стандартных ручек общего выделения из изображений. */
-export const ACTIVE_SELECTION_IMAGE_SCALE_CONTROL_CASES: readonly ActiveSelectionScaleControlCase[] = Object.freeze([
+/** Все восемь стандартных ручек общего выделения. */
+export const ACTIVE_SELECTION_SCALE_CONTROL_CASES: readonly ActiveSelectionScaleControlCase[] = Object.freeze([
   {
     control: 'ml',
     fixedEdges: ['right'],

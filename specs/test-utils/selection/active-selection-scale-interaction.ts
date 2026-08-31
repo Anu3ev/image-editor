@@ -2,7 +2,9 @@ import {
   ActiveSelection,
   Canvas,
   Point,
+  Rect,
   controlsUtils,
+  type FabricObject,
   type TOriginX,
   type TOriginY,
   type Transform
@@ -18,6 +20,9 @@ import type {
 } from '../../../src/editor/snapping-manager/scaling/rectangular-scale-gesture-projection'
 import type { ScaleSnapEnvironment } from '../../../src/editor/snapping-manager/scaling/scale-snap-candidates'
 import SnappingManager from '../../../src/editor/snapping-manager'
+import ShapeManager from '../../../src/editor/shape-manager'
+import { ShapeGroupObject } from '../../../src/editor/shape-manager/domain/shape-group'
+import { applyShapeCornerFreeScaleControls } from '../../../src/editor/shape-manager/scaling/shape-controls'
 import {
   getObjectExactBounds,
   type ObjectBounds
@@ -35,25 +40,74 @@ export type ActiveSelectionScaleHarnessOptions = Readonly<{
   uniformScaling?: boolean
 }>
 
-/** Наблюдаемые зависимости одного тестового жеста общего выделения. */
-export type ActiveSelectionScaleHarness = Readonly<{
-  baselineBounds: ObjectBounds
-  captureEnvironmentMock: jest.MockedFunction<
+/** Параметры тестового скейлинга выделения из двух шейпов. */
+export type ShapeActiveSelectionScaleHarnessOptions = Readonly<{
+  angle?: number
+  centered?: boolean
+  clampedMultipliers?: RectangularScaleMultipliers
+  controlKey?: RectangularScaleControlKey
+  originalScaleX?: number
+  originalScaleY?: number
+  supported?: boolean
+  uniformScaling?: boolean
+}>
+
+/** Общие наблюдаемые зависимости тестового скейлинга ActiveSelection. */
+interface ActiveSelectionScaleHarnessDependencies {
+  readonly applyShapeSelectionPreviewMock: jest.MockedFunction<
+    ImageEditor['shapeManager']['applyActiveSelectionScalePreview']
+  >
+  readonly clearShapeSelectionPreviewStateMock: jest.MockedFunction<
+    ImageEditor['shapeManager']['clearActiveSelectionScalePreviewState']
+  >
+  readonly captureEnvironmentMock: jest.MockedFunction<
     ImageEditor['snappingManager']['captureScaleSnapEnvironment']
   >
-  children: readonly ReturnType<typeof createMockFabricImage>[]
-  controlKey: RectangularScaleControlKey
-  controller: ActiveSelectionScaleInteractionController
-  endCurrentTransformMock: jest.MockedFunction<Canvas['endCurrentTransform']>
-  fixedAnchor: Point
-  markHandledMock: jest.MockedFunction<ImageEditor['snappingManager']['markScaleStepHandled']>
-  pointerStart: Point
-  publishGuidesMock: jest.MockedFunction<ImageEditor['snappingManager']['publishVerifiedScaleGuides']>
-  target: ActiveSelection
-  transform: Transform
+  readonly editor: ImageEditor
+  readonly endCurrentTransformMock: jest.MockedFunction<Canvas['endCurrentTransform']>
+  readonly markHandledMock: jest.MockedFunction<ImageEditor['snappingManager']['markScaleStepHandled']>
+  readonly publishGuidesMock: jest.MockedFunction<
+    ImageEditor['snappingManager']['publishVerifiedScaleGuides']
+  >
+  readonly supportsShapeSelectionMock: jest.MockedFunction<
+    ImageEditor['shapeManager']['supportsActiveSelectionScaling']
+  >
+}
+
+/** Общая геометрия тестового жеста для любого поддерживаемого состава выделения. */
+interface ActiveSelectionScaleEventHarness {
+  readonly controlKey: RectangularScaleControlKey
+  readonly fixedAnchor: Point
+  readonly pointerStart: Point
+  readonly target: ActiveSelection
+  readonly transform: Transform
   /** Применяет предварительный результат Fabric перед проверкой одного шага. */
-  applyFabricPreview: (multipliers: RectangularScaleMultipliers) => void
-}>
+  readonly applyFabricPreview: (multipliers: RectangularScaleMultipliers) => void
+}
+
+/** ShapeManager и его наблюдаемые методы для одного тестового контроллера. */
+interface ActiveSelectionShapeManagerDependencies {
+  readonly applyShapeSelectionPreviewMock: ActiveSelectionScaleHarnessDependencies['applyShapeSelectionPreviewMock']
+  readonly clearShapeSelectionPreviewStateMock: ActiveSelectionScaleHarnessDependencies['clearShapeSelectionPreviewStateMock']
+  readonly shapeManager: ShapeManager
+  readonly supportsShapeSelectionMock: ActiveSelectionScaleHarnessDependencies['supportsShapeSelectionMock']
+}
+
+/** Наблюдаемые зависимости одного тестового жеста общего выделения. */
+export interface ActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
+  ActiveSelectionScaleHarnessDependencies {
+  readonly baselineBounds: ObjectBounds
+  readonly children: readonly ReturnType<typeof createMockFabricImage>[]
+  readonly controller: ActiveSelectionScaleInteractionController
+}
+
+/** Наблюдаемые зависимости одного тестового жеста выделения из шейпов. */
+export interface ShapeActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
+  ActiveSelectionScaleHarnessDependencies {
+  readonly baselineBounds: ObjectBounds
+  readonly children: readonly ShapeGroupObject[]
+  readonly controller: ActiveSelectionScaleInteractionController
+}
 
 /** Неподвижная и подвижная точки привязки одной стандартной ручки. */
 type ActiveSelectionScaleControlOrigins = Readonly<{
@@ -147,28 +201,83 @@ function createSelectionImages(): readonly ReturnType<typeof createMockFabricIma
   return Object.freeze([first, second])
 }
 
-/** Создаёт холст и зависимости SnappingManager без полного жизненного цикла редактора. */
-function createControllerDependencies({
-  target,
+/** Создаёт два доменных объекта шейпа с различающимися размерами. */
+function createSelectionShapes(): readonly ShapeGroupObject[] {
+  const first = new ShapeGroupObject([
+    new Rect({ width: 80, height: 60, strokeWidth: 0 })
+  ], {
+    left: 180,
+    top: 160,
+    width: 80,
+    height: 60,
+    shapePresetKey: 'square'
+  })
+  const second = new ShapeGroupObject([
+    new Rect({ width: 70, height: 90, strokeWidth: 0 })
+  ], {
+    left: 310,
+    top: 230,
+    width: 70,
+    height: 90,
+    shapePresetKey: 'square'
+  })
+
+  if (first.width <= 0 || first.height <= 0) throw new Error('Первый тестовый шейп должен иметь размер')
+  if (second.width <= 0 || second.height <= 0) throw new Error('Второй тестовый шейп должен иметь размер')
+
+  return Object.freeze([first, second])
+}
+
+/** Создаёт контрактный ShapeManager с наблюдаемыми методами общего скейлинга. */
+function createShapeManagerDependencies({
+  supportsShapeSelection
+}: {
+  supportsShapeSelection: boolean
+}): ActiveSelectionShapeManagerDependencies {
+  const supportsShapeSelectionMock: ActiveSelectionScaleHarness['supportsShapeSelectionMock'] = jest.fn<
+    boolean,
+    Parameters<ImageEditor['shapeManager']['supportsActiveSelectionScaling']>
+  >(() => supportsShapeSelection)
+  const applyShapeSelectionPreviewMock: ActiveSelectionScaleHarness['applyShapeSelectionPreviewMock'] = jest.fn<
+    ReturnType<ImageEditor['shapeManager']['applyActiveSelectionScalePreview']>,
+    Parameters<ImageEditor['shapeManager']['applyActiveSelectionScalePreview']>
+  >(({ selection }) => ({ scaleX: selection.scaleX, scaleY: selection.scaleY }))
+  const clearShapeSelectionPreviewStateMock: ActiveSelectionScaleHarness['clearShapeSelectionPreviewStateMock'] = jest.fn<
+    ReturnType<ImageEditor['shapeManager']['clearActiveSelectionScalePreviewState']>,
+    Parameters<ImageEditor['shapeManager']['clearActiveSelectionScalePreviewState']>
+  >()
+  const shapeManager: ShapeManager = Object.create(ShapeManager.prototype)
+
+  shapeManager.supportsActiveSelectionScaling = supportsShapeSelectionMock
+  shapeManager.applyActiveSelectionScalePreview = applyShapeSelectionPreviewMock
+  shapeManager.clearActiveSelectionScalePreviewState = clearShapeSelectionPreviewStateMock
+
+  if (shapeManager.supportsActiveSelectionScaling !== supportsShapeSelectionMock) {
+    throw new Error('ShapeManager должен использовать наблюдаемую проверку состава выделения')
+  }
+  if (shapeManager.applyActiveSelectionScalePreview !== applyShapeSelectionPreviewMock) {
+    throw new Error('ShapeManager должен использовать наблюдаемое применение масштаба')
+  }
+  if (shapeManager.clearActiveSelectionScalePreviewState !== clearShapeSelectionPreviewStateMock) {
+    throw new Error('ShapeManager должен использовать наблюдаемую очистку временного масштаба')
+  }
+
+  return Object.freeze({
+    applyShapeSelectionPreviewMock,
+    clearShapeSelectionPreviewStateMock,
+    shapeManager,
+    supportsShapeSelectionMock
+  })
+}
+
+/** Создаёт минимальный Canvas для одного тестового жеста скейлинга. */
+function createScaleTestCanvas({
+  endCurrentTransformMock,
   uniformScaling
 }: {
-  target: ActiveSelection
-  uniformScaling: boolean
-}): Readonly<{
-  captureEnvironmentMock: ActiveSelectionScaleHarness['captureEnvironmentMock']
-  editor: ImageEditor
   endCurrentTransformMock: ActiveSelectionScaleHarness['endCurrentTransformMock']
-  markHandledMock: ActiveSelectionScaleHarness['markHandledMock']
-  publishGuidesMock: ActiveSelectionScaleHarness['publishGuidesMock']
-}> {
-  const captureEnvironmentMock: ActiveSelectionScaleHarness['captureEnvironmentMock'] = jest.fn<
-    ScaleSnapEnvironment,
-    Parameters<ImageEditor['snappingManager']['captureScaleSnapEnvironment']>
-  >(() => Object.freeze({ candidates: Object.freeze([]), zoom: 1 }))
-  const markHandledMock: ActiveSelectionScaleHarness['markHandledMock'] = jest.fn()
-  const publishGuidesMock: ActiveSelectionScaleHarness['publishGuidesMock'] = jest.fn()
-  const endCurrentTransformMock: ActiveSelectionScaleHarness['endCurrentTransformMock'] = jest.fn()
-  const snappingManager: SnappingManager = Object.create(SnappingManager.prototype)
+  uniformScaling: boolean
+}): Canvas {
   const canvas = Object.assign(Object.create(Canvas.prototype), {
     altActionKey: 'shiftKey',
     endCurrentTransform: endCurrentTransformMock,
@@ -178,12 +287,44 @@ function createControllerDependencies({
     uniScaleKey: 'shiftKey',
     viewportTransform: [1, 0, 0, 1, 0, 0]
   }) as Canvas
+
+  if (canvas.endCurrentTransform !== endCurrentTransformMock) {
+    throw new Error('Тестовый canvas должен использовать наблюдаемое завершение преобразования')
+  }
+  if (canvas.uniformScaling !== uniformScaling) {
+    throw new Error('Тестовый canvas должен сохранять режим пропорционального скейлинга')
+  }
+
+  return canvas
+}
+
+/** Создаёт холст и зависимости SnappingManager без полного жизненного цикла редактора. */
+function createControllerDependencies({
+  supportsShapeSelection,
+  target,
+  uniformScaling
+}: {
+  supportsShapeSelection: boolean
+  target: ActiveSelection
+  uniformScaling: boolean
+}): ActiveSelectionScaleHarnessDependencies {
+  const captureEnvironmentMock: ActiveSelectionScaleHarness['captureEnvironmentMock'] = jest.fn<
+    ScaleSnapEnvironment,
+    Parameters<ImageEditor['snappingManager']['captureScaleSnapEnvironment']>
+  >(() => Object.freeze({ candidates: Object.freeze([]), zoom: 1 }))
+  const markHandledMock: ActiveSelectionScaleHarness['markHandledMock'] = jest.fn()
+  const publishGuidesMock: ActiveSelectionScaleHarness['publishGuidesMock'] = jest.fn()
+  const endCurrentTransformMock: ActiveSelectionScaleHarness['endCurrentTransformMock'] = jest.fn()
+  const snappingManager: SnappingManager = Object.create(SnappingManager.prototype)
+  const shapeDependencies = createShapeManagerDependencies({ supportsShapeSelection })
+  const canvas = createScaleTestCanvas({ endCurrentTransformMock, uniformScaling })
   const editor: ImageEditor = Object.create(ImageEditor.prototype)
 
   snappingManager.captureScaleSnapEnvironment = captureEnvironmentMock
   snappingManager.markScaleStepHandled = markHandledMock
   snappingManager.publishVerifiedScaleGuides = publishGuidesMock
   editor.canvas = canvas
+  editor.shapeManager = shapeDependencies.shapeManager
   editor.snappingManager = snappingManager
   target.canvas = canvas
 
@@ -191,11 +332,14 @@ function createControllerDependencies({
   if (target.canvas !== canvas) throw new Error('Общее выделение должно принадлежать тому же canvas')
 
   return Object.freeze({
+    applyShapeSelectionPreviewMock: shapeDependencies.applyShapeSelectionPreviewMock,
+    clearShapeSelectionPreviewStateMock: shapeDependencies.clearShapeSelectionPreviewStateMock,
     captureEnvironmentMock,
     editor,
     endCurrentTransformMock,
     markHandledMock,
-    publishGuidesMock
+    publishGuidesMock,
+    supportsShapeSelectionMock: shapeDependencies.supportsShapeSelectionMock
   })
 }
 
@@ -347,7 +491,7 @@ function createActiveSelectionTarget({
   originalScaleY
 }: {
   angle: number
-  children: ActiveSelectionScaleHarness['children']
+  children: readonly FabricObject[]
   originalScaleX: number
   originalScaleY: number
 }): ActiveSelection {
@@ -374,6 +518,33 @@ function createActiveSelectionTarget({
   return target
 }
 
+/** Создаёт применение предварительного масштаба Fabric к тестовому выделению. */
+function createFabricScalePreview({
+  fixedAnchor,
+  target,
+  transform
+}: {
+  fixedAnchor: Point
+  target: ActiveSelection
+  transform: Transform
+}): ActiveSelectionScaleEventHarness['applyFabricPreview'] {
+  if (transform.target !== target) throw new Error('Тестовое преобразование должно принадлежать выделению')
+  if (![fixedAnchor.x, fixedAnchor.y].every(Number.isFinite)) {
+    throw new Error('Неподвижная точка тестового выделения должна содержать конечные координаты')
+  }
+
+  return (multipliers) => {
+    assertActiveSelectionScaleMultipliers({ multipliers })
+
+    target.set({
+      scaleX: transform.original.scaleX * multipliers.x,
+      scaleY: transform.original.scaleY * multipliers.y
+    })
+    target.setPositionByOrigin(fixedAnchor, transform.originX, transform.originY)
+    target.setCoords()
+  }
+}
+
 /** Создаёт контроллер с реальным ActiveSelection и наблюдаемыми зависимостями. */
 export function createActiveSelectionScaleHarness({
   angle = 0,
@@ -396,7 +567,11 @@ export function createActiveSelectionScaleHarness({
   const fixedAnchor = target.getPointByOrigin(transform.originX, transform.originY)
   const pointerStart = target.getPointByOrigin(origins.movingX, origins.movingY)
   const baselineBounds = getRequiredActiveSelectionBounds({ target })
-  const dependencies = createControllerDependencies({ target, uniformScaling })
+  const dependencies = createControllerDependencies({
+    supportsShapeSelection: false,
+    target,
+    uniformScaling
+  })
 
   return Object.freeze({
     baselineBounds,
@@ -408,17 +583,67 @@ export function createActiveSelectionScaleHarness({
     transform,
     ...dependencies,
     controller: new ActiveSelectionScaleInteractionController({ editor: dependencies.editor }),
-    /** Применяет предварительный результат Fabric перед проверкой одного шага. */
-    applyFabricPreview: (multipliers) => {
-      assertActiveSelectionScaleMultipliers({ multipliers })
+    applyFabricPreview: createFabricScalePreview({ fixedAnchor, target, transform })
+  })
+}
 
-      target.set({
-        scaleX: transform.original.scaleX * multipliers.x,
-        scaleY: transform.original.scaleY * multipliers.y
+/** Создаёт контроллер с выделением из шейпов и наблюдаемым контрактом ShapeManager. */
+export function createShapeActiveSelectionScaleHarness({
+  angle = 0,
+  centered = false,
+  clampedMultipliers,
+  controlKey = 'mr',
+  originalScaleX = 1,
+  originalScaleY = 1,
+  supported = true,
+  uniformScaling = true
+}: ShapeActiveSelectionScaleHarnessOptions = {}): ShapeActiveSelectionScaleHarness {
+  const children = createSelectionShapes()
+  const target = createActiveSelectionTarget({
+    angle,
+    children,
+    originalScaleX,
+    originalScaleY
+  })
+  applyShapeCornerFreeScaleControls({ target })
+  const transform = createSelectionTransform({ centered, controlKey, target })
+  const origins = ACTIVE_SELECTION_SCALE_CONTROL_ORIGINS[controlKey]
+  const fixedAnchor = target.getPointByOrigin(transform.originX, transform.originY)
+  const pointerStart = target.getPointByOrigin(origins.movingX, origins.movingY)
+  const baselineBounds = getRequiredActiveSelectionBounds({ target })
+  const dependencies = createControllerDependencies({
+    supportsShapeSelection: supported,
+    target,
+    uniformScaling
+  })
+
+  if (clampedMultipliers) {
+    assertActiveSelectionScaleMultipliers({ multipliers: clampedMultipliers })
+    dependencies.applyShapeSelectionPreviewMock.mockImplementation(({ selection, transform: currentTransform }) => {
+      selection.set({
+        scaleX: originalScaleX * clampedMultipliers.x,
+        scaleY: originalScaleY * clampedMultipliers.y
       })
-      target.setPositionByOrigin(fixedAnchor, transform.originX, transform.originY)
-      target.setCoords()
-    }
+      selection.setPositionByOrigin(fixedAnchor, currentTransform.originX, currentTransform.originY)
+      selection.setCoords()
+      currentTransform.scaleX = selection.scaleX
+      currentTransform.scaleY = selection.scaleY
+
+      return { scaleX: selection.scaleX, scaleY: selection.scaleY }
+    })
+  }
+
+  return Object.freeze({
+    baselineBounds,
+    children,
+    controlKey,
+    fixedAnchor,
+    pointerStart,
+    target,
+    transform,
+    ...dependencies,
+    controller: new ActiveSelectionScaleInteractionController({ editor: dependencies.editor }),
+    applyFabricPreview: createFabricScalePreview({ fixedAnchor, target, transform })
   })
 }
 
@@ -426,7 +651,7 @@ export function createActiveSelectionScaleHarness({
 export function createActiveSelectionScaleStartEvent({
   harness
 }: {
-  harness: ActiveSelectionScaleHarness
+  harness: ActiveSelectionScaleEventHarness
 }): ActiveSelectionScaleInteractionEvent {
   if (harness.transform.target !== harness.target) {
     throw new Error('Начальное преобразование Fabric должно принадлежать общему выделению')
@@ -450,7 +675,7 @@ export function createActiveSelectionScaleStepEvent({
   marker,
   multipliers
 }: {
-  harness: ActiveSelectionScaleHarness
+  harness: ActiveSelectionScaleEventHarness
   marker: MouseEvent
   multipliers: RectangularScaleMultipliers
 }): ActiveSelectionScaleInteractionEvent {
@@ -471,7 +696,7 @@ export function createActiveSelectionScaleMouseMoveEvent({
   marker,
   multipliers
 }: {
-  harness: ActiveSelectionScaleHarness
+  harness: ActiveSelectionScaleEventHarness
   marker: MouseEvent
   multipliers: RectangularScaleMultipliers
 }): ActiveSelectionScaleInteractionEvent {

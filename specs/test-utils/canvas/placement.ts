@@ -6,6 +6,7 @@ type PlacementOriginY = 'top' | 'center' | 'bottom'
 type PlacementMatrix = [number, number, number, number, number, number]
 
 type PlacementGroup = ActiveSelection & {
+  calcOwnMatrix: jest.Mock<PlacementMatrix, []>
   calcTransformMatrix: jest.Mock<PlacementMatrix, []>
 }
 
@@ -330,6 +331,7 @@ export const createPlacementSelection = ({
   offsetY: number
 }): PlacementGroup => {
   const selection = new ActiveSelection(objects as never, {}) as PlacementGroup
+  selection.calcOwnMatrix = jest.fn(() => [1, 0, 0, 1, offsetX, offsetY])
   selection.calcTransformMatrix = jest.fn(() => [1, 0, 0, 1, offsetX, offsetY])
 
   for (let index = 0; index < objects.length; index += 1) {

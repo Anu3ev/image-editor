@@ -46,19 +46,21 @@ export function resolveRectangularScaleStepInput({
   canvas,
   event,
   intentSource,
+  mode: requestedMode,
   projection,
   target
 }: {
   canvas: Canvas
   event: RectangularScaleStepEvent
   intentSource: RectangularScaleIntentSource
+  mode?: RectangularScaleGestureMode
   projection: RectangularScaleGestureProjection
   target: FabricObject
 }): RectangularScaleStepInput | null {
   const pointerEvent = event.e
   if (!pointerEvent) return null
 
-  const mode = resolveRectangularScaleMode({ canvas, pointerEvent, projection })
+  const mode = requestedMode ?? resolveRectangularScaleMode({ canvas, pointerEvent, projection })
   const multipliers = resolveRawMultipliers({ event, intentSource, mode, projection, target })
   if (!multipliers || multipliers.x <= 0 || multipliers.y <= 0) return null
 

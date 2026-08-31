@@ -645,16 +645,12 @@ export default class HistoryManager {
         this._fireHistoryChangedAfterSave(pendingSaveResult)
       }
 
-      // Получаем текущее состояние канваса как объект и указываем, какие свойства нужно сохарнить обязательно.
-      const currentStateObj = withNormalizedInteractivityForSnapshot({
-        canvas: this.canvas,
-        callback: () => this.canvas.toDatalessObject([...OBJECT_SERIALIZATION_PROPS])
-      })
+      const currentStateObj = this._captureCurrentState()
 
       console.timeEnd('saveState')
 
       const saveResult = this._saveSerializedState({
-        currentStateObj: currentStateObj as CanvasFullState
+        currentStateObj
       })
       this._fireHistoryChangedAfterSave(saveResult)
     } finally {

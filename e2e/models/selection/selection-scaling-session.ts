@@ -601,6 +601,28 @@ export class SelectionScalingSession {
     }
   }
 
+  /** Отпускает указатель после действия, которое само завершило текущее преобразование Fabric. */
+  async releasePointerAfterExternalEnd(): Promise<void> {
+    const interaction = this.activeInteraction
+    expect(
+      interaction?.mode,
+      'внешнее завершение должно происходить во время скейлинга через указатель'
+    ).toBe('browser-pointer')
+    if (!interaction || interaction.mode !== 'browser-pointer') {
+      throw new Error('Должна существовать сессия скейлинга через указатель')
+    }
+
+    try {
+      await this.page.mouse.up()
+      await waitForCanvasRender({ page: this.page })
+    } finally {
+      await this.page.keyboard.up('Alt')
+      await this.page.keyboard.up('Control')
+      await this.page.keyboard.up('Shift')
+      this.activeInteraction = null
+    }
+  }
+
   /** Завершает скейлинг составного объекта, если тест оставил ручку захваченной. */
   async finishIfActive(): Promise<SnappingObjectSnapshot | null> {
     if (!this.activeInteraction) return null
@@ -635,6 +657,98 @@ export class SelectionScalingSession {
       .toBeGreaterThan(0)
 
     return { started, live, committed }
+  }
+
+  /** Пропорционально масштабирует повёрнутое выделение до заданной правой границы. */
+  async scaleUniformlyFromBottomRightToBoundsRight({
+    right
+  }: {
+    right: number
+  }): Promise<SelectionScaleGestureResult> {
+    expect(Number.isFinite(right), 'правая граница должна быть конечной').toBe(true)
+
+    const baseline = await this.getSnapshot()
+    const fixedPoint = await this.getControlScenePoint({ control: 'tl' })
+    const movingPoint = await this.getControlScenePoint({ control: 'br' })
+    const baselineDistance = baseline.boundsRight - fixedPoint.x
+
+    expect(Math.abs(baselineDistance), 'исходная ширина повёрнутого выделения должна быть положительной')
+      .toBeGreaterThan(0)
+
+    const multiplier = (right - fixedPoint.x) / baselineDistance
+
+    expect(multiplier, 'множитель скейлинга должен быть положительным').toBeGreaterThan(0)
+    expect(multiplier, 'жест должен изменить размер выделения').not.toBeCloseTo(1, 5)
+
+    const started = await this.startFromControl({ control: 'br' })
+    const live = await this.dragControlToScenePoint({
+      point: {
+        x: fixedPoint.x + ((movingPoint.x - fixedPoint.x) * multiplier),
+        y: fixedPoint.y + ((movingPoint.y - fixedPoint.y) * multiplier)
+      }
+    })
+    const committed = await this.finish()
+
+    return { started, live, committed }
+  }
+
+  /** Свободно масштабирует повёрнутое выделение из правого нижнего угла до заданных границ. */
+  async scaleFreelyFromBottomRightToBounds({
+    right,
+    bottom
+  }: {
+    right: number
+    bottom: number
+  }): Promise<SnappingObjectSnapshot> {
+    expect(Number.isFinite(right), 'правая граница должна быть конечной').toBe(true)
+    expect(Number.isFinite(bottom), 'нижняя граница должна быть конечной').toBe(true)
+
+    const baseline = await this.getSnapshot()
+    const fixedPoint = await this.getControlScenePoint({ control: 'tl' })
+    const horizontalPoint = await this.getControlScenePoint({ control: 'tr' })
+    const verticalPoint = await this.getControlScenePoint({ control: 'bl' })
+    const horizontalVector = {
+      x: horizontalPoint.x - fixedPoint.x,
+      y: horizontalPoint.y - fixedPoint.y
+    }
+    const verticalVector = {
+      x: verticalPoint.x - fixedPoint.x,
+      y: verticalPoint.y - fixedPoint.y
+    }
+    const rightHorizontal = Math.max(0, horizontalVector.x)
+    const rightVertical = Math.max(0, verticalVector.x)
+    const bottomHorizontal = Math.max(0, horizontalVector.y)
+    const bottomVertical = Math.max(0, verticalVector.y)
+    const determinant = (rightHorizontal * bottomVertical) - (rightVertical * bottomHorizontal)
+
+    expect(baseline.boundsRight).toBeCloseTo(fixedPoint.x + rightHorizontal + rightVertical, 5)
+    expect(baseline.boundsBottom).toBeCloseTo(fixedPoint.y + bottomHorizontal + bottomVertical, 5)
+    expect(Math.abs(determinant), 'заданные границы должны быть достижимы из выбранного угла')
+      .toBeGreaterThan(0.000001)
+
+    const targetRight = right - fixedPoint.x
+    const targetBottom = bottom - fixedPoint.y
+    const horizontalMultiplier = ((targetRight * bottomVertical) - (rightVertical * targetBottom))
+      / determinant
+    const verticalMultiplier = ((rightHorizontal * targetBottom) - (targetRight * bottomHorizontal))
+      / determinant
+
+    expect(horizontalMultiplier, 'горизонтальный множитель должен быть положительным').toBeGreaterThan(0)
+    expect(verticalMultiplier, 'вертикальный множитель должен быть положительным').toBeGreaterThan(0)
+    expect(horizontalMultiplier, 'свободный скейлинг должен по-разному изменить оси')
+      .not.toBeCloseTo(verticalMultiplier, 3)
+
+    await this.startFromControl({ control: 'br' })
+
+    return this.dragControlToScenePoint({
+      point: {
+        x: fixedPoint.x + (horizontalVector.x * horizontalMultiplier)
+          + (verticalVector.x * verticalMultiplier),
+        y: fixedPoint.y + (horizontalVector.y * horizontalMultiplier)
+          + (verticalVector.y * verticalMultiplier)
+      },
+      shiftKey: true
+    })
   }
 
   /** Масштабирует общее выделение за правую нижнюю ручку и записывает состояния жеста. */

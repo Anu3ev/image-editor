@@ -4,6 +4,7 @@ import type {
   ObjectsDeletedPayload,
   ObjectsDeleteSkippedPayload
 } from '../types/events'
+import { isCurrentTransformAffectedByRemoval } from '../utils/current-transform'
 
 /**
  * Параметры удаления выбранных объектов.
@@ -325,6 +326,14 @@ export default class DeletionManager {
     historyManager.suspendHistory()
 
     try {
+      // Завершаем преобразование до удаления его объектов, пока общее выделение ещё цело.
+      if (isCurrentTransformAffectedByRemoval({
+        canvas,
+        objects: deletePlan.deletableObjects
+      })) {
+        canvas.endCurrentTransform()
+      }
+
       deleteResult = this._deleteObjects({
         objects: deletePlan.deletableObjects,
         ignoreDeleteGuard

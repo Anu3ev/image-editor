@@ -5,7 +5,11 @@ import {
   type Transform,
   type TPointerEvent
 } from 'fabric'
-import { applyShapeCornerFreeScaleControls } from '../../../../src/editor/shape-manager/scaling/shape-controls'
+import {
+  applyShapeCornerFreeScaleControls,
+  isShapeCornerScaleControl,
+  resolveShapeCornerScaleMode
+} from '../../../../src/editor/shape-manager/scaling/shape-controls'
 import {
   createMockShapeGroup,
   createMockShapeNode,
@@ -70,6 +74,37 @@ describe('shape-controls', () => {
     expect((group.controls.br as ShapeCornerControl).shapeFreeScaleCornerControl).toBe(true)
   })
 
+  it('распознаёт только угловые ручки, установленные для скейлинга шейпа', () => {
+    const group = createMockShapeGroup({
+      shape: createMockShapeNode(),
+      text: createMockShapeTextbox()
+    })
+    group.controls = {
+      br: new Control({ actionHandler: jest.fn() }),
+      mr: new Control({ actionHandler: jest.fn() })
+    } as never
+
+    applyShapeCornerFreeScaleControls({ target: group })
+
+    expect(isShapeCornerScaleControl({
+      target: group,
+      transform: { action: 'scale', corner: 'br', target: group }
+    })).toBe(true)
+    expect(isShapeCornerScaleControl({
+      target: group,
+      transform: { action: 'scaleX', corner: 'mr', target: group }
+    })).toBe(false)
+    expect(isShapeCornerScaleControl({
+      target: group,
+      transform: { action: 'rotate', corner: 'br', target: group }
+    })).toBe(false)
+  })
+
+  it('выбирает пропорциональный режим без Shift и свободный режим с Shift', () => {
+    expect(resolveShapeCornerScaleMode({ shiftKey: false })).toBe('uniform')
+    expect(resolveShapeCornerScaleMode({ shiftKey: true })).toBe('free')
+  })
+
   it('applyShapeCornerFreeScaleControls не оборачивает corner controls повторно', () => {
     const group = createMockShapeGroup({
       shape: createMockShapeNode(),
@@ -106,7 +141,7 @@ describe('shape-controls', () => {
       text: createMockShapeTextbox()
     })
     const canvas = {
-      uniformScaling: true
+      uniformScaling: false
     }
     const target = {
       canvas,
@@ -169,7 +204,7 @@ describe('shape-controls', () => {
     )
     expect(target.scaleX).toBeCloseTo(0.4, 4)
     expect(target.scaleY).toBeCloseTo(0.4, 4)
-    expect(canvas.uniformScaling).toBe(true)
+    expect(canvas.uniformScaling).toBe(false)
   })
 
   it('corner control при зажатом Shift переводит пропорциональный объект в непропорциональный free-scale режим', () => {

@@ -1,12 +1,14 @@
 import {
   ActiveSelection,
-  Rect
+  Point
 } from 'fabric'
 import ShapeEventController from '../../../../src/editor/shape-manager/events/shape-event-controller'
-import { ShapeGroupObject } from '../../../../src/editor/shape-manager/domain/shape-group'
 import ShapeScaleInteractionController from '../../../../src/editor/shape-manager/scaling/shape-scale-interaction-controller'
 import { getRequiredCanvasHandler } from '../../../test-utils/canvas/handlers'
-import { createMockCanvas } from '../../../test-utils/shape/factories'
+import {
+  createShapeEventRoutingHarness,
+  getRequiredShapeWindowListener
+} from '../../../test-utils/shape/event-routing'
 
 /** Canvas-события, на которые ShapeEventController должен подписываться и от которых должен отписываться. */
 const SHAPE_CANVAS_EVENT_NAMES = Object.freeze([
@@ -29,78 +31,6 @@ const SHAPE_CANVAS_EVENT_NAMES = Object.freeze([
 /** Контроллеры, которые afterEach должен освободить после каждого теста. */
 const routingControllers = new Set<ShapeEventController>()
 
-/** Возвращает обязательный обработчик window-события из вызовов addEventListener. */
-function getRequiredWindowListener({
-  addEventListenerSpy,
-  eventName
-}: {
-  addEventListenerSpy: jest.SpyInstance
-  eventName: 'pointercancel' | 'touchcancel' | 'blur'
-}): EventListenerOrEventListenerObject {
-  const registration = addEventListenerSpy.mock.calls.find(([currentName]) => currentName === eventName)
-  const listener = registration?.[1]
-  const isListenerObject = typeof listener === 'object'
-    && listener !== null
-    && typeof listener.handleEvent === 'function'
-
-  if (typeof listener !== 'function' && !isListenerObject) {
-    throw new Error(`Для ${eventName} должен быть зарегистрирован обработчик`)
-  }
-
-  return listener
-}
-
-/** Создаёт изолированный ShapeEventController с наблюдаемыми зависимостями. */
-function createRoutingHarness() {
-  const canvas = createMockCanvas()
-  const child = new Rect({
-    width: 20,
-    height: 20
-  })
-  const group = new ShapeGroupObject([child], {})
-  const scalingController = {
-    handleObjectScaling: jest.fn(),
-    handleCanvasMouseMove: jest.fn(),
-    handleObjectModified: jest.fn(),
-    clearState: jest.fn()
-  }
-  const editingController = {
-    handleMouseDown: jest.fn()
-  }
-  const lifecycleController = {
-    beginResize: jest.fn(),
-    captureResizeStart: jest.fn(),
-    clearResizeStarts: jest.fn(),
-    finishResize: jest.fn()
-  }
-  const controller = new ShapeEventController({
-    dependencies: {
-      editor: { canvas },
-      scalingController,
-      editingController,
-      lifecycleController,
-      layoutController: {},
-      textNodeController: {
-        isInternalUpdate: jest.fn()
-      },
-      editingPlacements: new WeakMap()
-    } as never
-  })
-
-  controller.bind()
-  routingControllers.add(controller)
-
-  return {
-    canvas,
-    child,
-    controller,
-    editingController,
-    group,
-    lifecycleController,
-    scalingController
-  }
-}
-
 afterEach(() => {
   routingControllers.forEach((controller) => controller.destroy())
   routingControllers.clear()
@@ -110,16 +40,17 @@ afterEach(() => {
 it('подписывается на все canvas- и window-события и снимает те же обработчики', () => {
   const addEventListenerSpy = jest.spyOn(window, 'addEventListener')
   const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener')
-  const harness = createRoutingHarness()
-  const pointerCancelListener = getRequiredWindowListener({
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
+  const pointerCancelListener = getRequiredShapeWindowListener({
     addEventListenerSpy,
     eventName: 'pointercancel'
   })
-  const blurListener = getRequiredWindowListener({
+  const blurListener = getRequiredShapeWindowListener({
     addEventListenerSpy,
     eventName: 'blur'
   })
-  const touchCancelListener = getRequiredWindowListener({
+  const touchCancelListener = getRequiredShapeWindowListener({
     addEventListenerSpy,
     eventName: 'touchcancel'
   })
@@ -140,7 +71,8 @@ it('подписывается на все canvas- и window-события и �
 })
 
 it('находит затронутый шейп по группе, дочернему узлу и ActiveSelection без дубликатов', () => {
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const mouseDownHandler = getRequiredCanvasHandler({
     canvas: harness.canvas,
     eventName: 'mouse:down'
@@ -184,7 +116,8 @@ it('сохраняет порядок начала и завершения же�
   const destroySpy = jest
     .spyOn(ShapeScaleInteractionController.prototype, 'destroy')
     .mockImplementation(() => {})
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const event = {
     target: harness.group,
     e: new Event('pointerdown'),
@@ -219,7 +152,8 @@ it('не обрабатывает шаг повторно, если контро
   const handleCanvasMouseMoveSpy = jest
     .spyOn(ShapeScaleInteractionController.prototype, 'handleCanvasMouseMove')
     .mockReturnValue(true)
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const event = {
     target: harness.group,
     e: new Event('pointermove'),
@@ -238,11 +172,70 @@ it('не обрабатывает шаг повторно, если контро
   expect(harness.scalingController.handleCanvasMouseMove).not.toHaveBeenCalled()
 })
 
+it('не передаёт object:scaling прежней обработке, если выделением из шейпов управляет SelectionManager', () => {
+  const handleObjectScalingSpy = jest.spyOn(
+    ShapeScaleInteractionController.prototype,
+    'handleObjectScaling'
+  )
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
+  harness.handleShapeSelectionScaleStepMock.mockReturnValue(true)
+  const selection = new ActiveSelection([harness.group, harness.secondGroup])
+  const event = {
+    target: selection,
+    e: new Event('pointermove'),
+    transform: {
+      target: selection,
+      actionPerformed: true
+    }
+  }
+
+  getRequiredCanvasHandler({ canvas: harness.canvas, eventName: 'object:scaling' })(event)
+
+  expect(harness.handleShapeSelectionScaleStepMock).toHaveBeenCalledWith({
+    event,
+    intentSource: 'fabric-preview'
+  })
+  expect(harness.lifecycleController.beginResize).not.toHaveBeenCalled()
+  expect(handleObjectScalingSpy).not.toHaveBeenCalled()
+  expect(harness.scalingController.handleObjectScaling).not.toHaveBeenCalled()
+})
+
+it('не передаёт mouse:move прежней обработке, если выделением из шейпов управляет SelectionManager', () => {
+  const handleCanvasMouseMoveSpy = jest.spyOn(
+    ShapeScaleInteractionController.prototype,
+    'handleCanvasMouseMove'
+  )
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
+  harness.handleShapeSelectionScaleStepMock.mockReturnValue(true)
+  const selection = new ActiveSelection([harness.group, harness.secondGroup])
+  const event = {
+    target: selection,
+    e: new Event('pointermove'),
+    transform: {
+      target: selection,
+      actionPerformed: true
+    }
+  }
+
+  getRequiredCanvasHandler({ canvas: harness.canvas, eventName: 'mouse:move' })(event)
+
+  expect(harness.handleShapeSelectionScaleStepMock).toHaveBeenCalledWith({
+    event,
+    intentSource: 'pointer-projection'
+  })
+  expect(harness.lifecycleController.beginResize).not.toHaveBeenCalled()
+  expect(handleCanvasMouseMoveSpy).not.toHaveBeenCalled()
+  expect(harness.scalingController.handleCanvasMouseMove).not.toHaveBeenCalled()
+})
+
 it('начинает resize при первом изменении геометрии из mouse:move', () => {
   const handleCanvasMouseMoveSpy = jest
     .spyOn(ShapeScaleInteractionController.prototype, 'handleCanvasMouseMove')
     .mockReturnValue(true)
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const event = {
     target: harness.group,
     e: new Event('pointermove'),
@@ -262,7 +255,8 @@ it('не начинает resize из mouse:move, если геометрия н
   jest
     .spyOn(ShapeScaleInteractionController.prototype, 'handleCanvasMouseMove')
     .mockReturnValue(true)
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const event = {
     target: harness.group,
     e: new Event('pointermove'),
@@ -275,28 +269,129 @@ it('не начинает resize из mouse:move, если геометрия н
   expect(harness.scalingController.handleCanvasMouseMove).not.toHaveBeenCalled()
 })
 
-it('передаёт неподдержанный шаг обычной обработке скейлинга', () => {
+it('передаёт неподдержанное выделение из шейпов прежней обработке скейлинга', () => {
   jest
     .spyOn(ShapeScaleInteractionController.prototype, 'handleObjectScaling')
     .mockReturnValue(false)
   jest
     .spyOn(ShapeScaleInteractionController.prototype, 'handleCanvasMouseMove')
     .mockReturnValue(false)
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
+  const selection = new ActiveSelection([harness.group, harness.secondGroup])
   const event = {
-    target: harness.group,
-    e: new Event('pointermove')
+    target: selection,
+    e: new Event('pointermove'),
+    transform: {
+      target: selection,
+      actionPerformed: true
+    }
   }
 
   getRequiredCanvasHandler({ canvas: harness.canvas, eventName: 'object:scaling' })(event)
   getRequiredCanvasHandler({ canvas: harness.canvas, eventName: 'mouse:move' })(event)
 
+  expect(harness.handleShapeSelectionScaleStepMock).toHaveBeenCalledTimes(2)
+  expect(harness.handleShapeSelectionScaleStepMock).toHaveBeenNthCalledWith(1, {
+    event,
+    intentSource: 'fabric-preview'
+  })
+  expect(harness.handleShapeSelectionScaleStepMock).toHaveBeenNthCalledWith(2, {
+    event,
+    intentSource: 'pointer-projection'
+  })
+  expect(harness.lifecycleController.beginResize).toHaveBeenCalledWith({ group: harness.group })
   expect(harness.scalingController.handleObjectScaling).toHaveBeenCalledWith(event)
   expect(harness.scalingController.handleCanvasMouseMove).toHaveBeenCalledWith(event)
 })
 
+it('фиксирует накопленный размер выделения из шейпов через канонический путь', () => {
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
+  const selection = new ActiveSelection([harness.group, harness.secondGroup])
+  selection.getCenterPoint = jest.fn(() => new Point(0, 0))
+  const event = {
+    target: selection,
+    transform: {
+      action: 'scaleX',
+      target: selection
+    }
+  }
+
+  harness.commitShapeSelectionScaleMock.mockImplementation(({ commit }) => {
+    commit('canonical-scale')
+    return true
+  })
+  harness.scalingController.resolveActiveSelectionCommittedScale.mockReturnValue({
+    scaleX: 1.2,
+    scaleY: 1
+  })
+
+  getRequiredCanvasHandler({ canvas: harness.canvas, eventName: 'object:modified' })(event)
+
+  expect(harness.commitShapeSelectionScaleMock).toHaveBeenCalledTimes(1)
+  expect(harness.commitShapeSelectionScaleMock.mock.calls[0]?.[0].selection).toBe(selection)
+  expect(harness.scalingController.commitActiveSelectionGroupScaling).toHaveBeenCalledTimes(2)
+  expect(harness.scalingController.commitActiveSelectionGroupScaling).toHaveBeenNthCalledWith(1, {
+    group: harness.group,
+    scaleX: 1.2,
+    scaleY: 1,
+    transform: event.transform
+  })
+  expect(harness.scalingController.commitActiveSelectionGroupScaling).toHaveBeenNthCalledWith(2, {
+    group: harness.secondGroup,
+    scaleX: 1.2,
+    scaleY: 1,
+    transform: event.transform
+  })
+})
+
+it('после наклона оставляет преобразование на текущей общей рамке без повторного resize шейпов', () => {
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
+  const selection = new ActiveSelection([harness.group, harness.secondGroup])
+  selection.set({
+    angle: 0,
+    flipX: false,
+    flipY: false,
+    scaleX: 1.2,
+    scaleY: 1,
+    skewX: 0,
+    skewY: 0.25
+  })
+  const event = {
+    target: selection,
+    transform: {
+      action: 'skewY',
+      target: selection
+    }
+  }
+
+  harness.commitShapeSelectionScaleMock.mockImplementation(({ commit }) => {
+    commit('fabric-transform')
+    return true
+  })
+  harness.canvas.getActiveObject.mockReturnValue(selection)
+
+  getRequiredCanvasHandler({ canvas: harness.canvas, eventName: 'object:modified' })(event)
+
+  expect(harness.commitShapeSelectionScaleMock).toHaveBeenCalledTimes(1)
+  expect(harness.scalingController.commitActiveSelectionGroupScaling).not.toHaveBeenCalled()
+  expect(harness.scalingController.clearActiveSelectionState).toHaveBeenCalledWith({ selection })
+  expect(harness.canvas.discardActiveObject).not.toHaveBeenCalled()
+  expect(harness.canvas.getActiveObject()).toBe(selection)
+  expect(selection.getObjects()).toEqual([
+    harness.group,
+    harness.secondGroup
+  ])
+  expect(selection.scaleX).toBe(1.2)
+  expect(selection.skewY).toBe(0.25)
+  expect(harness.scalingController.clearState).toHaveBeenCalledTimes(2)
+})
+
 it('не фиксирует остаточный scale шейпа после обычного перемещения', () => {
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const event = {
     target: harness.group,
     transform: {
@@ -314,7 +409,8 @@ it('завершает жест скейлинга при любом измен�
   const finishGestureSpy = jest
     .spyOn(ShapeScaleInteractionController.prototype, 'finishGesture')
     .mockImplementation(() => {})
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const selectionEvents = ['selection:created', 'selection:updated', 'selection:cleared'] as const
 
   for (const eventName of selectionEvents) {
@@ -330,7 +426,8 @@ it('завершает жест скейлинга только при удал�
     .spyOn(ShapeScaleInteractionController.prototype, 'finishGestureForTarget')
     .mockReturnValueOnce(false)
     .mockReturnValueOnce(true)
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const unrelatedTarget = {}
   const activeTarget = {}
   const removeHandler = getRequiredCanvasHandler({
@@ -350,7 +447,8 @@ it('при pointercancel, touchcancel и blur прерывает Fabric transfor
   const interruptGestureSpy = jest
     .spyOn(ShapeScaleInteractionController.prototype, 'interruptGesture')
     .mockReturnValue(true)
-  const harness = createRoutingHarness()
+  const harness = createShapeEventRoutingHarness()
+  routingControllers.add(harness.controller)
   const pointerCancelEvent = new Event('pointercancel')
   const touchCancelEvent = new Event('touchcancel')
 

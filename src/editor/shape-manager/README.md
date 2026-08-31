@@ -41,11 +41,15 @@ Shape state is split into three categories:
 | --- | --- |
 | `add()` | Creates a complete shape group from a preset, resolves its initial layout and placement, optionally adds and selects it, saves one history state when inserted unless `withoutSave` is set, and emits `editor:shape-added`. |
 | `update()` | Prepares and applies preset, size, placement, style, text, padding, alignment, and automatic expansion changes while preserving the outer group instance. |
-| `remove()` | Removes an existing unlocked shape group and saves the resulting canvas state unless `withoutSave` is set. |
+| `remove()` | Finishes an active Fabric transform before removing an existing unlocked shape group and saves the resulting canvas state unless `withoutSave` is set. |
 | `setFill()`, `setStroke()`, `setOpacity()`, `setRounding()` | Apply shape-level visual changes through the same lifecycle and history boundary. |
 | `getTextNode()`, `updateTextStyle()`, `setTextAlign()` | Expose the embedded text contract without treating the text node as standalone text. |
 | `commitRehydratedShapeLayout()` | Internal cross-manager entry point that materializes restored, cloned, grouped, or externally transformed shape geometry. It preserves current visual bounds when persisted layout inputs are unchanged and recalculates automatic expansion when those inputs were intentionally edited. It is technically public for manager integration, but it is not a user-facing shape command. |
-| `destroy()` | Removes ShapeManager's canvas and window event subscriptions and clears the active unified-snapping session together with its verified guides. |
+| `supportsActiveSelectionScaling()` | Internal cross-manager capability check for a temporary selection made only of direct canonical shape groups whose children are not individually rotated. |
+| `resolveActiveSelectionScaleControlMode()` | Returns the proportional or free mode used by a shape corner control so Fabric preview and the unified resolver follow the same Shift rule. |
+| `applyActiveSelectionScalePreview()` | Applies the minimum-size and text-layout rules of all selected shapes to one scale already resolved by the unified selection owner and returns the scale that was actually accepted. |
+| `clearActiveSelectionScalePreviewState()` | Clears shape scaling, layout, and resize state that remains after the unified owner has completed or abandoned a selection gesture. |
+| `destroy()` | Removes ShapeManager's canvas and window event subscriptions and clears its active top-level shape gesture; `SelectionManager` separately cancels any shape-only selection session before `SnappingManager` is destroyed. |
 
 Methods that accept `target` can resolve a shape group instance, its id, one of its child nodes, or the active shape when the target is omitted. User-facing mutating commands ignore missing or locked shapes instead of partially updating their children.
 
@@ -92,11 +96,13 @@ Programmatic on-canvas mutations owned by `ShapeMutationController` suspend hist
 
 `ShapeScalingController` turns a live Fabric transform into a shape-specific preview: it applies minimum-size and text-fit constraints, reflows text without changing its font size, preserves the fixed anchor, and stores enough state to commit real dimensions on `object:modified`. A completed scale is materialized into shape and text geometry instead of leaving the result as an accumulated group scale.
 
-Shape groups inside `ActiveSelection` use a separate controller. It calculates a compatible selection scale, applies a live layout preview to each shape child, commits each child independently, and then restores the selection. This path supports shape layout but has not yet been migrated to the unified snapping runtime.
+Shape groups inside a supported shape-only `ActiveSelection` use `SelectionManager` as the single owner of the scale and snapping gesture. Because `ShapeManager` receives Fabric events first, `ShapeEventController` asks that owner to process the current step immediately. A declined step continues through the existing shape path in the same event, while an accepted step is deduplicated when the later selection listener receives it. The selection owner resolves one scale plan and delegates the shape-specific part back through `applyActiveSelectionScalePreview()`. `ShapeManager` intersects the minimum-size and text-fit constraints, recalculates every child once, preserves the fixed point, and reports the scale that was actually applied so guides can be verified against final bounds.
+
+The existing `object:modified` path remains the only final shape commit. A rectangular scale materializes each child's canonical dimensions, clears temporary group scale, restores the selection, and completes the normal history and shape-update lifecycle. SelectionManager owns this short commit boundary so selection events emitted while Fabric rebuilds the `ActiveSelection` cannot clear shape state early. Rotation of the whole selection is restored on the new temporary selection instead of being baked into each child. If a side control switched to skew, the current Fabric selection is left intact and no second rectangular resize runs over its children. `SelectionManager` does not duplicate this commit or save a second history state.
 
 A regular top-level shape uses the two-phase scale-snapping contract described in [`../snapping-manager/README.md`](../snapping-manager/README.md). The shape integration supports side and corner controls, rotation, centred scaling, Shift-controlled free corner scaling, Ctrl-controlled snapping disablement, verified guides, and one domain application per pointer step.
 
-Nested, flipped, skewed, or axis-locked shapes, `ActiveSelection`, and unsupported Fabric transforms are deliberately routed to the legacy scaling path before the new owner performs a mutation. If a supported gesture later reaches or crosses its fixed point, the unified session stops and hands subsequent processing to the legacy path. Do not describe the entire ShapeManager as migrated to unified snapping until these fallback paths have been handled explicitly.
+Nested, individually rotated, flipped, skewed, axis-locked, or non-canonical shapes and unsupported Fabric transforms are deliberately routed to the legacy scaling path before the new owner performs a mutation. Shape-only selections support all eight side and corner controls, rotation of the entire selection, centred scaling, proportional and free corner scaling, independent guide holding, Ctrl, zoom, pan, and the existing minimum-size and text-layout rules. A side-control skew stays on the existing Fabric path, clears unified guides, and leaves the transform on the temporary selection. Exact materialization and history or template round trips for skew require a separate affine contract. Selections containing text, images mixed with shapes, `Group`, `CropFrame`, or unknown objects also remain on the legacy path.
 
 ## Movement and snapping
 
@@ -112,7 +118,7 @@ Nested shapes, shapes inside `ActiveSelection`, movement without an active brows
 - `editor:before:shape-updated` carries the update source, target, and options. `ShapeManager` captures the previous snapshot internally, but callers must not rely on the live Fabric object still containing its old fields when this event fires.
 - `editor:shape-updated` carries both the before and after snapshots for programmatic updates, style changes, text changes, editing, and resize.
 - Shape removal uses Fabric's regular `object:removed` event; there is no separate `editor:shape-removed` event.
-- The unified-snapping session for a top-level shape is cleared on `mouseup`, selection changes, object removal, `pointercancel`, `touchcancel`, window blur, and manager destruction.
+- Unified snapping sessions for a top-level shape or a supported shape-only selection are cleared on `mouseup`, selection changes, object removal, `pointercancel`, `touchcancel`, window blur, and manager destruction. Editor-owned deletion finishes the current transform before removing a shape, while the original selection can still materialize its last visible geometry. Remaining shape layout and resize state is cleared only after that commit or when no commit is available.
 
 ## Easy ways to break it
 

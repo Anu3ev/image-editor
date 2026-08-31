@@ -19,12 +19,14 @@ import {
 } from '../domain/shape-reference'
 import type {
   ShapeGroup,
+  ShapeHorizontalAlign,
   ShapeNode,
   ShapePadding,
   ShapeScalingState,
   ShapeTextNode,
   ShapeTransformOriginX,
-  ShapeTransformOriginY
+  ShapeTransformOriginY,
+  ShapeVerticalAlign
 } from '../types'
 import { applyShapeScalingPreviewLayout } from './shape-scaling-preview'
 import {
@@ -49,7 +51,9 @@ import {
   SHAPE_SCALING_SIZE_EPSILON as SIZE_EPSILON
 } from './shape-scaling-layout'
 import type {
-  ShapeScalingPointerEvent
+  ShapeScalingCommitDimensions,
+  ShapeScalingPointerEvent,
+  ShapeScalingStartDimensions
 } from './shape-scaling-layout'
 
 /**
@@ -118,6 +122,16 @@ type ActiveSelectionShapeScalingSessionItem = {
 type ActiveSelectionShapeLayoutScale = {
   scaleX: number
   scaleY: number
+}
+
+/** Данные, необходимые для окончательной фиксации размеров одного шейпа. */
+type ActiveSelectionShapeCommitPlan = {
+  alignH: ShapeHorizontalAlign
+  alignV: ShapeVerticalAlign
+  dimensions: ShapeScalingCommitDimensions
+  hasPreviewState: boolean
+  startDimensions: ShapeScalingStartDimensions
+  wrapPolicy: ReturnType<typeof resolveShapeScalingTextWrapPolicy>
 }
 
 /**
@@ -346,12 +360,69 @@ export default class ShapeActiveSelectionScalingController {
     } = getShapeNodes({ group })
 
     if (!shape || !text) {
-      this.shapeScalingState.delete(group)
+      this._clearGroupScalingState({ group })
       return false
     }
 
+    const plan = this._resolveGroupScalingCommitPlan({
+      group,
+      scaleX,
+      scaleY,
+      text,
+      transform
+    })
+    const {
+      alignH,
+      alignV,
+      dimensions,
+      hasPreviewState,
+      startDimensions,
+      wrapPolicy
+    } = plan
+    const { width, height, hasWidthChange, hasDimensionChange } = dimensions
+
+    if (!hasDimensionChange && !hasPreviewState) {
+      this._clearGroupScalingState({ group })
+      return false
+    }
+
+    commitResolvedShapeScalingLayout({
+      group,
+      shape,
+      text,
+      width,
+      height,
+      alignH,
+      alignV,
+      startManualBaseWidth: startDimensions.startManualBaseWidth,
+      startManualBaseHeight: startDimensions.startManualBaseHeight,
+      canScaleWidth: startDimensions.canScaleWidth,
+      canScaleHeight: startDimensions.canScaleHeight,
+      hasWidthChange,
+      wrapPolicy
+    })
+
+    this._clearGroupScalingState({ group })
+
+    return hasDimensionChange || hasPreviewState
+  }
+
+  /** Собирает окончательные размеры и правила фиксации одного шейпа. */
+  private _resolveGroupScalingCommitPlan({
+    group,
+    scaleX,
+    scaleY,
+    text,
+    transform
+  }: {
+    group: ShapeGroup
+    scaleX: number
+    scaleY: number
+    text: ShapeTextNode
+    transform?: Transform | null
+  }): ActiveSelectionShapeCommitPlan {
     const state = this.shapeScalingState.get(group)
-    const startDimensions = state ?? resolveShapeScalingStartDimensions({
+    const capturedDimensions = state ?? resolveShapeScalingStartDimensions({
       group,
       transform
     })
@@ -366,66 +437,44 @@ export default class ShapeActiveSelectionScalingController {
     const canScaleHeight = state?.canScaleHeight
       ?? resolvedAxes?.canScaleHeight
       ?? (Math.abs(scaleY - 1) > SCALE_EPSILON)
-    const alignH = group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN
-    const alignV = group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN
+    const startDimensions = {
+      ...capturedDimensions,
+      canScaleWidth,
+      canScaleHeight
+    }
     const constraintPadding = resolveShapeScalingConstraintPadding({ group })
     const layoutScale = this.groupLayoutScales.get(group) ?? {
       scaleX,
       scaleY
     }
-    const {
-      width,
-      height,
-      hasWidthChange,
-      hasDimensionChange
-    } = resolveShapeScalingCommitDimensions({
-      group,
-      text,
-      constraintPadding,
-      startDimensions: {
-        ...startDimensions,
-        canScaleWidth,
-        canScaleHeight
-      },
-      scaleX: layoutScale.scaleX,
-      scaleY: layoutScale.scaleY,
-      wrapPolicy: resolveShapeScalingTextWrapPolicy({
-        isProportionalScaling: state?.isProportionalScaling,
-        startTextSplitByGrapheme: state?.startTextSplitByGrapheme
-      })
+    const wrapPolicy = resolveShapeScalingTextWrapPolicy({
+      isProportionalScaling: state?.isProportionalScaling,
+      startTextSplitByGrapheme: state?.startTextSplitByGrapheme
     })
 
-    if (!hasDimensionChange) {
-      this.shapeScalingState.delete(group)
-      this.groupLayoutScales.delete(group)
-      group.shapeScalingNoopTransform = false
-      return false
+    return {
+      alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+      alignV: group.shapeAlignVertical ?? SHAPE_DEFAULT_VERTICAL_ALIGN,
+      dimensions: resolveShapeScalingCommitDimensions({
+        group,
+        text,
+        constraintPadding,
+        startDimensions,
+        scaleX: layoutScale.scaleX,
+        scaleY: layoutScale.scaleY,
+        wrapPolicy
+      }),
+      hasPreviewState: Boolean(state || this.groupLayoutScales.has(group)),
+      startDimensions,
+      wrapPolicy
     }
+  }
 
-    commitResolvedShapeScalingLayout({
-      group,
-      shape,
-      text,
-      width,
-      height,
-      alignH,
-      alignV,
-      startManualBaseWidth: startDimensions.startManualBaseWidth,
-      startManualBaseHeight: startDimensions.startManualBaseHeight,
-      canScaleWidth,
-      canScaleHeight,
-      hasWidthChange,
-      wrapPolicy: resolveShapeScalingTextWrapPolicy({
-        isProportionalScaling: state?.isProportionalScaling,
-        startTextSplitByGrapheme: state?.startTextSplitByGrapheme
-      })
-    })
-
+  /** Очищает временное состояние одного шейпа после фиксации или отмены. */
+  private _clearGroupScalingState({ group }: { group: ShapeGroup }): void {
     this.shapeScalingState.delete(group)
     this.groupLayoutScales.delete(group)
     group.shapeScalingNoopTransform = false
-
-    return true
   }
 
   /**

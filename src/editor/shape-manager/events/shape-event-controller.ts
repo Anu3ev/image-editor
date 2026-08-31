@@ -1,7 +1,9 @@
 import {
   ActiveSelection,
   FabricObject,
-  Textbox
+  Point,
+  Textbox,
+  type TPointerEvent
 } from 'fabric'
 import type { ObjectPlacement } from '../../canvas-manager'
 import type { ImageEditor } from '../../index'
@@ -37,7 +39,7 @@ import type {
  */
 type ShapeCanvasEvent = {
   target?: FabricObject | null
-  e?: Event | MouseEvent
+  e?: TPointerEvent
   pointer?: {
     x: number
     y: number
@@ -49,6 +51,17 @@ type ShapeCanvasEvent = {
   subTargets?: FabricObject[]
   transform?: import('fabric').Transform | null
 }
+
+/** Преобразование, которое остаётся на восстановленной рамке общего выделения. */
+type ActiveSelectionTransformState = Readonly<{
+  angle: number
+  flipX: boolean
+  flipY: boolean
+  scaleX: number
+  scaleY: number
+  skewX: number
+  skewY: number
+}>
 
 /**
  * Зависимости обработчиков событий ShapeManager.
@@ -151,6 +164,11 @@ export default class ShapeEventController {
    * Начинает resize для затронутых Shape и применяет текущий scale.
    */
   private _handleObjectScaling = (event: ShapeCanvasEvent): void => {
+    if (this.dependencies.editor.selectionManager.handleShapeSelectionScaleStep({
+      event,
+      intentSource: 'fabric-preview'
+    })) return
+
     this._beginResize({ event })
 
     if (this.scaleInteractionController.handleObjectScaling(event)) return
@@ -165,17 +183,28 @@ export default class ShapeEventController {
     const groups = this._collectShapeGroupsFromTarget({
       target: event.target
     })
+    const selection = event.target instanceof ActiveSelection
+      ? event.target
+      : null
     const resolvedAxes = event.transform
       ? resolveShapeScaleActionAxes({ transform: event.transform })
       : null
     const isScaleCommit = !resolvedAxes
       || resolvedAxes.canScaleWidth
       || resolvedAxes.canScaleHeight
+    const didCommitUnifiedSelection = selection
+      ? this._commitUnifiedShapeSelection({ event, selection })
+      : false
 
-    if (event.target instanceof ActiveSelection && isScaleCommit) {
+    if (didCommitUnifiedSelection) {
+      groups.forEach((group) => {
+        this.dependencies.scalingController.clearState({ group })
+      })
+    } else if (selection && isScaleCommit) {
       this._commitActiveSelectionShapeScaling({
-        selection: event.target,
-        transform: event.transform
+        selection,
+        transform: event.transform,
+        usesUnifiedShapeCommit: false
       })
       groups.forEach((group) => {
         this.dependencies.scalingController.clearState({ group })
@@ -189,10 +218,40 @@ export default class ShapeEventController {
     })
   }
 
+  /** Выбирает способ фиксации поддерживаемого общего выделения после завершения жеста. */
+  private _commitUnifiedShapeSelection({
+    event,
+    selection
+  }: {
+    event: ShapeCanvasEvent
+    selection: ActiveSelection
+  }): boolean {
+    return this.dependencies.editor.selectionManager.commitShapeSelectionScale({
+      selection,
+      commit: (mode) => {
+        if (mode === 'fabric-transform') {
+          this.dependencies.scalingController.clearActiveSelectionState({ selection })
+          return
+        }
+
+        this._commitActiveSelectionShapeScaling({
+          selection,
+          transform: event.transform,
+          usesUnifiedShapeCommit: true
+        })
+      }
+    })
+  }
+
   /**
    * Обрабатывает mouse:move, когда Fabric не отправил object:scaling.
    */
   private _handleMouseMove = (event: ShapeCanvasEvent): void => {
+    if (this.dependencies.editor.selectionManager.handleShapeSelectionScaleStep({
+      event,
+      intentSource: 'pointer-projection'
+    })) return
+
     if (this.scaleInteractionController.handleCanvasMouseMove(event)) {
       if (event.transform?.actionPerformed) {
         this._beginResize({ event })
@@ -456,10 +515,12 @@ export default class ShapeEventController {
    */
   private _commitActiveSelectionShapeScaling({
     selection,
-    transform
+    transform,
+    usesUnifiedShapeCommit
   }: {
     selection: ActiveSelection
     transform?: ShapeCanvasEvent['transform']
+    usesUnifiedShapeCommit: boolean
   }): void {
     const objects = selection.getObjects()
     const shapeGroups = objects.filter((object): object is ShapeGroup => {
@@ -474,16 +535,131 @@ export default class ShapeEventController {
     const hasScaleChange = Math.abs(scaleX - 1) > ACTIVE_SELECTION_SCALE_EPSILON
       || Math.abs(scaleY - 1) > ACTIVE_SELECTION_SCALE_EPSILON
 
-    if (!hasScaleChange) {
+    if (!hasScaleChange && !usesUnifiedShapeCommit) {
       this.dependencies.scalingController.clearActiveSelectionState({ selection })
       return
     }
 
-    const { canvas, canvasManager } = this.dependencies.editor
+    if (!usesUnifiedShapeCommit) {
+      this._commitLegacyActiveSelectionShapeScaling({
+        objects,
+        scaleX,
+        scaleY,
+        selection,
+        shapeGroups,
+        transform
+      })
+      return
+    }
+
+    this._commitUnifiedActiveSelectionShapeScaling({
+      objects,
+      scaleX,
+      scaleY,
+      selection,
+      shapeGroups,
+      transform
+    })
+  }
+
+  /** Фиксирует шейпы через новый путь и сохраняет поворот на рамке общего выделения. */
+  private _commitUnifiedActiveSelectionShapeScaling({
+    objects,
+    scaleX,
+    scaleY,
+    selection,
+    shapeGroups,
+    transform
+  }: {
+    objects: FabricObject[]
+    scaleX: number
+    scaleY: number
+    selection: ActiveSelection
+    shapeGroups: ShapeGroup[]
+    transform?: ShapeCanvasEvent['transform']
+  }): void {
+    const { canvas } = this.dependencies.editor
+    const selectionAngle = selection.angle ?? 0
+    const selectionCenter = selection.getCenterPoint()
+
+    selection.set({ angle: 0 })
+    selection.setPositionByOrigin(selectionCenter, 'center', 'center')
+    selection.setCoords()
+
+    this._discardActiveSelectionDuringCommit({
+      selection,
+      transform
+    })
+
+    this._commitActiveSelectionShapeGroups({
+      groups: shapeGroups,
+      scaleX,
+      scaleY,
+      transform
+    })
+
+    this.dependencies.scalingController.clearActiveSelectionState({ selection })
+    this._restoreActiveSelectionAfterCommit({
+      center: selectionCenter,
+      objects,
+      transformState: {
+        angle: selectionAngle,
+        flipX: false,
+        flipY: false,
+        scaleX: 1,
+        scaleY: 1,
+        skewX: 0,
+        skewY: 0
+      }
+    })
+    canvas.requestRenderAll()
+  }
+
+  /** Сохраняет прежнюю фиксацию шейпов для смешанного и неподдерживаемого состава. */
+  private _commitLegacyActiveSelectionShapeScaling({
+    objects,
+    scaleX,
+    scaleY,
+    selection,
+    shapeGroups,
+    transform
+  }: {
+    objects: FabricObject[]
+    scaleX: number
+    scaleY: number
+    selection: ActiveSelection
+    shapeGroups: ShapeGroup[]
+    transform?: ShapeCanvasEvent['transform']
+  }): void {
+    const { canvas } = this.dependencies.editor
 
     canvas.discardActiveObject()
+    this._commitActiveSelectionShapeGroups({
+      groups: shapeGroups,
+      scaleX,
+      scaleY,
+      transform
+    })
+    this.dependencies.scalingController.clearActiveSelectionState({ selection })
+    canvas.setActiveObject(new ActiveSelection(objects, { canvas }))
+    canvas.requestRenderAll()
+  }
 
-    shapeGroups.forEach((group) => {
+  /** Фиксирует рассчитанный масштаб каждого шейпа и сохраняет его положение на холсте. */
+  private _commitActiveSelectionShapeGroups({
+    groups,
+    scaleX,
+    scaleY,
+    transform
+  }: {
+    groups: ShapeGroup[]
+    scaleX: number
+    scaleY: number
+    transform?: ShapeCanvasEvent['transform']
+  }): void {
+    const { canvasManager } = this.dependencies.editor
+
+    groups.forEach((group) => {
       const placement = canvasManager.getObjectPlacement({ object: group })
       const didCommitScaling = this.dependencies.scalingController.commitActiveSelectionGroupScaling({
         group,
@@ -494,15 +670,56 @@ export default class ShapeEventController {
 
       if (!didCommitScaling) return
 
-      canvasManager.applyObjectPlacement({
-        object: group,
-        placement
-      })
+      canvasManager.applyObjectPlacement({ object: group, placement })
       group.setCoords()
     })
+  }
 
-    this.dependencies.scalingController.clearActiveSelectionState({ selection })
-    canvas.setActiveObject(new ActiveSelection(objects, { canvas }))
-    canvas.requestRenderAll()
+  /**
+   * Снимает выделение внутри уже выполняющегося `object:modified`, не запуская тот же transform повторно.
+   */
+  private _discardActiveSelectionDuringCommit({
+    selection,
+    transform
+  }: {
+    selection: ActiveSelection
+    transform?: ShapeCanvasEvent['transform']
+  }): void {
+    const { canvas } = this.dependencies.editor
+    const currentTransform = Reflect.get(canvas, '_currentTransform')
+    const isFinalizingCurrentTransform = currentTransform
+      && currentTransform === transform
+      && transform?.target === selection
+
+    if (isFinalizingCurrentTransform) {
+      Reflect.set(canvas, '_currentTransform', null)
+    }
+
+    try {
+      canvas.discardActiveObject()
+    } finally {
+      if (isFinalizingCurrentTransform) {
+        Reflect.set(canvas, '_currentTransform', currentTransform)
+      }
+    }
+  }
+
+  /** Восстанавливает рамку выделения и оставляет заданное преобразование на общем объекте. */
+  private _restoreActiveSelectionAfterCommit({
+    center,
+    objects,
+    transformState
+  }: {
+    center: Point
+    objects: FabricObject[]
+    transformState: ActiveSelectionTransformState
+  }): void {
+    const { canvas } = this.dependencies.editor
+    const restoredSelection = new ActiveSelection(objects, { canvas })
+
+    restoredSelection.set(transformState)
+    restoredSelection.setPositionByOrigin(center, 'center', 'center')
+    restoredSelection.setCoords()
+    canvas.setActiveObject(restoredSelection)
   }
 }

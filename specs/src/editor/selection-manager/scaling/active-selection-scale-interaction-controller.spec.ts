@@ -6,6 +6,7 @@ import {
   createActiveSelectionScaleMouseMoveEvent,
   createActiveSelectionScaleStartEvent,
   createActiveSelectionScaleStepEvent,
+  createShapeActiveSelectionScaleHarness,
   getRequiredActiveSelectionBounds
 } from '../../../../test-utils/selection/active-selection-scale-interaction'
 import { createMockFabricImage } from '../../../../test-utils/managers/image'
@@ -91,6 +92,135 @@ it('один раз меняет масштаб всего выделения и
     })]
   })
   expect(captureActiveSelectionImageLocalStates({ children: harness.children })).toEqual(childState)
+  expect(harness.supportsShapeSelectionMock).not.toHaveBeenCalled()
+  expect(harness.applyShapeSelectionPreviewMock).not.toHaveBeenCalled()
+})
+
+it('для выделения из шейпов начинает общую сессию и передаёт состав на проверку ShapeManager', () => {
+  const harness = createShapeActiveSelectionScaleHarness({ controlKey: 'mr' })
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.supportsShapeSelectionMock).toHaveBeenCalledTimes(1)
+  expect(harness.supportsShapeSelectionMock).toHaveBeenCalledWith({ selection: harness.target })
+  expect(harness.captureEnvironmentMock).toHaveBeenCalledTimes(1)
+  expect(harness.captureEnvironmentMock).toHaveBeenCalledWith({
+    activeObject: harness.target,
+    targetEdges: ['right']
+  })
+})
+
+it('проверяет фактически применённый к шейпам масштаб и скрывает недостижимую направляющую', () => {
+  const harness = createShapeActiveSelectionScaleHarness({
+    clampedMultipliers: { x: 1.01, y: 1 },
+    controlKey: 'mr'
+  })
+  const guidePosition = useRectangularScaleGuide({
+    axis: 'x',
+    candidateIdPrefix: 'shape-active-selection',
+    edge: 'right',
+    harness,
+    offset: 10
+  })
+  const marker = new MouseEvent('pointermove')
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+
+  const stepEvent = createActiveSelectionScaleStepEvent({
+    harness,
+    marker,
+    multipliers: { x: 1.04, y: 1 }
+  })
+
+  expect(harness.controller.handleObjectScaling({
+    event: stepEvent
+  })).toBe(true)
+  expect(harness.controller.handleCanvasMouseMove({
+    event: stepEvent
+  })).toBe(true)
+
+  const bounds = getRequiredActiveSelectionBounds({ target: harness.target })
+
+  expect(bounds.left).toBeCloseTo(harness.baselineBounds.left, 9)
+  expect(bounds.right).not.toBeCloseTo(guidePosition, 9)
+  expect(harness.target.scaleX).toBeCloseTo(1.01, 9)
+  expect(harness.transform.scaleX).toBeCloseTo(harness.target.scaleX, 9)
+  expect(harness.applyShapeSelectionPreviewMock).toHaveBeenCalledTimes(1)
+  expect(harness.applyShapeSelectionPreviewMock).toHaveBeenCalledWith({
+    selection: harness.target,
+    transform: harness.transform,
+    event: marker
+  })
+  expect(harness.markHandledMock).toHaveBeenCalledTimes(2)
+  expect(harness.publishGuidesMock).toHaveBeenCalledWith({ guides: [] })
+  expect(harness.controller.beginShapeSelectionCommit({ selection: harness.target }))
+    .toBe('canonical-scale')
+  expect(harness.controller.finishShapeSelectionCommit({ selection: harness.target })).toBe(true)
+})
+
+it('обрабатывает до ShapeManager только шаг текущей сессии выделения из шейпов', () => {
+  const harness = createShapeActiveSelectionScaleHarness()
+  const startEvent = createActiveSelectionScaleStartEvent({ harness })
+  const otherHarness = createShapeActiveSelectionScaleHarness()
+  const otherEvent = createActiveSelectionScaleStartEvent({ harness: otherHarness })
+
+  expect(harness.controller.handleShapeSelectionScaleStep({
+    event: startEvent,
+    intentSource: 'fabric-preview'
+  })).toBe(false)
+  expect(harness.controller.startGesture({ event: startEvent })).toBe(true)
+
+  const currentEvent = createActiveSelectionScaleStepEvent({
+    harness,
+    marker: new MouseEvent('pointermove'),
+    multipliers: { x: 1.05, y: 1 }
+  })
+
+  expect(harness.controller.handleShapeSelectionScaleStep({
+    event: currentEvent,
+    intentSource: 'fabric-preview'
+  })).toBe(true)
+  expect(harness.controller.handleShapeSelectionScaleStep({
+    event: otherEvent,
+    intentSource: 'fabric-preview'
+  })).toBe(false)
+  expect(harness.controller.finishGesture()).toBe(true)
+  expect(harness.controller.handleShapeSelectionScaleStep({
+    event: currentEvent,
+    intentSource: 'fabric-preview'
+  })).toBe(false)
+
+  const imageHarness = createActiveSelectionScaleHarness()
+  const imageEvent = createActiveSelectionScaleStartEvent({ harness: imageHarness })
+
+  expect(imageHarness.controller.startGesture({ event: imageEvent })).toBe(true)
+  expect(imageHarness.controller.handleShapeSelectionScaleStep({
+    event: imageEvent,
+    intentSource: 'fabric-preview'
+  })).toBe(false)
+})
+
+it('возвращает необрабатываемый шаг шейпов прежней логике в том же событии', () => {
+  const harness = createShapeActiveSelectionScaleHarness()
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.controller.handleShapeSelectionScaleStep({
+    event: {
+      target: harness.target,
+      transform: harness.transform,
+      pointer: harness.pointerStart,
+      scenePoint: harness.pointerStart
+    },
+    intentSource: 'fabric-preview'
+  })).toBe(false)
+  expect(harness.applyShapeSelectionPreviewMock).not.toHaveBeenCalled()
+  expect(harness.clearShapeSelectionPreviewStateMock).not.toHaveBeenCalled()
+  expect(harness.controller.finishGesture()).toBe(true)
 })
 
 it('если object:scaling не сработал, обрабатывает mouse:move и применяет прилипание', () => {
@@ -172,6 +302,132 @@ it.each([
   expect(harness.publishGuidesMock).toHaveBeenCalledWith({ guides: [] })
 })
 
+it.each([
+  {
+    title: 'без Shift сохраняет пропорции',
+    multipliers: { x: 1.1, y: 1.1 },
+    shiftKey: false
+  },
+  {
+    title: 'с Shift свободно меняет обе оси',
+    multipliers: { x: 1.1, y: 1.2 },
+    shiftKey: true
+  }
+])('для угловой ручки шейпов $title независимо от общей настройки Fabric', ({
+  multipliers,
+  shiftKey
+}) => {
+  const harness = createShapeActiveSelectionScaleHarness({
+    controlKey: 'br',
+    uniformScaling: false
+  })
+  const marker = new MouseEvent('pointermove', { shiftKey })
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.controller.handleObjectScaling({
+    event: createActiveSelectionScaleStepEvent({
+      harness,
+      marker,
+      multipliers
+    })
+  })).toBe(true)
+  expect(harness.target.scaleX).toBeCloseTo(multipliers.x, 9)
+  expect(harness.target.scaleY).toBeCloseTo(multipliers.y, 9)
+  expect(harness.applyShapeSelectionPreviewMock).toHaveBeenCalledTimes(1)
+})
+
+it('во время наклона боковой ручкой не передаёт повторные движения в расчёт скейлинга шейпов', () => {
+  const harness = createShapeActiveSelectionScaleHarness({ controlKey: 'mr' })
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.controller.handleObjectScaling({
+    event: createActiveSelectionScaleStepEvent({
+      harness,
+      marker: new MouseEvent('pointermove'),
+      multipliers: { x: 1.1, y: 1 }
+    })
+  })).toBe(true)
+
+  const skewMarker = new MouseEvent('pointermove', { shiftKey: true })
+  const nextSkewMarker = new MouseEvent('pointermove', { shiftKey: true })
+
+  expect(harness.controller.handleCanvasMouseMove({
+    event: createActiveSelectionScaleMouseMoveEvent({
+      harness,
+      marker: skewMarker,
+      multipliers: { x: 1.2, y: 1 }
+    })
+  })).toBe(true)
+  expect(harness.controller.handleCanvasMouseMove({
+    event: createActiveSelectionScaleMouseMoveEvent({
+      harness,
+      marker: nextSkewMarker,
+      multipliers: { x: 1.3, y: 1 }
+    })
+  })).toBe(true)
+  expect(harness.markHandledMock).toHaveBeenCalledWith({ marker: skewMarker })
+  expect(harness.markHandledMock).toHaveBeenCalledWith({ marker: nextSkewMarker })
+  expect(harness.applyShapeSelectionPreviewMock).toHaveBeenCalledTimes(1)
+  expect(harness.clearShapeSelectionPreviewStateMock).not.toHaveBeenCalled()
+  harness.target.set({ skewY: 8 })
+  expect(harness.controller.beginShapeSelectionCommit({ selection: harness.target }))
+    .toBe('fabric-transform')
+  expect(harness.controller.finishShapeSelectionCommit({ selection: harness.target })).toBe(true)
+  expect(harness.controller.finishGesture()).toBe(false)
+})
+
+it('после возврата к скейлингу снова отделяет наклон от расчёта размера шейпов', () => {
+  const harness = createShapeActiveSelectionScaleHarness({ controlKey: 'mr' })
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.controller.handleObjectScaling({
+    event: createActiveSelectionScaleStepEvent({
+      harness,
+      marker: new MouseEvent('pointermove'),
+      multipliers: { x: 1.1, y: 1 }
+    })
+  })).toBe(true)
+  expect(harness.controller.handleCanvasMouseMove({
+    event: createActiveSelectionScaleMouseMoveEvent({
+      harness,
+      marker: new MouseEvent('pointermove', { shiftKey: true }),
+      multipliers: { x: 1.2, y: 1 }
+    })
+  })).toBe(true)
+
+  const scaleMarker = new MouseEvent('pointermove')
+
+  expect(harness.controller.handleCanvasMouseMove({
+    event: createActiveSelectionScaleMouseMoveEvent({
+      harness,
+      marker: scaleMarker,
+      multipliers: { x: 1.4, y: 1 }
+    })
+  })).toBe(false)
+
+  const repeatedSkewMarker = new MouseEvent('pointermove', { shiftKey: true })
+
+  expect(harness.controller.handleCanvasMouseMove({
+    event: createActiveSelectionScaleMouseMoveEvent({
+      harness,
+      marker: repeatedSkewMarker,
+      multipliers: { x: 1.5, y: 1 }
+    })
+  })).toBe(true)
+  const handledMarkers = harness.markHandledMock.mock.calls.map(([params]) => params.marker)
+
+  expect(handledMarkers).not.toContain(scaleMarker)
+  expect(handledMarkers).toContain(repeatedSkewMarker)
+  expect(harness.applyShapeSelectionPreviewMock).toHaveBeenCalledTimes(1)
+  expect(harness.clearShapeSelectionPreviewStateMock).not.toHaveBeenCalled()
+})
+
 it('при Shift на боковой ручке завершает сессию до наклона Fabric и не меняет масштаб выделения', () => {
   const harness = createActiveSelectionScaleHarness({ controlKey: 'mr' })
   const initialScale = { x: harness.target.scaleX, y: harness.target.scaleY }
@@ -227,7 +483,7 @@ it('не подключает выделение с вложенным изоб�
   expect(harness.publishGuidesMock).not.toHaveBeenCalled()
 })
 
-it('не подключает выделение с шейпом к пути для изображений', () => {
+it('оставляет смешанное выделение на прежнем пути скейлинга', () => {
   const harness = createActiveSelectionScaleHarness()
   const shape = new Rect({ width: 40, height: 30 })
   jest.spyOn(harness.target, 'getObjects').mockReturnValue([harness.children[0], shape])
@@ -235,7 +491,23 @@ it('не подключает выделение с шейпом к пути д�
   expect(harness.controller.startGesture({
     event: createActiveSelectionScaleStartEvent({ harness })
   })).toBe(false)
+  expect(harness.supportsShapeSelectionMock).toHaveBeenCalledTimes(1)
+  expect(harness.supportsShapeSelectionMock).toHaveBeenCalledWith({ selection: harness.target })
   expect(harness.captureEnvironmentMock).not.toHaveBeenCalled()
+  expect(harness.applyShapeSelectionPreviewMock).not.toHaveBeenCalled()
+  expect(harness.publishGuidesMock).not.toHaveBeenCalled()
+})
+
+it('оставляет неподдерживаемое выделение из шейпов на прежнем пути скейлинга', () => {
+  const harness = createShapeActiveSelectionScaleHarness({ supported: false })
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(false)
+  expect(harness.supportsShapeSelectionMock).toHaveBeenCalledTimes(1)
+  expect(harness.supportsShapeSelectionMock).toHaveBeenCalledWith({ selection: harness.target })
+  expect(harness.captureEnvironmentMock).not.toHaveBeenCalled()
+  expect(harness.applyShapeSelectionPreviewMock).not.toHaveBeenCalled()
   expect(harness.publishGuidesMock).not.toHaveBeenCalled()
 })
 
@@ -305,6 +577,22 @@ it('завершает сессию после удаления прямого �
   expect(harness.controller.finishGesture()).toBe(false)
 })
 
+it('при удалении дочернего шейпа очищает временное состояние ShapeManager', () => {
+  const harness = createShapeActiveSelectionScaleHarness()
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.controller.finishGestureForTarget({ target: harness.children[0] })).toBe(true)
+  expect(harness.clearShapeSelectionPreviewStateMock).toHaveBeenCalledTimes(1)
+  expect(harness.clearShapeSelectionPreviewStateMock).toHaveBeenCalledWith({
+    selection: harness.target,
+    children: harness.children
+  })
+  expect(harness.publishGuidesMock).toHaveBeenCalledWith({ guides: [] })
+  expect(harness.controller.finishGesture()).toBe(false)
+})
+
 it('при отмене указателя завершает преобразование Fabric и очищает сессию', () => {
   const harness = createActiveSelectionScaleHarness()
   const event = new Event('pointercancel') as PointerEvent
@@ -318,6 +606,66 @@ it('при отмене указателя завершает преобразо
   expect(harness.endCurrentTransformMock).toHaveBeenCalledWith(event)
   expect(harness.publishGuidesMock).toHaveBeenCalledWith({ guides: [] })
   expect(harness.controller.finishGesture()).toBe(false)
+})
+
+it('при отмене скейлинга шейпов очищает временное состояние ShapeManager', () => {
+  const harness = createShapeActiveSelectionScaleHarness()
+  const event = new Event('pointercancel') as PointerEvent
+
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  expect(harness.controller.interruptGesture({ event })).toBe(true)
+  expect(harness.endCurrentTransformMock).toHaveBeenCalledWith(event)
+  expect(harness.clearShapeSelectionPreviewStateMock).toHaveBeenCalledTimes(1)
+  expect(harness.clearShapeSelectionPreviewStateMock).toHaveBeenCalledWith({
+    selection: harness.target,
+    children: harness.children
+  })
+  expect(harness.controller.finishGesture()).toBe(false)
+})
+
+it('при потере фокуса окна завершает скейлинг шейпов и очищает временное состояние', () => {
+  const harness = createShapeActiveSelectionScaleHarness()
+  harness.controller.bind()
+
+  try {
+    expect(harness.controller.startGesture({
+      event: createActiveSelectionScaleStartEvent({ harness })
+    })).toBe(true)
+
+    window.dispatchEvent(new Event('blur'))
+
+    expect(harness.endCurrentTransformMock).toHaveBeenCalledTimes(1)
+    expect(harness.endCurrentTransformMock).toHaveBeenCalledWith(undefined)
+    expect(harness.clearShapeSelectionPreviewStateMock).toHaveBeenCalledTimes(1)
+    expect(harness.publishGuidesMock).toHaveBeenCalledWith({ guides: [] })
+    expect(harness.controller.finishGesture()).toBe(false)
+  } finally {
+    harness.controller.destroy()
+  }
+})
+
+it('при отмене касания завершает скейлинг шейпов и очищает временное состояние', () => {
+  const harness = createShapeActiveSelectionScaleHarness()
+  const event = new Event('touchcancel') as TouchEvent
+  harness.controller.bind()
+
+  try {
+    expect(harness.controller.startGesture({
+      event: createActiveSelectionScaleStartEvent({ harness })
+    })).toBe(true)
+
+    window.dispatchEvent(event)
+
+    expect(harness.endCurrentTransformMock).toHaveBeenCalledTimes(1)
+    expect(harness.endCurrentTransformMock).toHaveBeenCalledWith(event)
+    expect(harness.clearShapeSelectionPreviewStateMock).toHaveBeenCalledTimes(1)
+    expect(harness.publishGuidesMock).toHaveBeenCalledWith({ guides: [] })
+    expect(harness.controller.finishGesture()).toBe(false)
+  } finally {
+    harness.controller.destroy()
+  }
 })
 
 it('при уничтожении очищает направляющие и завершает активную сессию', () => {

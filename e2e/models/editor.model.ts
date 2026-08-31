@@ -643,6 +643,31 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
+  /** Удаляет выбранный по id или индексу объект через общий DeletionManager. */
+  async deleteObject({
+    id,
+    objectIndex
+  }: ObjectTargetParams): Promise<boolean> {
+    const deleted = await this.page.evaluate(({ targetId, targetIndex }) => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = helpers.resolveCanvasObject(targetIndex, targetId)
+      if (!target) return false
+
+      const result = editor.deletionManager.deleteSelectedObjects({
+        objects: [target]
+      })
+
+      return Boolean(result?.objects?.includes(target))
+    }, {
+      targetId: id,
+      targetIndex: objectIndex
+    })
+
+    await waitForCanvasRender({ page: this.page })
+
+    return deleted
+  }
+
   /** Разблокирует текущий выделенный объект через публичный API редактора. */
   async unlockSelectedObject(): Promise<void> {
     await this.page.evaluate(() => {
