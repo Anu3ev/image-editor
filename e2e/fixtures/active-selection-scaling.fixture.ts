@@ -2,14 +2,12 @@ import { expect } from '@playwright/test'
 import { test as editorTest } from './editor.fixture'
 import type { EditorModel } from '../models/editor.model'
 import type { ImageModel } from '../models/image/image.model'
-import type {
-  SelectionCompositionSnapshot,
-  SelectionModel
-} from '../models/selection/selection.model'
+import type { SelectionModel } from '../models/selection/selection.model'
 import type { ShapeModel } from '../models/shape/shape.model'
 import type { SnappingModel } from '../models/snapping.model'
 import type {
   MontageAreaBoundsInfo,
+  SelectionCompositionSnapshot,
   SnappingObjectSnapshot
 } from '../types'
 

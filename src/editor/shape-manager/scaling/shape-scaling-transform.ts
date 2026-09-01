@@ -83,12 +83,15 @@ export const resolveShapeScaleActionAxes = ({
 } => {
   const action = transform?.action ?? ''
   const corner = typeof transform?.corner === 'string' ? transform.corner : ''
-  const isCornerScaleAction = corner === 'tl'
+  const isSkewAction = action === 'skewX' || action === 'skewY'
+  const isCornerScaleAction = !isSkewAction && (corner === 'tl'
     || corner === 'tr'
     || corner === 'bl'
-    || corner === 'br'
-  const isHorizontalScaleAction = action === 'scaleX' || corner === 'ml' || corner === 'mr'
-  const isVerticalScaleAction = action === 'scaleY' || corner === 'mt' || corner === 'mb'
+    || corner === 'br')
+  const isHorizontalScaleAction = !isSkewAction
+    && (action === 'scaleX' || corner === 'ml' || corner === 'mr')
+  const isVerticalScaleAction = !isSkewAction
+    && (action === 'scaleY' || corner === 'mt' || corner === 'mb')
   const canScaleWidth = isHorizontalScaleAction || isCornerScaleAction
   const canScaleHeight = isVerticalScaleAction || isCornerScaleAction
 

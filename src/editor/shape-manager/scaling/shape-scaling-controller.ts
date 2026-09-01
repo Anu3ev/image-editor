@@ -35,7 +35,7 @@ import {
 import { applyShapeScalingPreviewLayout } from './shape-scaling-preview'
 import ShapeActiveSelectionScalingController from './active-selection-scaling-controller'
 import type {
-  ActiveSelectionAppliedScale
+  ActiveSelectionCommittedScale
 } from './active-selection-scaling-controller'
 import type {
   CanvasWithCurrentTransform,
@@ -1335,14 +1335,12 @@ export default class ShapeScalingController {
     group.shapeScalingNoopTransform = false
   }
 
-  /**
-   * Возвращает scale ActiveSelection, который был реально применён в live-preview.
-   */
+  /** Возвращает применённый масштаб и способ сохранения геометрии после завершения жеста. */
   public resolveActiveSelectionCommittedScale({
     selection
   }: {
     selection: ActiveSelection
-  }): ActiveSelectionAppliedScale {
+  }): ActiveSelectionCommittedScale {
     return this.activeSelectionScalingController.resolveCommittedScale({
       selection
     })

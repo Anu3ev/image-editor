@@ -30,6 +30,12 @@ import type {
 } from '../types'
 import { applyShapeScalingPreviewLayout } from './shape-scaling-preview'
 import {
+  applyActiveSelectionScale,
+  applyRotatedActiveSelectionShapeGeometry,
+  captureRotatedActiveSelectionShapeGeometry,
+  type RotatedActiveSelectionShapeGeometry
+} from './active-selection-geometry'
+import {
   resolveScaleLocalPointerForTransform,
   resolveShapeScaleActionAxes,
   resolveShapeTransformOriginXValue,
@@ -91,6 +97,13 @@ export type ActiveSelectionAppliedScale = {
   scaleY: number
 }
 
+/** Scale и способ фиксации, выбранные для завершения текущей сессии общего выделения. */
+export type ActiveSelectionCommittedScale = {
+  preserveSceneGeometryOnCommit: boolean
+  scaleX: number
+  scaleY: number
+}
+
 /**
  * Вертикальная привязка shape-группы внутри bounds active selection.
  */
@@ -111,6 +124,7 @@ type ActiveSelectionLocalBounds = {
  */
 type ActiveSelectionShapeScalingSessionItem = {
   bounds: ActiveSelectionLocalBounds
+  rotatedGeometry: RotatedActiveSelectionShapeGeometry | null
   transformOriginX: ShapeTransformOriginX
   transformOriginPointX: number
   verticalAttachment: ActiveSelectionVerticalAttachment
@@ -122,6 +136,12 @@ type ActiveSelectionShapeScalingSessionItem = {
 type ActiveSelectionShapeLayoutScale = {
   scaleX: number
   scaleY: number
+}
+
+/** Размеры и масштаб компоновки одного шейпа на текущем кадре. */
+type ActiveSelectionShapePreviewDimensions = {
+  layoutScale: ActiveSelectionShapeLayoutScale
+  minimumHeight: number
 }
 
 /** Данные, необходимые для окончательной фиксации размеров одного шейпа. */
@@ -140,6 +160,15 @@ type ActiveSelectionShapeCommitPlan = {
 type ActiveSelectionScalingSession = {
   bounds: ActiveSelectionLocalBounds
   items: Map<ShapeGroup, ActiveSelectionShapeScalingSessionItem>
+}
+
+/** Данные одного кадра скейлинга общего выделения после применения ограничений. */
+type ActiveSelectionScalingPreview = {
+  isProportionalCornerScale: boolean
+  items: ActiveSelectionShapeScalingItem[]
+  proportionalLayoutResults: ActiveSelectionProportionalLayoutResults | null
+  selectionScale: ActiveSelectionAppliedScale
+  session: ActiveSelectionScalingSession
 }
 
 /**
@@ -204,8 +233,7 @@ export default class ShapeActiveSelectionScalingController {
 
     const {
       canScaleWidth,
-      canScaleHeight,
-      isCornerScaleAction
+      canScaleHeight
     } = resolveShapeScaleActionAxes({
       transform
     })
@@ -218,126 +246,176 @@ export default class ShapeActiveSelectionScalingController {
 
     if (!items.length) return
 
-    const session = this._ensureScalingSession({
-      selection,
-      transform,
-      items
-    })
-    const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
-    const isProportionalCornerScale = isCornerScaleAction && !isShiftPressed
-    const scaleX = Math.abs(selection.scaleX ?? 1) || 1
-    const scaleY = Math.abs(selection.scaleY ?? 1) || 1
-    const shouldResolveProportionalLayoutResults = isProportionalCornerScale
-      && (scaleX < 1 - SCALE_EPSILON || scaleY < 1 - SCALE_EPSILON)
-    const proportionalLayoutResults = isProportionalCornerScale
-      && shouldResolveProportionalLayoutResults
-      ? this._resolveProportionalLayoutResults({ items })
-      : null
-    let selectionScale = this._resolveSelectionScale({
+    const preview = this._resolveScalingPreview({
+      event,
       items,
-      session,
-      transform,
-      proportionalLayoutResults,
-      scaleX,
-      scaleY,
-      event
-    })
-    selectionScale = this._resolveSelectionScaleAtPointerBoundary({
       selection,
-      items,
-      session,
-      transform,
-      selectionScale,
-      event
+      transform
     })
 
-    this._applySelectionScale({
+    applyActiveSelectionScale({
       selection,
       transform,
-      scaleX: selectionScale.scaleX,
-      scaleY: selectionScale.scaleY
+      scaleX: preview.selectionScale.scaleX,
+      scaleY: preview.selectionScale.scaleY
     })
-    this.scalingState.set(selection, selectionScale)
+    this.scalingState.set(selection, preview.selectionScale)
 
-    for (const item of items) {
-      const {
-        group,
-        shape,
-        text,
-        constraintPadding,
-        state
-      } = item
-      const sessionItem = session.items.get(group) as ActiveSelectionShapeScalingSessionItem
-
-      state.isProportionalScaling = isProportionalCornerScale
-
-      let layoutScale: ActiveSelectionShapeLayoutScale
-      let minimumHeight: number
-
-      if (proportionalLayoutResults) {
-        const proportionalLayoutResult = proportionalLayoutResults.get(group)!
-
-        const proportionalScale = Math.max(
-          selectionScale.scaleX,
-          proportionalLayoutResult.minimumScale
-        )
-
-        layoutScale = {
-          scaleX: state.canScaleWidth ? proportionalScale : 1,
-          scaleY: state.canScaleHeight ? proportionalScale : 1
-        }
-        minimumHeight = proportionalLayoutResult.minimumHeight
-      } else {
-        layoutScale = this._resolveShapeLayoutScale({
-          item,
-          selectionScale
-        })
-        minimumHeight = resolveShapeScalingPreviewDimensions({
-          group,
-          text,
-          constraintPadding,
-          startDimensions: state,
-          appliedScaleX: layoutScale.scaleX,
-          appliedScaleY: layoutScale.scaleY,
-          wrapPolicy: resolveShapeScalingTextWrapPolicy({
-            isProportionalScaling: state.isProportionalScaling,
-            startTextSplitByGrapheme: state.startTextSplitByGrapheme
-          }),
-          measurementCache: state.previewTextMeasurementCache
-        }).previewHeight
-      }
-
-      const previewLayout = resolveShapeScalingPreviewLayout({
-        group,
-        text,
-        state,
-        appliedScaleX: layoutScale.scaleX,
-        appliedScaleY: layoutScale.scaleY,
-        minimumHeight
+    for (const item of preview.items) {
+      this._applyShapeScalingPreviewItem({
+        item,
+        preview,
+        selection
       })
-
-      applyShapeScalingPreviewLayout({
-        group,
-        shape,
-        text,
-        layout: previewLayout,
-        alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
-        scaleX: selectionScale.scaleX,
-        scaleY: selectionScale.scaleY,
-        minSize: MIN_SIZE,
-        scaleEpsilon: SCALE_EPSILON
-      })
-
-      this.groupLayoutScales.set(group, layoutScale)
-      this._positionShapeInSelection({
-        group,
-        sessionItem
-      })
-      group.setCoords()
     }
 
     selection.setCoords()
     this.canvas.requestRenderAll()
+  }
+
+  /** Рассчитывает общий масштаб и ограничения одного кадра скейлинга. */
+  private _resolveScalingPreview({
+    event,
+    items,
+    selection,
+    transform
+  }: {
+    event?: ShapeScalingPointerEvent
+    items: ActiveSelectionShapeScalingItem[]
+    selection: ActiveSelection
+    transform: Transform
+  }): ActiveSelectionScalingPreview {
+    const session = this._ensureScalingSession({ selection, transform, items })
+    const { isCornerScaleAction } = resolveShapeScaleActionAxes({ transform })
+    const isShiftPressed = Boolean(event && 'shiftKey' in event && event.shiftKey)
+    const isProportionalCornerScale = isCornerScaleAction && !isShiftPressed
+    const scaleX = Math.abs(selection.scaleX ?? 1) || 1
+    const scaleY = Math.abs(selection.scaleY ?? 1) || 1
+    const needsProportionalLayout = isProportionalCornerScale
+      && (scaleX < 1 - SCALE_EPSILON || scaleY < 1 - SCALE_EPSILON)
+    const proportionalLayoutResults = needsProportionalLayout
+      ? this._resolveProportionalLayoutResults({ items })
+      : null
+    const requestedScale = this._resolveSelectionScale({
+      event,
+      items,
+      proportionalLayoutResults,
+      scaleX,
+      scaleY,
+      session,
+      transform
+    })
+    const selectionScale = this._resolveSelectionScaleAtPointerBoundary({
+      event,
+      items,
+      selection,
+      selectionScale: requestedScale,
+      session,
+      transform
+    })
+
+    return {
+      isProportionalCornerScale,
+      items,
+      proportionalLayoutResults,
+      selectionScale,
+      session
+    }
+  }
+
+  /** Применяет рассчитанную компоновку к одному шейпу общего выделения. */
+  private _applyShapeScalingPreviewItem({
+    item,
+    preview,
+    selection
+  }: {
+    item: ActiveSelectionShapeScalingItem
+    preview: ActiveSelectionScalingPreview
+    selection: ActiveSelection
+  }): void {
+    const { group, shape, state, text } = item
+    const sessionItem = preview.session.items.get(group)
+    if (!sessionItem) throw new Error('Для шейпа должно существовать состояние текущей сессии скейлинга')
+
+    state.isProportionalScaling = preview.isProportionalCornerScale
+    const { layoutScale, minimumHeight } = this._resolveShapePreviewDimensions({
+      item,
+      preview
+    })
+    const previewLayout = resolveShapeScalingPreviewLayout({
+      appliedScaleX: layoutScale.scaleX,
+      appliedScaleY: layoutScale.scaleY,
+      group,
+      minimumHeight,
+      state,
+      text
+    })
+
+    applyShapeScalingPreviewLayout({
+      alignH: group.shapeAlignHorizontal ?? SHAPE_DEFAULT_HORIZONTAL_ALIGN,
+      group,
+      layout: previewLayout,
+      minSize: MIN_SIZE,
+      scaleEpsilon: SCALE_EPSILON,
+      scaleX: sessionItem.rotatedGeometry ? 1 : preview.selectionScale.scaleX,
+      scaleY: sessionItem.rotatedGeometry ? 1 : preview.selectionScale.scaleY,
+      shape,
+      text
+    })
+
+    this.groupLayoutScales.set(group, layoutScale)
+    this._positionShapeInSelection({ group, selection, sessionItem })
+    group.setCoords()
+  }
+
+  /** Рассчитывает размеры компоновки одного шейпа на текущем кадре. */
+  private _resolveShapePreviewDimensions({
+    item,
+    preview
+  }: {
+    item: ActiveSelectionShapeScalingItem
+    preview: ActiveSelectionScalingPreview
+  }): ActiveSelectionShapePreviewDimensions {
+    const { constraintPadding, group, state, text } = item
+    const proportionalLayout = preview.proportionalLayoutResults?.get(group)
+
+    if (proportionalLayout) {
+      const proportionalScale = Math.max(
+        preview.selectionScale.scaleX,
+        proportionalLayout.minimumScale
+      )
+
+      return {
+        layoutScale: {
+          scaleX: state.canScaleWidth ? proportionalScale : 1,
+          scaleY: state.canScaleHeight ? proportionalScale : 1
+        },
+        minimumHeight: proportionalLayout.minimumHeight
+      }
+    }
+
+    const layoutScale = this._resolveShapeLayoutScale({
+      item,
+      selectionScale: preview.selectionScale
+    })
+    const dimensions = resolveShapeScalingPreviewDimensions({
+      appliedScaleX: layoutScale.scaleX,
+      appliedScaleY: layoutScale.scaleY,
+      constraintPadding,
+      group,
+      measurementCache: state.previewTextMeasurementCache,
+      startDimensions: state,
+      text,
+      wrapPolicy: resolveShapeScalingTextWrapPolicy({
+        isProportionalScaling: state.isProportionalScaling,
+        startTextSplitByGrapheme: state.startTextSplitByGrapheme
+      })
+    })
+
+    return {
+      layoutScale,
+      minimumHeight: dimensions.previewHeight
+    }
   }
 
   /**
@@ -477,24 +555,28 @@ export default class ShapeActiveSelectionScalingController {
     group.shapeScalingNoopTransform = false
   }
 
-  /**
-   * Возвращает scale ActiveSelection, который был реально применён в live-preview.
-   */
+  /** Возвращает применённый масштаб и способ сохранения геометрии после завершения жеста. */
   public resolveCommittedScale({
     selection
   }: {
     selection: ActiveSelection
-  }): ActiveSelectionAppliedScale {
+  }): ActiveSelectionCommittedScale {
     const appliedScale = this.scalingState.get(selection)
+    const session = this.scalingSessions.get(selection)
+    const preserveSceneGeometryOnCommit = Boolean(session && Array.from(session.items.values()).some((item) => {
+      return Boolean(item.rotatedGeometry)
+    }))
 
     if (appliedScale) {
       return {
+        preserveSceneGeometryOnCommit,
         scaleX: appliedScale.scaleX,
         scaleY: appliedScale.scaleY
       }
     }
 
     return {
+      preserveSceneGeometryOnCommit,
       scaleX: Math.abs(selection.scaleX ?? 1) || 1,
       scaleY: Math.abs(selection.scaleY ?? 1) || 1
     }
@@ -604,6 +686,7 @@ export default class ShapeActiveSelectionScalingController {
 
       sessionItems.set(group, {
         bounds,
+        rotatedGeometry: captureRotatedActiveSelectionShapeGeometry({ group, selection }),
         transformOriginX,
         transformOriginPointX: transformOriginPoint.x,
         verticalAttachment: this._resolveVerticalAttachment({
@@ -1209,14 +1292,20 @@ export default class ShapeActiveSelectionScalingController {
   }: {
     group: ShapeGroup
   }): ActiveSelectionLocalBounds {
-    const topLeft = group.getPositionByOrigin('left', 'top')
-    const bottomRight = group.getPositionByOrigin('right', 'bottom')
+    const corners = [
+      group.getPositionByOrigin('left', 'top'),
+      group.getPositionByOrigin('right', 'top'),
+      group.getPositionByOrigin('right', 'bottom'),
+      group.getPositionByOrigin('left', 'bottom')
+    ]
+    const xCoordinates = corners.map(({ x }) => x)
+    const yCoordinates = corners.map(({ y }) => y)
 
     return {
-      bottom: bottomRight.y,
-      left: topLeft.x,
-      right: bottomRight.x,
-      top: topLeft.y
+      bottom: Math.max(...yCoordinates),
+      left: Math.min(...xCoordinates),
+      right: Math.max(...xCoordinates),
+      top: Math.min(...yCoordinates)
     }
   }
 
@@ -1281,17 +1370,29 @@ export default class ShapeActiveSelectionScalingController {
    */
   private _positionShapeInSelection({
     group,
+    selection,
     sessionItem
   }: {
     group: ShapeGroup
+    selection: ActiveSelection
     sessionItem: ActiveSelectionShapeScalingSessionItem
   }): void {
     const {
       bounds,
+      rotatedGeometry,
       transformOriginX,
       transformOriginPointX,
       verticalAttachment
     } = sessionItem
+
+    if (rotatedGeometry) {
+      applyRotatedActiveSelectionShapeGeometry({
+        geometry: rotatedGeometry,
+        group,
+        selection
+      })
+      return
+    }
 
     if (verticalAttachment === 'top') {
       group.setPositionByOrigin(
@@ -1357,50 +1458,5 @@ export default class ShapeActiveSelectionScalingController {
       : localPoint.y
 
     return (pointCoordinate * sign) <= 0
-  }
-
-  /**
-   * Применяет ограниченный scale к рамке ActiveSelection, сохраняя anchor текущего transform.
-   */
-  private _applySelectionScale({
-    selection,
-    transform,
-    scaleX,
-    scaleY
-  }: {
-    selection: ActiveSelection
-    transform: Transform
-    scaleX: number
-    scaleY: number
-  }): void {
-    const currentScaleX = Math.abs(selection.scaleX ?? 1) || 1
-    const currentScaleY = Math.abs(selection.scaleY ?? 1) || 1
-    const hasScaleChange = Math.abs(currentScaleX - scaleX) > SCALE_EPSILON
-      || Math.abs(currentScaleY - scaleY) > SCALE_EPSILON
-
-    if (!hasScaleChange) return
-
-    const originX = resolveShapeTransformOriginXValue({
-      value: transform.originX
-    })
-    const originY = resolveShapeTransformOriginYValue({
-      value: transform.originY
-    })
-    const anchorPoint = originX !== null && originY !== null
-      ? selection.getPositionByOrigin(originX, originY)
-      : null
-
-    selection.set({
-      flipX: false,
-      flipY: false,
-      scaleX,
-      scaleY
-    })
-
-    if (anchorPoint && originX !== null && originY !== null) {
-      selection.setPositionByOrigin(anchorPoint, originX, originY)
-    }
-
-    selection.setCoords()
   }
 }

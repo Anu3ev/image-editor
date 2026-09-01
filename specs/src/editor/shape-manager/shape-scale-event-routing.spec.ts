@@ -323,6 +323,7 @@ it('фиксирует накопленный размер выделения и
     return true
   })
   harness.scalingController.resolveActiveSelectionCommittedScale.mockReturnValue({
+    preserveSceneGeometryOnCommit: false,
     scaleX: 1.2,
     scaleY: 1
   })

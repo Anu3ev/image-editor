@@ -89,7 +89,11 @@ export function createShapeEventRoutingHarness(): ShapeEventRoutingHarness {
     clearActiveSelectionState: jest.fn(),
     clearState: jest.fn(),
     commitActiveSelectionGroupScaling: jest.fn(() => true),
-    resolveActiveSelectionCommittedScale: jest.fn(() => ({ scaleX: 1, scaleY: 1 }))
+    resolveActiveSelectionCommittedScale: jest.fn(() => ({
+      preserveSceneGeometryOnCommit: false,
+      scaleX: 1,
+      scaleY: 1
+    }))
   }
   const editingController = {
     handleMouseDown: jest.fn()
