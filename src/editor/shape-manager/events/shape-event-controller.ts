@@ -3,6 +3,8 @@ import {
   FabricObject,
   Point,
   Textbox,
+  util,
+  type TMat2D,
   type TPointerEvent
 } from 'fabric'
 import type { ObjectPlacement } from '../../canvas-manager'
@@ -21,6 +23,10 @@ import {
 import type ShapeLayoutController from '../layout/shape-layout-controller'
 import type ShapeLifecycleController from '../lifecycle/shape-lifecycle-controller'
 import type ShapeTextNodeController from '../text/shape-text-node-controller'
+import {
+  captureActiveSelectionCommittedFrame,
+  type ActiveSelectionTransformState
+} from '../scaling/active-selection-geometry'
 import ShapeScaleInteractionController from '../scaling/shape-scale-interaction-controller'
 import type ShapeScalingController from '../scaling/shape-scaling-controller'
 import { resolveShapeScaleActionAxes } from '../scaling/shape-scaling-transform'
@@ -51,17 +57,6 @@ type ShapeCanvasEvent = {
   subTargets?: FabricObject[]
   transform?: import('fabric').Transform | null
 }
-
-/** Преобразование, которое остаётся на восстановленной рамке общего выделения. */
-type ActiveSelectionTransformState = Readonly<{
-  angle: number
-  flipX: boolean
-  flipY: boolean
-  scaleX: number
-  scaleY: number
-  skewX: number
-  skewY: number
-}>
 
 /**
  * Зависимости обработчиков событий ShapeManager.
@@ -211,6 +206,8 @@ export default class ShapeEventController {
       })
     } else if (isScaleCommit) {
       this.dependencies.scalingController.handleObjectModified(event)
+    } else if (selection) {
+      this.dependencies.scalingController.clearActiveSelectionState({ selection })
     }
 
     groups.forEach((group) => {
@@ -529,9 +526,11 @@ export default class ShapeEventController {
 
     if (!shapeGroups.length) return
 
-    const { scaleX, scaleY } = this.dependencies.scalingController.resolveActiveSelectionCommittedScale({
-      selection
-    })
+    const {
+      preserveSceneGeometryOnCommit,
+      scaleX,
+      scaleY
+    } = this.dependencies.scalingController.resolveActiveSelectionCommittedScale({ selection })
     const hasScaleChange = Math.abs(scaleX - 1) > ACTIVE_SELECTION_SCALE_EPSILON
       || Math.abs(scaleY - 1) > ACTIVE_SELECTION_SCALE_EPSILON
 
@@ -547,6 +546,7 @@ export default class ShapeEventController {
         scaleY,
         selection,
         shapeGroups,
+        preserveSceneGeometryOnCommit,
         transform
       })
       return
@@ -562,7 +562,7 @@ export default class ShapeEventController {
     })
   }
 
-  /** Фиксирует шейпы через новый путь и сохраняет поворот на рамке общего выделения. */
+  /** Фиксирует канонические размеры шейпов после унифицированного скейлинга. */
   private _commitUnifiedActiveSelectionShapeScaling({
     objects,
     scaleX,
@@ -586,19 +586,13 @@ export default class ShapeEventController {
     selection.setPositionByOrigin(selectionCenter, 'center', 'center')
     selection.setCoords()
 
-    this._discardActiveSelectionDuringCommit({
-      selection,
-      transform
-    })
-
-    this._commitActiveSelectionShapeGroups({
+    this._commitActiveSelectionShapesBeforeRestore({
       groups: shapeGroups,
       scaleX,
       scaleY,
+      selection,
       transform
     })
-
-    this.dependencies.scalingController.clearActiveSelectionState({ selection })
     this._restoreActiveSelectionAfterCommit({
       center: selectionCenter,
       objects,
@@ -615,13 +609,14 @@ export default class ShapeEventController {
     canvas.requestRenderAll()
   }
 
-  /** Сохраняет прежнюю фиксацию шейпов для смешанного и неподдерживаемого состава. */
+  /** Фиксирует шейпы смешанного или неподдерживаемого выделения без смены владельца прилипания. */
   private _commitLegacyActiveSelectionShapeScaling({
     objects,
     scaleX,
     scaleY,
     selection,
     shapeGroups,
+    preserveSceneGeometryOnCommit,
     transform
   }: {
     objects: FabricObject[]
@@ -629,20 +624,65 @@ export default class ShapeEventController {
     scaleY: number
     selection: ActiveSelection
     shapeGroups: ShapeGroup[]
+    preserveSceneGeometryOnCommit: boolean
     transform?: ShapeCanvasEvent['transform']
   }): void {
     const { canvas } = this.dependencies.editor
 
-    canvas.discardActiveObject()
-    this._commitActiveSelectionShapeGroups({
+    if (!preserveSceneGeometryOnCommit) {
+      canvas.discardActiveObject()
+      this._commitActiveSelectionShapeGroups({
+        groups: shapeGroups,
+        scaleX,
+        scaleY,
+        transform
+      })
+      this.dependencies.scalingController.clearActiveSelectionState({ selection })
+      canvas.setActiveObject(new ActiveSelection(objects, { canvas }))
+      canvas.requestRenderAll()
+      return
+    }
+
+    const committedFrame = captureActiveSelectionCommittedFrame({ selection })
+    this._commitActiveSelectionShapesBeforeRestore({
       groups: shapeGroups,
       scaleX,
       scaleY,
+      selection,
       transform
     })
-    this.dependencies.scalingController.clearActiveSelectionState({ selection })
-    canvas.setActiveObject(new ActiveSelection(objects, { canvas }))
+    const childSceneMatrices = this._captureChildSceneMatrices({ objects })
+
+    this._restoreActiveSelectionAfterCommit({
+      childSceneMatrices,
+      center: committedFrame.center,
+      frameSize: {
+        height: committedFrame.height,
+        width: committedFrame.width
+      },
+      objects,
+      transformState: committedFrame.transformState
+    })
     canvas.requestRenderAll()
+  }
+
+  /** Фиксирует размеры шейпов после снятия временной рамки и очищает состояние жеста. */
+  private _commitActiveSelectionShapesBeforeRestore({
+    groups,
+    scaleX,
+    scaleY,
+    selection,
+    transform
+  }: {
+    groups: ShapeGroup[]
+    scaleX: number
+    scaleY: number
+    selection: ActiveSelection
+    transform?: ShapeCanvasEvent['transform']
+  }): void {
+    this._discardActiveSelectionDuringCommit({ selection, transform })
+    this._commitActiveSelectionShapeGroups({ groups, scaleX, scaleY, transform })
+    this.dependencies.scalingController.clearActiveSelectionState({ selection })
   }
 
   /** Фиксирует рассчитанный масштаб каждого шейпа и сохраняет его положение на холсте. */
@@ -704,22 +744,67 @@ export default class ShapeEventController {
     }
   }
 
+  /** Сохраняет матрицы дочерних объектов до повторного создания общей рамки. */
+  private _captureChildSceneMatrices({
+    objects
+  }: {
+    objects: FabricObject[]
+  }): TMat2D[] {
+    return objects.map((object) => {
+      const matrix = [...object.calcTransformMatrix()] as TMat2D
+
+      if (!matrix.every(Number.isFinite)) {
+        throw new Error('Матрица дочернего объекта должна состоять из конечных значений')
+      }
+
+      return matrix
+    })
+  }
+
   /** Восстанавливает рамку выделения и оставляет заданное преобразование на общем объекте. */
   private _restoreActiveSelectionAfterCommit({
+    childSceneMatrices,
     center,
+    frameSize,
     objects,
     transformState
   }: {
+    childSceneMatrices?: readonly TMat2D[]
     center: Point
+    frameSize?: Readonly<{ height: number, width: number }>
     objects: FabricObject[]
     transformState: ActiveSelectionTransformState
   }): void {
     const { canvas } = this.dependencies.editor
+
+    if (childSceneMatrices && childSceneMatrices.length !== objects.length) {
+      throw new Error('Количество сохранённых матриц должно совпадать с количеством дочерних объектов')
+    }
+
     const restoredSelection = new ActiveSelection(objects, { canvas })
 
+    if (frameSize) restoredSelection.set(frameSize)
     restoredSelection.set(transformState)
     restoredSelection.setPositionByOrigin(center, 'center', 'center')
+
+    if (childSceneMatrices) {
+      const inverseSelectionMatrix = util.invertTransform(restoredSelection.calcTransformMatrix())
+
+      objects.forEach((object, index) => {
+        const sceneMatrix = childSceneMatrices[index]
+        if (!sceneMatrix) throw new Error('Для каждого дочернего объекта должна существовать сохранённая матрица')
+
+        util.applyTransformToObject(
+          object,
+          util.multiplyTransformMatrices(inverseSelectionMatrix, sceneMatrix)
+        )
+      })
+    }
+
     restoredSelection.setCoords()
+    if (childSceneMatrices) {
+      objects.forEach((object) => object.setCoords())
+    }
     canvas.setActiveObject(restoredSelection)
   }
 }

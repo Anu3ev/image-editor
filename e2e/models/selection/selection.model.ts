@@ -1,6 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type Page, expect } from '@playwright/test'
-import type { SnappingObjectSnapshot } from '../../types'
+import type {
+  SelectionChildSceneGeometrySnapshot,
+  SelectionCompositionChildSnapshot,
+  SelectionCompositionSnapshot,
+  SnappingObjectSnapshot
+} from '../../types'
 import type { ShapeTextInfo } from '../../types/shape.types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type { ScaleInteractionTraceModel } from '../scale-interaction-trace.model'
@@ -42,31 +47,79 @@ type SelectionCompositionChildTarget = {
   skewY?: number
 }
 
-/** Снимок дочернего объекта с локальными свойствами, защищёнными во время скейлинга. */
-export interface SelectionCompositionChildSnapshot extends SnappingObjectSnapshot {
-  cropX: number
-  cropY: number
+/** Исходные свойства дочернего объекта, полученные из браузера для расчёта видимой геометрии. */
+type SelectionChildSceneGeometrySource = {
+  angle: number
+  height: number
   id: string
-  originX: string
-  originY: string
+  matrix: number[]
+  scaleX: number
+  scaleY: number
   skewX: number
   skewY: number
+  width: number
 }
 
-/** Снимок активного составного объекта и его прямых дочерних объектов. */
-export interface SelectionCompositionSnapshot {
-  selection: SnappingObjectSnapshot
-  children: SelectionCompositionChildSnapshot[]
+/** Рассчитывает видимую геометрию дочернего объекта по полной матрице в координатах сцены. */
+function resolveSelectionChildSceneGeometry(
+  source: SelectionChildSceneGeometrySource
+): SelectionChildSceneGeometrySnapshot {
+  const {
+    angle,
+    height,
+    id,
+    matrix,
+    scaleX,
+    scaleY,
+    skewX,
+    skewY,
+    width
+  } = source
+  if (matrix.length !== 6 || !matrix.every(Number.isFinite)) {
+    throw new Error(`Матрица объекта ${source.id} должна состоять из шести конечных чисел`)
+  }
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    throw new Error(`Размеры объекта ${source.id} должны быть положительными и конечными`)
+  }
+
+  const [a, b, c, d, centerX, centerY] = matrix
+  const topX = a * width
+  const topY = b * width
+  const leftX = c * height
+  const leftY = d * height
+  const topEdgeLength = Math.hypot(topX, topY)
+  const leftEdgeLength = Math.hypot(leftX, leftY)
+
+  if (topEdgeLength <= 0 || leftEdgeLength <= 0) {
+    throw new Error(`Видимые стороны объекта ${source.id} должны иметь положительную длину`)
+  }
+
+  return {
+    angle,
+    centerX,
+    centerY,
+    height,
+    id,
+    leftEdgeLength,
+    orthogonality: ((topX * leftX) + (topY * leftY)) / (topEdgeLength * leftEdgeLength),
+    scaleX,
+    scaleY,
+    sceneAngle: (Math.atan2(topY, topX) * 180) / Math.PI,
+    skewX,
+    skewY,
+    topEdgeLength,
+    width
+  }
 }
 
 /** Снимок одного шейпа и его текста внутри общего выделения. */
-export interface ShapeSelectionChildSnapshot {
+interface ShapeSelectionChildSnapshot {
   shape: SelectionCompositionChildSnapshot
   text: ShapeTextInfo
 }
 
 /** Снимок общего выделения из шейпов с доступным состоянием текста. */
-export interface ShapeSelectionCompositionSnapshot {
+interface ShapeSelectionCompositionSnapshot {
   selection: SelectionCompositionSnapshot['selection']
   children: ShapeSelectionChildSnapshot[]
 }
@@ -138,13 +191,47 @@ export class SelectionModel {
     return composition
   }
 
+  /** Возвращает канонические свойства и видимую геометрию дочерних объектов общего выделения. */
+  async getChildSceneGeometry(): Promise<SelectionChildSceneGeometrySnapshot[]> {
+    const sources = await this.page.evaluate(() => {
+      const { editor } = window as any
+      const target = editor.canvas.getActiveObject()
+      const objects = target?.getObjects?.()
+      if (target?.type !== 'activeselection' || !Array.isArray(objects)) return null
+
+      return objects.map((object: any) => {
+        const matrix = object.calcTransformMatrix?.()
+        if (!Array.isArray(matrix) || typeof object.id !== 'string') return null
+
+        return {
+          angle: object.angle ?? 0,
+          height: object.height,
+          id: object.id,
+          matrix,
+          scaleX: object.scaleX ?? 1,
+          scaleY: object.scaleY ?? 1,
+          skewX: object.skewX ?? 0,
+          skewY: object.skewY ?? 0,
+          width: object.width
+        }
+      })
+    })
+
+    expect(sources, 'активным объектом должно быть общее выделение').not.toBeNull()
+    expect(sources?.length, 'общее выделение должно содержать минимум два дочерних объекта').toBeGreaterThanOrEqual(2)
+    if (!sources || sources.some((source: unknown) => source === null)) {
+      throw new Error('Не удалось получить видимую геометрию дочерних объектов общего выделения')
+    }
+
+    return (sources as SelectionChildSceneGeometrySource[]).map(resolveSelectionChildSceneGeometry)
+  }
+
   /** Возвращает фактический наклон текущего общего выделения. */
   async getSkew(): Promise<{ skewX: number; skewY: number }> {
     const skew = await this.page.evaluate(() => {
       const { editor } = window as any
       const target = editor.canvas.getActiveObject()
-      const objects = target?.getObjects?.()
-      if (target?.type !== 'activeselection' || !Array.isArray(objects) || objects.length < 2) return null
+      if (target?.type !== 'activeselection') return null
 
       return {
         skewX: target.skewX ?? 0,

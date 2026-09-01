@@ -1,7 +1,17 @@
 import {
   test,
   expect
-} from '../../../fixtures/active-selection-scaling.fixture'
+} from '../../../fixtures/rotated-shape-selection-scaling.fixture'
+import { ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE } from '../../../fixtures/data/active-selection-scaling.data'
+import {
+  expectNonShapeHorizontalGrowth,
+  expectRotatedShapeCompositionToMatch,
+  expectRotatedShapeHorizontalGrowth,
+  expectRotatedShapesCommitted,
+  expectSelectionChildrenToMatchLiveState,
+  expectSelectionFrameToMatchLiveState,
+  requireSelectionChildSceneGeometry
+} from '../../../helpers/rotated-shape-selection-scaling.helper'
 import type { ShapeScaleSnapshot } from '../../../types'
 
 /** Поля шейпа, которые должны восстанавливаться через undo и redo. */
@@ -248,4 +258,133 @@ test('при удалении через ShapeManager фиксирует раз�
   expect(remainingText.lineCount).toBe(liveText.lineCount)
   expect(guides.guides).toHaveLength(0)
   expect(guides.spacingGuides).toHaveLength(0)
+})
+
+test('при скейлинге смешанного выделения справа повёрнутые шейпы не прыгают и не деформируются', async({
+  rotatedMixedShapeScaleSetup: setup,
+  selection
+}) => {
+  const baselineGeometry = await selection.getChildSceneGeometry()
+  const nonShapeIds = setup.initial.children
+    .filter(({ type }) => type !== 'shape-group')
+    .map(({ id }) => id)
+  const fixedPoint = await selection.scaling.getControlScenePoint({ control: 'ml' })
+
+  await selection.scaling.startFromControl({ control: 'mr' })
+
+  let previousComposition = setup.initial
+  let previousGeometry = baselineGeometry
+  for (let step = 0; step < 3; step += 1) {
+    await selection.scaling.dragControlBy({ deltaX: 14, deltaY: 0, pointerSteps: 1 })
+    const live = await selection.getCompositionSnapshot()
+    const liveGeometry = await selection.getChildSceneGeometry()
+    const liveFixedPoint = await selection.scaling.getControlScenePoint({ control: 'ml' })
+
+    expect(live.selection.boundsWidth).toBeGreaterThan(previousComposition.selection.boundsWidth)
+    expect(Math.abs(liveFixedPoint.x - fixedPoint.x))
+      .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+    expect(Math.abs(liveFixedPoint.y - fixedPoint.y))
+      .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+    expectNonShapeHorizontalGrowth({ current: liveGeometry, ids: nonShapeIds, previous: previousGeometry })
+    expectRotatedShapeHorizontalGrowth({
+      baseline: setup.initial,
+      baselineGeometry,
+      current: live,
+      currentGeometry: liveGeometry,
+      previousGeometry,
+      shapeIds: setup.shapeIds
+    })
+
+    previousComposition = live
+    previousGeometry = liveGeometry
+  }
+
+  await selection.scaling.finish()
+  const committed = await selection.getCompositionSnapshot()
+  const committedGeometry = await selection.getChildSceneGeometry()
+
+  expectRotatedShapesCommitted({
+    baseline: setup.initial,
+    committed,
+    committedGeometry,
+    liveGeometry: previousGeometry,
+    shapeIds: setup.shapeIds
+  })
+  expectSelectionChildrenToMatchLiveState({
+    childIds: setup.initial.children.map(({ id }) => id),
+    committed: committedGeometry,
+    live: previousGeometry
+  })
+  expectSelectionFrameToMatchLiveState({ committed, live: previousComposition })
+})
+
+test('повторный горизонтальный скейлинг не накапливает деформацию повёрнутых шейпов', async({
+  rotatedMixedShapeScaleSetup: setup,
+  selection
+}) => {
+  let previousGeometry = await selection.getChildSceneGeometry()
+
+  for (let gesture = 0; gesture < 2; gesture += 1) {
+    await selection.scaling.startFromControl({ control: 'mr' })
+    await selection.scaling.dragControlBy({ deltaX: 28, deltaY: 0, pointerSteps: 2 })
+    const live = await selection.getCompositionSnapshot()
+    const liveGeometry = await selection.getChildSceneGeometry()
+
+    for (const id of setup.shapeIds) {
+      const before = requireSelectionChildSceneGeometry({ geometries: previousGeometry, id })
+      const current = requireSelectionChildSceneGeometry({ geometries: liveGeometry, id })
+
+      expect(current.topEdgeLength).toBeGreaterThan(before.topEdgeLength)
+      expect(current.leftEdgeLength).toBeCloseTo(before.leftEdgeLength, 1)
+      expect(current.centerY).toBeCloseTo(before.centerY, 1)
+      expect(current.sceneAngle).toBeCloseTo(before.sceneAngle, 5)
+      expect(current.orthogonality).toBeCloseTo(0, 5)
+    }
+
+    await selection.scaling.finish()
+    const committed = await selection.getCompositionSnapshot()
+    const committedGeometry = await selection.getChildSceneGeometry()
+
+    expectRotatedShapesCommitted({
+      baseline: setup.initial,
+      committed,
+      committedGeometry,
+      liveGeometry,
+      shapeIds: setup.shapeIds
+    })
+    expectSelectionFrameToMatchLiveState({ committed, live })
+    previousGeometry = committedGeometry
+  }
+})
+
+test('undo и redo восстанавливают геометрию повёрнутых шейпов после скейлинга', async({
+  editorModel,
+  history,
+  rotatedShapeScaleSetup: setup,
+  selection
+}) => {
+  const historyBefore = await history.getPosition()
+
+  await selection.scaling.startFromControl({ control: 'mr' })
+  await selection.scaling.dragControlBy({ deltaX: 36, deltaY: 0, pointerSteps: 2 })
+  await selection.scaling.finish()
+
+  const committed = await selection.getCompositionSnapshot()
+  const saved = await history.flushPendingSave()
+  const historyAfter = await history.getPosition()
+
+  expect(saved, 'завершённый скейлинг должен сохраниться в истории').toBe(true)
+  expect(historyAfter.patchCount).toBe(historyBefore.patchCount + 1)
+  expect(historyAfter.currentIndex).toBe(historyBefore.currentIndex + 1)
+
+  await history.undo()
+  await editorModel.selectAllObjects()
+  const undone = await selection.getCompositionSnapshot()
+
+  await history.redo()
+  await editorModel.selectAllObjects()
+  const redone = await selection.getCompositionSnapshot()
+
+  expectRotatedShapeCompositionToMatch({ actual: undone, expected: setup.initial, shapeIds: setup.shapeIds })
+  expectRotatedShapeCompositionToMatch({ actual: redone, expected: committed, shapeIds: setup.shapeIds })
 })

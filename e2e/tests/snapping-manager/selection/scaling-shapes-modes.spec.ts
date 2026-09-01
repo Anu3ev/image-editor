@@ -1,7 +1,15 @@
 import {
   test,
   expect
-} from '../../../fixtures/active-selection-scaling.fixture'
+} from '../../../fixtures/rotated-shape-selection-scaling.fixture'
+import { ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE } from '../../../fixtures/data/active-selection-scaling.data'
+import {
+  expectRotatedShapeLiveGeometry,
+  expectRotatedShapesCommitted,
+  expectSelectionFrameToMatchLiveState,
+  requireSelectionChildSceneGeometry,
+  requireSelectionShapeSnapshot
+} from '../../../helpers/rotated-shape-selection-scaling.helper'
 
 /** Угол общего выделения в проверке скейлинга после поворота. */
 const ACTIVE_SELECTION_ROTATION_DEGREES = 30
@@ -46,6 +54,148 @@ test('без Shift пропорционально меняет размеры з
   }
 
   await selection.scaling.finish()
+})
+
+test('с Shift свободно меняет ширину и высоту повёрнутых шейпов за угол', async({
+  rotatedMixedShapeScaleSetup: setup,
+  selection
+}) => {
+  const baselineGeometry = await selection.getChildSceneGeometry()
+  const movingPoint = await selection.scaling.getControlScenePoint({ control: 'br' })
+  const fixedPoint = await selection.scaling.getControlScenePoint({ control: 'tl' })
+
+  await selection.scaling.startFromControl({ control: 'br' })
+  await selection.scaling.dragControlToScenePoint({
+    point: { x: movingPoint.x + 44, y: movingPoint.y + 18 },
+    shiftKey: true
+  })
+
+  const live = await selection.getCompositionSnapshot()
+  const liveGeometry = await selection.getChildSceneGeometry()
+  const liveFixedPoint = await selection.scaling.getControlScenePoint({ control: 'tl' })
+
+  expect(Math.abs(liveFixedPoint.x - fixedPoint.x))
+    .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+  expect(Math.abs(liveFixedPoint.y - fixedPoint.y))
+    .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+
+  for (const id of setup.shapeIds) {
+    const baseline = requireSelectionChildSceneGeometry({ geometries: baselineGeometry, id })
+    const current = requireSelectionChildSceneGeometry({ geometries: liveGeometry, id })
+    const widthMultiplier = current.topEdgeLength / baseline.topEdgeLength
+    const heightMultiplier = current.leftEdgeLength / baseline.leftEdgeLength
+
+    expect(widthMultiplier).toBeGreaterThan(1)
+    expect(heightMultiplier).toBeGreaterThan(1)
+    expect(widthMultiplier).not.toBeCloseTo(heightMultiplier, 2)
+    expect(current.orthogonality).toBeCloseTo(0, 5)
+  }
+
+  await selection.scaling.finish()
+  const committed = await selection.getCompositionSnapshot()
+  const committedGeometry = await selection.getChildSceneGeometry()
+
+  expectRotatedShapesCommitted({
+    baseline: setup.initial,
+    committed,
+    committedGeometry,
+    liveGeometry,
+    shapeIds: setup.shapeIds
+  })
+  expectSelectionFrameToMatchLiveState({ committed, live })
+})
+
+test('при горизонтальном скейлинге относительно центра рамка остаётся на месте', async({
+  rotatedMixedShapeScaleSetup: setup,
+  selection
+}) => {
+  const baseline = setup.initial
+  const baselineGeometry = await selection.getChildSceneGeometry()
+
+  await selection.scaling.startFromControl({ centered: true, control: 'mr' })
+  await selection.scaling.dragControlBy({ deltaX: 30, deltaY: 0, pointerSteps: 2 })
+
+  const live = await selection.getCompositionSnapshot()
+  const liveGeometry = await selection.getChildSceneGeometry()
+
+  expect(Math.abs(live.selection.centerX - baseline.selection.centerX))
+    .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+  expect(Math.abs(live.selection.centerY - baseline.selection.centerY))
+    .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+
+  for (const id of setup.shapeIds) {
+    expectRotatedShapeLiveGeometry({
+      baselineShape: requireSelectionShapeSnapshot({ composition: baseline, id }),
+      baselineScene: requireSelectionChildSceneGeometry({ geometries: baselineGeometry, id }),
+      changesHeight: false,
+      changesWidth: true,
+      currentShape: requireSelectionShapeSnapshot({ composition: live, id }),
+      currentScene: requireSelectionChildSceneGeometry({ geometries: liveGeometry, id }),
+      selectionAngle: baseline.selection.angle
+    })
+  }
+
+  await selection.scaling.finish()
+  const committed = await selection.getCompositionSnapshot()
+  const committedGeometry = await selection.getChildSceneGeometry()
+
+  expectRotatedShapesCommitted({
+    baseline,
+    committed,
+    committedGeometry,
+    liveGeometry,
+    shapeIds: setup.shapeIds
+  })
+  expectSelectionFrameToMatchLiveState({ committed, live })
+})
+
+test('при скейлинге повёрнутой рамки заранее повёрнутые шейпы не прыгают', async({
+  rotatedMixedShapeScaleSetup: setup,
+  selection
+}) => {
+  await selection.setAngle({ angle: 25 })
+
+  const baseline = await selection.getCompositionSnapshot()
+  const baselineGeometry = await selection.getChildSceneGeometry()
+  const fixedPoint = await selection.scaling.getControlScenePoint({ control: 'ml' })
+
+  await selection.scaling.startFromControl({ control: 'mr' })
+  await selection.scaling.dragControlBy({ deltaX: 32, deltaY: 16, pointerSteps: 2 })
+
+  const live = await selection.getCompositionSnapshot()
+  const liveGeometry = await selection.getChildSceneGeometry()
+  const liveFixedPoint = await selection.scaling.getControlScenePoint({ control: 'ml' })
+
+  expect(Math.abs(liveFixedPoint.x - fixedPoint.x))
+    .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+  expect(Math.abs(liveFixedPoint.y - fixedPoint.y))
+    .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
+
+  for (const id of setup.shapeIds) {
+    expectRotatedShapeLiveGeometry({
+      baselineShape: requireSelectionShapeSnapshot({ composition: baseline, id }),
+      baselineScene: requireSelectionChildSceneGeometry({ geometries: baselineGeometry, id }),
+      changesHeight: false,
+      changesWidth: true,
+      currentShape: requireSelectionShapeSnapshot({ composition: live, id }),
+      currentScene: requireSelectionChildSceneGeometry({ geometries: liveGeometry, id }),
+      selectionAngle: baseline.selection.angle
+    })
+  }
+
+  await selection.scaling.finish()
+  const committed = await selection.getCompositionSnapshot()
+  const committedGeometry = await selection.getChildSceneGeometry()
+
+  expectRotatedShapesCommitted({
+    baseline,
+    committed,
+    committedGeometry,
+    liveGeometry,
+    shapeIds: setup.shapeIds
+  })
+  expect(committed.selection.angle).toBeCloseTo(live.selection.angle, 5)
+  expectSelectionFrameToMatchLiveState({ committed, live })
 })
 
 test('с Shift свободно меняет ширину и высоту за угол', async({
