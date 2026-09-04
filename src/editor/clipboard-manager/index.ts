@@ -5,6 +5,21 @@ import { ImageEditor } from '../index'
 import type { ImportImageOptions } from '../image-manager'
 import { materializeObjectIdentity } from '../utils/object-identity'
 
+/** Точная геометрия одного объекта до внутренней сериализации Fabric при clone. */
+type CloneGeometrySnapshot = Readonly<{
+  angle: number
+  childCount: number
+  height: number
+  left: number
+  scaleX: number
+  scaleY: number
+  skewX: number
+  skewY: number
+  strokeWidth: number
+  top: number
+  width: number
+}>
+
 export default class ClipboardManager {
   /**
    * Ссылка на редактор, содержащий canvas.
@@ -40,17 +55,91 @@ export default class ClipboardManager {
     })
   }
 
-  /**
-   * Клонирует объект и даёт внешнему коду подготовить клон.
-   */
+  /** Клонирует объект без потери точности геометрии и даёт внешнему коду подготовить клон. */
   private async _cloneObject({ object }: { object: FabricObject }): Promise<FabricObject> {
+    const geometry = this._captureCloneGeometry({ object })
     const clonedObject = await object.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
 
+    this._restoreCloneGeometry({ clonedObject, geometry })
     this._prepareObjectClone({
       clonedObject
     })
 
     return clonedObject
+  }
+
+  /** Сохраняет точную геометрию корня и вложенных объектов до вызова Fabric clone. */
+  private _captureCloneGeometry({ object }: { object: FabricObject }): CloneGeometrySnapshot[] {
+    const objects = [object]
+    const geometry: CloneGeometrySnapshot[] = []
+
+    for (let index = 0; index < objects.length; index += 1) {
+      const currentObject = objects[index]
+      if (!currentObject) throw new Error('Исходный объект должен существовать до клонирования')
+
+      const children = currentObject instanceof Group ? currentObject.getObjects() : []
+      geometry.push({
+        angle: currentObject.angle,
+        childCount: children.length,
+        height: currentObject.height,
+        left: currentObject.left,
+        scaleX: currentObject.scaleX,
+        scaleY: currentObject.scaleY,
+        skewX: currentObject.skewX,
+        skewY: currentObject.skewY,
+        strokeWidth: currentObject.strokeWidth,
+        top: currentObject.top,
+        width: currentObject.width
+      })
+      objects.push(...children)
+    }
+
+    return geometry
+  }
+
+  /** Восстанавливает значения, округлённые внутренней сериализацией Fabric при clone. */
+  private _restoreCloneGeometry({
+    clonedObject,
+    geometry
+  }: {
+    clonedObject: FabricObject
+    geometry: readonly CloneGeometrySnapshot[]
+  }): void {
+    const clonedObjects = [clonedObject]
+
+    for (let index = 0; index < geometry.length; index += 1) {
+      const snapshot = geometry[index]
+      const clone = clonedObjects[index]
+      if (!snapshot || !clone) throw new Error('Структура клона должна совпадать с исходным объектом')
+
+      clone.set({
+        angle: snapshot.angle,
+        left: snapshot.left,
+        scaleX: snapshot.scaleX,
+        scaleY: snapshot.scaleY,
+        skewX: snapshot.skewX,
+        skewY: snapshot.skewY,
+        strokeWidth: snapshot.strokeWidth,
+        top: snapshot.top
+      })
+      // Textbox пересчитывает высоту при set({ width }), поэтому точные размеры возвращаются последними.
+      clone.width = snapshot.width
+      clone.height = snapshot.height
+      clone.dirty = true
+
+      const clonedChildren = clone instanceof Group ? clone.getObjects() : []
+      if (snapshot.childCount !== clonedChildren.length) {
+        throw new Error('Количество объектов внутри клона должно совпадать с исходным объектом')
+      }
+
+      clonedObjects.push(...clonedChildren)
+    }
+
+    if (clonedObjects.length !== geometry.length) {
+      throw new Error('Структура клона должна совпадать с исходным объектом')
+    }
+
+    for (const clone of clonedObjects) clone.setCoords()
   }
 
   /**

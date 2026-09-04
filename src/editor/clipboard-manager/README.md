@@ -8,13 +8,17 @@ The manager does not know application domains. It must not inspect `customData.h
 
 All internal object cloning goes through `_cloneObject()`:
 
-1. Clone the source Fabric object with `CLIPBOARD_CLONE_OBJECT_KEYS`.
-2. Walk the root clone and nested objects inside `ActiveSelection` or `Group`.
-3. Detach `customData` on every clone before external preparation.
-4. Call `editor.options.prepareObjectClone(object)` for each clone.
-5. Continue the normal copy, paste, duplicate, or cut flow.
+1. Capture the exact geometry of the source root and nested objects.
+2. Clone the source Fabric object with `CLIPBOARD_CLONE_OBJECT_KEYS`.
+3. Restore geometry values rounded by Fabric's internal serialization.
+4. Walk the root clone and nested objects inside `ActiveSelection` or `Group`.
+5. Detach `customData` on every clone before external preparation.
+6. Call `editor.options.prepareObjectClone(object)` for each clone.
+7. Continue the normal copy, paste, duplicate, or cut flow.
 
 Detaching `customData` matters because Fabric clones may share nested metadata references with the source object. The application callback is allowed to mutate the clone, but it must not accidentally mutate the original object.
+
+Geometry is captured before the asynchronous clone starts. Fabric serializes numeric transform values with limited precision, and text objects can recalculate their height when width is restored. The manager therefore restores transforms first and writes the captured width and height last.
 
 ## Copy, Paste, and Duplicate
 
@@ -45,6 +49,7 @@ System clipboard writes are best effort and run in the background. A browser per
 ## When Changing This Manager
 
 - Keep clone preparation centralized in `_cloneObject()`.
+- Capture source geometry before calling Fabric's asynchronous `clone()`.
 - Do not call `prepareObjectClone` on source objects.
 - Do not remove the `customData` detach step before external clone preparation.
 - Keep cut dependent on `DeletionManager.resolveDeleteTargets()`.

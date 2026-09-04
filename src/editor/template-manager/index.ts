@@ -983,7 +983,26 @@ export default class TemplateManager {
     const serialized = withActiveSelectionTransformForSerialization({
       object,
       selection: activeSelection,
-      callback: () => object.toDatalessObject([...OBJECT_SERIALIZATION_PROPS]) as TemplateObjectData
+      callback: () => {
+        const serializedObject = object.toDatalessObject([
+          ...OBJECT_SERIALIZATION_PROPS
+        ]) as TemplateObjectData
+
+        Object.assign(serializedObject, {
+          angle: object.angle,
+          height: object.height,
+          left: object.left,
+          scaleX: object.scaleX,
+          scaleY: object.scaleY,
+          skewX: object.skewX,
+          skewY: object.skewY,
+          strokeWidth: object.strokeWidth,
+          top: object.top,
+          width: object.width
+        })
+
+        return serializedObject
+      }
     })
     preserveSerializedImageGeometry({ object, serialized })
 
