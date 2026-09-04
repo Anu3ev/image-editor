@@ -4,11 +4,13 @@ import type {
   SelectionChildSceneGeometrySnapshot,
   SelectionCompositionChildSnapshot,
   SelectionCompositionSnapshot,
-  SnappingObjectSnapshot
+  SelectionImageTextCompositionSnapshot,
+  SelectionTextCompositionSnapshot,
+  SnappingObjectSnapshot,
+  TextResizeSnapshot
 } from '../../types'
 import type { ShapeTextInfo } from '../../types/shape.types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
-import type { ScaleInteractionTraceModel } from '../scale-interaction-trace.model'
 import type { ShapeModel } from '../shape/shape.model'
 import { SelectionScalingSession } from './selection-scaling-session'
 
@@ -47,7 +49,7 @@ type SelectionCompositionChildTarget = {
   skewY?: number
 }
 
-/** Исходные свойства дочернего объекта, полученные из браузера для расчёта видимой геометрии. */
+/** Исходные свойства дочернего объекта для расчёта видимой геометрии. */
 type SelectionChildSceneGeometrySource = {
   angle: number
   height: number
@@ -58,6 +60,63 @@ type SelectionChildSceneGeometrySource = {
   skewX: number
   skewY: number
   width: number
+}
+
+/** Браузерный снимок изображения и текстов до расчёта видимой геометрии. */
+type SelectionImageTextCompositionSource = {
+  selection: SnappingObjectSnapshot
+  images: SelectionCompositionChildSnapshot[]
+  texts: TextResizeSnapshot[]
+}
+
+/** Идентификаторы ожидаемых изображений и текстов в общем выделении. */
+type SelectionImageTextCompositionParams = {
+  imageIds: string[]
+  textIds: string[]
+}
+
+/** Читает браузерное состояние выделения из ожидаемых изображений и текстов. */
+function readImageTextCompositionSource({
+  imageIds,
+  textIds
+}: SelectionImageTextCompositionParams): SelectionImageTextCompositionSource | null {
+  const { editor, __editorHelpers: helpers } = window as any
+  const selection = editor.canvas.getActiveObject()
+  const children = selection?.getObjects?.()
+  if (
+    selection?.type !== 'activeselection'
+    || !Array.isArray(children)
+    || children.length !== imageIds.length + textIds.length
+  ) return null
+
+  const images = imageIds.map((id) => children.find((child: any) => child.id === id))
+  const texts = textIds.map((id) => children.find((child: any) => child.id === id))
+  if (images.some((image: any) => image?.type !== 'image')) return null
+  if (texts.some((text: any) => text?.type !== 'background-textbox')) return null
+
+  const imageSnapshots: SelectionImageTextCompositionSource['images'] = []
+  for (const image of images) {
+    imageSnapshots.push({
+      ...helpers.serializeSnappingObjectSnapshot(image),
+      cropX: image.cropX ?? 0,
+      cropY: image.cropY ?? 0,
+      id: image.id,
+      originX: image.originX,
+      originY: image.originY,
+      skewX: image.skewX ?? 0,
+      skewY: image.skewY ?? 0
+    })
+  }
+  const textSnapshots: SelectionImageTextCompositionSource['texts'] = []
+  for (const text of texts) {
+    textSnapshots.push(helpers.serializeTextResizeSnapshot(text))
+  }
+
+  return {
+    selection: helpers.serializeSnappingObjectSnapshot(selection),
+    images: imageSnapshots,
+    texts: textSnapshots
+  }
 }
 
 /** Рассчитывает видимую геометрию дочернего объекта по полной матрице в координатах сцены. */
@@ -112,6 +171,22 @@ function resolveSelectionChildSceneGeometry(
   }
 }
 
+/** Соединяет канонический снимок ребёнка с его видимой геометрией по id. */
+function attachSelectionChildGeometry<Snapshot>({
+  geometryById,
+  id,
+  snapshot
+}: {
+  geometryById: ReadonlyMap<string, SelectionChildSceneGeometrySnapshot>
+  id: string
+  snapshot: Snapshot
+}): { geometry: SelectionChildSceneGeometrySnapshot; snapshot: Snapshot } {
+  const geometry = geometryById.get(id)
+  if (!geometry) throw new Error(`Не найдена видимая геометрия объекта ${id}`)
+
+  return { geometry, snapshot }
+}
+
 /** Снимок одного шейпа и его текста внутри общего выделения. */
 interface ShapeSelectionChildSnapshot {
   shape: SelectionCompositionChildSnapshot
@@ -136,16 +211,14 @@ export class SelectionModel {
   /** Создаёт модель действий над составными объектами редактора. */
   constructor({
     page,
-    scaleInteractionTrace,
     shapes
   }: {
     page: Page
-    scaleInteractionTrace: ScaleInteractionTraceModel
     shapes: ShapeModel
   }) {
     this.page = page
     this.shapes = shapes
-    this.scaling = new SelectionScalingSession({ page, scaleInteractionTrace, shapes })
+    this.scaling = new SelectionScalingSession({ page, shapes })
   }
 
   /** Возвращает геометрию активного составного объекта и всех его прямых дочерних объектов. */
@@ -191,6 +264,35 @@ export class SelectionModel {
     return composition
   }
 
+  /** Возвращает канонические свойства отдельных текстов в текущем общем выделении. */
+  async getTextCompositionSnapshot(): Promise<SelectionTextCompositionSnapshot> {
+    const composition = await this.page.evaluate(() => {
+      const { editor, __editorHelpers: helpers } = window as any
+      const target = editor.canvas.getActiveObject()
+      const objects = target?.getObjects?.()
+      if (target?.type !== 'activeselection' || !Array.isArray(objects) || objects.length < 2) return null
+
+      const children = objects.map((object: any) => {
+        if (object.type !== 'background-textbox' || typeof object.id !== 'string') return null
+
+        return helpers.serializeTextResizeSnapshot(object)
+      })
+      if (children.some((child: unknown) => child === null)) return null
+
+      return {
+        selection: helpers.serializeSnappingObjectSnapshot(target),
+        children
+      }
+    })
+
+    expect(composition, 'общее выделение должно состоять из отдельных текстов').not.toBeNull()
+    expect(composition?.children.length, 'общее выделение должно содержать минимум два текста')
+      .toBeGreaterThanOrEqual(2)
+    if (!composition) throw new Error('Не удалось получить тексты текущего общего выделения')
+
+    return composition
+  }
+
   /** Возвращает канонические свойства и видимую геометрию дочерних объектов общего выделения. */
   async getChildSceneGeometry(): Promise<SelectionChildSceneGeometrySnapshot[]> {
     const sources = await this.page.evaluate(() => {
@@ -224,6 +326,70 @@ export class SelectionModel {
     }
 
     return (sources as SelectionChildSceneGeometrySource[]).map(resolveSelectionChildSceneGeometry)
+  }
+
+  /** Возвращает обязательную видимую геометрию одного дочернего объекта общего выделения. */
+  async getChildSceneGeometryById({ id }: { id: string }): Promise<SelectionChildSceneGeometrySnapshot> {
+    expect(id.length, 'id дочернего объекта не должен быть пустым').toBeGreaterThan(0)
+
+    const geometry = (await this.getChildSceneGeometry()).find((child) => child.id === id)
+
+    expect(geometry, `общее выделение должно содержать объект ${id}`).toBeDefined()
+    if (!geometry) throw new Error(`Не удалось получить видимую геометрию объекта ${id}`)
+
+    return geometry
+  }
+
+  /** Возвращает состояние ожидаемых изображений и текстов в текущем общем выделении. */
+  async getImageTextCompositionSnapshot({
+    imageIds,
+    textIds
+  }: {
+    imageIds: readonly string[]
+    textIds: readonly string[]
+  }): Promise<SelectionImageTextCompositionSnapshot> {
+    if (imageIds.length === 0) throw new Error('Нужно указать хотя бы один id изображения')
+    if (textIds.length === 0) throw new Error('Нужно указать хотя бы один id текста')
+
+    const expectedIds = [...imageIds, ...textIds]
+    if (expectedIds.some((id) => id.length === 0)) {
+      throw new Error('id изображений и текстов не должны быть пустыми')
+    }
+    if (new Set(expectedIds).size !== expectedIds.length) {
+      throw new Error('id изображений и текстов в общем выделении не должны повторяться')
+    }
+
+    const source = await this.page.evaluate(readImageTextCompositionSource, {
+      imageIds: [...imageIds],
+      textIds: [...textIds]
+    })
+
+    if (!source) {
+      throw new Error('Общее выделение должно содержать ожидаемые изображения и тексты')
+    }
+    if (source.images.length !== imageIds.length) {
+      throw new Error('Снимок должен содержать все ожидаемые изображения')
+    }
+    if (source.texts.length !== textIds.length) {
+      throw new Error('Снимок должен содержать все ожидаемые тексты')
+    }
+    const childGeometries = await this.getChildSceneGeometry()
+    const geometryById = new Map(childGeometries.map((geometry) => [geometry.id, geometry]))
+
+    return {
+      selection: source.selection,
+      images: source.images.map((snapshot) => attachSelectionChildGeometry({
+        geometryById,
+        id: snapshot.id,
+        snapshot
+      })),
+      texts: source.texts.map((snapshot, index) => {
+        const id = textIds[index]
+        if (!id) throw new Error('Для каждого текста должен существовать ожидаемый id')
+
+        return attachSelectionChildGeometry({ geometryById, id, snapshot })
+      })
+    }
   }
 
   /** Возвращает фактический наклон текущего общего выделения. */

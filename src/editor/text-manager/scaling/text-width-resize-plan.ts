@@ -4,9 +4,9 @@ import {
   type ScaleProjectionConstraint
 } from '../../snapping-manager/scaling/scale-projection'
 import type {
-  PlannedScaleConstraint,
   ScaleSnapPlan
 } from '../../snapping-manager/scaling/scale-snapping-resolver'
+import { createScaleProjectionConstraints } from '../../snapping-manager/scaling/scale-snapping-resolver'
 import type { TextWidthResizeMeasurement } from './text-width-resize-measurer'
 
 /** Источник точной геометрии Textbox при проверяемой ширине. */
@@ -19,21 +19,6 @@ const MAX_TEXT_WIDTH_REFINEMENT_STEPS = 8
 
 /** Допуск остановки повторяющегося расчёта ширины. */
 const TEXT_WIDTH_REFINEMENT_EPSILON = 0.0000001
-
-/** Возвращает ограничения плана в формате линейной проекции. */
-function createProjectionConstraints({
-  plan
-}: {
-  plan: ScaleSnapPlan
-}): readonly ScaleProjectionConstraint[] {
-  return [plan.constraints.x, plan.constraints.y]
-    .filter((constraint): constraint is PlannedScaleConstraint => constraint !== null)
-    .map((constraint) => Object.freeze({
-      axis: constraint.axis,
-      edge: constraint.candidate.edge,
-      position: constraint.expectedPosition
-    }))
-}
 
 /** Проверяет достижение всех выбранных направляющих измеренной геометрией. */
 function didReachPlannedGuides({
@@ -105,7 +90,7 @@ export function resolveTextWidthSnapMeasurement({
   const [initialWidth] = plan.effectiveValues
   if (!Number.isFinite(initialWidth)) return null
 
-  const constraints = createProjectionConstraints({ plan })
+  const constraints = createScaleProjectionConstraints({ constraints: plan.constraints })
   if (constraints.length === 0) return null
 
   const measuredWidths: number[] = []

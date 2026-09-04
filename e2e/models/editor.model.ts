@@ -27,7 +27,6 @@ import { SnappingModel } from './snapping.model'
 import { MeasurementModel } from './measurement.model'
 import { BackgroundModel } from './background.model'
 import { InteractionBlockerModel } from './interaction-blocker.model'
-import { ScaleInteractionTraceModel } from './scale-interaction-trace.model'
 import { ImageModel } from './image/image.model'
 import { ToolbarModel } from './toolbar.model'
 import { SelectionModel } from './selection/selection.model'
@@ -86,8 +85,6 @@ export class EditorModel {
 
   readonly interactionBlocker: InteractionBlockerModel
 
-  readonly scaleInteractionTrace: ScaleInteractionTraceModel
-
   readonly images: ImageModel
 
   readonly toolbar: ToolbarModel
@@ -109,12 +106,10 @@ export class EditorModel {
     this.measurement = new MeasurementModel(page)
     this.background = new BackgroundModel(page)
     this.interactionBlocker = new InteractionBlockerModel(page)
-    this.scaleInteractionTrace = new ScaleInteractionTraceModel(page)
     this.images = new ImageModel(page)
     this.toolbar = new ToolbarModel(page)
     this.selection = new SelectionModel({
       page,
-      scaleInteractionTrace: this.scaleInteractionTrace,
       shapes: this.shapes
     })
     this.grouping = new GroupingModel(page)

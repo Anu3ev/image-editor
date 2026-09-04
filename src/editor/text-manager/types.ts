@@ -165,8 +165,10 @@ export type LineFontDefaultUpdate = {
   underline?: boolean
 }
 
+/** Исходные свойства текста, относительно которых рассчитывается один жест скейлинга. */
 export type TextScaleBaseState = {
   width: number
+  height: number
   fontSize: number
   explicitLineCount?: number
   renderedLineCount?: number

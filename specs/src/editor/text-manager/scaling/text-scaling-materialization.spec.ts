@@ -86,6 +86,7 @@ describe('масштабирование текста', () => {
       const bounds = resolveMinimumTextScalingBounds({
         base: {
           width: 120,
+          height: 40,
           fontSize: 24,
           padding: {
             top: 0,
@@ -258,6 +259,182 @@ describe('масштабирование текста', () => {
       expect(result.appliedWidth).toBe(50.5)
       expect(result.dimensionsRounded).toBe(false)
       expect(textbox.preserveExactTextGeometry).toBe(false)
+    })
+
+    it('при точном пропорциональном скейлинге одинаково меняет ширину и размер шрифта', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Первый текст с переносом строк', {
+        width: 150,
+        fontSize: 30,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+      const base = captureTextScaleBase({ textbox })
+      const scale = 1.2257200689299774
+      const unroundedMinimumWidth = base.width + 0.19467002467107
+
+      jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+        const currentFontScale = (textbox.fontSize ?? base.fontSize) / base.fontSize
+        textbox.dynamicMinWidth = unroundedMinimumWidth * currentFontScale
+        textbox.width = Math.max(textbox.width, textbox.dynamicMinWidth)
+      })
+
+      commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: scale,
+        heightScale: scale,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: true,
+        shouldScalePadding: true,
+        shouldScaleRadii: true,
+        shouldRoundDimensions: false
+      })
+
+      expect(textbox.width / base.width).toBeCloseTo(scale, 10)
+      expect(textbox.fontSize / base.fontSize).toBeCloseTo(scale, 10)
+    })
+
+    it('при изменении ширины однострочного текста сохраняет высоту без скрытой дробной прибавки', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Отдельный текст', {
+        width: 168,
+        fontSize: 32,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+      const base = captureTextScaleBase({ textbox })
+
+      jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+        textbox.height = base.height + 0.16
+        textbox.textLines = ['Отдельный текст']
+      })
+
+      commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 1.2,
+        heightScale: 1,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: false,
+        shouldScalePadding: false,
+        shouldScaleRadii: false,
+        shouldRoundDimensions: false
+      })
+
+      expect(textbox.width).toBeCloseTo(base.width * 1.2, 10)
+      expect(textbox.height).toBe(base.height)
+    })
+
+    it('не скрывает существенное изменение высоты при прежнем количестве строк', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Первая строка\nВторая строка', {
+        width: 168,
+        fontSize: 32,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+      const base = captureTextScaleBase({ textbox })
+      const recalculatedHeight = base.height + 2
+
+      jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+        textbox.height = recalculatedHeight
+        textbox.textLines = ['Первая строка', 'Вторая строка']
+      })
+
+      commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 1.2,
+        heightScale: 1,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: false,
+        shouldScalePadding: false,
+        shouldScaleRadii: false,
+        shouldRoundDimensions: false
+      })
+
+      expect(textbox.height).toBe(recalculatedHeight)
+      expect(textbox.width).toBeCloseTo(base.width * 1.2, 10)
+    })
+
+    it('сохраняет новую высоту при переносе текста на дополнительную строку', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Текст без переноса', {
+        width: 168,
+        fontSize: 32,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+      const base = captureTextScaleBase({ textbox })
+      const recalculatedHeight = base.height + 40
+
+      jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+        textbox.height = recalculatedHeight
+        textbox.textLines = ['Текст без', 'переноса']
+      })
+
+      commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 0.7,
+        heightScale: 1,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: false,
+        shouldScalePadding: false,
+        shouldScaleRadii: false,
+        shouldRoundDimensions: false
+      })
+
+      expect(textbox.height).toBe(recalculatedHeight)
+      expect(textbox.textLines).toHaveLength(2)
+    })
+
+    it('при свободном скейлинге сохраняет измеренную минимальную ширину', () => {
+      const { editor } = createTextManagerTestSetup()
+      const textbox = new BackgroundTextbox('Свободный скейлинг', {
+        width: 150,
+        fontSize: 30,
+        left: 40,
+        top: 60,
+        originX: 'left',
+        originY: 'top'
+      })
+      const base = captureTextScaleBase({ textbox })
+      const requestedWidth = base.width * 1.2
+      const measuredWidth = requestedWidth + 0.25
+
+      jest.spyOn(textbox, 'initDimensions').mockImplementation(() => {
+        textbox.width = measuredWidth
+      })
+
+      commitStandaloneTextboxScale({
+        textbox,
+        canvasManager: editor.canvasManager,
+        base,
+        widthScale: 1.2,
+        heightScale: 1.1,
+        placement: editor.canvasManager.getObjectPlacement({ object: textbox }),
+        shouldScaleFontSize: true,
+        shouldScalePadding: true,
+        shouldScaleRadii: true,
+        shouldRoundDimensions: false
+      })
+
+      expect(textbox.width).toBe(measuredWidth)
+      expect((textbox.fontSize ?? base.fontSize) / base.fontSize).toBeCloseTo(1.1, 10)
     })
 
     it('после live шага возвращает прежнее правило округления', () => {
@@ -452,6 +629,10 @@ describe('масштабирование текста', () => {
         shouldRoundDimensions: false
       })
       expect(textbox.autoExpand).toBe(true)
+
+      textbox.set({ width: base.width * 0.8 })
+
+      expect(textbox.width).toBeCloseTo(base.width * 0.8, 9)
 
       commitStandaloneTextboxScale({
         textbox,

@@ -46,7 +46,6 @@ When a new folder is introduced, update `EditorModel`, fixture imports, and this
 | `grouping.model.ts` | Grouping, ungrouping, and active-selection behaviour. |
 | `history.model.ts` | History save, undo, redo, current position, and serialized history state. |
 | `interaction-blocker.model.ts` | Interaction-blocker and AI-overlay state. |
-| `scale-interaction-trace.model.ts` | Canvas event order and state snapshots for focused scaling scenarios. |
 | `snapping.model.ts` | Snapping guides and snap-governed object movement. |
 | `template.model.ts` | Template serialization and application. |
 | `toolbar.model.ts` | Contextual toolbar visibility, bounds, and actions. |

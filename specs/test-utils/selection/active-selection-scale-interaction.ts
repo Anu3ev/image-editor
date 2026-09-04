@@ -5,29 +5,41 @@ import {
   Rect,
   controlsUtils,
   type FabricObject,
+  type TMat2D,
   type TOriginX,
   type TOriginY,
   type Transform
 } from 'fabric'
 
 import { ImageEditor } from '../../../src/editor'
+import CanvasManager from '../../../src/editor/canvas-manager'
 import ActiveSelectionScaleInteractionController, {
   type ActiveSelectionScaleInteractionEvent
 } from '../../../src/editor/selection-manager/scaling/active-selection-scale-interaction-controller'
-import type {
-  RectangularScaleControlKey,
-  RectangularScaleMultipliers
+import {
+  createRectangularScaleGestureProjection,
+  createRectangularScaleProjectionModes,
+  createRectangularScaleValues,
+  type RectangularScaleControlKey,
+  type RectangularScaleGestureMode,
+  type RectangularScaleGestureProjection,
+  type RectangularScaleMultipliers
 } from '../../../src/editor/snapping-manager/scaling/rectangular-scale-gesture-projection'
 import type { ScaleSnapEnvironment } from '../../../src/editor/snapping-manager/scaling/scale-snap-candidates'
 import SnappingManager from '../../../src/editor/snapping-manager'
 import ShapeManager from '../../../src/editor/shape-manager'
 import { ShapeGroupObject } from '../../../src/editor/shape-manager/domain/shape-group'
 import { applyShapeCornerFreeScaleControls } from '../../../src/editor/shape-manager/scaling/shape-controls'
+import TextManager from '../../../src/editor/text-manager'
+import { BackgroundTextbox } from '../../../src/editor/text-manager/background-textbox'
+import type { ActiveSelectionTextScaleMeasurement } from '../../../src/editor/text-manager/scaling/active-selection-scale-measurer'
+import { captureTextCornerScaleCanonicalState } from '../../../src/editor/text-manager/scaling/text-corner-scale-state'
 import {
   getObjectExactBounds,
   type ObjectBounds
 } from '../../../src/editor/utils/geometry'
 import { createMockFabricImage } from '../managers/image'
+import { createCanvasManagerTestStub } from '../editor/editor-stub'
 import { installRectangularScaleGeometryContract } from '../snapping/rectangular-scale-gesture-projection'
 
 /** Параметры тестового скейлинга выделения из двух изображений. */
@@ -52,6 +64,21 @@ export type ShapeActiveSelectionScaleHarnessOptions = Readonly<{
   uniformScaling?: boolean
 }>
 
+/** Параметры тестового скейлинга выделения из двух отдельных текстов. */
+export type TextActiveSelectionScaleHarnessOptions = Readonly<{
+  angle?: number
+  centered?: boolean
+  controlKey?: RectangularScaleControlKey
+  supported?: boolean
+  uniformScaling?: boolean
+}>
+
+/** Параметры изображения в тестовом общем выделении с текстом. */
+export type ImageTextActiveSelectionScaleHarnessOptions = Readonly<{
+  imageAngle?: number
+  imageFlipX?: boolean
+}>
+
 /** Общие наблюдаемые зависимости тестового скейлинга ActiveSelection. */
 interface ActiveSelectionScaleHarnessDependencies {
   readonly applyShapeSelectionPreviewMock: jest.MockedFunction<
@@ -72,6 +99,24 @@ interface ActiveSelectionScaleHarnessDependencies {
   readonly supportsShapeSelectionMock: jest.MockedFunction<
     ImageEditor['shapeManager']['supportsActiveSelectionScaling']
   >
+  readonly applyTextSelectionPreviewMock: jest.MockedFunction<
+    ImageEditor['textManager']['applyActiveSelectionScalePreview']
+  >
+  readonly beginTextSelectionScalingMock: jest.MockedFunction<
+    ImageEditor['textManager']['beginActiveSelectionScaling']
+  >
+  readonly clearTextSelectionScalingMock: jest.MockedFunction<
+    ImageEditor['textManager']['clearActiveSelectionScaling']
+  >
+  readonly measureTextSelectionScaleMock: jest.MockedFunction<
+    ImageEditor['textManager']['measureActiveSelectionScale']
+  >
+  readonly resolveTextSelectionScaleStepMock: jest.MockedFunction<
+    ImageEditor['textManager']['resolveActiveSelectionScaleStep']
+  >
+  readonly supportsTextSelectionMock: jest.MockedFunction<
+    ImageEditor['textManager']['supportsActiveSelectionScaling']
+  >
 }
 
 /** Общая геометрия тестового жеста для любого поддерживаемого состава выделения. */
@@ -85,12 +130,37 @@ interface ActiveSelectionScaleEventHarness {
   readonly applyFabricPreview: (multipliers: RectangularScaleMultipliers) => void
 }
 
+/** Общая исходная геометрия одного тестового жеста ActiveSelection. */
+interface ActiveSelectionScaleGestureSetup {
+  readonly baselineBounds: ObjectBounds
+  readonly controlKey: RectangularScaleControlKey
+  readonly fixedAnchor: Point
+  readonly pointerStart: Point
+  readonly target: ActiveSelection
+  readonly transform: Transform
+}
+
 /** ShapeManager и его наблюдаемые методы для одного тестового контроллера. */
 interface ActiveSelectionShapeManagerDependencies {
   readonly applyShapeSelectionPreviewMock: ActiveSelectionScaleHarnessDependencies['applyShapeSelectionPreviewMock']
   readonly clearShapeSelectionPreviewStateMock: ActiveSelectionScaleHarnessDependencies['clearShapeSelectionPreviewStateMock']
   readonly shapeManager: ShapeManager
   readonly supportsShapeSelectionMock: ActiveSelectionScaleHarnessDependencies['supportsShapeSelectionMock']
+}
+
+/** Наблюдаемые методы TextManager, которые обрабатывают один live-шаг. */
+interface ActiveSelectionTextScaleStepMocks {
+  readonly applyTextSelectionPreviewMock: ActiveSelectionScaleHarnessDependencies['applyTextSelectionPreviewMock']
+  readonly measureTextSelectionScaleMock: ActiveSelectionScaleHarnessDependencies['measureTextSelectionScaleMock']
+  readonly resolveTextSelectionScaleStepMock: ActiveSelectionScaleHarnessDependencies['resolveTextSelectionScaleStepMock']
+}
+
+/** TextManager и его наблюдаемые методы общего скейлинга. */
+interface ActiveSelectionTextManagerDependencies extends ActiveSelectionTextScaleStepMocks {
+  readonly beginTextSelectionScalingMock: ActiveSelectionScaleHarnessDependencies['beginTextSelectionScalingMock']
+  readonly clearTextSelectionScalingMock: ActiveSelectionScaleHarnessDependencies['clearTextSelectionScalingMock']
+  readonly supportsTextSelectionMock: ActiveSelectionScaleHarnessDependencies['supportsTextSelectionMock']
+  readonly textManager: TextManager
 }
 
 /** Наблюдаемые зависимости одного тестового жеста общего выделения. */
@@ -107,6 +177,26 @@ export interface ShapeActiveSelectionScaleHarness extends ActiveSelectionScaleEv
   readonly baselineBounds: ObjectBounds
   readonly children: readonly ShapeGroupObject[]
   readonly controller: ActiveSelectionScaleInteractionController
+}
+
+/** Наблюдаемые зависимости одного тестового жеста выделения из текстов. */
+export interface TextActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
+  ActiveSelectionScaleHarnessDependencies {
+  readonly baselineBounds: ObjectBounds
+  readonly children: readonly BackgroundTextbox[]
+  readonly controller: ActiveSelectionScaleInteractionController
+  readonly projection: RectangularScaleGestureProjection
+}
+
+/** Состав из изображения и текста для проверки маршрутизации скейлинга. */
+export interface ImageTextActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
+  ActiveSelectionScaleHarnessDependencies {
+  readonly baselineBounds: ObjectBounds
+  readonly children: readonly [ReturnType<typeof createMockFabricImage>, BackgroundTextbox]
+  readonly controller: ActiveSelectionScaleInteractionController
+  readonly image: ReturnType<typeof createMockFabricImage>
+  readonly projection: RectangularScaleGestureProjection
+  readonly text: BackgroundTextbox
 }
 
 /** Неподвижная и подвижная точки привязки одной стандартной ручки. */
@@ -228,6 +318,185 @@ function createSelectionShapes(): readonly ShapeGroupObject[] {
   return Object.freeze([first, second])
 }
 
+/** Создаёт два канонических отдельных текста с различающейся геометрией. */
+function createSelectionTexts(): readonly BackgroundTextbox[] {
+  const first = new BackgroundTextbox('Первый текст', {
+    fontSize: 24,
+    left: 180,
+    originX: 'left',
+    originY: 'top',
+    strokeWidth: 0,
+    top: 160,
+    width: 110
+  })
+  const second = new BackgroundTextbox('Второй текст', {
+    fontSize: 30,
+    left: 310,
+    originX: 'left',
+    originY: 'top',
+    strokeWidth: 0,
+    top: 230,
+    width: 125
+  })
+
+  first.initDimensions()
+  first.set({ width: 110 })
+  second.initDimensions()
+  second.set({ width: 125 })
+
+  if (first.width <= 0 || first.height <= 0) throw new Error('Первый тестовый текст должен иметь размер')
+  if (second.width <= 0 || second.height <= 0) throw new Error('Второй тестовый текст должен иметь размер')
+
+  return Object.freeze([first, second])
+}
+
+/** Возвращает положение именованного origin внутри одной оси. */
+function resolveTextOriginFactor({ origin }: { origin: TOriginX | TOriginY }): number {
+  if (typeof origin === 'number') return origin
+  if (origin === 'center') return 0.5
+  if (origin === 'right' || origin === 'bottom') return 1
+
+  return 0
+}
+
+/** Устанавливает для текста геометрию видимых границ с учётом временной рамки. */
+function installSelectionTextGeometryContract({
+  selection,
+  text
+}: {
+  selection: ActiveSelection
+  text: BackgroundTextbox
+}): void {
+  text.setPositionByOrigin = (point, originX, originY) => {
+    text.left = point.x - ((text.width * text.scaleX) * resolveTextOriginFactor({ origin: originX }))
+    text.top = point.y - ((text.height * text.scaleY) * resolveTextOriginFactor({ origin: originY }))
+
+    return text
+  }
+  text.getPointByOrigin = (originX, originY) => {
+    const localX = text.left + ((text.width * text.scaleX) * resolveTextOriginFactor({ origin: originX }))
+    const localY = text.top + ((text.height * text.scaleY) * resolveTextOriginFactor({ origin: originY }))
+    if (text.group !== selection) return new Point(localX, localY)
+
+    const radians = (selection.angle * Math.PI) / 180
+    const scaledX = localX * selection.scaleX
+    const scaledY = localY * selection.scaleY
+
+    return new Point(
+      selection.left + (scaledX * Math.cos(radians)) - (scaledY * Math.sin(radians)),
+      selection.top + (scaledX * Math.sin(radians)) + (scaledY * Math.cos(radians))
+    )
+  }
+  text.getCoords = () => [
+    text.getPointByOrigin('left', 'top'),
+    text.getPointByOrigin('right', 'top'),
+    text.getPointByOrigin('right', 'bottom'),
+    text.getPointByOrigin('left', 'bottom')
+  ]
+  text.getBoundingRect = () => {
+    const corners = text.getCoords()
+    const xCoordinates = corners.map(({ x }) => x)
+    const yCoordinates = corners.map(({ y }) => y)
+    const left = Math.min(...xCoordinates)
+    const top = Math.min(...yCoordinates)
+
+    return {
+      height: Math.max(...yCoordinates) - top,
+      left,
+      top,
+      width: Math.max(...xCoordinates) - left
+    }
+  }
+}
+
+/** Данные текстовой сессии, необходимые наблюдаемому TextManager. */
+type ActiveSelectionTextScaleTestContract = Readonly<{
+  fixedAnchor: Point
+  projection: RectangularScaleGestureProjection
+  supported: boolean
+  transform: Transform
+}>
+
+/** Рассчитывает границы линейной тестовой проекции для переданных значений. */
+function projectTextSelectionBounds({
+  mode,
+  multipliers,
+  projection
+}: {
+  mode: RectangularScaleGestureMode
+  multipliers: RectangularScaleMultipliers
+  projection: RectangularScaleGestureProjection
+}): ObjectBounds {
+  const projectionMode = createRectangularScaleProjectionModes({ projection })
+    .find(({ id }) => id === mode)
+  if (!projectionMode) throw new Error(`Тестовая проекция должна содержать режим ${mode}`)
+
+  const values = createRectangularScaleValues({ mode, multipliers })
+  const bounds = { ...projection.baselineBounds }
+  projectionMode.projection.edges.forEach(({ coefficients, edge }) => {
+    bounds[edge] = coefficients.reduce((position, coefficient, index) => {
+      return position + (coefficient * (values[index] - projectionMode.projection.baselineValues[index]))
+    }, projection.baselineBounds[edge])
+  })
+  bounds.centerX = bounds.left + ((bounds.right - bounds.left) / 2)
+  bounds.centerY = bounds.top + ((bounds.bottom - bounds.top) / 2)
+
+  if (bounds.right <= bounds.left || bounds.bottom <= bounds.top) {
+    throw new Error('Тестовое измерение текстов должно иметь положительный размер')
+  }
+
+  return Object.freeze(bounds)
+}
+
+/** Создаёт контрактное измерение TextManager для проверки маршрутизации одного шага. */
+function createTextSelectionMeasurement({
+  children,
+  mode,
+  multipliers,
+  projection,
+  selection
+}: {
+  children: readonly BackgroundTextbox[]
+  mode: RectangularScaleGestureMode
+  multipliers: RectangularScaleMultipliers
+  projection: RectangularScaleGestureProjection
+  selection: ActiveSelection
+}): ActiveSelectionTextScaleMeasurement {
+  const projectionMode = createRectangularScaleProjectionModes({ projection })
+    .find(({ id }) => id === mode)
+  if (!projectionMode) throw new Error(`Тестовая проекция должна содержать режим ${mode}`)
+
+  const bounds = projectTextSelectionBounds({ mode, multipliers, projection })
+  const values = createRectangularScaleValues({ mode, multipliers })
+
+  return Object.freeze({
+    affineChildren: Object.freeze([]),
+    bounds,
+    children: Object.freeze(children.map((target) => Object.freeze({
+      canonicalState: captureTextCornerScaleCanonicalState({ textbox: target }),
+      center: Object.freeze({ x: target.left, y: target.top }),
+      target
+    }))),
+    frame: Object.freeze({
+      center: Object.freeze({ x: 0, y: 0 }),
+      height: selection.height * multipliers.y,
+      scaleX: multipliers.x,
+      scaleY: multipliers.y,
+      width: selection.width * multipliers.x
+    }),
+    mode,
+    multipliers: Object.freeze({ ...multipliers }),
+    projection: Object.freeze({
+      bounds,
+      projection: Object.freeze({
+        ...projectionMode.projection,
+        baselineValues: values
+      })
+    }),
+    values
+  })
+}
+
 /** Создаёт контрактный ShapeManager с наблюдаемыми методами общего скейлинга. */
 function createShapeManagerDependencies({
   supportsShapeSelection
@@ -270,6 +539,100 @@ function createShapeManagerDependencies({
   })
 }
 
+/** Создаёт наблюдаемые методы измерения и применения одного текстового шага. */
+function createTextScaleStepMocks({
+  children,
+  contract,
+  target
+}: {
+  children: readonly BackgroundTextbox[]
+  contract?: ActiveSelectionTextScaleTestContract
+  target: ActiveSelection
+}): ActiveSelectionTextScaleStepMocks {
+  const measureTextSelectionScaleMock: ActiveSelectionTextScaleStepMocks['measureTextSelectionScaleMock'] = jest.fn<
+    ReturnType<ImageEditor['textManager']['measureActiveSelectionScale']>,
+    Parameters<ImageEditor['textManager']['measureActiveSelectionScale']>
+  >(({ mode, multipliers, selection }) => {
+    if (!contract || selection !== target) {
+      throw new Error('Измерение текста требует активной тестовой сессии')
+    }
+
+    return createTextSelectionMeasurement({ children, mode, multipliers, projection: contract.projection, selection })
+  })
+  const resolveTextSelectionScaleStepMock: ActiveSelectionTextScaleStepMocks['resolveTextSelectionScaleStepMock'] = jest.fn<
+    ReturnType<ImageEditor['textManager']['resolveActiveSelectionScaleStep']>,
+    Parameters<ImageEditor['textManager']['resolveActiveSelectionScaleStep']>
+  >(({ pointerMeasurement }) => Object.freeze({ measurement: pointerMeasurement, refinement: null }))
+  const applyTextSelectionPreviewMock: ActiveSelectionTextScaleStepMocks['applyTextSelectionPreviewMock'] = jest.fn<
+    ReturnType<ImageEditor['textManager']['applyActiveSelectionScalePreview']>,
+    Parameters<ImageEditor['textManager']['applyActiveSelectionScalePreview']>
+  >(({ measurement, selection }) => {
+    if (!contract || selection !== target) {
+      throw new Error('Применение текста требует активной тестовой сессии')
+    }
+
+    selection.set({
+      scaleX: measurement.frame.scaleX,
+      scaleY: measurement.frame.scaleY
+    })
+    selection.setPositionByOrigin(
+      contract.fixedAnchor,
+      contract.transform.originX,
+      contract.transform.originY
+    )
+    selection.setCoords()
+
+    return measurement.multipliers
+  })
+
+  return Object.freeze({
+    applyTextSelectionPreviewMock,
+    measureTextSelectionScaleMock,
+    resolveTextSelectionScaleStepMock
+  })
+}
+
+/** Создаёт контрактный TextManager с наблюдаемыми методами общего скейлинга. */
+function createTextManagerDependencies({
+  children,
+  contract,
+  target
+}: {
+  children: readonly BackgroundTextbox[]
+  contract?: ActiveSelectionTextScaleTestContract
+  target: ActiveSelection
+}): ActiveSelectionTextManagerDependencies {
+  const supportsTextSelectionMock: ActiveSelectionTextManagerDependencies['supportsTextSelectionMock'] = jest.fn<
+    ReturnType<ImageEditor['textManager']['supportsActiveSelectionScaling']>,
+    Parameters<ImageEditor['textManager']['supportsActiveSelectionScaling']>
+  >(() => contract?.supported ?? false)
+  const beginTextSelectionScalingMock: ActiveSelectionTextManagerDependencies['beginTextSelectionScalingMock'] = jest.fn<
+    ReturnType<ImageEditor['textManager']['beginActiveSelectionScaling']>,
+    Parameters<ImageEditor['textManager']['beginActiveSelectionScaling']>
+  >(() => contract?.supported ?? false)
+  const clearTextSelectionScalingMock: ActiveSelectionTextManagerDependencies['clearTextSelectionScalingMock'] = jest.fn<
+    ReturnType<ImageEditor['textManager']['clearActiveSelectionScaling']>,
+    Parameters<ImageEditor['textManager']['clearActiveSelectionScaling']>
+  >(() => Boolean(contract))
+  const textManager: TextManager = Object.create(TextManager.prototype)
+  const stepMocks = createTextScaleStepMocks({ children, contract, target })
+
+  textManager.supportsActiveSelectionScaling = supportsTextSelectionMock
+  textManager.beginActiveSelectionScaling = beginTextSelectionScalingMock
+  textManager.measureActiveSelectionScale = stepMocks.measureTextSelectionScaleMock
+  textManager.resolveActiveSelectionScaleStep = stepMocks.resolveTextSelectionScaleStepMock
+  textManager.applyActiveSelectionScalePreview = stepMocks.applyTextSelectionPreviewMock
+  textManager.clearActiveSelectionScaling = clearTextSelectionScalingMock
+
+  return Object.freeze({
+    beginTextSelectionScalingMock,
+    clearTextSelectionScalingMock,
+    ...stepMocks,
+    supportsTextSelectionMock,
+    textManager
+  })
+}
+
 /** Создаёт минимальный Canvas для одного тестового жеста скейлинга. */
 function createScaleTestCanvas({
   endCurrentTransformMock,
@@ -278,11 +641,34 @@ function createScaleTestCanvas({
   endCurrentTransformMock: ActiveSelectionScaleHarness['endCurrentTransformMock']
   uniformScaling: boolean
 }): Canvas {
+  let activeObject: FabricObject | null = null
   const canvas = Object.assign(Object.create(Canvas.prototype), {
     altActionKey: 'shiftKey',
+    discardActiveObject: jest.fn(() => {
+      const selection = activeObject
+      if (selection instanceof ActiveSelection) {
+        selection.getObjects().forEach((object) => {
+          object.set({
+            group: undefined,
+            scaleX: object.scaleX * selection.scaleX,
+            scaleY: object.scaleY * selection.scaleY
+          })
+        })
+      }
+      activeObject = null
+
+      return canvas
+    }),
     endCurrentTransform: endCurrentTransformMock,
+    getActiveObject: jest.fn(() => activeObject),
     off: jest.fn(),
     on: jest.fn(),
+    requestRenderAll: jest.fn(() => canvas),
+    setActiveObject: jest.fn((object: FabricObject) => {
+      activeObject = object
+
+      return canvas
+    }),
     uniformScaling,
     uniScaleKey: 'shiftKey',
     viewportTransform: [1, 0, 0, 1, 0, 0]
@@ -298,14 +684,56 @@ function createScaleTestCanvas({
   return canvas
 }
 
+/** Собирает минимальный редактор с владельцами одного тестового жеста. */
+function createScaleTestEditor({
+  canvas,
+  shapeManager,
+  snappingManager,
+  target,
+  textManager
+}: {
+  canvas: Canvas
+  shapeManager: ShapeManager
+  snappingManager: SnappingManager
+  target: ActiveSelection
+  textManager: TextManager
+}): ImageEditor {
+  const canvasManager: CanvasManager = Object.assign(
+    Object.create(CanvasManager.prototype),
+    createCanvasManagerTestStub({
+      canvas,
+      getObjects: () => target.getObjects(),
+      montageArea: { height: 600, left: 400, top: 300, width: 800 }
+    })
+  )
+  const editor: ImageEditor = Object.create(ImageEditor.prototype)
+
+  editor.canvas = canvas
+  editor.canvasManager = canvasManager
+  editor.shapeManager = shapeManager
+  editor.snappingManager = snappingManager
+  editor.textManager = textManager
+  target.canvas = canvas
+  canvas.setActiveObject(target)
+
+  if (editor.canvas !== canvas) throw new Error('Тестовый редактор должен использовать подготовленный canvas')
+  if (target.canvas !== canvas) throw new Error('Общее выделение должно принадлежать тому же canvas')
+
+  return editor
+}
+
 /** Создаёт холст и зависимости SnappingManager без полного жизненного цикла редактора. */
 function createControllerDependencies({
   supportsShapeSelection,
   target,
+  textChildren = Object.freeze([]),
+  textContract,
   uniformScaling
 }: {
   supportsShapeSelection: boolean
   target: ActiveSelection
+  textChildren?: readonly BackgroundTextbox[]
+  textContract?: ActiveSelectionTextScaleTestContract
   uniformScaling: boolean
 }): ActiveSelectionScaleHarnessDependencies {
   const captureEnvironmentMock: ActiveSelectionScaleHarness['captureEnvironmentMock'] = jest.fn<
@@ -317,29 +745,39 @@ function createControllerDependencies({
   const endCurrentTransformMock: ActiveSelectionScaleHarness['endCurrentTransformMock'] = jest.fn()
   const snappingManager: SnappingManager = Object.create(SnappingManager.prototype)
   const shapeDependencies = createShapeManagerDependencies({ supportsShapeSelection })
+  const textDependencies = createTextManagerDependencies({
+    children: textChildren,
+    contract: textContract,
+    target
+  })
   const canvas = createScaleTestCanvas({ endCurrentTransformMock, uniformScaling })
-  const editor: ImageEditor = Object.create(ImageEditor.prototype)
 
   snappingManager.captureScaleSnapEnvironment = captureEnvironmentMock
   snappingManager.markScaleStepHandled = markHandledMock
   snappingManager.publishVerifiedScaleGuides = publishGuidesMock
-  editor.canvas = canvas
-  editor.shapeManager = shapeDependencies.shapeManager
-  editor.snappingManager = snappingManager
-  target.canvas = canvas
-
-  if (editor.canvas !== canvas) throw new Error('Тестовый редактор должен использовать подготовленный canvas')
-  if (target.canvas !== canvas) throw new Error('Общее выделение должно принадлежать тому же canvas')
+  const editor = createScaleTestEditor({
+    canvas,
+    shapeManager: shapeDependencies.shapeManager,
+    snappingManager,
+    target,
+    textManager: textDependencies.textManager
+  })
 
   return Object.freeze({
     applyShapeSelectionPreviewMock: shapeDependencies.applyShapeSelectionPreviewMock,
+    applyTextSelectionPreviewMock: textDependencies.applyTextSelectionPreviewMock,
+    beginTextSelectionScalingMock: textDependencies.beginTextSelectionScalingMock,
     clearShapeSelectionPreviewStateMock: shapeDependencies.clearShapeSelectionPreviewStateMock,
+    clearTextSelectionScalingMock: textDependencies.clearTextSelectionScalingMock,
     captureEnvironmentMock,
     editor,
     endCurrentTransformMock,
     markHandledMock,
+    measureTextSelectionScaleMock: textDependencies.measureTextSelectionScaleMock,
     publishGuidesMock,
-    supportsShapeSelectionMock: shapeDependencies.supportsShapeSelectionMock
+    resolveTextSelectionScaleStepMock: textDependencies.resolveTextSelectionScaleStepMock,
+    supportsShapeSelectionMock: shapeDependencies.supportsShapeSelectionMock,
+    supportsTextSelectionMock: textDependencies.supportsTextSelectionMock
   })
 }
 
@@ -420,6 +858,31 @@ export function getRequiredActiveSelectionBounds({
   }
 
   return bounds
+}
+
+/** Собирает одинаковую исходную геометрию жеста для всех поддерживаемых составов. */
+function createSelectionScaleGestureSetup({
+  centered,
+  controlKey,
+  target
+}: {
+  centered: boolean
+  controlKey: RectangularScaleControlKey
+  target: ActiveSelection
+}): ActiveSelectionScaleGestureSetup {
+  const transform = createSelectionTransform({ centered, controlKey, target })
+  const origins = ACTIVE_SELECTION_SCALE_CONTROL_ORIGINS[controlKey]
+  const fixedAnchor = target.getPointByOrigin(transform.originX, transform.originY)
+  const pointerStart = target.getPointByOrigin(origins.movingX, origins.movingY)
+
+  return Object.freeze({
+    baselineBounds: getRequiredActiveSelectionBounds({ target }),
+    controlKey,
+    fixedAnchor,
+    pointerStart,
+    target,
+    transform
+  })
 }
 
 /** Сохраняет локальное состояние всех изображений тестового общего выделения. */
@@ -561,12 +1024,7 @@ export function createActiveSelectionScaleHarness({
     originalScaleX,
     originalScaleY
   })
-
-  const transform = createSelectionTransform({ centered, controlKey, target })
-  const origins = ACTIVE_SELECTION_SCALE_CONTROL_ORIGINS[controlKey]
-  const fixedAnchor = target.getPointByOrigin(transform.originX, transform.originY)
-  const pointerStart = target.getPointByOrigin(origins.movingX, origins.movingY)
-  const baselineBounds = getRequiredActiveSelectionBounds({ target })
+  const gesture = createSelectionScaleGestureSetup({ centered, controlKey, target })
   const dependencies = createControllerDependencies({
     supportsShapeSelection: false,
     target,
@@ -574,17 +1032,85 @@ export function createActiveSelectionScaleHarness({
   })
 
   return Object.freeze({
-    baselineBounds,
     children,
-    controlKey,
-    fixedAnchor,
-    pointerStart,
-    target,
-    transform,
+    ...gesture,
     ...dependencies,
     controller: new ActiveSelectionScaleInteractionController({ editor: dependencies.editor }),
-    applyFabricPreview: createFabricScalePreview({ fixedAnchor, target, transform })
+    applyFabricPreview: createFabricScalePreview(gesture)
   })
+}
+
+/** Подготавливает два текста внутри канонической тестовой рамки. */
+function createTextSelectionTarget({
+  angle
+}: {
+  angle: number
+}): Readonly<{
+  children: readonly BackgroundTextbox[]
+  target: ActiveSelection
+}> {
+  const children = createSelectionTexts()
+  const target = createActiveSelectionTarget({
+    angle,
+    children,
+    originalScaleX: 1,
+    originalScaleY: 1
+  })
+
+  children.forEach((text) => {
+    const center = text.getRelativeCenterPoint()
+    text.set({
+      group: target,
+      left: center.x - target.left - (text.width / 2),
+      top: center.y - target.top - (text.height / 2)
+    })
+    installSelectionTextGeometryContract({ selection: target, text })
+  })
+  target.calcTransformMatrix = jest.fn((): TMat2D => {
+    const radians = (target.angle * Math.PI) / 180
+
+    return [
+      Math.cos(radians),
+      Math.sin(radians),
+      -Math.sin(radians),
+      Math.cos(radians),
+      target.left,
+      target.top
+    ]
+  })
+
+  if (target.getObjects().length !== children.length) {
+    throw new Error('Тестовая рамка должна содержать оба подготовленных текста')
+  }
+
+  return Object.freeze({ children, target })
+}
+
+/** Создаёт прямоугольную проекцию выбранной ручки текстовой рамки. */
+function createTextSelectionScaleProjection({
+  controlKey,
+  gesture
+}: {
+  controlKey: RectangularScaleControlKey
+  gesture: ActiveSelectionScaleGestureSetup
+}): RectangularScaleGestureProjection {
+  const projection = createRectangularScaleGestureProjection({
+    pointerStart: gesture.pointerStart,
+    transform: {
+      action: resolveScaleAction({ controlKey }),
+      corner: controlKey,
+      originX: gesture.transform.originX,
+      originY: gesture.transform.originY,
+      original: {
+        scaleX: 1,
+        scaleY: 1
+      },
+      target: gesture.target
+    }
+  })
+  if (!projection) throw new Error('Тестовое выделение из текстов должно иметь проекцию скейлинга')
+
+  return projection
 }
 
 /** Создаёт контроллер с выделением из шейпов и наблюдаемым контрактом ShapeManager. */
@@ -606,11 +1132,7 @@ export function createShapeActiveSelectionScaleHarness({
     originalScaleY
   })
   applyShapeCornerFreeScaleControls({ target })
-  const transform = createSelectionTransform({ centered, controlKey, target })
-  const origins = ACTIVE_SELECTION_SCALE_CONTROL_ORIGINS[controlKey]
-  const fixedAnchor = target.getPointByOrigin(transform.originX, transform.originY)
-  const pointerStart = target.getPointByOrigin(origins.movingX, origins.movingY)
-  const baselineBounds = getRequiredActiveSelectionBounds({ target })
+  const gesture = createSelectionScaleGestureSetup({ centered, controlKey, target })
   const dependencies = createControllerDependencies({
     supportsShapeSelection: supported,
     target,
@@ -624,7 +1146,7 @@ export function createShapeActiveSelectionScaleHarness({
         scaleX: originalScaleX * clampedMultipliers.x,
         scaleY: originalScaleY * clampedMultipliers.y
       })
-      selection.setPositionByOrigin(fixedAnchor, currentTransform.originX, currentTransform.originY)
+      selection.setPositionByOrigin(gesture.fixedAnchor, currentTransform.originX, currentTransform.originY)
       selection.setCoords()
       currentTransform.scaleX = selection.scaleX
       currentTransform.scaleY = selection.scaleY
@@ -634,16 +1156,80 @@ export function createShapeActiveSelectionScaleHarness({
   }
 
   return Object.freeze({
-    baselineBounds,
     children,
-    controlKey,
-    fixedAnchor,
-    pointerStart,
-    target,
-    transform,
+    ...gesture,
     ...dependencies,
     controller: new ActiveSelectionScaleInteractionController({ editor: dependencies.editor }),
-    applyFabricPreview: createFabricScalePreview({ fixedAnchor, target, transform })
+    applyFabricPreview: createFabricScalePreview(gesture)
+  })
+}
+
+/** Создаёт контроллер с выделением из текстов и наблюдаемым контрактом TextManager. */
+export function createTextActiveSelectionScaleHarness({
+  angle = 0,
+  centered = false,
+  controlKey = 'mr',
+  supported = true,
+  uniformScaling = true
+}: TextActiveSelectionScaleHarnessOptions = {}): TextActiveSelectionScaleHarness {
+  const { children, target } = createTextSelectionTarget({ angle })
+  const gesture = createSelectionScaleGestureSetup({ centered, controlKey, target })
+  const projection = createTextSelectionScaleProjection({ controlKey, gesture })
+
+  const dependencies = createControllerDependencies({
+    supportsShapeSelection: false,
+    target,
+    textChildren: children,
+    textContract: {
+      fixedAnchor: gesture.fixedAnchor,
+      projection,
+      supported,
+      transform: gesture.transform
+    },
+    uniformScaling
+  })
+
+  return Object.freeze({
+    children,
+    ...gesture,
+    projection,
+    ...dependencies,
+    controller: new ActiveSelectionScaleInteractionController({ editor: dependencies.editor }),
+    applyFabricPreview: createFabricScalePreview(gesture)
+  })
+}
+
+/** Создаёт общее выделение из одного изображения и одного канонического текста. */
+export function createImageTextActiveSelectionScaleHarness({
+  imageAngle = 0,
+  imageFlipX = false
+}: ImageTextActiveSelectionScaleHarnessOptions = {}): ImageTextActiveSelectionScaleHarness {
+  const textHarness = createTextActiveSelectionScaleHarness()
+  const [text] = textHarness.children
+  if (!text) throw new Error('Тестовое выделение должно содержать текст')
+
+  const image = createMockFabricImage({ width: 90, height: 70 })
+  image.set({
+    angle: imageAngle,
+    flipX: imageFlipX,
+    flipY: false,
+    group: textHarness.target,
+    scaleX: 1,
+    scaleY: 1,
+    skewX: 0,
+    skewY: 0,
+    strokeWidth: 0
+  })
+  jest.spyOn(textHarness.target, 'getObjects').mockReturnValue([image, text])
+
+  if (image.group !== textHarness.target) throw new Error('Изображение должно принадлежать тестовому выделению')
+  const children: ImageTextActiveSelectionScaleHarness['children'] = Object.freeze([image, text])
+
+  return Object.freeze({
+    ...textHarness,
+    children,
+    image,
+    text
   })
 }
 

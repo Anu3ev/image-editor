@@ -2,6 +2,7 @@
 import {
   ActiveSelection,
   FabricImage,
+  Textbox,
   type FabricObject,
   type TPointerEvent,
   type Transform
@@ -12,6 +13,7 @@ import {
   createRectangularScaleGestureProjection,
   createRectangularScaleProjectionModes,
   resolveRectangularScaleMovingEdges,
+  resolveRectangularScalePointerMultipliers,
   type RectangularScaleGestureMode,
   type RectangularScaleGestureProjection,
   type RectangularScaleGestureTransform,
@@ -23,11 +25,16 @@ import {
   type ScaleRawIntent,
   type ScaleSnapPlan
 } from '../../snapping-manager/scaling/scale-snapping-resolver'
-import { ScaleSnappingRuntime } from '../../snapping-manager/scaling/scale-snapping-runtime'
+import {
+  ScaleSnappingRuntime,
+  type ScalePlanToken
+} from '../../snapping-manager/scaling/scale-snapping-runtime'
 import {
   applyRectangularScalePlan,
+  createRectangularScaleIntent,
   readAppliedRectangularScaleMultipliers,
   readFinalRectangularScaleGeometry,
+  resolveRectangularScaleGestureMode,
   resolveRectangularScaleStepInput,
   type RectangularScaleIntentSource
 } from '../../snapping-manager/scaling/rectangular-scale-interaction'
@@ -45,7 +52,7 @@ export type ActiveSelectionScaleInteractionEvent = Readonly<{
   scenePoint?: RectangularScalePoint
 }>
 
-/** Локальные свойства изображения, которые не должно менять общее преобразование выделения. */
+/** Локальные свойства изображения, которые не должно изменять общее преобразование выделения. */
 type ProtectedSelectionImageState = Readonly<{
   angle: number
   cropX: number
@@ -53,6 +60,7 @@ type ProtectedSelectionImageState = Readonly<{
   flipX: boolean
   flipY: boolean
   height: number
+  kind: 'image'
   left: number
   originX: FabricImage['originX']
   originY: FabricImage['originY']
@@ -79,6 +87,25 @@ type ProtectedSelectionShapeState = Readonly<{
   target: FabricObject
 }>
 
+/** Свойства текста, которые не должно изменять применение рассчитанного размера общего выделения. */
+type ProtectedSelectionTextState = Readonly<{
+  angle: number
+  flipX: boolean
+  flipY: boolean
+  kind: 'text'
+  originX: FabricObject['originX']
+  originY: FabricObject['originY']
+  skewX: number
+  skewY: number
+  target: Textbox
+  text: string
+}>
+
+/** Защищённое состояние ребёнка выделения, геометрию которого определяют тексты. */
+type ProtectedSelectionTextCompositionChildState =
+  | ProtectedSelectionImageState
+  | ProtectedSelectionTextState
+
 /** Состав выделения определяет доменное применение рассчитанного масштаба. */
 type ActiveSelectionScaleComposition = Readonly<{
   children: readonly ProtectedSelectionImageState[]
@@ -86,6 +113,9 @@ type ActiveSelectionScaleComposition = Readonly<{
 }> | Readonly<{
   children: readonly ProtectedSelectionShapeState[]
   kind: 'shapes'
+}> | Readonly<{
+  children: readonly ProtectedSelectionTextCompositionChildState[]
+  kind: 'texts'
 }>
 
 /** Свойства выделения и преобразования Fabric, которые должны сохраниться во время жеста. */
@@ -118,6 +148,27 @@ type ActiveSelectionScaleGesture = Readonly<{
 /** Текущий этап обработки одного жеста скейлинга общего выделения. */
 type ActiveSelectionScaleSessionPhase = 'unified' | 'legacy-passthrough' | 'skew-passthrough'
 
+/** Измерение канонического состояния выделения с текстами для одного шага. */
+type ActiveSelectionTextScaleMeasurement = ReturnType<
+  ImageEditor['textManager']['measureActiveSelectionScale']
+>
+
+/** Проверенные исходные данные одного шага поддерживаемого общего выделения. */
+type ActiveSelectionScaleStepInput = Readonly<{
+  intent: ScaleRawIntent
+  mode: RectangularScaleGestureMode
+  textMeasurement: ActiveSelectionTextScaleMeasurement | null
+}>
+
+/** План после необязательного уточнения по канонической геометрии текстов. */
+type ResolvedActiveSelectionScalePlan = Readonly<{
+  plan: ScaleSnapPlan
+  textMeasurement: ActiveSelectionTextScaleMeasurement | null
+}>
+
+/** Текущий домен, который выполняет каноническую фиксацию общего выделения. */
+type ActiveSelectionScaleCommitKind = 'shapes' | 'texts'
+
 /** Способ фиксации шейпов после общей сессии скейлинга. */
 export type ActiveSelectionShapeCommitMode = 'canonical-scale' | 'fabric-transform'
 
@@ -136,7 +187,7 @@ type ActiveSelectionScaleSession = {
 const ACTIVE_SELECTION_SCALE_STATE_EPSILON = 0.000000001
 
 /**
- * Владеет общей сессией скейлинга ActiveSelection из изображений или шейпов.
+ * Владеет общей сессией скейлинга ActiveSelection из изображений, шейпов или состава с текстом.
  * Остальные составы пока используют прежнюю логику.
  */
 export default class ActiveSelectionScaleInteractionController {
@@ -146,8 +197,11 @@ export default class ActiveSelectionScaleInteractionController {
   /** Текущий поддерживаемый жест или null для прежнего пути. */
   private session: ActiveSelectionScaleSession | null = null
 
-  /** Сессия шейпов, которую ShapeManager сейчас фиксирует через `object:modified`. */
-  private shapeCommitSession: ActiveSelectionScaleSession | null = null
+  /** Сессия, которую доменный менеджер сейчас фиксирует через `object:modified`. */
+  private commitSession: Readonly<{
+    kind: ActiveSelectionScaleCommitKind
+    session: ActiveSelectionScaleSession
+  }> | null = null
 
   /** Создаёт владельца скейлинга общего выделения. */
   constructor({ editor }: { editor: ImageEditor }) {
@@ -248,8 +302,8 @@ export default class ActiveSelectionScaleInteractionController {
 
     session.runtime.finishSession()
     this.session = null
-    if (this.shapeCommitSession === session) {
-      this.shapeCommitSession = null
+    if (this.commitSession?.session === session) {
+      this.commitSession = null
     }
 
     return true
@@ -264,23 +318,35 @@ export default class ActiveSelectionScaleInteractionController {
     const { session } = this
     if (!session || session.target !== selection) return null
     if (session.protectedState.composition.kind !== 'shapes') return null
-    if (this.shapeCommitSession) {
+    if (this.commitSession) {
       throw new Error('Фиксация общего выделения из шейпов уже выполняется')
     }
 
-    this.shapeCommitSession = session
+    this.commitSession = Object.freeze({ kind: 'shapes', session })
 
     return session.hasSkewStep ? 'fabric-transform' : 'canonical-scale'
   }
 
   /** Завершает общую сессию после фиксации геометрии или преобразования шейпов. */
   public finishShapeSelectionCommit({ selection }: { selection: ActiveSelection }): boolean {
-    const { shapeCommitSession } = this
-    if (!shapeCommitSession || shapeCommitSession.target !== selection) return false
+    return this._finishSelectionCommit({ kind: 'shapes', selection })
+  }
 
-    this.shapeCommitSession = null
+  /** Защищает каноническую фиксацию текстов от внутренних событий смены выделения. */
+  public beginTextSelectionCommit({ selection }: { selection: ActiveSelection }): boolean {
+    const { session } = this
+    if (!session || session.target !== selection) return false
+    if (session.protectedState.composition.kind !== 'texts') return false
+    if (this.commitSession) throw new Error('Фиксация общего выделения уже выполняется другим доменом')
 
-    return this._finishAndClearGuides()
+    this.commitSession = Object.freeze({ kind: 'texts', session })
+
+    return true
+  }
+
+  /** Завершает общую сессию после канонической фиксации дочерних текстов. */
+  public finishTextSelectionCommit({ selection }: { selection: ActiveSelection }): boolean {
+    return this._finishSelectionCommit({ kind: 'texts', selection })
   }
 
   /** Завершает жест при удалении выделения или одного из его дочерних объектов. */
@@ -356,23 +422,15 @@ export default class ActiveSelectionScaleInteractionController {
       controlKey: session.projection.controlKey,
       pointerEvent,
       target: session.target
-    })) return this._finishBeforeSkew({ marker })
+    })) return this._finishBeforeSkew({ marker, pointerEvent })
     if (!isSameActiveSelectionScaleGesture({ session })) return this._continueWithExistingScaling()
 
-    const shapeControlMode = session.protectedState.composition.kind === 'shapes'
-      ? this.editor.shapeManager.resolveActiveSelectionScaleControlMode({
-        selection: session.target,
-        transform: session.transform,
-        event: pointerEvent
-      })
-      : null
-    const stepInput = resolveRectangularScaleStepInput({
-      canvas: this.editor.canvas,
+    const stepInput = resolveActiveSelectionScaleStepInput({
+      editor: this.editor,
       event,
       intentSource,
-      mode: shapeControlMode ?? undefined,
-      projection: session.projection,
-      target: session.target
+      pointerEvent,
+      session
     })
     if (!stepInput) return this._continueWithExistingScaling()
 
@@ -381,7 +439,8 @@ export default class ActiveSelectionScaleInteractionController {
       marker,
       mode: stepInput.mode,
       pointerEvent,
-      session
+      session,
+      textMeasurement: stepInput.textMeasurement
     })
   }
 
@@ -442,45 +501,34 @@ export default class ActiveSelectionScaleInteractionController {
     marker,
     mode,
     pointerEvent,
-    session
+    session,
+    textMeasurement
   }: {
     intent: ScaleRawIntent
     marker: object
     mode: RectangularScaleGestureMode
     pointerEvent: TPointerEvent
     session: ActiveSelectionScaleSession
+    textMeasurement: ActiveSelectionTextScaleMeasurement | null
   }): boolean {
-    const step = session.runtime.resolveScalePlan({ marker, intent })
+    const step = session.runtime.resolveScalePlan({
+      marker,
+      intent,
+      stepProjection: textMeasurement?.projection
+    })
     if (step.kind === 'duplicate') {
       throw new Error('Шаг ActiveSelection стал повторным после начальной проверки сессии')
     }
 
     try {
-      const appliedMultipliers = applyActiveSelectionScalePlan({
-        editor: this.editor,
+      const verification = this._applyAndVerifyScaleStep({
         plan: step.plan,
-        pointerEvent,
-        projection: session.projection,
-        protectedState: session.protectedState,
-        target: session.target,
-        transform: session.transform
-      })
-      const finalGeometry = readFinalRectangularScaleGeometry({
         mode,
-        multipliers: appliedMultipliers,
-        plan: step.plan,
-        protectedStatePreserved: isProtectedActiveSelectionStatePreserved({
-          mode,
-          multipliers: appliedMultipliers,
-          session
-        }),
-        target: session.target,
-        transform: session.transform
+        pointerEvent,
+        session,
+        textMeasurement,
+        token: step.token
       })
-      const verification = session.runtime.verifyScalePlan({ token: step.token, finalGeometry })
-      if (didActiveSelectionScaleChange({ multipliers: appliedMultipliers })) {
-        session.transform.actionPerformed = true
-      }
 
       this.editor.snappingManager.markScaleStepHandled({ marker })
       this.editor.snappingManager.publishVerifiedScaleGuides({ guides: verification.guides })
@@ -492,8 +540,90 @@ export default class ActiveSelectionScaleInteractionController {
     }
   }
 
+  /** Применяет уточнённый план и проверяет фактическую геометрию выделения. */
+  private _applyAndVerifyScaleStep({
+    mode,
+    plan,
+    pointerEvent,
+    session,
+    textMeasurement,
+    token
+  }: {
+    mode: RectangularScaleGestureMode
+    plan: ScaleSnapPlan
+    pointerEvent: TPointerEvent
+    session: ActiveSelectionScaleSession
+    textMeasurement: ActiveSelectionTextScaleMeasurement | null
+    token: ScalePlanToken
+  }): ReturnType<ScaleSnappingRuntime['verifyScalePlan']> {
+    const resolved = this._resolveDomainScalePlan({
+      mode,
+      plan,
+      runtime: session.runtime,
+      selection: session.target,
+      textMeasurement,
+      token
+    })
+    const multipliers = applyActiveSelectionScalePlan({
+      editor: this.editor,
+      plan: resolved.plan,
+      pointerEvent,
+      projection: session.projection,
+      protectedState: session.protectedState,
+      target: session.target,
+      textMeasurement: resolved.textMeasurement,
+      transform: session.transform
+    })
+    const finalGeometry = readFinalRectangularScaleGeometry({
+      mode,
+      multipliers,
+      plan: resolved.plan,
+      protectedStatePreserved: isProtectedActiveSelectionStatePreserved({ mode, multipliers, session }),
+      target: session.target,
+      transform: session.transform
+    })
+
+    if (didActiveSelectionScaleChange({ multipliers })) session.transform.actionPerformed = true
+
+    return session.runtime.verifyScalePlan({ token, finalGeometry })
+  }
+
+  /** Уточняет план только для состава, чья каноническая геометрия нелинейна. */
+  private _resolveDomainScalePlan({
+    mode,
+    plan,
+    runtime,
+    selection,
+    textMeasurement,
+    token
+  }: {
+    mode: RectangularScaleGestureMode
+    plan: ScaleSnapPlan
+    runtime: ScaleSnappingRuntime
+    selection: ActiveSelection
+    textMeasurement: ActiveSelectionTextScaleMeasurement | null
+    token: ScalePlanToken
+  }): ResolvedActiveSelectionScalePlan {
+    if (!textMeasurement) return Object.freeze({ plan, textMeasurement: null })
+
+    const resolved = this.editor.textManager.resolveActiveSelectionScaleStep({
+      mode,
+      plan,
+      pointerMeasurement: textMeasurement,
+      selection
+    })
+    const refinedPlan = resolved.refinement
+      ? runtime.refineScalePlan({ token, refinement: resolved.refinement })
+      : plan
+
+    return Object.freeze({
+      plan: refinedPlan,
+      textMeasurement: resolved.measurement
+    })
+  }
+
   /** Завершает общую сессию перед продолжением прежнего пути Fabric. */
-  private _continueWithExistingScaling(): false {
+  private _continueWithExistingScaling(): boolean {
     const { session } = this
     if (session?.protectedState.composition.kind === 'shapes') {
       session.runtime.finishSession()
@@ -503,13 +633,24 @@ export default class ActiveSelectionScaleInteractionController {
       return false
     }
 
-    this._finishAndClearGuides()
+    if (session?.protectedState.composition.kind === 'texts'
+      && this.editor.textManager.hasAppliedActiveSelectionScale({ selection: session.target })) {
+      return this._finishAppliedTextGesture({ session })
+    }
+
+    this._cancelAndClearGuides()
 
     return false
   }
 
-  /** Отключает прилипание перед наклоном, но сохраняет владельца завершающего события. */
-  private _finishBeforeSkew({ marker }: { marker: object }): true {
+  /** Обрабатывает попытку включить наклон боковой ручкой и очищает направляющие скейлинга. */
+  private _finishBeforeSkew({
+    marker,
+    pointerEvent
+  }: {
+    marker: object
+    pointerEvent: TPointerEvent
+  }): true {
     const { session } = this
     if (!session) {
       throw new Error('Переход к наклону требует активной сессии общего выделения')
@@ -520,10 +661,34 @@ export default class ActiveSelectionScaleInteractionController {
       session.phase = 'skew-passthrough'
       session.hasSkewStep = true
       this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
+    } else if (session.protectedState.composition.kind === 'texts'
+      && this.editor.textManager.hasAppliedActiveSelectionScale({ selection: session.target })) {
+      this._finishAppliedTextGesture({ session, pointerEvent })
     } else {
-      this._finishAndClearGuides()
+      this._cancelAndClearGuides()
     }
     this.editor.snappingManager.markScaleStepHandled({ marker })
+
+    return true
+  }
+
+  /** Фиксирует уже применённый текстовый шаг до передачи управления другому преобразованию. */
+  private _finishAppliedTextGesture({
+    session,
+    pointerEvent
+  }: {
+    session: ActiveSelectionScaleSession
+    pointerEvent?: TPointerEvent
+  }): true {
+    const restored = this.editor.textManager.restoreActiveSelectionScalePreview({
+      selection: session.target
+    })
+    if (!restored) throw new Error('Досрочное завершение должно восстановить последний текстовый шаг')
+
+    this.editor.canvas.endCurrentTransform(pointerEvent)
+    if (this.session === session) {
+      throw new Error('Досрочное завершение текстового скейлинга должно зафиксировать активную сессию')
+    }
 
     return true
   }
@@ -537,27 +702,48 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Очищает общую сессию и оставшееся временное состояние шейпов. */
-  private _cancelAndClearGuides(): boolean {
-    const { session } = this
-    if (!session) return false
+  /** Завершает фиксацию только для того домена и выделения, которые её начали. */
+  private _finishSelectionCommit({
+    kind,
+    selection
+  }: {
+    kind: ActiveSelectionScaleCommitKind
+    selection: ActiveSelection
+  }): boolean {
+    const { commitSession } = this
+    if (!commitSession || commitSession.kind !== kind || commitSession.session.target !== selection) return false
 
-    this._clearShapePreviewState({ session })
+    this.commitSession = null
 
     return this._finishAndClearGuides()
   }
 
-  /** Очищает временные данные ShapeManager, если сессия принадлежит шейпам. */
-  private _clearShapePreviewState({
+  /** Очищает общую сессию и промежуточное состояние менеджера объекта. */
+  private _cancelAndClearGuides(): boolean {
+    const { session } = this
+    if (!session) return false
+
+    this._clearDomainPreviewState({ session })
+
+    return this._finishAndClearGuides()
+  }
+
+  /** Очищает временные данные менеджера, которому принадлежит состав выделения. */
+  private _clearDomainPreviewState({
     session
   }: {
     session: ActiveSelectionScaleSession
   }): void {
-    if (session.protectedState.composition.kind !== 'shapes') return
+    const { composition } = session.protectedState
+    if (composition.kind === 'texts') {
+      this.editor.textManager.clearActiveSelectionScaling({ selection: session.target })
+      return
+    }
+    if (composition.kind !== 'shapes') return
 
     this.editor.shapeManager.clearActiveSelectionScalePreviewState({
       selection: session.target,
-      children: session.protectedState.composition.children.map(({ target }) => target)
+      children: composition.children.map(({ target }) => target)
     })
   }
 
@@ -579,7 +765,7 @@ export default class ActiveSelectionScaleInteractionController {
   /** Очищает сессию на любом терминальном событии. */
   private readonly _handleInteractionFinished = (): void => {
     const { session } = this
-    if (session && this.shapeCommitSession === session) return
+    if (session && this.commitSession?.session === session) return
 
     this._cancelAndClearGuides()
   }
@@ -606,7 +792,98 @@ export default class ActiveSelectionScaleInteractionController {
   }
 }
 
-/** Применяет общий план и передаёт шейпам расчёт их компоновки. */
+/** Возвращает исходные данные шага с учётом точной геометрии выбранных объектов. */
+function resolveActiveSelectionScaleStepInput({
+  editor,
+  event,
+  intentSource,
+  pointerEvent,
+  session
+}: {
+  editor: ImageEditor
+  event: ActiveSelectionScaleInteractionEvent
+  intentSource: RectangularScaleIntentSource
+  pointerEvent: TPointerEvent
+  session: ActiveSelectionScaleSession
+}): ActiveSelectionScaleStepInput | null {
+  const { composition } = session.protectedState
+  if (composition.kind === 'texts') {
+    return resolveTextSelectionScaleStepInput({
+      editor,
+      event,
+      intentSource,
+      pointerEvent,
+      session
+    })
+  }
+
+  const shapeMode = composition.kind === 'shapes'
+    ? editor.shapeManager.resolveActiveSelectionScaleControlMode({
+      selection: session.target,
+      transform: session.transform,
+      event: pointerEvent
+    })
+    : null
+  const stepInput = resolveRectangularScaleStepInput({
+    canvas: editor.canvas,
+    event,
+    intentSource,
+    mode: shapeMode ?? undefined,
+    projection: session.projection,
+    target: session.target
+  })
+  if (!stepInput) return null
+
+  return Object.freeze({ ...stepInput, textMeasurement: null })
+}
+
+/** Измеряет текстовый шаг от положения указателя, не используя предварительно изменённую рамку Fabric. */
+function resolveTextSelectionScaleStepInput({
+  editor,
+  event,
+  intentSource,
+  pointerEvent,
+  session
+}: {
+  editor: ImageEditor
+  event: ActiveSelectionScaleInteractionEvent
+  intentSource: RectangularScaleIntentSource
+  pointerEvent: TPointerEvent
+  session: ActiveSelectionScaleSession
+}): ActiveSelectionScaleStepInput | null {
+  const pointer = intentSource === 'fabric-preview' ? event.pointer : event.scenePoint
+  if (!pointer) return null
+
+  const mode = resolveRectangularScaleGestureMode({
+    canvas: editor.canvas,
+    pointerEvent,
+    projection: session.projection
+  })
+  const rawMultipliers = resolveRectangularScalePointerMultipliers({
+    projection: session.projection,
+    pointer,
+    mode
+  }) ?? (mode === 'uniform' ? Object.freeze({ x: 0, y: 0 }) : null)
+  if (!rawMultipliers) return null
+
+  const textMeasurement = editor.textManager.measureActiveSelectionScale({
+    mode,
+    multipliers: rawMultipliers,
+    selection: session.target
+  })
+
+  return Object.freeze({
+    intent: createRectangularScaleIntent({
+      mode,
+      multipliers: textMeasurement.multipliers,
+      pointerEvent
+    }),
+    mode,
+    textMeasurement
+  })
+}
+
+/** Применяет общий план и передаёт изменение размеров менеджеру соответствующего типа объектов. */
 function applyActiveSelectionScalePlan({
   editor,
   plan,
@@ -614,6 +891,7 @@ function applyActiveSelectionScalePlan({
   projection,
   protectedState,
   target,
+  textMeasurement,
   transform
 }: {
   editor: ImageEditor
@@ -622,8 +900,20 @@ function applyActiveSelectionScalePlan({
   projection: RectangularScaleGestureProjection
   protectedState: ActiveSelectionScaleProtectedState
   target: ActiveSelection
+  textMeasurement: ActiveSelectionTextScaleMeasurement | null
   transform: Transform
 }): RectangularScaleMultipliers {
+  if (protectedState.composition.kind === 'texts') {
+    if (!textMeasurement) {
+      throw new Error('План выделения с текстами должен содержать измеренное каноническое состояние')
+    }
+
+    return editor.textManager.applyActiveSelectionScalePreview({
+      measurement: textMeasurement,
+      selection: target
+    })
+  }
+
   applyRectangularScalePlan({ plan, projection, target, transform })
 
   if (protectedState.composition.kind === 'shapes') {
@@ -671,6 +961,18 @@ function createActiveSelectionScaleSession({
   const runtime = new ScaleSnappingRuntime()
   runtime.startSession({ baseline })
 
+  if (gesture.compositionKind === 'texts') {
+    const started = editor.textManager.beginActiveSelectionScaling({
+      projection,
+      selection: gesture.target,
+      transform: gesture.transform
+    })
+    if (!started) {
+      runtime.finishSession()
+      throw new Error('Поддерживаемое выделение с текстами должно начать сессию TextManager')
+    }
+  }
+
   return {
     hasSkewStep: false,
     phase: 'unified',
@@ -696,6 +998,7 @@ function resolveActiveSelectionScaleGesture({
 
   const compositionKind = resolveActiveSelectionScaleCompositionKind({ editor, target })
   if (!compositionKind) return null
+  if (compositionKind === 'texts' && (transform.corner === 'mt' || transform.corner === 'mb')) return null
   const shapeControlMode = compositionKind === 'shapes'
     ? editor.shapeManager.resolveActiveSelectionScaleControlMode({
       selection: target,
@@ -727,7 +1030,7 @@ function resolveActiveSelectionScaleGesture({
   })
 }
 
-/** Возвращает поддерживаемый однородный состав общего выделения. */
+/** Возвращает поддерживаемый состав общего выделения. */
 function resolveActiveSelectionScaleCompositionKind({
   editor,
   target
@@ -737,6 +1040,7 @@ function resolveActiveSelectionScaleCompositionKind({
 }): ActiveSelectionScaleComposition['kind'] | null {
   if (isSupportedImageSelection({ target })) return 'images'
   if (editor.shapeManager.supportsActiveSelectionScaling({ selection: target })) return 'shapes'
+  if (editor.textManager.supportsActiveSelectionScaling({ selection: target })) return 'texts'
 
   return null
 }
@@ -818,6 +1122,19 @@ function captureProtectedSelectionComposition({
     })
   }
 
+  if (compositionKind === 'texts') {
+    return Object.freeze({
+      children: Object.freeze(target.getObjects().map((object) => {
+        if (object instanceof FabricImage) {
+          return captureProtectedSelectionImageState({ target: object })
+        }
+
+        return captureProtectedSelectionTextState({ target: object })
+      })),
+      kind: 'texts'
+    })
+  }
+
   return Object.freeze({
     children: Object.freeze(target.getObjects().map((object) => {
       return captureProtectedSelectionShapeState({ target: object })
@@ -839,6 +1156,7 @@ function captureProtectedSelectionImageState({
     flipX: Boolean(target.flipX),
     flipY: Boolean(target.flipY),
     height: target.height,
+    kind: 'image',
     left: target.left,
     originX: target.originX,
     originY: target.originY,
@@ -869,6 +1187,30 @@ function captureProtectedSelectionShapeState({
     skewX: target.skewX ?? 0,
     skewY: target.skewY ?? 0,
     target
+  })
+}
+
+/** Сохраняет свойства текста, которые не зависят от канонического изменения размера. */
+function captureProtectedSelectionTextState({
+  target
+}: {
+  target: FabricObject
+}): ProtectedSelectionTextState {
+  if (!(target instanceof Textbox)) {
+    throw new Error('Текстовый состав должен содержать только объекты Textbox')
+  }
+
+  return Object.freeze({
+    angle: target.angle ?? 0,
+    flipX: Boolean(target.flipX),
+    flipY: Boolean(target.flipY),
+    kind: 'text',
+    originX: target.originX,
+    originY: target.originY,
+    skewX: target.skewX ?? 0,
+    skewY: target.skewY ?? 0,
+    target,
+    text: target.text ?? ''
   })
 }
 
@@ -957,6 +1299,16 @@ function isProtectedSelectionCompositionPreserved({
     })
   }
 
+  if (composition.kind === 'texts') {
+    return composition.children.every((state, index) => {
+      if (children[index] !== state.target) return false
+
+      return state.kind === 'image'
+        ? isProtectedSelectionImageContentStatePreserved({ state })
+        : isProtectedSelectionTextStatePreserved({ state })
+    })
+  }
+
   return composition.children.every((state, index) => {
     return children[index] === state.target && isProtectedSelectionShapeStatePreserved({ state })
   })
@@ -972,10 +1324,21 @@ function isProtectedSelectionImageStatePreserved({
 
   return areNumbersNear({ first: target.left, second: state.left })
     && areNumbersNear({ first: target.top, second: state.top })
-    && areNumbersNear({ first: target.width, second: state.width })
-    && areNumbersNear({ first: target.height, second: state.height })
     && areNumbersNear({ first: target.scaleX, second: state.scaleX })
     && areNumbersNear({ first: target.scaleY, second: state.scaleY })
+    && isProtectedSelectionImageContentStatePreserved({ state })
+}
+
+/** Проверяет свойства изображения, которые не должны меняться при пересчёте компоновки. */
+function isProtectedSelectionImageContentStatePreserved({
+  state
+}: {
+  state: ProtectedSelectionImageState
+}): boolean {
+  const { target } = state
+
+  return areNumbersNear({ first: target.width, second: state.width })
+    && areNumbersNear({ first: target.height, second: state.height })
     && areNumbersNear({ first: target.angle ?? 0, second: state.angle })
     && areNumbersNear({ first: target.skewX ?? 0, second: state.skewX })
     && areNumbersNear({ first: target.skewY ?? 0, second: state.skewY })
@@ -997,7 +1360,30 @@ function isProtectedSelectionShapeStatePreserved({
 
   return areNumbersNear({ first: target.scaleX, second: state.scaleX })
     && areNumbersNear({ first: target.scaleY, second: state.scaleY })
-    && areNumbersNear({ first: target.angle ?? 0, second: state.angle })
+    && isProtectedSelectionAffineStatePreserved({ state })
+}
+
+/** Проверяет свойства текста, которые не должно изменять применение рассчитанного размера. */
+function isProtectedSelectionTextStatePreserved({
+  state
+}: {
+  state: ProtectedSelectionTextState
+}): boolean {
+  const { target } = state
+
+  return isProtectedSelectionAffineStatePreserved({ state })
+    && (target.text ?? '') === state.text
+}
+
+/** Проверяет общие защищённые свойства шейпа или текста. */
+function isProtectedSelectionAffineStatePreserved({
+  state
+}: {
+  state: ProtectedSelectionShapeState | ProtectedSelectionTextState
+}): boolean {
+  const { target } = state
+
+  return areNumbersNear({ first: target.angle ?? 0, second: state.angle })
     && areNumbersNear({ first: target.skewX ?? 0, second: state.skewX })
     && areNumbersNear({ first: target.skewY ?? 0, second: state.skewY })
     && Boolean(target.flipX) === state.flipX

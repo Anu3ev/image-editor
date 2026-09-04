@@ -17,7 +17,7 @@ import {
   rehydrateTextboxLineDefaults,
   resolveSerializableTextboxState
 } from './line-defaults'
-import { applyCanonicalTextboxWidth } from './scaling/text-width-materialization'
+import { MINIMUM_TEXT_WIDTH } from './scaling/text-width-materialization'
 
 export type LineFontDefault = {
   fill?: string
@@ -156,7 +156,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
 
   public radiusTopRight?: number
 
-  /** Восстанавливает сохранённую дробную геометрию отдельного текста без потери точности. */
+  /** Восстанавливает сохранённую геометрию отдельного текста без повторного изменения ширины. */
   public static override fromObject<
     T extends TOptions<SerializedTextProps>,
     S extends FabricText
@@ -166,6 +166,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
 
       const serialized = object as T & {
         autoExpand?: boolean
+        height?: number
         preserveExactTextGeometry?: boolean
         shapeNodeType?: string
         width?: number
@@ -175,7 +176,8 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
         return textbox
       }
 
-      const { width } = serialized
+      const { height, width } = serialized
+      const hasSerializedHeight = typeof height === 'number' && Number.isFinite(height)
       const hasSerializedWidth = typeof width === 'number' && Number.isFinite(width)
       const shouldRestoreFixedWidth = serialized.autoExpand === false && hasSerializedWidth
       const shouldRestoreExactGeometry = serialized.preserveExactTextGeometry === true
@@ -183,7 +185,10 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
       if (!shouldRestoreExactGeometry) {
         if (!shouldRestoreFixedWidth) return textbox
 
-        applyCanonicalTextboxWidth({ textbox, width })
+        // Сохранённая ширина важнее ограничения, рассчитанного заново при восстановлении.
+        textbox.autoExpand = false
+        textbox.width = Math.max(MINIMUM_TEXT_WIDTH, width)
+        textbox.dirty = true
         textbox.setCoords()
         return textbox
       }
@@ -193,6 +198,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
       try {
         if (hasSerializedWidth) textbox.set({ width })
         textbox.initDimensions()
+        if (hasSerializedHeight) textbox.set({ height })
       } finally {
         textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
       }
@@ -229,14 +235,19 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
   }
 
   /**
-   * Пересчитывает размеры текста и при необходимости округляет их до целых значений.
+   * Пересчитывает размеры текста и сохраняет точную ширину, если она уже была
+   * зафиксирована унифицированным скейлингом.
    */
   public override initDimensions(): void {
+    const exactWidth = this.preserveExactTextGeometry === true ? this.width : null
+
     super.initDimensions()
 
     if (this.shouldRoundDimensionsOnInit !== false) {
       this._roundDimensions()
     }
+
+    if (exactWidth !== null) this.width = exactWidth
   }
 
   public override transformMatrixKey(skipGroup = false): number[] {

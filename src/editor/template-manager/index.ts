@@ -400,7 +400,9 @@ export default class TemplateManager {
 
       if (textbox && shouldPreserveExactTextGeometry) textbox.shouldRoundDimensionsOnInit = false
       try {
-        this._adaptTextboxWidth({ object, baseWidth })
+        if (textbox?.preserveExactTextGeometry !== true) {
+          this._adaptTextboxWidth({ object, baseWidth })
+        }
       } finally {
         if (textbox) textbox.shouldRoundDimensionsOnInit = previousShouldRoundDimensionsOnInit
       }

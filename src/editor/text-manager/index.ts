@@ -1,4 +1,5 @@
 import {
+  ActiveSelection,
   Canvas,
   FabricObject,
   Point,
@@ -29,6 +30,15 @@ import {
 import TextScalingController from './scaling/text-scaling'
 import TextCornerScaleInteractionController from './scaling/text-corner-scale-interaction-controller'
 import TextWidthResizeInteractionController from './scaling/text-width-resize-interaction-controller'
+import TextActiveSelectionScalingController from './scaling/active-selection-scaling-controller'
+import type { ActiveSelectionTextScaleMeasurement } from './scaling/active-selection-scale-measurer'
+import type { ResolvedActiveSelectionTextScaleStep } from './scaling/active-selection-scale-plan'
+import type {
+  RectangularScaleGestureMode,
+  RectangularScaleGestureProjection,
+  RectangularScaleMultipliers
+} from '../snapping-manager/scaling/rectangular-scale-gesture-projection'
+import type { ScaleSnapPlan } from '../snapping-manager/scaling/scale-snapping-resolver'
 import {
   syncLineFontDefaultsAfterTextChange
 } from './line-defaults'
@@ -106,6 +116,9 @@ export default class TextManager {
    */
   private scalingController: TextScalingController
 
+  /** Управляет скейлингом общего выделения, геометрию которого определяют отдельные тексты. */
+  private activeSelectionScalingController: TextActiveSelectionScalingController
+
   /** Контроллер углового скейлинга отдельного текста с общей логикой прилипания. */
   private cornerScaleInteractionController: TextCornerScaleInteractionController
 
@@ -146,6 +159,10 @@ export default class TextManager {
         })
         if (!updated) throw new Error('Итоговый размер текста должен сохраниться через общий механизм обновления')
       }
+    })
+    this.activeSelectionScalingController = new TextActiveSelectionScalingController({
+      canvas: editor.canvas,
+      canvasManager: editor.canvasManager
     })
     this.cornerScaleInteractionController = new TextCornerScaleInteractionController({
       editor,
@@ -436,6 +453,7 @@ export default class TextManager {
    */
   public destroy(): void {
     const { canvas } = this
+    this.activeSelectionScalingController.destroy()
     this.cornerScaleInteractionController.finishGesture()
     this.widthResizeInteractionController.finishGesture()
     canvas.off('object:scaling', this._handleObjectScaling)
@@ -497,6 +515,105 @@ export default class TextManager {
     textbox.setCoords()
 
     return scaleCommitted
+  }
+
+  /** Проверяет состав из поддерживаемых отдельных текстов и допустимых изображений. */
+  public supportsActiveSelectionScaling({ selection }: { selection: ActiveSelection }): boolean {
+    return this.activeSelectionScalingController.supportsScaling({ selection })
+  }
+
+  /** Фиксирует исходную геометрию поддерживаемого выделения с текстами до первого изменения. */
+  public beginActiveSelectionScaling({
+    projection,
+    selection,
+    transform
+  }: {
+    projection: RectangularScaleGestureProjection
+    selection: ActiveSelection
+    transform: Transform
+  }): boolean {
+    return this.activeSelectionScalingController.beginScaling({
+      projection,
+      selection,
+      transform
+    })
+  }
+
+  /** Измеряет точную каноническую геометрию выделения для текущих множителей. */
+  public measureActiveSelectionScale({
+    mode,
+    multipliers,
+    selection
+  }: {
+    mode: RectangularScaleGestureMode
+    multipliers: RectangularScaleMultipliers
+    selection: ActiveSelection
+  }): ActiveSelectionTextScaleMeasurement {
+    return this.activeSelectionScalingController.measureScale({
+      mode,
+      multipliers,
+      selection
+    })
+  }
+
+  /** Уточняет план прилипания по переносу строк и фактическим границам всех детей. */
+  public resolveActiveSelectionScaleStep({
+    mode,
+    plan,
+    pointerMeasurement,
+    selection
+  }: {
+    mode: RectangularScaleGestureMode
+    plan: ScaleSnapPlan
+    pointerMeasurement: ActiveSelectionTextScaleMeasurement
+    selection: ActiveSelection
+  }): ResolvedActiveSelectionTextScaleStep {
+    return this.activeSelectionScalingController.resolveScaleStep({
+      mode,
+      plan,
+      pointerMeasurement,
+      selection
+    })
+  }
+
+  /** Применяет одно измеренное состояние к дочерним объектам и общей рамке. */
+  public applyActiveSelectionScalePreview({
+    measurement,
+    selection
+  }: {
+    measurement: ActiveSelectionTextScaleMeasurement
+    selection: ActiveSelection
+  }): RectangularScaleMultipliers {
+    return this.activeSelectionScalingController.applyScalePreview({
+      measurement,
+      selection
+    })
+  }
+
+  /** Фиксирует рассчитанные свойства детей и восстанавливает рамку с единичным масштабом. */
+  public commitActiveSelectionScaling({
+    selection,
+    transform
+  }: {
+    selection: ActiveSelection
+    transform?: Transform | null
+  }): boolean {
+    return this.activeSelectionScalingController.commitScaling({ selection, transform })
+  }
+
+  /** Очищает измерительное состояние завершённой или прерванной текстовой сессии. */
+  public clearActiveSelectionScaling({ selection }: { selection: ActiveSelection }): boolean {
+    return this.activeSelectionScalingController.clearScaling({ selection })
+  }
+
+  /** Проверяет, что общая текстовая сессия уже применила хотя бы один рассчитанный шаг. */
+  public hasAppliedActiveSelectionScale({ selection }: { selection: ActiveSelection }): boolean {
+    return this.activeSelectionScalingController.hasAppliedScalePreview({ selection })
+  }
+
+  /** Восстанавливает последнее рассчитанное состояние перед досрочным завершением преобразования. */
+  public restoreActiveSelectionScalePreview({ selection }: { selection: ActiveSelection }): boolean {
+    return this.activeSelectionScalingController.restoreScalePreview({ selection })
   }
 
   /**
@@ -750,6 +867,25 @@ export default class TextManager {
   /** Фиксирует итог скейлинга и очищает временное состояние изменения размера текста. */
   private _handleObjectModified = (event: TextManagerModifiedEvent): void => {
     this.widthResizeInteractionController.finishGesture()
+
+    if (event.target instanceof ActiveSelection) {
+      const selection = event.target
+      const committed = this.editor.selectionManager.commitTextSelectionScale({
+        selection,
+        commit: () => {
+          const didCommit = this.commitActiveSelectionScaling({
+            selection,
+            transform: event.transform
+          })
+          if (!didCommit) throw new Error('TextManager должен зафиксировать поддерживаемое выделение с текстами')
+        }
+      })
+      if (committed) {
+        this.cornerScaleInteractionController.finishGesture()
+        return
+      }
+    }
+
     this.scalingController.handleObjectModified(event)
     this.cornerScaleInteractionController.finishGesture()
   }
