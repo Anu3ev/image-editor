@@ -1,16 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { type Page, expect } from '@playwright/test'
-import type { ShapeScaleSnapshot, SnappingObjectSnapshot } from '../../types'
-import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type {
-  ScaleInteractionTrace,
-  ScaleInteractionTraceModel,
-  ScaleTraceState
-} from '../scale-interaction-trace.model'
+  SelectionControlKey,
+  SelectionMinimumScaleDirection,
+  SelectionMinimumScaleState,
+  SnappingObjectSnapshot
+} from '../../types'
+import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type { ShapeModel } from '../shape/shape.model'
-
-/** Ручка, за которую можно изменить размер активного составного объекта. */
-export type SelectionControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
 /** Локальные точки привязки одной стандартной ручки составного объекта. */
 type SelectionControlOrigins = Readonly<{
@@ -88,7 +85,7 @@ type SelectionMinimumSizeParams = {
 }
 
 /** Ручки и состав текущего активного объекта. */
-export interface SelectionScaleCapability {
+interface SelectionScaleCapability {
   targetId: string | null
   targetType: string
   childIds: string[]
@@ -97,51 +94,21 @@ export interface SelectionScaleCapability {
 }
 
 /** Состояния в начале, во время жеста и после отпускания мыши. */
-export interface SelectionScaleGestureResult {
+interface SelectionScaleGestureResult {
   started: SnappingObjectSnapshot
   live: SnappingObjectSnapshot
   committed: SnappingObjectSnapshot
 }
 
-/** Полный записанный скейлинг общего выделения за правую нижнюю ручку. */
-export interface RecordedSelectionScaleGesture {
-  capability: SelectionScaleCapability
-  gesture: SelectionScaleGestureResult
-  recordedBaseline: ScaleTraceState
-  trace: ScaleInteractionTrace
-}
-
-/** Направление повторного уменьшения общего выделения до ограничений шейпов. */
-export type SelectionMinimumScaleDirection =
-  | Readonly<{ axis: 'horizontal' }>
-  | Readonly<{ axis: 'vertical' }>
-  | Readonly<{ axis: 'diagonal', corner: 'tr' | 'br' }>
-
-/** Состояние одного шейпа после очередного уменьшения общего выделения. */
-export interface SelectionMinimumShapeState {
-  id: string
-  lineCount: number
-  snapshot: ShapeScaleSnapshot
-}
-
-/** Состояние шейпов на одном этапе повторного скейлинга общего выделения. */
-export interface SelectionMinimumScaleState {
-  label: string
-  shapes: readonly SelectionMinimumShapeState[]
-}
-
 /** Зависимости сессии скейлинга общего выделения. */
 type SelectionScalingSessionDependencies = Readonly<{
   page: Page
-  scaleInteractionTrace: ScaleInteractionTraceModel
   shapes: ShapeModel
 }>
 
 /** Полный жест указателя при скейлинге активного общего выделения или группы. */
 export class SelectionScalingSession {
   private readonly page: Page
-
-  private readonly scaleInteractionTrace: ScaleInteractionTraceModel
 
   private readonly shapes: ShapeModel
 
@@ -150,11 +117,9 @@ export class SelectionScalingSession {
   /** Создаёт сессию скейлинга для указанной Playwright-страницы. */
   constructor({
     page,
-    scaleInteractionTrace,
     shapes
   }: SelectionScalingSessionDependencies) {
     this.page = page
-    this.scaleInteractionTrace = scaleInteractionTrace
     this.shapes = shapes
     this.activeInteraction = null
   }
@@ -201,6 +166,40 @@ export class SelectionScalingSession {
     if (!point) throw new Error('Не удалось определить точку ручки общего выделения')
 
     return point
+  }
+
+  /** Рассчитывает точки пропорционального пути правой верхней ручки для заданных верхних границ. */
+  async createTopRightProportionalPath({
+    centered = false,
+    topPositions
+  }: {
+    centered?: boolean
+    topPositions: readonly number[]
+  }): Promise<readonly Readonly<{ x: number; y: number }>[]> {
+    expect(topPositions.length, 'путь скейлинга должен содержать минимум одну точку').toBeGreaterThan(0)
+    expect(topPositions.length, 'путь скейлинга должен содержать не более двадцати точек').toBeLessThanOrEqual(20)
+    expect(topPositions.every(Number.isFinite), 'верхние границы пути должны быть конечными').toBe(true)
+
+    const baseline = await this.getSnapshot()
+    const fixedPoint = centered
+      ? { x: baseline.centerX, y: baseline.centerY }
+      : await this.getControlScenePoint({ control: 'bl' })
+    const movingPoint = await this.getControlScenePoint({ control: 'tr' })
+    const verticalDistance = movingPoint.y - fixedPoint.y
+
+    expect(Math.abs(verticalDistance), 'исходная высота пропорционального пути должна быть положительной')
+      .toBeGreaterThan(0)
+
+    return Object.freeze(topPositions.map((top) => {
+      const multiplier = (top - fixedPoint.y) / verticalDistance
+
+      expect(multiplier, 'множитель пропорционального скейлинга должен быть положительным').toBeGreaterThan(0)
+
+      return Object.freeze({
+        x: fixedPoint.x + ((movingPoint.x - fixedPoint.x) * multiplier),
+        y: top
+      })
+    }))
   }
 
   /** Возвращает доступные ручки, дочерние id и границы активного объекта. */
@@ -457,7 +456,7 @@ export class SelectionScalingSession {
 
   /** Начинает реальный скейлинг общего выделения или группы. */
   async startFromControl(
-    params: { centered?: boolean, control: SelectionControlKey }
+    params: { centered?: boolean, control: SelectionControlKey, shiftKey?: boolean }
   ): Promise<SnappingObjectSnapshot> {
     expect(this.activeInteraction, 'перед скейлингом не должно быть другой активной сессии').toBeNull()
 
@@ -465,6 +464,7 @@ export class SelectionScalingSession {
 
     await this.page.mouse.move(point.x, point.y)
     if (params.centered) await this.page.keyboard.down('Alt')
+    if (params.shiftKey) await this.page.keyboard.down('Shift')
     try {
       await this.page.mouse.down()
     } finally {
@@ -497,7 +497,7 @@ export class SelectionScalingSession {
       point,
       mode: 'browser-pointer',
       control: params.control,
-      shiftKey: false
+      shiftKey: Boolean(params.shiftKey)
     }
 
     return this.getSnapshot()
@@ -534,12 +534,14 @@ export class SelectionScalingSession {
       }
     }, point)
 
+    const pressesShiftForStep = shiftKey && !interaction.shiftKey
+
     if (ctrlKey) await this.page.keyboard.down('Control')
-    if (shiftKey) await this.page.keyboard.down('Shift')
+    if (pressesShiftForStep) await this.page.keyboard.down('Shift')
     try {
       await this.page.mouse.move(viewportPoint.x, viewportPoint.y)
     } finally {
-      if (shiftKey) await this.page.keyboard.up('Shift')
+      if (pressesShiftForStep) await this.page.keyboard.up('Shift')
       if (ctrlKey) await this.page.keyboard.up('Control')
     }
     await waitForCanvasRender({ page: this.page })
@@ -611,6 +613,16 @@ export class SelectionScalingSession {
     if (!interaction || interaction.mode !== 'browser-pointer') {
       throw new Error('Должна существовать сессия скейлинга через указатель')
     }
+
+    const hasCurrentTransform = await this.page.evaluate(() => {
+      const { editor } = window as any
+
+      return editor.canvas._currentTransform !== null
+    })
+    expect(
+      hasCurrentTransform,
+      'действие должно самостоятельно завершить преобразование Fabric до отпускания указателя'
+    ).toBe(false)
 
     try {
       await this.page.mouse.up()
@@ -749,47 +761,6 @@ export class SelectionScalingSession {
       },
       shiftKey: true
     })
-  }
-
-  /** Масштабирует общее выделение за правую нижнюю ручку и записывает состояния жеста. */
-  async scaleActiveSelectionFromBottomRightAndRecord({
-    childIds,
-    drag
-  }: {
-    childIds: string[]
-    drag: DragActiveScaleHandleParams
-  }): Promise<RecordedSelectionScaleGesture> {
-    expect(childIds.length, 'общее выделение должно содержать минимум два объекта')
-      .toBeGreaterThanOrEqual(2)
-    expect(new Set(childIds).size, 'id объектов общего выделения должны отличаться')
-      .toBe(childIds.length)
-
-    const capability = await this.getCapability()
-    const recordedBaseline = await this.scaleInteractionTrace
-      .startActiveSelectionScaleTrace({ childIds })
-    const gesture = await this.scaleFromBottomRightBy(drag)
-    const trace = await this.scaleInteractionTrace.finishActiveSelectionScaleTrace()
-
-    return { capability, gesture, recordedBaseline, trace }
-  }
-
-  /** Масштабирует обычную группу за правую нижнюю ручку и записывает состояния жеста. */
-  async scaleGroupFromBottomRightAndRecord({
-    childIds,
-    drag
-  }: {
-    childIds: string[]
-    drag: DragActiveScaleHandleParams
-  }): Promise<RecordedSelectionScaleGesture> {
-    expect(childIds.length, 'группа должна содержать минимум два объекта').toBeGreaterThanOrEqual(2)
-    expect(new Set(childIds).size, 'id объектов группы должны отличаться').toBe(childIds.length)
-
-    const capability = await this.getCapability()
-    const recordedBaseline = await this.scaleInteractionTrace.startGroupScaleTrace({ childIds })
-    const gesture = await this.scaleFromBottomRightBy(drag)
-    const trace = await this.scaleInteractionTrace.finishGroupScaleTrace()
-
-    return { capability, gesture, recordedBaseline, trace }
   }
 
   /** Повторно увеличивает и уменьшает выделение до ограничений шейпов в рамках одного жеста. */
@@ -1035,10 +1006,14 @@ export class SelectionScalingSession {
     ).toBe('browser-pointer')
     expect(Number.isFinite(interaction.point.x), 'координата X при отпускании мыши должна быть конечной').toBe(true)
 
-    await this.page.mouse.up()
-    await waitForCanvasRender({ page: this.page })
+    try {
+      await this.page.mouse.up()
+      await waitForCanvasRender({ page: this.page })
 
-    return this.getSnapshot()
+      return await this.getSnapshot()
+    } finally {
+      if (interaction.shiftKey) await this.page.keyboard.up('Shift')
+    }
   }
 
   /** Завершает скейлинг прямым вызовом обработчика Fabric. */

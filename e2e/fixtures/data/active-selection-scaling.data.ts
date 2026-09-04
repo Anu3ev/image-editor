@@ -1,4 +1,4 @@
-import type { SelectionControlKey } from '../../models/selection/selection-scaling-session'
+import type { SelectionControlKey } from '../../types'
 
 /** Грань общего выделения, которая может совпасть с опорной направляющей. */
 export type ActiveSelectionScaleEdge = 'bottom' | 'left' | 'right' | 'top'
@@ -111,6 +111,47 @@ export const ACTIVE_SELECTION_SCALE_CONTROL_CASES: readonly ActiveSelectionScale
     title: 'правая нижняя ручка',
     verticalGuide: 'bottom'
   }
+])
+
+/** Шесть ручек, доступных общему выделению, геометрию которого задают отдельные тексты. */
+export const ACTIVE_SELECTION_TEXT_SCALE_CONTROL_CASES = Object.freeze(
+  ACTIVE_SELECTION_SCALE_CONTROL_CASES.filter(({ control }) => {
+    return control !== 'mt' && control !== 'mb'
+  })
+)
+
+/** Два текста с разной геометрией для проверки общего скейлинга. */
+export const ACTIVE_SELECTION_TEXT_SCALE_SEEDS = Object.freeze([
+  Object.freeze({
+    leftOffset: 95,
+    topOffset: 105,
+    options: Object.freeze({
+      id: 'active-selection-text-first',
+      text: 'Первый текст с переносом строк',
+      width: 150,
+      fontSize: 30,
+      autoExpand: false,
+      paddingLeft: 8,
+      paddingRight: 12,
+      radiusTopLeft: 6,
+      radiusBottomRight: 10
+    })
+  }),
+  Object.freeze({
+    leftOffset: 275,
+    topOffset: 205,
+    options: Object.freeze({
+      id: 'active-selection-text-second',
+      text: 'Второй текст',
+      width: 125,
+      fontSize: 36,
+      autoExpand: false,
+      paddingTop: 5,
+      paddingBottom: 9,
+      radiusTopRight: 7,
+      radiusBottomLeft: 11
+    })
+  })
 ])
 
 /** Видимые ручки смешанного выделения с текстом. */

@@ -179,6 +179,32 @@ export default class SelectionManager {
     return true
   }
 
+  /** Выполняет фиксацию текстов, не позволяя внутренним событиям смены выделения прервать сессию. */
+  public commitTextSelectionScale({
+    selection,
+    commit
+  }: {
+    selection: ActiveSelection
+    commit: () => void
+  }): boolean {
+    const started = this.scaleInteractionController.beginTextSelectionCommit({ selection })
+    if (!started) return false
+
+    let didFinish = false
+
+    try {
+      commit()
+    } finally {
+      didFinish = this.scaleInteractionController.finishTextSelectionCommit({ selection })
+    }
+
+    if (!didFinish) {
+      throw new Error('Сессия скейлинга текстов должна завершиться после фиксации')
+    }
+
+    return true
+  }
+
   /**
    * Снимает подписки SelectionManager.
    */

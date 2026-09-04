@@ -132,6 +132,23 @@ export type ScaleSnapConstraints = Readonly<{
   y: PlannedScaleConstraint | null
 }>
 
+/** Переводит выбранные направляющие в ограничения локальной проекции размера. */
+export function createScaleProjectionConstraints({
+  constraints
+}: {
+  constraints: ScaleSnapConstraints
+}): readonly ScaleProjectionConstraint[] {
+  const projectionConstraints = [constraints.x, constraints.y]
+    .filter((constraint): constraint is PlannedScaleConstraint => constraint !== null)
+    .map((constraint) => Object.freeze({
+      axis: constraint.axis,
+      edge: constraint.candidate.edge,
+      position: constraint.expectedPosition
+    }))
+
+  return Object.freeze(projectionConstraints)
+}
+
 /** Точная проекция, канонические значения и достигнутые ограничения после уточнения. */
 export type ScaleSnapPlanRefinement = Readonly<{
   constraints: ScaleSnapConstraints

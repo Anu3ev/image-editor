@@ -15,7 +15,7 @@ import {
   readStableMinimumGeometry,
   type StableMinimumGeometry
 } from '../../helpers/shape-scaling-geometry.helper'
-import type { SelectionMinimumScaleState } from '../../models/selection/selection-scaling-session'
+import type { SelectionMinimumScaleState } from '../../types'
 import type { ShapeModel } from '../../models/shape/shape.model'
 
 /** Поля устойчивой геометрии, которые сравниваются после каждого уменьшения. */

@@ -224,6 +224,9 @@ export const createTextManagerTestSetup = (
     },
     shapeManager: {
       commitRehydratedShapeLayout: jest.fn()
+    },
+    selectionManager: {
+      commitTextSelectionScale: jest.fn(() => false)
     }
   } as any
 

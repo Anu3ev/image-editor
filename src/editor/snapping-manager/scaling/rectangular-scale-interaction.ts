@@ -60,12 +60,12 @@ export function resolveRectangularScaleStepInput({
   const pointerEvent = event.e
   if (!pointerEvent) return null
 
-  const mode = requestedMode ?? resolveRectangularScaleMode({ canvas, pointerEvent, projection })
+  const mode = requestedMode ?? resolveRectangularScaleGestureMode({ canvas, pointerEvent, projection })
   const multipliers = resolveRawMultipliers({ event, intentSource, mode, projection, target })
   if (!multipliers || multipliers.x <= 0 || multipliers.y <= 0) return null
 
   return Object.freeze({
-    intent: createRectangularScaleRawIntent({ mode, multipliers, pointerEvent }),
+    intent: createRectangularScaleIntent({ mode, multipliers, pointerEvent }),
     mode
   })
 }
@@ -162,7 +162,7 @@ export function readFinalRectangularScaleGeometry({
 }
 
 /** Выбирает способ изменения размера по ручке и настройкам Fabric. */
-function resolveRectangularScaleMode({
+export function resolveRectangularScaleGestureMode({
   canvas,
   pointerEvent,
   projection
@@ -233,7 +233,7 @@ function readRectangularScaleMultipliers({
 }
 
 /** Формирует канонические исходные данные общего расчёта прилипания. */
-function createRectangularScaleRawIntent({
+export function createRectangularScaleIntent({
   mode,
   multipliers,
   pointerEvent

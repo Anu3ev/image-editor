@@ -68,6 +68,12 @@ type ScaledAutoExpandOptions = {
   shouldScaleFontSize: boolean
 }
 
+/** Допуск сравнения коэффициентов точного пропорционального скейлинга. */
+const PROPORTIONAL_TEXT_SCALE_EPSILON = 0.000000001
+
+/** Максимальная погрешность высоты, которую можно считать следствием округления Fabric. */
+const UNSCALED_TEXTBOX_HEIGHT_DRIFT_LIMIT = 0.5 + DIMENSION_EPSILON
+
 /**
  * Возвращает число строк, заданных явными переносами текста.
  */
@@ -194,6 +200,7 @@ export const captureTextScaleBase = ({
 
   return {
     width,
+    height: textbox.height ?? textbox.calcTextHeight(),
     fontSize,
     explicitLineCount,
     renderedLineCount,
@@ -390,6 +397,63 @@ function restoreScaledTextboxPlacement({
   }
 }
 
+/**
+ * Сохраняет единый множитель ширины и шрифта, если Fabric поднял ширину до дробного `dynamicMinWidth`.
+ * Исходная ширина текста может быть округлена вниз, поэтому повторное ограничение во время точного
+ * пропорционального скейлинга не должно добавлять к ней скрытую долю пикселя.
+ */
+function restoreExactProportionalWidth({
+  base,
+  committedWidth,
+  shouldRoundDimensions,
+  shouldScaleFontSize,
+  textbox,
+  widthScale
+}: {
+  base: TextScaleBaseState
+  committedWidth: number
+  shouldRoundDimensions: boolean
+  shouldScaleFontSize: boolean
+  textbox: EditorTextbox
+  widthScale: number
+}): void {
+  if (shouldRoundDimensions || !shouldScaleFontSize) return
+
+  const appliedFontScale = (textbox.fontSize ?? base.fontSize) / base.fontSize
+  const usesOneScale = Math.abs(widthScale - appliedFontScale) <= PROPORTIONAL_TEXT_SCALE_EPSILON
+  if (!usesOneScale || (textbox.width ?? committedWidth) <= committedWidth) return
+
+  // Fabric повторно применяет dynamicMinWidth внутри `_set('width')`, поэтому точный измеренный
+  // результат записывается напрямую после завершения layout.
+  textbox.width = committedWidth
+  textbox.dirty = true
+}
+
+/** Сохраняет высоту текста, если изменение ширины не повлияло на количество строк. */
+function restoreUnscaledTextboxHeight({
+  base,
+  shouldScaleFontSize,
+  textbox
+}: {
+  base: TextScaleBaseState
+  shouldScaleFontSize: boolean
+  textbox: EditorTextbox
+}): void {
+  if (shouldScaleFontSize) return
+
+  const lineCount = resolveRenderedLineCount({
+    textbox,
+    fallbackLineCount: base.renderedLineCount ?? base.explicitLineCount ?? 1
+  })
+  if (lineCount !== base.renderedLineCount) return
+
+  const currentHeight = textbox.height ?? base.height
+  if (Math.abs(currentHeight - base.height) > UNSCALED_TEXTBOX_HEIGHT_DRIFT_LIMIT) return
+
+  textbox.set({ height: base.height })
+  textbox.dirty = true
+}
+
 /** Применяет канонические свойства текста и восстанавливает положение объекта. */
 function materializeStandaloneTextboxScale({
   options,
@@ -413,7 +477,7 @@ function materializeStandaloneTextboxScale({
   } = options
   const nextWidth = Math.max(1, base.width * widthScale)
   const committedWidth = shouldRoundDimensions ? Math.max(1, Math.round(nextWidth)) : nextWidth
-  const widthChanged = Math.abs(committedWidth - (textbox.width ?? base.width)) > DIMENSION_EPSILON
+  const widthChanged = Math.abs(committedWidth - base.width) > DIMENSION_EPSILON
 
   if (shouldDisableAutoExpandOnHorizontalChange && widthChanged) textbox.autoExpand = false
 
@@ -427,6 +491,15 @@ function materializeStandaloneTextboxScale({
   })
   textbox.set({ width: committedWidth, scaleX: 1, scaleY: 1 })
   textbox.initDimensions()
+  restoreUnscaledTextboxHeight({ base, shouldScaleFontSize, textbox })
+  restoreExactProportionalWidth({
+    base,
+    committedWidth,
+    shouldRoundDimensions,
+    shouldScaleFontSize,
+    textbox,
+    widthScale
+  })
   preserveScaledAutoExpandLineCount({
     textbox,
     canvasManager,

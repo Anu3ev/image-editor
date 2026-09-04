@@ -23,6 +23,9 @@ test.describe('Сжатие общего выделения с текстом п
     editorModel,
     selection
   }) => {
+    const initialSelection = await test.step('Получить исходную ширину выделения', () => {
+      return selection.scaling.getSnapshot()
+    })
     const liveSelection = await test.step('Сузить выделение справа до минимальной ширины', () => {
       return selection.scaling.shrinkHorizontallyFromRightToMinimum({
         minimumSize: ACTIVE_SELECTION_MINIMUM_SIZE
@@ -44,7 +47,10 @@ test.describe('Сжатие общего выделения с текстом п
       expect(liveSelection.boundsWidth).toBeGreaterThan(0)
       expect(finalSelection.boundsWidth).toBeGreaterThan(0)
       expect(liveSelection.boundsWidth)
-        .toBeLessThanOrEqual(ACTIVE_SELECTION_MINIMUM_SIZE + ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
+        .toBeLessThan(initialSelection.boundsWidth - ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
+      expect(liveSelection.boundsWidth)
+        .toBeGreaterThan(ACTIVE_SELECTION_MINIMUM_SIZE + ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
+      expect(finalSelection.boundsWidth).toBeCloseTo(liveSelection.boundsWidth, 5)
       expect(finalLeftText.flipX).toBe(false)
       expect(finalRightText.flipX).toBe(false)
       expect(finalLeftText.centerX).toBeLessThanOrEqual(finalRightText.centerX)
@@ -67,6 +73,9 @@ test.describe('Общее выделение с текстом: непропор
     editorModel,
     selection
   }) => {
+    const initialSelection = await test.step('Получить исходный размер выделения', () => {
+      return selection.scaling.getSnapshot()
+    })
     const liveSelection = await test.step('Сузить выделение из правого нижнего угла до минимального размера', () => {
       return selection.scaling.shrinkDiagonallyFromBottomRightToMinimum({
         minimumSize: ACTIVE_SELECTION_MINIMUM_SIZE,
@@ -93,9 +102,13 @@ test.describe('Общее выделение с текстом: непропор
       expect(finalSelection.boundsWidth).toBeGreaterThan(0)
       expect(finalSelection.boundsHeight).toBeGreaterThan(0)
       expect(liveSelection.boundsWidth)
-        .toBeLessThanOrEqual(ACTIVE_SELECTION_MINIMUM_SIZE + ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
+        .toBeLessThan(initialSelection.boundsWidth - ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
       expect(liveSelection.boundsHeight)
-        .toBeLessThanOrEqual(ACTIVE_SELECTION_MINIMUM_SIZE + ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
+        .toBeLessThan(initialSelection.boundsHeight - ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
+      expect(liveSelection.boundsWidth)
+        .toBeGreaterThan(ACTIVE_SELECTION_MINIMUM_SIZE + ACTIVE_SELECTION_MINIMUM_SIZE_TOLERANCE)
+      expect(finalSelection.boundsWidth).toBeCloseTo(liveSelection.boundsWidth, 5)
+      expect(finalSelection.boundsHeight).toBeCloseTo(liveSelection.boundsHeight, 5)
       expect(finalLeftText.flipX).toBe(false)
       expect(finalLeftText.flipY).toBe(false)
       expect(finalRightText.flipX).toBe(false)

@@ -8,6 +8,7 @@ import type {
   ScaleSnapConstraints,
   ScaleSnapPlan
 } from '../../snapping-manager/scaling/scale-snapping-resolver'
+import { createScaleProjectionConstraints } from '../../snapping-manager/scaling/scale-snapping-resolver'
 import type { TextCornerScaleMeasurement } from './text-corner-scale-measurer'
 
 /** Источник точной геометрии текста при проверяемом множителе. */
@@ -20,21 +21,6 @@ const MAX_TEXT_CORNER_SCALE_REFINEMENT_STEPS = 8
 
 /** Допуск остановки повторяющегося расчёта множителя. */
 const TEXT_CORNER_SCALE_REFINEMENT_EPSILON = 0.0000001
-
-/** Возвращает выбранные направляющие в формате локальной проекции. */
-function createProjectionConstraints({
-  constraints
-}: {
-  constraints: ScaleSnapConstraints
-}): readonly ScaleProjectionConstraint[] {
-  return [constraints.x, constraints.y]
-    .filter((constraint): constraint is PlannedScaleConstraint => constraint !== null)
-    .map((constraint) => Object.freeze({
-      axis: constraint.axis,
-      edge: constraint.candidate.edge,
-      position: constraint.expectedPosition
-    }))
-}
 
 /** Проверяет, какие выбранные направляющие достигнуты измеренным текстом. */
 function resolveReachedPlannedAxes({
@@ -131,7 +117,7 @@ function resolveTextCornerScaleMeasurementForConstraints({
   plan: ScaleSnapPlan
   preferredScale?: number
 }): TextCornerScaleMeasurement | null {
-  const projectionConstraints = createProjectionConstraints({ constraints })
+  const projectionConstraints = createScaleProjectionConstraints({ constraints })
   if (projectionConstraints.length === 0) return null
 
   const measuredScales: number[] = []

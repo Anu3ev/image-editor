@@ -1,6 +1,7 @@
 import {
   FREE_SCALE_HOLD_STATE,
   createScaleGestureBaseline,
+  createScaleProjectionConstraints,
   refineScaleSnapPlan,
   resolveScaleSnapPlan,
   verifyScaleSnapPlan
@@ -14,6 +15,23 @@ import {
 } from '../../../../test-utils/snapping/scale-snapping-core'
 
 describe('Расчёт прилипания при скейлинге', () => {
+  it('переводит выбранную направляющую в ограничение локального расчёта размера', () => {
+    const baseline = createScaleBaseline({
+      candidates: [createScaleCandidate({ id: 'right-edge', axis: 'x', position: 100 })]
+    })
+    const plan = resolveScaleSnapPlan({
+      baseline,
+      intent: createScaleRawIntent({ values: [0.96, 1] }),
+      holdState: FREE_SCALE_HOLD_STATE
+    })
+
+    const constraints = createScaleProjectionConstraints({ constraints: plan.constraints })
+
+    expect(constraints).toEqual([{ axis: 'x', edge: 'right', position: 100 }])
+    expect(Object.isFrozen(constraints)).toBe(true)
+    expect(Object.isFrozen(constraints[0])).toBe(true)
+  })
+
   it('при подходе с обеих сторон выбирает одну направляющую и не меняет исходные данные', () => {
     const baseline = createScaleBaseline({
       candidates: [createScaleCandidate({ id: 'right-edge', axis: 'x', position: 100 })]

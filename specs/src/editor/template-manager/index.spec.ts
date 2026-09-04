@@ -304,6 +304,43 @@ describe('TemplateManager', () => {
     expect(editor.errorManager.emitError).not.toHaveBeenCalled()
   })
 
+  it('текст с точной геометрией из шаблона сохраняет ширину и перенос строк', async() => {
+    const { manager, editor } = createTemplateManagerTestSetup()
+    const textbox = createRestoredStandaloneTemplateTextbox({ width: 174 })
+    textbox.preserveExactTextGeometry = true
+    const initialWidth = textbox.width
+    const initialHeight = textbox.height
+    const initDimensionsMock = jest.spyOn(textbox, 'initDimensions')
+
+    jest.spyOn(util, 'enlivenObjects').mockResolvedValue([textbox])
+
+    const result = await manager.applyTemplate({
+      template: {
+        id: 'template-with-exact-text-geometry',
+        meta: {
+          baseWidth: 810,
+          baseHeight: 1080,
+          positionsNormalized: true
+        },
+        objects: [{
+          type: 'background-textbox',
+          preserveExactTextGeometry: true,
+          text: textbox.text,
+          width: initialWidth
+        }]
+      }
+    })
+
+    expect(result).toEqual([textbox])
+    expect(textbox.width).toBe(initialWidth)
+    expect(textbox.height).toBe(initialHeight)
+    expect(initDimensionsMock).not.toHaveBeenCalled()
+    expect(editor.textManager.commitStandaloneTextScale).toHaveBeenCalledWith({
+      target: textbox,
+      shouldRoundDimensions: false
+    })
+  })
+
   it('centered standalone text из шаблона сохраняет относительное положение на размере с горизонтальными полями', async() => {
     const template = createStandaloneTextTemplateDefinition()
     const baseMontageBounds = {

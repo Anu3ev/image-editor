@@ -167,6 +167,22 @@ describe('BackgroundTextbox', () => {
       expect(initialKey.slice(-4)).toEqual([0, 0, 0, 0])
       expect(nextKey.slice(-4)).toEqual([0, 50, 0, 0])
     })
+
+    it('сохраняет точную ширину при повторном пересчёте размеров', () => {
+      const textbox = new BackgroundTextbox('Текст с дробной геометрией', {
+        fontSize: 30,
+        width: 200
+      })
+      const exactWidth = Math.max(1, textbox.dynamicMinWidth - 0.025)
+
+      textbox.set({ width: exactWidth })
+      textbox.preserveExactTextGeometry = true
+      textbox.initDimensions()
+
+      expect(exactWidth).toBeLessThan(textbox.dynamicMinWidth)
+      expect(textbox.width).toBe(exactWidth)
+      expect(textbox.height).toBeGreaterThan(0)
+    })
   })
 
   describe('rendering', () => {
@@ -453,6 +469,32 @@ describe('BackgroundTextbox', () => {
       expect(restored.preserveExactTextGeometry).toBe(true)
     })
 
+    it('сохраняет округлённую ширину фиксированного текста после восстановления', async() => {
+      const measuredWordWidth = 152.197265625
+      const textbox = new BackgroundTextbox('Первый текст с переносом строк', {
+        autoExpand: false,
+        fontSize: 30,
+        width: Math.round(measuredWordWidth)
+      })
+      textbox.dynamicMinWidth = measuredWordWidth
+      const serialized = textbox.toObject(['autoExpand'])
+
+      expect(Number.isInteger(serialized.width)).toBe(true)
+      expect(textbox.dynamicMinWidth).toBeGreaterThan(serialized.width)
+      expect(textbox.dynamicMinWidth - serialized.width).toBeLessThan(0.5)
+
+      const restored = await BackgroundTextbox.fromObject(serialized)
+
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      if (!(restored instanceof BackgroundTextbox)) {
+        throw new Error('После восстановления должен существовать BackgroundTextbox')
+      }
+      expect(restored.width).toBe(serialized.width)
+      expect(restored.dynamicMinWidth).toBeGreaterThan(serialized.width)
+      expect(restored.autoExpand).toBe(false)
+      expect(restored.preserveExactTextGeometry).toBe(false)
+    })
+
     it('сохраняет дробную ширину автоматически расширяемого текста после восстановления', async() => {
       const textbox = new BackgroundTextbox('Текст', {
         autoExpand: true,
@@ -499,6 +541,29 @@ describe('BackgroundTextbox', () => {
       expect(restored.width).toBe(serialized.width)
       expect(restored.height).toBeCloseTo(serialized.height, 10)
       expect(restored.height).toBeCloseTo(restored.calcTextHeight(), 10)
+    })
+
+    it('сохраняет точную высоту после восстановления без повторного изменения геометрии', async() => {
+      const textbox = new BackgroundTextbox('Текст', {
+        autoExpand: false,
+        fontSize: 25,
+        lineHeight: 1.13,
+        width: 126.5
+      })
+      textbox.shouldRoundDimensionsOnInit = false
+      textbox.initDimensions()
+      textbox.shouldRoundDimensionsOnInit = undefined
+      const exactHeight = textbox.height + 0.1312
+      textbox.set({ height: exactHeight })
+      textbox.preserveExactTextGeometry = true
+
+      const serialized = textbox.toObject(['autoExpand'])
+      const restored = await BackgroundTextbox.fromObject(serialized)
+
+      expect(serialized.height).toBe(exactHeight)
+      expect(restored).toBeInstanceOf(BackgroundTextbox)
+      expect(restored.height).toBe(exactHeight)
+      expect(restored.height).not.toBeCloseTo(restored.calcTextHeight(), 10)
     })
 
     it('не меняет правила восстановления текста внутри шейпа', async() => {
