@@ -1,5 +1,8 @@
 import { expect } from '@playwright/test'
-import type { SelectionImageTextCompositionSnapshot } from '../types'
+import type {
+  SelectionChildSceneGeometrySnapshot,
+  SelectionImageTextCompositionSnapshot
+} from '../types'
 
 /** Пара снимков до и во время скейлинга выделения с изображениями и текстами. */
 type ImageTextScalePreviewExpectation = Readonly<{
@@ -19,6 +22,151 @@ type ImageTextScaleHoldExpectation = Readonly<{
   acquired: SelectionImageTextCompositionSnapshot
   held: SelectionImageTextCompositionSnapshot
 }>
+
+/** Пара снимков до и после копирования или восстановления из шаблона. */
+type ImageTextScaleRoundtripExpectation = Readonly<{
+  actual: SelectionImageTextCompositionSnapshot
+  expected: SelectionImageTextCompositionSnapshot
+}>
+
+/** Смещение восстановленного общего выделения относительно исходного. */
+type ImageTextScaleRoundtripOffset = Readonly<{
+  x: number
+  y: number
+}>
+
+/** Проверяет сохранение видимой геометрии дочернего объекта после roundtrip. */
+function expectChildSceneGeometryRoundtrip({
+  actual,
+  expected,
+  offset
+}: {
+  actual: SelectionChildSceneGeometrySnapshot
+  expected: SelectionChildSceneGeometrySnapshot
+  offset: ImageTextScaleRoundtripOffset
+}): void {
+  expect(actual.centerX).toBeCloseTo(expected.centerX + offset.x, 3)
+  expect(actual.centerY).toBeCloseTo(expected.centerY + offset.y, 3)
+  expect(actual.topEdgeLength).toBeCloseTo(expected.topEdgeLength, 3)
+  expect(actual.leftEdgeLength).toBeCloseTo(expected.leftEdgeLength, 3)
+  expect(actual.sceneAngle).toBeCloseTo(expected.sceneAngle, 3)
+  expect(actual.orthogonality).toBeCloseTo(expected.orthogonality, 5)
+}
+
+/** Проверяет сохранение изображения после копирования или восстановления из шаблона. */
+function expectImageScaleRoundtrip({
+  actual,
+  expected,
+  offset
+}: {
+  actual: SelectionImageTextCompositionSnapshot['images'][number]
+  expected: SelectionImageTextCompositionSnapshot['images'][number]
+  offset: ImageTextScaleRoundtripOffset
+}): void {
+  expect(actual.snapshot).toMatchObject({
+    cropX: expected.snapshot.cropX,
+    cropY: expected.snapshot.cropY,
+    fill: expected.snapshot.fill,
+    flipX: expected.snapshot.flipX,
+    flipY: expected.snapshot.flipY,
+    height: expected.snapshot.height,
+    locked: expected.snapshot.locked,
+    opacity: expected.snapshot.opacity,
+    originX: expected.snapshot.originX,
+    originY: expected.snapshot.originY,
+    selectable: expected.snapshot.selectable,
+    stroke: expected.snapshot.stroke,
+    strokeWidth: expected.snapshot.strokeWidth,
+    visible: expected.snapshot.visible,
+    width: expected.snapshot.width
+  })
+  expectChildSceneGeometryRoundtrip({ actual: actual.geometry, expected: expected.geometry, offset })
+}
+
+/** Проверяет сохранение отдельного текста после копирования или восстановления из шаблона. */
+function expectTextScaleRoundtrip({
+  actual,
+  expected,
+  offset
+}: {
+  actual: SelectionImageTextCompositionSnapshot['texts'][number]
+  expected: SelectionImageTextCompositionSnapshot['texts'][number]
+  offset: ImageTextScaleRoundtripOffset
+}): void {
+  for (const field of [
+    'width',
+    'height',
+    'fontSize',
+    'lineHeight',
+    'backgroundOpacity',
+    'opacity',
+    'strokeWidth',
+    'paddingTop',
+    'paddingRight',
+    'paddingBottom',
+    'paddingLeft',
+    'radiusTopLeft',
+    'radiusTopRight',
+    'radiusBottomRight',
+    'radiusBottomLeft',
+    'scaleX',
+    'scaleY'
+  ] as const) {
+    expect(actual.snapshot[field]).toBeCloseTo(expected.snapshot[field], 3)
+  }
+  expect(actual.snapshot).toMatchObject({
+    autoExpand: expected.snapshot.autoExpand,
+    backgroundColor: expected.snapshot.backgroundColor,
+    fill: expected.snapshot.fill,
+    flipX: expected.snapshot.flipX,
+    flipY: expected.snapshot.flipY,
+    fontFamily: expected.snapshot.fontFamily,
+    fontStyle: expected.snapshot.fontStyle,
+    fontWeight: expected.snapshot.fontWeight,
+    linethrough: expected.snapshot.linethrough,
+    locked: expected.snapshot.locked,
+    selectable: expected.snapshot.selectable,
+    stroke: expected.snapshot.stroke,
+    text: expected.snapshot.text,
+    textAlign: expected.snapshot.textAlign,
+    underline: expected.snapshot.underline,
+    uppercase: expected.snapshot.uppercase,
+    visible: expected.snapshot.visible
+  })
+  expect(actual.snapshot.lineCount).toBe(expected.snapshot.lineCount)
+  expectChildSceneGeometryRoundtrip({ actual: actual.geometry, expected: expected.geometry, offset })
+}
+
+/** Проверяет видимую геометрию всего состава после копирования или шаблона. */
+export function expectImageTextScaleRoundtrip({
+  actual,
+  expected
+}: ImageTextScaleRoundtripExpectation): void {
+  const offset = {
+    x: actual.selection.boundsLeft - expected.selection.boundsLeft,
+    y: actual.selection.boundsTop - expected.selection.boundsTop
+  }
+
+  expect(actual.selection.boundsWidth).toBeCloseTo(expected.selection.boundsWidth, 3)
+  expect(actual.selection.boundsHeight).toBeCloseTo(expected.selection.boundsHeight, 3)
+  expect(actual.selection.scaleX).toBeCloseTo(expected.selection.scaleX, 8)
+  expect(actual.selection.scaleY).toBeCloseTo(expected.selection.scaleY, 8)
+  expect(actual.images).toHaveLength(expected.images.length)
+  expect(actual.texts).toHaveLength(expected.texts.length)
+
+  for (const [index, actualImage] of actual.images.entries()) {
+    const expectedImage = expected.images[index]
+    if (!expectedImage) throw new Error('Исходное состояние должно содержать все изображения')
+
+    expectImageScaleRoundtrip({ actual: actualImage, expected: expectedImage, offset })
+  }
+  for (const expectedText of expected.texts) {
+    const actualText = actual.texts.find(({ snapshot }) => snapshot.text === expectedText.snapshot.text)
+    if (!actualText) throw new Error(`Не удалось получить текст «${expectedText.snapshot.text}»`)
+
+    expectTextScaleRoundtrip({ actual: actualText, expected: expectedText, offset })
+  }
+}
 
 /** Проверяет неизменность рамки и всех дочерних объектов внутри удержания. */
 export function expectImageTextScaleHold({

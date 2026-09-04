@@ -392,6 +392,35 @@ export class SelectionModel {
     }
   }
 
+  /** Возвращает состояние текущего общего выделения из изображений и отдельных текстов. */
+  async getActiveImageTextCompositionSnapshot(): Promise<SelectionImageTextCompositionSnapshot> {
+    const composition = await this.getCompositionSnapshot()
+    const imageIds: string[] = []
+    const textIds: string[] = []
+
+    for (const child of composition.children) {
+      if (typeof child.id !== 'string' || child.id.length === 0) {
+        throw new Error('У каждого объекта общего выделения должен существовать id')
+      }
+
+      if (child.type === 'image') {
+        imageIds.push(child.id)
+        continue
+      }
+      if (child.type === 'background-textbox') {
+        textIds.push(child.id)
+        continue
+      }
+
+      throw new Error('Общее выделение должно состоять только из изображений и отдельных текстов')
+    }
+
+    if (imageIds.length === 0) throw new Error('Общее выделение должно содержать изображение')
+    if (textIds.length === 0) throw new Error('Общее выделение должно содержать отдельный текст')
+
+    return this.getImageTextCompositionSnapshot({ imageIds, textIds })
+  }
+
   /** Возвращает фактический наклон текущего общего выделения. */
   async getSkew(): Promise<{ skewX: number; skewY: number }> {
     const skew = await this.page.evaluate(() => {

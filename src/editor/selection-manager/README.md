@@ -52,7 +52,7 @@ The captured child list, rather than the current mutable contents of `ActiveSele
 
 Selections that combine a shape with text or another object type still use their existing scale and snapping paths. `ShapeManager` is registered before `SelectionManager`, so its event controller asks the unified owner to process a shape-only step immediately. If that owner declines the step, the same event continues through the existing shape path; an accepted step is not processed twice when the later `SelectionManager` listener receives it. `SelectionManager` delegates shape constraints and layout to `ShapeManager`, and text-driven geometry to `TextManager`; neither domain manager starts a second snapping session.
 
-The next stage must apply the same single-owner boundary to selections containing image, shape, and standalone text together. Individually rotated text children, noncanonical images in text-driven compositions, `Group`, `CropFrame`, nested objects, and unknown child types remain outside the supported boundary until their product contract is established separately.
+Before adding the full image, shape, and standalone-text composition, the scale controller must be split by its existing responsibilities without changing behaviour. The composition contract, protected child state, and invariant checks should move out of the interaction owner; events, session lifecycle, scale calculation, application, and commit coordination should remain in the controller. Individually rotated text children, noncanonical images in text-driven compositions, `Group`, `CropFrame`, nested objects, and unknown child types remain outside the supported boundary until their product contract is established separately.
 
 ## Before changing this manager
 
