@@ -1,8 +1,6 @@
 /* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними проверками. */
 import {
   ActiveSelection,
-  FabricImage,
-  Textbox,
   type FabricObject,
   type TPointerEvent,
   type Transform
@@ -42,6 +40,16 @@ import {
   didSideScaleSwitchToSkew,
   isStandardRectangularScaleControl
 } from '../../snapping-manager/scaling/standard-scale-control'
+import {
+  areActiveSelectionScaleValuesNear,
+  captureActiveSelectionScaleProtectedState,
+  isActiveSelectionScaleGesturePreserved,
+  isActiveSelectionScaleProtectedStatePreserved,
+  isSupportedActiveSelectionScaleGeometry,
+  resolveActiveSelectionScaleCompositionKind,
+  type ActiveSelectionScaleComposition,
+  type ActiveSelectionScaleProtectedState
+} from './active-selection-scale-composition'
 
 /** Данные Fabric-события, необходимые для скейлинга общего выделения. */
 export type ActiveSelectionScaleInteractionEvent = Readonly<{
@@ -50,91 +58,6 @@ export type ActiveSelectionScaleInteractionEvent = Readonly<{
   transform?: Transform | null
   pointer?: RectangularScalePoint
   scenePoint?: RectangularScalePoint
-}>
-
-/** Локальные свойства изображения, которые не должно изменять общее преобразование выделения. */
-type ProtectedSelectionImageState = Readonly<{
-  angle: number
-  cropX: number
-  cropY: number
-  flipX: boolean
-  flipY: boolean
-  height: number
-  kind: 'image'
-  left: number
-  originX: FabricImage['originX']
-  originY: FabricImage['originY']
-  scaleX: number
-  scaleY: number
-  skewX: number
-  skewY: number
-  target: FabricImage
-  top: number
-  width: number
-}>
-
-/** Свойства шейпа, которые не должна менять компоновка во время общего скейлинга. */
-type ProtectedSelectionShapeState = Readonly<{
-  angle: number
-  flipX: boolean
-  flipY: boolean
-  originX: FabricObject['originX']
-  originY: FabricObject['originY']
-  scaleX: number
-  scaleY: number
-  skewX: number
-  skewY: number
-  target: FabricObject
-}>
-
-/** Свойства текста, которые не должно изменять применение рассчитанного размера общего выделения. */
-type ProtectedSelectionTextState = Readonly<{
-  angle: number
-  flipX: boolean
-  flipY: boolean
-  kind: 'text'
-  originX: FabricObject['originX']
-  originY: FabricObject['originY']
-  skewX: number
-  skewY: number
-  target: Textbox
-  text: string
-}>
-
-/** Защищённое состояние ребёнка выделения, геометрию которого определяют тексты. */
-type ProtectedSelectionTextCompositionChildState =
-  | ProtectedSelectionImageState
-  | ProtectedSelectionTextState
-
-/** Состав выделения определяет доменное применение рассчитанного масштаба. */
-type ActiveSelectionScaleComposition = Readonly<{
-  children: readonly ProtectedSelectionImageState[]
-  kind: 'images'
-}> | Readonly<{
-  children: readonly ProtectedSelectionShapeState[]
-  kind: 'shapes'
-}> | Readonly<{
-  children: readonly ProtectedSelectionTextCompositionChildState[]
-  kind: 'texts'
-}>
-
-/** Свойства выделения и преобразования Fabric, которые должны сохраниться во время жеста. */
-type ActiveSelectionScaleProtectedState = Readonly<{
-  action: Transform['action']
-  angle: number
-  composition: ActiveSelectionScaleComposition
-  controlKey: string
-  flipX: boolean
-  flipY: boolean
-  height: number
-  lockScalingFlip: boolean
-  originX: Transform['originX']
-  originY: Transform['originY']
-  skewX: number
-  skewY: number
-  targetOriginX: ActiveSelection['originX']
-  targetOriginY: ActiveSelection['originY']
-  width: number
 }>
 
 /** Проверенные данные поддерживаемого жеста общего выделения. */
@@ -182,9 +105,6 @@ type ActiveSelectionScaleSession = {
   readonly target: ActiveSelection
   readonly transform: Transform
 }
-
-/** Допуск сравнения защищённых числовых свойств выделения. */
-const ACTIVE_SELECTION_SCALE_STATE_EPSILON = 0.000000001
 
 /**
  * Владеет общей сессией скейлинга ActiveSelection из изображений, шейпов или состава с текстом.
@@ -423,7 +343,11 @@ export default class ActiveSelectionScaleInteractionController {
       pointerEvent,
       target: session.target
     })) return this._finishBeforeSkew({ marker, pointerEvent })
-    if (!isSameActiveSelectionScaleGesture({ session })) return this._continueWithExistingScaling()
+    if (!isActiveSelectionScaleGesturePreserved({
+      protectedState: session.protectedState,
+      target: session.target,
+      transform: session.transform
+    })) return this._continueWithExistingScaling()
 
     const stepInput = resolveActiveSelectionScaleStepInput({
       editor: this.editor,
@@ -578,7 +502,13 @@ export default class ActiveSelectionScaleInteractionController {
       mode,
       multipliers,
       plan: resolved.plan,
-      protectedStatePreserved: isProtectedActiveSelectionStatePreserved({ mode, multipliers, session }),
+      protectedStatePreserved: isActiveSelectionScaleProtectedStatePreserved({
+        mode,
+        multipliers,
+        protectedState: session.protectedState,
+        target: session.target,
+        transform: session.transform
+      }),
       target: session.target,
       transform: session.transform
     })
@@ -926,8 +856,8 @@ function applyActiveSelectionScalePlan({
       throw new Error('Поддерживаемое выделение из шейпов должно принять рассчитанный масштаб')
     }
     if (
-      !areNumbersNear({ first: target.scaleX, second: appliedScale.scaleX })
-      || !areNumbersNear({ first: target.scaleY, second: appliedScale.scaleY })
+      !areActiveSelectionScaleValuesNear({ first: target.scaleX, second: appliedScale.scaleX })
+      || !areActiveSelectionScaleValuesNear({ first: target.scaleY, second: appliedScale.scaleY })
     ) {
       throw new Error('Масштаб выделения должен совпасть с результатом ShapeManager')
     }
@@ -977,7 +907,11 @@ function createActiveSelectionScaleSession({
     hasSkewStep: false,
     phase: 'unified',
     projection,
-    protectedState: captureProtectedActiveSelectionState(gesture),
+    protectedState: captureActiveSelectionScaleProtectedState({
+      compositionKind: gesture.compositionKind,
+      target: gesture.target,
+      transform: gesture.transform
+    }),
     runtime,
     target: gesture.target,
     transform: gesture.transform
@@ -994,7 +928,7 @@ function resolveActiveSelectionScaleGesture({
 }): ActiveSelectionScaleGesture | null {
   const { target, transform } = event
   if (!(target instanceof ActiveSelection) || !transform) return null
-  if (transform.target !== target || !isSupportedActiveSelectionGeometry({ target })) return null
+  if (transform.target !== target || !isSupportedActiveSelectionScaleGeometry({ target })) return null
 
   const compositionKind = resolveActiveSelectionScaleCompositionKind({ editor, target })
   if (!compositionKind) return null
@@ -1030,190 +964,6 @@ function resolveActiveSelectionScaleGesture({
   })
 }
 
-/** Возвращает поддерживаемый состав общего выделения. */
-function resolveActiveSelectionScaleCompositionKind({
-  editor,
-  target
-}: {
-  editor: ImageEditor
-  target: ActiveSelection
-}): ActiveSelectionScaleComposition['kind'] | null {
-  if (isSupportedImageSelection({ target })) return 'images'
-  if (editor.shapeManager.supportsActiveSelectionScaling({ selection: target })) return 'shapes'
-  if (editor.textManager.supportsActiveSelectionScaling({ selection: target })) return 'texts'
-
-  return null
-}
-
-/** Проверяет состав выделения только из прямых изображений. */
-function isSupportedImageSelection({ target }: { target: ActiveSelection }): boolean {
-  const objects = target.getObjects()
-  if (objects.length < 2) return false
-  if (objects.some((object) => !(object instanceof FabricImage) || Boolean(object.parent))) return false
-
-  return true
-}
-
-/** Проверяет общую геометрию выделения до определения его доменного состава. */
-function isSupportedActiveSelectionGeometry({ target }: { target: ActiveSelection }): boolean {
-  const hasUnsupportedState = [
-    target.group,
-    target.parent,
-    target.flipX,
-    target.flipY,
-    target.locked,
-    target.lockScalingX,
-    target.lockScalingY
-  ].some(Boolean)
-  if (hasUnsupportedState) return false
-
-  const finiteValues = [
-    target.width,
-    target.height,
-    target.angle ?? 0,
-    target.skewX ?? 0,
-    target.skewY ?? 0
-  ]
-  if (!finiteValues.every(Number.isFinite) || target.width <= 0 || target.height <= 0) return false
-
-  return Math.abs(target.skewX ?? 0) <= ACTIVE_SELECTION_SCALE_STATE_EPSILON
-    && Math.abs(target.skewY ?? 0) <= ACTIVE_SELECTION_SCALE_STATE_EPSILON
-}
-
-/** Сохраняет свойства выделения и защищённое состояние его дочерних объектов. */
-function captureProtectedActiveSelectionState({
-  target,
-  transform,
-  compositionKind
-}: ActiveSelectionScaleGesture): ActiveSelectionScaleProtectedState {
-  return Object.freeze({
-    action: transform.action,
-    angle: target.angle ?? 0,
-    composition: captureProtectedSelectionComposition({ compositionKind, target }),
-    controlKey: transform.corner,
-    flipX: Boolean(target.flipX),
-    flipY: Boolean(target.flipY),
-    height: target.height,
-    lockScalingFlip: Boolean(target.lockScalingFlip),
-    originX: transform.originX,
-    originY: transform.originY,
-    skewX: target.skewX ?? 0,
-    skewY: target.skewY ?? 0,
-    targetOriginX: target.originX,
-    targetOriginY: target.originY,
-    width: target.width
-  })
-}
-
-/** Сохраняет защищённые свойства дочерних объектов с учётом состава выделения. */
-function captureProtectedSelectionComposition({
-  compositionKind,
-  target
-}: {
-  compositionKind: ActiveSelectionScaleComposition['kind']
-  target: ActiveSelection
-}): ActiveSelectionScaleComposition {
-  if (compositionKind === 'images') {
-    return Object.freeze({
-      children: Object.freeze(target.getObjects().map((object) => {
-        return captureProtectedSelectionImageState({ target: object as FabricImage })
-      })),
-      kind: 'images'
-    })
-  }
-
-  if (compositionKind === 'texts') {
-    return Object.freeze({
-      children: Object.freeze(target.getObjects().map((object) => {
-        if (object instanceof FabricImage) {
-          return captureProtectedSelectionImageState({ target: object })
-        }
-
-        return captureProtectedSelectionTextState({ target: object })
-      })),
-      kind: 'texts'
-    })
-  }
-
-  return Object.freeze({
-    children: Object.freeze(target.getObjects().map((object) => {
-      return captureProtectedSelectionShapeState({ target: object })
-    })),
-    kind: 'shapes'
-  })
-}
-
-/** Сохраняет локальные свойства одного изображения внутри общего выделения. */
-function captureProtectedSelectionImageState({
-  target
-}: {
-  target: FabricImage
-}): ProtectedSelectionImageState {
-  return Object.freeze({
-    angle: target.angle ?? 0,
-    cropX: target.cropX ?? 0,
-    cropY: target.cropY ?? 0,
-    flipX: Boolean(target.flipX),
-    flipY: Boolean(target.flipY),
-    height: target.height,
-    kind: 'image',
-    left: target.left,
-    originX: target.originX,
-    originY: target.originY,
-    scaleX: target.scaleX,
-    scaleY: target.scaleY,
-    skewX: target.skewX ?? 0,
-    skewY: target.skewY ?? 0,
-    target,
-    top: target.top,
-    width: target.width
-  })
-}
-
-/** Сохраняет свойства одного шейпа, которые не зависят от текущей компоновки. */
-function captureProtectedSelectionShapeState({
-  target
-}: {
-  target: FabricObject
-}): ProtectedSelectionShapeState {
-  return Object.freeze({
-    angle: target.angle ?? 0,
-    flipX: Boolean(target.flipX),
-    flipY: Boolean(target.flipY),
-    originX: target.originX,
-    originY: target.originY,
-    scaleX: target.scaleX,
-    scaleY: target.scaleY,
-    skewX: target.skewX ?? 0,
-    skewY: target.skewY ?? 0,
-    target
-  })
-}
-
-/** Сохраняет свойства текста, которые не зависят от канонического изменения размера. */
-function captureProtectedSelectionTextState({
-  target
-}: {
-  target: FabricObject
-}): ProtectedSelectionTextState {
-  if (!(target instanceof Textbox)) {
-    throw new Error('Текстовый состав должен содержать только объекты Textbox')
-  }
-
-  return Object.freeze({
-    angle: target.angle ?? 0,
-    flipX: Boolean(target.flipX),
-    flipY: Boolean(target.flipY),
-    kind: 'text',
-    originX: target.originX,
-    originY: target.originY,
-    skewX: target.skewX ?? 0,
-    skewY: target.skewY ?? 0,
-    target,
-    text: target.text ?? ''
-  })
-}
-
 /** Проверяет принадлежность события исходному выделению и преобразованию Fabric. */
 function doesEventBelongToSession({
   event,
@@ -1228,178 +978,14 @@ function doesEventBelongToSession({
   return true
 }
 
-/** Проверяет, что Fabric не переключил активный жест на другое преобразование. */
-function isSameActiveSelectionScaleGesture({
-  session
-}: {
-  session: ActiveSelectionScaleSession
-}): boolean {
-  const { protectedState, target, transform } = session
-
-  return transform.action === protectedState.action
-    && transform.corner === protectedState.controlKey
-    && transform.originX === protectedState.originX
-    && transform.originY === protectedState.originY
-    && areNumbersNear({ first: target.angle ?? 0, second: protectedState.angle })
-    && areNumbersNear({ first: target.skewX ?? 0, second: protectedState.skewX })
-    && areNumbersNear({ first: target.skewY ?? 0, second: protectedState.skewY })
-    && Boolean(target.flipX) === protectedState.flipX
-    && Boolean(target.flipY) === protectedState.flipY
-}
-
-/** Проверяет свойства выделения, детей и неактивные степени свободы. */
-function isProtectedActiveSelectionStatePreserved({
-  mode,
-  multipliers,
-  session
-}: {
-  mode: RectangularScaleGestureMode
-  multipliers: RectangularScaleMultipliers
-  session: ActiveSelectionScaleSession
-}): boolean {
-  if (!isCanonicalActiveSelectionStatePreserved({ session })) return false
-  if (mode === 'horizontal') return areNumbersNear({ first: multipliers.y, second: 1 })
-  if (mode === 'vertical') return areNumbersNear({ first: multipliers.x, second: 1 })
-  if (mode === 'uniform') return areNumbersNear({ first: multipliers.x, second: multipliers.y })
-
-  return true
-}
-
-/** Проверяет общие свойства выделения и защищённые свойства его состава. */
-function isCanonicalActiveSelectionStatePreserved({
-  session
-}: {
-  session: ActiveSelectionScaleSession
-}): boolean {
-  const { protectedState, target } = session
-  const { composition } = protectedState
-  const children = target.getObjects()
-  if (children.length !== composition.children.length) return false
-
-  return isSameActiveSelectionScaleGesture({ session })
-    && areNumbersNear({ first: target.width, second: protectedState.width })
-    && areNumbersNear({ first: target.height, second: protectedState.height })
-    && target.originX === protectedState.targetOriginX
-    && target.originY === protectedState.targetOriginY
-    && Boolean(target.lockScalingFlip) === protectedState.lockScalingFlip
-    && isProtectedSelectionCompositionPreserved({ children, composition })
-}
-
-/** Проверяет неизменяемые свойства изображений или шейпов внутри выделения. */
-function isProtectedSelectionCompositionPreserved({
-  children,
-  composition
-}: {
-  children: FabricObject[]
-  composition: ActiveSelectionScaleComposition
-}): boolean {
-  if (composition.kind === 'images') {
-    return composition.children.every((state, index) => {
-      return children[index] === state.target && isProtectedSelectionImageStatePreserved({ state })
-    })
-  }
-
-  if (composition.kind === 'texts') {
-    return composition.children.every((state, index) => {
-      if (children[index] !== state.target) return false
-
-      return state.kind === 'image'
-        ? isProtectedSelectionImageContentStatePreserved({ state })
-        : isProtectedSelectionTextStatePreserved({ state })
-    })
-  }
-
-  return composition.children.every((state, index) => {
-    return children[index] === state.target && isProtectedSelectionShapeStatePreserved({ state })
-  })
-}
-
-/** Проверяет локальные свойства одного изображения после общего преобразования выделения. */
-function isProtectedSelectionImageStatePreserved({
-  state
-}: {
-  state: ProtectedSelectionImageState
-}): boolean {
-  const { target } = state
-
-  return areNumbersNear({ first: target.left, second: state.left })
-    && areNumbersNear({ first: target.top, second: state.top })
-    && areNumbersNear({ first: target.scaleX, second: state.scaleX })
-    && areNumbersNear({ first: target.scaleY, second: state.scaleY })
-    && isProtectedSelectionImageContentStatePreserved({ state })
-}
-
-/** Проверяет свойства изображения, которые не должны меняться при пересчёте компоновки. */
-function isProtectedSelectionImageContentStatePreserved({
-  state
-}: {
-  state: ProtectedSelectionImageState
-}): boolean {
-  const { target } = state
-
-  return areNumbersNear({ first: target.width, second: state.width })
-    && areNumbersNear({ first: target.height, second: state.height })
-    && areNumbersNear({ first: target.angle ?? 0, second: state.angle })
-    && areNumbersNear({ first: target.skewX ?? 0, second: state.skewX })
-    && areNumbersNear({ first: target.skewY ?? 0, second: state.skewY })
-    && areNumbersNear({ first: target.cropX ?? 0, second: state.cropX })
-    && areNumbersNear({ first: target.cropY ?? 0, second: state.cropY })
-    && Boolean(target.flipX) === state.flipX
-    && Boolean(target.flipY) === state.flipY
-    && target.originX === state.originX
-    && target.originY === state.originY
-}
-
-/** Проверяет свойства шейпа, которые компоновка во время жеста не должна менять. */
-function isProtectedSelectionShapeStatePreserved({
-  state
-}: {
-  state: ProtectedSelectionShapeState
-}): boolean {
-  const { target } = state
-
-  return areNumbersNear({ first: target.scaleX, second: state.scaleX })
-    && areNumbersNear({ first: target.scaleY, second: state.scaleY })
-    && isProtectedSelectionAffineStatePreserved({ state })
-}
-
-/** Проверяет свойства текста, которые не должно изменять применение рассчитанного размера. */
-function isProtectedSelectionTextStatePreserved({
-  state
-}: {
-  state: ProtectedSelectionTextState
-}): boolean {
-  const { target } = state
-
-  return isProtectedSelectionAffineStatePreserved({ state })
-    && (target.text ?? '') === state.text
-}
-
-/** Проверяет общие защищённые свойства шейпа или текста. */
-function isProtectedSelectionAffineStatePreserved({
-  state
-}: {
-  state: ProtectedSelectionShapeState | ProtectedSelectionTextState
-}): boolean {
-  const { target } = state
-
-  return areNumbersNear({ first: target.angle ?? 0, second: state.angle })
-    && areNumbersNear({ first: target.skewX ?? 0, second: state.skewX })
-    && areNumbersNear({ first: target.skewY ?? 0, second: state.skewY })
-    && Boolean(target.flipX) === state.flipX
-    && Boolean(target.flipY) === state.flipY
-    && target.originX === state.originX
-    && target.originY === state.originY
-}
-
 /** Проверяет, изменился ли масштаб хотя бы по одной оси относительно начала жеста. */
 function didActiveSelectionScaleChange({
   multipliers
 }: {
   multipliers: RectangularScaleMultipliers
 }): boolean {
-  return !areNumbersNear({ first: multipliers.x, second: 1 })
-    || !areNumbersNear({ first: multipliers.y, second: 1 })
+  return !areActiveSelectionScaleValuesNear({ first: multipliers.x, second: 1 })
+    || !areActiveSelectionScaleValuesNear({ first: multipliers.y, second: 1 })
 }
 
 /** Использует исходное событие указателя как идентификатор шага, а при его отсутствии — событие холста. */
@@ -1412,17 +998,4 @@ function resolveScaleMarker({
   if ((typeof e === 'object' && e !== null) || typeof e === 'function') return e
 
   return event
-}
-
-/** Сравнивает конечные числа в пределах допуска защищённого состояния. */
-function areNumbersNear({
-  first,
-  second
-}: {
-  first: number
-  second: number
-}): boolean {
-  return Number.isFinite(first)
-    && Number.isFinite(second)
-    && Math.abs(first - second) <= ACTIVE_SELECTION_SCALE_STATE_EPSILON
 }
