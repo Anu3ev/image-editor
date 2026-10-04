@@ -56,12 +56,37 @@ describe('Публичный контракт SnappingManager для скейл�
     const snappingManager = new SnappingManager({ editor })
     const marker = { ctrlKey: false }
 
-    snappingManager.markScaleStepHandled({ marker })
+    snappingManager.markStepHandled({ marker })
     canvas.requestRenderAll.mockClear()
     emitCanvasEvent({ canvas, event: 'object:scaling', payload: { e: marker } })
 
     expect(canvas.requestRenderAll).not.toHaveBeenCalled()
     expect(canvas.getZoom).not.toHaveBeenCalled()
+  })
+
+  it('рисует направляющую в границах монтажной области без повторного сбора целей', () => {
+    const { editor, canvas, selectionContext } = createSnappingTestContext()
+    const active = createBoundsObject({ left: 150, top: 120, width: 40, height: 30, id: 'active' })
+    const snappingManager = new SnappingManager({ editor })
+    emitCanvasEvent({ canvas, event: 'mouse:down', payload: { target: active } })
+    snappingManager.captureScaleSnapEnvironment({ activeObject: active, targetEdges: ['right'] })
+    snappingManager.publishVerifiedScaleGuides({
+      guides: [{
+        axis: 'x',
+        edge: 'right',
+        position: 400,
+        candidateId: 'montage-area:right->right',
+        category: 'domain-boundary',
+        snapshotIndex: 0
+      }]
+    })
+
+    emitCanvasEvent({ canvas, event: 'after:render' })
+
+    expect(canvas.forEachObject).toHaveBeenCalledTimes(1)
+    expect(selectionContext.moveTo).toHaveBeenCalledWith(400, 0)
+    expect(selectionContext.lineTo).toHaveBeenCalledWith(400, 300)
+    snappingManager.destroy()
   })
 
   it('рисует только подтверждённые направляющие скейлинга', () => {

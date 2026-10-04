@@ -144,21 +144,17 @@ function createBoundShapeEventController({
   return controller
 }
 
-/** Возвращает обязательный обработчик window-события из вызовов addEventListener. */
+/** Возвращает зарегистрированную функцию обработки window-события ShapeEventController. */
 export function getRequiredShapeWindowListener({
   addEventListenerSpy,
   eventName
 }: {
   addEventListenerSpy: jest.SpyInstance
   eventName: ShapeEventWindowEventName
-}): EventListenerOrEventListenerObject {
+}): EventListener {
   const registration = addEventListenerSpy.mock.calls.find(([currentName]) => currentName === eventName)
   const listener = registration?.[1]
-  const isListenerObject = typeof listener === 'object'
-    && listener !== null
-    && typeof listener.handleEvent === 'function'
-
-  if (typeof listener !== 'function' && !isListenerObject) {
+  if (typeof listener !== 'function') {
     throw new Error(`Для ${eventName} должен быть зарегистрирован обработчик`)
   }
 

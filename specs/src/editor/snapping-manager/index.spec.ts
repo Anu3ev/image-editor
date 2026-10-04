@@ -14,6 +14,7 @@ import type { Bounds, SpacingPattern } from '../../../../src/editor/snapping-man
 import { resolveDisplayDistance } from '../../../../src/editor/utils/distance'
 import { getObjectBounds } from '../../../../src/editor/utils/geometry'
 import { createBoundsObject, createSnappingTestContext } from '../../../test-utils/canvas/geometry-objects'
+import { emitCanvasEvent } from '../../../test-utils/canvas/events'
 import { createMockFabricImage } from '../../../test-utils/managers/image'
 
 type OriginX = 'left' | 'center' | 'right'
@@ -177,14 +178,15 @@ describe('SnappingManager', () => {
   })
 
   it('кеширует интервалы между пересекающимися по ширине объектами независимо от их размеров', () => {
-    const { editor, objects } = createSnappingTestContext()
+    const { editor, canvas, objects } = createSnappingTestContext()
     const first = createBoundsObject({ left: 0, top: 0, width: 40, height: 30, id: 'obj-1' })
     const second = createBoundsObject({ left: 10, top: 100, width: 160, height: 20, id: 'obj-2' })
     const active = createBoundsObject({ left: 5, top: 180, width: 60, height: 40, id: 'active' })
     objects.push(first, second, active)
 
-    const snappingManager = new SnappingManager({ editor });
-    (snappingManager as any)._handleMouseDown({ target: active })
+    const snappingManager = new SnappingManager({ editor })
+    emitCanvasEvent({ canvas, event: 'mouse:down', payload: { target: active } })
+    emitCanvasEvent({ canvas, event: 'object:moving', payload: { target: active } })
 
     const { spacingPatterns, cachedTargetBounds } = snappingManager as any
     expect(cachedTargetBounds).toHaveLength(2)

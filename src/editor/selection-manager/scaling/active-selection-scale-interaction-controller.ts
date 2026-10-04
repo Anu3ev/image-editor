@@ -119,27 +119,27 @@ export default class ActiveSelectionScaleInteractionController {
     window.addEventListener('blur', this._handleWindowBlur)
   }
 
-  /** Снимает подписки и очищает временную сессию скейлинга. */
+  /** Снимает подписки и очищает сессию, даже если Fabric не смог завершить преобразование. */
   public destroy(): void {
     const { canvas } = this.editor
 
-    if (this.session) {
-      this.interruptGesture()
+    try {
+      if (this.session) this.interruptGesture()
+    } finally {
+      canvas.off('mouse:down', this._handleMouseDown)
+      canvas.off('mouse:move', this._handleMouseMove)
+      canvas.off('object:scaling', this._handleObjectScaling)
+      canvas.off('mouse:up', this._handleInteractionFinished)
+      canvas.off('object:removed', this._handleObjectRemoved)
+      canvas.off('selection:created', this._handleInteractionFinished)
+      canvas.off('selection:updated', this._handleInteractionFinished)
+      canvas.off('selection:cleared', this._handleInteractionFinished)
+
+      window.removeEventListener('pointercancel', this._handlePointerCancel)
+      window.removeEventListener('touchcancel', this._handlePointerCancel)
+      window.removeEventListener('blur', this._handleWindowBlur)
+      this._cancelAndClearGuides()
     }
-
-    canvas.off('mouse:down', this._handleMouseDown)
-    canvas.off('mouse:move', this._handleMouseMove)
-    canvas.off('object:scaling', this._handleObjectScaling)
-    canvas.off('mouse:up', this._handleInteractionFinished)
-    canvas.off('object:removed', this._handleObjectRemoved)
-    canvas.off('selection:created', this._handleInteractionFinished)
-    canvas.off('selection:updated', this._handleInteractionFinished)
-    canvas.off('selection:cleared', this._handleInteractionFinished)
-
-    window.removeEventListener('pointercancel', this._handlePointerCancel)
-    window.removeEventListener('touchcancel', this._handlePointerCancel)
-    window.removeEventListener('blur', this._handleWindowBlur)
-    this._cancelAndClearGuides()
   }
 
   /** Фиксирует исходную геометрию поддерживаемого общего выделения. */
@@ -357,7 +357,7 @@ export default class ActiveSelectionScaleInteractionController {
       if (!duplicate.verification) {
         throw new Error('Повторный шаг ActiveSelection не может завершиться до проверки результата')
       }
-      this.editor.snappingManager.markScaleStepHandled({ marker })
+      this.editor.snappingManager.markStepHandled({ marker })
       return true
     }
 
@@ -403,7 +403,7 @@ export default class ActiveSelectionScaleInteractionController {
 
     session.phase = 'skew-passthrough'
     session.hasSkewStep = true
-    this.editor.snappingManager.markScaleStepHandled({ marker: resolveScaleMarker({ event }) })
+    this.editor.snappingManager.markStepHandled({ marker: resolveScaleMarker({ event }) })
     this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
 
     return true
@@ -430,7 +430,7 @@ export default class ActiveSelectionScaleInteractionController {
       return false
     }
 
-    this.editor.snappingManager.markScaleStepHandled({ marker: resolveScaleMarker({ event }) })
+    this.editor.snappingManager.markStepHandled({ marker: resolveScaleMarker({ event }) })
 
     return true
   }
@@ -484,7 +484,7 @@ export default class ActiveSelectionScaleInteractionController {
       }
 
       session.hasVerifiedStep = true
-      this.editor.snappingManager.markScaleStepHandled({ marker })
+      this.editor.snappingManager.markStepHandled({ marker })
       this.editor.snappingManager.publishVerifiedScaleGuides({ guides: verification.guides })
 
       return true
@@ -670,7 +670,7 @@ export default class ActiveSelectionScaleInteractionController {
     } else {
       this._cancelAndClearGuides()
     }
-    this.editor.snappingManager.markScaleStepHandled({ marker })
+    this.editor.snappingManager.markStepHandled({ marker })
 
     return true
   }

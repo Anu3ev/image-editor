@@ -682,3 +682,29 @@ it('при уничтожении очищает направляющие и з�
   expect(harness.publishGuidesMock).toHaveBeenCalledWith({ guides: [] })
   expect(harness.controller.finishGesture()).toBe(false)
 })
+
+it('при ошибке завершения скейлинга общего выделения снимает подписки и сохраняет причину ошибки', () => {
+  const harness = createActiveSelectionScaleHarness()
+  const off = jest.spyOn(harness.editor.canvas, 'off')
+  const removeListener = jest.spyOn(window, 'removeEventListener')
+  const failure = new Error('Ошибка завершения Fabric transform')
+  harness.controller.bind()
+  expect(harness.controller.startGesture({
+    event: createActiveSelectionScaleStartEvent({ harness })
+  })).toBe(true)
+  harness.endCurrentTransformMock.mockImplementationOnce(() => { throw failure })
+
+  try {
+    expect(() => harness.controller.destroy()).toThrow(failure)
+    expect(harness.controller.finishGesture()).toBe(false)
+    expect(off).toHaveBeenCalledWith('object:scaling', expect.any(Function))
+    expect(off).toHaveBeenCalledWith('mouse:down', expect.any(Function))
+    for (const name of ['blur', 'pointercancel', 'touchcancel']) {
+      expect(removeListener).toHaveBeenCalledWith(name, expect.any(Function))
+    }
+  } finally {
+    harness.controller.destroy()
+    removeListener.mockRestore()
+    off.mockRestore()
+  }
+})

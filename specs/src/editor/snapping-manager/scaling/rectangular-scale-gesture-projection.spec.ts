@@ -1,6 +1,7 @@
 import { Point } from 'fabric'
 import {
   createRectangularScaleGestureProjection,
+  createRectangularScaleProjectionModes,
   createRectangularScaleValues,
   projectRectangularScaleBounds,
   resolveRectangularScaleMultipliers,
@@ -22,6 +23,19 @@ import {
 /** Угловые кейсы из общей матрицы controls и rotations. */
 const CORNER_ROTATION_CASES = RECTANGULAR_SCALE_CONTROL_ROTATION_CASES.filter(({ controlKey }) => {
   return controlKey === 'tl' || controlKey === 'tr' || controlKey === 'bl' || controlKey === 'br'
+})
+
+it('использует переданные доменные углы без чтения рамки Fabric с обводкой', () => {
+  const fixture = createRectangularScaleProjectionFixture({ controlKey: 'br' })
+  const projection = createRectangularScaleGestureProjection({
+    transform: fixture.transform,
+    pointerStart: fixture.pointerStart,
+    corners: [new Point(10, 20), new Point(110, 20), new Point(110, 80), new Point(10, 80)]
+  })
+
+  expect(fixture.getCoordsMock).not.toHaveBeenCalled()
+  expect(projection?.baselineBounds).toEqual({ left: 10, right: 110, top: 20, bottom: 80, centerX: 60, centerY: 50 })
+  expect(projection?.fixedAnchor).toEqual({ x: 10, y: 20 })
 })
 
 it.each<{
@@ -151,6 +165,42 @@ it('uniform scaling использует Fabric-compatible L1 расстояни
   expect(multipliers).not.toBeNull()
   expect(multipliers?.x).toBeCloseTo(expectedMultiplier, 9)
   expect(multipliers?.y).toBeCloseTo(expectedMultiplier, 9)
+})
+
+it.each(['ml', 'mr', 'mt', 'mb'] as const)('сохраняет пропорции при явном запросе скейлинга боковой ручкой %s', (controlKey) => {
+  const fixture = createRectangularScaleProjectionFixture({ controlKey, angle: 30 })
+  const projection = createRectangularScaleGestureProjection({
+    transform: fixture.transform,
+    pointerStart: fixture.pointerStart
+  })
+  expect(projection).not.toBeNull()
+  if (!projection) throw new Error('Боковая ручка должна иметь прямоугольную проекцию')
+
+  const pointer = moveFixturePointer({ fixture, multipliers: { x: 1.35, y: 1.35 } })
+  const multipliers = resolveRectangularScalePointerMultipliers({ projection, pointer, mode: 'uniform' })
+  const mode = resolveRectangularScaleModeProjection({ projection, mode: 'uniform' })
+
+  expect(multipliers?.x).toBeCloseTo(1.35, 9)
+  expect(multipliers?.y).toBeCloseTo(1.35, 9)
+  expect(mode?.variables).toEqual(['uniform-multiplier'])
+  expect(mode?.edges.length).toBeGreaterThan(1)
+})
+
+it('пропорциональный скейлинг боковой ручкой не зависит от движения вдоль неподвижной стороны', () => {
+  const fixture = createRectangularScaleProjectionFixture({ controlKey: 'mr' })
+  const projection = createRectangularScaleGestureProjection({
+    transform: fixture.transform,
+    pointerStart: fixture.pointerStart
+  })
+  expect(projection).not.toBeNull()
+  if (!projection) throw new Error('Боковая ручка должна иметь прямоугольную проекцию')
+  const pointer = moveFixturePointer({ fixture, multipliers: { x: 1.5, y: 1 } })
+  const multiplier = resolveRectangularScalePointerMultipliers({
+    projection, pointer: { x: pointer.x, y: pointer.y + 100 }, mode: 'uniform'
+  })
+
+  expect(multiplier?.x).toBeCloseTo(1.5, 9)
+  expect(multiplier?.y).toBeCloseTo(1.5, 9)
 })
 
 it('поддерживает free и uniform scaling относительно centered origin', () => {
@@ -650,8 +700,22 @@ it('не возвращает pointer intent и coefficients для несовм
 
   const pointer = moveFixturePointer({ fixture, multipliers: { x: 1.2, y: 1 } })
 
-  expect(resolveRectangularScalePointerMultipliers({ projection, pointer, mode: 'uniform' })).toBeNull()
+  expect(resolveRectangularScalePointerMultipliers({ projection, pointer, mode: 'vertical' })).toBeNull()
   expect(resolveRectangularScaleModeProjection({ projection, mode: 'free' })).toBeNull()
+})
+
+it('включает пропорциональный режим боковой ручки только по явному запросу владельца', () => {
+  const fixture = createRectangularScaleProjectionFixture({ controlKey: 'mr' })
+  const projection = createRectangularScaleGestureProjection({
+    transform: fixture.transform,
+    pointerStart: fixture.pointerStart
+  })
+  expect(projection).not.toBeNull()
+  if (!projection) throw new Error('Боковая ручка должна иметь прямоугольную проекцию')
+
+  expect(createRectangularScaleProjectionModes({ projection }).map(({ id }) => id)).toEqual(['horizontal'])
+  expect(createRectangularScaleProjectionModes({ projection, includeUniformSideScale: true }).map(({ id }) => id))
+    .toEqual(['horizontal', 'uniform'])
 })
 
 it('отклоняет невалидные pointer и hypothetical multipliers после создания snapshot', () => {

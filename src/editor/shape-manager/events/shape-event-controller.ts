@@ -122,9 +122,9 @@ export default class ShapeEventController {
     canvas.on('editor:before:text-updated', this._handleBeforeTextUpdated)
     canvas.on('editor:text-updated', this._handleTextUpdated)
 
-    window.addEventListener('pointercancel', this._handlePointerCancel)
-    window.addEventListener('touchcancel', this._handlePointerCancel)
-    window.addEventListener('blur', this._handleWindowBlur)
+    window.addEventListener('pointercancel', this._handleScaleInteractionCancelled)
+    window.addEventListener('touchcancel', this._handleScaleInteractionCancelled)
+    window.addEventListener('blur', this._handleScaleInteractionCancelled)
   }
 
   /**
@@ -150,9 +150,9 @@ export default class ShapeEventController {
     canvas.off('editor:before:text-updated', this._handleBeforeTextUpdated)
     canvas.off('editor:text-updated', this._handleTextUpdated)
 
-    window.removeEventListener('pointercancel', this._handlePointerCancel)
-    window.removeEventListener('touchcancel', this._handlePointerCancel)
-    window.removeEventListener('blur', this._handleWindowBlur)
+    window.removeEventListener('pointercancel', this._handleScaleInteractionCancelled)
+    window.removeEventListener('touchcancel', this._handleScaleInteractionCancelled)
+    window.removeEventListener('blur', this._handleScaleInteractionCancelled)
   }
 
   /**
@@ -307,18 +307,17 @@ export default class ShapeEventController {
     this.dependencies.lifecycleController.clearResizeStarts()
   }
 
-  /** Прерывает scale после pointercancel или touchcancel. */
-  private _handlePointerCancel = (event: PointerEvent | TouchEvent): void => {
-    if (!this.scaleInteractionController.interruptGesture({ event })) return
+  /** Очищает начало прерванного скейлинга, в том числе при ошибке завершения Fabric. */
+  private _handleScaleInteractionCancelled = (event: Event): void => {
+    let shouldClearResizeStarts = true
 
-    this.dependencies.lifecycleController.clearResizeStarts()
-  }
-
-  /** Прерывает scale, когда окно теряет фокус. */
-  private _handleWindowBlur = (): void => {
-    if (!this.scaleInteractionController.interruptGesture()) return
-
-    this.dependencies.lifecycleController.clearResizeStarts()
+    try {
+      shouldClearResizeStarts = event.type === 'blur'
+        ? this.scaleInteractionController.interruptGesture()
+        : this.scaleInteractionController.interruptGesture({ event: event as PointerEvent | TouchEvent })
+    } finally {
+      if (shouldClearResizeStarts) this.dependencies.lifecycleController.clearResizeStarts()
+    }
   }
 
   /**

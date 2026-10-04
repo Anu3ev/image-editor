@@ -12,6 +12,7 @@ import {
 } from './crop-source-boundary.model'
 import { CropFrameControlModel } from './crop-frame-control.model'
 import { CropDimmingOverlayModel } from './crop-dimming-overlay.model'
+import { CropEventRecorder } from './crop-event-recorder'
 import type {
   CropControlKey,
   CropImageSourceInfo,
@@ -198,6 +199,9 @@ export class CropModel {
   /** E2E-модель визуального затемнения вне active crop frame. */
   readonly dimmingOverlay: CropDimmingOverlayModel
 
+  /** Запись публичных событий применения, отмены и изменения crop. */
+  readonly events: CropEventRecorder
+
   /** Pointer-позиция последнего незавершённого resize crop frame. */
   private lastResizePointer: CropResizePointer | null = null
 
@@ -208,6 +212,7 @@ export class CropModel {
     this.page = page
     this.frameControls = new CropFrameControlModel(page)
     this.dimmingOverlay = new CropDimmingOverlayModel(page)
+    this.events = new CropEventRecorder(page)
   }
 
   /** Возвращает true, если crop mode активен. */

@@ -434,7 +434,7 @@ export default class ShapeScaleInteractionController {
         protectedEdges: resolveSnappedEdges({ plan: snapStep.plan })
       })
 
-      this.editor.snappingManager.markScaleStepHandled({ marker: pointerEvent })
+      this.editor.snappingManager.markStepHandled({ marker: pointerEvent })
       this._applyScaleToShape({ event, session, appliedMultipliers })
       const appliedGeometry = this._readAppliedGeometry({ session, plan: snapStep.plan, mode })
       const result = session.snapping.verifyScalePlan({

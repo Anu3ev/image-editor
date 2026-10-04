@@ -1,6 +1,5 @@
 /* eslint-disable no-use-before-define -- Public CropFrame держим выше private drawing helpers. */
 import {
-  Point,
   Rect,
   type FabricObject,
   type RectProps
@@ -9,6 +8,7 @@ import { nanoid } from 'nanoid'
 
 import { applyCropResizeControls } from '../interaction/crop-controls'
 import { getCropFrameSourceSize } from './crop-frame-size'
+import { getCropObjectSceneBounds } from './crop-geometry'
 import type { ObjectBounds } from '../../utils/geometry'
 import type { CropSize } from '../types'
 
@@ -127,7 +127,7 @@ export class CropFrame extends Rect {
    * Возвращает bounds crop frame без stroke, потому что snapping должен работать по crop-результату.
    */
   public getObjectSnappingBounds(): ObjectBounds {
-    return getCropFrameBoundsWithoutStroke({ frame: this })
+    return getCropObjectSceneBounds({ object: this })
   }
 }
 
@@ -252,42 +252,6 @@ function drawVerticalGridLine({
   ctx.moveTo(x, -height / 2)
   ctx.lineTo(x, height / 2)
   ctx.stroke()
-}
-
-/**
- * Возвращает canvas-bounds crop frame без stroke и control padding.
- */
-function getCropFrameBoundsWithoutStroke({ frame }: { frame: CropFrame }): ObjectBounds {
-  const matrix = frame.calcTransformMatrix()
-  const halfWidth = frame.width / 2
-  const halfHeight = frame.height / 2
-  const points = [
-    new Point(-halfWidth, -halfHeight),
-    new Point(halfWidth, -halfHeight),
-    new Point(halfWidth, halfHeight),
-    new Point(-halfWidth, halfHeight)
-  ].map((point) => point.transform(matrix))
-
-  return getBoundsFromPoints({ points })
-}
-
-/**
- * Возвращает bounds по набору canvas-точек.
- */
-function getBoundsFromPoints({ points }: { points: Point[] }): ObjectBounds {
-  const left = Math.min(...points.map((point) => point.x))
-  const right = Math.max(...points.map((point) => point.x))
-  const top = Math.min(...points.map((point) => point.y))
-  const bottom = Math.max(...points.map((point) => point.y))
-
-  return {
-    left,
-    right,
-    top,
-    bottom,
-    centerX: left + ((right - left) / 2),
-    centerY: top + ((bottom - top) / 2)
-  }
 }
 
 /**

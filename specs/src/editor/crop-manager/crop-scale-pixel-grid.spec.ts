@@ -1,55 +1,18 @@
 import type { Transform } from 'fabric'
 
-import { applyScalingStep } from '../../../../src/editor/snapping-manager/pixel-grid'
+import { applyCropScalingStep } from '../../../../src/editor/crop-manager/snapping/crop-scale-pixel-grid'
 import {
-  createSourceScaledRect,
-  getRoundedDisplaySize
-} from '../../../test-utils/shared/pixel-grid'
+  createSourceScaledCropFrame,
+  getRoundedDisplaySize,
+  SOURCE_BOUNDS,
+  RECTANGULAR_SOURCE_BOUNDS,
+  SOURCE_BOUNDARY_GUIDE_CASES
+} from '../../../test-utils/crop/pixel-grid'
 
-/** Source bounds тестового изображения после пересчёта в scene-пиксели. */
-const SOURCE_BOUNDS = {
-  left: 0,
-  top: 0,
-  right: 342,
-  bottom: 342,
-  centerX: 171,
-  centerY: 171
-} as const
-
-/** Source bounds прямоугольного изображения 1000x667 после scale 0.512 и округления source guides. */
-const RECTANGULAR_SOURCE_BOUNDS = {
-  left: 0,
-  top: 0,
-  right: 512,
-  bottom: 342,
-  centerX: 256,
-  centerY: 171
-} as const
-
-/** Внешние source-границы, которые test fixture может проверить без отдельной placement-модели. */
-const SOURCE_BOUNDARY_GUIDE_CASES = [
-  {
-    title: 'нижней границы source',
-    snapGuard: {
-      type: 'horizontal',
-      edge: 'bottom',
-      position: SOURCE_BOUNDS.bottom
-    }
-  },
-  {
-    title: 'правой границы source',
-    snapGuard: {
-      type: 'vertical',
-      edge: 'right',
-      position: SOURCE_BOUNDS.right
-    }
-  }
-] as const
-
-describe('SnappingManager pixel-grid contract', () => {
+describe('Округление crop в пикселях источника', () => {
   for (const cropCase of SOURCE_BOUNDARY_GUIDE_CASES) {
     it(`для crop frame с размером в source-пикселях у ${cropCase.title} удерживает размер на guide`, () => {
-      const target = createSourceScaledRect({
+      const target = createSourceScaledCropFrame({
         width: 667,
         height: 667,
         scaleX: 0.5112,
@@ -59,7 +22,7 @@ describe('SnappingManager pixel-grid contract', () => {
         sourceBounds: SOURCE_BOUNDS
       })
 
-      applyScalingStep({
+      applyCropScalingStep({
         target,
         snapGuards: [
           cropCase.snapGuard
@@ -76,7 +39,7 @@ describe('SnappingManager pixel-grid contract', () => {
   }
 
   it('для crop frame с размером в source-пикселях округляет половину нечётного source вверх', () => {
-    const target = createSourceScaledRect({
+    const target = createSourceScaledCropFrame({
       width: 667,
       height: 667,
       scaleX: 0.256,
@@ -86,7 +49,7 @@ describe('SnappingManager pixel-grid contract', () => {
       sourceBounds: SOURCE_BOUNDS
     })
 
-    applyScalingStep({
+    applyCropScalingStep({
       target,
       snapGuards: [
         {
@@ -106,7 +69,7 @@ describe('SnappingManager pixel-grid contract', () => {
   })
 
   it('для прямоугольного crop frame у внутреннего guide оставляет raw-размер на guide', () => {
-    const target = createSourceScaledRect({
+    const target = createSourceScaledCropFrame({
       width: 1000,
       height: 667,
       scaleX: 0.256,
@@ -116,7 +79,7 @@ describe('SnappingManager pixel-grid contract', () => {
       sourceBounds: RECTANGULAR_SOURCE_BOUNDS
     })
 
-    applyScalingStep({
+    applyCropScalingStep({
       target,
       snapGuards: [
         {
@@ -138,7 +101,7 @@ describe('SnappingManager pixel-grid contract', () => {
   it('для прямоугольного crop frame у source-границы не оставляет raw-размер на 1 пиксель меньше', () => {
     const rawScale = 0.25566
     const fixedRight = 256
-    const target = createSourceScaledRect({
+    const target = createSourceScaledCropFrame({
       width: 1000,
       height: 667,
       scaleX: rawScale,
@@ -150,7 +113,7 @@ describe('SnappingManager pixel-grid contract', () => {
       sourceBounds: RECTANGULAR_SOURCE_BOUNDS
     })
 
-    applyScalingStep({
+    applyCropScalingStep({
       target,
       preservePlacement: {
         placement: {
@@ -186,7 +149,7 @@ describe('SnappingManager pixel-grid contract', () => {
   it('для source-scaled crop frame у внутренних guide возвращает scale со старта transform', () => {
     const rawScale = 0.21959820089955023
     const originalScale = 0.22030584707646178
-    const target = createSourceScaledRect({
+    const target = createSourceScaledCropFrame({
       width: 1000,
       height: 667,
       scaleX: rawScale,
@@ -206,7 +169,7 @@ describe('SnappingManager pixel-grid contract', () => {
       }
     } as Transform
 
-    applyScalingStep({
+    applyCropScalingStep({
       target,
       transform,
       snapGuards: [
@@ -235,7 +198,7 @@ describe('SnappingManager pixel-grid contract', () => {
     const rawScale = 0.21959820089955023
     const originalScale = 0.22030584707646178
     const nextSourcePixelGuidePosition = 219.5
-    const target = createSourceScaledRect({
+    const target = createSourceScaledCropFrame({
       width: 1000,
       height: 667,
       scaleX: rawScale,
@@ -255,7 +218,7 @@ describe('SnappingManager pixel-grid contract', () => {
       }
     } as Transform
 
-    applyScalingStep({
+    applyCropScalingStep({
       target,
       transform,
       snapGuards: [
@@ -283,7 +246,7 @@ describe('SnappingManager pixel-grid contract', () => {
   it('для свободного crop frame не уводит верхнюю сторону с guide при округлении scale', () => {
     const rawScaleY = 255.752 / 512
     const fixedBottom = 512
-    const target = createSourceScaledRect({
+    const target = createSourceScaledCropFrame({
       width: 512,
       height: 512,
       scaleX: 0.5,
@@ -294,7 +257,7 @@ describe('SnappingManager pixel-grid contract', () => {
       top: fixedBottom - (512 * rawScaleY)
     })
 
-    applyScalingStep({
+    applyCropScalingStep({
       target,
       preservePlacement: {
         placement: {

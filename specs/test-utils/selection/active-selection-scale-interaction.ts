@@ -97,7 +97,7 @@ interface ActiveSelectionScaleHarnessDependencies {
   readonly editor: ImageEditor
   readonly endCurrentTransformMock: jest.MockedFunction<Canvas['endCurrentTransform']>
   readonly endHistoryActionMock: jest.MockedFunction<ImageEditor['historyManager']['endAction']>
-  readonly markHandledMock: jest.MockedFunction<ImageEditor['snappingManager']['markScaleStepHandled']>
+  readonly markHandledMock: jest.MockedFunction<ImageEditor['snappingManager']['markStepHandled']>
   readonly publishGuidesMock: jest.MockedFunction<
     ImageEditor['snappingManager']['publishVerifiedScaleGuides']
   >
@@ -809,7 +809,7 @@ function createControllerDependencies({
   const canvas = createScaleTestCanvas({ endCurrentTransformMock, uniformScaling })
 
   snappingManager.captureScaleSnapEnvironment = captureEnvironmentMock
-  snappingManager.markScaleStepHandled = markHandledMock
+  snappingManager.markStepHandled = markHandledMock
   snappingManager.publishVerifiedScaleGuides = publishGuidesMock
   const editor = createScaleTestEditor({
     canvas,

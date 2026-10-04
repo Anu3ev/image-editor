@@ -1,12 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Page } from '@playwright/test'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
-
-/** Позиция в истории и количество сохранённых изменений. */
-export type HistoryPosition = {
-  currentIndex: number
-  patchCount: number
-}
+import type { HistoryPosition } from '../types'
 
 export class HistoryModel {
   private readonly page: Page

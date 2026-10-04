@@ -17,6 +17,7 @@ import type {
   CropRect,
   CropSize
 } from '../types'
+import type { ObjectBounds } from '../../utils/geometry'
 
 /**
  * Минимальная ширина crop frame в локальных координатах источника.
@@ -104,6 +105,29 @@ export function getSourceSize({ source }: { source: FabricObject }): CropSize {
   return {
     width: source.width,
     height: source.height
+  }
+}
+
+/** Возвращает границы crop-рамки или содержимого источника в координатах сцены, без обводки. */
+export function getCropObjectSceneBounds({ object }: { object: FabricObject }): ObjectBounds {
+  const matrix = object.calcTransformMatrix()
+  const halfWidth = object.width / 2
+  const halfHeight = object.height / 2
+  const points = [
+    new Point(-halfWidth, -halfHeight),
+    new Point(halfWidth, -halfHeight),
+    new Point(halfWidth, halfHeight),
+    new Point(-halfWidth, halfHeight)
+  ].map((point) => point.transform(matrix))
+  const { left, top, width, height } = getBoundsFromPoints({ points })
+
+  return {
+    left,
+    right: left + width,
+    top,
+    bottom: top + height,
+    centerX: left + (width / 2),
+    centerY: top + (height / 2)
   }
 }
 
@@ -345,11 +369,10 @@ function moveFrameInsideSource({
     frame
   })
   const sourceSize = getSourceSize({ source })
-  const sourceBounds = getCenteredSourceBounds({ sourceSize })
   const localCenter = getCropRectCenter({ rect })
-  const localOffset = getLocalClampOffset({
+  const localOffset = getCropSourceClampOffset({
     rect,
-    sourceBounds
+    sourceSize
   })
 
   const nextCenter = new Point(
@@ -359,18 +382,6 @@ function moveFrameInsideSource({
 
   frame.setPositionByOrigin(nextCenter, 'center', 'center')
   frame.setCoords()
-}
-
-/**
- * Возвращает bounds источника в его локальной системе координат.
- */
-function getCenteredSourceBounds({ sourceSize }: { sourceSize: CropSize }): CropRect {
-  return {
-    left: -sourceSize.width / 2,
-    top: -sourceSize.height / 2,
-    width: sourceSize.width,
-    height: sourceSize.height
-  }
 }
 
 /**
@@ -384,28 +395,30 @@ function getCropRectCenter({ rect }: { rect: CropRect }): Point {
 }
 
 /**
- * Считает локальный offset, который возвращает rect внутрь source bounds.
+ * Рассчитывает сдвиг crop-области внутрь источника в исходных пикселях без изменения объектов.
  */
-function getLocalClampOffset({
+export function getCropSourceClampOffset({
   rect,
-  sourceBounds
+  sourceSize
 }: {
   rect: CropRect
-  sourceBounds: CropRect
+  sourceSize: CropSize
 }): Point {
-  const sourceRight = sourceBounds.left + sourceBounds.width
-  const sourceBottom = sourceBounds.top + sourceBounds.height
+  const sourceLeft = -sourceSize.width / 2
+  const sourceTop = -sourceSize.height / 2
+  const sourceRight = sourceSize.width / 2
+  const sourceBottom = sourceSize.height / 2
   let offsetX = 0
   let offsetY = 0
 
-  if (rect.left < sourceBounds.left) {
-    offsetX = sourceBounds.left - rect.left
+  if (rect.left < sourceLeft) {
+    offsetX = sourceLeft - rect.left
   }
   if (rect.left + rect.width > sourceRight) {
     offsetX = sourceRight - rect.left - rect.width
   }
-  if (rect.top < sourceBounds.top) {
-    offsetY = sourceBounds.top - rect.top
+  if (rect.top < sourceTop) {
+    offsetY = sourceTop - rect.top
   }
   if (rect.top + rect.height > sourceBottom) {
     offsetY = sourceBottom - rect.top - rect.height

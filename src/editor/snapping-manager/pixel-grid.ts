@@ -1,10 +1,5 @@
 /* eslint-disable no-use-before-define -- Публичные pixel-grid функции держим выше private helpers. */
-import {
-  FabricImage,
-  FabricObject,
-  Textbox,
-  Transform
-} from 'fabric'
+import { FabricImage, FabricObject, Textbox, Transform } from 'fabric'
 
 import {
   resolveGuardedScalingStep,
@@ -15,6 +10,24 @@ import type { ScalingStepSnapGuard } from './scaling/scaling-snap-guard'
 import { MOVE_SNAP_STEP } from './constants'
 
 export type { ScalingStepSnapGuard } from './scaling/scaling-snap-guard'
+
+/** Применение пиксельного шага с необязательной фиксацией опорной точки и направляющих. */
+export interface ScalingStepOptions {
+  target: FabricObject
+  transform?: Transform | null
+  preservePlacement?: ScalingStepPlacementPreserver
+  snapGuards?: ScalingStepSnapGuard[]
+}
+
+/** Исходный scale и измеряемые размеры одного шага округления. */
+export interface ScalingStepRounding extends ScalingAxisRoundingState {
+  rawScaleX: number
+  rawScaleY: number
+  effectiveWidth: number
+  effectiveHeight: number
+  fallbackScale: ScalingStepCandidate
+  isUniform: boolean
+}
 
 /** Оси scale, которые реально меняются в текущем Fabric transform. */
 type ScalingAxisRoundingState = {
@@ -131,128 +144,76 @@ function resolveTextboxDimensions({ target }: { target: Textbox }): { width: num
   }
 }
 
-/**
- * Возвращает базовые размеры из доменного display-size, если объект сам определяет такую геометрию.
- */
-function resolveDisplaySizeDimensions({
-  target,
-  scaleX,
-  scaleY
-}: {
-  target: FabricObject
-  scaleX: number
-  scaleY: number
-}): { width: number; height: number } | null {
-  const displaySize = target.getObjectDisplaySize?.()
-  if (!displaySize) return null
+/** Возвращает размеры объекта без масштаба в пикселях canvas. */
+function resolveEffectiveDimensions({ target }: { target: FabricObject }): { width: number; height: number } {
+  if (target instanceof Textbox) return resolveTextboxDimensions({ target })
 
-  const absScaleX = Math.abs(scaleX)
-  const absScaleY = Math.abs(scaleY)
-  if (absScaleX <= 0 || absScaleY <= 0) return null
-  if (!Number.isFinite(displaySize.width) || !Number.isFinite(displaySize.height)) return null
-  if (displaySize.width <= 0 || displaySize.height <= 0) return null
-
-  return {
-    width: displaySize.width / absScaleX,
-    height: displaySize.height / absScaleY
-  }
-}
-
-/**
- * Возвращает эффективные размеры объекта без масштаба.
- */
-function resolveEffectiveDimensions({
-  target,
-  scaleX,
-  scaleY
-}: {
-  target: FabricObject
-  scaleX: number
-  scaleY: number
-}): { width: number; height: number } {
-  const displayDimensions = resolveDisplaySizeDimensions({
-    target,
-    scaleX,
-    scaleY
-  })
-  if (displayDimensions) return displayDimensions
-
-  if (target instanceof Textbox) {
-    return resolveTextboxDimensions({ target })
-  }
-
-  const {
-    width = 0,
-    height = 0,
-    strokeWidth = 0,
-    strokeUniform = false
-  } = target
+  const { width = 0, height = 0, strokeWidth = 0, strokeUniform = false } = target
   const strokeContribution = strokeUniform ? 0 : strokeWidth
 
-  return {
-    width: width + strokeContribution,
-    height: height + strokeContribution
-  }
+  return { width: width + strokeContribution, height: height + strokeContribution }
 }
 
-/**
- * Округляет масштаб объекта так, чтобы его измеряемый размер в пикселях был целым числом.
- */
+/** Округляет размер объекта в пикселях canvas с учётом удерживаемых направляющих. */
 export function applyScalingStep({
-  target,
-  transform,
-  preservePlacement,
-  snapGuards = []
+  target, transform, preservePlacement, snapGuards = []
+}: ScalingStepOptions): void {
+  const rounding = captureScalingStepRounding({ target, transform })
+  if (!rounding) return
+
+  const scale = snapGuards.length === 0
+    ? rounding.fallbackScale
+    : resolveGuardedScalingStep({ target, ...rounding, preservePlacement, snapGuards })
+
+  applyScalingStepCandidate({ target, transform, preservePlacement, rounding, scale })
+}
+
+/** Собирает размер, оси округления и ближайший пиксельный scale без изменения объекта. */
+export function captureScalingStepRounding({
+  target, transform, dimensions = resolveEffectiveDimensions({ target })
 }: {
   target: FabricObject
   transform?: Transform | null
-  preservePlacement?: ScalingStepPlacementPreserver
-  snapGuards?: ScalingStepSnapGuard[]
-}): void {
-  const {
-    scaleX: rawScaleX = 1,
-    scaleY: rawScaleY = 1
-  } = target
+  dimensions?: { width: number; height: number }
+}): ScalingStepRounding | null {
+  const { scaleX: rawScaleX = 1, scaleY: rawScaleY = 1 } = target
+  const axes = resolveScalingAxisRoundingState({ transform, rawScaleX, rawScaleY })
+  if (!axes.shouldRoundScaleX && !axes.shouldRoundScaleY) return null
 
-  const roundingState = resolveScalingAxisRoundingState({
-    transform,
-    rawScaleX,
-    rawScaleY
-  })
-  if (!roundingState.shouldRoundScaleX && !roundingState.shouldRoundScaleY) return
-
-  const { width: effectiveWidth, height: effectiveHeight } = resolveEffectiveDimensions({
-    target,
-    scaleX: rawScaleX,
-    scaleY: rawScaleY
-  })
-  const snappedScale = resolveSnappedScalingStep({
-    target,
-    transform,
+  const effectiveWidth = dimensions.width
+  const effectiveHeight = dimensions.height
+  return {
+    ...axes,
     rawScaleX,
     rawScaleY,
     effectiveWidth,
     effectiveHeight,
-    preservePlacement,
-    snapGuards
-  })
-  const nextScale = resolveScaleForRoundedAxes({
-    rawScaleX,
-    rawScaleY,
-    snappedScale,
-    roundingState
-  })
+    isUniform: rawScaleX === rawScaleY,
+    fallbackScale: resolveRoundedScalingStep({ rawScaleX, rawScaleY, effectiveWidth, effectiveHeight })
+  }
+}
 
-  const isAlreadySnapped = nextScale.scaleX === rawScaleX && nextScale.scaleY === rawScaleY
+/** Применяет выбранный scale только по активным осям, сохраняя опорную точку. */
+export function applyScalingStepCandidate({
+  target, transform, preservePlacement, rounding, scale
+}: {
+  target: FabricObject
+  transform?: Transform | null
+  preservePlacement?: ScalingStepPlacementPreserver
+  rounding: ScalingStepRounding
+  scale: ScalingStepCandidate
+}): void {
+  const scaleX = rounding.shouldRoundScaleX ? scale.scaleX : rounding.rawScaleX
+  const scaleY = rounding.shouldRoundScaleY ? scale.scaleY : rounding.rawScaleY
+  if (scaleX === rounding.rawScaleX && scaleY === rounding.rawScaleY) return
 
-  if (isAlreadySnapped) return
-
-  applyResolvedScalingStep({
-    target,
-    transform,
-    preservePlacement,
-    scale: nextScale
-  })
+  target.set({ scaleX, scaleY })
+  if (preservePlacement) preservePlacement.applyPlacement(preservePlacement.placement)
+  if (transform) {
+    transform.scaleX = scaleX
+    transform.scaleY = scaleY
+  }
+  target.setCoords()
 }
 
 /**
@@ -282,65 +243,6 @@ function resolveScalingAxisRoundingState({
 }
 
 /**
- * Оставляет raw scale на осях, которые Fabric transform не менял в этом шаге.
- */
-function resolveScaleForRoundedAxes({
-  rawScaleX,
-  rawScaleY,
-  snappedScale,
-  roundingState
-}: {
-  rawScaleX: number
-  rawScaleY: number
-  snappedScale: ScalingStepCandidate
-  roundingState: ScalingAxisRoundingState
-}): ScalingStepCandidate {
-  const nextScale = {
-    ...snappedScale
-  }
-
-  if (!roundingState.shouldRoundScaleX) {
-    nextScale.scaleX = rawScaleX
-  }
-  if (!roundingState.shouldRoundScaleY) {
-    nextScale.scaleY = rawScaleY
-  }
-
-  return nextScale
-}
-
-/**
- * Применяет округлённый scale к Fabric target, transform и fixed placement.
- */
-function applyResolvedScalingStep({
-  target,
-  transform,
-  preservePlacement,
-  scale
-}: {
-  target: FabricObject
-  transform?: Transform | null
-  preservePlacement?: ScalingStepPlacementPreserver
-  scale: ScalingStepCandidate
-}): void {
-  target.set({
-    scaleX: scale.scaleX,
-    scaleY: scale.scaleY
-  })
-
-  if (preservePlacement) {
-    preservePlacement.applyPlacement(preservePlacement.placement)
-  }
-
-  if (transform) {
-    transform.scaleX = scale.scaleX
-    transform.scaleY = scale.scaleY
-  }
-
-  target.setCoords()
-}
-
-/**
  * Возвращает true, если scale по оси реально изменился в текущем Fabric transform.
  */
 function shouldRoundScalingAxis({
@@ -360,51 +262,6 @@ function shouldRoundScalingAxis({
   if (typeof originalScale !== 'number') return true
 
   return originalScale !== rawScale
-}
-
-/**
- * Возвращает итоговый scale после pixel-rounding и ограничений активных snap-guide.
- */
-function resolveSnappedScalingStep({
-  target,
-  transform,
-  rawScaleX,
-  rawScaleY,
-  effectiveWidth,
-  effectiveHeight,
-  preservePlacement,
-  snapGuards
-}: {
-  target: FabricObject
-  transform?: Transform | null
-  rawScaleX: number
-  rawScaleY: number
-  effectiveWidth: number
-  effectiveHeight: number
-  preservePlacement?: ScalingStepPlacementPreserver
-  snapGuards: ScalingStepSnapGuard[]
-}): ScalingStepCandidate {
-  const roundedScale = resolveRoundedScalingStep({
-    rawScaleX,
-    rawScaleY,
-    effectiveWidth,
-    effectiveHeight
-  })
-
-  if (snapGuards.length === 0) return roundedScale
-
-  return resolveGuardedScalingStep({
-    target,
-    transform,
-    rawScaleX,
-    rawScaleY,
-    effectiveWidth,
-    effectiveHeight,
-    fallbackScale: roundedScale,
-    isUniform: rawScaleX === rawScaleY,
-    preservePlacement,
-    snapGuards
-  })
 }
 
 /**

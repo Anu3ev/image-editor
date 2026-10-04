@@ -127,6 +127,7 @@ Nested shapes, shapes inside `ActiveSelection`, movement without an active brows
 - `editor:shape-updated` carries both the before and after snapshots for programmatic updates, style changes, text changes, editing, and resize.
 - Shape removal uses Fabric's regular `object:removed` event; there is no separate `editor:shape-removed` event.
 - Unified snapping sessions for a top-level shape, a supported shape-only selection, or the full mixed composition are cleared on `mouseup`, selection changes, object removal, `pointercancel`, `touchcancel`, window blur, and manager destruction. Editor-owned deletion finishes the current transform before removing a shape, while the original selection can still materialize its last visible geometry. Remaining shape layout and resize state is cleared only after that commit or when no commit is available.
+- Cancelling a top-level shape gesture also clears its resize-start snapshot when Fabric throws during completion. The error is propagated; without an active shape gesture these window events leave unrelated lifecycle state unchanged.
 
 ## Easy ways to break it
 

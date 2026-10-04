@@ -42,7 +42,7 @@ export type ShapeScaleInteractionHarness = Readonly<{
   fixedAnchor: Readonly<{ x: number; y: number }>
   baselineBounds: ObjectBounds
   captureEnvironmentMock: jest.MockedFunction<ImageEditor['snappingManager']['captureScaleSnapEnvironment']>
-  claimStepMock: jest.MockedFunction<ImageEditor['snappingManager']['markScaleStepHandled']>
+  claimStepMock: jest.MockedFunction<ImageEditor['snappingManager']['markStepHandled']>
   publishGuidesMock: jest.MockedFunction<ImageEditor['snappingManager']['publishVerifiedScaleGuides']>
   materializeMock: jest.MockedFunction<ShapeScalingController['handleObjectScaling']>
   clearScalingStateMock: jest.MockedFunction<ShapeScalingController['clearState']>
@@ -268,7 +268,7 @@ export function createShapeScaleInteractionHarness({
   const endCurrentTransformMock: ShapeScaleInteractionHarness['endCurrentTransformMock'] = jest.fn()
   const snappingManager: SnappingManager = Object.create(SnappingManager.prototype)
   snappingManager.captureScaleSnapEnvironment = captureEnvironmentMock
-  snappingManager.markScaleStepHandled = claimStepMock
+  snappingManager.markStepHandled = claimStepMock
   snappingManager.publishVerifiedScaleGuides = publishGuidesMock
   const canvas: Canvas = Object.create(Canvas.prototype)
   canvas.altActionKey = 'shiftKey'

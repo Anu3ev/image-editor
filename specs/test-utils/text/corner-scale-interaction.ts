@@ -60,7 +60,7 @@ export type TextCornerScaleInteractionHarness = Readonly<{
   controller: TextCornerScaleInteractionController
   fixedAnchor: Readonly<{ x: number; y: number }>
   gesture: TextCornerScaleGestureProjection
-  markStepMock: jest.MockedFunction<SnappingManager['markScaleStepHandled']>
+  markStepMock: jest.MockedFunction<SnappingManager['markStepHandled']>
   pointerStart: Readonly<{ x: number; y: number }>
   publishGuidesMock: jest.MockedFunction<SnappingManager['publishVerifiedScaleGuides']>
   target: BackgroundTextbox
@@ -239,7 +239,7 @@ function createTextCornerScaleController({
 
   const snappingManager: SnappingManager = Object.create(SnappingManager.prototype)
   snappingManager.captureScaleSnapEnvironment = captureEnvironmentMock
-  snappingManager.markScaleStepHandled = markStepMock
+  snappingManager.markStepHandled = markStepMock
   snappingManager.publishVerifiedScaleGuides = publishGuidesMock
 
   const editor: ImageEditor = Object.create(ImageEditor.prototype)

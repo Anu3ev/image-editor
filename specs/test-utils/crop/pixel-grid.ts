@@ -1,18 +1,50 @@
 import { Rect } from 'fabric'
 
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
+import { CropFrame } from '../../../src/editor/crop-manager/domain/crop-frame'
 
-/** Rect fixture, который имитирует crop frame с display-size в source-пикселях. */
-type SourceScaledRect = Rect & {
-  cropSource?: Rect | null
-  cropSourceScaleX: number
-  cropSourceScaleY: number
-  getObjectDisplaySize(): { width: number; height: number }
-  getObjectSnappingBounds(): ObjectBounds
-}
+/** Source bounds тестового изображения после пересчёта в scene-пиксели. */
+export const SOURCE_BOUNDS = {
+  left: 0,
+  top: 0,
+  right: 342,
+  bottom: 342,
+  centerX: 171,
+  centerY: 171
+} as const
 
-/** Параметры создания Rect, чей display-size считается в source-пикселях. */
-type SourceScaledRectParams = {
+/** Source bounds прямоугольного изображения 1000x667 после scale 0.512 и округления source guides. */
+export const RECTANGULAR_SOURCE_BOUNDS = {
+  left: 0,
+  top: 0,
+  right: 512,
+  bottom: 342,
+  centerX: 256,
+  centerY: 171
+} as const
+
+/** Внешние source-границы, которые test fixture может проверить без отдельной placement-модели. */
+export const SOURCE_BOUNDARY_GUIDE_CASES = [
+  {
+    title: 'нижней границы source',
+    snapGuard: {
+      type: 'horizontal',
+      edge: 'bottom',
+      position: SOURCE_BOUNDS.bottom
+    }
+  },
+  {
+    title: 'правой границы source',
+    snapGuard: {
+      type: 'vertical',
+      edge: 'right',
+      position: SOURCE_BOUNDS.right
+    }
+  }
+] as const
+
+/** Параметры crop-рамки с размером в пикселях источника. */
+type SourceScaledCropFrameParams = {
   width: number
   height: number
   scaleX: number
@@ -39,8 +71,8 @@ function createSourceBoundsRect({ bounds }: { bounds: ObjectBounds }): Rect {
   return source
 }
 
-/** Создаёт Rect, чей display-size считается в source-пикселях. */
-export function createSourceScaledRect({
+/** Создаёт crop-рамку с управляемыми границами и размером в пикселях источника. */
+export function createSourceScaledCropFrame({
   width,
   height,
   scaleX,
@@ -50,8 +82,8 @@ export function createSourceScaledRect({
   left = 0,
   top = 0,
   sourceBounds
-}: SourceScaledRectParams): SourceScaledRect {
-  const target = new Rect({
+}: SourceScaledCropFrameParams): CropFrame {
+  const target = new CropFrame({
     left,
     top,
     width,
@@ -60,18 +92,12 @@ export function createSourceScaledRect({
     scaleY,
     originX: 'left',
     originY: 'top',
-    strokeWidth: 0
-  }) as SourceScaledRect
-
-  target.cropSourceScaleX = sourceScaleX
-  target.cropSourceScaleY = sourceScaleY
-  target.cropSource = sourceBounds ? createSourceBoundsRect({ bounds: sourceBounds }) : null
-  target.getObjectDisplaySize = () => {
-    return {
-      width: Math.max(1, (target.width * Math.abs(target.scaleX ?? 1)) / sourceScaleX),
-      height: Math.max(1, (target.height * Math.abs(target.scaleY ?? 1)) / sourceScaleY)
-    }
-  }
+    strokeWidth: 0,
+    showGrid: false,
+    sourceScaleX,
+    sourceScaleY,
+    source: sourceBounds ? createSourceBoundsRect({ bounds: sourceBounds }) : undefined
+  })
   target.getObjectSnappingBounds = () => {
     const boundsLeft = target.left ?? 0
     const boundsTop = target.top ?? 0
@@ -96,7 +122,7 @@ export function createSourceScaledRect({
 export function getRoundedDisplaySize({
   target
 }: {
-  target: SourceScaledRect
+  target: CropFrame
 }): { width: number; height: number } {
   const size = target.getObjectDisplaySize()
 

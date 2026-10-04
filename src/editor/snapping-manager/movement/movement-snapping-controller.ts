@@ -11,11 +11,6 @@ import {
 
 import type { ImageEditor } from '../..'
 import {
-  createMovementSnapEnvironment,
-  type MovementSnapCandidateSource,
-  type MovementSnapEnvironment
-} from './movement-snap-candidates'
-import {
   createMovementGestureBaseline,
   createMovementGuideLines,
   type FinalMovementGeometry,
@@ -33,10 +28,6 @@ import type {
   SpacingGuide
 } from '../types'
 import { getObjectExactBounds } from '../../utils/geometry'
-import {
-  collectExcludedObjects,
-  shouldIgnoreObject
-} from '../../utils/object-filter'
 import { isShapeGroup } from '../../shape-manager/domain/shape-reference'
 
 /** Верхнеуровневые объекты, уже переведённые на общую логику перемещения. */
@@ -103,7 +94,7 @@ export class MovementSnappingController {
     }
 
     const position = this._readTargetPosition({ target })
-    const environment = this._captureEnvironment({ activeObject: target })
+    const environment = this._editor.snappingManager.captureMovementSnapEnvironment({ activeObject: target })
     const baseline = createMovementGestureBaseline({
       bounds,
       position,
@@ -268,53 +259,6 @@ export class MovementSnappingController {
       left: target.left,
       top: target.top
     }
-  }
-
-  /** Один раз фиксирует точные границы неподвижных объектов и монтажной области. */
-  private _captureEnvironment({
-    activeObject
-  }: {
-    activeObject: SupportedMovementTarget
-  }): MovementSnapEnvironment {
-    const sources = this._collectCandidateSources({ activeObject })
-    const montageBounds = getObjectExactBounds({ object: this._editor.montageArea })
-    if (montageBounds) {
-      sources.push({
-        id: 'montage-area',
-        bounds: montageBounds,
-        edgeCategory: 'domain-boundary'
-      })
-    }
-
-    return createMovementSnapEnvironment({
-      sources,
-      zoom: this._editor.canvas.getZoom() || 1
-    })
-  }
-
-  /** Собирает стабильные цели обычного и равноудалённого прилипания. */
-  private _collectCandidateSources({
-    activeObject
-  }: {
-    activeObject: SupportedMovementTarget
-  }): MovementSnapCandidateSource[] {
-    const excluded = collectExcludedObjects({ activeObject })
-    const sources: MovementSnapCandidateSource[] = []
-
-    this._editor.canvas.forEachObject((object) => {
-      if (shouldIgnoreObject({ object, excluded })) return
-
-      const bounds = getObjectExactBounds({ object })
-      if (!bounds) return
-
-      sources.push({
-        id: `object:${sources.length}:${object.id ?? object.type}`,
-        bounds,
-        useForSpacing: true
-      })
-    })
-
-    return sources
   }
 }
 

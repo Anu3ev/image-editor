@@ -23,9 +23,14 @@ import {
 } from './movement/spacing'
 import {
   createScaleSnapCandidates,
-  type ScaleSnapCandidateSource,
   type ScaleSnapEnvironment
 } from './scaling/scale-snap-candidates'
+import {
+  createMovementSnapEnvironment,
+  type MovementSnapCandidateSource,
+  type MovementSnapEnvironment
+} from './movement/movement-snap-candidates'
+import { createMovementGuideLines, type MovementSnapVerification } from './movement/movement-snapping-resolver'
 import {
   createScaleGestureBaseline,
   type VerifiedScaleGuide
@@ -57,7 +62,6 @@ import {
   resolveScalingAxisState,
   resolveScalingTransformState,
   resolveTextResizeSnapPlan,
-  shouldUseUniformScaleSnap,
   type ScaleAxisSnapState,
   type ScaleUpdatePlan,
   type TextResizeSnapPlan
@@ -74,6 +78,7 @@ import { buildSpacingPatterns } from './movement/spacing-patterns'
 import { pushBoundsToAnchors } from './guides/anchor-buckets'
 import {
   SnapTargetResolver,
+  type SnapDomainBoundary,
   type SnapTargetBoundsMode
 } from './guides/snap-target-resolver'
 import {
@@ -160,7 +165,6 @@ type ObjectScalingTargetContext = {
 type ObjectScalingPlanContext = ObjectScalingTargetContext & {
   originX: Transform['originX']
   originY: Transform['originY']
-  shouldUseUniformScale: boolean
   scalePlan: ScaleUpdatePlan
 }
 
@@ -233,7 +237,7 @@ export default class SnappingManager {
   private guideBounds: GuideBounds | null = null
 
   /** События указателя, уже обработанные менеджером конкретного типа объекта. */
-  private readonly handledScaleStepEvents = new WeakSet<object>()
+  private readonly handledStepEvents = new WeakSet<object>()
 
   /** Управляет унифицированным прилипанием при перемещении изображений, шейпов и отдельного текста. */
   private readonly movementSnappingController: MovementSnappingController
@@ -317,37 +321,51 @@ export default class SnappingManager {
 
   /**
    * Сохраняет точные цели и масштаб canvas в начале скейлинга.
+   * Переданная владельцем граница получает приоритет доменного ограничения.
    */
   public captureScaleSnapEnvironment({
     activeObject,
-    targetEdges
+    targetEdges,
+    domainBoundary
   }: {
     activeObject: FabricObject
     targetEdges: readonly ScaleSceneEdge[]
+    domainBoundary?: SnapDomainBoundary
   }): ScaleSnapEnvironment {
-    const sources: ScaleSnapCandidateSource[] = []
-    const targets = this.snapTargetResolver.resolve({ activeObject, mode: 'exact' })
-
-    for (const { bounds, object, snapshotIndex } of targets) {
-      sources.push({
-        id: `object:${snapshotIndex}:${object.id ?? object.type}`,
-        bounds
-      })
-    }
-
-    const montageBounds = getObjectExactBounds({ object: this.editor.montageArea })
-    if (montageBounds) {
-      sources.push({
-        id: 'montage-area',
-        bounds: montageBounds,
-        edgeCategory: 'domain-boundary'
-      })
-    }
+    const sources = this._captureSourcesAndGuideBounds({ activeObject, domainBoundary })
 
     return Object.freeze({
       candidates: createScaleSnapCandidates({ targetEdges, sources }),
       zoom: this.canvas.getZoom() || 1
     })
+  }
+
+  /** Фиксирует точные цели перемещения; доменная граница не участвует в равноудалённости. */
+  public captureMovementSnapEnvironment({
+    activeObject, domainBoundary
+  }: {
+    activeObject: FabricObject
+    domainBoundary?: SnapDomainBoundary
+  }): MovementSnapEnvironment {
+    const sources = this._captureSourcesAndGuideBounds({ activeObject, domainBoundary })
+
+    return createMovementSnapEnvironment({ sources, zoom: this.canvas.getZoom() || 1 })
+  }
+
+  /** Фиксирует цели и область рисования из одного снимка точной геометрии сцены. */
+  private _captureSourcesAndGuideBounds({
+    activeObject, domainBoundary
+  }: {
+    activeObject: FabricObject
+    domainBoundary?: SnapDomainBoundary
+  }): MovementSnapCandidateSource[] {
+    const sources = this.snapTargetResolver.resolveSources({
+      activeObject, domainBoundary, montageArea: this.editor.montageArea
+    })
+    this.guideBounds = sources.find(({ id }) => id === 'montage-area')?.bounds
+      ?? calculateSnappingViewportBounds({ canvas: this.canvas })
+
+    return sources
   }
 
   /** Создаёт исходную проекцию и запускает общий расчёт прилипания для прямоугольного скейлинга. */
@@ -383,8 +401,8 @@ export default class SnappingManager {
   /**
    * Помечает событие указателя уже обработанным менеджером объекта.
    */
-  public markScaleStepHandled({ marker }: { marker: object }): void {
-    this.handledScaleStepEvents.add(marker)
+  public markStepHandled({ marker }: { marker: object }): void {
+    this.handledStepEvents.add(marker)
   }
 
   /**
@@ -397,6 +415,16 @@ export default class SnappingManager {
         position
       })),
       spacingGuides: []
+    })
+  }
+
+  /** Показывает обычные и равноудалённые направляющие после проверки фактической позиции. */
+  public publishVerifiedMovementGuides({
+    guides, spacingGuides
+  }: Pick<MovementSnapVerification, 'guides' | 'spacingGuides'>): void {
+    this._applyGuides({
+      guides: createMovementGuideLines({ guides }),
+      spacingGuides: [...spacingGuides]
     })
   }
 
@@ -445,7 +473,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Очищает состояние прошлого взаимодействия и фиксирует цели нового.
+   * Очищает прошлый жест и запускает владельца нового. Прежний кеш строится только при обращении к нему.
    */
   private _handleMouseDown(event: MouseEventInfo): void {
     const { target } = event
@@ -459,10 +487,6 @@ export default class SnappingManager {
     this.movementSnappingController.startGesture({
       target: movementTarget
     })
-
-    if (!target) return
-
-    this._cacheAnchors({ activeObject: target, mode: 'rounded' })
   }
 
   /** Обрабатывает шаг скейлинга изображения без события преобразования от Fabric. */
@@ -488,6 +512,7 @@ export default class SnappingManager {
    * Выполняет привязку объекта к ближайшим линиям при его перемещении.
    */
   private _handleObjectMoving(event: TransformEvent): void {
+    if (event.e && this.handledStepEvents.has(event.e)) return
     const objectMovementStep = this.movementSnappingController.handleObjectMoving({ event })
     if (objectMovementStep.handled) {
       this._applyGuides({
@@ -683,8 +708,21 @@ export default class SnappingManager {
       }
       return
     }
-    if (event.e && this.handledScaleStepEvents.has(event.e)) return
+    if (event.e && this.handledStepEvents.has(event.e)) return
     if (this.editor.textManager.handleStandaloneTextCornerScaling(event)) return
+
+    if (event.target && this.editor.cropManager.getFrameSnappingBoundary(event.target)) {
+      this._ensureAnchorBounds({ activeObject: event.target, mode: 'rounded' })
+      const guides = this.editor.cropManager.applyFrameScalingSnap({
+        target: event.target,
+        transform: event.transform,
+        event: event.e,
+        anchors: this.anchors,
+        threshold: SNAP_THRESHOLD / (this.canvas.getZoom() || 1)
+      })
+      this._applyGuides({ guides, spacingGuides: [] })
+      return
+    }
 
     const targetContext = this._resolveObjectScalingTargetContext({ event })
     if (!targetContext) return
@@ -765,7 +803,6 @@ export default class SnappingManager {
     context: ObjectScalingTargetContext
   ): ObjectScalingPlanContext | null {
     const {
-      event,
       target,
       transform,
       canApplyPixelScalingStep,
@@ -783,11 +820,6 @@ export default class SnappingManager {
       snapState
     } = snapGeometry
 
-    const shouldUseUniformScale = shouldUseUniformScaleSnap({
-      target,
-      event,
-      isCornerHandle
-    })
     const scalePlan = resolveScaleUpdatePlan({
       target,
       bounds: activeBounds,
@@ -795,9 +827,7 @@ export default class SnappingManager {
       originY,
       scaleX,
       scaleY,
-      originalScaleX: transform.original?.scaleX,
-      originalScaleY: transform.original?.scaleY,
-      shouldUseUniformScaleSnap: shouldUseUniformScale,
+      shouldUseUniformScaleSnap: isCornerHandle,
       verticalSnap: snapState.verticalSnap,
       horizontalSnap: snapState.horizontalSnap
     })
@@ -815,7 +845,6 @@ export default class SnappingManager {
       ...context,
       originX,
       originY,
-      shouldUseUniformScale,
       scalePlan
     }
   }
@@ -852,7 +881,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Применяет план прилипания, ограничения CropFrame и округление до пикселей.
+   * Применяет прежний план прилипания и округление обычного объекта до пикселей.
    */
   private _applyObjectScalingSnapPlan({
     target,
@@ -860,29 +889,11 @@ export default class SnappingManager {
     originX,
     originY,
     canApplyPixelScalingStep,
-    shouldUseUniformScale,
     scalePlan
   }: ObjectScalingPlanContext): void {
-    const appliedSourceBoundScalePlan = shouldUseUniformScale
-      ? this.editor.cropManager.applyFrameSourceBoundScalePlan({
-        target,
-        transform,
-        nextScaleX: scalePlan.nextScaleX,
-        nextScaleY: scalePlan.nextScaleY
-      })
-      : false
+    this._applyScaleUpdatePlan({ target, transform, originX, originY, plan: scalePlan })
 
-    if (!appliedSourceBoundScalePlan) {
-      this._applyScaleUpdatePlan({
-        target,
-        transform,
-        originX,
-        originY,
-        plan: scalePlan
-      })
-    }
-
-    if (canApplyPixelScalingStep && !appliedSourceBoundScalePlan) {
+    if (canApplyPixelScalingStep) {
       this._applyObjectScalingPixelStep({
         target,
         transform,
@@ -891,13 +902,6 @@ export default class SnappingManager {
         snapGuards: scalePlan.snapGuards
       })
     }
-
-    this.editor.cropManager.restoreFrameScaleAnchorAfterSnap({
-      target,
-      transform
-    })
-
-    if (this._shouldHideOverflowingCropFrameGuides({ target })) return
 
     this._applyGuides({
       guides: scalePlan.guides,
@@ -1011,19 +1015,6 @@ export default class SnappingManager {
     if (typeof originalScaleX !== 'number' || typeof originalScaleY !== 'number') return true
 
     return target.scaleX !== originalScaleX || target.scaleY !== originalScaleY
-  }
-
-  /** Скрывает scale-направляющие crop frame, если текущий шаг будет зажат source clamp-ом. */
-  private _shouldHideOverflowingCropFrameGuides({
-    target
-  }: {
-    target: FabricObject
-  }): boolean {
-    if (!this.editor.cropManager.isFrameOverflowingSource({ target })) return false
-
-    this._clearGuides()
-
-    return true
   }
 
   /** Применяет сдвиг объекта и возвращает его актуальные bounds. */
@@ -1284,11 +1275,14 @@ export default class SnappingManager {
     this._finishSnappingInteraction()
   }
 
-  /** Завершает преобразование изображения после отмены события или потери фокуса. */
+  /** Прерывает скейлинг изображения и очищает направляющие даже при ошибке завершения Fabric. */
   private _handleInteractionCancelled(event: Event): void {
     const pointerEvent = event.type === 'blur' ? undefined : event as TPointerEvent
-    this.imageScaleSnappingController.interruptGesture({ event: pointerEvent })
-    this._finishSnappingInteraction()
+    try {
+      this.imageScaleSnappingController.interruptGesture({ event: pointerEvent })
+    } finally {
+      this._finishSnappingInteraction()
+    }
   }
 
   /** Завершает взаимодействие, только если с canvas удалили участвующий в нём объект. */
@@ -1415,7 +1409,11 @@ export default class SnappingManager {
     activeObject?: FabricObject | null
     mode: SnapTargetBoundsMode
   }): void {
-    const targets = this.snapTargetResolver.resolve({ activeObject, mode })
+    const targets = this.snapTargetResolver.resolve({
+      activeObject,
+      mode,
+      domainBoundary: this.editor.cropManager.getFrameSnappingBoundary(activeObject)
+    })
     const nextAnchors: AnchorBuckets = { vertical: [], horizontal: [] }
     const targetBounds: Bounds[] = []
 
