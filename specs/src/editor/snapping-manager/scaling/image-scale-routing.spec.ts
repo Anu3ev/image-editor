@@ -66,6 +66,32 @@ it('поддержанный object:scaling обрабатывается оди�
   expect(setup.image.transform.actionPerformed).toBe(true)
 })
 
+it('собирает неподвижные цели скейлинга изображения только один раз за жест', () => {
+  emitCanvasEvent({
+    canvas: setup.canvas,
+    event: 'mouse:down',
+    payload: createImageScaleStartEvent({ harness: setup.image })
+  })
+
+  expect(setup.canvas.forEachObject).toHaveBeenCalledTimes(1)
+
+  for (const multiplier of [1.08, 1.12, 1.15]) {
+    emitCanvasEvent({
+      canvas: setup.canvas,
+      event: 'object:scaling',
+      payload: createImageScaleStepEvent({
+        harness: setup.image,
+        marker: new MouseEvent('pointermove'),
+        multiplier
+      })
+    })
+  }
+
+  expect(setup.canvas.forEachObject).toHaveBeenCalledTimes(1)
+  expect(setup.legacyRouteMock).not.toHaveBeenCalled()
+  expect(setup.image.target.scaleX).toBeCloseTo(1.15, 9)
+})
+
 it('неподдержанный object:scaling передаётся в legacy ровно один раз', () => {
   setup.image.target.skewX = 10
   setup.legacyRouteMock.mockReturnValue(null)
@@ -217,6 +243,22 @@ it('mouseup завершает скейлинг изображения без п
   expect(setup.state.activeGuides).toEqual([])
   expect(setup.state.activeSpacingGuides).toEqual([])
   expect(setup.state.anchors).toEqual({ vertical: [], horizontal: [] })
+})
+
+it.each(INTERRUPTED_SCALE_EVENTS)('$event очищает направляющие даже при ошибке завершения Fabric', ({ event }) => {
+  emitCanvasEvent({
+    canvas: setup.canvas, event: 'mouse:down', payload: createImageScaleStartEvent({ harness: setup.image })
+  })
+  seedVisibleSnappingState({ state: setup.state })
+  const failure = new Error('Ошибка завершения Fabric transform')
+  const end = jest.spyOn(setup.canvas, 'endCurrentTransform').mockImplementationOnce(() => { throw failure })
+
+  expect(() => setup.state._handleInteractionCancelled(new Event(event))).toThrow(failure)
+  expect(end).toHaveBeenCalledTimes(1)
+  expect(setup.state.activeGuides).toEqual([])
+  expect(setup.state.activeSpacingGuides).toEqual([])
+  expect(setup.state.anchors).toEqual({ vertical: [], horizontal: [] })
+  expect(setup.state.imageScaleSnappingController.finishGesture()).toBe(false)
 })
 
 it.each(INTERRUPTED_SCALE_EVENTS)(

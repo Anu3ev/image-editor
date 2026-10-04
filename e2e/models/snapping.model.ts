@@ -284,6 +284,24 @@ export class SnappingModel {
     return this.getGuideState()
   }
 
+  /** Прерывает активное перетаскивание событием отмены указателя и освобождает мышь. */
+  async cancelPointerInteraction(): Promise<SnappingGuideState> {
+    if (!this.activePointerClientPoint) throw new Error('Перетаскивание не начато')
+    try {
+      const dispatched = await this.page.evaluate(() => window.dispatchEvent(new PointerEvent('pointercancel')))
+      expect(dispatched, 'событие отмены должно быть доставлено').toBe(true)
+      await waitForCanvasRender({ page: this.page })
+      const hasCurrentTransform = await this.page.evaluate(() => {
+        const { editor } = window as any
+        return editor.canvas._currentTransform !== null
+      })
+      expect(hasCurrentTransform, 'отмена указателя должна завершить преобразование').toBe(false)
+      return await this.getGuideState()
+    } finally {
+      await this.finishPointerInteraction()
+    }
+  }
+
   /** Завершает начатое моделью перетаскивание или ничего не делает без активного указателя. */
   async finishPointerInteractionIfActive(): Promise<void> {
     if (!this.activePointerClientPoint) return

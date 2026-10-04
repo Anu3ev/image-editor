@@ -26,6 +26,7 @@ export type ImageScaleRoutingManagerState = {
   anchors: AnchorBuckets
   imageScaleSnappingController: ImageScaleSnappingController
   _resolveObjectScalingTargetContext: LegacyObjectScalingRoute
+  _handleInteractionCancelled: (event: Event) => void
 }
 
 /** SnappingManager, Image-жест и наблюдаемые границы одного routing-сценария. */

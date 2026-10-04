@@ -420,9 +420,9 @@ function isScaleLimitActive({
 }
 
 /**
- * Возвращает anchored start без source-boundary snap.
+ * Сохраняет неподвижную сторону crop-прямоугольника при изменении размера.
  */
-function resolveAnchoredRectStart({
+export function resolveAnchoredRectStart({
   start,
   length,
   nextLength,

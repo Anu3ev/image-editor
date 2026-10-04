@@ -15,13 +15,18 @@ export class Point {
     return new Point(this.x + value, this.y + value)
   }
 
+  /** Возвращает разницу точек, не изменяя исходную точку. */
+  subtract(point: Point): Point {
+    return new Point(this.x - point.x, this.y - point.y)
+  }
+
   /** Применяет 2D affine matrix так же, как Point.transform в Fabric. */
-  transform(matrix: [number, number, number, number, number, number]) {
+  transform(matrix: [number, number, number, number, number, number], ignoreOffset = false): Point {
     const [a, b, c, d, e, f] = matrix
 
     return new Point(
-      (this.x * a) + (this.y * c) + e,
-      (this.x * b) + (this.y * d) + f
+      (this.x * a) + (this.y * c) + (ignoreOffset ? 0 : e),
+      (this.x * b) + (this.y * d) + (ignoreOffset ? 0 : f)
     )
   }
 }

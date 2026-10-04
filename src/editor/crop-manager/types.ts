@@ -1,4 +1,5 @@
 import type { FabricImage, FabricObject, Rect } from 'fabric'
+import type { CropFrame } from './domain/crop-frame'
 
 /**
  * Режимы работы crop manager.
@@ -109,7 +110,7 @@ export type CropFrameTransformState = {
  */
 type BaseCropSession = {
   source: FabricObject
-  frame: Rect
+  frame: CropFrame
   options: CropSessionOptions
   previousActiveObject: FabricObject | null
   interactivity: CropObjectInteractivity[]

@@ -321,13 +321,12 @@ export const createEditorStub = () => {
       commitRehydratedShapeLayout: jest.fn()
     },
     cropManager: {
-      applyFrameSourceBoundScalePlan: jest.fn().mockReturnValue(false),
+      getFrameSnappingBoundary: jest.fn(),
+      applyFrameScalingSnap: jest.fn().mockReturnValue([]),
       isActive: false,
       fitFrame: jest.fn().mockReturnValue(null),
       isFrameOverflowingSource: jest.fn().mockReturnValue(false),
-      isFrameSourceScaleClamped: jest.fn().mockReturnValue(false),
-      resetFrameToSource: jest.fn().mockReturnValue(null),
-      restoreFrameScaleAnchorAfterSnap: jest.fn().mockReturnValue(false)
+      resetFrameToSource: jest.fn().mockReturnValue(null)
     },
     montageArea,
     options: {

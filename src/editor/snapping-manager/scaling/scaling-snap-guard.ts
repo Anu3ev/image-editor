@@ -1,9 +1,6 @@
 /** Допуск subpixel-дрейфа грани вокруг guide после Fabric resize. */
 export const SNAP_GUARD_POSITION_EPSILON = 0.1
 
-/** Допуск удержания crop frame у guide, рядом с которым начался live scale. */
-export const SOURCE_SCALED_GUIDE_HOLD_EPSILON = 1
-
 /** Грань, которую guide удерживает во время текущего resize. */
 export type ScalingStepSnapGuard = {
   type: 'vertical' | 'horizontal'

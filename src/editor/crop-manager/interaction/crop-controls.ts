@@ -23,10 +23,7 @@ import {
   resolveCropSourceAxisScaleLimit,
   type CropSourceScaleAnchor
 } from '../domain/crop-source-scale'
-import type {
-  CropRect,
-  CropSize
-} from '../types'
+import type { CropSourceBoundTransform, CropSourceScaleBounds } from './crop-resize.types'
 
 /**
  * Допуск сравнения client pointer-координат внутри одной Fabric transform-сессии.
@@ -59,25 +56,11 @@ const CROP_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
 const CROP_SIDE_CONTROL_KEYS = ['ml', 'mr', 'mt', 'mb'] as const
 
 /**
- * Scale, на котором resize уже упёрся в source.
- */
-type CropSourceBoundScale = {
-  scaleX: number
-  scaleY: number
-}
-
-/**
  * Transform с сохранённым стартовым знаком стороны во время scale.
  */
-type CropScaleTransform = Transform & {
+interface CropScaleTransform extends CropSourceBoundTransform {
   signX?: number
   signY?: number
-  cropSourceScaleBounds?: CropSourceScaleBounds | null
-  cropSourceScaleClamped?: boolean
-  cropSourceBoundScale?: CropSourceBoundScale | null
-  cropSourceScaleAnchorX?: CropSourceScaleAnchor
-  cropSourceScaleAnchorY?: CropSourceScaleAnchor
-  cropSourceScalePreserveAspectRatio?: boolean
 }
 
 /**
@@ -88,14 +71,6 @@ type CropFrameScaleTarget = Rect & {
   cropAllowFrameOverflow?: boolean
   cropSourceScaleX?: number
   cropSourceScaleY?: number
-}
-
-/**
- * Source-границы resize, зафиксированные на старте Fabric transform.
- */
-type CropSourceScaleBounds = {
-  sourceSize: CropSize
-  startRect: CropRect
 }
 
 /**

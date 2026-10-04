@@ -294,9 +294,15 @@ function hasValidControlLevers({
 }
 
 /** Читает четыре угла прямоугольника в начале жеста. */
-function readRectangularScaleCorners({ target }: { target: FabricObject }): RectangularScaleCorners | null {
+function readRectangularScaleCorners({
+  target,
+  corners
+}: {
+  target: FabricObject
+  corners?: readonly RectangularScalePoint[]
+}): RectangularScaleCorners | null {
   try {
-    const sourceCorners = target.getCoords()
+    const sourceCorners = corners ?? target.getCoords()
     if (sourceCorners.length !== 4) return null
     if (!sourceCorners.every((point) => {
       return isFinitePoint({ point })
@@ -407,14 +413,17 @@ function canCreateRectangularScaleProjection({
 
 /**
  * Запоминает исходную геометрию прямоугольного top-level scale-жеста.
+ * Домен может передать собственные углы, если его геометрия исключает обводку Fabric.
  * Возвращает null, если control или affine-состояние не поддерживаются.
  */
 export function createRectangularScaleGestureProjection({
   transform,
-  pointerStart
+  pointerStart,
+  corners: domainCorners
 }: {
   transform: RectangularScaleGestureTransform
   pointerStart: RectangularScalePoint
+  corners?: readonly RectangularScalePoint[]
 }): RectangularScaleGestureProjection | null {
   if (!isRectangularScaleControlKey(transform.corner)) return null
   if (!canCreateRectangularScaleProjection({
@@ -427,7 +436,7 @@ export function createRectangularScaleGestureProjection({
   const control = RECTANGULAR_SCALE_CONTROL_COORDINATES[transform.corner]
   if (!origin || !hasValidControlLevers({ controlKey: transform.corner, control, origin })) return null
 
-  const corners = readRectangularScaleCorners({ target: transform.target })
+  const corners = readRectangularScaleCorners({ target: transform.target, corners: domainCorners })
   if (!corners) return null
 
   const u = subtractPoints({ point: corners.topRight, origin: corners.topLeft })
@@ -458,10 +467,11 @@ function isModeSupportedByControl({
   controlKey: RectangularScaleControlKey
   mode: RectangularScaleGestureMode
 }): boolean {
+  if (mode === 'uniform') return true
   if (controlKey === 'ml' || controlKey === 'mr') return mode === 'horizontal'
   if (controlKey === 'mt' || controlKey === 'mb') return mode === 'vertical'
 
-  return mode === 'free' || mode === 'uniform'
+  return mode === 'free'
 }
 
 /** Переводит смещение указателя в локальные оси исходного прямоугольника. */
@@ -519,6 +529,15 @@ function resolveUniformMultiplier({
   projection: RectangularScaleGestureProjection
   pointerDelta: RectangularScalePoint
 }): number | null {
+  if (projection.controlKey === 'ml' || projection.controlKey === 'mr') {
+    const { x } = resolveFreeMultipliers({ projection, pointerDelta })
+    return x < 0 ? null : x
+  }
+  if (projection.controlKey === 'mt' || projection.controlKey === 'mb') {
+    const { y } = resolveFreeMultipliers({ projection, pointerDelta })
+    return y < 0 ? null : y
+  }
+
   const leverX = projection.control.x - projection.origin.x
   const leverY = projection.control.y - projection.origin.y
   const currentLeverX = leverX + pointerDelta.x
@@ -805,19 +824,21 @@ function createScaleProjectionModeInput({
   })
 }
 
-/** Возвращает scale-режимы, доступные выбранной прямоугольной ручке. */
+/** Возвращает режимы ручки; домен может явно включить пропорциональный скейлинг боковой ручкой. */
 export function createRectangularScaleProjectionModes({
-  projection
+  projection,
+  includeUniformSideScale = false
 }: {
   projection: RectangularScaleGestureProjection
+  includeUniformSideScale?: boolean
 }): readonly ScaleProjectionModeInput[] {
   let modes: readonly RectangularScaleGestureMode[] = ['free', 'uniform']
 
   if (projection.controlKey === 'ml' || projection.controlKey === 'mr') {
-    modes = ['horizontal']
+    modes = includeUniformSideScale ? ['horizontal', 'uniform'] : ['horizontal']
   }
   if (projection.controlKey === 'mt' || projection.controlKey === 'mb') {
-    modes = ['vertical']
+    modes = includeUniformSideScale ? ['vertical', 'uniform'] : ['vertical']
   }
 
   return Object.freeze(modes.map((mode) => {

@@ -52,6 +52,8 @@ The scale session is ended on `mouseup`, a selection change, removal of the acti
 
 The captured child list, rather than the current mutable contents of `ActiveSelection`, determines whether an `object:removed` event belongs to the active session. This keeps cleanup correct even if Fabric changes the selection contents before delivering the event.
 
+Destruction removes canvas and window subscriptions even if Fabric throws while ending an active transform. Transient state and guides are still cleared, and the original error is propagated.
+
 ## Migration boundary
 
 The full composition of an image, a canonical unrotated shape, and canonical standalone text now uses the same unified scale owner as the other supported selections. `ShapeManager` is registered before `SelectionManager`, so its event controller asks the unified owner to process a supported shape step immediately. If that owner declines the step, the same event continues through the existing shape path; an accepted step is not processed twice when the later `SelectionManager` listener receives it. `SelectionManager` delegates shape constraints and commit to `ShapeManager` and text measurement and canonical text application to `TextManager`; neither domain manager starts a second snapping session.

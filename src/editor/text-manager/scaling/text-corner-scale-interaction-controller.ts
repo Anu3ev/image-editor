@@ -457,7 +457,7 @@ export default class TextCornerScaleInteractionController {
         session,
         token: step.token
       })
-      this.editor.snappingManager.markScaleStepHandled({ marker: pointerEvent })
+      this.editor.snappingManager.markStepHandled({ marker: pointerEvent })
       const guides = this._applyAndVerifyScale({ resolved, session, token: step.token })
       this.editor.snappingManager.publishVerifiedScaleGuides({ guides })
 

@@ -463,3 +463,34 @@ it('при pointercancel, touchcancel и blur прерывает Fabric transfor
   expect(interruptGestureSpy).toHaveBeenNthCalledWith(3)
   expect(harness.lifecycleController.clearResizeStarts).toHaveBeenCalledTimes(3)
 })
+
+it.each(['pointercancel', 'touchcancel', 'blur'] as const)(
+  'при ошибке завершения шейпа через %s очищает начальное состояние resize',
+  (eventName) => {
+    const failure = new Error('Ошибка завершения Fabric transform')
+    const interrupt = jest.spyOn(ShapeScaleInteractionController.prototype, 'interruptGesture')
+      .mockImplementationOnce(() => { throw failure })
+    const addListener = jest.spyOn(window, 'addEventListener')
+    const harness = createShapeEventRoutingHarness()
+    routingControllers.add(harness.controller)
+    const listener = getRequiredShapeWindowListener({ addEventListenerSpy: addListener, eventName })
+
+    expect(() => listener(new Event(eventName))).toThrow(failure)
+    expect(interrupt).toHaveBeenCalledTimes(1)
+    expect(harness.lifecycleController.clearResizeStarts).toHaveBeenCalledTimes(1)
+  }
+)
+
+it.each(['pointercancel', 'touchcancel', 'blur'] as const)(
+  'событие %s без активного скейлинга не очищает состояние другого взаимодействия',
+  (eventName) => {
+    const interrupt = jest.spyOn(ShapeScaleInteractionController.prototype, 'interruptGesture')
+    const harness = createShapeEventRoutingHarness()
+    routingControllers.add(harness.controller)
+
+    window.dispatchEvent(new Event(eventName))
+
+    expect(interrupt).toHaveReturnedWith(false)
+    expect(harness.lifecycleController.clearResizeStarts).not.toHaveBeenCalled()
+  }
+)

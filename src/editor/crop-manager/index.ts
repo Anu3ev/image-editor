@@ -1,16 +1,23 @@
 import {
   FabricImage,
   Rect,
-  type BasicTransformEvent,
   type Canvas,
   type FabricObject,
-  type ModifiedEvent,
   type Transform,
   type TPointerEvent,
   type TPointerEventInfo
 } from 'fabric'
 
 import type { ImageEditor } from '../index'
+import type { SnapDomainBoundary } from '../snapping-manager/guides/snap-target-resolver'
+import type { AnchorBuckets, GuideLine } from '../snapping-manager/types'
+import { applyCropFrameScaleSnapping } from './snapping/crop-frame-scale-snapping'
+import { getObjectExactBounds } from '../utils/geometry'
+import { CropFrameInteraction } from './interaction/crop-frame-interaction'
+import type {
+  CropFrameChangeEvent,
+  CropSourceBoundTransform
+} from './interaction/crop-resize.types'
 import { errorCodes } from '../error-manager/error-codes'
 import {
   clampCropFrameToSource,
@@ -21,20 +28,15 @@ import {
   resolveCropSize
 } from './domain/crop-geometry'
 import {
-  resolveCropProportionalSourceSnapPlan,
-  resolveCropSourceScaleAnchor,
-  type CropSourceScaleAnchor
-} from './domain/crop-source-scale'
-import {
   CropFrame,
   createCropFrame,
   setCropFrameActiveResizePreserveAspectRatio
 } from './domain/crop-frame'
+import { getCropFrameTransformState } from './domain/crop-frame-transform-state'
 import {
-  applyCropFrameTransformState,
-  getCropFrameTransformState,
-  getCropFrameTransformStateFromSourceRect
-} from './domain/crop-frame-transform-state'
+  restoreCropScaleAnchor,
+  restoreCropSourceBoundFrame
+} from './interaction/crop-source-bound-resize'
 import {
   isCropFrameResizeTransform,
   resolveCropFrameResizePreserveAspectRatio
@@ -55,9 +57,7 @@ import type {
   CropApplyResult,
   CropAspectRatio,
   CropFrameFitType,
-  CropFrameTransformState,
   CropObjectInteractivity,
-  CropRect,
   CropSession,
   CropSessionOptions,
   CropSize,
@@ -85,16 +85,6 @@ const DEFAULT_CROP_SESSION_OPTIONS = {
 const SOURCE_BOUNDS_OVERFLOW_EPSILON = 0.5
 
 /**
- * Допуск сравнения snap scale-plan с source-bound limit crop frame.
- */
-const SOURCE_SCALE_PLAN_EPSILON = 0.000000001
-
-/**
- * Source-зазор, в котором snap scale-plan уже считается дошедшим до source-boundary.
- */
-const SOURCE_SCALE_PLAN_SNAP_GAP_PIXELS = 1
-
-/**
  * Часть internal Fabric canvas state, нужная только чтобы погасить текущий pointer event.
  */
 type CanvasWithTargetCache = Canvas & {
@@ -104,53 +94,6 @@ type CanvasWithTargetCache = Canvas & {
     currentSubTargets: FabricObject[]
   }
   skipTargetFind: boolean
-}
-
-/**
- * Scale, на котором proportional resize уже упёрся в source.
- */
-type CropSourceBoundScale = {
-  scaleX: number
-  scaleY: number
-}
-
-/**
- * Source-границы resize, зафиксированные на старте Fabric transform.
- */
-type CropSourceScaleBounds = {
-  sourceSize: CropSize
-  startRect: CropRect
-}
-
-/**
- * Fabric transform, который crop controls помечают при упоре proportional resize в source.
- */
-type CropSourceBoundTransform = Transform & {
-  cropSourceScaleBounds?: CropSourceScaleBounds | null
-  cropSourceScaleClamped?: boolean
-  cropSourceBoundScale?: CropSourceBoundScale | null
-  cropSourceScaleAnchorX?: CropSourceScaleAnchor
-  cropSourceScaleAnchorY?: CropSourceScaleAnchor
-  cropSourceScalePreserveAspectRatio?: boolean
-}
-
-/**
- * Source-bound scale-plan, которым CropManager ограничивает snap без отключения направляющих.
- */
-type CropSourceBoundScalePlan = {
-  rect: CropRect
-  scale: CropSourceBoundScale
-  anchorX: CropSourceScaleAnchor
-  anchorY: CropSourceScaleAnchor
-}
-
-/**
- * Событие live-изменения crop frame.
- */
-type CropFrameChangeEvent = (
-  BasicTransformEvent<TPointerEvent> | ModifiedEvent<TPointerEvent>
-) & {
-  transform?: CropSourceBoundTransform
 }
 
 /**
@@ -183,6 +126,9 @@ export default class CropManager {
    */
   private _activeResizePreserveAspectRatio: boolean | null
 
+  /** Владелец изменения размера и перемещения активной crop-области. */
+  private _frameInteraction: CropFrameInteraction | null = null
+
   /**
    * @param options
    * @param options.editor - экземпляр редактора
@@ -198,6 +144,34 @@ export default class CropManager {
    */
   public get isActive(): boolean {
     return Boolean(this._session)
+  }
+
+  /** Передаёт прежнему snapping точные границы источника только для активной crop-рамки. */
+  public getFrameSnappingBoundary(target?: FabricObject | null): SnapDomainBoundary | undefined {
+    const session = this._session
+    if (!session || target !== session.frame) return undefined
+
+    const bounds = getObjectExactBounds({ object: session.source })
+    if (!bounds) return undefined
+
+    return { object: session.source, bounds }
+  }
+
+  /** Обрабатывает прежний resize crop-рамки, не поддерживаемый общей scale-сессией. */
+  public applyFrameScalingSnap({
+    target, transform, event, anchors, threshold
+  }: {
+    target?: FabricObject | null
+    transform?: Transform | null
+    event?: TPointerEvent | null
+    anchors: AnchorBuckets
+    threshold: number
+  }): GuideLine[] {
+    const session = this._session
+    if (!session || session.frame !== target || !transform) return []
+
+    const guides = applyCropFrameScaleSnapping({ session, transform, event, anchors, threshold })
+    return this.isFrameOverflowingSource({ target }) ? [] : guides
   }
 
   /**
@@ -243,7 +217,7 @@ export default class CropManager {
     const { _session: session } = this
     if (!session) return true
 
-    if (this._isSourceScaleClamped({ event })) {
+    if (event?.transform?.cropSourceScaleClamped === true) {
       const preserveAspectRatio = event?.transform?.cropSourceScalePreserveAspectRatio
 
       return preserveAspectRatio ?? true
@@ -275,81 +249,6 @@ export default class CropManager {
     const overflowsY = rect.top < minTop || rect.top + rect.height > maxBottom
 
     return (axis !== 'y' && overflowsX) || (axis !== 'x' && overflowsY)
-  }
-
-  /** Возвращает true, если active crop frame уже зажат source-границей в текущем scale-step. */
-  public isFrameSourceScaleClamped({
-    target,
-    transform
-  }: {
-    target?: FabricObject | null
-    transform?: Transform | null
-  }): boolean {
-    const { _session: session } = this
-    if (!session || !target || !transform) return false
-    if (session.frame !== target) return false
-
-    return (transform as CropSourceBoundTransform).cropSourceScaleClamped === true
-  }
-
-  /** Применяет source-bound версию snap scale-plan для active crop frame, если plan выходит за source. */
-  public applyFrameSourceBoundScalePlan({
-    target,
-    transform,
-    nextScaleX,
-    nextScaleY
-  }: {
-    target?: FabricObject | null
-    transform?: Transform | null
-    nextScaleX: number | null
-    nextScaleY: number | null
-  }): boolean {
-    const { _session: session } = this
-    if (!session || !target || !transform) return false
-    if (session.frame !== target) return false
-
-    const sourcePlan = this._resolveSourceBoundScalePlan({
-      target,
-      source: session.source,
-      transform: transform as CropSourceBoundTransform,
-      nextScaleX,
-      nextScaleY
-    })
-    if (!sourcePlan) return false
-
-    this._markSourceBoundScalePlan({
-      transform: transform as CropSourceBoundTransform,
-      plan: sourcePlan
-    })
-    applyCropFrameTransformState({
-      frame: session.frame,
-      state: getCropFrameTransformStateFromSourceRect({
-        source: session.source,
-        frame: session.frame,
-        rect: sourcePlan.rect,
-        scale: sourcePlan.scale
-      })
-    })
-
-    return true
-  }
-
-  /** Восстанавливает fixed source anchor active crop frame после generic snap/pixel-grid. */
-  public restoreFrameScaleAnchorAfterSnap({
-    target,
-    transform
-  }: {
-    target?: FabricObject | null
-    transform?: Transform | null
-  }): boolean {
-    const { _session: session } = this
-    if (!session || !target || !transform) return false
-    if (session.frame !== target) return false
-
-    return this._restoreFrameScaleAnchorFromTransform({
-      session,
-      transform: transform as CropSourceBoundTransform
-    })
   }
 
   /**
@@ -685,7 +584,7 @@ export default class CropManager {
     source: FabricObject
     options: StartCanvasCropOptions | StartImageCropOptions
     sessionOptions: CropSessionOptions
-  }): Rect {
+  }): CropFrame {
     const sourceSize = getSourceSize({ source })
     const sourceAspectRatio = options.aspectRatio && source instanceof FabricImage
       ? resolveImageCropSourceAspectRatio({ source, aspectRatio: options.aspectRatio })
@@ -738,6 +637,11 @@ export default class CropManager {
       installCropDimmingOverlay({ canvas, frame: session.frame })
     }
     this._bindCropFrameEvents({ frame: session.frame })
+    this._frameInteraction = new CropFrameInteraction({
+      canvas,
+      frame: session.frame,
+      snapping: this.editor.snappingManager
+    })
 
     canvas.add(session.frame)
     canvas.bringObjectToFront(session.frame)
@@ -796,24 +700,15 @@ export default class CropManager {
 
     session.effectivePreserveAspectRatio = this._getEffectivePreserveAspectRatio(event)
 
-    const restoredSourceBoundFrame = this._restoreSourceBoundFrameIfNeeded({
-      session,
-      event
-    })
-
-    this._clampFrameIfNeeded({
-      session,
-      preserveAspectRatio: session.effectivePreserveAspectRatio
-    })
-    this._restoreFrameScaleAnchorFromEventIfNeeded({
-      session,
-      event
-    })
-    if (!restoredSourceBoundFrame) {
-      this._rememberSourceBoundFrameIfNeeded({
-        session,
-        event
-      })
+    if (!this._frameInteraction?.ownsTransform(event?.transform)) {
+      const restored = restoreCropSourceBoundFrame({ session, event })
+      this._clampFrameIfNeeded({ session, preserveAspectRatio: session.effectivePreserveAspectRatio })
+      restoreCropScaleAnchor({ session, transform: event?.transform })
+      if (!restored) {
+        session.sourceBoundFrameState = event?.transform?.cropSourceScaleClamped === true
+          ? getCropFrameTransformState({ frame: session.frame })
+          : null
+      }
     }
     if (isCropFrameResizeTransform({ transform: event?.transform })) {
       this._activeResizePreserveAspectRatio = session.effectivePreserveAspectRatio
@@ -838,374 +733,6 @@ export default class CropManager {
     })
     this._activeResizePreserveAspectRatio = null
     session.effectivePreserveAspectRatio = session.options.preserveAspectRatio
-  }
-
-  /**
-   * Восстанавливает frame, если текущий resize уже упёрся в source.
-   */
-  private _restoreSourceBoundFrameIfNeeded({
-    session,
-    event
-  }: {
-    session: CropSession
-    event?: CropFrameChangeEvent
-  }): boolean {
-    if (!this._isSourceScaleClamped({ event })) {
-      session.sourceBoundFrameState = null
-      return false
-    }
-
-    const state = this._getSourceBoundFrameStateFromEvent({
-      session,
-      event
-    }) ?? session.sourceBoundFrameState
-    if (!state) return false
-
-    applyCropFrameTransformState({
-      frame: session.frame,
-      state
-    })
-
-    return true
-  }
-
-  /**
-   * Возвращает frame state из текущего source-bound transform.
-   */
-  private _getSourceBoundFrameStateFromEvent({
-    session,
-    event
-  }: {
-    session: CropSession
-    event?: CropFrameChangeEvent
-  }): CropFrameTransformState | null {
-    const scale = event?.transform?.cropSourceBoundScale
-    if (!scale) return null
-    if (!Number.isFinite(scale.scaleX) || !Number.isFinite(scale.scaleY)) return null
-
-    const sourceRect = this._getSourceBoundRectFromEvent({
-      source: session.source,
-      event
-    })
-    if (sourceRect) {
-      return getCropFrameTransformStateFromSourceRect({
-        source: session.source,
-        frame: session.frame,
-        rect: sourceRect,
-        scale
-      })
-    }
-
-    return {
-      left: session.frame.left,
-      top: session.frame.top,
-      scaleX: scale.scaleX,
-      scaleY: scale.scaleY
-    }
-  }
-
-  /**
-   * Возвращает source-rect для текущего source-bound transform.
-   */
-  private _getSourceBoundRectFromEvent({
-    source,
-    event
-  }: {
-    source: FabricObject
-    event?: CropFrameChangeEvent
-  }): CropRect | null {
-    const transform = event?.transform
-    const scale = transform?.cropSourceBoundScale
-    const bounds = transform?.cropSourceScaleBounds
-    const originalScaleX = transform?.original?.scaleX
-    const originalScaleY = transform?.original?.scaleY
-
-    if (!scale || !bounds) return null
-    if (typeof originalScaleX !== 'number' || typeof originalScaleY !== 'number') return null
-    if (!Number.isFinite(originalScaleX) || !Number.isFinite(originalScaleY)) return null
-    if (originalScaleX === 0 || originalScaleY === 0) return null
-
-    return this._getAnchoredSourceBoundRectFromEvent({
-      source,
-      event,
-      size: {
-        width: bounds.startRect.width * Math.abs(scale.scaleX / originalScaleX),
-        height: bounds.startRect.height * Math.abs(scale.scaleY / originalScaleY)
-      }
-    })
-  }
-
-  /**
-   * Восстанавливает fixed source anchor из текущего Fabric event.
-   */
-  private _restoreFrameScaleAnchorFromEventIfNeeded({
-    session,
-    event
-  }: {
-    session: CropSession
-    event?: CropFrameChangeEvent
-  }): boolean {
-    const { transform } = event ?? {}
-    if (!transform) return false
-
-    return this._restoreFrameScaleAnchorFromTransform({
-      session,
-      transform
-    })
-  }
-
-  /**
-   * Восстанавливает fixed source anchor по стартовым bounds текущего transform.
-   */
-  private _restoreFrameScaleAnchorFromTransform({
-    session,
-    transform
-  }: {
-    session: CropSession
-    transform: CropSourceBoundTransform
-  }): boolean {
-    const currentRect = getCropSessionResultRect({ session })
-    const rect = this._getAnchoredSourceBoundRectFromTransform({
-      source: session.source,
-      transform,
-      size: {
-        width: currentRect.width,
-        height: currentRect.height
-      }
-    })
-    if (!rect) return false
-
-    applyCropFrameTransformState({
-      frame: session.frame,
-      state: getCropFrameTransformStateFromSourceRect({
-        source: session.source,
-        frame: session.frame,
-        rect,
-        scale: {
-          scaleX: session.frame.scaleX ?? 1,
-          scaleY: session.frame.scaleY ?? 1
-        }
-      })
-    })
-
-    return true
-  }
-
-  /**
-   * Возвращает source-rect заданного размера с учётом fixed anchor текущего transform.
-   */
-  private _getAnchoredSourceBoundRectFromEvent({
-    source,
-    event,
-    size
-  }: {
-    source: FabricObject
-    event?: CropFrameChangeEvent
-    size: CropSize
-  }): CropRect | null {
-    const { transform } = event ?? {}
-    if (!transform) return null
-
-    return this._getAnchoredSourceBoundRectFromTransform({
-      source,
-      transform,
-      size
-    })
-  }
-
-  /**
-   * Возвращает source-rect заданного размера по fixed anchor текущего transform.
-   */
-  private _getAnchoredSourceBoundRectFromTransform({
-    source,
-    transform,
-    size
-  }: {
-    source: FabricObject
-    transform: CropSourceBoundTransform
-    size: CropSize
-  }): CropRect | null {
-    const { cropSourceScaleBounds: bounds } = transform
-    if (!bounds) return null
-
-    return this._getAnchoredSourceBoundRect({
-      bounds,
-      size,
-      anchorX: transform.cropSourceScaleAnchorX ?? resolveCropSourceScaleAnchor({
-        source,
-        transform,
-        axis: 'x'
-      }),
-      anchorY: transform.cropSourceScaleAnchorY ?? resolveCropSourceScaleAnchor({
-        source,
-        transform,
-        axis: 'y'
-      })
-    })
-  }
-
-  /**
-   * Возвращает source-rect заданного размера с учётом fixed anchors.
-   */
-  private _getAnchoredSourceBoundRect({
-    bounds,
-    size,
-    anchorX,
-    anchorY
-  }: {
-    bounds: CropSourceScaleBounds
-    size: CropSize
-    anchorX: CropSourceScaleAnchor
-    anchorY: CropSourceScaleAnchor
-  }): CropRect {
-    return {
-      left: this._resolveAnchoredSourceBoundStart({
-        start: bounds.startRect.left,
-        length: bounds.startRect.width,
-        nextLength: size.width,
-        anchor: anchorX
-      }),
-      top: this._resolveAnchoredSourceBoundStart({
-        start: bounds.startRect.top,
-        length: bounds.startRect.height,
-        nextLength: size.height,
-        anchor: anchorY
-      }),
-      width: size.width,
-      height: size.height
-    }
-  }
-
-  /**
-   * Возвращает start координату source-bound rect с учётом fixed anchor.
-   */
-  private _resolveAnchoredSourceBoundStart({
-    start,
-    length,
-    nextLength,
-    anchor
-  }: {
-    start: number
-    length: number
-    nextLength: number
-    anchor: CropSourceScaleAnchor
-  }): number {
-    if (anchor === 'min') return start
-    if (anchor === 'max') return start + length - nextLength
-
-    return start + ((length - nextLength) / 2)
-  }
-
-  /**
-   * Запоминает первую frame geometry, на которой resize упёрся в source.
-   */
-  private _rememberSourceBoundFrameIfNeeded({
-    session,
-    event
-  }: {
-    session: CropSession
-    event?: CropFrameChangeEvent
-  }): void {
-    if (!this._isSourceScaleClamped({ event })) {
-      session.sourceBoundFrameState = null
-      return
-    }
-
-    session.sourceBoundFrameState = getCropFrameTransformState({ frame: session.frame })
-  }
-
-  /**
-   * Возвращает true, если текущий transform зажат source-границей.
-   */
-  private _isSourceScaleClamped({
-    event
-  }: {
-    event?: CropResizeModeEvent
-  }): boolean {
-    return event?.transform?.cropSourceScaleClamped === true
-  }
-
-  /**
-   * Возвращает source-bound версию snap scale-plan или null, если plan остаётся внутри source.
-   */
-  private _resolveSourceBoundScalePlan({
-    target,
-    source,
-    transform,
-    nextScaleX,
-    nextScaleY
-  }: {
-    target: FabricObject
-    source: FabricObject
-    transform: CropSourceBoundTransform
-    nextScaleX: number | null
-    nextScaleY: number | null
-  }): CropSourceBoundScalePlan | null {
-    const { cropSourceScaleBounds: bounds } = transform
-    const originalScaleX = transform.original?.scaleX
-    const originalScaleY = transform.original?.scaleY
-    if (!bounds) return null
-    if (typeof originalScaleX !== 'number' || typeof originalScaleY !== 'number') return null
-    if (originalScaleX === 0 || originalScaleY === 0) return null
-
-    const scaleX = nextScaleX ?? target.scaleX ?? originalScaleX
-    const scaleY = nextScaleY ?? target.scaleY ?? originalScaleY
-    if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY)) return null
-
-    const anchorX = transform.cropSourceScaleAnchorX
-      ?? resolveCropSourceScaleAnchor({ source, transform, axis: 'x' })
-    const anchorY = transform.cropSourceScaleAnchorY
-      ?? resolveCropSourceScaleAnchor({ source, transform, axis: 'y' })
-    const sourcePlan = resolveCropProportionalSourceSnapPlan({
-      sourceSize: bounds.sourceSize,
-      startRect: bounds.startRect,
-      anchorX,
-      anchorY
-    })
-    if (!sourcePlan) return null
-
-    const proposedScale = Math.max(
-      Math.abs(scaleX / originalScaleX),
-      Math.abs(scaleY / originalScaleY)
-    )
-    const sourceScaleGap = Math.max(0, sourcePlan.scale - proposedScale)
-      * Math.min(bounds.startRect.width, bounds.startRect.height)
-
-    if (
-      proposedScale <= sourcePlan.scale + SOURCE_SCALE_PLAN_EPSILON
-      && sourceScaleGap > SOURCE_SCALE_PLAN_SNAP_GAP_PIXELS
-    ) return null
-
-    const sourceBoundScale = {
-      scaleX: originalScaleX * sourcePlan.scale,
-      scaleY: originalScaleY * sourcePlan.scale
-    }
-
-    return {
-      anchorX,
-      anchorY,
-      rect: sourcePlan.rect,
-      scale: sourceBoundScale
-    }
-  }
-
-  /**
-   * Помечает Fabric transform как source-bound после ограничения snap scale-plan.
-   */
-  private _markSourceBoundScalePlan({
-    transform,
-    plan
-  }: {
-    transform: CropSourceBoundTransform
-    plan: CropSourceBoundScalePlan
-  }): void {
-    transform.cropSourceScaleClamped = true
-    transform.cropSourceScalePreserveAspectRatio = true
-    transform.cropSourceScaleAnchorX = plan.anchorX
-    transform.cropSourceScaleAnchorY = plan.anchorY
-    transform.cropSourceBoundScale = plan.scale
-    transform.scaleX = plan.scale.scaleX
-    transform.scaleY = plan.scale.scaleY
   }
 
   /**
@@ -1386,7 +913,7 @@ export default class CropManager {
   }
 
   /**
-   * Завершает crop session и восстанавливает обычную интерактивность.
+   * Завершает crop session и возвращает обычное редактирование даже при ошибке завершения жеста.
    */
   private _finishSession({
     nextActiveObject
@@ -1396,17 +923,22 @@ export default class CropManager {
     const { _session: session } = this
     if (!session) return
 
-    this._unbindCropFrameEvents({ frame: session.frame })
-    this._unbindCanvasSelectionEvents()
-    restoreCropDimmingOverlay({ canvas: this.editor.canvas })
-    this.editor.canvas.remove(session.frame)
-    this._restoreSceneObjects({ interactivity: session.interactivity })
-    this.editor.historyManager.resumeHistory()
-    this._activeResizePreserveAspectRatio = null
-    this._session = null
-    this._restoreActiveObject({ object: nextActiveObject })
-    this.editor.toolbar.showAfterTemporary()
-    this.editor.canvas.requestRenderAll()
+    try {
+      this._frameInteraction?.destroy()
+    } finally {
+      this._frameInteraction = null
+      this._unbindCropFrameEvents({ frame: session.frame })
+      this._unbindCanvasSelectionEvents()
+      restoreCropDimmingOverlay({ canvas: this.editor.canvas })
+      this.editor.canvas.remove(session.frame)
+      this._restoreSceneObjects({ interactivity: session.interactivity })
+      this.editor.historyManager.resumeHistory()
+      this._activeResizePreserveAspectRatio = null
+      this._session = null
+      this._restoreActiveObject({ object: nextActiveObject })
+      this.editor.toolbar.showAfterTemporary()
+      this.editor.canvas.requestRenderAll()
+    }
   }
 
   /**

@@ -88,6 +88,32 @@ it.each(UNIFIED_MOVEMENT_TARGETS)('для $label используется уни
   expect(target.top).toBe(93)
 })
 
+it.each(UNIFIED_MOVEMENT_TARGETS)('собирает цели перемещения $label один раз за жест', ({ kind }) => {
+  const target = createMovementRoutingTarget({ kind })
+  target.canvas = setup.canvas
+  setup.objects.push(target)
+  emitCanvasEvent({
+    canvas: setup.canvas,
+    event: 'mouse:down',
+    payload: { target, transform: { action: 'drag' } }
+  })
+
+  expect(setup.canvas.forEachObject).toHaveBeenCalledTimes(1)
+
+  for (const left of [112, 118, 124]) {
+    target.set({ left, top: 93 })
+    emitCanvasEvent({
+      canvas: setup.canvas,
+      event: 'object:moving',
+      payload: { target, e: new MouseEvent('mousemove'), transform: { action: 'drag' } }
+    })
+  }
+
+  expect(setup.canvas.forEachObject).toHaveBeenCalledTimes(1)
+  expect(setup.legacyRouteMock).not.toHaveBeenCalled()
+  expect(target.left).toBe(124)
+})
+
 it.each(LEGACY_MOVEMENT_TARGETS)('для $label сохраняется прежний расчёт перемещения', ({ kind }) => {
   const target = createMovementRoutingTarget({ kind })
   target.canvas = setup.canvas
