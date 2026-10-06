@@ -37,7 +37,7 @@ export default defineConfig({
       fileName: '../stats',
       gzipSize: true,
       brotliSize: true,
-      openAnalyzer: false,
+      openAnalyzer: true,
       gzipOptions: {},
       brotliOptions: {},
       defaultSizes: 'stat'

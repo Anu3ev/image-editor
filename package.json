@@ -15,18 +15,18 @@
     "dev": "vite --config vite.config.dev.js",
     "dev:e2e": "vite --config vite.config.dev.js --host 127.0.0.1 --port 4173",
     "dev:build": "vite build --watch --mode development --config vite.config.dev.js",
+    "prebuild": "npm install",
     "build": "vite build --config vite.config.prod.js && npm run build:types",
     "build:docs": "vite build --config vite.config.docs.js",
     "preview": "vite preview",
-    "lint": "eslint \"src/**/*.{js,ts}\" \"e2e/**/*.{js,ts}\" \"specs/**/*.{js,ts}\" \"scripts/**/*.mjs\" \"fixtures/package-consumer/**/*.{js,ts}\"",
+    "lint": "eslint \"src/**/*.{js,ts}\" \"e2e/**/*.{js,ts}\" \"specs/**/*.{js,ts}\"",
     "typecheck": "tsc --noEmit --pretty false",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
     "test:ci": "jest --ci --coverage --watchAll=false",
     "test:coverage": "jest --coverage --coverageReporters=json-summary --coverageReporters=lcov --coverageReporters=text",
     "test:e2e": "npx playwright test",
-    "build:types": "tsc -p tsconfig.build.json && node scripts/build-declarations.mjs",
-    "check:package": "node scripts/check-package.mjs"
+    "build:types": "tsc -p tsconfig.build.json && node scripts/build-declarations.mjs"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
@@ -70,16 +70,5 @@
   },
   "homepage": "https://Anu3ev.github.io/image-editor",
   "license": "MIT",
-  "types": "dist/main.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/main.d.ts",
-      "import": "./dist/main.js"
-    },
-    "./dist/main.js": {
-      "types": "./dist/main.d.ts",
-      "import": "./dist/main.js"
-    },
-    "./package.json": "./package.json"
-  }
+  "types": "dist/main.d.ts"
 }
