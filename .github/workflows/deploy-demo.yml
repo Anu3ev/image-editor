@@ -1,123 +1,65 @@
-name: Build and Deploy
+name: Deploy Demo to GitHub Pages
 
 on:
-  pull_request:
-    branches: [master]
   push:
-    branches: [master]
-  workflow_dispatch:
-    inputs:
-      browser_suite:
-        description: Chromium coverage (manual runs never publish or deploy)
-        type: choice
-        options: [smoke, full]
-        default: full
+    branches:
+      - master
+    paths:
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.docs.js'
 
 permissions:
+  pages: write
   contents: read
-
-concurrency:
-  group: build-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  id-token: write
 
 jobs:
-  test:
-    # Preserve the required ruleset context with a real Node 20 runtime.
-    name: 🔬 Test on Node.js 20
+  build:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
-    outputs:
-      pages_artifact: ${{ steps.names.outputs.pages }}
-    env:
-      BROWSER_SUITE: ${{ github.event_name == 'push' && 'full' || inputs.browser_suite || 'smoke' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 20.20.2
-          cache: npm
-      - run: npm ci
-      - name: Check CI safeguards and focused tests
-        run: npm run test:ci-scripts && npm run check:focused-tests
-      - run: npm run lint
-      - run: npm run typecheck
-      - name: Unit tests with coverage (one execution)
-        run: npm run test:ci -- --runInBand --coverageReporters=text --coverageReporters=lcov --coverageReporters=json-summary
-      - run: npm run build
-      - run: npm run build:docs
-      - run: npx playwright install --with-deps chromium
-      - name: Chromium smoke suite
-        if: env.BROWSER_SUITE == 'smoke'
-        run: npm run test:e2e:smoke
-      - name: Full Chromium suite
-        if: env.BROWSER_SUITE == 'full'
-        run: npm run test:e2e -- --project=chromium --workers=2
-      - name: Built playground at the Pages project prefix
-        run: npm run check:docs
-      - name: Pack the validated library once
-        run: node scripts/build-artifact.mjs pack
-      - name: Check installed package and reverify the same artifact
-        run: node scripts/build-artifact.mjs check-package
-      - name: Name artifacts by their producing attempt
-        id: names
-        run: echo "pages=pages-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
-      - name: Upload validated package
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-${{ github.run_id }}-${{ github.run_attempt }}
-          path: package-artifacts/
-          if-no-files-found: error
-          retention-days: 30
-      - name: Upload validated Pages build
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build demo
+        run: npm run build:docs
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          name: ${{ steps.names.outputs.pages }}
-          path: docs/
-          retention-days: 30
-      - name: Upload diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: reports-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            coverage/
-            playwright-report/
-            test-results/
-          retention-days: 14
+          path: docs
+      - name: List build contents
+        run: |
+          echo "Contents of docs:"
+          ls -la docs/
+          echo "Contents of docs/js:"
+          ls -la docs/js/ || echo "js folder not found"
 
   deploy:
-    name: Deploy validated playground
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: test
     runs-on: ubuntu-latest
+    needs: build
     permissions:
-      contents: read
       pages: write
       id-token: write
-    concurrency:
-      group: github-pages
-      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Check current master before deployment
-        id: master
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { data } = await github.rest.repos.getBranch({ ...context.repo, branch: 'master' })
-            const current = data.commit.sha === context.sha
-            core.setOutput('current', String(current))
-            if (!current) core.notice('A newer master exists; this old run will not replace Pages')
-      - uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
         id: deployment
-        if: steps.master.outputs.current == 'true'
-        with:
-          # A failed deploy rerun reuses the successful producer's output.
-          artifact_name: ${{ needs.test.outputs.pages_artifact }}
+        uses: actions/deploy-pages@v4

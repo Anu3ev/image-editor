@@ -39,6 +39,3 @@ stats.html
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
-
-# Validated npm tarball and producer manifest
-/package-artifacts/

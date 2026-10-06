@@ -1,116 +1,113 @@
-name: Publish
+name: Publish & Release on version bump
 
 on:
-  workflow_run:
-    workflows: [Build and Deploy]
-    types: [completed]
-    branches: [master]
-  workflow_dispatch:
-    inputs:
-      build_run_id:
-        description: Successful master-push Build and Deploy run to recover
-        required: true
-        type: string
+  push:
+    branches:
+      - master
+    paths:
+      - 'package.json'
 
 permissions:
-  contents: read
-
-concurrency:
-  group: npm-release
-  cancel-in-progress: false
+  contents: write
+  id-token: write
 
 jobs:
-  select:
-    name: Select validated master artifact
-    if: github.repository == 'Anu3ev/image-editor' && github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success'))
+  publish-and-release:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-    outputs:
-      artifact_id: ${{ steps.build.outputs.artifact_id }}
-      sha: ${{ steps.build.outputs.sha }}
-      run_id: ${{ steps.build.outputs.run_id }}
-      producer_attempt: ${{ steps.build.outputs.producer_attempt }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-          sparse-checkout: scripts
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - name: Verify source workflow and select immutable artifact
-        id: build
-        run: node scripts/release-package.mjs select
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BUILD_RUN_ID: ${{ inputs.build_run_id || github.event.workflow_run.id }}
 
-  publish:
-    name: Publish verified tarball to npm
-    needs: select
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      actions: read
-      id-token: write
-    outputs:
-      published: ${{ steps.npm.outputs.published }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repo
+        uses: actions/checkout@v3
         with:
-          ref: ${{ needs.select.outputs.sha }}
-          persist-credentials: false
-          sparse-checkout: scripts
-      - uses: actions/setup-node@v4
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - uses: actions/download-artifact@v4
-        with:
-          artifact-ids: ${{ needs.select.outputs.artifact_id }}
-          run-id: ${{ needs.select.outputs.run_id }}
-          github-token: ${{ github.token }}
-          path: package-artifacts
-          merge-multiple: true
-      - name: Verify bytes and publish once, or recover an identical publication
-        id: npm
-        run: node scripts/release-package.mjs publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VALIDATED_SHA: ${{ needs.select.outputs.sha }}
-          BUILD_RUN_ID: ${{ needs.select.outputs.run_id }}
-          PRODUCER_ATTEMPT: ${{ needs.select.outputs.producer_attempt }}
 
-  record:
-    name: Record verified npm release
-    needs: [select, publish]
-    if: needs.publish.outputs.published == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Check package.json version bump
+        id: check_bump
+        run: |
+          git diff --quiet HEAD^ HEAD -- package.json && {
+            echo "package.json не менялся — пропускаем всё"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+            exit 0
+          }
+          if git diff HEAD^ HEAD -- package.json | grep -q '"version":'; then
+            echo "Обнаружен bump версии в package.json"
+            echo "should_publish=true" >> $GITHUB_OUTPUT
+          else
+            echo "package.json менялся, но версия осталась прежней — пропускаем"
+            echo "should_publish=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Resolve release version and tag
+        id: release_info
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Check types and lint
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          npm run typecheck
+          npm run lint
+
+      - name: Run unit tests
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: npm run test:ci -- --runInBand
+
+      - name: Install Playwright Chromium
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: npx playwright test --project=chromium --workers=2
+
+      - name: Publish to npm
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          VERSION="${{ steps.release_info.outputs.VERSION }}"
+
+          echo "► Публикация пакета в npm (version=${VERSION})"
+          npm publish --access public
+
+      - name: Create Git tag
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          TAG="${{ steps.release_info.outputs.TAG }}"
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Тэг $TAG уже существует → пропускаем его создание"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Create GitHub Release (softprops)
+        if: steps.check_bump.outputs.should_publish == 'true'
+        uses: softprops/action-gh-release@v1
         with:
-          ref: ${{ needs.select.outputs.sha }}
-          persist-credentials: false
-          sparse-checkout: scripts
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-      - uses: actions/download-artifact@v4
-        with:
-          artifact-ids: ${{ needs.select.outputs.artifact_id }}
-          run-id: ${{ needs.select.outputs.run_id }}
-          github-token: ${{ github.token }}
-          path: package-artifacts
-          merge-multiple: true
-      - name: Verify npm again before creating the tag and release
-        run: node scripts/release-package.mjs record
+          tag_name: ${{ steps.release_info.outputs.TAG }}
+          name: "Release ${{ steps.release_info.outputs.TAG }}"
+          generate_release_notes: true
+          draft: false
+          prerelease: false
         env:
-          GH_TOKEN: ${{ github.token }}
-          VALIDATED_SHA: ${{ needs.select.outputs.sha }}
-          BUILD_RUN_ID: ${{ needs.select.outputs.run_id }}
-          PRODUCER_ATTEMPT: ${{ needs.select.outputs.producer_attempt }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

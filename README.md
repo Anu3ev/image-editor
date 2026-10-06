@@ -1,6 +1,6 @@
 # Fabric Image Editor
 
-[Build and Deploy](https://github.com/Anu3ev/image-editor/actions/workflows/deploy-demo.yml) · [Publish](https://github.com/Anu3ev/image-editor/actions/workflows/publish-on-version-bump.yml)
+[![Unit Coverage](./badges/coverage-total.svg)](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
 
 A modern, powerful browser-based image editor built with [FabricJS](https://fabricjs.com/) and TypeScript. This library provides a complete image editing solution with professional features for web applications.
 
@@ -68,7 +68,7 @@ It demonstrates practical work with:
 - **Modular Architecture** - Clean separation of concerns with manager classes
 - **Event System** - Rich event handling for integration
 - **Responsive Design** - Adapts to different screen sizes and containers
-- **Testing Infrastructure** - Jest coverage reports and Chromium regression suites
+- **Testing Infrastructure** - Jest test suite with 80%+ coverage
 - **Web Worker Support** - Background processing for heavy operations
 
 ## 📦 Installation
@@ -752,63 +752,6 @@ npm run test:coverage
 # CI mode
 npm run test:ci
 ```
-
-### CI and release recovery
-
-Build and Deploy is the single ordinary validation path: pull requests to `master`
-and pushes to `master` run CI safeguard tests, focused-test detection, lint,
-TypeScript, one Jest coverage run, and the existing library and demo builds.
-The required check `🔬 Test on Node.js 20` runs on actual Node 20.20.2, which
-satisfies the locked toolchain requirements. No repository protection rules change.
-
-Pull requests run `npm run test:e2e:smoke`: six explicit existing suites covering
-initialization, text editing, crop move/resize, mixed-selection scaling and templates.
-This is a subset, not a full browser pass. Master pushes run the entire Chromium
-suite. After packing once, the same job passes that exact tarball to `check:package`
-when the installed-package contract is available, then verifies unchanged bytes
-and manifest before uploading. Public types or a consumer fixture require the
-expected checker command; accidental deletion cannot silently skip the gate.
-Failure blocks both deployment and publication. With no package contract, the
-standalone CI branch still verifies its existing library artifact.
-Both run `npm run check:docs` against the built original playground under
-`/image-editor/`, including its worker and PNG export. Manual runs choose smoke or
-full coverage and never publish or deploy. Playwright rejects focused and flaky
-CI runs; existing skipped tests remain visible in its report. Coverage and browser
-reports are run artifacts; the files in `badges/` are historical snapshots.
-
-Only successful master pushes deploy the exact validated Pages artifact. Its name
-comes from the producing job, so rerunning only a failed deploy reuses that build.
-A stale rerun cannot replace Pages after a newer commit reaches master.
-`Publish` starts after a successful master-push build and publishes only when the
-package version changed across the complete push range. The existing
-`publish-on-version-bump.yml` filename is retained for npm trusted publishing.
-
-The tarball manifest binds commit, producer run/attempt and SHA-256/SHA-512 bytes.
-Publication downloads the immutable artifact ID; it never rebuilds with release
-permissions. It requires full browser validation, verifies existing npm bytes and
-tags, publishes at most once, and verifies npm again before recording a GitHub
-release. npm publication has OIDC but no repository write permission; only the
-separate release-recording job can write tags/releases. Neither path deletes them.
-
-Rerun failed jobs to recover a partial failure. If npm already contains identical
-bytes, publication is skipped and recording can finish, even if master has advanced.
-A first publication from an older commit is blocked to avoid moving npm latest backward.
-Different bytes or a tag
-pointing elsewhere stop the run. A manual Publish dispatch accepts the original
-successful Build and Deploy run ID, including when its successful producer was
-from an earlier attempt. Artifacts expire after 30 days; rerun that build on the
-same commit if its artifacts have expired. A new version is required if rebuilt
-bytes differ from an already published version.
-
-The standalone Package contract workflow can also run after the package and CI
-changes are combined; this duplicates its check but cannot bypass the integrated gate.
-
-Local safeguards: `npm run test:ci-scripts`, `npm run check:focused-tests`,
-`npm run test:e2e:smoke`, and `npm run check:docs` (after `npm run build:docs`).
-Install Chromium with `npx playwright install chromium`. An existing local binary
-can be selected with `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`. Browser tests use HTTP
-on loopback; the normal HTTPS development server and demo version selector stay
-unchanged. `npm run build` no longer runs an implicit install: use `npm ci` first.
 
 ### Project Structure
 
