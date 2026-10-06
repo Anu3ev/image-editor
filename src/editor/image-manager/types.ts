@@ -1,10 +1,10 @@
 import type {
   Canvas,
-  CanvasOptions,
   FabricImage,
   FabricObject,
   Rect
 } from 'fabric'
+import type { EditorOptions } from '../types/options'
 
 /** Успешный результат импорта изображения. */
 export type SuccessulImageImportResult = {
@@ -148,7 +148,7 @@ export interface ImageManagerInteractionBlocker {
 
 /** Локальный порт редактора, который нужен только ImageManager. */
 export interface ImageManagerEditor {
-  options: CanvasOptions
+  options: EditorOptions
   canvas: Canvas
   montageArea: Rect
   moduleLoader: ImageManagerModuleLoader

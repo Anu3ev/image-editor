@@ -1,4 +1,5 @@
-import { CanvasOptions, ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent, Textbox } from 'fabric'
+import { ActiveSelection, FabricObject, Canvas, TPointerEventInfo, TPointerEvent, Textbox } from 'fabric'
+import type { EditorOptions } from './types/options'
 
 import { ImageEditor } from '.'
 
@@ -65,7 +66,7 @@ class Listeners {
   /**
    * Параметры (опции) для слушателей.
    */
-  options: Partial<CanvasOptions>
+  options: Partial<EditorOptions>
 
   /**
    * Флаг, что перетаскивание канваса активно.
@@ -215,7 +216,7 @@ class Listeners {
    * @param params.options.resetObjectFitByDoubleClick — сброс фита объекта по двойному клику
    * @param params.options.adaptCanvasToContainerOnResize — адаптировать канвас к размерам контейнера при изменении размеров окна
    */
-  constructor({ editor, options = {} }: { editor: ImageEditor; options?: Partial<CanvasOptions> }) {
+  constructor({ editor, options = {} }: { editor: ImageEditor; options?: Partial<EditorOptions> }) {
     this.editor = editor
     this.canvas = editor.canvas
     this.options = options

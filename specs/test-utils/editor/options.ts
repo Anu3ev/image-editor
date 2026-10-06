@@ -1,6 +1,6 @@
-import type { CanvasOptions } from 'fabric'
+import type { EditorOptions } from '../../../src/editor/types/options'
 
-interface BasicEditorOptions extends Partial<CanvasOptions> {
+interface BasicEditorOptions extends Partial<EditorOptions> {
   montageAreaHeight: number
   montageAreaWidth: number
 }
@@ -19,7 +19,7 @@ export const basicOptions: BasicEditorOptions = {
   showViewportScrollbars: false
 }
 
-export const createFullOptions = (partialOptions: Partial<CanvasOptions> = {}): CanvasOptions => ({
+export const createFullOptions = (partialOptions: Partial<EditorOptions> = {}): EditorOptions => ({
   ...basicOptions,
   ...partialOptions
-} as CanvasOptions)
+} as EditorOptions)
