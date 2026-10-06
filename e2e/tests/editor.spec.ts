@@ -1,5 +1,5 @@
 import { test, expect } from '../fixtures/editor.fixture'
-import { IMAGE_SCALING_FACTOR } from '../fixtures/data/image.data'
+import { IMAGE_BASE_SIZE, IMAGE_EXPORT_FORMATS, IMAGE_SCALING_FACTOR } from '../fixtures/data/image.data'
 import {
   IMAGE_SOURCE_RESTORE_CASES,
   IMAGE_SOURCE_RESTORE_OBJECT_COUNT,
@@ -157,4 +157,63 @@ test.describe('Картинка из начального состояния', (
       })
     })
   }
+})
+
+test.describe('Повторное создание редактора', () => {
+  test('освобождает прежний canvas и создаёт новую историю в том же контейнере', async({
+    editorModel,
+    history,
+    images
+  }) => {
+    await images.addFilledImage(IMAGE_BASE_SIZE)
+    await editorModel.checkObjectCount({ count: 1 })
+
+    const state = await editorModel.destroyAndRemount()
+
+    expect(state.editorId).not.toBe(state.previousEditorId)
+    expect(state.registrationRemoved).toBe(true)
+    expect(state.replacementRegistered).toBe(true)
+    expect(state.previousCanvasConnected).toBe(false)
+    expect(state.previousUpperCanvasConnected).toBe(false)
+    expect(state.canvasCount).toBe(2)
+    await editorModel.checkObjectCount({ count: 0 })
+    expect(await history.getPosition()).toEqual({ currentIndex: 0, patchCount: 0 })
+  })
+
+  test.describe('Работа нового экземпляра', () => {
+    test.beforeEach(async({ editorModel, images }) => {
+      await editorModel.destroyAndRemount()
+      await images.addFilledImage(IMAGE_BASE_SIZE)
+    })
+
+    test('импортирует изображение после повторного создания', async({ editorModel }) => {
+      await editorModel.checkObjectCount({ count: 1 })
+    })
+
+    test('отменяет импорт изображения после повторного создания', async({ editorModel, history }) => {
+      await history.undo()
+
+      await editorModel.checkObjectCount({ count: 0 })
+    })
+
+    test('возвращает отменённое изображение после повторного создания', async({ editorModel, history }) => {
+      await history.undo()
+      await editorModel.checkObjectCount({ count: 0 })
+
+      await history.redo()
+
+      await editorModel.checkObjectCount({ count: 1 })
+    })
+
+    test('экспортирует PNG через worker после повторного создания', async({ images }) => {
+      const png = IMAGE_EXPORT_FORMATS.find(({ format }) => format === 'png')!
+      const dataUrl = await images.exportCanvasAsBase64({ contentType: png.contentType })
+
+      expect(dataUrl).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/)
+      const imageBytes = Array.from(Buffer.from(dataUrl.split(',')[1], 'base64'))
+      for (const signature of png.signatures) {
+        expect(imageBytes.slice(signature.offset, signature.offset + signature.bytes.length)).toEqual(signature.bytes)
+      }
+    })
+  })
 })

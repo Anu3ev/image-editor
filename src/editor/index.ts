@@ -215,17 +215,33 @@ export class ImageEditor {
    */
   public listeners!: Listeners
 
+  /** Завершается после полной инициализации; отклоняется при ошибке или destroy(). */
+  public readonly ready: Promise<void>
+
+  private _initialization?: Promise<void>
+
+  private _rejectInitialization?: (error: Error) => void
+
+  private _destroyed = false
+
+  /** Внутренняя очистка host-ресурсов, созданных initEditor; прямой конструктор ими не владеет. */
+  private readonly _cleanupHostResources?: () => void
+
   /**
    * Конструктор класса ImageEditor.
    * @param canvasId - идентификатор канваса, в котором будет создан редактор
    * @param options - опции и настройки редактора
+   * @param cleanupHostResources - внутренняя очистка canvas и регистрации, принадлежащих initEditor
    */
-  constructor(canvasId: string, options: EditorOptions) {
+  constructor(canvasId: string, options: EditorOptions, cleanupHostResources?: () => void) {
     this.options = options
+    this._cleanupHostResources = cleanupHostResources
     this.containerId = canvasId
     this.editorId = `${canvasId}-${nanoid()}`
 
-    this.init()
+    this.ready = this.init()
+    // Конструктор совместим с fire-and-forget использованием, но ошибка доступна через ready.
+    this.ready.catch(() => {})
   }
 
   /**
@@ -233,7 +249,35 @@ export class ImageEditor {
    * Создаёт все необходимые менеджеры и загружает начальное состояние.
    * @fires editor:ready
    */
-  public async init(): Promise<void> {
+  public init(): Promise<void> {
+    if (this._destroyed) return Promise.reject(new Error('ImageEditor has been destroyed'))
+    if (this._initialization) return this._initialization
+
+    this._initialization = new Promise((resolve, reject) => {
+      this._rejectInitialization = reject
+      this._initialize().then(() => {
+        this._rejectInitialization = undefined
+        resolve()
+      }, (error: unknown) => {
+        this._rejectInitialization = undefined
+        this.destroy()
+        reject(error)
+      })
+    })
+    return this._initialization
+  }
+
+  /** Прерывает продолжение инициализации после уничтожения редактора. */
+  private _assertActive(): void {
+    if (this._destroyed) {
+      // Асинхронная загрузка могла создать blob URL уже после destroy().
+      this.imageManager?.revokeBlobUrls()
+      throw new Error('ImageEditor has been destroyed')
+    }
+  }
+
+  /** Создаёт ресурсы редактора и восстанавливает начальное состояние. */
+  private async _initialize(): Promise<void> {
     const {
       editorContainerWidth,
       editorContainerHeight,
@@ -311,6 +355,7 @@ export class ImageEditor {
 
     // Загружаем шрифты после того как редактор получил размеры
     await this.fontManager.loadFonts()
+    this._assertActive()
 
     if (initialState) {
       this.historyManager.suspendHistory()
@@ -320,8 +365,11 @@ export class ImageEditor {
           state: initialState as CanvasFullState
         })
 
+        this._assertActive()
         await this.historyManager.loadStateFromFullState(preparedState)
+        this._assertActive()
       } catch (error) {
+        this._assertActive()
         if (initialImage?.source) {
           const {
             source,
@@ -354,15 +402,18 @@ export class ImageEditor {
       await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
     }
 
+    this._assertActive()
     this.historyManager.saveState()
 
     console.log('editor:ready')
     this.canvas.fire('editor:ready', this)
+    this._assertActive()
 
     // вызываем колбэк если он есть
     if (typeof _onReadyCallback === 'function') {
       _onReadyCallback(this)
     }
+    this._assertActive()
   }
 
   /**
@@ -435,21 +486,41 @@ export class ImageEditor {
    * Метод для удаления редактора и всех слушателей.
    */
   public destroy(): void {
-    this.listeners.destroy()
-    this.shapeManager?.destroy()
-    this.textManager?.destroy()
-    this.selectionManager.destroy()
-    this.snappingManager?.destroy()
-    this.measurementManager?.destroy()
-    this.toolbar.destroy()
-    this.angleIndicator?.destroy()
-    this.objectSizeIndicator?.destroy()
-    this.viewportScrollbars?.destroy()
-    this.cropManager?.destroy()
-    this.canvas.dispose()
-    this.workerManager.worker.terminate()
-    this.imageManager.revokeBlobUrls()
-    this.errorManager.cleanBuffer()
+    if (this._destroyed) return
+    this._destroyed = true
+    this._rejectInitialization?.(new Error('ImageEditor has been destroyed'))
+    this._rejectInitialization = undefined
+
+    const cleanupSteps = [
+      () => this.workerManager?.terminate(),
+      () => this.listeners?.destroy(),
+      () => this.historyManager?.destroy(),
+      () => this.shapeManager?.destroy(),
+      () => this.textManager?.destroy(),
+      () => this.selectionManager?.destroy(),
+      () => this.snappingManager?.destroy(),
+      () => this.measurementManager?.destroy(),
+      () => this.toolbar?.destroy(),
+      () => this.angleIndicator?.destroy(),
+      () => this.objectSizeIndicator?.destroy(),
+      () => this.viewportScrollbars?.destroy(),
+      () => this.cropManager?.destroy(),
+      () => this.canvas?.dispose(),
+      () => this._cleanupHostResources?.(),
+      () => this.imageManager?.destroy(),
+      () => this.errorManager?.cleanBuffer()
+    ]
+
+    cleanupSteps.forEach((cleanup) => {
+      try {
+        // Fabric dispose() может завершаться асинхронно после отложенного render.
+        Promise.resolve(cleanup()).catch((error: unknown) => {
+          console.error('Failed to clean up ImageEditor resource', error)
+        })
+      } catch (error) {
+        console.error('Failed to clean up ImageEditor resource', error)
+      }
+    })
   }
 
   /**

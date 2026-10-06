@@ -11,6 +11,11 @@ const TRACKPAD_PINCH_ZOOM_CHANGE_PERCENT = 0.8
 const TRACKPAD_PINCH_DELTA_THRESHOLD = 50
 const WEBKIT_GESTURE_ZOOM_GAIN = 1
 
+/** Обработчик с отменяемым отложенным вызовом. */
+type DebouncedHandler<T extends(...args: unknown[]) => unknown> = ((...args: Parameters<T>) => void) & {
+  cancel: () => void
+}
+
 type CanvasWithTransform = Canvas & {
   _currentTransform?: Record<string, unknown> | null
 }
@@ -53,6 +58,8 @@ interface TouchEventWithPoints extends Event {
 }
 
 class Listeners {
+  private _destroyed = false
+
   /**
    * Ссылка на редактор, содержащий canvas.
    */
@@ -120,7 +127,7 @@ class Listeners {
    * Привязанные обработчики событий.
    * Используются для удаления слушателей при уничтожении экземпляра.
    */
-  handleContainerResizeBound: (e: Event) => void
+  handleContainerResizeBound: ((e: Event) => void) & { cancel: () => void }
 
   handleCopyEventBound: (e: KeyboardEvent) => void
 
@@ -260,6 +267,7 @@ class Listeners {
    * Инициализация всех обработчиков согласно опциям.
    */
   init(): void {
+    if (this._destroyed) return
     this._bindCanvasInteractionEvents()
     this._bindDomEvents()
     this._bindHistoryEvents()
@@ -454,6 +462,7 @@ class Listeners {
    * Derived-слои, завязанные на montageArea и viewport, синхронизируются внутри CanvasManager.
    */
   handleContainerResize(): void {
+    if (this._destroyed) return
     this.editor.canvasManager.updateCanvas()
   }
 
@@ -1181,6 +1190,10 @@ class Listeners {
    * Метод для удаления всех слушателей
    */
   destroy(): void {
+    if (this._destroyed) return
+    this._destroyed = true
+    this.handleContainerResizeBound.cancel()
+
     // Глобальные DOM-обработчики
     window.removeEventListener('resize', this.handleContainerResizeBound, { capture: true })
     document.removeEventListener('keydown', this.handleCopyEventBound, { capture: true })
@@ -1246,17 +1259,21 @@ class Listeners {
    * @param delay — задержка в миллисекундах
    * @returns новую обёртку-обработчик
    */
-  static debounce<T extends(...args: unknown[]) => unknown>(fn: T, delay: number): (...args: Parameters<T>) => void {
+  static debounce<T extends(...args: unknown[]) => unknown>(fn: T, delay: number): DebouncedHandler<T> {
     let timer: ReturnType<typeof setTimeout> | null = null
-
-    return function(this: ThisParameterType<T>, ...args: Parameters<T>): void {
-      if (timer !== null) {
-        clearTimeout(timer)
-      }
+    const cancel = (): void => {
+      if (timer !== null) clearTimeout(timer)
+      timer = null
+    }
+    const debounced = function(this: ThisParameterType<T>, ...args: Parameters<T>): void {
+      cancel()
       timer = setTimeout(() => {
+        timer = null
         fn.apply(this, args)
       }, delay)
     }
+
+    return Object.assign(debounced, { cancel })
   }
 }
 

@@ -5,7 +5,7 @@ import { createFullOptions } from './options'
 export const createEditorWithMocks = (options: Partial<EditorOptions> = {}) => {
   const fullOptions = createFullOptions(options)
 
-  const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockImplementation()
+  const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockResolvedValue()
   const editor = new ImageEditor('test-canvas', fullOptions)
   initSpy.mockRestore()
 

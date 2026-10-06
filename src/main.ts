@@ -8,7 +8,10 @@ import { defaults } from './editor/defaults'
  * @param containerId — ID контейнера, в котором будут созданы оба канваса.
  * @param options — опции и настройки.
  */
-export default function initEditor(containerId:string, options:Partial<EditorOptions> = {}): Promise<ImageEditor> {
+export default async function initEditor(
+  containerId: string,
+  options: Partial<EditorOptions> = {}
+): Promise<ImageEditor> {
   const adjustedOptions:EditorOptions = { ...defaults, ...options } as EditorOptions
 
   // Находим контейнер по ID.
@@ -17,20 +20,38 @@ export default function initEditor(containerId:string, options:Partial<EditorOpt
     return Promise.reject(new Error(`Контейнер с ID "${containerId}" не найден.`))
   }
 
+  const canvasId = `${containerId}-canvas`
+  if (document.getElementById(canvasId)) {
+    throw new Error(`Canvas "${canvasId}" already exists. Destroy the previous editor before initializing again.`)
+  }
+
   // Создаём канвас
   const editorCanvas = document.createElement('canvas')
-  editorCanvas.id = `${containerId}-canvas`
+  editorCanvas.id = canvasId
   container.appendChild(editorCanvas)
 
   // Сохраняем контейнер в опциях
   adjustedOptions.editorContainer = container
 
-  return new Promise((resolve) => {
-    adjustedOptions._onReadyCallback = resolve
+  let editorInstance: ImageEditor | undefined
+  // Владение canvas и ключом регистрации не зависит от последующих изменений host/window.
+  const cleanupHostResources = (): void => {
+    editorCanvas.remove()
+    if (editorInstance && window[containerId] === editorInstance) {
+      delete window[containerId]
+    }
+  }
 
-    const editorInstance = new ImageEditor(editorCanvas.id, adjustedOptions)
+  try {
+    editorInstance = new ImageEditor(editorCanvas.id, adjustedOptions, cleanupHostResources)
     window[containerId] = editorInstance
-  })
+    await editorInstance.ready
+    return editorInstance
+  } catch (error) {
+    editorInstance?.destroy()
+    cleanupHostResources()
+    throw error
+  }
 }
 
 export type { ImageEditor } from './editor'

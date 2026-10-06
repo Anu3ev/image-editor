@@ -2,6 +2,7 @@
 import { type Page, expect } from '@playwright/test'
 import type {
   EditorObjectInfo,
+  EditorRemountInfo,
   CanvasStateInfo,
   CanvasViewportTransformInfo,
   MontageAreaInfo,
@@ -162,6 +163,38 @@ export class EditorModel {
     })
 
     await waitForCanvasRender({ page: this.page })
+  }
+
+  /** Уничтожает редактор и повторно монтирует его через тот же публичный initEditor. */
+  async destroyAndRemount(): Promise<EditorRemountInfo> {
+    const result = await this.page.evaluate(async() => {
+      const { editor: previous } = window as any
+      const previousCanvas = previous.canvas.lowerCanvasEl as HTMLCanvasElement
+      const previousUpperCanvas = previous.canvas.upperCanvasEl as HTMLCanvasElement
+      const modulePath = '/js/editor-module-loader.js'
+      const { loadEditorModule } = await import(modulePath)
+      const { default: initEditor } = await loadEditorModule()
+
+      previous.destroy()
+      const remainingRegistration = window.editor
+      // После delete браузер может вернуть host по id через именованный доступ Window.
+      const registrationRemoved = remainingRegistration === undefined
+        || remainingRegistration === previous.options.editorContainer
+      const replacement = await initEditor('editor', previous.options)
+
+      return {
+        previousEditorId: previous.editorId,
+        editorId: replacement.editorId,
+        registrationRemoved,
+        replacementRegistered: window.editor === replacement,
+        previousCanvasConnected: previousCanvas.isConnected,
+        previousUpperCanvasConnected: previousUpperCanvas.isConnected,
+        canvasCount: replacement.options.editorContainer.querySelectorAll('canvas').length
+      }
+    })
+
+    await this.waitForReady()
+    return result
   }
 
   /** Включает e2e-правило защиты объектов с заданным customData.handle. */

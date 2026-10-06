@@ -17,7 +17,6 @@ import { ToolbarModel } from '../models/toolbar.model'
 import { SelectionModel } from '../models/selection/selection.model'
 import { GroupingModel } from '../models/grouping.model'
 import { CropModel } from '../models/crop/crop.model'
-import { bypassCertificateWarning } from '../helpers/certificate.helper'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
 import {
@@ -140,7 +139,6 @@ async function openEditorPage({
   await page.goto('/', {
     waitUntil: 'domcontentloaded'
   })
-  await bypassCertificateWarning({ page })
   await model.waitForReady()
 }
 
@@ -184,8 +182,11 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     await installEditorInitOptions({ page, initOptions: demoInitOptions })
     await installEditorRoutes({ page, routeMocks: editorRouteMocks })
     await openEditorPage({ model, page })
-    await use(model)
-    await finishEditorInteractions({ model })
+    try {
+      await use(model)
+    } finally {
+      await finishEditorInteractions({ model })
+    }
   },
 
   shapes: async({ editorModel }, use) => {

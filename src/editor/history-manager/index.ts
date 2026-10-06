@@ -39,6 +39,11 @@ type HistorySaveResult = {
 }
 
 export default class HistoryManager {
+  private _destroyed = false
+
+  /** Отменяет загрузку Fabric-объектов при уничтожении редактора. */
+  private readonly _loadAbortController = new AbortController()
+
   /**
    * Инстанс редактора с доступом к canvas
    */
@@ -175,9 +180,20 @@ export default class HistoryManager {
     this._createDiffPatcher()
   }
 
+  /** Отменяет отложенную работу, не сохраняя состояние уничтожаемого canvas. */
+  public destroy(): void {
+    if (this._destroyed) return
+    this._destroyed = true
+    this._loadAbortController.abort()
+    this._clearPendingSave()
+    this._clearPendingCommittedState()
+    this._clearPendingAction()
+    this._hasDeferredSaveAfterUnblock = false
+  }
+
   /** Проверка, нужно ли пропускать сохранение истории */
   public get skipHistory(): boolean {
-    return this._historySuspendCount > 0 || this._isSavingState
+    return this._destroyed || this._historySuspendCount > 0 || this._isSavingState
   }
 
   public get lastPatch(): { id: string; diff: Delta } | null {
@@ -246,6 +262,7 @@ export default class HistoryManager {
    * @param reason - причина сохранения
    */
   public scheduleSaveState({ delayMs, reason }: { delayMs: number; reason: string }): void {
+    if (this._destroyed) return
     this._clearPendingSave()
 
     this._pendingSaveReason = reason
@@ -445,6 +462,7 @@ export default class HistoryManager {
 
     try {
       await this.loadStateFromFullState(actionSnapshot)
+      if (this._destroyed) return true
 
       if (actionReason === 'text-edit') {
         this._deactivateTextEditing()
@@ -670,7 +688,7 @@ export default class HistoryManager {
    * @fires editor:history-state-loaded
    */
   public async loadStateFromFullState(fullState: CanvasFullState): Promise<void> {
-    if (!fullState) return
+    if (this._destroyed || !fullState) return
 
     console.log('loadStateFromFullState fullState', fullState)
 
@@ -693,7 +711,14 @@ export default class HistoryManager {
 
     const safeState = createLoadSafeState({ state: fullState })
 
-    await canvas.loadFromJSON(safeState)
+    try {
+      await canvas.loadFromJSON(safeState, undefined, { signal: this._loadAbortController.signal })
+    } catch (error) {
+      if (this._destroyed) return
+      throw error
+    }
+    if (this._destroyed) return
+
     applyCustomDataFromState({ state: fullState, canvas })
 
     // Восстанавливаем ссылки на montageArea и overlay в редакторе
@@ -767,7 +792,7 @@ export default class HistoryManager {
     if (this.skipHistory) return
 
     const isActionCanceled = await this._cancelPendingAction()
-    if (isActionCanceled) return
+    if (this._destroyed || isActionCanceled) return
 
     this.flushPendingSave()
 
@@ -785,6 +810,7 @@ export default class HistoryManager {
       const fullState = this.getFullState()
 
       await this.loadStateFromFullState(fullState)
+      if (this._destroyed) return
 
       console.log('Undo выполнен. Текущий индекс истории:', this.currentIndex)
 
@@ -819,7 +845,7 @@ export default class HistoryManager {
     if (this.skipHistory) return
 
     const isActionCanceled = await this._cancelPendingAction()
-    if (isActionCanceled) return
+    if (this._destroyed || isActionCanceled) return
 
     this.flushPendingSave()
 
@@ -838,6 +864,7 @@ export default class HistoryManager {
       console.log('fullState', fullState)
 
       await this.loadStateFromFullState(fullState)
+      if (this._destroyed) return
 
       console.log('Redo выполнен. Текущий индекс истории:', this.currentIndex)
 

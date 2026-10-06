@@ -17,20 +17,28 @@ function getDemoInitOptions() {
 }
 
 document.addEventListener('DOMContentLoaded', async() => {
-  const { default: initEditor } = await loadEditorModule()
-  const editorVersion = getRequestedEditorVersion() || 'local'
-  const demoInitOptions = getDemoInitOptions()
+  try {
+    const { default: initEditor } = await loadEditorModule()
+    const editorVersion = getRequestedEditorVersion() || 'local'
+    const demoInitOptions = getDemoInitOptions()
 
-  console.info('[image-editor demo] editor version:', editorVersion)
+    console.info('[image-editor demo] editor version:', editorVersion)
 
-  // Инициализация редактора
-  const editorInstance = await initEditor('editor', {
-    montageAreaWidth: 512,
-    montageAreaHeight: 512,
-    editorContainerWidth: '100%',
-    editorContainerHeight: 'calc(100vh - 4rem)',
-    ...demoInitOptions
-  })
+    // Инициализация редактора
+    const editorInstance = await initEditor('editor', {
+      montageAreaWidth: 512,
+      montageAreaHeight: 512,
+      editorContainerWidth: '100%',
+      editorContainerHeight: 'calc(100vh - 4rem)',
+      ...demoInitOptions
+    })
 
-  initListeners(editorInstance)
+    initListeners(editorInstance)
+  } catch (error) {
+    console.error('[image-editor demo] Initialization failed:', error)
+    const status = document.createElement('p')
+    status.setAttribute('role', 'alert')
+    status.textContent = 'Не удалось загрузить редактор. Перезагрузите страницу, чтобы повторить попытку.'
+    document.getElementById('editor')?.appendChild(status)
+  }
 })
