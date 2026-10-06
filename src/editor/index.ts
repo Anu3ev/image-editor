@@ -1,5 +1,6 @@
-import { Canvas, Pattern, Point, Rect, CanvasOptions } from 'fabric'
+import { Canvas, Pattern, Point, Rect } from 'fabric'
 import { nanoid } from 'nanoid'
+import type { EditorOptions } from './types/options'
 
 import Listeners from './listeners'
 import ModuleLoader from './module-loader'
@@ -33,8 +34,6 @@ import MeasurementManager from './measurement-manager'
 import CropManager from './crop-manager'
 import { addRectangleToCanvas } from './utils/primitive-shapes'
 
-import type { ImportImageOptions } from './image-manager'
-
 // TODO: Обложиться тестами с помощью jest
 // TODO: Сделать более симпатичное демо
 // TODO: Режим рисования
@@ -49,7 +48,7 @@ export class ImageEditor {
   /**
    * Опции и настройки редактора
    */
-  readonly options: CanvasOptions
+  readonly options: EditorOptions
 
   /**
    * Идентификатор HTML-контейнера.
@@ -234,7 +233,7 @@ export class ImageEditor {
    * @param options - опции и настройки редактора
    * @param cleanupHostResources - внутренняя очистка canvas и регистрации, принадлежащих initEditor
    */
-  constructor(canvasId: string, options: CanvasOptions, cleanupHostResources?: () => void) {
+  constructor(canvasId: string, options: EditorOptions, cleanupHostResources?: () => void) {
     this.options = options
     this._cleanupHostResources = cleanupHostResources
     this.containerId = canvasId
@@ -377,7 +376,7 @@ export class ImageEditor {
             scale = `image-${scaleType}`,
             withoutSave = true,
             ...rest
-          } = initialImage as ImportImageOptions
+          } = initialImage
 
           await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
         }
@@ -398,7 +397,7 @@ export class ImageEditor {
         scale = `image-${scaleType}`,
         withoutSave = true,
         ...rest
-      } = initialImage as ImportImageOptions
+      } = initialImage
 
       await this.imageManager.importImage({ source, scale, withoutSave, ...rest })
     }

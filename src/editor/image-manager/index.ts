@@ -1,4 +1,5 @@
-import { CanvasOptions, FabricObject, FabricImage } from 'fabric'
+import { FabricObject, FabricImage } from 'fabric'
+import type { EditorOptions } from '../types/options'
 
 import BlobUrlRegistry from './blob-url-registry'
 import {
@@ -66,7 +67,7 @@ export default class ImageManager {
   /**
    * Настройки редактора
    */
-  options: CanvasOptions
+  options: EditorOptions
 
   /**
    * Массив blobURL, созданных в процессе работы менеджера.
@@ -75,7 +76,7 @@ export default class ImageManager {
   private _blobUrls: BlobUrlRegistry
 
   /**
-   * Массив допустимых contentType, которые можно импортировать. По умолчанию берётся из CanvasOptions.acceptContentTypes.
+   * Массив допустимых contentType, которые можно импортировать. По умолчанию берётся из EditorOptions.acceptContentTypes.
    */
   public acceptContentTypes: string[]
 

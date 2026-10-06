@@ -354,7 +354,7 @@ describe('ImageEditor', () => {
       const editor = createEditorWithMocks({
         initialImage: {
           source: 'test-image.jpg',
-          scale: 'contain',
+          scale: 'image-contain',
           withoutSave: true,
           customData: { exampleKey: 'exampleValue' }
         }
@@ -364,7 +364,7 @@ describe('ImageEditor', () => {
 
       expect(editor.imageManager.importImage).toHaveBeenCalledWith({
         source: 'test-image.jpg',
-        scale: 'contain',
+        scale: 'image-contain',
         withoutSave: true,
         customData: { exampleKey: 'exampleValue' }
       })

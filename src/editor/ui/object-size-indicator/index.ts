@@ -1,12 +1,12 @@
 import type {
   BasicTransformEvent,
   Canvas,
-  CanvasOptions,
   FabricObject,
   TPointerEvent,
   TPointerEventInfo,
   Transform
 } from 'fabric'
+import type { EditorOptions } from '../../types/options'
 import type { ImageEditor } from '../..'
 import CursorIndicator from '../cursor-indicator'
 import { OBJECT_SIZE_INDICATOR_CLASS } from './constants'
@@ -46,7 +46,7 @@ export default class ObjectSizeIndicatorManager {
   /**
    * Опции редактора.
    */
-  public options: CanvasOptions
+  public options: EditorOptions
 
   /**
    * HTML-элемент индикатора.

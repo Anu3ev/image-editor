@@ -1,12 +1,12 @@
 import {
   BasicTransformEvent,
   Canvas,
-  CanvasOptions,
   FabricObject,
   ModifiedEvent,
   TPointerEvent,
   TPointerEventInfo
 } from 'fabric'
+import type { EditorOptions } from '../../types/options'
 import { ImageEditor } from '../..'
 import { resolveShapeGroupFromTarget } from '../../shape-manager/domain/shape-reference'
 import defaultConfig from './default-config'
@@ -41,7 +41,7 @@ export default class ToolbarManager {
   /**
    * Настройки редактора.
    */
-  public options: CanvasOptions
+  public options: EditorOptions
 
   /**
    * Конфигурация панели инструментов

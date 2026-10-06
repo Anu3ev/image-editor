@@ -5,8 +5,9 @@ on:
     branches:
       - master
     paths:
-      - 'demo/**'
+      - 'src/**'
       - 'package.json'
+      - 'package-lock.json'
       - 'vite.config.docs.js'
 
 permissions:

@@ -271,6 +271,10 @@ export async function exportCanvasSnapshot({
     })
   }
 
+  if (!request.isPDF && !request.exportAsBase64) {
+    return exportCanvasFile({ editor, request, snapshot })
+  }
+
   const dataUrl = await convertBlobToDataUrl({
     editor,
     blob: snapshot.blob,
@@ -286,19 +290,11 @@ export async function exportCanvasSnapshot({
     })
   }
 
-  if (request.exportAsBase64) {
-    return emitCanvasExported({
-      editor,
-      request,
-      image: dataUrl,
-      contentType: request.exportContentType
-    })
-  }
-
-  return exportCanvasFile({
+  return emitCanvasExported({
     editor,
     request,
-    snapshot
+    image: dataUrl,
+    contentType: request.exportContentType
   })
 }
 

@@ -84,6 +84,18 @@ npm install @anu3ev/fabric-image-editor
 
 ## 🚀 Quick Start
 
+### TypeScript imports
+
+```typescript
+import initEditor, { type EditorOptions, type ImageEditor } from '@anu3ev/fabric-image-editor'
+
+const options: Partial<EditorOptions> = {
+  initialImage: { source: '/image.png', scale: 'image-contain' },
+  toolbar: { offsetTop: 12 }
+}
+const editor: ImageEditor = await initEditor('editor', options)
+```
+
 ### Basic Setup
 
 Create a container in your HTML and initialize the editor:
