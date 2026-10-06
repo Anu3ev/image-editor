@@ -14,6 +14,8 @@ permissions:
 jobs:
   publish-and-release:
     runs-on: ubuntu-latest
+    outputs:
+      TAG: ${{ steps.release_info.outputs.TAG }}
 
     steps:
       - name: Checkout repo
@@ -41,7 +43,9 @@ jobs:
             echo "should_publish=false" >> $GITHUB_OUTPUT
             exit 0
           }
-          if git diff HEAD^ HEAD -- package.json | grep -q '"version":'; then
+          PREVIOUS_VERSION=$(git show HEAD^:package.json | node -p "JSON.parse(require('fs').readFileSync(0, 'utf8')).version")
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$PREVIOUS_VERSION" != "$VERSION" ]; then
             echo "Обнаружен bump версии в package.json"
             echo "should_publish=true" >> $GITHUB_OUTPUT
           else
@@ -59,10 +63,46 @@ jobs:
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
           echo "TAG=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Create Git tag
+      - name: Check types and lint
         if: steps.check_bump.outputs.should_publish == 'true'
         run: |
-          TAG="${{ steps.release_info.outputs.TAG }}"
+          npm run typecheck
+          npm run lint
+
+      - name: Run unit tests
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: npm run test:ci -- --runInBand
+
+      - name: Install Playwright Chromium
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: npx playwright test --project=chromium --workers=2
+
+      - name: Publish to npm
+        if: steps.check_bump.outputs.should_publish == 'true'
+        run: |
+          VERSION="${{ steps.release_info.outputs.VERSION }}"
+
+          echo "► Публикация пакета в npm (version=${VERSION})"
+          npm publish --access public
+
+  create-release:
+    needs: publish-and-release
+    if: needs.publish-and-release.outputs.TAG != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Create Git tag
+        run: |
+          TAG="${{ needs.publish-and-release.outputs.TAG }}"
 
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Тэг $TAG уже существует → пропускаем его создание"
@@ -75,36 +115,12 @@ jobs:
           git push origin "$TAG"
 
       - name: Create GitHub Release (softprops)
-        if: steps.check_bump.outputs.should_publish == 'true'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.release_info.outputs.TAG }}
-          name: "Release ${{ steps.release_info.outputs.TAG }}"
+          tag_name: ${{ needs.publish-and-release.outputs.TAG }}
+          name: "Release ${{ needs.publish-and-release.outputs.TAG }}"
           generate_release_notes: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish to npm
-        if: steps.check_bump.outputs.should_publish == 'true'
-        run: |
-          VERSION="${{ steps.release_info.outputs.VERSION }}"
-
-          echo "► Публикация пакета в npm (version=${VERSION})"
-          npm publish --access public
-
-      - name: Delete tag and release after failed publish flow
-        if: failure() && steps.check_bump.outputs.should_publish == 'true'
-        run: |
-          TAG="${{ steps.release_info.outputs.TAG }}"
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release delete "$TAG" --yes
-          fi
-
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            git push origin ":refs/tags/$TAG"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
