@@ -435,5 +435,14 @@ export default [
     rules: {
       'import/no-extraneous-dependencies': ['error', { devDependencies: true }]
     }
+  },
+  {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: { ...globals.node }
+    },
+    rules: {
+      'import/no-extraneous-dependencies': ['error', { devDependencies: true }]
+    }
   }
 ]
