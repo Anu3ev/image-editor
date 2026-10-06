@@ -177,7 +177,10 @@ export class EditorModel {
 
       previous.destroy()
       previous.destroy()
-      const registrationRemoved = window.editor === undefined
+      const remainingRegistration = window.editor
+      // После delete браузер может вернуть host по id через именованный доступ Window.
+      const registrationRemoved = remainingRegistration === undefined
+        || remainingRegistration === previous.options.editorContainer
       const replacement = await initEditor('editor', previous.options)
       previous.destroy()
 
