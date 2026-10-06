@@ -3,23 +3,7 @@ import type { FabricObject as FabricObjectInstance } from 'fabric'
 import type { EditorFontDefinition } from './font'
 import { ImageEditor } from '..'
 
-declare module 'fabric' {
-  interface Canvas {
-    /**
-     * Контейнер редактора, в котором будет создан канвас.
-     */
-    editorContainer: HTMLElement
-    /**
-     * Уникальный идентификатор редактора.
-     */
-    editorId?: string
-    /**
-     * Идентификатор HTML-контейнера, в котором находится канвас.
-     */
-    containerId: string
-  }
-
-  interface CanvasOptions {
+export interface EditorCanvasOptions {
     /**
      * Ширина рабочей области редактора.
      */
@@ -234,12 +218,6 @@ declare module 'fabric' {
     resetObjectFitByDoubleClick: boolean
 
     /**
-     * CSS класс для контейнера редактора.
-     * Используется для стилизации контейнера редактора.
-     */
-    containerClass?: string
-
-    /**
      * Селекторы элементов, для которых нужно игнорировать события клавиатуры
      */
     keyboardIgnoreSelectors: string[]
@@ -249,6 +227,27 @@ declare module 'fabric' {
      */
     fonts?: EditorFontDefinition[]
   }
+
+declare module 'fabric' {
+
+  interface Canvas {
+    /**
+     * Контейнер редактора, в котором будет создан канвас.
+     */
+    editorContainer: HTMLElement
+    /**
+     * Уникальный идентификатор редактора.
+     */
+    editorId?: string
+    /**
+     * Идентификатор HTML-контейнера, в котором находится канвас.
+     */
+    containerId: string
+  }
+
+  // Расширение Fabric не делает опции редактора обязательными для обычного canvas.
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
+  interface CanvasOptions extends Partial<EditorCanvasOptions> {}
 
   interface FabricObject {
     /**

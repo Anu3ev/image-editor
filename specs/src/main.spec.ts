@@ -1,82 +1,70 @@
-/**
- * Тесты для главной функции инициализации редактора
- */
-
 import initEditor from '../../src/main'
-// Мокаем класс редактора, чтобы не тянуть fabric и сложную инициализацию
-jest.mock('../../src/editor', () => ({
-  ImageEditor: jest.fn().mockImplementation((_canvasId: string, options: any) => {
-    // сразу резолвим промис, который возвращает initEditor
-    options?._onReadyCallback?.({} as any)
-    return { destroy: jest.fn() }
-  })
-}))
-
-// Простой мок для DOM элементов
-const mockElement = {
-  id: 'test-container',
-  appendChild: jest.fn(),
-  style: {},
-  offsetWidth: 800,
-  offsetHeight: 600,
-  // для некоторых менеджеров могут понадобиться clientWidth/Height
-  clientWidth: 800,
-  clientHeight: 600
-}
-
-// Мокаем document.getElementById
-Object.defineProperty(global.document, 'getElementById', {
-  value: jest.fn(),
-  writable: true
-})
-
-// Мокаем document.createElement
-Object.defineProperty(global.document, 'createElement', {
-  value: jest.fn(),
-  writable: true
-})
+import { ImageEditor } from '../../src/editor'
 
 describe('initEditor', () => {
+  let initialize: jest.SpiedFunction<ImageEditor['init']>
+  let destroy: jest.SpiedFunction<ImageEditor['destroy']>
+
   beforeEach(() => {
-    // Очищаем моки перед каждым тестом
-    jest.clearAllMocks()
+    document.body.innerHTML = '<div id="test-container"></div>'
+    initialize = jest.spyOn(ImageEditor.prototype, 'init').mockImplementation(function(this: ImageEditor) {
+      return Promise.resolve().then(() => this.options._onReadyCallback?.(this))
+    })
+    destroy = jest.spyOn(ImageEditor.prototype, 'destroy').mockImplementation(() => {})
   })
 
-  test('должен отклонить Promise, если контейнер не найден', async() => {
-    // Мокаем getElementById для возврата null
-    const mockGetElementById = document.getElementById as jest.MockedFunction<typeof document.getElementById>
-    mockGetElementById.mockReturnValue(null)
-
-    const containerId = 'non-existent-container'
-
-    await expect(initEditor(containerId)).rejects.toThrow(
-      'Контейнер с ID "non-existent-container" не найден.'
-    )
+  afterEach(() => {
+    jest.restoreAllMocks()
+    document.body.innerHTML = ''
+    delete window['test-container']
   })
 
-  test('должен создать Promise, если контейнер найден', () => {
-    // Мокаем getElementById для возврата элемента
-    const mockGetElementById = document.getElementById as jest.MockedFunction<typeof document.getElementById>
-    mockGetElementById.mockReturnValue(mockElement as any)
+  it('отклоняет инициализацию, если контейнер не найден', async() => {
+    await expect(initEditor('missing')).rejects.toThrow('Контейнер с ID "missing" не найден.')
+    expect(initialize).not.toHaveBeenCalled()
+  })
 
-    // Мокаем createElement для создания canvas
-    const mockCanvas = { id: '', style: {} }
-    const mockCreateElement = document.createElement as jest.MockedFunction<typeof document.createElement>
-    mockCreateElement.mockReturnValue(mockCanvas as any)
+  it('создаёт один canvas и возвращает зарегистрированный готовый редактор', async() => {
+    const editor = await initEditor('test-container')
+    expect(editor).toBe(window['test-container'])
+    expect(document.querySelectorAll('#test-container canvas')).toHaveLength(1)
+    expect(editor.containerId).toBe('test-container-canvas')
+    expect(editor.options.editorContainer).toBe(document.getElementById('test-container'))
+  })
 
-    const containerId = 'test-container'
-    const result = initEditor(containerId)
+  it('сохраняет переданные опции и вызывает колбэк готовности', async() => {
+    const callback = jest.fn()
+    const options = { _onReadyCallback: callback }
+    const editor = await initEditor('test-container', options)
+    expect(callback).toHaveBeenCalledTimes(1)
+    expect(callback).toHaveBeenCalledWith(editor)
+    expect(options).toEqual({ _onReadyCallback: callback })
+  })
 
-    // Проверяем, что возвращается Promise
-    expect(result).toBeInstanceOf(Promise)
+  it('отклоняет ошибку инициализации и удаляет созданный canvas', async() => {
+    const error = new Error('Initialization failed')
+    initialize.mockRejectedValueOnce(error)
 
-    // Проверяем, что getElementById был вызван с правильным ID
-    expect(document.getElementById).toHaveBeenCalledWith(containerId)
+    await expect(initEditor('test-container')).rejects.toBe(error)
 
-    // Проверяем, что createElement был вызван для создания canvas
-    expect(document.createElement).toHaveBeenCalledWith('canvas')
+    expect(destroy).toHaveBeenCalledTimes(1)
+    expect(document.querySelectorAll('#test-container canvas')).toHaveLength(0)
+    expect(window['test-container']).toBeUndefined()
+  })
 
-    // И что промис резолвится (моком ImageEditor вызываем _onReadyCallback)
-    return expect(result).resolves.toBeDefined()
+  it('не создаёт дубликат canvas и не заменяет редактор при одновременной инициализации', async() => {
+    const first = initEditor('test-container')
+    const editor = window['test-container']
+    await expect(initEditor('test-container')).rejects.toThrow(/already exists/)
+    expect(initialize).toHaveBeenCalledTimes(1)
+    expect(window['test-container']).toBe(editor)
+    expect(document.querySelectorAll('#test-container canvas')).toHaveLength(1)
+    await first
+  })
+
+  it('удаляет созданный canvas при синхронной ошибке конструктора', async() => {
+    initialize.mockImplementationOnce(() => { throw new Error('Construction failed') })
+    await expect(initEditor('test-container')).rejects.toThrow('Construction failed')
+    expect(document.querySelectorAll('#test-container canvas')).toHaveLength(0)
   })
 })

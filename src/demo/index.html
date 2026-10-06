@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" href="data:," />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Простой редактор на Fabric.js</title>
+  <title>Fabric Image Editor · Try a sample</title>
   <link href="./vendor/bootstrap.min.css" rel="stylesheet">
 
   <script type="module" src="./js/index.js"></script>
@@ -12,7 +13,67 @@
 </head>
 
 <body class="bg-light p-3">
-  <div class="container-fluid py-3">
+  <header class="demo-header">
+    <a class="demo-brand" href="./">Fabric Image Editor<span>Interactive canvas demo</span></a>
+    <nav aria-label="Project links">
+      <a href="https://github.com/Anu3ev/image-editor">Source</a>
+      <a href="https://github.com/Anu3ev/image-editor/blob/master/src/editor/Readme.md">API documentation</a>
+      <a id="demo-mode-link" href="?mode=playground">Advanced playground</a>
+      <span id="demo-build-info">Local development</span>
+    </nav>
+  </header>
+  <main id="sample-demo" class="sample-layout" hidden>
+    <section class="sample-guide" aria-labelledby="sample-title">
+      <p class="sample-eyebrow">TRY IT IN 60 SECONDS</p>
+      <h1 id="sample-title">Make it yours.</h1>
+      <p class="sample-intro">A little poster. A real editor.<br>Edit, crop, and take it with you.</p>
+      <div class="sample-step">
+        <span class="sample-step-number">01</span>
+        <div>
+          <label for="sample-headline">Edit the headline</label>
+          <input id="sample-headline" value="Weekend Makers" maxlength="48" autocomplete="off" disabled />
+          <p>Type to see your changes on the canvas.</p>
+        </div>
+      </div>
+      <div class="sample-step">
+        <span class="sample-step-number">02</span>
+        <div>
+          <button id="sample-crop" type="button" disabled>Crop the image</button>
+          <p>Drag the frame or its handles. Apply when it feels right.</p>
+        </div>
+      </div>
+      <div class="sample-step">
+        <span class="sample-step-number">03</span>
+        <div>
+          <div class="sample-button-row">
+            <button id="sample-undo" type="button" disabled>Undo</button>
+            <button id="sample-redo" type="button" disabled>Redo</button>
+          </div>
+          <p>Edits stay reversible.</p>
+        </div>
+      </div>
+      <div class="sample-step">
+        <span class="sample-step-number">04</span>
+        <div>
+          <button id="sample-export" class="sample-primary" type="button" disabled>Export PNG</button>
+          <p>Your composition, at 512 × 512 pixels.</p>
+        </div>
+      </div>
+      <button id="sample-reset" class="sample-reset" type="button">Reset sample</button>
+    </section>
+    <section class="sample-workspace" aria-label="Poster canvas">
+      <div class="sample-canvas-heading"><span>WEEKEND MAKERS</span><span>512 × 512</span></div>
+      <div id="sample-editor-host"></div>
+      <div id="sample-crop-toolbar" class="sample-crop-toolbar" hidden aria-label="Crop actions">
+        <span>Drag the crop frame or resize its corners</span>
+        <button id="sample-crop-apply" class="sample-primary" type="button">Apply crop</button>
+        <button id="sample-crop-cancel" type="button">Cancel crop</button>
+      </div>
+      <p id="sample-status" class="sample-status" role="status" aria-live="polite">Loading your sample…</p>
+      <p class="sample-footnote">Original local artwork · No upload needed · Desktop mouse editing recommended</p>
+    </section>
+  </main>
+  <div id="playground-demo" class="container-fluid py-3" hidden>
     <div id="canvas-container" class="d-flex row justify-content-center">
       <div class="col-md-3">
         <div class="card h-100">

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable no-use-before-define -- Public e2e model держим выше private scenario helpers. */
 import { type Page, expect } from '@playwright/test'
+import type { ImageEditor } from '../../../src/editor'
 
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import {
@@ -884,6 +885,27 @@ export class CropModel {
     expect(states.length, 'число live-состояний crop должно совпадать с числом resize-шагов').toBe(sizes.length)
 
     return states
+  }
+
+  /** Перетаскивает crop frame настоящей мышью в клиентских пикселях и завершает жест. */
+  async dragFrameByMouse(params: { deltaX: number, deltaY: number }): Promise<void> {
+    const center = await this.page.evaluate(() => {
+      const { editor } = window as Window & { editor?: ImageEditor }
+      if (!editor) throw new Error('Редактор не готов')
+      const frame = editor.cropManager.getState()?.frame
+      if (!frame) throw new Error('Активная рамка кадрирования отсутствует')
+      const point = frame.getCenterPoint().transform(editor.canvas.viewportTransform)
+      const bounds = editor.canvas.upperCanvasEl.getBoundingClientRect()
+      return {
+        x: bounds.left + point.x * (bounds.width / editor.canvas.width),
+        y: bounds.top + point.y * (bounds.height / editor.canvas.height)
+      }
+    })
+    await this.page.mouse.move(center.x, center.y)
+    await this.page.mouse.down()
+    await this.page.mouse.move(center.x + params.deltaX, center.y + params.deltaY, { steps: 8 })
+    await this.page.mouse.up()
+    await waitForCanvasRender({ page: this.page })
   }
 
   /** Тянет active crop frame за центр на заданное смещение и оставляет drag-сессию активной. */

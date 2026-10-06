@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 import path from 'path'
+import { readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 
 export default defineConfig({
   base: './',
@@ -17,18 +19,32 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        dir: 'docs/js/image-editor', // Специально для библиотеки
-        entryFileNames: 'main.js'
+        entryFileNames: 'js/image-editor/main.js'
       }
     }
   },
   plugins: [
+    {
+      name: 'demo-build-identity',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'build-info.json',
+          source: JSON.stringify({
+            sha: process.env.BUILD_SHA ?? execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+            version: JSON.parse(readFileSync('package.json', 'utf8')).version,
+            buildId: process.env.BUILD_ID ?? 'local'
+          })
+        })
+      }
+    },
     viteStaticCopy({
       targets: [
         // Копируем из src/demo в выходную папку
         { src: 'src/demo/index.html', dest: '.' },
         { src: 'src/demo/style.css', dest: '.' },
         { src: 'src/demo/vendor/*.css', dest: './vendor' },
+        { src: 'src/demo/samples', dest: '.' },
         {
           src: 'src/demo/js/*.js',
           dest: './js',

@@ -1,4 +1,5 @@
-import { ActiveSelection, CanvasOptions, FabricObject } from 'fabric'
+import { ActiveSelection, FabricObject } from 'fabric'
+import type { EditorOptions as CanvasOptions } from '../types/options'
 import { ImageEditor } from '../index'
 
 import {

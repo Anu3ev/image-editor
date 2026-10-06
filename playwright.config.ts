@@ -1,47 +1,39 @@
-// eslint-disable-next-line import/no-extraneous-dependencies
 import { defineConfig, devices } from '@playwright/test'
 
-const PLAYWRIGHT_HOST = '127.0.0.1'
-const PLAYWRIGHT_PORT = Number(process.env.PLAYWRIGHT_PORT ?? 4173)
-const PLAYWRIGHT_BASE_URL = `https://${PLAYWRIGHT_HOST}:${PLAYWRIGHT_PORT}`
+const port = Number(process.env.PLAYWRIGHT_PORT ?? 4173)
+const baseURL = `http://127.0.0.1:${port}`
 
-/**
- * Read environment variables from file.
- * https://github.com/motdotla/dotenv
- */
-// import dotenv from 'dotenv';
-// import path from 'path';
-// dotenv.config({ path: path.resolve(__dirname, '.env') });
-
-/**
- * See https://playwright.dev/docs/test-configuration.
- */
 export default defineConfig({
   testDir: './e2e/tests',
+  timeout: 60_000,
+  expect: { timeout: 10_000 },
   fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: 'html',
-
+  forbidOnly: true,
+  failOnFlakyTests: true,
+  retries: process.env.CI ? 1 : 0,
+  workers: process.env.CI ? 2 : 1,
+  reporter: [['list'], ['html', { open: 'never' }], ['json', {
+    outputFile: process.env.PLAYWRIGHT_JSON_OUTPUT_NAME ?? 'test-results/results.json'
+  }]],
   use: {
-    baseURL: PLAYWRIGHT_BASE_URL,
-    ignoreHTTPSErrors: true,
-    trace: 'on-first-retry'
+    baseURL,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure'
   },
-
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] }
+  projects: [{
+    name: 'chromium',
+    use: {
+      ...devices['Desktop Chrome'],
+      launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+        ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH }
+        : {}
     }
-  ],
-
-  // E2E always runs against its own Vite server and must not depend on the user's main dev server.
+  }],
+  // Keep test traffic on an isolated loopback server; no certificate bypass.
   webServer: {
-    command: `npm run dev:e2e -- --port ${PLAYWRIGHT_PORT}`,
-    url: PLAYWRIGHT_BASE_URL,
-    ignoreHTTPSErrors: true,
-    reuseExistingServer: !process.env.CI
+    command: `npm run dev:e2e -- --port ${port}`,
+    url: baseURL,
+    reuseExistingServer: false,
+    timeout: 60_000
   }
 })

@@ -13,33 +13,37 @@
   },
   "scripts": {
     "dev": "vite --config vite.config.dev.js",
-    "dev:e2e": "vite --config vite.config.dev.js --host 127.0.0.1 --port 4173",
+    "dev:e2e": "vite --config vite.config.dev.js --mode test --host 127.0.0.1 --port 4173",
     "dev:build": "vite build --watch --mode development --config vite.config.dev.js",
-    "prebuild": "npm install",
-    "build": "vite build --config vite.config.prod.js",
+    "build": "vite build --config vite.config.prod.js && npm run build:types",
     "build:docs": "vite build --config vite.config.docs.js",
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{js,ts}\" \"e2e/**/*.{js,ts}\" \"specs/**/*.{js,ts}\"",
     "typecheck": "tsc --noEmit --pretty false",
     "test": "jest --coverage",
     "test:watch": "jest --watch",
-    "test:ci": "jest --ci --coverage --watchAll=false",
+    "test:ci": "node scripts/check-focused-tests.mjs && jest --ci --coverage --watchAll=false --maxWorkers=2",
     "test:coverage": "jest --coverage --coverageReporters=json-summary --coverageReporters=lcov --coverageReporters=text",
-    "test:e2e": "npx playwright test"
+    "test:e2e": "playwright test",
+    "build:types": "tsc -p tsconfig.build.json && node scripts/build-declarations.mjs",
+    "check:package": "node scripts/check-package.mjs",
+    "test:package": "node scripts/check-package.mjs",
+    "test:e2e:smoke": "node scripts/validate-browser.mjs smoke",
+    "test:e2e:full": "node scripts/validate-browser.mjs full",
+    "check:docs": "node scripts/check-docs.mjs"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
     "@eslint/js": "^9.39.4",
     "@jest/types": "^30.4.1",
-    "@playwright/test": "^1.58.2",
-    "@types/fabric": "^5.3.11",
+    "@playwright/test": "1.58.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.6.2",
     "@typescript-eslint/eslint-plugin": "^8.57.1",
     "@typescript-eslint/parser": "^8.57.1",
     "@vitejs/plugin-basic-ssl": "^2.2.0",
-    "eslint-config-airbnb-base": "^15.0.0",
     "eslint": "^8.57.1",
+    "eslint-config-airbnb-base": "^15.0.0",
     "eslint-plugin-sort-keys-fix": "^1.1.2",
     "eslint-plugin-vue": "^9.33.0",
     "globals": "^17.4.0",
@@ -48,12 +52,14 @@
     "prettier": "^3.8.1",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
+    "typescript": "5.9.2",
     "vite": "^8.0.1",
     "vite-bundle-analyzer": "^1.3.6",
     "vite-plugin-static-copy": "^3.3.0",
     "vue-eslint-parser": "^10.4.0"
   },
   "dependencies": {
+    "@types/jsdom": "^21.1.7",
     "fabric": "^7.2.0",
     "jsondiffpatch": "^0.7.3",
     "jspdf": "^4.2.1",
@@ -67,5 +73,17 @@
     "access": "public"
   },
   "homepage": "https://Anu3ev.github.io/image-editor",
-  "license": "MIT"
+  "license": "MIT",
+  "types": "dist/main.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js"
+    },
+    "./dist/main.js": {
+      "types": "./dist/main.d.ts",
+      "import": "./dist/main.js"
+    },
+    "./package.json": "./package.json"
+  }
 }

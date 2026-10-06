@@ -1,4 +1,5 @@
-import { CanvasOptions, Point } from 'fabric'
+import { Point } from 'fabric'
+import type { EditorOptions as CanvasOptions } from '../types/options'
 
 import { ImageEditor } from '../index'
 import {

@@ -43,19 +43,24 @@ export async function convertBlobToDataUrl({
 }: BlobDataUrlConversionParams): Promise<Base64URLString> {
   const bitmap = await createImageBitmap(blob)
 
-  const dataUrl = await editor.workerManager.post(
-    'toDataURL',
-    {
-      contentType,
-      quality: 1,
-      bitmap
-    },
-    [bitmap]
-  )
+  try {
+    const dataUrl = await editor.workerManager.post(
+      'toDataURL',
+      {
+        contentType,
+        quality: 1,
+        bitmap
+      },
+      [bitmap]
+    )
 
-  if (typeof dataUrl !== 'string') {
-    throw new Error('toDataURL worker должен вернуть строку')
+    if (typeof dataUrl !== 'string') {
+      throw new Error('toDataURL worker должен вернуть строку')
+    }
+
+    return dataUrl as Base64URLString
+  } finally {
+    // После успешной передачи close() безопасен; при ошибке отправки освобождает локальный bitmap.
+    bitmap.close()
   }
-
-  return dataUrl as Base64URLString
 }

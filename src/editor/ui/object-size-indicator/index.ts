@@ -1,12 +1,12 @@
 import type {
   BasicTransformEvent,
   Canvas,
-  CanvasOptions,
   FabricObject,
   TPointerEvent,
   TPointerEventInfo,
   Transform
 } from 'fabric'
+import type { EditorOptions as CanvasOptions } from '../../types/options'
 import type { ImageEditor } from '../..'
 import CursorIndicator from '../cursor-indicator'
 import { OBJECT_SIZE_INDICATOR_CLASS } from './constants'

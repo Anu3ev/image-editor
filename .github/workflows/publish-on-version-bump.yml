@@ -1,110 +1,129 @@
-name: Publish & Release on version bump
+# Keep this filename: existing npm trusted-publisher configuration may identify it.
+name: Promote validated release
 
 on:
-  push:
-    branches:
-      - master
-    paths:
-      - 'package.json'
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full master SHA at dispatch time to validate and publish
+        required: true
+        type: string
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
+
+concurrency:
+  group: npm-production-release
+  cancel-in-progress: false
 
 jobs:
-  publish-and-release:
+  resolve:
+    name: Resolve trusted master commit
+    if: github.repository == 'Anu3ev/image-editor' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      - uses: actions/github-script@v7
+        id: commit
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
         with:
-          fetch-depth: 0
+          script: |
+            const sha = process.env.REQUESTED_SHA;
+            if (!/^[a-f0-9]{40}$/.test(sha)) throw new Error('Supply a full lowercase 40-character commit SHA');
+            // npm provenance records the dispatch workflow SHA. Keep its source
+            // identity identical to the commit whose tarball is being promoted.
+            if (sha !== context.sha) throw new Error('Select the master SHA at dispatch time so npm provenance matches the validated package');
+            const { data: master } = await github.rest.repos.getBranch({ ...context.repo, branch: 'master' });
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              ...context.repo, basehead: `${sha}...${master.commit.sha}`
+            });
+            if (comparison.merge_base_commit.sha !== sha || !['ahead', 'identical'].includes(comparison.status)) {
+              throw new Error('The selected SHA is not a trusted master commit');
+            }
+            core.setOutput('sha', sha);
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+  validation:
+    needs: resolve
+    uses: ./.github/workflows/validate.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+      browser-mode: full
+
+  publish:
+    name: Publish exact validated tarball
+    needs: [resolve, validation]
+    if: needs.validation.result == 'success' && github.repository == 'Anu3ev/image-editor' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      VALIDATED_SHA: ${{ needs.resolve.outputs.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Read release helpers from the trusted workflow commit, never from a PR or downloaded tarball.
+      - uses: actions/checkout@v4
         with:
-          node-version: 24
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.19.0'
+          package-manager-cache: false
           registry-url: https://registry.npmjs.org
-
-      - name: Install deps
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-
-      - name: Check package.json version bump
-        id: check_bump
-        run: |
-          git diff --quiet HEAD^ HEAD -- package.json && {
-            echo "package.json не менялся — пропускаем всё"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
-            exit 0
-          }
-          if git diff HEAD^ HEAD -- package.json | grep -q '"version":'; then
-            echo "Обнаружен bump версии в package.json"
-            echo "should_publish=true" >> $GITHUB_OUTPUT
-          else
-            echo "package.json менялся, но версия осталась прежней — пропускаем"
-            echo "should_publish=false" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Resolve release version and tag
-        id: release_info
-        if: steps.check_bump.outputs.should_publish == 'true'
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          TAG="v${VERSION}"
-
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "TAG=$TAG" >> $GITHUB_OUTPUT
-
-      - name: Create Git tag
-        if: steps.check_bump.outputs.should_publish == 'true'
-        run: |
-          TAG="${{ steps.release_info.outputs.TAG }}"
-
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Тэг $TAG уже существует → пропускаем его создание"
-            exit 0
-          fi
-
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag "$TAG"
-          git push origin "$TAG"
-
-      - name: Create GitHub Release (softprops)
-        if: steps.check_bump.outputs.should_publish == 'true'
-        uses: softprops/action-gh-release@v1
+      - uses: actions/download-artifact@v4
         with:
-          tag_name: ${{ steps.release_info.outputs.TAG }}
-          name: "Release ${{ steps.release_info.outputs.TAG }}"
-          generate_release_notes: true
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: validated-package-${{ github.run_attempt }}
+          path: package-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: validation-evidence-${{ github.run_attempt }}
+          path: validation-evidence
+      - name: Verify state, publish once without lifecycle scripts, and verify registry integrity
+        run: node scripts/release-package.mjs publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-evidence-${{ github.run_attempt }}
+          path: release-evidence/
+          if-no-files-found: error
+          retention-days: 90
 
-      - name: Publish to npm
-        if: steps.check_bump.outputs.should_publish == 'true'
-        run: |
-          VERSION="${{ steps.release_info.outputs.VERSION }}"
-
-          echo "► Публикация пакета в npm (version=${VERSION})"
-          npm publish --access public
-
-      - name: Delete tag and release after failed publish flow
-        if: failure() && steps.check_bump.outputs.should_publish == 'true'
-        run: |
-          TAG="${{ steps.release_info.outputs.TAG }}"
-
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release delete "$TAG" --yes
-          fi
-
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
-            git push origin ":refs/tags/$TAG"
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  record-release:
+    name: Record verified tag and GitHub release
+    needs: [resolve, validation, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VALIDATED_SHA: ${{ needs.resolve.outputs.sha }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24.19.0'
+          package-manager-cache: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: validated-package-${{ github.run_attempt }}
+          path: package-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: validation-evidence-${{ github.run_attempt }}
+          path: validation-evidence
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-evidence-${{ github.run_attempt }}
+          path: release-evidence
+      - name: Verify registry again, then create only missing matching tag and release
+        run: node scripts/release-package.mjs record

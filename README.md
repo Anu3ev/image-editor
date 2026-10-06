@@ -2,15 +2,20 @@
 
 [![Unit Coverage](./badges/coverage-total.svg)](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
 
-A modern, powerful browser-based image editor built with [FabricJS](https://fabricjs.com/) and TypeScript. This library provides a complete image editing solution with professional features for web applications.
+An embeddable TypeScript browser editor built on [FabricJS](https://fabricjs.com/): layered composition, rich text, crop sessions, snapping, undo/redo, templates, and image/PDF export.
 
-🚀 **[Live Demo](https://anu3ev.github.io/image-editor/)**
+[Live demo](https://anu3ev.github.io/image-editor/) · [npm](https://www.npmjs.com/package/@anu3ev/fabric-image-editor) · [API and managers](#-api-reference) · [Validation](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
 
-## Why this project matters
+## Try it in 60 seconds
 
-This project demonstrates the architecture behind complex browser-based visual tools, not just a collection of canvas controls.
+The sample demo opens a local 512 × 512 poster. Edit the headline, crop its image, undo/redo, then download a PNG. Reset restores the original composition. [Advanced playground](https://anu3ev.github.io/image-editor/?mode=playground) keeps the empty canvas and all developer tools.
 
-It keeps FabricJS rendering concerns separate from workflows such as canvas state management, history, layers, crop sessions, text editing, background composition, and export. The result is a TypeScript editor that host applications can integrate through a focused public API and editor events.
+## Engineering focus
+
+- Crop geometry stays temporary until Apply; Cancel leaves history unchanged
+- Snapping separates candidate resolution, geometry application, and guide verification
+- Text, shape layout, and fractional geometry survive history and template restoration
+- Host applications can configure fonts, protect objects, prepare clones, and subscribe to typed events
 
 ## See it in action
 
@@ -28,18 +33,6 @@ The live demo exercises the same workflows exposed through the public API.
 
 ![Watch the text styling demo](./assets/text-background-export-demo.gif)
 
-## For hiring managers
-
-This repository is relevant for teams building design tools, visual editors, CMS and editorial workflows, e-commerce creative tools, and AI-assisted content interfaces.
-
-It demonstrates practical work with:
-
-- stateful browser interactions built on top of a canvas runtime;
-- undoable workflows, serialization, template restore, and export;
-- modular TypeScript architecture with explicit manager ownership;
-- public APIs and events designed for host-application integration;
-- regression coverage for interaction-heavy scenarios such as crop, selection, scaling, snapping, and text editing.
-
 ## ✨ Features
 
 ### Core Editing
@@ -53,7 +46,7 @@ It demonstrates practical work with:
 
 ### Advanced Capabilities
 - **Background Management** - Color, multi-stop gradient, and image backgrounds
-- **Image Import/Export** - Support for PNG, JPG, SVG, and PDF formats
+- **Image formats** - Import PNG/JPEG/SVG; export PNG/JPEG/SVG/PDF (PDF import is not supported)
 - **Precision Alignment** - Snapping to montage edges/centers and nearby objects with visual guides and spacing detection
 - **Live Measurements** - Hold `Alt` with a selection to display distance guides to the hovered object or montage area
 - **Web Worker Integration** - Heavy operations run in background threads
@@ -64,11 +57,11 @@ It demonstrates practical work with:
 - **Clone Preparation** - Applications can sanitize object clones before copy, paste, duplicate, or cut
 
 ### Developer Features
-- **TypeScript Support** - Full type definitions included
+- **TypeScript Support** - Generated public declarations and Fabric event augmentations, checked against an installed npm tarball
 - **Modular Architecture** - Clean separation of concerns with manager classes
 - **Event System** - Rich event handling for integration
 - **Responsive Design** - Adapts to different screen sizes and containers
-- **Testing Infrastructure** - Jest test suite with 80%+ coverage
+- **Testing Infrastructure** - Jest coverage, source typecheck, mandatory Chromium scenarios, and isolated package-consumer checks
 - **Web Worker Support** - Background processing for heavy operations
 
 ## 📦 Installation
@@ -77,10 +70,11 @@ It demonstrates practical work with:
 npm install @anu3ev/fabric-image-editor
 ```
 
-**Requirements:**
-- Node.js ≥ 20.0.0
-- NPM ≥ 9.0.0
-- Modern browser with ES2016+ support
+**Integration contract:** ESM browser application with a bundler; the package fixture uses Vite and TypeScript 5.9.2 with `moduleResolution: bundler`, strict checking, and `skipLibCheck: false`. No CommonJS, direct Node/SSR execution, or NodeNext declaration-resolution promise is made.
+
+Keep the emitted worker asset beside the JavaScript when deploying. Browser APIs include ES2022, Web Workers, `createImageBitmap`, and `OffscreenCanvas`. Remote images and font files need suitable CORS headers; your CSP must allow their origins, workers, and any runtime blob URLs. Use `fonts: []` or local font definitions when external font requests are unwanted.
+
+These integration changes are in the current source; they do not retroactively change the already-published v0.11.0 tarball. Development and CI use Node 24.19.0; package engine metadata alone is not a tested support matrix.
 
 ## 🚀 Quick Start
 
@@ -103,10 +97,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     editorContainerHeight: '100vh'
   })
 
-  // The editor is now ready to use!
-  console.log('Editor initialized:', editor)
+  editor.textManager.addText({ text: 'Hello, canvas!' })
+
+  // Call this from your component/page teardown before mounting again.
+  const unmount = () => editor.destroy()
+  // For this standalone page example:
+  window.addEventListener('pagehide', unmount, { once: true })
 })
 ```
+
+Initialization rejects on setup or ready-callback errors. `destroy()` is repeat-safe and rejects outstanding worker requests; destroy before reusing the same container. Worker operations time out after 30 seconds. `ImageEditor` and option/event/result types are type-only exports, not extra runtime constructors.
 
 ### Deletion Guards and Clone Preparation
 
@@ -161,8 +161,11 @@ const result = await editor.imageManager.exportCanvasAsImageFile({
   contentType: 'image/png' // Supports: 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
 })
 
-// Handle the exported file (result.image is File, Blob, or Base64 string)
+// A failed export returns null. Base64 results are strings, not Blobs.
+if (!result || !(result.image instanceof Blob)) throw new Error('Image export failed')
 const url = URL.createObjectURL(result.image)
+// Use the URL for your download/preview, then release it when finished.
+// URL.revokeObjectURL(url)
 // Use the URL for download or display
 ```
 
@@ -449,7 +452,7 @@ The repository includes a comprehensive demo showcasing all features:
 ```bash
 git clone https://github.com/Anu3ev/image-editor.git
 cd image-editor
-npm install
+npm ci
 npm run dev
 ```
 
@@ -717,7 +720,7 @@ await editor.templateManager.applyTemplate({
 })
 ```
 
-`TemplateManager` keeps layout fidelity by storing positions, styles, and (optionally) background data so you can rehydrate saved compositions.
+`TemplateManager` keeps layout fidelity by storing positions, styles, and (optionally) background data. Runtime `blob:` image URLs are session-local, so serialized templates are not automatically portable storage. Materialize image sources before persistence; see the [ImageManager source and lifetime contract](src/editor/image-manager/README.md).
 
 ## 🛠️ Development
 
@@ -740,7 +743,7 @@ npm run build:docs
 ### Testing
 
 ```bash
-# Run all tests
+# Unit tests with coverage (Fabric and workers are mocked here)
 npm test
 
 # Watch mode for development
@@ -801,7 +804,6 @@ The following features are planned for future releases:
 
 - **Drawing Mode** - Freehand drawing tools and brushes
 - **Filters & Effects** - Image filters and visual effects
-- **Extended Shape Library** - Additional shapes beyond current rectangles, circles, and triangles
 - **Multi-language** - Internationalization support
 
 ## 🤝 Contributing
@@ -812,25 +814,33 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ```bash
 git clone https://github.com/Anu3ev/image-editor.git
 cd image-editor
-npm install
+npm ci
 npm run dev
 ```
 
 ### Running Tests
 ```bash
-npm test                 # Run all tests
+npm run lint
+npm run typecheck
+npm test                 # Unit tests with coverage
+npx playwright install --with-deps chromium
+npm run test:e2e:smoke    # Mandatory browser scenarios
+npm run test:e2e:full     # Every browser scenario, no skips or flakes
+npm run build
+npm run check:package    # Real tarball, isolated consumer, types + worker/export
+npm run build:docs
+npm run check:docs       # Production demo under /image-editor/
 npm run test:watch      # Development mode
 npm run test:coverage   # Coverage report
 ```
 
-## 🔧 Browser Support
+## 🔧 Verification and browser scope
 
-- **Chrome** ≥ 88
-- **Firefox** ≥ 85
-- **Safari** ≥ 14
-- **Edge** ≥ 88
+Chromium installed by locked Playwright 1.58.2 is the automated desktop target. Firefox, WebKit/Safari, mobile/touch editing, and server-side rendering are unverified. A responsive demo layout does not establish touch-editing support.
 
-All modern browsers with ES2016+ and Web Workers support.
+The [Validate workflow](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml) fails on lint/typecheck/unit failures, missing or skipped mandatory browser tests, flakes, missing declarations/workers, and package-consumer errors. Branch/PR runs use the smoke set; master and manual release validation run the full suite. Unit tests mock Fabric and workers, so their coverage is not browser-rendering evidence. Coverage artifacts describe the exact run rather than a fixed percentage in this README.
+
+Release is an explicit promotion of an immutable master SHA after full validation. It publishes the exact hashed tarball tested by the consumer. Pages uses artifacts from a successful validated master push and displays version/commit identity. Neither workflow publishes from feature branches.
 
 ## 📄 License
 

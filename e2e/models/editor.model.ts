@@ -32,6 +32,7 @@ import { ToolbarModel } from './toolbar.model'
 import { SelectionModel } from './selection/selection.model'
 import { GroupingModel } from './grouping.model'
 import { CropModel } from './crop/crop.model'
+import { SampleDemoModel } from './sample-demo.model'
 
 /** Результат отправки DOM input-событий в canvas wrapper. */
 type WheelInputDispatchState = {
@@ -95,6 +96,8 @@ export class EditorModel {
 
   readonly crop: CropModel
 
+  readonly sampleDemo: SampleDemoModel
+
   constructor(readonly page: Page) {
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
@@ -114,6 +117,7 @@ export class EditorModel {
     })
     this.grouping = new GroupingModel(page)
     this.crop = new CropModel(page)
+    this.sampleDemo = new SampleDemoModel(page)
   }
 
   /** Отправляет hotkey на body, чтобы DOM-событие имело корректный element target. */

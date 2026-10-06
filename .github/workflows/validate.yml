@@ -1,0 +1,240 @@
+name: Reusable validation
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Exact commit SHA to validate
+        required: true
+        type: string
+      browser-mode:
+        description: smoke for branches and PRs; full for master and releases
+        required: true
+        type: string
+    outputs:
+      sha:
+        description: Validated commit SHA
+        value: ${{ jobs.gate.outputs.sha }}
+      build-id:
+        description: Validated demo build identity
+        value: ${{ jobs.gate.outputs.build-id }}
+
+permissions:
+  contents: read
+
+env:
+  CI: 'true'
+  NODE_VERSION: '24.19.0'
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  typecheck:
+    name: Source typecheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+
+  unit:
+    name: Jest and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Exercise fail-closed validation and release helpers without publishing
+        run: node --test scripts/*.test.mjs
+      - name: Run Jest once, with coverage
+        run: npm run test:ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jest-coverage-${{ github.run_attempt }}
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
+  package:
+    name: Build and packed consumer
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run build
+      - name: Pack and test the isolated TypeScript and browser consumer
+        run: npm run check:package
+      - name: Verify the exact tested bytes
+        env:
+          VALIDATED_SHA: ${{ inputs.ref }}
+        run: node scripts/validate-artifact.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-package-${{ github.run_attempt }}
+          path: package-artifacts/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: packed-consumer-diagnostics-${{ github.run_attempt }}
+          path: |
+            package-artifacts/
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+
+  source-browser:
+    name: Chromium source tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - name: Run mandatory smoke scenarios or full Chromium suite
+        env:
+          BROWSER_MODE: ${{ inputs.browser-mode }}
+        run: |
+          case "$BROWSER_MODE" in
+            smoke) npm run test:e2e:smoke ;;
+            full) npm run test:e2e:full ;;
+            *) echo 'Invalid browser mode' >&2; exit 1 ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-browser-results-${{ github.run_attempt }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: warn
+          retention-days: 14
+
+  demo:
+    name: Demo build and nested-prefix check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps chromium
+      - run: npm run build:docs
+        env:
+          BUILD_SHA: ${{ inputs.ref }}
+          BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      - run: npm run check:docs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validated-pages-${{ github.run_attempt }}
+          path: docs/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: demo-diagnostics-${{ github.run_attempt }}
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: warn
+          retention-days: 14
+
+  gate:
+    name: Validation gate
+    if: always()
+    needs: [lint, typecheck, unit, package, source-browser, demo]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.identity.outputs.sha }}
+      build-id: ${{ steps.identity.outputs.build-id }}
+    env:
+      NEEDS_JSON: ${{ toJSON(needs) }}
+      VALIDATED_SHA: ${{ inputs.ref }}
+      BROWSER_MODE: ${{ inputs.browser-mode }}
+      BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Reject failed, cancelled, skipped, and missing mandatory jobs
+        run: node scripts/validate-gate.mjs jobs
+      - uses: actions/download-artifact@v4
+        with:
+          name: validated-package-${{ github.run_attempt }}
+          path: package-artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: validated-pages-${{ github.run_attempt }}
+          path: validated-pages
+      - name: Bind all results to the commit, package hash, and Pages identity
+        run: node scripts/validate-gate.mjs record
+      - uses: actions/upload-artifact@v4
+        with:
+          name: validation-evidence-${{ github.run_attempt }}
+          path: validation-evidence/
+          if-no-files-found: error
+          retention-days: 14
+      - id: identity
+        run: |
+          echo "sha=$VALIDATED_SHA" >> "$GITHUB_OUTPUT"
+          echo "build-id=$BUILD_ID" >> "$GITHUB_OUTPUT"

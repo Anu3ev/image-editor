@@ -49,6 +49,7 @@ When a new folder is introduced, update `EditorModel`, fixture imports, and this
 | `snapping.model.ts` | Snapping guides and snap-governed object movement. |
 | `template.model.ts` | Template serialization and application. |
 | `toolbar.model.ts` | Contextual toolbar visibility, bounds, and actions. |
+| `sample-demo.model.ts` | Ready-made sample DOM workflow, load failures, reset races, and actual PNG downloads. |
 | `crop/crop.model.ts` | Crop lifecycle, options, frame movement and resize, apply/cancel, and crop state. |
 | `crop/crop-dimming-overlay.model.ts` | Visual reads of the transient dimmed area, including canvas pixels and overlay state. |
 | `crop/crop-frame-control.model.ts` | Crop-frame control coordinates, cursor, and hover interaction. |

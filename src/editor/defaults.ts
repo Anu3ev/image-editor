@@ -1,4 +1,4 @@
-import { CanvasOptions } from 'fabric'
+import type { EditorOptions as CanvasOptions } from './types/options'
 import defaultFonts from './default-fonts'
 
 export const defaults: Partial<CanvasOptions> = {

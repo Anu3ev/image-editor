@@ -64,7 +64,7 @@ export const setupImageManagerGlobalMocks = () => {
       get: jest.fn(() => 'image/png')
     }
   }))
-  const mockCreateImageBitmap = jest.fn(async() => ({}))
+  const mockCreateImageBitmap = jest.fn(async() => ({ close: jest.fn() }))
   const mockCreateObjectURL = jest.fn(() => {
     blobCounter += 1
     return `blob:mock-${blobCounter}`

@@ -39,3 +39,6 @@ stats.html
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+/package-artifacts/
+/validation-evidence/

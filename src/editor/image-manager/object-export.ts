@@ -203,31 +203,35 @@ async function exportImageElementAsBase64({
   request: ImageElementExportRequest
 }): Promise<ObjectExportResult> {
   const bitmap = await createImageBitmap(request.object.getElement())
-  const dataUrl = await editor.workerManager.post(
-    'toDataURL',
-    {
+  try {
+    const dataUrl = await editor.workerManager.post(
+      'toDataURL',
+      {
+        contentType: request.contentType,
+        quality: 1,
+        bitmap
+      },
+      [bitmap]
+    )
+
+    if (typeof dataUrl !== 'string') {
+      throw new Error('toDataURL worker должен вернуть строку')
+    }
+
+    const data = {
+      object: request.object,
+      image: dataUrl as Base64URLString,
+      format: request.format,
       contentType: request.contentType,
-      quality: 1,
-      bitmap
-    },
-    [bitmap]
-  )
+      fileName: request.fileName
+    }
 
-  if (typeof dataUrl !== 'string') {
-    throw new Error('toDataURL worker должен вернуть строку')
+    editor.canvas.fire('editor:object-exported', data)
+
+    return data
+  } finally {
+    bitmap.close()
   }
-
-  const data = {
-    object: request.object,
-    image: dataUrl as Base64URLString,
-    format: request.format,
-    contentType: request.contentType,
-    fileName: request.fileName
-  }
-
-  editor.canvas.fire('editor:object-exported', data)
-
-  return data
 }
 
 /**

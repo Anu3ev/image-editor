@@ -1,10 +1,10 @@
 import type {
   Canvas,
-  CanvasOptions,
   FabricImage,
   FabricObject,
   Rect
 } from 'fabric'
+import type { EditorOptions as CanvasOptions } from '../types/options'
 
 /** Успешный результат импорта изображения. */
 export type SuccessulImageImportResult = {

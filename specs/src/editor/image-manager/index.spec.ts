@@ -1,4 +1,4 @@
-import { loadSVGFromURL } from 'fabric'
+import { FabricImage, loadSVGFromURL } from 'fabric'
 import ImageManager from '../../../../src/editor/image-manager'
 import type { CanvasFullState } from '../../../../src/editor/history-manager'
 import {
@@ -268,6 +268,35 @@ describe('ImageManager', () => {
   })
 
   describe('importImage', () => {
+    it('не добавляет поздно загруженное изображение после уничтожения и освобождает его ресурсы', async() => {
+      const image = createMockFabricImage({ width: 200, height: 150 })
+      const dispose = jest.spyOn(image, 'dispose')
+      let finishLoading!: (loadedImage: FabricImage) => void
+      let notifyLoading!: () => void
+      const loadingStarted = new Promise<void>((resolve) => { notifyLoading = resolve })
+      const fromURL = jest.spyOn(FabricImage, 'fromURL').mockImplementation(() => {
+        notifyLoading()
+        return new Promise((resolve) => { finishLoading = resolve })
+      })
+      const importing = imageManager.importImage({ source: new File(['image'], 'image.png', { type: 'image/png' }) })
+      await loadingStarted
+
+      imageManager.destroy()
+      finishLoading(image)
+      const result = await importing
+
+      expect(result).toBeNull()
+      expect(dispose).toHaveBeenCalledTimes(1)
+      expect(mockRevokeObjectURL).toHaveBeenCalledWith('blob:mock-1')
+      expect(mockCanvas.add).not.toHaveBeenCalled()
+      expect(mockCanvas.renderAll).not.toHaveBeenCalled()
+      expect(mockCanvas.fire).not.toHaveBeenCalled()
+      expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
+      expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalledTimes(1)
+      expect(mockEditor.errorManager.emitError).not.toHaveBeenCalled()
+      fromURL.mockRestore()
+    })
+
     it('returns null when source is missing', async() => {
       const result = await imageManager.importImage({ source: null as any })
 
@@ -536,6 +565,32 @@ describe('ImageManager', () => {
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:canvas-exported', expect.any(Object))
     })
 
+    it.each(['image/png', 'image/jpeg'])('экспортирует файл %s без создания bitmap и обращения к worker', async(contentType) => {
+      mockCreateImageBitmap.mockRejectedValue(new Error('Bitmap conversion must not run'))
+      mockWorkerManager.post.mockRejectedValue(new Error('Worker must not run'))
+
+      const result = await imageManager.exportCanvasAsImageFile({ contentType })
+
+      expect(result?.image).toBeInstanceOf(File)
+      expect(result?.contentType).toBe(contentType)
+      expect(mockCreateImageBitmap).not.toHaveBeenCalled()
+      expect(mockWorkerManager.post).not.toHaveBeenCalled()
+    })
+
+    it('освобождает локальный bitmap при ошибке отправки base64-запроса в worker', async() => {
+      const bitmap = { close: jest.fn() }
+      mockCreateImageBitmap.mockResolvedValue(bitmap)
+      mockWorkerManager.post.mockRejectedValue(new Error('Worker stopped'))
+
+      const result = await imageManager.exportCanvasAsImageFile({ exportAsBase64: true })
+
+      expect(result).toBeNull()
+      expect(bitmap.close).toHaveBeenCalledTimes(1)
+      expect(mockEditor.errorManager.emitError).toHaveBeenCalledWith(expect.objectContaining({
+        code: 'IMAGE_EXPORT_FAILED'
+      }))
+    })
+
     it('exports canvas as Blob when exportAsBlob is true', async() => {
       const result = await imageManager.exportCanvasAsImageFile({ exportAsBlob: true })
 
@@ -694,6 +749,19 @@ describe('ImageManager', () => {
       }))
       expect(mockCreateImageBitmap).toHaveBeenCalledWith(image.getElement())
       expect(toCanvasElementMock).not.toHaveBeenCalled()
+    })
+
+    it('освобождает bitmap изображения при ошибке прямого экспорта в base64', async() => {
+      const image = createMockFabricImage()
+      mockCanvas.getActiveObject.mockReturnValue(image)
+      const bitmap = { close: jest.fn() }
+      mockCreateImageBitmap.mockResolvedValue(bitmap)
+      mockWorkerManager.post.mockRejectedValue(new Error('Worker stopped'))
+
+      const result = await imageManager.exportObjectAsImageFile({ exportAsBase64: true })
+
+      expect(result).toBeNull()
+      expect(bitmap.close).toHaveBeenCalledTimes(1)
     })
 
     it('exports cropped FabricImage as rendered object base64', async() => {

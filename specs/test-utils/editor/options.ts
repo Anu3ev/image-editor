@@ -1,4 +1,4 @@
-import type { CanvasOptions } from 'fabric'
+import type { EditorOptions as CanvasOptions } from '../../../src/editor/types/options'
 
 interface BasicEditorOptions extends Partial<CanvasOptions> {
   montageAreaHeight: number

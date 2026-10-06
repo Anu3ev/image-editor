@@ -17,7 +17,7 @@ import { ToolbarModel } from '../models/toolbar.model'
 import { SelectionModel } from '../models/selection/selection.model'
 import { GroupingModel } from '../models/grouping.model'
 import { CropModel } from '../models/crop/crop.model'
-import { bypassCertificateWarning } from '../helpers/certificate.helper'
+import { SampleDemoModel } from '../models/sample-demo.model'
 import { injectEditorBrowserHelpers } from '../helpers/editor-browser-helpers.helper'
 import { resolveHeadedBrowserHoldMs } from '../helpers/headed-browser-hold.helper'
 import {
@@ -42,6 +42,7 @@ interface EditorFixtures {
   selection: SelectionModel
   grouping: GroupingModel
   crop: CropModel
+  sampleDemo: SampleDemoModel
 }
 
 type EditorRouteMock = {
@@ -59,6 +60,8 @@ type EditorDemoInitOptions = {
 
 interface EditorInternalFixtures {
   editorInitOptions: EditorDemoInitOptions
+  editorDemoMode: 'sample' | 'playground'
+  editorWaitForReady: boolean
   editorRouteMocks: readonly EditorRouteMock[]
   holdBrowserAfterTest: void
 }
@@ -128,19 +131,29 @@ async function installEditorRoutes({
   })
 }
 
-/** Открывает демонстрационную страницу и ждёт готовности редактора. */
+/** Открывает выбранный режим демо; при обычном запуске ждёт готовности редактора. */
 async function openEditorPage({
   model,
-  page
+  page,
+  mode,
+  waitForReady
 }: {
   model: EditorModel
   page: Page
+  mode: 'sample' | 'playground'
+  waitForReady: boolean
 }): Promise<void> {
   await injectEditorBrowserHelpers({ page })
-  await page.goto('/', {
+  if (mode === 'sample') model.sampleDemo.observeLoading()
+  const url = mode === 'sample' ? '/' : '/?mode=playground'
+  await page.goto(url, {
     waitUntil: 'domcontentloaded'
   })
-  await bypassCertificateWarning({ page })
+  if (!waitForReady) return
+  if (mode === 'sample') {
+    await model.sampleDemo.waitForReady()
+    return
+  }
   await model.waitForReady()
 }
 
@@ -158,6 +171,10 @@ async function finishEditorInteractions({ model }: { model: EditorModel }): Prom
 export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
   editorInitOptions: [{}, { option: true }],
 
+  editorDemoMode: ['playground', { option: true }],
+
+  editorWaitForReady: [true, { option: true }],
+
   editorRouteMocks: [[], { option: true }],
 
   holdBrowserAfterTest: [async({ page: _page }, use, testInfo) => {
@@ -170,6 +187,8 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
   }, { auto: true }],
 
   editorModel: async({
+    editorDemoMode,
+    editorWaitForReady,
     editorInitOptions,
     editorRouteMocks,
     page
@@ -183,9 +202,17 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
 
     await installEditorInitOptions({ page, initOptions: demoInitOptions })
     await installEditorRoutes({ page, routeMocks: editorRouteMocks })
-    await openEditorPage({ model, page })
-    await use(model)
-    await finishEditorInteractions({ model })
+    await openEditorPage({ model, page, mode: editorDemoMode, waitForReady: editorWaitForReady })
+    try {
+      await use(model)
+    } finally {
+      model.sampleDemo.releaseHeldArtwork()
+      await finishEditorInteractions({ model })
+    }
+  },
+
+  sampleDemo: async({ editorModel }, use) => {
+    await use(editorModel.sampleDemo)
   },
 
   shapes: async({ editorModel }, use) => {
