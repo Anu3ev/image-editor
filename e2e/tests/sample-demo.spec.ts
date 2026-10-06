@@ -3,7 +3,8 @@ import {
   SAMPLE_ARTWORK_FAILURE,
   SAMPLE_DESKTOP_VIEWPORTS,
   SAMPLE_EXPORT,
-  SAMPLE_MOBILE_VIEWPORT
+  SAMPLE_MOBILE_VIEWPORT,
+  SAMPLE_TEXT_IDS
 } from '../fixtures/data/sample-demo.data'
 
 test.use({ editorDemoMode: 'sample', editorInitOptions: { fonts: [] } })
@@ -12,7 +13,7 @@ for (const viewport of SAMPLE_DESKTOP_VIEWPORTS) {
   test.describe(`Экран шириной ${viewport.width}`, () => {
     test.use({ viewport })
 
-    test(`образец показывает основные действия без внешних ресурсов при ширине ${viewport.width}`, async({ sampleDemo }) => {
+    test(`образец показывает основные действия без внешних ресурсов при ширине ${viewport.width}`, async({ sampleDemo, editorModel }) => {
       for (const action of sampleDemo.primaryActions) {
         await expect(action).toBeInViewport()
       }
@@ -20,6 +21,14 @@ for (const viewport of SAMPLE_DESKTOP_VIEWPORTS) {
       expect((await sampleDemo.getScene()).sampleIds).toHaveLength(4)
       expect(sampleDemo.getExternalRequests()).toEqual([])
       expect(sampleDemo.pageErrors).toEqual([])
+      const montage = await editorModel.getMontageAreaViewportBounds()
+      for (const id of SAMPLE_TEXT_IDS) {
+        const bounds = await editorModel.getObjectViewportBounds({ id })
+        expect(bounds.left).toBeGreaterThanOrEqual(montage.montageLeft)
+        expect(bounds.top).toBeGreaterThanOrEqual(montage.montageTop)
+        expect(bounds.right).toBeLessThanOrEqual(montage.montageRight)
+        expect(bounds.bottom).toBeLessThanOrEqual(montage.montageBottom)
+      }
     })
   })
 }
@@ -51,10 +60,23 @@ test('изменённый образец сохраняется в PNG посл
   await test.step('Отменить и повторить кадрирование кнопками образца', async() => {
     await sampleDemo.undo.click()
     await expect(sampleDemo.redo).toBeEnabled()
-    expect((await sampleDemo.getScene()).image).toEqual(before.image)
+    // Fabric сохраняет дробную геометрию с четырьмя знаками; source-пиксели остаются точными.
+    expect((await sampleDemo.getScene()).image).toEqual({
+      ...before.image,
+      left: expect.closeTo(before.image.left, 4),
+      top: expect.closeTo(before.image.top, 4),
+      scaleX: expect.closeTo(before.image.scaleX, 4),
+      scaleY: expect.closeTo(before.image.scaleY, 4)
+    })
     await sampleDemo.redo.click()
     await sampleDemo.waitForReady()
-    expect((await sampleDemo.getScene()).image).toEqual(applied.image)
+    expect((await sampleDemo.getScene()).image).toEqual({
+      ...applied.image,
+      left: expect.closeTo(applied.image.left, 4),
+      top: expect.closeTo(applied.image.top, 4),
+      scaleX: expect.closeTo(applied.image.scaleX, 4),
+      scaleY: expect.closeTo(applied.image.scaleY, 4)
+    })
   })
 
   await test.step('Скачать настоящий PNG и проверить размер и пиксели', async() => {
@@ -78,7 +100,8 @@ test('отмена кадрирования и повторный сброс с�
 }, testInfo) => {
   const before = await sampleDemo.getScene()
   const beforeHistory = await history.getPosition()
-  const originalPixels = await sampleDemo.canvas.screenshot()
+  const originalPixels = await sampleDemo.readCanvasPng()
+  await testInfo.attach('sample-baseline.png', { body: originalPixels, contentType: 'image/png' })
 
   await test.step('Отменить перемещённую рамку без записи в историю', async() => {
     await sampleDemo.crop.click()
@@ -99,9 +122,10 @@ test('отмена кадрирования и повторный сброс с�
     expect(await history.getPosition()).toEqual(beforeHistory)
     expect(await crop.getState()).toBeNull()
     await expect(sampleDemo.canvas).toHaveCount(1)
-    expect(await sampleDemo.canvas.screenshot()).toEqual(originalPixels)
+    const resetPixels = await sampleDemo.readCanvasPng()
+    await testInfo.attach('sample-reset.png', { body: resetPixels, contentType: 'image/png' })
+    expect(resetPixels).toEqual(originalPixels)
   })
-  await testInfo.attach('sample-baseline.png', { body: originalPixels, contentType: 'image/png' })
 })
 
 test.describe('Недоступная иллюстрация', () => {

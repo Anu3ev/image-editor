@@ -49,6 +49,8 @@ async function buildScene(/** @type {ImageEditor} */ editor) {
       color: '#34615c',
       left: bounds.left + 32,
       top: bounds.top + 30,
+      originX: 'left',
+      originY: 'top',
       width: 448,
       autoExpand: false
     }, { withoutSave: true, withoutSelection: true })
@@ -61,6 +63,8 @@ async function buildScene(/** @type {ImageEditor} */ editor) {
       color: '#173d38',
       left: bounds.left + 30,
       top: bounds.top + 67,
+      originX: 'left',
+      originY: 'top',
       width: 450,
       autoExpand: false
     }, { withoutSave: true, withoutSelection: true })

@@ -27,3 +27,6 @@ export const SAMPLE_EXPORT = {
   artworkPoint: { x: 256, y: 330 },
   background: { red: 248, green: 241, blue: 223, alpha: 255 }
 }
+
+/** Тексты, которые должны целиком помещаться внутри монтажной области. */
+export const SAMPLE_TEXT_IDS = ['sample-kicker', 'sample-headline']

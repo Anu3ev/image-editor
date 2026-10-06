@@ -125,6 +125,16 @@ export class SampleDemoModel {
     return this.page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)
   }
 
+  /** Считывает точный растр canvas без скруглений и сглаживания внешнего DOM-контейнера. */
+  async readCanvasPng(): Promise<Buffer> {
+    const dataUrl = await this.page.evaluate(() => {
+      const { editor } = window as SampleDemoWindow
+      if (!editor) throw new Error('Редактор образца не готов')
+      return editor.canvas.lowerCanvasEl.toDataURL('image/png')
+    })
+    return Buffer.from(dataUrl.slice('data:image/png;base64,'.length), 'base64')
+  }
+
   /** Скачивает PNG видимой кнопкой и возвращает реальный файл для проверки. */
   async downloadPng() {
     const pendingDownload = this.page.waitForEvent('download')
