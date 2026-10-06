@@ -10,10 +10,10 @@ import type {
   TextScaleHandleCase
 } from '../../types'
 
-/** Horizontal boundary controlled by the text's corner handle. */
+/** Boundary along the horizontal axis controlled by the text's corner handle. */
 type TextCornerScaleHorizontalEdge = 'boundsLeft' | 'boundsRight'
 
-/** Vertical boundary controlled by the text's corner handle. */
+/** Boundary along the vertical axis controlled by the text's corner handle. */
 type TextCornerScaleVerticalEdge = 'boundsTop' | 'boundsBottom'
 
 /** Coordinate of the text's fixed corner during scaling. */

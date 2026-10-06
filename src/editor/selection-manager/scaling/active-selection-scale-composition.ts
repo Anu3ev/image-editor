@@ -231,7 +231,7 @@ export function isActiveSelectionScaleProtectedStatePreserved({
   return true
 }
 
-/** Compares final scaling values within the protected state tolerance. */
+/** Compares finite scaling values within the protected state tolerance. */
 export function areActiveSelectionScaleValuesNear({
   first,
   second

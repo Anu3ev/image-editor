@@ -395,7 +395,7 @@ function getRenderedTextboxLineCount({
 }
 
 /**
- * Measures the longest line already rendered in the textbox.
+ * Measures the width of the longest line already rendered in the textbox.
  */
 function measureLongestRenderedLineWidth({
   text,

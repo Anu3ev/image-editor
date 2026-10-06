@@ -306,7 +306,7 @@ export default class ActiveSelectionScaleInteractionController {
     return this._cancelAndClearGuides()
   }
 
-  /** Handles a shape step before the previous ShapeManager handler. */
+  /** Handles a shape step before the legacy ShapeManager handler. */
   public handleShapeSelectionScaleStep({
     event,
     intentSource
@@ -974,7 +974,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (failures.length > 0) throw firstFailure
   }
 
-  /** Removes the temporary frame without finishing the Fabric transform already being processed a second time. */
+  /** Removes the temporary frame without finalizing the in-progress Fabric transform a second time. */
   private _discardSelectionDuringCommit({
     selection,
     transform

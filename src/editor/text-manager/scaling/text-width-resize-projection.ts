@@ -166,7 +166,7 @@ function createMovingEdges({
   ].filter((edge): edge is NonNullable<typeof edge> => edge !== null))
 }
 
-/** Creates a one-dimensional width projection onto scene boundaries that actually move. */
+/** Creates a one-dimensional width projection onto the object's moving bounds in scene coordinates. */
 function createProjectionModes({
   baselineWidth,
   centered,

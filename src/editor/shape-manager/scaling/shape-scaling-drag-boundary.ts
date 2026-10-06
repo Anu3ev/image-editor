@@ -36,7 +36,7 @@ export function resolveCurrentShapeDragScales({
   }
 }
 
-/** Checks whether the pointer reached the active transform's original point along the selected axis. */
+/** Checks whether the pointer reached the active transform's origin along the selected axis. */
 export function hasShapePointerReachedScaleOrigin({
   axis,
   canvas,
@@ -124,7 +124,7 @@ export function shouldClampShapeHeightToMinimum({
   return state.lastAllowedScaleY > minimumScaleY + SHAPE_SCALING_SCALE_EPSILON
 }
 
-/** Captures axis directions not yet known from Fabric-transform attributes. */
+/** Captures previously unknown axis directions using Fabric-transform attributes. */
 function storeTransformScaleDirections({
   canScaleHeight,
   canScaleWidth,

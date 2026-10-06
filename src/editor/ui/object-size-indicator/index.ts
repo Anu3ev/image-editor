@@ -203,7 +203,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Normalizes a dimension before displaying it in the indicator.
+   * Normalizes dimensions before displaying them in the indicator.
    */
   private static _normalizeDisplaySize({ size }: { size: ObjectDisplaySize }): ObjectDisplaySize | null {
     const width = Math.abs(size.width)

@@ -230,7 +230,7 @@ async function createGroupMovingScene({
   }
 }
 
-/** Creates a group between two horizontal reference objects. */
+/** Creates a group between reference objects to its left and right. */
 async function createHorizontalSpacingScene(
   models: GroupMovingSceneModels
 ): Promise<GroupHorizontalSpacingSetup> {
@@ -263,7 +263,7 @@ async function createHorizontalSpacingScene(
   return { expectedLeft, group, groupId: groupScene.groupId, left, right }
 }
 
-/** Creates a group between two vertical reference objects. */
+/** Creates a group between reference objects above and below it. */
 async function createVerticalSpacingScene(
   models: GroupMovingSceneModels
 ): Promise<GroupVerticalSpacingSetup> {

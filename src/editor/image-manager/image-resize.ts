@@ -71,7 +71,7 @@ export function resizeImageToBoundaries({
   options: ResizeImageToBoundariesOptions & { asBase64?: false }
 }): Promise<Blob>
 
-/** Resizes an image through the worker when the caller provides the shared options contract. */
+/** Resizes an image through the worker when the caller provides the general options contract. */
 export function resizeImageToBoundaries({
   editor,
   options

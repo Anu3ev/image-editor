@@ -80,7 +80,7 @@ export const TEMPLATE_STANDALONE_TEXT_COMPACT_RESOLUTION = {
   height: 512
 } as const
 
-/** High resolution with horizontal margins for the centered-standalone-text regression test. */
+/** Tall artboard resolution with horizontal margins for the centered-standalone-text regression test. */
 export const TEMPLATE_STANDALONE_TEXT_TALL_RESOLUTION = {
   width: 910,
   height: 1200

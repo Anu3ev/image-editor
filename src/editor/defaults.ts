@@ -86,7 +86,7 @@ export const defaults: Partial<EditorOptions> = {
    */
   showObjectSizeOnScale: true,
   /**
-   * Show programmatic viewport scrollbars for panning a zoomed-in canvas.
+   * Show custom viewport scrollbars for panning a zoomed-in canvas.
    */
   showViewportScrollbars: true,
 

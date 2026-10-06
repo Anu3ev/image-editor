@@ -36,7 +36,7 @@ const EXPORT_OPTIONS_BY_FORMAT = {
   }
 }
 
-// Get the zoom inside the canvas
+// Get the internal canvas dimensions
 /**
  * @param {ImageEditor} editorInstance
  */

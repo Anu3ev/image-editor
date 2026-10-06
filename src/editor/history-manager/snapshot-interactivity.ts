@@ -120,7 +120,7 @@ export function normalizeEditingShapeTextForSnapshot({
 }
 
 /**
- * Temporarily removes lock properties from a regular text object for snapshot serialization.
+ * Temporarily clears movement locks on a regular text object for snapshot serialization.
  */
 export function normalizeLockedTextObjectForSnapshot({
   object,

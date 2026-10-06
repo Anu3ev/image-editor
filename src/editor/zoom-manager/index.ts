@@ -226,7 +226,7 @@ export default class ZoomManager {
   }
 
   /**
-   * Calculates a smooth, accelerating step toward the viewport center
+   * Calculates a smooth, accelerating viewport movement step toward the centered position
    * @param targetVpt - Target viewport position
    * @param zoom - Current zoom
    * @param fitZoom - Zoom at which the artboard fits within the viewport

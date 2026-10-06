@@ -1,6 +1,6 @@
 import type { CropControlKey } from '../../types'
 
-/** Source rotations at which cropping retains its previous transformation path. */
+/** Source skews at which cropping retains its previous transformation path. */
 export const CROP_SOURCE_SKEW_CASES = [
   { title: 'горизонтальный наклон', skewX: 12, skewY: 0 },
   { title: 'вертикальный наклон', skewX: 0, skewY: -8 }

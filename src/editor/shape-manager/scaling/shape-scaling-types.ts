@@ -37,7 +37,7 @@ export type ShapeScalingDecision = {
 }
 
 /**
- * Scaling direction along an axis relative to the transform's starting point.
+ * Scaling direction along an axis relative to the transform origin.
  */
 export type ShapeScaleDirection = -1 | 1
 

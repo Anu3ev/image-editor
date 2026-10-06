@@ -139,8 +139,8 @@ export default class HistoryManager {
   private _pendingSaveReason: string | null
 
   /**
-   * State snapshot that has already completed the previous action
-   * but has not yet been committed as a separate history step.
+   * Snapshot of the state after the previous action completed,
+   * not yet committed as a separate history step.
    */
   private _pendingCommittedState: CanvasFullState | null
 

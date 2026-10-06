@@ -387,7 +387,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Converts bounds to a nullable set for a shape node.
+   * Converts bounds to nullable numeric fields for a shape node.
    */
   function createNullableBoundsInfo({ bounds }: { bounds: BrowserObject | null }): NullableBoundsInfo {
     const left = resolveNullableNumber({ value: bounds?.left })
@@ -616,7 +616,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Returns the ID or canvas object at an index.
+   * Returns the supplied ID, or the canvas object at the supplied index.
    */
   function resolveTarget({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
     if (id !== undefined) return id

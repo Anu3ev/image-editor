@@ -530,7 +530,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Rotates a text object by the specified angle. */
+  /** Rotates a text object to the specified angle. */
   async rotate(params: TextRotateParams): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({ angle, objectIndex, id }) => {
       const {

@@ -112,7 +112,7 @@ type SaveTextboxLockStateParams = {
 }
 
 /**
- * Parameters for preparing three history steps with an object moving along left.
+ * Parameters for preparing three history steps in which an object's left coordinate changes.
  */
 type SaveThreeObjectLeftHistoryStepsParams = {
   historyManager: HistoryManager

@@ -344,7 +344,7 @@ function projectEdgePosition({
 }
 
 /**
- * Finds scale values closest to the initial ones that satisfy one constraint.
+ * Finds scale values that satisfy one constraint while staying closest to the raw input values.
  */
 function resolveSingleConstraint({
   projection,

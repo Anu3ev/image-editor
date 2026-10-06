@@ -543,7 +543,7 @@ export class SelectionModel {
     return this.getImageTextCompositionSnapshot({ imageIds, textIds })
   }
 
-  /** Returns the current active selection's actual rotation. */
+  /** Returns the current active selection's actual skew. */
   async getSkew(): Promise<{ skewX: number; skewY: number }> {
     const skew = await this.page.evaluate(() => {
       const { editor } = window as any

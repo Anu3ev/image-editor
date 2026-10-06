@@ -243,7 +243,7 @@ export function restoreShapeScalingGeometry({
   if (failures.length > 0) throw firstFailure
 }
 
-/** Attempts to restore every shape and returns the first error only after a complete pass. */
+/** Attempts to restore every shape and throws the first error only after a complete pass. */
 export function restoreShapeScalingSnapshots({
   snapshots
 }: {

@@ -164,7 +164,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Returns the active shape, including a nested object inside a group.
+   * Returns the active shape, including when one of its child objects is selected.
    */
   const getActiveShape = () => {
     const activeObject = editorInstance.canvas.getActiveObject()
@@ -250,7 +250,7 @@ export default ({ editorInstance, controls }) => {
   })
 
   /**
-   * Reads the shape corner radius from the input.
+   * Reads the shape corner-rounding amount from the input.
    */
   const getShapeRoundingFromInput = () => parseNumberInput({
     input: shapeRoundingInput,
@@ -415,7 +415,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Applies the corner radius to the active shape.
+   * Applies corner rounding to the active shape.
    */
   const applyShapeRounding = async({ rounding, withoutSave = false }) => {
     const shapeGroup = getActiveShape()

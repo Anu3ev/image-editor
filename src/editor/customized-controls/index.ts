@@ -99,7 +99,7 @@ export default class ControlsCustomizer {
     ControlsCustomizer.patchActiveSelectionBounds()
 
     // Set snapAngle for all objects
-    // This restricts rotation angles to whole degrees (a minimum of 1°)
+    // This restricts rotation to whole-degree increments (a minimum step of 1°)
     InteractiveFabricObject.ownDefaults.snapAngle = 1
   }
 

@@ -1,4 +1,4 @@
-/** Explicit ID of one object involved in measurement. */
+/** Explicit ID or index of one object involved in measurement. */
 export type MeasurementObjectTarget = Readonly<
   | { id: string; objectIndex?: never }
   | { id?: never; objectIndex: number }

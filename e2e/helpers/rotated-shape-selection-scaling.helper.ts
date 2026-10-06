@@ -238,7 +238,7 @@ export function expectSelectionChildrenToMatchLiveState({
   }
 }
 
-/** Checks uniform growth of other objects during horizontal scaling of a mixed composition. */
+/** Checks that other objects grow wider without changing height during horizontal scaling of a mixed composition. */
 export function expectNonShapeHorizontalGrowth({
   current,
   ids,
@@ -263,7 +263,7 @@ export function expectNonShapeHorizontalGrowth({
   }
 }
 
-/** Checks each successive growth frame of rotated shapes for transverse jumps. */
+/** Checks that each successive growth frame of rotated shapes has no transverse jump. */
 export function expectRotatedShapeHorizontalGrowth({
   baseline,
   baselineGeometry,

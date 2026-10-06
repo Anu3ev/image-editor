@@ -113,7 +113,7 @@ export type ScaleSnapModifiers = Readonly<{
   shiftKey: boolean
 }>
 
-/** Initial canonical values and mode selected by the object's manager. */
+/** Raw canonical values and mode selected by the object's manager. */
 export type ScaleRawIntent = Readonly<{
   projectionMode: string
   values: readonly number[]
@@ -608,7 +608,7 @@ function assertScaleCandidate({
 }
 
 /**
- * Validates initial canonical values for the selected mode.
+ * Validates raw canonical values for the selected mode.
  */
 function assertScaleRawIntent({
   projection,

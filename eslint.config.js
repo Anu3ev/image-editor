@@ -356,7 +356,7 @@ export default [
   // Apply only to .ts (and .vue if it uses <script lang="ts">)
     files: ['**/*.ts', '**/*.vue'],
 
-    // Parser configuration level
+    // Configure the parser at this level
     languageOptions: {
       parser: tsParser,
       parserOptions: {

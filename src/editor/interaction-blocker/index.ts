@@ -186,7 +186,7 @@ export default class InteractionBlocker {
 
   /**
    * Disables the editor:
-   * - removes all selections, mouse events, scaling, and drag-and-drop
+   * - clears the selection and disables mouse interaction, scaling, and drag-and-drop
    * - makes all objects non-evented and non-selectable
    * - shows overlayMask above all objects in the artboard
    */
@@ -207,7 +207,7 @@ export default class InteractionBlocker {
     try {
       this.isBlocked = true
 
-      // Remove all selections, mouse events, scaling, and drag-and-drop
+      // Clear the selection and disable mouse interaction, scaling, and drag-and-drop
       canvas.discardActiveObject()
       canvas.selection = false
       canvas.skipTargetFind = true
@@ -248,7 +248,7 @@ export default class InteractionBlocker {
       canvas.selection = true
       canvas.skipTargetFind = false
 
-      // restore selections and events
+      // re-enable object selection and event handling
       canvasManager.getObjects().forEach((obj) => {
         obj.evented = true
         obj.selectable = true

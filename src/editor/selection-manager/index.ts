@@ -140,7 +140,7 @@ export default class SelectionManager {
     canvas.fire('editor:all-objects-selected', { selected: object })
   }
 
-  /** Passes a shape selection scaling step to the unified owner before the previous handler runs. */
+  /** Passes a shape selection scaling step to the unified owner before the legacy handler runs. */
   public handleShapeSelectionScaleStep({
     event,
     intentSource
@@ -263,7 +263,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Removes locked objects when multiple objects are selected.
+   * Removes locked objects from a multi-object selection.
    * @param params - Event parameters
    * @param params.selected - Array of selected objects
    * @param params.e - Pointer event (optional)

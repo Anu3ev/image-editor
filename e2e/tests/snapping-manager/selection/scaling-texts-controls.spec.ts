@@ -19,7 +19,7 @@ const ACTIVE_SELECTION_BOUNDS_FIELDS = {
 /** Handles for which the vertical guide is checked separately. */
 const TEXT_CONTROLS_WITH_VERTICAL_GUIDE = new Set(['ml', 'mr', 'tl', 'br'])
 
-/** Reference objects that eliminate the corner handle's competing axis. */
+/** Reference objects removed to eliminate the corner handle's competing snapping axis. */
 const TEXT_SCALE_REFERENCE_IDS = {
   horizontal: ['active-selection-scale-top-reference', 'active-selection-scale-bottom-reference'],
   vertical: ['active-selection-scale-left-reference', 'active-selection-scale-right-reference']

@@ -64,7 +64,7 @@ async function addTextSpacingReferences({
   return references
 }
 
-/** Editor fixture with standalone text between horizontal and vertical reference objects. */
+/** Editor fixture with standalone text and reference pairs for horizontal and vertical spacing. */
 export const test = editorTest.extend<TextMovingSpacingFixtures>({
   textMovingSpacingSetup: async({
     editorModel,

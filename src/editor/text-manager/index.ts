@@ -381,7 +381,7 @@ export default class TextManager {
    * @param options.withoutSave — do not save state to history
    * @param options.skipRender — do not trigger a canvas render
    * @param options.selectionRange — external selection range for applying styles
-   * @param options.emitLifecycleEvents — disables editor-level lifecycle events
+   * @param options.emitLifecycleEvents — when false, disables editor-level lifecycle events
    * for internal materialization paths without changing the update contract.
    * @param options.syncLineStylesWithText — synchronizes lineFontDefaults and runtime styles
    * with the new text during a programmatic update. Enabled by default.

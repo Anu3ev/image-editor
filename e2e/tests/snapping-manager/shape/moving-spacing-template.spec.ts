@@ -34,7 +34,7 @@ const HELD_SPACING_POINTER_OFFSETS = [-2.9, -2.5, -2.3] as const
 /** Pointer micro-offsets for testing the hold after successive movements. */
 const SEQUENTIAL_DRAG_HOLD_SHIFTS = [-0.3, 0, 0.3] as const
 
-/** Exact gaps in the original template, saved after applying it. */
+/** Exact gaps in the original template, preserved after applying it. */
 const FOUR_SHAPE_SPACING_GAPS = [47.25, 47.25, 47.25] as const
 
 /** Initial movements of different shapes in the attached template. */

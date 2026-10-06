@@ -86,10 +86,10 @@ export const TEXT_AFTER_DIAGONAL_SCALE_BACKGROUND_STYLE = {
   backgroundColor: '#f3efe0'
 } as const
 
-/** Top margin for testing position after diagonal scaling. */
+/** Top padding for testing position after diagonal scaling. */
 export const TEXT_AFTER_DIAGONAL_SCALE_PADDING_TOP = 50
 
-/** Right margin for testing position after diagonal scaling. */
+/** Right padding for testing position after diagonal scaling. */
 export const TEXT_AFTER_DIAGONAL_SCALE_PADDING_RIGHT = 50
 
 /** Style for testing text updates without shifting the bottom-right corner. */

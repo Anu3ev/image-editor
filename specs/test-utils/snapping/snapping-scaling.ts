@@ -32,7 +32,7 @@ export function createScalingBounds({
   }
 }
 
-/** Returns a snap result snapped to a specific edge. */
+/** Returns a snap result associated with a specific object edge. */
 export function createAxisSnapResult({
   edge,
   position,

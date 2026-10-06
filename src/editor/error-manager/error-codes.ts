@@ -16,7 +16,7 @@ export const errorCodes = {
      */
     IMPORT_FAILED: 'IMPORT_FAILED',
     /**
-     * Warning that the image is too large and will be resized
+     * Warning that the image is too large and will be scaled down
      */
     IMAGE_RESIZE_WARNING: 'IMAGE_RESIZE_WARNING',
     /**

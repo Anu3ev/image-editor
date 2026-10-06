@@ -1,13 +1,13 @@
 import { test as cropTest, expect } from './crop-scaling.fixture'
 import type { SnappingObjectSnapshot } from '../types'
 
-/** Source rotation that should preserve the previous crop behavior. */
+/** Source skew that should preserve the previous crop behavior. */
 interface CropSourceGeometryFixtures {
   sourceSkew: { skewX: number; skewY: number }
   skewedCropImage: { id: string; source: SnappingObjectSnapshot }
 }
 
-/** Loads a rotated image through a template without changing internal crop state. */
+/** Loads a skewed image through a template without changing internal crop state. */
 export const test = cropTest.extend<CropSourceGeometryFixtures>({
   sourceSkew: [{ skewX: 12, skewY: 0 }, { option: true }],
   skewedCropImage: async({ cropScalingImage, sourceSkew, template, canvas, images, editorModel }, use) => {

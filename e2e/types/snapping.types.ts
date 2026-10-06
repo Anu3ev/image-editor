@@ -3,7 +3,7 @@ import type {
   ObjectTargetParams
 } from './editor.types'
 
-/** Mutually exclusive choice of a canvas object by ID or the current active object. */
+/** Mutually exclusive choice of a canvas object by ID or index, or the current active object. */
 export type SnappingTargetParams =
   | (ObjectTargetParams & { activeObject?: never })
   | { activeObject: true; id?: never; objectIndex?: never }

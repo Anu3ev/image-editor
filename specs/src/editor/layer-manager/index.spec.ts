@@ -134,7 +134,7 @@ describe('LayerManager', () => {
 
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockObject)
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockMontageArea)
-      // overlayMask should not be called if it is absent
+      // sendObjectToBack should not be called for an absent overlayMask
       expect(mockCanvas.sendObjectToBack).not.toHaveBeenCalledWith(mockOverlayMask)
     })
   })

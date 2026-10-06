@@ -26,7 +26,7 @@ export interface ViewportScrollbarState {
 }
 
 /**
- * Active thumb element drag.
+ * State of an active scrollbar-thumb drag.
  */
 type ViewportScrollbarDragState = {
   axis: ViewportScrollbarAxis
@@ -86,7 +86,7 @@ export default class ViewportScrollbarManager {
   private state: ViewportScrollbarState = ViewportScrollbarManager._createEmptyState()
 
   /**
-   * Current thumb element drag.
+   * Current scrollbar-thumb drag state.
    */
   private dragState: ViewportScrollbarDragState | null = null
 

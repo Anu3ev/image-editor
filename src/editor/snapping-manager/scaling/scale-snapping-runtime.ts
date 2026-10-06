@@ -292,7 +292,7 @@ export class ScaleSnappingRuntime {
 }
 
 /**
- * Copies the step's initial values so input mutation cannot change the saved result.
+ * Copies the step's raw input values so input mutation cannot change the saved result.
  */
 function createScaleRawIntentSnapshot(intent: ScaleRawIntent): ScaleRawIntent {
   return Object.freeze({

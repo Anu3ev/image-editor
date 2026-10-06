@@ -5,7 +5,7 @@ import {
 } from './constants'
 
 /**
- * DOM pointer event from which the screen position can be obtained.
+ * DOM pointer event from which the browser viewport position can be obtained.
  */
 type CursorIndicatorPointerEvent = MouseEvent | TouchEvent
 
@@ -153,7 +153,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Returns the screen coordinates of the mouse or the first touch event.
+   * Returns browser viewport coordinates for the mouse or the first touch point.
    */
   private static _resolveClientPoint(
     { event }: { event: CursorIndicatorPointerEvent }

@@ -208,7 +208,7 @@ function resolveOriginOffset({ origin }: { origin: Transform['originX'] | Transf
   throw new Error('Скейлинг выделения с текстами требует поддерживаемую неподвижную точку')
 }
 
-/** Returns the offset that aligns the measured frame's fixed point with the gesture start. */
+/** Returns the offset that aligns the measured frame's fixed point with its position at gesture start. */
 function resolveFrameTranslation({
   bounds,
   fixedAnchor,

@@ -124,7 +124,7 @@ export default class ImageManager {
    * @param options.source - Image URL or File object
    * @param options.scale - How to scale an image that does not fit within the allowed dimensions:
    * 'image-contain' - scales the image to fit within the artboard
-   * 'image-cover' - scales the image to fit the artboard
+   * 'image-cover' - scales the image to cover the artboard
    * 'scale-montage' - Updates the artboard backstore resolution (scales
    * the exported canvas dimensions to the image size)
    * The imported image is materialized with `originX: 'left'` and `originY: 'top'`,

@@ -57,7 +57,7 @@ export const clampSelectionRange = ({
 }
 
 /**
- * Expands the selection to cover all lines it intersects in full.
+ * Expands the selection to fully cover every line it intersects.
  */
 export const expandRangeToFullLines = ({
   textbox,

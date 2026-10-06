@@ -42,7 +42,7 @@ const zoomInBtn = document.getElementById('zoom-in-btn')
 const zoomOutBtn = document.getElementById('zoom-out-btn')
 /** Button that resets the current zoom to its base state. */
 const resetZoomBtn = document.getElementById('reset-zoom-btn')
-/** Button that sets the default zoom for the editor content. */
+/** Button that sets the default scale for the editor content. */
 const setDefaultScaleBtn = document.getElementById('set-default-scale-btn')
 /** Button that fits the active image inside the artboard using contain. */
 const imageFitContainBtn = document.getElementById('fit-contain-btn')
@@ -132,9 +132,9 @@ const shapePaddingRightInput = document.getElementById('shape-padding-right')
 const shapePaddingBottomInput = document.getElementById('shape-padding-bottom')
 /** Left padding input for text inside a shape. */
 const shapePaddingLeftInput = document.getElementById('shape-padding-left')
-/** Input for selecting the shape's corner radius. */
+/** Input for selecting the shape's corner-rounding amount. */
 const shapeRoundingInput = document.getElementById('shape-rounding')
-/** Element displaying the current shape corner radius. */
+/** Element displaying the current shape corner-rounding amount. */
 const shapeRoundingValue = document.getElementById('shape-rounding-value')
 
 /** Button that adds a new text object to the canvas. */
@@ -228,7 +228,7 @@ const undoBtn = document.getElementById('undo-btn')
 const redoBtn = document.getElementById('redo-btn')
 /** Button that blocks interaction with the editor. */
 const blockEditorBtn = document.getElementById('block-editor-btn')
-/** Button that blocks interaction with the AI overlay. */
+/** Button that blocks editor interaction and shows the AI overlay. */
 const blockEditorWithAiOverlayBtn = document.getElementById('block-editor-with-ai-overlay-btn')
 /** Button that unblocks interaction with the editor. */
 const unblockEditorBtn = document.getElementById('unblock-editor-btn')

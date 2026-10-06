@@ -374,12 +374,12 @@ declare module 'fabric' {
     'editor:crop:changed': CropState | null
 
     /**
-     * Fires after applying crop mode.
+     * Fires after the crop is applied.
      */
     'editor:crop:applied': CropApplyResult
 
     /**
-     * Fires after exiting crop mode without applying it.
+     * Fires after exiting crop mode without applying the crop.
      */
     'editor:crop:cancelled': {
       mode: 'canvas' | 'image'

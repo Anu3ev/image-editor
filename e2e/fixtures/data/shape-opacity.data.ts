@@ -19,7 +19,7 @@ export const SHAPE_SHAPE_ONLY_OPACITY_VALUE = 0.4
 /** Shape-group ID for testing active-selection opacity. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID = 'shape-active-selection-opacity-shape'
 
-/** Plain-text ID for testing active-selection opacity. */
+/** Standalone-text ID for testing active-selection opacity. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID = 'shape-active-selection-opacity-text'
 
 /** Opacity applied to all objects in the active selection. */
@@ -41,7 +41,7 @@ export const SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ADD_PARAMS = {
   }
 } satisfies ShapeAddParams
 
-/** Plain text for testing active-selection opacity. */
+/** Standalone text for testing active-selection opacity. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ADD_PARAMS = {
   id: SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID,
   left: 430,
