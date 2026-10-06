@@ -176,13 +176,11 @@ export class EditorModel {
       const { default: initEditor } = await loadEditorModule()
 
       previous.destroy()
-      previous.destroy()
       const remainingRegistration = window.editor
       // После delete браузер может вернуть host по id через именованный доступ Window.
       const registrationRemoved = remainingRegistration === undefined
         || remainingRegistration === previous.options.editorContainer
       const replacement = await initEditor('editor', previous.options)
-      previous.destroy()
 
       return {
         previousEditorId: previous.editorId,

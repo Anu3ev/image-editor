@@ -504,9 +504,9 @@ initEditor(containerId, options): Promise<ImageEditor>
 - `containerId` (string) - HTML container element ID
 - `options` (CanvasOptions) - Configuration object
 
-The promise resolves after initialization finishes and rejects if initialization fails or the editor is destroyed before it is ready. Direct `ImageEditor` instances expose the same completion through `editor.ready`; repeated `editor.init()` calls reuse the current initialization.
+Await `initEditor()` before using the editor. The promise rejects if initialization fails or the editor is destroyed before it is ready. Direct `ImageEditor` instances expose the same completion through `editor.ready`.
 
-Call `editor.destroy()` before mounting another editor in the same container. Destruction is idempotent: it stops the worker, rejects pending worker requests, cancels pending history/resize work, and releases the editor's resources. A duplicate mount is rejected. Cleanup continues if an individual resource fails, and a late image load is disposed instead of being added to the destroyed canvas.
+Call `editor.destroy()` before mounting another editor in the same container. Repeated calls are safe; mounting a second editor without destroying the first is rejected.
 
 **Common Options:**
 ```javascript

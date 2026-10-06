@@ -6,7 +6,6 @@ describe('WorkerManager: жизненный цикл', () => {
   let postMessage: jest.SpyInstance
 
   beforeEach(() => {
-    jest.useFakeTimers()
     let request = 0
     jest.mocked(nanoid).mockImplementation(() => {
       request += 1
@@ -19,7 +18,6 @@ describe('WorkerManager: жизненный цикл', () => {
   afterEach(() => {
     manager.terminate()
     jest.restoreAllMocks()
-    jest.useRealTimers()
   })
 
   function respond({ success, data, error }: { success: boolean; data?: Blob; error?: string }): void {
@@ -29,12 +27,11 @@ describe('WorkerManager: жизненный цикл', () => {
     }))
   }
 
-  it('возвращает результат запроса и отменяет таймер ожидания', async() => {
+  it('возвращает результат успешного запроса', async() => {
     const blob = new Blob(['image'])
     const result = manager.post('resizeImage', {})
     respond({ success: true, data: blob })
     await expect(result).resolves.toBe(blob)
-    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('отклоняет неудачный запрос и обрабатывает следующий', async() => {
@@ -47,7 +44,6 @@ describe('WorkerManager: жизненный цикл', () => {
     const next = manager.post('resizeImage', {})
     respond({ success: true, data: blob })
     await expect(next).resolves.toBe(blob)
-    expect(jest.getTimerCount()).toBe(0)
   })
 
   it.each(['error', 'messageerror'])('отклоняет все ожидающие запросы при событии %s от worker', async(eventType) => {
@@ -62,47 +58,43 @@ describe('WorkerManager: жизненный цикл', () => {
     await Promise.resolve()
     expect(rejected).toHaveBeenCalledTimes(2)
     expect(rejected).toHaveBeenCalledWith(expect.any(Error))
-    expect(jest.getTimerCount()).toBe(0)
     await expect(manager.post('resizeImage', {})).rejects.toThrow()
   })
 
-  it('отклоняет запрос без ответа через 30 секунд', async() => {
-    const rejected = jest.fn()
-    manager.post('resizeImage', {}).catch(rejected)
-    jest.advanceTimersByTime(30_000)
-    await Promise.resolve()
-    expect(rejected).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringMatching(/timed out/i) }))
-    expect(jest.getTimerCount()).toBe(0)
+  it('отклоняет все ожидающие запросы при завершении worker', async() => {
+    const resize = manager.post('resizeImage', {})
+    const exportImage = manager.post('toDataURL', {})
+    const resizeRejected = expect(resize).rejects.toThrow(/terminated/i)
+    const exportRejected = expect(exportImage).rejects.toThrow(/terminated/i)
+
+    manager.terminate()
+
+    await resizeRejected
+    await exportRejected
   })
 
-  it('отклоняет ожидающие и новые запросы после однократного завершения worker', async() => {
+  it('не отправляет новые запросы после завершения worker', async() => {
+    manager.terminate()
+
+    await expect(manager.post('resizeImage', {})).rejects.toThrow(/terminated/i)
+    expect(postMessage).not.toHaveBeenCalled()
+  })
+
+  it('завершает worker только один раз при повторном вызове terminate', () => {
     const terminate = jest.spyOn(manager.worker, 'terminate')
-    const rejected = jest.fn()
-    manager.post('resizeImage', {}).catch(rejected)
+
     manager.terminate()
     manager.terminate()
-    await Promise.resolve()
-    expect(rejected).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringMatching(/terminated/i) }))
+
     expect(terminate).toHaveBeenCalledTimes(1)
+  })
+
+  it('отключает обработчики сообщений и ошибок после завершения worker', () => {
+    manager.terminate()
+
     expect(manager.worker.onmessage).toBeNull()
     expect(manager.worker.onerror).toBeNull()
     expect(manager.worker.onmessageerror).toBeNull()
-    expect(jest.getTimerCount()).toBe(0)
-    await expect(manager.post('resizeImage', {})).rejects.toThrow(/terminated/i)
-  })
-
-  it('игнорирует запоздалый ответ и успешно обрабатывает следующий запрос', async() => {
-    const failed = manager.post('resizeImage', {})
-    const assertion = expect(failed).rejects.toThrow(/timed out/i)
-    jest.advanceTimersByTime(30_000)
-    await assertion
-    respond({ success: true, data: new Blob(['late image']) })
-    postMessage.mockClear()
-    const blob = new Blob(['next image'])
-    const next = manager.post('resizeImage', {})
-    respond({ success: true, data: blob })
-    await expect(next).resolves.toBe(blob)
-    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('отклоняет ожидающие запросы при некорректном ответе worker', async() => {
@@ -110,7 +102,6 @@ describe('WorkerManager: жизненный цикл', () => {
     const assertion = expect(result).rejects.toThrow('Invalid worker response')
     manager.worker.onmessage?.call(manager.worker, new MessageEvent('message', { data: null }))
     await assertion
-    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('отклоняет успешный ответ без результата изображения', async() => {
@@ -120,19 +111,16 @@ describe('WorkerManager: жизненный цикл', () => {
     respond({ success: true })
 
     await assertion
-    expect(jest.getTimerCount()).toBe(0)
   })
 
   it('отклоняет запрос при синхронной ошибке отправки и продолжает работу', async() => {
     postMessage.mockImplementationOnce(() => { throw new Error('DataCloneError') })
     await expect(manager.post('resizeImage', {})).rejects.toThrow('DataCloneError')
-    expect(jest.getTimerCount()).toBe(0)
 
     postMessage.mockClear()
     const blob = new Blob(['next image'])
     const next = manager.post('resizeImage', {})
     respond({ success: true, data: blob })
     await expect(next).resolves.toBe(blob)
-    expect(jest.getTimerCount()).toBe(0)
   })
 })

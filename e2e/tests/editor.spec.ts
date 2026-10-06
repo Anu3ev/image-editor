@@ -180,26 +180,40 @@ test.describe('Повторное создание редактора', () => {
     expect(await history.getPosition()).toEqual({ currentIndex: 0, patchCount: 0 })
   })
 
-  test('после повторного создания импортирует изображение, восстанавливает историю и экспортирует через worker', async({
-    editorModel,
-    history,
-    images
-  }) => {
-    await editorModel.destroyAndRemount()
-    await images.addFilledImage(IMAGE_BASE_SIZE)
-    await editorModel.checkObjectCount({ count: 1 })
+  test.describe('Работа нового экземпляра', () => {
+    test.beforeEach(async({ editorModel, images }) => {
+      await editorModel.destroyAndRemount()
+      await images.addFilledImage(IMAGE_BASE_SIZE)
+    })
 
-    await history.undo()
-    await editorModel.checkObjectCount({ count: 0 })
-    await history.redo()
-    await editorModel.checkObjectCount({ count: 1 })
+    test('импортирует изображение после повторного создания', async({ editorModel }) => {
+      await editorModel.checkObjectCount({ count: 1 })
+    })
 
-    const png = IMAGE_EXPORT_FORMATS.find(({ format }) => format === 'png')!
-    const dataUrl = await images.exportCanvasAsBase64({ contentType: png.contentType })
-    expect(dataUrl).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/)
-    const imageBytes = Array.from(Buffer.from(dataUrl.split(',')[1], 'base64'))
-    for (const signature of png.signatures) {
-      expect(imageBytes.slice(signature.offset, signature.offset + signature.bytes.length)).toEqual(signature.bytes)
-    }
+    test('отменяет импорт изображения после повторного создания', async({ editorModel, history }) => {
+      await history.undo()
+
+      await editorModel.checkObjectCount({ count: 0 })
+    })
+
+    test('возвращает отменённое изображение после повторного создания', async({ editorModel, history }) => {
+      await history.undo()
+      await editorModel.checkObjectCount({ count: 0 })
+
+      await history.redo()
+
+      await editorModel.checkObjectCount({ count: 1 })
+    })
+
+    test('экспортирует PNG через worker после повторного создания', async({ images }) => {
+      const png = IMAGE_EXPORT_FORMATS.find(({ format }) => format === 'png')!
+      const dataUrl = await images.exportCanvasAsBase64({ contentType: png.contentType })
+
+      expect(dataUrl).toMatch(/^data:image\/png;base64,[A-Za-z0-9+/]+=*$/)
+      const imageBytes = Array.from(Buffer.from(dataUrl.split(',')[1], 'base64'))
+      for (const signature of png.signatures) {
+        expect(imageBytes.slice(signature.offset, signature.offset + signature.bytes.length)).toEqual(signature.bytes)
+      }
+    })
   })
 })

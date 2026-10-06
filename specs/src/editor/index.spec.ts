@@ -149,7 +149,6 @@ describe('ImageEditor', () => {
       expect(window['lifecycle-host']).toBe(first)
 
       first.destroy()
-      first.destroy()
       expect(firstListeners.destroy).toHaveBeenCalledTimes(1)
       expect(document.querySelectorAll('#lifecycle-host canvas')).toHaveLength(0)
       expect(window['lifecycle-host']).toBeUndefined()
@@ -161,6 +160,23 @@ describe('ImageEditor', () => {
       expect(window['lifecycle-host']).toBe(second)
       expect(document.querySelectorAll('#lifecycle-host canvas')).toHaveLength(1)
       expect(callback).toHaveBeenCalledTimes(2)
+      second.destroy()
+      document.body.innerHTML = ''
+    })
+
+    it('повторное уничтожение прежнего редактора не затрагивает новый экземпляр', async() => {
+      document.body.innerHTML = '<div id="lifecycle-host"></div>'
+      const options = { ...createFullOptions(), showObjectSizeOnScale: false }
+      const first = await initEditor('lifecycle-host', options)
+      first.destroy()
+      const second = await initEditor('lifecycle-host', options)
+
+      first.destroy()
+
+      expect(first.listeners.destroy).toHaveBeenCalledTimes(1)
+      expect(second.listeners.destroy).not.toHaveBeenCalled()
+      expect(window['lifecycle-host']).toBe(second)
+      expect(document.querySelectorAll('#lifecycle-host canvas')).toHaveLength(1)
       second.destroy()
       document.body.innerHTML = ''
     })

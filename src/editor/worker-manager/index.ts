@@ -9,11 +9,10 @@ export type handleMessageParams = {
   error?: string
 }
 
-/** Ожидающий запрос и таймер, который ограничивает ожидание ответа. */
+/** Обработчики результата ожидающего запроса. */
 interface PendingRequest {
   resolve: (data: File | Blob | Base64URLString) => void
   reject: (error: Error) => void
-  timeout: ReturnType<typeof setTimeout>
 }
 
 export default class WorkerManager {
@@ -23,8 +22,6 @@ export default class WorkerManager {
   private _callbacks = new Map<string, PendingRequest>()
 
   private _stoppedError?: Error
-
-  private readonly _requestTimeoutMs = 30_000
 
   /**
    * @param scriptUrl — URL скрипта воркера; по умолчанию используется встроенный worker.
@@ -49,7 +46,7 @@ export default class WorkerManager {
 
     const { requestId, success, data: payload, error } = data
     const callback = this._callbacks.get(requestId)
-    // Ответ может прийти после таймаута запроса.
+    // Повторный ответ для уже завершённого запроса не требует обработки.
     if (!callback) return
 
     if (success && typeof payload !== 'string' && !(payload instanceof Blob)) {
@@ -57,7 +54,6 @@ export default class WorkerManager {
       return
     }
 
-    clearTimeout(callback.timeout)
     this._callbacks.delete(requestId)
     if (success) {
       callback.resolve(payload)
@@ -76,16 +72,11 @@ export default class WorkerManager {
 
     const requestId = `${action}:${nanoid(8)}`
     return new Promise((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this._callbacks.delete(requestId)
-        reject(new Error(`Worker request "${action}" timed out after ${this._requestTimeoutMs} ms`))
-      }, this._requestTimeoutMs)
-      this._callbacks.set(requestId, { resolve, reject, timeout })
+      this._callbacks.set(requestId, { resolve, reject })
 
       try {
         this.worker.postMessage({ action, payload, requestId }, transferables)
       } catch (error) {
-        clearTimeout(timeout)
         this._callbacks.delete(requestId)
         reject(error instanceof Error ? error : new Error(String(error)))
       }
@@ -99,10 +90,7 @@ export default class WorkerManager {
     this.worker.onmessage = null
     this.worker.onerror = null
     this.worker.onmessageerror = null
-    this._callbacks.forEach((callback) => {
-      clearTimeout(callback.timeout)
-      callback.reject(error)
-    })
+    this._callbacks.forEach((callback) => callback.reject(error))
     this._callbacks.clear()
     this.worker.terminate()
   }
