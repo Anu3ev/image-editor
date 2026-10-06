@@ -79,6 +79,12 @@ jobs:
             fi
           fi
 
+      - name: Install Chromium for editor lifecycle checks
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify editor initialization and remount in Chromium
+        run: npx playwright test e2e/tests/editor.spec.ts --project=chromium --workers=1 --reporter=line
+
       - name: "📊 Generate detailed coverage report"
         if: always() && matrix.node-version == 20
         run: |

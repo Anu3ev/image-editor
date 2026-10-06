@@ -39,3 +39,6 @@ stats.html
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Local Vite cache outside node_modules for isolated worktrees
+.cache/

@@ -3,7 +3,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 const PLAYWRIGHT_HOST = '127.0.0.1'
 const PLAYWRIGHT_PORT = Number(process.env.PLAYWRIGHT_PORT ?? 4173)
-const PLAYWRIGHT_BASE_URL = `https://${PLAYWRIGHT_HOST}:${PLAYWRIGHT_PORT}`
+const PLAYWRIGHT_BASE_URL = `http://${PLAYWRIGHT_HOST}:${PLAYWRIGHT_PORT}`
 
 /**
  * Read environment variables from file.
@@ -26,7 +26,6 @@ export default defineConfig({
 
   use: {
     baseURL: PLAYWRIGHT_BASE_URL,
-    ignoreHTTPSErrors: true,
     trace: 'on-first-retry'
   },
 
@@ -39,9 +38,8 @@ export default defineConfig({
 
   // E2E always runs against its own Vite server and must not depend on the user's main dev server.
   webServer: {
-    command: `npm run dev:e2e -- --port ${PLAYWRIGHT_PORT}`,
+    command: `npm run dev:e2e -- --mode e2e --port ${PLAYWRIGHT_PORT}`,
     url: PLAYWRIGHT_BASE_URL,
-    ignoreHTTPSErrors: true,
     reuseExistingServer: !process.env.CI
   }
 })

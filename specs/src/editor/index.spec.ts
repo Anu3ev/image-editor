@@ -1,6 +1,8 @@
 import { Canvas, Pattern, Point } from 'fabric'
 import { nanoid } from 'nanoid'
 import { ImageEditor } from '../../../src/editor'
+import initEditor from '../../../src/main'
+import FontManager from '../../../src/editor/font-manager'
 import { addRectangleToCanvas } from '../../../src/editor/utils/primitive-shapes'
 import { basicOptions, createFullOptions } from '../../test-utils/editor/options'
 import { createEditorWithMocks } from '../../test-utils/editor/editor-with-mocks'
@@ -20,7 +22,8 @@ jest.mock('../../../src/editor/image-manager', () => ({
     importImage: jest.fn().mockResolvedValue(undefined),
     prepareSerializedImageSources: jest.fn().mockImplementation(async({ state }) => state),
     calculateScaleFactor: jest.fn().mockReturnValue(1),
-    revokeBlobUrls: jest.fn()
+    revokeBlobUrls: jest.fn(),
+    destroy: jest.fn()
   }))
 }))
 jest.mock('../../../src/editor/canvas-manager')
@@ -83,6 +86,171 @@ describe('ImageEditor', () => {
 
       expect(editor1.editorId).toBe('canvas1-first-id')
       expect(editor2.editorId).toBe('canvas2-second-id')
+    })
+  })
+
+  describe('жизненный цикл инициализации', () => {
+    afterEach(() => {
+      jest.restoreAllMocks()
+    })
+
+    it('отклоняет ready при ошибке загрузки и освобождает созданные ресурсы', async() => {
+      const failure = new Error('Canvas setup failed')
+      jest.spyOn(FontManager.prototype, 'loadFonts').mockRejectedValue(failure)
+      const destroy = jest.spyOn(ImageEditor.prototype, 'destroy')
+      const editor = new ImageEditor('test-canvas', createFullOptions())
+
+      await expect(editor.ready).rejects.toBe(failure)
+      expect(destroy).toHaveBeenCalledTimes(1)
+      await expect(editor.init()).rejects.toThrow(/destroyed/i)
+    })
+
+    it('переиспользует одну инициализацию при повторных вызовах init', async() => {
+      const callback = jest.fn()
+      const editor = createEditorWithMocks({ _onReadyCallback: callback })
+      const first = editor.init()
+      expect(editor.init()).toBe(first)
+      await first
+      expect(editor.init()).toBe(first)
+      expect(callback).toHaveBeenCalledTimes(1)
+    })
+
+    it('отклоняет инициализацию при уничтожении во время загрузки шрифтов', async() => {
+      let finishFonts!: () => void
+      jest.spyOn(FontManager.prototype, 'loadFonts').mockImplementation(() => new Promise((resolve) => {
+        finishFonts = resolve
+      }))
+      const callback = jest.fn()
+      const editor = createEditorWithMocks({
+        initialImage: { source: 'test-image.jpg' },
+        _onReadyCallback: callback
+      })
+      const initialization = editor.init()
+      const assertion = expect(initialization).rejects.toThrow(/destroyed/i)
+      editor.destroy()
+      await assertion
+      finishFonts()
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(editor.imageManager.importImage).not.toHaveBeenCalled()
+      expect(editor.historyManager.saveState).not.toHaveBeenCalled()
+      expect(callback).not.toHaveBeenCalled()
+    })
+
+    it('позволяет создать редактор заново после уничтожения без устаревших ресурсов', async() => {
+      document.body.innerHTML = '<div id="lifecycle-host"></div>'
+      const callback = jest.fn()
+      const first = await initEditor('lifecycle-host', {
+        ...createFullOptions(), showObjectSizeOnScale: false, _onReadyCallback: callback
+      })
+      const firstListeners = first.listeners
+      expect(document.querySelectorAll('#lifecycle-host canvas')).toHaveLength(1)
+      expect(window['lifecycle-host']).toBe(first)
+
+      first.destroy()
+      first.destroy()
+      expect(firstListeners.destroy).toHaveBeenCalledTimes(1)
+      expect(document.querySelectorAll('#lifecycle-host canvas')).toHaveLength(0)
+      expect(window['lifecycle-host']).toBeUndefined()
+
+      const second = await initEditor('lifecycle-host', {
+        ...createFullOptions(), showObjectSizeOnScale: false, _onReadyCallback: callback
+      })
+      expect(second).not.toBe(first)
+      expect(window['lifecycle-host']).toBe(second)
+      expect(document.querySelectorAll('#lifecycle-host canvas')).toHaveLength(1)
+      expect(callback).toHaveBeenCalledTimes(2)
+      second.destroy()
+      document.body.innerHTML = ''
+    })
+
+    it.each(['заменена', 'удалена'])('допускает повторное создание, когда глобальная ссылка %s', async(mode) => {
+      document.body.innerHTML = '<div id="lifecycle-host"></div>'
+      const options = { ...createFullOptions(), showObjectSizeOnScale: false }
+      const first = await initEditor('lifecycle-host', options)
+      const createdCanvas = document.getElementById('lifecycle-host-canvas')!
+      const foreignRegistration = { id: 'foreign' }
+      if (mode === 'заменена') {
+        window['lifecycle-host'] = foreignRegistration
+      } else {
+        delete window['lifecycle-host']
+      }
+
+      first.destroy()
+      first.destroy()
+
+      expect(createdCanvas.isConnected).toBe(false)
+      expect(window['lifecycle-host']).toBe(mode === 'заменена' ? foreignRegistration : undefined)
+      const second = await initEditor('lifecycle-host', options)
+      expect(window['lifecycle-host']).toBe(second)
+      expect(document.querySelectorAll('#lifecycle-host canvas')).toHaveLength(1)
+      second.destroy()
+      document.body.innerHTML = ''
+    })
+
+    it('освобождает исходную регистрацию и canvas после изменения id контейнера', async() => {
+      document.body.innerHTML = '<div id="lifecycle-host"></div>'
+      const options = { ...createFullOptions(), showObjectSizeOnScale: false }
+      const first = await initEditor('lifecycle-host', options)
+      const host = document.getElementById('lifecycle-host')!
+      const createdCanvas = document.getElementById('lifecycle-host-canvas')!
+      const foreignRegistration = { id: 'foreign' }
+      host.id = 'renamed-host'
+      window['renamed-host'] = foreignRegistration
+
+      first.destroy()
+
+      expect(createdCanvas.isConnected).toBe(false)
+      expect(window['lifecycle-host']).toBeUndefined()
+      expect(window['renamed-host']).toBe(foreignRegistration)
+      const second = await initEditor('renamed-host', options)
+      expect(window['renamed-host']).toBe(second)
+      expect(document.querySelectorAll('#renamed-host canvas')).toHaveLength(1)
+      second.destroy()
+      document.body.innerHTML = ''
+    })
+
+    it('не восстанавливает состояние после уничтожения во время подготовки изображений', async() => {
+      let completePreparation!: (state: object) => void
+      const ImageManagerMock = jest.requireMock('../../../src/editor/image-manager').default as jest.Mock
+      const revokeBlobUrls = jest.fn()
+      ImageManagerMock.mockImplementationOnce(() => ({
+        prepareSerializedImageSources: jest.fn(() => new Promise((resolve) => { completePreparation = resolve })),
+        revokeBlobUrls,
+        destroy: jest.fn()
+      }))
+      const callback = jest.fn()
+      const editor = createEditorWithMocks({ initialState: {}, _onReadyCallback: callback })
+      const initialization = editor.init()
+      const assertion = expect(initialization).rejects.toThrow(/destroyed/i)
+      await Promise.resolve()
+      editor.destroy()
+      await assertion
+      completePreparation({ objects: [] })
+      await Promise.resolve()
+      await Promise.resolve()
+
+      expect(editor.historyManager.loadStateFromFullState).not.toHaveBeenCalled()
+      expect(editor.historyManager.saveState).not.toHaveBeenCalled()
+      expect(revokeBlobUrls).toHaveBeenCalled()
+      expect(callback).not.toHaveBeenCalled()
+    })
+
+    it('отклоняет инициализацию при уничтожении редактора в колбэке готовности', async() => {
+      const editor = createEditorWithMocks({ _onReadyCallback: (readyEditor) => readyEditor.destroy() })
+      await expect(editor.init()).rejects.toThrow(/destroyed/i)
+      expect(editor.workerManager.terminate).toHaveBeenCalledTimes(1)
+    })
+
+    it('отклоняет инициализацию и освобождает ресурсы при ошибке колбэка готовности', async() => {
+      const failure = new Error('Host callback failed')
+      const editor = createEditorWithMocks({ _onReadyCallback: () => { throw failure } })
+      const cleanup = jest.spyOn(editor, 'destroy')
+
+      await expect(editor.init()).rejects.toBe(failure)
+      expect(cleanup).toHaveBeenCalledTimes(1)
+      expect(editor.workerManager.terminate).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -216,7 +384,8 @@ describe('ImageEditor', () => {
         importImage: jest.fn().mockResolvedValue(undefined),
         prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
-        revokeBlobUrls: jest.fn()
+        revokeBlobUrls: jest.fn(),
+        destroy: jest.fn()
       }))
 
       const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
@@ -253,7 +422,8 @@ describe('ImageEditor', () => {
         importImage,
         prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
-        revokeBlobUrls: jest.fn()
+        revokeBlobUrls: jest.fn(),
+        destroy: jest.fn()
       }))
 
       const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
@@ -313,7 +483,8 @@ describe('ImageEditor', () => {
         importImage,
         prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
-        revokeBlobUrls: jest.fn()
+        revokeBlobUrls: jest.fn(),
+        destroy: jest.fn()
       }))
 
       const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
@@ -349,7 +520,8 @@ describe('ImageEditor', () => {
         importImage,
         prepareSerializedImageSources,
         calculateScaleFactor: jest.fn().mockReturnValue(1),
-        revokeBlobUrls: jest.fn()
+        revokeBlobUrls: jest.fn(),
+        destroy: jest.fn()
       }))
 
       const HistoryManagerMock = jest.requireMock('../../../src/editor/history-manager').default as jest.Mock
@@ -419,7 +591,7 @@ describe('ImageEditor', () => {
       const mockDestroy = jest.fn()
       const mockDispose = jest.fn()
       const mockTerminate = jest.fn()
-      const mockRevokeBlobUrls = jest.fn()
+      const mockImageDestroy = jest.fn()
       const mockCleanBuffer = jest.fn()
       const mockShapeDestroy = jest.fn()
       const mockTextDestroy = jest.fn()
@@ -433,8 +605,8 @@ describe('ImageEditor', () => {
         toolbar: { destroy: mockDestroy },
         selectionManager: { destroy: mockDestroy },
         canvas: { dispose: mockDispose },
-        workerManager: { worker: { terminate: mockTerminate } },
-        imageManager: { revokeBlobUrls: mockRevokeBlobUrls },
+        workerManager: { terminate: mockTerminate },
+        imageManager: { destroy: mockImageDestroy },
         errorManager: { cleanBuffer: mockCleanBuffer },
         destroy: ImageEditor.prototype.destroy
       } as unknown as ImageEditor
@@ -450,7 +622,7 @@ describe('ImageEditor', () => {
       )
       expect(mockDispose).toHaveBeenCalled()
       expect(mockTerminate).toHaveBeenCalled()
-      expect(mockRevokeBlobUrls).toHaveBeenCalled()
+      expect(mockImageDestroy).toHaveBeenCalled()
       expect(mockCleanBuffer).toHaveBeenCalled()
     })
   })

@@ -56,6 +56,8 @@ export type {
 } from './types'
 
 export default class ImageManager {
+  private _destroyed = false
+
   /**
    * Ссылка на редактор, содержащий canvas.
    */
@@ -130,13 +132,15 @@ export default class ImageManager {
    * @returns возвращает Promise с объектом изображения или null в случае ошибки
    */
   public async importImage(options: ImportImageOptions): Promise<SuccessulImageImportResult | null> {
+    if (this._destroyed) return null
+
     const defaultScale = this.options.scaleType === 'cover' ? 'image-cover' : 'image-contain'
     const request = await createImportImageRequest({
       options,
       defaultScale,
       acceptContentTypes: this.acceptContentTypes
     })
-    if (!request) return null
+    if (this._destroyed || !request) return null
 
     const { source, contentType } = request
     if (isSupportedImageSource(source) && !this.isAllowedContentType(contentType)) {
@@ -152,6 +156,8 @@ export default class ImageManager {
 
     const { historyManager } = this.editor
     historyManager.suspendHistory()
+    let loadedImage: FabricObject | undefined
+    let image: FabricObject | undefined
 
     try {
       if (!isSupportedImageSource(source)) {
@@ -166,13 +172,19 @@ export default class ImageManager {
         request: supportedRequest,
         blobUrls: this._blobUrls
       })
-      const loadedImage = await loadImportImage({ dataUrl, format: request.format })
-      const image = await resizeImportImageIfNeeded({
+      if (this._destroyed) throw new Error('ImageManager has been destroyed')
+
+      loadedImage = await loadImportImage({ dataUrl, format: request.format })
+      if (this._destroyed) throw new Error('ImageManager has been destroyed')
+
+      image = await resizeImportImageIfNeeded({
         editor: this.editor,
         blobUrls: this._blobUrls,
         image: loadedImage,
         contentType: request.contentType
       })
+
+      if (this._destroyed) throw new Error('ImageManager has been destroyed')
 
       applyImportedImageProperties({ image, request: supportedRequest })
       placeImportedImage({
@@ -187,7 +199,13 @@ export default class ImageManager {
         request: supportedRequest
       })
     } catch (error) {
-      emitImportFailed({ editor: this.editor, error, request })
+      if (this._destroyed) {
+        image?.dispose()
+        if (loadedImage && loadedImage !== image) loadedImage.dispose()
+        this.revokeBlobUrls()
+      } else {
+        emitImportFailed({ editor: this.editor, error, request })
+      }
       historyManager.resumeHistory()
 
       return null
@@ -340,6 +358,13 @@ export default class ImageManager {
 
       return null
     }
+  }
+
+  /** Останавливает импорт и освобождает принадлежащие менеджеру blob URL. */
+  public destroy(): void {
+    if (this._destroyed) return
+    this._destroyed = true
+    this.revokeBlobUrls()
   }
 
   /**

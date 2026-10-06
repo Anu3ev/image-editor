@@ -810,6 +810,49 @@ describe('Listeners', () => {
   })
 
   describe('destroy', () => {
+    it('сохраняет задержку resize и игнорирует устаревший обработчик после уничтожения', () => {
+      jest.useFakeTimers()
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor })
+      try {
+        listeners.handleContainerResizeBound(new Event('resize'))
+        jest.advanceTimersByTime(250)
+        listeners.handleContainerResizeBound(new Event('resize'))
+        jest.advanceTimersByTime(499)
+        expect(editor.canvasManager.updateCanvas).not.toHaveBeenCalled()
+        jest.advanceTimersByTime(1)
+        expect(editor.canvasManager.updateCanvas).toHaveBeenCalledTimes(1)
+        expect(jest.getTimerCount()).toBe(0)
+
+        listeners.destroy()
+        listeners.handleContainerResizeBound(new Event('resize'))
+        jest.runAllTimers()
+        expect(editor.canvasManager.updateCanvas).toHaveBeenCalledTimes(1)
+      } finally {
+        listeners.destroy()
+        jest.useRealTimers()
+      }
+    })
+
+    it('отменяет отложенный resize до обращения к уничтоженному canvas', () => {
+      jest.useFakeTimers()
+      const editor = createEditorStub()
+      const listeners = new Listeners({ editor, options: { adaptCanvasToContainerOnResize: true } })
+      try {
+        listeners.handleContainerResizeBound(new Event('resize'))
+        expect(jest.getTimerCount()).toBe(1)
+
+        listeners.destroy()
+        jest.runAllTimers()
+
+        expect(editor.canvasManager.updateCanvas).not.toHaveBeenCalled()
+        expect(jest.getTimerCount()).toBe(0)
+      } finally {
+        listeners.destroy()
+        jest.useRealTimers()
+      }
+    })
+
     it('снимает обработчики canvas и DOM', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({

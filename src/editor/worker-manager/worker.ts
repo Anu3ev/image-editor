@@ -2,6 +2,7 @@
 
 self.onmessage = async(e: MessageEvent): Promise<void> => {
   const { action, payload, requestId } = e.data
+  let bitmapToClose: ImageBitmap | undefined
 
   try {
     switch (action) {
@@ -17,6 +18,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
         sizeType
       } = payload
       const imgBitmap = await createImageBitmap(await (await fetch(dataURL)).blob())
+      bitmapToClose = imgBitmap
 
       // вычисляем новый размер
       let { width, height } = imgBitmap
@@ -53,6 +55,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
         quality,
         returnBlob
       } = payload
+      bitmapToClose = bitmap
       const { width, height } = bitmap
 
       // рисуем изображение в offscreen
@@ -73,10 +76,18 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
         break
       }
 
-      const dataURL = await new Promise((res) => {
-        const r = new FileReader()
-        r.onload = () => res(r.result)
-        r.readAsDataURL(blob)
+      const dataURL = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          if (typeof reader.result === 'string') {
+            resolve(reader.result)
+          } else {
+            reject(new Error('Failed to read image as a data URL'))
+          }
+        }
+        reader.onerror = () => reject(reader.error || new Error('Failed to read image Blob'))
+        reader.onabort = () => reject(new Error('Image Blob reading was aborted'))
+        reader.readAsDataURL(blob)
       })
 
       self.postMessage({ requestId, action, success: true, data: dataURL })
@@ -88,5 +99,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
     }
   } catch (err) {
     self.postMessage({ requestId, action, success: false, error: (err as Error).message })
+  } finally {
+    bitmapToClose?.close()
   }
 }

@@ -165,3 +165,14 @@ export interface TemplateDefinition {
   meta: Record<string, unknown>
   objects: TemplateObjectData[]
 }
+
+/** Результат уничтожения и повторного монтирования редактора в том же контейнере. */
+export interface EditorRemountInfo {
+  previousEditorId: string
+  editorId: string
+  registrationRemoved: boolean
+  replacementRegistered: boolean
+  previousCanvasConnected: boolean
+  previousUpperCanvasConnected: boolean
+  canvasCount: number
+}

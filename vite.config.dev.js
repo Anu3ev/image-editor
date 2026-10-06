@@ -7,14 +7,15 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
  * Если это dev-сервер, то используется src/demo как корень.
  * Если это сборка, то собирается только библиотека в dev-build.
  */
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
   // Базовая конфигурация
   const baseConfig = {
     base: './',
     mode: 'development',
     root: 'src/demo',
+    cacheDir: path.resolve(__dirname, '.cache/vite'),
 
-    plugins: [
+    plugins: mode === 'e2e' ? [] : [
       basicSsl({
         name: 'fabric-image-editor',
         certDir: 'certs',

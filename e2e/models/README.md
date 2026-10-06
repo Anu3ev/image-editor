@@ -39,7 +39,7 @@ When a new folder is introduced, update `EditorModel`, fixture imports, and this
 
 | Location | Owner and responsibility |
 | --- | --- |
-| `editor.model.ts` | Composition root, editor readiness, shared canvas/viewport operations, keyboard input, and cross-domain object reads. |
+| `editor.model.ts` | Composition root, editor readiness and destroy/remount lifecycle, shared canvas/viewport operations, keyboard input, and cross-domain object reads. |
 | `canvas.model.ts` | Canvas manager actions, montage-area resolution, canvas clearing, and canvas-point interactions. |
 | `background.model.ts` | Background colour, gradient, image, and related state. |
 | `clipboard.model.ts` | Copy and paste lifecycle. |
