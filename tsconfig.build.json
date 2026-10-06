@@ -1,0 +1,18 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": [],
+    "rootDir": "src",
+    "outDir": "dist",
+    "allowJs": false,
+    "checkJs": false,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "noEmitOnError": true,
+    "skipLibCheck": false
+  },
+  "include": ["src/main.ts", "src/editor/**/*.ts"],
+  "exclude": ["node_modules", "dist", "src/demo", "**/*.spec.ts", "**/*.test.ts"]
+}

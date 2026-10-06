@@ -1,4 +1,5 @@
-import { CanvasOptions, Point } from 'fabric'
+import { Point } from 'fabric'
+import type { EditorOptions } from '../types/options'
 
 import { ImageEditor } from '../index'
 import {
@@ -21,7 +22,7 @@ export default class ZoomManager {
   /**
    * Параметры (опции) для слушателей.
    */
-  public options: CanvasOptions
+  public options: EditorOptions
 
   /**
    * Минимальный зум

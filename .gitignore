@@ -39,3 +39,7 @@ stats.html
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Packed consumer verification
+/package-artifacts/
+/.fallow/

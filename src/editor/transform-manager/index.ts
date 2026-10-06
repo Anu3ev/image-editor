@@ -1,4 +1,5 @@
-import { ActiveSelection, CanvasOptions, FabricObject } from 'fabric'
+import { ActiveSelection, FabricObject } from 'fabric'
+import type { EditorOptions } from '../types/options'
 import { ImageEditor } from '../index'
 
 import {
@@ -21,7 +22,7 @@ export default class TransformManager {
   /**
    * Параметры (опции) для слушателей.
    */
-  public options: CanvasOptions
+  public options: EditorOptions
 
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor

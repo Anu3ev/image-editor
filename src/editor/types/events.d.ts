@@ -409,7 +409,7 @@ declare module 'fabric' {
     /**
      * Срабатывает после полного очищения канваса.
      */
-    'editor:cleared',
+    'editor:cleared': void,
 
     /**
      * Срабатывает, когда все объекты на канвасе выделены.
@@ -503,7 +503,7 @@ declare module 'fabric' {
     /**
      * Срабатывает после установки дефолтного масштаба и зума канваса.
      */
-    'editor:default-scale-set',
+    'editor:default-scale-set': void,
 
     /**
      * Блокировка объекта

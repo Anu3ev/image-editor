@@ -431,9 +431,17 @@ export default [
     }
   },
   {
-    files: ['e2e/**/*'],
+    files: ['e2e/**/*', 'scripts/**/*.mjs', 'fixtures/package-consumer/**/*'],
     rules: {
       'import/no-extraneous-dependencies': ['error', { devDependencies: true }]
+    }
+  },
+  {
+    files: ['fixtures/package-consumer/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        project: './fixtures/package-consumer/tsconfig.json'
+      }
     }
   }
 ]

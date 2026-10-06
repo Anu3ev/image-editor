@@ -84,6 +84,27 @@ npm install @anu3ev/fabric-image-editor
 
 ## 🚀 Quick Start
 
+### TypeScript imports
+
+The package root and the legacy `@anu3ev/fabric-image-editor/dist/main.js` entry
+resolve to the same ESM bundle and declarations. Initialize through the default
+factory; `ImageEditor` is a type-only export, not a runtime constructor.
+
+```typescript
+import initEditor, { type EditorOptions, type ImageEditor } from '@anu3ev/fabric-image-editor'
+
+const options: Partial<EditorOptions> = {
+  initialImage: { source: '/image.png', scale: 'image-contain' },
+  toolbar: { offsetTop: 12 }
+}
+const editor: ImageEditor = await initEditor('editor', options)
+```
+
+`initialImage` uses `ImportImageOptions` (including `File` sources and
+`image-contain`, `image-cover`, and `scale-montage` scaling). `toolbar` accepts
+partial `ToolbarConfig`, including handlers, icons, and styles. Both types are
+exported from the package root.
+
 ### Basic Setup
 
 Create a container in your HTML and initialize the editor:
@@ -723,6 +744,10 @@ await editor.templateManager.applyTemplate({
 
 ### Building the Library
 
+Use Node.js 24 and `npm ci` for development and package validation. The production
+build emits JavaScript, the worker asset, and strict declarations into `dist/`;
+it does not reinstall dependencies.
+
 ```bash
 # Development mode with demo app and watch
 npm run dev
@@ -738,6 +763,24 @@ npm run build:docs
 ```
 
 ### Testing
+
+`npm run build && npm run check:package` builds and packs the library, installs that tarball into
+an isolated consumer with its own committed dependency lock, and checks the public
+types with `strict: true` and `skipLibCheck: false`. It also builds the consumer and
+runs Chromium checks for initialization, image import, worker resize, and export
+at both the root URL and a nested path. This check does not cover destroy/remount.
+Run `npx playwright install chromium` once before using it locally. Browser traces
+and failure screenshots are saved in `test-results/`.
+
+`check:package` checks the existing `dist/` output without rebuilding it. Run the
+build first locally; CI can reuse its preceding library build before checking the
+installed package and uploading artifacts. To validate an already-produced artifact,
+use `npm run check:package -- --tarball path/to/package.tgz`: this mode never builds
+or repacks, and checks that the supplied tarball has the same SHA-256 after validation.
+
+The fixture pins build tools and runtime dependencies. Update its
+`fixtures/package-consumer/package-lock.json` deliberately when changing those
+versions; the check rejects an installed dependency graph that differs from it.
 
 ```bash
 # Run all tests

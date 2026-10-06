@@ -1,8 +1,8 @@
-import { CanvasOptions } from 'fabric'
+import type { EditorOptions } from '../../../src/editor/types/options'
 import { ImageEditor } from '../../../src/editor'
 import { createFullOptions } from './options'
 
-export const createEditorWithMocks = (options: Partial<CanvasOptions> = {}) => {
+export const createEditorWithMocks = (options: Partial<EditorOptions> = {}) => {
   const fullOptions = createFullOptions(options)
 
   const initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockImplementation()
