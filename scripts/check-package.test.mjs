@@ -60,3 +60,22 @@ test('Ошибка consumer завершает проверку неуспешн
   await assert.rejects(harness.run(), /npm run build failed/)
   assert.equal(harness.calls.some(({ args }) => args[0] === 'pack'), false)
 })
+
+for (const [lockedDependencies, installedDependencies, message] of [
+  [{}, { 'node_modules/fabric': { version: '7.3.1', integrity: 'expected' } }, /Unpinned consumer dependency/],
+  [
+    { 'node_modules/fabric': { version: '7.3.1', integrity: 'expected' } },
+    { 'node_modules/fabric': { version: '8.0.0', integrity: 'expected' } },
+    /Consumer dependency changed/
+  ],
+  [
+    { 'node_modules/fabric': { version: '7.3.1', integrity: 'expected' } },
+    { 'node_modules/fabric': { version: '7.3.1', integrity: 'changed' } },
+    /Consumer dependency integrity changed/
+  ]
+]) {
+  test(`Метаданные реестра не позволяют изменить зафиксированные зависимости: ${message}`, async() => {
+    const harness = packageConsumerHarness({ args: ['--tarball', tarball], lockedDependencies, installedDependencies })
+    await assert.rejects(harness.run(), message)
+  })
+}

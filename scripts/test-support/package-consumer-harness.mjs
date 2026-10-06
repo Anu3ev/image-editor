@@ -15,7 +15,10 @@ const dependencyNames = [
 const execute = compileFunction(`return (async() => { ${body} })()`, dependencyNames)
 
 /** Run the actual CLI body with in-memory files/tools, leaving the real browser gate untouched. */
-export function packageConsumerHarness({ args = [], entries, failConsumerBuild = false, mutateTarball = false } = {}) {
+export function packageConsumerHarness({
+  args = [], entries, failConsumerBuild = false, mutateTarball = false,
+  lockedDependencies = {}, installedDependencies = {}
+} = {}) {
   const root = '/package-consumer-test'
   const directory = '/tmp/package-consumer-test'
   const tarball = path.join(root, 'provided.tgz')
@@ -27,9 +30,9 @@ export function packageConsumerHarness({ args = [], entries, failConsumerBuild =
   const calls = []
   const write = (file, text) => files.set(file, Buffer.from(text))
   write(tarball, 'original-tarball-bytes')
-  write(`${fixture}/package-lock.json`, JSON.stringify({ packages: {} }))
+  write(`${fixture}/package-lock.json`, JSON.stringify({ packages: lockedDependencies }))
   write(`${fixture}/node_modules/.package-lock.json`, JSON.stringify({
-    packages: { [packagePath]: { version: '1.0.0' } }
+    packages: { [packagePath]: { version: '1.0.0' }, ...installedDependencies }
   }))
   for (const name of declarations) write(`${fixture}/${packagePath}/dist/${name}`, 'declarations')
 

@@ -46,11 +46,11 @@ try {
   await cp(path.join(root, 'fixtures/package-consumer'), directory, { recursive: true })
   run({ command: 'npm', args: ['ci', '--ignore-scripts', '--no-audit', '--no-fund'], cwd: directory })
   // All runtime dependencies and tools were installed from the committed fixture lock.
-  // Offline tarball installation may add only this package, never resolve new versions.
+  // npm may need registry metadata to link the tarball; verify the exact locked graph below.
   run({
     command: 'npm',
     args: [
-      'install', '--offline', '--no-save', '--package-lock=false',
+      'install', '--prefer-offline', '--no-save', '--package-lock=false',
       '--ignore-scripts', '--no-audit', '--no-fund', tarball
     ],
     cwd: directory
