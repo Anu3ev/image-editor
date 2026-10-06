@@ -20,26 +20,26 @@ import {
   type TextCornerScaleCanonicalState
 } from './text-corner-scale-state'
 
-/** Малый шаг, по которому строится локальная зависимость границ от множителя. */
+/** Small step used to build the local dependence of bounds on the multiplier. */
 const TEXT_CORNER_SCALE_MEASUREMENT_STEP = 0.01
 
-/** Максимальное число увеличений шага при поиске различимой локальной геометрии текста. */
+/** Maximum number of step increases when searching for distinguishable local text geometry. */
 const MAX_TEXT_CORNER_SCALE_NEIGHBOR_STEPS = 8
 
-/** Число последних измерений, сохраняемых между уточнениями одного движения указателя. */
+/** Number of recent measurements retained between refinements of one pointer movement. */
 const TEXT_CORNER_SCALE_MEASUREMENT_CACHE_SIZE = 2
 
-/** Допуск, внутри которого измеренная грань считается неподвижной. */
+/** Tolerance within which a measured edge is considered fixed. */
 const TEXT_CORNER_SCALE_EDGE_EPSILON = 0.000000001
 
-/** Точная геометрия текста при проверяемом пропорциональном множителе. */
+/** Exact text geometry at the proportional multiplier being checked. */
 export type TextCornerScaleMeasurement = Readonly<{
   canonicalState: TextCornerScaleCanonicalState
   projection: ScaleStepProjectionInput
   scale: number
 }>
 
-/** Возвращает положение неподвижной точки углового скейлинга. */
+/** Returns the corner-scaling fixed point's position. */
 function createFixedAnchorPlacement({
   gesture,
   transform
@@ -55,33 +55,33 @@ function createFixedAnchorPlacement({
   }
 }
 
-/** Измеряет каноническую геометрию текста, не изменяя объект на холсте. */
+/** Measures canonical text geometry without changing the object on the canvas. */
 export default class TextCornerScaleMeasurer {
-  /** Базовые свойства измерительного текста. */
+  /** Base properties of the measurement text object. */
   private readonly base: TextScaleBaseState
 
-  /** Менеджер координат, необходимый общей материализации текста. */
+  /** Coordinate manager required by shared text materialization. */
   private readonly canvasManager: CanvasManager
 
-  /** Неподвижная точка и прямоугольная проекция текущего жеста. */
+  /** Fixed point and rectangular projection of the current gesture. */
   private readonly gesture: TextCornerScaleGestureProjection
 
-  /** Минимальный множитель, при котором сохраняются допустимые размеры текста. */
+  /** Minimum multiplier that preserves valid text dimensions. */
   private readonly minimumScale: number
 
-  /** Последние измерения множителей от самого старого к самому новому. */
+  /** Recent multiplier measurements from oldest to newest. */
   private readonly measurements = new Map<number, TextCornerScaleMeasurement>()
 
-  /** Исходное положение текста. */
+  /** Original text position. */
   private readonly placement: ObjectPlacement
 
-  /** Отдельный Textbox, который не добавляется на холст. */
+  /** Separate Textbox that is not added to the canvas. */
   private readonly textbox: EditorTextbox
 
-  /** Преобразование нужно только для восстановления неподвижной точки. */
+  /** The transform is needed only to restore the fixed point. */
   private readonly transform: Transform
 
-  /** Создаёт независимый измерительный Textbox с исходными свойствами объекта на холсте. */
+  /** Creates an independent measurement Textbox with the canvas object's original properties. */
   constructor({
     canvasManager,
     gesture,
@@ -102,7 +102,7 @@ export default class TextCornerScaleMeasurer {
     this.transform = transform
   }
 
-  /** Возвращает точные границы после применения проверяемого множителя. */
+  /** Returns exact bounds after applying the multiplier being checked. */
   public measure({ scale }: { scale: number }): TextCornerScaleMeasurement {
     const appliedScale = Math.max(this.minimumScale, scale)
     const cached = this.measurements.get(appliedScale)
@@ -136,7 +136,7 @@ export default class TextCornerScaleMeasurer {
     return measurement
   }
 
-  /** Подбирает соседние множители, на которых меняется локальная геометрия текста. */
+  /** Finds neighboring multipliers at which the local text geometry changes. */
   private _resolveProjectionSamples({
     bounds,
     scale
@@ -165,12 +165,12 @@ export default class TextCornerScaleMeasurer {
     throw new Error('Не удалось найти различимую геометрию углового скейлинга текста')
   }
 
-  /** Применяет заданный множитель и возвращает точные границы текста. */
+  /** Applies the specified multiplier and returns exact text bounds. */
   private _measureBounds({ scale }: { scale: number }): ObjectBounds {
     return this._measureCanonicalState({ scale }).bounds
   }
 
-  /** Применяет заданный множитель и возвращает границы вместе с каноническими свойствами текста. */
+  /** Applies the specified multiplier and returns bounds together with canonical text properties. */
   private _measureCanonicalState({
     scale
   }: {
@@ -202,7 +202,7 @@ export default class TextCornerScaleMeasurer {
     })
   }
 
-  /** Освобождает внутренние ресурсы измерительного Textbox. */
+  /** Releases the measurement Textbox's internal resources. */
   public dispose(): void {
     this.measurements.clear()
     this.textbox.dispose()

@@ -31,14 +31,14 @@ import {
   type TextWidthResizeGestureProjection
 } from './text-width-resize-projection'
 
-/** Данные события Fabric, необходимые для изменения ширины отдельного текста. */
+/** Fabric-event data required to resize standalone-text width. */
 export type TextWidthResizeInteractionEvent = Readonly<{
   target?: FabricObject | null
   e?: TPointerEvent | null
   transform?: Transform | null
 }>
 
-/** Свойства текста и трансформации, которые изменение ширины не должно менять. */
+/** Text and transform properties that width resizing must not change. */
 type TextWidthResizeProtectedState = Readonly<{
   angle: number
   controlKey: string
@@ -61,7 +61,7 @@ type TextWidthResizeProtectedState = Readonly<{
   skewY: number
 }>
 
-/** Временное состояние одного активного изменения ширины текста. */
+/** Temporary state of one active text-width resize. */
 type TextWidthResizeSession = Readonly<{
   measurer: TextWidthResizeMeasurer
   projection: TextWidthResizeGestureProjection
@@ -71,16 +71,16 @@ type TextWidthResizeSession = Readonly<{
   transform: Transform
 }>
 
-/** Ширина и уточнённый план после пересчёта переноса строк. */
+/** Width and refined plan after recalculating line wrapping. */
 type ResolvedTextWidthResizeStep = Readonly<{
   plan: ScaleSnapPlan
   width: number
 }>
 
-/** Допуск при проверке свойств текста и неподвижной точки. */
+/** Tolerance for checking text properties and the fixed point. */
 const TEXT_WIDTH_RESIZE_STATE_EPSILON = 0.000000001
 
-/** Проверяет, что событие относится к отдельному Textbox. */
+/** Checks that the event belongs to a standalone Textbox. */
 function resolveStandaloneTextbox({
   event
 }: {
@@ -93,7 +93,7 @@ function resolveStandaloneTextbox({
   return target
 }
 
-/** Запоминает значения, которые изменение ширины не должно затрагивать. */
+/** Captures values that width resizing must not affect. */
 function captureProtectedTextState({
   target,
   transform
@@ -124,7 +124,7 @@ function captureProtectedTextState({
   })
 }
 
-/** Проверяет, что изменение ширины выполняется относительно центра объекта. */
+/** Checks that width resizing is relative to the object's center. */
 function isCenteredResize({ transform }: { transform: Transform }): boolean {
   const isCenterOrigin = (origin: Transform['originX'] | Transform['originY']): boolean => {
     return origin === 'center' || origin === 0.5
@@ -133,7 +133,7 @@ function isCenteredResize({ transform }: { transform: Transform }): boolean {
   return isCenterOrigin(transform.originX) && isCenterOrigin(transform.originY)
 }
 
-/** Возвращает каноническую ширину из точного положения указателя. */
+/** Returns canonical width from the exact pointer position. */
 function resolvePointerTextWidth({
   session,
   scenePoint
@@ -170,12 +170,12 @@ function resolvePointerTextWidth({
   return Number.isFinite(pointerWidth) ? Math.max(MINIMUM_TEXT_WIDTH, pointerWidth) : null
 }
 
-/** Читает состояние Ctrl из текущего события указателя. */
+/** Reads Ctrl state from the current pointer event. */
 function isSnappingDisabled({ event }: { event?: TPointerEvent | null }): boolean {
   return Boolean(event && 'ctrlKey' in event && event.ctrlKey === true)
 }
 
-/** Проверяет, что свойства объекта и трансформации всё ещё относятся к исходному жесту. */
+/** Checks that object and transform properties still correspond to the original gesture. */
 function isSameResizeGesture({ session }: { session: TextWidthResizeSession }): boolean {
   const { protectedState, target, transform } = session
 
@@ -188,7 +188,7 @@ function isSameResizeGesture({ session }: { session: TextWidthResizeSession }): 
     && Math.abs((target.scaleY ?? 1) - protectedState.scaleY) <= TEXT_WIDTH_RESIZE_STATE_EPSILON
 }
 
-/** Применяет ширину, пересчитывает перенос строк и восстанавливает неподвижную точку. */
+/** Applies width, recalculates line wrapping, and restores the fixed point. */
 function applyTextWidth({
   session,
   width
@@ -210,7 +210,7 @@ function applyTextWidth({
   target.preserveExactTextGeometry = false
 }
 
-/** Проверяет, что выбранная направляющая достигнута после пересчёта текста. */
+/** Checks that the selected guide is reached after recalculating text. */
 function didReachGuide({
   constraint,
   bounds,
@@ -225,7 +225,7 @@ function didReachGuide({
   return Math.abs(bounds[constraint.candidate.edge] - constraint.expectedPosition) <= epsilon
 }
 
-/** Проверяет все свойства, которые изменение ширины не должно менять. */
+/** Checks all properties that width resizing must not change. */
 function isProtectedTextStatePreserved({ session }: { session: TextWidthResizeSession }): boolean {
   const { protectedState, target } = session
   const currentValues = [
@@ -267,7 +267,7 @@ function isProtectedTextStatePreserved({ session }: { session: TextWidthResizeSe
     && Boolean(target.flipY) === protectedState.flipY
 }
 
-/** Читает итоговую геометрию после применения плана изменения ширины. */
+/** Reads the final geometry after applying the width-resize plan. */
 function readFinalTextGeometry({
   plan,
   session
@@ -300,21 +300,21 @@ function readFinalTextGeometry({
 }
 
 /**
- * Управляет изменением ширины отдельного Textbox и общим состоянием удержания направляющих.
+ * Manages standalone-Textbox width resizing and shared guide-hold state.
  */
 export default class TextWidthResizeInteractionController {
-  /** Редактор и общее окружение прилипания. */
+  /** Editor and shared snapping environment. */
   private readonly editor: ImageEditor
 
-  /** Текущий поддержанный жест или null вне изменения ширины текста. */
+  /** Current supported gesture, or null outside text-width resizing. */
   private session: TextWidthResizeSession | null = null
 
-  /** Создаёт контроллер изменения ширины текста. */
+  /** Creates a text-width resize controller. */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
-  /** Фиксирует исходную геометрию поддерживаемого жеста. */
+  /** Captures the original geometry of a supported gesture. */
   public beginGesture(event: TextWidthResizeInteractionEvent): boolean {
     this.finishGesture()
 
@@ -351,7 +351,7 @@ export default class TextWidthResizeInteractionController {
     return true
   }
 
-  /** Рассчитывает, применяет и проверяет один штатный шаг `object:resizing`. */
+  /** Calculates, applies, and validates one standard `object:resizing` step. */
   public handleObjectResizing(event: TextWidthResizeInteractionEvent): boolean {
     try {
       return this._handleObjectResizing(event)
@@ -361,7 +361,7 @@ export default class TextWidthResizeInteractionController {
     }
   }
 
-  /** Выполняет один поддержанный шаг изменения ширины текста. */
+  /** Performs one supported text-width resize step. */
   private _handleObjectResizing(event: TextWidthResizeInteractionEvent): boolean {
     const { session } = this
     if (!session) return false
@@ -395,7 +395,7 @@ export default class TextWidthResizeInteractionController {
     return true
   }
 
-  /** Измеряет точную геометрию текста для текущего положения указателя. */
+  /** Measures exact text geometry for the current pointer position. */
   private _measurePointerStep({
     event,
     session
@@ -410,7 +410,7 @@ export default class TextWidthResizeInteractionController {
     return session.measurer.measure({ width: pointerWidth })
   }
 
-  /** Рассчитывает, применяет и проверяет один новый шаг указателя. */
+  /** Calculates, applies, and validates one new pointer step. */
   private _applyPointerStep({
     event,
     marker,
@@ -458,7 +458,7 @@ export default class TextWidthResizeInteractionController {
     this.editor.canvas.requestRenderAll()
   }
 
-  /** Идемпотентно завершает активное изменение ширины и очищает направляющие. */
+  /** Idempotently ends the active width resize and clears guides. */
   public finishGesture(): boolean {
     const { session } = this
     const didCleanup = session?.runtime.finishSession().didCleanup ?? false
@@ -470,7 +470,7 @@ export default class TextWidthResizeInteractionController {
     return didCleanup
   }
 
-  /** Завершает сессию только при удалении её Textbox. */
+  /** Ends the session only when its Textbox is removed. */
   public finishGestureForTarget({ target }: { target: FabricObject }): boolean {
     if (!this.session || this.session.target !== target) return false
 
@@ -479,7 +479,7 @@ export default class TextWidthResizeInteractionController {
     return true
   }
 
-  /** Прерывает трансформацию Fabric после отмены события указателя. */
+  /** Interrupts the Fabric transform after a pointer event is canceled. */
   public interruptGesture({ event }: { event?: PointerEvent | TouchEvent } = {}): boolean {
     if (!this.session) return false
 
@@ -492,7 +492,7 @@ export default class TextWidthResizeInteractionController {
     return true
   }
 
-  /** Применяет рассчитанную ширину и проверяет фактическую геометрию. */
+  /** Applies the calculated width and validates actual geometry. */
   private _applyAndVerifyStep({
     plan,
     session,
@@ -513,7 +513,7 @@ export default class TextWidthResizeInteractionController {
     return verification.guides
   }
 
-  /** Уточняет выбранное прилипание по переносу строк без изменения живого Textbox. */
+  /** Refines the selected snap using line wrapping without modifying the live Textbox. */
   private _resolveTextWidthStep({
     plan,
     session,
@@ -544,7 +544,7 @@ export default class TextWidthResizeInteractionController {
     return Object.freeze({ plan: refinedPlan, width: measurement.width })
   }
 
-  /** Завершает неподдержанную сессию перед обычной обработкой TextManager. */
+  /** Ends an unsupported session before normal TextManager handling. */
   private _finishUnsupportedResizeSession(): false {
     this.finishGesture()
 

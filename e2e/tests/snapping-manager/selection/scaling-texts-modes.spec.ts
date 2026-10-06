@@ -3,13 +3,13 @@ import {
   expect
 } from '../../../fixtures/active-selection-scaling.fixture'
 
-/** Угол общего выделения в проверке скейлинга после поворота. */
+/** Active-selection angle in the scaling-after-rotation check. */
 const ACTIVE_SELECTION_ROTATION_DEGREES = 30
 
-/** Множитель первого пропорционального шага в autoExpand-сценарии. */
+/** Factor of the first proportional step in the autoExpand scenario. */
 const AUTO_EXPAND_UNIFORM_MULTIPLIER = 1.1
 
-/** Множитель ширины после перехода к свободному скейлингу. */
+/** Width factor after switching to free scaling. */
 const AUTO_EXPAND_FREE_WIDTH_MULTIPLIER = 1.25
 
 test('при пропорциональном скейлинге за угол одинаково меняет ширину и размер шрифта', async({

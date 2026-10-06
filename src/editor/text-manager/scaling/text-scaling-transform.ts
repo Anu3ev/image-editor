@@ -20,7 +20,7 @@ type TextScalingTransformOriginal = Transform['original'] & {
   width?: number
 }
 
-/** Относительное изменение масштаба по положению указателя и признак перехода через неподвижную точку. */
+/** Relative scale change from pointer position and an indicator of crossing the fixed point. */
 export type TextScalingPointerStep = {
   passedOriginX: boolean
   passedOriginY: boolean
@@ -36,7 +36,7 @@ type TextboxWithTransformDimensions = EditorTextbox & {
 }
 
 /**
- * Определяет, какие оси участвуют в текущем scale-transform текста.
+ * Determines which axes participate in the current text scale transform.
  */
 export const resolveTextScalingAxisState = ({
   transform
@@ -60,7 +60,7 @@ export const resolveTextScalingAxisState = ({
 }
 
 /**
- * Синхронизирует активный Fabric-transform с уже материализованной геометрией textbox.
+ * Synchronizes the active Fabric transform with the textbox's already materialized geometry.
  */
 export const syncLiveTextScalingTransform = (
   {
@@ -88,7 +88,7 @@ export const syncLiveTextScalingTransform = (
 }
 
 /**
- * Вычисляет scale-шаг из текущего положения указателя относительно уже материализованной геометрии textbox.
+ * Calculates a scale step from the current pointer position relative to the textbox's already materialized geometry.
  */
 export const resolvePointerTextScalingStep = (
   {

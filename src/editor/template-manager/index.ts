@@ -52,7 +52,7 @@ type Bounds = {
   height: number
 }
 
-/** Результат применения подготовленных объектов шаблона. */
+/** Result of applying prepared template objects. */
 type AppliedTemplateObjects = {
   insertedObjects: FabricObject[]
   shouldSaveHistory: boolean
@@ -66,13 +66,13 @@ type TemplateAnchors = {
   _templateAnchorY?: TemplateAnchor
 }
 
-/** Подготовленные Fabric-объекты шаблона, разделённые на background и контент. */
+/** Prepared Fabric template objects separated into background and content. */
 type PreparedTemplateObjects = {
   backgroundObject: FabricObject | null
   contentObjects: FabricObject[]
 }
 
-/** Проверенный контекст применения шаблона к текущей монтажной области. */
+/** Validated context for applying a template to the current artboard. */
 type ApplyTemplateContext = {
   templateId?: string
   meta: TemplateMeta
@@ -87,7 +87,7 @@ type BoundingRectReadableObject = FabricObject & {
 
 export default class TemplateManager {
   /**
-   * Инстанс редактора
+   * Editor instance
    */
   public editor: ImageEditor
 
@@ -96,8 +96,8 @@ export default class TemplateManager {
   }
 
   /**
-   * Сериализует текущее выделение в описание шаблона.
-   * @returns описание шаблона или null, если нечего сохранять
+   * Serializes the current selection into a template description.
+   * @returns Template description, or null if there is nothing to save
    */
   public serializeSelection({
     templateId,
@@ -164,11 +164,11 @@ export default class TemplateManager {
   }
 
   /**
-   * Применяет шаблон к монтажной области без очистки текущих объектов.
+   * Applies a template to the artboard without clearing existing objects.
    * @param options
-   * @param options.template - описание шаблона.
-   * Standalone text и shape-композиции после rehydration приводятся к канонической геометрии
-   * до добавления на canvas, чтобы template-path не оставлял смешанное width/scale состояние.
+   * @param options.template - Template description.
+   * After rehydration, standalone text and shape compositions are normalized to canonical geometry
+   * before being added to the canvas, so the template path does not leave mixed width/scale state.
    */
   public async applyTemplate({
     template
@@ -250,7 +250,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Применяет background, вставляет content-объекты и отправляет событие применения шаблона.
+   * Applies the background, inserts content objects, and emits the template application event.
    */
   private _applyPreparedTemplateObjects({
     preparedTemplateObjects,
@@ -313,7 +313,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Проверяет входной шаблон и вычисляет геометрию применения.
+   * Validates the input template and calculates its application geometry.
    */
   private static _resolveApplyTemplateContext({
     template,
@@ -362,7 +362,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Материализует type-specific geometry, трансформирует координаты и добавляет объекты на canvas.
+   * Materializes type-specific geometry, transforms coordinates, and adds objects to the canvas.
    */
   private _insertTemplateContentObjects({
     objects,
@@ -422,7 +422,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Подготавливает объекты для сериализации.
+   * Prepares objects for serialization.
    */
   private static _collectObjects(
     object?: FabricObject | ActiveSelection | null
@@ -437,13 +437,13 @@ export default class TemplateManager {
   }
 
   /**
-   * Возвращает габариты объекта.
+   * Returns the object's dimensions.
    */
   private static _getBounds(object?: FabricObject | null): Bounds | null {
     if (!object) return null
 
     try {
-      // Принудительно пересчитываем координаты перед получением bounds
+      // Force coordinate recalculation before getting bounds
       object.setCoords()
       const rect = TemplateManager._getBoundingRect(object)
       return {
@@ -458,7 +458,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Возвращает scene bounds объекта через runtime-сигнатуру Fabric.
+   * Returns object scene bounds through Fabric's runtime signature.
    */
   private static _getBoundingRect(object: FabricObject): Bounds {
     const readableObject = object as BoundingRectReadableObject
@@ -467,7 +467,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Превращает plain-описание объектов в Fabric объекты.
+   * Converts plain object descriptions into Fabric objects.
    */
   private static async _enlivenObjects({
     objects,
@@ -522,7 +522,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Подготавливает serialized sources и возвращает background отдельно от контента.
+   * Prepares serialized sources and returns the background separately from the content.
    */
   private static async _prepareTemplateObjectsForApply({
     template,
@@ -569,7 +569,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Проверяет, содержит ли сериализованный объект инлайн SVG.
+   * Checks whether the serialized object contains inline SVG.
    */
   private static _hasSerializedSvgMarkup(
     object: TemplateObjectData
@@ -578,7 +578,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Восстанавливает SVG-объект из компактного описания.
+   * Restores an SVG object from a compact description.
    */
   private static async _reviveSvgObject(
     serialized: TemplateObjectData & { svgMarkup?: unknown }
@@ -605,7 +605,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Убирает технические поля сериализации, оставляя только применимые свойства.
+   * Removes technical serialization fields, leaving only applicable properties.
    */
   private static _prepareSerializableProps(serialized: TemplateObjectData): Record<string, unknown> {
     const rest = { ...(serialized as Record<string, unknown>) }
@@ -621,14 +621,14 @@ export default class TemplateManager {
   }
 
   /**
-   * Определяет, что объект представляет SVG.
+   * Determines whether the object represents an SVG.
    */
   private static _isSvgObject(object: FabricObject): boolean {
     return object.format === 'svg'
   }
 
   /**
-   * Превращает объект в компактную SVG-строку, добавляя корневой тег при необходимости.
+   * Converts an object to a compact SVG string, adding a root tag if needed.
    */
   private static _extractSvgMarkup(object: FabricObject): string | null {
     const toSvg = (object as FabricObject & { toSVG?: () => string }).toSVG
@@ -660,7 +660,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Трансформирует объект в координаты целевой области.
+   * Transforms the object into the target area's coordinates.
    */
   private _transformObject({
     object,
@@ -729,8 +729,8 @@ export default class TemplateManager {
   }
 
   /**
-   * Возвращает bounds, в которых должны позиционироваться нормализованные объекты.
-   * Для нормализованных позиций используем размеры сцены после масштабирования (letterbox/pillarbox).
+   * Returns the bounds in which normalized objects should be positioned.
+   * For normalized positions, use the scene dimensions after scaling (letterbox/pillarbox).
    */
   private static _getPositioningBounds({
     bounds,
@@ -791,7 +791,7 @@ export default class TemplateManager {
     const span = end - start
     const marginStart = Math.max(0, start)
     const marginEnd = Math.max(0, 1 - end)
-    const balanced = Math.abs(marginStart - marginEnd) <= 0.02 // допуск ~2%
+    const balanced = Math.abs(marginStart - marginEnd) <= 0.02 // tolerance ~2%
 
     if ((touchesStart && touchesEnd) || (exceedsStart && exceedsEnd)) {
       if (balanced || span >= 0.9) return 'center'
@@ -808,7 +808,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Нормализует мета-данные шаблона.
+   * Normalizes template metadata.
    */
   private static _normalizeMeta({
     meta,
@@ -820,7 +820,7 @@ export default class TemplateManager {
     const { width, height } = fallback
     const { baseWidth = width, baseHeight = height, ...rest } = meta || {}
 
-    // Подставляем дефолтные размеры монтажной области, если в шаблоне они отсутствуют
+    // Use default artboard dimensions if they are missing from the template
     return {
       baseWidth,
       baseHeight,
@@ -829,7 +829,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Возвращает коэффициент масштабирования.
+   * Returns the scale factor.
    */
   private static _calculateScale({
     meta,
@@ -841,7 +841,7 @@ export default class TemplateManager {
     const { width, height } = target
     const { baseWidth, baseHeight } = meta
 
-    // Масштаб определяется минимальным коэффициентом по ширине/высоте
+    // The scale is determined by the smaller width/height factor
     const widthRatio = width / (baseWidth || width || 1)
     const heightRatio = height / (baseHeight || height || 1)
 
@@ -849,7 +849,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Делает активным список объектов.
+   * Makes the list of objects active.
    */
   private static _activateObjects({
     canvas,
@@ -872,8 +872,8 @@ export default class TemplateManager {
   }
 
   /**
-   * Подгоняет ширину текстового объекта под фактическую длину строк
-   * в координатах исходного template-base и сохраняет выравнивание по якорю.
+   * Adjusts the text object's width to the actual line lengths
+   * in the original template-base coordinates and preserves anchor alignment.
    */
   private _adaptTextboxWidth({
     object,
@@ -937,7 +937,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Возвращает ширину самой длинной строки текстового объекта.
+   * Returns the width of the text object's longest line.
    */
   private static _getLongestLineWidth({
     textbox,
@@ -965,7 +965,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Сериализует объект относительно монтажной области.
+   * Serializes the object relative to the artboard.
    */
   private _serializeObject({
     object,
@@ -1028,7 +1028,7 @@ export default class TemplateManager {
     return serialized
   }
 
-  /** Сохраняет положение и привязки объекта относительно монтажной области. */
+  /** Saves the object's position and anchors relative to the artboard. */
   private _applySerializedObjectPlacement({
     object,
     activeSelection,
@@ -1087,7 +1087,7 @@ export default class TemplateManager {
   }
 
   /**
-   * Возвращает размеры монтажной области с учётом размеров маркера и его bounds.
+   * Returns artboard dimensions accounting for the marker dimensions and bounds.
    */
   private static _getMontageSize({
     montageArea,
@@ -1113,9 +1113,9 @@ export default class TemplateManager {
   }
 
   /**
-   * Оживляет сериализованный объект, восстанавливая вложенные описания (градиенты, клиппаты и т.д.).
-   * @param serialized - исходное сериализованное описание Fabric-объекта
-   * @returns оживлённый объект с восстановленными вложенными структурами
+   * Enlivens a serialized object by restoring nested descriptions (gradients, clip paths, etc.).
+   * @param serialized - Original serialized Fabric object description
+   * @returns Enlivened object with restored nested structures
    */
   // eslint-disable-next-line class-methods-use-this
   public enlivenObjectEnlivables<T extends Record<string, unknown>>(serialized: T): Promise<T> {

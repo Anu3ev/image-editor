@@ -9,7 +9,7 @@ export class CanvasModel {
     this.page = page
   }
 
-  /** Устанавливает разрешение montage area */
+  /** Sets the artboard resolution */
   async setMontageResolution(params: { width?: number, height?: number }): Promise<void> {
     await this.page.evaluate(({ width, height }) => {
       const { editor } = window as any
@@ -20,7 +20,7 @@ export class CanvasModel {
     }, params)
   }
 
-  /** Очищает canvas от всех пользовательских объектов */
+  /** Clears all user objects from the canvas */
   async clearCanvas(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -28,7 +28,7 @@ export class CanvasModel {
     })
   }
 
-  /** Кликает в верхний левый угол монтажной области через реальные координаты viewport. */
+  /** Clicks the artboard's top-left corner using real viewport coordinates. */
   async clickTopLeftInsideMontageArea(): Promise<void> {
     const point = await this.page.evaluate(() => {
       const { editor } = window as any

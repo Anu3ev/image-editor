@@ -6,20 +6,20 @@ describe('ErrorManager', () => {
   let mockEditor: ReturnType<typeof createEditorStub>
 
   beforeEach(() => {
-    // Используем типизированный стаб вместо any
+    // Use a typed stub instead of any
     mockEditor = createEditorStub()
     errorManager = new ErrorManager({ editor: mockEditor })
 
-    // Очищаем все моки
+    // Clear all mocks
     jest.clearAllMocks()
 
-    // Мокаем console.error чтобы не засорять вывод тестов
+    // Mock console.error to avoid cluttering test output
     jest.spyOn(console, 'error').mockImplementation(() => {})
     jest.spyOn(console, 'warn').mockImplementation(() => {})
   })
 
   afterEach(() => {
-    // Восстанавливаем console методы
+    // Restore console methods
     jest.restoreAllMocks()
   })
 
@@ -43,7 +43,7 @@ describe('ErrorManager', () => {
 
   describe('cleanBuffer', () => {
     test('должен очистить буфер ошибок', () => {
-      // Добавляем что-то в буфер (напрямую для тестирования)
+      // Add something to the buffer (directly, for testing)
       errorManager['_buffer'].push({
         type: 'editor:error',
         code: 'TEST_ERROR',
@@ -72,17 +72,17 @@ describe('ErrorManager', () => {
 
         errorManager.emitError(messageData)
 
-        // Проверяем, что сообщение добавлено в буфер
+        // Check that the message was added to the buffer
         expect(errorManager.buffer).toHaveLength(1)
         expect(errorManager.buffer[0]).toMatchObject({
           type: 'editor:error',
           ...messageData
         })
 
-        // Проверяем, что событие было эмитировано
+        // Check that the event was emitted
         expect(mockEditor.canvas.fire).toHaveBeenCalledWith('editor:error', messageData)
 
-        // Проверяем, что сообщение было залогировано
+        // Check that the message was logged
         expect(console.error).toHaveBeenCalledWith(
           'ImageManager. importImage. INVALID_CONTENT_TYPE. Invalid image content type',
           undefined
@@ -157,17 +157,17 @@ describe('ErrorManager', () => {
 
         errorManager.emitWarning(messageData)
 
-        // Проверяем, что сообщение добавлено в буфер
+        // Check that the message was added to the buffer
         expect(errorManager.buffer).toHaveLength(1)
         expect(errorManager.buffer[0]).toMatchObject({
           type: 'editor:warning',
           ...messageData
         })
 
-        // Проверяем, что событие было эмитировано
+        // Check that the event was emitted
         expect(mockEditor.canvas.fire).toHaveBeenCalledWith('editor:warning', messageData)
 
-        // Проверяем, что сообщение было залогировано
+        // Check that the message was logged
         expect(console.warn).toHaveBeenCalledWith(
           'ImageManager. resizeImage. IMAGE_RESIZE_WARNING. Image resize warning',
           undefined
@@ -250,7 +250,7 @@ describe('ErrorManager', () => {
 
   describe('интеграционные тесты', () => {
     test('должен корректно работать с несколькими ошибками и предупреждениями', () => {
-      // Добавляем несколько ошибок и предупреждений с реальными кодами
+      // Add several errors and warnings with real codes
       errorManager.emitError({ code: 'IMPORT_FAILED' })
       errorManager.emitWarning({ code: 'IMAGE_RESIZE_WARNING' })
       errorManager.emitError({ code: 'INVALID_CONTENT_TYPE' })
@@ -259,17 +259,17 @@ describe('ErrorManager', () => {
       expect(errorManager.buffer).toHaveLength(4)
       expect(mockEditor.canvas.fire).toHaveBeenCalledTimes(4)
 
-      // Проверяем, что типы сообщений корректны
+      // Check that the message types are correct
       expect(errorManager.buffer[0].type).toBe('editor:error')
       expect(errorManager.buffer[1].type).toBe('editor:warning')
       expect(errorManager.buffer[2].type).toBe('editor:error')
       expect(errorManager.buffer[3].type).toBe('editor:warning')
 
-      // Очищаем буфер
+      // Clear the buffer
       errorManager.cleanBuffer()
       expect(errorManager.buffer).toHaveLength(0)
 
-      // Добавляем новое сообщение
+      // Add a new message
       errorManager.emitWarning({ code: 'IMAGE_EXPORT_FAILED' })
       expect(errorManager.buffer).toHaveLength(1)
       expect(errorManager.buffer[0].type).toBe('editor:warning')
@@ -279,7 +279,7 @@ describe('ErrorManager', () => {
       errorManager.emitError({ code: 'IMPORT_FAILED', message: 'Import error' })
       errorManager.emitWarning({ code: 'IMAGE_RESIZE_WARNING', message: 'Resize warning' })
 
-      // Проверяем, что правильные события были эмитированы
+      // Check that the correct events were emitted
       expect(mockEditor.canvas.fire).toHaveBeenNthCalledWith(1, 'editor:error', {
         code: 'IMPORT_FAILED',
         origin: 'ImageEditor',

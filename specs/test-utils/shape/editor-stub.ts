@@ -2,13 +2,13 @@ import { Group, Point } from 'fabric'
 import type { MockCanvas } from './factories'
 import { createMockCanvas, createMockShapeTextbox } from './factories'
 
-/** Горизонтальная точка привязки объекта в тестовом CanvasManager. */
+/** Horizontal object anchor point in the test CanvasManager. */
 type PlacementOriginX = Group['originX']
 
-/** Вертикальная точка привязки объекта в тестовом CanvasManager. */
+/** Vertical object anchor point in the test CanvasManager. */
 type PlacementOriginY = Group['originY']
 
-/** Положение объекта, которое возвращает тестовый CanvasManager. */
+/** Object position returned by the test CanvasManager. */
 type ShapeObjectPlacement = Readonly<{
   left: number
   top: number
@@ -16,10 +16,10 @@ type ShapeObjectPlacement = Readonly<{
   originY: PlacementOriginY
 }>
 
-/** Точки привязки, приведённые к текущим значениям группы. */
+/** Anchor points normalized to the group's current values. */
 type ShapePlacementOrigins = Pick<ShapeObjectPlacement, 'originX' | 'originY'>
 
-/** Минимальная монтажная область, необходимая ShapeManager в unit-тестах. */
+/** Minimal artboard required by ShapeManager in unit tests. */
 type ShapeTestMontageArea = {
   width: number
   height: number
@@ -29,14 +29,14 @@ type ShapeTestMontageArea = {
   getBoundingRect: jest.Mock
 }
 
-/** Возвращает валидную ширину тестовой монтажной области. */
+/** Returns a valid width for the test artboard. */
 function resolveMontageAreaWidth({ montageAreaWidth }: { montageAreaWidth?: number }): number {
   if (!Number.isFinite(montageAreaWidth)) return 400
 
   return Math.max(1, Number(montageAreaWidth))
 }
 
-/** Создаёт монтажную область для тестового редактора ShapeManager. */
+/** Creates an artboard for the ShapeManager test editor. */
 function createShapeTestMontageArea({ width }: { width: number }): ShapeTestMontageArea {
   return {
     width,
@@ -53,7 +53,7 @@ function createShapeTestMontageArea({ width }: { width: number }): ShapeTestMont
   }
 }
 
-/** Возвращает явно переданные или текущие точки привязки группы. */
+/** Returns the explicitly supplied or current group anchor points. */
 function resolveShapePlacementOrigins({
   object,
   originX,
@@ -69,7 +69,7 @@ function resolveShapePlacementOrigins({
   }
 }
 
-/** Считывает положение группы относительно выбранной точки привязки. */
+/** Reads the group's position relative to the selected anchor point. */
 function getShapeObjectPlacement({
   object,
   originX,
@@ -89,7 +89,7 @@ function getShapeObjectPlacement({
   }
 }
 
-/** Дополняет неполное положение группы текущими или резервными координатами. */
+/** Completes an incomplete group position with current or fallback coordinates. */
 function resolveShapeObjectPlacement({
   object,
   left,
@@ -115,7 +115,7 @@ function resolveShapeObjectPlacement({
   }
 }
 
-/** Применяет рассчитанное положение к тестовой группе. */
+/** Applies the calculated position to the test group. */
 function applyShapeObjectPlacement({
   object,
   placement
@@ -133,7 +133,7 @@ function applyShapeObjectPlacement({
   object.setCoords()
 }
 
-/** Создаёт тестовую зависимость CanvasManager для редактора ShapeManager. */
+/** Creates a test CanvasManager dependency for the ShapeManager editor. */
 function createShapeCanvasManagerStub({
   montageArea
 }: {
@@ -160,7 +160,7 @@ function createShapeCanvasManagerStub({
   }
 }
 
-/** Создаёт минимальный редактор для unit-тестов ShapeManager. */
+/** Creates a minimal editor for ShapeManager unit tests. */
 export const createShapeManagerEditorStub = ({
   canvas,
   montageAreaWidth

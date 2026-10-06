@@ -1,5 +1,5 @@
 /**
- * Глобальный clipboard mock для тестов copy/paste сценариев.
+ * Global clipboard mock for testing copy/paste scenarios.
  */
 export const mockNavigatorClipboard = {
   writeText: jest.fn(),
@@ -8,7 +8,7 @@ export const mockNavigatorClipboard = {
 }
 
 /**
- * Mock ClipboardItem с минимальным контрактом, который ожидает ClipboardManager.
+ * Mock ClipboardItem with the minimal contract expected by ClipboardManager.
  */
 export const mockClipboardItem = jest.fn().mockImplementation((data) => ({
   types: Object.keys(data),
@@ -16,7 +16,7 @@ export const mockClipboardItem = jest.fn().mockImplementation((data) => ({
 }))
 
 /**
- * Mock FileReader для сценариев вставки файлов из буфера обмена.
+ * Mock FileReader for scenarios that paste files from the clipboard.
  */
 export class MockFileReader {
   result: string | null = null
@@ -34,7 +34,7 @@ export class MockFileReader {
 }
 
 /**
- * DOMParser mock для HTML clipboard payload.
+ * DOMParser mock for HTML clipboard payloads.
  */
 export const mockQuerySelector = jest.fn()
 export const mockDOMParser = {
@@ -44,12 +44,12 @@ export const mockDOMParser = {
 }
 
 /**
- * atob mock для base64 clipboard payload.
+ * atob mock for base64 clipboard payloads.
  */
 export const mockAtob = jest.fn().mockImplementation((_base64: string) => 'mock-binary-data')
 
 /**
- * Blob mock для тестов, где clipboard создаёт бинарный payload.
+ * Blob mock for tests where the clipboard creates a binary payload.
  */
 export const mockBlob = jest.fn().mockImplementation((data, options) => ({
   type: options?.type || 'application/octet-stream',
@@ -57,7 +57,7 @@ export const mockBlob = jest.fn().mockImplementation((data, options) => ({
 }))
 
 /**
- * Устанавливает полный набор browser API mock-объектов для clipboard тестов.
+ * Installs the full set of browser API mock objects for clipboard tests.
  */
 export const setupBrowserMocks = () => {
   Object.defineProperty(global, 'navigator', {

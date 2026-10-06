@@ -12,14 +12,14 @@ import type {
   SnappingObjectSnapshot
 } from '../types'
 
-/** Дополнительная подготовка верхнеуровневой группы перед перемещением. */
+/** Additional preparation of the top-level group before movement. */
 export type GroupMovingOptions = Readonly<{
   groupAngle?: number
   rotatedChildren?: boolean
   scaleBeforeMove?: boolean
 }>
 
-/** Сцена с верхнеуровневой группой и близкими направляющими опорного шейпа. */
+/** Scene with a top-level group and nearby reference-shape guides. */
 export type GroupMovingSetup = Readonly<{
   childIds: readonly [string, string]
   groupId: string
@@ -28,7 +28,7 @@ export type GroupMovingSetup = Readonly<{
   referenceId: string
 }>
 
-/** Сцена для проверки горизонтальной равноудалённости группы. */
+/** Scene for testing horizontal equal spacing of a group. */
 export type GroupHorizontalSpacingSetup = Readonly<{
   expectedLeft: number
   group: SelectionCompositionSnapshot
@@ -37,7 +37,7 @@ export type GroupHorizontalSpacingSetup = Readonly<{
   right: SnappingObjectSnapshot
 }>
 
-/** Сцена для проверки вертикальной равноудалённости группы. */
+/** Scene for testing vertical equal spacing of a group. */
 export type GroupVerticalSpacingSetup = Readonly<{
   bottom: SnappingObjectSnapshot
   expectedTop: number
@@ -46,7 +46,7 @@ export type GroupVerticalSpacingSetup = Readonly<{
   top: SnappingObjectSnapshot
 }>
 
-/** Модели, необходимые для создания сцены с верхнеуровневой группой. */
+/** Models required to create a scene with a top-level group. */
 type GroupMovingSceneModels = Readonly<{
   editorModel: EditorModel
   grouping: GroupingModel
@@ -56,7 +56,7 @@ type GroupMovingSceneModels = Readonly<{
   snapping: SnappingModel
 }>
 
-/** Созданная группа до добавления объектов, относительно которых она будет прилипать. */
+/** Created group before adding objects to which it will snap. */
 type GroupScene = Readonly<{
   childIds: readonly [string, string]
   groupId: string
@@ -64,7 +64,7 @@ type GroupScene = Readonly<{
   montage: MontageAreaBoundsInfo
 }>
 
-/** Дополнительные fixtures для перемещения верхнеуровневой группы. */
+/** Additional fixtures for moving a top-level group. */
 interface GroupMovingFixtures {
   createGroupMovingSetup: (options?: GroupMovingOptions) => Promise<GroupMovingSetup>
   groupHorizontalSpacingSetup: GroupHorizontalSpacingSetup
@@ -72,7 +72,7 @@ interface GroupMovingFixtures {
   groupVerticalSpacingSetup: GroupVerticalSpacingSetup
 }
 
-/** Добавляет шейп и изображение, которые войдут в обычную Fabric-группу. */
+/** Adds a shape and an image to include in a regular Fabric group. */
 async function addGroupChildren({
   images,
   montage,
@@ -121,7 +121,7 @@ async function addGroupChildren({
   return [shapeId, image.id]
 }
 
-/** Добавляет опорный шейп, не меняя активную группу. */
+/** Adds a reference shape without changing the active group. */
 async function addReferenceShape({
   height,
   id,
@@ -157,7 +157,7 @@ async function addReferenceShape({
   return snapping.getObjectSnapshot({ id })
 }
 
-/** Создаёт верхнеуровневую группу и применяет запрошенные преобразования. */
+/** Creates a top-level group and applies the requested transformations. */
 async function createGroupedObjects({
   models,
   options = {}
@@ -200,7 +200,7 @@ async function createGroupedObjects({
   return { childIds, groupId, initialComposition, montage }
 }
 
-/** Создаёт группу из шейпа и изображения и отдельный объект с конкурирующими направляющими. */
+/** Creates a group of a shape and an image, and a separate object with competing guides. */
 async function createGroupMovingScene({
   models,
   options
@@ -230,7 +230,7 @@ async function createGroupMovingScene({
   }
 }
 
-/** Создаёт группу между двумя горизонтальными опорными объектами. */
+/** Creates a group between two horizontal reference objects. */
 async function createHorizontalSpacingScene(
   models: GroupMovingSceneModels
 ): Promise<GroupHorizontalSpacingSetup> {
@@ -263,7 +263,7 @@ async function createHorizontalSpacingScene(
   return { expectedLeft, group, groupId: groupScene.groupId, left, right }
 }
 
-/** Создаёт группу между двумя вертикальными опорными объектами. */
+/** Creates a group between two vertical reference objects. */
 async function createVerticalSpacingScene(
   models: GroupMovingSceneModels
 ): Promise<GroupVerticalSpacingSetup> {
@@ -296,7 +296,7 @@ async function createVerticalSpacingScene(
   return { bottom, expectedTop, group, groupId: groupScene.groupId, top }
 }
 
-/** Editor fixture со сценой для перемещения верхнеуровневой группы. */
+/** Editor fixture with a scene for moving a top-level group. */
 export const test = editorTest.extend<GroupMovingFixtures>({
   createGroupMovingSetup: async({
     editorModel,

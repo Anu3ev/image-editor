@@ -1,13 +1,13 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 import { FOUR_SHAPE_EQUAL_SPACING_TEMPLATE } from '../../fixtures/data/shape-moving-spacing-template.data'
 
-/** Размер монтажной области, для которого сохранён исходный шаблон. */
+/** Artboard dimensions for which the original template was saved. */
 const TEMPLATE_RESOLUTION = { width: 512, height: 512 } as const
 
-/** Индексы шейпов в порядке их расположения слева направо. */
+/** Shape indices in left-to-right order. */
 const SHAPE_INDEXES = [0, 1, 2, 3] as const
 
-/** Точные интервалы между четырьмя шейпами исходного шаблона. */
+/** Exact gaps between four shapes in the original template. */
 const EXPECTED_SPACING_GAPS = [47.25, 47.25, 47.25] as const
 
 test('после undo и redo шаблон сохраняет точные интервалы между шейпами', async({

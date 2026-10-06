@@ -10,7 +10,7 @@ import {
 } from '../shape/factories'
 
 /**
- * Создаёт обычный canvas-объект для проверки прямого Fabric opacity.
+ * Creates a standard canvas object for testing direct Fabric opacity.
  */
 export const createOpacityObjectMock = () => {
   const object = new Rect()
@@ -23,7 +23,7 @@ export const createOpacityObjectMock = () => {
 }
 
 /**
- * Создаёт shape-group с внутренними shape/text узлами.
+ * Creates a shape group with internal shape/text nodes.
  */
 export const createShapeGroupOpacityTarget = (): {
   group: ShapeGroupObject
@@ -44,7 +44,7 @@ export const createShapeGroupOpacityTarget = (): {
 }
 
 /**
- * Создаёт ActiveSelection с явно заданным набором объектов.
+ * Creates an ActiveSelection with an explicitly specified set of objects.
  */
 export const createOpacityActiveSelection = ({
   objects

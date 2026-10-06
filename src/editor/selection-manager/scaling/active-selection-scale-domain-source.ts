@@ -7,20 +7,20 @@ import type {
 } from '../../snapping-manager/scaling/rectangular-scale-gesture-projection'
 import type { ObjectBounds } from '../../utils/geometry'
 
-/** Фактическая геометрия одного ребёнка, рассчитанная его доменным менеджером. */
+/** Actual geometry of one child, calculated by its domain manager. */
 export type ActiveSelectionScaleDomainChildMeasurement = Readonly<{
   bounds: ObjectBounds
   center: RectangularScalePoint
   target: FabricObject
 }>
 
-/** Геометрия доменных объектов после применения допустимых канонических множителей. */
+/** Domain object geometry after applying valid canonical multipliers. */
 export type ActiveSelectionScaleDomainMeasurement = Readonly<{
   children: readonly ActiveSelectionScaleDomainChildMeasurement[]
   multipliers: RectangularScaleMultipliers
 }>
 
-/** Итоговая временная рамка с компенсацией геометрии доменных объектов во время скейлинга. */
+/** Final temporary frame compensating for domain object geometry during scaling. */
 export type ActiveSelectionScaleFrame = Readonly<{
   center: RectangularScalePoint
   height: number
@@ -30,11 +30,11 @@ export type ActiveSelectionScaleFrame = Readonly<{
 }>
 
 /**
- * Источник нелинейной геометрии доменных объектов внутри общего выделения.
- * Расчёт выполняется до изменения живых объектов, применение — один раз по готовой общей рамке.
+ * Source of nonlinear domain object geometry within an active selection.
+ * Calculation occurs before live objects are changed; application occurs once using the completed overall frame.
  */
 export type ActiveSelectionScaleDomainSource = Readonly<{
-  /** Атомарно применяет измерение или сохраняет прежнюю геометрию всех доменных объектов. */
+  /** Applies the measurement atomically or preserves the previous geometry of all domain objects. */
   apply({
     children,
     frame,
@@ -44,13 +44,13 @@ export type ActiveSelectionScaleDomainSource = Readonly<{
     frame: ActiveSelectionScaleFrame
     measurement: ActiveSelectionScaleDomainMeasurement
   }): void
-  /** Запоминает применённое измерение только после общей проверки результата. */
+  /** Records the applied measurement only after the overall result has been validated. */
   confirmAppliedState({
     measurement
   }: {
     measurement: ActiveSelectionScaleDomainMeasurement
   }): void
-  /** Рассчитывает достижимую геометрию без изменения живых объектов. */
+  /** Calculates achievable geometry without changing live objects. */
   measure({
     mode,
     multipliers
@@ -58,8 +58,8 @@ export type ActiveSelectionScaleDomainSource = Readonly<{
     mode: RectangularScaleGestureMode
     multipliers: RectangularScaleMultipliers
   }): ActiveSelectionScaleDomainMeasurement
-  /** Синхронно возвращает доменные объекты к последнему подтверждённому состоянию. */
+  /** Synchronously restores domain objects to the last confirmed state. */
   restoreConfirmedState(): void
-  /** Содержит доменные объекты в неизменяемом порядке текущей сессии. */
+  /** Contains domain objects in an order that remains fixed for the current session. */
   targets: readonly FabricObject[]
 }>

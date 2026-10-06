@@ -46,7 +46,7 @@ import type {
 } from '../types'
 
 /**
- * Конкретные зависимости prepare-этапа shape update.
+ * Concrete dependencies of the shape-update preparation stage.
  */
 type ShapeUpdatePipelineDependencies = {
   canvas: Canvas
@@ -57,7 +57,7 @@ type ShapeUpdatePipelineDependencies = {
 }
 
 /**
- * Текущие узлы группы, которые будут использованы при применении подготовленного update.
+ * Current group nodes to use when applying the prepared update.
  */
 type PreparedShapeUpdateCurrent = {
   group: ShapeGroup
@@ -67,7 +67,7 @@ type PreparedShapeUpdateCurrent = {
 }
 
 /**
- * Новое shape-состояние, которое должно стать persisted metadata группы после update.
+ * New shape state to become the group's persisted metadata after the update.
  */
 type PreparedShapeUpdateNext = {
   shape: ShapeNode
@@ -83,7 +83,7 @@ type PreparedShapeUpdateNext = {
 }
 
 /**
- * Подготовленные text-параметры, которые нужно применить к текущему text node.
+ * Prepared text parameters to apply to the current text node.
  */
 type PreparedShapeUpdateText = {
   value?: string
@@ -94,7 +94,7 @@ type PreparedShapeUpdateText = {
 }
 
 /**
- * Layout-параметры, вычисленные до фактической мутации группы.
+ * Layout parameters calculated before the group is actually mutated.
  */
 type PreparedShapeUpdateLayout = {
   width: number
@@ -107,7 +107,7 @@ type PreparedShapeUpdateLayout = {
 }
 
 /**
- * Полное состояние, подготовленное перед фактическим update группы.
+ * Complete state prepared before the actual group update.
  */
 export type PreparedShapeUpdate = {
   current: PreparedShapeUpdateCurrent
@@ -121,7 +121,7 @@ export type PreparedShapeUpdate = {
 }
 
 /**
- * Итог текущего состояния группы перед update.
+ * Summary of the group's current state before the update.
  */
 type ShapeUpdateContext = {
   currentGroup: ShapeGroup
@@ -135,7 +135,7 @@ type ShapeUpdateContext = {
 }
 
 /**
- * Итог пресета и rounding после нормализации текущего update запроса.
+ * Resulting preset and rounding after normalizing the current update request.
  */
 type ResolvedUpdatePreset = {
   effectivePreset: NonNullable<ReturnType<typeof getShapePreset>>
@@ -147,7 +147,7 @@ type ResolvedUpdatePreset = {
 }
 
 /**
- * Style- и padding-состояние, которое потом участвует в layout расчётах.
+ * Style and padding state subsequently used in layout calculations.
  */
 type ResolvedUpdateStyle = {
   horizontalAlign: ShapeHorizontalAlign
@@ -160,7 +160,7 @@ type ResolvedUpdateStyle = {
 }
 
 /**
- * Размеры update до создания нового shape-узла.
+ * Update dimensions before creating the new shape node.
  */
 type ResolvedUpdateDimensions = {
   nextCurrentDimensions: ShapeDimensions
@@ -171,7 +171,7 @@ type ResolvedUpdateDimensions = {
 }
 
 /**
- * Итоговые размеры layout и причина, по которой ширина могла остаться текущей.
+ * Final layout dimensions and the reason the width may have remained unchanged.
  */
 type PreparedLayoutDimensions = {
   width: number
@@ -180,7 +180,7 @@ type PreparedLayoutDimensions = {
 }
 
 /**
- * Входные данные для сборки конечной формы PreparedShapeUpdate.
+ * Input for assembling the final PreparedShapeUpdate representation.
  */
 type PreparedUpdateResultInput = {
   context: ShapeUpdateContext
@@ -196,7 +196,7 @@ type PreparedUpdateResultInput = {
 }
 
 /**
- * Каноническое reset-состояние text node перед временным измерением и применением update.
+ * Canonical reset state of the text node before temporary measurement and update application.
  */
 export const SHAPE_TEXT_LAYOUT_RESET_STATE = {
   angle: 0,
@@ -214,23 +214,23 @@ export const SHAPE_TEXT_LAYOUT_RESET_STATE = {
 } as const
 
 /**
- * Собирает update shape-группы без мутации текущего canvas state.
+ * Builds a shape-group update without mutating the current canvas state.
  */
 export class ShapeUpdatePipeline {
   /**
-   * Зависимости preparation без доступа к mutation/history internals.
+   * Preparation dependencies without access to mutation/history internals.
    */
   private readonly dependencies: ShapeUpdatePipelineDependencies
 
   /**
-   * Инициализирует pipeline только нужными prepare-зависимостями.
+   * Initializes the pipeline with only the required preparation dependencies.
    */
   constructor({ dependencies }: { dependencies: ShapeUpdatePipelineDependencies }) {
     this.dependencies = dependencies
   }
 
   /**
-   * Собирает все промежуточные состояния update до создания нового shape-узла.
+   * Builds all intermediate update states before creating the new shape node.
    */
   public async prepare({
     target,
@@ -278,7 +278,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Возвращает текущий update context или null, если update невозможен.
+   * Returns the current update context, or null if an update is impossible.
    */
   private _resolveUpdateContext({
     target,
@@ -327,7 +327,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Разрешает итоговый пресет и rounding для текущего update запроса.
+   * Resolves the final preset and rounding for the current update request.
    */
   private _resolvePresetState({
     currentGroup,
@@ -361,7 +361,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Разрешает current/manual/replace-box размеры для текущего update контракта.
+   * Resolves current/manual/replacement-box dimensions for the current update contract.
    */
   private _resolveDimensionState({
     context,
@@ -414,7 +414,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Возвращает replace-box для замены пресета или null, если текущий box нужно сохранить.
+   * Returns the replacement box for a preset change, or null if the current box must be preserved.
    */
   private _resolveNextReplaceBoxDimensions({
     shouldFitReplacementToPreset,
@@ -434,7 +434,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Возвращает текущие размеры следующего shape layout с учётом замены пресета.
+   * Returns the current dimensions for the next shape layout, accounting for preset replacement.
    */
   private _resolveNextCurrentDimensions({
     presetState,
@@ -463,7 +463,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Возвращает manual base размеры, которые сохраняются после update.
+   * Returns the manual base dimensions preserved after the update.
    */
   private _resolveManualDimensions({
     isPresetReplace,
@@ -507,7 +507,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Собирает style, padding и inset resolver, которые нужны на layout шаге.
+   * Builds the style, padding, and inset resolver needed at the layout step.
    */
   private _resolveStyleState({
     currentGroup,
@@ -570,7 +570,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Создаёт подготовленное обновление с уже измеренным временным text node и новым shape-узлом.
+   * Creates a prepared update with an already measured temporary text node and a new shape node.
    */
   private async _createPreparedUpdate({
     context,
@@ -629,7 +629,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Собирает конечную PreparedShapeUpdate форму из уже разрешённых частей update.
+   * Assembles the final PreparedShapeUpdate representation from the already resolved update parts.
    */
   private _createPreparedUpdateResult({
     context,
@@ -677,7 +677,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Возвращает текущие shape/text узлы и индекс shape-узла внутри группы.
+   * Returns the current shape/text nodes and the shape node's index within the group.
    */
   private _resolvePreparedCurrentNodes({
     currentGroup
@@ -703,7 +703,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Собирает metadata и новый shape-узел для применения update.
+   * Builds metadata and a new shape node for applying the update.
    */
   private _createPreparedNextState({
     shape,
@@ -733,7 +733,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Собирает text-состояние, которое будет применено к текущему text node.
+   * Builds the text state to apply to the current text node.
    */
   private _createPreparedTextState({
     options,
@@ -752,7 +752,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Собирает layout-состояние, которое будет применено после замены shape-узла.
+   * Builds the layout state to apply after replacing the shape node.
    */
   private _createPreparedLayoutState({
     layoutDimensions,
@@ -781,7 +781,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Разрешает финальный replace-box, который останется у группы после update.
+   * Resolves the final replacement box that remains with the group after the update.
    */
   private _resolvePreparedReplaceBoxDimensions({
     currentReplaceBoxDimensions,
@@ -801,7 +801,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Определяет финальные width/height, которые будут материализованы в новый shape-узел.
+   * Determines the final width/height to materialize in the new shape node.
    */
   private _resolvePreparedLayoutDimensions({
     currentGroup,
@@ -838,7 +838,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Строит временный text node для безопасного измерения layout до мутации текущей группы.
+   * Builds a temporary text node for safe layout measurement before mutating the current group.
    */
   private _createStagedTextNode({
     currentGroup,
@@ -883,7 +883,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Возвращает итоговые layout размеры с учётом auto-expand и замены пресета.
+   * Returns the final layout dimensions, accounting for auto-expansion and preset replacement.
    */
   private _resolveLayoutDimensions({
     currentDimensions,
@@ -946,7 +946,7 @@ export class ShapeUpdatePipeline {
   }
 
   /**
-   * Разрешает итоговый proportional layout для замены пресета с учётом текущего текста.
+   * Resolves the final proportional layout for preset replacement, accounting for the current text.
    */
   private _resolveReplacementLayoutDimensions({
     stagedTextNode,

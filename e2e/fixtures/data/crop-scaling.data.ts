@@ -1,12 +1,12 @@
 import type { CropControlKey } from '../../types'
 
-/** Наклоны исходника, при которых crop сохраняет прежний путь преобразования. */
+/** Source rotations at which cropping retains its previous transformation path. */
 export const CROP_SOURCE_SKEW_CASES = [
   { title: 'горизонтальный наклон', skewX: 12, skewY: 0 },
   { title: 'вертикальный наклон', skewX: 0, skewY: -8 }
 ] as const
 
-/** Направление растягивания и неподвижная точка для всех ручек crop. */
+/** Stretch direction and fixed point for every crop handle. */
 export const CROP_GEOMETRY_RESIZE_CASES = [
   { control: 'ml', title: 'слева', x: -1, y: 0, fixedX: 1, fixedY: 0.5 },
   { control: 'mr', title: 'справа', x: 1, y: 0, fixedX: 0, fixedY: 0.5 },
@@ -18,7 +18,7 @@ export const CROP_GEOMETRY_RESIZE_CASES = [
   { control: 'br', title: 'за правый нижний угол', x: 1, y: 1, fixedX: 0, fixedY: 0 }
 ] as const
 
-/** Боковые ручки: движение к середине источника 1000×667 и направление микрошагов. */
+/** Side handles: movement toward the center of a 1000×667 source and the microstep direction. */
 export const CROP_SIDE_SCALING_CASES = [
   { control: 'ml', fixedControl: 'mr', title: 'слева', deltaX: 500, deltaY: 0, x: 1, y: 0 },
   { control: 'mr', fixedControl: 'ml', title: 'справа', deltaX: -500, deltaY: 0, x: -1, y: 0 },

@@ -7,9 +7,9 @@ type IdentityMaterializationEntry = {
 }
 
 /**
- * Назначает свежие id корневому объекту и всей вложенной ветке materialized-объектов.
- * `evented` восстанавливается только у объектов верхнего уровня и у children ActiveSelection,
- * которые реально становятся отдельными canvas-объектами.
+ * Assigns fresh IDs to the root object and the entire nested branch of materialized objects.
+ * `evented` is restored only for top-level objects and ActiveSelection children
+ * that actually become separate canvas objects.
  */
 export const materializeObjectIdentity = ({
   rootObject,

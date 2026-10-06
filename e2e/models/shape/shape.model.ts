@@ -1,14 +1,14 @@
 /**
- * ShapeModel — основная e2e-модель для работы с фигурой.
- * Здесь остаётся весь публичный API: создание, обновление, выбор, работа с текстом и чтение состояния фигуры.
+ * ShapeModel is the main e2e model for working with a shape.
+ * The entire public API stays here: creation, updates, selection, text operations, and reading shape state.
  *
- * ShapeScalingSession вынесена отдельно, потому что скейлинг — это не часть самой фигуры, а отдельное действие со своим временным состоянием: начать изменение размера, пройти промежуточные шаги и завершить его.
- * ShapeModel остаётся точкой входа, а ShapeScalingSession отвечает только за скейлинг.
+ * ShapeScalingSession is separate because scaling is not part of the shape itself, but a distinct action with its own temporary state: start resizing, perform intermediate steps, and finish.
+ * ShapeModel remains the entry point, while ShapeScalingSession handles only scaling.
  *
- * Для следующих разбиений shape.model держим простое правило:
- * основной API фигуры оставляем в ShapeModel;
- * отдельные действия с собственной ответственностью выносим в отдельные файлы через композицию;
- * не делим файл просто ради размера — вынос должен делать код понятнее.
+ * For future splits of shape.model, follow a simple rule:
+ * keep the main shape API in ShapeModel;
+ * move distinct actions with their own responsibilities into separate files through composition;
+ * do not split the file just for size: extraction should make the code clearer.
  */
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -66,7 +66,7 @@ export class ShapeModel {
     this.rotationSession = new ShapeRotationSession(page)
   }
 
-  /** Возвращает viewport-координаты центра фигуры для реальных mouse-событий. */
+  /** Returns viewport coordinates of the shape's center for real mouse events. */
   private async _resolveTargetCenterPoint(params: ObjectTargetParams = {}): Promise<{ x: number, y: number }> {
     const point = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -106,7 +106,7 @@ export class ShapeModel {
     }
   }
 
-  /** Переводит точку canvas-сцены в viewport-координаты браузера для реальных mouse-событий. */
+  /** Converts a canvas-scene point to browser viewport coordinates for real mouse events. */
   private async _resolveViewportPointFromScenePoint(
     params: {
       x: number
@@ -143,7 +143,7 @@ export class ShapeModel {
     }
   }
 
-  /** Возвращает точки для клика и drag в горизонтальной области отступа текста внутри фигуры. */
+  /** Returns click and drag points in the horizontal text-padding area inside a shape. */
   private async _resolveTextInsetInteractionPoints(
     {
       side,
@@ -222,7 +222,7 @@ export class ShapeModel {
     }
   }
 
-  /** Добавляет shape на canvas и возвращает информацию о созданном объекте */
+  /** Adds a shape to the canvas and returns information about the created object */
   async add(params: ShapeAddParams = {}): Promise<ShapeObjectInfo | null> {
     const createdShape = await this.page.evaluate(async(p) => {
       const {
@@ -244,7 +244,7 @@ export class ShapeModel {
     return this.getObject({ id: createdShape.id })
   }
 
-  /** Добавляет shape так, чтобы `left/top` задавали левый верхний угол bounding box. */
+  /** Adds a shape so that `left/top` specify the bounding box's top-left corner. */
   async addAtBounds(params: ShapeAddAtBoundsParams): Promise<ShapeObjectInfo | null> {
     const {
       options: {
@@ -269,7 +269,7 @@ export class ShapeModel {
     })
   }
 
-  /** Добавляет shape и сразу задаёт текст с нужным размером через editing path. */
+  /** Adds a shape and immediately sets text of the required size through the editing path. */
   async addWithText({
     presetKey,
     text,
@@ -308,7 +308,7 @@ export class ShapeModel {
     return this.getObject(targetParams)
   }
 
-  /** Удаляет shape. По умолчанию — активный объект */
+  /** Deletes a shape. Defaults to the active object */
   async remove(params: ObjectTargetParams = {}): Promise<boolean> {
     const removed = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -325,7 +325,7 @@ export class ShapeModel {
     return removed
   }
 
-  /** Устанавливает заливку shape. По умолчанию — для активного объекта */
+  /** Sets a shape's fill. Defaults to the active object */
   async setFill(params: { fill: string } & ObjectTargetParams): Promise<void> {
     await this.page.evaluate(({ fill, objectIndex, id }) => {
       const {
@@ -340,7 +340,7 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Устанавливает обводку shape. По умолчанию — для активного объекта */
+  /** Sets a shape's stroke. Defaults to the active object */
   async setStroke(params: ShapeStrokeParams & ObjectTargetParams = {}): Promise<void> {
     await this.page.evaluate(({ stroke, strokeWidth, dash, objectIndex, id }) => {
       const {
@@ -355,7 +355,7 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Устанавливает прозрачность shape. По умолчанию — для активного объекта и его текста */
+  /** Sets a shape's opacity. Defaults to the active object and its text */
   async setOpacity(params: { opacity: number; applyToText?: boolean } & ObjectTargetParams): Promise<void> {
     await this.page.evaluate(({ opacity, applyToText, objectIndex, id }) => {
       const {
@@ -370,7 +370,7 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Устанавливает скругление shape. По умолчанию — для активного объекта */
+  /** Sets a shape's corner rounding. Defaults to the active object */
   async setRounding(params: { rounding: number } & ObjectTargetParams): Promise<void> {
     await this.page.evaluate(async({ rounding, objectIndex, id }) => {
       const {
@@ -385,7 +385,7 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Добавляет shape с текстом и начальными текстовыми стилями. */
+  /** Adds a shape with text and initial text styles. */
   async addShapeWithText(
     params: {
       presetKey?: ShapePresetKey
@@ -420,7 +420,7 @@ export class ShapeModel {
     })
   }
 
-  /** Добавляет shape с пустым текстом. */
+  /** Adds a shape with empty text. */
   async addEmptyTextShape(
     params: { presetKey?: ShapePresetKey } = {}
   ): Promise<ShapeObjectInfo> {
@@ -438,42 +438,42 @@ export class ShapeModel {
     })
   }
 
-  /** Сжимает shape до minimum width в live drag-сессии и возвращает проверенный snapshot. */
+  /** Shrinks a shape to minimum width in a live drag session and returns a verified snapshot. */
   async shrinkToMinimumWidth(
     params: ({ edge?: 'left' | 'right' } & ObjectTargetParams) = {}
   ): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.shrinkToMinimumWidth(params)
   }
 
-  /** Масштабирует текущий target на canvas по горизонтали за правую ручку и возвращает live snapshot. */
+  /** Scales the current canvas target horizontally with the right handle and returns a live snapshot. */
   async scaleHorizontallyFromRight(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.scaleHorizontallyFromRight(params)
   }
 
-  /** Масштабирует shape по горизонтали за левую ручку и возвращает live snapshot. */
+  /** Scales a shape horizontally with the left handle and returns a live snapshot. */
   async scaleHorizontallyFromLeft(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.scaleHorizontallyFromLeft(params)
   }
 
-  /** Масштабирует текущий target на canvas по вертикали за нижнюю ручку и возвращает live snapshot. */
+  /** Scales the current canvas target vertically with the bottom handle and returns a live snapshot. */
   async scaleVerticallyFromBottom(
     params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.scaleVerticallyFromBottom(params)
   }
 
-  /** Масштабирует shape по вертикали за верхнюю ручку и возвращает live snapshot. */
+  /** Scales a shape vertically with the top handle and returns a live snapshot. */
   async scaleVerticallyFromTop(
     params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.scaleVerticallyFromTop(params)
   }
 
-  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает явную передачу Shift и отключение snap через Ctrl. */
+  /** Scales a shape diagonally with a corner handle and returns a live snapshot. Supports explicitly passing Shift and disabling snapping with Ctrl. */
   async scaleDiagonally(
     params: {
       scaleX: number
@@ -486,7 +486,7 @@ export class ShapeModel {
     return this.scalingSession.scaleDiagonally(params)
   }
 
-  /** Масштабирует shape по диагонали пропорционально за угловую ручку и возвращает live snapshot. */
+  /** Scales a shape diagonally and proportionally with a corner handle and returns a live snapshot. */
   async scaleDiagonallyProportionally(
     params: {
       scale: number
@@ -496,14 +496,14 @@ export class ShapeModel {
     return this.scalingSession.scaleDiagonallyProportionally(params)
   }
 
-  /** Начинает scale фигуры реальным mousedown на угловой ручке. */
+  /** Starts shape scaling with a real mousedown on a corner handle. */
   async startScaleFromCorner(
     params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
   ): Promise<void> {
     await this.scalingSession.startScaleFromCorner(params)
   }
 
-  /** Масштабирует shape за выбранную боковую ручку и возвращает live snapshot. */
+  /** Scales a shape with the selected side handle and returns a live snapshot. */
   async scaleFromSide(
     params: {
       side: ShapeScaleSide
@@ -548,7 +548,7 @@ export class ShapeModel {
     })
   }
 
-  /** Сжимает shape до minimum по диагонали и возвращает live snapshot текущего кадра. */
+  /** Shrinks a shape diagonally to its minimum and returns the current frame's live snapshot. */
   async shrinkDiagonallyToMinimum(
     params: {
       corner: ShapeDiagonalScaleCorner
@@ -557,49 +557,49 @@ export class ShapeModel {
     return this.scalingSession.shrinkDiagonallyToMinimum(params)
   }
 
-  /** Имитирует масштабирование shape и запекание результата через object:modified. */
+  /** Simulates shape scaling and baking the result through object:modified. */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
     await this.scalingSession.simulateScale(params)
   }
 
-  /** Выполняет один live-шаг интерактивного масштабирования и возвращает проверенный snapshot. */
+  /** Performs one live interactive-scaling step and returns a verified snapshot. */
   async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.simulateScaleStep(params)
   }
 
-  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев. */
+  /** Performs a live scaling step with synthetic mouse:move for clamp scenarios. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.simulateScaleMouseMoveStep(params)
   }
 
-  /** Продолжает текущий drag хэндла shape и возвращает live snapshot. */
+  /** Continues the current shape-handle drag and returns a live snapshot. */
   async dragActiveScaleHandleBy(params: { deltaX: number, deltaY: number }): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.dragActiveScaleHandleBy(params)
   }
 
-  /** Продолжает текущий drag хэндла shape в сторону anchor текущей drag-сессии. */
+  /** Continues the current shape-handle drag toward the current drag session's anchor. */
   async dragActiveScaleHandleTowardAnchor(params: { distance: number }): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.dragActiveScaleHandleTowardAnchor(params)
   }
 
-  /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */
+  /** Shrinks a shape to minimum height in a live drag session and returns a verified snapshot. */
   async shrinkToMinimumHeight(
     params: ({ edge?: 'top' | 'bottom' } & ObjectTargetParams) = {}
   ): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.shrinkToMinimumHeight(params)
   }
 
-  /** Завершает активное интерактивное масштабирование и возвращает итоговый snapshot. */
+  /** Finishes active interactive scaling and returns the final snapshot. */
   async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
     return this.scalingSession.finishScale(params)
   }
 
-  /** Завершает активное интерактивное масштабирование, если drag-сессия ещё открыта. */
+  /** Finishes active interactive scaling if the drag session is still open. */
   async finishScaleIfActive(): Promise<ShapeScaleSnapshot | null> {
     return this.scalingSession.finishScaleIfActive()
   }
 
-  /** Пошагово сужает shape с выбранной стороны и возвращает live-состояния каждого шага. */
+  /** Narrows a shape step by step from the selected side and returns each step's live state. */
   async shrinkFromSideInSteps(
     params: {
       side: ShapeScaleSide
@@ -661,7 +661,7 @@ export class ShapeModel {
     return states
   }
 
-  /** Сужает shape по диагонали пропорционально в одной drag-сессии и возвращает live-состояния текста на каждом шаге. */
+  /** Narrows a shape diagonally and proportionally in one drag session and returns live text states at each step. */
   async shrinkDiagonallyProportionallyInLiveSteps(
     params: {
       corner: ShapeDiagonalScaleCorner
@@ -712,7 +712,7 @@ export class ShapeModel {
     return states
   }
 
-  /** Возвращает текущий snapshot масштабируемого target, fail-fast проверяет его наличие. */
+  /** Returns the current scaling-target snapshot, failing fast if it is absent. */
   async getScaleSnapshot(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const { __editorHelpers: helpers } = window as any
@@ -729,8 +729,8 @@ export class ShapeModel {
   }
 
   /**
-   * Устанавливает абсолютный угол поворота фигуры.
-   * Использует TransformManager для корректного применения трансформации и сохранения в историю.
+   * Sets the shape's absolute rotation angle.
+   * Uses TransformManager to apply the transformation correctly and save it to history.
    */
   async setAngle(params: { angle: number } & ObjectTargetParams): Promise<void> {
     await this.page.evaluate(({ angle, objectIndex, id }) => {
@@ -748,7 +748,7 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Обновляет shape — меняет пресет, размеры, стили. Сохраняет позицию и текст */
+  /** Updates a shape's preset, dimensions, and styles. Preserves position and text */
   async update(params: ShapeUpdateParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     const shape = await this.page.evaluate(async({ presetKey, options, objectIndex, id }) => {
       const {
@@ -773,7 +773,7 @@ export class ShapeModel {
     return this.getObject(settledParams)
   }
 
-  /** Устанавливает выравнивание текста внутри shape */
+  /** Sets text alignment inside a shape */
   async setTextAlign(params: ShapeTextAlignParams & ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     const shape = await this.page.evaluate(({ horizontal, vertical, objectIndex, id }) => {
       const {
@@ -798,7 +798,7 @@ export class ShapeModel {
     return this.getObject(settledParams)
   }
 
-  /** Обновляет стиль текста внутри shape и возвращает снимок текстового узла */
+  /** Updates the text style inside a shape and returns a text-node snapshot */
   async updateTextStyle(
     params: { style: ShapeTextStyleParams } & ObjectTargetParams
   ): Promise<ShapeTextInfo | null> {
@@ -825,7 +825,7 @@ export class ShapeModel {
     return this.getTextNode(params)
   }
 
-  /** Возвращает текстовый узел внутри shape */
+  /** Returns the text node inside a shape */
   async getTextNode(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -841,7 +841,7 @@ export class ShapeModel {
     }, params)
   }
 
-  /** Возвращает ID shape-группы и её внутренних объектов. */
+  /** Returns the shape-group ID and its internal object IDs. */
   async getObjectTreeIds(params: ObjectTargetParams = {}): Promise<ShapeObjectTreeIds> {
     const ids = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -867,7 +867,7 @@ export class ShapeModel {
     return ids as ShapeObjectTreeIds
   }
 
-  /** Делает shape активным объектом canvas */
+  /** Makes a shape the active canvas object */
   async select(params: ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     const shape = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -895,7 +895,7 @@ export class ShapeModel {
     return this.getObject(settledParams)
   }
 
-  /** Кликает по фигуре на canvas через реальные координаты viewport. */
+  /** Clicks a shape on the canvas using real viewport coordinates. */
   async clickOnCanvas(
     params: ({
       point?: 'center' | 'bottom-right'
@@ -943,7 +943,7 @@ export class ShapeModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Открывает редактирование текста внутри фигуры через реальный двойной клик по canvas. */
+  /** Opens text editing inside a shape through a real double-click on the canvas. */
   async openTextEditingFromCanvas(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     const point = await this._resolveTargetCenterPoint(params)
 
@@ -953,7 +953,7 @@ export class ShapeModel {
     return this.getTextNode(params)
   }
 
-  /** Кликает в горизонтальную область отступа текста внутри фигуры через реальные координаты canvas. */
+  /** Clicks the horizontal text-padding area inside a shape using real canvas coordinates. */
   async clickTextInset(
     params: {
       side: 'left' | 'right'
@@ -974,7 +974,7 @@ export class ShapeModel {
     return this.getTextNode(targetParams)
   }
 
-  /** Начинает выделение текста из горизонтальной области отступа и протягивает курсор внутрь текста. */
+  /** Starts text selection from the horizontal padding area and drags the cursor into the text. */
   async dragTextSelectionFromInset(
     params: {
       side: 'left' | 'right'
@@ -1007,22 +1007,22 @@ export class ShapeModel {
     return this.getTextNode(targetParams)
   }
 
-  /** Наводит курсор на ручку поворота фигуры. */
+  /** Hovers over the shape's rotation handle. */
   async hoverRotateHandle(params: ObjectTargetParams = {}): Promise<void> {
     await this.rotationSession.hoverRotateHandle(params)
   }
 
-  /** Начинает поворот фигуры реальным mousedown на ручке. */
+  /** Starts shape rotation with a real mousedown on the handle. */
   async startRotateFromHandle(params: ObjectTargetParams = {}): Promise<void> {
     await this.rotationSession.startRotateFromHandle(params)
   }
 
-  /** Завершает поворот фигуры реальным mouseup. */
+  /** Finishes shape rotation with a real mouseup. */
   async finishRotation(): Promise<void> {
     await this.rotationSession.finishRotation()
   }
 
-  /** Включает режим редактирования текста внутри shape */
+  /** Enables text-editing mode inside a shape */
   async enterTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     const editingTextNode = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -1049,7 +1049,7 @@ export class ShapeModel {
     return this.getTextNode(params)
   }
 
-  /** Меняет текст активного text-edit внутри shape */
+  /** Changes text in the active text-edit session inside a shape */
   async updateEditingText(params: ShapeTextEditingUpdateParams): Promise<ShapeTextInfo | null> {
     const updatedTextNode = await this.page.evaluate((payload) => {
       const {
@@ -1097,7 +1097,7 @@ export class ShapeModel {
     return this.getTextNode(params)
   }
 
-  /** Обновляет стиль текста внутри фигуры, пока открыт режим редактирования. */
+  /** Updates text style inside a shape while editing mode is open. */
   async updateTextStyleInEditing(
     params: { style: ShapeTextStyleParams } & ObjectTargetParams
   ): Promise<ShapeTextInfo | null> {
@@ -1127,7 +1127,7 @@ export class ShapeModel {
     return this.getTextNode(params)
   }
 
-  /** Завершает редактирование текста внутри shape */
+  /** Finishes text editing inside a shape */
   async exitTextEditing(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     const editingTextNode = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -1152,7 +1152,7 @@ export class ShapeModel {
     return this.getTextNode(params)
   }
 
-  /** Устанавливает диапазон выделения текста внутри shape в режиме editing. */
+  /** Sets the text selection range inside a shape in editing mode. */
   async setTextSelection(
     params: ShapeTextSelectionParams & ObjectTargetParams
   ): Promise<ShapeTextInfo | null> {
@@ -1189,7 +1189,7 @@ export class ShapeModel {
     }, params)
   }
 
-  /** Удаляет выделенный текст внутри shape через реальное keyboard-событие. */
+  /** Deletes selected text inside a shape through a real keyboard event. */
   async deleteSelectedText(params: ObjectTargetParams = {}): Promise<ShapeTextInfo | null> {
     await this.page.keyboard.press('Delete')
     await waitForCanvasRender({ page: this.page })
@@ -1197,7 +1197,7 @@ export class ShapeModel {
     return this.getTextNode(params)
   }
 
-  /** Вводит текст внутрь shape в текущую позицию курсора через реальные keyboard-события. */
+  /** Types text inside a shape at the current cursor position through real keyboard events. */
   async typeText(params: { text: string } & ObjectTargetParams): Promise<ShapeTextInfo | null> {
     const {
       text,
@@ -1221,7 +1221,7 @@ export class ShapeModel {
     return this.getTextNode(targetParams)
   }
 
-  /** Возвращает стиль текущего или явного выделенного диапазона текста внутри shape. */
+  /** Returns the style of the current or explicit text selection range inside a shape. */
   async getSelectionStyles(
     params: Partial<ShapeTextSelectionParams> & ObjectTargetParams = {}
   ): Promise<ShapeTextSelectionStyleInfo | null> {
@@ -1233,8 +1233,8 @@ export class ShapeModel {
   }
 
   /**
-   * Проверяет что shape создан корректно.
-   * Возвращает гарантированно не-null ShapeObjectInfo
+   * Checks that the shape was created correctly.
+   * Returns a guaranteed non-null ShapeObjectInfo
    */
   checkCreation(params: { shape: ShapeObjectInfo | null, presetKey?: ShapePresetKey }): ShapeObjectInfo {
     const { shape, presetKey } = params
@@ -1249,7 +1249,7 @@ export class ShapeModel {
     return shape as ShapeObjectInfo
   }
 
-  /** Добавляет несколько shape по списку пресетов, возвращает массив созданных объектов */
+  /** Adds multiple shapes from a preset list and returns the created objects */
   async addMultiple(params: { presets: ShapePresetKey[] }): Promise<ShapeObjectInfo[]> {
     const results: ShapeObjectInfo[] = []
 
@@ -1261,14 +1261,14 @@ export class ShapeModel {
     return results
   }
 
-  /** Возвращает первый shape-объект на canvas */
+  /** Returns the first shape object on the canvas */
   async getFirstShape(): Promise<ShapeObjectInfo> {
     const objects = await this.getShapeObjects()
     expect(objects.length, 'на canvas должен быть хотя бы один shape').toBeGreaterThan(0)
     return objects[0]
   }
 
-  /** Возвращает shape-объект по id или индексу canvas. */
+  /** Returns a shape object by ID or canvas index. */
   async getObject(params: ObjectTargetParams = {}): Promise<ShapeObjectInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -1283,8 +1283,8 @@ export class ShapeModel {
   }
 
   /**
-   * Проверяет что update вернул корректный результат.
-   * Возвращает гарантированно не-null ShapeObjectInfo
+   * Checks that update returned a valid result.
+   * Returns a guaranteed non-null ShapeObjectInfo
    */
   checkUpdate(params: { shape: ShapeObjectInfo | null, presetKey: ShapePresetKey }): ShapeObjectInfo {
     const { shape, presetKey } = params
@@ -1296,8 +1296,8 @@ export class ShapeModel {
   }
 
   /**
-   * Проверяет что setTextAlign вернул корректный результат.
-   * Возвращает гарантированно не-null ShapeObjectInfo
+   * Checks that setTextAlign returned a valid result.
+   * Returns a guaranteed non-null ShapeObjectInfo
    */
   checkTextAlign(
     params: { shape: ShapeObjectInfo | null, horizontal?: ShapeHorizontalAlign, vertical?: ShapeVerticalAlign }
@@ -1317,7 +1317,7 @@ export class ShapeModel {
     return shape as ShapeObjectInfo
   }
 
-  /** Проверяет, что bounds shape- или text-узла остаются внутри bounds группы. */
+  /** Checks that shape- or text-node bounds remain within group bounds. */
   checkNodeInsideGroup(params: {
     snapshot: ShapeScaleSnapshot
     kind: 'shape' | 'text'
@@ -1361,7 +1361,7 @@ export class ShapeModel {
     }
   }
 
-  /** Проверяет, что текст остаётся внутри внутренней области шейпа после вычета обводки. */
+  /** Checks that text remains inside the shape's inner area after subtracting the stroke. */
   checkTextInsideStrokeSafeArea(params: {
     snapshot: ShapeScaleSnapshot
     tolerance?: number
@@ -1422,8 +1422,8 @@ export class ShapeModel {
   }
 
   /**
-   * Удаляет shape и проверяет успешность удаления.
-   * Возвращает true если удаление подтверждено
+   * Deletes a shape and checks that deletion succeeded.
+   * Returns true if deletion is confirmed
    */
   async checkRemoval(params: ObjectTargetParams = {}): Promise<boolean> {
     const removed = await this.remove(params)
@@ -1431,7 +1431,7 @@ export class ShapeModel {
     return removed
   }
 
-  /** Возвращает список shape-объектов на canvas */
+  /** Returns the list of shape objects on the canvas */
   async getShapeObjects(): Promise<ShapeObjectInfo[]> {
     return this.page.evaluate(() => {
       const {

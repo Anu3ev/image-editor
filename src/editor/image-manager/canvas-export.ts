@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный entrypoint держим выше внутренних деталей экспорта. */
+/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 import type { jsPDF } from 'jspdf'
 
 import type {
@@ -12,7 +12,7 @@ import {
   exportSVGStringAsFile
 } from './export-utils'
 
-/** Подготовленные опции экспорта монтажной области. */
+/** Prepared artboard export options. */
 export interface CanvasExportRequest {
   fileName: string
   contentType: string
@@ -23,35 +23,35 @@ export interface CanvasExportRequest {
   isPDF: boolean
 }
 
-/** Размер экспортируемой монтажной области. */
+/** Dimensions of the artboard being exported. */
 interface CanvasExportSize {
   width: number
   height: number
 }
 
-/** Snapshot, который можно вернуть как SVG без rasterize. */
+/** Snapshot that can be returned as SVG without rasterization. */
 interface CanvasSvgExportSnapshot extends CanvasExportSize {
   type: 'svg'
   svgString: string
 }
 
-/** Snapshot, который нужно экспортировать через canvas bitmap. */
+/** Snapshot that must be exported through a canvas bitmap. */
 interface CanvasRasterExportSnapshot extends CanvasExportSize {
   type: 'raster'
   blob: Blob
   allCanvasItemsAreSVG: boolean
 }
 
-/** Snapshot клонированной монтажной области. */
+/** Snapshot of the cloned artboard. */
 export type CanvasExportSnapshot = CanvasSvgExportSnapshot | CanvasRasterExportSnapshot
 
-/** Модуль jsPDF, который загружается лениво при PDF-экспорте. */
+/** jsPDF module, loaded lazily for PDF export. */
 interface JsPDFModule {
   jsPDF: typeof jsPDF
 }
 
 /**
- * Нормализует входные опции canvas export.
+ * Normalizes canvas export input options.
  */
 export function createCanvasExportRequest({
   options
@@ -80,7 +80,7 @@ export function createCanvasExportRequest({
 }
 
 /**
- * Создаёт snapshot монтажной области в исходном масштабе.
+ * Creates an artboard snapshot at its original scale.
  */
 export async function createCanvasExportSnapshot({
   editor,
@@ -138,7 +138,7 @@ export async function createCanvasExportSnapshot({
 }
 
 /**
- * Готовит клон canvas к экспорту монтажной области.
+ * Prepares a canvas clone for artboard export.
  */
 function prepareClonedCanvasForExport({
   editor,
@@ -166,9 +166,9 @@ function prepareClonedCanvasForExport({
   hideMontageArea({ editor, tmpCanvas })
   hideInteractionBlockerOverlay({ editor, tmpCanvas })
 
-  // Экспортный bitmap уже ограничен размерами монтажной области. Если оставить
-  // canvas-level clipPath в клоне, canvas сглаживает этот край, и JPG получает
-  // заметную серую рамку.
+  // The export bitmap is already limited to the artboard dimensions. Leaving
+  // the canvas-level clipPath in the clone makes the canvas antialias this edge,
+  // giving the JPG a noticeable gray border.
   tmpCanvas.clipPath = undefined
 
   tmpCanvas.viewportTransform = [1, 0, 0, 1, -left, -top]
@@ -177,7 +177,7 @@ function prepareClonedCanvasForExport({
 }
 
 /**
- * Скрывает служебную монтажную область в клоне canvas.
+ * Hides the internal artboard object in the canvas clone.
  */
 function hideMontageArea({
   editor,
@@ -196,7 +196,7 @@ function hideMontageArea({
 }
 
 /**
- * Скрывает overlay блокировки взаимодействия в клоне canvas.
+ * Hides the interaction-blocking overlay in the canvas clone.
  */
 function hideInteractionBlockerOverlay({
   editor,
@@ -218,7 +218,7 @@ function hideInteractionBlockerOverlay({
 }
 
 /**
- * Создаёт Blob из canvas element.
+ * Creates a Blob from a canvas element.
  */
 async function createCanvasBlob({
   canvasElement,
@@ -243,7 +243,7 @@ async function createCanvasBlob({
 }
 
 /**
- * Экспортирует подготовленный snapshot в требуемый формат.
+ * Exports the prepared snapshot in the requested format.
  */
 export async function exportCanvasSnapshot({
   editor,
@@ -299,7 +299,7 @@ export async function exportCanvasSnapshot({
 }
 
 /**
- * Экспортирует SVG snapshot без rasterize.
+ * Exports an SVG snapshot without rasterization.
  */
 function exportCanvasSvgSnapshot({
   editor,
@@ -325,7 +325,7 @@ function exportCanvasSvgSnapshot({
 }
 
 /**
- * Экспортирует raster snapshot в PDF.
+ * Exports a raster snapshot to PDF.
  */
 async function exportCanvasPdf({
   editor,
@@ -376,7 +376,7 @@ async function exportCanvasPdf({
 }
 
 /**
- * Экспортирует raster snapshot как обычный File.
+ * Exports a raster snapshot as a regular File.
  */
 function exportCanvasFile({
   editor,
@@ -401,7 +401,7 @@ function exportCanvasFile({
 }
 
 /**
- * Отправляет событие успешного экспорта canvas и возвращает payload.
+ * Emits the successful canvas export event and returns the payload.
  */
 function emitCanvasExported({
   editor,

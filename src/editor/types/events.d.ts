@@ -18,7 +18,7 @@ import type {
 import type { PanViewportState } from '../pan-constraint-manager'
 
 /**
- * Параметры события editor:canvas-exported
+ * Parameters for the editor:canvas-exported event
  */
 export type CanvasExportedPayload = {
   image: File | Blob | Base64URLString
@@ -28,7 +28,7 @@ export type CanvasExportedPayload = {
 }
 
 /**
- * Параметры события editor:object-exported
+ * Parameters for the editor:object-exported event
  */
 export type CanvasObjectExportedPayload = {
   object: FabricObject
@@ -48,7 +48,7 @@ export type CanvasImportedImagePayload = {
 }
 
 /**
- * Общий тип для warning и error
+ * Shared type for warning and error
  */
 export type ErrorItem = {
   code: string
@@ -59,7 +59,7 @@ export type ErrorItem = {
 }
 
 /**
- * Параметры событий:
+ * Parameters for the following events:
  * - editor:display-canvas-width-changed
  * - editor:display-canvas-height-changed
  * - editor:display-wrapper-width-changed
@@ -73,7 +73,7 @@ export type DisplayDimensionsChangedPayload = {
 }
 
 /**
- * Параметры события editor:object-fitted
+ * Parameters for the editor:object-fitted event
  */
 export type ObjectFittedPayload = {
   object?: FabricObject
@@ -83,7 +83,7 @@ export type ObjectFittedPayload = {
 }
 
 /**
- * Параметры события editor:montage-area-scaled-to-image
+ * Parameters for the editor:montage-area-scaled-to-image event
  */
 export type MontageAreaScaledToImagePayload = {
   object: FabricObject
@@ -94,7 +94,7 @@ export type MontageAreaScaledToImagePayload = {
 }
 
 /**
- * Параметры события editor:canvas-updated
+ * Parameters for the editor:canvas-updated event
  */
 export type CanvasUpdatedPayload = {
   width: number
@@ -102,7 +102,7 @@ export type CanvasUpdatedPayload = {
 }
 
 /**
- * Параметры события editor:pan-changed
+ * Parameters for the editor:pan-changed event
  */
 export type PanChangedPayload = {
   panState: PanViewportState
@@ -110,7 +110,7 @@ export type PanChangedPayload = {
 }
 
 /**
- * Параметры события editor:objects-deleted
+ * Parameters for the editor:objects-deleted event
  */
 export type ObjectsDeletedPayload = {
   objects: FabricObject[]
@@ -118,7 +118,7 @@ export type ObjectsDeletedPayload = {
 }
 
 /**
- * Параметры события editor:objects-delete-skipped
+ * Parameters for the editor:objects-delete-skipped event
  */
 export type ObjectsDeleteSkippedPayload = {
   skippedObjects: FabricObject[]
@@ -127,8 +127,8 @@ export type ObjectsDeleteSkippedPayload = {
 }
 
 /**
- * Параметры события editor:history-state-loaded
- * @todo: Заменить object на тип который будет соответствовать объекту состояния истории, когда класс будет переписан на TS
+ * Parameters for the editor:history-state-loaded event
+ * @todo: Replace object with a type matching the history state object once the class has been rewritten in TS
  */
 export type HistoryStateLoadedPayload = {
   fullState: object,
@@ -140,12 +140,12 @@ export type HistoryStateLoadedPayload = {
 }
 
 /**
- * Действие, которое изменило наблюдаемое состояние history.
+ * The action that changed the observed history state.
  */
 export type HistoryChangedAction = 'save' | 'undo' | 'redo'
 
 /**
- * Компактное состояние history для внешних controls, autosave и dirty-state.
+ * Compact history state for external controls, autosave, and dirty-state tracking.
  */
 export type HistoryChangedPayload = {
   action: HistoryChangedAction
@@ -175,12 +175,12 @@ export type ResolutionHeightChangedPayload = {
 }
 
 /**
- * Параметры события background:changed
+ * Parameters for the background:changed event
  */
 export type BackgroundChangedPayload = {
   type: 'color' | 'gradient' | 'image'
   color?: string
-  gradientParams?: import('../background-manager').GradientBackground // новый формат градиента
+  gradientParams?: import('../background-manager').GradientBackground // new gradient format
   imageSource?: string | File,
   backgroundObject?: FabricImage | FabricObject | null
   customData?: object
@@ -218,168 +218,168 @@ export type TemplateAppliedPayload = {
 declare module 'fabric' {
   interface CanvasEvents {
     /**
-     * Срабатывает после успешной инициализации и рендера редактора.
+     * Fires after the editor has been successfully initialized and rendered.
      */
     'editor:ready': ImageEditor
 
     /**
-     * Предупреждение о том, что что-то пошло не так
+     * A warning that something went wrong
      */
     'editor:warning': ErrorItem
 
     /**
-     * Ошибка, которая произошла в редакторе.
+     * An error that occurred in the editor.
      */
     'editor:error': ErrorItem
 
     /**
-     * Информационное сообщение
+     * An informational message
      */
     'editor:info': string
 
     /**
-     * Успешное выполнение операции.
+     * Successful completion of an operation.
      */
     'editor:success': string
 
     /**
-     * Срабатывает после экспорта канваса в файл или base64.
+     * Fires after exporting the canvas to a file or base64.
      */
     'editor:canvas-exported': CanvasExportedPayload
 
     /**
-     * Срабатывает после успешного импорта изображения в редактор.
+     * Fires after successfully importing an image into the editor.
      */
     'editor:image-imported': CanvasImportedImagePayload
 
     /**
-     * Срабатывает после изменения внутренней ширины канваса (для экспорта).
+     * Fires after changing the internal canvas width (for export).
      */
     'editor:resolution-width-changed': ResolutionWidthChangedPayload
 
     /**
-     * Срабатывает после изменения внутренней высоты канваса (для экспорта).
+     * Fires after changing the internal canvas height (for export).
      */
     'editor:resolution-height-changed': ResolutionHeightChangedPayload
 
     /**
-     * Срабатывает, когда изменяется CSS ширина самого канваса (upper и lower canvas).
+     * Fires when the CSS width of the canvas itself changes (upper and lower canvas).
      */
     'editor:display-canvas-width-changed': DisplayDimensionsChangedPayload
 
     /**
-     * Срабатывает, когда изменяется CSS высота самого канваса (upper и lower canvas).
+     * Fires when the CSS height of the canvas itself changes (upper and lower canvas).
      */
     'editor:display-canvas-height-changed': DisplayDimensionsChangedPayload
 
     /**
-     * Срабатывает, когда изменяется CSS ширина обертки канваса.
+     * Fires when the CSS width of the canvas wrapper changes.
      */
     'editor:display-wrapper-width-changed': DisplayDimensionsChangedPayload
 
     /**
-     * Срабатывает, когда изменяется CSS высота обертки канваса.
+     * Fires when the CSS height of the canvas wrapper changes.
      */
     'editor:display-wrapper-height-changed': DisplayDimensionsChangedPayload
 
     /**
-     * Срабатывает, когда изменяется CSS ширина контейнера редактора.
+     * Fires when the CSS width of the editor container changes.
      */
     'editor:display-container-width-changed': DisplayDimensionsChangedPayload
 
     /**
-     * Срабатывает, когда изменяется CSS высота контейнера редактора.
+     * Fires when the CSS height of the editor container changes.
      */
     'editor:display-container-height-changed': DisplayDimensionsChangedPayload
 
     /**
-     * Срабатывает при масштабировании изображения (подгонка под монтажную область) в режиме 'contain' или 'cover'.
+     * Fires when an image is scaled (fitted to the artboard) in 'contain' or 'cover' mode.
      */
     'editor:object-fitted': ObjectFittedPayload
 
     /**
-     * Срабатывает, когда масштабируется монтажная область (канвас) под размеры изображения.
+     * Fires when the artboard (canvas) is scaled to the image dimensions.
      */
     'editor:montage-area-scaled-to-image': MontageAreaScaledToImagePayload
 
     /**
-     * Срабатывает при ресайзе и последующем обновлении канваса.
+     * Fires when the canvas is resized and subsequently updated.
      */
     'editor:canvas-updated': CanvasUpdatedPayload
 
     /**
-     * Срабатывает после экспорта отдельного объекта в файл или base64.
+     * Fires after exporting an individual object to a file or base64.
      */
     'editor:object-exported': CanvasObjectExportedPayload
 
     /**
-     * Срабатывает при группировке выбранных объектов.
+     * Fires when the selected objects are grouped.
      */
     'editor:objects-grouped': GroupedObjectsData
 
     /**
-     * Срабатывает при разгруппировке объектов.
+     * Fires when objects are ungrouped.
      */
     'editor:objects-ungrouped': UngroupedObjectsData
 
     /**
-     * Срабатывает при удалении выбранных объектов с канваса.
+     * Fires when the selected objects are deleted from the canvas.
      */
     'editor:objects-deleted': ObjectsDeletedPayload
 
     /**
-     * Срабатывает, когда часть объектов нельзя удалить через операции редактора.
+     * Fires when some objects cannot be deleted through editor operations.
      */
     'editor:objects-delete-skipped': ObjectsDeleteSkippedPayload
 
     /**
-     * Срабатывает после загрузки состояния канваса (из JSON истории).
+     * Fires after loading the canvas state (from history JSON).
      */
     'editor:history-state-loaded': HistoryStateLoadedPayload
 
     /**
-     * Срабатывает после реального изменения history-состояния.
+     * Fires after an actual change to the history state.
      */
     'editor:history-changed': HistoryChangedPayload
 
     /**
-     * Срабатывает после успешного выполнения публичного добавления текста.
+     * Fires after the public text-addition operation completes successfully.
      */
     'editor:text-added': TextAddedPayload
 
     /**
-     * Срабатывает до фиксации программного обновления текста в истории.
-     * Позволяет aggregate-владельцам синхронизировать производное состояние.
+     * Fires before a programmatic text update is committed to history.
+     * Allows aggregate owners to synchronize derived state.
      */
     'editor:before:text-updated': BeforeTextUpdatedPayload
 
     /**
-     * Срабатывает после завершения программного обновления текста.
+     * Fires after a programmatic text update completes.
      */
     'editor:text-updated': TextUpdatedPayload
 
     /**
-     * Срабатывает после успешного выполнения публичного добавления shape-композиции.
+     * Fires after the public shape-composition addition operation completes successfully.
      */
     'editor:shape-added': ShapeAddedPayload
 
     /**
-     * Срабатывает после входа в crop mode.
+     * Fires after entering crop mode.
      */
     'editor:crop:started': CropState | null
 
     /**
-     * Срабатывает при изменении crop frame.
+     * Fires when the crop frame changes.
      */
     'editor:crop:changed': CropState | null
 
     /**
-     * Срабатывает после применения crop mode.
+     * Fires after applying crop mode.
      */
     'editor:crop:applied': CropApplyResult
 
     /**
-     * Срабатывает после выхода из crop mode без применения.
+     * Fires after exiting crop mode without applying it.
      */
     'editor:crop:cancelled': {
       mode: 'canvas' | 'image'
@@ -387,42 +387,42 @@ declare module 'fabric' {
     }
 
     /**
-     * Срабатывает до фиксации обновления shape-композиции в истории.
+     * Fires before a shape-composition update is committed to history.
      */
     'editor:before:shape-updated': BeforeShapeUpdatedPayload
 
     /**
-     * Срабатывает после завершения обновления shape-композиции.
+     * Fires after a shape-composition update completes.
      */
     'editor:shape-updated': ShapeUpdatedPayload
 
     /**
-     * Срабатывает после успешного выполнения операции отмены (undo).
+     * Fires after an undo operation completes successfully.
      */
     'editor:undo': HistoryStateLoadedPayload
 
     /**
-     * Срабатывает после успешного выполнения операции повтора (redo).
+     * Fires after a redo operation completes successfully.
      */
     'editor:redo': HistoryStateLoadedPayload
 
     /**
-     * Срабатывает после полного очищения канваса.
+     * Fires after the canvas has been completely cleared.
      */
     'editor:cleared': void,
 
     /**
-     * Срабатывает, когда все объекты на канвасе выделены.
+     * Fires when all objects on the canvas are selected.
      */
     'editor:all-objects-selected': { selected: FabricObject }
 
     /**
-     * Срабатывает после копирования объекта.
+     * Fires after an object is copied.
      */
     'editor:object-copied': { object: FabricObject }
 
     /**
-     * Срабатывает после вставки объекта.
+     * Fires after an object is pasted.
      */
     'editor:object-pasted': {
       imageSource?: string | File,
@@ -432,53 +432,53 @@ declare module 'fabric' {
      }
 
     /**
-     * Срабатывает перед вставкой изображения из внешнего буфера обмена.
-     * Позволяет отложить вставку и передать customData.
+     * Fires before pasting an image from the external clipboard.
+     * Allows the paste to be deferred and customData to be supplied.
      */
     'editor:external-image-paste-pending': ExternalImagePastePendingPayload
 
     /**
-     * Срабатывает после нажатия на кнопку "Создать копию" в тулбаре выделенного объекта.
+     * Fires after clicking the "Create a copy" button in the selected object's toolbar.
      */
     'editor:object-duplicated': { targetObject: FabricObject, clonedObject: FabricObject }
 
     /**
-     * Срабатывает после поворота объекта.
+     * Fires after an object is rotated.
      */
     'editor:object-rotated': { object: FabricObject, angle: number, withoutSave?: boolean }
 
     /**
-     * Срабатывает после горизонтального отражения объекта.
+     * Fires after an object is flipped horizontally.
      */
     'editor:object-flipped-x': { object: FabricObject, withoutSave?: boolean }
 
     /**
-     * Срабатывает после вертикального отражения объекта.
+     * Fires after an object is flipped vertically.
      */
     'editor:object-flipped-y': { object: FabricObject, withoutSave?: boolean }
 
     /**
-     * Срабатывает после поднятия объекта на передний план.
+     * Fires after an object is brought to the front.
      */
     'editor:object-bring-to-front': { object: FabricObject, withoutSave?: boolean }
 
     /**
-     * Срабатывает после перемещения объекта на один уровень вперёд.
+     * Fires after an object is brought forward by one level.
      */
     'editor:object-bring-forward': { object: FabricObject, withoutSave?: boolean }
 
     /**
-     * Срабатывает после отправки объекта на задний план.
+     * Fires after an object is sent to the back.
      */
     'editor:object-send-to-back': { object: FabricObject, withoutSave?: boolean }
 
     /**
-     * Срабатывает после перемещения объекта на один уровень назад.
+     * Fires after an object is sent backward by one level.
      */
     'editor:object-send-backwards': { object: FabricObject, withoutSave?: boolean }
 
     /**
-     * Срабатывает при изменении зума канваса.
+     * Fires when the canvas zoom changes.
      */
     'editor:zoom-changed': {
       currentZoom: number,
@@ -487,12 +487,12 @@ declare module 'fabric' {
     }
 
     /**
-     * Срабатывает при изменении viewportTransform через pan.
+     * Fires when viewportTransform changes through panning.
      */
     'editor:pan-changed': PanChangedPayload
 
     /**
-     * Срабатывает при изменении прозрачности объекта.
+     * Fires when an object's opacity changes.
      */
     'editor:object-opacity-changed': {
       object: FabricObject
@@ -501,12 +501,12 @@ declare module 'fabric' {
     }
 
     /**
-     * Срабатывает после установки дефолтного масштаба и зума канваса.
+     * Fires after the default canvas scale and zoom are set.
      */
     'editor:default-scale-set': void,
 
     /**
-     * Блокировка объекта
+     * Locking an object
      */
     'editor:object-locked': {
       object: FabricObject
@@ -515,7 +515,7 @@ declare module 'fabric' {
     }
 
     /**
-     * Разблокировка объекта
+     * Unlocking an object
      */
     'editor:object-unlocked': {
       object: FabricObject
@@ -523,7 +523,7 @@ declare module 'fabric' {
     }
 
     /**
-     * Сброс объекта к исходному состоянию
+     * Resetting an object to its initial state
      */
     'editor:object-reset': {
       object: FabricObject,
@@ -532,27 +532,27 @@ declare module 'fabric' {
     }
 
     /**
-     * Блокировка взаимодействия с монтажной областью
+     * Locking interaction with the artboard
      */
     'editor:disabled': void
 
     /**
-     * Разблокировка взаимодействия с монтажной областью
+     * Unlocking interaction with the artboard
      */
     'editor:enabled': void
 
     /**
-     * Срабатывает при изменении фона.
+     * Fires when the background changes.
      */
     'editor:background:changed': BackgroundChangedPayload
 
     /**
-     * Срабатывает при удалении фона.
+     * Fires when the background is removed.
      */
     'editor:background:removed': BackgroundRemovedPayload
 
     /**
-     * Срабатывает после применения шаблона к текущей монтажной области.
+     * Fires after a template is applied to the current artboard.
      */
     'editor:template-applied': TemplateAppliedPayload
   }

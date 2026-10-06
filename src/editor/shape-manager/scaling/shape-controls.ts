@@ -16,17 +16,17 @@ type ShapeCornerControl = Control & {
   shapeFreeScaleCornerControl?: boolean
 }
 
-/** Режим углового скейлинга, заданный контролами шейпа. */
+/** Corner-scaling mode defined by the shape's controls. */
 export type ShapeCornerScaleMode = 'uniform' | 'free'
 
-/** Минимальный Fabric-контракт для проверки активной угловой ручки шейпа. */
+/** Minimal Fabric contract for checking a shape's active corner handle. */
 type ShapeCornerControlTransform = Readonly<{
   action?: Transform['action']
   corner: string
   target: FabricObject
 }>
 
-/** Проверяет угловую ручку с геометрией Fabric и правилами скейлинга шейпа. */
+/** Checks a corner handle against Fabric geometry and shape-scaling rules. */
 export const isShapeCornerScaleControl = ({
   target,
   transform
@@ -43,7 +43,7 @@ export const isShapeCornerScaleControl = ({
   return Boolean(control?.shapeFreeScaleCornerControl)
 }
 
-/** Возвращает тот же режим, который угловая ручка шейпа применяет к Fabric transform. */
+/** Returns the same mode that the shape's corner handle applies to the Fabric transform. */
 export const resolveShapeCornerScaleMode = ({
   shiftKey
 }: {
@@ -53,7 +53,7 @@ export const resolveShapeCornerScaleMode = ({
 }
 
 /**
- * Возвращает true, если transform использует центр объекта как anchor.
+ * Returns true if the transform uses the object's center as its anchor.
  */
 const isCenteredTransform = ({
   transform
@@ -66,8 +66,8 @@ const isCenteredTransform = ({
 }
 
 /**
- * Выполняет свободный corner resize shape по двум осям независимо.
- * Если одна ось дошла до origin и flip запрещён, вторая продолжает обновляться.
+ * Performs a free corner resize of a shape independently along both axes.
+ * If one axis reaches the origin and flipping is forbidden, the other continues updating.
  */
 const scaleShapeFromCorner = ({
   transform,
@@ -121,8 +121,8 @@ const scaleShapeFromCorner = ({
 }
 
 /**
- * Возвращает Fabric-compatible handler для diagonal resize shape:
- * пропорциональный по умолчанию и свободный при зажатом Shift.
+ * Returns a Fabric-compatible handler for diagonal shape resizing:
+ * proportional by default and free while Shift is held.
  */
 const createShapeCornerScalingActionHandler = (): NonNullable<Control['actionHandler']> => {
   const freeScaleHandler = controlsUtils.wrapWithFireEvent(
@@ -158,8 +158,8 @@ const createShapeCornerScalingActionHandler = (): NonNullable<Control['actionHan
 }
 
 /**
- * Создаёт corner control для shape, который по умолчанию держит пропорции
- * и переключается в свободный diagonal resize при зажатом Shift.
+ * Creates a shape corner control that preserves proportions by default
+ * and switches to free diagonal resizing while Shift is held.
  */
 const createShapeCornerScalingControl = ({
   control
@@ -178,8 +178,8 @@ const createShapeCornerScalingControl = ({
 }
 
 /**
- * Подменяет угловые контролы объекта так, чтобы диагональный resize шейпа
- * по умолчанию держал пропорции и переходил в free-scale при зажатом Shift.
+ * Replaces the object's corner controls so diagonal shape resizing
+ * preserves proportions by default and switches to free scaling while Shift is held.
  */
 export const applyShapeCornerFreeScaleControls = ({
   target

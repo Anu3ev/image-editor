@@ -3,7 +3,7 @@ import { ActiveSelection, type FabricObject } from 'fabric'
 export const IGNORED_IDS = ['montage-area', 'background', 'interaction-blocker']
 
 /**
- * Собирает множество объектов, которые нужно исключить из обработки.
+ * Collects the set of objects to exclude from processing.
  */
 export const collectExcludedObjects = ({
   activeObject
@@ -24,7 +24,7 @@ export const collectExcludedObjects = ({
 }
 
 /**
- * Проверяет, нужно ли исключить объект из целей взаимодействия.
+ * Checks whether an object should be excluded from interaction targets.
  */
 export const shouldIgnoreObject = ({
   object,

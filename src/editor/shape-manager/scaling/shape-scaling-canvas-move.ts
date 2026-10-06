@@ -21,13 +21,13 @@ import {
 } from './shape-scaling-layout'
 import type { ShapeModifiedEvent } from './shape-scaling-types'
 
-/** Масштаб шейпа по двум осям. */
+/** Shape scale along both axes. */
 type ShapeScale = Readonly<{
   scaleX: number
   scaleY: number
 }>
 
-/** Данные шейпа для движения указателя, дополняющего пропущенное событие `object:scaling`. */
+/** Shape data for pointer movement that supplements a missing `object:scaling` event. */
 export type ShapeCanvasMoveContext = Readonly<{
   constraintPadding: ShapePadding
   event: ShapeModifiedEvent
@@ -37,7 +37,7 @@ export type ShapeCanvasMoveContext = Readonly<{
   text: ShapeTextNode
 }>
 
-/** Изменение масштаба, которое нужно применить на дополнительном движении указателя. */
+/** Scale change to apply on supplemental pointer movement. */
 export type ShapeCanvasMoveAppliedResolution = Readonly<{
   action: 'apply'
   didClampWidth: boolean
@@ -45,12 +45,12 @@ export type ShapeCanvasMoveAppliedResolution = Readonly<{
   scale: ShapeScale
 }>
 
-/** Результат расчёта дополнительного движения указателя. */
+/** Result of calculating supplemental pointer movement. */
 type ShapeCanvasMoveResolution = ShapeCanvasMoveAppliedResolution
   | Readonly<{ action: 'ignore' }>
   | Readonly<{ action: 'restore-blocked' }>
 
-/** Результат проверки минимальной высоты на дополнительном кадре. */
+/** Result of checking the minimum height on a supplemental frame. */
 type ShapeCanvasMoveHeightResolution = Readonly<{
   didClamp: boolean
   minimumHeight: number | null
@@ -58,7 +58,7 @@ type ShapeCanvasMoveHeightResolution = Readonly<{
   shouldRestoreBlockedAttempt: boolean
 }>
 
-/** Ограничивает ширину после пересечения указателем исходной неподвижной точки. */
+/** Constrains width after the pointer crosses the original fixed point. */
 function resolveCanvasMoveWidth({
   canvas,
   context,
@@ -96,7 +96,7 @@ function resolveCanvasMoveWidth({
   return { didClamp, scaleX: didClamp ? minimumScaleX : currentScale.scaleX }
 }
 
-/** Ограничивает высоту после пересечения указателем исходной неподвижной точки. */
+/** Constrains height after the pointer crosses the original fixed point. */
 function resolveCanvasMoveHeight({
   canvas,
   context,
@@ -144,7 +144,7 @@ function resolveCanvasMoveHeight({
   }
 }
 
-/** Рассчитывает минимальный масштаб для пропорционального скейлинга. */
+/** Calculates the minimum scale for proportional scaling. */
 function resolveProportionalCanvasMove({
   canvas,
   context
@@ -183,7 +183,7 @@ function resolveProportionalCanvasMove({
   }
 }
 
-/** Рассчитывает отдельные минимальные масштабы по каждой оси. */
+/** Calculates separate minimum scales for each axis. */
 function resolveFreeCanvasMove({
   canvas,
   context
@@ -221,7 +221,7 @@ function resolveFreeCanvasMove({
   }
 }
 
-/** Рассчитывает действие для движения указателя, дополняющего пропущенное событие `object:scaling`. */
+/** Calculates the action for pointer movement that supplements a missing `object:scaling` event. */
 export function resolveShapeCanvasMove({
   canvas,
   context

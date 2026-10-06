@@ -1,16 +1,16 @@
-/* eslint-disable no-use-before-define -- Публичная функция расположена перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- The public function appears before internal validation helpers. */
 import type { ObjectBounds } from '../../utils/geometry'
 
-/** Ось перемещения в координатах сцены. */
+/** Movement axis in scene coordinates. */
 export type MovementSceneAxis = 'x' | 'y'
 
-/** Именованная опорная точка перемещаемого bounding box. */
+/** Named anchor of the moving bounding box. */
 export type MovementBoundsAnchor = 'left' | 'centerX' | 'right' | 'top' | 'centerY' | 'bottom'
 
-/** Категория направляющей для разрешения равных кандидатов. */
+/** Guide category used to break ties between candidates. */
 export type MovementSnapCandidateCategory = 'domain-boundary' | 'edge' | 'center'
 
-/** Объект с точными границами, сохранёнными в начале перемещения. */
+/** Object with exact bounds captured at the start of movement. */
 export type MovementSnapCandidateSource = Readonly<{
   id: string
   bounds: ObjectBounds
@@ -18,7 +18,7 @@ export type MovementSnapCandidateSource = Readonly<{
   useForSpacing?: boolean
 }>
 
-/** Именованная направляющая из неизменяемого снимка целей. */
+/** Named guide from an immutable target snapshot. */
 export type MovementSnapCandidate = Readonly<{
   id: string
   axis: MovementSceneAxis
@@ -27,20 +27,20 @@ export type MovementSnapCandidate = Readonly<{
   snapshotIndex: number
 }>
 
-/** Именованные точные границы одного объекта для снимка равноудалённых цепочек. */
+/** Named exact bounds of one object for an equal-spacing chain snapshot. */
 export type MovementSnapSpacingSource = Readonly<{
   id: string
   bounds: ObjectBounds
 }>
 
-/** Цели прилипания и масштаб холста, сохранённые на одно перемещение. */
+/** Snap targets and canvas zoom captured for one movement gesture. */
 export type MovementSnapEnvironment = Readonly<{
   candidates: readonly MovementSnapCandidate[]
   spacingSources: readonly MovementSnapSpacingSource[]
   zoom: number
 }>
 
-/** Именованная линия одного исходного объекта. */
+/** Named line of one source object. */
 type MovementSnapSourceLine = Readonly<{
   key: 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom'
   axis: MovementSceneAxis
@@ -48,11 +48,11 @@ type MovementSnapSourceLine = Readonly<{
   category: MovementSnapCandidateCategory
 }>
 
-/** Допуск проверки центров, рассчитанных из точных граней. */
+/** Tolerance for verifying centers calculated from exact edges. */
 const EXACT_BOUNDS_CENTER_EPSILON = 0.000000001
 
 /**
- * Создаёт неизменяемый снимок обычных целей и целей равноудалённости для одного перемещения.
+ * Creates an immutable snapshot of regular and equal-spacing targets for one movement gesture.
  */
 export function createMovementSnapEnvironment({
   sources,
@@ -92,7 +92,7 @@ export function createMovementSnapEnvironment({
   })
 }
 
-/** Проверяет масштаб, уникальность идентификаторов и точную геометрию источников. */
+/** Validates zoom, unique identifiers, and exact source geometry. */
 function assertEnvironmentInputs({
   sources,
   zoom
@@ -115,7 +115,7 @@ function assertEnvironmentInputs({
   }
 }
 
-/** Копирует и проверяет точные границы одного источника. */
+/** Copies and validates the exact bounds of one source. */
 function createBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): ObjectBounds {
   const { left, right, top, bottom, centerX, centerY } = bounds
   const values = [left, right, top, bottom, centerX, centerY]
@@ -133,7 +133,7 @@ function createBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): ObjectBound
   return Object.freeze({ left, right, top, bottom, centerX, centerY })
 }
 
-/** Возвращает грани и центры источника в стабильном порядке. */
+/** Returns source edges and centers in a stable order. */
 function createSourceLines({
   source
 }: {

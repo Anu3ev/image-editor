@@ -7,16 +7,16 @@ interface errorBufferItem extends ErrorItem {
 }
 
 /**
- * Менеджер ошибок и предупреждений редактора
+ * Editor error and warning manager
  */
 export default class ErrorManager {
   /**
-   * Буфер для хранения ошибок и предупреждений
+   * Buffer for storing errors and warnings
    */
   private _buffer: errorBufferItem[] = []
 
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor:ImageEditor
 
@@ -25,27 +25,27 @@ export default class ErrorManager {
   }
 
   /**
-   * Возвращает буфер с ошибками и предупреждениями
+   * Returns the error and warning buffer
    */
   public get buffer(): errorBufferItem[] {
     return this._buffer
   }
 
   /**
-   * Очищает буфер ошибок и предупреждений
+   * Clears the error and warning buffer
    */
   public cleanBuffer(): void {
     this._buffer.length = 0
   }
 
   /**
-   * Эмитит событие ошибки через fabricjs
+   * Emits an error event through fabricjs
    * @param options
-   * @param options.origin — источник ошибки (по умолчанию 'ImageEditor')
-   * @param options.method — метод, вызвавший ошибку (по умолчанию 'Unknown Method')
-   * @param options.code — код ошибки (из errorCodes)
-   * @param options.data — доп. данные (опционально)
-   * @param options.message — текст ошибки (опционально, если не передан, то используется код ошибки)
+   * @param options.origin — Error source (defaults to 'ImageEditor')
+   * @param options.method — Method that caused the error (defaults to 'Unknown Method')
+   * @param options.code — Error code (from errorCodes)
+   * @param options.data — Additional data (optional)
+   * @param options.message — Error message (optional; uses the error code if omitted)
    * @fires editor:error
    */
   public emitError({ origin = 'ImageEditor', method = 'Unknown Method', code, data, message }: ErrorItem): void {
@@ -58,7 +58,7 @@ export default class ErrorManager {
 
     const msg = message || code
 
-    // записываем в консоль
+    // write to the console
     console.error(`${origin}. ${method}. ${code}. ${msg}`, data)
 
     const errorData = {
@@ -78,13 +78,13 @@ export default class ErrorManager {
   }
 
   /**
-   * Эмитит предупреждение через fabricjs
+   * Emits a warning through fabricjs
    * @param options
-   * @param options.origin — источник предупреждения (по умолчанию 'ImageEditor')
-   * @param options.method — метод, вызвавший предупреждение (по умолчанию 'Unknown Method')
-   * @param ptions.code — код предупреждения (из errorCodes)
-   * @param options.data — доп. данные (опционально)
-   * @param options.message — текст предупреждения (опционально, если не передан, то используется код предупреждения)
+   * @param options.origin — Warning source (defaults to 'ImageEditor')
+   * @param options.method — Method that caused the warning (defaults to 'Unknown Method')
+   * @param ptions.code — Warning code (from errorCodes)
+   * @param options.data — Additional data (optional)
+   * @param options.message — Warning message (optional; uses the warning code if omitted)
    * @fires editor:warning
    */
   public emitWarning({ origin = 'ImageEditor', method = 'Unknown Method', code, message, data }:ErrorItem): void {
@@ -114,9 +114,9 @@ export default class ErrorManager {
   }
 
   /**
-   * Проверяет, является ли код ошибки или предупреждения допустимым
-   * @param code - код ошибки или предупреждения
-   * @returns true, если код допустим, иначе false
+   * Checks whether an error or warning code is valid
+   * @param code - Error or warning code
+   * @returns true if the code is valid, otherwise false
    */
   static isValidErrorCode(code: string): boolean {
     if (!code) return false

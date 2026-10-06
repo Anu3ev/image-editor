@@ -5,7 +5,7 @@ import type {
 } from '../../../src/editor/history-manager/types'
 
 /**
- * Параметры canvas-состояния с одной монтажной областью.
+ * Canvas state parameters with a single artboard.
  */
 type MontageAreaHistoryStateParams = {
   canvasWidth: number
@@ -14,7 +14,7 @@ type MontageAreaHistoryStateParams = {
 }
 
 /**
- * Параметры последовательности, где один объект меняет координату left.
+ * Parameters for a sequence in which one object changes its left coordinate.
  */
 type ObjectLeftHistoryStatesParams = {
   id?: string
@@ -22,7 +22,7 @@ type ObjectLeftHistoryStatesParams = {
 }
 
 /**
- * Параметры состояния со сдвигом сцены.
+ * Parameters for a state with a shifted scene.
  */
 type SceneTranslationHistoryStateParams = {
   clipLeft: number
@@ -32,7 +32,7 @@ type SceneTranslationHistoryStateParams = {
 }
 
 /**
- * Параметры serialized-состояния с lock-флагами textbox.
+ * Serialized-state parameters with textbox lock flags.
  */
 type TextboxLockHistoryStateParams = {
   id: string
@@ -41,7 +41,7 @@ type TextboxLockHistoryStateParams = {
 }
 
 /**
- * Runtime-объект textbox для проверки lockMovement-снимка.
+ * Runtime textbox object for testing a lockMovement snapshot.
  */
 type TextboxLockRuntimeObject = CanvasStateObject & {
   id: string
@@ -51,12 +51,12 @@ type TextboxLockRuntimeObject = CanvasStateObject & {
 }
 
 /**
- * Функция установки runtime-объектов canvas в history-manager specs.
+ * Function for setting runtime canvas objects in history-manager specs.
  */
 type SetCanvasObjects = (objects: CanvasStateObject[]) => void
 
 /**
- * Параметры установки textbox runtime-состояния.
+ * Parameters for setting the textbox runtime state.
  */
 type SetTextboxStateParams = {
   setCanvasObjects: SetCanvasObjects
@@ -65,7 +65,7 @@ type SetTextboxStateParams = {
 }
 
 /**
- * Параметры постановки pending save после редактирования textbox.
+ * Parameters for queuing a pending save after editing a textbox.
  */
 type StageTextboxEditParams = {
   historyManager: HistoryManager
@@ -75,7 +75,7 @@ type StageTextboxEditParams = {
 }
 
 /**
- * Параметры старта history-сценария редактирования textbox.
+ * Parameters for starting a textbox-editing history scenario.
  */
 type StartTextboxEditHistoryParams = {
   historyManager: HistoryManager
@@ -89,7 +89,7 @@ type StartTextboxEditHistoryParams = {
 }
 
 /**
- * Параметры сохранения последовательности serialized-состояний через HistoryManager.
+ * Parameters for saving a sequence of serialized states through HistoryManager.
  */
 type SaveHistoryStatesParams = {
   historyManager: HistoryManager
@@ -100,7 +100,7 @@ type SaveHistoryStatesParams = {
 }
 
 /**
- * Параметры сохранения lock-снимка textbox.
+ * Parameters for saving a textbox lock snapshot.
  */
 type SaveTextboxLockStateParams = {
   historyManager: HistoryManager
@@ -112,7 +112,7 @@ type SaveTextboxLockStateParams = {
 }
 
 /**
- * Параметры подготовки трёх history-шагов с движением объекта по left.
+ * Parameters for preparing three history steps with an object moving along left.
  */
 type SaveThreeObjectLeftHistoryStepsParams = {
   historyManager: HistoryManager
@@ -124,7 +124,7 @@ type SaveThreeObjectLeftHistoryStepsParams = {
 }
 
 /**
- * Создаёт состояние canvas для history-manager specs.
+ * Creates a canvas state for history-manager specs.
  */
 export const createHistoryState = (overrides: Partial<CanvasFullState> = {}): CanvasFullState => ({
   clipPath: null,
@@ -136,7 +136,7 @@ export const createHistoryState = (overrides: Partial<CanvasFullState> = {}): Ca
 })
 
 /**
- * Создаёт состояние canvas с одной монтажной областью.
+ * Creates a canvas state with a single artboard.
  */
 export const createMontageAreaHistoryState = ({
   canvasWidth,
@@ -149,7 +149,7 @@ export const createMontageAreaHistoryState = ({
 })
 
 /**
- * Создаёт последовательность состояний, где один объект меняет координату left.
+ * Creates a sequence of states in which one object changes its left coordinate.
  */
 export const createObjectLeftHistoryStates = ({
   id = 'object-1',
@@ -159,7 +159,7 @@ export const createObjectLeftHistoryStates = ({
 }))
 
 /**
- * Создаёт пару состояний: пустую историю и историю с одним объектом.
+ * Creates a pair of states: empty history and history containing one object.
  */
 export const createObjectPresenceHistoryStates = (id = 'obj-1'): [CanvasFullState, CanvasFullState] => [
   createHistoryState(),
@@ -169,7 +169,7 @@ export const createObjectPresenceHistoryStates = (id = 'obj-1'): [CanvasFullStat
 ]
 
 /**
- * Создаёт состояние со сдвигом сцены, монтажной областью и одним пользовательским объектом.
+ * Creates a state with a shifted scene, an artboard, and one user object.
  */
 export const createSceneTranslationHistoryState = ({
   clipLeft,
@@ -199,7 +199,7 @@ export const createSceneTranslationHistoryState = ({
 })
 
 /**
- * Создаёт serialized-состояние textbox с текущими lockMovement flags.
+ * Creates a serialized textbox state with the current lockMovement flags.
  */
 export const createTextboxLockHistoryState = ({
   id,
@@ -215,7 +215,7 @@ export const createTextboxLockHistoryState = ({
 })
 
 /**
- * Устанавливает один textbox как текущее runtime-состояние canvas.
+ * Sets a single textbox as the canvas's current runtime state.
  */
 export const setTextboxState = ({
   setCanvasObjects,
@@ -236,7 +236,7 @@ export const setTextboxState = ({
 }
 
 /**
- * Устанавливает отредактированный textbox и ставит text-edit save в pending.
+ * Sets the edited textbox and queues a pending text-edit save.
  */
 const stageTextboxEdit = ({
   historyManager,
@@ -258,7 +258,7 @@ const stageTextboxEdit = ({
 }
 
 /**
- * Сохраняет исходный textbox и ставит отредактированный текст в pending save.
+ * Saves the original textbox and queues a pending save for the edited text.
  */
 export const startTextboxEditHistory = ({
   historyManager,
@@ -286,7 +286,7 @@ export const startTextboxEditHistory = ({
 }
 
 /**
- * Сохраняет последовательность serialized-состояний через публичный путь saveState.
+ * Saves a sequence of serialized states through the public saveState path.
  */
 export const saveHistoryStates = ({
   historyManager,
@@ -303,7 +303,7 @@ export const saveHistoryStates = ({
 }
 
 /**
- * Сохраняет textbox lock snapshot и возвращает serialized textbox из baseState.
+ * Saves a textbox lock snapshot and returns the serialized textbox from baseState.
  */
 export const saveTextboxLockState = ({
   historyManager,
@@ -330,7 +330,7 @@ export const saveTextboxLockState = ({
 }
 
 /**
- * Сохраняет три history-шага и подготавливает serialized-состояния для последующих undo/redo.
+ * Saves three history steps and prepares serialized states for subsequent undo/redo.
  */
 export const saveThreeObjectLeftHistorySteps = ({
   historyManager,

@@ -7,221 +7,221 @@ import type { ToolbarConfig } from '../ui/toolbar-manager'
 
 export interface EditorCanvasOptions {
   /**
-   * Ширина рабочей области редактора.
+   * Width of the editor workspace.
    */
   montageAreaWidth: number
   /**
-   * Высота рабочей области редактора.
+   * Height of the editor workspace.
    */
   montageAreaHeight: number
   /**
-   * Backstore ширина канваса.
-   * Может быть задана в пикселях или как 'auto' для автоматической подстройки.
+   * Canvas backstore width.
+   * Can be specified in pixels or as 'auto' for automatic adjustment.
    */
   canvasBackstoreWidth: string | number
   /**
-   * Backstore высота канваса.
-   * Может быть задана в пикселях или как 'auto' для автоматической подстройки.
+   * Canvas backstore height.
+   * Can be specified in pixels or as 'auto' for automatic adjustment.
    */
   canvasBackstoreHeight: string | number
   /**
-   * CSS ширина канваса.
-   * Может быть задана в пикселях или как '100%' для растягивания на всю ширину контейнера.
+   * CSS width of the canvas.
+   * Can be specified in pixels or as '100%' to fill the container width.
    */
   canvasCSSWidth: string
   /**
-   * CSS высота канваса.
-   * Может быть задана в пикселях или как '100%' для растягивания на всю высоту контейнера.
+   * CSS height of the canvas.
+   * Can be specified in pixels or as '100%' to fill the container height.
    */
   canvasCSSHeight: string
   /**
-   * CSS ширина обертки канваса.
-   * Может быть задана в пикселях или как '100%' для растягивания на всю ширину контейнера.
+   * CSS width of the canvas wrapper.
+   * Can be specified in pixels or as '100%' to fill the container width.
    */
   canvasWrapperWidth: string
   /**
-   * CSS высота обертки канваса.
-   * Может быть задана в пикселях или как '100%' для растягивания на всю высоту контейнера.
+   * CSS height of the canvas wrapper.
+   * Can be specified in pixels or as '100%' to fill the container height.
    */
   canvasWrapperHeight: string
   /**
-   * Ширина контейнера редактора.
-   * Может быть задана в пикселях или как 'fit-content' для автоматической подстройки.
+   * Width of the editor container.
+   * Can be specified in pixels or as 'fit-content' for automatic adjustment.
    */
   editorContainerWidth: string
   /**
-   * Высота контейнера редактора.
-   * Может быть задана в пикселях или как '100%' для растягивания на всю высоту родительского элемента.
+   * Height of the editor container.
+   * Can be specified in pixels or as '100%' to fill the parent element's height.
    */
   editorContainerHeight: string
 
   /**
-   * Максимальная длина истории действий в редакторе.
-   * Используется для ограничения размера истории и предотвращения переполнения памяти.
-   * Если значение меньше 1, то история не будет сохраняться.
+   * Maximum action-history length in the editor.
+   * Used to limit the history size and prevent memory overflow.
+   * If the value is less than 1, history will not be saved.
    */
   maxHistoryLength: number
 
   /**
-   * Тип скейлинга для объектов.
-   * 'contain' - сохраняет пропорции изображения, масштабируя его так, чтобы оно полностью помещалось в рабочую область.
-   * 'cover' - сохраняет пропорции изображения, масштабируя его так, чтобы оно полностью заполняло рабочую область.
+   * Scaling mode for objects.
+   * 'contain' - preserves the image's aspect ratio while scaling it to fit entirely within the workspace.
+   * 'cover' - preserves the image's aspect ratio while scaling it to fill the entire workspace.
    */
   scaleType: 'contain' | 'cover'
   /**
-   * Показывать панель инструментов для выделенного объекта.
+   * Show the toolbar for the selected object.
    */
   showToolbar: boolean
   /**
-   * Настройки панели инструментов выделенного объекта.
-   * Можно передать частичные настройки, кастомные иконки и обработчики.
-   * Увидеть все настройки можно здесь: ui/toolbar-manager/default-config
+   * Toolbar settings for the selected object.
+   * Accepts partial settings, custom icons, and handlers.
+   * All available settings can be found here: ui/toolbar-manager/default-config
    */
   toolbar: ToolbarConfig
   /**
-   * JSON объект с начальными состоянием редактора.
+   * JSON object containing the initial editor state.
    */
   initialState: object | null
   /**
-   * Объект изображения с которым редактор будет инициализирован.
-   * Может содержать:
-   *  - {File | String} source - файл или URL изображения (обязательный)
-   *  - {String} scale - Тип скейлинга (image-contain/image-cover/scale-montage).
-   * image-contain - сохраняет пропорции изображения, масштабируя его так, чтобы оно полностью помещалось в рабочую область.
-   * image-cover - сохраняет пропорции изображения, масштабируя его так, чтобы оно
-   * scale-montage - масштабирует монтажную область до размеров изображения.
-   *  - {Boolean} withoutSave - Не сохранять состояние редактора (по умолчанию false)
-   *  - {Object} customData - Произвольные данные, которые будут сохранены на объекте изображения.
+   * Image object used to initialize the editor.
+   * May contain:
+   *  - {File | String} source - image file or URL (required)
+   *  - {String} scale - Scaling mode (image-contain/image-cover/scale-montage).
+   * image-contain - preserves the image's aspect ratio while scaling it to fit entirely within the workspace.
+   * image-cover - preserves the image's aspect ratio while scaling it to cover the workspace.
+   * scale-montage - scales the artboard to the image dimensions.
+   *  - {Boolean} withoutSave - Do not save the editor state (false by default)
+   *  - {Object} customData - Arbitrary data to be stored on the image object.
    */
   initialImage: ImportImageOptions | null
   /**
-   * Дефолтный масштаб для редактора.
-   * Используется при инициализации канваса.
+   * Default scale for the editor.
+   * Used when initializing the canvas.
    */
   defaultScale: number
   /**
-   * Минимальный масштаб для редактора.
-   * Используется для ограничения зума.
+   * Minimum scale for the editor.
+   * Used to limit zoom.
    */
   minZoom: number
   /**
-   * Максимальный масштаб для редактора.
-   * Используется для ограничения зума.
+   * Maximum scale for the editor.
+   * Used to limit zoom.
    */
   maxZoom: number
   /**
-   * Шаг зума для увеличения/уменьшения масштаба.
-   * Используется при зуме по колесику мыши или по кнопкам.
+   * Zoom increment for zooming in/out.
+   * Used when zooming with the mouse wheel or buttons.
    */
   zoomRatio: number
   /**
-   * Массив допустимых форматов изображений для загрузки в редактор.
+   * Array of image formats allowed for loading into the editor.
    */
   acceptContentTypes: string[]
   /**
-   * Цвет маски наложения при блокировке редактора.
-   * Используется для затемнения рабочей области при блокировке.
-   * Например, 'rgba(136, 136, 136, 0.6)'.
+   * Overlay mask color when the editor is locked.
+   * Used to dim the workspace while it is locked.
+   * For example, 'rgba(136, 136, 136, 0.6)'.
    */
   overlayMaskColor: string
 
   /**
-   * Контейнер редактора, в котором будет создан канвас.
-   * Используется для адаптации размеров канваса к размерам контейнера.
+   * Editor container in which the canvas will be created.
+   * Used to adapt the canvas dimensions to the container dimensions.
    */
   editorContainer?: HTMLElement
 
   /**
-   * Показывать угол поворота у выделенного объекта при вращении.
+   * Show the selected object's rotation angle while it is being rotated.
    */
   showRotationAngle: boolean
   /**
-   * Показывать текущую ширину и высоту объекта рядом с указателем во время скейлинга.
+   * Show the object's current width and height next to the pointer while scaling.
    */
   showObjectSizeOnScale: boolean
   /**
-   * Показывать программные viewport-скроллбары для pan при увеличенном canvas.
+   * Show custom viewport scrollbars for panning when the canvas is zoomed in.
    */
   showViewportScrollbars: boolean
   /**
-   * Проверяет, можно ли удалить объект через операции редактора.
-   * Если не задана, объект можно удалить, кроме заблокированных объектов.
+   * Checks whether an object can be deleted through editor operations.
+   * If not provided, any object can be deleted except locked objects.
    */
   canDeleteObject?: (object: FabricObjectInstance) => boolean
   /**
-   * Подготавливает клон объекта перед сохранением в буфер или добавлением на canvas.
-   * Коллбэк получает только клон и не должен менять исходный объект.
+   * Prepares an object clone before saving it to the clipboard or adding it to the canvas.
+   * The callback receives only the clone and must not modify the original object.
    */
   prepareObjectClone?: (object: FabricObjectInstance) => void
   /**
-   * Коллбэк, который будет вызван при готовности редактора.
-   * Используется для выполнения действий после полной инициализации редактора.
+   * Callback invoked when the editor is ready.
+   * Used to perform actions after the editor is fully initialized.
    */
   _onReadyCallback?: (editor: ImageEditor) => void
 
   /**
-   * Настройки слушателей событий.
+   * Event listener settings.
    */
 
   /**
-   * Адаптировать канвас при изменении размеров контейнера (например, при изменении размеров окна браузера).
+   * Adapt the canvas when the container is resized (for example, when the browser window is resized).
    */
   adaptCanvasToContainerOnResize: boolean
   /**
-   * Зум по CTRL + колесико мыши.
+   * Zoom using CTRL + mouse wheel.
    */
   mouseWheelZooming: boolean
   /**
-   * Реэжим перемещения по канвасу при зажатой клавише пробел.
+   * Canvas panning mode while the spacebar is held down.
    */
   canvasDragging: boolean
   /**
-   * Копирование объектов по сочетанию клавиш Ctrl + C.
+   * Copy objects using the Ctrl + C keyboard shortcut.
    */
   copyObjectsByHotkey: boolean
   /**
-   * Вырезание объектов по сочетанию клавиш Ctrl + X.
+   * Cut objects using the Ctrl + X keyboard shortcut.
    */
   cutObjectsByHotkey: boolean
   /**
-   * Дублирование объектов по сочетанию клавиш Ctrl + D.
+   * Duplicate objects using the Ctrl + D keyboard shortcut.
    */
   duplicateObjectsByHotkey: boolean
   /**
-   * Вставка изображения из буфера обмена при нажатии Ctrl + V.
+   * Paste an image from the clipboard by pressing Ctrl + V.
    */
   pasteImageFromClipboard: boolean
   /**
-   * Отмена/повтор действия по сочетанию клавиш Ctrl + Z / Ctrl + Y.
+   * Undo/redo an action using the Ctrl + Z / Ctrl + Y keyboard shortcuts.
    */
   undoRedoByHotKeys: boolean
   /**
-   * Выделение всех объектов по сочетанию клавиш Ctrl + A.
+   * Select all objects using the Ctrl + A keyboard shortcut.
    */
   selectAllByHotkey: boolean
   /**
-   * Удаление объектов по сочетанию клавиш Delete.
+   * Delete objects using the Delete key.
    */
   deleteObjectsByHotkey: boolean
   /**
-   * Сброс параметров объекта по двойному клику.
-   * Если true, то при двойном клике по объекту будут сбрасываться его угол поворота, размеры, объект будет вписан в рабочую область.
+   * Reset object properties on double-click.
+   * If true, double-clicking an object resets its rotation angle and dimensions and fits it to the workspace.
    */
   resetObjectFitByDoubleClick: boolean
 
   /**
-   * CSS класс для контейнера редактора.
-   * Используется для стилизации контейнера редактора.
+   * CSS class for the editor container.
+   * Used to style the editor container.
    */
   containerClass?: string
 
   /**
-   * Селекторы элементов, для которых нужно игнорировать события клавиатуры
+   * Selectors for elements whose keyboard events should be ignored
    */
   keyboardIgnoreSelectors: string[]
 
   /**
-   * Список шрифтов, которые нужно предзагрузить и сделать доступными в редакторе.
+   * List of fonts to preload and make available in the editor.
    */
   fonts?: EditorFontDefinition[]
 }
@@ -229,186 +229,186 @@ export interface EditorCanvasOptions {
 declare module 'fabric' {
   interface Canvas {
     /**
-     * Контейнер редактора, в котором будет создан канвас.
+     * Editor container in which the canvas will be created.
      */
     editorContainer: HTMLElement
     /**
-     * Уникальный идентификатор редактора.
+     * Unique editor identifier.
      */
     editorId?: string
     /**
-     * Идентификатор HTML-контейнера, в котором находится канвас.
+     * ID of the HTML container holding the canvas.
      */
     containerId: string
   }
 
-  // Опции редактора не обязательны для обычного Fabric canvas.
+  // Editor options are optional for a regular Fabric canvas.
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   interface CanvasOptions extends Partial<EditorCanvasOptions> {}
 
   interface FabricObject {
     /**
-     * Уникальный идентификатор объекта.
+     * Unique object identifier.
      */
     id?: string;
     /**
-     * Флаг блокировки объекта.
-     * Если true, то объект не может быть изменен или удален.
+     * Object lock flag.
+     * If true, the object cannot be modified or deleted.
      */
     locked?: boolean;
     /**
-     * Формат объекта, если он является изображением.
+     * Object format, if the object is an image.
      */
     format?: string;
 
     /**
-     * Тип фона
+     * Background type
      */
     backgroundType?: 'color' | 'gradient' | 'image' | null;
 
     /**
-     * Идентификатор фона
+     * Background identifier
      */
     backgroundId?: string | null;
 
     /**
-     * Произвольные пользовательские данные, связанные с объектом.
+     * Arbitrary user data associated with the object.
      */
     customData?: object;
 
     /**
-     * Сериализованные пользовательские данные в виде строки JSON.
+     * Serialized user data as a JSON string.
      */
     _serializedCustomData?: string;
 
     /**
-     * Флаг составного объекта shape + text.
+     * Flag for a composite shape + text object.
      */
     shapeComposite?: boolean;
 
     /**
-     * Ключ пресета фигуры.
+     * Shape preset key.
      */
     shapePresetKey?: string;
 
     /**
-     * Базовая ширина фигуры в локальных координатах группы.
+     * Base shape width in the group's local coordinates.
      */
     shapeBaseWidth?: number;
 
     /**
-     * Базовая высота фигуры в локальных координатах группы.
+     * Base shape height in the group's local coordinates.
      */
     shapeBaseHeight?: number;
 
     /**
-     * Ручная базовая ширина фигуры, заданная пользователем.
+     * Base shape width set manually by the user.
      */
     shapeManualBaseWidth?: number;
 
     /**
-     * Ручная базовая высота фигуры, заданная пользователем.
+     * Base shape height set manually by the user.
      */
     shapeManualBaseHeight?: number;
 
     /**
-     * Стабильная ширина размерного бокса, который используется при replace фигуры.
+     * Stable width of the sizing box used when replacing the shape.
      */
     shapeReplaceBoxWidth?: number;
 
     /**
-     * Стабильная высота размерного бокса, который используется при replace фигуры.
+     * Stable height of the sizing box used when replacing the shape.
      */
     shapeReplaceBoxHeight?: number;
 
     /**
-     * Режим автоматического расширения ширины текста внутри фигуры.
+     * Mode for automatically expanding the width of text inside the shape.
      */
     shapeTextAutoExpand?: boolean;
 
     /**
-     * Подпись persisted-входов, для которых рассчитан текущий shape layout.
+     * Signature of the persisted inputs used to calculate the current shape layout.
      */
     shapeLayoutSignature?: string;
 
     /**
-     * Горизонтальное выравнивание текста внутри фигуры.
+     * Horizontal alignment of text inside the shape.
      */
     shapeAlignHorizontal?: 'left' | 'center' | 'right' | 'justify';
 
     /**
-     * Вертикальное выравнивание текста внутри фигуры.
+     * Vertical alignment of text inside the shape.
      */
     shapeAlignVertical?: 'top' | 'middle' | 'bottom';
 
     /**
-     * Верхний внутренний отступ текстовой области внутри фигуры в целых пикселях.
+     * Top padding of the text area inside the shape, in integer pixels.
      */
     shapePaddingTop?: number;
 
     /**
-     * Правый внутренний отступ текстовой области внутри фигуры в целых пикселях.
+     * Right padding of the text area inside the shape, in integer pixels.
      */
     shapePaddingRight?: number;
 
     /**
-     * Нижний внутренний отступ текстовой области внутри фигуры в целых пикселях.
+     * Bottom padding of the text area inside the shape, in integer pixels.
      */
     shapePaddingBottom?: number;
 
     /**
-     * Левый внутренний отступ текстовой области внутри фигуры в целых пикселях.
+     * Left padding of the text area inside the shape, in integer pixels.
      */
     shapePaddingLeft?: number;
 
     /**
-     * Цвет заливки фигуры.
+     * Shape fill color.
      */
     shapeFill?: string;
 
     /**
-     * Цвет обводки фигуры.
+     * Shape stroke color.
      */
     shapeStroke?: string | null;
 
     /**
-     * Толщина обводки фигуры.
+     * Shape stroke width.
      */
     shapeStrokeWidth?: number;
 
     /**
-     * Паттерн пунктирной обводки фигуры.
+     * Shape stroke dash pattern.
      */
     shapeStrokeDashArray?: number[] | null;
 
     /**
-     * Прозрачность фигуры.
+     * Shape opacity.
      */
     shapeOpacity?: number;
 
     /**
-     * Степень скругления фигуры в диапазоне 0..100 (поддерживается не для всех типов фигур).
+     * Shape corner-rounding amount in the range 0..100 (not supported for all shape types).
      */
     shapeRounding?: number;
 
     /**
-     * Флаг, указывающий поддерживает ли фигура скругление.
+     * Flag indicating whether the shape supports corner rounding.
      */
     shapeCanRound?: boolean;
 
     /**
-     * Роль объекта внутри shape-группы.
+     * Object's role within the shape group.
      */
     shapeNodeType?: 'shape' | 'text';
 
     /**
-     * Возвращает текущий доменный размер объекта в editor-пикселях.
-     * Используется объектами, у которых итоговый доменный размер отличается от visual bbox.
+     * Returns the object's current domain dimensions in editor pixels.
+     * Used by objects whose final domain dimensions differ from their visual bbox.
      */
     getObjectDisplaySize?(): { width: number; height: number };
 
     /**
-     * Возвращает границы объекта для snapping/measurement, если visual bbox не совпадает с доменной геометрией.
+     * Returns object bounds for snapping/measurement when the visual bbox differs from the domain geometry.
      */
     getObjectSnappingBounds?(): {
       left: number;
@@ -422,90 +422,90 @@ declare module 'fabric' {
 
   interface RectProps {
     /**
-     * Уникальный идентификатор.
+     * Unique identifier.
      */
     id?: string;
 
     /**
-     * Тип фона
+     * Background type
      */
     backgroundType?: 'color' | 'gradient' | 'image' | null;
 
     /**
-     * Идентификатор фона
+     * Background identifier
      */
     backgroundId?: string | null;
   }
   interface CircleProps {
     /**
-     * Уникальный идентификатор.
+     * Unique identifier.
      */
     id?: string;
   }
 
   interface GroupProps {
     /**
-     * Уникальный идентификатор группы.
+     * Unique group identifier.
      */
     id?: string;
   }
 
   interface EditorTextboxPaddingProperties {
     /**
-     * Верхний внутренний отступ текстового блока в editor-пикселях.
+     * Top padding of the text block in editor pixels.
      */
     paddingTop?: number;
 
     /**
-     * Правый внутренний отступ текстового блока в editor-пикселях.
+     * Right padding of the text block in editor pixels.
      */
     paddingRight?: number;
 
     /**
-     * Нижний внутренний отступ текстового блока в editor-пикселях.
+     * Bottom padding of the text block in editor pixels.
      */
     paddingBottom?: number;
 
     /**
-     * Левый внутренний отступ текстового блока в editor-пикселях.
+     * Left padding of the text block in editor pixels.
      */
     paddingLeft?: number;
   }
 
   interface TextboxProps extends EditorTextboxPaddingProperties {
     /**
-     * Исходное значение текста без преобразования регистра.
+     * Original text value without case conversion.
      */
     textCaseRaw?: string;
     /**
-     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     * Flag indicating that the text is displayed in uppercase.
      */
     uppercase?: boolean;
     /**
-     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     * Flag indicating that the text is displayed in uppercase.
      */
     textCaseUppercase?: boolean;
     /**
-     * Включает автоматическое расширение ширины текстового блока.
+     * Enables automatic expansion of the text block's width.
      */
     autoExpand?: boolean;
   }
 
   interface Textbox extends EditorTextboxPaddingProperties {
     /**
-     * Исходное значение текста без преобразования регистра.
+     * Original text value without case conversion.
      */
     textCaseRaw?: string;
     /**
-     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     * Flag indicating that the text is displayed in uppercase.
      */
     uppercase?: boolean;
     /**
-     * Флаг, указывающий, что текст отображается в верхнем регистре.
+     * Flag indicating that the text is displayed in uppercase.
      */
     textCaseUppercase?: boolean;
     /**
-     * Включает автоматическое расширение ширины текстового блока.
+     * Enables automatic expansion of the text block's width.
      */
     autoExpand?: boolean;
   }

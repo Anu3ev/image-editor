@@ -7,20 +7,20 @@ import {
   MIDDLE_SHAPE_85_SPACING_TEMPLATE
 } from '../../../fixtures/data/shape-moving-spacing-template.data'
 
-/** Количество шейпов в шаблоне из пользовательского сценария. */
+/** Number of shapes in the template from the user's scenario. */
 const TEMPLATE_SHAPE_COUNT = 3
 
-/** Размер монтажной области, для которого сохранены приложенные шаблоны. */
+/** Artboard dimensions for which the attached templates were saved. */
 const TEMPLATE_RESOLUTION = { width: 512, height: 512 } as const
 
-/** Индексы шейпов в порядке их вставки из приложенного шаблона. */
+/** Shape indices in insertion order from the attached template. */
 const TEMPLATE_SHAPE_INDEXES = {
   left: 0,
   middle: 1,
   right: 2
 } as const
 
-/** Индексы шейпов из шаблона с тремя равными интервалами. */
+/** Shape indices from the template with three equal gaps. */
 const FOUR_SHAPE_INDEXES = {
   first: 0,
   second: 1,
@@ -28,16 +28,16 @@ const FOUR_SHAPE_INDEXES = {
   fourth: 3
 } as const
 
-/** Смещения указателя, которые остаются внутри одного удержания равноудалённости. */
+/** Pointer offsets that remain within one equal-spacing snap hold. */
 const HELD_SPACING_POINTER_OFFSETS = [-2.9, -2.5, -2.3] as const
 
-/** Микросдвиги указателя для проверки удержания после последовательных перемещений. */
+/** Pointer micro-offsets for testing the hold after successive movements. */
 const SEQUENTIAL_DRAG_HOLD_SHIFTS = [-0.3, 0, 0.3] as const
 
-/** Точные интервалы исходного шаблона, сохранённые после его применения. */
+/** Exact gaps in the original template, saved after applying it. */
 const FOUR_SHAPE_SPACING_GAPS = [47.25, 47.25, 47.25] as const
 
-/** Первые перемещения разных шейпов в приложенном шаблоне. */
+/** Initial movements of different shapes in the attached template. */
 const FOUR_SHAPE_FIRST_DRAG_CASES = [
   {
     title: 'при первом перемещении первого шейпа показывает всю цепочку с подписью 47',
@@ -65,7 +65,7 @@ const FOUR_SHAPE_FIRST_DRAG_CASES = [
   }
 ] as const
 
-/** Последовательности перемещений, в которых подпись цепочки не должна меняться. */
+/** Movement sequences during which the chain label must not change. */
 const FOUR_SHAPE_DRAG_SEQUENCES = [
   {
     title: 'после перемещения третьего и четвёртого шейпов повторное перемещение сохраняет подпись 47',
@@ -94,7 +94,7 @@ const FOUR_SHAPE_DRAG_SEQUENCES = [
   }
 ] as const
 
-/** Точные границы четырёх шейпов исходного шаблона. */
+/** Exact bounds of four shapes in the original template. */
 const FOUR_SHAPE_TEMPLATE_GEOMETRY = [
   { id: 'fractional-shape-1', left: -29.875, top: 229, width: 102, height: 102 },
   { id: 'fractional-shape-2', left: 119.375, top: 236.375, width: 87.25, height: 87.25 },
@@ -102,7 +102,7 @@ const FOUR_SHAPE_TEMPLATE_GEOMETRY = [
   { id: 'fractional-shape-4', left: 401.75, top: 229, width: 102, height: 102 }
 ] as const
 
-/** Пользовательские шаблоны и положения указателя внутри зоны прилипания. */
+/** User templates and pointer positions within the snapping zone. */
 const TEMPLATE_SPACING_CASES = [
   {
     title: 'средний шейп размером 79 × 79 удерживается на одинаковом расстоянии от соседних шейпов',

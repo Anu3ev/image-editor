@@ -34,13 +34,13 @@ import { SelectionModel } from './selection/selection.model'
 import { GroupingModel } from './grouping.model'
 import { CropModel } from './crop/crop.model'
 
-/** Результат отправки DOM input-событий в canvas wrapper. */
+/** Result of dispatching DOM input events to the canvas wrapper. */
 type WheelInputDispatchState = {
   canceledEvents: number
   dispatchedEvents: number
 }
 
-/** Параметры последовательности wheel-событий для browser context. */
+/** Options for a sequence of wheel events in the browser context. */
 type WheelInputDispatchParams = {
   ctrlKey?: boolean
   deltaXSteps?: number[]
@@ -48,13 +48,13 @@ type WheelInputDispatchParams = {
   deltaMode?: number
 }
 
-/** Параметры drag viewport через Space + ЛКМ. */
+/** Options for dragging the viewport with Space + left mouse button. */
 type ViewportSpaceDragParams = {
   deltaX: number
   deltaY: number
 }
 
-/** Параметры drag DOM-thumb viewport-скроллбара. */
+/** Options for dragging the viewport scrollbar's DOM thumb. */
 type ViewportScrollbarThumbDragParams = {
   axis: 'horizontal' | 'vertical'
   delta: number
@@ -117,7 +117,7 @@ export class EditorModel {
     this.crop = new CropModel(page)
   }
 
-  /** Отправляет hotkey на body, чтобы DOM-событие имело корректный element target. */
+  /** Sends a hotkey to body so the DOM event has the correct element target. */
   private async _pressEditorHotkey({
     key,
     code,
@@ -148,7 +148,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Ожидает финальное состояние редактора после завершения init(), а не раннее появление window.editor. */
+  /** Waits for the final editor state after init() completes, rather than the early appearance of window.editor. */
   async waitForReady(): Promise<void> {
     await this.page.waitForFunction(() => {
       const { editor } = window as any
@@ -165,7 +165,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Уничтожает редактор и повторно монтирует его через тот же публичный initEditor. */
+  /** Destroys the editor and remounts it through the same public initEditor. */
   async destroyAndRemount(): Promise<EditorRemountInfo> {
     const result = await this.page.evaluate(async() => {
       const { editor: previous } = window as any
@@ -177,7 +177,7 @@ export class EditorModel {
 
       previous.destroy()
       const remainingRegistration = window.editor
-      // После delete браузер может вернуть host по id через именованный доступ Window.
+      // After delete, the browser may return the host by ID through Window named access.
       const registrationRemoved = remainingRegistration === undefined
         || remainingRegistration === previous.options.editorContainer
       const replacement = await initEditor('editor', previous.options)
@@ -197,7 +197,7 @@ export class EditorModel {
     return result
   }
 
-  /** Включает e2e-правило защиты объектов с заданным customData.handle. */
+  /** Enables the e2e rule protecting objects with the specified customData.handle. */
   async useCustomDataDeleteGuard(params: { handle: string }): Promise<void> {
     await this.page.evaluate(({ handle }) => {
       const { editor } = window as any
@@ -227,7 +227,7 @@ export class EditorModel {
     }, params)
   }
 
-  /** Начинает запись событий отказа удаления в browser-side e2e-хелпере. */
+  /** Starts recording deletion-rejection events in the browser-side e2e helper. */
   async startDeleteSkippedEventRecording(): Promise<void> {
     await this.page.evaluate(() => {
       const { __editorHelpers: helpers } = window as any
@@ -236,7 +236,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает записанные события отказа удаления. */
+  /** Returns recorded deletion-rejection events. */
   async getDeleteSkippedEvents(): Promise<DeleteSkippedEventInfo[]> {
     return this.page.evaluate(() => {
       const { __editorHelpers: helpers } = window as any
@@ -245,7 +245,7 @@ export class EditorModel {
     })
   }
 
-  /** Задаёт customData объекту на canvas через browser-side model boundary. */
+  /** Sets a canvas object's customData through the browser-side model boundary. */
   async setObjectCustomData(params: ObjectTargetParams & { customData: Record<string, unknown> }): Promise<void> {
     const updated = await this.page.evaluate(({ customData, id, objectIndex }) => {
       const {
@@ -270,7 +270,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Возвращает customData.handle объекта или null. */
+  /** Returns an object's customData.handle or null. */
   async getObjectCustomDataHandle(params: ObjectTargetParams = {}): Promise<string | null> {
     return this.page.evaluate(({ id, objectIndex }) => {
       const { __editorHelpers: helpers } = window as any
@@ -281,7 +281,7 @@ export class EditorModel {
     }, params)
   }
 
-  /** Считает пользовательские объекты с заданным customData.handle. */
+  /** Counts user objects with the specified customData.handle. */
   async countObjectsByCustomDataHandle(params: { handle: string }): Promise<number> {
     return this.page.evaluate(({ handle }) => {
       const { editor } = window as any
@@ -292,7 +292,7 @@ export class EditorModel {
     }, params)
   }
 
-  /** Возвращает снимок текущего состояния canvas */
+  /** Returns a snapshot of the current canvas state */
   async getCanvasState(): Promise<CanvasStateInfo> {
     return this.page.evaluate(() => {
       const { canvas, canvasManager } = (window as any).editor
@@ -305,7 +305,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает текущее смещение viewportTransform и zoom canvas. */
+  /** Returns the current viewportTransform offset and canvas zoom. */
   async getCanvasViewportTransform(): Promise<CanvasViewportTransformInfo> {
     return this.page.evaluate(() => {
       const { canvas } = (window as any).editor
@@ -319,7 +319,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает pan-состояние viewport из production PanConstraintManager. */
+  /** Returns viewport pan state from the production PanConstraintManager. */
   async getViewportPanState(): Promise<ViewportPanInfo> {
     return this.page.evaluate(() => {
       const { panConstraintManager } = (window as any).editor
@@ -347,7 +347,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает DOM-состояние viewport-скроллбаров. */
+  /** Returns the viewport scrollbars' DOM state. */
   async getViewportScrollbarState(): Promise<ViewportScrollbarInfo> {
     return this.page.evaluate(() => {
       const serializeBounds = (element: Element) => {
@@ -388,7 +388,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает DOM-границы верхнего canvas слоя для реальных pointer-взаимодействий. */
+  /** Returns DOM bounds of the upper canvas layer for real pointer interactions. */
   async getCanvasViewportBounds(): Promise<ViewportBoundsInfo> {
     return this.page.evaluate(() => {
       const { canvas } = (window as any).editor
@@ -407,7 +407,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает список пользовательских объектов canvas (без служебных) */
+  /** Returns user canvas objects (excluding internal objects) */
   async getObjects(): Promise<EditorObjectInfo[]> {
     return this.page.evaluate(() => {
       const {
@@ -419,7 +419,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает текущий активный (выделенный) объект или null */
+  /** Returns the current active (selected) object or null */
   async getActiveObject(): Promise<EditorObjectInfo | null> {
     return this.page.evaluate(() => {
       const {
@@ -434,7 +434,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает текущее состояние DOM-индикатора размеров объекта. */
+  /** Returns the current state of the DOM object-size indicator. */
   async getObjectSizeIndicator(): Promise<ObjectSizeIndicatorInfo> {
     return this.page.evaluate(() => {
       const indicator = document.querySelector('.fabric-editor-object-size-indicator')
@@ -466,7 +466,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает видимый DOM-индикатор размеров объекта или падает с понятной причиной. */
+  /** Returns the visible DOM object-size indicator or fails with a clear reason. */
   async requireObjectSizeIndicator(): Promise<VisibleObjectSizeIndicatorInfo> {
     const indicator = await this.getObjectSizeIndicator()
 
@@ -486,7 +486,7 @@ export class EditorModel {
     }
   }
 
-  /** Возвращает snapshot объекта canvas с актуальным bounding box. */
+  /** Returns a canvas-object snapshot with its current bounding box. */
   async getObjectSnapshot(params: ObjectTargetParams = {}): Promise<SnappingObjectSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -504,7 +504,7 @@ export class EditorModel {
     return snapshot as SnappingObjectSnapshot
   }
 
-  /** Возвращает viewport-границы объекта canvas в системе координат canvas. */
+  /** Returns a canvas object's viewport bounds in the canvas coordinate system. */
   async getObjectViewportBounds(params: ObjectTargetParams = {}): Promise<ViewportBoundsInfo> {
     const bounds = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -547,13 +547,13 @@ export class EditorModel {
     return bounds as ViewportBoundsInfo
   }
 
-  /** Проверяет что количество пользовательских объектов на canvas равно ожидаемому */
+  /** Checks that the number of user objects on the canvas matches the expected count */
   async checkObjectCount(params: { count: number }): Promise<void> {
     const objects = await this.getObjects()
     expect(objects, `ожидается ${params.count} объектов на canvas`).toHaveLength(params.count)
   }
 
-  /** Ждёт, пока количество пользовательских объектов на canvas станет ожидаемым. */
+  /** Waits for the user-object count on the canvas to match the expected count. */
   async waitForObjectCount(params: { count: number }): Promise<void> {
     await this.page.waitForFunction(({ count }) => {
       const { editor } = window as any
@@ -564,7 +564,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Выделяет все пользовательские объекты на canvas через публичный API редактора. */
+  /** Selects all user objects on the canvas through the public editor API. */
   async selectAllObjects(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -575,7 +575,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Вызывает fitObject для текущего активного объекта через публичный API transformManager. */
+  /** Calls fitObject for the current active object through the public transformManager API. */
   async fitActiveObject(
     params: {
       type?: 'contain' | 'cover'
@@ -610,7 +610,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Меняет opacity текущего активного объекта через публичный API transformManager. */
+  /** Changes the current active object's opacity through the public transformManager API. */
   async setActiveObjectOpacity({ opacity }: { opacity: number }): Promise<void> {
     const hasActiveObject = await this.page.evaluate(({ opacity: nextOpacity }) => {
       const { editor } = window as any
@@ -630,7 +630,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Возвращает размер шрифта, который сейчас показывает правая панель demo-контролов. */
+  /** Returns the font size currently shown by the right-hand demo-controls panel. */
   async getDisplayedTextFontSize(): Promise<number> {
     const fontSize = await this.page.evaluate(() => {
       const fontSizeInput = document.getElementById('text-font-size')
@@ -649,7 +649,7 @@ export class EditorModel {
     return fontSize as number
   }
 
-  /** Блокирует текущий выделенный объект через публичный API редактора. */
+  /** Locks the current selected object through the public editor API. */
   async lockSelectedObject(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -660,7 +660,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Удаляет текущий выделенный объект через публичный API редактора. */
+  /** Deletes the current selected object through the public editor API. */
   async deleteSelectedObject(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -671,7 +671,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Удаляет выбранный по id или индексу объект через общий DeletionManager. */
+  /** Deletes an object selected by ID or index through the shared DeletionManager. */
   async deleteObject({
     id,
     objectIndex
@@ -696,7 +696,7 @@ export class EditorModel {
     return deleted
   }
 
-  /** Разблокирует текущий выделенный объект через публичный API редактора. */
+  /** Unlocks the current selected object through the public editor API. */
   async unlockSelectedObject(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -707,7 +707,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отправляет keydown пробела и ждёт завершения реакции редактора. */
+  /** Sends a Space keydown and waits for the editor to finish responding. */
   async pressSpaceKey(): Promise<void> {
     await this.page.evaluate(() => {
       document.dispatchEvent(new KeyboardEvent('keydown', {
@@ -721,7 +721,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отправляет keyup пробела и ждёт завершения реакции редактора. */
+  /** Sends a Space keyup and waits for the editor to finish responding. */
   async releaseSpaceKey(): Promise<void> {
     await this.page.evaluate(() => {
       document.dispatchEvent(new KeyboardEvent('keyup', {
@@ -735,7 +735,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Возвращает текущее cursor-состояние верхнего canvas слоя. */
+  /** Returns the current cursor state of the upper canvas layer. */
   async getCanvasCursorState(): Promise<{
     currentCursor: string
   }> {
@@ -748,7 +748,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает информацию о montage area */
+  /** Returns artboard information */
   async getMontageArea(): Promise<MontageAreaInfo> {
     return this.page.evaluate(() => {
       const { montageArea } = (window as any).editor
@@ -762,7 +762,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает границы montage area в координатах canvas-сцены. */
+  /** Returns artboard bounds in canvas-scene coordinates. */
   async getMontageAreaBounds(): Promise<MontageAreaBoundsInfo> {
     return this.page.evaluate(() => {
       const { montageArea } = (window as any).editor
@@ -787,7 +787,7 @@ export class EditorModel {
     })
   }
 
-  /** Возвращает положение монтажной области в viewport-координатах canvas. */
+  /** Returns the artboard's position in canvas viewport coordinates. */
   async getMontageAreaViewportBounds(): Promise<MontageAreaViewportBoundsInfo> {
     const viewportBounds = await this.page.evaluate(() => {
       const { editor } = (window as any)
@@ -841,7 +841,7 @@ export class EditorModel {
     return viewportBounds as MontageAreaViewportBoundsInfo
   }
 
-  /** Меняет размер окна браузера и ждёт, пока редактор завершит реакцию на resize. */
+  /** Resizes the browser window and waits for the editor to finish responding to the resize. */
   async resizeViewport(params: { width: number, height: number }): Promise<void> {
     const {
       width,
@@ -864,7 +864,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отправляет в редактор hotkey undo через DOM-событие body. */
+  /** Sends the undo hotkey to the editor through a body DOM event. */
   async pressUndoHotkey(): Promise<void> {
     await this._pressEditorHotkey({
       key: 'z',
@@ -872,7 +872,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет в редактор hotkey redo через DOM-событие body. */
+  /** Sends the redo hotkey to the editor through a body DOM event. */
   async pressRedoHotkey(): Promise<void> {
     await this._pressEditorHotkey({
       key: 'y',
@@ -880,7 +880,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет в редактор hotkey вырезания через DOM-событие body. */
+  /** Sends the cut hotkey to the editor through a body DOM event. */
   async pressCutHotkey(): Promise<void> {
     await this._pressEditorHotkey({
       key: 'x',
@@ -888,7 +888,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет в редактор hotkey дублирования через DOM-событие body. */
+  /** Sends the duplicate hotkey to the editor through a body DOM event. */
   async pressDuplicateHotkey(): Promise<void> {
     await this._pressEditorHotkey({
       key: 'd',
@@ -896,7 +896,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет в редактор клавишу Delete через DOM-событие body. */
+  /** Sends the Delete key to the editor through a body DOM event. */
   async pressDeleteKey(): Promise<void> {
     await this._pressEditorHotkey({
       key: 'Delete',
@@ -905,7 +905,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет в редактор клавишу Backspace через DOM-событие body. */
+  /** Sends the Backspace key to the editor through a body DOM event. */
   async pressBackspaceKey(): Promise<void> {
     await this._pressEditorHotkey({
       key: 'Backspace',
@@ -915,8 +915,8 @@ export class EditorModel {
   }
 
   /**
-   * Отправляет последовательность wheel событий в центр canvas wrapper.
-   * Ctrl + wheel используется для zoom, wheel без Ctrl — для pan на тачпаде.
+   * Sends a sequence of wheel events to the canvas-wrapper center.
+   * Ctrl + wheel is used for zoom; wheel without Ctrl is used for trackpad pan.
    */
   private async _dispatchWheelEvents(params: WheelInputDispatchParams): Promise<WheelInputDispatchState> {
     this._assertWheelInputDispatchParams(params)
@@ -929,7 +929,7 @@ export class EditorModel {
   }
 
   /**
-   * Проверяет согласованность wheel steps перед отправкой в browser context.
+   * Checks wheel-step consistency before dispatching to the browser context.
    */
   private _assertWheelInputDispatchParams({
     deltaXSteps,
@@ -941,7 +941,7 @@ export class EditorModel {
   }
 
   /**
-   * Выполняет DOM dispatch wheel-событий внутри browser context.
+   * Dispatches DOM wheel events inside the browser context.
    */
   private async _dispatchWheelEventsInBrowser({
     ctrlKey = false,
@@ -998,7 +998,7 @@ export class EditorModel {
     })
   }
 
-  /** Переводит viewport-координаты canvas в client-координаты браузера. */
+  /** Converts canvas viewport coordinates to browser client coordinates. */
   private async _resolveCanvasClientPoint({
     x,
     y
@@ -1023,7 +1023,7 @@ export class EditorModel {
     })
   }
 
-  /** Выполняет реальный wheel-input в заданной viewport-точке canvas. */
+  /** Performs real wheel input at the specified canvas viewport point. */
   private async _wheelAtViewportPoint({
     x,
     y,
@@ -1056,7 +1056,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отправляет Ctrl + wheel на DOM-границу canvas и ждёт завершения рендера. */
+  /** Sends Ctrl + wheel to the canvas DOM boundary and waits for rendering to finish. */
   async zoomByCtrlWheel(params: { deltaY: number }): Promise<WheelInputDispatchState> {
     return this._dispatchWheelEvents({
       ctrlKey: true,
@@ -1064,7 +1064,7 @@ export class EditorModel {
     })
   }
 
-  /** Делает серию реальных Ctrl + wheel событий в заданной viewport-точке canvas. */
+  /** Performs a series of real Ctrl + wheel events at the specified canvas viewport point. */
   async zoomByCtrlWheelRepeatedlyAtViewportPoint({
     deltaY,
     steps,
@@ -1092,7 +1092,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Делает реальный wheel-pan в заданной viewport-точке canvas. */
+  /** Performs real wheel panning at the specified canvas viewport point. */
   async panByWheelAtViewportPoint({
     deltaX = 0,
     deltaY,
@@ -1112,7 +1112,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет wheel без Ctrl, как двухпальцевый scroll на тачпаде. */
+  /** Sends wheel without Ctrl, like a two-finger trackpad scroll. */
   async panByTrackpadScroll(params: { deltaX: number; deltaY: number }): Promise<WheelInputDispatchState> {
     return this._dispatchWheelEvents({
       deltaMode: DOM_DELTA_PIXEL,
@@ -1121,7 +1121,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет серию wheel без Ctrl и возвращается до отложенного render. */
+  /** Sends a series of wheel events without Ctrl and returns before deferred rendering. */
   async panByFastTrackpadScroll(params: {
     deltaXSteps: number[]
     deltaYSteps: number[]
@@ -1137,7 +1137,7 @@ export class EditorModel {
     return this._dispatchWheelEventsInBrowser(dispatchParams)
   }
 
-  /** Приближает canvas до состояния, когда viewport можно двигать по обеим осям. */
+  /** Zooms in on the canvas until the viewport can move along both axes. */
   async zoomInUntilViewportCanMove(): Promise<ViewportPanInfo> {
     for (let attempt = 0; attempt < VIEWPORT_PAN_ZOOM_ATTEMPTS; attempt += 1) {
       const panState = await this.getViewportPanState()
@@ -1158,7 +1158,7 @@ export class EditorModel {
     return panState
   }
 
-  /** Двигает viewport настоящим Space + ЛКМ drag по canvas. */
+  /** Moves the viewport with a real Space + left-mouse-button drag on the canvas. */
   async dragViewportBySpaceMouse({ deltaX, deltaY }: ViewportSpaceDragParams): Promise<void> {
     const startPoint = await this.page.evaluate(() => {
       const { canvas } = (window as any).editor
@@ -1196,7 +1196,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Двигает thumb viewport-скроллбара реальным mouse drag. */
+  /** Moves the viewport scrollbar thumb with a real mouse drag. */
   async dragViewportScrollbarThumb({ axis, delta }: ViewportScrollbarThumbDragParams): Promise<void> {
     const scrollbarState = await this.getViewportScrollbarState()
     const axisState = scrollbarState[axis]
@@ -1223,7 +1223,7 @@ export class EditorModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отправляет мелкие Ctrl + wheel события, как при pinch-жесте на тачпаде. */
+  /** Sends small Ctrl + wheel events, like a trackpad pinch gesture. */
   async zoomInByTrackpadPinch(): Promise<WheelInputDispatchState> {
     return this._dispatchWheelEvents({
       ctrlKey: true,
@@ -1232,7 +1232,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет мелкие Ctrl + wheel события, как при обратном pinch-жесте на тачпаде. */
+  /** Sends small Ctrl + wheel events, like a reverse trackpad pinch gesture. */
   async zoomOutByTrackpadPinch(): Promise<WheelInputDispatchState> {
     return this._dispatchWheelEvents({
       ctrlKey: true,
@@ -1241,7 +1241,7 @@ export class EditorModel {
     })
   }
 
-  /** Отправляет WebKit gesture-события, как Safari fallback для pinch-жеста. */
+  /** Sends WebKit gesture events as Safari's pinch-gesture fallback. */
   async zoomInByWebKitGesturePinch(): Promise<WheelInputDispatchState> {
     const dispatchState = await this.page.evaluate(() => {
       const { editor } = window as any

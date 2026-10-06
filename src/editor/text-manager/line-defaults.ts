@@ -40,7 +40,7 @@ type LineFontDefaultsSyncResult = {
 }
 
 /**
- * Сдвигает lineFontDefaults вниз после вставки одной или нескольких строк.
+ * Shifts lineFontDefaults down after inserting one or more lines.
  */
 const resolveLineFontDefaultsAfterLineInsertion = ({
   deltaLines,
@@ -85,7 +85,7 @@ const resolveLineFontDefaultsAfterLineInsertion = ({
 }
 
 /**
- * Удаляет lineFontDefaults исчезнувших строк и сдвигает оставшиеся вверх.
+ * Removes lineFontDefaults for deleted lines and shifts the remaining entries up.
  */
 const resolveLineFontDefaultsAfterLineRemoval = ({
   deltaLines,
@@ -151,7 +151,7 @@ const resolveLineFontDefaultsAfterLineRemoval = ({
 }
 
 /**
- * Пересчитывает lineFontDefaults только для структурного изменения строк.
+ * Recalculates lineFontDefaults only for structural line changes.
  */
 const resolveLineFontDefaultsAfterTextChange = ({
   lineFontDefaults,
@@ -209,7 +209,7 @@ const resolveLineFontDefaultsAfterTextChange = ({
 }
 
 /**
- * Создаёт Fabric style-объект из lineFontDefaults.
+ * Creates a Fabric style object from lineFontDefaults.
  */
 export const createLineDefaultStyle = ({
   lineDefaults
@@ -258,7 +258,7 @@ export const createLineDefaultStyle = ({
 }
 
 /**
- * Обновляет lineFontDefaults для указанных строк, изменяя только заданные поля.
+ * Updates lineFontDefaults for the specified lines, changing only the supplied fields.
  */
 export const applyLineDefaultUpdates = ({
   textbox,
@@ -385,7 +385,7 @@ export const applyLineDefaultUpdates = ({
 }
 
 /**
- * Убирает из inline-стилей свойства, которые были перенесены из удалённого line default.
+ * Removes inline-style properties inherited from a deleted line default.
  */
 export const removeLineDefaultStyles = ({
   lineStyles,
@@ -455,7 +455,7 @@ export const removeLineDefaultStyles = ({
 }
 
 /**
- * Удаляет из inline styles служебные значения строки, которая была полностью удалена.
+ * Removes internal values from inline styles for a line that was deleted entirely.
  */
 const removeDeletedLineDefaultStyles = ({
   cleanup,
@@ -518,7 +518,7 @@ const removeDeletedLineDefaultStyles = ({
 }
 
 /**
- * Собирает глобальные текстовые стили textbox в формате line defaults.
+ * Collects the textbox's global text styles in line-defaults format.
  */
 const createGlobalLineDefaults = ({
   textbox
@@ -580,7 +580,7 @@ const createGlobalLineDefaults = ({
 }
 
 /**
- * Разрешает line defaults для пустой строки от ближайшего line default или глобальных стилей textbox.
+ * Resolves defaults for an empty line from the nearest line default or the textbox's global styles.
  */
 const createEmptyLineDefaults = ({
   sourceDefaults,
@@ -649,7 +649,7 @@ const createEmptyLineDefaults = ({
 }
 
 /**
- * Синхронизирует inline-стили строки с lineFontDefaults, заполняя пропуски.
+ * Synchronizes inline line styles with lineFontDefaults, filling in gaps.
  */
 export const syncLineDefaultStyles = ({
   lineText,
@@ -750,7 +750,7 @@ export const syncLineDefaultStyles = ({
 }
 
 /**
- * Синхронизирует lineFontDefaults и inline styles с текущим набором строк текста.
+ * Synchronizes lineFontDefaults and inline styles with the current set of text lines.
  */
 const syncLineFontDefaultsWithCurrentLines = ({
   deletedLineDefaultsCleanup,
@@ -908,9 +908,9 @@ const syncLineFontDefaultsWithCurrentLines = ({
 }
 
 /**
- * Канонизирует сериализуемое состояние текста:
- * lineFontDefaults остаётся persisted-источником построчных стилей,
- * а styles хранит только реальные partial overrides.
+ * Canonicalizes serializable text state:
+ * lineFontDefaults remains the persisted source of per-line styles,
+ * while styles stores only actual partial overrides.
  */
 export function resolveSerializableTextboxState({
   textbox
@@ -963,7 +963,7 @@ export function resolveSerializableTextboxState({
 }
 
 /**
- * Возвращает следующие lineFontDefaults и Fabric styles после изменения текста, не мутируя textbox.
+ * Returns the next lineFontDefaults and Fabric styles after a text change without mutating the textbox.
  */
 export const syncLineFontDefaultsAfterTextChange = ({
   currentText,
@@ -994,7 +994,7 @@ export const syncLineFontDefaultsAfterTextChange = ({
 }
 
 /**
- * Доводит lineFontDefaults и runtime styles до консистентного состояния после deserialization.
+ * Brings lineFontDefaults and runtime styles into a consistent state after deserialization.
  */
 export const rehydrateTextboxLineDefaults = ({
   textbox
@@ -1026,7 +1026,7 @@ export const rehydrateTextboxLineDefaults = ({
 }
 
 /**
- * Создаёт копию lineFontDefaults для безопасных обновлений.
+ * Creates a copy of lineFontDefaults for safe updates.
  */
 export const cloneLineFontDefaults = ({
   lineFontDefaults
@@ -1049,8 +1049,8 @@ export const cloneLineFontDefaults = ({
 }
 
 /**
- * Масштабирует fontSize в lineFontDefaults по заданному коэффициенту,
- * не позволяя ему уйти ниже минимального размера текста.
+ * Scales fontSize in lineFontDefaults by the given factor,
+ * preventing it from falling below the minimum text size.
  */
 export const scaleLineFontDefaults = ({
   lineFontDefaults,

@@ -14,7 +14,7 @@ export type UngroupActionOptions = {
 }
 
 /**
- * Параметры события editor:objects-ungrouped
+ * Parameters for the editor:objects-ungrouped event
  */
 export type UngroupedObjectsData = {
   selection: ActiveSelection,
@@ -23,7 +23,7 @@ export type UngroupedObjectsData = {
 }
 
 /**
- * Параметры события editor:objects-grouped
+ * Parameters for the editor:objects-grouped event
  */
 export type GroupedObjectsData = {
   group: Group
@@ -32,7 +32,7 @@ export type GroupedObjectsData = {
 
 export default class GroupingManager {
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor: ImageEditor
 
@@ -41,7 +41,7 @@ export default class GroupingManager {
   }
 
   /**
-   * Получить объекты для группировки
+   * Get the objects to group
    * @private
    */
   private _getObjectsToGroup(target?: ActiveSelection | FabricObject[]): FabricObject[] | null {
@@ -59,7 +59,7 @@ export default class GroupingManager {
   }
 
   /**
-   * Получить группы для разгруппировки
+   * Get the groups to ungroup
    * @private
    */
   private _getGroupsToUngroup(target?: Group | Group[] | ActiveSelection): Group[] | null {
@@ -77,20 +77,20 @@ export default class GroupingManager {
 
     if (!activeObject) return null
 
-    // Если активный объект - это ActiveSelection (когда target не передан явно)
+    // If the active object is an ActiveSelection (when target is not explicitly provided)
     if (activeObject instanceof ActiveSelection) {
       const groups = activeObject.getObjects().filter((obj) => obj instanceof Group) as Group[]
       return groups.length > 0 ? groups : null
     }
 
-    // Если это одна группа
+    // If it is a single group
     if (activeObject instanceof Group) return [activeObject]
 
     return null
   }
 
   /**
-   * Запекает transient scale объекта после выхода из Fabric-группы в его доменную модель.
+   * Bakes an object's transient scale into its domain model after it leaves a Fabric group.
    */
   private _materializeUngroupedObject({ object }: { object: FabricObject }): void {
     const {
@@ -119,10 +119,10 @@ export default class GroupingManager {
   }
 
   /**
- * Группировка объектов
+ * Group objects
  * @param options
- * @param options.target - объект ActiveSelection или массив объектов для группировки
- * @param options.withoutSave - Не сохранять состояние
+ * @param options.target - ActiveSelection object or array of objects to group
+ * @param options.withoutSave - Do not save the state
  * @fires editor:objects-grouped
  */
   public group({
@@ -131,22 +131,22 @@ export default class GroupingManager {
   }: GroupActionOptions = {}): GroupedObjectsData | null {
     const { canvas, historyManager } = this.editor
 
-    // Получаем объекты для группировки
+    // Get the objects to group
     const objectsToGroup = this._getObjectsToGroup(target)
     if (!objectsToGroup) return null
 
     try {
       historyManager.suspendHistory()
 
-      // Создаем группу с уникальным ID
+      // Create a group with a unique ID
       const group = new Group(objectsToGroup, {
         id: `group-${nanoid()}`
       })
 
-      // Удаляем объекты из canvas
+      // Remove the objects from the canvas
       objectsToGroup.forEach((obj) => canvas.remove(obj))
 
-      // Добавляем группу и выделяем её
+      // Add the group and select it
       canvas.add(group)
       canvas.setActiveObject(group)
       canvas.requestRenderAll()
@@ -169,11 +169,11 @@ export default class GroupingManager {
   }
 
   /**
- * Разгруппировка объектов
+ * Ungroup objects
  * @param options
- * @param options.target - объект Group, массив групп или ActiveSelection с группами для разгруппировки
- * @param options.withoutSave - Не сохранять состояние
- * @returns данные о разгруппировке или null, если нет групп для разгруппировки
+ * @param options.target - Group object, array of groups, or ActiveSelection containing groups to ungroup
+ * @param options.withoutSave - Do not save the state
+ * @returns Ungrouping data, or null if there are no groups to ungroup
  * @fires editor:objects-ungrouped
  */
   public ungroup({
@@ -182,7 +182,7 @@ export default class GroupingManager {
   }: UngroupActionOptions = {}): UngroupedObjectsData | null {
     const { canvas, historyManager } = this.editor
 
-    // Получаем группы для разгруппировки
+    // Get the groups to ungroup
     const groupsToUngroup = this._getGroupsToUngroup(target)
     if (!groupsToUngroup) return null
 
@@ -191,7 +191,7 @@ export default class GroupingManager {
 
       const allUngroupedObjects: FabricObject[] = []
 
-      // Разгруппировываем все группы
+      // Ungroup all groups
       groupsToUngroup.forEach((group) => {
         const ungroupedObjects = group.removeAll()
         canvas.remove(group)
@@ -204,7 +204,7 @@ export default class GroupingManager {
         })
       })
 
-      // Выделяем все разгруппированные объекты
+      // Select all ungrouped objects
       const selection = new ActiveSelection(allUngroupedObjects, {
         canvas
       })

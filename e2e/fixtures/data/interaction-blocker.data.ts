@@ -1,4 +1,4 @@
-/** Фигура для сценариев блокировки редактора. */
+/** Shape for editor-locking scenarios. */
 export const BLOCKER_SHAPE_OPTIONS = {
   id: 'interaction-blocker-shape',
   left: 132,
@@ -10,16 +10,16 @@ export const BLOCKER_SHAPE_OPTIONS = {
   fill: '#d4d8e8'
 } as const
 
-/** Новый цвет фигуры для проверки редактирования после разблокировки. */
+/** New shape color for testing editing after unlocking. */
 export const BLOCKER_UPDATED_FILL = '#2f8f63'
 
-/** Размер монтажной области для проверки синхронизации маски блокировки. */
+/** Artboard dimensions for testing lock-mask synchronization. */
 export const BLOCKER_UPDATED_RESOLUTION = {
   width: 688,
   height: 392
 } as const
 
-/** Большие и вытянутые размеры для проверки AI overlay на разных пропорциях монтажной области. */
+/** Large and elongated dimensions for testing the AI overlay at different artboard aspect ratios. */
 export const AI_BLOCKER_EXTREME_RESOLUTION_CASES = [
   {
     title: 'квадратной 4K монтажной области',

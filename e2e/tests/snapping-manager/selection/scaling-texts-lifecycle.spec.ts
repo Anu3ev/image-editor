@@ -4,7 +4,7 @@ import {
 } from '../../../fixtures/active-selection-scaling.fixture'
 import type { TextCornerScaleSnapshot } from '../../../types'
 
-/** Поля текста, которые должны восстанавливаться через историю. */
+/** Text fields that should be restored through history. */
 const TEXT_HISTORY_FIELDS = [
   'width',
   'height',
@@ -23,7 +23,7 @@ const TEXT_HISTORY_FIELDS = [
   'boundsHeight'
 ] as const satisfies readonly (keyof TextCornerScaleSnapshot)[]
 
-/** Точность сравнения текстовой геометрии после сериализации в истории. */
+/** Precision for text-geometry comparisons after serialization in history. */
 const TEXT_HISTORY_GEOMETRY_PRECISION = 1
 
 test('после mouseup сохраняет рамку и скрывает индикатор и направляющие', async({

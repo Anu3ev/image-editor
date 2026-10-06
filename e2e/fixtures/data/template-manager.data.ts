@@ -21,28 +21,28 @@ const PRODUCT_CARD_TEMPLATE_IMAGE_SOURCE = `data:image/svg+xml;charset=utf-8,${e
   PRODUCT_CARD_TEMPLATE_IMAGE_MARKUP
 )}`
 
-/** Базовое разрешение шаблона product card. */
+/** Base resolution of the product-card template. */
 export const PRODUCT_CARD_TEMPLATE_BASE_RESOLUTION = {
   width: 810,
   height: 1080
 } as const
 
-/** Уменьшенное разрешение для проверки нормализованных позиций шаблона. */
+/** Reduced resolution for testing normalized template positions. */
 export const PRODUCT_CARD_TEMPLATE_COMPACT_RESOLUTION = {
   width: 405,
   height: 540
 } as const
 
-/** Увеличенное разрешение для проверки шаблона после смены montage resolution. */
+/** Increased resolution for testing the template after changing the artboard resolution. */
 export const PRODUCT_CARD_TEMPLATE_EXPANDED_RESOLUTION = {
   width: 1080,
   height: 1440
 } as const
 
-/** Количество обычных объектов, которые должен вставить product card template. */
+/** Number of ordinary objects the product-card template should insert. */
 export const PRODUCT_CARD_TEMPLATE_OBJECT_COUNT = 7
 
-/** Индексы объектов product card template в порядке их вставки на canvas. */
+/** Product-card template object indices in canvas insertion order. */
 export const PRODUCT_CARD_TEMPLATE_INDEXES = {
   card: 0,
   image: 1,
@@ -53,43 +53,43 @@ export const PRODUCT_CARD_TEMPLATE_INDEXES = {
   featureLeft: 6
 } as const
 
-/** Технический допуск для проверок геометрии template-объектов. */
+/** Technical tolerance for template-object geometry checks. */
 export const TEMPLATE_BOUNDS_TOLERANCE = 2
 
-/** Допуск для сравнений нормализованных позиций между разными размерами монтажной области. */
+/** Tolerance for comparing normalized positions across artboard sizes. */
 export const TEMPLATE_RELATIVE_TOLERANCE = 0.025
 
-/** Допуск для проверок выравнивания блоков в одной линии. */
+/** Tolerance for checking block alignment on a single line. */
 export const TEMPLATE_ALIGNMENT_TOLERANCE = 4
 
-/** Базовое разрешение для шаблона с standalone text у верхней границы. */
+/** Base resolution for a template with standalone text at the top edge. */
 export const TEMPLATE_STANDALONE_TEXT_BASE_RESOLUTION = {
   width: 810,
   height: 1080
 } as const
 
-/** Квадратное разрешение для regression-проверки standalone text из шаблона. */
+/** Square resolution for the standalone-text template regression test. */
 export const TEMPLATE_STANDALONE_TEXT_SQUARE_RESOLUTION = {
   width: 1000,
   height: 1000
 } as const
 
-/** Уменьшенное квадратное разрешение для проверки standalone text после scale down. */
+/** Reduced square resolution for testing standalone text after scaling down. */
 export const TEMPLATE_STANDALONE_TEXT_COMPACT_RESOLUTION = {
   width: 512,
   height: 512
 } as const
 
-/** Высокое разрешение с горизонтальными полями для regression-проверки centered standalone text. */
+/** High resolution with horizontal margins for the centered-standalone-text regression test. */
 export const TEMPLATE_STANDALONE_TEXT_TALL_RESOLUTION = {
   width: 910,
   height: 1200
 } as const
 
-/** Количество объектов в шаблоне со standalone text. */
+/** Object count in the standalone-text template. */
 export const TEMPLATE_STANDALONE_TEXT_OBJECT_COUNT = 1
 
-/** Шаблон со standalone text, который должен оставаться по центру сверху на разных разрешениях. */
+/** Template with standalone text that should stay top-centered at different resolutions. */
 export const TEMPLATE_STANDALONE_TEXT_TEMPLATE: TemplateDefinition = {
   id: 'template-standalone-text-alignment',
   meta: {
@@ -190,10 +190,10 @@ export const TEMPLATE_STANDALONE_TEXT_TEMPLATE: TemplateDefinition = {
   ]
 }
 
-/** Новый заголовок для проверки редактирования текста после применения шаблона. */
+/** New heading for testing text editing after applying a template. */
 export const PRODUCT_CARD_TEMPLATE_UPDATED_TITLE = 'НАУШНИКИ SONY'
 
-/** Цвет фона, который должен быть применён как background-object, а не как обычный canvas-объект. */
+/** Background color that should be applied as a background object rather than an ordinary canvas object. */
 export const PRODUCT_CARD_TEMPLATE_BACKGROUND_COLOR = '#fcf4ff'
 
 const TEMPLATE_IMAGE_BACKGROUND_MARKUP = [
@@ -207,16 +207,16 @@ const TEMPLATE_IMAGE_BACKGROUND_SOURCE = `data:image/svg+xml;charset=utf-8,${enc
   TEMPLATE_IMAGE_BACKGROUND_MARKUP
 )}`
 
-/** Разрешение монтажной области для проверки шаблона с image-фоном. */
+/** Artboard resolution for testing a template with an image background. */
 export const TEMPLATE_IMAGE_BACKGROUND_RESOLUTION = {
   width: 400,
   height: 300
 } as const
 
-/** Количество обычных объектов после применения шаблона с image-фоном. */
+/** Number of ordinary objects after applying a template with an image background. */
 export const TEMPLATE_IMAGE_BACKGROUND_OBJECT_COUNT = 1
 
-/** Шаблон с image-фоном, который должен применяться через BackgroundManager. */
+/** Template with an image background that should be applied through BackgroundManager. */
 export const TEMPLATE_IMAGE_BACKGROUND_TEMPLATE: TemplateDefinition = {
   id: 'template-with-image-background',
   meta: {
@@ -278,25 +278,25 @@ export const TEMPLATE_IMAGE_BACKGROUND_TEMPLATE: TemplateDefinition = {
   ]
 }
 
-/** Базовое разрешение для шаблона с текстом внутри фигуры. */
+/** Base resolution for a template with text inside a shape. */
 export const TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION = {
   width: 810,
   height: 1080
 } as const
 
-/** Увеличенное разрешение для проверки масштаба текста внутри фигуры из шаблона. */
+/** Increased resolution for testing the scale of text inside a template shape. */
 export const TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION = {
   width: 4096,
   height: 4096
 } as const
 
-/** Коэффициент масштабирования шаблона с текстом внутри фигуры на большом разрешении. */
+/** Scale factor for the template with text inside a shape at high resolution. */
 export const TEMPLATE_SHAPE_TEXT_LARGE_SCALE = Math.min(
   TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION.width / TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION.width,
   TEMPLATE_SHAPE_TEXT_LARGE_RESOLUTION.height / TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION.height
 )
 
-/** Допуск для проверок масштаба текста внутри фигуры после применения шаблона. */
+/** Tolerance for checking the scale of text inside a shape after applying a template. */
 export const TEMPLATE_SHAPE_TEXT_SCALE_TOLERANCE = 1.5
 
 const TEMPLATE_REPLACED_IMAGE_BASE_OBJECT = {
@@ -360,13 +360,13 @@ const TEMPLATE_REPLACED_IMAGE_META = {
   positionsNormalized: true
 } as const
 
-/** Ожидаемый центр исходной квадратной области изображения в координатах montage area. */
+/** Expected center of the original square image area in artboard coordinates. */
 export const TEMPLATE_REPLACED_IMAGE_CENTER = {
   x: 0.5,
   y: 0.4824074074074074
 } as const
 
-/** Размеры монтажной области для проверки заменённой картинки на базовом и изменённом масштабе шаблона. */
+/** Artboard dimensions for testing a replacement image at the template's base and modified scales. */
 export const TEMPLATE_REPLACED_IMAGE_RESOLUTIONS = [
   {
     label: 'уменьшенный размер с теми же пропорциями',
@@ -378,7 +378,7 @@ export const TEMPLATE_REPLACED_IMAGE_RESOLUTIONS = [
   }
 ] as const
 
-/** Шаблоны, где исходная квадратная картинка заменена картинкой с другим соотношением сторон. */
+/** Templates where the original square image is replaced by one with a different aspect ratio. */
 export const TEMPLATE_REPLACED_IMAGE_CASES: {
   label: string
   template: TemplateDefinition
@@ -411,7 +411,7 @@ export const TEMPLATE_REPLACED_IMAGE_CASES: {
   }
 ]
 
-/** Фигура с длинным текстом для проверки сохранения и повторного применения шаблона. */
+/** Shape with long text for testing template saving and reapplication. */
 export const TEMPLATE_SHAPE_LONG_TEXT_OPTIONS = {
   id: 'template-shape-long-text',
   left: 292,
@@ -432,7 +432,7 @@ export const TEMPLATE_SHAPE_LONG_TEXT_OPTIONS = {
   alignV: 'middle'
 } as const
 
-/** Фигура для проверки масштабирования текста внутри шаблона на другом разрешении. */
+/** Shape for testing text scaling inside a template at another resolution. */
 export const TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS = {
   id: 'template-shape-text-scale',
   left: 292,
@@ -453,7 +453,7 @@ export const TEMPLATE_SHAPE_TEXT_SCALE_OPTIONS = {
   alignV: 'middle'
 } as const
 
-/** Полный шаблон product card для e2e-проверок применения готового шаблона. */
+/** Complete product-card template for e2e tests of applying a ready-made template. */
 export const PRODUCT_CARD_TEMPLATE: TemplateDefinition = {
   id: 'template-2',
   meta: {
@@ -1224,22 +1224,22 @@ export const PRODUCT_CARD_TEMPLATE: TemplateDefinition = {
   ]
 }
 
-/** Базовое разрешение для e2e-проверок serializeSelection -> applyTemplate. */
+/** Base resolution for serializeSelection -> applyTemplate e2e tests. */
 export const TEMPLATE_ROUNDTRIP_BASE_RESOLUTION = {
   width: 512,
   height: 512
 } as const
 
-/** Исходный размер изображения для проверки сохранения масштаба в шаблоне. */
+/** Original image dimensions for testing scale preservation in a template. */
 export const TEMPLATE_ROUNDTRIP_IMAGE_SIZE = {
   width: 120,
   height: 99
 } as const
 
-/** Горизонтальный масштаб изображения перед сохранением в шаблон. */
+/** Horizontal image scale before saving to a template. */
 export const TEMPLATE_ROUNDTRIP_IMAGE_SCALE_X = 2.5
 
-/** Исходное изображение для проверки crop после повторного применения шаблона. */
+/** Source image for testing cropping after reapplying a template. */
 export const TEMPLATE_ROUNDTRIP_CROPPED_IMAGE_SOURCE = {
   width: 2000,
   height: 2000,
@@ -1249,25 +1249,25 @@ export const TEMPLATE_ROUNDTRIP_CROPPED_IMAGE_SOURCE = {
   bottomRightFill: '#eab308'
 } as const
 
-/** Размер crop-области, сохраняемой в шаблоне. */
+/** Crop-area dimensions saved in the template. */
 export const TEMPLATE_ROUNDTRIP_IMAGE_CROP_SIZE = {
   width: 858,
   height: 858
 } as const
 
-/** Увеличенное разрешение для проверки нормализованных позиций после roundtrip. */
+/** Increased resolution for testing normalized positions after a round trip. */
 export const TEMPLATE_ROUNDTRIP_EXPANDED_RESOLUTION = {
   width: 768,
   height: 768
 } as const
 
-/** Допуск для проверок позиций после serialize/apply на том же размере. */
+/** Tolerance for position checks after serialize/apply at the same size. */
 export const TEMPLATE_ROUNDTRIP_POSITION_TOLERANCE = 2
 
-/** Допуск для проверок относительных позиций после serialize/apply на другом размере. */
+/** Tolerance for relative-position checks after serialize/apply at another size. */
 export const TEMPLATE_ROUNDTRIP_RELATIVE_TOLERANCE = 0.025
 
-/** Первая фигура для e2e-сценариев с несколькими выделенными объектами. */
+/** First shape for e2e scenarios with multiple selected objects. */
 export const TEMPLATE_ROUNDTRIP_LEFT_SHAPE = {
   id: 'template-roundtrip-left-shape',
   left: 116,
@@ -1277,7 +1277,7 @@ export const TEMPLATE_ROUNDTRIP_LEFT_SHAPE = {
   fill: '#22C55E'
 } as const
 
-/** Вторая фигура для e2e-сценариев с несколькими выделенными объектами. */
+/** Second shape for e2e scenarios with multiple selected objects. */
 export const TEMPLATE_ROUNDTRIP_RIGHT_SHAPE = {
   id: 'template-roundtrip-right-shape',
   left: 305,
@@ -1287,7 +1287,7 @@ export const TEMPLATE_ROUNDTRIP_RIGHT_SHAPE = {
   fill: '#EF4444'
 } as const
 
-/** Фигура для смешанного шаблона из shape и standalone text. */
+/** Shape for a mixed template containing a shape and standalone text. */
 export const TEMPLATE_ROUNDTRIP_MIXED_SHAPE = {
   id: 'template-roundtrip-mixed-shape',
   left: 72,
@@ -1297,7 +1297,7 @@ export const TEMPLATE_ROUNDTRIP_MIXED_SHAPE = {
   fill: '#2563EB'
 } as const
 
-/** Текст для смешанного шаблона из shape и standalone text. */
+/** Text for a mixed template containing a shape and standalone text. */
 export const TEMPLATE_ROUNDTRIP_MIXED_TEXT = {
   id: 'template-roundtrip-mixed-text',
   text: 'Скидка 30%',

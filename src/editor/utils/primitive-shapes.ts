@@ -17,7 +17,7 @@ type PrimitiveShapeFlags = {
 }
 
 /**
- * Центрирует, снапает и при необходимости добавляет примитивный объект на canvas.
+ * Centers, snaps, and optionally adds a primitive object to the canvas.
  */
 function finalizePrimitiveShape<T extends FabricObject>({
   canvas,
@@ -61,7 +61,7 @@ function finalizePrimitiveShape<T extends FabricObject>({
 }
 
 /**
- * Добавляет прямоугольник на canvas или возвращает созданный объект без добавления.
+ * Adds a rectangle to the canvas or returns the created object without adding it.
  */
 export const addRectangleToCanvas = ({
   canvas,
@@ -104,7 +104,7 @@ export const addRectangleToCanvas = ({
 }
 
 /**
- * Добавляет круг на canvas или возвращает созданный объект без добавления.
+ * Adds a circle to the canvas or returns the created object without adding it.
  */
 export const addCircleToCanvas = ({
   canvas,
@@ -145,7 +145,7 @@ export const addCircleToCanvas = ({
 }
 
 /**
- * Добавляет треугольник на canvas или возвращает созданный объект без добавления.
+ * Adds a triangle to the canvas or returns the created object without adding it.
  */
 export const addTriangleToCanvas = ({
   canvas,

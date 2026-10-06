@@ -37,12 +37,12 @@ import type {
 } from '../types'
 
 /**
- * Опции Fabric Group с persisted metadata shape-группы.
+ * Fabric Group options with persisted shape-group metadata.
  */
 type ShapeGroupOptions = ConstructorParameters<typeof Group>[1] & Partial<ShapeGroupMetadata>
 
 /**
- * Сериализованная форма layout manager, которую Fabric кладёт в object payload.
+ * Serialized layout manager representation that Fabric puts in the object payload.
  */
 type SerializedShapeGroupLayoutManager = {
   type: string
@@ -50,7 +50,7 @@ type SerializedShapeGroupLayoutManager = {
 }
 
 /**
- * Сериализованная shape-группа, приходящая из clone/deserialize/history.
+ * Serialized shape group received from clone/deserialize/history.
  */
 interface SerializedShapeGroupObject extends Partial<ShapeGroupMetadata> {
   [key: string]: unknown
@@ -60,19 +60,19 @@ interface SerializedShapeGroupObject extends Partial<ShapeGroupMetadata> {
 }
 
 /**
- * Класс layout strategy, зарегистрированный внутри Fabric classRegistry.
+ * Layout strategy class registered in Fabric's classRegistry.
  */
 type RegisteredLayoutStrategyClass = {
   new(): LayoutStrategy
 }
 
 /**
- * Fabric type для custom shape group object.
+ * Fabric type for a custom shape-group object.
  */
 const SHAPE_GROUP_TYPE = 'shape-group'
 
 /**
- * Сохраняемое shape-состояние, одинаково применяемое при create и update.
+ * Persisted shape state applied identically during create and update.
  */
 export type ShapeGroupMetadataInput = {
   presetKey: string
@@ -92,7 +92,7 @@ export type ShapeGroupMetadataInput = {
 }
 
 /**
- * Применяет к shape-группе полное сохраняемое доменное состояние.
+ * Applies the complete persisted domain state to the shape group.
  */
 export const applyShapeGroupMetadata = ({
   group,
@@ -136,7 +136,7 @@ export const applyShapeGroupMetadata = ({
 }
 
 /**
- * Создаёт временный layout manager без реального layout, используемый только на стадии deserialization.
+ * Creates a temporary layout manager with no actual layout, used only during deserialization.
  */
 function createNoopShapeLayoutManager(): LayoutManager {
   const layoutManager = new LayoutManager()
@@ -147,7 +147,7 @@ function createNoopShapeLayoutManager(): LayoutManager {
 }
 
 /**
- * Восстанавливает layout manager shape-группы из сериализованных данных Fabric.
+ * Restores the shape group's layout manager from serialized Fabric data.
  */
 function resolveShapeGroupLayoutManager({
   layoutManager
@@ -176,13 +176,13 @@ function resolveShapeGroupLayoutManager({
 }
 
 /**
- * Domain-тип composite shape-объекта с собственными runtime-инвариантами.
+ * Domain type for a composite shape object with its own runtime invariants.
  */
 export class ShapeGroupObject extends Group {
   static override type = SHAPE_GROUP_TYPE
 
   /**
-   * Создаёт Fabric Group с shape-specific runtime настройками и восстанавливает инварианты.
+   * Creates a Fabric Group with shape-specific runtime settings and restores its invariants.
    */
   constructor(objects: FabricObject[] = [], options: ShapeGroupOptions = {}) {
     const {
@@ -205,8 +205,8 @@ export class ShapeGroupObject extends Group {
   }
 
   /**
-   * Восстанавливает runtime-инварианты composite shape после create/clone/deserialize,
-   * включая shape-specific corner resize.
+   * Restores composite-shape runtime invariants after create/clone/deserialize,
+   * including shape-specific corner resizing.
    */
   public rehydrateRuntimeState(): void {
     this.set({
@@ -265,7 +265,7 @@ export class ShapeGroupObject extends Group {
   }
 
   /**
-   * Восстанавливает shape-group из сериализованного состояния Fabric.
+   * Restores a shape group from serialized Fabric state.
    */
   public static override async fromObject(
     {
@@ -300,11 +300,11 @@ export class ShapeGroupObject extends Group {
   }
 
   /**
-   * Заменяет внутренний shape-узел группы без пересчёта через матрицу группы.
+   * Replaces the group's inner shape node without recalculating through the group matrix.
    *
-   * Generic Group.remove() + insertAt() здесь использовать нельзя:
-   * createShapeNode() уже возвращает child в локальной системе координат группы,
-   * а insertAt() повторно применил бы обратное преобразование через матрицу группы.
+   * Generic Group.remove() + insertAt() cannot be used here:
+   * createShapeNode() already returns a child in the group's local coordinate system,
+   * and insertAt() would apply the inverse group-matrix transform again.
    */
   public replaceShapeNode(
     index: number,
@@ -321,7 +321,7 @@ export class ShapeGroupObject extends Group {
   }
 
   /**
-   * Гарантирует консистентность производных shape-свойств после materialization.
+   * Ensures that derived shape properties remain consistent after materialization.
    */
   private _syncRoundability(): void {
     if (typeof this.shapeCanRound === 'boolean') return
@@ -336,7 +336,7 @@ export class ShapeGroupObject extends Group {
   }
 
   /**
-   * Сворачивает opacity самой группы во внутренние узлы shape-композиции.
+   * Folds the group's own opacity into the inner nodes of the shape composition.
    */
   private _foldGroupOpacityIntoNodes(): void {
     const groupOpacity = this.opacity
@@ -375,7 +375,7 @@ export class ShapeGroupObject extends Group {
 }
 
 /**
- * Регистрирует shape-group в Fabric classRegistry.
+ * Registers the shape group in Fabric's classRegistry.
  */
 export const registerShapeGroup = (): void => {
   if (classRegistry?.setClass) {

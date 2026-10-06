@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Применение шага расположено перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- Step application precedes internal calculations. */
 import { Point, type TPointerEvent } from 'fabric'
 
 import { getObjectBounds } from '../../utils/geometry'
@@ -18,7 +18,7 @@ import type { CropSession } from '../types'
 import type { CropFrame } from '../domain/crop-frame'
 import { resolveCropScaleUpdatePlan } from './crop-scale-plan'
 
-/** Прежний шаг рамки, геометрия которой пока не поддерживается общей scale-сессией. */
+/** Legacy step for a frame whose geometry is not yet supported by the shared scale session. */
 interface CropFrameScaleSnapStep {
   session: CropSession
   transform: CropSourceBoundTransform
@@ -27,7 +27,7 @@ interface CropFrameScaleSnapStep {
   threshold: number
 }
 
-/** Применяет прежнее прилипание crop, сохраняя неподвижную сторону и без найденной направляющей. */
+/** Applies legacy crop snapping, preserving the fixed side even when no guide is found. */
 export function applyCropFrameScaleSnapping(params: CropFrameScaleSnapStep): GuideLine[] {
   const { session, transform } = params
   const { frame } = session
@@ -53,7 +53,7 @@ export function applyCropFrameScaleSnapping(params: CropFrameScaleSnapStep): Gui
   return plan?.guides ?? []
 }
 
-/** Рассчитывает направляющие прежнего resize без изменения рамки. */
+/** Calculates legacy resize guides without modifying the frame. */
 function resolveCropFrameScalePlan({
   session, transform, event, anchors, threshold
 }: CropFrameScaleSnapStep): ScaleUpdatePlan | null {
@@ -78,7 +78,7 @@ function resolveCropFrameScalePlan({
   })
 }
 
-/** Сохраняет опорную точку рамки в координатах canvas для применения и проверки scale-кандидатов. */
+/** Saves the frame anchor point in canvas coordinates for applying and validating scale candidates. */
 function captureFrameScalePlacement({
   frame, transform
 }: { frame: CropFrame; transform: CropSourceBoundTransform }): ScalingStepPlacementPreserver {

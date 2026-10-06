@@ -87,7 +87,7 @@ const createActiveSelectionObject = ({
 }
 
 /**
- * Регистрирует отдельный набор object/textbox controls и применяет кастомизацию редактора.
+ * Registers a separate set of object/textbox controls and applies editor customizations.
  */
 export const createControlsCustomizerTestSetup = (): ControlsCustomizerTestSetup => {
   const objectControls = createControlCollection()
@@ -108,7 +108,7 @@ export const createControlsCustomizerTestSetup = (): ControlsCustomizerTestSetup
 }
 
 /**
- * Создаёт ActiveSelection и запускает кастомный пересчёт его границ.
+ * Creates an ActiveSelection and triggers custom recalculation of its bounds.
  */
 export const createActiveSelectionScalingRulesTestSetup = ({
   objectKinds

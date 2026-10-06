@@ -10,7 +10,7 @@ import type {
 } from '../types'
 
 /**
- * Scale crop frame, который нужно восстановить вместе с позицией.
+ * Crop frame scale to restore along with its position.
  */
 type CropFrameScaleState = {
   scaleX: number
@@ -18,7 +18,7 @@ type CropFrameScaleState = {
 }
 
 /**
- * Возвращает frame geometry, материализованную из source-rect.
+ * Returns frame geometry materialized from the source rect.
  */
 export function getCropFrameTransformStateFromSourceRect({
   source,
@@ -50,7 +50,7 @@ export function getCropFrameTransformStateFromSourceRect({
 }
 
 /**
- * Возвращает geometry crop frame, достаточную для восстановления live resize.
+ * Returns enough crop frame geometry to restore a live resize.
  */
 export function getCropFrameTransformState({
   frame
@@ -66,7 +66,7 @@ export function getCropFrameTransformState({
 }
 
 /**
- * Восстанавливает geometry crop frame внутри текущей live resize-сессии.
+ * Restores crop frame geometry within the current live resize session.
  */
 export function applyCropFrameTransformState({
   frame,

@@ -3,7 +3,7 @@ import {
   expect
 } from '../../../fixtures/group-moving.fixture'
 
-/** Сложная геометрия группы перед проверкой обычного перемещения. */
+/** Complex group geometry before testing regular movement. */
 const TRANSFORMED_GROUP_OPTIONS = {
   rotatedChildren: true,
   scaleBeforeMove: true,

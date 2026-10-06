@@ -14,12 +14,12 @@ import {
   type ImageScaleSnappingHarness
 } from './image-scale-snapping-controller'
 
-/** Граница входа в прежнюю логику scale, которую проверяет focused spec. */
+/** Entry boundary to the previous scaling logic checked by the focused spec. */
 type LegacyObjectScalingRoute = (input: {
   event: ImageScaleTransformEvent
 }) => unknown
 
-/** Часть внутреннего состояния SnappingManager, необходимая routing-тестам Image scale. */
+/** Part of SnappingManager's internal state needed by image-scaling routing tests. */
 export type ImageScaleRoutingManagerState = {
   activeGuides: GuideLine[]
   activeSpacingGuides: SpacingGuide[]
@@ -29,7 +29,7 @@ export type ImageScaleRoutingManagerState = {
   _handleInteractionCancelled: (event: Event) => void
 }
 
-/** SnappingManager, Image-жест и наблюдаемые границы одного routing-сценария. */
+/** SnappingManager, an image gesture, and observable boundaries for one routing scenario. */
 export type ImageScaleRoutingSetup = Readonly<{
   canvas: ReturnType<typeof createSnappingTestContext>['canvas']
   image: ImageScaleSnappingHarness
@@ -38,7 +38,7 @@ export type ImageScaleRoutingSetup = Readonly<{
   state: ImageScaleRoutingManagerState
 }>
 
-/** Создаёт SnappingManager с реальным Image scale-controller за canvas-событиями. */
+/** Creates a SnappingManager with a real image scale controller behind canvas events. */
 export function createImageScaleRoutingSetup(): ImageScaleRoutingSetup {
   const {
     editor,

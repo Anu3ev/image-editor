@@ -9,7 +9,7 @@ export class ClipboardModel {
     this.page = page
   }
 
-  /** Копирует текущий активный объект во внутренний буфер обмена редактора. */
+  /** Copies the current active object to the editor's internal clipboard. */
   async copy(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -17,7 +17,7 @@ export class ClipboardModel {
     })
   }
 
-  /** Ожидает, пока внутренний буфер обмена редактора будет заполнен. */
+  /** Waits for the editor's internal clipboard to be populated. */
   async waitForClipboardReady(): Promise<void> {
     await this.page.waitForFunction(() => {
       const { editor } = window as any
@@ -25,7 +25,7 @@ export class ClipboardModel {
     })
   }
 
-  /** Вставляет объект из внутреннего буфера обмена редактора. */
+  /** Pastes an object from the editor's internal clipboard. */
   async paste(): Promise<boolean> {
     const pasted = await this.page.evaluate(async() => {
       const { editor } = window as any

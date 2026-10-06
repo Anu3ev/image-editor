@@ -5,7 +5,7 @@ import type {
 } from './types'
 
 /**
- * Возвращает дочерние объекты группы в snapshot-формате.
+ * Returns a group's child objects in snapshot format.
  */
 export function getChildSnapshotObjects({ object }: { object: SnapshotObject }): SnapshotObject[] {
   if (typeof object.getObjects !== 'function') return []
@@ -14,7 +14,7 @@ export function getChildSnapshotObjects({ object }: { object: SnapshotObject }):
 }
 
 /**
- * Проверяет, содержит ли список объектов текст в режиме редактирования.
+ * Checks whether the object list contains text in editing mode.
  */
 export function hasEditingTextInObjects({ objects }: { objects: SnapshotObject[] }): boolean {
   for (let index = 0; index < objects.length; index += 1) {
@@ -28,7 +28,7 @@ export function hasEditingTextInObjects({ objects }: { objects: SnapshotObject[]
 }
 
 /**
- * Проверяет, является ли объект текстовым для целей history snapshot.
+ * Checks whether an object is a text object for history snapshot purposes.
  */
 export function isTextSnapshotObject({ object }: { object: SnapshotObject }): boolean {
   const type = typeof object.type === 'string' ? object.type.toLowerCase() : ''
@@ -39,7 +39,7 @@ export function isTextSnapshotObject({ object }: { object: SnapshotObject }): bo
 }
 
 /**
- * Создаёт снимок интерактивности объекта для последующего восстановления.
+ * Creates a snapshot of an object's interactivity for later restoration.
  */
 export function createSnapshotInteractivityState({
   object,
@@ -63,7 +63,7 @@ export function createSnapshotInteractivityState({
 }
 
 /**
- * Нормализует shape-группу, если внутри неё сейчас редактируется текст.
+ * Normalizes a shape group if text inside it is currently being edited.
  */
 export function normalizeShapeGroupForSnapshot({
   object,
@@ -88,7 +88,7 @@ export function normalizeShapeGroupForSnapshot({
 }
 
 /**
- * Нормализует текст внутри shape-группы во время активного text-edit.
+ * Normalizes text inside a shape group during active text editing.
  */
 export function normalizeEditingShapeTextForSnapshot({
   object,
@@ -120,7 +120,7 @@ export function normalizeEditingShapeTextForSnapshot({
 }
 
 /**
- * Временно снимает lock-свойства у обычного текстового объекта для сериализации snapshot.
+ * Temporarily removes lock properties from a regular text object for snapshot serialization.
  */
 export function normalizeLockedTextObjectForSnapshot({
   object,
@@ -145,7 +145,7 @@ export function normalizeLockedTextObjectForSnapshot({
 }
 
 /**
- * Нормализует интерактивность объектов перед сериализацией snapshot.
+ * Normalizes object interactivity before snapshot serialization.
  */
 export function normalizeSnapshotObjects({
   objects
@@ -180,7 +180,7 @@ export function normalizeSnapshotObjects({
 }
 
 /**
- * Собирает плоский список объектов canvas вместе с дочерними объектами групп.
+ * Builds a flat list of canvas objects including group children.
  */
 export function collectSnapshotObjects({ canvas }: { canvas: SnapshotCanvas }): SnapshotObject[] {
   const queue = [...canvas.getObjects?.() ?? []]
@@ -200,7 +200,7 @@ export function collectSnapshotObjects({ canvas }: { canvas: SnapshotCanvas }): 
 }
 
 /**
- * Восстанавливает интерактивность объектов после завершения snapshot.
+ * Restores object interactivity after the snapshot is complete.
  */
 export function restoreSnapshotInteractivity({
   snapshotStates
@@ -227,7 +227,7 @@ export function restoreSnapshotInteractivity({
 }
 
 /**
- * Выполняет callback с временно нормализованной интерактивностью объектов для history snapshot.
+ * Runs a callback with temporarily normalized object interactivity for a history snapshot.
  */
 export function withNormalizedInteractivityForSnapshot<T>({
   canvas,

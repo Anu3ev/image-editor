@@ -3,8 +3,8 @@ import path from 'path'
 import { analyzer } from 'vite-bundle-analyzer'
 
 /**
- * Конфигурация для сборки библиотеки в продакшн.
- * Сборка библиотеки выполняется в dist.
+ * Configuration for production builds of the library.
+ * The library is built into dist.
  */
 export default defineConfig({
   base: './',
@@ -23,7 +23,7 @@ export default defineConfig({
     },
 
     rollupOptions: {
-      // внешние зависимости – не бандлить их
+      // External dependencies; do not bundle them
       external: ['fabric', 'jspdf', 'jsondiffpatch', 'jsondiffpatch/with-text-diffs']
     },
 

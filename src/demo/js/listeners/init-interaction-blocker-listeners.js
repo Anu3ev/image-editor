@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 /**
- * Инициализирует demo listeners для управления InteractionBlocker через публичный API редактора.
+ * Initializes demo listeners for controlling InteractionBlocker through the editor's public API.
  */
 export default ({ editorInstance, controls }) => {
   const {
@@ -12,7 +12,7 @@ export default ({ editorInstance, controls }) => {
   } = controls
 
   /**
-   * Синхронизирует demo-контролы с текущим состоянием блокировки редактора.
+   * Synchronizes demo controls with the editor's current blocked state.
    */
   const syncInteractionBlockerControls = () => {
     const { isBlocked } = editorInstance.interactionBlocker
@@ -33,7 +33,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на прямое управление блокировкой редактора.
+   * Registers listeners for directly controlling editor blocking.
    */
   const initActionListeners = () => {
     blockEditorBtn?.addEventListener('click', () => {
@@ -50,7 +50,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на публичные события изменения состояния редактора.
+   * Registers listeners for public editor state change events.
    */
   const initStateListeners = () => {
     editorInstance.canvas.on('editor:disabled', syncInteractionBlockerControls)

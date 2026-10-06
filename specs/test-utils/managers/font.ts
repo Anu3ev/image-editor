@@ -4,7 +4,7 @@ import type { EditorFontDefinition } from '../../../src/editor/types/font'
 type FontFaceRegistryEntry = Record<string, unknown>
 
 /**
- * Параметры подготовки test-окружения для FontManager.
+ * Parameters for setting up the FontManager test environment.
  */
 export type FontManagerTestSetupOptions = {
   fonts?: EditorFontDefinition[]
@@ -75,8 +75,8 @@ const removeAppendedNodes = (nodes: Node[]) => {
 }
 
 /**
- * Поднимает FontManager в тестовом окружении вместе с DOM-зависимостями,
- * которые он использует для регистрации шрифтов.
+ * Starts FontManager in the test environment together with the DOM dependencies
+ * it uses to register fonts.
  */
 export const createFontManagerTestSetup = (
   options: FontManagerTestSetupOptions = {}
@@ -118,7 +118,7 @@ export const createFontManagerTestSetup = (
 }
 
 /**
- * Сбрасывает static registry FontManager между тестами.
+ * Resets FontManager's static registry between tests.
  */
 export const resetFontManagerRegistry = () => {
   const registry = Reflect.get(FontManager, 'registeredFontKeys') as Set<string> | undefined

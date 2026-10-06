@@ -1,12 +1,12 @@
 import type { EditorTextbox } from '../types'
 
-/** Размер шрифта и ключ, однозначно определяющий символ или строку. */
+/** Font size and a key uniquely identifying a character or line. */
 type TextScaleFontSizeEntry = Readonly<{
   key: string
   value: number
 }>
 
-/** Канонические свойства текста после одного шага углового скейлинга. */
+/** Canonical text properties after one corner-scaling step. */
 export type TextCornerScaleCanonicalState = Readonly<{
   fontSize: number
   height: number
@@ -26,10 +26,10 @@ export type TextCornerScaleCanonicalState = Readonly<{
   width: number
 }>
 
-/** Допуск сравнения канонических числовых свойств текста. */
+/** Tolerance for comparing canonical numeric text properties. */
 const TEXT_CORNER_SCALE_STATE_EPSILON = 0.0000001
 
-/** Собирает размеры шрифта посимвольных стилей в устойчивом порядке. */
+/** Collects per-character style font sizes in a stable order. */
 function captureInlineFontSizes({
   textbox
 }: {
@@ -51,7 +51,7 @@ function captureInlineFontSizes({
   return Object.freeze(entries.sort((first, second) => first.key.localeCompare(second.key)))
 }
 
-/** Собирает размеры шрифта из настроек строк в устойчивом порядке. */
+/** Collects font sizes from line settings in a stable order. */
 function captureLineFontSizes({
   textbox
 }: {
@@ -69,7 +69,7 @@ function captureLineFontSizes({
   return Object.freeze(entries.sort((first, second) => first.key.localeCompare(second.key)))
 }
 
-/** Снимает фактически применённое каноническое состояние текста. */
+/** Captures the canonical text state actually applied. */
 export function captureTextCornerScaleCanonicalState({
   textbox
 }: {
@@ -95,7 +95,7 @@ export function captureTextCornerScaleCanonicalState({
   })
 }
 
-/** Проверяет два списка размеров шрифта с учётом числовой погрешности. */
+/** Checks two font-size lists, accounting for numeric tolerance. */
 function areFontSizeEntriesEqual({
   actual,
   expected
@@ -111,7 +111,7 @@ function areFontSizeEntriesEqual({
   })
 }
 
-/** Проверяет совпадение измеренного состояния с состоянием текста на холсте. */
+/** Checks that the measured state matches the state of the text on the canvas. */
 export function areTextCornerScaleCanonicalStatesEqual({
   actual,
   expected

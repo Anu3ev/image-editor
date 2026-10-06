@@ -1,7 +1,7 @@
 import { test, expect } from '../../../fixtures/editor.fixture'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Повёрнутый отдельный текст и опорный объект для проверки геометрии перемещения. */
+/** Rotated standalone text and a reference object for testing movement geometry. */
 type TextMovementGeometrySetup = {
   activeTextId: string
   reference: SnappingObjectSnapshot

@@ -7,7 +7,7 @@ import {
   createMovementRawIntent
 } from '../../../../test-utils/snapping/movement-snapping-core'
 
-/** Цель с близкими edge и center guide для проверки runtime hold-state. */
+/** A target with closely spaced edge and center guides for testing runtime hold state. */
 const REFERENCE_SOURCE = {
   id: 'reference',
   bounds: createMovementBounds({

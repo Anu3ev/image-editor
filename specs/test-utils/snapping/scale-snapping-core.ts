@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- экспортируемые функции расположены выше общего расчёта границ. */
+/* eslint-disable no-use-before-define -- Exported functions appear above the shared bounds calculation. */
 import {
   createScaleGestureBaseline,
   type FinalScaleGeometry,
@@ -11,7 +11,7 @@ import type { ScaleSceneEdge } from '../../../src/editor/snapping-manager/scalin
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 
 /**
- * Создаёт начальное состояние для свободного и пропорционального скейлинга.
+ * Creates an initial state for free and proportional scaling.
  */
 export function createScaleBaseline({
   width = 100,
@@ -61,7 +61,7 @@ export function createScaleBaseline({
 }
 
 /**
- * Создаёт направляющую для активной правой или нижней границы.
+ * Creates a guide for the active right or bottom edge.
  */
 export function createScaleCandidate({
   id,
@@ -86,7 +86,7 @@ export function createScaleCandidate({
 }
 
 /**
- * Создаёт неизменяемое намерение скейлинга с явно заданными модификаторами.
+ * Creates immutable scaling intent with explicitly specified modifiers.
  */
 export function createScaleRawIntent({
   projectionMode = 'free',
@@ -107,7 +107,7 @@ export function createScaleRawIntent({
 }
 
 /**
- * Создаёт итоговую точную геометрию по границам и фиксированной точке.
+ * Creates the final exact geometry from bounds and a fixed point.
  */
 export function createFinalScaleGeometry({
   left = 0,
@@ -143,7 +143,7 @@ export function createFinalScaleGeometry({
 }
 
 /**
- * Создаёт точные границы и рассчитывает их центр.
+ * Creates exact bounds and calculates their center.
  */
 export function createScaleBounds({
   left,

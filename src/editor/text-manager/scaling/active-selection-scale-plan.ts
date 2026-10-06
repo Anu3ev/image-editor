@@ -16,7 +16,7 @@ import type {
   ActiveSelectionTextScaleMeasurement
 } from './active-selection-scale-measurer'
 
-/** Источник точных измерений и последнего подтверждённого состояния общего выделения с текстами. */
+/** Source of exact measurements and the last confirmed state of a selection containing text. */
 export type ActiveSelectionTextScaleMeasurementSource = Readonly<{
   getLastConfirmedMeasurement(): ActiveSelectionTextScaleMeasurement | null
   measureValues({
@@ -28,19 +28,19 @@ export type ActiveSelectionTextScaleMeasurementSource = Readonly<{
   }): ActiveSelectionTextScaleMeasurement
 }>
 
-/** Измерение и необязательное уточнение одного плана прилипания. */
+/** Measurement and optional refinement of one snapping plan. */
 export type ResolvedActiveSelectionTextScaleStep = Readonly<{
   measurement: ActiveSelectionTextScaleMeasurement
   refinement: ScaleSnapPlanRefinement | null
 }>
 
-/** Максимальное число уточнений нелинейной геометрии на одном движении указателя. */
+/** Maximum number of nonlinear-geometry refinements per pointer movement. */
 const MAX_ACTIVE_SELECTION_TEXT_SCALE_REFINEMENT_STEPS = 8
 
-/** Допуск повторного измерения одного набора множителей. */
+/** Tolerance for remeasuring one set of multipliers. */
 const ACTIVE_SELECTION_TEXT_SCALE_REFINEMENT_EPSILON = 0.0000001
 
-/** Проверяет достижение одной выбранной направляющей измеренной рамкой. */
+/** Checks whether the measured frame reaches one selected guide. */
 function reachesConstraint({
   constraint,
   measurement,
@@ -56,7 +56,7 @@ function reachesConstraint({
     <= plan.verificationEpsilon
 }
 
-/** Оставляет только реально достигнутые измеренной рамкой направляющие. */
+/** Retains only guides actually reached by the measured frame. */
 function resolveReachedConstraints({
   constraints,
   measurement,
@@ -72,7 +72,7 @@ function resolveReachedConstraints({
   })
 }
 
-/** Проверяет все ограничения, включая сохранение свободной оси указателя. */
+/** Checks all constraints, including preservation of the pointer's unconstrained axis. */
 function reachesProjectionConstraints({
   constraints,
   measurement,
@@ -87,7 +87,7 @@ function reachesProjectionConstraints({
   })
 }
 
-/** Добавляет к направляющим положение второй оси, которое задал указатель. */
+/** Adds the pointer-specified position of the second axis to the guide constraints. */
 function createMeasurementConstraints({
   constraints,
   pointerMeasurement
@@ -114,7 +114,7 @@ function createMeasurementConstraints({
   return Object.freeze(result)
 }
 
-/** Проверяет, что набор множителей ещё не измерялся на текущем шаге. */
+/** Checks that the set of multipliers has not yet been measured in the current step. */
 function areValuesNew({
   measuredValues,
   values
@@ -129,7 +129,7 @@ function areValuesNew({
   })
 }
 
-/** Рассчитывает следующий набор множителей по локальной измеренной проекции. */
+/** Calculates the next set of multipliers from the local measured projection. */
 function resolveNextValues({
   constraints,
   measurement,
@@ -153,7 +153,7 @@ function resolveNextValues({
   return solution ? Object.freeze([...solution.values]) : null
 }
 
-/** Подбирает измерение, достигающее переданного набора направляющих. */
+/** Finds a measurement that reaches the supplied set of guides. */
 function resolveMeasurementForConstraints({
   constraints,
   initialValues,
@@ -192,7 +192,7 @@ function resolveMeasurementForConstraints({
   return null
 }
 
-/** Возвращает направляющие по одной, сохраняя приоритет уже удерживаемой оси. */
+/** Returns guides one at a time, preserving priority for the already held axis. */
 function createSingleConstraintAttempts({
   plan
 }: {
@@ -206,7 +206,7 @@ function createSingleConstraintAttempts({
 
   const attempts: ScaleSnapConstraints[] = []
   const addedAxes = new Set<'x' | 'y'>()
-  /** Добавляет одно ограничение оси, если оно ещё не включено в попытки. */
+  /** Adds one axis constraint if it is not already included in the attempts. */
   const addAxis = (axis: 'x' | 'y', source: ScaleSnapConstraints): void => {
     if (addedAxes.has(axis) || !source[axis]) return
     attempts.push(Object.freeze({
@@ -222,7 +222,7 @@ function createSingleConstraintAttempts({
   return Object.freeze(attempts)
 }
 
-/** Создаёт результат шага с уточнением общего плана по измеренному состоянию. */
+/** Creates a step result with the shared plan refined against the measured state. */
 function createRefinedStep({
   constraints,
   measurement
@@ -240,7 +240,7 @@ function createRefinedStep({
   })
 }
 
-/** Сохраняет подтверждённую геометрию, когда удержание уже определяет пропорциональный размер. */
+/** Preserves confirmed geometry when the held snap already determines the proportional size. */
 function resolveHeldUniformMeasurement({
   measurer,
   mode,
@@ -279,7 +279,7 @@ function resolveHeldUniformMeasurement({
 }
 
 /**
- * Уточняет общий план по фактической геометрии всех детей и сохраняет только достижимые направляющие.
+ * Refines the shared plan using the actual geometry of all children and retains only reachable guides.
  */
 export function resolveActiveSelectionTextScaleStep({
   measurer,

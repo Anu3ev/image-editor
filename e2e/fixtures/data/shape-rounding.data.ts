@@ -1,6 +1,6 @@
 import type { ShapeAddParams } from '../../types'
 
-/** Непропорциональный прямоугольник с ручными размерами для regression-сценариев скругления. */
+/** Non-proportional rectangle with manual dimensions for corner-rounding regression scenarios. */
 export const SHAPE_ROUNDING_MANUAL_SIZE_OPTIONS: NonNullable<ShapeAddParams['options']> = {
   width: 260,
   height: 140,
@@ -12,8 +12,8 @@ export const SHAPE_ROUNDING_MANUAL_SIZE_OPTIONS: NonNullable<ShapeAddParams['opt
   }
 }
 
-/** Новое значение скругления для проверки что изменение не схлопывает фигуру. */
+/** New rounding value for testing that the change does not collapse the shape. */
 export const SHAPE_ROUNDING_UPDATED_VALUE = 28
 
-/** Допуск для сравнения геометрии фигуры до и после изменения скругления. */
+/** Tolerance for comparing shape geometry before and after changing the rounding. */
 export const SHAPE_ROUNDING_SIZE_TOLERANCE = 2

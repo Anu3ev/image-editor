@@ -7,7 +7,7 @@ import {
 import type { TextCornerScaleMeasurement } from '../../../src/editor/text-manager/scaling/text-corner-scale-measurer'
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 
-/** Создаёт точные границы измеренного текста с заданными подвижными гранями. */
+/** Creates exact bounds for the measured text with the specified moving edges. */
 function createBounds({
   bottom = 140,
   right
@@ -28,7 +28,7 @@ function createBounds({
   })
 }
 
-/** Создаёт план, который должен поставить правую грань текста на координату 304. */
+/** Creates a plan that should place the text's right edge at coordinate 304. */
 export function createTextCornerScaleSnapPlan(): ScaleSnapPlan {
   const baseline = createScaleGestureBaseline({
     bounds: createBounds({ right: 300 }),
@@ -63,7 +63,7 @@ export function createTextCornerScaleSnapPlan(): ScaleSnapPlan {
   })
 }
 
-/** Добавляет к тестовому плану потенциальную направляющую для нижней грани. */
+/** Adds a potential bottom-edge guide to the test plan. */
 export function createTextCornerScaleSnapPlanWithSecondAxis(): ScaleSnapPlan {
   const plan = createTextCornerScaleSnapPlan()
   const xConstraint = plan.refinementCandidates.x
@@ -88,7 +88,7 @@ export function createTextCornerScaleSnapPlanWithSecondAxis(): ScaleSnapPlan {
   })
 }
 
-/** Создаёт измерение с заданным множителем и положением подвижных граней. */
+/** Creates a measurement with the specified factor and moving-edge positions. */
 export function createTextCornerScaleMeasurement({
   bottom = 140,
   bottomCoefficient = 100,

@@ -103,12 +103,12 @@ describe('CanvasManager', () => {
 
     describe('getVisibleCenterPoint', () => {
       beforeEach(() => {
-        // Настраиваем стандартные параметры для тестов
+        // Set the default test parameters
         mockCanvas.getWidth.mockReturnValue(800)
         mockCanvas.getHeight.mockReturnValue(600)
 
-        // Монтажная область 400x300 по центру канваса 800x600
-        // left/top = 400/300 (центр)
+        // A 400x300 artboard centered in an 800x600 canvas
+        // left/top = 400/300 (center)
         mockMontageArea.width = 400
         mockMontageArea.height = 300
         mockMontageArea.left = 400
@@ -116,7 +116,7 @@ describe('CanvasManager', () => {
       })
 
       it('возвращает центр вьюпорта, если он находится внутри монтажной области', () => {
-        // Zoom 2, смещение такое, чтобы центр вьюпорта попадал в точку (250, 200)
+        // Zoom 2, with an offset that places the viewport center at (250, 200)
         // CenterX = (CanvasW/2 - vptX) / zoom => 250 = (400 - vptX) / 2 => 500 = 400 - vptX => vptX = -100
         // CenterY = (CanvasH/2 - vptY) / zoom => 200 = (300 - vptY) / 2 => 400 = 300 - vptY => vptY = -100
 
@@ -125,16 +125,16 @@ describe('CanvasManager', () => {
 
         const result = canvasManager.getVisibleCenterPoint()
 
-        // Границы монтажной области:
+        // Artboard bounds:
         // X: [400 - 200, 400 + 200] = [200, 600]
         // Y: [300 - 150, 300 + 150] = [150, 450]
-        // Точка (250, 200) внутри границ
+        // Point (250, 200) is within the bounds
         expect(result.x).toBe(250)
         expect(result.y).toBe(200)
       })
 
       it('ограничивает координаты границами монтажной области (clamping)', () => {
-        // Zoom 1, смещение такое, что центр вьюпорта улетает далеко влево-вверх (-600, -700)
+        // Zoom 1, with an offset that moves the viewport center far up and to the left (-600, -700)
         // CenterX = (400 - 1000) / 1 = -600
         // CenterY = (300 - 1000) / 1 = -700
 
@@ -143,15 +143,15 @@ describe('CanvasManager', () => {
 
         const result = canvasManager.getVisibleCenterPoint()
 
-        // Границы монтажной области: [200, 600] x [150, 450]
-        // Ожидаем привязку к левому верхнему углу монтажной области
+        // Artboard bounds: [200, 600] x [150, 450]
+        // Expect clamping to the artboard's top-left corner
         expect(result.x).toBe(200)
         expect(result.y).toBe(150)
       })
 
       it('возвращает центр монтажной области, если вьюпорт центрирован на ней', () => {
         mockCanvas.getZoom.mockReturnValue(1)
-        // vpt = [1, 0, 0, 1, 0, 0] -> смещения нет
+        // vpt = [1, 0, 0, 1, 0, 0] -> no offset
         // CenterX = 400 / 1 = 400
         // CenterY = 300 / 1 = 300
         mockCanvas.viewportTransform = [1, 0, 0, 1, 0, 0]
@@ -191,13 +191,13 @@ describe('CanvasManager', () => {
     })
 
     it('ограничивает ширину минимальным значением', () => {
-      canvasManager.setResolutionWidth(10) // меньше CANVAS_MIN_WIDTH
+      canvasManager.setResolutionWidth(10) // Less than CANVAS_MIN_WIDTH
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({ width: CANVAS_MIN_WIDTH })
     })
 
     it('ограничивает ширину максимальным значением', () => {
-      canvasManager.setResolutionWidth(10000) // больше CANVAS_MAX_WIDTH
+      canvasManager.setResolutionWidth(10000) // Greater than CANVAS_MAX_WIDTH
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({ width: CANVAS_MAX_WIDTH })
     })
@@ -207,7 +207,7 @@ describe('CanvasManager', () => {
 
       canvasManager.setResolutionWidth(800, { preserveProportional: true })
 
-      // Ожидаемая новая высота: (mockMontageArea.height / mockMontageArea.width) * newWidth
+      // Expected new height: (mockMontageArea.height / mockMontageArea.width) * newWidth
       const expectedHeight = (mockMontageArea.height / mockMontageArea.width) * 800
       expect(setResolutionHeightSpy).toHaveBeenCalledWith(expectedHeight, expect.objectContaining({
         withoutSave: undefined,
@@ -261,7 +261,7 @@ describe('CanvasManager', () => {
 
       canvasManager.setResolutionHeight(600, { preserveProportional: true })
 
-      // Ожидаемая новая ширина: (mockMontageArea.width / mockMontageArea.height) * newHeight
+      // Expected new width: (mockMontageArea.width / mockMontageArea.height) * newHeight
       const expectedWidth = (mockMontageArea.width / mockMontageArea.height) * 600
       expect(setResolutionWidthSpy).toHaveBeenCalledWith(expectedWidth, expect.objectContaining({
         withoutSave: undefined,
@@ -270,13 +270,13 @@ describe('CanvasManager', () => {
     })
 
     it('ограничивает высоту минимальным значением', () => {
-      canvasManager.setResolutionHeight(10) // меньше CANVAS_MIN_HEIGHT
+      canvasManager.setResolutionHeight(10) // Less than CANVAS_MIN_HEIGHT
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({ height: CANVAS_MIN_HEIGHT })
     })
 
     it('ограничивает высоту максимальным значением', () => {
-      canvasManager.setResolutionHeight(10000) // больше CANVAS_MAX_HEIGHT
+      canvasManager.setResolutionHeight(10000) // Greater than CANVAS_MAX_HEIGHT
 
       expect(mockMontageArea.set).toHaveBeenCalledWith({ height: CANVAS_MAX_HEIGHT })
     })
@@ -483,7 +483,7 @@ describe('CanvasManager', () => {
     })
 
     it('ограничивает размеры минимальными и максимальными значениями', () => {
-      // Симулируем очень маленький контейнер
+      // Simulate a very small container
       Object.defineProperty(mockContainer, 'clientWidth', { value: 10 })
       Object.defineProperty(mockContainer, 'clientHeight', { value: 10 })
 

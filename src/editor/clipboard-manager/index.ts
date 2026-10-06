@@ -5,7 +5,7 @@ import { ImageEditor } from '../index'
 import type { ImportImageOptions } from '../image-manager'
 import { materializeObjectIdentity } from '../utils/object-identity'
 
-/** Точная геометрия одного объекта до внутренней сериализации Fabric при clone. */
+/** Exact geometry of one object before Fabric's internal serialization during clone. */
 type CloneGeometrySnapshot = Readonly<{
   angle: number
   childCount: number
@@ -22,18 +22,18 @@ type CloneGeometrySnapshot = Readonly<{
 
 export default class ClipboardManager {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageEditor
 
   /**
-   * Содержит объект, скопированный в буфер обмена.
+   * Contains the object copied to the clipboard.
    */
   public clipboard: ActiveSelection | FabricObject | null
 
   /**
    * @param options
-   * @param options.editor - экземпляр редактора с доступом к canvas
+   * @param options.editor - Editor instance with access to the canvas
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -41,7 +41,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Запускает копирование активного объекта во внутренний и системный буфер.
+   * Starts copying the active object to the internal and system clipboards.
    * @fires editor:object-copied
    */
   public copy(): void {
@@ -55,7 +55,7 @@ export default class ClipboardManager {
     })
   }
 
-  /** Клонирует объект без потери точности геометрии и даёт внешнему коду подготовить клон. */
+  /** Clones an object without losing geometry precision and lets external code prepare the clone. */
   private async _cloneObject({ object }: { object: FabricObject }): Promise<FabricObject> {
     const geometry = this._captureCloneGeometry({ object })
     const clonedObject = await object.clone(CLIPBOARD_CLONE_OBJECT_KEYS)
@@ -68,7 +68,7 @@ export default class ClipboardManager {
     return clonedObject
   }
 
-  /** Сохраняет точную геометрию корня и вложенных объектов до вызова Fabric clone. */
+  /** Saves the exact geometry of the root and nested objects before calling Fabric clone. */
   private _captureCloneGeometry({ object }: { object: FabricObject }): CloneGeometrySnapshot[] {
     const objects = [object]
     const geometry: CloneGeometrySnapshot[] = []
@@ -97,7 +97,7 @@ export default class ClipboardManager {
     return geometry
   }
 
-  /** Восстанавливает значения, округлённые внутренней сериализацией Fabric при clone. */
+  /** Restores values rounded by Fabric's internal serialization during clone. */
   private _restoreCloneGeometry({
     clonedObject,
     geometry
@@ -122,7 +122,7 @@ export default class ClipboardManager {
         strokeWidth: snapshot.strokeWidth,
         top: snapshot.top
       })
-      // Textbox пересчитывает высоту при set({ width }), поэтому точные размеры возвращаются последними.
+      // Textbox recalculates height on set({ width }), so the exact dimensions are restored last.
       clone.width = snapshot.width
       clone.height = snapshot.height
       clone.dirty = true
@@ -143,7 +143,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Отделяет customData клона от исходного объекта перед внешней подготовкой.
+   * Detaches the clone's customData from the original object before external preparation.
    */
   private _detachObjectCustomData({ object }: { object: FabricObject }): void {
     const { customData } = object
@@ -154,7 +154,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Подготавливает корневой клон и все вложенные объекты без знания их доменной роли.
+   * Prepares the root clone and all nested objects without knowing their domain role.
    */
   private _prepareObjectClone({ clonedObject }: { clonedObject: FabricObject }): void {
     const { prepareObjectClone } = this.editor.options
@@ -177,7 +177,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Клонирует объект, сохраняет его во внутренний буфер и запускает системное копирование.
+   * Clones the object, saves it to the internal clipboard, and starts copying it to the system clipboard.
    */
   private async _copyObjectToClipboard({
     object,
@@ -217,7 +217,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Фоновое копирование объекта в системный буфер без блокировки действия пользователя.
+   * Copies the object to the system clipboard in the background without blocking the user's action.
    */
   private _copyToSystemClipboardInBackground({
     object,
@@ -238,7 +238,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Копирование в системный буфер обмена
+   * Copy to the system clipboard
    */
   private async _copyToSystemClipboard(activeObject: FabricObject): Promise<boolean> {
     const { errorManager } = this.editor
@@ -254,16 +254,16 @@ export default class ClipboardManager {
     }
 
     try {
-      // Готовим данные для копирования
+      // Prepare the data to copy
       const objectData = activeObject.toObject(CLIPBOARD_CLONE_OBJECT_KEYS)
       const jsonString = JSON.stringify(objectData)
 
-      // Для изображений пытаемся скопировать как изображение
+      // For images, try to copy as an image
       if (activeObject.type === 'image') {
         return this._copyImageToClipboard(activeObject, jsonString)
       }
 
-      // Для других объектов копируем как текст
+      // For other objects, copy as text
       return this._copyTextToClipboard(jsonString)
     } catch (error) {
       errorManager.emitError({
@@ -278,11 +278,11 @@ export default class ClipboardManager {
   }
 
   /**
-   * Копирование изображения в буфер обмена
+   * Copy an image to the clipboard
    */
   private async _copyImageToClipboard(imageObject: FabricObject, fallbackText: string): Promise<boolean> {
     try {
-      // Создаем canvas элемент синхронно
+      // Create the canvas element synchronously
       const el = imageObject.toCanvasElement({ enableRetinaScaling: false })
       const dataUrl = el.toDataURL()
       const mime = dataUrl.slice(5).split(';')[0]
@@ -309,13 +309,13 @@ export default class ClipboardManager {
         data: error as object
       })
 
-      // Fallback к текстовому копированию при ошибке
+      // Fall back to copying text on error
       return this._copyTextToClipboard(fallbackText)
     }
   }
 
   /**
-   * Копирование текста в буфер обмена
+   * Copy text to the clipboard
    */
   private async _copyTextToClipboard(jsonString: string): Promise<boolean> {
     try {
@@ -338,8 +338,8 @@ export default class ClipboardManager {
   }
 
   /**
-   * Добавляет клонированный объект на canvas с учетом типа объекта
-   * @param clonedObject - клонированный объект для добавления
+   * Adds a cloned object to the canvas according to its type
+   * @param clonedObject - Cloned object to add
    */
   private _addClonedObjectToCanvas(clonedObject: FabricObject): void {
     const { canvas, historyManager } = this.editor
@@ -366,7 +366,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Материализует clone в каноническую геометрию до добавления на canvas и в internal clipboard.
+   * Materializes the clone in canonical geometry before adding it to the canvas and internal clipboard.
    */
   private _materializeCloneGeometry({ clonedObject }: { clonedObject: FabricObject }): void {
     const {
@@ -396,8 +396,8 @@ export default class ClipboardManager {
   }
 
   /**
-   * Обработка импорта изображения из буфера обмена
-   * @param source - источник изображения (data URL или URL)
+   * Handle image import from the clipboard
+   * @param source - Image source (data URL or URL)
    */
   private async _handleImageImport(source: string): Promise<void> {
     const { canvas, errorManager } = this.editor
@@ -464,7 +464,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Импорт изображения из внешнего буфера обмена
+   * Import an image from the external clipboard
    */
   private async _importExternalImage({
     source,
@@ -494,8 +494,8 @@ export default class ClipboardManager {
   }
 
   /**
-   * Создать копию объекта - копирует и сразу вставляет
-   * @param objectToCopy - объект для копирования (если не указан, используется активный объект)
+   * Create a duplicate of an object: copy and immediately paste it
+   * @param objectToCopy - Object to copy (uses the active object if omitted)
    * @fires editor:object-copied
    * @fires editor:object-pasted
    */
@@ -506,7 +506,7 @@ export default class ClipboardManager {
     if (!targetObject || targetObject.locked) return false
 
     try {
-      // Используем асинхронное клонирование для корректной работы с SVG и сложными объектами
+      // Use asynchronous cloning to handle SVG and complex objects correctly
       const clonedObject = await this._cloneObject({ object: targetObject })
 
       materializeObjectIdentity({
@@ -522,7 +522,7 @@ export default class ClipboardManager {
         clonedObject
       })
 
-      // Добавляем на canvas
+      // Add to the canvas
       this._addClonedObjectToCanvas(clonedObject)
 
       canvas.fire('editor:object-duplicated', {
@@ -545,7 +545,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Вырезает активный объект: сначала копирует во внутренний буфер, затем удаляет с canvas.
+   * Cuts the active object: first copies it to the internal clipboard, then removes it from the canvas.
    */
   public async cut(): Promise<boolean> {
     const { canvas, deletionManager, errorManager } = this.editor
@@ -601,7 +601,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Собирает объект, который должен попасть в буфер при вырезании.
+   * Builds the object to place on the clipboard when cutting.
    */
   private _createCutSourceObject({
     activeObject,
@@ -621,10 +621,10 @@ export default class ClipboardManager {
   }
 
   /**
-   * Обработчик вставки объекта или изображения из буфера обмена.
-   * @param event — объект события
-   * @param event.clipboardData — данные из буфера обмена
-   * @param event.clipboardData.items — элементы буфера обмена
+   * Handler for pasting an object or image from the clipboard.
+   * @param event — Event object
+   * @param event.clipboardData — Clipboard data
+   * @param event.clipboardData.items — Clipboard items
    */
   public async handlePasteEvent({ clipboardData }: ClipboardEvent): Promise<void> {
     if (!clipboardData?.items?.length) {
@@ -632,10 +632,10 @@ export default class ClipboardManager {
       return
     }
 
-    // Сначала проверяем наличие текстовых данных с объектами редактора
+    // First check for text data containing editor objects
     const textData = clipboardData.getData('text/plain')
     if (textData && textData.startsWith(CLIPBOARD_DATA_PREFIX)) {
-      // Если в системном буфере есть данные редактора, используем внутренний буфер
+      // If the system clipboard contains editor data, use the internal clipboard
       this.paste()
       return
     }
@@ -644,7 +644,7 @@ export default class ClipboardManager {
     const lastItem = items[items.length - 1]
     const blob = lastItem.getAsFile()
 
-    // Если в буфере обмена есть изображение, то получаем и вставляем его
+    // If the clipboard contains an image, retrieve and paste it
     if (lastItem.type !== 'text/html' && blob) {
       const reader = new FileReader()
       reader.onload = (f) => {
@@ -665,7 +665,7 @@ export default class ClipboardManager {
       return
     }
 
-    // Если в буфере text/html c тегом img, то получаем и вставляем его
+    // If the clipboard contains text/html with an img tag, retrieve and paste it
     const htmlData = clipboardData.getData('text/html')
 
     if (htmlData) {
@@ -692,7 +692,7 @@ export default class ClipboardManager {
   }
 
   /**
-   * Вставка объекта из внутреннего буфера
+   * Paste an object from the internal clipboard
    * @fires editor:object-pasted
    */
   public async paste(): Promise<boolean> {
@@ -701,7 +701,7 @@ export default class ClipboardManager {
     if (!this.clipboard) return false
 
     try {
-      // Клонируем объект асинхронно (правильно для всех типов объектов)
+      // Clone the object asynchronously (correct for all object types)
       const clonedObj = await this._cloneObject({ object: this.clipboard })
 
       canvas.discardActiveObject()
@@ -719,7 +719,7 @@ export default class ClipboardManager {
         clonedObject: clonedObj
       })
 
-      // Добавляем клонированный объект на canvas
+      // Add the cloned object to the canvas
       this._addClonedObjectToCanvas(clonedObj)
 
       canvas.fire('editor:object-pasted', {

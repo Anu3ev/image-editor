@@ -4,14 +4,14 @@ import type {
 } from './types'
 
 /**
- * Делает глубокую копию состояния canvas.
+ * Creates a deep copy of the canvas state.
  */
 export function cloneState({ state }: { state: CanvasFullState }): CanvasFullState {
   return JSON.parse(JSON.stringify(state)) as CanvasFullState
 }
 
 /**
- * Нормализует значение для стабильной сериализации.
+ * Normalizes a value for stable serialization.
  */
 function normalizeStableValue({ value }: { value: unknown }): unknown {
   if (Array.isArray(value)) {
@@ -42,7 +42,7 @@ function normalizeStableValue({ value }: { value: unknown }): unknown {
 }
 
 /**
- * Делает устойчивую сериализацию значения с сортировкой ключей объектов.
+ * Serializes a value deterministically with sorted object keys.
  */
 export function stableStringify({ value }: { value: unknown }): string {
   const normalizedValue = normalizeStableValue({ value })
@@ -50,7 +50,7 @@ export function stableStringify({ value }: { value: unknown }): string {
 }
 
 /**
- * Проверяет, равны ли два состояния после нормализации.
+ * Checks whether two states are equal after normalization.
  */
 export function areStatesEqual({
   prevState,
@@ -66,7 +66,7 @@ export function areStatesEqual({
 }
 
 /**
- * Находит объект по id в массиве объектов canvas.
+ * Finds an object by id in the canvas object array.
  */
 export function getObjectById({
   objects,
@@ -84,7 +84,7 @@ export function getObjectById({
 }
 
 /**
- * Возвращает размеры монтажной области из списка объектов.
+ * Returns the artboard dimensions from the object list.
  */
 export function getMontageAreaSize({
   objects
@@ -104,7 +104,7 @@ export function getMontageAreaSize({
 }
 
 /**
- * Собирает плоский список объектов состояния, включая вложенные объекты групп.
+ * Builds a flat list of state objects, including nested group objects.
  */
 export function collectNestedCanvasObjects({ objects }: { objects: CanvasStateObject[] }): CanvasStateObject[] {
   const collectedObjects: CanvasStateObject[] = []
@@ -125,7 +125,7 @@ export function collectNestedCanvasObjects({ objects }: { objects: CanvasStateOb
 }
 
 /**
- * Нормализует backgroundColor у текстовых объектов без фона, чтобы избежать шумовых diff.
+ * Normalizes backgroundColor on text objects without a background to avoid noisy diffs.
  */
 export function normalizeTextBackground({ objects }: { objects: CanvasStateObject[] }): void {
   const allObjects = collectNestedCanvasObjects({ objects })
@@ -154,7 +154,7 @@ export function normalizeTextBackground({ objects }: { objects: CanvasStateObjec
 }
 
 /**
- * Игнорирует изменения размеров canvas, если размер монтажной области не менялся.
+ * Ignores canvas dimension changes if the artboard size has not changed.
  */
 export function normalizeCanvasSize({
   prevState,
@@ -184,8 +184,8 @@ export function normalizeCanvasSize({
 }
 
 /**
- * Подготавливает состояния для расчёта diff: нормализует только технический шум,
- * который не относится к persisted scene state.
+ * Prepares states for diff calculation: normalizes only technical noise
+ * that is unrelated to persisted scene state.
  */
 export function prepareStatesForDiff({
   prevState,

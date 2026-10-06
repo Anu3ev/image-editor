@@ -32,7 +32,7 @@ import type ShapeScalingController from './shape-scaling-controller'
 import type { ShapeScalingPointerEvent } from './shape-scaling-layout'
 import { stabilizeShapeScaleMultipliers } from './shape-scale-stabilization'
 
-/** Данные события, необходимые для scale одиночного Shape. */
+/** Event data required to scale a single Shape. */
 export type ShapeScaleInteractionEvent = Readonly<{
   target?: FabricObject | null
   e?: ShapeScalingPointerEvent | null
@@ -41,7 +41,7 @@ export type ShapeScaleInteractionEvent = Readonly<{
   scenePoint?: RectangularScalePoint
 }>
 
-/** Свойства Shape, которые должны оставаться неизменными во время scale. */
+/** Shape properties that must remain unchanged during scaling. */
 type ShapeScaleProtectedState = Readonly<{
   angle: number
   controlKey: string
@@ -53,14 +53,14 @@ type ShapeScaleProtectedState = Readonly<{
   skewY: number
 }>
 
-/** Проверенные данные Fabric для поддерживаемого scale-жеста. */
+/** Validated Fabric data for a supported scale gesture. */
 type ShapeScaleGesture = Readonly<{
   target: ShapeGroup
   transform: Transform
   projectionTransform: RectangularScaleGestureTransform
 }>
 
-/** Данные активного scale-жеста одиночного Shape. */
+/** Data for the active scale gesture of a single Shape. */
 type ShapeScaleInteractionSession = Readonly<{
   target: ShapeGroup
   transform: Transform
@@ -69,13 +69,13 @@ type ShapeScaleInteractionSession = Readonly<{
   protectedState: ShapeScaleProtectedState
 }>
 
-/** Событие, из которого берётся текущая координата указателя. */
+/** Event supplying the current pointer coordinate. */
 type ShapeScalePointSource = 'object-scaling' | 'mouse-move'
 
-/** Допуск при сравнении scale и свойств Shape. */
+/** Tolerance for comparing scale and Shape properties. */
 const SHAPE_SCALE_STATE_EPSILON = 0.000000001
 
-/** Проверяет доменные и affine-ограничения нового Shape scale owner. */
+/** Checks the domain and affine constraints of the new Shape scale owner. */
 function isSupportedShapeScaleTarget(target: FabricObject): target is ShapeGroup {
   if (!isShapeGroup(target) || target.group) return false
   if (Boolean(target.flipX) || Boolean(target.flipY)) return false
@@ -90,7 +90,7 @@ function isSupportedShapeScaleTarget(target: FabricObject): target is ShapeGroup
     && Math.abs(skewY) <= SHAPE_SCALE_STATE_EPSILON
 }
 
-/** Проверяет Fabric transform и возвращает данные scale-жеста Shape. */
+/** Checks the Fabric transform and returns Shape scale-gesture data. */
 function resolveShapeScaleGesture({
   event
 }: {
@@ -122,7 +122,7 @@ function resolveShapeScaleGesture({
   })
 }
 
-/** Запоминает свойства Shape, которые scale не должен менять. */
+/** Captures Shape properties that scaling must not change. */
 function captureShapeState({
   target,
   transform
@@ -142,7 +142,7 @@ function captureShapeState({
   })
 }
 
-/** Выбирает режим scale по ручке и нажатому Shift. */
+/** Selects the scale mode based on the handle and whether Shift is pressed. */
 function resolveScaleMode({
   projection,
   pointerEvent
@@ -156,7 +156,7 @@ function resolveScaleMode({
   return 'shiftKey' in pointerEvent && pointerEvent.shiftKey ? 'free' : 'uniform'
 }
 
-/** Читает модификаторы текущего события указателя. */
+/** Reads modifier keys from the current pointer event. */
 function readScaleModifiers({ event }: { event: ShapeScalingPointerEvent }): ScaleRawIntent['modifiers'] {
   return Object.freeze({
     ctrlKey: 'ctrlKey' in event && event.ctrlKey === true,
@@ -164,7 +164,7 @@ function readScaleModifiers({ event }: { event: ShapeScalingPointerEvent }): Sca
   })
 }
 
-/** Возвращает грани, зафиксированные на guide. */
+/** Returns edges locked to a guide. */
 function resolveSnappedEdges({ plan }: { plan: ScaleSnapPlan }): readonly ScaleSceneEdge[] {
   const edges = new Set<ScaleSceneEdge>()
   if (plan.constraints.x) edges.add(plan.constraints.x.candidate.edge)
@@ -173,7 +173,7 @@ function resolveSnappedEdges({ plan }: { plan: ScaleSnapPlan }): readonly ScaleS
   return Object.freeze([...edges])
 }
 
-/** Проверяет, что грань Shape действительно дошла до guide. */
+/** Checks that a Shape edge has actually reached the guide. */
 function didReachGuide({
   constraint,
   bounds,
@@ -188,7 +188,7 @@ function didReachGuide({
   return Math.abs(bounds[constraint.candidate.edge] - constraint.expectedPosition) <= epsilon
 }
 
-/** Проверяет, что Fabric не переключил текущий scale на другое преобразование. */
+/** Checks that Fabric has not switched the current scaling to another transform. */
 function isSameScaleGesture({ session }: { session: ShapeScaleInteractionSession }): boolean {
   const { target, protectedState } = session
 
@@ -202,7 +202,7 @@ function isSameScaleGesture({ session }: { session: ShapeScaleInteractionSession
     && session.transform.originY === protectedState.originY
 }
 
-/** Проверяет, что модификатор переключил боковую ручку со scale на skew. */
+/** Checks whether a modifier switched the side handle from scaling to skewing. */
 function isSideSkewStep({
   session,
   pointerEvent
@@ -220,7 +220,7 @@ function isSideSkewStep({
   return Reflect.get(pointerEvent, altActionKey) === true
 }
 
-/** Проверяет свойства Shape и оси, которые текущая ручка не должна менять. */
+/** Checks Shape properties and axes that the current handle must not change. */
 function isShapeStatePreserved({
   session,
   mode,
@@ -239,19 +239,19 @@ function isShapeStatePreserved({
 }
 
 /**
- * Рассчитывает snapping, применяет scale к Shape и проверяет получившуюся геометрию.
+ * Calculates snapping, applies scale to the Shape, and validates the resulting geometry.
  */
 export default class ShapeScaleInteractionController {
-  /** Редактор, из которого берутся canvas и SnappingManager. */
+  /** Editor providing the canvas and SnappingManager. */
   private readonly editor: ImageEditor
 
-  /** Контроллер, который обновляет размеры и внутренний layout Shape. */
+  /** Controller that updates the Shape's dimensions and internal layout. */
   private readonly scalingController: ShapeScalingController
 
-  /** Текущий scale-жест или null, если этот сценарий остаётся на прежней обработке. */
+  /** Current scale gesture, or null if this case remains on the previous handling path. */
   private session: ShapeScaleInteractionSession | null = null
 
-  /** Принимает зависимости, необходимые для обработки scale. */
+  /** Accepts the dependencies required to handle scaling. */
   constructor({
     editor,
     scalingController
@@ -263,7 +263,7 @@ export default class ShapeScaleInteractionController {
     this.scalingController = scalingController
   }
 
-  /** Запоминает исходную геометрию поддерживаемого scale-жеста Shape. */
+  /** Captures the original geometry of a supported Shape scale gesture. */
   public beginGesture(event: ShapeScaleInteractionEvent): boolean {
     this.finishGesture()
 
@@ -292,17 +292,17 @@ export default class ShapeScaleInteractionController {
     return true
   }
 
-  /** Обрабатывает object:scaling до общего обработчика остальных типов объектов. */
+  /** Handles object:scaling before the shared handler for other object types. */
   public handleObjectScaling(event: ShapeScaleInteractionEvent): boolean {
     return this._handleScale({ event, pointSource: 'object-scaling' })
   }
 
-  /** Обрабатывает mouse:move, если Fabric не отправил object:scaling. */
+  /** Handles mouse:move if Fabric did not emit object:scaling. */
   public handleCanvasMouseMove(event: ShapeScaleInteractionEvent): boolean {
     return this._handleScale({ event, pointSource: 'mouse-move' })
   }
 
-  /** Завершает scale-жест и при необходимости очищает состояние Shape. */
+  /** Ends the scale gesture and clears Shape state if necessary. */
   public finishGesture({
     continueWithExistingScaling = false
   }: {
@@ -321,7 +321,7 @@ export default class ShapeScaleInteractionController {
     }
   }
 
-  /** Завершает scale-жест, если с canvas удалён его Shape. */
+  /** Ends the scale gesture if its Shape was removed from the canvas. */
   public finishGestureForTarget({ target }: { target: FabricObject }): boolean {
     if (!this.session || this.session.target !== target) return false
 
@@ -330,7 +330,7 @@ export default class ShapeScaleInteractionController {
     return true
   }
 
-  /** Завершает Fabric transform после отмены события указателя. */
+  /** Finalizes the Fabric transform after a pointer event is canceled. */
   public interruptGesture({ event }: { event?: PointerEvent | TouchEvent } = {}): boolean {
     if (!this.session) return false
 
@@ -343,12 +343,12 @@ export default class ShapeScaleInteractionController {
     return true
   }
 
-  /** Очищает данные scale-жеста при уничтожении ShapeManager. */
+  /** Clears scale-gesture data when ShapeManager is destroyed. */
   public destroy(): void {
     this.finishGesture()
   }
 
-  /** Обрабатывает одну новую координату указателя без повторного изменения Shape. */
+  /** Handles one new pointer coordinate without modifying the Shape twice. */
   private _handleScale({
     event,
     pointSource
@@ -384,7 +384,7 @@ export default class ShapeScaleInteractionController {
     return this._applyScale({ event, pointerEvent, session, mode, rawMultipliers })
   }
 
-  /** Проверяет, что событие относится к текущему Shape и Fabric transform. */
+  /** Checks that the event belongs to the current Shape and Fabric transform. */
   private _belongsToCurrentGesture({
     event,
     session
@@ -398,7 +398,7 @@ export default class ShapeScaleInteractionController {
     return true
   }
 
-  /** Рассчитывает snapping и ровно один раз применяет scale к Shape. */
+  /** Calculates snapping and applies scale to the Shape exactly once. */
   private _applyScale({
     event,
     pointerEvent,
@@ -450,7 +450,7 @@ export default class ShapeScaleInteractionController {
     }
   }
 
-  /** Применяет рассчитанный scale и обновляет внутренний layout Shape. */
+  /** Applies the calculated scale and updates the Shape's internal layout. */
   private _applyScaleToShape({
     event,
     session,
@@ -486,7 +486,7 @@ export default class ShapeScaleInteractionController {
     if (scaleChanged) transform.actionPerformed = true
   }
 
-  /** Читает геометрию Shape после применения scale. */
+  /** Reads Shape geometry after applying scale. */
   private _readAppliedGeometry({
     session,
     plan,
@@ -527,7 +527,7 @@ export default class ShapeScaleInteractionController {
     })
   }
 
-  /** Читает применённые множители относительно scale в начале жеста. */
+  /** Reads the applied multipliers relative to the scale at gesture start. */
   private _readAppliedMultipliers({
     session
   }: {
@@ -541,14 +541,14 @@ export default class ShapeScaleInteractionController {
     })
   }
 
-  /** Завершает новый snapping и передаёт жест существующему обработчику scale. */
+  /** Ends the new snapping flow and hands the gesture to the existing scale handler. */
   private _continueWithExistingScaling(): false {
     this.finishGesture({ continueWithExistingScaling: true })
 
     return false
   }
 
-  /** Завершает scale, не запуская его поверх другого преобразования Fabric. */
+  /** Ends scaling without running it over another Fabric transform. */
   private _finishBeforeAnotherTransform(): true {
     this.finishGesture()
 

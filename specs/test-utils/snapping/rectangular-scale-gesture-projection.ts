@@ -16,7 +16,7 @@ import type {
 import type { ScaleSnapEnvironment } from '../../../src/editor/snapping-manager/scaling/scale-snap-candidates'
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 
-/** Параметры тестовой геометрии одного прямоугольного scale-жеста. */
+/** Test geometry parameters for one rectangular scaling gesture. */
 export type RectangularScaleProjectionFixtureOptions = Readonly<{
   controlKey: RectangularScaleControlKey
   angle?: number
@@ -29,7 +29,7 @@ export type RectangularScaleProjectionFixtureOptions = Readonly<{
   originalScaleY?: number
 }>
 
-/** Полный набор исходной геометрии для тестов расчёта скейлинга. */
+/** Full set of initial geometry for scaling calculation tests. */
 export type RectangularScaleProjectionFixture = Readonly<{
   target: FabricObject
   transform: RectangularScaleGestureTransform
@@ -49,13 +49,13 @@ export type RectangularScaleProjectionFixture = Readonly<{
   getCoordsMock: jest.Mock<Point[], []>
 }>
 
-/** Один сценарий ручки и угла поворота для параметризованных тестов. */
+/** One handle-and-rotation-angle scenario for parameterized tests. */
 export type RectangularScaleControlRotationCase = Readonly<{
   controlKey: RectangularScaleControlKey
   angle: number
 }>
 
-/** Исходная геометрия прямоугольного объекта до начала скейлинга. */
+/** Initial geometry of the rectangular object before scaling starts. */
 type RectangularScaleSourceGeometry = Readonly<{
   topLeft: RectangularScalePoint
   u: RectangularScalePoint
@@ -66,7 +66,7 @@ type RectangularScaleSourceGeometry = Readonly<{
   }>
 }>
 
-/** Минимальный контракт тестового окружения для установки направляющей. */
+/** Minimal test environment contract for setting a guide. */
 type RectangularScaleGuideHarness = Readonly<{
   baselineBounds: ObjectBounds
   captureEnvironmentMock: jest.MockedFunction<
@@ -74,21 +74,21 @@ type RectangularScaleGuideHarness = Readonly<{
   >
 }>
 
-/** Векторы локальных осей прямоугольника в текущем масштабе. */
+/** Vectors of the rectangle's local axes at the current scale. */
 type RectangularScaleBasis = Readonly<{
   u: RectangularScalePoint
   v: RectangularScalePoint
 }>
 
-/** Все восемь ручек прямоугольного скейлинга. */
+/** All eight rectangular scaling handles. */
 export const RECTANGULAR_SCALE_CONTROL_KEYS: readonly RectangularScaleControlKey[] = Object.freeze([
   'tl', 'tr', 'bl', 'br', 'ml', 'mr', 'mt', 'mb'
 ])
 
-/** Набор углов для объектов без поворота и повёрнутых объектов. */
+/** Set of angles for unrotated and rotated objects. */
 export const RECTANGULAR_SCALE_TEST_ANGLES: readonly number[] = Object.freeze([0, 30, 90])
 
-/** Все сочетания восьми ручек и трёх углов. */
+/** All combinations of eight handles and three angles. */
 export const RECTANGULAR_SCALE_CONTROL_ROTATION_CASES: readonly RectangularScaleControlRotationCase[] = Object.freeze(
   RECTANGULAR_SCALE_CONTROL_KEYS.reduce<RectangularScaleControlRotationCase[]>((cases, controlKey) => {
     RECTANGULAR_SCALE_TEST_ANGLES.forEach((angle) => {
@@ -99,7 +99,7 @@ export const RECTANGULAR_SCALE_CONTROL_ROTATION_CASES: readonly RectangularScale
   }, [])
 )
 
-/** Нормализованные локальные координаты ручек скейлинга. */
+/** Normalized local coordinates of scaling handles. */
 const CONTROL_COORDINATES: Readonly<Record<RectangularScaleControlKey, RectangularScalePoint>> = Object.freeze({
   tl: Object.freeze({ x: 0, y: 0 }),
   tr: Object.freeze({ x: 1, y: 0 }),
@@ -111,10 +111,10 @@ const CONTROL_COORDINATES: Readonly<Record<RectangularScaleControlKey, Rectangul
   mb: Object.freeze({ x: 0.5, y: 1 })
 })
 
-/** Постоянное смещение указателя относительно центра ручки. */
+/** Constant pointer offset relative to the handle center. */
 const POINTER_HIT_OFFSET: RectangularScalePoint = Object.freeze({ x: 3, y: -2 })
 
-/** Возвращает действие Fabric, соответствующее выбранной ручке. */
+/** Returns the Fabric action corresponding to the selected handle. */
 function resolveScaleAction({ controlKey }: { controlKey: string }): RectangularScaleGestureTransform['action'] {
   if (controlKey === 'ml' || controlKey === 'mr') return 'scaleX'
   if (controlKey === 'mt' || controlKey === 'mb') return 'scaleY'
@@ -122,12 +122,12 @@ function resolveScaleAction({ controlKey }: { controlKey: string }): Rectangular
   return 'scale'
 }
 
-/** Переводит градусы в радианы. */
+/** Converts degrees to radians. */
 function toRadians({ angle }: { angle: number }): number {
   return angle * (Math.PI / 180)
 }
 
-/** Создаёт базис повёрнутого прямоугольника по его видимой ширине и высоте. */
+/** Creates a basis for the rotated rectangle from its visible width and height. */
 function createBasis({
   angle,
   width,
@@ -153,7 +153,7 @@ function createBasis({
   }
 }
 
-/** Возвращает противоположную точку фиксации либо центр при скейлинге от центра. */
+/** Returns the opposite fixed point, or the center when scaling from the center. */
 function resolveFixtureOrigin({
   control,
   centered
@@ -169,7 +169,7 @@ function resolveFixtureOrigin({
   })
 }
 
-/** Переводит локальные нормализованные координаты в координаты canvas. */
+/** Converts normalized local coordinates to canvas coordinates. */
 function projectFixturePoint({
   topLeft,
   u,
@@ -187,7 +187,7 @@ function projectFixturePoint({
   })
 }
 
-/** Создаёт исходные координаты углов в порядке Fabric: tl, tr, br, bl. */
+/** Creates initial corner coordinates in Fabric order: tl, tr, br, bl. */
 function createFixtureCorners({
   topLeft,
   u,
@@ -209,7 +209,7 @@ function createFixtureCorners({
   ]
 }
 
-/** Вычисляет точные охватывающие границы по координатам углов. */
+/** Calculates exact enclosing bounds from corner coordinates. */
 function createFixtureBounds({ points }: { points: readonly RectangularScalePoint[] }): ObjectBounds {
   const xCoordinates = points.map(({ x }) => x)
   const yCoordinates = points.map(({ y }) => y)
@@ -228,7 +228,7 @@ function createFixtureBounds({ points }: { points: readonly RectangularScalePoin
   }
 }
 
-/** Переводит точку привязки Fabric в нормализованную координату одной оси. */
+/** Converts a Fabric anchor point to a normalized coordinate along one axis. */
 function resolveOriginCoordinate({
   end,
   origin,
@@ -245,7 +245,7 @@ function resolveOriginCoordinate({
   return 0.5
 }
 
-/** Проверяет исходную геометрию тестового прямоугольника. */
+/** Checks the test rectangle's initial geometry. */
 function assertSourceGeometry({
   sourceGeometry
 }: {
@@ -262,7 +262,7 @@ function assertSourceGeometry({
   }
 }
 
-/** Масштабирует исходные оси прямоугольника по текущему состоянию объекта. */
+/** Scales the rectangle's initial axes using the object's current state. */
 function resolveCurrentBasis({
   sourceGeometry,
   target
@@ -285,7 +285,7 @@ function resolveCurrentBasis({
   }
 }
 
-/** Возвращает ограничивающий прямоугольник четырёх углов объекта. */
+/** Returns the bounding rectangle of the object's four corners. */
 function createBoundingRect({
   points
 }: {
@@ -301,7 +301,7 @@ function createBoundingRect({
   }
 }
 
-/** Устанавливает общую детерминированную геометрию прямоугольного объекта. */
+/** Sets shared deterministic geometry for the rectangular object. */
 export function installRectangularScaleGeometryContract({
   sourceGeometry,
   target
@@ -348,7 +348,7 @@ export function installRectangularScaleGeometryContract({
   target.top = ownOrigin.y
 }
 
-/** Создаёт тестовый прямоугольник с управляемым результатом getCoords. */
+/** Creates a test rectangle with a controllable getCoords result. */
 function createFixtureTarget({
   sourceCorners,
   width,
@@ -386,7 +386,7 @@ function createFixtureTarget({
   return { target, getCoordsMock }
 }
 
-/** Создаёт полный набор исходной геометрии прямоугольного scale-жеста. */
+/** Creates the full set of initial geometry for a rectangular scaling gesture. */
 export function createRectangularScaleProjectionFixture({
   controlKey,
   angle = 0,
@@ -448,7 +448,7 @@ export function createRectangularScaleProjectionFixture({
   })
 }
 
-/** Возвращает режим свободного скейлинга для указанной ручки. */
+/** Returns the free-scaling mode for the specified handle. */
 export function resolveFixtureFreeMode({
   controlKey
 }: {
@@ -460,7 +460,7 @@ export function resolveFixtureFreeMode({
   return 'free'
 }
 
-/** Рассчитывает новое положение указателя по заданным множителям размеров. */
+/** Calculates a new pointer position from the specified dimension factors. */
 export function moveFixturePointer({
   fixture,
   multipliers
@@ -479,7 +479,7 @@ export function moveFixturePointer({
   })
 }
 
-/** Независимо рассчитывает ожидаемые границы прямоугольника по заданным множителям. */
+/** Independently calculates the expected rectangle bounds from the specified factors. */
 export function projectFixtureBounds({
   fixture,
   multipliers
@@ -508,7 +508,7 @@ export function projectFixtureBounds({
   return createFixtureBounds({ points })
 }
 
-/** Устанавливает одну направляющую относительно исходной границы прямоугольного объекта. */
+/** Sets one guide relative to the rectangular object's initial edge. */
 export function useRectangularScaleGuide({
   axis,
   candidateIdPrefix,

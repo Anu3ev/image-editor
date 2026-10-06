@@ -9,7 +9,7 @@ import {
   resolveRectangularScaleModeProjection
 } from '../../snapping-manager/scaling/rectangular-scale-gesture-projection'
 
-/** Данные для округления свободных размеров Shape до целых пикселей. */
+/** Data for rounding unconstrained Shape dimensions to whole pixels. */
 type ShapeScaleStabilizationOptions = Readonly<{
   projection: RectangularScaleGestureProjection
   mode: RectangularScaleGestureMode
@@ -17,13 +17,13 @@ type ShapeScaleStabilizationOptions = Readonly<{
   protectedEdges: readonly RectangularScaleSceneEdge[]
 }>
 
-/** Режим scale, в котором ширину и высоту можно менять независимо. */
+/** Scale mode in which width and height can change independently. */
 type IndependentRectangularScaleGestureMode = 'horizontal' | 'vertical' | 'free'
 
-/** Допуск при проверке влияния scale на положение грани. */
+/** Tolerance for checking how scale affects an edge's position. */
 const SHAPE_SCALE_DEPENDENCY_EPSILON = 0.000000001
 
-/** Проверяет, что число является положительным и конечным. */
+/** Checks whether a number is positive and finite. */
 function assertPositiveFiniteNumber({
   value,
   name
@@ -36,7 +36,7 @@ function assertPositiveFiniteNumber({
   }
 }
 
-/** Возвращает длину исходной оси Shape. */
+/** Returns the length of the Shape's original axis. */
 function getInitialAxisLength({
   vector,
   name
@@ -51,7 +51,7 @@ function getInitialAxisLength({
   return length
 }
 
-/** Возвращает корректный расчёт граней для выбранного режима scale. */
+/** Returns a valid edge calculation for the selected scale mode. */
 function resolveScaleProjection({
   projection,
   mode
@@ -75,7 +75,7 @@ function resolveScaleProjection({
   return modeProjection
 }
 
-/** Возвращает переменные scale, зафиксированные активными guide. */
+/** Returns scale variables locked by active guides. */
 function resolveSnappedVariables({
   modeProjection,
   protectedEdges
@@ -99,7 +99,7 @@ function resolveSnappedVariables({
   return snappedVariables
 }
 
-/** Возвращает множитель для ближайшего положительного целого размера. */
+/** Returns the multiplier for the nearest positive integer dimension. */
 function resolveRoundedMultiplier({
   multiplier,
   initialLength
@@ -112,7 +112,7 @@ function resolveRoundedMultiplier({
   return roundedLength / initialLength
 }
 
-/** Выбирает пропорциональный множитель с наименьшей ошибкой округления. */
+/** Selects the proportional multiplier with the smallest rounding error. */
 function resolveRoundedUniformMultiplier({
   multiplier,
   width,
@@ -130,7 +130,7 @@ function resolveRoundedUniformMultiplier({
   return widthError <= heightError ? widthCandidate : heightCandidate
 }
 
-/** Создаёт пару множителей Shape. */
+/** Creates a pair of Shape multipliers. */
 function createMultipliers({
   x,
   y
@@ -141,7 +141,7 @@ function createMultipliers({
   return Object.freeze({ x, y })
 }
 
-/** Округляет множитель оси, если она не зафиксирована на guide. */
+/** Rounds an axis multiplier unless it is locked to a guide. */
 function stabilizeAxisMultiplier({
   variable,
   multiplier,
@@ -158,7 +158,7 @@ function stabilizeAxisMultiplier({
   return resolveRoundedMultiplier({ multiplier, initialLength })
 }
 
-/** Округляет свободные ширину и высоту для непропорционального scale. */
+/** Rounds unconstrained width and height for nonproportional scaling. */
 function stabilizeIndependentMultipliers({
   mode,
   multipliers,
@@ -192,7 +192,7 @@ function stabilizeIndependentMultipliers({
   return createMultipliers({ x, y })
 }
 
-/** Округляет единый множитель пропорционального scale. */
+/** Rounds the single proportional-scale multiplier. */
 function stabilizeUniformMultipliers({
   multipliers,
   width,
@@ -216,8 +216,8 @@ function stabilizeUniformMultipliers({
 }
 
 /**
- * Округляет свободные размеры Shape до целых пикселей.
- * Размеры, зафиксированные активной guide, остаются без изменений.
+ * Rounds unconstrained Shape dimensions to whole pixels.
+ * Dimensions locked by an active guide remain unchanged.
  */
 export function stabilizeShapeScaleMultipliers({
   projection,

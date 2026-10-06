@@ -1,6 +1,6 @@
 declare global {
   interface Window {
-    /** Инстансы редактора доступны на window по id контейнера из src/main.ts. */
+    /** Editor instances are available on window by the container ID from src/main.ts. */
     [key: string]: unknown
   }
 }

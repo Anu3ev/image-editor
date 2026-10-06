@@ -1,16 +1,16 @@
-/** Явный идентификатор одного объекта, участвующего в измерении. */
+/** Explicit ID of one object involved in measurement. */
 export type MeasurementObjectTarget = Readonly<
   | { id: string; objectIndex?: never }
   | { id?: never; objectIndex: number }
 >
 
-/** Параметры измерения расстояния между активным объектом и объектом под указателем. */
+/** Options for measuring the distance between the active object and the object under the pointer. */
 export type MeasurementBetweenObjectsParams = Readonly<{
   active: MeasurementObjectTarget
   target: MeasurementObjectTarget
 }>
 
-/** Точная направляющая измерения и расстояние, которое отображается пользователю. */
+/** Exact measurement guide and the distance displayed to the user. */
 export type MeasurementGuideInfo = Readonly<{
   type: 'vertical' | 'horizontal'
   axis: number
@@ -20,7 +20,7 @@ export type MeasurementGuideInfo = Readonly<{
   displayDistance: number
 }>
 
-/** Состояние направляющих во время реального Alt-измерения. */
+/** Guide state during a real Alt measurement. */
 export type MeasurementGuideState = Readonly<{
   guides: readonly MeasurementGuideInfo[]
   isTargetMontageArea: boolean

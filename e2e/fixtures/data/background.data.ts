@@ -1,20 +1,20 @@
-/** Цветовой фон для проверки синхронизации с монтажной областью. */
+/** Solid-color background for testing synchronization with the artboard. */
 export const BACKGROUND_COLOR = '#dfe9f8'
 
-/** Параметры линейного градиента для проверки синхронизации с монтажной областью. */
+/** Linear-gradient options for testing synchronization with the artboard. */
 export const BACKGROUND_LINEAR_GRADIENT = {
   angle: 38,
   startColor: '#0f4c81',
   endColor: '#ffd166'
 } as const
 
-/** Увеличенное разрешение монтажной области для фоновых сценариев. */
+/** Increased artboard resolution for background scenarios. */
 export const BACKGROUND_UPDATED_RESOLUTION = {
   width: 720,
   height: 420
 } as const
 
-/** Портретное разрешение монтажной области для проверки cover-фона. */
+/** Portrait artboard resolution for testing a cover background. */
 export const BACKGROUND_IMAGE_UPDATED_RESOLUTION = {
   width: 360,
   height: 640
@@ -28,5 +28,5 @@ const BACKGROUND_IMAGE_SVG = `
 </svg>
 `
 
-/** SVG data URL для сценариев фонового изображения. */
+/** SVG data URL for background-image scenarios. */
 export const BACKGROUND_IMAGE_SOURCE = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(BACKGROUND_IMAGE_SVG)}`

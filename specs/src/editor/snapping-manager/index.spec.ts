@@ -22,7 +22,7 @@ type OriginY = 'top' | 'center' | 'bottom'
 type SpacingAxis = 'vertical' | 'horizontal'
 
 /**
- * Создаёт мок объекта для тестирования масштабирования со снапом.
+ * Creates a mock object for testing scaling with snapping.
  */
 const createScalingObject = ({
   left,
@@ -136,7 +136,7 @@ const createScalingObject = ({
 }
 
 /**
- * Создаёт сценарий равноудалённости с перекрывающим объектом на выбранной оси.
+ * Creates an equal-spacing scenario with an overlapping object on the selected axis.
  */
 const createSpacingScenario = ({ axis }: { axis: SpacingAxis }) => {
   const { editor, objects, canvas } = createSnappingTestContext()

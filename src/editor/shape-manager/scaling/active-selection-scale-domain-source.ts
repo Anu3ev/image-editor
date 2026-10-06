@@ -21,33 +21,33 @@ import {
   type ShapeScalingGeometrySnapshot
 } from './shape-scaling-geometry-snapshot'
 
-/** Число измерений шейпов, сохраняемых между движениями одного жеста. */
+/** Number of shape measurements retained between movements in a single gesture. */
 const ACTIVE_SELECTION_SHAPE_DOMAIN_CACHE_SIZE = 48
 
-/** Сессионный источник фактической геометрии шейпов для общего измерения смешанного состава. */
+/** Session-scoped source of actual shape geometry for shared measurement of a mixed selection. */
 export default class ShapeActiveSelectionScaleDomainSource implements ActiveSelectionScaleDomainSource {
-  /** Контроллер, который рассчитывает и применяет внутреннюю компоновку шейпов. */
+  /** Controller that calculates and applies internal shape layout. */
   private readonly controller: ShapeActiveSelectionScalingController
 
-  /** Исходное общее выделение текущего жеста. */
+  /** Original selection for the current gesture. */
   private readonly selection: ActiveSelection
 
-  /** Исходное преобразование Fabric текущего жеста. */
+  /** Original Fabric transform for the current gesture. */
   private readonly transform: Transform
 
-  /** Рассчитанные состояния, переиспользуемые уточнением одной и той же геометрии. */
+  /** Calculated states reused when refining the same geometry. */
   private readonly measurements = new Map<string, ActiveSelectionScaleDomainMeasurement>()
 
-  /** Геометрия шейпов после последнего шага, подтверждённого общим владельцем. */
+  /** Shape geometry after the last step confirmed by the shared owner. */
   private confirmedGeometry: readonly ShapeScalingGeometrySnapshot[]
 
-  /** Измерение, которому соответствует подтверждённая внутренняя компоновка шейпов. */
+  /** Measurement corresponding to the confirmed internal shape layout. */
   private confirmedMeasurement: ActiveSelectionScaleDomainMeasurement | null = null
 
-  /** Шейпы, которыми владеет источник в исходном порядке выделения. */
+  /** Shapes owned by the source in their original selection order. */
   public readonly targets: readonly ShapeGroup[]
 
-  /** Фиксирует неизменяемое начало доменной сессии до первой мутации Fabric. */
+  /** Captures the immutable start of the domain session before the first Fabric mutation. */
   constructor({
     controller,
     selection,
@@ -72,7 +72,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     }
   }
 
-  /** Возвращает закешированную фактическую геометрию для переданных множителей. */
+  /** Returns cached actual geometry for the supplied multipliers. */
   public measure({
     mode,
     multipliers
@@ -100,7 +100,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     return measurement
   }
 
-  /** Атомарно применяет рассчитанную компоновку к живым шейпам и общей рамке. */
+  /** Atomically applies the calculated layout to live shapes and the shared frame. */
   public apply({
     children,
     frame,
@@ -123,13 +123,13 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
       try {
         this._restoreState({ snapshots: previousGeometry })
       } catch {
-        // Ошибка применения живого состояния остаётся основной после попытки полностью откатить изменения.
+        // The live-state application error remains primary after attempting to roll back all changes.
       }
       throw error
     }
   }
 
-  /** Запоминает геометрию только после проверки общего применённого результата. */
+  /** Saves geometry only after validating the overall applied result. */
   public confirmAppliedState({
     measurement
   }: {
@@ -142,17 +142,17 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     this.confirmedMeasurement = measurement
   }
 
-  /** Возвращает шейпы и внутреннее состояние фиксации к последнему подтверждённому шагу. */
+  /** Restores shapes and internal commit state to the last confirmed step. */
   public restoreConfirmedState(): void {
     this._restoreState({ snapshots: this.confirmedGeometry })
   }
 
-  /** Сохраняет точную изменяемую геометрию всех шейпов текущей сессии. */
+  /** Saves the exact mutable geometry of all shapes in the current session. */
   private _captureGeometry(): readonly ShapeScalingGeometrySnapshot[] {
     return Object.freeze(this.targets.map((group) => captureShapeScalingGeometry({ group })))
   }
 
-  /** Пытается восстановить геометрию и внутреннее состояние всех владельцев домена. */
+  /** Attempts to restore the geometry and internal state of all domain owners. */
   private _restoreState({
     snapshots
   }: {
@@ -178,7 +178,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     if (didFail) throw firstFailure
   }
 
-  /** Возвращает внутренние масштабы фиксации к подтверждённому измерению, если оно уже было. */
+  /** Restores internal commit scales to the confirmed measurement, if one exists. */
   private _restoreConfirmedControllerState(): void {
     if (!this.confirmedMeasurement) return
 

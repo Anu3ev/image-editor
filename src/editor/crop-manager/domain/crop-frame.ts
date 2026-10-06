@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Public CropFrame держим выше private drawing helpers. */
+/* eslint-disable no-use-before-define -- Keep the public CropFrame above the private drawing helpers. */
 import {
   Rect,
   type FabricObject,
@@ -13,12 +13,12 @@ import type { ObjectBounds } from '../../utils/geometry'
 import type { CropSize } from '../types'
 
 /**
- * Цвет внутренних линий сетки crop frame.
+ * Color of the internal crop frame grid lines.
  */
 const CROP_GRID_STROKE = 'rgba(47, 128, 237, 0.42)'
 
 /**
- * Опции runtime-объекта crop frame.
+ * Options for the crop frame runtime object.
  */
 interface CropFrameOptions extends Partial<RectProps> {
   showGrid: boolean
@@ -30,7 +30,7 @@ interface CropFrameOptions extends Partial<RectProps> {
 }
 
 /**
- * Runtime-контракт crop frame для выбора режима resize.
+ * Crop frame runtime contract for selecting the resize mode.
  */
 export interface CropFrameResizeTarget extends FabricObject {
   preserveAspectRatio?: boolean
@@ -38,47 +38,47 @@ export interface CropFrameResizeTarget extends FabricObject {
 }
 
 /**
- * Runtime-объект crop frame с опциональной сеткой третей.
+ * Crop frame runtime object with an optional rule-of-thirds grid.
  */
 export class CropFrame extends Rect {
   /**
-   * Source-объект активной crop session. Нужен только live resize-ограничениям.
+   * Source object for the active crop session. Only needed for live resize constraints.
    */
   public readonly cropSource: FabricObject | null
 
   /**
-   * Разрешён ли resize crop frame за пределы source.
+   * Whether the crop frame may be resized beyond the source bounds.
    */
   public readonly cropAllowFrameOverflow: boolean
 
   /**
-   * Scale источника по X на момент старта crop mode.
+   * Source scale along X when crop mode starts.
    */
   public readonly cropSourceScaleX: number
 
   /**
-   * Scale источника по Y на момент старта crop mode.
+   * Source scale along Y when crop mode starts.
    */
   public readonly cropSourceScaleY: number
 
   /**
-   * Сохранять ли текущие пропорции при resize без модификаторов.
+   * Whether to preserve the current aspect ratio when resizing without modifiers.
    */
   public preserveAspectRatio: boolean
 
   /**
-   * Фактический режим сохранения пропорций текущего live resize.
-   * null означает, что режим считается из base preserveAspectRatio и Shift.
+   * Effective aspect ratio preservation mode for the current live resize.
+   * null means the mode is determined by the base preserveAspectRatio value and Shift.
    */
   public cropActiveResizePreserveAspectRatio: boolean | null
 
   /**
-   * Показывать ли сетку внутри crop frame.
+   * Whether to display the grid inside the crop frame.
    */
   private readonly _showGrid: boolean
 
   /**
-   * @param options - runtime-параметры Fabric Rect для crop mode.
+   * @param options - Runtime Fabric Rect parameters for crop mode.
    */
   constructor(options: CropFrameOptions) {
     const {
@@ -102,7 +102,7 @@ export class CropFrame extends Rect {
   }
 
   /**
-   * Рисует crop frame и внутреннюю сетку, если она включена.
+   * Draws the crop frame and the internal grid, if enabled.
    */
   public override _render(ctx: CanvasRenderingContext2D): void {
     super._render(ctx)
@@ -117,14 +117,14 @@ export class CropFrame extends Rect {
   }
 
   /**
-   * Возвращает размер crop frame, который совпадает с результатом применения crop.
+   * Returns the crop frame size that matches the result of applying the crop.
    */
   public getObjectDisplaySize(): CropSize {
     return getCropFrameSourceSize({ frame: this })
   }
 
   /**
-   * Возвращает bounds crop frame без stroke, потому что snapping должен работать по crop-результату.
+   * Returns crop frame bounds without the stroke, because snapping must use the crop result.
    */
   public getObjectSnappingBounds(): ObjectBounds {
     return getCropObjectSceneBounds({ object: this })
@@ -132,7 +132,7 @@ export class CropFrame extends Rect {
 }
 
 /**
- * Создаёт Fabric frame, которым пользователь управляет в crop mode.
+ * Creates the Fabric frame controlled by the user in crop mode.
  */
 export function createCropFrame({
   source,
@@ -190,7 +190,7 @@ export function createCropFrame({
 }
 
 /**
- * Синхронизирует transient live resize override у crop frame.
+ * Synchronizes the transient live resize override on the crop frame.
  */
 export function setCropFrameActiveResizePreserveAspectRatio({
   frame,
@@ -207,7 +207,7 @@ export function setCropFrameActiveResizePreserveAspectRatio({
 }
 
 /**
- * Рисует сетку третей внутри crop frame.
+ * Draws a rule-of-thirds grid inside the crop frame.
  */
 function drawCropGrid({
   ctx,
@@ -237,7 +237,7 @@ function drawCropGrid({
 }
 
 /**
- * Рисует вертикальную линию сетки.
+ * Draws a vertical grid line.
  */
 function drawVerticalGridLine({
   ctx,
@@ -255,7 +255,7 @@ function drawVerticalGridLine({
 }
 
 /**
- * Рисует горизонтальную линию сетки.
+ * Draws a horizontal grid line.
  */
 function drawHorizontalGridLine({
   ctx,

@@ -1,6 +1,6 @@
 import type { EditorObjectInfo, ObjectTargetParams } from './editor.types'
 
-/** Доступные ключи shape-пресетов */
+/** Available shape-preset keys */
 export type ShapePresetKey =
   | 'circle'
   | 'pie'
@@ -39,7 +39,7 @@ export type ShapeScaleOriginY = 'top' | 'center' | 'bottom'
 export type ShapeScaleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 export type ShapeScaleSide = 'right' | 'bottom' | 'left' | 'top'
 
-/** Пользовательские внутренние отступы текста внутри фигуры. */
+/** User-defined text padding inside a shape. */
 export interface ShapePaddingParams {
   top?: number
   right?: number
@@ -47,7 +47,7 @@ export interface ShapePaddingParams {
   left?: number
 }
 
-/** Параметры стилизации текста внутри shape */
+/** Options for styling text inside a shape */
 export interface ShapeTextStyleParams {
   text?: string
   fontFamily?: string
@@ -64,20 +64,20 @@ export interface ShapeTextStyleParams {
   align?: ShapeHorizontalAlign
 }
 
-/** Параметры выделения диапазона текста внутри shape в режиме editing */
+/** Options for selecting a text range inside a shape in editing mode */
 export interface ShapeTextSelectionParams {
   start: number
   end: number
 }
 
-/** Параметры изменения текста внутри shape в режиме editing */
+/** Options for changing text inside a shape in editing mode */
 export interface ShapeTextEditingUpdateParams extends ObjectTargetParams {
   text: string
   selectionEnd?: number
   selectionStart?: number
 }
 
-/** Сериализованный стиль выделенного диапазона текста внутри shape */
+/** Serialized style of the selected text range inside a shape */
 export interface ShapeTextSelectionStyleInfo {
   fill: string | null
   fontFamily: string | null
@@ -90,7 +90,7 @@ export interface ShapeTextSelectionStyleInfo {
   linethrough: boolean | null
 }
 
-/** Параметры добавления shape через модель (подмножество ShapeAddOptions) */
+/** Options for adding a shape through the model (subset of ShapeAddOptions) */
 export interface ShapeAddParams {
   presetKey?: ShapePresetKey
   options?: {
@@ -117,7 +117,7 @@ export interface ShapeAddParams {
   }
 }
 
-/** Параметры добавления shape по границам bounding box, а не по центру объекта. */
+/** Options for adding a shape by bounding-box bounds rather than object center. */
 export interface ShapeAddAtBoundsParams {
   presetKey?: ShapePresetKey
   options: {
@@ -141,14 +141,14 @@ export interface ShapeAddAtBoundsParams {
   }
 }
 
-/** Параметры обводки shape */
+/** Shape-stroke options */
 export interface ShapeStrokeParams {
   stroke?: string | null
   strokeWidth?: number
   dash?: number[] | null
 }
 
-/** Параметры обновления shape через модель (подмножество ShapeUpdateOptions) */
+/** Options for updating a shape through the model (subset of ShapeUpdateOptions) */
 export interface ShapeUpdateParams {
   presetKey?: ShapePresetKey
   options?: {
@@ -175,13 +175,13 @@ export interface ShapeUpdateParams {
   }
 }
 
-/** Параметры выравнивания текста внутри shape */
+/** Options for text alignment inside a shape */
 export interface ShapeTextAlignParams {
   horizontal?: ShapeHorizontalAlign
   vertical?: ShapeVerticalAlign
 }
 
-/** Сериализованная информация о текстовом узле внутри shape */
+/** Serialized information about the text node inside a shape */
 export interface ShapeTextInfo extends EditorObjectInfo {
   text: string
   fontFamily: string
@@ -203,14 +203,14 @@ export interface ShapeTextInfo extends EditorObjectInfo {
   splitByGrapheme: boolean
 }
 
-/** ID shape-группы и её внутренних объектов. */
+/** IDs of the shape group and its internal objects. */
 export interface ShapeObjectTreeIds {
   groupId: string | null
   shapeId: string | null
   textId: string | null
 }
 
-/** Параметры одного шага интерактивного масштабирования */
+/** Options for one interactive-scaling step */
 export interface ShapeScaleStepParams extends ObjectTargetParams {
   scaleX: number
   scaleY: number
@@ -221,7 +221,7 @@ export interface ShapeScaleStepParams extends ObjectTargetParams {
   ctrlKey?: boolean
 }
 
-/** Параметры live-scale шага с synthetic mouse:move относительно активного transform. */
+/** Options for a live scaling step with synthetic mouse:move relative to the active transform. */
 export interface ShapeScaleMouseMoveStepParams extends ShapeScaleStepParams {
   pointerX: number
   pointerY: number
@@ -230,7 +230,7 @@ export interface ShapeScaleMouseMoveStepParams extends ShapeScaleStepParams {
   signY?: number
 }
 
-/** Снимок состояния shape-группы во время/после масштабирования */
+/** Snapshot of shape-group state during/after scaling */
 export interface ShapeScaleSnapshot {
   left: number
   top: number
@@ -260,7 +260,7 @@ export interface ShapeScaleSnapshot {
   textBoundsBottom: number | null
 }
 
-/** Расширенная информация о shape-группе */
+/** Extended shape-group information */
 export interface ShapeObjectInfo extends EditorObjectInfo {
   shapeComposite: boolean
   shapePresetKey: string

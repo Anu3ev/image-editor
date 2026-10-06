@@ -33,7 +33,7 @@ export type LineFontDefault = {
 
 export type LineFontDefaults = Record<number, LineFontDefault>
 
-/** Сериализуемые свойства, которыми редактор дополняет обычный Fabric Textbox. */
+/** Serializable properties that the editor adds to a regular Fabric Textbox. */
 type BackgroundTextboxSerializedProps = {
   backgroundColor?: string
   backgroundOpacity?: number
@@ -49,7 +49,7 @@ type BackgroundTextboxSerializedProps = {
   radiusTopRight?: number
 }
 
-/** Полное сериализованное состояние BackgroundTextbox. */
+/** Complete serialized state of BackgroundTextbox. */
 type SerializedBackgroundTextboxProps = SerializedTextboxProps & BackgroundTextboxSerializedProps
 
 export type BackgroundTextboxProps = Partial<TextboxProps> & BackgroundTextboxSerializedProps & {
@@ -135,7 +135,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
 
   public lineFontDefaults?: LineFontDefaults
 
-  /** Сохраняет канонические размеры текста без округления при восстановлении объекта. */
+  /** Preserves canonical text dimensions without rounding when restoring an object. */
   public preserveExactTextGeometry: boolean
 
   public shouldRoundDimensionsOnInit?: boolean
@@ -156,7 +156,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
 
   public radiusTopRight?: number
 
-  /** Восстанавливает сохранённую геометрию отдельного текста без повторного изменения ширины. */
+  /** Restores saved standalone-text geometry without changing the width again. */
   public static override fromObject<
     T extends TOptions<SerializedTextProps>,
     S extends FabricText
@@ -185,7 +185,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
       if (!shouldRestoreExactGeometry) {
         if (!shouldRestoreFixedWidth) return textbox
 
-        // Сохранённая ширина важнее ограничения, рассчитанного заново при восстановлении.
+        // The saved width takes precedence over the constraint recalculated during restoration.
         textbox.autoExpand = false
         textbox.width = Math.max(MINIMUM_TEXT_WIDTH, width)
         textbox.dirty = true
@@ -235,8 +235,8 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
   }
 
   /**
-   * Пересчитывает размеры текста и сохраняет точную ширину, если она уже была
-   * зафиксирована унифицированным скейлингом.
+   * Recalculates text dimensions and preserves the exact width if it was already
+   * committed by unified scaling.
    */
   public override initDimensions(): void {
     const exactWidth = this.preserveExactTextGeometry === true ? this.width : null
@@ -287,7 +287,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
   }
 
   /**
-   * Возвращает сериализованное представление с учётом фона, отступов и скруглений.
+   * Returns the serialized representation, including background, padding, and corner rounding.
    */
   public override toObject<
     T extends Omit<BackgroundTextboxProps & TClassProperties<this>, keyof SerializedBackgroundTextboxProps>,
@@ -302,8 +302,8 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
     return {
       ...baseObject,
       backgroundOpacity: this.backgroundOpacity,
-      // Полные стили строк сериализуем в lineFontDefaults,
-      // а в styles оставляем только реальные inline overrides.
+      // Serialize complete line styles in lineFontDefaults,
+      // leaving only actual inline overrides in styles.
       lineFontDefaults,
       preserveExactTextGeometry: this.preserveExactTextGeometry === true,
       styles: util.stylesToArray(styles, this.text ?? ''),
@@ -346,7 +346,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
   }
 
   /**
-   * Рисует линии декорации текста с учетом активной обводки или заливки.
+   * Draws text-decoration lines using the active stroke or fill.
    */
   public override _renderTextDecoration(
     ctx: CanvasRenderingContext2D,
@@ -480,7 +480,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
   }
 
   /**
-   * Возвращает цвет линии декорации для символа, учитывая обводку и заливку.
+   * Returns a character's text-decoration line color, accounting for stroke and fill.
    */
   private _getDecorationColorAt(lineIndex: number, charIndex: number): string | null {
     const rawStrokeWidth = this.getValueOfPropertyAt(lineIndex, charIndex, 'strokeWidth')
@@ -583,7 +583,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
   }
 
   /**
-   * Округляет текущие значения ширины и высоты до ближайших целых.
+   * Rounds the current width and height to the nearest integers.
    */
   private _roundDimensions(): void {
     const {
@@ -604,7 +604,7 @@ export class BackgroundTextbox extends Textbox<BackgroundTextboxProps, Serialize
 }
 
 /**
- * Регистрирует кастомный текстовый класс в реестре Fabric для корректной десериализации.
+ * Registers the custom text class in Fabric's registry for correct deserialization.
  */
 export const registerBackgroundTextbox = (): void => {
   if (classRegistry?.setClass) {

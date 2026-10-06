@@ -17,21 +17,21 @@ describe('BackgroundManager', () => {
   let mockMontageArea: any
 
   beforeEach(() => {
-    // Используем layer-aware canvas для реалистичных тестов состояния
+    // Use a layer-aware canvas for realistic state tests
     const mocks = createManagerTestMocks(800, 600, { withLayerAwareCanvas: true })
     mockEditor = mocks.mockEditor
     mockCanvas = mocks.mockCanvas
     mockMontageArea = mocks.mockMontageArea
 
-    // Инициализируем canvas с монтажной областью
+    // Initialize the canvas with an artboard
     mockCanvas.add(mockMontageArea)
 
     backgroundManager = new BackgroundManager({ editor: mockEditor })
 
-    // Добавляем метод который может отсутствовать в некоторых версиях
+    // Add a method that may be missing in some versions
     backgroundManager.setGradientBackground = backgroundManager.setGradientBackground || jest.fn()
 
-    // Очищаем все моки
+    // Clear all mocks
     jest.clearAllMocks()
   })
 
@@ -47,7 +47,7 @@ describe('BackgroundManager', () => {
       const mockBackground = createMockBackgroundRect({ fill: '#ff0000' })
       addRectangleToCanvasMock.mockReturnValue(mockBackground)
 
-      // Проверяем, что метод выполняется без ошибок
+      // Check that the method executes without errors
       expect(() => {
         backgroundManager.setColorBackground({ color: '#ff0000' })
       }).not.toThrow()
@@ -149,7 +149,7 @@ describe('BackgroundManager', () => {
       const imageSource = 'https://example.com/image.jpg'
       const mockImage = createMockBackgroundImage({ id: 'background' })
 
-      // Мокаем imageManager.importImage для возврата изображения
+      // Mock imageManager.importImage to return an image
       mockEditor.imageManager.importImage.mockResolvedValue({
         image: mockImage
       })
@@ -377,10 +377,10 @@ describe('BackgroundManager', () => {
     })
   })
 
-  // Тесты для сценариев с undo/redo
+  // Tests for undo/redo scenarios
   describe('undo/redo scenarios', () => {
     it('установка фона > undo', () => {
-      // Устанавливаем фон
+      // Set the background
       const mockBackground = createMockBackgroundRect({
         fill: '#ff0000',
         id: 'background',
@@ -388,23 +388,23 @@ describe('BackgroundManager', () => {
       })
       addRectangleToCanvasMock.mockReturnValue(mockBackground)
 
-      // Вызываем метод установки фона
+      // Call the background-setting method
       backgroundManager.setColorBackground({ color: '#ff0000' })
 
-      // Симулируем добавление фона в canvas (как это делает shapeManager.addRectangle)
+      // Simulate adding the background to the canvas (as shapeManager.addRectangle does)
       mockCanvas.add(mockBackground)
 
-      // Проверяем что фон есть в canvas.getObjects
+      // Check that the background is present in canvas.getObjects
       let objects = mockCanvas.getObjects()
       let backgroundInCanvas = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundInCanvas).toBeTruthy()
       expect(backgroundInCanvas?.backgroundId).toMatch(/^background-/)
       expect(backgroundInCanvas?.fill).toBe('#ff0000')
 
-      // Симулируем undo - фон должен быть удален из canvas
+      // Simulate undo: the background should be removed from the canvas
       backgroundManager.removeBackground({ withoutSave: true })
 
-      // ОР: При вызове canvas.getObjects в массиве не должно быть айтема с id background
+      // Expected: the array returned by canvas.getObjects should not contain an item with id background
       objects = mockCanvas.getObjects()
       backgroundInCanvas = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundInCanvas).toBeUndefined()
@@ -412,51 +412,51 @@ describe('BackgroundManager', () => {
     })
 
     it('установка фона > установка другого фона > undo', () => {
-      // Первый фон
+      // First background
       const firstBackground = createMockBackgroundRect({
         fill: '#ff0000',
         id: 'background',
         backgroundId: 'background-first-12345'
       })
 
-      // Второй фон
+      // Second background
       const secondBackground = createMockBackgroundRect({
         fill: '#00ff00',
         id: 'background',
         backgroundId: 'background-second-67890'
       })
 
-      // Устанавливаем первый фон
+      // Set the first background
       addRectangleToCanvasMock.mockReturnValueOnce(firstBackground)
       backgroundManager.setColorBackground({ color: '#ff0000' })
-      mockCanvas.add(firstBackground) // Симулируем добавление в canvas
+      mockCanvas.add(firstBackground) // Simulate adding it to the canvas
 
-      // Проверяем первый фон в canvas
+      // Check the first background in the canvas
       let objects = mockCanvas.getObjects()
       let backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.backgroundId).toBe('background-first-12345')
 
-      // Устанавливаем второй фон (должен заменить первый)
+      // Set the second background (it should replace the first)
       addRectangleToCanvasMock.mockReturnValueOnce(secondBackground)
       backgroundManager.setColorBackground({ color: '#00ff00' })
-      // Симулируем замену фона в canvas
+      // Simulate replacing the background in the canvas
       mockCanvas.remove(firstBackground)
       mockCanvas.add(secondBackground)
 
-      // Проверяем что в canvas теперь второй фон
+      // Check that the canvas now contains the second background
       objects = mockCanvas.getObjects()
       backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.backgroundId).toBe('background-second-67890')
       expect(backgroundObj?.backgroundId).not.toBe('background-first-12345')
 
-      // Симулируем undo - возвращаемся к первому фону
+      // Simulate undo: return to the first background
       mockCanvas.remove(secondBackground)
       mockCanvas.add(firstBackground)
       backgroundManager.backgroundObject = firstBackground
 
-      // ОР: При вызове canvas.getObjects в массиве должен быть один айтем с id background
+      // Expected: the array returned by canvas.getObjects should contain one item with id background
       objects = mockCanvas.getObjects()
       backgroundObj = objects.find((obj: any) => obj.id === 'background')
 
@@ -467,25 +467,25 @@ describe('BackgroundManager', () => {
     })
 
     it('установка изображения > установка цвета > undo', () => {
-      // Первый фон (изображение)
+      // First background (image)
       const imageBackground = createMockBackgroundImage({
         id: 'background',
         backgroundType: 'image',
         backgroundId: 'background-image-abc123'
       })
 
-      // Добавляем фон-изображение в canvas и устанавливаем в manager
+      // Add the image background to the canvas and set it in the manager
       mockCanvas.add(imageBackground)
       backgroundManager.backgroundObject = imageBackground
 
-      // Проверяем что изображение в canvas
+      // Check that the image is in the canvas
       let objects = mockCanvas.getObjects()
       let backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.backgroundType).toBe('image')
       expect(backgroundObj?.backgroundId).toBe('background-image-abc123')
 
-      // Второй фон (цвет) - должен заменить изображение
+      // Second background (color): should replace the image
       const colorBackground = createMockBackgroundRect({
         fill: '#ff0000',
         id: 'background',
@@ -495,23 +495,23 @@ describe('BackgroundManager', () => {
       addRectangleToCanvasMock.mockReturnValue(colorBackground)
       backgroundManager.setColorBackground({ color: '#ff0000' })
 
-      // Симулируем замену фона в canvas
+      // Simulate replacing the background in the canvas
       mockCanvas.remove(imageBackground)
       mockCanvas.add(colorBackground)
 
-      // Проверяем что теперь в canvas цветовой фон
+      // Check that the canvas now contains a solid-color background
       objects = mockCanvas.getObjects()
       backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.backgroundType).toBe('color')
       expect(backgroundObj?.backgroundId).toBe('background-color-def456')
 
-      // Симулируем undo - должен восстановиться фон-изображение
+      // Simulate undo: the image background should be restored
       mockCanvas.remove(colorBackground)
       mockCanvas.add(imageBackground)
       backgroundManager.backgroundObject = imageBackground
 
-      // ОР: При вызове canvas.getObjects в массиве должен быть один айтем с id background и backgroundType image
+      // Expected: the array returned by canvas.getObjects should contain one item with id background and backgroundType image
       objects = mockCanvas.getObjects()
       backgroundObj = objects.find((obj: any) => obj.id === 'background')
 
@@ -523,7 +523,7 @@ describe('BackgroundManager', () => {
     })
   })
 
-  // Дополнительные тесты для градиентов и edge cases
+  // Additional tests for gradients and edge cases
   describe('gradient background', () => {
     it('при создании объект градиентного фона сразу получает размеры и позицию монтажной области', () => {
       const mockBackground = createMockBackgroundRect({
@@ -621,9 +621,9 @@ describe('BackgroundManager', () => {
     })
 
     it('не должен изменять градиент если он тот же', () => {
-      // Мокаем статический метод для сравнения градиентов
+      // Mock the static method for comparing gradients
       const isGradientEqualSpy = jest.spyOn(BackgroundManager as any, '_isGradientEqual')
-        .mockReturnValue(true) // Симулируем что градиенты одинаковые
+        .mockReturnValue(true) // Simulate identical gradients
 
       const gradient = {
         type: 'linear' as const,
@@ -648,7 +648,7 @@ describe('BackgroundManager', () => {
     })
   })
 
-  // Тесты для радиальных градиентов
+  // Tests for radial gradients
   describe('radial gradient background', () => {
     it('должен создать радиальный градиентный фон', () => {
       const mockBackground = createMockBackgroundRect({
@@ -791,9 +791,9 @@ describe('BackgroundManager', () => {
     })
 
     it('не должен изменять радиальный градиент если он тот же', () => {
-      // Мокаем статический метод для сравнения градиентов
+      // Mock the static method for comparing gradients
       const isGradientEqualSpy = jest.spyOn(BackgroundManager as any, '_isGradientEqual')
-        .mockReturnValue(true) // Симулируем что градиенты одинаковые
+        .mockReturnValue(true) // Simulate identical gradients
 
       const gradient = {
         type: 'radial' as const,
@@ -820,7 +820,7 @@ describe('BackgroundManager', () => {
     })
   })
 
-  // одинаковый цвет
+  // Same color
   describe('color background edge cases', () => {
     it('установка того же цвета не должна записывать в историю', () => {
       const mockBackground = createMockBackgroundRect({
@@ -830,120 +830,120 @@ describe('BackgroundManager', () => {
         backgroundId: 'bg-same-color-123'
       })
 
-      // Добавляем фон в canvas и устанавливаем в manager
+      // Add the background to the canvas and set it in the manager
       mockCanvas.add(mockBackground)
       backgroundManager.backgroundObject = mockBackground
 
-      // Проверяем начальное состояние canvas
+      // Check the initial canvas state
       let objects = mockCanvas.getObjects()
       let backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.fill).toBe('#ff0000')
       expect(backgroundObj?.backgroundId).toBe('bg-same-color-123')
 
-      // Устанавливаем тот же цвет
+      // Set the same color
       backgroundManager.setColorBackground({ color: '#ff0000' })
 
-      // ОР: canvas.getObjects должен содержать тот же объект с тем же backgroundId
+      // Expected: canvas.getObjects should contain the same object with the same backgroundId
       objects = mockCanvas.getObjects()
       backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.fill).toBe('#ff0000')
-      expect(backgroundObj?.backgroundId).toBe('bg-same-color-123') // ID не должен измениться
+      expect(backgroundObj?.backgroundId).toBe('bg-same-color-123') // The ID should not change
 
-      // История не должна сохраняться
+      // History should not be saved
       expect(mockEditor.historyManager.saveState).not.toHaveBeenCalled()
     })
   })
 
-  // Сценарии с полным циклом undo/redo
+  // Scenarios with a full undo/redo cycle
   describe('complex undo/redo scenarios', () => {
     it('установка > установка > undo > undo > redo > redo', () => {
-      // Первый фон
+      // First background
       const firstBackground = createMockBackgroundRect({
         fill: '#ff0000',
         backgroundId: 'background-first'
       })
 
-      // Второй фон
+      // Second background
       const secondBackground = createMockBackgroundRect({
         fill: '#00ff00',
         backgroundId: 'background-second'
       })
 
-      // Установка первого фона
+      // Set the first background
       backgroundManager.backgroundObject = firstBackground
 
-      // Установка второго фона
+      // Set the second background
       backgroundManager.backgroundObject = secondBackground
 
-      // Первый undo - возврат к первому фону
+      // First undo: return to the first background
       backgroundManager.backgroundObject = firstBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-first')
 
-      // Второй undo - удаление фона
+      // Second undo: remove the background
       backgroundManager.backgroundObject = null
       expect(backgroundManager.backgroundObject).toBeNull()
 
-      // Первый redo - возврат первого фона
+      // First redo: restore the first background
       backgroundManager.backgroundObject = firstBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-first')
 
-      // Второй redo - возврат второго фона
+      // Second redo: restore the second background
       backgroundManager.backgroundObject = secondBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-second')
     })
 
     it('фон > изображение > scaleMontageAreaToImage > undo', () => {
-      // Установка фона
+      // Set the background
       const mockBackground = createMockBackgroundImage({ backgroundId: 'background-img' })
       backgroundManager.backgroundObject = mockBackground
 
-      // Загружаем изображение
+      // Load the image
       const mockImage = createMockFabricObject({
         type: 'image',
         id: 'image-12345'
       })
 
-      // Симулируем что canvas содержит и фон и изображение
+      // Simulate a canvas containing both the background and the image
       mockCanvas.getObjects.mockReturnValue([mockMontageArea, mockBackground, mockImage])
 
-      // После undo должен остаться фон и изображение
+      // After undo, both the background and the image should remain
       expect(mockCanvas.getObjects().find((obj: any) => obj.id === 'background')).toBeTruthy()
       expect(mockCanvas.getObjects().find((obj: any) => obj.type === 'image')).toBeTruthy()
       expect(backgroundManager.backgroundObject!.backgroundType).toBe('image')
     })
 
     it('фон x2 > removeBackground > undo > undo > redo > redo', () => {
-      // Устанавливаем фон дважды
+      // Set the background twice
       const firstBackground = createMockBackgroundRect({ backgroundId: 'background-1' })
       const secondBackground = createMockBackgroundRect({ backgroundId: 'background-2' })
 
       backgroundManager.backgroundObject = secondBackground
 
-      // Удаляем фон
+      // Remove the background
       backgroundManager.removeBackground()
       expect(backgroundManager.backgroundObject).toBeNull()
 
-      // Первый undo - возврат последнего фона
+      // First undo: restore the last background
       backgroundManager.backgroundObject = secondBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-2')
 
-      // Второй undo - возврат первого фона
+      // Second undo: restore the first background
       backgroundManager.backgroundObject = firstBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-1')
 
-      // Первый redo - возврат второго фона
+      // First redo: restore the second background
       backgroundManager.backgroundObject = secondBackground
       expect(backgroundManager.backgroundObject!.backgroundId).toBe('background-2')
 
-      // Второй redo - удаление фона
+      // Second redo: remove the background
       backgroundManager.backgroundObject = null
       expect(backgroundManager.backgroundObject).toBeNull()
     })
   })
 
-  // Тесты для взаимодействия с другими менеджерами
+  // Tests for interaction with other managers
   describe('integration with other managers', () => {
     it('сценарий 7: selectAll НЕ должен включать фон', () => {
       const mockBackground = createMockBackgroundRect({
@@ -952,12 +952,12 @@ describe('BackgroundManager', () => {
       })
       const mockImage = createMockFabricObject({ type: 'image', id: 'image-123' })
 
-      // Добавляем фон и изображение в canvas
+      // Add the background and image to the canvas
       mockCanvas.add(mockBackground)
       mockCanvas.add(mockImage)
       backgroundManager.backgroundObject = mockBackground
 
-      // Проверяем что canvas.getObjects возвращает фон и изображение
+      // Check that canvas.getObjects returns the background and image
       const objects = mockCanvas.getObjects()
       const backgroundInCanvas = objects.find((obj: any) => obj.id === 'background')
       const imageInCanvas = objects.find((obj: any) => obj.id === 'image-123')
@@ -966,37 +966,37 @@ describe('BackgroundManager', () => {
       expect(imageInCanvas).toBeTruthy()
       expect(objects).toHaveLength(3) // montageArea + background + image
 
-      // Создаём activeSelection только с изображением (БЕЗ фона) и мокаем getActiveObject
+      // Create an activeSelection containing only the image (WITHOUT the background) and mock getActiveObject
       const mockActiveSelection = createMockActiveSelection([mockImage])
       mockCanvas.getActiveObject.mockReturnValue(mockActiveSelection)
-      mockCanvas.getActiveObjects.mockReturnValue([mockImage]) // Только изображение
+      mockCanvas.getActiveObjects.mockReturnValue([mockImage]) // Image only
 
-      // Вызываем selectAll
+      // Call selectAll
       mockEditor.selectionManager.selectAll()
 
       expect(mockEditor.selectionManager.selectAll).toHaveBeenCalled()
 
-      // ОР: activeSelection должен содержать только селектируемые объекты (БЕЗ фона)
+      // Expected: activeSelection should contain only selectable objects (WITHOUT the background)
       const activeObject = mockCanvas.getActiveObject()
       const activeObjects = mockCanvas.getActiveObjects()
 
-      // Проверяем через getActiveObject (если это ActiveSelection)
+      // Check via getActiveObject (if it is an ActiveSelection)
       if (activeObject && activeObject.type === 'activeSelection') {
         const selectedObjects = activeObject.getObjects()
         const selectedBackground = selectedObjects.find((obj: any) => obj.id === 'background')
         const selectedImage = selectedObjects.find((obj: any) => obj.id === 'image-123')
 
-        expect(selectedBackground).toBeUndefined() // Фон НЕ должен быть выбран
-        expect(selectedImage).toBeTruthy() // Изображение должно быть выбрано
+        expect(selectedBackground).toBeUndefined() // The background should NOT be selected
+        expect(selectedImage).toBeTruthy() // The image should be selected
       }
 
-      // Проверяем через getActiveObjects
+      // Check via getActiveObjects
       const backgroundInActive = activeObjects.find((obj: any) => obj.id === 'background')
       const imageInActive = activeObjects.find((obj: any) => obj.id === 'image-123')
 
-      expect(backgroundInActive).toBeUndefined() // Фон НЕ должен быть в активных объектах
-      expect(imageInActive).toBeTruthy() // Изображение должно быть в активных объектах
-      expect(activeObjects).toHaveLength(1) // Только изображение
+      expect(backgroundInActive).toBeUndefined() // The background should NOT be among the active objects
+      expect(imageInActive).toBeTruthy() // The image should be among the active objects
+      expect(activeObjects).toHaveLength(1) // Image only
     })
 
     it('сценарий 8: отправка изображения на задний план - изображение должно остаться выше фона', () => {
@@ -1006,12 +1006,12 @@ describe('BackgroundManager', () => {
       })
       const mockImage = createMockFabricObject({ type: 'image', id: 'image-789' })
 
-      // Добавляем объекты в правильном порядке: montageArea, background, image
+      // Add objects in the correct order: montageArea, background, image
       mockCanvas.add(mockBackground)
       mockCanvas.add(mockImage)
       backgroundManager.backgroundObject = mockBackground
 
-      // Проверяем начальное состояние: изображение выше фона
+      // Check the initial state: the image is above the background
       let objects = mockCanvas.getObjects()
       let backgroundIndex = objects.findIndex((obj: any) => obj.id === 'background')
       let imageIndex = objects.findIndex((obj: any) => obj.id === 'image-789')
@@ -1020,39 +1020,39 @@ describe('BackgroundManager', () => {
       expect(imageIndex).toBe(2)
       expect(imageIndex).toBeGreaterThan(backgroundIndex)
 
-      // Отправляем изображение на задний план
+      // Send the image to the back
       mockCanvas.sendObjectToBack(mockImage)
 
-      // После sendToBack изображение переместится в начало массива
+      // After sendToBack, the image moves to the start of the array
       objects = mockCanvas.getObjects()
       backgroundIndex = objects.findIndex((obj: any) => obj.id === 'background')
       imageIndex = objects.findIndex((obj: any) => obj.id === 'image-789')
 
-      // Теперь порядок: image(0), montageArea(1), background(2) - фон НЕ на правильной позиции!
+      // The order is now image(0), montageArea(1), background(2): the background is NOT in the correct position!
       expect(imageIndex).toBe(0)
       expect(backgroundIndex).toBe(2)
 
-      // Настраиваем indexOf мок для refresh()
+      // Configure the indexOf mock for refresh()
       mockCanvas.indexOf.mockImplementation((obj: any) => {
         const canvasObjects = mockCanvas.getObjects()
         return canvasObjects.indexOf(obj)
       })
 
-      // Сброс счетчика вызовов moveObjectTo перед refresh
+      // Reset the moveObjectTo call count before refresh
       mockCanvas.moveObjectTo.mockClear()
 
-      // Вызываем refresh - он должен обнаружить что фон не на правильной позиции
-      // montageArea индекс = 1, значит фон должен быть на позиции 2 (montageIndex + 1)
-      // но он на позиции 2, что не равно 1 + 1 = 2... стоп, это правильная позиция!
-      // Нужно сделать так чтобы фон был на неправильной позиции
+      // Call refresh: it should detect that the background is in the wrong position
+      // The montageArea index is 1, so the background should be at position 2 (montageIndex + 1)
+      // But it is at position 2, which is not equal to 1 + 1 = 2... wait, that is the correct position!
+      // We need to put the background in the wrong position
 
-      // Меняем порядок: image(0), background(1), montageArea(2) - фон перед montageArea!
+      // Change the order: image(0), background(1), montageArea(2): the background is before montageArea!
       const wrongObjects = [mockImage, mockBackground, mockMontageArea]
       mockCanvas.getObjects.mockReturnValue(wrongObjects)
 
       backgroundManager.refresh()
 
-      // refresh() должен переместить фон на позицию после montageArea (индекс 3)
+      // refresh() should move the background to the position after montageArea (index 3)
       expect(mockCanvas.moveObjectTo).toHaveBeenCalledWith(mockBackground, 3)
     })
 
@@ -1062,19 +1062,19 @@ describe('BackgroundManager', () => {
         backgroundId: 'bg-remove-999'
       })
 
-      // Добавляем фон в canvas
+      // Add the background to the canvas
       mockCanvas.add(mockBackground)
       backgroundManager.backgroundObject = mockBackground
 
-      // Проверяем что фон есть в canvas
+      // Check that the background is in the canvas
       let objects = mockCanvas.getObjects()
       let backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
 
-      // Удаляем фон
+      // Remove the background
       backgroundManager.removeBackground()
 
-      // ОР: При вызове canvas.getObjects в массиве не должно быть айтема с id background
+      // Expected: the array returned by canvas.getObjects should not contain an item with id background
       objects = mockCanvas.getObjects()
       backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeUndefined()
@@ -1091,24 +1091,24 @@ describe('BackgroundManager', () => {
         height: 300
       })
 
-      // Добавляем фон в canvas
+      // Add the background to the canvas
       mockCanvas.add(mockBackground)
       backgroundManager.backgroundObject = mockBackground
 
-      // Симулируем изменение размера монтажной области
+      // Simulate resizing the artboard
       mockMontageArea.left = 200
       mockMontageArea.top = 100
       mockMontageArea.width = 600
       mockMontageArea.height = 450
 
-      // Проверяем начальное состояние фона в canvas
+      // Check the initial background state in the canvas
       const objects = mockCanvas.getObjects()
       const backgroundObj = objects.find((obj: any) => obj.id === 'background')
       expect(backgroundObj).toBeTruthy()
       expect(backgroundObj?.left).toBe(100)
       expect(backgroundObj?.width).toBe(400)
 
-      // Вызываем refresh
+      // Call refresh
       backgroundManager.refresh()
 
       expect(mockBackground.set).toHaveBeenCalledWith(expect.objectContaining({
@@ -1121,7 +1121,7 @@ describe('BackgroundManager', () => {
       }))
       expect(mockBackground.setCoords).toHaveBeenCalled()
 
-      // Проверяем что canvas обновился
+      // Check that the canvas was updated
       expect(mockCanvas.requestRenderAll).toHaveBeenCalled()
     })
   })

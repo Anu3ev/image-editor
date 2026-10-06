@@ -109,8 +109,8 @@ describe('BackgroundTextbox', () => {
       const leftOffset = (textbox as any)._getLeftOffset()
       const topOffset = (textbox as any)._getTopOffset()
 
-      expect(leftOffset).toBe((-120 / 2) + 20) // ширина с паддингами 120
-      expect(topOffset).toBe((-60 / 2) + 10) // высота с паддингами 60
+      expect(leftOffset).toBe((-120 / 2) + 20) // Width including padding: 120
+      expect(topOffset).toBe((-60 / 2) + 10) // Height including padding: 60
     })
 
     it('возвращает размеры с учётом strokeWidth', () => {

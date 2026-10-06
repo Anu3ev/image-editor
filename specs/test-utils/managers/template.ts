@@ -26,7 +26,7 @@ type TemplateManagerEditorStub = BaseEditorStub & {
   }
 }
 
-/** Геометрия цепочки с тремя точными интервалами 47,25 пикселя. */
+/** Chain geometry with three exact gaps of 47.25 pixels. */
 const EQUAL_FRACTIONAL_SPACING_GEOMETRY = [
   { center: 21.125, size: 102 },
   { center: 163, size: 87.25 },
@@ -34,10 +34,10 @@ const EQUAL_FRACTIONAL_SPACING_GEOMETRY = [
   { center: 452.75, size: 102 }
 ] as const
 
-/** Ось дробной равноудалённости в тестовом шаблоне. */
+/** Axis of fractional equal spacing in the test template. */
 type FractionalSpacingTemplateAxis = 'x' | 'y'
 
-/** Собирает шаблон и восстановленные объекты с равными дробными интервалами. */
+/** Builds a template and restored objects with equal fractional gaps. */
 export function createFractionalSpacingTemplateScenario({
   axis
 }: {
@@ -72,7 +72,7 @@ export function createFractionalSpacingTemplateScenario({
 }
 
 /**
- * Создаёт TemplateManager setup с настраиваемой монтажной областью и placement-стратегией.
+ * Creates a TemplateManager setup with a configurable artboard and placement strategy.
  */
 export const createTemplateManagerTestSetup = ({
   montageBounds = {
@@ -129,7 +129,7 @@ export const createTemplateManagerTestSetup = ({
 }
 
 /**
- * Создаёт минимальный template definition для тестов вставки shape-group.
+ * Creates a minimal template definition for shape-group insertion tests.
  */
 export const createShapeTemplateDefinition = (): TemplateDefinition => ({
   id: 'template-1',
@@ -149,7 +149,7 @@ export const createShapeTemplateDefinition = (): TemplateDefinition => ({
 })
 
 /**
- * Создаёт минимальный template definition для centered standalone text с top-anchor.
+ * Creates a minimal template definition for centered standalone text with a top anchor.
  */
 export const createStandaloneTextTemplateDefinition = (): TemplateDefinition => ({
   id: 'template-standalone-text',
@@ -173,7 +173,7 @@ export const createStandaloneTextTemplateDefinition = (): TemplateDefinition => 
 })
 
 /**
- * Создаёт шаблон с изображением для проверки восстановления и положения.
+ * Creates a template containing an image for testing restoration and placement.
  */
 export const createImageTemplateDefinition = ({
   left,
@@ -240,7 +240,7 @@ export const createImageTemplateDefinition = ({
 })
 
 /**
- * Создаёт template definition с image-фоном и одним content-объектом.
+ * Creates a template definition with an image background and one content object.
  */
 export const createImageBackgroundTemplateDefinition = ({
   source,

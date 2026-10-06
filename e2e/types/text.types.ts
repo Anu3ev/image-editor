@@ -11,24 +11,24 @@ export type TextResizeOriginX = 'left' | 'right'
 export type TextResizeOriginY = 'top' | 'center' | 'bottom'
 export type TextScaleHandleCorner = 'tl' | 'tr' | 'bl' | 'br' | 'mb' | 'mr'
 
-/** Угловые ручки пропорционального скейлинга отдельного текста. */
+/** Corner handles for proportional standalone-text scaling. */
 export type TextCornerScaleHandle = Extract<TextScaleHandleCorner, 'tl' | 'tr' | 'bl' | 'br'>
 
-/** Одно движение указателя при настоящем перетаскивании ручки скейлинга отдельного текста. */
+/** One pointer movement during a real standalone-text scaling-handle drag. */
 export interface TextScaleDragStep {
   deltaX: number
   deltaY: number
   pointerSteps?: number
 }
 
-/** Браузерный сценарий сужения отдельного текста за конкретный угол. */
+/** Browser scenario for narrowing standalone text from a specific corner. */
 export interface TextScaleHandleCase {
   title: string
   corner: TextCornerScaleHandle
   steps: TextScaleDragStep[]
 }
 
-/** Параметры стилизации отдельного текстового объекта. */
+/** Standalone text-object styling options. */
 export interface TextStyleParams {
   text?: string
   fontFamily?: string
@@ -61,7 +61,7 @@ export interface TextStyleParams {
   radiusBottomLeft?: number
 }
 
-/** Параметры добавления текстового объекта через e2e-модель. */
+/** Options for adding a text object through the e2e model. */
 export interface TextAddParams extends TextStyleParams {
   id?: string
   left?: number
@@ -72,7 +72,7 @@ export interface TextAddParams extends TextStyleParams {
   angle?: number
 }
 
-/** Частичный inline-стиль текста для диапазона или line defaults. */
+/** Partial inline text style for a range or line defaults. */
 export interface TextInlineStyle {
   fill?: string
   fontFamily?: string
@@ -81,10 +81,10 @@ export interface TextInlineStyle {
   fontWeight?: string
 }
 
-/** Исходные стили строк отдельного текста. */
+/** Initial line styles of standalone text. */
 export type TextLineDefaults = Record<number, TextInlineStyle>
 
-/** Сериализованное состояние отдельного текста. */
+/** Serialized standalone-text state. */
 export interface TextObjectInfo extends EditorObjectInfo {
   text: string
   textAlign: TextHorizontalAlign
@@ -116,7 +116,7 @@ export interface TextObjectInfo extends EditorObjectInfo {
   radiusBottomLeft: number
 }
 
-/** Состояние отдельного текста во время или после изменения ширины. */
+/** Standalone-text state during or after a width change. */
 export interface TextResizeSnapshot extends TextObjectInfo {
   boundsLeft: number
   boundsTop: number
@@ -138,36 +138,36 @@ export interface TextResizeSnapshot extends TextObjectInfo {
   textAreaLeftTopY: number
 }
 
-/** Состояние текста со всеми углами, необходимыми для проверки углового скейлинга. */
+/** Text state with all corners needed to test corner scaling. */
 export interface TextCornerScaleSnapshot extends TextResizeSnapshot {
   leftBottomX: number
   leftBottomY: number
 }
 
-/** Диапазон текста для выделения или частичного обновления стиля. */
+/** Text range for selection or partial style updates. */
 export interface TextSelectionRange {
   start: number
   end: number
 }
 
-/** Параметры обновления стиля текстового объекта через TextManager. */
+/** Options for updating text-object style through TextManager. */
 export interface TextUpdateStyleParams extends ObjectTargetParams {
   style: TextStyleParams
   selectionRange?: TextSelectionRange
   syncLineStylesWithText?: boolean
 }
 
-/** Параметры применения посимвольного стиля к диапазону отдельного текста. */
+/** Options for applying per-character style to a standalone-text range. */
 export interface TextRangeStyleParams extends ObjectTargetParams {
   start: number
   end: number
   style: TextInlineStyle
 }
 
-/** Параметры выделения диапазона в режиме редактирования текста. */
+/** Options for selecting a range in text-editing mode. */
 export interface TextSelectionParams extends ObjectTargetParams, TextSelectionRange {}
 
-/** Сериализованный стиль выделенного диапазона текстового объекта. */
+/** Serialized style of a text object's selected range. */
 export interface TextSelectionStyleInfo {
   fill: string | null
   fontFamily: string | null
@@ -180,19 +180,19 @@ export interface TextSelectionStyleInfo {
   linethrough: boolean | null
 }
 
-/** Параметры установки угла поворота отдельного текста. */
+/** Options for setting standalone-text rotation angle. */
 export interface TextRotateParams extends ObjectTargetParams {
   angle: number
 }
 
-/** Параметры изменения текста в режиме редактирования. */
+/** Options for changing text in editing mode. */
 export interface TextEditingUpdateParams extends ObjectTargetParams {
   text: string
   selectionEnd?: number
   selectionStart?: number
 }
 
-/** Параметры одного движения боковой ручки отдельного текста. */
+/** Options for one movement of a standalone-text side handle. */
 export interface TextResizeStepParams extends ObjectTargetParams {
   width: number
   corner: 'ml' | 'mr'
@@ -202,7 +202,7 @@ export interface TextResizeStepParams extends ObjectTargetParams {
   ctrlKey?: boolean
 }
 
-/** Параметры следующего движения уже захваченной боковой ручки. */
+/** Options for the next movement of an already captured side handle. */
 export interface TextResizeContinueParams {
   deltaX: number
   deltaY: number
@@ -210,13 +210,13 @@ export interface TextResizeContinueParams {
   pointerSteps?: number
 }
 
-/** Сторона отдельного текста, ширина которого меняется боковой ручкой. */
+/** Side of standalone text whose width is changed by a side handle. */
 export type TextResizeSide = 'left' | 'right'
 
-/** Ось направляющей, к которой подводится видимая грань текста. */
+/** Guide axis to which the visible text edge is moved. */
 export type TextResizeGuideAxis = 'x' | 'y'
 
-/** Параметры подвода боковой ручки к направляющей в координатах сцены. */
+/** Options for bringing a side handle to a guide in scene coordinates. */
 export interface TextResizeToGuideParams extends ObjectTargetParams {
   axis: TextResizeGuideAxis
   centered?: boolean
@@ -224,26 +224,26 @@ export interface TextResizeToGuideParams extends ObjectTargetParams {
   side: TextResizeSide
 }
 
-/** Параметры изменения ширины отдельного текста слева. */
+/** Options for changing standalone-text width from the left. */
 export interface TextResizeFromLeftParams extends ObjectTargetParams {
   width: number
   centered?: boolean
   ctrlKey?: boolean
 }
 
-/** Параметры изменения ширины отдельного текста справа. */
+/** Options for changing standalone-text width from the right. */
 export interface TextResizeFromRightParams extends ObjectTargetParams {
   width: number
   centered?: boolean
   ctrlKey?: boolean
 }
 
-/** Параметры сужения отдельного текста до появления новой строки. */
+/** Options for narrowing standalone text until a new line appears. */
 export interface TextResizeUntilWrapParams extends ObjectTargetParams {
   ctrlKey?: boolean
 }
 
-/** Параметры применения шаблона, содержащего только отдельный текст. */
+/** Options for applying a template containing only standalone text. */
 export interface TextTemplateApplyParams {
   template: TemplateDefinition
 }

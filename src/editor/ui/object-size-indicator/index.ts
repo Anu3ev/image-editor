@@ -12,54 +12,54 @@ import CursorIndicator from '../cursor-indicator'
 import { OBJECT_SIZE_INDICATOR_CLASS } from './constants'
 
 /**
- * Текущие отображаемые размеры объекта в canvas-координатах.
+ * Current displayed object dimensions in canvas coordinates.
  */
 type ObjectDisplaySize = {
   height: number
   width: number
 }
 
-/** Допуск для форматирования размеров на границе .5 после floating-point вычислений. */
+/** Tolerance for formatting dimensions at the .5 boundary after floating-point calculations. */
 const SIZE_FORMAT_EPSILON = 0.000001
 
 /**
- * Canvas Fabric во время drag-трансформации хранит активный transform во внутреннем поле.
+ * During a drag transformation, the Fabric canvas stores the active transform in an internal field.
  */
 interface CanvasWithCurrentTransform extends Canvas {
   _currentTransform: Transform | null
 }
 
 /**
- * Менеджер индикатора размеров объекта во время скейлинга.
+ * Manager for the object size indicator shown during scaling.
  */
 export default class ObjectSizeIndicatorManager {
   /**
-   * Ссылка на редактор.
+   * Reference to the editor.
    */
   public editor: ImageEditor
 
   /**
-   * Canvas редактора.
+   * Editor canvas.
    */
   public canvas: Canvas
 
   /**
-   * Опции редактора.
+   * Editor options.
    */
   public options: EditorOptions
 
   /**
-   * HTML-элемент индикатора.
+   * Indicator HTML element.
    */
   public el: HTMLDivElement
 
   /**
-   * Общий DOM-индикатор, который отвечает за показ рядом с указателем.
+   * Shared DOM indicator responsible for displaying values next to the pointer.
    */
   private readonly indicator: CursorIndicator
 
   /**
-   * Создаёт менеджер и подписывает его на live-события изменения размеров.
+   * Creates the manager and subscribes it to live resize events.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -75,7 +75,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Удаляет слушатели и DOM-индикатор.
+   * Removes listeners and the DOM indicator.
    */
   public destroy(): void {
     this._unbindEvents()
@@ -83,7 +83,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Привязывает обработчики live-событий изменения размеров объекта.
+   * Binds handlers for live object resize events.
    */
   private _bindEvents(): void {
     this.canvas.on('object:scaling', this._handleObjectSizeChanging)
@@ -95,7 +95,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Снимает обработчики live-событий изменения размеров объекта.
+   * Unbinds handlers for live object resize events.
    */
   private _unbindEvents(): void {
     this.canvas.off('object:scaling', this._handleObjectSizeChanging)
@@ -107,7 +107,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Обновляет индикатор во время live-скейлинга или resize-события Fabric.
+   * Updates the indicator during live scaling or a Fabric resize event.
    */
   private _handleObjectSizeChanging = (event: BasicTransformEvent<TPointerEvent>): void => {
     this._showIndicatorForTarget({
@@ -117,7 +117,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Дополнительно обновляет индикатор после mouse:move, когда TextManager уже материализовал live-размеры.
+   * Also updates the indicator after mouse:move, once TextManager has materialized the live dimensions.
    */
   private _handleCanvasMouseMove = (event: TPointerEventInfo<TPointerEvent>): void => {
     const transform = (this.canvas as CanvasWithCurrentTransform)._currentTransform
@@ -132,7 +132,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Показывает индикатор для текущего target или скрывает его, если объект нельзя показывать.
+   * Shows the indicator for the current target or hides it if the object is not eligible for display.
    */
   private _showIndicatorForTarget({ target, event }: { target?: FabricObject, event: TPointerEvent }): void {
     if (!target) {
@@ -158,14 +158,14 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Скрывает индикатор после завершения изменения размеров.
+   * Hides the indicator after resizing finishes.
    */
   private _handleSizeChangeFinished = (): void => {
     this._hideIndicator()
   }
 
   /**
-   * Проверяет, нужно ли показывать индикатор для текущего объекта.
+   * Checks whether the indicator should be shown for the current object.
    */
   private _shouldShowIndicator({ target }: { target?: FabricObject }): boolean {
     if (!this.options.showObjectSizeOnScale) return false
@@ -178,14 +178,14 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Скрывает общий DOM-индикатор.
+   * Hides the shared DOM indicator.
    */
   private _hideIndicator(): void {
     this.indicator.hide()
   }
 
   /**
-   * Возвращает текущие размеры объекта с учётом live-scale, но без screen zoom.
+   * Returns the current object dimensions including live scale but excluding screen zoom.
    */
   private static _resolveDisplaySize({ target }: { target: FabricObject }): ObjectDisplaySize | null {
     const customSize = target.getObjectDisplaySize?.()
@@ -203,7 +203,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Нормализует размер перед показом в индикаторе.
+   * Normalizes a dimension before displaying it in the indicator.
    */
   private static _normalizeDisplaySize({ size }: { size: ObjectDisplaySize }): ObjectDisplaySize | null {
     const width = Math.abs(size.width)
@@ -218,7 +218,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Форматирует подпись размеров объекта.
+   * Formats the object size label.
    */
   private static _formatSize({ size }: { size: ObjectDisplaySize }): string {
     const width = ObjectSizeIndicatorManager._formatDimension({ value: size.width })
@@ -228,7 +228,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Форматирует размер как целое число с пробелами между тысячами.
+   * Formats a dimension as an integer with spaces as thousands separators.
    */
   private static _formatDimension({ value }: { value: number }): string {
     const roundedValue = Math.round(value + SIZE_FORMAT_EPSILON)
@@ -237,7 +237,7 @@ export default class ObjectSizeIndicatorManager {
   }
 
   /**
-   * Проверяет, относится ли активная Fabric-трансформация к изменению размера объекта.
+   * Checks whether the active Fabric transformation resizes the object.
    */
   private static _isSizeChangingTransform({ transform }: { transform: Transform }): boolean {
     const { action, corner } = transform

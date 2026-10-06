@@ -1,6 +1,6 @@
 import type { ShapeAddParams } from '../../types'
 
-/** Базовые размеры и текст фигуры для сценариев изменения размера текста. */
+/** Base shape dimensions and text for text-size-change scenarios. */
 export const SHAPE_TEXT_LAYOUT_BASE_OPTIONS: NonNullable<ShapeAddParams['options']> = {
   width: 180,
   height: 180,
@@ -10,23 +10,23 @@ export const SHAPE_TEXT_LAYOUT_BASE_OPTIONS: NonNullable<ShapeAddParams['options
   }
 }
 
-/** Позиция первой фигуры в сравнительных сценариях изменения размера текста. */
+/** First shape's position in comparative text-size-change scenarios. */
 export const SHAPE_TEXT_LAYOUT_FIRST_POSITION = {
   left: 180,
   top: 220
 }
 
-/** Позиция второй фигуры в сравнительных сценариях изменения размера текста. */
+/** Second shape's position in comparative text-size-change scenarios. */
 export const SHAPE_TEXT_LAYOUT_SECOND_POSITION = {
   left: 460,
   top: 220
 }
 
-/** Размер шрифта, при котором текст начинает переноситься и фигура растёт по высоте. */
+/** Font size at which text begins wrapping and the shape grows taller. */
 export const SHAPE_TEXT_LAYOUT_WRAP_FONT_SIZE = 96
 
-/** Размер шрифта для сравнения поведения с выделенной фигурой и в режиме редактирования текста. */
+/** Font size for comparing behavior with a selected shape and in text-editing mode. */
 export const SHAPE_TEXT_LAYOUT_COMPARISON_FONT_SIZE = 200
 
-/** Размер шрифта, при котором фигура начинает расти по ширине. */
+/** Font size at which the shape starts growing wider. */
 export const SHAPE_TEXT_LAYOUT_EXPAND_FONT_SIZE = 360

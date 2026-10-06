@@ -10,7 +10,7 @@ import {
 } from '../../../../src/editor/crop-manager/domain/crop-dimming-overlay'
 import { createCanvasStub } from '../../../test-utils/canvas/canvas-stub'
 
-/** Снимок вызовов canvas context после рендера dimming overlay. */
+/** Snapshot of canvas context calls after rendering the dimming overlay. */
 type DimmingOverlayRenderSnapshot = {
   context: CanvasRenderingContext2D
   beginPath: jest.Mock
@@ -21,7 +21,7 @@ type DimmingOverlayRenderSnapshot = {
   moveTo: jest.Mock
 }
 
-/** Создаёт canvas с исходными настройками overlay до запуска crop mode. */
+/** Creates a canvas with the initial overlay settings before entering crop mode. */
 const createDimmingCanvas = (): Canvas => {
   const canvas = createCanvasStub() as Canvas
 
@@ -32,7 +32,7 @@ const createDimmingCanvas = (): Canvas => {
   return canvas
 }
 
-/** Создаёт Rect crop frame с управляемой transform matrix. */
+/** Creates a Rect crop frame with a controllable transform matrix. */
 const createCropFrame = ({
   transform
 }: {
@@ -50,7 +50,7 @@ const createCropFrame = ({
   return frame
 }
 
-/** Создаёт context, который фиксирует path и fill-параметры renderer-а. */
+/** Creates a context that records the renderer's path and fill parameters. */
 const createDimmingOverlayRenderSnapshot = (): DimmingOverlayRenderSnapshot => {
   const beginPath = jest.fn()
   const closePath = jest.fn()

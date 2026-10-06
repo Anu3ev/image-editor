@@ -6,22 +6,22 @@ import type {
 } from '../types'
 
 /**
- * Заливка shape-узла по умолчанию.
+ * Default shape-node fill.
  */
 const DEFAULT_SHAPE_FILL = '#B4B7BD'
 
 /**
- * Толщина обводки по умолчанию для фигуры без stroke.
+ * Default outline width for a shape without a stroke.
  */
 const DEFAULT_SHAPE_STROKE_WIDTH = 0
 
 /**
- * Прозрачность фигуры по умолчанию.
+ * Default shape opacity.
  */
 const DEFAULT_SHAPE_OPACITY = 1
 
 /**
- * Возвращает итоговый стиль фигуры с учетом переданных и сохраненных значений.
+ * Returns the effective shape style, accounting for supplied and saved values.
  */
 export function resolveShapeStyle({
   options,

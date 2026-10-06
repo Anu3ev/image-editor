@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Операции над рамкой расположены перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- Frame operations precede internal calculations. */
 import {
   applyCropFrameTransformState,
   getCropFrameTransformStateFromSourceRect
@@ -13,13 +13,13 @@ import type { CropSourceScaleAnchor } from '../domain/crop-source-scale'
 import type { CropFrameTransformState, CropRect, CropSession, CropSize } from '../types'
 import type { CropFrameChangeEvent, CropSourceBoundScale, CropSourceBoundTransform } from './crop-resize.types'
 
-/** Допуск сравнения плана прилипания с предельным масштабом источника. */
+/** Tolerance for comparing the snap plan with the source scale limit. */
 const SOURCE_SCALE_PLAN_EPSILON = 0.000000001
 
-/** Зазор в пикселях источника, при котором план уже достигает его границы. */
+/** Gap in source pixels within which the plan is considered to have reached the source boundary. */
 const SOURCE_SCALE_PLAN_SNAP_GAP_PIXELS = 1
 
-/** Размер и неподвижные стороны рамки, ограниченной исходным изображением. */
+/** Size and fixed sides of the frame constrained to the source image. */
 interface CropSourceBoundScalePlan {
   rect: CropRect
   scale: CropSourceBoundScale
@@ -27,7 +27,7 @@ interface CropSourceBoundScalePlan {
   anchorY: CropSourceScaleAnchor
 }
 
-/** Ограничивает прежний план прилипания источником и сохраняет его в текущем преобразовании. */
+/** Constrains the legacy snap plan to the source and saves it in the current transform. */
 export function applyCropSourceBoundScalePlan({
   session,
   transform,
@@ -59,7 +59,7 @@ export function applyCropSourceBoundScalePlan({
   return true
 }
 
-/** Возвращает рамку к размеру, уже удержанному на границе источника прежним resize. */
+/** Restores the frame to the size already held at the source boundary by the legacy resize. */
 export function restoreCropSourceBoundFrame({
   session,
   event
@@ -79,7 +79,7 @@ export function restoreCropSourceBoundFrame({
   return true
 }
 
-/** Восстанавливает неподвижную source-точку после прежнего snapping или округления. */
+/** Restores the fixed source point after legacy snapping or rounding. */
 export function restoreCropScaleAnchor({
   session,
   transform
@@ -105,7 +105,7 @@ export function restoreCropScaleAnchor({
   return true
 }
 
-/** Восстанавливает сохранённый масштаб и позицию из исходного прямоугольника жеста. */
+/** Restores the saved scale and position from the initial gesture rectangle. */
 function getSourceBoundFrameState({
   session,
   transform
@@ -140,7 +140,7 @@ function getSourceBoundFrameState({
   return { left: session.frame.left, top: session.frame.top, scaleX: scale.scaleX, scaleY: scale.scaleY }
 }
 
-/** Возвращает прямоугольник заданного размера относительно неподвижных сторон источника. */
+/** Returns a rectangle of the specified size relative to the fixed source sides. */
 function getAnchoredSourceRect({
   session,
   transform,
@@ -169,7 +169,7 @@ function getAnchoredSourceRect({
   }
 }
 
-/** Ограничивает пропорциональный план теми границами источника, которые доступны от начала жеста. */
+/** Constrains the proportional plan to the source bounds available from the start of the gesture. */
 function resolveSourceBoundScalePlan({
   session, transform, nextScaleX, nextScaleY
 }: {

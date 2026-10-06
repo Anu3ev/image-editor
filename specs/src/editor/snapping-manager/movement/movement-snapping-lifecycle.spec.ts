@@ -5,7 +5,7 @@ import {
   seedVisibleSnappingState
 } from '../../../../test-utils/snapping/snapping-lifecycle'
 
-/** События canvas, которые завершают текущее перемещение с прилипанием. */
+/** Canvas events that end the current movement with snapping. */
 const CANVAS_TERMINAL_EVENTS = [
   'mouse:up',
   'selection:created',
@@ -13,7 +13,7 @@ const CANVAS_TERMINAL_EVENTS = [
   'selection:cleared'
 ] as const
 
-/** События окна, которые прерывают текущее перемещение с прилипанием. */
+/** Window events that interrupt the current movement with snapping. */
 const WINDOW_TERMINAL_EVENTS = [
   'pointercancel',
   'touchcancel',

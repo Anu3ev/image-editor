@@ -9,7 +9,7 @@ import {
 } from '../../fixtures/data/crop-frame-proportional-resize.data'
 
 /**
- * Допуск сравнения source-пикселей после реальных pointer events.
+ * Tolerance for comparing source pixels after real pointer events.
  */
 const SOURCE_PIXEL_TOLERANCE = 2
 const SNAP_APPROACH_OFFSET = 4
@@ -20,7 +20,7 @@ const SNAP_REFERENCE_SHAPE_GAP = 24
 const SNAP_REFERENCE_SHAPE_OFFSET = 72
 
 /**
- * Смещение source-точки, которое оставляет курсор внутри изображения, но уже в зоне boundary snap.
+ * Source-point offset that keeps the cursor inside the image but within the boundary-snap zone.
  */
 const SOURCE_BOUNDARY_SNAP_INSIDE_OFFSET = 1
 
@@ -58,7 +58,7 @@ const CROP_FRAME_SNAPPING_RESIZE_CASES = [
 ] as const
 
 /**
- * Сценарии resize уменьшенного квадратного image crop после переноса в середину source.
+ * Resize scenarios for a reduced square image crop after moving to the source center.
  */
 const CENTERED_SOURCE_BOUNDARY_RESIZE_CASES = [
   {

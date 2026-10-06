@@ -7,7 +7,7 @@ import type {
 import { isCurrentTransformAffectedByRemoval } from '../utils/current-transform'
 
 /**
- * Параметры удаления выбранных объектов.
+ * Options for deleting selected objects.
  */
 export type DeleteSelectedObjectsParams = {
   objects?: FabricObject[],
@@ -17,7 +17,7 @@ export type DeleteSelectedObjectsParams = {
 }
 
 /**
- * Параметры расчёта объектов, которые можно удалить.
+ * Options for determining which objects can be deleted.
  */
 export type ResolveDeleteTargetsParams = {
   objects?: FabricObject[],
@@ -25,7 +25,7 @@ export type ResolveDeleteTargetsParams = {
 }
 
 /**
- * Результат расчёта объектов, которые можно удалить.
+ * Result of determining which objects can be deleted.
  */
 export type DeleteTargets = {
   requestedObjects: FabricObject[]
@@ -34,7 +34,7 @@ export type DeleteTargets = {
 }
 
 /**
- * Внутренний план удаления с признаком реальных изменений canvas.
+ * Internal deletion plan indicating whether the canvas actually changes.
  */
 type DeletePlan = {
   requestedObjects: FabricObject[]
@@ -44,7 +44,7 @@ type DeletePlan = {
 }
 
 /**
- * Результат удаления объектов внутри одной операции.
+ * Result of deleting objects within a single operation.
  */
 type DeleteObjectsResult = {
   deletedObjects: FabricObject[]
@@ -52,7 +52,7 @@ type DeleteObjectsResult = {
 }
 
 /**
- * Результат разгруппировки при удалении группы.
+ * Result of ungrouping when deleting a group.
  */
 type GroupDeletionResult = {
   deletedObjects: FabricObject[]
@@ -62,7 +62,7 @@ type GroupDeletionResult = {
 
 export default class DeletionManager {
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor: ImageEditor
 
@@ -71,16 +71,16 @@ export default class DeletionManager {
   }
 
   /**
-   * Проверяет, является ли объект разгруппируемой группой
-   * @param obj - объект для проверки
-   * @returns true, если объект является группой и не является SVG
+   * Checks whether the object is a group that can be ungrouped
+   * @param obj - Object to check
+   * @returns true if the object is a group and is not an SVG
    */
   private static _isUngroupableGroup(obj: FabricObject): obj is Group {
     return obj instanceof Group && obj.format !== 'svg'
   }
 
   /**
-   * Проверяет, можно ли удалить объект с учётом внешнего ограничения.
+   * Checks whether an object can be deleted under the external constraint.
    */
   private _canDeleteObject({
     object,
@@ -95,8 +95,8 @@ export default class DeletionManager {
   }
 
   /**
-   * Делит запрошенные объекты на удаляемые и пропущенные.
-   * Заблокированные объекты остаются внутренним ограничением и в skippedObjects не попадают.
+   * Splits the requested objects into deletable and skipped objects.
+   * Locked objects remain an internal constraint and are not included in skippedObjects.
    */
   public resolveDeleteTargets({
     objects,
@@ -127,7 +127,7 @@ export default class DeletionManager {
   }
 
   /**
-   * Проверяет, приведёт ли удаление к реальным изменениям canvas.
+   * Checks whether deletion will actually change the canvas.
    */
   private _resolveDeletePlan({
     objects,
@@ -176,7 +176,7 @@ export default class DeletionManager {
   }
 
   /**
-   * Сообщает внешнему интерфейсу, что часть объектов не была удалена.
+   * Notifies the external UI that some objects were not deleted.
    */
   private _fireDeleteSkipped({
     skippedObjects,
@@ -193,9 +193,9 @@ export default class DeletionManager {
   }
 
   /**
-   * Возвращает объекты удаления для текущего активного контекста.
-   * Если открыт режим редактирования текста, объектные операции должны работать с владельцем текста,
-   * а не с внутренним временно активным текстовым объектом.
+   * Returns the objects to delete for the current active context.
+   * When text editing mode is open, object operations must target the text's owner,
+   * not the internal text object that is temporarily active.
    */
   private _resolveObjectsForDelete({
     objects,
@@ -214,7 +214,7 @@ export default class DeletionManager {
   }
 
   /**
-   * Разгруппировывает группу и собирает разрешённые дочерние объекты для удаления.
+   * Ungroups a group and collects the child objects allowed to be deleted.
    */
   private _collectGroupObjectsForDeletion({
     group,
@@ -261,7 +261,7 @@ export default class DeletionManager {
   }
 
   /**
-   * Удаляет объекты с canvas без управления общей транзакцией истории.
+   * Removes objects from the canvas without managing the overall history transaction.
    */
   private _deleteObjects({
     objects,
@@ -305,7 +305,7 @@ export default class DeletionManager {
   }
 
   /**
-   * Выполняет изменение canvas внутри приостановленной истории.
+   * Performs the canvas mutation while history is suspended.
    */
   private _deleteObjectsInHistoryTransaction({
     deletePlan,
@@ -326,7 +326,7 @@ export default class DeletionManager {
     historyManager.suspendHistory()
 
     try {
-      // Завершаем преобразование до удаления его объектов, пока общее выделение ещё цело.
+      // Finish the transform before removing its objects, while the active selection is still intact.
       if (isCurrentTransformAffectedByRemoval({
         canvas,
         objects: deletePlan.deletableObjects
@@ -351,7 +351,7 @@ export default class DeletionManager {
   }
 
   /**
-   * Сохраняет успешное удаление, сообщает о пропущенных объектах и публикует событие удаления.
+   * Saves a successful deletion, reports skipped objects, and emits the deletion event.
    */
   private _completeDeleteOperation({
     deletePlan,
@@ -386,15 +386,15 @@ export default class DeletionManager {
   }
 
   /**
-   * Удалить выбранные объекты
+   * Delete selected objects
    * @param options
-   * @param options.objects - массив объектов для удаления
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.ignoreDeleteGuard - Не применять внешнюю проверку возможности удаления
-   * @param options._isRecursiveCall - Устаревший внутренний параметр, оставлен для совместимости
-   * Если удаление сохраняется в историю и в этот момент открыт режим редактирования текста,
-   * менеджер сначала завершает редактирование, чтобы текст сохранился
-   * отдельным history-шагом до удаления.
+   * @param options.objects - Array of objects to delete
+   * @param options.withoutSave - Do not save the state
+   * @param options.ignoreDeleteGuard - Do not apply the external deletion guard
+   * @param options._isRecursiveCall - Deprecated internal parameter retained for compatibility
+   * If the deletion is saved to history while text editing mode is active,
+   * the manager first finishes editing so that the text is saved
+   * as a separate history step before deletion.
    * @fires editor:objects-deleted
    * @fires editor:objects-delete-skipped
    */

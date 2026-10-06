@@ -7,7 +7,7 @@ import { ShapeGroupObject } from './shape-group'
 import type { ShapeGroup, ShapeReference } from '../types'
 
 /**
- * Проверяет, что объект является shape-группой.
+ * Checks whether an object is a shape group.
  */
 export const isShapeGroup = (
   object?: FabricObject | Group | null
@@ -15,7 +15,7 @@ export const isShapeGroup = (
   || (object instanceof Group && object.shapeComposite === true)
 
 /**
- * Разрешает shape-группу из target, subTarget или внутреннего узла shape-композиции.
+ * Resolves a shape group from a target, subTarget, or inner shape-composition node.
  */
 export const resolveShapeGroupFromTarget = ({
   target,
@@ -40,7 +40,7 @@ export const resolveShapeGroupFromTarget = ({
 }
 
 /**
- * Возвращает shape-группу из активного объекта canvas.
+ * Returns the shape group from the canvas's active object.
  */
 const resolveActiveShapeGroup = ({ canvas }: { canvas: Canvas }): ShapeGroup | null => {
   return resolveShapeGroupFromTarget({
@@ -49,7 +49,7 @@ const resolveActiveShapeGroup = ({ canvas }: { canvas: Canvas }): ShapeGroup | n
 }
 
 /**
- * Возвращает shape-группу по её стабильному идентификатору на canvas.
+ * Returns a shape group by its stable identifier on the canvas.
  */
 const resolveShapeGroupById = ({
   canvas,
@@ -73,7 +73,7 @@ const resolveShapeGroupById = ({
 }
 
 /**
- * Разрешает shape-группу из активного объекта, id или вложенного узла композиции.
+ * Resolves a shape group from the active object, an id, or a nested composition node.
  */
 export const resolveShapeGroup = ({
   canvas,

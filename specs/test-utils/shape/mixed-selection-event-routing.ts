@@ -7,7 +7,7 @@ import {
   type ShapeEventRoutingHarness
 } from './event-routing'
 
-/** Событие фиксации полноценного смешанного выделения. */
+/** Commit event for a complete mixed selection. */
 type MixedSelectionModifiedEvent = Readonly<{
   target: ActiveSelection
   transform: Readonly<{
@@ -16,14 +16,14 @@ type MixedSelectionModifiedEvent = Readonly<{
   }>
 }>
 
-/** Наблюдаемое окружение раннего события ShapeManager для смешанного состава. */
+/** Observable environment for an early ShapeManager event in a mixed composition. */
 export type MixedSelectionShapeEventRoutingHarness = Readonly<{
   event: MixedSelectionModifiedEvent
   routing: ShapeEventRoutingHarness
   selection: ActiveSelection
 }>
 
-/** Создаёт полноценный смешанный состав для проверки порядка фиксации менеджеров. */
+/** Creates a complete mixed composition for testing manager commit order. */
 export function createMixedSelectionShapeEventRoutingHarness(): MixedSelectionShapeEventRoutingHarness {
   const routing = createShapeEventRoutingHarness()
   const image = createMockFabricImage({ height: 70, width: 90 })

@@ -42,13 +42,13 @@ type ActiveSelectionShapeScalingShapeBounds = {
   height: number
 }
 
-/** Внутренние узлы шейпа, связанные с тестовой группой. */
+/** Internal shape nodes associated with the test group. */
 type ShapeScalingGroupNodes = Readonly<{
   shape: ReturnType<typeof createMockShapeNode>
   text: ReturnType<typeof createMockShapeTextbox>
 }>
 
-/** Набор групп шейпов и их внутренних узлов для общего выделения. */
+/** Set of shape groups and their internal nodes for a multi-object selection. */
 type ActiveSelectionShapeFixtures = Readonly<{
   groups: ShapeScalingTestGroup[]
   shapes: Array<ReturnType<typeof createMockShapeNode>>
@@ -85,7 +85,7 @@ export type ShapeScalingTestSetup = {
   text: ReturnType<typeof createMockShapeTextbox>
 }
 
-/** Тестовый ShapeScalingController и объекты общего выделения с шейпами. */
+/** Test ShapeScalingController and multi-object selection objects containing shapes. */
 export type ActiveSelectionShapeScalingTestSetup = {
   controller: ShapeScalingController
   canvas: ReturnType<typeof createMockCanvas>
@@ -97,7 +97,7 @@ export type ActiveSelectionShapeScalingTestSetup = {
 }
 
 /**
- * Создаёт базовое состояние scaling для unit-тестов clamp и commit логики.
+ * Creates a base scaling state for unit tests of clamp and commit logic.
  */
 export const createShapeScalingState = (
   overrides: Partial<ShapeScalingState> = {}
@@ -151,7 +151,7 @@ export const createShapeScalingState = (
 }
 
 /**
- * Создаёт тестовое окружение ShapeScalingController с подменёнными узлами шейпа и текста.
+ * Creates a ShapeScalingController test environment with substituted shape and text nodes.
  */
 export const createShapeScalingSetup = (): ShapeScalingTestSetup => {
   const canvas = createMockCanvas()
@@ -190,7 +190,7 @@ export const createShapeScalingSetup = (): ShapeScalingTestSetup => {
   }
 }
 
-/** Создаёт группы шейпов и сохраняет связь с их внутренними узлами. */
+/** Creates shape groups and preserves their associations with their internal nodes. */
 function createActiveSelectionShapeFixtures({
   shapeBounds
 }: {
@@ -229,7 +229,7 @@ function createActiveSelectionShapeFixtures({
   return { groups, shapes, texts, groupNodes }
 }
 
-/** Создаёт ActiveSelection и наблюдаемые методы позиционирования его рамки. */
+/** Creates an ActiveSelection and observable methods for positioning its frame. */
 function createShapeScalingActiveSelection({
   canvas,
   groups,
@@ -262,7 +262,7 @@ function createShapeScalingActiveSelection({
   return selection
 }
 
-/** Настраивает getShapeNodes для групп текущего тестового выделения. */
+/** Configures getShapeNodes for the groups in the current test selection. */
 function mockActiveSelectionShapeNodes({
   groupNodes
 }: {
@@ -279,7 +279,7 @@ function mockActiveSelectionShapeNodes({
 }
 
 /**
- * Создаёт окружение ActiveSelection с несколькими группами шейпов.
+ * Creates an ActiveSelection environment with several shape groups.
  */
 export const createActiveSelectionShapeScalingSetup = ({
   includeNonShapeObject = false,
@@ -323,7 +323,7 @@ export const createActiveSelectionShapeScalingSetup = ({
 }
 
 /**
- * Возвращает transform-стаб для object:scaling/object:modified unit-сценариев.
+ * Returns a transform stub for object:scaling/object:modified unit scenarios.
  */
 export const createShapeScalingTransform = ({
   scaleX = 1,
@@ -354,7 +354,7 @@ export const createShapeScalingTransform = ({
 })
 
 /**
- * Подменяет setPositionByOrigin у группы на реалистичный расчёт left/top через origin.
+ * Replaces the group's setPositionByOrigin with a realistic left/top calculation using the origin.
  */
 export const mockShapeGroupPositionByOrigin = ({
   group
@@ -394,7 +394,7 @@ export const mockShapeGroupPositionByOrigin = ({
 }
 
 /**
- * Подменяет canvas/group API так, чтобы scaling controller получил заданную локальную pointer-точку transform.
+ * Substitutes canvas/group APIs so the scaling controller receives the specified local transform pointer point.
  */
 export const mockShapeScalingLocalPointer = ({
   canvas,

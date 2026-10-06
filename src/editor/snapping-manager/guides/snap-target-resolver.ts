@@ -11,33 +11,33 @@ import {
 import type { Bounds } from '../types'
 import type { MovementSnapCandidateSource } from '../movement/movement-snap-candidates'
 
-/** Способ расчёта границ объектов, доступных для прилипания. */
+/** How to calculate the bounds of available snap targets. */
 export type SnapTargetBoundsMode = 'exact' | 'rounded'
 
-/** Объект и его границы в одном снимке целей прилипания. */
+/** An object and its bounds in a single snapshot of snap targets. */
 export type ResolvedSnapTarget = Readonly<{
   bounds: Bounds
   object: FabricObject
   snapshotIndex: number
 }>
 
-/** Объект и точная граница, которую домен использует вместо его внешнего оформления. */
+/** An object and the exact boundary used by the domain instead of its outer decoration. */
 export interface SnapDomainBoundary {
   object: FabricObject
   bounds: Bounds
 }
 
-/** Выбирает объекты для прилипания и рассчитывает их границы в заданном режиме. */
+/** Selects snap targets and calculates their bounds in the given mode. */
 export class SnapTargetResolver {
-  /** Холст с объектами, доступными для текущего снимка. */
+  /** Canvas containing the objects available for the current snapshot. */
   private readonly canvas: Canvas
 
-  /** Создаёт resolver целей прилипания для холста редактора. */
+  /** Creates a snap target resolver for the editor canvas. */
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
   }
 
-  /** Возвращает подходящие объекты и рассчитанные границы в порядке холста. */
+  /** Returns eligible objects and their calculated bounds in canvas order. */
   public resolve({
     activeObject,
     mode,
@@ -68,7 +68,7 @@ export class SnapTargetResolver {
     return targets
   }
 
-  /** Собирает точный снимок целей для расчёта скейлинга или перемещения. */
+  /** Collects an exact snapshot of targets for scaling or movement calculations. */
   public resolveSources({
     activeObject,
     domainBoundary,
@@ -96,7 +96,7 @@ export class SnapTargetResolver {
     return sources
   }
 
-  /** Рассчитывает обычные границы цели в выбранном режиме. */
+  /** Calculates the target's regular bounds in the selected mode. */
   private _resolveBounds({
     mode,
     object

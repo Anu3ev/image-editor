@@ -1,14 +1,14 @@
-/** Допуск subpixel-дрейфа грани вокруг guide после Fabric resize. */
+/** Tolerance for subpixel edge drift around a guide after Fabric resizing. */
 export const SNAP_GUARD_POSITION_EPSILON = 0.1
 
-/** Грань, которую guide удерживает во время текущего resize. */
+/** Edge held by a guide during the current resize. */
 export type ScalingStepSnapGuard = {
   type: 'vertical' | 'horizontal'
   edge: 'left' | 'right' | 'top' | 'bottom'
   position: number
 }
 
-/** Минимальная форма bounds, которую можно проверять относительно snap guard. */
+/** Minimum bounds shape that can be checked against a snap guard. */
 export interface SnapGuardBounds {
   left: number
   right: number
@@ -16,7 +16,7 @@ export interface SnapGuardBounds {
   bottom: number
 }
 
-/** Возвращает расстояние удерживаемой грани bounds до guide. */
+/** Returns the distance from the held bounds edge to the guide. */
 export function getBoundsSnapGuardDistance({
   bounds,
   snapGuard
@@ -33,7 +33,7 @@ export function getBoundsSnapGuardDistance({
   return Math.abs(bounds.bottom - position)
 }
 
-/** Проверяет удерживаемую грань bounds относительно guide после округления. */
+/** Checks the held bounds edge against the guide after rounding. */
 export function isBoundsInsideSnapGuard({
   bounds,
   snapGuard
@@ -50,7 +50,7 @@ export function isBoundsInsideSnapGuard({
   return bounds.bottom <= position + SNAP_GUARD_POSITION_EPSILON
 }
 
-/** Проверяет, стоит ли удерживаемая грань bounds ровно на guide после округления. */
+/** Checks whether the held bounds edge is exactly on the guide after rounding. */
 export function isBoundsOnSnapGuide({
   bounds,
   snapGuard

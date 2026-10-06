@@ -21,7 +21,7 @@ export type ShapeEditingTestSetup = {
 }
 
 /**
- * Создаёт базовый набор объектов для тестов контроллера редактирования shape-текста.
+ * Creates a base set of objects for shape-text editing controller tests.
  */
 export function createShapeEditingSetup({
   getShapeNodesMock,

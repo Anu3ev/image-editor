@@ -1,7 +1,7 @@
 import { OBJECT_STATE_SERIALIZATION_PROPS } from '../object-serialization'
 
 /**
- * Дополнительные свойства Fabric-объектов, которые нужно включать в history snapshot.
+ * Additional Fabric object properties to include in a history snapshot.
  */
 export const OBJECT_SERIALIZATION_PROPS = [
   'id',

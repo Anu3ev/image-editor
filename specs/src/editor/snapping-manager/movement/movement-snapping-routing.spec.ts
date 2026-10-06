@@ -6,7 +6,7 @@ import {
   type MovementRoutingTargetKind
 } from '../../../../test-utils/snapping/movement-snapping-routing'
 
-/** Типы объектов, для которых уже используется унифицированный расчёт перемещения. */
+/** Object types that already use the unified movement calculation. */
 const UNIFIED_MOVEMENT_TARGETS = [
   { kind: 'image', label: 'изображения' },
   { kind: 'shape', label: 'шейпа' },
@@ -21,7 +21,7 @@ const UNIFIED_MOVEMENT_TARGETS = [
   label: string
 }>
 
-/** Типы объектов, которые пока используют прежнюю логику перемещения. */
+/** Object types that still use the previous movement logic. */
 const LEGACY_MOVEMENT_TARGETS = [
   { kind: 'active-selection-with-crop-frame', label: 'общего выделения с кроп-областью' },
   { kind: 'active-selection-with-group', label: 'общего выделения с обычной группой' },

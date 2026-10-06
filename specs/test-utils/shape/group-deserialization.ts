@@ -20,7 +20,7 @@ export class MockLayoutStrategy extends LayoutStrategy {}
 export class MockLayoutManager extends LayoutManager {}
 
 /**
- * Регистрирует тестовые классы Fabric, нужные для десериализации shape-group.
+ * Registers test Fabric classes required for shape-group deserialization.
  */
 export const registerShapeGroupTestClasses = (): void => {
   classRegistry.setClass(Textbox, 'textbox')
@@ -31,7 +31,7 @@ export const registerShapeGroupTestClasses = (): void => {
 }
 
 /**
- * Создаёт сериализованное описание shape-group для unit-тестов materialization.
+ * Creates a serialized shape-group description for materialization unit tests.
  */
 export const createSerializedShapeGroup = (): {
   type: string

@@ -11,7 +11,7 @@
  * @typedef {{ contentType: string, fileName: string }} DemoExportOptions
  */
 
-/** Сопоставляет значение Demo selector со стандартным MIME и именем скачиваемого файла. */
+/** Maps the Demo selector value to a standard MIME type and download filename. */
 /** @type {Record<string, DemoExportOptions>} */
 const EXPORT_OPTIONS_BY_FORMAT = {
   jpg: {
@@ -36,7 +36,7 @@ const EXPORT_OPTIONS_BY_FORMAT = {
   }
 }
 
-// Получение масштаба внутри канваса
+// Get the zoom inside the canvas
 /**
  * @param {ImageEditor} editorInstance
  */
@@ -53,7 +53,7 @@ function getMontageAreaResolution(editorInstance) {
   return `${editorInstance.montageArea.width}x${editorInstance.montageArea.height}`
 }
 
-// Получение отображемых размеров канваса
+// Get the displayed canvas dimensions
 /**
  * @param {ImageEditor} editorInstance
  */
@@ -61,7 +61,7 @@ function getCanvasDisplaySize(editorInstance) {
   return `${editorInstance.canvas?.lowerCanvasEl?.style.width}/${editorInstance.canvas?.lowerCanvasEl?.style.height}`
 }
 
-// Получение данных о текущем выделенном объекте
+// Get data for the currently selected object
 /**
  * @param {ImageEditor} editorInstance
  */
@@ -75,7 +75,7 @@ function getCurrentObjectData(editorInstance) {
   return JSON.stringify({ width, height, left, top, type, scaleX, scaleY }, null, 2)
 }
 
-// Импорт изображения в канвас
+// Import an image onto the canvas
 /**
  * @param {Event} e
  * @param {ImageEditor} editorInstance
@@ -95,7 +95,7 @@ function importImage(e, editorInstance) {
 }
 
 /**
- * Экспортирует монтажную область в выбранном формате и запускает браузерское скачивание.
+ * Exports the artboard in the selected format and starts a browser download.
  * @param {ImageEditor} editorInstance
  * @param {string} [format]
  */
@@ -120,7 +120,7 @@ async function saveResult(editorInstance, format = 'png') {
   URL.revokeObjectURL(url)
 }
 
-// Установка цветового фона
+// Set a color background
 /**
  * @param {ImageEditor} editorInstance
  * @param {string} color
@@ -129,7 +129,7 @@ function setColorBackground(editorInstance, color) {
   editorInstance.backgroundManager.setColorBackground({ color })
 }
 
-// Установка градиентного фона
+// Set a gradient background
 /**
  * @param {ImageEditor} editorInstance
  * @param {string} startColor
@@ -171,7 +171,7 @@ function setGradientBackground(editorInstance, startColor, endColor, gradientTyp
   })
 }
 
-// Установка фона из изображения
+// Set an image background
 /**
  * @param {ImageEditor} editorInstance
  * @param {string | File} file
@@ -183,7 +183,7 @@ async function setImageBackground(editorInstance, file) {
   })
 }
 
-// Удаление фона
+// Remove the background
 /**
  * @param {ImageEditor} editorInstance
  */

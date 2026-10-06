@@ -1,6 +1,6 @@
 import type { EditorObjectInfo } from './editor.types'
 
-/** Сериализованная информация о фоновом объекте редактора. */
+/** Serialized information about the editor's background object. */
 export interface BackgroundObjectInfo extends EditorObjectInfo {
   backgroundType: string
   hasGradientFill: boolean

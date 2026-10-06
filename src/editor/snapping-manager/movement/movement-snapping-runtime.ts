@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный runtime расположен перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- The public runtime appears before internal validation helpers. */
 import {
   FREE_MOVEMENT_HOLD_STATE,
   resolveMovementSnapPlan,
@@ -11,20 +11,20 @@ import {
   type MovementSnapVerification
 } from './movement-snapping-resolver'
 
-/** Одноразовый идентификатор movement-плана. */
+/** Single-use movement plan identifier. */
 export type MovementPlanToken = Readonly<{
   sessionId: number
   step: number
 }>
 
-/** Новый pointer-step, который можно применить ровно один раз. */
+/** New pointer step that can be applied exactly once. */
 export type PlannedMovementRuntimeStep = Readonly<{
   kind: 'planned'
   token: MovementPlanToken
   plan: MovementSnapPlan
 }>
 
-/** Повтор уже рассчитанного native pointer-step. */
+/** Duplicate of an already calculated native pointer step. */
 export type DuplicateMovementRuntimeStep = Readonly<{
   kind: 'duplicate'
   phase: 'pending' | 'verified'
@@ -33,22 +33,22 @@ export type DuplicateMovementRuntimeStep = Readonly<{
   verification: MovementSnapVerification | null
 }>
 
-/** Новый или повторный результат movement runtime. */
+/** New or duplicate movement runtime result. */
 export type MovementRuntimeStep = PlannedMovementRuntimeStep | DuplicateMovementRuntimeStep
 
-/** Результат идемпотентного завершения movement-сессии. */
+/** Result of idempotently ending a movement session. */
 export type MovementRuntimeCleanup = Readonly<{
   didCleanup: boolean
 }>
 
-/** Состояние одного native pointer marker. */
+/** State of one native pointer marker. */
 type MovementRuntimeStepRecord = {
   token: MovementPlanToken
   plan: MovementSnapPlan
   verification: MovementSnapVerification | null
 }
 
-/** Изменяемое состояние одного активного movement-жеста. */
+/** Mutable state of one active movement gesture. */
 type ActiveMovementRuntimeSession = {
   id: number
   baseline: MovementGestureBaseline
@@ -58,17 +58,17 @@ type ActiveMovementRuntimeSession = {
   nextStep: number
 }
 
-/** Следующий локальный идентификатор movement-сессии. */
+/** Next local movement session identifier. */
 let nextMovementRuntimeSessionId = 1
 
-/** Неизменяемый результат повторной очистки. */
+/** Immutable result for repeated cleanup. */
 const EMPTY_MOVEMENT_RUNTIME_CLEANUP: MovementRuntimeCleanup = Object.freeze({
   didCleanup: false
 })
 
 /**
- * Связывает native pointer marker с одним movement-планом и обновляет hold после verification.
- * Runtime не изменяет Fabric-объекты.
+ * Associates a native pointer marker with one movement plan and updates the hold after verification.
+ * The runtime does not modify Fabric objects.
  */
 export class MovementSnappingRuntime {
   private _session: ActiveMovementRuntimeSession | null = null
@@ -77,7 +77,7 @@ export class MovementSnappingRuntime {
 
   private readonly _consumedTokens = new WeakSet<MovementPlanToken>()
 
-  /** Начинает новую movement-сессию с неизменяемым baseline. */
+  /** Starts a new movement session with an immutable baseline. */
   startSession({
     baseline
   }: {
@@ -98,7 +98,7 @@ export class MovementSnappingRuntime {
     nextMovementRuntimeSessionId += 1
   }
 
-  /** Возвращает сохранённый результат до повторного чтения изменённого target. */
+  /** Returns the cached result before rereading the modified target. */
   getDuplicateStep({
     marker
   }: {
@@ -111,7 +111,7 @@ export class MovementSnappingRuntime {
     return createDuplicateMovementStep({ record })
   }
 
-  /** Выдаёт не более одного плана для одного native pointer marker. */
+  /** Issues at most one plan per native pointer marker. */
   resolveMovementPlan({
     marker,
     intent
@@ -150,7 +150,7 @@ export class MovementSnappingRuntime {
     })
   }
 
-  /** Проверяет применённый план и обновляет transient hold-state. */
+  /** Verifies the applied plan and updates transient hold state. */
   verifyMovementPlan({
     token,
     finalGeometry
@@ -179,7 +179,7 @@ export class MovementSnappingRuntime {
     return verification
   }
 
-  /** Завершает active session ровно один раз. */
+  /** Ends the active session exactly once. */
   finishSession(): MovementRuntimeCleanup {
     const session = this._session
     if (!session) return EMPTY_MOVEMENT_RUNTIME_CLEANUP
@@ -194,7 +194,7 @@ export class MovementSnappingRuntime {
     })
   }
 
-  /** Возвращает активную сессию или явно сообщает о нарушении lifecycle. */
+  /** Returns the active session or explicitly reports a lifecycle violation. */
   private _getActiveSession(): ActiveMovementRuntimeSession {
     if (!this._session) {
       throw new Error('Movement snapping runtime has no active session')
@@ -203,7 +203,7 @@ export class MovementSnappingRuntime {
     return this._session
   }
 
-  /** Создаёт одноразовый token текущего pointer-step. */
+  /** Creates a single-use token for the current pointer step. */
   private _createPlanToken({
     session
   }: {
@@ -219,7 +219,7 @@ export class MovementSnappingRuntime {
     return token
   }
 
-  /** Отклоняет чужой, устаревший или уже использованный token. */
+  /** Rejects a foreign, stale, or already used token. */
   private _assertUsableToken({
     session,
     token
@@ -239,7 +239,7 @@ export class MovementSnappingRuntime {
   }
 }
 
-/** Возвращает immutable duplicate-step из сохранённого record. */
+/** Returns an immutable duplicate step from the saved record. */
 function createDuplicateMovementStep({
   record
 }: {
@@ -254,7 +254,7 @@ function createDuplicateMovementStep({
   })
 }
 
-/** Проверяет что один marker не был переиспользован с другим raw intent. */
+/** Verifies that a marker was not reused with a different raw intent. */
 function assertSameMovementIntent({
   first,
   second
@@ -276,7 +276,7 @@ function assertSameMovementIntent({
   }
 }
 
-/** Сравнивает exact bounds двух raw intent без скрытого допуска. */
+/** Compares the exact bounds of two raw intents without an implicit tolerance. */
 function areMovementBoundsEqual({
   first,
   second

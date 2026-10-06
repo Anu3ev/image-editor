@@ -5,7 +5,7 @@ import {
 } from './editor-module-loader.js'
 
 /**
- * Возвращает options, которые e2e может передать demo перед инициализацией редактора.
+ * Returns options that e2e tests can pass to the demo before editor initialization.
  *
  * @returns {Record<string, unknown>}
  */
@@ -24,7 +24,7 @@ document.addEventListener('DOMContentLoaded', async() => {
 
     console.info('[image-editor demo] editor version:', editorVersion)
 
-    // Инициализация редактора
+    // Initialize the editor
     const editorInstance = await initEditor('editor', {
       montageAreaWidth: 512,
       montageAreaHeight: 512,

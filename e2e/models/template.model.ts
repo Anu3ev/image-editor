@@ -14,9 +14,9 @@ export class TemplateModel {
   }
 
   /**
-   * Обновляет текст первого shape-объекта в шаблоне.
-   * Используется в regression-сценариях, где нужно проверить materialization
-   * уже изменённого serialized template.
+   * Updates the first shape object's text in the template.
+   * Used in regression scenarios that check materialization
+   * of an already modified serialized template.
    */
   setFirstShapeText({
     template,
@@ -62,7 +62,7 @@ export class TemplateModel {
     return template
   }
 
-  /** Сериализует текущее выделение редактора в описание шаблона. */
+  /** Serializes the editor's current selection into a template description. */
   async serializeSelection(params: SerializeTemplateParams = {}): Promise<TemplateDefinition | null> {
     return this.page.evaluate((payload) => {
       const { editor } = window as any
@@ -71,7 +71,7 @@ export class TemplateModel {
     }, params)
   }
 
-  /** Применяет шаблон к текущему редактору. */
+  /** Applies a template to the current editor. */
   async applyTemplate(params: { template: TemplateDefinition }): Promise<number> {
     const insertedCount = await this.page.evaluate(async({ template }) => {
       const { editor } = window as any

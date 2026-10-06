@@ -1,5 +1,5 @@
 /**
- * Строит путь скруглённого прямоугольника.
+ * Builds a rounded rectangle path.
  */
 export const drawRoundedRectPath = ({
   context,
@@ -31,7 +31,7 @@ export const drawRoundedRectPath = ({
 }
 
 /**
- * Рисует прямоугольный бейдж расстояния в центре указанного интервала.
+ * Draws a rectangular distance badge at the center of the specified interval.
  */
 export const drawGuideLabel = ({
   context,

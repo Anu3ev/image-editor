@@ -1,24 +1,24 @@
 import type { CropControlKey } from '../../types'
 
-/** Размер изображения из пользовательского сценария индикатора image crop. */
+/** Image dimensions from the user's image-crop indicator scenario. */
 export const FREE_RESIZE_INDICATOR_SOURCE_IMAGE_SIZE = {
   width: 1000,
   height: 667
 } as const
 
-/** Размер монтажной области из пользовательского сценария canvas crop. */
+/** Artboard dimensions from the user's canvas-crop scenario. */
 export const FREE_RESIZE_INDICATOR_MONTAGE_SIZE = 512
 
-/** Размер crop-области после прилипания правой и верхней сторон к середине canvas. */
+/** Crop-area dimensions after snapping the right and top sides to the canvas center. */
 export const FREE_RESIZE_INDICATOR_CENTER_GUIDE_SIZE = FREE_RESIZE_INDICATOR_MONTAGE_SIZE / 2
 
-/** Небольшой экранный drag внутри snap-порога после прилипания к серединному guide. */
+/** Small screen-space drag within the snapping threshold after snapping to a center guide. */
 export const FREE_RESIZE_INDICATOR_INSIDE_SNAP_SCREEN_PIXELS = 4
 
-/** Дополнительный drag за source-границу, чтобы control гарантированно уткнулся в clamp. */
+/** Additional drag beyond the source boundary to ensure the control reaches the clamp. */
 export const FREE_RESIZE_INDICATOR_BOUNDARY_OVERSHOOT_PIXELS = 120
 
-/** Порядки растягивания crop-области до полной ширины изображения. */
+/** Sequences for stretching the crop area to the full image width. */
 export const FREE_RESIZE_INDICATOR_FULL_WIDTH_CASES = [
   {
     title: 'слева, затем справа',

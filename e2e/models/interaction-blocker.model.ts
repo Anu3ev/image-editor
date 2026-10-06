@@ -9,7 +9,7 @@ export class InteractionBlockerModel {
     this.page = page
   }
 
-  /** Блокирует редактор через публичный API InteractionBlocker. */
+  /** Locks the editor through the public InteractionBlocker API. */
   async block(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -17,7 +17,7 @@ export class InteractionBlockerModel {
     })
   }
 
-  /** Блокирует редактор через публичный API InteractionBlocker с AI overlay. */
+  /** Locks the editor with an AI overlay through the public InteractionBlocker API. */
   async blockWithAiOverlay(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -25,7 +25,7 @@ export class InteractionBlockerModel {
     })
   }
 
-  /** Разблокирует редактор через публичный API InteractionBlocker. */
+  /** Unlocks the editor through the public InteractionBlocker API. */
   async unblock(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -33,7 +33,7 @@ export class InteractionBlockerModel {
     })
   }
 
-  /** Возвращает сериализованное состояние interaction blocker и маски блокировки. */
+  /** Returns the serialized state of the interaction blocker and lock mask. */
   async getState(): Promise<InteractionBlockerStateInfo> {
     return this.page.evaluate(() => {
       const { __editorHelpers: helpers } = window as any

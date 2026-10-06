@@ -46,7 +46,7 @@ import { createMockFabricImage } from '../managers/image'
 import { createCanvasManagerTestStub } from '../editor/editor-stub'
 import { installRectangularScaleGeometryContract } from '../snapping/rectangular-scale-gesture-projection'
 
-/** Параметры тестового скейлинга выделения из двух изображений. */
+/** Parameters for test scaling of a selection containing two images. */
 export type ActiveSelectionScaleHarnessOptions = Readonly<{
   angle?: number
   centered?: boolean
@@ -56,7 +56,7 @@ export type ActiveSelectionScaleHarnessOptions = Readonly<{
   uniformScaling?: boolean
 }>
 
-/** Параметры тестового скейлинга выделения из двух шейпов. */
+/** Parameters for test scaling of a selection containing two shapes. */
 export type ShapeActiveSelectionScaleHarnessOptions = Readonly<{
   angle?: number
   centered?: boolean
@@ -68,7 +68,7 @@ export type ShapeActiveSelectionScaleHarnessOptions = Readonly<{
   uniformScaling?: boolean
 }>
 
-/** Параметры тестового скейлинга выделения из двух отдельных текстов. */
+/** Parameters for test scaling of a selection containing two standalone text objects. */
 export type TextActiveSelectionScaleHarnessOptions = Readonly<{
   angle?: number
   centered?: boolean
@@ -77,13 +77,13 @@ export type TextActiveSelectionScaleHarnessOptions = Readonly<{
   uniformScaling?: boolean
 }>
 
-/** Параметры изображения в тестовом общем выделении с текстом. */
+/** Image parameters in a test multi-object selection containing text. */
 export type ImageTextActiveSelectionScaleHarnessOptions = Readonly<{
   imageAngle?: number
   imageFlipX?: boolean
 }>
 
-/** Общие наблюдаемые зависимости тестового скейлинга ActiveSelection. */
+/** Shared observable dependencies for ActiveSelection scaling tests. */
 interface ActiveSelectionScaleHarnessDependencies {
   readonly applyShapeSelectionPreviewMock: jest.MockedFunction<
     ImageEditor['shapeManager']['applyActiveSelectionScalePreview']
@@ -130,18 +130,18 @@ interface ActiveSelectionScaleHarnessDependencies {
   >
 }
 
-/** Общая геометрия тестового жеста для любого поддерживаемого состава выделения. */
+/** Shared test gesture geometry for any supported selection composition. */
 interface ActiveSelectionScaleEventHarness {
   readonly controlKey: RectangularScaleControlKey
   readonly fixedAnchor: Point
   readonly pointerStart: Point
   readonly target: ActiveSelection
   readonly transform: Transform
-  /** Применяет предварительный результат Fabric перед проверкой одного шага. */
+  /** Applies Fabric's preliminary result before checking one step. */
   readonly applyFabricPreview: (multipliers: RectangularScaleMultipliers) => void
 }
 
-/** Общая исходная геометрия одного тестового жеста ActiveSelection. */
+/** Shared initial geometry of one ActiveSelection test gesture. */
 interface ActiveSelectionScaleGestureSetup {
   readonly baselineBounds: ObjectBounds
   readonly controlKey: RectangularScaleControlKey
@@ -151,7 +151,7 @@ interface ActiveSelectionScaleGestureSetup {
   readonly transform: Transform
 }
 
-/** ShapeManager и его наблюдаемые методы для одного тестового контроллера. */
+/** ShapeManager and its observable methods for one test controller. */
 interface ActiveSelectionShapeManagerDependencies {
   readonly applyShapeSelectionPreviewMock: ActiveSelectionScaleHarnessDependencies['applyShapeSelectionPreviewMock']
   readonly clearShapeSelectionPreviewStateMock: ActiveSelectionScaleHarnessDependencies['clearShapeSelectionPreviewStateMock']
@@ -159,14 +159,14 @@ interface ActiveSelectionShapeManagerDependencies {
   readonly supportsShapeSelectionMock: ActiveSelectionScaleHarnessDependencies['supportsShapeSelectionMock']
 }
 
-/** Наблюдаемые методы TextManager, которые обрабатывают один live-шаг. */
+/** Observable TextManager methods that process one live step. */
 interface ActiveSelectionTextScaleStepMocks {
   readonly applyTextSelectionPreviewMock: ActiveSelectionScaleHarnessDependencies['applyTextSelectionPreviewMock']
   readonly measureTextSelectionScaleMock: ActiveSelectionScaleHarnessDependencies['measureTextSelectionScaleMock']
   readonly resolveTextSelectionScaleStepMock: ActiveSelectionScaleHarnessDependencies['resolveTextSelectionScaleStepMock']
 }
 
-/** TextManager и его наблюдаемые методы общего скейлинга. */
+/** TextManager and its observable multi-object scaling methods. */
 interface ActiveSelectionTextManagerDependencies extends ActiveSelectionTextScaleStepMocks {
   readonly beginTextSelectionScalingMock: ActiveSelectionScaleHarnessDependencies['beginTextSelectionScalingMock']
   readonly clearTextSelectionScalingMock: ActiveSelectionScaleHarnessDependencies['clearTextSelectionScalingMock']
@@ -180,7 +180,7 @@ interface ActiveSelectionTextManagerDependencies extends ActiveSelectionTextScal
   readonly textManager: TextManager
 }
 
-/** Наблюдаемые зависимости одного тестового жеста общего выделения. */
+/** Observable dependencies of one multi-object selection test gesture. */
 export interface ActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
   ActiveSelectionScaleHarnessDependencies {
   readonly baselineBounds: ObjectBounds
@@ -188,7 +188,7 @@ export interface ActiveSelectionScaleHarness extends ActiveSelectionScaleEventHa
   readonly controller: ActiveSelectionScaleInteractionController
 }
 
-/** Наблюдаемые зависимости одного тестового жеста выделения из шейпов. */
+/** Observable dependencies of one test gesture on a selection of shapes. */
 export interface ShapeActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
   ActiveSelectionScaleHarnessDependencies {
   readonly baselineBounds: ObjectBounds
@@ -196,7 +196,7 @@ export interface ShapeActiveSelectionScaleHarness extends ActiveSelectionScaleEv
   readonly controller: ActiveSelectionScaleInteractionController
 }
 
-/** Наблюдаемые зависимости одного тестового жеста выделения из текстов. */
+/** Observable dependencies of one test gesture on a selection of text objects. */
 export interface TextActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
   ActiveSelectionScaleHarnessDependencies {
   readonly baselineBounds: ObjectBounds
@@ -205,7 +205,7 @@ export interface TextActiveSelectionScaleHarness extends ActiveSelectionScaleEve
   readonly projection: RectangularScaleGestureProjection
 }
 
-/** Состав из изображения и текста для проверки маршрутизации скейлинга. */
+/** Image-and-text composition for testing scaling routing. */
 export interface ImageTextActiveSelectionScaleHarness extends ActiveSelectionScaleEventHarness,
   ActiveSelectionScaleHarnessDependencies {
   readonly baselineBounds: ObjectBounds
@@ -216,7 +216,7 @@ export interface ImageTextActiveSelectionScaleHarness extends ActiveSelectionSca
   readonly text: BackgroundTextbox
 }
 
-/** Неподвижная и подвижная точки привязки одной стандартной ручки. */
+/** Fixed and moving anchor points for one standard handle. */
 type ActiveSelectionScaleControlOrigins = Readonly<{
   fixedX: TOriginX
   fixedY: TOriginY
@@ -224,7 +224,7 @@ type ActiveSelectionScaleControlOrigins = Readonly<{
   movingY: TOriginY
 }>
 
-/** Точки привязки всех восьми стандартных ручек. */
+/** Anchor points for all eight standard handles. */
 const ACTIVE_SELECTION_SCALE_CONTROL_ORIGINS: Readonly<
 Record<RectangularScaleControlKey, ActiveSelectionScaleControlOrigins>
 > = Object.freeze({
@@ -238,7 +238,7 @@ Record<RectangularScaleControlKey, ActiveSelectionScaleControlOrigins>
   mb: { fixedX: 'center', fixedY: 'top', movingX: 'center', movingY: 'bottom' }
 })
 
-/** Устанавливает детерминированную геометрию тестового выделения. */
+/** Sets deterministic geometry for the test selection. */
 function installSelectionGeometryContract({
   target
 }: {
@@ -268,7 +268,7 @@ function installSelectionGeometryContract({
   })
 }
 
-/** Создаёт два изображения с различающимися размерами и локальными преобразованиями. */
+/** Creates two images with different dimensions and local transforms. */
 function createSelectionImages(): readonly ReturnType<typeof createMockFabricImage>[] {
   const first = createMockFabricImage({ width: 80, height: 60 })
   const second = createMockFabricImage({ width: 70, height: 90 })
@@ -308,7 +308,7 @@ function createSelectionImages(): readonly ReturnType<typeof createMockFabricIma
   return Object.freeze([first, second])
 }
 
-/** Создаёт два доменных объекта шейпа с различающимися размерами. */
+/** Creates two shape domain objects with different dimensions. */
 function createSelectionShapes(): readonly ShapeGroupObject[] {
   const first = new ShapeGroupObject([
     new Rect({ width: 80, height: 60, strokeWidth: 0 })
@@ -335,7 +335,7 @@ function createSelectionShapes(): readonly ShapeGroupObject[] {
   return Object.freeze([first, second])
 }
 
-/** Создаёт два канонических отдельных текста с различающейся геометрией. */
+/** Creates two canonical standalone text objects with different geometry. */
 function createSelectionTexts(): readonly BackgroundTextbox[] {
   const first = new BackgroundTextbox('Первый текст', {
     fontSize: 24,
@@ -367,7 +367,7 @@ function createSelectionTexts(): readonly BackgroundTextbox[] {
   return Object.freeze([first, second])
 }
 
-/** Возвращает положение именованного origin внутри одной оси. */
+/** Returns the position of a named origin along one axis. */
 function resolveTextOriginFactor({ origin }: { origin: TOriginX | TOriginY }): number {
   if (typeof origin === 'number') return origin
   if (origin === 'center') return 0.5
@@ -376,7 +376,7 @@ function resolveTextOriginFactor({ origin }: { origin: TOriginX | TOriginY }): n
   return 0
 }
 
-/** Устанавливает для ребёнка геометрию видимых границ с учётом временной рамки. */
+/** Sets a child's visible-bounds geometry, accounting for the temporary frame. */
 export function installSelectionChildGeometryContract({
   selection,
   target
@@ -426,7 +426,7 @@ export function installSelectionChildGeometryContract({
   }
 }
 
-/** Данные текстовой сессии, необходимые наблюдаемому TextManager. */
+/** Text session data required by the observable TextManager. */
 type ActiveSelectionTextScaleTestContract = Readonly<{
   fixedAnchor: Point
   projection: RectangularScaleGestureProjection
@@ -434,7 +434,7 @@ type ActiveSelectionTextScaleTestContract = Readonly<{
   transform: Transform
 }>
 
-/** Рассчитывает границы линейной тестовой проекции для переданных значений. */
+/** Calculates the bounds of a linear test projection for the supplied values. */
 function projectTextSelectionBounds({
   mode,
   multipliers,
@@ -465,7 +465,7 @@ function projectTextSelectionBounds({
   return Object.freeze(bounds)
 }
 
-/** Создаёт контрактное измерение TextManager для проверки маршрутизации одного шага. */
+/** Creates a contract-compliant TextManager measurement for testing the routing of one step. */
 function createTextSelectionMeasurement({
   children,
   mode,
@@ -516,7 +516,7 @@ function createTextSelectionMeasurement({
   })
 }
 
-/** Создаёт контрактный ShapeManager с наблюдаемыми методами общего скейлинга. */
+/** Creates a contract-compliant ShapeManager with observable multi-object scaling methods. */
 function createShapeManagerDependencies({
   supportsShapeSelection
 }: {
@@ -573,7 +573,7 @@ function createShapeManagerDependencies({
   })
 }
 
-/** Создаёт наблюдаемые методы измерения и применения одного текстового шага. */
+/** Creates observable methods for measuring and applying one text step. */
 function createTextScaleStepMocks({
   children,
   contract,
@@ -626,7 +626,7 @@ function createTextScaleStepMocks({
   })
 }
 
-/** Создаёт контрактный TextManager с наблюдаемыми методами общего скейлинга. */
+/** Creates a contract-compliant TextManager with observable multi-object scaling methods. */
 function createTextManagerDependencies({
   children,
   contract,
@@ -683,7 +683,7 @@ function createTextManagerDependencies({
   })
 }
 
-/** Создаёт минимальный Canvas для одного тестового жеста скейлинга. */
+/** Creates a minimal Canvas for one scaling test gesture. */
 function createScaleTestCanvas({
   endCurrentTransformMock,
   uniformScaling
@@ -733,7 +733,7 @@ function createScaleTestCanvas({
   return canvas
 }
 
-/** Собирает минимальный редактор с владельцами одного тестового жеста. */
+/** Builds a minimal editor with the owners of one test gesture. */
 function createScaleTestEditor({
   canvas,
   endHistoryActionMock,
@@ -777,7 +777,7 @@ function createScaleTestEditor({
   return editor
 }
 
-/** Создаёт холст и зависимости SnappingManager без полного жизненного цикла редактора. */
+/** Creates a canvas and SnappingManager dependencies without the full editor lifecycle. */
 function createControllerDependencies({
   supportsShapeSelection,
   target,
@@ -841,7 +841,7 @@ function createControllerDependencies({
   })
 }
 
-/** Возвращает действие стандартной боковой или угловой ручки. */
+/** Returns the action for a standard side or corner handle. */
 function resolveScaleAction({
   controlKey
 }: {
@@ -853,7 +853,7 @@ function resolveScaleAction({
   return 'scale'
 }
 
-/** Создаёт преобразование Fabric для выбранной ручки общего выделения. */
+/** Creates a Fabric transform for the selected multi-object selection handle. */
 function createSelectionTransform({
   centered,
   controlKey,
@@ -905,7 +905,7 @@ function createSelectionTransform({
   }
 }
 
-/** Возвращает точные границы общего выделения или завершает тест с ошибкой. */
+/** Returns the exact bounds of the multi-object selection or fails the test. */
 export function getRequiredActiveSelectionBounds({
   target
 }: {
@@ -920,7 +920,7 @@ export function getRequiredActiveSelectionBounds({
   return bounds
 }
 
-/** Собирает одинаковую исходную геометрию жеста для всех поддерживаемых составов. */
+/** Builds identical initial gesture geometry for all supported compositions. */
 function createSelectionScaleGestureSetup({
   centered,
   controlKey,
@@ -945,7 +945,7 @@ function createSelectionScaleGestureSetup({
   })
 }
 
-/** Сохраняет локальное состояние всех изображений тестового общего выделения. */
+/** Saves the local state of all images in the test multi-object selection. */
 export function captureActiveSelectionImageLocalStates({
   children
 }: {
@@ -992,7 +992,7 @@ export function captureActiveSelectionImageLocalStates({
   }))
 }
 
-/** Проверяет множители одного тестового шага скейлинга общего выделения. */
+/** Checks the factors for one multi-object selection scaling test step. */
 function assertActiveSelectionScaleMultipliers({
   multipliers
 }: {
@@ -1006,7 +1006,7 @@ function assertActiveSelectionScaleMultipliers({
   }
 }
 
-/** Создаёт реальное общее выделение и устанавливает его тестовую геометрию. */
+/** Creates a real multi-object selection and sets its test geometry. */
 function createActiveSelectionTarget({
   angle,
   children,
@@ -1041,7 +1041,7 @@ function createActiveSelectionTarget({
   return target
 }
 
-/** Создаёт применение предварительного масштаба Fabric к тестовому выделению. */
+/** Creates a function that applies Fabric's preliminary scale to the test selection. */
 function createFabricScalePreview({
   fixedAnchor,
   target,
@@ -1068,7 +1068,7 @@ function createFabricScalePreview({
   }
 }
 
-/** Создаёт контроллер с реальным ActiveSelection и наблюдаемыми зависимостями. */
+/** Creates a controller with a real ActiveSelection and observable dependencies. */
 export function createActiveSelectionScaleHarness({
   angle = 0,
   centered = false,
@@ -1100,7 +1100,7 @@ export function createActiveSelectionScaleHarness({
   })
 }
 
-/** Подготавливает два текста внутри канонической тестовой рамки. */
+/** Prepares two text objects inside a canonical test frame. */
 function createTextSelectionTarget({
   angle
 }: {
@@ -1146,7 +1146,7 @@ function createTextSelectionTarget({
   return Object.freeze({ children, target })
 }
 
-/** Создаёт прямоугольную проекцию выбранной ручки текстовой рамки. */
+/** Creates a rectangular projection of the selected text-frame handle. */
 function createTextSelectionScaleProjection({
   controlKey,
   gesture
@@ -1173,7 +1173,7 @@ function createTextSelectionScaleProjection({
   return projection
 }
 
-/** Создаёт контроллер с выделением из шейпов и наблюдаемым контрактом ShapeManager. */
+/** Creates a controller with a selection of shapes and an observable ShapeManager contract. */
 export function createShapeActiveSelectionScaleHarness({
   angle = 0,
   centered = false,
@@ -1224,7 +1224,7 @@ export function createShapeActiveSelectionScaleHarness({
   })
 }
 
-/** Создаёт контроллер с выделением из текстов и наблюдаемым контрактом TextManager. */
+/** Creates a controller with a selection of text objects and an observable TextManager contract. */
 export function createTextActiveSelectionScaleHarness({
   angle = 0,
   centered = false,
@@ -1259,7 +1259,7 @@ export function createTextActiveSelectionScaleHarness({
   })
 }
 
-/** Создаёт общее выделение из одного изображения и одного канонического текста. */
+/** Creates a multi-object selection containing one image and one canonical text object. */
 export function createImageTextActiveSelectionScaleHarness({
   imageAngle = 0,
   imageFlipX = false
@@ -1293,7 +1293,7 @@ export function createImageTextActiveSelectionScaleHarness({
   })
 }
 
-/** Создаёт `mouse:down` с преобразованием Fabric выбранной ручки. */
+/** Creates a `mouse:down` with the Fabric transform for the selected handle. */
 export function createActiveSelectionScaleStartEvent({
   harness
 }: {
@@ -1315,7 +1315,7 @@ export function createActiveSelectionScaleStartEvent({
   })
 }
 
-/** Имитирует предварительное преобразование Fabric и создаёт событие текущего шага. */
+/** Simulates Fabric's preliminary transform and creates an event for the current step. */
 export function createActiveSelectionScaleStepEvent({
   harness,
   marker,
@@ -1336,7 +1336,7 @@ export function createActiveSelectionScaleStepEvent({
   })
 }
 
-/** Создаёт запасной `mouse:move` без предварительного преобразования выделения Fabric. */
+/** Creates a fallback `mouse:move` without Fabric's preliminary selection transform. */
 export function createActiveSelectionScaleMouseMoveEvent({
   harness,
   marker,

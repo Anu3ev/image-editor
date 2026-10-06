@@ -1,11 +1,11 @@
 name: 🧪 Tests & Quality Checks
 
-# Workflow для запуска тестов на разных версиях Node.js
+# Workflow for running tests on different Node.js versions
 on:
   pull_request:
-    branches: [ master, main ]  # Тестируем только PR в основные ветки
+    branches: [ master, main ]  # Test only PRs targeting the main branches
   push:
-    branches: [ master, main ]  # Проверяем качество только основных веток после мержа
+    branches: [ master, main ]  # Check quality only on the main branches after merging
 
 permissions:
   contents: read
@@ -20,8 +20,8 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20]  # Только актуальная LTS версия
-      fail-fast: false  # Не останавливаем другие версии при падении одной
+        node-version: [20]  # Only the current LTS version
+      fail-fast: false  # Keep other versions running if one fails
 
     steps:
       - name: "📥 Checkout repository"
@@ -51,14 +51,14 @@ jobs:
         run: |
           echo "🧪 Running Jest tests with coverage on Node.js ${{ matrix.node-version }}"
           echo "📊 Test files pattern: specs/**/*.{test,spec}.ts"
-          set +e  # Отключаем автоматический выход при ошибке
+          set +e  # Disable automatic exit on error
           npm run test:ci 2>&1 | tee test-output.log
-          test_exit_code=${PIPESTATUS[0]}  # Получаем exit code команды npm, а не tee
-          set -e  # Включаем обратно автоматический выход при ошибке
+          test_exit_code=${PIPESTATUS[0]}  # Get the exit code of npm, not tee
+          set -e  # Re-enable automatic exit on error
 
           echo "🔍 Jest exit code: $test_exit_code"
 
-          # Анализируем реальные результаты тестов из output
+          # Analyze the actual test results from the output
           if grep -q "Test Suites:.*failed" test-output.log; then
             echo "test_result=failure" >> $GITHUB_OUTPUT
             echo "❌ Some tests failed"
@@ -66,7 +66,7 @@ jobs:
             echo "test_result=failure" >> $GITHUB_OUTPUT
             echo "❌ Some tests failed"
           else
-            # Все тесты прошли, проверяем покрытие для warning
+            # All tests passed; check coverage for a warning
             if [ $test_exit_code -ne 0 ] && grep -q "coverage threshold" test-output.log; then
               echo "test_result=success_low_coverage" >> $GITHUB_OUTPUT
               echo "✅ All tests passed, but coverage is low"
@@ -125,7 +125,7 @@ jobs:
                 comment += '⚠️ **Обратите внимание**: Покрытие кода тестами довольно низкое. Рекомендуется добавить больше тестов.\n\n';
               }
 
-              // Добавляем информацию о покрытии
+              // Add coverage information
               try {
                 const coverageExists = fs.existsSync('coverage/coverage-summary.json');
                 if (coverageExists) {
@@ -143,7 +143,7 @@ jobs:
                   comment += `| 🌿 **Ветвления** | **${total.branches.pct}%** | Сколько условий if/else/switch было проверено |\n`;
                   comment += `| ✨ **Утверждения** | **${total.statements.pct}%** | Сколько отдельных команд было выполнено |\n\n`;
 
-                  // Детализация по файлам под спойлером
+                  // Per-file details in a collapsible section
                   comment += '<details>\n';
                   comment += '<summary>📁 <b>Покрытие по файлам</b> (нажмите чтобы развернуть)</summary>\n\n';
 
@@ -152,24 +152,24 @@ jobs:
                     if (filePath !== 'total') {
                       const fileStats = coverage[filePath];
 
-                      // Создаём понятное отображение пути
+                      // Create a readable path label
                       let displayPath;
                       const pathParts = filePath.split('/');
                       const fileName = pathParts.pop();
 
                       if (fileName === 'index.ts' && pathParts.length > 0) {
-                        // Для index.ts показываем папку + имя файла
+                        // For index.ts, show the folder and file name
                         const parentFolder = pathParts[pathParts.length - 1];
                         displayPath = `${parentFolder}/index.ts`;
                       } else if (pathParts.length > 2) {
-                        // Для глубоких путей показываем последние 2 папки
+                        // For deep paths, show the last two folders
                         const lastTwoParts = pathParts.slice(-2);
                         displayPath = `${lastTwoParts.join('/')}/${fileName}`;
                       } else if (pathParts.length > 0) {
-                        // Для коротких путей показываем всё
+                        // For short paths, show the entire path
                         displayPath = `${pathParts.join('/')}/${fileName}`;
                       } else {
-                        // Файл в корне
+                        // File at the root
                         displayPath = fileName;
                       }
 
@@ -182,7 +182,7 @@ jobs:
 
                   comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
 
-                  // Рекомендации
+                  // Recommendations
                   if (total.lines.pct < 80) {
                     comment += '⚠️ **Рекомендация**: Покрытие ниже 80%. Добавьте больше тестов для критичных участков кода.\n\n';
                   } else if (total.lines.pct >= 90) {
@@ -195,12 +195,12 @@ jobs:
             } else {
               comment += '💥 **Некоторые тесты упали!**\n\n';
 
-              // Пытаемся извлечь информацию об ошибках из лога
+              // Try to extract error details from the log
               try {
                 if (fs.existsSync('test-output.log')) {
                   const testOutput = fs.readFileSync('test-output.log', 'utf8');
 
-                  // Ищем упавшие тесты
+                  // Find failed tests
                   const failedTests = testOutput.match(/FAIL\s+(.+\.spec\.ts)/g);
                   if (failedTests) {
                     comment += '## 🔍 Упавшие тесты:\n\n';
@@ -212,7 +212,7 @@ jobs:
                     comment += '\n';
                   }
 
-                  // Ищем конкретные ошибки
+                  // Find specific errors
                   const errorLines = testOutput.split('\n').filter(line =>
                     line.includes('Expected:') ||
                     line.includes('Received:') ||
@@ -222,7 +222,7 @@ jobs:
                   if (errorLines.length > 0) {
                     comment += '## 📋 Детали ошибок:\n\n';
                     comment += '```\n';
-                    comment += errorLines.slice(0, 10).join('\n'); // Первые 10 строк
+                    comment += errorLines.slice(0, 10).join('\n'); // First 10 lines
                     comment += '\n```\n\n';
                   }
                 }
@@ -238,7 +238,7 @@ jobs:
 
             console.log('💬 Looking for existing comment to update...');
 
-            // Ищем существующий комментарий для обновления
+            // Find an existing comment to update
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,

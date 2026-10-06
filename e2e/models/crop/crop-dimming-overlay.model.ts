@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Public e2e model держим выше private visual sampling helpers. */
+/* eslint-disable no-use-before-define -- Keep the public e2e model above private visual sampling helpers. */
 import { type Page, expect } from '@playwright/test'
 
 import type {
@@ -6,30 +6,30 @@ import type {
   CropDimmingOverlaySnapshot
 } from '../../types'
 
-/** Точка в viewport-координатах lower Fabric canvas. */
+/** Point in viewport coordinates of the lower Fabric canvas. */
 type CropDimmingViewportPoint = {
   x: number
   y: number
 }
 
-/** Координаты Fabric-объекта, достаточные для чтения затемнения. */
+/** Fabric-object coordinates sufficient for reading dimming. */
 type BrowserFabricObject = {
   oCoords?: Partial<Record<'tl' | 'tr' | 'br' | 'bl', BrowserFabricPoint>>
   setCoords: () => void
 }
 
-/** Точка Fabric-объекта в browser runtime. */
+/** Fabric-object point in the browser runtime. */
 type BrowserFabricPoint = {
   x?: unknown
   y?: unknown
 }
 
-/** Активное состояние crop manager, используемое только для visual read. */
+/** Active crop-manager state used only for visual reads. */
 type BrowserCropState = {
   frame: BrowserFabricObject
 }
 
-/** Минимальный browser contract для чтения crop dimming overlay. */
+/** Minimal browser contract for reading the crop-dimming overlay. */
 type BrowserCropDimmingEditor = {
   canvas: {
     controlsAboveOverlay?: boolean
@@ -45,12 +45,12 @@ type BrowserCropDimmingEditor = {
   montageArea: BrowserFabricObject
 }
 
-/** Window contract для browser-side чтения crop dimming overlay. */
+/** Window contract for browser-side reading of the crop-dimming overlay. */
 type BrowserCropDimmingWindow = Window & {
   editor?: BrowserCropDimmingEditor
 }
 
-/** Геометрия canvas и crop-области в viewport-координатах. */
+/** Canvas and crop-area geometry in viewport coordinates. */
 type CropDimmingViewportGeometry = {
   canvasHeight: number
   canvasWidth: number
@@ -61,20 +61,20 @@ type CropDimmingViewportGeometry = {
   overlayVpt: boolean
 }
 
-/** Точки, по которым читается визуальное состояние маски. */
+/** Points used to read the mask's visual state. */
 type CropDimmingSamplePoints = {
   insideFrame: CropDimmingViewportPoint | null
   outsideFrame: CropDimmingViewportPoint | null
   outsideMontage: CropDimmingViewportPoint
 }
 
-/** Доли montage area для поиска устойчивой точки вне crop frame. */
+/** Artboard fractions used to find a stable point outside the crop frame. */
 const CROP_DIMMING_SAMPLE_RATIOS = [0.12, 0.24, 0.5, 0.76, 0.88]
 
-/** Отступ от края canvas для чтения пикселя вне montage area. */
+/** Inset from the canvas edge for reading a pixel outside the artboard. */
 const CANVAS_EDGE_SAMPLE_INSET = 16
 
-/** E2E-модель визуального затемнения вне active crop frame. */
+/** E2E model of visual dimming outside the active crop frame. */
 export class CropDimmingOverlayModel {
   private readonly page: Page
 
@@ -82,7 +82,7 @@ export class CropDimmingOverlayModel {
     this.page = page
   }
 
-  /** Возвращает пиксели и runtime-состояние затемнения crop mode. */
+  /** Returns pixels and runtime state of crop-mode dimming. */
   async getSnapshot(): Promise<CropDimmingOverlaySnapshot> {
     const geometry = await this.getViewportGeometry()
     const points = resolveSamplePoints({ geometry })
@@ -99,13 +99,13 @@ export class CropDimmingOverlayModel {
     }
   }
 
-  /** Читает viewport-геометрию текущего canvas и active crop frame. */
+  /** Reads viewport geometry of the current canvas and active crop frame. */
   private async getViewportGeometry(): Promise<CropDimmingViewportGeometry> {
     const geometry = await this.page.evaluate(() => {
       const { editor } = window as BrowserCropDimmingWindow
       if (!editor) return null
 
-      /** Сериализует viewport-углы Fabric-объекта. */
+      /** Serializes a Fabric object's viewport corners. */
       const serializeObjectCoords = (object: BrowserFabricObject) => {
         object.setCoords()
         const { tl, tr, br, bl } = object.oCoords ?? {}
@@ -149,7 +149,7 @@ export class CropDimmingOverlayModel {
     return geometry
   }
 
-  /** Читает пиксели lower Fabric canvas в заданных viewport-точках. */
+  /** Reads lower Fabric canvas pixels at the specified viewport points. */
   private async readPixels({
     points
   }: {
@@ -166,7 +166,7 @@ export class CropDimmingOverlayModel {
       const scaleX = canvas.lowerCanvasEl.width / canvas.getWidth()
       const scaleY = canvas.lowerCanvasEl.height / canvas.getHeight()
 
-      /** Читает один пиксель lower Fabric canvas в viewport-точке. */
+      /** Reads one lower Fabric canvas pixel at a viewport point. */
       const readPixel = (point: CropDimmingViewportPoint | null): CropCanvasPixelInfo | null => {
         if (!point) return null
 
@@ -205,7 +205,7 @@ export class CropDimmingOverlayModel {
   }
 }
 
-/** Выбирает точки для проверки hole и затемнённой области. */
+/** Selects points for checking the hole and dimmed area. */
 function resolveSamplePoints({
   geometry
 }: {
@@ -227,7 +227,7 @@ function resolveSamplePoints({
   }
 }
 
-/** Находит canvas-точку, которая не принадлежит montage area. */
+/** Finds a canvas point outside the artboard. */
 function findPointOutsideMontage({
   geometry
 }: {
@@ -249,7 +249,7 @@ function findPointOutsideMontage({
   return outsideMontage
 }
 
-/** Находит montage-точку, которая находится за пределами crop frame. */
+/** Finds an artboard point outside the crop frame. */
 function findPointOutsideFrame({
   frame,
   montage
@@ -267,7 +267,7 @@ function findPointOutsideFrame({
   throw new Error('Не удалось выбрать montage-точку за пределами crop frame')
 }
 
-/** Интерполирует точку внутри четырёхугольника с порядком tl, tr, br, bl. */
+/** Interpolates a point inside a quadrilateral ordered tl, tr, br, bl. */
 function interpolateQuadrilateral({
   points,
   u,
@@ -288,7 +288,7 @@ function interpolateQuadrilateral({
   return interpolatePoint({ from: top, to: bottom, ratio: v })
 }
 
-/** Интерполирует точку между двумя viewport-координатами. */
+/** Interpolates a point between two viewport coordinates. */
 function interpolatePoint({
   from,
   to,
@@ -304,7 +304,7 @@ function interpolatePoint({
   }
 }
 
-/** Проверяет принадлежность точки выпуклому или невыпуклому многоугольнику. */
+/** Checks whether a point lies inside a convex or non-convex polygon. */
 function isPointInsidePolygon({
   point,
   polygon

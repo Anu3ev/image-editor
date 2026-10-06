@@ -1,4 +1,4 @@
-/** Сериализованное представление объекта canvas для assertions в тестах */
+/** Serialized canvas-object representation for test assertions */
 export interface EditorObjectInfo {
   id?: string
   type: string
@@ -20,7 +20,7 @@ export interface EditorObjectInfo {
   flipY: boolean
 }
 
-/** Снимок состояния canvas */
+/** Canvas-state snapshot */
 export interface CanvasStateInfo {
   width: number
   height: number
@@ -28,14 +28,14 @@ export interface CanvasStateInfo {
   objectCount: number
 }
 
-/** Смещение и zoom текущего viewportTransform canvas */
+/** Offset and zoom of the current canvas viewportTransform */
 export interface CanvasViewportTransformInfo {
   x: number
   y: number
   zoom: number
 }
 
-/** Базовые границы элемента в viewport-координатах canvas. */
+/** Basic element bounds in canvas viewport coordinates. */
 export interface ViewportBoundsInfo {
   left: number
   top: number
@@ -47,20 +47,20 @@ export interface ViewportBoundsInfo {
   centerY: number
 }
 
-/** DOM-состояние одного viewport-скроллбара. */
+/** DOM state of one viewport scrollbar. */
 export interface ViewportScrollbarAxisInfo {
   thumb: ViewportBoundsInfo
   track: ViewportBoundsInfo
   visible: boolean
 }
 
-/** DOM-состояние viewport-скроллбаров редактора. */
+/** DOM state of the editor's viewport scrollbars. */
 export interface ViewportScrollbarInfo {
   horizontal: ViewportScrollbarAxisInfo
   vertical: ViewportScrollbarAxisInfo
 }
 
-/** Состояние pan по одной оси viewport. */
+/** Pan state along one viewport axis. */
 export interface ViewportPanAxisInfo {
   canPan: boolean
   current: number
@@ -70,14 +70,14 @@ export interface ViewportPanAxisInfo {
   scrollDistance: number
 }
 
-/** Состояние pan viewport. */
+/** Viewport pan state. */
 export interface ViewportPanInfo {
   canPan: boolean
   horizontal: ViewportPanAxisInfo
   vertical: ViewportPanAxisInfo
 }
 
-/** Информация о montage area */
+/** Artboard information */
 export interface MontageAreaInfo {
   width: number
   height: number
@@ -85,7 +85,7 @@ export interface MontageAreaInfo {
   top: number
 }
 
-/** Состояние DOM-индикатора размеров объекта. */
+/** DOM object-size indicator state. */
 export interface ObjectSizeIndicatorInfo {
   visible: boolean
   text: string
@@ -93,14 +93,14 @@ export interface ObjectSizeIndicatorInfo {
   height: number | null
 }
 
-/** Состояние видимого DOM-индикатора размеров объекта с распознанными числами. */
+/** Visible DOM object-size indicator state with parsed numbers. */
 export interface VisibleObjectSizeIndicatorInfo extends ObjectSizeIndicatorInfo {
   visible: true
   width: number
   height: number
 }
 
-/** Границы montage area в координатах canvas-сцены. */
+/** Artboard bounds in canvas-scene coordinates. */
 export interface MontageAreaBoundsInfo {
   left: number
   top: number
@@ -112,7 +112,7 @@ export interface MontageAreaBoundsInfo {
   centerY: number
 }
 
-/** Границы монтажной области и canvas-вьюпорта в клиентских координатах браузера. */
+/** Artboard and canvas-viewport bounds in browser client coordinates. */
 export interface MontageAreaViewportBoundsInfo {
   montageLeft: number
   montageTop: number
@@ -132,13 +132,13 @@ export interface MontageAreaViewportBoundsInfo {
   viewportCenterY: number
 }
 
-/** Параметры для идентификации целевого объекта в моделях */
+/** Options for identifying the target object in models */
 export interface ObjectTargetParams {
   objectIndex?: number
   id?: string
 }
 
-/** Событие о пропущенных при удалении объектах, записанное e2e-хелпером. */
+/** Event for objects skipped during deletion, recorded by the e2e helper. */
 export interface DeleteSkippedEventInfo {
   requestedCount: number
   requestedIds: Array<string | null>
@@ -147,26 +147,26 @@ export interface DeleteSkippedEventInfo {
   withoutSave: boolean | null
 }
 
-/** Параметры сериализации шаблона из текущего выделения */
+/** Options for serializing a template from the current selection */
 export interface SerializeTemplateParams {
   templateId?: string
   previewId?: string
   withBackground?: boolean
 }
 
-/** Минимальное описание объекта шаблона для e2e */
+/** Minimal template-object description for e2e tests */
 export interface TemplateObjectData {
   [key: string]: unknown
 }
 
-/** Минимальное описание шаблона для e2e */
+/** Minimal template description for e2e tests */
 export interface TemplateDefinition {
   id: string
   meta: Record<string, unknown>
   objects: TemplateObjectData[]
 }
 
-/** Результат уничтожения и повторного монтирования редактора в том же контейнере. */
+/** Result of destroying and remounting the editor in the same container. */
 export interface EditorRemountInfo {
   previousEditorId: string
   editorId: string

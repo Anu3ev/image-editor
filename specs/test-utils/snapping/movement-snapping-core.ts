@@ -10,7 +10,7 @@ import {
 } from '../../../src/editor/snapping-manager/movement/movement-snapping-resolver'
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 
-/** Создаёт точные границы translation-объекта с центрами из тех же граней. */
+/** Creates exact bounds for a translation object, with centers derived from the same edges. */
 export function createMovementBounds({
   left,
   top,
@@ -32,7 +32,7 @@ export function createMovementBounds({
   }
 }
 
-/** Создаёт baseline movement-жеста с неизменяемым снимком целей. */
+/** Creates a movement-gesture baseline with an immutable snapshot of targets. */
 export function createMovementBaseline({
   bounds = createMovementBounds({ left: 0, top: 0 }),
   sources = [],
@@ -55,7 +55,7 @@ export function createMovementBaseline({
   })
 }
 
-/** Создаёт raw movement intent для объекта с left/top origin. */
+/** Creates raw movement intent for an object with a left/top origin. */
 export function createMovementRawIntent({
   left,
   top,
@@ -89,7 +89,7 @@ export function createMovementRawIntent({
   }
 }
 
-/** Создаёт фактическую movement-геометрию после применения рассчитанной позиции. */
+/** Creates the actual movement geometry after applying the calculated position. */
 export function createFinalMovementGeometry({
   left,
   top,

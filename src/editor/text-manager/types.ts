@@ -86,8 +86,8 @@ export type UpdateOptions = {
 }
 
 /**
- * Options snapshot события добавления текста.
- * `strokeColor: null` означает явно отсутствующую обводку в runtime payload.
+ * Options snapshot for the text-added event.
+ * `strokeColor: null` indicates an explicitly absent stroke in the runtime payload.
  */
 export interface TextAddedPayloadOptions extends Omit<TextStyleOptions, 'strokeColor'> {
   strokeColor?: string | null
@@ -104,7 +104,7 @@ export type TextAddedPayload = {
 }
 
 /**
- * Общая часть payload editor-level событий перед и после обновления текста.
+ * Common payload for editor-level events before and after a text update.
  */
 export type TextUpdateLifecyclePayload = {
   textbox: EditorTextbox
@@ -120,17 +120,17 @@ export type TextUpdateLifecyclePayload = {
 }
 
 /**
- * Payload события, которое эмитится до фиксации текстового обновления в истории.
+ * Payload of the event emitted before committing a text update to history.
  */
 export type BeforeTextUpdatedPayload = TextUpdateLifecyclePayload
 
 /**
- * Снимок состояния текстового объекта для lifecycle payload текстовых событий.
+ * Text-object state snapshot for text-event lifecycle payloads.
  */
 export type TextboxSnapshot = Record<string, unknown>
 
 /**
- * Payload финального события после текстового обновления.
+ * Payload of the final event after a text update.
  */
 export type TextUpdatedPayload = TextUpdateLifecyclePayload & {
   before: TextboxSnapshot
@@ -165,7 +165,7 @@ export type LineFontDefaultUpdate = {
   underline?: boolean
 }
 
-/** Исходные свойства текста, относительно которых рассчитывается один жест скейлинга. */
+/** Original text properties against which a single scaling gesture is calculated. */
 export type TextScaleBaseState = {
   width: number
   height: number
@@ -190,7 +190,7 @@ export type ScalingState = {
   minimumWidthScale: number
   minimumFontScale: number
   minimumProportionalScale: number
-  /** Определяет, нужно ли округлить размеры при завершении жеста. */
+  /** Determines whether dimensions should be rounded when the gesture ends. */
   shouldRoundDimensionsOnCommit: boolean
   hasScalingChange: boolean
 }

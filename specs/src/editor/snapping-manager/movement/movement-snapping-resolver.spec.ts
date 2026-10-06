@@ -11,7 +11,7 @@ import {
   createMovementRawIntent
 } from '../../../../test-utils/snapping/movement-snapping-core'
 
-/** Узкая цель с двумя близкими вертикальными направляющими. */
+/** A narrow target with two closely spaced vertical guides. */
 const REFERENCE_SOURCE = {
   id: 'reference',
   bounds: createMovementBounds({
@@ -23,7 +23,7 @@ const REFERENCE_SOURCE = {
   useForSpacing: true
 } satisfies MovementSnapCandidateSource
 
-/** Два широких объекта с позицией равноудалённости `left = 35` для target шириной 20. */
+/** Two wide objects with an equal-spacing position of `left = 35` for a target of width 20. */
 const HORIZONTAL_SPACING_SOURCES = [
   {
     id: 'left-spacing-source',
@@ -37,7 +37,7 @@ const HORIZONTAL_SPACING_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
-/** Первые три шейпа из шаблона с точными интервалами `47,25`. */
+/** The first three shapes from the template, with exact gaps of `47.25`. */
 const FRACTIONAL_CHAIN_SOURCES = [
   {
     id: 'first-fractional-shape',
@@ -66,7 +66,7 @@ const FRACTIONAL_CHAIN_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
-/** Первые три шейпа вертикального шаблона с точными интервалами `47,25`. */
+/** The first three shapes from the vertical template, with exact gaps of `47.25`. */
 const VERTICAL_FRACTIONAL_CHAIN_SOURCES = [
   {
     id: 'first-vertical-fractional-shape',
@@ -95,7 +95,7 @@ const VERTICAL_FRACTIONAL_CHAIN_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
-/** Spacing-цели, у которых после сдвига по Y появляется новый ближайший сосед. */
+/** Spacing targets that gain a new nearest neighbor after a shift along Y. */
 const CHANGING_NEIGHBOR_SOURCES = [
   {
     id: 'left-spacing-source',
@@ -114,7 +114,7 @@ const CHANGING_NEIGHBOR_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
-/** Источники для возврата к X-направляющей при удерживаемой Y-направляющей. */
+/** Sources for returning to the X guide while holding the Y guide. */
 const CHANGING_NEIGHBOR_WITH_FALLBACK_SOURCES = [
   ...CHANGING_NEIGHBOR_SOURCES,
   {
@@ -137,7 +137,7 @@ const CHANGING_NEIGHBOR_WITH_FALLBACK_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
-/** Две совместимые reference-направляющие с разным пересечением по Y. */
+/** Two compatible reference guides with different overlap along Y. */
 const RELATED_REFERENCE_SPACING_SOURCES = [
   {
     id: 'before-reference-start',
@@ -161,7 +161,7 @@ const RELATED_REFERENCE_SPACING_SOURCES = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
-/** Две направляющие для совместимых интервалов вокруг перемещаемого объекта. */
+/** Two guides for compatible gaps around the moving object. */
 const RELATED_REFERENCE_SPACING_GUIDES = [
   {
     type: 'horizontal',
@@ -183,7 +183,7 @@ const RELATED_REFERENCE_SPACING_GUIDES = [
   }
 ] as const
 
-/** Одинаковые spacing-границы в двух непересекающихся рядах. */
+/** Identical spacing boundaries in two non-overlapping rows. */
 const SAME_SPACING_EDGES_IN_DIFFERENT_ROWS = [
   {
     id: 'first-row-left',
@@ -207,7 +207,7 @@ const SAME_SPACING_EDGES_IN_DIFFERENT_ROWS = [
   }
 ] satisfies readonly MovementSnapCandidateSource[]
 
-/** Spacing-цели для независимой проверки X hold и Y acquisition. */
+/** Spacing targets for independently testing X hold and Y acquisition. */
 const PER_AXIS_SPACING_SOURCES = [
   ...HORIZONTAL_SPACING_SOURCES,
   {

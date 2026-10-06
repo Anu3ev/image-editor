@@ -3,7 +3,7 @@ import { ImageEditor } from '../index'
 
 export default class LayerManager {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageEditor
 
@@ -12,13 +12,13 @@ export default class LayerManager {
   }
 
   /**
-   * Поднять объект навверх по оси Z
+   * Bring an object to the front along the Z axis
    * @param object
    * @param options
-   * @param options.withoutSave - Не сохранять действие в истории изменений
-   * Если сохранение включено и в этот момент открыт text editing,
-   * менеджер сначала завершает редактирование, чтобы текст сохранился
-   * отдельным history-шагом до изменения слоя.
+   * @param options.withoutSave - Do not save the action to the change history
+   * If saving is enabled while text editing is active,
+   * the manager first finishes editing so that the text is saved
+   * as a separate history step before the layer change.
    * @fires editor:object-bring-to-front
    */
   public bringToFront(
@@ -63,13 +63,13 @@ export default class LayerManager {
   }
 
   /**
-   * Поднять объект на один уровень вверх по оси Z
+   * Move an object up one level along the Z axis
    * @param object
    * @param options
-   * @param options.withoutSave - Не сохранять действие в истории изменений
-   * Если сохранение включено и в этот момент открыт text editing,
-   * менеджер сначала завершает редактирование, чтобы текст сохранился
-   * отдельным history-шагом до изменения слоя.
+   * @param options.withoutSave - Do not save the action to the change history
+   * If saving is enabled while text editing is active,
+   * the manager first finishes editing so that the text is saved
+   * as a separate history step before the layer change.
    * @fires editor:object-bring-forward
    */
   public bringForward(
@@ -111,13 +111,13 @@ export default class LayerManager {
   }
 
   /**
-   * Отправить объект на задний план по оси Z
+   * Send an object to the back along the Z axis
    * @param object
    * @param options
-   * @param options.withoutSave - Не сохранять действие в истории изменений
-   * Если сохранение включено и в этот момент открыт text editing,
-   * менеджер сначала завершает редактирование, чтобы текст сохранился
-   * отдельным history-шагом до изменения слоя.
+   * @param options.withoutSave - Do not save the action to the change history
+   * If saving is enabled while text editing is active,
+   * the manager first finishes editing so that the text is saved
+   * as a separate history step before the layer change.
    * @fires editor:object-send-to-back
    */
   public sendToBack(
@@ -146,7 +146,7 @@ export default class LayerManager {
     if (activeObject instanceof ActiveSelection) {
       const selectedObjects = activeObject.getObjects()
 
-      // Отправляем объекты на нижний слой, начиная с нижнего объекта выделения
+      // Send objects to the bottom layer, starting with the lowest object in the selection
       for (let i = selectedObjects.length - 1; i >= 0; i -= 1) {
         canvas.sendObjectToBack(selectedObjects[i])
       }
@@ -158,7 +158,7 @@ export default class LayerManager {
       canvas.sendObjectToBack(backgroundObject)
     }
 
-    // Служебные элементы отправляем вниз
+    // Send internal helper elements to the back
     canvas.sendObjectToBack(montageArea)
 
     if (overlayMask) {
@@ -179,13 +179,13 @@ export default class LayerManager {
   }
 
   /**
-   * Отправить объект на один уровень ниже по оси Z
+   * Move an object down one level along the Z axis
    * @param object
    * @param options
-   * @param options.withoutSave - Не сохранять действие в истории изменений
-   * Если сохранение включено и в этот момент открыт text editing,
-   * менеджер сначала завершает редактирование, чтобы текст сохранился
-   * отдельным history-шагом до изменения слоя.
+   * @param options.withoutSave - Do not save the action to the change history
+   * If saving is enabled while text editing is active,
+   * the manager first finishes editing so that the text is saved
+   * as a separate history step before the layer change.
    */
   public sendBackwards(
     object?: FabricObject,
@@ -209,7 +209,7 @@ export default class LayerManager {
     const activeObject = object || canvas.getActiveObject()
     if (!activeObject) return
 
-    // Обработка активного выделения
+    // Handle the active selection
     if (activeObject instanceof ActiveSelection) {
       LayerManager._moveSelectionBackwards(canvas, activeObject)
     } else {
@@ -220,7 +220,7 @@ export default class LayerManager {
       canvas.sendObjectToBack(backgroundObject)
     }
 
-    // Служебные элементы отправляем вниз
+    // Send internal helper elements to the back
     canvas.sendObjectToBack(montageArea)
 
     if (overlayMask) {
@@ -241,74 +241,74 @@ export default class LayerManager {
   }
 
   /**
-   * Сдвигает выделенные объекты на один уровень вверх - каждый объект поднимается
-   * на одну позицию выше относительно своей текущей позиции
-   * @param canvas - экземпляр холста
-   * @param activeSelection - активное выделение
+   * Moves selected objects up one level: each object moves
+   * one position above its current position
+   * @param canvas - Canvas instance
+   * @param activeSelection - Active selection
    */
   private static _moveSelectionForward(canvas: Canvas, activeSelection: ActiveSelection): void {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 
-    // Проверяем граничный случай: все ли объекты выделения находятся выше всех остальных
+    // Check the boundary case: are all selected objects above all other objects?
     const canAnyObjectMove = selectedObjects.some((obj) => {
       const currentIndex = canvasObjects.indexOf(obj)
 
-      // Ищем объект выше текущего, не входящий в выделение
+      // Look for an object above the current one that is not in the selection
       for (let i = currentIndex + 1; i < canvasObjects.length; i += 1) {
         if (!selectedObjects.includes(canvasObjects[i])) {
-          return true // Нашли объект, значит можем подняться
+          return true // Found an object, so moving up is possible
         }
       }
-      return false // Не нашли объектов выше
+      return false // No objects found above
     })
 
-    if (!canAnyObjectMove) return // Ни один объект не может подняться
+    if (!canAnyObjectMove) return // No object can move up
 
-    // Сортируем объекты по их текущим позициям (сверху вниз)
-    // чтобы обрабатывать их от самого верхнего к самому нижнему
+    // Sort objects by their current positions (top to bottom)
+    // to process them from highest to lowest
     const sortedSelectedObjects = selectedObjects
       .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
       .sort((a, b) => b.index - a.index)
 
-    // Перемещаем каждый объект индивидуально на одну позицию вверх
+    // Move each object up one position individually
     sortedSelectedObjects.forEach((item) => {
       canvas.bringObjectForward(item.obj)
     })
   }
 
   /**
-   * Сдвигает выделенные объекты на один уровень вниз - каждый объект опускается
-   * на одну позицию ниже относительно своей текущей позиции
-   * @param canvas - экземпляр холста
-   * @param activeSelection - активное выделение
+   * Moves selected objects down one level: each object moves
+   * one position below its current position
+   * @param canvas - Canvas instance
+   * @param activeSelection - Active selection
    */
   private static _moveSelectionBackwards(canvas: Canvas, activeSelection: ActiveSelection): void {
     const canvasObjects = canvas.getObjects()
     const selectedObjects = activeSelection.getObjects()
 
-    // Проверяем граничный случай: все ли объекты выделения находятся ниже всех остальных
+    // Check the boundary case: are all selected objects below all other objects?
     const canAnyObjectMove = selectedObjects.some((obj) => {
       const currentIndex = canvasObjects.indexOf(obj)
 
-      // Ищем объект ниже текущего, не входящий в выделение
+      // Look for an object below the current one that is not in the selection
       for (let i = currentIndex - 1; i >= 0; i -= 1) {
         if (!selectedObjects.includes(canvasObjects[i])) {
-          return true // Нашли объект, значит можем опуститься
+          return true // Found an object, so moving down is possible
         }
       }
-      return false // Не нашли объектов ниже
+      return false // No objects found below
     })
 
-    if (!canAnyObjectMove) return // Ни один объект не может опуститься
+    if (!canAnyObjectMove) return // No object can move down
 
-    // Сортируем объекты по их текущим позициям (снизу вверх)
-    // чтобы обрабатывать их от самого нижнего к самому верхнему
+    // Sort objects by their current positions (bottom to top)
+    // to process them from lowest to highest
     const sortedSelectedObjects = selectedObjects
       .map((obj) => ({ obj, index: canvasObjects.indexOf(obj) }))
       .sort((a, b) => a.index - b.index)
 
-    // Перемещаем каждый объект индивидуально на одну позицию вниз
+    // Move each object down one position individually
     sortedSelectedObjects.forEach((item) => {
       canvas.sendObjectBackwards(item.obj)
     })

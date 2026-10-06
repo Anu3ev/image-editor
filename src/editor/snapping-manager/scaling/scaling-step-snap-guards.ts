@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный resolver держим выше внутренних расчётов. */
+/* eslint-disable no-use-before-define -- The public resolver is kept above internal calculations. */
 import type { FabricObject } from 'fabric'
 
 import { getObjectBounds, type ObjectBounds } from '../../utils/geometry'
@@ -11,7 +11,7 @@ import {
 
 export type { ScalingStepSnapGuard } from './scaling-snap-guard'
 
-/** Выбирает ближайший целый размер, который не переносит удерживаемую грань за направляющую. */
+/** Selects the nearest integer size that does not move the held edge past the guide. */
 export function resolveGuardedScalingStep(params: GuardedScalingStepParams): ScalingStepCandidate {
   const { target, rawScaleX, rawScaleY, preservePlacement, snapGuards, fallbackScale } = params
   if (shouldKeepCurrentGuideSnap({ target, snapGuards })) return { scaleX: rawScaleX, scaleY: rawScaleY }
@@ -20,13 +20,13 @@ export function resolveGuardedScalingStep(params: GuardedScalingStepParams): Sca
   return selectOnGuideFirstScalingCandidate({ target, candidates, preservePlacement, snapGuards }) ?? fallbackScale
 }
 
-/** Кандидат scale после округления размера к целому пикселю. */
+/** Scale candidate after rounding the size to an integer pixel. */
 export type ScalingStepCandidate = {
   scaleX: number
   scaleY: number
 }
 
-/** Опорная точка, которую нужно сохранять во время округления scale. */
+/** Anchor to preserve while rounding scale. */
 type ScalingStepPlacement = {
   left: number
   top: number
@@ -34,13 +34,13 @@ type ScalingStepPlacement = {
   originY: FabricObject['originY']
 }
 
-/** Контракт восстановления опорной точки во время одного шага округления scale. */
+/** Contract for restoring the anchor during one scale rounding step. */
 export type ScalingStepPlacementPreserver = {
   placement: ScalingStepPlacement
   applyPlacement: (placement: ScalingStepPlacement) => void
 }
 
-/** Параметры выбора scale, который сохраняет активные guide. */
+/** Parameters for selecting a scale that preserves active guides. */
 export type GuardedScalingStepParams = {
   target: FabricObject
   rawScaleX: number
@@ -53,16 +53,16 @@ export type GuardedScalingStepParams = {
   snapGuards: ScalingStepSnapGuard[]
 }
 
-/** Положение кандидата относительно удерживаемого guide. */
+/** Candidate position relative to the held guide. */
 type ScalingStepCandidateSnapState = 'on-guide' | 'inside' | 'outside'
 
-/** Проверка кандидата относительно удерживаемого guide. */
+/** Candidate check against the held guide. */
 export type ScalingStepCandidateSnapMatch = {
   state: ScalingStepCandidateSnapState
   distance: number
 }
 
-/** Параметры перебора scale-кандидатов относительно активных guide. */
+/** Parameters for evaluating scale candidates against active guides. */
 export interface GuardedScalingCandidateMatchParams {
   target: FabricObject
   candidates: ScalingStepCandidate[]
@@ -71,7 +71,7 @@ export interface GuardedScalingCandidateMatchParams {
 }
 
 /**
- * Выбирает первый кандидат прямо на guide, fallback — первый кандидат внутри guide.
+ * Selects the first candidate exactly on the guide, falling back to the first candidate inside it.
  */
 export function selectOnGuideFirstScalingCandidate({
   target,
@@ -100,8 +100,8 @@ export function selectOnGuideFirstScalingCandidate({
 }
 
 /**
- * Возвращает true, если текущий scale уже удерживает грань на guide,
- * а размер объекта считается в тех же координатах canvas, что и guide.
+ * Returns true if the current scale already holds the edge on the guide,
+ * and the object size is calculated in the same canvas coordinates as the guide.
  */
 export function shouldKeepCurrentGuideSnap({
   target,
@@ -122,7 +122,7 @@ export function shouldKeepCurrentGuideSnap({
 }
 
 /**
- * Проверяет, что фактический размер по оси guide можно показать как валидный пиксельный размер.
+ * Checks that the actual size along the guide axis can be displayed as a valid pixel size.
  */
 function hasValidRoundedBoundsSize({
   bounds,
@@ -141,7 +141,7 @@ function hasValidRoundedBoundsSize({
 }
 
 /**
- * Собирает кандидаты округления scale, начиная с ближайших к текущему scale.
+ * Collects scale rounding candidates, starting with those nearest to the current scale.
  */
 export function collectScalingStepCandidates({
   rawScaleX,
@@ -182,7 +182,7 @@ export function collectScalingStepCandidates({
 }
 
 /**
- * Собирает scale-кандидаты одной оси через текущий размер и соседние пиксельные размеры.
+ * Collects scale candidates for one axis using the current size and adjacent pixel sizes.
  */
 function collectAxisScaleCandidates({
   rawScale,
@@ -223,7 +223,7 @@ function collectAxisScaleCandidates({
 }
 
 /**
- * Добавляет scale-кандидат без дублей от совпадающих пиксельных размеров.
+ * Adds a scale candidate without duplicates from matching pixel sizes.
  */
 function addUniqueScaleCandidate({
   candidates,
@@ -239,7 +239,7 @@ function addUniqueScaleCandidate({
 }
 
 /**
- * Собирает uniform scale-кандидаты из обеих осей.
+ * Collects uniform scale candidates from both axes.
  */
 function collectUniformScaleCandidates({
   scaleXCandidates,
@@ -270,7 +270,7 @@ function collectUniformScaleCandidates({
 }
 
 /**
- * Собирает пары scale-кандидатов для независимого scaling по осям.
+ * Collects pairs of scale candidates for independent scaling along each axis.
  */
 function collectAxisScaleCandidatePairs({
   scaleXCandidates,
@@ -302,7 +302,7 @@ function collectAxisScaleCandidatePairs({
 }
 
 /**
- * Проверяет округлённый scale относительно удерживаемого guide.
+ * Checks the rounded scale against the held guide.
  */
 export function resolveScalingStepCandidateSnapMatch({
   target,
@@ -335,7 +335,7 @@ export function resolveScalingStepCandidateSnapMatch({
 }
 
 /**
- * Читает bounds кандидата, временно применяя scale и возвращая target в исходное состояние.
+ * Reads candidate bounds by temporarily applying scale and restoring the target's original state.
  */
 export function readScalingStepCandidateBounds({
   target,
@@ -380,7 +380,7 @@ export function readScalingStepCandidateBounds({
 }
 
 /**
- * Проверяет bounds кандидата относительно всех активных guide.
+ * Checks candidate bounds against all active guides.
  */
 function resolveBoundsSnapMatch({
   bounds,

@@ -3,7 +3,7 @@ import defaultFonts from './default-fonts'
 
 export const defaults: Partial<EditorOptions> = {
   /**
-   * Опции редактора
+   * Editor options
    */
   preserveObjectStacking: true,
   controlsAboveOverlay: true,
@@ -12,7 +12,7 @@ export const defaults: Partial<EditorOptions> = {
   selectionKey: ['ctrlKey', 'metaKey'],
 
   /*
-   * Кастомные опции
+   * Custom options
    */
   montageAreaWidth: 512,
   montageAreaHeight: 512,
@@ -78,20 +78,20 @@ export const defaults: Partial<EditorOptions> = {
   zoomRatio: 0.1,
   overlayMaskColor: 'rgba(136, 136, 136, 0.6)',
   /**
-   * Показывать угол поворота объекта рядом с указателем во время вращения.
+   * Show the object rotation angle next to the pointer while rotating.
    */
   showRotationAngle: true,
   /**
-   * Показывать текущую ширину и высоту объекта рядом с указателем во время скейлинга.
+   * Show the current object width and height next to the pointer while scaling.
    */
   showObjectSizeOnScale: true,
   /**
-   * Показывать программные viewport-скроллбары для pan при увеличенном canvas.
+   * Show programmatic viewport scrollbars for panning a zoomed-in canvas.
    */
   showViewportScrollbars: true,
 
   /*
-   * Настройки слушателей событий
+   * Event listener settings
    */
   adaptCanvasToContainerOnResize: true,
   mouseWheelZooming: true,
@@ -107,7 +107,7 @@ export const defaults: Partial<EditorOptions> = {
   keyboardIgnoreSelectors: [],
 
   /**
-   * Список шрифтов, которые будут доступны в редакторе по умолчанию.
+   * List of fonts available in the editor by default.
    */
   fonts: defaultFonts
 }

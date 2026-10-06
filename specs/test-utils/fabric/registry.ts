@@ -1,7 +1,7 @@
 import { Point, Textbox } from 'fabric'
 
 /**
- * Добавляет недостающие методы в mock-классы Fabric для тестов.
+ * Adds missing methods to Fabric mock classes for tests.
  */
 export const ensureFabricHelpers = (): void => {
   const { prototype: pointPrototype } = Point

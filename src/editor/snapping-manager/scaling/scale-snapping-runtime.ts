@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- публичный класс объявлен перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- The public class is declared before internal validation helpers. */
 import {
   FREE_SCALE_HOLD_STATE,
   refineScaleSnapPlan,
@@ -15,20 +15,20 @@ import {
   type VerifiedScaleGuide
 } from './scale-snapping-resolver'
 
-/** Одноразовый идентификатор плана для одного события указателя. */
+/** Single-use plan identifier for one pointer event. */
 export type ScalePlanToken = Readonly<{
   sessionId: number
   step: number
 }>
 
-/** Новый шаг указателя, план которого менеджер объекта должен применить один раз. */
+/** New pointer step whose plan the object's manager must apply once. */
 export type PlannedScaleRuntimeStep = Readonly<{
   kind: 'planned'
   token: ScalePlanToken
   plan: ScaleSnapPlan
 }>
 
-/** Повтор уже обработанного события, который не должен повторно менять объект. */
+/** Duplicate of an already handled event that must not modify the object again. */
 export type DuplicateScaleRuntimeStep = Readonly<{
   kind: 'duplicate'
   phase: 'pending' | 'verified'
@@ -37,16 +37,16 @@ export type DuplicateScaleRuntimeStep = Readonly<{
   verification: ScaleSnapVerification | null
 }>
 
-/** Результат обработки одного события указателя. */
+/** Result of handling one pointer event. */
 export type ScaleRuntimeStep = PlannedScaleRuntimeStep | DuplicateScaleRuntimeStep
 
-/** Результат идемпотентного завершения жеста прилипания. */
+/** Result of idempotently ending a snapping gesture. */
 export type ScaleRuntimeCleanup = Readonly<{
   didCleanup: boolean
   hiddenGuides: readonly VerifiedScaleGuide[]
 }>
 
-/** Состояние одного события указателя для защиты от повторной обработки. */
+/** State of one pointer event to prevent duplicate handling. */
 type ScaleRuntimeStepRecord = {
   intent: ScaleRawIntent
   token: ScalePlanToken
@@ -54,7 +54,7 @@ type ScaleRuntimeStepRecord = {
   verification: ScaleSnapVerification | null
 }
 
-/** Изменяемое состояние активного изменения размера. */
+/** Mutable state of the active resize operation. */
 type ActiveScaleRuntimeSession = {
   id: number
   baseline: ScaleGestureBaseline
@@ -65,18 +65,18 @@ type ActiveScaleRuntimeSession = {
   nextStep: number
 }
 
-/** Следующий локальный идентификатор изменения размера. */
+/** Next local resize identifier. */
 let nextScaleRuntimeSessionId = 1
 
-/** Неизменяемый результат повторного завершения уже очищенного жеста. */
+/** Immutable result of ending an already cleaned-up gesture again. */
 const EMPTY_SCALE_RUNTIME_CLEANUP: ScaleRuntimeCleanup = Object.freeze({
   didCleanup: false,
   hiddenGuides: Object.freeze([])
 })
 
 /**
- * Связывает событие указателя с одним планом и обновляет удержание после проверки результата.
- * Сам класс не изменяет Fabric-объекты.
+ * Associates a pointer event with one plan and updates the hold after verifying the result.
+ * The class itself does not modify Fabric objects.
  */
 export class ScaleSnappingRuntime {
   private _session: ActiveScaleRuntimeSession | null = null
@@ -86,7 +86,7 @@ export class ScaleSnappingRuntime {
   private readonly _consumedTokens = new WeakSet<ScalePlanToken>()
 
   /**
-   * Начинает новый жест с уже зафиксированным исходным состоянием.
+   * Starts a new gesture with an already captured initial state.
    */
   startSession({ baseline }: { baseline: ScaleGestureBaseline }): void {
     if (this._session) {
@@ -106,7 +106,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Определяет повторное событие до повторного чтения уже изменённого объекта.
+   * Detects a duplicate event before rereading the already modified object.
    */
   getDuplicateStep({ marker }: { marker: object }): DuplicateScaleRuntimeStep | null {
     const session = this._getActiveSession()
@@ -115,7 +115,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Возвращает не более одного плана для одного события указателя.
+   * Returns at most one plan per pointer event.
    */
   resolveScalePlan({
     marker,
@@ -159,7 +159,7 @@ export class ScaleSnappingRuntime {
     return Object.freeze({ kind: 'planned', token, plan })
   }
 
-  /** Уточняет текущий план по точной геометрии домена до его применения. */
+  /** Refines the current plan using exact domain geometry before applying it. */
   refineScalePlan({
     token,
     refinement
@@ -182,7 +182,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Проверяет итоговую геометрию и только после этого обновляет состояние удержания.
+   * Verifies the final geometry before updating hold state.
    */
   verifyScalePlan({
     token,
@@ -210,7 +210,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Завершает жест и возвращает направляющие, которые нужно скрыть один раз.
+   * Ends the gesture and returns the guides to hide once.
    */
   finishSession(): ScaleRuntimeCleanup {
     const session = this._session
@@ -229,7 +229,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Возвращает состояние активного жеста или выбрасывает ошибку.
+   * Returns the active gesture state or throws an error.
    */
   private _getActiveSession(): ActiveScaleRuntimeSession {
     if (!this._session) {
@@ -240,7 +240,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Возвращает сохранённый результат для повторного события указателя.
+   * Returns the cached result for a duplicate pointer event.
    */
   private _getDuplicateStep({
     session,
@@ -256,7 +256,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Создаёт одноразовый идентификатор плана для текущего жеста.
+   * Creates a single-use plan identifier for the current gesture.
    */
   private _createPlanToken({ session }: { session: ActiveScaleRuntimeSession }): ScalePlanToken {
     const token = Object.freeze({
@@ -270,7 +270,7 @@ export class ScaleSnappingRuntime {
   }
 
   /**
-   * Отклоняет чужой, устаревший или уже использованный идентификатор плана.
+   * Rejects a foreign, stale, or already used plan identifier.
    */
   private _assertUsableToken({
     session,
@@ -292,7 +292,7 @@ export class ScaleSnappingRuntime {
 }
 
 /**
- * Копирует исходные значения шага, чтобы входная мутация не изменила сохранённый результат.
+ * Copies the step's initial values so input mutation cannot change the saved result.
  */
 function createScaleRawIntentSnapshot(intent: ScaleRawIntent): ScaleRawIntent {
   return Object.freeze({
@@ -306,7 +306,7 @@ function createScaleRawIntentSnapshot(intent: ScaleRawIntent): ScaleRawIntent {
 }
 
 /**
- * Возвращает неизменяемый результат повторного события из сохранённого состояния.
+ * Returns an immutable duplicate-event result from the saved state.
  */
 function createDuplicateScaleRuntimeStep({
   record
@@ -323,7 +323,7 @@ function createDuplicateScaleRuntimeStep({
 }
 
 /**
- * Проверяет режим scale при повторной обработке того же события.
+ * Checks the scaling mode when handling the same event again.
  */
 function assertSameScaleProjectionMode({
   first,
@@ -338,7 +338,7 @@ function assertSameScaleProjectionMode({
 }
 
 /**
- * Проверяет значения scale при повторной обработке того же события.
+ * Checks scale values when handling the same event again.
  */
 function assertSameScaleValues({
   first,
@@ -356,7 +356,7 @@ function assertSameScaleValues({
 }
 
 /**
- * Проверяет клавиши-модификаторы при повторной обработке того же события.
+ * Checks modifier keys when handling the same event again.
  */
 function assertSameScaleModifiers({
   first,

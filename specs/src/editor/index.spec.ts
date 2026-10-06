@@ -7,7 +7,7 @@ import { addRectangleToCanvas } from '../../../src/editor/utils/primitive-shapes
 import { basicOptions, createFullOptions } from '../../test-utils/editor/options'
 import { createEditorWithMocks } from '../../test-utils/editor/editor-with-mocks'
 
-// Мокируем сторонние зависимости редактора (не fabric)
+// Mock the editor's third-party dependencies (except fabric)
 jest.mock('nanoid')
 jest.mock('../../../src/editor/listeners')
 jest.mock('../../../src/editor/module-loader')
@@ -43,12 +43,12 @@ jest.mock('../../../src/editor/utils/primitive-shapes', () => ({
 }))
 
 describe('ImageEditor', () => {
-  // Моки для зависимостей
+  // Dependency mocks
   const mockNanoid = nanoid as jest.MockedFunction<typeof nanoid>
   const mockRect = {}
   const addRectangleToCanvasMock = addRectangleToCanvas as jest.Mock
 
-  // Базовые опции/хелперы теперь импортируются из test-utils/editor/options и test-utils/editor/editor-with-mocks
+  // Base options/helpers are now imported from test-utils/editor/options and test-utils/editor/editor-with-mocks
 
   beforeEach(() => {
     jest.clearAllMocks()
@@ -59,7 +59,7 @@ describe('ImageEditor', () => {
     let initSpy: jest.SpiedFunction<ImageEditor['init']>
 
     beforeEach(() => {
-      // Изолируем тесты конструктора от побочных эффектов init()
+      // Isolate constructor tests from init() side effects
       initSpy = jest.spyOn(ImageEditor.prototype, 'init').mockResolvedValue()
     })
 
@@ -282,7 +282,7 @@ describe('ImageEditor', () => {
       }
       const createElSpy = jest.spyOn(document, 'createElement').mockImplementation(() => mockCanvas as any)
 
-      // Вызываем приватный статический метод через рефлексию
+      // Call the private static method through reflection
       const pattern = (ImageEditor as any)._createMosaicPattern()
 
       expect(document.createElement).toHaveBeenCalledWith('canvas')
@@ -318,7 +318,7 @@ describe('ImageEditor', () => {
 
   describe('init', () => {
     beforeEach(() => {
-      // Добавляем реальный canvas в jsdom, чтобы fabric.Canvas корректно инициализировался
+      // Add a real canvas to jsdom so fabric.Canvas initializes correctly
       document.body.innerHTML = '<canvas id="test-canvas"></canvas>'
     })
 
@@ -603,7 +603,7 @@ describe('ImageEditor', () => {
 
   describe('destroy', () => {
     it('должен правильно очищать все ресурсы', () => {
-      // Создаем минимальную версию редактора только с нужными компонентами
+      // Create a minimal editor with only the required components
       const mockDestroy = jest.fn()
       const mockDispose = jest.fn()
       const mockTerminate = jest.fn()
@@ -687,7 +687,7 @@ describe('ImageEditor', () => {
       const editor = new ImageEditor('test-canvas', createFullOptions())
       const editorWithCanvas = editor as any
 
-      // Устанавливаем canvas
+      // Set the canvas
       editorWithCanvas.canvas = new Canvas('test-canvas', {}) as any
 
       addRectangleToCanvasMock.mockReturnValue(mockRect)

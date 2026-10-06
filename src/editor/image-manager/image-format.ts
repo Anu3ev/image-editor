@@ -1,24 +1,24 @@
-/** MIME-тип, который используется, когда формат источника определить нельзя. */
+/** MIME type used when the source format cannot be determined. */
 const FALLBACK_CONTENT_TYPE = 'application/octet-stream'
 
-/** Карта MIME-типов, построенная по допустимым contentType редактора. */
+/** MIME type map built from the editor's allowed contentType values. */
 interface MimeTypeByExtension {
   [extension: string]: string
 }
 
-/** Проверяет, что source является runtime blob URL. */
+/** Checks whether the source is a runtime blob URL. */
 function isBlobUrl({ src }: { src: string }): boolean {
   return src.startsWith('blob:')
 }
 
-/** Возвращает subtype из MIME-типа, например `png`, `jpeg` или `svg`. */
+/** Returns the subtype from a MIME type, for example `png`, `jpeg`, or `svg`. */
 export function getFormatFromContentType(contentType = ''): string {
   const match = contentType.match(/^[^/]+\/([^+;]+)/)
 
   return match ? match[1] : ''
 }
 
-/** Получает список расширений, которые соответствуют допустимым MIME-типам. */
+/** Gets the list of extensions corresponding to the allowed MIME types. */
 export function getAllowedFormatsFromContentTypes({
   acceptContentTypes
 }: {
@@ -29,7 +29,7 @@ export function getAllowedFormatsFromContentTypes({
     .filter((format) => format !== '')
 }
 
-/** Проверяет, входит ли MIME-тип в список разрешённых contentType. */
+/** Checks whether a MIME type is among the allowed contentType values. */
 export function isAllowedContentType({
   contentType = '',
   acceptContentTypes
@@ -40,7 +40,7 @@ export function isAllowedContentType({
   return acceptContentTypes.includes(contentType)
 }
 
-/** Строит lookup расширение -> MIME-тип из разрешённых contentType. */
+/** Builds an extension -> MIME type lookup from the allowed contentType values. */
 function createMimeTypeMap({
   acceptContentTypes
 }: {
@@ -59,7 +59,7 @@ function createMimeTypeMap({
   return mimeTypes
 }
 
-/** Определяет MIME-тип по расширению файла в URL. */
+/** Determines the MIME type from the file extension in the URL. */
 export function getContentTypeFromExtension({
   url,
   acceptContentTypes
@@ -80,7 +80,7 @@ export function getContentTypeFromExtension({
   }
 }
 
-/** Получает MIME-тип изображения из blob URL через browser Blob API. */
+/** Gets an image's MIME type from a blob URL through the browser Blob API. */
 async function getContentTypeFromBlobUrl({ src }: { src: string }): Promise<string> {
   try {
     const response = await fetch(src)
@@ -96,7 +96,7 @@ async function getContentTypeFromBlobUrl({ src }: { src: string }): Promise<stri
   return FALLBACK_CONTENT_TYPE
 }
 
-/** Получает MIME-тип изображения через blob URL, data URL, HEAD-запрос или расширение URL. */
+/** Gets an image's MIME type through a blob URL, data URL, HEAD request, or URL extension. */
 export async function getContentTypeFromUrl({
   src,
   acceptContentTypes
@@ -128,7 +128,7 @@ export async function getContentTypeFromUrl({
   return getContentTypeFromExtension({ url: src, acceptContentTypes })
 }
 
-/** Получает MIME-тип изображения из File или URL-источника. */
+/** Gets an image's MIME type from a File or URL source. */
 export async function getContentType({
   source,
   acceptContentTypes

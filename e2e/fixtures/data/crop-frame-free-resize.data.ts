@@ -1,24 +1,24 @@
 import type { CropControlKey } from '../../types'
 
-/** Размер изображения из пользовательского сценария свободного resize у source-границы. */
+/** Image dimensions from the user's free-resize scenario at the source boundary. */
 export const FREE_RESIZE_SOURCE_BOUNDARY_IMAGE_SIZE = {
   width: 1000,
   height: 667
 } as const
 
-/** Размер crop frame из пользовательского сценария свободного resize у source-границы. */
+/** Crop-frame dimensions from the user's free-resize scenario at the source boundary. */
 export const FREE_RESIZE_SOURCE_BOUNDARY_CROP_SIZE = {
   width: 511,
   height: 302
 } as const
 
-/** Дополнительный drag за source-границу после первого упора. */
+/** Additional drag beyond the source boundary after first reaching it. */
 export const FREE_RESIZE_SOURCE_BOUNDARY_EXTRA_DRAG_PIXELS = 80
 
-/** Допуск сравнения source-пикселей после реальных pointer events. */
+/** Tolerance for comparing source pixels after real pointer events. */
 export const FREE_RESIZE_SOURCE_PIXEL_TOLERANCE = 2
 
-/** Side-controls для проверки свободного resize у source-границы по каждой стороне. */
+/** Side controls for testing free resize at each source boundary. */
 export const FREE_RESIZE_SOURCE_BOUNDARY_SIDE_CASES = [
   {
     control: 'mt',

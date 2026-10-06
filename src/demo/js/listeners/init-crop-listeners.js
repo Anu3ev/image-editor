@@ -1,7 +1,7 @@
 // @ts-nocheck
 
 /**
- * Возвращает поведенческие флаги crop mode из demo controls.
+ * Returns crop mode behavior flags from the demo controls.
  */
 const getCropBehaviorOptions = ({ controls }) => {
   return {
@@ -14,7 +14,7 @@ const getCropBehaviorOptions = ({ controls }) => {
 }
 
 /**
- * Возвращает crop ratio из demo select.
+ * Returns the crop ratio from the demo select.
  */
 const getSelectedAspectRatio = ({ ratioSelect }) => {
   const { value } = ratioSelect
@@ -30,7 +30,7 @@ const getSelectedAspectRatio = ({ ratioSelect }) => {
 }
 
 /**
- * Возвращает explicit crop size из demo inputs.
+ * Returns the explicit crop size from the demo inputs.
  */
 const getSelectedCropSize = ({ widthInput, heightInput }) => {
   const width = Number(widthInput.value)
@@ -45,7 +45,7 @@ const getSelectedCropSize = ({ widthInput, heightInput }) => {
 }
 
 /**
- * Собирает options для старта crop mode.
+ * Builds the options for starting crop mode.
  */
 const getCropOptions = ({ controls }) => {
   const options = getCropBehaviorOptions({ controls })
@@ -74,7 +74,7 @@ const getCropOptions = ({ controls }) => {
 }
 
 /**
- * Применяет текущий demo preset к активному crop mode.
+ * Applies the current demo preset to the active crop mode.
  */
 const applyCropPresetToActiveMode = ({ editorInstance, controls }) => {
   const aspectRatio = getSelectedAspectRatio({
@@ -95,7 +95,7 @@ const applyCropPresetToActiveMode = ({ editorInstance, controls }) => {
 }
 
 /**
- * Инициализирует demo listeners для crop mode.
+ * Initializes demo listeners for crop mode.
  */
 export default ({ editorInstance, controls }) => {
   controls.startCanvasCropBtn.addEventListener('click', () => {

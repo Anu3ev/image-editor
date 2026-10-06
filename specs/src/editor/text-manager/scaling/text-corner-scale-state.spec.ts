@@ -4,7 +4,7 @@ import {
   captureTextCornerScaleCanonicalState
 } from '../../../../../src/editor/text-manager/scaling/text-corner-scale-state'
 
-/** Создаёт текст с двумя источниками переопределённого размера шрифта. */
+/** Creates text with two sources of font-size overrides. */
 function createTextboxWithFontSizeOverrides(): BackgroundTextbox {
   const textbox = new BackgroundTextbox('Первая\nВторая', {
     fontSize: 32,

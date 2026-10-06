@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный расчёт расположен перед внутренними формулами. */
+/* eslint-disable no-use-before-define -- Public calculation precedes internal formulas. */
 import type { Transform } from 'fabric'
 
 import {
@@ -14,17 +14,17 @@ import type { Bounds } from '../../snapping-manager/types'
 import type { CropFrame } from '../domain/crop-frame'
 import { SOURCE_SCALED_GUIDE_HOLD_EPSILON } from './crop-scale-snap-guards'
 
-/** Допуск сравнения множителей масштаба на разных осях. */
+/** Tolerance for comparing scale multipliers on different axes. */
 const UNIFORM_SCALE_FACTOR_EPSILON = 0.000001
 
-/** План crop с исходным масштабом рамки для удержания направляющей. */
+/** Crop plan with the initial frame scale for holding a guide. */
 interface CropScaleUpdatePlanParams extends ScaleUpdatePlanParams {
   target: CropFrame
   originalScaleX?: number | null
   originalScaleY?: number | null
 }
 
-/** Дополняет общий геометрический план прежним удержанием crop в пикселях источника. */
+/** Extends the shared geometry plan with legacy crop holding in source pixels. */
 export function resolveCropScaleUpdatePlan(params: CropScaleUpdatePlanParams): ScaleUpdatePlan | null {
   const plan = resolveScaleUpdatePlan(params)
   if (!plan || !params.shouldUseUniformScaleSnap) return plan
@@ -35,7 +35,7 @@ export function resolveCropScaleUpdatePlan(params: CropScaleUpdatePlanParams): S
   return { ...plan, nextScaleX: params.scaleX * heldFactor, nextScaleY: params.scaleY * heldFactor }
 }
 
-/** Возвращает исходный множитель, если прежняя рамка остаётся возле всех удерживаемых направляющих. */
+/** Returns the initial multiplier if the legacy frame remains near all held guides. */
 function resolveSourceScaledGuideHoldScaleFactor({
   target,
   bounds,
@@ -82,7 +82,7 @@ function resolveSourceScaledGuideHoldScaleFactor({
   return scaleFactor
 }
 
-/** Согласует исходный множитель по всем осям активных направляющих. */
+/** Reconciles the initial multiplier across all axes of the active guides. */
 function resolveOriginalUniformScaleFactor({
   scaleX,
   scaleY,
@@ -122,7 +122,7 @@ function resolveOriginalUniformScaleFactor({
   return scaleFactor
 }
 
-/** Переводит исходный масштаб одной оси в множитель текущего шага. */
+/** Converts the initial scale on one axis to the current step multiplier. */
 function resolveOriginalScaleFactorForSnapGuard({
   snapGuard,
   scaleX,
@@ -146,7 +146,7 @@ function resolveOriginalScaleFactorForSnapGuard({
   return originalScale / currentScale
 }
 
-/** Рассчитывает прямоугольник после пропорционального изменения относительно неподвижных сторон. */
+/** Calculates the rectangle after a proportional resize relative to the fixed sides. */
 function resolveUniformScaledBounds({
   bounds,
   originX,
@@ -177,7 +177,7 @@ function resolveUniformScaledBounds({
   }
 }
 
-/** Сохраняет горизонтальную опору прежнего расчёта направляющих. */
+/** Preserves the horizontal anchor of the legacy guide calculation. */
 function resolveUniformScaledHorizontalBounds({
   bounds,
   originX,
@@ -214,7 +214,7 @@ function resolveUniformScaledHorizontalBounds({
   }
 }
 
-/** Сохраняет вертикальную опору прежнего расчёта направляющих. */
+/** Preserves the vertical anchor of the legacy guide calculation. */
 function resolveUniformScaledVerticalBounds({
   bounds,
   originY,
@@ -251,21 +251,21 @@ function resolveUniformScaledVerticalBounds({
   }
 }
 
-/** Возвращает именованную горизонтальную опору прежнего resize. */
+/** Returns the named horizontal anchor of the legacy resize. */
 function resolveScaleOriginX({ originX }: { originX: Transform['originX'] }): 'left' | 'center' | 'right' {
   if (originX === 'center' || originX === 'right') return originX
 
   return 'left'
 }
 
-/** Возвращает именованную вертикальную опору прежнего resize. */
+/** Returns the named vertical anchor of the legacy resize. */
 function resolveScaleOriginY({ originY }: { originY: Transform['originY'] }): 'top' | 'center' | 'bottom' {
   if (originY === 'center' || originY === 'bottom') return originY
 
   return 'top'
 }
 
-/** Проверяет допустимое отклонение рамки от всех активных направляющих. */
+/** Checks the allowed deviation of the frame from all active guides. */
 function areBoundsNearSnapGuards({
   bounds,
   snapGuards

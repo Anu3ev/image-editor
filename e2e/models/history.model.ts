@@ -10,7 +10,7 @@ export class HistoryModel {
     this.page = page
   }
 
-  /** Выполняет undo через публичный API historyManager */
+  /** Performs undo through the public historyManager API */
   async undo(): Promise<void> {
     await this.page.evaluate(async() => {
       const { editor } = window as any
@@ -20,7 +20,7 @@ export class HistoryModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Выполняет redo через публичный API historyManager */
+  /** Performs redo through the public historyManager API */
   async redo(): Promise<void> {
     await this.page.evaluate(async() => {
       const { editor } = window as any
@@ -30,7 +30,7 @@ export class HistoryModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Явно сохраняет текущее состояние canvas в историю */
+  /** Explicitly saves the current canvas state to history */
   async saveState(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -40,7 +40,7 @@ export class HistoryModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Принудительно фиксирует отложенное сохранение после text editing */
+  /** Forces the deferred save after text editing to commit */
   async flushPendingSave(): Promise<boolean> {
     return this.page.evaluate(() => {
       const { editor } = window as any
@@ -48,7 +48,7 @@ export class HistoryModel {
     })
   }
 
-  /** Возвращает текущую позицию history без сериализованного canvas payload. */
+  /** Returns the current history position without the serialized canvas payload. */
   async getPosition(): Promise<HistoryPosition> {
     return this.page.evaluate(() => {
       const { editor } = window as any
@@ -61,7 +61,7 @@ export class HistoryModel {
     })
   }
 
-  /** Возвращает сериализованное состояние history для проверок persistence payload. */
+  /** Returns serialized history state for persistence-payload checks. */
   async getSerializedState(): Promise<unknown> {
     return this.page.evaluate(() => {
       const { editor } = window as any
@@ -75,7 +75,7 @@ export class HistoryModel {
     })
   }
 
-  /** Возвращает serialized history строкой для проверок payload. */
+  /** Returns serialized history as a string for payload checks. */
   async getSerializedStateText(): Promise<string> {
     return JSON.stringify(await this.getSerializedState())
   }

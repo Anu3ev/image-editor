@@ -15,7 +15,7 @@ import {
   SHAPE_MULTI_SCALING_TOLERANCE
 } from '../../fixtures/data/shape-multi-scaling.data'
 
-/** Направление вертикального уменьшения общего выделения. */
+/** Direction of vertical active-selection shrinkage. */
 const EQUAL_HEIGHT_VERTICAL_CASES = [
   {
     direction: 'bottom',

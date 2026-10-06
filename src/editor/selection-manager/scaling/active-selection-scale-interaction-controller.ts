@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- The public controller precedes the internal checks. */
 import {
   ActiveSelection,
   type FabricObject,
@@ -47,61 +47,61 @@ import {
   type ActiveSelectionScaleSession
 } from './active-selection-scale-session'
 
-/** Измерение канонического состояния выделения с текстами для одного шага. */
+/** Measurement of the canonical state of a selection containing text for one step. */
 type ActiveSelectionTextScaleMeasurement = ReturnType<
   ImageEditor['textManager']['measureActiveSelectionScale']
 >
 
-/** Подготовленная фиксация шейпов внутри общей транзакции. */
+/** Prepared shape commit within the shared transaction. */
 type ActiveSelectionShapePreparedCommit = ReturnType<
   ImageEditor['shapeManager']['prepareActiveSelectionScaleCommit']
 >
 
-/** Проверенные исходные данные одного шага поддерживаемого общего выделения. */
+/** Validated input for one step of a supported active selection. */
 type ActiveSelectionScaleStepInput = Readonly<{
   intent: ScaleRawIntent
   mode: RectangularScaleGestureMode
   textMeasurement: ActiveSelectionTextScaleMeasurement | null
 }>
 
-/** План после необязательного уточнения по канонической геометрии текстов. */
+/** Plan after optional refinement using canonical text geometry. */
 type ResolvedActiveSelectionScalePlan = Readonly<{
   plan: ScaleSnapPlan
   textMeasurement: ActiveSelectionTextScaleMeasurement | null
 }>
 
-/** Текущий домен, который выполняет каноническую фиксацию общего выделения. */
+/** Current domain performing the canonical active selection commit. */
 type ActiveSelectionScaleCommitKind = 'shapes' | 'texts'
 
-/** Способ фиксации шейпов после общей сессии скейлинга. */
+/** Method for committing shapes after a shared scaling session. */
 export type ActiveSelectionShapeCommitMode = 'canonical-scale' | 'fabric-transform'
 
 /**
- * Владеет общей сессией скейлинга ActiveSelection из изображений, шейпов или состава с текстом.
- * Остальные составы пока используют прежнюю логику.
+ * Owns the shared scaling session for an ActiveSelection of images, shapes, or a composition containing text.
+ * Other compositions still use the previous logic.
  */
 export default class ActiveSelectionScaleInteractionController {
-  /** Редактор с холстом и общим окружением прилипания. */
+  /** Editor with the canvas and shared snapping environment. */
   private readonly editor: ImageEditor
 
-  /** Текущий поддерживаемый жест или null для прежнего пути. */
+  /** Current supported gesture, or null for the previous path. */
   private session: ActiveSelectionScaleSession | null = null
 
-  /** Сессия, которую доменный менеджер сейчас фиксирует через `object:modified`. */
+  /** Session that a domain manager is currently committing through `object:modified`. */
   private commitSession: Readonly<{
     kind: ActiveSelectionScaleCommitKind
     session: ActiveSelectionScaleSession
   }> | null = null
 
-  /** Исходные рамки, фиксацию которых уже забрал общий владелец. */
+  /** Original frames whose commit has already been claimed by the shared owner. */
   private readonly coordinatedTextDrivenSelections = new WeakSet<ActiveSelection>()
 
-  /** Создаёт владельца скейлинга общего выделения. */
+  /** Creates the active selection scaling owner. */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
-  /** Подписывает владельца скейлинга общего выделения на события Fabric. */
+  /** Subscribes the active selection scaling owner to Fabric events. */
   public bind(): void {
     const { canvas } = this.editor
 
@@ -119,7 +119,7 @@ export default class ActiveSelectionScaleInteractionController {
     window.addEventListener('blur', this._handleWindowBlur)
   }
 
-  /** Снимает подписки и очищает сессию, даже если Fabric не смог завершить преобразование. */
+  /** Removes subscriptions and clears the session even if Fabric could not finish the transform. */
   public destroy(): void {
     const { canvas } = this.editor
 
@@ -142,7 +142,7 @@ export default class ActiveSelectionScaleInteractionController {
     }
   }
 
-  /** Фиксирует исходную геометрию поддерживаемого общего выделения. */
+  /** Captures the initial geometry of a supported active selection. */
   public startGesture({
     event
   }: {
@@ -166,7 +166,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Обрабатывает множители, уже применённые Fabric к общему выделению. */
+  /** Handles multipliers already applied by Fabric to the active selection. */
   public handleObjectScaling({
     event
   }: {
@@ -175,7 +175,7 @@ export default class ActiveSelectionScaleInteractionController {
     return this._handleScaleStep({ event, intentSource: 'fabric-preview' })
   }
 
-  /** Обрабатывает движение указателя, если Fabric не отправил `object:scaling`. */
+  /** Handles pointer movement when Fabric did not emit `object:scaling`. */
   public handleCanvasMouseMove({
     event
   }: {
@@ -184,7 +184,7 @@ export default class ActiveSelectionScaleInteractionController {
     return this._handleScaleStep({ event, intentSource: 'pointer-projection' })
   }
 
-  /** Идемпотентно завершает временную сессию скейлинга. */
+  /** Idempotently finishes the temporary scaling session. */
   public finishGesture(): boolean {
     const { session } = this
     if (!session) return false
@@ -198,7 +198,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Защищает фиксацию шейпов от промежуточных событий смены выделения. */
+  /** Protects the shape commit from intermediate selection change events. */
   public beginShapeSelectionCommit({
     selection
   }: {
@@ -216,12 +216,12 @@ export default class ActiveSelectionScaleInteractionController {
     return session.hasSkewStep ? 'fabric-transform' : 'canonical-scale'
   }
 
-  /** Завершает общую сессию после фиксации геометрии или преобразования шейпов. */
+  /** Finishes the shared session after committing shape geometry or transforms. */
   public finishShapeSelectionCommit({ selection }: { selection: ActiveSelection }): boolean {
     return this._finishSelectionCommit({ kind: 'shapes', selection })
   }
 
-  /** Защищает каноническую фиксацию текстов от внутренних событий смены выделения. */
+  /** Protects the canonical text commit from internal selection change events. */
   public beginTextSelectionCommit({ selection }: { selection: ActiveSelection }): boolean {
     const { session } = this
     if (!session || session.target !== selection) return false
@@ -233,12 +233,12 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Завершает общую сессию после канонической фиксации дочерних текстов. */
+  /** Finishes the shared session after canonically committing child text objects. */
   public finishTextSelectionCommit({ selection }: { selection: ActiveSelection }): boolean {
     return this._finishSelectionCommit({ kind: 'texts', selection })
   }
 
-  /** Проверяет, должен ли ShapeManager пропустить отдельную фиксацию смешанного состава. */
+  /** Checks whether ShapeManager should skip a separate commit of the mixed composition. */
   public shouldSkipShapeSelectionCommit({
     selection
   }: {
@@ -253,7 +253,7 @@ export default class ActiveSelectionScaleInteractionController {
       && session.phase === 'unified'
   }
 
-  /** Один раз снимает рамку, фиксирует текст и шейпы и восстанавливает общее выделение. */
+  /** Removes the frame once, commits text and shapes, and restores the active selection. */
   public commitTextDrivenSelectionScale({
     selection,
     transform
@@ -295,7 +295,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Завершает жест при удалении выделения или одного из его дочерних объектов. */
+  /** Ends the gesture when the selection or one of its child objects is removed. */
   public finishGestureForTarget({ target }: { target: FabricObject }): boolean {
     const { session } = this
     if (!session) return false
@@ -306,7 +306,7 @@ export default class ActiveSelectionScaleInteractionController {
     return this._cancelAndClearGuides()
   }
 
-  /** Обрабатывает шаг шейпов до прежнего обработчика ShapeManager. */
+  /** Handles a shape step before the previous ShapeManager handler. */
   public handleShapeSelectionScaleStep({
     event,
     intentSource
@@ -321,7 +321,7 @@ export default class ActiveSelectionScaleInteractionController {
     return this._handleScaleStep({ event, intentSource })
   }
 
-  /** Завершает преобразование Fabric после внешнего прерывания указателя. */
+  /** Finishes the Fabric transform after external pointer interruption. */
   public interruptGesture({ event }: { event?: PointerEvent | TouchEvent } = {}): boolean {
     if (!this.session) return false
 
@@ -334,7 +334,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Выполняет один общий шаг либо передаёт событие прежней логике без частичного применения. */
+  /** Performs one shared step or passes the event to the previous logic without partial application. */
   private _handleScaleStep({
     event,
     intentSource
@@ -384,7 +384,7 @@ export default class ActiveSelectionScaleInteractionController {
     })
   }
 
-  /** Снова блокирует расчёт скейлинга шейпов, если боковая ручка вернулась к наклону. */
+  /** Blocks shape scaling calculation again if the side handle has returned to skewing. */
   private _handleLegacyPassthroughStep({
     event,
     session
@@ -409,7 +409,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Не даёт ShapeManager повторно применить скейлинг, пока Fabric выполняет наклон боковой ручкой. */
+  /** Prevents ShapeManager from applying scaling again while Fabric is skewing with a side handle. */
   private _handleSkewPassthroughStep({
     event,
     session
@@ -435,7 +435,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Рассчитывает, один раз применяет и проверяет текущий шаг общего выделения. */
+  /** Calculates, applies once, and validates the current active selection step. */
   private _applyScaleStep({
     event,
     intentSource,
@@ -492,13 +492,13 @@ export default class ActiveSelectionScaleInteractionController {
       try {
         this._abortFailedScaleStep({ pointerEvent, session })
       } catch {
-        // Причина ошибки шага не должна подменяться ошибкой завершения сессии.
+        // The step error must not be replaced by a session finalization error.
       }
       throw error
     }
   }
 
-  /** Восстанавливает подтверждённую геометрию и завершает преобразование Fabric после ошибки шага. */
+  /** Restores confirmed geometry and finishes the Fabric transform after a step error. */
   private _abortFailedScaleStep({
     pointerEvent,
     session
@@ -537,7 +537,7 @@ export default class ActiveSelectionScaleInteractionController {
     }
   }
 
-  /** Применяет уточнённый план и проверяет фактическую геометрию выделения. */
+  /** Applies the refined plan and validates the actual selection geometry. */
   private _applyAndVerifyScaleStep({
     mode,
     plan,
@@ -591,7 +591,7 @@ export default class ActiveSelectionScaleInteractionController {
     return session.runtime.verifyScalePlan({ token, finalGeometry })
   }
 
-  /** Уточняет план только для состава, чья каноническая геометрия нелинейна. */
+  /** Refines the plan only for compositions with nonlinear canonical geometry. */
   private _resolveDomainScalePlan({
     mode,
     plan,
@@ -625,7 +625,7 @@ export default class ActiveSelectionScaleInteractionController {
     })
   }
 
-  /** Завершает общую сессию перед продолжением прежнего пути Fabric. */
+  /** Finishes the shared session before continuing the previous Fabric path. */
   private _continueWithExistingScaling(): boolean {
     const { session } = this
     if (session?.protectedState.composition.kind === 'shapes') {
@@ -646,7 +646,7 @@ export default class ActiveSelectionScaleInteractionController {
     return false
   }
 
-  /** Обрабатывает попытку включить наклон боковой ручкой и очищает направляющие скейлинга. */
+  /** Handles an attempt to start skewing with a side handle and clears scaling guides. */
   private _finishBeforeSkew({
     marker,
     pointerEvent
@@ -675,7 +675,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Фиксирует уже применённый текстовый шаг до передачи управления другому преобразованию. */
+  /** Commits an already applied text step before handing control to another transform. */
   private _finishAppliedTextGesture({
     session,
     pointerEvent
@@ -696,7 +696,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Завершает активную сессию и очищает её направляющие. */
+  /** Finishes the active session and clears its guides. */
   private _finishAndClearGuides(): boolean {
     if (!this.finishGesture()) return false
 
@@ -705,7 +705,7 @@ export default class ActiveSelectionScaleInteractionController {
     return true
   }
 
-  /** Завершает фиксацию только для того домена и выделения, которые её начали. */
+  /** Finishes the commit only for the domain and selection that started it. */
   private _finishSelectionCommit({
     kind,
     selection
@@ -721,7 +721,7 @@ export default class ActiveSelectionScaleInteractionController {
     return this._finishAndClearGuides()
   }
 
-  /** Подготавливает канонические свойства всех объектов и восстанавливает общее выделение. */
+  /** Prepares canonical properties for all objects and restores the active selection. */
   private _prepareTextDrivenChildrenCommit({
     selection,
     session,
@@ -761,7 +761,7 @@ export default class ActiveSelectionScaleInteractionController {
       try {
         this._restoreTextDrivenCommitState({ children, selection })
       } catch {
-        // Ошибка подготовки остаётся основной после попытки восстановить весь состав.
+        // The preparation error remains primary after attempting to restore the entire composition.
       }
       throw error
     }
@@ -769,7 +769,7 @@ export default class ActiveSelectionScaleInteractionController {
     return shapeCommit
   }
 
-  /** Возвращает исходную рамку и все объекты к последнему подтверждённому состоянию. */
+  /** Restores the original frame and all objects to the last confirmed state. */
   private _restoreTextDrivenCommitState({
     children,
     selection
@@ -802,7 +802,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (failures.length > 0) throw firstFailure
   }
 
-  /** Возвращает все объекты из новой рамки в исходный ActiveSelection и проверяет их порядок. */
+  /** Returns all objects from the new frame to the original ActiveSelection and checks their order. */
   private _restoreOriginalSelectionTopology({
     children,
     selection
@@ -827,7 +827,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (!hasOriginalOrder) throw new Error('Откат должен восстановить исходный порядок объектов')
   }
 
-  /** Завершает доменные сессии только после успешной подготовки геометрии и новой рамки. */
+  /** Finishes domain sessions only after geometry and the new frame have been successfully prepared. */
   private _finishTextDrivenDomainCommits({
     selection,
     shapeCommit
@@ -854,7 +854,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (failures.length > 0) throw firstFailure
   }
 
-  /** Завершает фиксацию после точки, в которой геометрия и новая рамка уже применены. */
+  /** Finishes the commit after geometry and the new frame have already been applied. */
   private _finishCommittedTextDrivenSelection({
     selection,
     session,
@@ -885,7 +885,7 @@ export default class ActiveSelectionScaleInteractionController {
       : null
   }
 
-  /** Очищает откатываемую транзакцию и освобождает прерванное преобразование Fabric. */
+  /** Clears the transaction being rolled back and releases the interrupted Fabric transform. */
   private _abortFailedTextDrivenCommit({
     selection,
     session,
@@ -898,7 +898,7 @@ export default class ActiveSelectionScaleInteractionController {
     try {
       this._clearDomainPreviewState({ session })
     } catch {
-      // Исходная ошибка фиксации остаётся основной после попытки очистить оба домена.
+      // The original commit error remains primary after attempting to clean up both domains.
     }
 
     this._forceFinishCommitSession({ selection, session })
@@ -906,7 +906,7 @@ export default class ActiveSelectionScaleInteractionController {
     this._releaseFailedCommitTransform({ selection, transform })
   }
 
-  /** Гарантированно удаляет временную сессию и направляющие после ошибки её завершения. */
+  /** Ensures the temporary session and guides are removed after a session finalization error. */
   private _forceFinishCommitSession({
     selection,
     session
@@ -919,18 +919,18 @@ export default class ActiveSelectionScaleInteractionController {
     try {
       session.runtime.finishSession()
     } catch {
-      // Остальное временное состояние всё равно должно быть очищено.
+      // The remaining temporary state must still be cleared.
     }
     if (this.session === session) this.session = null
     this.commitSession = null
     try {
       this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
     } catch {
-      // Ошибка очистки направляющих не должна оставлять общую сессию активной.
+      // A guide cleanup error must not leave the shared session active.
     }
   }
 
-  /** Передаёт ошибку после точки фиксации через штатный канал, не прерывая Fabric и историю. */
+  /** Reports a post-commit error through the standard channel without interrupting Fabric or history. */
   private _reportTextDrivenCommitFinalizationFailure({ error }: { error: unknown }): void {
     try {
       this.editor.errorManager.emitError({
@@ -941,11 +941,11 @@ export default class ActiveSelectionScaleInteractionController {
         origin: 'SelectionManager'
       })
     } catch {
-      // Ошибка подписчика не должна прерывать уже зафиксированное преобразование.
+      // A subscriber error must not interrupt an already committed transform.
     }
   }
 
-  /** Пытается обновить координаты каждого ребёнка и восстановить общую рамку после фиксации. */
+  /** Attempts to update each child's coordinates and restore the overall frame after the commit. */
   private _restoreTextDrivenSelectionAfterCommit({
     angle,
     center,
@@ -974,7 +974,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (failures.length > 0) throw firstFailure
   }
 
-  /** Снимает временную рамку, не завершая повторно уже обрабатываемое преобразование Fabric. */
+  /** Removes the temporary frame without finishing the Fabric transform already being processed a second time. */
   private _discardSelectionDuringCommit({
     selection,
     transform
@@ -996,7 +996,7 @@ export default class ActiveSelectionScaleInteractionController {
     }
   }
 
-  /** Освобождает transform и завершает историю, если ошибка прервала обработчик Fabric. */
+  /** Releases the transform and finishes history if an error interrupted the Fabric handler. */
   private _releaseFailedCommitTransform({
     selection,
     transform
@@ -1013,11 +1013,11 @@ export default class ActiveSelectionScaleInteractionController {
     try {
       this.editor.historyManager.endAction({ reason: 'object-transform' })
     } catch {
-      // Исходная ошибка фиксации остаётся основной после попытки завершить историю.
+      // The original commit error remains primary after attempting to finish history.
     }
   }
 
-  /** Создаёт одну каноническую рамку с исходным поворотом после фиксации всех доменов. */
+  /** Creates one canonical frame with the original rotation after all domains have been committed. */
   private _restoreSelectionAfterCommit({
     angle,
     center,
@@ -1036,7 +1036,7 @@ export default class ActiveSelectionScaleInteractionController {
     canvas.requestRenderAll()
   }
 
-  /** Очищает общую сессию и промежуточное состояние менеджера объекта. */
+  /** Clears the shared session and the object manager's intermediate state. */
   private _cancelAndClearGuides(): boolean {
     const { session } = this
     if (!session) return false
@@ -1051,7 +1051,7 @@ export default class ActiveSelectionScaleInteractionController {
     return finished
   }
 
-  /** Очищает временные данные менеджера, которому принадлежит состав выделения. */
+  /** Clears temporary data in the manager that owns the selection composition. */
   private _clearDomainPreviewState({
     session
   }: {
@@ -1086,22 +1086,22 @@ export default class ActiveSelectionScaleInteractionController {
     })
   }
 
-  /** Начинает новый поддерживаемый жест на `mouse:down`. */
+  /** Starts a new supported gesture on `mouse:down`. */
   private readonly _handleMouseDown = (event: ActiveSelectionScaleInteractionEvent): void => {
     this.startGesture({ event })
   }
 
-  /** Выполняет запасной шаг по движению указателя. */
+  /** Performs a fallback step based on pointer movement. */
   private readonly _handleMouseMove = (event: ActiveSelectionScaleInteractionEvent): void => {
     this.handleCanvasMouseMove({ event })
   }
 
-  /** Выполняет шаг после предварительного преобразования Fabric. */
+  /** Performs a step after Fabric's preliminary transform. */
   private readonly _handleObjectScaling = (event: ActiveSelectionScaleInteractionEvent): void => {
     this.handleObjectScaling({ event })
   }
 
-  /** Очищает сессию на любом терминальном событии. */
+  /** Clears the session on any terminal event. */
   private readonly _handleInteractionFinished = (): void => {
     const { session } = this
     if (session && this.commitSession?.session === session) return
@@ -1109,17 +1109,17 @@ export default class ActiveSelectionScaleInteractionController {
     this._cancelAndClearGuides()
   }
 
-  /** Завершает преобразование после отмены события указателя. */
+  /** Finishes the transform after a pointer event is canceled. */
   private readonly _handlePointerCancel = (event: PointerEvent | TouchEvent): void => {
     this.interruptGesture({ event })
   }
 
-  /** Завершает преобразование, когда окно теряет фокус. */
+  /** Finishes the transform when the window loses focus. */
   private readonly _handleWindowBlur = (): void => {
     this.interruptGesture()
   }
 
-  /** Очищает сессию при удалении выделения или одного из его дочерних объектов. */
+  /** Clears the session when the selection or one of its child objects is removed. */
   private readonly _handleObjectRemoved = ({
     target
   }: {
@@ -1131,7 +1131,7 @@ export default class ActiveSelectionScaleInteractionController {
   }
 }
 
-/** Проверяет состав, общая рамка которого рассчитывается по канонической геометрии текста. */
+/** Checks for a composition whose overall frame is calculated from canonical text geometry. */
 function isTextDrivenComposition({
   session
 }: {
@@ -1142,7 +1142,7 @@ function isTextDrivenComposition({
   return kind === 'texts' || kind === 'mixed'
 }
 
-/** Возвращает исходные данные шага с учётом точной геометрии выбранных объектов. */
+/** Returns step input that accounts for the selected objects' exact geometry. */
 function resolveActiveSelectionScaleStepInput({
   editor,
   event,
@@ -1187,7 +1187,7 @@ function resolveActiveSelectionScaleStepInput({
   return Object.freeze({ ...stepInput, textMeasurement: null })
 }
 
-/** Измеряет текстовый шаг от положения указателя, не используя предварительно изменённую рамку Fabric. */
+/** Measures a text step from the pointer position without using Fabric's premodified frame. */
 function resolveTextSelectionScaleStepInput({
   editor,
   event,
@@ -1240,7 +1240,7 @@ function resolveTextSelectionScaleStepInput({
   })
 }
 
-/** Применяет общий план и передаёт изменение размеров менеджеру соответствующего типа объектов. */
+/** Applies the shared plan and delegates resizing to the manager for the corresponding object type. */
 function applyActiveSelectionScalePlan({
   editor,
   plan,
@@ -1293,7 +1293,7 @@ function applyActiveSelectionScalePlan({
   return readAppliedRectangularScaleMultipliers({ projection, target })
 }
 
-/** Проверяет, изменился ли масштаб хотя бы по одной оси относительно начала жеста. */
+/** Checks whether the scale has changed along at least one axis since the gesture started. */
 function didActiveSelectionScaleChange({
   multipliers
 }: {
@@ -1303,7 +1303,7 @@ function didActiveSelectionScaleChange({
     || !areActiveSelectionScaleValuesNear({ first: multipliers.y, second: 1 })
 }
 
-/** Использует исходное событие указателя как идентификатор шага, а при его отсутствии — событие холста. */
+/** Uses the original pointer event as the step identifier, falling back to the canvas event if absent. */
 function resolveScaleMarker({
   event
 }: {

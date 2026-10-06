@@ -78,13 +78,13 @@ import {
   SHAPE_SCALING_SCALE_EPSILON as SCALE_EPSILON
 } from './shape-scaling-layout'
 
-/** Масштаб верхнеуровневого шейпа по двум осям. */
+/** Top-level shape scale along both axes. */
 type ShapeScale = Readonly<{
   scaleX: number
   scaleY: number
 }>
 
-/** Положение и отражение шейпа до применения текущего шага скейлинга. */
+/** Shape position and flip before applying the current scaling step. */
 type ShapeScalingStepSnapshot = Readonly<{
   flipX: boolean
   flipY: boolean
@@ -92,13 +92,13 @@ type ShapeScalingStepSnapshot = Readonly<{
   top: number
 }>
 
-/** Ограничения и сессионное состояние текущего шага скейлинга. */
+/** Constraints and session state for the current scaling step. */
 type PreparedShapeScalingStep = Readonly<{
   constraintPadding: ShapePadding
   state: ShapeScalingState
 }>
 
-/** Компоновка, которую нужно вернуть при завершении скейлинга без изменения размеров. */
+/** Layout to restore when scaling ends without changing dimensions. */
 type ShapeStateRestoreLayout = Readonly<{
   alignH: ShapeHorizontalAlign
   alignV: ShapeVerticalAlign
@@ -109,7 +109,7 @@ type ShapeStateRestoreLayout = Readonly<{
   wrapPolicy: ShapeTextWrapPolicy | undefined
 }>
 
-/** Проверяет, пересёк ли текущий жест исходную неподвижную точку. */
+/** Checks whether the current gesture crossed the original fixed point. */
 function didShapeScalingCrossOppositeCorner({
   group,
   state,
@@ -127,7 +127,7 @@ function didShapeScalingCrossOppositeCorner({
     || isShapeTransformCornerChanged({ state, transform })
 }
 
-/** Выбирает масштаб, который разрешено применить по итогам проверки ограничений. */
+/** Selects the scale permitted by the constraint checks. */
 function resolveAllowedShapeScaling({
   constraintState,
   scaleX,
@@ -152,7 +152,7 @@ function resolveAllowedShapeScaling({
   }
 }
 
-/** Возвращает минимальную высоту для предварительного расчёта текущего шага. */
+/** Returns the minimum height for preliminary calculation of the current step. */
 function resolveShapeScalingPreviewMinimumHeight({
   constraintState,
   state
@@ -171,7 +171,7 @@ function resolveShapeScalingPreviewMinimumHeight({
     : null
 }
 
-/** Рассчитывает исходную компоновку для завершённого жеста без изменения размеров. */
+/** Calculates the original layout for a completed gesture that did not change dimensions. */
 function resolveShapeStateRestoreLayout({
   alignH,
   alignV,
@@ -204,7 +204,7 @@ function resolveShapeStateRestoreLayout({
   }
 }
 
-/** Применяет рассчитанную исходную компоновку к шейпу и его тексту. */
+/** Applies the calculated original layout to the shape and its text. */
 function applyShapeStateRestoreLayout({
   group,
   layout,
@@ -243,25 +243,25 @@ function applyShapeStateRestoreLayout({
 }
 
 /**
- * Контроллер масштабирования shape-группы без изменения размера шрифта.
+ * Controller for scaling a shape group without changing font size.
  */
 export default class ShapeScalingController {
   /**
-   * Fabric canvas редактора.
+   * The editor's Fabric canvas.
    */
   private canvas: Canvas
 
   /**
-   * Временное состояние масштабирования для активных shape-групп.
+   * Temporary scaling state for active shape groups.
    */
   private scalingState: WeakMap<ShapeGroup, ShapeScalingState>
 
   /**
-   * Контроллер масштабирования shape-групп внутри ActiveSelection.
+   * Controller for scaling shape groups inside an ActiveSelection.
    */
   private activeSelectionScalingController: ShapeActiveSelectionScalingController
 
-  /** Инициализирует контроллер скейлинга групп шейпов на холсте. */
+  /** Initializes the shape-group scaling controller on the canvas. */
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
     this.scalingState = new WeakMap()
@@ -272,7 +272,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Обрабатывает процесс масштабирования shape-группы.
+   * Handles shape-group scaling.
    */
   public handleObjectScaling = (
     event: ShapeScalingEvent
@@ -303,7 +303,7 @@ export default class ShapeScalingController {
     this._handleShapeScalingStep({ event, group, shape, text })
   }
 
-  /** Рассчитывает и применяет один шаг скейлинга верхнеуровневого шейпа. */
+  /** Calculates and applies one scaling step to a top-level shape. */
   private _handleShapeScalingStep({
     event,
     group,
@@ -351,7 +351,7 @@ export default class ShapeScalingController {
     this._finishShapeScalingStep({ group, scalingDecision, snapshot, state })
   }
 
-  /** Инициализирует ограничения и временное состояние текущего шага до расчёта размеров. */
+  /** Initializes the current step's constraints and temporary state before calculating dimensions. */
   private _prepareShapeScalingStep({
     event,
     group,
@@ -386,7 +386,7 @@ export default class ShapeScalingController {
     return { constraintPadding, state }
   }
 
-  /** Применяет рассчитанный масштаб, внутреннюю компоновку и нормализацию преобразования Fabric. */
+  /** Applies the calculated scale, internal layout, and Fabric-transform normalization. */
   private _applyShapeScalingDecision({
     forceTransform = false,
     group,
@@ -440,7 +440,7 @@ export default class ShapeScalingController {
     })
   }
 
-  /** Восстанавливает привязку, сохраняет допустимый шаг и запрашивает отрисовку. */
+  /** Restores the anchor, saves the valid step, and requests a render. */
   private _finishShapeScalingStep({
     group,
     scalingDecision,
@@ -474,7 +474,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Вычисляет итоговое решение для текущего шага scaling: блокировку, preview-размеры и применённый scale.
+   * Calculates the final decision for the current scaling step: blocking, preview dimensions, and applied scale.
    */
   private _resolveScalingDecision({
     group,
@@ -531,7 +531,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Восстанавливает начальное состояние, когда текущий жест заблокирован минимальным размером.
+   * Restores the initial state when the current gesture is blocked by the minimum size.
    */
   private _restoreBlockedScalingAttempt({
     group,
@@ -584,7 +584,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Применяет скорректированное преобразование, когда текущий жест нужно ограничить или откатить.
+   * Applies a corrected transform when the current gesture must be constrained or rolled back.
    */
   private _applyResolvedScalingState({
     group,
@@ -630,7 +630,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Удерживает шейп на минимальной границе, когда Fabric перестал отправлять `object:scaling`.
+   * Holds the shape at its minimum boundary when Fabric stops emitting `object:scaling`.
    */
   public handleCanvasMouseMove = (event: ShapeModifiedEvent): void => {
     const canvas = this.canvas as CanvasWithCurrentTransform
@@ -681,7 +681,7 @@ export default class ShapeScalingController {
     this._applyCanvasMoveResolution({ context, resolution })
   }
 
-  /** Применяет рассчитанное состояние и сохраняет его как последний допустимый кадр. */
+  /** Applies the calculated state and saves it as the last valid frame. */
   private _applyCanvasMoveResolution({
     context,
     resolution
@@ -736,7 +736,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Сохраняет последнюю допустимую трансформацию текущего drag, к которой можно безопасно вернуться.
+   * Saves the current drag's last valid transform, which can safely be restored.
    */
   private _storeLastAllowedTransform({
     group,
@@ -768,7 +768,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Завершает масштабирование и "запекает" размеры в геометрию shape-группы.
+   * Finishes scaling and "bakes" dimensions into the shape-group geometry.
    */
   public handleObjectModified = (event: ShapeModifiedEvent): void => {
     const { target } = event
@@ -819,7 +819,7 @@ export default class ShapeScalingController {
     this._applyShapeScalingCommit({ group, plan, shape, state, text })
   }
 
-  /** Восстанавливает заблокированный жест без фиксации новых размеров. */
+  /** Restores a blocked gesture without committing new dimensions. */
   private _restoreBlockedShapeScaling({
     group,
     shape,
@@ -850,7 +850,7 @@ export default class ShapeScalingController {
     this.canvas.requestRenderAll()
   }
 
-  /** Восстанавливает исходную компоновку, когда жест не изменил канонические размеры. */
+  /** Restores the original layout when the gesture did not change canonical dimensions. */
   private _restoreUnchangedShapeScaling({
     group,
     plan,
@@ -880,7 +880,7 @@ export default class ShapeScalingController {
     this.canvas.requestRenderAll()
   }
 
-  /** Применяет рассчитанную компоновку и завершает временную сессию скейлинга. */
+  /** Applies the calculated layout and ends the temporary scaling session. */
   private _applyShapeScalingCommit({
     group,
     plan,
@@ -923,7 +923,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Фиксирует resize дочерней shape-группы после масштабирования ActiveSelection.
+   * Commits a child shape group's resize after scaling an ActiveSelection.
    */
   public commitActiveSelectionGroupScaling({
     group,
@@ -944,7 +944,7 @@ export default class ShapeScalingController {
     })
   }
 
-  /** Переносит масштаб дочернего шейпа в размеры без очистки общей сессии. */
+  /** Transfers a child shape's scale into dimensions without clearing the shared session. */
   public materializeActiveSelectionGroupScaling({
     group,
     scaleX,
@@ -964,7 +964,7 @@ export default class ShapeScalingController {
     })
   }
 
-  /** Создаёт сессионный источник фактической геометрии шейпов смешанного выделения. */
+  /** Creates a session-scoped source of actual shape geometry for a mixed selection. */
   public createActiveSelectionScaleDomainSource({
     selection,
     targets,
@@ -983,14 +983,14 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Очищает состояние масштабирования для переданной shape-группы.
+   * Clears scaling state for the given shape group.
    */
   public clearState({ group }: { group: ShapeGroup }): void {
     this.scalingState.delete(group)
     group.shapeScalingNoopTransform = false
   }
 
-  /** Возвращает применённый масштаб и способ сохранения геометрии после завершения жеста. */
+  /** Returns the applied scale and geometry-preservation method after the gesture ends. */
   public resolveActiveSelectionCommittedScale({
     selection
   }: {
@@ -1002,7 +1002,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Очищает состояние масштабирования для переданного ActiveSelection.
+   * Clears scaling state for the given ActiveSelection.
    */
   public clearActiveSelectionState({ selection }: { selection: ActiveSelection }): void {
     this.activeSelectionScalingController.clearState({
@@ -1011,7 +1011,7 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Возвращает группу в сохраненную anchor-позицию для текущего drag.
+   * Returns the group to its saved anchor position for the current drag.
    */
   private _restoreScalingAnchorPosition({
     group,
@@ -1046,8 +1046,8 @@ export default class ShapeScalingController {
   }
 
   /**
-   * Восстанавливает стабильное состояние объекта, когда масштабирование не привело к изменению ручных размеров,
-   * сохраняя текущий laid-out размер shape по тому же layout-контракту, что и финальный commit-path scaling.
+   * Restores a stable object state when scaling did not change the manual dimensions,
+   * preserving the shape's current laid-out size under the same layout contract as the final scaling commit path.
    */
   private _restoreShapeStateWithoutResize({
     group,

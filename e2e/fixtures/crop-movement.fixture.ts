@@ -1,7 +1,7 @@
 import { test as cropTest, expect } from './crop-scaling.fixture'
 import type { CropImageSourceInfo, CropStateInfo, HistoryPosition } from '../types'
 
-/** Подготовленная область crop и состояние изображения до входа в неё. */
+/** Prepared crop area and image state before entering crop mode. */
 interface CropMovementFixtures {
   cropMovement: {
     imageId: string
@@ -13,7 +13,7 @@ interface CropMovementFixtures {
   }
 }
 
-/** Небольшая crop-область для перемещения; каждое действие выполняет сам тест. */
+/** Small crop area for movement; the test performs each action itself. */
 export const test = cropTest.extend<CropMovementFixtures>({
   cropMovement: async({ crop, cropScalingImage, history }, use) => {
     const imageId = cropScalingImage.id

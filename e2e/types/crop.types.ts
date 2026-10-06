@@ -1,18 +1,18 @@
 import type { ObjectTargetParams } from './editor.types'
 
-/** Режим активного crop mode в e2e-снимках. */
+/** Active crop-mode variant in e2e snapshots. */
 export type CropModeInfo = 'canvas' | 'image'
 
-/** Controls crop frame, которые используются в e2e drag-сценариях. */
+/** Crop-frame controls used in e2e drag scenarios. */
 export type CropControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
-/** Размер crop frame или aspect ratio в e2e-сценариях. */
+/** Crop-frame dimensions or aspect ratio in e2e scenarios. */
 export interface CropSizeInfo {
   width: number
   height: number
 }
 
-/** Crop rect в координатах результата активной crop session. */
+/** Crop rect in result coordinates of the active crop session. */
 export interface CropRectInfo {
   left: number
   top: number
@@ -20,7 +20,7 @@ export interface CropRectInfo {
   height: number
 }
 
-/** Runtime-настройки crop session, видимые через публичное состояние менеджера. */
+/** Crop-session runtime settings visible through the manager's public state. */
 export interface CropSessionOptionsInfo {
   allowFrameOverflow: boolean
   showGrid: boolean
@@ -29,7 +29,7 @@ export interface CropSessionOptionsInfo {
   preserveAspectRatio: boolean
 }
 
-/** Сериализованное состояние runtime crop frame. */
+/** Serialized runtime crop-frame state. */
 export interface CropFrameInfo {
   id: string | null
   type: string
@@ -42,7 +42,7 @@ export interface CropFrameInfo {
   angle: number
 }
 
-/** Сериализованное публичное состояние crop mode для e2e assertions. */
+/** Serialized public crop-mode state for e2e assertions. */
 export interface CropStateInfo {
   mode: CropModeInfo
   targetId: string | null
@@ -52,7 +52,7 @@ export interface CropStateInfo {
   frame: CropFrameInfo
 }
 
-/** Pixel/source-состояние изображения после применения image crop. */
+/** Image pixel/source state after applying an image crop. */
 export interface CropImageSourceInfo {
   id: string | null
   width: number
@@ -63,7 +63,7 @@ export interface CropImageSourceInfo {
   sourceHeight: number
 }
 
-/** Цвет одного пикселя lower Fabric canvas. */
+/** Color of one lower Fabric canvas pixel. */
 export interface CropCanvasPixelInfo {
   red: number
   green: number
@@ -71,7 +71,7 @@ export interface CropCanvasPixelInfo {
   alpha: number
 }
 
-/** Визуальное состояние transient затемнения активной crop-сессии. */
+/** Visual state of the active crop session's transient dimming. */
 export interface CropDimmingOverlaySnapshot {
   hasOverlayImage: boolean
   overlayVpt: boolean
@@ -81,7 +81,7 @@ export interface CropDimmingOverlaySnapshot {
   outsideMontage: CropCanvasPixelInfo
 }
 
-/** Параметры старта crop mode через e2e-модель. */
+/** Options for starting crop mode through the e2e model. */
 export interface CropStartParams extends ObjectTargetParams {
   size?: CropSizeInfo
   aspectRatio?: CropSizeInfo
@@ -92,7 +92,7 @@ export interface CropStartParams extends ObjectTargetParams {
   preserveAspectRatio?: boolean
 }
 
-/** Параметры интерактивного resize crop frame из control. */
+/** Options for interactive crop-frame resize from a control. */
 export interface CropResizeFromControlParams {
   control: CropControlKey
   widthRatio: number

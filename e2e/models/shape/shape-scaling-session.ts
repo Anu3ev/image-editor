@@ -9,13 +9,13 @@ import type {
 } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
-/** Координаты активной scale-ручки на странице. */
+/** Active scaling-handle coordinates on the page. */
 type ScaleInteractionPoint = {
   x: number
   y: number
 }
 
-/** Состояние незавершённого scale фигуры. */
+/** State of unfinished shape scaling. */
 type ActiveScaleInteraction = {
   point: ScaleInteractionPoint
   mode: 'interactive' | 'synthetic-mouse-move' | 'browser-pointer'
@@ -24,29 +24,29 @@ type ActiveScaleInteraction = {
   id?: string
 }
 
-/** Смещение активной scale-ручки на странице. */
+/** Active scaling-handle offset on the page. */
 type DragActiveScaleHandleParams = {
   deltaX: number
   deltaY: number
 }
 
-/** Угловая ручка пропорционального scale фигуры. */
+/** Corner handle for proportional shape scaling. */
 export type ShapeDiagonalScaleCorner = Extract<ShapeScaleCorner, 'tl' | 'tr' | 'bl' | 'br'>
 
-/** Результат одного шага scale фигуры. */
+/** Result of one shape-scaling step. */
 type ScaleDragResult = {
   corner: ShapeScaleCorner
   point: ScaleInteractionPoint
   snapshot: ShapeScaleSnapshot
 }
 
-/** Состояние фигуры и ручка активного преобразования Fabric. */
+/** Shape state and the active Fabric transform handle. */
 type ActiveScaleSnapshot = {
   corner: ShapeScaleCorner
   snapshot: ShapeScaleSnapshot
 }
 
-/** Параметры минимального диагонального scale для одной ручки. */
+/** Options for minimum diagonal scaling using one handle. */
 type DiagonalScaleHandle = {
   pointerX: number
   pointerY: number
@@ -125,7 +125,7 @@ export class ShapeScalingSession {
     this.activeScaleInteraction = null
   }
 
-  /** Сжимает shape до minimum width в live drag-сессии и возвращает проверенный snapshot. */
+  /** Shrinks a shape to minimum width in a live drag session and returns a verified snapshot. */
   async shrinkToMinimumWidth(
     params: ({ edge?: 'left' | 'right' } & ObjectTargetParams) = {}
   ): Promise<ShapeScaleSnapshot> {
@@ -165,7 +165,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Масштабирует текущий target на canvas по горизонтали за правую ручку и возвращает live snapshot. */
+  /** Scales the current canvas target horizontally with the right handle and returns a live snapshot. */
   async scaleHorizontallyFromRight(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
@@ -188,7 +188,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Масштабирует shape по горизонтали за левую ручку и возвращает live snapshot. */
+  /** Scales a shape horizontally with the left handle and returns a live snapshot. */
   async scaleHorizontallyFromLeft(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
@@ -211,7 +211,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Масштабирует текущий target на canvas по вертикали за нижнюю ручку и возвращает live snapshot. */
+  /** Scales the current canvas target vertically with the bottom handle and returns a live snapshot. */
   async scaleVerticallyFromBottom(
     params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
@@ -234,7 +234,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Масштабирует shape по вертикали за верхнюю ручку и возвращает live snapshot. */
+  /** Scales a shape vertically with the top handle and returns a live snapshot. */
   async scaleVerticallyFromTop(
     params: { scaleY: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
@@ -257,7 +257,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Масштабирует shape по диагонали за угловую ручку и возвращает live snapshot. Поддерживает явную передачу Shift и отключение snap через Ctrl. */
+  /** Scales a shape diagonally with a corner handle and returns a live snapshot. Supports explicitly passing Shift and disabling snapping with Ctrl. */
   async scaleDiagonally(
     params: {
       scaleX: number
@@ -294,7 +294,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Масштабирует shape по диагонали пропорционально за угловую ручку и возвращает live snapshot. */
+  /** Scales a shape diagonally and proportionally with a corner handle and returns a live snapshot. */
   async scaleDiagonallyProportionally(
     params: {
       scale: number
@@ -318,7 +318,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Начинает scale фигуры реальным mousedown на угловой ручке. */
+  /** Starts shape scaling with a real mousedown on a corner handle. */
   async startScaleFromCorner(
     params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
   ): Promise<void> {
@@ -355,7 +355,7 @@ export class ShapeScalingSession {
     expect(transformState.corner, 'активное преобразование Fabric должно использовать выбранную ручку').toBe(corner)
   }
 
-  /** Сжимает shape до minimum по диагонали и возвращает live snapshot текущего кадра. */
+  /** Shrinks a shape diagonally to its minimum and returns the current frame's live snapshot. */
   async shrinkDiagonallyToMinimum(
     params: {
       corner: ShapeDiagonalScaleCorner
@@ -663,7 +663,7 @@ export class ShapeScalingSession {
     }, params)
   }
 
-  /** Имитирует масштабирование shape и запекание результата через object:modified */
+  /** Simulates shape scaling and baking the result through object:modified */
   async simulateScale(params: { scaleX: number, scaleY: number } & ObjectTargetParams): Promise<void> {
     const {
       scaleX,
@@ -684,7 +684,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Выполняет один live-шаг интерактивного масштабирования, при необходимости с зажатыми Shift/Ctrl, и возвращает проверенный snapshot. */
+  /** Performs one live interactive-scaling step, optionally holding Shift/Ctrl, and returns a verified snapshot. */
   async simulateScaleStep(params: ShapeScaleStepParams): Promise<ShapeScaleSnapshot> {
     const snapshot = await this.page.evaluate((payload) => {
       const {
@@ -745,7 +745,7 @@ export class ShapeScalingSession {
     return snapshot as ShapeScaleSnapshot
   }
 
-  /** Выполняет live-scale шаг с synthetic mouse:move для clamp-сценариев и при необходимости передаёт состояние Shift/Ctrl. */
+  /** Performs a live scaling step with synthetic mouse:move for clamp scenarios, optionally passing Shift/Ctrl state. */
   async simulateScaleMouseMoveStep(params: ShapeScaleMouseMoveStepParams): Promise<ShapeScaleSnapshot> {
     await this._startScaleInteractionIfNeeded(params)
 
@@ -905,7 +905,7 @@ export class ShapeScalingSession {
     return snapshot
   }
 
-  /** Продолжает текущий drag хэндла shape и возвращает live snapshot. */
+  /** Continues the current shape-handle drag and returns a live snapshot. */
   async dragActiveScaleHandleBy(
     params: DragActiveScaleHandleParams
   ): Promise<ShapeScaleSnapshot> {
@@ -950,7 +950,7 @@ export class ShapeScalingSession {
     return snapshot
   }
 
-  /** Продолжает текущий drag хэндла shape в сторону anchor текущей drag-сессии. */
+  /** Continues the current shape-handle drag toward the current drag session's anchor. */
   async dragActiveScaleHandleTowardAnchor(
     params: { distance: number }
   ): Promise<ShapeScaleSnapshot> {
@@ -991,7 +991,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Перемещает угловую ручку реальным mousemove. */
+  /** Moves a corner handle with a real mousemove. */
   private async _dragScaleHandleWithBrowserPointer(
     params: ActiveScaleInteraction & DragActiveScaleHandleParams
   ): Promise<ScaleDragResult> {
@@ -1029,7 +1029,7 @@ export class ShapeScalingSession {
     }
   }
 
-  /** Продолжает скейлинг прямым вызовом обработчика Fabric. */
+  /** Continues scaling by directly calling a Fabric handler. */
   private async _dragScaleHandleThroughFabricHandler(
     params: ActiveScaleInteraction & DragActiveScaleHandleParams
   ): Promise<ScaleDragResult> {
@@ -1083,7 +1083,7 @@ export class ShapeScalingSession {
     return result as ScaleDragResult
   }
 
-  /** Сжимает shape до minimum height в live drag-сессии и возвращает проверенный snapshot. */
+  /** Shrinks a shape to minimum height in a live drag session and returns a verified snapshot. */
   async shrinkToMinimumHeight(
     params: ({ edge?: 'top' | 'bottom' } & ObjectTargetParams) = {}
   ): Promise<ShapeScaleSnapshot> {
@@ -1124,7 +1124,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Завершает scale тем же способом, которым он был начат. */
+  /** Finishes scaling using the same method that started it. */
   async finishScale(params: ObjectTargetParams = {}): Promise<ShapeScaleSnapshot> {
     let snapshot: ShapeScaleSnapshot
 
@@ -1148,7 +1148,7 @@ export class ShapeScalingSession {
     return snapshot
   }
 
-  /** Завершает реальный scale событием mouseup. */
+  /** Finishes real scaling with a mouseup event. */
   private async _finishScaleWithBrowserPointer(
     interaction: ActiveScaleInteraction
   ): Promise<ShapeScaleSnapshot> {
@@ -1166,7 +1166,7 @@ export class ShapeScalingSession {
     return result.snapshot
   }
 
-  /** Завершает скейлинг прямым вызовом Fabric mouseup. */
+  /** Finishes scaling by directly calling Fabric mouseup. */
   private async _finishScaleThroughFabricHandler(
     interaction: ActiveScaleInteraction
   ): Promise<ShapeScaleSnapshot> {
@@ -1213,7 +1213,7 @@ export class ShapeScalingSession {
     return snapshot as ShapeScaleSnapshot
   }
 
-  /** Завершает программный скейлинг без активного движения мыши. */
+  /** Finishes programmatic scaling without active mouse movement. */
   private async _finishScaleWithoutActiveInteraction(
     params: ObjectTargetParams
   ): Promise<ShapeScaleSnapshot> {
@@ -1236,7 +1236,7 @@ export class ShapeScalingSession {
     return snapshot as ShapeScaleSnapshot
   }
 
-  /** Завершает активное интерактивное масштабирование, если drag-сессия ещё открыта. */
+  /** Finishes active interactive scaling if the drag session is still open. */
   async finishScaleIfActive(): Promise<ShapeScaleSnapshot | null> {
     if (!this.activeScaleInteraction) return null
 
@@ -1251,7 +1251,7 @@ export class ShapeScalingSession {
     })
   }
 
-  /** Возвращает координаты угловой scale-ручки выбранной фигуры. */
+  /** Returns corner scaling-handle coordinates of the selected shape. */
   private async _resolveBrowserScaleControlPoint(
     params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
   ): Promise<ScaleInteractionPoint> {
@@ -1282,7 +1282,7 @@ export class ShapeScalingSession {
     return point as ScaleInteractionPoint
   }
 
-  /** Возвращает активное преобразование Fabric после реального mousedown. */
+  /** Returns the active Fabric transform after a real mousedown. */
   private async _getActiveScaleTransformState(
     params: { corner: ShapeDiagonalScaleCorner } & ObjectTargetParams
   ): Promise<{ targetMatches: boolean, corner: string | null }> {
@@ -1308,7 +1308,7 @@ export class ShapeScalingSession {
     }
   }
 
-  /** Считывает состояние фигуры после реального mouse-события. */
+  /** Reads shape state after a real mouse event. */
   private async _readActiveScaleSnapshot(
     params: { corner: ShapeScaleCorner } & ObjectTargetParams
   ): Promise<ActiveScaleSnapshot> {

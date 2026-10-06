@@ -17,23 +17,23 @@ import ShapeScalingController from '../../../src/editor/shape-manager/scaling/sh
 import { ShapeGroupObject } from '../../../src/editor/shape-manager/domain/shape-group'
 import { getObjectExactBounds, type ObjectBounds } from '../../../src/editor/utils/geometry'
 
-/** Ручка Shape, поддерживаемая тестами взаимодействия при скейлинге. */
+/** Shape handle supported by scaling interaction tests. */
 export type ShapeScaleInteractionTestControl = Extract<RectangularScaleControlKey, 'br' | 'mr'>
 
-/** Множители локальных осей для расчёта положения указателя. */
+/** Local-axis factors for calculating the pointer position. */
 export type ShapeScaleInteractionTestMultipliers = Readonly<{
   x: number
   y: number
 }>
 
-/** Параметры тестового ShapeGroupObject. */
+/** Parameters for the test ShapeGroupObject. */
 export type ShapeScaleInteractionHarnessOptions = Readonly<{
   controlKey?: ShapeScaleInteractionTestControl
   width?: number
   height?: number
 }>
 
-/** Контроллер, Shape и наблюдаемые зависимости одного тестового жеста скейлинга. */
+/** Controller, Shape, and observable dependencies for one scaling test gesture. */
 export type ShapeScaleInteractionHarness = Readonly<{
   controller: ShapeScaleInteractionController
   target: ShapeGroupObject
@@ -49,7 +49,7 @@ export type ShapeScaleInteractionHarness = Readonly<{
   endCurrentTransformMock: jest.MockedFunction<ImageEditor['canvas']['endCurrentTransform']>
 }>
 
-/** Положение ручки и противоположной точки фиксации. */
+/** Position of the handle and the opposite fixed point. */
 type ShapeScaleControlGeometry = Readonly<{
   action: 'scale' | 'scaleX'
   corner: ShapeScaleInteractionTestControl
@@ -59,7 +59,7 @@ type ShapeScaleControlGeometry = Readonly<{
   transformOriginY: 'top' | 'center'
 }>
 
-/** Геометрия ручек, поддерживаемых в тестах. */
+/** Geometry of handles supported in tests. */
 const SHAPE_SCALE_CONTROL_GEOMETRY: Readonly<Record<
   ShapeScaleInteractionTestControl,
   ShapeScaleControlGeometry
@@ -83,8 +83,8 @@ const SHAPE_SCALE_CONTROL_GEOMETRY: Readonly<Record<
 })
 
 /**
- * Дополняет упрощённый ShapeGroupObject из Jest точными границами объекта без поворота,
- * которые Fabric обычно возвращает через getCoords и getBoundingRect.
+ * Adds exact unrotated object bounds to Jest's simplified ShapeGroupObject,
+ * as Fabric normally returns through getCoords and getBoundingRect.
  */
 function installShapeScaleGeometryContract({
   target
@@ -114,7 +114,7 @@ function installShapeScaleGeometryContract({
   })
 }
 
-/** Создаёт ShapeGroupObject без поворота и с предсказуемыми границами. */
+/** Creates an unrotated ShapeGroupObject with predictable bounds. */
 function createShapeScaleTarget({
   width,
   height
@@ -151,7 +151,7 @@ function createShapeScaleTarget({
   return target
 }
 
-/** Создаёт минимальный Fabric transform для выбранной ручки Shape. */
+/** Creates a minimal Fabric transform for the selected Shape handle. */
 function createShapeScaleTransform({
   target,
   geometry
@@ -200,7 +200,7 @@ function createShapeScaleTransform({
   }
 }
 
-/** Возвращает точные границы Shape или завершает тест с ошибкой. */
+/** Returns the exact Shape bounds or fails the test. */
 export function getRequiredShapeScaleBounds({
   target
 }: {
@@ -212,7 +212,7 @@ export function getRequiredShapeScaleBounds({
   return bounds
 }
 
-/** Создаёт направляющую для правой границы относительно начального положения Shape. */
+/** Creates a guide for the right edge relative to the Shape's initial position. */
 export function createShapeScaleRightGuide({
   harness,
   position = harness.baselineBounds.right
@@ -229,7 +229,7 @@ export function createShapeScaleRightGuide({
   }
 }
 
-/** Создаёт направляющую для нижней границы относительно начального положения Shape. */
+/** Creates a guide for the bottom edge relative to the Shape's initial position. */
 export function createShapeScaleBottomGuide({
   harness,
   position = harness.baselineBounds.bottom
@@ -246,7 +246,7 @@ export function createShapeScaleBottomGuide({
   }
 }
 
-/** Создаёт тестовый ShapeGroupObject и контроллер с наблюдаемыми зависимостями. */
+/** Creates a test ShapeGroupObject and a controller with observable dependencies. */
 export function createShapeScaleInteractionHarness({
   controlKey = 'br',
   width = 100,
@@ -297,7 +297,7 @@ export function createShapeScaleInteractionHarness({
   })
 }
 
-/** Задаёт окружение с направляющими и масштабом canvas, которое SnappingManager возвращает в начале жеста. */
+/** Sets the environment with guides and canvas scale that SnappingManager returns at the start of a gesture. */
 export function setShapeScaleEnvironment({
   harness,
   environment
@@ -308,7 +308,7 @@ export function setShapeScaleEnvironment({
   harness.captureEnvironmentMock.mockReturnValue(environment)
 }
 
-/** Создаёт исходное событие мыши с состоянием Ctrl и Shift для одного шага. */
+/** Creates a native mouse event with Ctrl and Shift state for one step. */
 export function createShapeScaleMarker({
   ctrlKey = false,
   shiftKey = false
@@ -319,7 +319,7 @@ export function createShapeScaleMarker({
   return new MouseEvent('pointermove', { ctrlKey, shiftKey })
 }
 
-/** Создаёт событие начала скейлинга в точке активной ручки Shape. */
+/** Creates a scaling-start event at the active Shape handle. */
 export function createShapeScaleBeginEvent({
   harness
 }: {
@@ -333,7 +333,7 @@ export function createShapeScaleBeginEvent({
   })
 }
 
-/** Рассчитывает положение указателя на canvas по множителям относительно начала жеста. */
+/** Calculates the pointer position on the canvas from factors relative to the gesture start. */
 export function moveShapeScalePointer({
   harness,
   multipliers
@@ -349,7 +349,7 @@ export function moveShapeScalePointer({
   })
 }
 
-/** Создаёт событие object:scaling/mouse:move для заданного положения указателя. */
+/** Creates an object:scaling/mouse:move event for the specified pointer position. */
 export function createShapeScaleStepEvent({
   harness,
   marker,

@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный entrypoint держим выше внутренних деталей экспорта. */
+/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 import { FabricImage, type FabricObject } from 'fabric'
 
 import type {
@@ -12,7 +12,7 @@ import {
   exportSVGStringAsFile
 } from './export-utils'
 
-/** Подготовленный request для экспорта одного объекта. */
+/** Prepared request for exporting a single object. */
 export interface ObjectExportRequest {
   object?: FabricObject
   contentType: string
@@ -22,29 +22,29 @@ export interface ObjectExportRequest {
   exportAsBlob: boolean
 }
 
-/** Request экспорта после проверки, что объект существует. */
+/** Export request after verifying that the object exists. */
 export interface ResolvedObjectExportRequest extends ObjectExportRequest {
   object: FabricObject
 }
 
-/** Request быстрого экспорта исходного image element. */
+/** Request for fast export of the original image element. */
 interface ImageElementExportRequest extends ResolvedObjectExportRequest {
   object: FabricImage
 }
 
-/** Результат экспорта одного объекта с исходным Fabric-объектом в payload события. */
+/** Single-object export result with the original Fabric object in the event payload. */
 export interface ObjectExportResult extends SuccessfulExportResult {
   object: FabricObject
 }
 
-/** Размер исходного HTML image/video element. */
+/** Dimensions of the original HTML image/video element. */
 interface ImageElementSize {
   width: number
   height: number
 }
 
 /**
- * Создаёт request экспорта объекта даже при пустом object, чтобы error payload был консистентным.
+ * Creates an object export request even when object is empty, keeping the error payload consistent.
  */
 export function createObjectExportRequest({
   object,
@@ -78,14 +78,14 @@ export function createObjectExportRequest({
 }
 
 /**
- * Проверяет, что request содержит объект для экспорта.
+ * Checks whether the request contains an object to export.
  */
 export function hasExportObject(request: ObjectExportRequest): request is ResolvedObjectExportRequest {
   return Boolean(request.object)
 }
 
 /**
- * Экспортирует request после проверки, что объект существует.
+ * Exports the request after verifying that the object exists.
  */
 export async function exportResolvedObject({
   editor,
@@ -115,7 +115,7 @@ export async function exportResolvedObject({
 }
 
 /**
- * Проверяет, можно ли использовать быстрый экспорт raw image element без потери crop-состояния.
+ * Checks whether fast raw image element export can be used without losing crop state.
  */
 function canExportImageElementAsBase64(
   request: ResolvedObjectExportRequest
@@ -127,7 +127,7 @@ function canExportImageElementAsBase64(
 }
 
 /**
- * Проверяет, отличается ли видимая область FabricImage от исходного element.
+ * Checks whether the visible FabricImage area differs from the original element.
  */
 function hasVisibleImageCrop({ image }: { image: FabricImage }): boolean {
   const cropX = Number(image.cropX ?? 0)
@@ -145,7 +145,7 @@ function hasVisibleImageCrop({ image }: { image: FabricImage }): boolean {
 }
 
 /**
- * Возвращает размер исходного element у FabricImage.
+ * Returns the dimensions of the FabricImage's original element.
  */
 function getImageElementSize({ image }: { image: FabricImage }): ImageElementSize {
   const element = image.getElement() as {
@@ -164,7 +164,7 @@ function getImageElementSize({ image }: { image: FabricImage }): ImageElementSiz
 }
 
 /**
- * Экспортирует SVG-объект без rasterize.
+ * Exports an SVG object without rasterization.
  */
 function exportSvgObject({
   editor,
@@ -193,7 +193,7 @@ function exportSvgObject({
 }
 
 /**
- * Быстро экспортирует исходный image element через worker, когда crop-состояния нет.
+ * Quickly exports the original image element through the worker when there is no crop state.
  */
 async function exportImageElementAsBase64({
   editor,
@@ -235,7 +235,7 @@ async function exportImageElementAsBase64({
 }
 
 /**
- * Экспортирует rendered snapshot объекта, включая crop и другие свойства Fabric-объекта.
+ * Exports a rendered snapshot of the object, including crop and other Fabric object properties.
  */
 async function exportRenderedObject({
   editor,
@@ -276,7 +276,7 @@ async function exportRenderedObject({
 }
 
 /**
- * Рендерит объект в canvas и создаёт Blob.
+ * Renders the object to a canvas and creates a Blob.
  */
 async function createObjectBlob({ request }: { request: ResolvedObjectExportRequest }): Promise<Blob> {
   const objectCanvas = request.object.toCanvasElement({
@@ -299,7 +299,7 @@ async function createObjectBlob({ request }: { request: ResolvedObjectExportRequ
 }
 
 /**
- * Отправляет событие успешного экспорта объекта и возвращает payload.
+ * Emits the successful object export event and returns the payload.
  */
 function emitObjectExported({
   editor,

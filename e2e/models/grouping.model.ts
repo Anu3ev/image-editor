@@ -3,22 +3,22 @@ import { type Page, expect } from '@playwright/test'
 import type { EditorObjectInfo } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
-/** Состояние canvas после разгруппировки текущей группы. */
+/** Canvas state after ungrouping the current group. */
 type UngroupedObjectsInfo = {
   activeObjectType?: string
   objectIds: string[]
 }
 
-/** Действия над постоянными Fabric-группами через публичные менеджеры редактора. */
+/** Actions on persistent Fabric groups through the public editor managers. */
 export class GroupingModel {
   private readonly page: Page
 
-  /** Создаёт модель действий над группами для указанной Playwright-страницы. */
+  /** Creates a group-action model for the specified Playwright page. */
   constructor(page: Page) {
     this.page = page
   }
 
-  /** Группирует текущее выделение через публичный API GroupingManager. */
+  /** Groups the current selection through the public GroupingManager API. */
   async groupActiveSelection(): Promise<EditorObjectInfo> {
     const group = await this.page.evaluate(() => {
       const {
@@ -42,7 +42,7 @@ export class GroupingModel {
     return group
   }
 
-  /** Выбирает единственную верхнеуровневую Fabric-группу с указанным id. */
+  /** Selects the single top-level Fabric group with the specified ID. */
   async selectGroup({ id }: { id: string }): Promise<EditorObjectInfo> {
     const group = await this.page.evaluate((targetId) => {
       const {
@@ -80,7 +80,7 @@ export class GroupingModel {
     return group
   }
 
-  /** Устанавливает абсолютный угол верхнеуровневой группы через TransformManager. */
+  /** Sets a top-level group's absolute angle through TransformManager. */
   async setAngle({
     angle,
     id
@@ -122,7 +122,7 @@ export class GroupingModel {
     return group
   }
 
-  /** Разгруппировывает текущую группу через публичный API GroupingManager. */
+  /** Ungroups the current group through the public GroupingManager API. */
   async ungroupActiveGroup(): Promise<UngroupedObjectsInfo> {
     const ungrouped = await this.page.evaluate(() => {
       const { editor } = window as any

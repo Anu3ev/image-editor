@@ -4,7 +4,7 @@ import {
   type TextWidthResizeSetup
 } from '../../../fixtures/text-width-resizing.fixture'
 
-/** Поля геометрии, которые должны восстанавливаться вместе с шириной текста. */
+/** Geometry fields that should be restored along with text width. */
 const TEXT_RESIZE_HISTORY_FIELDS = [
   'width',
   'height',

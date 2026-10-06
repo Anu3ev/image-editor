@@ -197,7 +197,7 @@ describe('shape-layout', () => {
       height: 80
     })
 
-    // Очень большая буква, ширина textbox меньше чем ширина символа
+    // A very large letter, with a textbox narrower than the character
     const text = createMockShapeTextbox({
       text: 'W',
       width: 20,
@@ -222,7 +222,7 @@ describe('shape-layout', () => {
       padding: textFramePadding
     })
 
-    // Ожидаем, что ширина shape была увеличена чтобы вмещать символ
+    // Expect the shape's width to increase to accommodate the character
     expect(group.shapeBaseWidth).toBeGreaterThanOrEqual(20)
   })
 

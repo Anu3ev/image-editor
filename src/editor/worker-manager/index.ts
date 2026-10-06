@@ -9,14 +9,14 @@ export type handleMessageParams = {
   error?: string
 }
 
-/** Обработчики результата ожидающего запроса. */
+/** Result handlers for a pending request. */
 interface PendingRequest {
   resolve: (data: File | Blob | Base64URLString) => void
   reject: (error: Error) => void
 }
 
 export default class WorkerManager {
-  /** Worker, выполняющий фоновые операции с изображениями. */
+  /** Worker that performs background image operations. */
   public worker: Worker
 
   private _callbacks = new Map<string, PendingRequest>()
@@ -24,7 +24,7 @@ export default class WorkerManager {
   private _stoppedError?: Error
 
   /**
-   * @param scriptUrl — URL скрипта воркера; по умолчанию используется встроенный worker.
+   * @param scriptUrl — Worker script URL; uses the built-in worker by default.
    */
   constructor(scriptUrl?: URL) {
     this.worker = scriptUrl ? new Worker(scriptUrl, { type: 'module' }) : new DefaultWorker()
@@ -37,7 +37,7 @@ export default class WorkerManager {
     }
   }
 
-  /** Завершает запрос только для корректного ответа worker. */
+  /** Settles a request only for a valid worker response. */
   private _handleMessage({ data }: { data: handleMessageParams }): void {
     if (!data || typeof data.requestId !== 'string' || typeof data.success !== 'boolean') {
       this._stop(new Error('Invalid worker response'))
@@ -46,7 +46,7 @@ export default class WorkerManager {
 
     const { requestId, success, data: payload, error } = data
     const callback = this._callbacks.get(requestId)
-    // Повторный ответ для уже завершённого запроса не требует обработки.
+    // A duplicate response for an already completed request does not need to be handled.
     if (!callback) return
 
     if (success && typeof payload !== 'string' && !(payload instanceof Blob)) {
@@ -62,7 +62,7 @@ export default class WorkerManager {
     callback.reject(new Error(error || 'Worker request failed'))
   }
 
-  /** Отправляет команду и гарантирует завершение Promise при ошибке или остановке worker. */
+  /** Sends a command and guarantees that the Promise settles if the worker fails or stops. */
   public post(
     action: string,
     payload: object,
@@ -83,7 +83,7 @@ export default class WorkerManager {
     })
   }
 
-  /** Останавливает worker и отклоняет оставшиеся запросы с общей причиной. */
+  /** Stops the worker and rejects the remaining requests with a shared reason. */
   private _stop(error: Error): void {
     if (this._stoppedError) return
     this._stoppedError = error
@@ -95,7 +95,7 @@ export default class WorkerManager {
     this.worker.terminate()
   }
 
-  /** Завершает работу worker и отклоняет все ожидающие запросы. Повторный вызов безопасен. */
+  /** Terminates the worker and rejects all pending requests. Safe to call repeatedly. */
   public terminate(): void {
     this._stop(new Error('Worker has been terminated'))
   }

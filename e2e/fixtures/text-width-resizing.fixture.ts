@@ -10,10 +10,10 @@ import type {
   TextResizeSnapshot
 } from '../types'
 
-/** Внешняя грань объекта, которой управляет выбранная боковая ручка. */
+/** Outer object edge controlled by the selected side handle. */
 export type TextWidthResizeMovingEdge = 'boundsBottom' | 'boundsLeft' | 'boundsRight' | 'boundsTop'
 
-/** Готовая сцена для проверки прилипания при изменении ширины текста. */
+/** Prepared scene for testing snapping during text-width changes. */
 export type TextWidthResizeSetup = Readonly<{
   guidePosition: number
   initial: TextResizeSnapshot
@@ -23,7 +23,7 @@ export type TextWidthResizeSetup = Readonly<{
   textId: string
 }>
 
-/** Сцена, в которой прилипание меняет перенос строк в отдельном тексте. */
+/** Scene where snapping changes line wrapping in standalone text. */
 export type TextWrapSnapCorrectionSetup = Readonly<{
   initial: TextResizeSnapshot
   probeInitial: TextResizeSnapshot
@@ -33,20 +33,20 @@ export type TextWrapSnapCorrectionSetup = Readonly<{
   wrappedProbe: TextResizeSnapshot
 }>
 
-/** Сцена с текстом, созданным напрямую и восстановленным из шаблона. */
+/** Scene with text created directly and restored from a template. */
 export type TextResizeCreationSetup = Readonly<{
   directTextId: string
   reference: SnappingObjectSnapshot
   templateTextId: string
 }>
 
-/** Исходные состояния текста до сужения после сохранения и повторного применения шаблона. */
+/** Initial text states before narrowing after saving and reapplying a template. */
 export type TextResizeTemplateRoundtripSetup = Readonly<{
   sourceInitial: TextResizeSnapshot
   templateInitial: TextResizeSnapshot
 }>
 
-/** Параметры сцены с текстом и отдельной опорной фигурой. */
+/** Scene options with text and a separate reference shape. */
 type TextWidthResizeSetupParams = Readonly<{
   angle: number
   axis: TextResizeGuideAxis
@@ -57,7 +57,7 @@ type TextWidthResizeSetupParams = Readonly<{
   text: TextModel
 }>
 
-/** Зависимости для подготовки сцены с переносом строк у направляющей. */
+/** Dependencies for preparing a scene with line wrapping at a guide. */
 type TextWrapSnapCorrectionSetupParams = Readonly<{
   editorModel: EditorModel
   shapes: ShapeModel
@@ -65,21 +65,21 @@ type TextWrapSnapCorrectionSetupParams = Readonly<{
   text: TextModel
 }>
 
-/** Зависимости для сравнения двух способов создания текста. */
+/** Dependencies for comparing two text-creation methods. */
 type TextResizeCreationSetupParams = Readonly<{
   shapes: ShapeModel
   snapping: SnappingModel
   text: TextModel
 }>
 
-/** Зависимости для подготовки текста и его повторно применённого шаблона. */
+/** Dependencies for preparing text and its reapplied template. */
 type TextResizeTemplateRoundtripSetupParams = Readonly<{
   editorModel: EditorModel
   template: TemplateModel
   text: TextModel
 }>
 
-/** Определяет грань видимой рамки и знак её смещения при изменении ширины. */
+/** Determines the visible-frame edge and its displacement sign during width changes. */
 function resolveMovingEdge({
   angle,
   axis,
@@ -106,7 +106,7 @@ function resolveMovingEdge({
   return { coefficient, edge: coefficient > 0 ? 'boundsBottom' : 'boundsTop' }
 }
 
-/** Возвращает положение опорной фигуры и её грань с нужной направляющей. */
+/** Returns the reference shape's position and its edge containing the desired guide. */
 function resolveReferencePlacement({
   axis,
   guidePosition,
@@ -143,7 +143,7 @@ function resolveReferencePlacement({
   }
 }
 
-/** Добавляет и поворачивает текст с заметными защищёнными визуальными свойствами. */
+/** Adds and rotates text with distinctive protected visual properties. */
 async function createResizeText({
   angle,
   montageLeft,
@@ -180,7 +180,7 @@ async function createResizeText({
   return text.getResizeSnapshot({ id: textId })
 }
 
-/** Создаёт короткий текст и направляющую на пути выбранной боковой ручки. */
+/** Creates short text and a guide along the selected side handle's path. */
 export async function createTextWidthResizeSetup({
   angle,
   axis,
@@ -234,7 +234,7 @@ export async function createTextWidthResizeSetup({
   })
 }
 
-/** Подбирает ширину переноса строк и создаёт рядом направляющую, до которой текст не доходит без прилипания. */
+/** Chooses a line-wrap width and creates a nearby guide that the text cannot reach without snapping. */
 export async function createTextWrapSnapCorrectionSetup({
   editorModel,
   shapes,
@@ -290,7 +290,7 @@ export async function createTextWrapSnapCorrectionSetup({
   })
 }
 
-/** Создаёт опорную фигуру и одинаковый текст двумя публичными способами. */
+/** Creates a reference shape and identical text through two public methods. */
 export async function createTextResizeCreationSetup({
   shapes,
   snapping,
@@ -325,7 +325,7 @@ export async function createTextResizeCreationSetup({
   })
 }
 
-/** Сохраняет текст в шаблон, применяет его повторно и разносит два объекта по вертикали. */
+/** Saves text to a template, reapplies it, and separates the two objects vertically. */
 export async function createTextResizeTemplateRoundtripSetup({
   editorModel,
   template,

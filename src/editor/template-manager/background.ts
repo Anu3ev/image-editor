@@ -8,14 +8,14 @@ interface BackgroundExtractableObject {
   id?: unknown
 }
 
-/** Результат отделения background-объекта от остальных объектов шаблона. */
+/** Result of separating the background object from the other template objects. */
 interface ExtractedTemplateBackgroundObject<T extends BackgroundExtractableObject> {
   backgroundObject: T | null
   contentObjects: T[]
 }
 
 /**
- * Делит список template-объектов на фон и обычный контент.
+ * Splits the template object list into background and regular content.
  */
 export function extractTemplateBackgroundObject<T extends BackgroundExtractableObject>({
   objects
@@ -35,7 +35,7 @@ export function extractTemplateBackgroundObject<T extends BackgroundExtractableO
 }
 
 /**
- * Создаёт неглубокую копию customData или возвращает undefined.
+ * Creates a shallow copy of customData or returns undefined.
  */
 function cloneCustomData(customData: unknown): Record<string, unknown> | undefined {
   if (!customData || typeof customData !== 'object') return undefined
@@ -43,7 +43,7 @@ function cloneCustomData(customData: unknown): Record<string, unknown> | undefin
 }
 
 /**
- * Применяет цветовой background из шаблона.
+ * Applies a color background from the template.
  */
 function applyColorTemplateBackground({
   fill,
@@ -67,7 +67,7 @@ function applyColorTemplateBackground({
 }
 
 /**
- * Применяет градиентный background из шаблона.
+ * Applies a gradient background from the template.
  */
 function applyGradientTemplateBackground({
   fill,
@@ -93,7 +93,7 @@ function applyGradientTemplateBackground({
 }
 
 /**
- * Применяет image background из шаблона.
+ * Applies an image background from the template.
  */
 function applyImageTemplateBackground({
   backgroundObject,
@@ -115,7 +115,7 @@ function applyImageTemplateBackground({
 }
 
 /**
- * Применяет background-объект шаблона через BackgroundManager.
+ * Applies the template background object through BackgroundManager.
  */
 export function applyTemplateBackgroundObject({
   backgroundObject,

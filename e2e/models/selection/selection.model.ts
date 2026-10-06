@@ -16,7 +16,7 @@ import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type { ShapeModel } from '../shape/shape.model'
 import { SelectionScalingSession } from './selection-scaling-session'
 
-/** Расхождение между границами активного объекта и отрисованной рамкой выделения. */
+/** Difference between active-object bounds and the rendered selection frame. */
 type SelectionFrameAlignmentInfo = {
   bottomRightDeltaX: number
   bottomRightDeltaY: number
@@ -25,14 +25,14 @@ type SelectionFrameAlignmentInfo = {
   topLeftDeltaY: number
 }
 
-/** Точка объекта в координатах сцены. */
+/** Object point in scene coordinates. */
 type SelectionScenePoint = {
   x: number
   y: number
   transform?: (matrix: number[]) => SelectionScenePoint
 }
 
-/** Минимальный контракт объекта для проверки положения рамки выделения. */
+/** Minimal object contract for checking selection-frame position. */
 type SelectionVisualTarget = {
   group?: {
     calcTransformMatrix?: () => number[]
@@ -40,7 +40,7 @@ type SelectionVisualTarget = {
   getPointByOrigin: (originX: string, originY: string) => SelectionScenePoint
 }
 
-/** Локальные свойства дочернего объекта, которые нужны снимку общего выделения. */
+/** Child object's local properties required by an active-selection snapshot. */
 type SelectionCompositionChildTarget = {
   cropX?: number
   cropY?: number
@@ -51,7 +51,7 @@ type SelectionCompositionChildTarget = {
   skewY?: number
 }
 
-/** Исходные свойства дочернего объекта для расчёта видимой геометрии. */
+/** Child object's source properties for calculating visible geometry. */
 type SelectionChildSceneGeometrySource = {
   angle: number
   height: number
@@ -64,20 +64,20 @@ type SelectionChildSceneGeometrySource = {
   width: number
 }
 
-/** Браузерный снимок изображения и текстов до расчёта видимой геометрии. */
+/** Browser snapshot of the image and text objects before calculating visible geometry. */
 type SelectionImageTextCompositionSource = {
   selection: SnappingObjectSnapshot
   images: SelectionCompositionChildSnapshot[]
   texts: TextResizeSnapshot[]
 }
 
-/** Идентификаторы ожидаемых изображений и текстов в общем выделении. */
+/** IDs of expected images and text objects in the active selection. */
 type SelectionImageTextCompositionParams = {
   imageIds: string[]
   textIds: string[]
 }
 
-/** Браузерный снимок полного смешанного состава до добавления видимой геометрии. */
+/** Browser snapshot of the full mixed composition before adding visible geometry. */
 type SelectionMixedCompositionSource = {
   images: SelectionCompositionChildSnapshot[]
   selection: SnappingObjectSnapshot
@@ -85,14 +85,14 @@ type SelectionMixedCompositionSource = {
   texts: TextResizeSnapshot[]
 }
 
-/** Идентификаторы ожидаемых объектов полного смешанного состава. */
+/** IDs of expected objects in the full mixed composition. */
 type SelectionMixedCompositionParams = {
   imageIds: string[]
   shapeIds: string[]
   textIds: string[]
 }
 
-/** Читает браузерное состояние выделения из ожидаемых изображений и текстов. */
+/** Reads browser selection state for the expected images and text objects. */
 function readImageTextCompositionSource({
   imageIds,
   textIds
@@ -136,7 +136,7 @@ function readImageTextCompositionSource({
   }
 }
 
-/** Читает каноническое состояние изображения, шейпа и отдельного текста из одной рамки. */
+/** Reads canonical state of an image, a shape, and standalone text within one frame. */
 function readMixedCompositionSource({
   imageIds,
   shapeIds,
@@ -179,7 +179,7 @@ function readMixedCompositionSource({
   }
 }
 
-/** Рассчитывает видимую геометрию дочернего объекта по полной матрице в координатах сцены. */
+/** Calculates a child object's visible geometry from its full matrix in scene coordinates. */
 function resolveSelectionChildSceneGeometry(
   source: SelectionChildSceneGeometrySource
 ): SelectionChildSceneGeometrySnapshot {
@@ -231,7 +231,7 @@ function resolveSelectionChildSceneGeometry(
   }
 }
 
-/** Соединяет канонический снимок ребёнка с его видимой геометрией по id. */
+/** Combines a child's canonical snapshot with its visible geometry by ID. */
 function attachSelectionChildGeometry<Snapshot>({
   geometryById,
   id,
@@ -247,7 +247,7 @@ function attachSelectionChildGeometry<Snapshot>({
   return { geometry, snapshot }
 }
 
-/** Добавляет видимую геометрию к ожидаемым текстам в порядке переданных id. */
+/** Adds visible geometry to expected text objects in the supplied ID order. */
 function attachSelectionTextGeometries({
   geometryById,
   snapshots,
@@ -269,28 +269,28 @@ function attachSelectionTextGeometries({
   })
 }
 
-/** Снимок одного шейпа и его текста внутри общего выделения. */
+/** Snapshot of one shape and its text within the active selection. */
 interface ShapeSelectionChildSnapshot {
   shape: SelectionCompositionChildSnapshot
   text: ShapeTextInfo
 }
 
-/** Снимок общего выделения из шейпов с доступным состоянием текста. */
+/** Snapshot of an active selection of shapes with accessible text state. */
 interface ShapeSelectionCompositionSnapshot {
   selection: SelectionCompositionSnapshot['selection']
   children: ShapeSelectionChildSnapshot[]
 }
 
-/** Действия и проверки для активного общего выделения или группы. */
+/** Actions and checks for the active selection or group. */
 export class SelectionModel {
   private readonly page: Page
 
   private readonly shapes: ShapeModel
 
-  /** Полный жест указателя при скейлинге активного составного объекта. */
+  /** Complete pointer gesture for scaling the active composite object. */
   readonly scaling: SelectionScalingSession
 
-  /** Создаёт модель действий над составными объектами редактора. */
+  /** Creates an action model for the editor's composite objects. */
   constructor({
     page,
     shapes
@@ -303,7 +303,7 @@ export class SelectionModel {
     this.scaling = new SelectionScalingSession({ page, shapes })
   }
 
-  /** Возвращает геометрию активного составного объекта и всех его прямых дочерних объектов. */
+  /** Returns geometry of the active composite object and all its direct children. */
   async getCompositionSnapshot(): Promise<SelectionCompositionSnapshot> {
     const composition = await this.page.evaluate(() => {
       const {
@@ -346,7 +346,7 @@ export class SelectionModel {
     return composition
   }
 
-  /** Возвращает канонические свойства отдельных текстов в текущем общем выделении. */
+  /** Returns canonical properties of standalone text objects in the current active selection. */
   async getTextCompositionSnapshot(): Promise<SelectionTextCompositionSnapshot> {
     const composition = await this.page.evaluate(() => {
       const { editor, __editorHelpers: helpers } = window as any
@@ -375,7 +375,7 @@ export class SelectionModel {
     return composition
   }
 
-  /** Возвращает канонические свойства и видимую геометрию дочерних объектов общего выделения. */
+  /** Returns canonical properties and visible geometry of active-selection children. */
   async getChildSceneGeometry(): Promise<SelectionChildSceneGeometrySnapshot[]> {
     const sources = await this.page.evaluate(() => {
       const { editor } = window as any
@@ -410,7 +410,7 @@ export class SelectionModel {
     return (sources as SelectionChildSceneGeometrySource[]).map(resolveSelectionChildSceneGeometry)
   }
 
-  /** Возвращает обязательную видимую геометрию одного дочернего объекта общего выделения. */
+  /** Returns required visible geometry of one active-selection child. */
   async getChildSceneGeometryById({ id }: { id: string }): Promise<SelectionChildSceneGeometrySnapshot> {
     expect(id.length, 'id дочернего объекта не должен быть пустым').toBeGreaterThan(0)
 
@@ -422,7 +422,7 @@ export class SelectionModel {
     return geometry
   }
 
-  /** Возвращает состояние ожидаемых изображений и текстов в текущем общем выделении. */
+  /** Returns the state of expected images and text objects in the current active selection. */
   async getImageTextCompositionSnapshot({
     imageIds,
     textIds
@@ -469,7 +469,7 @@ export class SelectionModel {
     }
   }
 
-  /** Возвращает полное состояние изображения, шейпа и отдельного текста в одной рамке. */
+  /** Returns complete state of an image, a shape, and standalone text within one frame. */
   async getMixedCompositionSnapshot({
     imageIds,
     shapeIds,
@@ -514,7 +514,7 @@ export class SelectionModel {
     }
   }
 
-  /** Возвращает состояние текущего общего выделения из изображений и отдельных текстов. */
+  /** Returns the current active-selection state for images and standalone text objects. */
   async getActiveImageTextCompositionSnapshot(): Promise<SelectionImageTextCompositionSnapshot> {
     const composition = await this.getCompositionSnapshot()
     const imageIds: string[] = []
@@ -543,7 +543,7 @@ export class SelectionModel {
     return this.getImageTextCompositionSnapshot({ imageIds, textIds })
   }
 
-  /** Возвращает фактический наклон текущего общего выделения. */
+  /** Returns the current active selection's actual rotation. */
   async getSkew(): Promise<{ skewX: number; skewY: number }> {
     const skew = await this.page.evaluate(() => {
       const { editor } = window as any
@@ -566,7 +566,7 @@ export class SelectionModel {
     return skew
   }
 
-  /** Возвращает геометрию каждого шейпа и его текст в текущем общем выделении. */
+  /** Returns geometry and text of each shape in the current active selection. */
   async getShapeCompositionSnapshot(): Promise<ShapeSelectionCompositionSnapshot> {
     const composition = await this.getCompositionSnapshot()
     const children = await Promise.all(composition.children.map(async(shape) => {
@@ -587,7 +587,7 @@ export class SelectionModel {
     }
   }
 
-  /** Устанавливает угол текущего общего выделения через публичный TransformManager. */
+  /** Sets the current active selection's angle through the public TransformManager. */
   async setAngle({ angle }: { angle: number }): Promise<SnappingObjectSnapshot> {
     expect(Number.isFinite(angle), 'угол общего выделения должен быть конечным').toBe(true)
 
@@ -611,7 +611,7 @@ export class SelectionModel {
     return snapshot
   }
 
-  /** Возвращает смещение области выделения относительно активного объекта без принудительного setCoords(). */
+  /** Returns the selection-area offset relative to the active object without forcing setCoords(). */
   async getActiveObjectSelectionFrameAlignment(): Promise<SelectionFrameAlignmentInfo> {
     const alignment = await this.page.evaluate(() => {
       const { editor, __editorHelpers: helpers } = window as any

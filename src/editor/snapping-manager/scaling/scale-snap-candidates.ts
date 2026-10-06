@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- экспортируемая функция объявлена перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- The exported function is declared before internal validation helpers. */
 import type {
   ScaleSceneAxis,
   ScaleSceneEdge
@@ -9,20 +9,20 @@ import type {
 } from './scale-snapping-resolver'
 import type { ObjectBounds } from '../../utils/geometry'
 
-/** Объект с точными границами, к которым может прилипнуть изменяемый объект. */
+/** Object with exact bounds to which the object being resized can snap. */
 export type ScaleSnapCandidateSource = Readonly<{
   id: string
   bounds: ObjectBounds
   edgeCategory?: Extract<ScaleSnapCandidateCategory, 'domain-boundary' | 'edge'>
 }>
 
-/** Кандидаты и zoom, зафиксированные в начале одного scale-жеста. */
+/** Candidates and zoom captured at the start of one scaling gesture. */
 export type ScaleSnapEnvironment = Readonly<{
   candidates: readonly ScaleSnapCandidateInput[]
   zoom: number
 }>
 
-/** Именованная линия исходного объекта до связывания с движущейся гранью. */
+/** Named line of the source object before associating it with a moving edge. */
 type ScaleSnapSourceLine = Readonly<{
   key: 'left' | 'center-x' | 'right' | 'top' | 'center-y' | 'bottom'
   axis: ScaleSceneAxis
@@ -31,7 +31,7 @@ type ScaleSnapSourceLine = Readonly<{
 }>
 
 /**
- * Создаёт упорядоченный список кандидатов для всех движущихся граней объекта.
+ * Creates an ordered candidate list for all moving object edges.
  */
 export function createScaleSnapCandidates({
   targetEdges,
@@ -63,7 +63,7 @@ export function createScaleSnapCandidates({
   return Object.freeze(candidates)
 }
 
-/** Проверяет уникальность идентификаторов и корректность исходной геометрии. */
+/** Checks identifier uniqueness and validity of the initial geometry. */
 function assertCandidateInputs({
   targetEdges,
   sources
@@ -88,7 +88,7 @@ function assertCandidateInputs({
   }
 }
 
-/** Проверяет точные границы одного исходного объекта. */
+/** Validates the exact bounds of one source object. */
 function assertSourceBounds({ source }: { source: ScaleSnapCandidateSource }): void {
   const { left, right, top, bottom, centerX, centerY } = source.bounds
   const values = [left, right, top, bottom, centerX, centerY]
@@ -106,7 +106,7 @@ function assertSourceBounds({ source }: { source: ScaleSnapCandidateSource }): v
   }
 }
 
-/** Возвращает грани и центры исходного объекта в постоянном порядке. */
+/** Returns the source object's edges and centers in a fixed order. */
 function createSourceLines({
   source
 }: {
@@ -124,7 +124,7 @@ function createSourceLines({
   ])
 }
 
-/** Возвращает ось координат указанной грани изменяемого объекта. */
+/** Returns the coordinate axis of the specified edge of the object being resized. */
 function resolveEdgeAxis(edge: ScaleSceneEdge): ScaleSceneAxis {
   return edge === 'left' || edge === 'right' ? 'x' : 'y'
 }

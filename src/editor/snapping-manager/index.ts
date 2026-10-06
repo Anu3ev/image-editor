@@ -95,24 +95,24 @@ type MouseEventInfo = TPointerEventInfo<TPointerEvent> & {
   target?: FabricObject | null
 }
 
-/** Начальная проекция и runtime одной прямоугольной scale-сессии. */
+/** Initial projection and runtime for a single rectangular scaling session. */
 type RectangularScaleSnappingSession = Readonly<{
   projection: RectangularScaleGestureProjection
   runtime: ScaleSnappingRuntime
 }>
 
-/** Событие canvas с объектом, который мог участвовать в активной сессии. */
+/** Canvas event containing an object that may have participated in the active session. */
 type ObjectTargetEvent = {
   target?: FabricObject | null
 }
 
-/** Оси, по которым текущий шаг перемещения может использовать прилипание. */
+/** Axes on which the current movement step can use snapping. */
 type MovementSnapAxisState = {
   canSnapX: boolean
   canSnapY: boolean
 }
 
-/** Проверенный контекст одного шага перемещения объекта. */
+/** Validated context for one object movement step. */
 type ObjectMovementContext = {
   target: FabricObject
   transform?: Transform
@@ -122,21 +122,21 @@ type ObjectMovementContext = {
   canSnapY: boolean
 }
 
-/** Результат прилипания к обычным направляющим во время движения. */
+/** Result of snapping to regular guides during movement. */
 type MovementGuideSnapResult = {
   activeBounds: Bounds
   hasGuideSnapX: boolean
   hasGuideSnapY: boolean
 }
 
-/** Данные прежнего пути изменения ширины текста. */
+/** Data for the legacy text width resizing path. */
 type TextResizingSnapRequest = {
   target?: FabricObject | null
   transform?: Transform | null
   event?: TPointerEvent | null
 }
 
-/** Проверенный контекст прежнего горизонтального изменения ширины текста. */
+/** Validated context for the legacy horizontal text width resizing path. */
 type TextResizingTargetContext = {
   target: Textbox
   activeBounds: Bounds
@@ -147,7 +147,7 @@ type TextResizingTargetContext = {
 }
 
 /**
- * Объект и доступные оси текущего скейлинга.
+ * Object and available axes for the current scaling operation.
  */
 type ObjectScalingTargetContext = {
   event: TransformEvent
@@ -160,7 +160,7 @@ type ObjectScalingTargetContext = {
 }
 
 /**
- * Полный план прилипания для одного шага скейлинга.
+ * Complete snapping plan for one scaling step.
  */
 type ObjectScalingPlanContext = ObjectScalingTargetContext & {
   originX: Transform['originX']
@@ -168,7 +168,7 @@ type ObjectScalingPlanContext = ObjectScalingTargetContext & {
   scalePlan: ScaleUpdatePlan
 }
 
-/** Геометрия прилипания для типов, которые ещё не переведены на новый контракт. */
+/** Snapping geometry for types not yet migrated to the new contract. */
 type ObjectScalingSnapGeometry = {
   activeBounds: Bounds
   originX: Transform['originX']
@@ -179,29 +179,29 @@ type ObjectScalingSnapGeometry = {
 }
 
 /**
- * Менеджер отвечает за отображение направляющих и прилипающее выравнивание объектов.
+ * Manages guide rendering and object snap alignment.
  */
 export default class SnappingManager {
   /**
-   * Инстанс редактора.
+   * Editor instance.
    */
   public editor: ImageEditor
 
   /**
-   * Канвас редактора.
+   * Editor canvas.
    */
   public canvas: Canvas
 
   /**
-   * Кешированные линии для привязки.
+   * Cached snapping lines.
    */
   private anchors: AnchorBuckets = { vertical: [], horizontal: [] }
 
-  /** Способ расчёта границ в текущем кеше целей. */
+  /** Bounds calculation mode for the current target cache. */
   private anchorBoundsMode: SnapTargetBoundsMode | null = null
 
   /**
-   * Кешированные интервалы между объектами.
+   * Cached intervals between objects.
    */
   private spacingPatterns: { vertical: SpacingPattern[]; horizontal: SpacingPattern[] } = {
     vertical: [],
@@ -209,7 +209,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Сохраненный контекст равноудалённого прилипания по осям.
+   * Saved equal-spacing snapping context for each axis.
    */
   private spacingContexts: SpacingContextByAxis = {
     vertical: null,
@@ -217,78 +217,78 @@ export default class SnappingManager {
   }
 
   /**
-   * Кешированные границы доступных объектов.
+   * Cached bounds of available objects.
    */
   private cachedTargetBounds: Bounds[] = []
 
   /**
-   * Текущие направляющие для отрисовки.
+   * Current guides to render.
    */
   private activeGuides: GuideLine[] = []
 
   /**
-   * Текущие направляющие интервалов для отрисовки.
+   * Current spacing guides to render.
    */
   private activeSpacingGuides: SpacingGuide[] = []
 
   /**
-   * Границы, в пределах которых рисуются направляющие.
+   * Bounds within which guides are drawn.
    */
   private guideBounds: GuideBounds | null = null
 
-  /** События указателя, уже обработанные менеджером конкретного типа объекта. */
+  /** Pointer events already handled by the manager for a specific object type. */
   private readonly handledStepEvents = new WeakSet<object>()
 
-  /** Управляет унифицированным прилипанием при перемещении изображений, шейпов и отдельного текста. */
+  /** Manages unified movement snapping for images, shapes, and standalone text. */
   private readonly movementSnappingController: MovementSnappingController
 
-  /** Управляет общей сессией прилипания при скейлинге изображений. */
+  /** Manages the shared snapping session for image scaling. */
   private readonly imageScaleSnappingController: ImageScaleSnappingController
 
-  /** Выбирает доступные цели прилипания и рассчитывает их границы. */
+  /** Selects available snap targets and calculates their bounds. */
   private readonly snapTargetResolver: SnapTargetResolver
 
   /**
-   * Обработчик начала перетаскивания объекта.
+   * Object drag start handler.
    */
   private _onMouseDown: (event: MouseEventInfo) => void
 
-  /** Обработчик fallback scale-step без события `object:scaling`. */
+  /** Fallback scaling step handler when no `object:scaling` event is fired. */
   private _onMouseMove: (event: MouseEventInfo) => void
 
   /**
-   * Обработчик перемещения объекта.
+   * Object movement handler.
    */
   private _onObjectMoving: (event: TransformEvent) => void
 
   /**
-   * Обработчик масштабирования объекта.
+   * Object scaling handler.
    */
   private _onObjectScaling: (event: TransformEvent) => void
 
   /**
-   * Обработчик завершения или прерывания взаимодействия.
+   * Interaction completion or interruption handler.
    */
   private _onInteractionFinished: () => void
 
-  /** Обработчик внешней отмены текущего взаимодействия. */
+  /** External cancellation handler for the current interaction. */
   private _onInteractionCancelled: (event: Event) => void
 
-  /** Обработчик удаления объекта, который мог участвовать в активной сессии перемещения. */
+  /** Removal handler for an object that may have participated in the active movement session. */
   private _onObjectRemoved: (event: ObjectTargetEvent) => void
 
   /**
-   * Обработчик очистки перед рендером.
+   * Pre-render cleanup handler.
    */
   private _onBeforeRender: () => void
 
   /**
-   * Обработчик отрисовки направляющих после рендера.
+   * Post-render guide drawing handler.
    */
   private _onAfterRender: () => void
 
   /**
-   * Создаёт менеджер прилипания и инициализирует слушатели событий.
+   * Creates the snapping manager and initializes event listeners.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -312,7 +312,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Удаляет слушатели и очищает временные данные.
+   * Removes listeners and clears temporary data.
    */
   public destroy(): void {
     this._unbindEvents()
@@ -320,8 +320,8 @@ export default class SnappingManager {
   }
 
   /**
-   * Сохраняет точные цели и масштаб canvas в начале скейлинга.
-   * Переданная владельцем граница получает приоритет доменного ограничения.
+   * Captures exact targets and canvas zoom at the start of scaling.
+   * The boundary supplied by the owner takes priority as a domain constraint.
    */
   public captureScaleSnapEnvironment({
     activeObject,
@@ -340,7 +340,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Фиксирует точные цели перемещения; доменная граница не участвует в равноудалённости. */
+  /** Captures exact movement targets; the domain boundary does not participate in equal spacing. */
   public captureMovementSnapEnvironment({
     activeObject, domainBoundary
   }: {
@@ -352,7 +352,7 @@ export default class SnappingManager {
     return createMovementSnapEnvironment({ sources, zoom: this.canvas.getZoom() || 1 })
   }
 
-  /** Фиксирует цели и область рисования из одного снимка точной геометрии сцены. */
+  /** Captures targets and drawing bounds from a single snapshot of exact scene geometry. */
   private _captureSourcesAndGuideBounds({
     activeObject, domainBoundary
   }: {
@@ -368,7 +368,7 @@ export default class SnappingManager {
     return sources
   }
 
-  /** Создаёт исходную проекцию и запускает общий расчёт прилипания для прямоугольного скейлинга. */
+  /** Creates the initial projection and starts the shared snapping calculation for rectangular scaling. */
   public startRectangularScaleSnappingSession({
     pointerStart,
     transform
@@ -399,14 +399,14 @@ export default class SnappingManager {
   }
 
   /**
-   * Помечает событие указателя уже обработанным менеджером объекта.
+   * Marks a pointer event as already handled by the object's manager.
    */
   public markStepHandled({ marker }: { marker: object }): void {
     this.handledStepEvents.add(marker)
   }
 
   /**
-   * Показывает направляющие, подтверждённые по уже применённой геометрии.
+   * Shows guides verified against the geometry already applied.
    */
   public publishVerifiedScaleGuides({ guides }: { guides: readonly VerifiedScaleGuide[] }): void {
     this._applyGuides({
@@ -418,7 +418,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Показывает обычные и равноудалённые направляющие после проверки фактической позиции. */
+  /** Shows regular and equal-spacing guides after verifying the actual position. */
   public publishVerifiedMovementGuides({
     guides, spacingGuides
   }: Pick<MovementSnapVerification, 'guides' | 'spacingGuides'>): void {
@@ -429,7 +429,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Навешивает обработчики событий канваса.
+   * Attaches canvas event handlers.
    */
   private _bindEvents(): void {
     const { canvas } = this
@@ -451,7 +451,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Удаляет обработчики событий канваса.
+   * Removes canvas event handlers.
    */
   private _unbindEvents(): void {
     const { canvas } = this
@@ -473,7 +473,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Очищает прошлый жест и запускает владельца нового. Прежний кеш строится только при обращении к нему.
+   * Clears the previous gesture and starts the owner of the new one. The legacy cache is built only when accessed.
    */
   private _handleMouseDown(event: MouseEventInfo): void {
     const { target } = event
@@ -489,7 +489,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Обрабатывает шаг скейлинга изображения без события преобразования от Fabric. */
+  /** Handles an image scaling step without a Fabric transform event. */
   private _handleMouseMove(event: MouseEventInfo): void {
     let unifiedStep: ImageScaleStepResult
     try {
@@ -509,7 +509,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Выполняет привязку объекта к ближайшим линиям при его перемещении.
+   * Snaps a moving object to the nearest lines.
    */
   private _handleObjectMoving(event: TransformEvent): void {
     if (event.e && this.handledStepEvents.has(event.e)) return
@@ -528,7 +528,7 @@ export default class SnappingManager {
     this._applyObjectMovementSnap(context)
   }
 
-  /** Подготавливает объект и точную геометрию для одного шага перемещения. */
+  /** Prepares the object and exact geometry for one movement step. */
   private _resolveObjectMovementContext({
     event
   }: {
@@ -571,7 +571,7 @@ export default class SnappingManager {
     }
   }
 
-  /** Отключает только те оси crop frame, которые будут возвращены внутрь source clamp-ом. */
+  /** Disables only the crop frame axes that the source clamp will move back inside the source. */
   private _resolveMovementSnapAxes({
     target,
     transform
@@ -593,7 +593,7 @@ export default class SnappingManager {
     }
   }
 
-  /** Применяет обычные и равноудалённые направляющие одного шага перемещения. */
+  /** Applies regular and equal-spacing guides for one movement step. */
   private _applyObjectMovementSnap({
     target,
     transform,
@@ -650,7 +650,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Применяет ближайшие линейные направляющие и возвращает актуальные точные границы. */
+  /** Applies the nearest line guides and returns the current exact bounds. */
   private _applyMovementGuideSnap({
     target,
     activeBounds,
@@ -692,7 +692,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Выполняет привязку объекта к ближайшим линиям при его масштабировании.
+   * Snaps a scaling object to the nearest lines.
    */
   private _handleObjectScaling(event: TransformEvent): void {
     let unifiedStep: ImageScaleStepResult
@@ -734,7 +734,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Проверяет объект для скейлинга или завершает шаг без прилипания.
+   * Validates the object for scaling or ends the step without snapping.
    */
   private _resolveObjectScalingTargetContext({
     event
@@ -797,7 +797,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Рассчитывает план прилипания или завершает шаг без направляющих.
+   * Calculates a snapping plan or ends the step without guides.
    */
   private _resolveObjectScalingPlanContext(
     context: ObjectScalingTargetContext
@@ -849,7 +849,7 @@ export default class SnappingManager {
     }
   }
 
-  /** Собирает округлённые границы и прилипание для ещё не перенесённых типов объектов. */
+  /** Collects rounded bounds and snapping for object types not yet migrated. */
   private _resolveObjectScalingSnapGeometry(
     context: ObjectScalingTargetContext
   ): ObjectScalingSnapGeometry | null {
@@ -881,7 +881,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Применяет прежний план прилипания и округление обычного объекта до пикселей.
+   * Applies the legacy snapping plan and rounds a regular object to pixels.
    */
   private _applyObjectScalingSnapPlan({
     target,
@@ -910,7 +910,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Округляет скейлинг, не сдвигая неподвижную сторону текущего преобразования.
+   * Rounds scaling without moving the fixed side of the current transform.
    */
   private _applyObjectScalingPixelStep({
     target,
@@ -947,7 +947,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Возвращает true, если движение нужно прервать до расчёта направляющих. */
+  /** Returns true if movement should stop before calculating guides. */
   private _shouldAbortObjectMoving({
     event
   }: {
@@ -962,7 +962,7 @@ export default class SnappingManager {
     return false
   }
 
-  /** Проверяет, нужно ли завершить скейлинг до расчёта прилипания. */
+  /** Checks whether scaling should end before calculating snapping. */
   private _shouldAbortObjectScaling({
     target,
     transform,
@@ -985,7 +985,7 @@ export default class SnappingManager {
     return false
   }
 
-  /** Завершает шаг без направляющих, сохраняя прежнее округление до пикселей. */
+  /** Ends the step without guides, preserving the legacy pixel rounding. */
   private _finishObjectScalingWithoutSnap({
     target,
     transform,
@@ -1002,7 +1002,7 @@ export default class SnappingManager {
     this._clearGuides()
   }
 
-  /** Проверяет, изменился ли скейлинг относительно начала преобразования Fabric. */
+  /** Checks whether scaling has changed since the Fabric transform began. */
   private _hasObjectScaleChanged({
     target,
     transform
@@ -1017,7 +1017,7 @@ export default class SnappingManager {
     return target.scaleX !== originalScaleX || target.scaleY !== originalScaleY
   }
 
-  /** Применяет сдвиг объекта и возвращает его актуальные bounds. */
+  /** Applies an object offset and returns its current bounds. */
   private _applyMovementDelta({
     target,
     activeBounds,
@@ -1041,7 +1041,7 @@ export default class SnappingManager {
     return getObjectExactBounds({ object: target }) ?? activeBounds
   }
 
-  /** Рассчитывает прилипание к равноудалённым интервалам во время перемещения. */
+  /** Calculates equal-spacing snapping during movement. */
   private _calculateSpacingResult({
     activeBounds,
     candidateBounds,
@@ -1085,7 +1085,7 @@ export default class SnappingManager {
     return result
   }
 
-  /** Пересчитывает направляющие по окончательным границам шага перемещения. */
+  /** Recalculates guides using the final bounds of the movement step. */
   private _applyMovementVisualGuides({
     activeBounds,
     candidateBounds,
@@ -1136,7 +1136,7 @@ export default class SnappingManager {
     })
   }
 
-  /** Применяет рассчитанный скейлинг к объекту и текущему преобразованию Fabric. */
+  /** Applies the calculated scale to the object and current Fabric transform. */
   private _applyScaleUpdatePlan({
     target,
     transform,
@@ -1182,7 +1182,7 @@ export default class SnappingManager {
     target.setCoords()
   }
 
-  /** Применяет прежнюю логику прилипания для ещё не переведённых вариантов Textbox. */
+  /** Applies the legacy snapping logic to Textbox variants not yet migrated. */
   public applyTextResizingSnap({
     target,
     transform,
@@ -1206,7 +1206,7 @@ export default class SnappingManager {
     this._applyTextResizingSnapPlan({ context, snapPlan })
   }
 
-  /** Проверяет входные данные прежнего пути и собирает геометрию прилипания. */
+  /** Validates legacy path inputs and collects snapping geometry. */
   private _resolveTextResizingTargetContext({
     target,
     transform,
@@ -1242,7 +1242,7 @@ export default class SnappingManager {
     }
   }
 
-  /** Применяет прежний план ширины, сохраняя неподвижную сторону Textbox. */
+  /** Applies the legacy width plan while preserving the fixed side of the Textbox. */
   private _applyTextResizingSnapPlan({
     context,
     snapPlan
@@ -1270,12 +1270,12 @@ export default class SnappingManager {
     this._applyGuides({ guides: [guide], spacingGuides: [] })
   }
 
-  /** Очищает общие сессии прилипания, направляющие и кеш после завершающего события. */
+  /** Clears shared snapping sessions, guides, and cache after a terminal event. */
   private _handleInteractionFinished(): void {
     this._finishSnappingInteraction()
   }
 
-  /** Прерывает скейлинг изображения и очищает направляющие даже при ошибке завершения Fabric. */
+  /** Interrupts image scaling and clears guides even if Fabric fails to finish. */
   private _handleInteractionCancelled(event: Event): void {
     const pointerEvent = event.type === 'blur' ? undefined : event as TPointerEvent
     try {
@@ -1285,7 +1285,7 @@ export default class SnappingManager {
     }
   }
 
-  /** Завершает взаимодействие, только если с canvas удалили участвующий в нём объект. */
+  /** Ends the interaction only if a participating object was removed from the canvas. */
   private _handleObjectRemoved(event: ObjectTargetEvent): void {
     const { target } = event
     if (!target) return
@@ -1299,7 +1299,7 @@ export default class SnappingManager {
     this._finishSnappingInteraction()
   }
 
-  /** Идемпотентно очищает всё временное состояние текущего взаимодействия с прилипанием. */
+  /** Idempotently clears all temporary state of the current snapping interaction. */
   private _finishSnappingInteraction(): void {
     this.movementSnappingController.finishGesture()
     this.imageScaleSnappingController.finishGesture()
@@ -1308,7 +1308,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Очищает вспомогательный слой перед рендером.
+   * Clears the helper layer before rendering.
    */
   private _handleBeforeRender(): void {
     const { canvas } = this
@@ -1320,7 +1320,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Отрисовывает активные направляющие после рендера канваса.
+   * Draws active guides after the canvas renders.
    */
   private _handleAfterRender(): void {
     renderSnappingGuides({
@@ -1332,7 +1332,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Применяет найденные направляющие или очищает их, если ничего нет.
+   * Applies the guides found or clears them if none are available.
    */
   private _applyGuides({
     guides,
@@ -1352,7 +1352,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Сбрасывает все активные направляющие и инициирует перерисовку.
+   * Resets all active guides and requests a redraw.
    */
   private _clearGuides(): void {
     if (!this.activeGuides.length && !this.activeSpacingGuides.length) return
@@ -1363,7 +1363,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Обнуляет кеш опорных линий.
+   * Clears the reference line cache.
    */
   private _clearAnchors(): void {
     this.anchors = { vertical: [], horizontal: [] }
@@ -1374,7 +1374,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Сбрасывает сохраненный контекст выбора равноудалённых направляющих.
+   * Resets the saved equal-spacing guide selection context.
    */
   private _clearSpacingContexts(): void {
     this.spacingContexts = {
@@ -1384,7 +1384,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Гарантирует, что временный кеш построен в нужном геометрическом режиме.
+   * Ensures the temporary cache is built in the required geometry mode.
    */
   private _ensureAnchorBounds({
     activeObject,
@@ -1400,7 +1400,7 @@ export default class SnappingManager {
   }
 
   /**
-   * Сохраняет линии для прилипания от всех доступных объектов и монтажной области.
+   * Caches snapping lines from all available objects and the artboard.
    */
   private _cacheAnchors({
     activeObject,

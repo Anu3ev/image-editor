@@ -9,16 +9,16 @@ import type {
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type { ShapeModel } from '../shape/shape.model'
 
-/** Локальные точки привязки одной стандартной ручки составного объекта. */
+/** Local anchor points of one standard composite-object handle. */
 type SelectionControlOrigins = Readonly<{
   originX: 'center' | 'left' | 'right'
   originY: 'bottom' | 'center' | 'top'
 }>
 
-/** Угловая ручка активного составного объекта. */
+/** Corner handle of the active composite object. */
 type SelectionDiagonalControlKey = Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
 
-/** Состояние незавершённого скейлинга составного объекта. */
+/** State of unfinished composite-object scaling. */
 type ActiveSelectionScaleInteraction = {
   point: {
     x: number
@@ -29,7 +29,7 @@ type ActiveSelectionScaleInteraction = {
   shiftKey: boolean
 }
 
-/** Локальные точки привязки всех стандартных ручек составного объекта. */
+/** Local anchor points of all standard composite-object handles. */
 const SELECTION_CONTROL_ORIGINS: Readonly<Record<SelectionControlKey, SelectionControlOrigins>> = Object.freeze({
   tl: { originX: 'left', originY: 'top' },
   tr: { originX: 'right', originY: 'top' },
@@ -41,14 +41,14 @@ const SELECTION_CONTROL_ORIGINS: Readonly<Record<SelectionControlKey, SelectionC
   mb: { originX: 'center', originY: 'bottom' }
 })
 
-/** Смещение активной ручки на одном шаге скейлинга. */
+/** Active-handle offset during one scaling step. */
 type DragActiveScaleHandleParams = {
   deltaX: number
   deltaY: number
   pointerSteps?: number
 }
 
-/** Результат шага при прямом вызове обработчика Fabric. */
+/** Step result from directly calling a Fabric handler. */
 type SelectionScaleStepResult = {
   point: {
     x: number
@@ -57,7 +57,7 @@ type SelectionScaleStepResult = {
   snapshot: SnappingObjectSnapshot
 }
 
-/** Результат прямого скейлинга через браузерный обработчик Fabric. */
+/** Result of direct scaling through a browser-side Fabric handler. */
 type ScaleSelectionFromControlResult = Readonly<{
   point: Readonly<{
     x: number
@@ -67,7 +67,7 @@ type ScaleSelectionFromControlResult = Readonly<{
   snapshot: SnappingObjectSnapshot
 }>
 
-/** Параметры прямого скейлинга общего выделения через обработчики Fabric. */
+/** Options for direct active-selection scaling through Fabric handlers. */
 type ScaleSelectionFromControlParams = {
   startControl: SelectionControlKey
   oppositeControl: SelectionControlKey
@@ -78,13 +78,13 @@ type ScaleSelectionFromControlParams = {
   shiftKey?: boolean
 }
 
-/** Минимальный размер, до которого нужно сжать общее выделение. */
+/** Minimum size to which the active selection should shrink. */
 type SelectionMinimumSizeParams = {
   minimumSize: number
   shiftKey?: boolean
 }
 
-/** Ручки и состав текущего активного объекта. */
+/** Handles and composition of the current active object. */
 interface SelectionScaleCapability {
   targetId: string | null
   targetType: string
@@ -93,25 +93,25 @@ interface SelectionScaleCapability {
   snapshot: SnappingObjectSnapshot
 }
 
-/** Состояния в начале, во время жеста и после отпускания мыши. */
+/** States at the start, during the gesture, and after mouse release. */
 interface SelectionScaleGestureResult {
   started: SnappingObjectSnapshot
   live: SnappingObjectSnapshot
   committed: SnappingObjectSnapshot
 }
 
-/** Зависимости сессии скейлинга общего выделения. */
+/** Active-selection scaling-session dependencies. */
 type SelectionScalingSessionDependencies = Readonly<{
   page: Page
   shapes: ShapeModel
 }>
 
-/** Результат завершения скейлинга с ожидаемой ошибкой фиксации шейпа. */
+/** Scaling-completion result with an expected shape-commit error. */
 type SelectionScaleCommitFailureResult = Readonly<{
   errorMessage: string
 }>
 
-/** Полный жест указателя при скейлинге активного общего выделения или группы. */
+/** Complete pointer gesture for scaling the active selection or group. */
 export class SelectionScalingSession {
   private readonly page: Page
 
@@ -119,7 +119,7 @@ export class SelectionScalingSession {
 
   private activeInteraction: ActiveSelectionScaleInteraction | null
 
-  /** Создаёт сессию скейлинга для указанной Playwright-страницы. */
+  /** Creates a scaling session for the specified Playwright page. */
   constructor({
     page,
     shapes
@@ -129,7 +129,7 @@ export class SelectionScalingSession {
     this.activeInteraction = null
   }
 
-  /** Возвращает состояние текущего активного составного объекта. */
+  /** Returns the current active composite object's state. */
   async getSnapshot(): Promise<SnappingObjectSnapshot> {
     const snapshot = await this.page.evaluate(() => {
       const {
@@ -149,7 +149,7 @@ export class SelectionScalingSession {
     return snapshot
   }
 
-  /** Возвращает точку стандартной ручки общего выделения в координатах сцены. */
+  /** Returns a standard active-selection handle point in scene coordinates. */
   async getControlScenePoint({
     control
   }: {
@@ -173,7 +173,7 @@ export class SelectionScalingSession {
     return point
   }
 
-  /** Рассчитывает точки пропорционального пути правой верхней ручки для заданных верхних границ. */
+  /** Calculates proportional-path points of the top-right handle for the specified top boundaries. */
   async createTopRightProportionalPath({
     centered = false,
     topPositions
@@ -207,7 +207,7 @@ export class SelectionScalingSession {
     }))
   }
 
-  /** Возвращает доступные ручки, дочерние id и границы активного объекта. */
+  /** Returns available handles, child IDs, and active-object bounds. */
   async getCapability(): Promise<SelectionScaleCapability> {
     const capability = await this.page.evaluate(() => {
       const { editor, __editorHelpers: helpers } = window as any
@@ -245,7 +245,7 @@ export class SelectionScalingSession {
     return capability
   }
 
-  /** Масштабирует текущее общее выделение справа и возвращает состояние во время жеста. */
+  /** Scales the current active selection from the right and returns its state during the gesture. */
   async scaleHorizontallyFromRight(
     params: {
       scaleX: number
@@ -258,7 +258,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Масштабирует текущее общее выделение слева и возвращает состояние во время жеста. */
+  /** Scales the current active selection from the left and returns its state during the gesture. */
   async scaleHorizontallyFromLeft(
     params: {
       scaleX: number
@@ -271,7 +271,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Масштабирует текущее общее выделение снизу и возвращает состояние во время жеста. */
+  /** Scales the current active selection from the bottom and returns its state during the gesture. */
   async scaleVerticallyFromBottom(
     params: {
       scaleY: number
@@ -284,7 +284,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Масштабирует текущее общее выделение сверху и возвращает состояние во время жеста. */
+  /** Scales the current active selection from the top and returns its state during the gesture. */
   async scaleVerticallyFromTop(
     params: {
       scaleY: number
@@ -297,7 +297,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Масштабирует текущее общее выделение из правого нижнего угла и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Scales the current active selection from the bottom-right corner and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async scaleDiagonallyFromBottomRight(
     params: {
       scaleX: number
@@ -314,7 +314,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Масштабирует текущее общее выделение из правого верхнего угла и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Scales the current active selection from the top-right corner and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async scaleDiagonallyFromTopRight(
     params: {
       scaleX: number
@@ -331,7 +331,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Масштабирует текущее общее выделение из левого верхнего угла и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Scales the current active selection from the top-left corner and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async scaleDiagonallyFromTopLeft(
     params: {
       scaleX: number
@@ -348,7 +348,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Масштабирует текущее общее выделение из левого нижнего угла и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Scales the current active selection from the bottom-left corner and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async scaleDiagonallyFromBottomLeft(
     params: {
       scaleX: number
@@ -365,7 +365,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение справа до минимальной ширины и возвращает состояние во время жеста. */
+  /** Shrinks the current active selection from the right to its minimum width and returns its state during the gesture. */
   async shrinkHorizontallyFromRightToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -376,7 +376,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение снизу до минимальной высоты и возвращает состояние во время жеста. */
+  /** Shrinks the current active selection from the bottom to its minimum height and returns its state during the gesture. */
   async shrinkVerticallyFromBottomToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -387,7 +387,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение сверху до минимальной высоты и возвращает состояние во время жеста. */
+  /** Shrinks the current active selection from the top to its minimum height and returns its state during the gesture. */
   async shrinkVerticallyFromTopToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -398,7 +398,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение из правого нижнего угла до минимальных ширины и высоты и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Shrinks the current active selection from the bottom-right corner to minimum width and height and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async shrinkDiagonallyFromBottomRightToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -409,7 +409,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение из правого верхнего угла до минимальных ширины и высоты и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Shrinks the current active selection from the top-right corner to minimum width and height and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async shrinkDiagonallyFromTopRightToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -420,7 +420,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение из левого верхнего угла до минимальных ширины и высоты и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Shrinks the current active selection from the top-left corner to minimum width and height and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async shrinkDiagonallyFromTopLeftToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -431,7 +431,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение из левого нижнего угла до минимальных ширины и высоты и возвращает состояние во время жеста. Поддерживает непропорциональный скейлинг при зажатом Shift. */
+  /** Shrinks the current active selection from the bottom-left corner to minimum width and height and returns its state during the gesture. Supports non-proportional scaling while Shift is held. */
   async shrinkDiagonallyFromBottomLeftToMinimum(
     params: SelectionMinimumSizeParams
   ): Promise<SnappingObjectSnapshot> {
@@ -442,7 +442,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Сжимает текущее общее выделение по диагонали до минимальных ширины и высоты из выбранного угла. */
+  /** Shrinks the current active selection diagonally to minimum width and height from the selected corner. */
   async shrinkDiagonallyToMinimum({
     corner,
     minimumSize,
@@ -459,7 +459,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Начинает реальный скейлинг общего выделения или группы. */
+  /** Starts real scaling of an active selection or group. */
   async startFromControl(
     params: { centered?: boolean, control: SelectionControlKey, shiftKey?: boolean }
   ): Promise<SnappingObjectSnapshot> {
@@ -508,7 +508,7 @@ export class SelectionScalingSession {
     return this.getSnapshot()
   }
 
-  /** Перемещает активную ручку в заданную точку сцены настоящим движением указателя. */
+  /** Moves the active handle to the specified scene point with real pointer movement. */
   async dragControlToScenePoint({
     ctrlKey = false,
     point,
@@ -555,7 +555,7 @@ export class SelectionScalingSession {
     return this.getSnapshot()
   }
 
-  /** Завершает скейлинг тем же способом, которым он был начат. */
+  /** Finishes scaling using the same method that started it. */
   async finish(): Promise<SnappingObjectSnapshot> {
     expect(this.activeInteraction, 'для отпускания мыши нужна активная сессия скейлинга').not.toBeNull()
     if (!this.activeInteraction) {
@@ -579,7 +579,7 @@ export class SelectionScalingSession {
     return snapshot
   }
 
-  /** Завершает реальный жест с одноразовой ошибкой после подготовки геометрии шейпа. */
+  /** Finishes a real gesture with a one-time error after preparing shape geometry. */
   async finishWithShapeCommitFailure({
     shapeId
   }: {
@@ -613,7 +613,7 @@ export class SelectionScalingSession {
     }
   }
 
-  /** Устанавливает одноразовый сбой сразу после настоящей подготовки шейпа к фиксации. */
+  /** Installs a one-time failure immediately after real shape preparation for commit. */
   private async _installShapeCommitFailure({
     failureMessage,
     shapeId
@@ -642,7 +642,7 @@ export class SelectionScalingSession {
     }, { failureMessage, shapeId })
   }
 
-  /** Прерывает скейлинг общего выделения событием отмены указателя. */
+  /** Interrupts active-selection scaling with a pointer-cancel event. */
   async cancelWithPointerEvent(): Promise<SnappingObjectSnapshot> {
     const interaction = this.activeInteraction
     expect(interaction?.mode, 'отмена указателя должна прерывать активную сессию скейлинга').toBe('browser-pointer')
@@ -671,7 +671,7 @@ export class SelectionScalingSession {
     }
   }
 
-  /** Отпускает указатель после действия, которое само завершило текущее преобразование Fabric. */
+  /** Releases the pointer after an action that already ended the current Fabric transform. */
   async releasePointerAfterExternalEnd(): Promise<void> {
     const interaction = this.activeInteraction
     expect(
@@ -703,14 +703,14 @@ export class SelectionScalingSession {
     }
   }
 
-  /** Завершает скейлинг составного объекта, если тест оставил ручку захваченной. */
+  /** Finishes composite-object scaling if the test left a handle captured. */
   async finishIfActive(): Promise<SnappingObjectSnapshot | null> {
     if (!this.activeInteraction) return null
 
     return this.finish()
   }
 
-  /** Продолжает движение активной ручки составного объекта. */
+  /** Continues movement of the active composite-object handle. */
   async dragControlBy(
     params: DragActiveScaleHandleParams
   ): Promise<SnappingObjectSnapshot> {
@@ -726,7 +726,7 @@ export class SelectionScalingSession {
     return this._dragFabricScaleHandleBy(params)
   }
 
-  /** Выполняет полный скейлинг за правую нижнюю ручку. */
+  /** Performs complete scaling with the bottom-right handle. */
   async scaleFromBottomRightBy(params: DragActiveScaleHandleParams): Promise<SelectionScaleGestureResult> {
     const started = await this.startFromControl({ control: 'br' })
     const live = await this.dragControlBy(params)
@@ -739,7 +739,7 @@ export class SelectionScalingSession {
     return { started, live, committed }
   }
 
-  /** Пропорционально масштабирует повёрнутое выделение до заданной правой границы. */
+  /** Proportionally scales a rotated selection to the specified right boundary. */
   async scaleUniformlyFromBottomRightToBoundsRight({
     right
   }: {
@@ -772,7 +772,7 @@ export class SelectionScalingSession {
     return { started, live, committed }
   }
 
-  /** Свободно масштабирует повёрнутое выделение из правого нижнего угла до заданных границ. */
+  /** Freely scales a rotated selection from the bottom-right corner to the specified bounds. */
   async scaleFreelyFromBottomRightToBounds({
     right,
     bottom
@@ -831,7 +831,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Повторно увеличивает и уменьшает выделение до ограничений шейпов в рамках одного жеста. */
+  /** Repeatedly enlarges and shrinks the selection to shape limits within one gesture. */
   async repeatShapeSelectionScalingToMinimum({
     cycles,
     direction,
@@ -866,7 +866,7 @@ export class SelectionScalingSession {
     return Object.freeze(states)
   }
 
-  /** Двигает ручку составного объекта настоящим движением указателя. */
+  /** Moves the composite-object handle with real pointer movement. */
   private async _dragBrowserScaleHandleBy(
     params: DragActiveScaleHandleParams
   ): Promise<SnappingObjectSnapshot> {
@@ -895,7 +895,7 @@ export class SelectionScalingSession {
     return snapshot
   }
 
-  /** Увеличивает общее выделение в заданном направлении. */
+  /** Enlarges the active selection in the specified direction. */
   private async _expandSelection({
     direction,
     scale
@@ -919,7 +919,7 @@ export class SelectionScalingSession {
     await this.scaleDiagonallyFromTopRight({ scaleX: scale, scaleY: scale })
   }
 
-  /** Уменьшает общее выделение до ограничения в заданном направлении. */
+  /** Shrinks the active selection to its limit in the specified direction. */
   private async _shrinkSelectionToMinimum({
     direction,
     minimumSize
@@ -943,7 +943,7 @@ export class SelectionScalingSession {
     await this.shrinkDiagonallyFromTopRightToMinimum({ minimumSize })
   }
 
-  /** Читает геометрию и число строк выбранных шейпов на одном этапе жеста. */
+  /** Reads selected shapes' geometry and line counts at one gesture stage. */
   private async _readMinimumShapeStates({
     label,
     shapeIds
@@ -964,7 +964,7 @@ export class SelectionScalingSession {
     return Object.freeze({ label, shapes: Object.freeze(states) })
   }
 
-  /** Проверяет ограниченные параметры повторного уменьшения общего выделения. */
+  /** Checks constrained parameters of repeated active-selection shrinkage. */
   private _assertRepeatedMinimumScaleParams({
     cycles,
     expandBaseScale,
@@ -991,7 +991,7 @@ export class SelectionScalingSession {
     }
   }
 
-  /** Продолжает скейлинг прямым вызовом обработчика Fabric. */
+  /** Continues scaling by directly calling a Fabric handler. */
   private async _dragFabricScaleHandleBy(
     params: DragActiveScaleHandleParams
   ): Promise<SnappingObjectSnapshot> {
@@ -1024,7 +1024,7 @@ export class SelectionScalingSession {
     return result.snapshot
   }
 
-  /** Двигает указатель прямым вызовом обработчика Fabric и читает новое положение ручки. */
+  /** Moves the pointer by directly calling a Fabric handler and reads the new handle position. */
   private async _moveFabricScaleHandle(
     payload: ActiveSelectionScaleInteraction & DragActiveScaleHandleParams
   ): Promise<SelectionScaleStepResult | null> {
@@ -1064,7 +1064,7 @@ export class SelectionScalingSession {
     }, payload)
   }
 
-  /** Завершает скейлинг составного объекта настоящим отпусканием мыши. */
+  /** Finishes composite-object scaling with a real mouse release. */
   private async _finishBrowserScaleInteraction(
     interaction: ActiveSelectionScaleInteraction
   ): Promise<SnappingObjectSnapshot> {
@@ -1084,7 +1084,7 @@ export class SelectionScalingSession {
     }
   }
 
-  /** Завершает скейлинг прямым вызовом обработчика Fabric. */
+  /** Finishes scaling by directly calling a Fabric handler. */
   private async _finishFabricScaleInteraction(
     interaction: ActiveSelectionScaleInteraction
   ): Promise<SnappingObjectSnapshot> {
@@ -1131,7 +1131,7 @@ export class SelectionScalingSession {
     return snapshot
   }
 
-  /** Возвращает экранные координаты ручки общего выделения или группы. */
+  /** Returns screen coordinates of an active-selection or group handle. */
   private async _resolveScaleControlPoint(
     params: { control: SelectionControlKey }
   ): Promise<{ x: number, y: number }> {
@@ -1163,7 +1163,7 @@ export class SelectionScalingSession {
     return point
   }
 
-  /** Выполняет или продолжает скейлинг через прямой вызов обработчиков Fabric. */
+  /** Performs or continues scaling through direct Fabric-handler calls. */
   private async _scaleFromControl(
     params: ScaleSelectionFromControlParams
   ): Promise<SnappingObjectSnapshot> {
@@ -1213,7 +1213,7 @@ export class SelectionScalingSession {
     return snapshot
   }
 
-  /** Сжимает составной объект до минимального размера из указанного угла. */
+  /** Shrinks a composite object to its minimum size from the specified corner. */
   private async _shrinkDiagonallyToMinimum(params: {
     corner: Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
     minimumSize: number
@@ -1234,7 +1234,7 @@ export class SelectionScalingSession {
     })
   }
 
-  /** Возвращает ручку, противоположную указанному углу. */
+  /** Returns the handle opposite the specified corner. */
   private _resolveOppositeDiagonalControl(
     corner: Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'>
   ): Extract<SelectionControlKey, 'tl' | 'tr' | 'bl' | 'br'> {
@@ -1245,7 +1245,7 @@ export class SelectionScalingSession {
     return 'tr'
   }
 
-  /** Проверяет, что следующий шаг совместим с уже начатым скейлингом. */
+  /** Checks that the next step is compatible with the scaling already in progress. */
   private _assertScaleInteractionCanContinue(params: {
     activeInteraction: ActiveSelectionScaleInteraction | null
     startControl: SelectionControlKey

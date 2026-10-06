@@ -41,7 +41,7 @@ export type PlacementTestObject = {
   toDatalessObject: jest.Mock
 }
 
-/** Тестовое изображение с управляемыми исходным размером и crop-состоянием. */
+/** Test image with controllable source dimensions and crop state. */
 export type PlacementImageTestObject = PlacementTestObject & {
   cropX: number
   cropY: number
@@ -50,7 +50,7 @@ export type PlacementImageTestObject = PlacementTestObject & {
   hasCrop: jest.Mock<boolean, []>
 }
 
-/** Параметры тестового изображения с управляемыми положением и исходным размером. */
+/** Test image parameters with controllable position and source dimensions. */
 type PlacementTestImageOptions = {
   id: string
   left: number
@@ -70,7 +70,7 @@ type PlacementTestImageOptions = {
 }
 
 /**
- * Возвращает эффективные размеры объекта с учётом scale.
+ * Returns the object's effective dimensions, accounting for scale.
  */
 const getScaledDimensions = ({ object }: { object: PlacementTestObject }) => ({
   width: object.width * object.scaleX,
@@ -78,7 +78,7 @@ const getScaledDimensions = ({ object }: { object: PlacementTestObject }) => ({
 })
 
 /**
- * Возвращает центр объекта из сохранённого placement по текущему origin.
+ * Returns the object's center from its saved placement using the current origin.
  */
 const resolveLocalCenterPoint = ({
   object
@@ -108,7 +108,7 @@ const resolveLocalCenterPoint = ({
 }
 
 /**
- * Пересчитывает точку объекта для заданного origin в локальной системе координат.
+ * Recalculates the object's point for the specified origin in local coordinates.
  */
 const resolveLocalPointByOrigin = ({
   object,
@@ -143,7 +143,7 @@ const resolveLocalPointByOrigin = ({
 }
 
 /**
- * Преобразует scene placement в локальные координаты объекта по заданному origin.
+ * Converts scene placement to the object's local coordinates using the specified origin.
  */
 const applyPointByOrigin = ({
   object,
@@ -163,7 +163,7 @@ const applyPointByOrigin = ({
 }
 
 /**
- * Переводит локальную точку объекта в scene coordinates через matrix родителя.
+ * Converts the object's local point to scene coordinates using the parent's matrix.
  */
 const createTransformablePoint = ({
   x,
@@ -183,7 +183,7 @@ const createTransformablePoint = ({
 })
 
 /**
- * Возвращает point объекта в scene coordinates для заданного origin.
+ * Returns the object's point in scene coordinates for the specified origin.
  */
 export const getScenePointByOrigin = ({
   object,
@@ -204,7 +204,7 @@ export const getScenePointByOrigin = ({
 }
 
 /**
- * Создаёт объект, который различает local и scene coordinates.
+ * Creates an object that distinguishes between local and scene coordinates.
  */
 export const createPlacementTestObject = ({
   id,
@@ -319,7 +319,7 @@ export const createPlacementTestObject = ({
 }
 
 /**
- * Создаёт выделение из нескольких объектов с translation-only transform.
+ * Creates a multi-object selection with a translation-only transform.
  */
 export const createPlacementSelection = ({
   objects,
@@ -342,7 +342,7 @@ export const createPlacementSelection = ({
 }
 
 /**
- * Создаёт объект из сериализованного состояния шаблона.
+ * Creates an object from serialized template state.
  */
 export const createRevivedTemplateObject = ({
   serialized
@@ -366,7 +366,7 @@ export const createRevivedTemplateObject = ({
 }
 
 /**
- * Создаёт элемент изображения с заданным исходным размером.
+ * Creates an image element with the specified source dimensions.
  */
 function createPlacementImageElement({
   width,
@@ -388,7 +388,7 @@ function createPlacementImageElement({
 }
 
 /**
- * Создаёт тестовое изображение с управляемыми положением и исходным размером.
+ * Creates a test image with controllable position and source dimensions.
  */
 export const createPlacementTestImage = ({
   id,

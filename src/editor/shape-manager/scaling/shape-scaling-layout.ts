@@ -41,27 +41,27 @@ import {
 } from './shape-scaling-transform'
 
 /**
- * Минимальный размер shape layout во время скейлинга.
+ * Minimum shape-layout size during scaling.
  */
 export const SHAPE_SCALING_MIN_SIZE = 1
 
 /**
- * Допуск для сравнения scale-значений во время скейлинга.
+ * Tolerance for comparing scale values during scaling.
  */
 export const SHAPE_SCALING_SCALE_EPSILON = 0.0001
 
 /**
- * Допуск для сравнения пиксельных размеров во время скейлинга.
+ * Tolerance for comparing pixel dimensions during scaling.
  */
 export const SHAPE_SCALING_SIZE_EPSILON = 0.5
 
 /**
- * Pointer event, который может прийти из Fabric transform во время скейлинга.
+ * Pointer event that may come from a Fabric transform during scaling.
  */
 export type ShapeScalingPointerEvent = Event | MouseEvent | PointerEvent | TouchEvent
 
 /**
- * Стартовые размеры shape-группы, нужные для расчёта live scaling.
+ * Initial shape-group dimensions required to calculate live scaling.
  */
 export type ShapeScalingStartDimensions = {
   startWidth: number
@@ -73,7 +73,7 @@ export type ShapeScalingStartDimensions = {
 }
 
 /**
- * Итоговые размеры shape-группы после commit скейлинга.
+ * Final shape-group dimensions after committing scaling.
  */
 export type ShapeScalingCommitDimensions = {
   width: number
@@ -82,7 +82,7 @@ export type ShapeScalingCommitDimensions = {
   hasDimensionChange: boolean
 }
 
-/** Ограничения текущего шага скейлинга после проверки размеров и текста. */
+/** Current scaling-step constraints after checking dimensions and text. */
 export type ShapeScalingConstraintState = Readonly<{
   shouldHandleAsNoop: boolean
   shouldRestoreLastAllowedTransform: boolean
@@ -91,7 +91,7 @@ export type ShapeScalingConstraintState = Readonly<{
   resolvedMinimumHeight: number | null
 }>
 
-/** Входные данные для общей проверки ограничений текущего шага. */
+/** Input for the shared constraint check of the current step. */
 type ShapeScalingConstraintParams = Readonly<{
   group: ShapeGroup
   text: ShapeTextNode
@@ -101,7 +101,7 @@ type ShapeScalingConstraintParams = Readonly<{
   scaleY: number
 }>
 
-/** Измеренные размеры и режимы, по которым выбирается итоговое ограничение. */
+/** Measured dimensions and modes used to select the final constraint. */
 type ShapeScalingConstraintAttempt = Readonly<{
   attemptedHeight: number
   attemptedWidth: number
@@ -114,7 +114,7 @@ type ShapeScalingConstraintAttempt = Readonly<{
 }>
 
 /**
- * Manual base размеры, которые сохраняются после commit скейлинга.
+ * Manual base dimensions preserved after committing scaling.
  */
 type ShapeScalingManualBaseDimensions = {
   width: number
@@ -122,7 +122,7 @@ type ShapeScalingManualBaseDimensions = {
 }
 
 /**
- * Стартовый transform-контекст drag-сессии.
+ * Initial transform context of the drag session.
  */
 type ShapeScalingStartTransform = {
   startScaleX: number
@@ -137,7 +137,7 @@ type ShapeScalingStartTransform = {
 }
 
 /**
- * Полный набор данных для применения scaling layout к shape-группе.
+ * Complete data for applying scaling layout to a shape group.
  */
 type ShapeScalingLayoutCommit = {
   group: ShapeGroup
@@ -156,7 +156,7 @@ type ShapeScalingLayoutCommit = {
 }
 
 /**
- * Preview размеры shape-группы на live scaling кадре.
+ * Shape-group preview dimensions in a live-scaling frame.
  */
 type ShapePreviewDimensions = {
   previewWidth: number
@@ -164,12 +164,12 @@ type ShapePreviewDimensions = {
 }
 
 /**
- * Layout текста, рассчитанный для preview размеров.
+ * Text layout calculated for the preview dimensions.
  */
 type ShapePreviewLayout = ResolvedShapeTextLayout
 
 /**
- * Минимальный proportional scaling constraint для текста внутри фигуры.
+ * Minimum proportional-scaling constraint for text inside the shape.
  */
 export type ShapeScalingProportionalTextConstraint = ShapeScalingProportionalTextConstraintCacheEntry
 
@@ -187,7 +187,7 @@ export function resolveShapeScalingTextWrapPolicy({
 }
 
 /**
- * Возвращает стабильный cache key для пары scaling размеров.
+ * Returns a stable cache key for a pair of scaling dimensions.
  */
 function resolveShapeScalingSizeCacheKey({
   width,
@@ -203,7 +203,7 @@ function resolveShapeScalingSizeCacheKey({
 }
 
 /**
- * Возвращает ширину text frame для scaling расчётов.
+ * Returns the text-frame width for scaling calculations.
  */
 function resolveShapeScalingTextFrameWidth({
   width,
@@ -219,7 +219,7 @@ function resolveShapeScalingTextFrameWidth({
 }
 
 /**
- * Возвращает высоту text frame для scaling расчётов.
+ * Returns the text-frame height for scaling calculations.
  */
 function resolveShapeScalingTextFrameHeight({
   height,
@@ -235,7 +235,7 @@ function resolveShapeScalingTextFrameHeight({
 }
 
 /**
- * Возвращает true, если shape text содержит видимый текст.
+ * Returns true if the shape text contains visible text.
  */
 function hasVisibleShapeTextContent({
   text
@@ -248,7 +248,7 @@ function hasVisibleShapeTextContent({
 }
 
 /**
- * Возвращает proportional constraint для пустого текста без дополнительного измерения.
+ * Returns a proportional constraint for empty text without additional measurement.
  */
 function resolveEmptyTextProportionalConstraint({
   height
@@ -265,7 +265,7 @@ function resolveEmptyTextProportionalConstraint({
 }
 
 /**
- * Возвращает пользовательский padding текста из метаданных группы.
+ * Returns user-defined text padding from group metadata.
  */
 export function resolveShapeScalingUserPadding({ group }: { group: ShapeGroup }): ShapePadding {
   return normalizeShapeUserPadding({
@@ -279,7 +279,7 @@ export function resolveShapeScalingUserPadding({ group }: { group: ShapeGroup })
 }
 
 /**
- * Возвращает полный внутренний inset текста для текущих размеров shape-группы с учетом пресета и обводки.
+ * Returns the full internal text inset for the current shape-group dimensions, accounting for preset and stroke.
  */
 export function resolveShapeScalingInternalTextInset({
   group,
@@ -310,8 +310,8 @@ export function resolveShapeScalingInternalTextInset({
 }
 
 /**
- * Возвращает padding, который участвует в minimum-constraints во время scaling.
- * Пользовательские отступы здесь игнорируются и при уменьшении шейпа могут быть съедены layout'ом.
+ * Returns the padding used in minimum constraints during scaling.
+ * User-defined padding is ignored here and may be reduced by layout as the shape shrinks.
  */
 export function resolveShapeScalingConstraintPadding({
   group,
@@ -339,8 +339,8 @@ export function resolveShapeScalingConstraintPadding({
 }
 
 /**
- * Валидирует proportional candidate по реальному текущему layout текста.
- * Для этого path переносы по словам допустимы, а fallback на splitByGrapheme — нет.
+ * Validates a proportional candidate against the actual current text layout.
+ * Word wrapping is allowed on this path, but a splitByGrapheme fallback is not.
  */
 export function validateShapeTextLayoutForProportionalScaling({
   group,
@@ -409,7 +409,7 @@ export function validateShapeTextLayoutForProportionalScaling({
 }
 
 /**
- * Возвращает minimum scale для proportional shrink по текущему layout-контракту текста.
+ * Returns the minimum scale for proportional shrinking under the current text-layout contract.
  */
 export function resolveMinimumProportionalShapeScale({
   group,
@@ -498,7 +498,7 @@ export function resolveMinimumProportionalShapeScale({
 }
 
 /**
- * Возвращает минимальную высоту shape, достаточную для размещения текста при переданной ширине.
+ * Returns the minimum shape height sufficient to fit the text at the given width.
  */
 export function resolveMinimumTextFitHeight({
   group,
@@ -532,7 +532,7 @@ export function resolveMinimumTextFitHeight({
   })
 }
 
-/** Измеряет размеры и минимальные ограничения текущей попытки скейлинга. */
+/** Measures dimensions and minimum constraints for the current scaling attempt. */
 function resolveShapeScalingConstraintAttempt({
   group,
   text,
@@ -590,7 +590,7 @@ function resolveShapeScalingConstraintAttempt({
   }
 }
 
-/** Проверяет текст при пропорциональном уменьшении и возвращает общий предел масштаба. */
+/** Checks text during proportional shrinking and returns the overall scale limit. */
 function resolveProportionalScalingConstraint({
   attempt,
   group,
@@ -633,7 +633,7 @@ function resolveProportionalScalingConstraint({
   }
 }
 
-/** Ограничивает независимые оси по рассчитанным минимальным размерам. */
+/** Constrains independent axes using the calculated minimum dimensions. */
 function resolveAxisScalingConstraint({
   attempt,
   group,
@@ -678,7 +678,7 @@ function resolveAxisScalingConstraint({
   }
 }
 
-/** Возвращает ограничения размеров и текста для одного шага скейлинга шейпа. */
+/** Returns dimension and text constraints for one shape-scaling step. */
 export function resolveShapeScalingConstraintState(
   params: ShapeScalingConstraintParams
 ): ShapeScalingConstraintState {
@@ -699,7 +699,7 @@ export function resolveShapeScalingConstraintState(
 }
 
 /**
- * Возвращает preview-размеры shape для текущего live-scale с учетом переноса текста по строкам.
+ * Returns shape preview dimensions for the current live scale, accounting for text wrapping.
  */
 export function resolveShapeScalingPreviewDimensions({
   group,
@@ -753,8 +753,8 @@ export function resolveShapeScalingPreviewDimensions({
 }
 
 /**
- * Возвращает live-preview layout текста для уже выбранной ширины scaling.
- * Width фиксируется текущим drag, а пользовательский padding поджимается по тому же контракту, что и final layout.
+ * Returns the live-preview text layout for an already chosen scaling width.
+ * Width is fixed by the current drag, and user-defined padding is reduced under the same contract as the final layout.
  */
 export function resolveShapeScalingPreviewLayout({
   group,
@@ -804,7 +804,7 @@ export function resolveShapeScalingPreviewLayout({
 }
 
 /**
- * Возвращает стартовые размеры drag-сессии: текущий laid-out размер shape и ручные базовые размеры.
+ * Returns the drag session's initial dimensions: the shape's current laid-out size and manual base dimensions.
  */
 export function resolveShapeScalingStartDimensions({
   group,
@@ -956,7 +956,7 @@ function createShapeScalingState({
 }
 
 /**
- * Создает базовое состояние масштабирования для shape-группы.
+ * Creates the initial scaling state for a shape group.
  */
 export function ensureShapeScalingState({
   scalingState,
@@ -988,7 +988,7 @@ export function ensureShapeScalingState({
 }
 
 /**
- * Возвращает итоговые размеры шага фиксации с учетом осей, которые реально скейлились.
+ * Returns the final commit-step dimensions, accounting for the axes actually scaled.
  */
 export function resolveShapeScalingCommitDimensions({
   group,
@@ -1035,7 +1035,7 @@ export function resolveShapeScalingCommitDimensions({
 }
 
 /**
- * Возвращает, какие ручные базовые размеры нужно сохранить после завершения скейлинга.
+ * Returns which manual base dimensions to preserve after scaling ends.
  */
 function resolveNextManualBaseDimensionsAfterScaling({
   startManualBaseWidth,
@@ -1069,7 +1069,7 @@ function resolveNextManualBaseDimensionsAfterScaling({
 }
 
 /**
- * Применяет уже выбранные resize-размеры к layout шейпа и сбрасывает временный scale.
+ * Applies the already chosen resize dimensions to the shape layout and resets temporary scale.
  */
 export function commitResolvedShapeScalingLayout({
   group,
@@ -1099,7 +1099,7 @@ export function commitResolvedShapeScalingLayout({
   group.shapeManualBaseHeight = nextManualBaseDimensions.height
 
   if (canScaleWidth && hasWidthChange) {
-    // Зафиксированное изменение ширины переводит shape в manual width contract.
+    // A committed width change switches the shape to the manual-width contract.
     group.shapeTextAutoExpand = false
   }
 

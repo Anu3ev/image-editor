@@ -1,14 +1,14 @@
 import type { TestInfo } from '@playwright/test'
 
 /**
- * Задержка удержания браузера после headed e2e-теста.
+ * Browser hold delay after a headed e2e test.
  *
- * Установите `0`, чтобы полностью отключить удержание.
+ * Set to `0` to disable the hold completely.
  */
 export const HEADED_BROWSER_HOLD_MS = 300
 
 /**
- * Возвращает задержку удержания браузера после headed-запуска теста.
+ * Returns the browser hold delay after a headed test run.
  */
 export function resolveHeadedBrowserHoldMs({ testInfo }: { testInfo: TestInfo }): number {
   const isHeaded = testInfo.project.use.headless === false

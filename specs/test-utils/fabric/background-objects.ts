@@ -1,7 +1,7 @@
 import { createMockFabricObject } from './objects'
 
 /**
- * Создаёт цветной background-объект с предсказуемым bounding rect.
+ * Creates a solid-color background object with a predictable bounding rect.
  */
 export const createMockBackgroundRect = (props: any = {}) => ({
   ...createMockFabricObject({
@@ -23,7 +23,7 @@ export const createMockBackgroundRect = (props: any = {}) => ({
 })
 
 /**
- * Создаёт background-image объект с предсказуемым bounding rect.
+ * Creates a background-image object with a predictable bounding rect.
  */
 export const createMockBackgroundImage = (props: any = {}) => ({
   ...createMockFabricObject({

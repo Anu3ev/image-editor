@@ -7,7 +7,7 @@ import type {
   SelectionCompositionSnapshot
 } from '../types'
 
-/** Возвращает обязательную видимую геометрию дочернего объекта. */
+/** Returns a child object's required visible geometry. */
 export function requireSelectionChildSceneGeometry({
   geometries,
   id
@@ -24,7 +24,7 @@ export function requireSelectionChildSceneGeometry({
   return geometry
 }
 
-/** Возвращает обязательный шейп из снимка общего выделения. */
+/** Returns the required shape from an active-selection snapshot. */
 export function requireSelectionShapeSnapshot({
   composition,
   id
@@ -41,7 +41,7 @@ export function requireSelectionShapeSnapshot({
   return shape
 }
 
-/** Проверяет видимый результат выбранных осей скейлинга повёрнутого шейпа. */
+/** Checks the visible result along the selected scaling axes of a rotated shape. */
 export function expectRotatedShapeLiveGeometry({
   baselineShape,
   baselineScene,
@@ -98,7 +98,7 @@ export function expectRotatedShapeLiveGeometry({
   expect(currentShape.originY).toBe(baselineShape.originY)
 }
 
-/** Проверяет фиксацию последнего видимого состояния одного повёрнутого шейпа. */
+/** Checks that one rotated shape's last visible state is committed. */
 function expectCommittedRotatedShapeGeometry({
   baselineShape,
   committedShape,
@@ -129,7 +129,7 @@ function expectCommittedRotatedShapeGeometry({
   expect(committedShape.originY).toBe(baselineShape.originY)
 }
 
-/** Проверяет фиксацию видимой геометрии всех повёрнутых шейпов после mouseup. */
+/** Checks that all rotated shapes' visible geometry is committed after mouseup. */
 export function expectRotatedShapesCommitted({
   baseline,
   committed,
@@ -156,7 +156,7 @@ export function expectRotatedShapesCommitted({
   }
 }
 
-/** Проверяет, что mouseup не меняет последнее видимое состояние рамки. */
+/** Checks that mouseup does not change the frame's last visible state. */
 export function expectSelectionFrameToMatchLiveState({
   committed,
   live
@@ -177,7 +177,7 @@ export function expectSelectionFrameToMatchLiveState({
   expect(committed.selection.angle).toBeCloseTo(live.selection.angle, 5)
 }
 
-/** Проверяет восстановление канонической геометрии повёрнутых шейпов. */
+/** Checks restoration of rotated shapes' canonical geometry. */
 export function expectRotatedShapeCompositionToMatch({
   actual,
   expected,
@@ -212,7 +212,7 @@ export function expectRotatedShapeCompositionToMatch({
   }
 }
 
-/** Проверяет, что после mouseup видимая геометрия дочерних объектов не изменилась. */
+/** Checks that child objects' visible geometry is unchanged after mouseup. */
 export function expectSelectionChildrenToMatchLiveState({
   childIds,
   committed,
@@ -238,7 +238,7 @@ export function expectSelectionChildrenToMatchLiveState({
   }
 }
 
-/** Проверяет равномерный рост остальных объектов при горизонтальном скейлинге смешанного состава. */
+/** Checks uniform growth of other objects during horizontal scaling of a mixed composition. */
 export function expectNonShapeHorizontalGrowth({
   current,
   ids,
@@ -263,7 +263,7 @@ export function expectNonShapeHorizontalGrowth({
   }
 }
 
-/** Проверяет каждый следующий кадр роста повёрнутых шейпов без поперечного скачка. */
+/** Checks each successive growth frame of rotated shapes for transverse jumps. */
 export function expectRotatedShapeHorizontalGrowth({
   baseline,
   baselineGeometry,

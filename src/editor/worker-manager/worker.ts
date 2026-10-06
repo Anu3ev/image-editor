@@ -20,7 +20,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
       const imgBitmap = await createImageBitmap(await (await fetch(dataURL)).blob())
       bitmapToClose = imgBitmap
 
-      // вычисляем новый размер
+      // calculate the new dimensions
       let { width, height } = imgBitmap
       let ratio = Math.min(maxWidth / width, maxHeight / height)
 
@@ -31,7 +31,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
       width = Math.floor(width * ratio)
       height = Math.floor(height * ratio)
 
-      // рисуем изображение в offscreen
+      // draw the image on the offscreen canvas
       const offscreen = new OffscreenCanvas(width, height)
       const ctx = offscreen.getContext('2d')
 
@@ -41,7 +41,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
 
       ctx.drawImage(imgBitmap, 0, 0, width, height)
 
-      // конвертим в blob
+      // convert to a blob
       const resizedBlob = await offscreen.convertToBlob({ type: contentType, quality })
 
       self.postMessage({ requestId, action, success: true, data: resizedBlob })
@@ -58,7 +58,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
       bitmapToClose = bitmap
       const { width, height } = bitmap
 
-      // рисуем изображение в offscreen
+      // draw the image on the offscreen canvas
       const off = new OffscreenCanvas(bitmap.width, bitmap.height)
       const ctx = off.getContext('2d')
 
@@ -68,7 +68,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
 
       ctx.drawImage(bitmap, 0, 0, width, height)
 
-      // конвертируем в blob, а затем в dataURL
+      // convert to a blob, then to a dataURL
       const blob = await off.convertToBlob({ type: contentType, quality })
 
       if (returnBlob) {

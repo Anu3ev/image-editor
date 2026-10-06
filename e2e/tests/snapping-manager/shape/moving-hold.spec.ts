@@ -2,7 +2,7 @@ import { test, expect } from '../../../fixtures/editor.fixture'
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Данные шейпа и опорного объекта для проверки удержания направляющих. */
+/** Shape and reference-object data for testing guide holding. */
 type ShapeMovementSetup = {
   activeShapeId: string
   reference: SnappingObjectSnapshot

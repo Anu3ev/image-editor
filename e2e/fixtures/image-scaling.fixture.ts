@@ -11,10 +11,10 @@ import {
   SNAPPING_IMAGE_SCALE_SIZE
 } from './data/snapping-image-scaling.data'
 
-/** Толщина reference-объекта в экранных пикселях. */
+/** Reference-object thickness in screen pixels. */
 const IMAGE_SCALE_REFERENCE_THICKNESS_PX = 12
 
-/** Заранее известные границы reference-объектов, доступные для scale snapping. */
+/** Known reference-object bounds available for scale snapping. */
 type ImageScaleReferenceGuides = Readonly<{
   left: number
   right: number
@@ -23,7 +23,7 @@ type ImageScaleReferenceGuides = Readonly<{
   bottomOuter: number
 }>
 
-/** Исходная геометрия и доступные границы четырёх reference-объектов. */
+/** Initial geometry and available boundaries of four reference objects. */
 export type ImageScaleReferenceSetup = Readonly<{
   baseline: ImageScaleSnapshot
   guides: ImageScaleReferenceGuides
@@ -31,12 +31,12 @@ export type ImageScaleReferenceSetup = Readonly<{
   scenePixel: number
 }>
 
-/** Дополнительный fixture для сценариев scale обычного Image. */
+/** Additional fixture for regular Image scaling scenarios. */
 interface ImageScalingFixtures {
   imageScaleReferenceSetup: ImageScaleReferenceSetup
 }
 
-/** Bounds четырёх reference-объектов вокруг исходного Image. */
+/** Bounds of four reference objects around the initial Image. */
 type ImageScaleReferenceBounds = Readonly<{
   id: string
   left: number
@@ -45,7 +45,7 @@ type ImageScaleReferenceBounds = Readonly<{
   height: number
 }>
 
-/** Рассчитывает удалённые bounds reference-объектов для четырёх moving edges. */
+/** Calculates distant reference-object bounds for four moving edges. */
 function createImageScaleReferenceBounds({
   baseline,
   montage,
@@ -90,7 +90,7 @@ function createImageScaleReferenceBounds({
   ]
 }
 
-/** Добавляет четыре reference-объекта и возвращает snap-кандидаты, включая внешнюю нижнюю грань. */
+/** Adds four reference objects and returns snap candidates, including the outer bottom edge. */
 async function addImageScaleReferences({
   baseline,
   montage,
@@ -136,7 +136,7 @@ async function addImageScaleReferences({
   }
 }
 
-/** Editor fixture с готовым Image и независимыми guide для каждой moving edge. */
+/** Editor fixture with a prepared Image and independent guides for each moving edge. */
 export const test = editorTest.extend<ImageScalingFixtures>({
   imageScaleReferenceSetup: async({
     editorModel,

@@ -34,188 +34,188 @@ import MeasurementManager from './measurement-manager'
 import CropManager from './crop-manager'
 import { addRectangleToCanvas } from './utils/primitive-shapes'
 
-// TODO: Обложиться тестами с помощью jest
-// TODO: Сделать более симпатичное демо
-// TODO: Режим рисования
-// TODO: Подумать как работать с переводами в редакторе
-// TODO: Сделать чтобы при наведении мыши на область где находится объект под другим объектом, этот объект тоже подсвечивался, и его можно было выбрать
+// TODO: Add comprehensive tests with jest
+// TODO: Make the demo more attractive
+// TODO: Drawing mode
+// TODO: Consider how to handle translations in the editor
+// TODO: Highlight an object when the mouse hovers over its area beneath another object, and allow it to be selected
 
 /**
- * Класс редактора изображений.
+ * Image editor class.
  * @class
  */
 export class ImageEditor {
   /**
-   * Опции и настройки редактора
+   * Editor options and settings
    */
   readonly options: EditorOptions
 
   /**
-   * Идентификатор HTML-контейнера.
+   * HTML container identifier.
    */
   readonly containerId: string
 
   /**
-   * Уникальный идентификатор редактора.
+   * Unique editor identifier.
    */
   readonly editorId: string
 
   /**
-   * Канвас редактора.
+   * Editor canvas.
    */
   public canvas!: Canvas
 
   /**
-   * Рабочая область, в которой будут размещаться изображения.
+   * Workspace where images will be placed.
    */
   public montageArea!: Rect
 
   /**
-   * Класс для динамического импорта модулей.
+   * Class for dynamically importing modules.
    */
   public moduleLoader!: ModuleLoader
 
   /**
-   * Менеджер воркеров для выполнения фоновых задач.
+   * Worker manager for background tasks.
    */
   public workerManager!: WorkerManager
 
   /**
-   * Менеджер ошибок редактора.
+   * Editor error manager.
    */
   public errorManager!: ErrorManager
 
   /**
-   * Менеджер истории операций
+   * Operation history manager
    */
   public historyManager!: HistoryManager
 
   /**
-   * Менеджер панели инструментов
+   * Toolbar manager
    */
   public toolbar!: ToolbarManager
 
   /**
-   * Менеджер трансформаций объектов
+   * Object transform manager
    */
   public transformManager!: TransformManager
 
   /**
-   * Менеджер зума
+   * Zoom manager
    */
   public zoomManager!: ZoomManager
 
   /**
-   * Менеджер канваса
+   * Canvas manager
    */
   public canvasManager!: CanvasManager
 
   /**
-   * Менеджер изображений
+   * Image manager
    */
   public imageManager!: ImageManager
 
   /**
-   * Менеджер слоёв
+   * Layer manager
    */
   public layerManager!: LayerManager
 
   /**
-   * Менеджер фигур
+   * Shape manager
    */
   public shapeManager!: ShapeManager
 
   /**
-   * Блокировщик взаимодействия с канвасом
+   * Canvas interaction blocker
    */
   public interactionBlocker!: InteractionBlocker
 
   /**
-   * Менеджер фона
+   * Background manager
    */
   public backgroundManager!: BackgroundManager
 
   /**
-   * Менеджер буфера обмена
+   * Clipboard manager
    */
   public clipboardManager!: ClipboardManager
 
   /**
-   * Менеджер блокировки объектов
+   * Object lock manager
    */
   public objectLockManager!: ObjectLockManager
 
   /**
-   * Менеджер группировки объектов
+   * Object grouping manager
    */
   public groupingManager!: GroupingManager
 
   /**
-   * Менеджер выделения объектов
+   * Object selection manager
    */
   public selectionManager!: SelectionManager
 
   /**
-   * Менеджер удаления объектов
+   * Object deletion manager
    */
   public deletionManager!: DeletionManager
 
   /**
-   * Менеджер ограничения перетаскивания канваса
+   * Canvas drag constraint manager
    */
   public panConstraintManager!: PanConstraintManager
 
   /**
-   * Менеджер прилипания к направляющим
+   * Guide snapping manager
    */
   public snappingManager!: SnappingManager
 
   /**
-   * Менеджер измерений между объектами
+   * Inter-object measurement manager
    */
   public measurementManager!: MeasurementManager
 
   /**
-   * Менеджер работы с текстом
+   * Text manager
    */
   public textManager!: TextManager
 
   /**
-   * Менеджер шаблонов
+   * Template manager
    */
   public templateManager!: TemplateManager
 
   /**
-   * Менеджер режима кропа монтажной области и изображений
+   * Artboard and image crop mode manager
    */
   public cropManager!: CropManager
 
   /**
-   * Менеджер индикатора угла поворота (опционально)
+   * Rotation angle indicator manager (optional)
    */
   public angleIndicator?: AngleIndicatorManager
 
   /**
-   * Менеджер индикатора размеров объекта во время скейлинга (опционально)
+   * Object size indicator manager for scaling (optional)
    */
   public objectSizeIndicator?: ObjectSizeIndicatorManager
 
   /**
-   * Менеджер viewport-скроллбаров (опционально)
+   * Viewport scrollbar manager (optional)
    */
   public viewportScrollbars?: ViewportScrollbarManager
 
   /**
-   * Менеджер шрифтов редактора
+   * Editor font manager
    */
   public fontManager!: FontManager
 
   /**
-   * Слушатели событий редактора
+   * Editor event listeners
    */
   public listeners!: Listeners
 
-  /** Завершается после полной инициализации; отклоняется при ошибке или destroy(). */
+  /** Resolves after full initialization; rejects on error or destroy(). */
   public readonly ready: Promise<void>
 
   private _initialization?: Promise<void>
@@ -224,14 +224,14 @@ export class ImageEditor {
 
   private _destroyed = false
 
-  /** Внутренняя очистка host-ресурсов, созданных initEditor; прямой конструктор ими не владеет. */
+  /** Internal cleanup of host resources created by initEditor; the direct constructor does not own them. */
   private readonly _cleanupHostResources?: () => void
 
   /**
-   * Конструктор класса ImageEditor.
-   * @param canvasId - идентификатор канваса, в котором будет создан редактор
-   * @param options - опции и настройки редактора
-   * @param cleanupHostResources - внутренняя очистка canvas и регистрации, принадлежащих initEditor
+   * ImageEditor class constructor.
+   * @param canvasId - Identifier of the canvas where the editor will be created
+   * @param options - Editor options and settings
+   * @param cleanupHostResources - Internal cleanup of the canvas and registration owned by initEditor
    */
   constructor(canvasId: string, options: EditorOptions, cleanupHostResources?: () => void) {
     this.options = options
@@ -240,13 +240,13 @@ export class ImageEditor {
     this.editorId = `${canvasId}-${nanoid()}`
 
     this.ready = this.init()
-    // Конструктор совместим с fire-and-forget использованием, но ошибка доступна через ready.
+    // The constructor supports fire-and-forget usage, but errors are available through ready.
     this.ready.catch(() => {})
   }
 
   /**
-   * Инициализация редактора.
-   * Создаёт все необходимые менеджеры и загружает начальное состояние.
+   * Editor initialization.
+   * Creates all required managers and loads the initial state.
    * @fires editor:ready
    */
   public init(): Promise<void> {
@@ -267,16 +267,16 @@ export class ImageEditor {
     return this._initialization
   }
 
-  /** Прерывает продолжение инициализации после уничтожения редактора. */
+  /** Stops initialization from continuing after the editor is destroyed. */
   private _assertActive(): void {
     if (this._destroyed) {
-      // Асинхронная загрузка могла создать blob URL уже после destroy().
+      // Asynchronous loading may have created a blob URL after destroy().
       this.imageManager?.revokeBlobUrls()
       throw new Error('ImageEditor has been destroyed')
     }
   }
 
-  /** Создаёт ресурсы редактора и восстанавливает начальное состояние. */
+  /** Creates editor resources and restores the initial state. */
   private async _initialize(): Promise<void> {
     const {
       editorContainerWidth,
@@ -323,12 +323,12 @@ export class ImageEditor {
     this.templateManager = new TemplateManager({ editor: this })
     this.cropManager = new CropManager({ editor: this })
 
-    // Инициализируем индикатор угла поворота, если включена опция
+    // Initialize the rotation angle indicator if the option is enabled
     if (showRotationAngle) {
       this.angleIndicator = new AngleIndicatorManager({ editor: this })
     }
 
-    // Инициализируем индикатор размеров объекта, если включена опция
+    // Initialize the object size indicator if the option is enabled
     if (showObjectSizeOnScale) {
       this.objectSizeIndicator = new ObjectSizeIndicatorManager({ editor: this })
     }
@@ -348,12 +348,12 @@ export class ImageEditor {
     this.canvasManager.updateCanvas()
     this.zoomManager.calculateAndApplyDefaultZoom()
 
-    // Инициализируем viewport-скроллбары после расчёта начального camera-state
+    // Initialize viewport scrollbars after calculating the initial camera state
     if (showViewportScrollbars) {
       this.viewportScrollbars = new ViewportScrollbarManager({ editor: this })
     }
 
-    // Загружаем шрифты после того как редактор получил размеры
+    // Load fonts after the editor has its dimensions
     await this.fontManager.loadFonts()
     this._assertActive()
 
@@ -409,7 +409,7 @@ export class ImageEditor {
     this.canvas.fire('editor:ready', this)
     this._assertActive()
 
-    // вызываем колбэк если он есть
+    // invoke the callback if present
     if (typeof _onReadyCallback === 'function') {
       _onReadyCallback(this)
     }
@@ -417,7 +417,7 @@ export class ImageEditor {
   }
 
   /**
-   * Создаёт монтажную область
+   * Creates the artboard
    */
   private _createMontageArea(): void {
     const {
@@ -450,7 +450,7 @@ export class ImageEditor {
   }
 
   /**
-   * Создаёт область клиппинга
+   * Creates the clipping area
    */
   private _createClippingArea(): void {
     const {
@@ -483,7 +483,7 @@ export class ImageEditor {
   }
 
   /**
-   * Метод для удаления редактора и всех слушателей.
+   * Method for removing the editor and all listeners.
    */
   public destroy(): void {
     if (this._destroyed) return
@@ -513,7 +513,7 @@ export class ImageEditor {
 
     cleanupSteps.forEach((cleanup) => {
       try {
-        // Fabric dispose() может завершаться асинхронно после отложенного render.
+        // Fabric dispose() may finish asynchronously after a deferred render.
         Promise.resolve(cleanup()).catch((error: unknown) => {
           console.error('Failed to clean up ImageEditor resource', error)
         })
@@ -524,8 +524,8 @@ export class ImageEditor {
   }
 
   /**
-   * Создает паттерн мозаики.
-   * @returns паттерн мозаики
+   * Creates the checkerboard pattern.
+   * @returns Checkerboard pattern
    */
   private static _createMosaicPattern(): Pattern {
     const patternSourceCanvas = document.createElement('canvas')

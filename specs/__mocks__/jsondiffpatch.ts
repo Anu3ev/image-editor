@@ -1,4 +1,4 @@
-// Мок для jsondiffpatch
+// Mock for jsondiffpatch
 export const create = jest.fn(() => ({
   diff: jest.fn(),
   patch: jest.fn(),

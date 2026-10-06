@@ -11,7 +11,7 @@ import type {
   VisibleObjectSizeIndicatorInfo
 } from '../../../types'
 
-/** Исходное состояние шейпа с текстом, размещённого сразу на двух направляющих. */
+/** Initial state of a shape with text positioned on two guides at once. */
 interface ShapeTextHoldSetup {
   guideRight: number
   guideTop: number
@@ -21,7 +21,7 @@ interface ShapeTextHoldSetup {
   shapeSize: number
 }
 
-/** Состояние шейпа и его текста на одном шаге удержания. */
+/** State of a shape and its text at one hold step. */
 interface ShapeTextHoldState {
   guides: SnappingGuideInfo[]
   indicator: VisibleObjectSizeIndicatorInfo
@@ -29,7 +29,7 @@ interface ShapeTextHoldState {
   text: ShapeTextInfo
 }
 
-/** Добавляет шейп с текстом так, чтобы его верхняя и правая грани совпали с гранями изображения. */
+/** Adds a shape with text so its top and right edges align with the image edges. */
 async function createShapeTextHoldSetup({
   images,
   shapes
@@ -74,7 +74,7 @@ async function createShapeTextHoldSetup({
   }
 }
 
-/** Выполняет два микродвижения внутри зоны удержания, не отпуская ручку. */
+/** Performs two micro-movements within the hold zone without releasing the handle. */
 async function captureShapeTextHoldStates({
   editorModel,
   setup,
@@ -110,7 +110,7 @@ async function captureShapeTextHoldStates({
   return states
 }
 
-/** Проверяет, что один шаг удержания не изменил ни шейп, ни текст внутри него. */
+/** Checks that one hold step changed neither the shape nor its text. */
 function expectStableShapeTextHold({
   setup,
   state

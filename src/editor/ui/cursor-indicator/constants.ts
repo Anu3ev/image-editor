@@ -1,5 +1,5 @@
 /**
- * Базовые inline-стили для индикаторов, которые показываются рядом с указателем.
+ * Base inline styles for indicators displayed next to the pointer.
  */
 export const CURSOR_INDICATOR_STYLES = {
   position: 'absolute',
@@ -18,11 +18,11 @@ export const CURSOR_INDICATOR_STYLES = {
 } as const
 
 /**
- * Горизонтальный отступ индикатора от указателя в пикселях.
+ * Horizontal offset of the indicator from the pointer, in pixels.
  */
 export const CURSOR_INDICATOR_OFFSET_X = 16
 
 /**
- * Вертикальный отступ индикатора от указателя в пикселях.
+ * Vertical offset of the indicator from the pointer, in pixels.
  */
 export const CURSOR_INDICATOR_OFFSET_Y = 16

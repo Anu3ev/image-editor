@@ -3,15 +3,15 @@ import type {
   ShapeTextNode
 } from '../types'
 
-/** Версия persisted-подписи входов shape layout. */
+/** Version of the persisted shape-layout input signature. */
 const SHAPE_LAYOUT_SIGNATURE_VERSION = 'v1'
 
-/** Модули двух независимых компактных хешей layout-подписи. */
+/** Moduli of two independent compact layout-signature hashes. */
 const SHAPE_LAYOUT_SIGNATURE_PRIMARY_MODULUS = 4294967291
 const SHAPE_LAYOUT_SIGNATURE_SECONDARY_MODULUS = 4294967279
 
 /**
- * Сериализует только те persisted-входы, изменение которых требует повторного text layout.
+ * Serializes only the persisted inputs whose changes require text layout to run again.
  */
 function serializeShapeLayoutInputs({
   group,
@@ -46,7 +46,7 @@ function serializeShapeLayoutInputs({
 }
 
 /**
- * Возвращает компактный стабильный хеш сериализованных layout-входов.
+ * Returns a compact, stable hash of the serialized layout inputs.
  */
 function hashShapeLayoutInputs({ source }: { source: string }): string {
   let primaryHash = 17
@@ -68,7 +68,7 @@ function hashShapeLayoutInputs({ source }: { source: string }): string {
 }
 
 /**
- * Возвращает persisted-подпись content/layout-входов текущей shape-группы.
+ * Returns the persisted signature of the current shape group's content/layout inputs.
  */
 export function resolveShapeLayoutSignature({
   group,
@@ -86,8 +86,8 @@ export function resolveShapeLayoutSignature({
 }
 
 /**
- * Проверяет, менялись ли persisted layout-входы после последнего полного расчёта.
- * Legacy-группа без подписи считается уже materialized и сохраняет свои visual bounds.
+ * Checks whether persisted layout inputs have changed since the last full calculation.
+ * A legacy group without a signature is considered already materialized and retains its visual bounds.
  */
 export function hasShapeLayoutInputsChanged({
   group,

@@ -4,10 +4,10 @@ import ShapeEventController from '../../../src/editor/shape-manager/events/shape
 import { ShapeGroupObject } from '../../../src/editor/shape-manager/domain/shape-group'
 import { createMockCanvas } from './factories'
 
-/** События окна, обработчики которых проверяются в тестах ShapeEventController. */
+/** Window events whose handlers are checked in ShapeEventController tests. */
 export type ShapeEventWindowEventName = 'pointercancel' | 'touchcancel' | 'blur'
 
-/** Наблюдаемые зависимости ShapeEventController для проверки маршрутизации событий. */
+/** Observable ShapeEventController dependencies for testing event routing. */
 export type ShapeEventRoutingHarness = Readonly<{
   canvas: ReturnType<typeof createMockCanvas>
   child: Rect
@@ -43,7 +43,7 @@ export type ShapeEventRoutingHarness = Readonly<{
   }
 }>
 
-/** SelectionManager и его наблюдаемые обработчики для маршрутизации событий шейпа. */
+/** SelectionManager and its observable handlers for shape event routing. */
 type ShapeSelectionRoutingHarness = Pick<
   ShapeEventRoutingHarness,
   | 'commitShapeSelectionScaleMock'
@@ -53,7 +53,7 @@ type ShapeSelectionRoutingHarness = Pick<
   selectionManager: SelectionManager
 }>
 
-/** Создаёт SelectionManager с наблюдаемыми обработчиками скейлинга шейпов. */
+/** Creates a SelectionManager with observable shape-scaling handlers. */
 function createShapeSelectionRoutingHarness(): ShapeSelectionRoutingHarness {
   const selectionManager: SelectionManager = Object.create(SelectionManager.prototype)
   const handleShapeSelectionScaleStepMock: ShapeEventRoutingHarness['handleShapeSelectionScaleStepMock'] = jest.fn<
@@ -82,7 +82,7 @@ function createShapeSelectionRoutingHarness(): ShapeSelectionRoutingHarness {
   }
 }
 
-/** Создаёт наблюдаемую зависимость скейлинга для ShapeEventController. */
+/** Creates an observable scaling dependency for ShapeEventController. */
 function createShapeEventScalingController(): ShapeEventRoutingHarness['scalingController'] {
   return {
     handleObjectScaling: jest.fn(),
@@ -99,7 +99,7 @@ function createShapeEventScalingController(): ShapeEventRoutingHarness['scalingC
   }
 }
 
-/** Создаёт и связывает ShapeEventController с подготовленными тестовыми зависимостями. */
+/** Creates a ShapeEventController and connects it to the prepared test dependencies. */
 function createBoundShapeEventController({
   canvas,
   selectionManager,
@@ -144,7 +144,7 @@ function createBoundShapeEventController({
   return controller
 }
 
-/** Возвращает зарегистрированную функцию обработки window-события ShapeEventController. */
+/** Returns the registered ShapeEventController window event handler. */
 export function getRequiredShapeWindowListener({
   addEventListenerSpy,
   eventName
@@ -161,7 +161,7 @@ export function getRequiredShapeWindowListener({
   return listener
 }
 
-/** Создаёт изолированный ShapeEventController с наблюдаемыми зависимостями. */
+/** Creates an isolated ShapeEventController with observable dependencies. */
 export function createShapeEventRoutingHarness(): ShapeEventRoutingHarness {
   const canvas = createMockCanvas()
   const child = new Rect({

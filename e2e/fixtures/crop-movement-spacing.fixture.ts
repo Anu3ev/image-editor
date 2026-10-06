@@ -1,7 +1,7 @@
 import { test as cropTest, expect } from './crop-scaling.fixture'
 import type { CropStateInfo, SnappingObjectSnapshot } from '../types'
 
-/** Ось равноудалённости и изолированная сцена с двумя соседями crop. */
+/** Equal-spacing axis and an isolated scene with two crop neighbors. */
 interface CropSpacingFixtures {
   cropSpacingAxis: 'horizontal' | 'vertical'
   cropSpacing: {
@@ -13,7 +13,7 @@ interface CropSpacingFixtures {
   }
 }
 
-/** Два соседа с зазором больше порога обычного прилипания. */
+/** Two neighbors with a gap exceeding the normal snapping threshold. */
 export const test = cropTest.extend<CropSpacingFixtures>({
   cropSpacingAxis: ['horizontal', { option: true }],
   cropSpacing: async({ crop, cropScalingImage: { id, source }, shapes, snapping, cropSpacingAxis }, use) => {

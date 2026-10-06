@@ -51,17 +51,17 @@ import {
   type ActiveSelectionScaleLiveState
 } from './active-selection-scale-live-state'
 
-/** Точка в неизменяемой локальной плоскости общего выделения. */
+/** Point in the selection's immutable local plane. */
 type ActiveSelectionTextScalePoint = Readonly<{ x: number; y: number }>
 
-/** Каноническое состояние и положение одного текста на измеренном шаге. */
+/** Canonical state and position of one text object at a measured step. */
 export type ActiveSelectionTextScaleChildMeasurement = Readonly<{
   canonicalState: TextCornerScaleCanonicalState
   center: ActiveSelectionTextScalePoint
   target: EditorTextbox
 }>
 
-/** Линейная геометрия нетекстового ребёнка на измеренном шаге. */
+/** Linear geometry of a non-text child at a measured step. */
 export type ActiveSelectionAffineScaleChildMeasurement = Readonly<{
   center: ActiveSelectionTextScalePoint
   scaleX: number
@@ -69,7 +69,7 @@ export type ActiveSelectionAffineScaleChildMeasurement = Readonly<{
   target: FabricObject
 }>
 
-/** Точная каноническая геометрия всех детей для одного набора множителей. */
+/** Exact canonical geometry of all children for one set of multipliers. */
 export type ActiveSelectionTextScaleMeasurement = Readonly<{
   affineChildren: readonly ActiveSelectionAffineScaleChildMeasurement[]
   bounds: ObjectBounds
@@ -83,7 +83,7 @@ export type ActiveSelectionTextScaleMeasurement = Readonly<{
   values: readonly number[]
 }>
 
-/** Исходное состояние одного живого и одного измерительного текста. */
+/** Initial state of one live text object and one measurement copy. */
 type ActiveSelectionTextScaleItem = Readonly<{
   base: TextScaleBaseState
   measurementTextbox: EditorTextbox
@@ -92,7 +92,7 @@ type ActiveSelectionTextScaleItem = Readonly<{
   target: EditorTextbox
 }>
 
-/** Исходная геометрия нетекстового ребёнка, которая меняется линейно вместе с рамкой. */
+/** Original non-text child geometry that changes linearly with the frame. */
 type ActiveSelectionAffineScaleItem = Readonly<{
   height: number
   scaleX: number
@@ -102,17 +102,17 @@ type ActiveSelectionAffineScaleItem = Readonly<{
   width: number
 }>
 
-/** Каноническая геометрия до построения локальной линейной проекции. */
+/** Canonical geometry before constructing the local linear projection. */
 type ActiveSelectionTextCanonicalGeometry = Omit<ActiveSelectionTextScaleMeasurement, 'projection'>
 
-/** Минимальные множители, допустимые для всех текстов выделения. */
+/** Minimum multipliers permitted for all text objects in the selection. */
 type ActiveSelectionTextMinimumMultipliers = Readonly<{
   font: number
   proportional: number
   width: number
 }>
 
-/** Неизменяемые свойства рамки в начале жеста. */
+/** Immutable frame properties at gesture start. */
 type ActiveSelectionTextScaleBaseline = Readonly<{
   angle: number
   fixedAnchor: ActiveSelectionTextScalePoint
@@ -122,25 +122,25 @@ type ActiveSelectionTextScaleBaseline = Readonly<{
   width: number
 }>
 
-/** Малый шаг для построения локальной зависимости граней от множителей. */
+/** Small step for building the local relationship between edges and multipliers. */
 const ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_STEP = 0.01
 
-/** Максимальное число увеличений шага при поиске различимой геометрии. */
+/** Maximum number of step increases when searching for distinguishable geometry. */
 const MAX_ACTIVE_SELECTION_TEXT_SCALE_NEIGHBOR_STEPS = 8
 
-/** Максимальное число уточнений канонических множителей по положению указателя. */
+/** Maximum number of refinements of canonical multipliers based on pointer position. */
 const MAX_ACTIVE_SELECTION_TEXT_POINTER_REFINEMENT_STEPS = 8
 
-/** Число измерений, сохраняемых между движениями одного жеста. */
+/** Number of measurements retained between movements in one gesture. */
 const ACTIVE_SELECTION_TEXT_SCALE_CACHE_SIZE = 16
 
-/** Число канонических геометрий, сохраняемых для основного и соседних измерений. */
+/** Number of canonical geometries retained for the primary and neighboring measurements. */
 const ACTIVE_SELECTION_TEXT_SCALE_GEOMETRY_CACHE_SIZE = 48
 
-/** Допуск проверки измеренной и применённой геометрии. */
+/** Tolerance for validating measured and applied geometry. */
 const ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_EPSILON = 0.000001
 
-/** Создаёт точные границы из четырёх координат. */
+/** Creates exact bounds from four coordinates. */
 function createBounds({
   bottom,
   left,
@@ -166,7 +166,7 @@ function createBounds({
   })
 }
 
-/** Создаёт локальную рамку измеренного выделения относительно исходных размеров. */
+/** Creates a local frame for the measured selection relative to its original dimensions. */
 function createSelectionScaleFrame({
   baseline,
   bounds
@@ -186,7 +186,7 @@ function createSelectionScaleFrame({
   })
 }
 
-/** Объединяет точные границы всех измеряемых детей общего выделения. */
+/** Combines the exact bounds of all measured children in the selection. */
 function mergeBounds({ bounds }: { bounds: readonly ObjectBounds[] }): ObjectBounds {
   if (bounds.length < 2) throw new Error('Измерение общего выделения требует минимум два объекта')
 
@@ -198,7 +198,7 @@ function mergeBounds({ bounds }: { bounds: readonly ObjectBounds[] }): ObjectBou
   })
 }
 
-/** Переводит точку привязки Fabric в смещение относительно центра рамки. */
+/** Converts a Fabric anchor point into an offset from the frame center. */
 function resolveOriginOffset({ origin }: { origin: Transform['originX'] | Transform['originY'] }): number {
   if (origin === 'left' || origin === 'top') return -0.5
   if (origin === 'right' || origin === 'bottom') return 0.5
@@ -208,7 +208,7 @@ function resolveOriginOffset({ origin }: { origin: Transform['originX'] | Transf
   throw new Error('Скейлинг выделения с текстами требует поддерживаемую неподвижную точку')
 }
 
-/** Возвращает смещение, совмещающее неподвижную точку измеренной рамки с началом жеста. */
+/** Returns the offset that aligns the measured frame's fixed point with the gesture start. */
 function resolveFrameTranslation({
   bounds,
   fixedAnchor,
@@ -226,7 +226,7 @@ function resolveFrameTranslation({
   return Object.freeze({ x: fixedAnchor.x - originX, y: fixedAnchor.y - originY })
 }
 
-/** Рассчитывает центр ребёнка относительно неподвижной точки исходной рамки. */
+/** Calculates the child's center relative to the original frame's fixed point. */
 function resolveScaledChildCenter({
   fixedAnchor,
   multipliers,
@@ -242,7 +242,7 @@ function resolveScaledChildCenter({
   })
 }
 
-/** Переносит измеренную доменную геометрию вместе с итоговой рамкой общего выделения. */
+/** Translates the measured domain geometry together with the final selection frame. */
 function translateDomainChildren({
   children,
   translation
@@ -265,7 +265,7 @@ function translateDomainChildren({
   })))
 }
 
-/** Проецирует локальную рамку через исходный поворот и положение выделения. */
+/** Projects the local frame through the selection's original rotation and position. */
 function projectLocalBoundsToScene({
   bounds,
   matrix
@@ -288,14 +288,14 @@ function projectLocalBoundsToScene({
   })
 }
 
-/** Сравнивает два конечных числа в пределах допуска измерения. */
+/** Compares two finite numbers within the measurement tolerance. */
 function areNumbersNear({ first, second }: { first: number; second: number }): boolean {
   return Number.isFinite(first)
     && Number.isFinite(second)
     && Math.abs(first - second) <= ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_EPSILON
 }
 
-/** Проверяет, что измеренная рамка достигла всех размеров, заданных указателем. */
+/** Checks that the measured frame reached all dimensions specified by the pointer. */
 function didReachPointerFrameConstraints({
   constraints,
   geometry
@@ -310,7 +310,7 @@ function didReachPointerFrameConstraints({
   })
 }
 
-/** Проверяет, что повторное измерение не изменило канонические множители. */
+/** Checks that remeasurement did not change the canonical multipliers. */
 function haveSameCanonicalValues({
   first,
   second
@@ -323,54 +323,54 @@ function haveSameCanonicalValues({
   return first.every((value, index) => areNumbersNear({ first: value, second: second[index] }))
 }
 
-/** Измеряет и применяет каноническую геометрию текстов одного общего выделения. */
+/** Measures and applies the canonical text geometry of a single selection. */
 export default class ActiveSelectionTextScaleMeasurer {
-  /** Нетекстовые дети, которые должны сохранить линейное изменение размера. */
+  /** Non-text children that must retain linear resizing. */
   private readonly affineItems: readonly ActiveSelectionAffineScaleItem[]
 
-  /** Неизменяемая рамка начала жеста. */
+  /** Immutable frame at gesture start. */
   private readonly baseline: ActiveSelectionTextScaleBaseline
 
-  /** Менеджер холста, используемый при переносе рассчитанных размеров в свойства текста. */
+  /** Canvas manager used when transferring calculated dimensions into text properties. */
   private readonly canvasManager: CanvasManager
 
-  /** Доменная геометрия детей, которые нельзя считать обычными линейными объектами. */
+  /** Domain geometry for children that cannot be treated as ordinary linear objects. */
   private readonly domainSource: ActiveSelectionScaleDomainSource | null
 
-  /** Живые тексты и их независимые измерительные копии. */
+  /** Live text objects and their independent measurement copies. */
   private readonly items: readonly ActiveSelectionTextScaleItem[]
 
-  /** Общие минимальные множители всех текстов. */
+  /** Shared minimum multipliers for all text objects. */
   private readonly minimums: ActiveSelectionTextMinimumMultipliers
 
-  /** Режимы общей прямоугольной проекции текущей ручки. */
+  /** Shared rectangular-projection modes for the current handle. */
   private readonly projectionModes: readonly ScaleProjectionModeInput[]
 
-  /** Измерения канонических множителей, используемые при уточнении прилипания. */
+  /** Canonical-multiplier measurements used when refining snapping. */
   private readonly canonicalMeasurements = new Map<string, ActiveSelectionTextScaleMeasurement>()
 
-  /** Измерения, соответствующие положению указателя в текущем жесте. */
+  /** Measurements corresponding to the pointer position in the current gesture. */
   private readonly pointerMeasurements = new Map<string, ActiveSelectionTextScaleMeasurement>()
 
-  /** Каноническая геометрия основного и соседних измерений без повторного пересчёта текста. */
+  /** Canonical geometry of primary and neighboring measurements without recalculating text. */
   private readonly canonicalGeometries = new Map<string, ActiveSelectionTextCanonicalGeometry>()
 
-  /** Общее выделение, которому принадлежит сессия. */
+  /** Selection to which the session belongs. */
   private readonly selection: ActiveSelection
 
-  /** Исходное преобразование Fabric. */
+  /** Original Fabric transform. */
   private readonly transform: Transform
 
-  /** Последнее подтверждённое измерение текущего жеста. */
+  /** Last confirmed measurement of the current gesture. */
   private lastConfirmedMeasurement: ActiveSelectionTextScaleMeasurement | null = null
 
-  /** Измерение, ожидающее подтверждения после общей проверки направляющих. */
+  /** Measurement awaiting confirmation after shared guide validation. */
   private pendingMeasurement: ActiveSelectionTextScaleMeasurement | null = null
 
-  /** Прямой снимок живых объектов после последнего подтверждённого шага. */
+  /** Direct snapshot of live objects after the last confirmed step. */
   private confirmedLiveState: ActiveSelectionScaleLiveState
 
-  /** Создаёт измеритель от неизменяемого начала поддерживаемого жеста. */
+  /** Creates a measurer from the immutable start of a supported gesture. */
   constructor({
     affineChildren = [],
     canvasManager,
@@ -410,7 +410,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Возвращает точное каноническое состояние для текущих множителей указателя. */
+  /** Returns the exact canonical state for the current pointer multipliers. */
   public measure({
     mode,
     multipliers
@@ -435,7 +435,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return measurement
   }
 
-  /** Измеряет состояние по каноническим значениям уточнённого плана. */
+  /** Measures state using the refined plan's canonical values. */
   public measureValues({
     mode,
     values
@@ -452,7 +452,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Один раз переносит измеренное каноническое состояние в живые тексты и рамку. */
+  /** Transfers the measured canonical state into live text objects and the frame once. */
   public apply({ measurement }: { measurement: ActiveSelectionTextScaleMeasurement }): void {
     try {
       this._applyMeasurement({ measurement })
@@ -461,23 +461,23 @@ export default class ActiveSelectionTextScaleMeasurer {
       try {
         this._restoreConfirmedLiveState()
       } catch {
-        // Ошибка применения остаётся основной после попытки вернуть всех владельцев геометрии.
+        // The application error remains primary after attempting to restore all geometry owners.
       }
       throw error
     }
   }
 
-  /** Проверяет, было ли подтверждено хотя бы одно измеренное состояние. */
+  /** Checks whether at least one measured state has been confirmed. */
   public hasConfirmedMeasurement(): boolean {
     return this.lastConfirmedMeasurement !== null
   }
 
-  /** Возвращает последнее подтверждённое состояние текущего жеста без повторного измерения. */
+  /** Returns the current gesture's last confirmed state without remeasurement. */
   public getLastConfirmedMeasurement(): ActiveSelectionTextScaleMeasurement | null {
     return this.lastConfirmedMeasurement
   }
 
-  /** Продвигает ожидающее измерение после общей проверки фактической геометрии. */
+  /** Advances the pending measurement after shared validation of actual geometry. */
   public confirmAppliedMeasurement(): boolean {
     const measurement = this.pendingMeasurement
     if (!measurement) return false
@@ -497,7 +497,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return true
   }
 
-  /** Восстанавливает последнее подтверждённое состояние или исходную геометрию жеста. */
+  /** Restores the last confirmed state or the gesture's original geometry. */
   public restoreConfirmedMeasurement(): boolean {
     this._restoreConfirmedLiveState()
     this.pendingMeasurement = null
@@ -505,7 +505,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return true
   }
 
-  /** Освобождает измерительные тексты и кеш текущего жеста. */
+  /** Releases measurement text objects and the current gesture's cache. */
   public dispose(): void {
     this.canonicalGeometries.clear()
     this.canonicalMeasurements.clear()
@@ -515,7 +515,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     this.pendingMeasurement = null
   }
 
-  /** Сохраняет текущую геометрию текстов, изображений, рамки и преобразования Fabric. */
+  /** Saves the current geometry of text, images, the frame, and the Fabric transform. */
   private _captureCurrentLiveState(): ActiveSelectionScaleLiveState {
     return captureActiveSelectionScaleLiveState({
       affineChildren: this.affineItems.map(({ target }) => target),
@@ -525,7 +525,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Синхронно возвращает всех владельцев геометрии к подтверждённому снимку. */
+  /** Synchronously restores all geometry owners to the confirmed snapshot. */
   private _restoreConfirmedLiveState(): void {
     let didFail = false
     let firstFailure: unknown
@@ -547,7 +547,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     if (didFail) throw firstFailure
   }
 
-  /** Применяет одно заранее проверенное измерение ко всем владельцам геометрии. */
+  /** Applies one previously validated measurement to all geometry owners. */
   private _applyMeasurement({
     measurement
   }: {
@@ -566,7 +566,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     this._assertAppliedMeasurement({ measurement })
   }
 
-  /** Применяет рамку измерения относительно исходной неподвижной точки. */
+  /** Applies the measurement frame relative to the original fixed point. */
   private _applySelectionFrame({ frame }: { frame: ActiveSelectionScaleFrame }): void {
     const fixedAnchor = new Point(this.baseline.fixedAnchor.x, this.baseline.fixedAnchor.y)
     this.selection.set({
@@ -583,7 +583,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     this.selection.setPositionByOrigin(fixedAnchor, this.transform.originX, this.transform.originY)
   }
 
-  /** Применяет каноническое состояние каждого отдельного текста. */
+  /** Applies the canonical state of each standalone text object. */
   private _applyTextMeasurements({
     measurement
   }: {
@@ -605,7 +605,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Применяет линейную геометрию изображений внутри общего выделения. */
+  /** Applies linear image geometry within the selection. */
   private _applyAffineMeasurements({
     measurement
   }: {
@@ -622,7 +622,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Передаёт рассчитанную геометрию шейпов их доменному владельцу. */
+  /** Passes the calculated shape geometry to its domain owner. */
   private _applyDomainMeasurement({
     measurement
   }: {
@@ -640,7 +640,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Сохраняет исходную рамку и переводит неподвижную точку в её локальную плоскость. */
+  /** Saves the original frame and maps the fixed point into its local plane. */
   private _captureBaseline({
     projection,
     selection
@@ -664,7 +664,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Создаёт измерительную копию и сохраняет исходное состояние живого текста. */
+  /** Creates a measurement copy and saves the live text object's original state. */
   private _createItem({ target }: { target: EditorTextbox }): ActiveSelectionTextScaleItem {
     const measurementTextbox = createTextScalingMeasurementTextbox({ target })
 
@@ -677,7 +677,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Сохраняет исходный размер и положение нетекстового ребёнка в локальной плоскости выделения. */
+  /** Saves a non-text child's original dimensions and position in the selection's local plane. */
   private _createAffineItem({ target }: { target: FabricObject }): ActiveSelectionAffineScaleItem {
     const hasUnsupportedState = [
       target.parent,
@@ -709,7 +709,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Возвращает самые строгие ограничения ширины и размера шрифта всех текстов. */
+  /** Returns the strictest width and font-size constraints across all text objects. */
   private _resolveMinimumMultipliers(): ActiveSelectionTextMinimumMultipliers {
     let width = 0
     let font = 0
@@ -725,7 +725,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return Object.freeze({ font, proportional, width })
   }
 
-  /** Ограничивает множители минимальными размерами текстов и остальных доменных объектов. */
+  /** Constrains multipliers by the minimum sizes of text and other domain objects. */
   private _resolveSupportedMultipliers({
     mode,
     multipliers
@@ -756,7 +756,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return domainMeasurement.multipliers
   }
 
-  /** Проверяет, что доменный источник только усилил ограничения выбранного режима. */
+  /** Checks that the domain source only tightened the selected mode's constraints. */
   private _assertDomainMultipliers({
     mode,
     requested,
@@ -781,7 +781,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     }
   }
 
-  /** Проверяет порядок и принадлежность детей, измеренных доменным источником. */
+  /** Checks the order and membership of children measured by the domain source. */
   private _assertDomainChildren({
     measurement
   }: {
@@ -800,7 +800,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     }
   }
 
-  /** Возвращает режим проекции текущей ручки. */
+  /** Returns the current handle's projection mode. */
   private _resolveProjectionMode({ mode }: { mode: RectangularScaleGestureMode }): ScaleProjectionModeInput {
     const projectionMode = this.projectionModes.find(({ id }) => id === mode)
     if (!projectionMode) throw new Error('Для текстового скейлинга должна существовать выбранная проекция')
@@ -808,7 +808,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return projectionMode
   }
 
-  /** Возвращает полное измерение для точных канонических множителей. */
+  /** Returns the complete measurement for exact canonical multipliers. */
   private _measureCanonicalMultipliers({
     mode,
     multipliers
@@ -837,7 +837,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return measurement
   }
 
-  /** Сохраняет измерение и удаляет самую старую запись при переполнении кеша. */
+  /** Saves a measurement and removes the oldest entry when the cache overflows. */
   private _rememberMeasurement({
     cache,
     key,
@@ -855,7 +855,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     cache.delete(oldestKey)
   }
 
-  /** Создаёт ключ измерения с учётом текущего режима автоматического расширения каждого текста. */
+  /** Creates a measurement key that includes each text object's current auto-expansion mode. */
   private _createMeasurementKey({
     mode,
     values
@@ -872,7 +872,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return `${autoExpandState}:${mode}:${values.join(':')}`
   }
 
-  /** Подбирает канонические множители, при которых видимая рамка следует за указателем. */
+  /** Finds canonical multipliers that make the visible frame follow the pointer. */
   private _resolvePointerGeometry({
     mode,
     rawMultipliers,
@@ -904,7 +904,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return geometry
   }
 
-  /** Описывает размер рамки, который должен соответствовать положению указателя. */
+  /** Describes the frame dimensions that should correspond to the pointer position. */
   private _createPointerFrameConstraints({
     mode,
     rawMultipliers,
@@ -928,7 +928,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return Object.freeze(constraints.map((constraint) => Object.freeze(constraint)))
   }
 
-  /** Рассчитывает следующие множители по локальной зависимости размера рамки от текста. */
+  /** Calculates the next multipliers from the local dependence of frame size on text. */
   private _resolvePointerCorrection({
     constraints,
     geometry,
@@ -982,7 +982,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return this._resolveSupportedMultipliers({ mode, multipliers })
   }
 
-  /** Измеряет канонические тексты и итоговую рамку без изменения живого выделения. */
+  /** Measures canonical text objects and the final frame without modifying the live selection. */
   private _measureCanonicalGeometry({
     mode,
     multipliers
@@ -1006,7 +1006,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return geometry
   }
 
-  /** Рассчитывает канонические тексты и итоговую рамку для нового набора множителей. */
+  /** Calculates canonical text objects and the final frame for a new set of multipliers. */
   private _createCanonicalGeometry({
     mode,
     multipliers
@@ -1068,7 +1068,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Измеряет и проверяет геометрию дополнительного домена для выбранных множителей. */
+  /** Measures and validates additional-domain geometry for the selected multipliers. */
   private _measureDomainGeometry({
     mode,
     multipliers
@@ -1094,7 +1094,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return measurement
   }
 
-  /** Рассчитывает линейную геометрию нетекстового ребёнка от неизменяемого начала жеста. */
+  /** Calculates a non-text child's linear geometry from the immutable gesture start. */
   private _measureAffineChild({
     item,
     multipliers
@@ -1124,7 +1124,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Материализует один измерительный текст от неизменяемого начала жеста. */
+  /** Materializes one measurement text object from the immutable gesture start. */
   private _measureChild({
     item,
     mode,
@@ -1176,7 +1176,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Строит по одному различимому соседнему измерению для каждой степени свободы. */
+  /** Builds one distinguishable neighboring measurement for each degree of freedom. */
   private _createProjectionSamples({
     geometry,
     projectionMode
@@ -1189,7 +1189,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     return Object.freeze(samples.map(({ bounds, values }) => Object.freeze({ bounds, values })))
   }
 
-  /** Строит по одному различимому соседнему измерению для каждой степени свободы. */
+  /** Builds one distinguishable neighboring measurement for each degree of freedom. */
   private _createNeighborGeometries({
     geometry,
     projectionMode
@@ -1202,7 +1202,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     }))
   }
 
-  /** Подбирает соседнее значение, на котором меняется хотя бы одна участвующая грань. */
+  /** Finds a neighboring value at which at least one participating edge changes. */
   private _createNeighborGeometry({
     geometry,
     projectionMode,
@@ -1233,7 +1233,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     throw new Error('Не удалось найти различимую геометрию скейлинга выделения с текстами')
   }
 
-  /** Применяет канонические свойства и компенсирует временный масштаб общей рамки. */
+  /** Applies canonical properties and compensates for the shared frame's temporary scale. */
   private _applyChildMeasurement({
     childMeasurement,
     frame,
@@ -1271,7 +1271,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Компенсирует масштаб общей рамки, сохраняя рассчитанную геометрию линейного ребёнка. */
+  /** Compensates for the shared frame's scale, preserving the linear child's calculated geometry. */
   private _applyAffineChildMeasurement({
     childMeasurement,
     frame,
@@ -1290,7 +1290,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Компенсирует временную рамку, сохраняя измеренные масштаб и центр ребёнка. */
+  /** Compensates for the temporary frame, preserving the child's measured scale and center. */
   private _applyChildFrameCompensation({
     center,
     frame,
@@ -1312,7 +1312,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     target.setCoords()
   }
 
-  /** Проверяет рамку и канонические свойства после единственного применения. */
+  /** Checks the frame and canonical properties after a single application. */
   private _assertAppliedMeasurement({
     measurement
   }: {
@@ -1359,7 +1359,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     this._assertAppliedAffineChildren({ measurement })
   }
 
-  /** Проверяет масштаб и положение линейных детей после применения измерения. */
+  /** Checks linear children's scale and position after applying the measurement. */
   private _assertAppliedAffineChildren({
     measurement
   }: {
@@ -1386,7 +1386,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
   }
 
-  /** Объединяет видимые границы всех детей в исходной локальной плоскости выделения. */
+  /** Combines the visible bounds of all children in the selection's original local plane. */
   private _readVisibleChildrenLocalBounds({
     measurement
   }: {

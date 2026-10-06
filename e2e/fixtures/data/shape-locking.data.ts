@@ -1,12 +1,12 @@
 import type { ShapeAddParams } from '../../types'
 
-/** Id основной фигуры для e2e-сценариев блокировки и редактирования текста. */
+/** ID of the main shape for text-locking and editing e2e scenarios. */
 export const SHAPE_LOCKING_TARGET_ID = 'shape-locking-target'
 
-/** Id второй фигуры для сценариев с выделением всех объектов. */
+/** ID of the second shape for select-all scenarios. */
 export const SHAPE_LOCKING_SECONDARY_ID = 'shape-locking-secondary'
 
-/** Базовая фигура для e2e-сценариев блокировки текста внутри фигуры. */
+/** Base shape for e2e scenarios that lock text inside a shape. */
 export const SHAPE_LOCKING_BASE_OPTIONS: NonNullable<ShapeAddParams['options']> = {
   id: SHAPE_LOCKING_TARGET_ID,
   left: 140,
@@ -21,7 +21,7 @@ export const SHAPE_LOCKING_BASE_OPTIONS: NonNullable<ShapeAddParams['options']> 
   }
 }
 
-/** Вторая фигура для проверки восстановления выделения после select all. */
+/** Second shape for testing selection restoration after select all. */
 export const SHAPE_LOCKING_SECONDARY_OPTIONS: NonNullable<ShapeAddParams['options']> = {
   id: SHAPE_LOCKING_SECONDARY_ID,
   left: 420,

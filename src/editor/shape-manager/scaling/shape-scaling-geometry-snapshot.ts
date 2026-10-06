@@ -11,7 +11,7 @@ import type {
   ShapeTextNode
 } from '../types'
 
-/** Геометрия и преобразование объекта Fabric до изменения компоновки. */
+/** Fabric-object geometry and transform before layout changes. */
 type FabricGeometrySnapshot = Readonly<{
   height: number
   originX: FabricObject['originX']
@@ -20,7 +20,7 @@ type FabricGeometrySnapshot = Readonly<{
   width: number
 }>
 
-/** Свойства компоновки группы, которые изменяются при фиксации скейлинга. */
+/** Group-layout properties changed when committing scaling. */
 type ShapeGroupLayoutSnapshot = Readonly<{
   shapeAlignHorizontal: ShapeGroup['shapeAlignHorizontal']
   shapeAlignVertical: ShapeGroup['shapeAlignVertical']
@@ -38,20 +38,20 @@ type ShapeGroupLayoutSnapshot = Readonly<{
   shapeTextAutoExpand: ShapeGroup['shapeTextAutoExpand']
 }>
 
-/** Скругление прямоугольника, которое переносится в узел шейпа при изменении размера. */
+/** Rectangle rounding transferred to the shape node during resizing. */
 type ShapeNodeRoundingSnapshot = Readonly<{
   rx: number
   ry: number
 }> | null
 
-/** Свойства компоновки текста, которые могут измениться при фиксации размеров. */
+/** Text-layout properties that may change when committing dimensions. */
 type ShapeTextLayoutSnapshot = Readonly<{
   autoExpand: ShapeTextNode['autoExpand']
   splitByGrapheme: ShapeTextNode['splitByGrapheme']
   textAlign: ShapeTextNode['textAlign']
 }>
 
-/** Полный снимок изменяемой геометрии композиции шейпа для атомарной операции. */
+/** Complete snapshot of mutable shape-composition geometry for an atomic operation. */
 export type ShapeScalingGeometrySnapshot = Readonly<{
   group: ShapeGroup
   groupGeometry: FabricGeometrySnapshot
@@ -64,7 +64,7 @@ export type ShapeScalingGeometrySnapshot = Readonly<{
   textLayout: ShapeTextLayoutSnapshot
 }>
 
-/** Сохраняет геометрию объекта Fabric через его штатные свойства преобразования. */
+/** Saves Fabric-object geometry through its standard transform properties. */
 function captureFabricGeometry({
   object
 }: {
@@ -79,7 +79,7 @@ function captureFabricGeometry({
   })
 }
 
-/** Восстанавливает геометрию объекта Fabric без его замены. */
+/** Restores Fabric-object geometry without replacing the object. */
 function restoreFabricGeometry({
   object,
   snapshot
@@ -98,7 +98,7 @@ function restoreFabricGeometry({
   object.setCoords()
 }
 
-/** Сохраняет свойства компоновки группы, изменяемые при фиксации скейлинга. */
+/** Saves group-layout properties changed when committing scaling. */
 function captureGroupLayout({
   group
 }: {
@@ -122,7 +122,7 @@ function captureGroupLayout({
   })
 }
 
-/** Сохраняет прямоугольное скругление узла шейпа, если оно существует. */
+/** Saves the shape node's rectangle rounding, if present. */
 function captureShapeRounding({
   shape
 }: {
@@ -136,7 +136,7 @@ function captureShapeRounding({
   })
 }
 
-/** Восстанавливает скругление прямоугольного узла шейпа. */
+/** Restores rounding on a rectangular shape node. */
 function restoreShapeRounding({
   shape,
   snapshot
@@ -150,7 +150,7 @@ function restoreShapeRounding({
   shape.set(snapshot)
 }
 
-/** Сохраняет свойства внутреннего текста, изменяемые компоновкой шейпа. */
+/** Saves inner-text properties changed by shape layout. */
 function captureTextLayout({
   text
 }: {
@@ -163,7 +163,7 @@ function captureTextLayout({
   })
 }
 
-/** Восстанавливает внутреннее измерение текста для сохранённой ширины. */
+/** Restores the internal text measurement for the saved width. */
 function restoreTextGeometry({
   geometry,
   layout,
@@ -183,7 +183,7 @@ function restoreTextGeometry({
   restoreFabricGeometry({ object: text, snapshot: geometry })
 }
 
-/** Сохраняет изменяемую геометрию группы, шейпа и текста до атомарного шага скейлинга. */
+/** Saves mutable group, shape, and text geometry before an atomic scaling step. */
 export function captureShapeScalingGeometry({
   group
 }: {
@@ -205,7 +205,7 @@ export function captureShapeScalingGeometry({
   })
 }
 
-/** Полностью восстанавливает композицию шейпа после незавершённой атомарной операции. */
+/** Fully restores the shape composition after an incomplete atomic operation. */
 export function restoreShapeScalingGeometry({
   snapshot
 }: {
@@ -243,7 +243,7 @@ export function restoreShapeScalingGeometry({
   if (failures.length > 0) throw firstFailure
 }
 
-/** Пытается восстановить каждый шейп и возвращает первую ошибку только после полного прохода. */
+/** Attempts to restore every shape and returns the first error only after a complete pass. */
 export function restoreShapeScalingSnapshots({
   snapshots
 }: {

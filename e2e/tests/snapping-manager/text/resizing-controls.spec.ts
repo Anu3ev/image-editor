@@ -7,7 +7,7 @@ import {
   createTextWrapSnapCorrectionSetup
 } from '../../../fixtures/text-width-resizing.fixture'
 
-/** Ширина, при которой regression-текст гарантированно переносится ещё на одну строку. */
+/** Width at which the regression text is guaranteed to wrap onto one more line. */
 const TEXT_WRAP_RESIZE_WIDTH = 90
 
 test.describe('Изменение ширины отдельного текста с прилипаниями', () => {

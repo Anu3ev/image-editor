@@ -1,7 +1,7 @@
 import type { GradientBackground } from '../background-manager'
 
 /**
- * Переводит координаты градиента в угол в градусах.
+ * Converts gradient coordinates to an angle in degrees.
  */
 export const coordsToAngle = ({
   x1,
@@ -20,7 +20,7 @@ export const coordsToAngle = ({
 }
 
 /**
- * Преобразует fabric-градиент в структуру, понятную менеджеру фона.
+ * Converts a Fabric gradient to a structure understood by the background manager.
  */
 export const convertGradientToOptions = (fill: unknown): GradientBackground | null => {
   if (!fill || typeof fill !== 'object') return null

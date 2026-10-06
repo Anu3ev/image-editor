@@ -9,12 +9,12 @@ import {
 import { normalizeShapeRounding } from './shape-rounding'
 
 /**
- * Базовый размер пресета для фигур без собственного viewBox.
+ * Base preset size for shapes without their own viewBox.
  */
 const DEFAULT_SHAPE_SIZE = 180
 
 /**
- * Дефолтный внутренний text inset пресета.
+ * Default inner text inset for a preset.
  */
 const DEFAULT_SHAPE_TEXT_INSET: ShapePaddingRatio = {
   top: 0,
@@ -24,17 +24,17 @@ const DEFAULT_SHAPE_TEXT_INSET: ShapePaddingRatio = {
 }
 
 /**
- * Верхняя граница относительного text inset, чтобы текстовый frame не схлопнулся.
+ * Upper bound on the relative text inset to prevent the text frame from collapsing.
  */
 const MAX_SHAPE_TEXT_INSET_RATIO = 0.45
 
 /**
- * Нормализует число до 4 знаков после запятой для стабильной сериализации.
+ * Normalizes a number to 4 decimal places for stable serialization.
  */
 const normalizeNumber = ({ value }: { value: number }): number => Number(value.toFixed(4))
 
 /**
- * Масштабирует исходный viewBox фигуры к дефолтному размеру пресета.
+ * Scales the shape's original viewBox to the default preset size.
  */
 const resolvePresetSize = ({
   width,
@@ -55,7 +55,7 @@ const resolvePresetSize = ({
 }
 
 /**
- * Создает точки звезды в системе координат 0..100.
+ * Creates star points in the 0..100 coordinate system.
  */
 const createStarPoints = ({
   spikes,
@@ -90,7 +90,7 @@ const createStarPoints = ({
 }
 
 /**
- * Канонический список shape-пресетов, из которого собирается словарь SHAPE_PRESETS.
+ * Canonical list of shape presets used to build the SHAPE_PRESETS dictionary.
  */
 const shapePresetsList: ShapePreset[] = [
   {
@@ -627,22 +627,22 @@ const shapePresetsList: ShapePreset[] = [
 ]
 
 /**
- * Пресет, который используется при создании фигуры без явного presetKey.
+ * Preset used when creating a shape without an explicit presetKey.
  */
 export const DEFAULT_SHAPE_PRESET_KEY = 'circle'
 
 /**
- * Горизонтальное выравнивание текста внутри фигуры по умолчанию.
+ * Default horizontal text alignment within a shape.
  */
 export const SHAPE_DEFAULT_HORIZONTAL_ALIGN: ShapeHorizontalAlign = 'center'
 
 /**
- * Вертикальное выравнивание текста внутри фигуры по умолчанию.
+ * Default vertical text alignment within a shape.
  */
 export const SHAPE_DEFAULT_VERTICAL_ALIGN: ShapeVerticalAlign = 'middle'
 
 /**
- * Mutable builder для словаря пресетов; наружу экспортируется уже заполненный объект.
+ * Mutable builder for the preset dictionary; the populated object is exported.
  */
 const shapePresetDictionary: Record<string, ShapePreset> = {}
 
@@ -652,12 +652,12 @@ for (let index = 0; index < shapePresetsList.length; index += 1) {
 }
 
 /**
- * Словарь доступных shape-пресетов по ключу.
+ * Dictionary of available shape presets by key.
  */
 export const SHAPE_PRESETS: Record<string, ShapePreset> = shapePresetDictionary
 
 /**
- * Возвращает пресет фигуры по ключу.
+ * Returns a shape preset by key.
  */
 export const getShapePreset = ({
   presetKey
@@ -666,7 +666,7 @@ export const getShapePreset = ({
 }): ShapePreset | null => SHAPE_PRESETS[presetKey] ?? null
 
 /**
- * Возвращает итоговый ключ пресета с учетом ограничений скругления.
+ * Returns the effective preset key, accounting for rounding constraints.
  */
 export const resolvePresetKeyForRounding = ({
   preset,
@@ -684,7 +684,7 @@ export const resolvePresetKeyForRounding = ({
 }
 
 /**
- * Переводит ratio-вставку формы в пиксели для текущего размера шейпа.
+ * Converts the shape's proportional inset to pixels for the current shape size.
  */
 function resolveInternalShapeTextInsetPixels({
   value,
@@ -704,7 +704,7 @@ function resolveInternalShapeTextInsetPixels({
 }
 
 /**
- * Возвращает внутренний отступ текстовой области, который задаётся самой формой.
+ * Returns the inner text-area inset defined by the shape itself.
  */
 export const resolveInternalShapeTextInset = ({
   preset,
@@ -738,7 +738,7 @@ export const resolveInternalShapeTextInset = ({
 }
 
 /**
- * Проверяет, содержит ли path только линейные команды.
+ * Checks whether a path contains only linear commands.
  */
 function hasLinearPathCommandsOnly({ path }: { path: string }): boolean {
   const commands = path.match(/[a-zA-Z]/g) ?? []
@@ -753,7 +753,7 @@ function hasLinearPathCommandsOnly({ path }: { path: string }): boolean {
 }
 
 /**
- * Проверяет, поддерживает ли пресет скругление углов.
+ * Checks whether the preset supports corner rounding.
  */
 export const isShapePresetRoundable = ({
   preset

@@ -1,26 +1,26 @@
 import type { JSHandle, Page } from '@playwright/test'
 import type { ImageEditor } from '../../../src/editor'
 
-/** Подписки на публичные события crop, живущие только внутри страницы теста. */
+/** Public crop-event subscriptions that live only inside the test page. */
 interface CropEventRecording {
   events: string[]
   unsubscribe: VoidFunction[]
 }
 
-/** Записывает публичные события crop без привязки к порядку внутренних событий Fabric. */
+/** Records public crop events independently of the internal Fabric event order. */
 export class CropEventRecorder {
-  /** Страница, на которой публикуются события. */
+  /** Page on which events are published. */
   private readonly page: Page
 
-  /** Временные подписки, не попадающие в глобальный browser context. */
+  /** Temporary subscriptions excluded from the global browser context. */
   private recording: JSHandle<CropEventRecording> | null = null
 
-  /** Привязывает запись к странице редактора. */
+  /** Binds the recording to the editor page. */
   constructor(page: Page) {
     this.page = page
   }
 
-  /** Начинает изолированную запись пользовательских событий crop. */
+  /** Starts an isolated recording of user-facing crop events. */
   async start(): Promise<void> {
     if (this.recording) throw new Error('Запись событий crop уже начата')
     this.recording = await this.page.evaluateHandle(() => {
@@ -37,7 +37,7 @@ export class CropEventRecorder {
     })
   }
 
-  /** Снимает подписки и возвращает события завершённого сценария. */
+  /** Removes subscriptions and returns events from the completed scenario. */
   async finish(): Promise<string[]> {
     const { recording } = this
     if (!recording) throw new Error('Запись событий crop не начата')

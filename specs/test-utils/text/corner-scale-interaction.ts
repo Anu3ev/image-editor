@@ -33,20 +33,20 @@ import { getObjectExactBounds, type ObjectBounds } from '../../../src/editor/uti
 import { createTextManagerTestSetup } from './manager-setup'
 import { createTextScalingTransform } from './scaling'
 
-/** Настройки тестового текста для углового скейлинга. */
+/** Test text settings for corner scaling. */
 export type TextCornerScaleInteractionHarnessOptions = Readonly<{
   strokeUniform?: boolean
   strokeWidth?: number
 }>
 
-/** Канонические свойства текста для проверки отдельного измерителя. */
+/** Canonical text properties for testing an individual measurer. */
 export type TextCornerScaleMeasurerHarnessOptions = Readonly<{
   fontSize?: number
   text?: string
   width?: number
 }>
 
-/** Наблюдаемые зависимости одного модульного сценария углового скейлинга текста. */
+/** Observable dependencies for one text corner-scaling unit scenario. */
 export type TextCornerScaleInteractionHarness = Readonly<{
   applyScaleMock: jest.MockedFunction<TextScalingController['applyStandaloneCornerScale']>
   baselineBounds: ObjectBounds
@@ -67,14 +67,14 @@ export type TextCornerScaleInteractionHarness = Readonly<{
   transform: Transform
 }>
 
-/** Реальный измеритель текста и его освобождение после модульного сценария. */
+/** Real text measurer and its cleanup after a unit scenario. */
 export type TextCornerScaleMeasurerHarness = Readonly<{
   dispose(): void
   measurer: TextCornerScaleMeasurer
   target: BackgroundTextbox
 }>
 
-/** Зависимости владельцев тестового углового скейлинга текста. */
+/** Dependencies of the owners of test text corner scaling. */
 type TextCornerScaleControllerDependencies = Readonly<{
   applyScaleMock: TextCornerScaleInteractionHarness['applyScaleMock']
   beginScaleMock: TextCornerScaleInteractionHarness['beginScaleMock']
@@ -86,7 +86,7 @@ type TextCornerScaleControllerDependencies = Readonly<{
   target: BackgroundTextbox
 }>
 
-/** Создаёт отдельный текст с каноническим единичным scale. */
+/** Creates standalone text with a canonical unit scale. */
 function createTextCornerScaleTarget({
   strokeUniform = true,
   strokeWidth = 0
@@ -126,7 +126,7 @@ function createTextCornerScaleTarget({
   return target
 }
 
-/** Возвращает точные границы или завершает тест при нарушении Fabric-контракта. */
+/** Returns exact bounds or fails the test if the Fabric contract is violated. */
 export function getRequiredTextCornerScaleBounds({
   target
 }: {
@@ -138,7 +138,7 @@ export function getRequiredTextCornerScaleBounds({
   return bounds
 }
 
-/** Создаёт CanvasManager только с необходимой тестам работой с положением объекта. */
+/** Creates a CanvasManager with only the object-positioning behavior needed by tests. */
 function createTextCornerScaleCanvasManager(): CanvasManager {
   const canvasManager: CanvasManager = Object.create(CanvasManager.prototype)
   canvasManager.getObjectPlacement = jest.fn(({ object, originX, originY }) => {
@@ -157,7 +157,7 @@ function createTextCornerScaleCanvasManager(): CanvasManager {
   return canvasManager
 }
 
-/** Создаёт каноническое состояние, ожидаемое для заданного множителя. */
+/** Creates the canonical state expected for the specified factor. */
 export function createTextCornerScaleCanonicalState({
   harness,
   scale
@@ -181,7 +181,7 @@ export function createTextCornerScaleCanonicalState({
   })
 }
 
-/** Применяет тестовую геометрию вокруг неподвижной точки и возвращает результат скейлинга. */
+/** Applies test geometry around the fixed point and returns the scaling result. */
 export function materializeTextCornerScale({
   canonicalState,
   harness,
@@ -221,7 +221,7 @@ export function materializeTextCornerScale({
   })
 }
 
-/** Собирает зависимости холста, прилипания и канонического скейлинга текста. */
+/** Builds dependencies for the canvas, snapping, and canonical text scaling. */
 function createTextCornerScaleController({
   applyScaleMock,
   beginScaleMock,
@@ -256,7 +256,7 @@ function createTextCornerScaleController({
   return new TextCornerScaleInteractionController({ editor, scalingController })
 }
 
-/** Собирает моки владельцев скейлинга после подготовки геометрии жеста. */
+/** Builds scaling-owner mocks after preparing the gesture geometry. */
 function createTextCornerScaleHarnessDependencies({
   fixedAnchor,
   gesture,
@@ -312,7 +312,7 @@ function createTextCornerScaleHarnessDependencies({
   return harness
 }
 
-/** Создаёт контроллер, реальный Textbox и наблюдаемые внешние зависимости. */
+/** Creates a controller, a real Textbox, and observable external dependencies. */
 export function createTextCornerScaleInteractionHarness(
   options: TextCornerScaleInteractionHarnessOptions = {}
 ): TextCornerScaleInteractionHarness {
@@ -332,7 +332,7 @@ export function createTextCornerScaleInteractionHarness(
   })
 }
 
-/** Создаёт реальный измеритель текста с заданными каноническими свойствами. */
+/** Creates a real text measurer with the specified canonical properties. */
 export function createTextCornerScaleMeasurerHarness({
   fontSize = 6,
   text = 'X',
@@ -381,7 +381,7 @@ export function createTextCornerScaleMeasurerHarness({
   })
 }
 
-/** Возвращает направляющую для правой границы при заданном множителе. */
+/** Returns a guide for the right edge at the specified factor. */
 export function createTextCornerScaleRightGuide({
   harness,
   scale
@@ -400,7 +400,7 @@ export function createTextCornerScaleRightGuide({
   }
 }
 
-/** Задаёт неизменяемое окружение прилипания для текущего жеста. */
+/** Sets an immutable snapping environment for the current gesture. */
 export function setTextCornerScaleEnvironment({
   environment,
   harness
@@ -411,7 +411,7 @@ export function setTextCornerScaleEnvironment({
   harness.captureEnvironmentMock.mockReturnValue(environment)
 }
 
-/** Создаёт событие начала углового скейлинга. */
+/** Creates a corner-scaling start event. */
 export function createTextCornerScaleBeginEvent({
   harness
 }: {
@@ -425,7 +425,7 @@ export function createTextCornerScaleBeginEvent({
   })
 }
 
-/** Рассчитывает положение указателя для пропорционального множителя. */
+/** Calculates the pointer position for a proportional factor. */
 export function moveTextCornerScalePointer({
   harness,
   scale
@@ -439,7 +439,7 @@ export function moveTextCornerScalePointer({
   })
 }
 
-/** Создаёт событие одного движения указателя. */
+/** Creates an event for one pointer movement. */
 export function createTextCornerScaleStepEvent({
   harness,
   marker,
@@ -460,7 +460,7 @@ export function createTextCornerScaleStepEvent({
   })
 }
 
-/** Создаёт точное измерение для заданного множителя и подвижных граней. */
+/** Creates an exact measurement for the specified factor and moving edges. */
 export function createTextCornerScaleInteractionMeasurement({
   bottom,
   harness,

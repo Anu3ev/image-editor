@@ -11,18 +11,18 @@ import type {
 import { createScaleProjectionConstraints } from '../../snapping-manager/scaling/scale-snapping-resolver'
 import type { TextCornerScaleMeasurement } from './text-corner-scale-measurer'
 
-/** Источник точной геометрии текста при проверяемом множителе. */
+/** Source of exact text geometry at the multiplier being checked. */
 export type TextCornerScaleMeasurementSource = Readonly<{
   measure({ scale }: { scale: number }): TextCornerScaleMeasurement
 }>
 
-/** Максимальное число уточнений множителя на одном движении указателя. */
+/** Maximum number of multiplier refinements per pointer movement. */
 const MAX_TEXT_CORNER_SCALE_REFINEMENT_STEPS = 8
 
-/** Допуск остановки повторяющегося расчёта множителя. */
+/** Tolerance for stopping repeated multiplier calculations. */
 const TEXT_CORNER_SCALE_REFINEMENT_EPSILON = 0.0000001
 
-/** Проверяет, какие выбранные направляющие достигнуты измеренным текстом. */
+/** Checks which selected guides the measured text reaches. */
 function resolveReachedPlannedAxes({
   constraints,
   measurement,
@@ -46,7 +46,7 @@ function resolveReachedPlannedAxes({
   })
 }
 
-/** Проверяет, что измеренный текст достиг переданных направляющих. */
+/** Checks that the measured text reaches the supplied guides. */
 function didReachTextCornerScaleConstraints({
   constraints,
   measurement,
@@ -65,7 +65,7 @@ function didReachTextCornerScaleConstraints({
   return reached.x && reached.y
 }
 
-/** Рассчитывает следующий множитель по точной локальной геометрии текста. */
+/** Calculates the next multiplier from exact local text geometry. */
 function resolveNextScale({
   constraints,
   measurement,
@@ -90,7 +90,7 @@ function resolveNextScale({
   return typeof nextScale === 'number' && Number.isFinite(nextScale) ? nextScale : null
 }
 
-/** Проверяет, что множитель ещё не измерялся на текущем шаге. */
+/** Checks that the multiplier has not yet been measured in the current step. */
 function isNewScale({
   measuredScales,
   scale
@@ -103,7 +103,7 @@ function isNewScale({
   })
 }
 
-/** Подбирает множитель для конкретного набора предварительно выбранных направляющих. */
+/** Finds a multiplier for a specific set of preselected guides. */
 function resolveTextCornerScaleMeasurementForConstraints({
   constraints,
   initialScale,
@@ -146,8 +146,8 @@ function resolveTextCornerScaleMeasurementForConstraints({
 }
 
 /**
- * Подбирает множитель, при котором рассчитанный размер текста достигает выбранных направляющих.
- * Textbox на холсте при этом не изменяется.
+ * Finds a multiplier at which the calculated text dimensions reach the selected guides.
+ * The Textbox on the canvas remains unchanged.
  */
 export function resolveTextCornerScaleSnapMeasurement({
   measurer,
@@ -170,7 +170,7 @@ export function resolveTextCornerScaleSnapMeasurement({
   })
 }
 
-/** Возвращает направляющие по одной в порядке исходного выбора общего расчёта. */
+/** Returns guides one at a time in their original selection order from the shared calculation. */
 function createTextCornerScaleSingleConstraintAttempts({
   plan
 }: {
@@ -179,7 +179,7 @@ function createTextCornerScaleSingleConstraintAttempts({
   const attempts: ScaleSnapConstraints[] = []
   const addedAxes = new Set<'x' | 'y'>()
 
-  /** Добавляет ещё не проверенную направляющую выбранной оси. */
+  /** Adds an untested guide for the selected axis. */
   const addAxis = (axis: 'x' | 'y', constraints: ScaleSnapConstraints): void => {
     if (addedAxes.has(axis) || !constraints[axis]) return
 
@@ -204,7 +204,7 @@ function createTextCornerScaleSingleConstraintAttempts({
   return Object.freeze(attempts)
 }
 
-/** Возвращает только те предварительно выбранные направляющие, которых достиг измеренный текст. */
+/** Returns only the preselected guides reached by the measured text. */
 export function resolveReachedTextCornerScaleConstraints({
   measurement,
   plan
@@ -225,7 +225,7 @@ export function resolveReachedTextCornerScaleConstraints({
   })
 }
 
-/** Выбирает измерение, достигшее хотя бы одной запланированной направляющей. */
+/** Selects a measurement that reaches at least one planned guide. */
 export function resolveReachedTextCornerScaleFallback({
   measurer,
   plan,

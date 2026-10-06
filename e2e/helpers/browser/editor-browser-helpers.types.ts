@@ -114,7 +114,7 @@ export type BrowserSnappingSpacingGuideInfo = {
   distance: number
 }
 
-/** Browser-side запись события о пропущенных при удалении объектах. */
+/** Browser-side event record for objects skipped during deletion. */
 export type BrowserDeleteSkippedEventRecord = {
   requestedCount: number
   requestedIds: Array<string | null>
@@ -128,7 +128,7 @@ export type BrowserSnappingGuideState = {
   spacingGuides: BrowserSnappingSpacingGuideInfo[]
 }
 
-/** Browser-side направляющая MeasurementManager с точным расстоянием. */
+/** Browser-side MeasurementManager guide with an exact distance. */
 export type BrowserMeasurementGuideInfo = {
   type: 'vertical' | 'horizontal'
   axis: number
@@ -137,7 +137,7 @@ export type BrowserMeasurementGuideInfo = {
   distance: number
 }
 
-/** Browser-side состояние направляющих во время Alt-измерения. */
+/** Browser-side guide state during Alt measurement. */
 export type BrowserMeasurementGuideState = {
   guides: BrowserMeasurementGuideInfo[]
   isAltPressed: boolean

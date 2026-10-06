@@ -6,7 +6,7 @@ import type {
 } from 'fabric'
 import type { EditorOptions } from '../types/options'
 
-/** Успешный результат импорта изображения. */
+/** Successful image import result. */
 export type SuccessulImageImportResult = {
   image: FabricImage | FabricObject
   format: string
@@ -21,7 +21,7 @@ export type SuccessulImageImportResult = {
   customData: object | null
 }
 
-/** Успешный результат экспорта canvas или отдельного объекта. */
+/** Successful canvas or individual object export result. */
 export type SuccessfulExportResult = {
   image: File | Blob | Base64URLString
   format: string
@@ -29,7 +29,7 @@ export type SuccessfulExportResult = {
   fileName: string
 }
 
-/** Опции импорта изображения в редактор. */
+/** Options for importing an image into the editor. */
 export type ImportImageOptions = {
   source: File | string,
   scale?: 'image-contain' | 'image-cover' | 'scale-montage',
@@ -41,7 +41,7 @@ export type ImportImageOptions = {
   customData?: object
 }
 
-/** Опции изменения размера изображения до заданных границ. */
+/** Options for resizing an image to the specified bounds. */
 export type ResizeImageToBoundariesOptions = {
   dataURL: string,
   sizeType?: 'max' | 'min',
@@ -56,7 +56,7 @@ export type ResizeImageToBoundariesOptions = {
   emitMessage?: boolean
 }
 
-/** Опции экспорта отдельного Fabric-объекта. */
+/** Options for exporting an individual Fabric object. */
 export type ExportObjectAsImageFileParameters = {
   object?: FabricObject,
   fileName?: string,
@@ -65,7 +65,7 @@ export type ExportObjectAsImageFileParameters = {
   exportAsBlob?: boolean
 }
 
-/** Опции экспорта всей монтажной области. */
+/** Options for exporting the entire artboard. */
 export type exportCanvasAsImageFileOptions = {
   fileName?: string,
   contentType?: string,
@@ -73,7 +73,7 @@ export type exportCanvasAsImageFileOptions = {
   exportAsBlob?: boolean
 }
 
-/** Payload ошибки или предупреждения, который ImageManager передаёт в ErrorManager. */
+/** Error or warning payload that ImageManager passes to ErrorManager. */
 export interface ImageManagerErrorPayload {
   code: string
   origin?: string
@@ -82,20 +82,20 @@ export interface ImageManagerErrorPayload {
   data?: object
 }
 
-/** Минимальный контракт ErrorManager, который нужен ImageManager. */
+/** Minimal ErrorManager contract required by ImageManager. */
 export interface ImageManagerErrorManager {
   emitError(payload: ImageManagerErrorPayload): void
   emitWarning(payload: ImageManagerErrorPayload): void
 }
 
-/** Минимальный контракт HistoryManager, который нужен ImageManager. */
+/** Minimal HistoryManager contract required by ImageManager. */
 export interface ImageManagerHistoryManager {
   suspendHistory(): void
   resumeHistory(): void
   saveState(): void
 }
 
-/** Минимальный контракт WorkerManager, который нужен ImageManager. */
+/** Minimal WorkerManager contract required by ImageManager. */
 export interface ImageManagerWorkerManager {
   post(
     action: string,
@@ -104,12 +104,12 @@ export interface ImageManagerWorkerManager {
   ): Promise<File | Blob | Base64URLString>
 }
 
-/** Минимальный контракт ModuleLoader, который нужен ImageManager. */
+/** Minimal ModuleLoader contract required by ImageManager. */
 export interface ImageManagerModuleLoader {
   loadModule<T extends object = object>(name: string): Promise<T>
 }
 
-/** Минимальный контракт CanvasManager, который нужен ImageManager. */
+/** Minimal CanvasManager contract required by ImageManager. */
 export interface ImageManagerCanvasManager {
   getMontageAreaSceneBounds(): {
     left: number
@@ -127,7 +127,7 @@ export interface ImageManagerCanvasManager {
   }): void
 }
 
-/** Минимальный контракт TransformManager, который нужен ImageManager. */
+/** Minimal TransformManager contract required by ImageManager. */
 export interface ImageManagerTransformManager {
   fitObject({
     object,
@@ -140,13 +140,13 @@ export interface ImageManagerTransformManager {
   }): void
 }
 
-/** Минимальный контракт InteractionBlocker, который нужен ImageManager. */
+/** Minimal InteractionBlocker contract required by ImageManager. */
 export interface ImageManagerInteractionBlocker {
   isBlocked: boolean
   overlayMask?: FabricObject | null
 }
 
-/** Локальный порт редактора, который нужен только ImageManager. */
+/** Local editor port needed only by ImageManager. */
 export interface ImageManagerEditor {
   options: EditorOptions
   canvas: Canvas

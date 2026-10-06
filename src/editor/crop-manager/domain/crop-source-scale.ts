@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичную domain-функцию держим выше private helper. */
+/* eslint-disable no-use-before-define -- Keep the public domain function above the private helper. */
 import type {
   FabricObject,
   Transform
@@ -10,27 +10,27 @@ import type {
 } from '../types'
 
 /**
- * Допуск source-размера, при котором frame уже считается упёртым в границу.
+ * Source size tolerance within which the frame is considered to have reached the boundary.
  */
 const SOURCE_BOUNDARY_SIZE_EPSILON = 1
 
 /**
- * Допуск сравнения source scale-limit из разных осей.
+ * Tolerance for comparing source scale limits from different axes.
  */
 const SOURCE_SCALE_LIMIT_EPSILON = 0.000000001
 
 /**
- * Какая сторона crop rect остаётся неподвижной во время source-bound scale.
+ * Which side of the crop rect stays fixed during source-bound scaling.
  */
 export type CropSourceScaleAnchor = 'min' | 'center' | 'max'
 
-/** Source с признаками отражения, если текущий CropFrame связан с source. */
+/** Source with flip flags, if the current CropFrame is associated with a source. */
 type CropScaleAnchorSource = Pick<FabricObject, 'flipX' | 'flipY'>
 
-/** Часть Fabric transform, которая определяет неподвижную сторону resize. */
+/** Part of the Fabric transform that determines the fixed side during resizing. */
 type CropScaleAnchorTransform = Pick<Transform, 'corner' | 'originX' | 'originY'>
 
-/** Визуально неподвижные стороны для каждой ручки crop-области. */
+/** Visually fixed sides for each crop area handle. */
 const CROP_CONTROL_VISUAL_ANCHORS: {
   [control: string]: {
     x?: CropSourceScaleAnchor
@@ -47,7 +47,7 @@ const CROP_CONTROL_VISUAL_ANCHORS: {
   mb: { y: 'min' }
 }
 
-/** Визуально неподвижные стороны для Fabric origin по каждой оси. */
+/** Visually fixed sides for the Fabric origin on each axis. */
 const CROP_ORIGIN_VISUAL_ANCHORS: {
   x: { [origin: string]: CropSourceScaleAnchor }
   y: { [origin: string]: CropSourceScaleAnchor }
@@ -57,7 +57,7 @@ const CROP_ORIGIN_VISUAL_ANCHORS: {
 }
 
 /**
- * Возвращает неподвижную сторону resize в локальных координатах source.
+ * Returns the fixed side of the resize in local source coordinates.
  */
 export function resolveCropSourceScaleAnchor({
   source,
@@ -77,7 +77,7 @@ export function resolveCropSourceScaleAnchor({
 }
 
 /**
- * Source-bound snap plan для proportional resize.
+ * Source-bound snap plan for proportional resizing.
  */
 export type CropProportionalSourceSnapPlan = {
   scale: number
@@ -85,7 +85,7 @@ export type CropProportionalSourceSnapPlan = {
 }
 
 /**
- * Параметры расчёта максимального независимого scale по одной оси внутри source.
+ * Parameters for calculating the maximum independent scale along one axis within the source.
  */
 type ResolveCropSourceAxisScaleLimitParams = {
   sourceSize: CropSize
@@ -95,7 +95,7 @@ type ResolveCropSourceAxisScaleLimitParams = {
 }
 
 /**
- * Параметры расчёта максимального proportional scale внутри source.
+ * Parameters for calculating the maximum proportional scale within the source.
  */
 type ResolveCropProportionalSourceScaleLimitParams = {
   sourceSize: CropSize
@@ -105,7 +105,7 @@ type ResolveCropProportionalSourceScaleLimitParams = {
 }
 
 /**
- * Scale-limit одной source-оси для snap-plan.
+ * Scale limit of one source axis for the snap plan.
  */
 type CropSourceAxisSnapLimit = {
   sizeLimit: number
@@ -113,7 +113,7 @@ type CropSourceAxisSnapLimit = {
 }
 
 /**
- * Возвращает визуально неподвижную сторону resize до преобразования в source-координаты.
+ * Returns the visually fixed side of the resize before conversion to source coordinates.
  */
 function resolveCropVisualScaleAnchor({
   transform,
@@ -134,7 +134,7 @@ function resolveCropVisualScaleAnchor({
 }
 
 /**
- * Возвращает максимальный proportional multiplier, при котором frame остаётся внутри source.
+ * Returns the maximum proportional multiplier that keeps the frame within the source.
  */
 export function resolveCropProportionalSourceScaleLimit({
   sourceSize,
@@ -187,7 +187,7 @@ export function resolveCropProportionalSourceScaleLimit({
 }
 
 /**
- * Возвращает proportional source-bound snap-plan в округляемых source-пикселях.
+ * Returns a proportional source-bound snap plan in source pixels suitable for rounding.
  */
 export function resolveCropProportionalSourceSnapPlan({
   sourceSize,
@@ -242,7 +242,7 @@ export function resolveCropProportionalSourceSnapPlan({
 }
 
 /**
- * Возвращает максимальный axis multiplier, при котором frame остаётся внутри source.
+ * Returns the maximum axis multiplier that keeps the frame within the source.
  */
 export function resolveCropSourceAxisScaleLimit({
   sourceSize,
@@ -280,7 +280,7 @@ export function resolveCropSourceAxisScaleLimit({
 }
 
 /**
- * Возвращает rounded source-limit одной оси для source-bound snap-plan.
+ * Returns the rounded source limit for one axis of the source-bound snap plan.
  */
 function resolveCropSourceAxisSnapLimit({
   sourceSize,
@@ -311,7 +311,7 @@ function resolveCropSourceAxisSnapLimit({
 }
 
 /**
- * Материализует source-rect для rounded proportional source-bound snap-plan.
+ * Materializes the source rect for the rounded proportional source-bound snap plan.
  */
 function resolveCropProportionalSourceSnapRect({
   sourceSize,
@@ -362,7 +362,7 @@ function resolveCropProportionalSourceSnapRect({
 }
 
 /**
- * Возвращает start source-rect для обычного anchor или snapped source-boundary.
+ * Returns the source rect start coordinate for a regular anchor or snapped source boundary.
  */
 function resolveCropSourceSnapRectStart({
   sourceSize,
@@ -407,7 +407,7 @@ function resolveCropSourceSnapRectStart({
 }
 
 /**
- * Возвращает true, если выбранный scale упёрся в limit этой оси.
+ * Returns true if the selected scale has reached the limit for this axis.
  */
 function isScaleLimitActive({
   scale,
@@ -420,7 +420,7 @@ function isScaleLimitActive({
 }
 
 /**
- * Сохраняет неподвижную сторону crop-прямоугольника при изменении размера.
+ * Preserves the fixed side of the crop rectangle when resizing.
  */
 export function resolveAnchoredRectStart({
   start,
@@ -440,7 +440,7 @@ export function resolveAnchoredRectStart({
 }
 
 /**
- * Возвращает true, если crop rect уже занимает всю source-длину в отображаемых пикселях.
+ * Returns true if the crop rect already spans the full source length in displayed pixels.
  */
 function isSourceAxisVisiblyFilled({
   sourceSize,
@@ -464,7 +464,7 @@ function isSourceAxisVisiblyFilled({
 }
 
 /**
- * Возвращает длину source по указанной оси.
+ * Returns the source length along the specified axis.
  */
 function getSourceAxisLength({
   sourceSize,
@@ -477,7 +477,7 @@ function getSourceAxisLength({
 }
 
 /**
- * Возвращает длину rect по указанной оси.
+ * Returns the rect length along the specified axis.
  */
 function getRectAxisLength({
   rect,
@@ -490,7 +490,7 @@ function getRectAxisLength({
 }
 
 /**
- * Возвращает максимальный размер вдоль оси с учётом fixed anchor.
+ * Returns the maximum size along the axis, accounting for the fixed anchor.
  */
 function resolveAnchoredSourceSizeLimit({
   sourceSize,
@@ -535,7 +535,7 @@ function resolveAnchoredSourceSizeLimit({
 }
 
 /**
- * Возвращает source-boundary значение без микрозазора от предыдущего live resize.
+ * Returns the source boundary value without the tiny gap left by the previous live resize.
  */
 function snapSourceBoundaryValue({
   value,

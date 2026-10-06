@@ -121,12 +121,12 @@ test.describe('Добавление фигуры с сохранением пр�
         presetKey: SHAPE_PRESERVE_ASPECT_REPLACEMENT_PRESET
       })
 
-      // После auto-grow под текст фигура расширилась
+      // The shape expanded after auto-growing to fit the text
       expect(expandedSnapshot.groupBoundsWidth)
         .toBeGreaterThan((SHAPE_PRESERVE_ASPECT_BASE_OPTIONS.width ?? 0) + SHAPE_PRESERVE_ASPECT_TOLERANCE)
 
-      // При смене фигуры используется исходный replace box, а не выросший размер
-      // Новая фигура вписывается в replace box и получается меньше, чем выросший размер
+      // Shape replacement uses the original replace box rather than the expanded size
+      // The new shape fits into the replace box and is smaller than the expanded size
       expect(updatedSnapshot.groupBoundsWidth)
         .toBeLessThan(expandedSnapshot.groupBoundsWidth - SHAPE_PRESERVE_ASPECT_TOLERANCE)
       shapes.checkNodeInsideGroup({ snapshot: updatedSnapshot, kind: 'shape' })

@@ -3,7 +3,7 @@ import type { Bounds } from '../../../../../src/editor/snapping-manager/types'
 import { resolveDisplayDistance } from '../../../../../src/editor/utils/distance'
 import { createMovementBounds } from '../../../../test-utils/snapping/movement-snapping-core'
 
-/** Геометрия пользовательских шаблонов во время перемещения среднего шейпа. */
+/** Geometry of user templates while the middle shape is moving. */
 const TEMPLATE_CENTERED_SPACING_CASES = [
   {
     title: 'находит точную позицию для шейпа целой ширины при произвольной дробной координате',

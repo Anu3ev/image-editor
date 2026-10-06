@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные функции держим выше private helpers. */
+/* eslint-disable no-use-before-define -- Keep public functions above private helpers. */
 import {
   Point,
   util,
@@ -20,32 +20,32 @@ import type {
 import type { ObjectBounds } from '../../utils/geometry'
 
 /**
- * Минимальная ширина crop frame в локальных координатах источника.
+ * Minimum crop frame width in local source coordinates.
  */
 export const MIN_CROP_FRAME_WIDTH = CANVAS_MIN_WIDTH
 
 /**
- * Минимальная высота crop frame в локальных координатах источника.
+ * Minimum crop frame height in local source coordinates.
  */
 export const MIN_CROP_FRAME_HEIGHT = CANVAS_MIN_HEIGHT
 
 /**
- * Максимальная ширина crop frame в локальных координатах источника.
+ * Maximum crop frame width in local source coordinates.
  */
 export const MAX_CROP_FRAME_WIDTH = CANVAS_MAX_WIDTH
 
 /**
- * Максимальная высота crop frame в локальных координатах источника.
+ * Maximum crop frame height in local source coordinates.
  */
 export const MAX_CROP_FRAME_HEIGHT = CANVAS_MAX_HEIGHT
 
 /**
- * Минимальный квадратный размер crop frame для обратной совместимости.
+ * Minimum square crop frame size for backward compatibility.
  */
 export const MIN_CROP_FRAME_SIZE = MIN_CROP_FRAME_WIDTH
 
 /**
- * Возвращает размер crop frame по explicit size, aspect ratio или полному размеру источника.
+ * Returns the crop frame size based on an explicit size, aspect ratio, or full source size.
  */
 export function resolveCropSize({
   sourceSize,
@@ -80,7 +80,7 @@ export function resolveCropSize({
 }
 
 /**
- * Переводит видимую пропорцию crop-области в локальные координаты изображения.
+ * Converts the visible aspect ratio of the crop area to local image coordinates.
  */
 export function resolveImageCropSourceAspectRatio({
   source,
@@ -99,7 +99,7 @@ export function resolveImageCropSourceAspectRatio({
 }
 
 /**
- * Возвращает локальный size источника crop mode.
+ * Returns the local size of the crop mode source.
  */
 export function getSourceSize({ source }: { source: FabricObject }): CropSize {
   return {
@@ -108,7 +108,7 @@ export function getSourceSize({ source }: { source: FabricObject }): CropSize {
   }
 }
 
-/** Возвращает границы crop-рамки или содержимого источника в координатах сцены, без обводки. */
+/** Returns the crop frame or source content bounds in scene coordinates, without the stroke. */
 export function getCropObjectSceneBounds({ object }: { object: FabricObject }): ObjectBounds {
   const matrix = object.calcTransformMatrix()
   const halfWidth = object.width / 2
@@ -132,7 +132,7 @@ export function getCropObjectSceneBounds({ object }: { object: FabricObject }): 
 }
 
 /**
- * Возвращает crop rect frame в локальных координатах источника.
+ * Returns the crop frame rect in local source coordinates.
  */
 export function getCropRectInSource({
   source,
@@ -152,7 +152,7 @@ export function getCropRectInSource({
 }
 
 /**
- * Ограничивает frame границами источника crop mode.
+ * Constrains the frame to the bounds of the crop mode source.
  */
 export function clampCropFrameToSource({
   source,
@@ -172,7 +172,7 @@ export function clampCropFrameToSource({
 }
 
 /**
- * Ограничивает frame с фиксированной пропорцией границами источника без разрыва текущей пропорции.
+ * Constrains a fixed-aspect-ratio frame to the source bounds while preserving its current aspect ratio.
  */
 export function clampCropFrameToSourcePreservingAspectRatio({
   source,
@@ -192,7 +192,7 @@ export function clampCropFrameToSourcePreservingAspectRatio({
 }
 
 /**
- * Возвращает bounds по набору точек.
+ * Returns the bounds of a set of points.
  */
 function getBoundsFromPoints({ points }: { points: Point[] }): CropRect {
   const left = Math.min(...points.map((point) => point.x))
@@ -209,7 +209,7 @@ function getBoundsFromPoints({ points }: { points: Point[] }): CropRect {
 }
 
 /**
- * Возвращает углы crop frame без учёта stroke.
+ * Returns the crop frame corners, excluding the stroke.
  */
 function getFrameLocalCorners({ frame }: { frame: Rect }): Point[] {
   const halfWidth = frame.width / 2
@@ -224,7 +224,7 @@ function getFrameLocalCorners({ frame }: { frame: Rect }): Point[] {
 }
 
 /**
- * Подбирает максимальный размер внутри источника с заданной пропорцией.
+ * Finds the largest size with the specified aspect ratio that fits inside the source.
  */
 function resolveAspectRatioSize({
   sourceSize,
@@ -250,7 +250,7 @@ function resolveAspectRatioSize({
 }
 
 /**
- * Ограничивает explicit size размерами источника.
+ * Constrains the explicit size to the source dimensions.
  */
 function clampCropSize({
   size,
@@ -298,7 +298,7 @@ function clampCropSize({
 }
 
 /**
- * Уменьшает frame, если он стал больше источника.
+ * Shrinks the frame if it exceeds the source size.
  */
 function shrinkFrameToSource({
   source,
@@ -326,7 +326,7 @@ function shrinkFrameToSource({
 }
 
 /**
- * Уменьшает frame единым scale-множителем, если resize с фиксированной пропорцией вышел за source.
+ * Shrinks the frame by a uniform scale factor if a fixed-aspect-ratio resize exceeds the source bounds.
  */
 function shrinkFrameToSourcePreservingAspectRatio({
   source,
@@ -355,7 +355,7 @@ function shrinkFrameToSourcePreservingAspectRatio({
 }
 
 /**
- * Двигает frame обратно внутрь источника без изменения его размера.
+ * Moves the frame back inside the source without changing its size.
  */
 function moveFrameInsideSource({
   source,
@@ -385,7 +385,7 @@ function moveFrameInsideSource({
 }
 
 /**
- * Возвращает центр crop rect.
+ * Returns the center of the crop rect.
  */
 function getCropRectCenter({ rect }: { rect: CropRect }): Point {
   return new Point(
@@ -395,7 +395,7 @@ function getCropRectCenter({ rect }: { rect: CropRect }): Point {
 }
 
 /**
- * Рассчитывает сдвиг crop-области внутрь источника в исходных пикселях без изменения объектов.
+ * Calculates the offset needed to move the crop area inside the source in source pixels without modifying objects.
  */
 export function getCropSourceClampOffset({
   rect,
@@ -428,7 +428,7 @@ export function getCropSourceClampOffset({
 }
 
 /**
- * Ограничивает число диапазоном.
+ * Clamps a number to a range.
  */
 function clampNumber({
   value,

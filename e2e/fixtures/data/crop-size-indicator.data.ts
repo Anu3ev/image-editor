@@ -1,56 +1,56 @@
 import type { CropControlKey } from '../../types'
 
-/** Размер монтажной области, который используется в демо по умолчанию. */
+/** Default artboard dimensions used in the demo. */
 export const DEFAULT_MONTAGE_SIZE = 512
 
-/** Стартовый размер crop-области для сценария растягивания до монтажной области. */
+/** Initial crop-area dimensions for the scenario that stretches it to the artboard. */
 export const SMALLER_CROP_SIZE = 400
 
-/** Размер crop-области, до которого пользователь растягивает область в live-сценарии. */
+/** Crop-area dimensions the user stretches the area to in the live scenario. */
 export const LARGER_CROP_TARGET_SIZE = 513
 
-/** Размер crop-области, до которого пользователь уменьшает область в live-сценарии. */
+/** Crop-area dimensions the user shrinks the area to in the live scenario. */
 export const SHRUNK_CROP_TARGET_SIZE = 372
 
-/** Размер монтажной области для проверки поведения около snap-порога. */
+/** Artboard dimensions for testing behavior near the snapping threshold. */
 export const SNAP_THRESHOLD_MONTAGE_SIZE = 1024
 
-/** Размер, который находится внутри snap-порога от края монтажной области. */
+/** Size within the snapping threshold of the artboard edge. */
 export const CROP_SIZE_INSIDE_SNAP_THRESHOLD = 1023
 
-/** Snap-порог SnappingManager в экранных пикселях. */
+/** SnappingManager snapping threshold in screen pixels. */
 export const SNAP_THRESHOLD_SCREEN_PIXELS = 5
 
-/** Дополнительный отступ за snap-порогом, чтобы drag гарантированно вышел из прилипания. */
+/** Additional margin beyond the snapping threshold to ensure the drag releases the snap. */
 export const SNAP_RELEASE_MARGIN_IN_SOURCE_PIXELS = 2
 
-/** Вертикальный drag внутри snap-порога для проверки ручного resize из угла. */
+/** Vertical drag within the snapping threshold for testing manual corner resize. */
 export const STRICT_FREE_CROP_INSIDE_SNAP_DRAG_PIXELS = 2
 
-/** Размер изображения для проверки image crop у границ source. */
+/** Image dimensions for testing image cropping at the source boundaries. */
 export const EDGE_IMAGE_CROP_SOURCE_SIZE = {
   width: 1000,
   height: 667
 } as const
 
-/** Квадратная crop-область, ограниченная высотой тестового изображения. */
+/** Square crop area constrained by the test image's height. */
 export const EDGE_IMAGE_CROP_SQUARE_SIZE = 667
 
-/** Небольшой drag внутри snap-порога для proportional image crop у границы source. */
+/** Small drag within the snapping threshold for proportional image cropping at the source boundary. */
 export const EDGE_IMAGE_CROP_INSIDE_SNAP_DRAG_PIXELS = 1
 
-/** Число live-шагов для медленного resize внутри snap-порога. */
+/** Number of live steps for slow resizing within the snapping threshold. */
 export const EDGE_IMAGE_CROP_SLOW_SNAP_STEPS = 80
 
-/** Небольшой экранный drag внутри snap-порога для proportional image crop у границы source. */
+/** Small screen-space drag within the snapping threshold for proportional image cropping at the source boundary. */
 export const EDGE_IMAGE_CROP_INSIDE_SNAP_SCREEN_PIXELS = 1
 
-/** Размер crop-области после уменьшения квадратного image crop до серединных guide source. */
+/** Crop-area dimensions after shrinking a square image crop to the source's center guides. */
 export const EDGE_IMAGE_CROP_MIDDLE_GUIDE_SIZE = Math.round(EDGE_IMAGE_CROP_SQUARE_SIZE / 2)
 
 const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT = EDGE_IMAGE_CROP_SOURCE_SIZE.height / 2
 
-/** Размер пропорционального image crop после прилипания верхней стороны к середине source. */
+/** Proportional image-crop dimensions after snapping the top side to the source center. */
 export const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE = {
   height: Math.round(EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_HEIGHT),
   width: Math.round(
@@ -61,7 +61,7 @@ export const EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE = {
 
 const EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_WIDTH = EDGE_IMAGE_CROP_SOURCE_SIZE.width / 2
 
-/** Размер индикатора после прилипания левой стороны к вертикальной середине source. */
+/** Indicator dimensions after snapping the left side to the source's vertical centerline. */
 export const EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE = {
   width: EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_WIDTH,
   height: Math.round(
@@ -70,7 +70,7 @@ export const EDGE_IMAGE_CROP_ASPECT_VERTICAL_MIDDLE_GUIDE_INDICATOR_SIZE = {
   )
 } as const
 
-/** Размеры монтажной области, на которых полный crop не должен терять пиксель. */
+/** Artboard dimensions at which a full crop must not lose a pixel. */
 export const FULL_CROP_MONTAGE_SIZES = [
   {
     width: 1027,
@@ -90,7 +90,7 @@ export const FULL_CROP_MONTAGE_SIZES = [
   }
 ] as const
 
-/** Угловые controls для проверки выхода полного crop из snap-порога. */
+/** Corner controls for testing a full crop leaving the snapping threshold. */
 export const FULL_CROP_SNAP_THRESHOLD_CORNER_CASES = [
   {
     control: 'tl',
@@ -113,7 +113,7 @@ export const FULL_CROP_SNAP_THRESHOLD_CORNER_CASES = [
   title: string
 }>
 
-/** Боковые controls для проверки выхода полного crop из snap-порога по одной оси. */
+/** Side controls for testing a full crop leaving the snapping threshold along one axis. */
 export const FULL_CROP_SNAP_THRESHOLD_SIDE_CASES = [
   {
     control: 'ml',
@@ -141,7 +141,7 @@ export const FULL_CROP_SNAP_THRESHOLD_SIDE_CASES = [
   axis: 'horizontal' | 'vertical'
 }>
 
-/** Угловые resize-сценарии без сохранения пропорций около snap-порога. */
+/** Corner-resize scenarios without preserving the aspect ratio near the snapping threshold. */
 export const FREE_CROP_CORNER_SNAP_AXIS_CASES = [
   {
     control: 'tr',
@@ -174,7 +174,7 @@ export const FREE_CROP_CORNER_SNAP_AXIS_CASES = [
   directionMultiplier: -1 | 1
 }>
 
-/** Угловые controls для вертикального resize без overflow и без сохранения пропорций. */
+/** Corner controls for vertical resize without overflow or aspect-ratio preservation. */
 export const STRICT_FREE_CROP_VERTICAL_SNAP_CORNER_CASES = [
   {
     control: 'tl',
@@ -202,7 +202,7 @@ export const STRICT_FREE_CROP_VERTICAL_SNAP_CORNER_CASES = [
   shrinkDeltaY: -1 | 1
 }>
 
-/** Угловые resize-сценарии proportional image crop у правой границы source. */
+/** Corner-resize scenarios for proportional image cropping at the right source boundary. */
 export const EDGE_IMAGE_CROP_BOUNDARY_DRAG_CASES = [
   {
     control: 'tl',
@@ -268,7 +268,7 @@ export const EDGE_IMAGE_CROP_BOUNDARY_DRAG_CASES = [
   deltaY: -1 | 1
 }>
 
-/** Осевые drag-сценарии из углов proportional image crop у правой границы source. */
+/** Axis-aligned drag scenarios from proportional image-crop corners at the right source boundary. */
 export const EDGE_IMAGE_CROP_AXIS_BOUNDARY_DRAG_CASES = [
   {
     control: 'tl',
@@ -334,7 +334,7 @@ export const EDGE_IMAGE_CROP_AXIS_BOUNDARY_DRAG_CASES = [
   deltaY: -1 | 0 | 1
 }>
 
-/** Угловые resize-сценарии proportional image crop до серединных guide source. */
+/** Corner-resize scenarios for proportional image cropping to the source's center guides. */
 export const EDGE_IMAGE_CROP_MIDDLE_GUIDE_DRAG_CASES = [
   {
     control: 'tl',

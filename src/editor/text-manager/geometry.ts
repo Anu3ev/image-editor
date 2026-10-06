@@ -4,7 +4,7 @@ import { DIMENSION_EPSILON } from './constants'
 import type { EditorTextbox } from './types'
 
 /**
- * Возвращает ширину самой длинной строки текстового объекта.
+ * Returns the width of the text object's longest line.
  */
 export const getLongestLineWidth = ({
   textbox,
@@ -48,9 +48,9 @@ const resolveOriginOffset = ({
 }
 
 /**
- * Возвращает placement внутренней text-area без учёта фоновой оболочки.
- * Нужен для сценариев, где padding меняет только визуальную оболочку,
- * но само положение текста в сцене должно оставаться прежним.
+ * Returns placement of the inner text area, excluding the background shell.
+ * Used when padding changes only the visual shell
+ * but the text's position in the scene must remain unchanged.
  */
 export const getTextboxContentPlacement = ({
   textbox,
@@ -102,7 +102,7 @@ export const getTextboxContentPlacement = ({
 }
 
 /**
- * Сдвигает текстовый объект по X, чтобы он не выходил за пределы монтажной области.
+ * Shifts the text object along X to keep it within the artboard.
  */
 export const clampTextboxToMontage = ({
   textbox,
@@ -137,7 +137,7 @@ export const clampTextboxToMontage = ({
 }
 
 /**
- * Возвращает числовое значение размера, используя исходное значение или заранее вычисленное.
+ * Returns a numeric dimension using either the original value or a precalculated one.
  */
 const resolveDimension = (
   {
@@ -158,7 +158,7 @@ const resolveDimension = (
 }
 
 /**
- * Проверяет, есть ли среди стилей свойства, влияющие на перенос строк и высоту текста.
+ * Checks whether the styles contain properties that affect line wrapping and text height.
  */
 export const hasLayoutAffectingStyles = ({
   stylesList
@@ -193,7 +193,7 @@ export const hasLayoutAffectingStyles = ({
 }
 
 /**
- * Округляет ширину и высоту текстового блока до ближайших целых значений.
+ * Rounds text-block width and height to the nearest integers.
  */
 export const roundTextboxDimensions = (
   {

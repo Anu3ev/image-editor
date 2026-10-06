@@ -14,7 +14,7 @@ import type {
 } from '../types'
 
 /**
- * Параметры создания текстового узла внутри shape-группы.
+ * Parameters for creating a text node inside a shape group.
  */
 type ShapeTextNodeCreationOptions = {
   text?: string
@@ -25,7 +25,7 @@ type ShapeTextNodeCreationOptions = {
 }
 
 /**
- * Параметры программного обновления текстового узла внутри shape-группы.
+ * Parameters for programmatically updating a text node inside a shape group.
  */
 type ShapeTextNodeUpdateOptions = {
   textNode: ShapeTextNode
@@ -36,7 +36,7 @@ type ShapeTextNodeUpdateOptions = {
 }
 
 /**
- * Text style значения без target и lifecycle-флагов обновления.
+ * Text-style values without the target and update lifecycle flags.
  */
 type ShapeTextNodeStyleUpdateOptions = {
   text?: string
@@ -45,7 +45,7 @@ type ShapeTextNodeStyleUpdateOptions = {
 }
 
 /**
- * Text style keys, которые не меняют измеряемую геометрию текста.
+ * Text-style keys that do not change measured text geometry.
  */
 const SHAPE_TEXT_VISUAL_ONLY_STYLE_KEYS = new Set<keyof ShapeTextStyleOptions>([
   'align',
@@ -58,7 +58,7 @@ const SHAPE_TEXT_VISUAL_ONLY_STYLE_KEYS = new Set<keyof ShapeTextStyleOptions>([
 ])
 
 /**
- * Клонирует изменяемое style-состояние Fabric перед staged update.
+ * Clones mutable Fabric style state before a staged update.
  */
 const cloneTextStyleState = <Value>(value?: Value): Value | undefined => {
   if (value === undefined) return undefined
@@ -67,24 +67,24 @@ const cloneTextStyleState = <Value>(value?: Value): Value | undefined => {
 }
 
 /**
- * Адаптирует TextManager для текстового узла, которым владеет shape-группа.
+ * Adapts TextManager for a text node owned by a shape group.
  */
 export default class ShapeTextNodeController {
   /**
-   * Разрешает TextManager после завершения manager composition.
+   * Resolves TextManager after manager composition is complete.
    */
   private readonly resolveTextManager: () => TextManager
 
   /**
-   * Узлы, которые контроллер обновляет без внешнего shape lifecycle.
+   * Nodes the controller updates without an external shape lifecycle.
    */
   private readonly internalUpdates: WeakSet<ShapeTextNode>
 
   /**
-   * Создаёт адаптер с отложенным разрешением TextManager.
+   * Creates an adapter with deferred TextManager resolution.
    *
-   * ShapeManager подписывается на Fabric events раньше TextManager, поэтому
-   * dependency нельзя читать до завершения composition root.
+   * ShapeManager subscribes to Fabric events before TextManager, so
+   * the dependency cannot be read until the composition root is complete.
    */
   constructor({
     resolveTextManager
@@ -96,7 +96,7 @@ export default class ShapeTextNodeController {
   }
 
   /**
-   * Создаёт вложенный textbox без добавления на canvas и editor-level lifecycle events.
+   * Creates a nested textbox without adding it to the canvas or emitting editor-level lifecycle events.
    */
   public create({
     text,
@@ -138,7 +138,7 @@ export default class ShapeTextNodeController {
   }
 
   /**
-   * Применяет обновления к shape-owned textbox без отдельной history-записи TextManager.
+   * Applies updates to a shape-owned textbox without a separate TextManager history entry.
    */
   public applyUpdates({
     textNode,
@@ -174,7 +174,7 @@ export default class ShapeTextNodeController {
   }
 
   /**
-   * Возвращает текущее состояние textbox для staged shape update.
+   * Returns the current textbox state for a staged shape update.
    */
   public resolveCurrentStyle({
     group,
@@ -223,7 +223,7 @@ export default class ShapeTextNodeController {
   }
 
   /**
-   * Проверяет, может ли изменение textStyle повлиять на размеры text layout.
+   * Checks whether a textStyle change can affect text-layout dimensions.
    */
   public hasSizeAffectingStyleChanges({
     textStyle
@@ -242,14 +242,14 @@ export default class ShapeTextNodeController {
   }
 
   /**
-   * Проверяет, обновляется ли узел самим shape text controller.
+   * Checks whether the node is being updated by the shape text controller itself.
    */
   public isInternalUpdate({ textNode }: { textNode: ShapeTextNode }): boolean {
     return this.internalUpdates.has(textNode)
   }
 
   /**
-   * Собирает TextManager style update и фиксирует shape-owned textbox invariants.
+   * Builds a TextManager style update and enforces shape-owned textbox invariants.
    */
   private _resolveStyleUpdates({
     text,
@@ -277,7 +277,7 @@ export default class ShapeTextNodeController {
   }
 
   /**
-   * Возвращает актуальное выравнивание staged text style.
+   * Returns the current alignment from the staged text style.
    */
   private _resolveCurrentAlign({
     group,
@@ -297,7 +297,7 @@ export default class ShapeTextNodeController {
   }
 
   /**
-   * Возвращает готовый TextManager или явно прерывает преждевременный вызов.
+   * Returns a ready TextManager or explicitly aborts a premature call.
    */
   private _getTextManager(): TextManager {
     const textManager = this.resolveTextManager()

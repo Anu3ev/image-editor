@@ -7,7 +7,7 @@ const config: Config.InitialOptions = {
     '<rootDir>/specs/**/*.test.ts',
     '<rootDir>/specs/**/*.spec.ts'
   ],
-  // Временно исключаем проблемный тест
+  // Temporarily exclude the problematic test
   testPathIgnorePatterns: [
     // '<rootDir>/specs/src/main.spec.ts'
   ],
@@ -33,14 +33,14 @@ const config: Config.InitialOptions = {
     'node_modules/(?!(nanoid|fabric|jsondiffpatch)/)'
   ],
   setupFilesAfterEnv: ['<rootDir>/specs/setupTests.ts'],
-  // Настройка сбора покрытия только для editor-кода
+  // Collect coverage only for editor code
   collectCoverageFrom: [
     'src/editor/**/*.{ts,js}',
     '!src/editor/**/*.d.ts',
     '!src/editor/**/*.test.ts',
     '!src/editor/**/*.spec.ts'
   ]
-  // Убираем пороги покрытия чтобы низкое покрытие не считалось ошибкой
+  // Remove coverage thresholds so low coverage is not treated as an error
   // coverageThreshold: {
   //   global: {
   //     branches: 50,

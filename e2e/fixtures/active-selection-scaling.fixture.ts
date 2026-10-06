@@ -14,16 +14,16 @@ import type {
 } from '../types'
 import { ACTIVE_SELECTION_TEXT_SCALE_SEEDS } from './data/active-selection-scaling.data'
 
-/** Ширина опорного шейпа в экранных пикселях. */
+/** Reference-shape width in screen pixels. */
 const ACTIVE_SELECTION_SCALE_REFERENCE_WIDTH_PX = 8
 
-/** Расстояние от исходной левой границы выделения до опорного шейпа в экранных пикселях. */
+/** Distance from the selection's initial left edge to the reference shape in screen pixels. */
 const ACTIVE_SELECTION_SCALE_REFERENCE_GAP_PX = 40
 
-/** Смещение текстовой сцены вниз для подхода верхней грани к центру монтажной области. */
+/** Downward offset of the text scene to bring its top edge toward the artboard center. */
 const ACTIVE_SELECTION_MONTAGE_TEXT_VERTICAL_OFFSET = 170
 
-/** Общая геометрия сцены для проверки скейлинга составного выделения. */
+/** Shared scene geometry for testing composite-selection scaling. */
 type ActiveSelectionScaleSetup = Readonly<{
   guides: Readonly<{
     bottom: number
@@ -37,27 +37,27 @@ type ActiveSelectionScaleSetup = Readonly<{
   targetMultiplier: number
 }>
 
-/** Сцена для проверки скейлинга общего выделения из изображений. */
+/** Scene for testing scaling of an active selection of images. */
 type ActiveSelectionImageScaleSetup = ActiveSelectionScaleSetup
 
-/** Сцена для проверки скейлинга общего выделения из шейпов. */
+/** Scene for testing scaling of an active selection of shapes. */
 type ActiveSelectionShapeScaleSetup = ActiveSelectionScaleSetup & Readonly<{
   shapeIds: readonly [string, string]
 }>
 
-/** Сцена для проверки скейлинга общего выделения из отдельных текстов. */
+/** Scene for testing scaling of an active selection of standalone text objects. */
 type ActiveSelectionTextScaleSetup = ActiveSelectionScaleSetup & Readonly<{
   textIds: readonly [string, string]
 }>
 
-/** Сцена с текстовым выделением для прилипания к направляющим монтажной области. */
+/** Scene with a text selection for snapping to artboard guides. */
 type ActiveSelectionMontageTextScaleSetup = Readonly<{
   initial: SelectionCompositionSnapshot
   montage: MontageAreaBoundsInfo
   scenePixel: number
 }>
 
-/** Сцена с изображением, шейпом и отдельным текстом для общего скейлинга. */
+/** Scene with an image, a shape, and standalone text for collective scaling. */
 type ActiveSelectionMixedScaleSetup = Readonly<{
   imageId: string
   initial: SelectionCompositionSnapshot
@@ -67,7 +67,7 @@ type ActiveSelectionMixedScaleSetup = Readonly<{
   textId: string
 }>
 
-/** Сцена с изображением и двумя отдельными текстами. */
+/** Scene with an image and two standalone text objects. */
 type ActiveSelectionImageTextScaleSetup = Readonly<{
   imageIds: readonly [string]
   initial: SelectionCompositionSnapshot
@@ -76,7 +76,7 @@ type ActiveSelectionImageTextScaleSetup = Readonly<{
   textIds: readonly [string, string]
 }>
 
-/** Дополнительные данные для скейлинга общего выделения. */
+/** Additional data for scaling an active selection. */
 interface ActiveSelectionScalingFixtures {
   activeSelectionAutoExpandTextScaleSetup: ActiveSelectionTextScaleSetup
   activeSelectionImageScaleSetup: ActiveSelectionImageScaleSetup
@@ -87,21 +87,21 @@ interface ActiveSelectionScalingFixtures {
   activeSelectionTextScaleSetup: ActiveSelectionTextScaleSetup
 }
 
-/** Модели, необходимые для подготовки выделения из изображений. */
+/** Models required to prepare an image selection. */
 type ActiveSelectionImageModels = Readonly<{
   editorModel: EditorModel
   images: ImageModel
   selection: SelectionModel
 }>
 
-/** Модели, необходимые для подготовки выделения из шейпов. */
+/** Models required to prepare a shape selection. */
 type ActiveSelectionShapeModels = Readonly<{
   editorModel: EditorModel
   selection: SelectionModel
   shapes: ShapeModel
 }>
 
-/** Модели, необходимые для подготовки выделения из отдельных текстов. */
+/** Models required to prepare a selection of standalone text objects. */
 type ActiveSelectionTextModels = Readonly<{
   autoExpand: boolean
   editorModel: EditorModel
@@ -109,19 +109,19 @@ type ActiveSelectionTextModels = Readonly<{
   text: TextModel
 }>
 
-/** Параметры подготовки выделения из отдельных текстов. */
+/** Options for preparing a selection of standalone text objects. */
 type ActiveSelectionTextSetupParams = ActiveSelectionTextModels & Readonly<{
   verticalOffset?: number
 }>
 
-/** Модели для подготовки текстовой сцены с опорными направляющими. */
+/** Models for preparing a text scene with reference guides. */
 type ActiveSelectionTextScaleFixtureModels = ActiveSelectionTextModels & Readonly<{
   history: HistoryModel
   shapes: ShapeModel
   snapping: SnappingModel
 }>
 
-/** Модели, необходимые для подготовки смешанного выделения. */
+/** Models required to prepare a mixed selection. */
 type ActiveSelectionMixedModels = Readonly<{
   editorModel: EditorModel
   images: ImageModel
@@ -130,7 +130,7 @@ type ActiveSelectionMixedModels = Readonly<{
   text: TextModel
 }>
 
-/** Модели, необходимые для подготовки выделения из изображения и текстов. */
+/** Models required to prepare a selection of an image and text objects. */
 type ActiveSelectionImageTextModels = Readonly<{
   editorModel: EditorModel
   images: ImageModel
@@ -138,7 +138,7 @@ type ActiveSelectionImageTextModels = Readonly<{
   text: TextModel
 }>
 
-/** Геометрия четырёх опорных шейпов вокруг общего выделения. */
+/** Geometry of four reference shapes around the active selection. */
 type ActiveSelectionScaleReferenceBounds = Readonly<{
   id: string
   left: number
@@ -147,20 +147,20 @@ type ActiveSelectionScaleReferenceBounds = Readonly<{
   height: number
 }>
 
-/** Результат подготовки опорных направляющих. */
+/** Result of preparing reference guides. */
 type ActiveSelectionScaleReferences = Readonly<{
   guides: ActiveSelectionScaleSetup['guides']
   leftReference: SnappingObjectSnapshot
   targetMultiplier: number
 }>
 
-/** Монтажная область и размер одного экранного пикселя в координатах сцены. */
+/** Artboard and the size of one screen pixel in scene coordinates. */
 type ActiveSelectionScaleScene = Readonly<{
   montage: MontageAreaBoundsInfo
   scenePixel: number
 }>
 
-/** Возвращает геометрию сцены с проверенным масштабом холста. */
+/** Returns scene geometry with a verified canvas zoom. */
 async function getActiveSelectionScaleScene({
   editorModel
 }: {
@@ -176,7 +176,7 @@ async function getActiveSelectionScaleScene({
   return { montage, scenePixel: 1 / zoom }
 }
 
-/** Выделяет все подготовленные объекты и возвращает проверенный снимок общего выделения. */
+/** Selects all prepared objects and returns a verified snapshot of the active selection. */
 async function selectAllAndGetComposition({
   editorModel,
   expectedChildren,
@@ -203,7 +203,7 @@ async function selectAllAndGetComposition({
   return snapshot
 }
 
-/** Добавляет два шейпа с текстом и возвращает их обязательные id. */
+/** Adds two shapes with text and returns their required IDs. */
 async function addShapeSelectionObjects({
   montage,
   shapes
@@ -235,7 +235,7 @@ async function addShapeSelectionObjects({
   return [ids[0] as string, ids[1] as string]
 }
 
-/** Создаёт и выделяет два изображения внутри монтажной области. */
+/** Creates and selects two images inside the artboard. */
 async function createImageSelection({
   editorModel,
   images,
@@ -271,7 +271,7 @@ async function createImageSelection({
   return { initial, montage, scenePixel }
 }
 
-/** Создаёт и выделяет два шейпа с текстом внутри монтажной области. */
+/** Creates and selects two shapes with text inside the artboard. */
 async function createShapeSelection({
   editorModel,
   selection,
@@ -295,7 +295,7 @@ async function createShapeSelection({
   }
 }
 
-/** Добавляет два текста с разной геометрией внутри монтажной области. */
+/** Adds two text objects with different geometry inside the artboard. */
 async function addTextSelectionObjects({
   autoExpand,
   montage,
@@ -331,7 +331,7 @@ async function addTextSelectionObjects({
   return [ids[0] as string, ids[1] as string]
 }
 
-/** Создаёт и выделяет два текста с разной геометрией внутри монтажной области. */
+/** Creates and selects two text objects with different geometry inside the artboard. */
 async function createTextSelection({
   autoExpand,
   editorModel,
@@ -356,7 +356,7 @@ async function createTextSelection({
   }
 }
 
-/** Создаёт и выделяет изображение и два отдельных текста. */
+/** Creates and selects an image and two standalone text objects. */
 async function createImageTextSelection({
   editorModel,
   images,
@@ -375,7 +375,7 @@ async function createImageTextSelection({
   return { imageIds: [image.id], initial, montage, scenePixel, textIds }
 }
 
-/** Создаёт и выделяет изображение, шейп и отдельный текст. */
+/** Creates and selects an image, a shape, and standalone text. */
 async function createMixedSelection({
   editorModel,
   images,
@@ -427,7 +427,7 @@ async function createMixedSelection({
   return { imageId: image.id, initial, montage, scenePixel, shapeId, textId }
 }
 
-/** Рассчитывает четыре совместимые направляющие для одного пропорционального множителя. */
+/** Calculates four compatible guides for a single proportional scale factor. */
 function createScaleReferenceBounds({
   initial,
   montage,
@@ -486,7 +486,7 @@ function createScaleReferenceBounds({
   }
 }
 
-/** Добавляет опорные шейпы и возвращает их точные направляющие. */
+/** Adds reference shapes and returns their exact guides. */
 async function addScaleReferences({
   bounds,
   initial,
@@ -535,7 +535,7 @@ async function addScaleReferences({
   return { guides, leftReference, targetMultiplier }
 }
 
-/** Создаёт выделение из текстов с опорными направляющими для скейлинга. */
+/** Creates a text selection with reference guides for scaling. */
 async function createTextScaleSetupWithReferences(
   models: ActiveSelectionTextScaleFixtureModels
 ): Promise<ActiveSelectionTextScaleSetup> {
@@ -567,7 +567,7 @@ async function createTextScaleSetupWithReferences(
   }
 }
 
-/** Создаёт выделение из двух изображений и совместимые опорные направляющие. */
+/** Creates a selection of two images and compatible reference guides. */
 export const test = editorTest.extend<ActiveSelectionScalingFixtures>({
   activeSelectionAutoExpandTextScaleSetup: async({
     editorModel,

@@ -1,19 +1,19 @@
 export default class ModuleLoader {
   /**
-   * Кэш для загруженных модулей.
-   * Ключ - имя модуля, значение - промис загрузки модуля
+   * Cache for loaded modules.
+   * Key: module name; value: module loading promise
    */
   private cache: Map<string, Promise<object>>
 
   /**
-   * Объект, содержащий функции для загрузки модулей.
-   * Ключ - имя модуля, значение - функция, возвращающая промис загрузки модуля.
-   * Например, для загрузки 'jspdf' будет использоваться функция, которая импортирует 'jspdf'.
+   * Object containing module loading functions.
+   * Key: module name; value: function returning a module loading promise.
+   * For example, loading 'jspdf' uses a function that imports 'jspdf'.
    */
   private loaders: Record<string, () => Promise<object>>
 
   /**
-   * Класс для динамической загрузки внешних модулей.
+   * Class for dynamically loading external modules.
    */
   constructor() {
     this.cache = new Map()
@@ -23,9 +23,9 @@ export default class ModuleLoader {
   }
 
   /**
-   * Загружает модуль по имени и сохраняет промис в кеше.
-   * @param name — строковый литерал, например 'jspdf'.
-   * @returns Промис, который разрешается в загруженный модуль.
+   * Loads a module by name and caches the promise.
+   * @param name — String literal, for example 'jspdf'.
+   * @returns A promise that resolves to the loaded module.
    */
   public loadModule<T extends object = object>(name: string): Promise<T> {
     if (!this.loaders[name]) {

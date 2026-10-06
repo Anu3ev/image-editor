@@ -35,10 +35,10 @@ import {
   type CropMovementSession
 } from './crop-movement-session'
 
-/** Восемь ручек, использующих единое применение crop-размера. */
+/** Eight handles that use a unified crop size application path. */
 const SCALE_CONTROLS = ['tl', 'tr', 'bl', 'br', 'ml', 'mr', 'mt', 'mb'] as const
 
-/** Действие crop-рамки с исходным событием и указателем в координатах сцены. */
+/** Crop frame action with the original event and pointer in scene coordinates. */
 interface CropInteractionStep {
   event: TPointerEvent
   transform: Transform
@@ -46,24 +46,24 @@ interface CropInteractionStep {
   y: number
 }
 
-/** Владеет перемещением и размером crop-рамки до первого изменения Fabric. */
+/** Owns crop frame movement and resizing before the first Fabric mutation. */
 export class CropFrameInteraction {
-  /** Холст, на котором начинается и завершается жест. */
+  /** Canvas on which the gesture starts and ends. */
   private readonly canvas: Canvas
 
-  /** Crop-область текущего режима редактирования. */
+  /** Crop area of the current editing mode. */
   private readonly frame: CropFrame
 
-  /** Общий расчёт окружения и публикация проверенных направляющих. */
+  /** Shared environment calculation and publication of validated guides. */
   private readonly snapping: SnappingManager
 
-  /** Исходные ручки для восстановления при завершении crop-режима. */
+  /** Original handles to restore when crop mode ends. */
   private readonly controls: Rect['controls']
 
-  /** Неизменяемое начало текущего жеста и последний подтверждённый результат. */
+  /** Immutable starting state of the current gesture and the last validated result. */
   private session: CropScaleSession | CropMovementSession | null = null
 
-  /** Подключает владельца ко всем ручкам и полному жизненному циклу crop-жеста. */
+  /** Connects the owner to all handles and the full crop gesture lifecycle. */
   constructor({ canvas, frame, snapping }: { canvas: Canvas; frame: Rect; snapping: SnappingManager }) {
     if (!(frame instanceof CropFrame)) throw new Error('Взаимодействие crop требует CropFrame')
 
@@ -83,12 +83,12 @@ export class CropFrameInteraction {
     window.addEventListener('touchcancel', this.interruptGesture)
   }
 
-  /** Показывает CropManager, что текущий результат уже ограничен и проверен. */
+  /** Indicates to CropManager that the current result has already been constrained and validated. */
   public ownsTransform(transform?: Transform | null): boolean {
     return Boolean(this.session && this.session.transform === transform)
   }
 
-  /** Снимает подписки и временные ручки даже при ошибке завершения crop-жеста. */
+  /** Removes subscriptions and temporary handles even if crop gesture completion fails. */
   public destroy(): void {
     try {
       this.interruptGesture()
@@ -106,7 +106,7 @@ export class CropFrameInteraction {
     }
   }
 
-  /** Подключает вычисление до прежнего обработчика, сохраняя его для неподдерживаемой геометрии. */
+  /** Runs the calculation before the legacy handler, retaining it for unsupported geometry. */
   private installControls(): void {
     const controls = { ...this.controls }
     for (const key of SCALE_CONTROLS) {
@@ -126,7 +126,7 @@ export class CropFrameInteraction {
     this.frame.controls = controls
   }
 
-  /** Фиксирует геометрию на mousedown до работы ручек или source clamp. */
+  /** Captures geometry on mousedown before handles or the source clamp run. */
   private readonly startGesture = (event: TPointerEventInfo<TPointerEvent>): void => {
     this.finishGesture()
     const { transform } = event
@@ -144,7 +144,7 @@ export class CropFrameInteraction {
     this.session = createCropScaleSession({ frame: this.frame, transform, snapping: this.snapping })
   }
 
-  /** Применяет одно исходное событие; повторная доставка не меняет crop-область. */
+  /** Applies one original event; repeated delivery does not change the crop area. */
   private applyScaleStep({ event, transform, x, y }: CropInteractionStep): boolean {
     const { session } = this
     if (!session || session.kind !== 'scale' || session.transform !== transform) return false
@@ -186,7 +186,7 @@ export class CropFrameInteraction {
     }
   }
 
-  /** Рассчитывает, ограничивает, применяет и проверяет одно исходное событие мыши. */
+  /** Calculates, constrains, applies, and validates one original mouse event. */
   private applyMovementStep({ event, transform, x, y }: CropInteractionStep): boolean {
     const { session } = this
     if (!session || session.kind !== 'movement' || session.transform !== transform) return false
@@ -215,7 +215,7 @@ export class CropFrameInteraction {
     }
   }
 
-  /** Применяет итоговый source-rect один раз вокруг неподвижной source-точки. */
+  /** Applies the final source rect once around the fixed source point. */
   private applySize({
     session,
     multipliers
@@ -240,7 +240,7 @@ export class CropFrameInteraction {
     transform.scaleY = frame.scaleY
   }
 
-  /** Проверяет точные грани и неподвижную точку без декоративной обводки. */
+  /** Validates the exact edges and fixed point without the decorative stroke. */
   private readFinalGeometry({
     session,
     mode,
@@ -278,7 +278,7 @@ export class CropFrameInteraction {
     }
   }
 
-  /** Завершает жест после modified, сохраняя последнюю подтверждённую геометрию. */
+  /** Ends the gesture after modified, preserving the last validated geometry. */
   private readonly finishGesture = (): void => {
     const { session } = this
     if (!session) return
@@ -292,7 +292,7 @@ export class CropFrameInteraction {
     this.snapping.publishVerifiedMovementGuides({ guides: [], spacingGuides: [] })
   }
 
-  /** Очищает жест даже при ошибке восстановления и сохраняет исходную причину сбоя. */
+  /** Clears the gesture even if restoration fails, preserving the original cause of the failure. */
   private abortFailedGesture({ error, confirmed }: { error: unknown; confirmed: CropFrameTransformState }): never {
     try {
       try {
@@ -301,17 +301,17 @@ export class CropFrameInteraction {
         this.interruptGesture()
       }
     } catch {
-      // Ошибка восстановления не должна скрывать исходную ошибку действия.
+      // A restoration error must not mask the original action error.
     }
     throw error
   }
 
-  /** Удаление рамки или её источника завершает только связанное с ними преобразование. */
+  /** Removing the frame or its source ends only the associated transform. */
   private readonly handleObjectRemoved = ({ target }: CanvasEvents['object:removed']): void => {
     if (target === this.frame || target === this.frame.cropSource) this.interruptGesture()
   }
 
-  /** Прерывает transform до очистки сессии, чтобы modified не запустил прежний clamp. */
+  /** Interrupts the transform before clearing the session so that modified does not trigger the legacy clamp. */
   private readonly interruptGesture = (): void => {
     if (!this.session) return
     try {

@@ -18,10 +18,10 @@ import {
 } from '../../snapping-manager/scaling/rectangular-scale-gesture-projection'
 import type { EditorTextbox } from '../types'
 
-/** Идентификатор пропорционального режима углового скейлинга отдельного текста. */
+/** Identifier of the proportional standalone-text corner-scaling mode. */
 export const TEXT_CORNER_SCALE_PROJECTION_MODE = 'uniform'
 
-/** Исходная геометрия углового скейлинга отдельного текста. */
+/** Original standalone-text corner-scaling geometry. */
 export type TextCornerScaleGestureProjection = Readonly<{
   baselineBounds: ObjectBounds
   fixedAnchor: RectangularScalePoint
@@ -30,16 +30,16 @@ export type TextCornerScaleGestureProjection = Readonly<{
   rectangular: RectangularScaleGestureProjection
 }>
 
-/** Измеренная геометрия текста рядом с проверяемым множителем. */
+/** Measured text geometry near the multiplier being checked. */
 export type TextCornerScaleProjectionSample = Readonly<{
   bounds: ObjectBounds
   scale: number
 }>
 
-/** Допуск определения локального участка, на котором грань ещё не меняется. */
+/** Tolerance for identifying a local region where the edge has not yet changed. */
 const TEXT_CORNER_SCALE_PROJECTION_EPSILON = 0.000000001
 
-/** Проверяет, что исходное преобразование Fabric содержит положительный множитель. */
+/** Checks that the original Fabric transform contains a positive multiplier. */
 function resolveOriginalScales({
   transform
 }: {
@@ -53,7 +53,7 @@ function resolveOriginalScales({
   return Object.freeze({ x: scaleX, y: scaleY })
 }
 
-/** Выбирает единственный пропорциональный режим из общей прямоугольной проекции. */
+/** Selects the single proportional mode from the shared rectangular projection. */
 function resolveUniformProjectionMode({
   projection
 }: {
@@ -63,7 +63,7 @@ function resolveUniformProjectionMode({
     .find(({ id }) => id === TEXT_CORNER_SCALE_PROJECTION_MODE) ?? null
 }
 
-/** Фиксирует геометрию углового скейлинга текста до первого изменения объекта. */
+/** Captures text corner-scaling geometry before the first object change. */
 export function createTextCornerScaleGestureProjection({
   textbox,
   transform,
@@ -105,9 +105,9 @@ export function createTextCornerScaleGestureProjection({
 }
 
 /**
- * Возвращает пропорциональный множитель из положения указателя относительно начала жеста.
- * После пересечения неподвижной точки возвращает ноль, чтобы измеритель сохранил минимальный
- * размер текста, а текущая сессия могла продолжиться при обратном движении.
+ * Returns the proportional multiplier from the pointer position relative to gesture start.
+ * Returns zero after crossing the fixed point so the measurer preserves the minimum
+ * text size and the current session can continue when movement reverses.
  */
 export function resolveTextCornerScalePointerMultiplier({
   gesture,
@@ -129,7 +129,7 @@ export function resolveTextCornerScalePointerMultiplier({
   return multipliers.x
 }
 
-/** Возвращает локальный коэффициент одной грани с учётом нелинейной компоновки текста. */
+/** Returns the local coefficient of one edge, accounting for nonlinear text layout. */
 function resolveTextCornerScaleEdgeCoefficient({
   bounds,
   edge,
@@ -156,7 +156,7 @@ function resolveTextCornerScaleEdgeCoefficient({
   return selectedCoefficient
 }
 
-/** Создаёт точную локальную проекцию по соседним каноническим измерениям текста. */
+/** Creates an exact local projection from neighboring canonical text measurements. */
 export function createTextCornerScaleStepProjection({
   bounds,
   gesture,

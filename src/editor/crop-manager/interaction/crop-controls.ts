@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Public control setup остаётся ниже helper'ов Fabric transform. */
+/* eslint-disable no-use-before-define -- Public control setup remains below the Fabric transform helpers. */
 import {
   Control,
   controlsUtils,
@@ -26,37 +26,37 @@ import {
 import type { CropSourceBoundTransform, CropSourceScaleBounds } from './crop-resize.types'
 
 /**
- * Допуск сравнения client pointer-координат внутри одной Fabric transform-сессии.
+ * Tolerance for comparing client pointer coordinates within a single Fabric transform session.
  */
 const POINTER_POSITION_EPSILON = 0.001
 
 /**
- * Допуск source-зазора, при котором live resize уже считается дошедшим до source-границы.
+ * Source gap tolerance within which a live resize is considered to have reached the source boundary.
  */
 const SOURCE_BOUNDARY_SCALE_GAP_PIXELS = 1
 
 /**
- * Микродопуск для source-зазора после пересчёта scale между canvas и source.
+ * Small tolerance for the source gap after converting scale between canvas and source coordinates.
  */
 const SOURCE_BOUNDARY_SCALE_GAP_EPSILON = 0.000001
 
 /**
- * Допуск сравнения scale-значений, рассчитанных из разных coordinate-system слоёв.
+ * Tolerance for comparing scale values calculated in different coordinate system layers.
  */
 const SCALE_COMPARISON_EPSILON = 0.000000001
 
 /**
- * Угловые controls, которые отвечают за диагональный resize crop frame.
+ * Corner controls responsible for diagonal crop frame resizing.
  */
 const CROP_CORNER_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br'] as const
 
 /**
- * Боковые controls, которые отвечают за горизонтальный и вертикальный resize crop frame.
+ * Side controls responsible for horizontal and vertical crop frame resizing.
  */
 const CROP_SIDE_CONTROL_KEYS = ['ml', 'mr', 'mt', 'mb'] as const
 
 /**
- * Transform с сохранённым стартовым знаком стороны во время scale.
+ * Transform that retains the initial side sign during scaling.
  */
 interface CropScaleTransform extends CropSourceBoundTransform {
   signX?: number
@@ -64,7 +64,7 @@ interface CropScaleTransform extends CropSourceBoundTransform {
 }
 
 /**
- * Crop frame хранит scale источника, чтобы live resize ограничивался в source-пикселях.
+ * The crop frame stores the source scale so that live resizing can be constrained in source pixels.
  */
 type CropFrameScaleTarget = Rect & {
   cropSource?: FabricObject | null
@@ -74,14 +74,14 @@ type CropFrameScaleTarget = Rect & {
 }
 
 /**
- * Control с маркером, что он уже настроен для crop mode.
+ * Control with a marker indicating that it has already been configured for crop mode.
  */
 type CropResizeControl = Control & {
   cropResizeControl?: boolean
 }
 
 /**
- * Scale-границы frame в координатах Fabric target.
+ * Frame scale limits in Fabric target coordinates.
  */
 type CropScaleLimits = {
   minScaleX: number
@@ -91,7 +91,7 @@ type CropScaleLimits = {
 }
 
 /**
- * Размеры crop frame в его локальной geometry без stroke.
+ * Crop frame dimensions in its local geometry, excluding the stroke.
  */
 type CropScaleDimensions = {
   x: number
@@ -99,7 +99,7 @@ type CropScaleDimensions = {
 }
 
 /**
- * Результат расчёта scale одной оси.
+ * Result of calculating the scale along one axis.
  */
 type CropAxisScaleResult = {
   scale: number
@@ -107,17 +107,17 @@ type CropAxisScaleResult = {
 }
 
 /**
- * Ось бокового resize.
+ * Axis of a side resize.
  */
 type CropScaleAxis = 'x' | 'y'
 
 /**
- * Action names side-resize crop control-ов без переключения в skew.
+ * Action names for side-resize crop controls without switching to skew.
  */
 type CropSideScaleActionName = 'scaleX' | 'scaleY'
 
 /**
- * Стартовые знаки control относительно центра crop frame.
+ * Initial control signs relative to the center of the crop frame.
  */
 type CropScaleSigns = {
   signX: number
@@ -125,12 +125,12 @@ type CropScaleSigns = {
 }
 
 /**
- * Боковые control-ключи crop frame.
+ * Side control keys for the crop frame.
  */
 type CropSideControlKey = typeof CROP_SIDE_CONTROL_KEYS[number]
 
 /**
- * Cursor для side resize crop frame.
+ * Cursor for resizing the crop frame from the side.
  */
 const CROP_SIDE_RESIZE_CURSOR_BY_KEY: Record<CropSideControlKey, string> = {
   ml: 'w-resize',
@@ -140,7 +140,7 @@ const CROP_SIDE_RESIZE_CURSOR_BY_KEY: Record<CropSideControlKey, string> = {
 }
 
 /**
- * Возвращает true, если transform масштабируется относительно центра.
+ * Returns true if the transform scales relative to the center.
  */
 function isCenteredTransform({ transform }: { transform: Transform }): boolean {
   const { originX, originY } = transform
@@ -149,7 +149,7 @@ function isCenteredTransform({ transform }: { transform: Transform }): boolean {
 }
 
 /**
- * Выполняет свободный resize frame по двум осям независимо.
+ * Performs a free frame resize independently along both axes.
  */
 function scaleCropFrameFromCorner({
   transform,
@@ -191,7 +191,7 @@ function scaleCropFrameFromCorner({
 }
 
 /**
- * Выполняет пропорциональный resize frame с live-ограничением размера.
+ * Performs a proportional frame resize with live size constraints.
  */
 function scaleCropFrameProportionallyFromCorner({
   transform,
@@ -235,7 +235,7 @@ function scaleCropFrameProportionallyFromCorner({
 }
 
 /**
- * Выполняет resize frame по одной боковой оси.
+ * Resizes the frame along one side axis.
  */
 function scaleCropFrameFromSide({
   transform,
@@ -287,7 +287,7 @@ function scaleCropFrameFromSide({
 }
 
 /**
- * Выполняет proportional resize frame через боковой control.
+ * Performs a proportional frame resize using a side control.
  */
 function scaleCropFrameProportionallyFromSide({
   transform,
@@ -333,7 +333,7 @@ function scaleCropFrameProportionallyFromSide({
 }
 
 /**
- * Возвращает true, если drag-control получил событие без фактического движения pointer.
+ * Returns true if the drag control received an event without any actual pointer movement.
  */
 function isPointerAtTransformStart({
   transform,
@@ -349,7 +349,7 @@ function isPointerAtTransformStart({
 }
 
 /**
- * Возвращает обе scale-оси к значениям на старте Fabric transform.
+ * Restores the scale on both axes to the values at the start of the Fabric transform.
  */
 function restoreOriginalScale({ transform }: { transform: CropScaleTransform }): void {
   transform.target.set({
@@ -359,7 +359,7 @@ function restoreOriginalScale({ transform }: { transform: CropScaleTransform }):
 }
 
 /**
- * Возвращает одну scale-ось к значению на старте Fabric transform.
+ * Restores the scale on one axis to the value at the start of the Fabric transform.
  */
 function restoreOriginalScaleForAxis({
   transform,
@@ -377,7 +377,7 @@ function restoreOriginalScaleForAxis({
 }
 
 /**
- * Сохраняет исходные стороны scale transform.
+ * Saves the initial sides of the scale transform.
  */
 function setInitialScaleSigns({
   transform
@@ -398,7 +398,7 @@ function setInitialScaleSigns({
 }
 
 /**
- * Возвращает стартовые знаки control относительно центра frame.
+ * Returns the initial control signs relative to the center of the frame.
  */
 function getControlScaleSigns({ controlKey }: { controlKey: string }): CropScaleSigns {
   return {
@@ -408,7 +408,7 @@ function getControlScaleSigns({ controlKey }: { controlKey: string }): CropScale
 }
 
 /**
- * Возвращает стартовый X-знак control.
+ * Returns the initial X sign of the control.
  */
 function getControlScaleSignX({ controlKey }: { controlKey: string }): number {
   if (controlKey === 'tl' || controlKey === 'bl' || controlKey === 'ml') {
@@ -419,7 +419,7 @@ function getControlScaleSignX({ controlKey }: { controlKey: string }): number {
 }
 
 /**
- * Возвращает стартовый Y-знак control.
+ * Returns the initial Y sign of the control.
  */
 function getControlScaleSignY({ controlKey }: { controlKey: string }): number {
   if (controlKey === 'tl' || controlKey === 'tr' || controlKey === 'mt') {
@@ -430,7 +430,7 @@ function getControlScaleSignY({ controlKey }: { controlKey: string }): number {
 }
 
 /**
- * Применяет free scale к target с учётом запрета flip.
+ * Applies free scaling to the target while respecting the flip restriction.
  */
 function applyFreeCornerScale({
   transform,
@@ -469,7 +469,7 @@ function applyFreeCornerScale({
 }
 
 /**
- * Применяет resize по одной боковой оси.
+ * Applies a resize along one side axis.
  */
 function applySideScale({
   transform,
@@ -507,7 +507,7 @@ function applySideScale({
 }
 
 /**
- * Применяет proportional resize через боковой control.
+ * Applies a proportional resize using a side control.
  */
 function applyProportionalSideScale({
   transform,
@@ -549,7 +549,7 @@ function applyProportionalSideScale({
 }
 
 /**
- * Возвращает scale одной оси с учётом min/max и перелёта через origin.
+ * Returns the scale along one axis, accounting for min/max limits and crossing the origin.
  */
 function resolveAxisScale({
   transform,
@@ -625,7 +625,7 @@ function resolveAxisScale({
 }
 
 /**
- * Сбрасывает transient source-bound флаг перед новым free scale-step.
+ * Resets the transient source-bound flag before a new free scale step.
  */
 function resetSourceBoundScale({ transform }: { transform: CropScaleTransform }): void {
   transform.cropSourceScaleClamped = false
@@ -636,7 +636,7 @@ function resetSourceBoundScale({ transform }: { transform: CropScaleTransform })
 }
 
 /**
- * Запоминает target scale, который уже упёрся в source-границу.
+ * Remembers the target scale that has already reached the source boundary.
  */
 function rememberSourceBoundScale({
   transform,
@@ -666,7 +666,7 @@ function rememberSourceBoundScale({
 }
 
 /**
- * Возвращает true, если scale реально дошёл до source maximum из меньшего размера.
+ * Returns true if the scale actually reached the source maximum from a smaller size.
  */
 function isAxisScaleSourceClamped({
   scale,
@@ -687,7 +687,7 @@ function isAxisScaleSourceClamped({
 }
 
 /**
- * Дотягивает scale до source maximum, если pointer остановился в пределах видимого source-пикселя.
+ * Extends the scale to the source maximum if the pointer stopped within one visible source pixel.
  */
 function snapAxisScaleToSourceMaximum({
   target,
@@ -720,7 +720,7 @@ function snapAxisScaleToSourceMaximum({
 }
 
 /**
- * Возвращает максимальный scale одной оси с учётом crop-size и source-границ.
+ * Returns the maximum scale along one axis, accounting for crop size and source bounds.
  */
 function resolveAxisMaximumScale({
   axis,
@@ -743,7 +743,7 @@ function resolveAxisMaximumScale({
 }
 
 /**
- * Возвращает максимальный scale одной оси, при котором frame остаётся внутри source.
+ * Returns the maximum scale along one axis that keeps the frame within the source.
  */
 function getSourceAxisMaximumScale({
   target,
@@ -778,7 +778,7 @@ function getSourceAxisMaximumScale({
 }
 
 /**
- * Возвращает расстояние между двумя scale-значениями в source-пикселях выбранной оси.
+ * Returns the distance between two scale values in source pixels along the selected axis.
  */
 function getAxisScaleSourcePixelGap({
   target,
@@ -803,7 +803,7 @@ function getAxisScaleSourcePixelGap({
 }
 
 /**
- * Применяет proportional scale к target с учётом min/max crop-размера.
+ * Applies proportional scaling to the target, accounting for the min/max crop size.
  */
 function applyProportionalCornerScale({
   transform,
@@ -836,7 +836,7 @@ function applyProportionalCornerScale({
 }
 
 /**
- * Считает proportional scale multiplier по той же модели, что Fabric scalingEqually.
+ * Calculates the proportional scale multiplier using the same model as Fabric scalingEqually.
  */
 function getProportionalScale({
   transform,
@@ -865,7 +865,7 @@ function getProportionalScale({
 }
 
 /**
- * Возвращает стартовую дистанцию pointer от transform origin.
+ * Returns the initial distance of the pointer from the transform origin.
  */
 function getOriginalCornerDistance({
   transform,
@@ -883,7 +883,7 @@ function getOriginalCornerDistance({
 }
 
 /**
- * Возвращает scale-размеры crop frame без stroke, потому что stroke не входит в crop result.
+ * Returns the crop frame scaling dimensions without the stroke, because the stroke is not part of the crop result.
  */
 function getCropScaleDimensions({ target }: { target: FabricObject }): CropScaleDimensions {
   const scaleX = Math.abs(target.scaleX ?? 1)
@@ -896,7 +896,7 @@ function getCropScaleDimensions({ target }: { target: FabricObject }): CropScale
 }
 
 /**
- * Ограничивает proportional scale единым multiplier, чтобы пропорции не ломались.
+ * Constrains proportional scaling with a single multiplier to preserve the aspect ratio.
  */
 function clampProportionalScale({
   target,
@@ -974,7 +974,7 @@ function clampProportionalScale({
 }
 
 /**
- * Возвращает максимальный proportional multiplier, при котором frame остаётся внутри source.
+ * Returns the maximum proportional multiplier that keeps the frame within the source.
  */
 function getProportionalSourceMaxScale({
   target,
@@ -998,7 +998,7 @@ function getProportionalSourceMaxScale({
 }
 
 /**
- * Возвращает source-границы resize или null для режима allow overflow.
+ * Returns the source bounds for resizing, or null in allow overflow mode.
  */
 function getSourceScaleBounds({
   target,
@@ -1030,7 +1030,7 @@ function getSourceScaleBounds({
 }
 
 /**
- * Возвращает fixed anchor по указанной оси для текущего Fabric transform.
+ * Returns the fixed anchor along the specified axis for the current Fabric transform.
  */
 function getTransformAxisAnchor({
   target,
@@ -1047,7 +1047,7 @@ function getTransformAxisAnchor({
 }
 
 /**
- * Возвращает допустимые scale-границы Fabric target для crop-размеров.
+ * Returns the allowed scale limits of the Fabric target for the crop dimensions.
  */
 function getCropScaleLimits({ target }: { target: FabricObject }): CropScaleLimits {
   const cropTarget = target as CropFrameScaleTarget
@@ -1065,7 +1065,7 @@ function getCropScaleLimits({ target }: { target: FabricObject }): CropScaleLimi
 }
 
 /**
- * Возвращает true, если pointer перелетел через origin по заданной оси.
+ * Returns true if the pointer crossed the origin along the specified axis.
  */
 function hasScaleOriginCrossed({
   transform,
@@ -1089,7 +1089,7 @@ function hasScaleOriginCrossed({
 }
 
 /**
- * Возвращает true, если proportional resize перелетел через origin хотя бы по одной оси.
+ * Returns true if the proportional resize crossed the origin along at least one axis.
  */
 function hasProportionalScaleOriginCrossed({
   transform,
@@ -1110,7 +1110,7 @@ function hasProportionalScaleOriginCrossed({
 }
 
 /**
- * Возвращает true, если текущий resize должен сохранять пропорции.
+ * Returns true if the current resize should preserve the aspect ratio.
  */
 function shouldPreserveCropFrameAspectRatioOnResize({
   eventData,
@@ -1126,7 +1126,7 @@ function shouldPreserveCropFrameAspectRatioOnResize({
 }
 
 /**
- * Создаёт action handler для resize из угла с поддержкой инверсии по Shift.
+ * Creates an action handler for corner resizing with support for inversion via Shift.
  */
 function createCropCornerScalingActionHandler(): NonNullable<Control['actionHandler']> {
   const freeScaleHandler = controlsUtils.wrapWithFireEvent(
@@ -1165,7 +1165,7 @@ function createCropCornerScalingActionHandler(): NonNullable<Control['actionHand
 }
 
 /**
- * Создаёт action handler для бокового resize с поддержкой сохранения пропорций.
+ * Creates an action handler for side resizing with support for aspect ratio preservation.
  */
 function createCropSideScalingActionHandler({
   axis
@@ -1210,7 +1210,7 @@ function createCropSideScalingActionHandler({
 }
 
 /**
- * Ограничивает число диапазоном.
+ * Clamps a number to a range.
  */
 function clampNumber({
   value,
@@ -1225,7 +1225,7 @@ function clampNumber({
 }
 
 /**
- * Создаёт crop resize control.
+ * Creates a crop resize control.
  */
 function createCropResizeControl({
   control,
@@ -1264,14 +1264,14 @@ function createCropResizeControl({
 }
 
 /**
- * Возвращает стабильный resize cursor для бокового crop-control.
+ * Returns a stable resize cursor for a side crop control.
  */
 function getCropSideResizeCursor({ controlKey }: { controlKey: CropSideControlKey }): string {
   return CROP_SIDE_RESIZE_CURSOR_BY_KEY[controlKey]
 }
 
 /**
- * Возвращает resize action name для бокового crop-control.
+ * Returns the resize action name for a side crop control.
  */
 function getCropSideScaleActionName({ axis }: { axis: CropScaleAxis }): CropSideScaleActionName {
   if (axis === 'x') return 'scaleX'
@@ -1280,7 +1280,7 @@ function getCropSideScaleActionName({ axis }: { axis: CropScaleAxis }): CropSide
 }
 
 /**
- * Настраивает resize crop frame.
+ * Configures crop frame resizing.
  */
 export function applyCropResizeControls({ target }: { target: FabricObject }): void {
   const nextControls = { ...target.controls }

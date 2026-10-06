@@ -45,7 +45,7 @@ import type {
 } from '../types'
 
 /**
- * Нормализованный preset и rounding для создания shape-группы.
+ * Normalized preset and rounding for creating a shape group.
  */
 type ShapeAddPresetState = {
   preset: ShapePreset
@@ -54,7 +54,7 @@ type ShapeAddPresetState = {
 }
 
 /**
- * Базовые и replacement-размеры shape до text layout.
+ * Base and replacement shape dimensions before text layout.
  */
 type ShapeAddDimensionState = {
   manualWidth: number
@@ -65,7 +65,7 @@ type ShapeAddDimensionState = {
 }
 
 /**
- * Style, padding и alignment, необходимые initial shape layout.
+ * Style, padding, and alignment required for the initial shape layout.
  */
 type ShapeAddLayoutState = {
   shapeTextAutoExpand: boolean
@@ -79,7 +79,7 @@ type ShapeAddLayoutState = {
 }
 
 /**
- * Полное состояние child nodes и metadata перед initial layout.
+ * Complete child-node and metadata state before the initial layout.
  */
 type ShapeGroupMaterializationInput = {
   id: string
@@ -94,7 +94,7 @@ type ShapeGroupMaterializationInput = {
 }
 
 /**
- * Возвращает initial horizontal align из add options и text style.
+ * Returns the initial horizontal alignment from the add options and text style.
  */
 const resolveInitialHorizontalAlign = ({
   explicitAlign,
@@ -116,7 +116,7 @@ const resolveInitialHorizontalAlign = ({
 }
 
 /**
- * Создаёт resolver полного inset с учётом preset geometry и stroke.
+ * Creates a full-inset resolver that accounts for preset geometry and stroke.
  */
 const createInternalShapeTextInsetResolver = ({
   preset,
@@ -135,21 +135,21 @@ const createInternalShapeTextInsetResolver = ({
 })
 
 /**
- * Создаёт готовую off-canvas shape-группу для публичного add-сценария.
+ * Creates an off-canvas shape group ready for the public add flow.
  */
 export default class ShapeGroupFactory {
   /**
-   * Владелец shape layout и размерных вычислений.
+   * Owns shape layout and dimension calculations.
    */
   private readonly layoutController: ShapeLayoutController
 
   /**
-   * Владелец shape-owned textbox materialization.
+   * Owns materialization of the shape-owned textbox.
    */
   private readonly textNodeController: ShapeTextNodeController
 
   /**
-   * Инициализирует factory конкретными layout и text dependencies.
+   * Initializes the factory with specific layout and text dependencies.
    */
   constructor({
     layoutController,
@@ -163,7 +163,7 @@ export default class ShapeGroupFactory {
   }
 
   /**
-   * Возвращает полностью materialized группу до placement и добавления на canvas.
+   * Returns a fully materialized group before placement and addition to the canvas.
    */
   public async createForAdd({
     basePreset,
@@ -226,7 +226,7 @@ export default class ShapeGroupFactory {
   }
 
   /**
-   * Нормализует effective preset и поддерживаемое им rounding.
+   * Normalizes the effective preset and the rounding it supports.
    */
   private _resolvePresetState({
     basePreset,
@@ -255,7 +255,7 @@ export default class ShapeGroupFactory {
   }
 
   /**
-   * Разрешает manual base и replace box до automatic text expansion.
+   * Resolves the manual base and replacement box before automatic text expansion.
    */
   private _resolveDimensions({
     preset,
@@ -304,7 +304,7 @@ export default class ShapeGroupFactory {
   }
 
   /**
-   * Собирает style, padding, inset и alignment initial layout.
+   * Collects style, padding, inset, and alignment for the initial layout.
    */
   private _resolveLayoutState({
     preset,
@@ -348,7 +348,7 @@ export default class ShapeGroupFactory {
   }
 
   /**
-   * Рассчитывает initial width с учётом manual base и text auto-expand.
+   * Calculates the initial width, accounting for the manual base and text auto-expansion.
    */
   private _resolveInitialWidth({
     text,
@@ -383,7 +383,7 @@ export default class ShapeGroupFactory {
   }
 
   /**
-   * Создаёт ShapeGroupObject и применяет persisted metadata и runtime invariants.
+   * Creates a ShapeGroupObject and applies persisted metadata and runtime invariants.
    */
   private _createGroupObject({
     id,
@@ -435,7 +435,7 @@ export default class ShapeGroupFactory {
   }
 
   /**
-   * Применяет canonical initial layout и нормализует proportional manual base.
+   * Applies the canonical initial layout and normalizes the proportional manual base.
    */
   private _applyInitialLayout({
     group,

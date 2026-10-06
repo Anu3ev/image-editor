@@ -1,9 +1,9 @@
 /**
- * Делает устойчивую сериализацию значения с сортировкой ключей объектов.
+ * Serializes a value consistently by sorting object keys.
  */
 const stableStringify = ({ value }: { value: unknown }): string => {
   /**
-   * Нормализует значение для стабильной сериализации.
+   * Normalizes a value for stable serialization.
    */
   const normalizeValue = ({ value: rawValue }: { value: unknown }): unknown => {
     if (Array.isArray(rawValue)) {

@@ -1,13 +1,13 @@
-/* eslint-disable no-use-before-define -- Подготовка Fabric-жеста расположена перед фабрикой transform. */
+/* eslint-disable no-use-before-define -- Fabric gesture setup appears before the transform factory. */
 import { Canvas, Point, type CanvasEvents, type FabricObject, type Transform } from 'fabric'
 import type { CropFrame } from '../../../src/editor/crop-manager/domain/crop-frame'
 
-/** Перегрузка Fabric-подписки, которую доставляет тестовое окружение. */
+/** Fabric subscription overload delivered by the test environment. */
 interface CropCanvasSubscription {
   on<K extends keyof CanvasEvents>(name: K, listener: (event: CanvasEvents[K]) => void): VoidFunction
 }
 
-/** Подготавливает transform, события начала/удаления и наблюдаемые мутации crop. */
+/** Prepares the transform, start/removal events, and observable crop mutations. */
 export function createCropGestureHarness({ frame, action }: { frame: CropFrame; action: 'scale' | 'drag' }) {
   const transform = createCropTransform({ frame, action })
   const originalHandler = transform.actionHandler
@@ -18,7 +18,7 @@ export function createCropGestureHarness({ frame, action }: { frame: CropFrame; 
   canvas.endCurrentTransform = endTransform
   const set = jest.spyOn(frame, 'set')
 
-  /** Доставляет начало жеста через настоящую подписку владельца. */
+  /** Delivers the gesture start through the owner's actual subscription. */
   const start = () => {
     const callback = on.mock.calls.find(([name]) => name === 'mouse:down')?.[1]
     if (!callback) throw new Error('Нет подписки начала crop-жеста')
@@ -30,7 +30,7 @@ export function createCropGestureHarness({ frame, action }: { frame: CropFrame; 
       viewportPoint: new Point(transform.ex, transform.ey)
     })
   }
-  /** Доставляет удаление объекта через подписку владельца. */
+  /** Delivers object removal through the owner's subscription. */
   const remove = (target: FabricObject) => {
     const callback = on.mock.calls.find(([name]) => name === 'object:removed')?.[1]
     if (!callback) throw new Error('Нет подписки удаления crop')
@@ -40,7 +40,7 @@ export function createCropGestureHarness({ frame, action }: { frame: CropFrame; 
   return { canvas, transform, originalHandler, set, start, remove, endTransform }
 }
 
-/** Создаёт полный контракт верхней правой ручки или обычного перетаскивания Fabric. */
+/** Creates the full contract for Fabric's top-right handle or ordinary dragging. */
 export function createCropTransform({ frame, action }: { frame: CropFrame; action: 'scale' | 'drag' }): Transform {
   const isScale = action === 'scale'
   const ex = isScale ? (frame.width * frame.scaleX) / 2 : 0

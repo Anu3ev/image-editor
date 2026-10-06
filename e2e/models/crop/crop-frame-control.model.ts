@@ -3,30 +3,30 @@ import { type Page, expect } from '@playwright/test'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import type { CropControlKey } from '../../types'
 
-/** Client-точка crop frame control. */
+/** Client point of a crop-frame control. */
 type CropFrameControlPoint = {
   x: number
   y: number
 }
 
-/** Browser-side shape control с координатами, которые нужны e2e-модели. */
+/** Browser-side shape control with coordinates needed by the e2e model. */
 type BrowserCropFrameControl = {
   x?: unknown
   y?: unknown
 }
 
-/** Browser-side crop frame, достаточный для чтения control-точки. */
+/** Browser-side crop frame sufficient for reading a control point. */
 type BrowserCropFrameWithControls = {
   oCoords?: Partial<Record<CropControlKey, BrowserCropFrameControl>>
   setCoords: () => void
 }
 
-/** Browser-side состояние active crop mode, достаточное для hover control. */
+/** Browser-side active crop-mode state sufficient for hovering a control. */
 type BrowserCropStateWithFrame = {
   frame: BrowserCropFrameWithControls
 }
 
-/** Browser-side editor contract для работы с crop frame controls. */
+/** Browser-side editor contract for working with crop-frame controls. */
 type BrowserCropFrameControlEditor = {
   canvas: {
     renderAll: () => void
@@ -43,23 +43,23 @@ type BrowserCropFrameControlEditor = {
   }
 }
 
-/** Browser window с editor runtime для crop frame control e2e. */
+/** Browser window with the editor runtime for crop-frame control e2e tests. */
 type BrowserCropFrameControlWindow = Window & {
   editor?: BrowserCropFrameControlEditor
 }
 
-/** E2E-модель hover/cursor действий над controls активной crop-области. */
+/** E2E model of hover/cursor actions on active crop-area controls. */
 export class CropFrameControlModel {
   private readonly page: Page
 
   /**
-   * @param page - Playwright page с открытым editor demo.
+   * @param page - Playwright page with the editor demo open.
    */
   constructor(page: Page) {
     this.page = page
   }
 
-  /** Наводит курсор на указанный resize control активной crop-области. */
+  /** Hovers over the specified resize control of the active crop area. */
   async hoverControl(params: { control: CropControlKey }): Promise<void> {
     const point = await this.resolveControlPoint(params)
 
@@ -67,7 +67,7 @@ export class CropFrameControlModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Возвращает cursor canvas после hover указанного resize control. */
+  /** Returns the canvas cursor after hovering over the specified resize control. */
   async getControlCursor(
     params: { control: CropControlKey, shiftKey?: boolean }
   ): Promise<string> {
@@ -93,7 +93,7 @@ export class CropFrameControlModel {
     }
   }
 
-  /** Возвращает viewport-координаты resize control активной crop-области. */
+  /** Returns viewport coordinates of the active crop area's resize control. */
   async resolveControlPoint(
     { control }: { control: CropControlKey }
   ): Promise<CropFrameControlPoint> {
@@ -131,7 +131,7 @@ export class CropFrameControlModel {
     return point
   }
 
-  /** Возвращает текущее значение cursor у верхнего canvas слоя. */
+  /** Returns the current cursor value of the upper canvas layer. */
   private async readCanvasCursor(): Promise<string> {
     return this.page.evaluate(() => {
       const { editor } = window as BrowserCropFrameControlWindow

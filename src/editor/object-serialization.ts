@@ -1,5 +1,5 @@
 /**
- * Persisted-свойства Fabric-объекта, общие для history, templates и clipboard.
+ * Persisted Fabric object properties shared by history, templates, and clipboard.
  */
 export const OBJECT_STATE_SERIALIZATION_PROPS = [
   'customData',

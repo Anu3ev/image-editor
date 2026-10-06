@@ -9,7 +9,7 @@ import type {
   ResizeImageToBoundariesOptions
 } from './types'
 
-/** Payload для worker resize-команды. */
+/** Payload for the worker resize command. */
 interface ImageResizeWorkerPayload {
   dataURL: string
   sizeType: 'max' | 'min'
@@ -21,7 +21,7 @@ interface ImageResizeWorkerPayload {
   minHeight: number
 }
 
-/** Отправляет warning о resize изображения. */
+/** Emits an image resize warning. */
 function emitImageResizeWarning({
   editor,
   data
@@ -53,7 +53,7 @@ function emitImageResizeWarning({
   })
 }
 
-/** Ресайзит изображение через worker и возвращает base64, если это явно запрошено. */
+/** Resizes an image through the worker and returns base64 when explicitly requested. */
 export function resizeImageToBoundaries({
   editor,
   options
@@ -62,7 +62,7 @@ export function resizeImageToBoundaries({
   options: ResizeImageToBoundariesOptions & { asBase64: true }
 }): Promise<Base64URLString>
 
-/** Ресайзит изображение через worker и возвращает Blob по умолчанию. */
+/** Resizes an image through the worker and returns a Blob by default. */
 export function resizeImageToBoundaries({
   editor,
   options
@@ -71,7 +71,7 @@ export function resizeImageToBoundaries({
   options: ResizeImageToBoundariesOptions & { asBase64?: false }
 }): Promise<Blob>
 
-/** Ресайзит изображение через worker, когда caller передаёт общий options-contract. */
+/** Resizes an image through the worker when the caller provides the shared options contract. */
 export function resizeImageToBoundaries({
   editor,
   options
@@ -80,7 +80,7 @@ export function resizeImageToBoundaries({
   options: ResizeImageToBoundariesOptions
 }): Promise<Blob | Base64URLString>
 
-/** Ресайзит изображение до заданных границ, сохраняя пропорции. */
+/** Resizes an image to the specified bounds, preserving its aspect ratio. */
 export async function resizeImageToBoundaries({
   editor,
   options

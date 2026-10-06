@@ -1,4 +1,4 @@
-// TODO: Почистить консоль логи когда всё будет готово.
+// TODO: Clean up console logs when everything is ready.
 import {
   Canvas,
   FabricObject,
@@ -29,7 +29,7 @@ export { OBJECT_SERIALIZATION_PROPS } from './constants'
 export type { CanvasFullState } from './types'
 
 /**
- * Результат попытки сохранить serialized-состояние в history.
+ * Result of an attempt to save serialized state to history.
  */
 type HistorySaveResult = {
   saved: true
@@ -41,116 +41,116 @@ type HistorySaveResult = {
 export default class HistoryManager {
   private _destroyed = false
 
-  /** Отменяет загрузку Fabric-объектов при уничтожении редактора. */
+  /** Cancels Fabric object loading when the editor is destroyed. */
   private readonly _loadAbortController = new AbortController()
 
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor: ImageEditor
 
   /**
-   * Объект, представляющий текущее состояние канваса, от которого будут считаться диффы
+   * Object representing the current canvas state from which diffs are calculated
    */
   public canvas: Canvas
 
   /**
-   * Базовое состояние канваса, от которого будут считаться диффы.
-   * Это состояние сохраняется при первом вызове saveState и используется для создания диффов между текущим состоянием канваса и базовым состоянием.
+   * Base canvas state from which diffs are calculated.
+   * This state is saved on the first saveState call and is used to create diffs between the current canvas state and the base state.
    */
   public baseState: CanvasFullState | null
 
   /**
-   * Массив диффов, представляющих изменения от базового состояния.
+   * Array of diffs representing changes from the base state.
    */
   public patches: { id: string; diff: Delta }[]
 
   /**
-   * Текущее положение в истории изменений.
-   * Это индекс в массиве patches, указывающий на последнее сохранённое состояние.
-   * Если currentIndex = 0, то это базовое состояние.
-   * Если currentIndex = patches.length, то это последнее сохранённое состояние.
+   * Current position in the change history.
+   * This is an index in the patches array pointing to the last saved state.
+   * If currentIndex = 0, this is the base state.
+   * If currentIndex = patches.length, this is the latest saved state.
    */
   public currentIndex: number
 
   /**
-   * Максимальная длина истории изменений.
-   * Когда количество сохранённых изменений превышает это значение, старые изменения удаляются, и базовое состояние обновляется.
-   * Это позволяет ограничить размер истории и избежать переполнения памяти.
+   * Maximum history length.
+   * When the number of saved changes exceeds this value, older changes are removed and the base state is updated.
+   * This limits the history size and prevents memory exhaustion.
    */
   public maxHistoryLength: number
 
   /**
-   * Общее количество сделанных изменений в редакторе.
-   * Это значение увеличивается при каждом вызове saveState и используется для отслеживания количества изменений.
-   * Счётчик увеличивается при каждом сохранении состояния, даже если количество изменений больше чем maxHistoryLength. При откате до нулевого значения currentIndex с помощью undo это позволяет понять, были ли изменения в состоянии редактора.
+   * Total number of changes made in the editor.
+   * This value increases on each saveState call and is used to track the number of changes.
+   * The counter increases each time state is saved, even when the number of changes exceeds maxHistoryLength. When undo brings currentIndex back to zero, this indicates whether the editor state has changed.
    */
   public totalChangesCount: number
 
   /**
-   * Количество изменений, которые были "свёрнуты" в базовое состояние.
-   * Это значение увеличивается, когда история изменений становится слишком длинной и базовое состояние обновляется.
-   * Оно позволяет отслеживать, сколько изменений было сделано с момента последнего обновления базового состояния.
-   * Например, если maxHistoryLength = 10 и в истории было 15 изменений, то baseStateChangesCount будет равно 5.
+   * Number of changes that have been "folded" into the base state.
+   * This value increases when the change history becomes too long and the base state is updated.
+   * It tracks how many changes have been made since the last base state update.
+   * For example, if maxHistoryLength = 10 and the history contained 15 changes, baseStateChangesCount will be 5.
    */
   public baseStateChangesCount: number
 
   /**
-   * DiffPatcher – библиотека для создания и применения диффов между объектами.
-   * Она используется для вычисления изменений между текущим состоянием канваса и базовым состоянием.
-   * DiffPatcher позволяет эффективно сохранять и восстанавливать изменения, а также управлять историей изменений в редакторе.
+   * DiffPatcher is a library for creating and applying diffs between objects.
+   * It is used to calculate changes between the current canvas state and the base state.
+   * DiffPatcher allows changes to be saved and restored efficiently and manages the editor's change history.
    */
   public diffPatcher!: DiffPatcher
 
   /**
-   * Флаг, показывающий что в данный момент идёт сохранение состояния.
-   * Используется для блокировки undo/redo во время фиксации изменений.
+   * Flag indicating that state is currently being saved.
+   * Used to block undo/redo while changes are being committed.
    */
   private _isSavingState: boolean
 
   /**
-   * Счётчик приостановки истории. Если он больше 0, то сохранение истории (saveHistory) пропускается.
+   * History suspension counter. If greater than 0, history saving (saveHistory) is skipped.
    */
   private _historySuspendCount: number
 
   /**
-   * Флаг активного пользовательского действия (перемещение/масштабирование/редактирование текста).
+   * Flag for an active user action (moving/scaling/editing text).
    */
   private _isActionInProgress: boolean
 
   /**
-   * Снимок состояния на начало действия для отмены.
+   * State snapshot at the start of the action, used for cancellation.
    */
   private _actionSnapshot: CanvasFullState | null
 
   /**
-   * Причина активного действия (для отладки).
+   * Reason for the active action (for debugging).
    */
   private _actionReason: string | null
 
   /**
-   * Таймер отложенного сохранения состояния.
+   * Deferred state save timer.
    */
   private _pendingSaveTimeoutId: ReturnType<typeof setTimeout> | null
 
   /**
-   * Причина отложенного сохранения состояния.
+   * Reason for the deferred state save.
    */
   private _pendingSaveReason: string | null
 
   /**
-   * Снимок состояния, который уже завершил предыдущее действие,
-   * но ещё не был зафиксирован отдельным history-шагом.
+   * State snapshot that has already completed the previous action
+   * but has not yet been committed as a separate history step.
    */
   private _pendingCommittedState: CanvasFullState | null
 
   /**
-   * Причина staged-снимка состояния.
+   * Reason for the staged state snapshot.
    */
   private _pendingCommittedStateReason: string | null
 
   /**
-   * Флаг отложенного сохранения во время блокировки UI.
+   * Flag for a deferred save while the UI is blocked.
    */
   private _hasDeferredSaveAfterUnblock: boolean
 
@@ -172,15 +172,15 @@ export default class HistoryManager {
     this.currentIndex = 0
     this.maxHistoryLength = editor.options.maxHistoryLength
 
-    // Общее количество сделанных изменений
+    // Total number of changes made
     this.totalChangesCount = 0
-    // Количество изменений, которые "свёрнуты" в базовое состояние
+    // Number of changes "folded" into the base state
     this.baseStateChangesCount = 0
 
     this._createDiffPatcher()
   }
 
-  /** Отменяет отложенную работу, не сохраняя состояние уничтожаемого canvas. */
+  /** Cancels deferred work without saving the state of the canvas being destroyed. */
   public destroy(): void {
     if (this._destroyed) return
     this._destroyed = true
@@ -191,7 +191,7 @@ export default class HistoryManager {
     this._hasDeferredSaveAfterUnblock = false
   }
 
-  /** Проверка, нужно ли пропускать сохранение истории */
+  /** Check whether history saving should be skipped */
   public get skipHistory(): boolean {
     return this._destroyed || this._historySuspendCount > 0 || this._isSavingState
   }
@@ -205,7 +205,7 @@ export default class HistoryManager {
       objectHash(obj: object) {
         const fabricObj = obj as FabricObject
 
-        // Сериализуем styles в JSON строку для корректного сравнения
+        // Serialize styles to a JSON string for correct comparison
         const objectHash = JSON.stringify(fabricObj)
 
         return [objectHash].join('-')
@@ -222,19 +222,19 @@ export default class HistoryManager {
     })
   }
 
-  /** Увеличить счётчик приостановки истории */
+  /** Increment the history suspension counter */
   public suspendHistory(): void {
     this._historySuspendCount += 1
   }
 
-  /** Уменьшить счётчик приостановки истории */
+  /** Decrement the history suspension counter */
   public resumeHistory(): void {
     this._historySuspendCount = Math.max(0, this._historySuspendCount - 1)
   }
 
   /**
-   * Запоминает состояние для отмены активного действия.
-   * @param reason - причина начала действия
+   * Stores the state for canceling the active action.
+   * @param reason - Reason for starting the action
    */
   public beginAction({ reason }: { reason: string }): void {
     if (this._isActionInProgress) return
@@ -246,8 +246,8 @@ export default class HistoryManager {
   }
 
   /**
-   * Завершает активное действие и очищает снимок.
-   * @param reason - причина завершения (опционально)
+   * Finishes the active action and clears the snapshot.
+   * @param reason - Reason for finishing (optional)
    */
   public endAction({ reason }: { reason?: string } = {}): void {
     if (!this._isActionInProgress) return
@@ -257,9 +257,9 @@ export default class HistoryManager {
   }
 
   /**
-   * Планирует сохранение состояния с отложенным вызовом.
-   * @param delayMs - задержка перед сохранением
-   * @param reason - причина сохранения
+   * Schedules a deferred state save.
+   * @param delayMs - Delay before saving
+   * @param reason - Reason for saving
    */
   public scheduleSaveState({ delayMs, reason }: { delayMs: number; reason: string }): void {
     if (this._destroyed) return
@@ -270,9 +270,9 @@ export default class HistoryManager {
   }
 
   /**
-   * Принудительно сохраняет отложенное состояние.
-   * @param options - дополнительные условия flush
-   * @param options.reason - если передан, flush выполняется только для совпадающей причины
+   * Forces the deferred state to be saved.
+   * @param options - Additional flush conditions
+   * @param options.reason - If provided, flushes only when the reason matches
    */
   public flushPendingSave({ reason }: { reason?: string } = {}): boolean {
     if (this._pendingSaveTimeoutId === null) return false
@@ -284,8 +284,8 @@ export default class HistoryManager {
   }
 
   /**
-   * Запоминает текущее canonical-состояние как уже завершённую границу действия.
-   * Следующий saveState сначала сохранит этот снимок, а уже потом текущее состояние canvas.
+   * Stores the current canonical state as an already completed action boundary.
+   * The next saveState first saves this snapshot, then the current canvas state.
    */
   public stageCurrentStateForPendingSave({ reason }: { reason: string }): void {
     if (this.skipHistory) return
@@ -295,21 +295,21 @@ export default class HistoryManager {
   }
 
   /**
-   * Проверяет, есть ли в редакторе несохранённые изменения
+   * Checks whether the editor has unsaved changes
    */
   public hasUnsavedChanges(): boolean {
     return this.totalChangesCount > 0
   }
 
   /**
-   * Получает текущую позицию в общей истории изменений
+   * Gets the current position in the overall change history
    */
   public getCurrentChangePosition(): number {
     return this.baseStateChangesCount + this.currentIndex
   }
 
   /**
-   * Проверяет, заблокирован ли UI редактора.
+   * Checks whether the editor UI is blocked.
    */
   private _isUiBlocked(): boolean {
     const { interactionBlocker } = this.editor
@@ -319,14 +319,14 @@ export default class HistoryManager {
   }
 
   /**
-   * Помечает, что состояние нужно сохранить после снятия блокировки UI.
+   * Marks the state to be saved after the UI is unblocked.
    */
   private _deferSaveAfterUiUnblock(): void {
     this._hasDeferredSaveAfterUnblock = true
   }
 
   /**
-   * Выполняет отложенное сохранение после снятия блокировки UI.
+   * Performs the deferred save after the UI is unblocked.
    */
   public flushDeferredSaveAfterUnblock(): boolean {
     if (!this._hasDeferredSaveAfterUnblock) return false
@@ -340,14 +340,14 @@ export default class HistoryManager {
   }
 
   /**
-   * Получаем полное состояние, применяя все диффы к базовому состоянию.
+   * Get the full state by applying all diffs to the base state.
    */
   public getFullState(): CanvasFullState {
     const { baseState, currentIndex, patches } = this
 
-    // Глубокая копия базового состояния
+    // Deep copy of the base state
     let state = JSON.parse(JSON.stringify(baseState))
-    // Применяем все диффы до текущего индекса
+    // Apply all diffs up to the current index
     for (let i = 0; i < currentIndex; i += 1) {
       state = this.diffPatcher.patch(state, patches[i].diff)
     }
@@ -357,7 +357,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Возвращает текущее состояние канваса с учётом временной разблокировки объектов.
+   * Returns the current canvas state with objects temporarily unlocked.
    */
   private _captureCurrentState(): CanvasFullState {
     return withNormalizedInteractivityForSnapshot({
@@ -367,7 +367,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Сериализует текущее состояние канваса.
+   * Serializes the current canvas state.
    */
   private _serializeCanvasState(): CanvasFullState {
     const { canvas } = this
@@ -375,7 +375,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Обрабатывает срабатывание отложенного сохранения.
+   * Handles the deferred save timer firing.
    */
   private _handlePendingSaveTimeout(): void {
     if (this._pendingSaveTimeoutId === null) return
@@ -387,7 +387,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Сбрасывает флаг редактирования текста, если он активен.
+   * Resets the text editing flag if it is active.
    */
   private _deactivateTextEditing(): void {
     const { textManager } = this.editor
@@ -398,7 +398,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Очищает отложенное сохранение без фиксации состояния.
+   * Clears the deferred save without committing the state.
    */
   private _clearPendingSave(): void {
     const { _pendingSaveTimeoutId: pendingSaveTimeoutId } = this
@@ -410,7 +410,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Очищает staged boundary действия без сохранения.
+   * Clears the staged action boundary without saving.
    */
   private _clearPendingCommittedState(): void {
     this._pendingCommittedState = null
@@ -418,7 +418,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Возвращает staged boundary действия и очищает его.
+   * Returns the staged action boundary and clears it.
    */
   private _consumePendingCommittedState(
     { reason }: { reason?: string } = {}
@@ -437,7 +437,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Очищает состояние активного действия.
+   * Clears the active action state.
    */
   private _clearPendingAction(): void {
     this._isActionInProgress = false
@@ -446,7 +446,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Отменяет активное действие и возвращает состояние на момент начала.
+   * Cancels the active action and restores the state from its start.
    */
   private async _cancelPendingAction(): Promise<boolean> {
     const { _isActionInProgress: isActionInProgress, _actionSnapshot: actionSnapshot } = this
@@ -475,10 +475,10 @@ export default class HistoryManager {
   }
 
   /**
-   * Сохраняет уже сериализованное canonical-состояние в историю.
+   * Saves an already serialized canonical state to history.
    */
   private _saveSerializedState({ currentStateObj }: { currentStateObj: CanvasFullState }): HistorySaveResult {
-    // Если базовое состояние ещё не установлено, сохраняем полное состояние как базу
+    // If the base state has not yet been set, save the full state as the base
     if (!this.baseState) {
       this.baseState = currentStateObj
       this.patches = []
@@ -504,7 +504,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Вычисляет diff между текущим сохранённым состоянием и следующим serialized-состоянием.
+   * Calculates the diff between the currently saved state and the next serialized state.
    */
   private _resolveStateDiff({ currentStateObj }: { currentStateObj: CanvasFullState }): Delta | null {
     const prevState = this.getFullState()
@@ -539,7 +539,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Добавляет diff в историю, удаляя redo-ветку и соблюдая лимит длины history.
+   * Adds a diff to history, removing the redo branch and respecting the history length limit.
    */
   private _appendHistoryPatch({ diff }: { diff: Delta }): string {
     if (this.currentIndex < this.patches.length) {
@@ -558,7 +558,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Сдвигает старейший diff в baseState, когда история превышает maxHistoryLength.
+   * Folds the oldest diff into baseState when history exceeds maxHistoryLength.
    */
   private _trimHistoryToMaxLength(): void {
     if (this.patches.length <= this.maxHistoryLength) return
@@ -570,7 +570,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Собирает компактный payload изменения history для внешних подписчиков.
+   * Builds a compact history change payload for external subscribers.
    */
   private _createHistoryChangedPayload({
     action,
@@ -599,7 +599,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Отправляет событие о реальном изменении history-состояния.
+   * Emits an event when the history state actually changes.
    */
   private _fireHistoryChanged({
     action,
@@ -615,7 +615,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Отправляет history-changed только для saveState, который реально добавил patch.
+   * Emits history-changed only for a saveState that actually added a patch.
    */
   private _fireHistoryChangedAfterSave(saveResult: HistorySaveResult): void {
     if (!saveResult.saved) return
@@ -627,7 +627,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Сохраняем текущее состояние в виде диффа от последнего сохранённого полного состояния.
+   * Save the current state as a diff from the last saved full state.
    * @fires editor:history-changed
    */
   public saveState(): void {
@@ -677,14 +677,14 @@ export default class HistoryManager {
   }
 
   /**
-   * Функция загрузки состояния в канвас.
-   * @param fullState - полное состояние канваса
-   * Состояние должно быть сохранено уже в канонической scene model.
-   * После десериализации редактор синхронизирует derived geometry и camera-state
-   * с текущим viewport контейнера, не восстанавливая legacy placement.
-   * Для standalone text и shape-композиций после loadFromJSON дополнительно материализуется
-   * transient scale, чтобы дальнейшие resize/scale и text-layout сценарии работали
-   * из единого persisted-контракта.
+   * Function for loading state into the canvas.
+   * @param fullState - Full canvas state
+   * The state must already be saved in the canonical scene model.
+   * After deserialization, the editor synchronizes derived geometry and camera state
+   * with the container's current viewport, without restoring legacy placement.
+   * For standalone text and shape compositions, transient scale is also materialized
+   * after loadFromJSON so that subsequent resize/scale and text layout scenarios operate
+   * from a single persisted contract.
    * @fires editor:history-state-loaded
    */
   public async loadStateFromFullState(fullState: CanvasFullState): Promise<void> {
@@ -706,7 +706,7 @@ export default class HistoryManager {
       height: previousMontageHeight
     } = this.editor.montageArea
 
-    // Сбрасываем overlay, так как он может задваиваться при загрузке состояния
+    // Reset the overlay, as it may be duplicated when loading state
     interactionBlocker.overlayMask = null
 
     const safeState = createLoadSafeState({ state: fullState })
@@ -721,7 +721,7 @@ export default class HistoryManager {
 
     applyCustomDataFromState({ state: fullState, canvas })
 
-    // Восстанавливаем ссылки на montageArea и overlay в редакторе
+    // Restore the editor's references to montageArea and overlay
     const loadedMontage = canvas.getObjects().find((obj) => obj.id === 'montage-area') as Rect | undefined
     let montageSizeChanged = false
     let canvasSizeChanged = false
@@ -784,7 +784,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Undo – отмена последнего действия, восстанавливая состояние по накопленным диффам.
+   * Undo: cancel the last action by restoring state from the accumulated diffs.
    * @fires editor:undo
    * @fires editor:history-changed
    */
@@ -837,7 +837,7 @@ export default class HistoryManager {
   }
 
   /**
-   * Redo – повтор ранее отменённого действия.
+   * Redo: repeat a previously undone action.
    * @fires editor:redo
    * @fires editor:history-changed
    */

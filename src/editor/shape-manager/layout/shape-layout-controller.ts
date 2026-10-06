@@ -30,23 +30,23 @@ import type {
 } from '../types'
 
 /**
- * Содержит чистую layout-логику ShapeManager: размеры, padding и финальное размещение.
+ * Contains pure ShapeManager layout logic: dimensions, padding, and final placement.
  */
 export default class ShapeLayoutController {
   /**
-   * Editor runtime нужен для доступа к canvasManager и монтажной области.
+   * Editor runtime required to access canvasManager and the artboard.
    */
   private readonly editor: ImageEditor
 
   /**
-   * Инициализирует layout controller зависимостями editor-level layout runtime.
+   * Initializes the layout controller with editor-level layout runtime dependencies.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
   /**
-   * Вписывает размеры в целевой бокс с сохранением aspect ratio пресета.
+   * Fits dimensions into the target box, preserving the preset's aspect ratio.
    */
   public resolveAspectRatioFittedDimensions({
     targetWidth,
@@ -105,7 +105,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает текущие визуальные размеры группы с учётом transient scale.
+   * Returns the group's current visual dimensions, accounting for transient scale.
    */
   public resolveCurrentDimensions({
     group
@@ -128,7 +128,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает ручную базу размеров, от которой отталкивается update/layout контракт.
+   * Returns the manual base dimensions used by the update/layout contract.
    */
   public resolveManualDimensions({
     group
@@ -151,7 +151,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает стабильный replace-box, который используется при замене пресета.
+   * Returns the stable replacement box used when replacing the preset.
    */
   public resolveReplaceBoxDimensions({
     group
@@ -167,7 +167,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает пользовательские padding-значения текстовой области фигуры.
+   * Returns the user-defined padding values for the shape's text area.
    */
   public resolveGroupUserPadding({
     group
@@ -185,7 +185,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает полный внутренний inset текста для текущих размеров группы.
+   * Returns the full inner text inset for the group's current dimensions.
    */
   public resolveGroupInternalShapeTextInset({
     group,
@@ -215,7 +215,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Проверяет включён ли у группы режим авторасширения по тексту.
+   * Checks whether the group's text auto-expansion mode is enabled.
    */
   public isShapeTextAutoExpandEnabled({
     group
@@ -226,7 +226,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает ширину монтажной области в scene coordinates.
+   * Returns the artboard width in scene coordinates.
    */
   public resolveMontageAreaWidth(): number | null {
     const { canvasManager, montageArea } = this.editor
@@ -243,7 +243,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает финальную ширину layout с учётом manual base и auto-expand режима.
+   * Returns the final layout width, accounting for the manual base and auto-expansion mode.
    */
   public resolveShapeLayoutWidth({
     text,
@@ -274,7 +274,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Возвращает актуальное горизонтальное выравнивание текста внутри фигуры.
+   * Returns the current horizontal text alignment within the shape.
    */
   public resolveShapeTextHorizontalAlign({
     group,
@@ -293,7 +293,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Применяет финальный layout фигуры и текста в текущем placement-контракте.
+   * Applies the final shape and text layout under the current placement contract.
    */
   public applyCurrentLayout({
     group,
@@ -408,7 +408,7 @@ export default class ShapeLayoutController {
   }
 
   /**
-   * Считает ширину авторасширения с ограничением по монтажной области.
+   * Calculates the auto-expansion width, limited by the artboard.
    */
   private _resolveAutoExpandShapeWidth({
     text,

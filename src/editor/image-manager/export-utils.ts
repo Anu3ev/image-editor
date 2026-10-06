@@ -1,6 +1,6 @@
 import type { ImageManagerEditor } from './types'
 
-/** Параметры конвертации Blob в data URL через worker редактора. */
+/** Options for converting a Blob to a data URL through the editor worker. */
 interface BlobDataUrlConversionParams {
   editor: ImageManagerEditor
   blob: Blob
@@ -8,7 +8,7 @@ interface BlobDataUrlConversionParams {
 }
 
 /**
- * Преобразует SVG-строку в Blob, файл, или base64.
+ * Converts an SVG string to a Blob, file, or base64.
  */
 export function exportSVGStringAsFile(
   svgString: string,
@@ -34,7 +34,7 @@ export function exportSVGStringAsFile(
 }
 
 /**
- * Конвертирует Blob в data URL через worker.
+ * Converts a Blob to a data URL through the worker.
  */
 export async function convertBlobToDataUrl({
   editor,
@@ -60,7 +60,7 @@ export async function convertBlobToDataUrl({
 
     return dataUrl as Base64URLString
   } finally {
-    // После успешной передачи close() безопасен; при ошибке отправки освобождает локальный bitmap.
+    // After a successful transfer, close() is safe; if sending fails, it releases the local bitmap.
     bitmap.close()
   }
 }

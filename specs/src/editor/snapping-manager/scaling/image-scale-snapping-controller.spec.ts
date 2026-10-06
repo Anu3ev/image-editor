@@ -16,13 +16,13 @@ import { useRectangularScaleGuide } from '../../../../test-utils/snapping/rectan
 
 afterEach(jest.restoreAllMocks)
 
-/** Изменяемые грани для одной стандартной ручки изображения. */
+/** Edges modified by one standard image handle. */
 type ControlCase = Readonly<{
   controlKey: RectangularScaleControlKey
   movingEdges: readonly string[]
 }>
 
-/** Настройки Fabric и ожидаемый результат одного режима скейлинга. */
+/** Fabric settings and the expected result of one scaling mode. */
 type ScaleModeCase = Readonly<{
   controlKey: RectangularScaleControlKey
   expected: RectangularScaleMultipliers
@@ -32,7 +32,7 @@ type ScaleModeCase = Readonly<{
   uniformScaling: boolean
 }>
 
-/** Параметры прилипания одной боковой ручки изображения. */
+/** Snapping parameters for one image side handle. */
 type SideSnapCase = Readonly<{
   axis: 'x' | 'y'
   controlKey: RectangularScaleControlKey
@@ -42,7 +42,7 @@ type SideSnapCase = Readonly<{
   oppositeEdge: 'left' | 'right' | 'top' | 'bottom'
 }>
 
-/** Набор проверок всех восьми стандартных ручек изображения. */
+/** Set of checks for all eight standard image handles. */
 const CONTROL_CASES: readonly ControlCase[] = Object.freeze([
   { controlKey: 'tl', movingEdges: ['left', 'top'] },
   { controlKey: 'tr', movingEdges: ['right', 'top'] },
@@ -54,7 +54,7 @@ const CONTROL_CASES: readonly ControlCase[] = Object.freeze([
   { controlKey: 'mb', movingEdges: ['bottom'] }
 ])
 
-/** Горизонтальный, вертикальный, свободный и пропорциональный скейлинг изображения. */
+/** Horizontal, vertical, free, and proportional image scaling. */
 const SCALE_MODE_CASES: readonly ScaleModeCase[] = Object.freeze([
   {
     controlKey: 'mr',
@@ -90,7 +90,7 @@ const SCALE_MODE_CASES: readonly ScaleModeCase[] = Object.freeze([
   }
 ])
 
-/** Прилипание левой, правой, верхней и нижней боковых ручек. */
+/** Snapping for the left, right, top, and bottom side handles. */
 const SIDE_SNAP_CASES: readonly SideSnapCase[] = Object.freeze([
   {
     axis: 'x',

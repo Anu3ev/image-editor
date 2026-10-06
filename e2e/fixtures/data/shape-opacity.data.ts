@@ -4,28 +4,28 @@ import type {
   TextAddParams
 } from '../../types'
 
-/** Пресет фигуры для e2e-сценариев прозрачности. */
+/** Shape preset for opacity e2e scenarios. */
 export const SHAPE_OPACITY_PRESET: ShapePresetKey = 'square'
 
-/** Текст внутри фигуры для проверки прозрачности shape и текста. */
+/** Text inside the shape for testing shape and text opacity. */
 export const SHAPE_OPACITY_TEXT = 'TEST'
 
-/** Прозрачность по умолчанию, которая должна примениться и к фигуре, и к тексту. */
+/** Default opacity that should apply to both the shape and its text. */
 export const SHAPE_OPACITY_VALUE = 0.3
 
-/** Прозрачность, которая должна примениться только к фигуре. */
+/** Opacity that should apply only to the shape. */
 export const SHAPE_SHAPE_ONLY_OPACITY_VALUE = 0.4
 
-/** Идентификатор shape-группы для проверки opacity общего выделения. */
+/** Shape-group ID for testing active-selection opacity. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ID = 'shape-active-selection-opacity-shape'
 
-/** Идентификатор обычного текста для проверки opacity общего выделения. */
+/** Plain-text ID for testing active-selection opacity. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID = 'shape-active-selection-opacity-text'
 
-/** Прозрачность, применяемая ко всем объектам общего выделения. */
+/** Opacity applied to all objects in the active selection. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_VALUE = 0.45
 
-/** Shape-группа для проверки opacity общего выделения. */
+/** Shape group for testing active-selection opacity. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ADD_PARAMS = {
   presetKey: SHAPE_OPACITY_PRESET,
   options: {
@@ -41,7 +41,7 @@ export const SHAPE_ACTIVE_SELECTION_OPACITY_SHAPE_ADD_PARAMS = {
   }
 } satisfies ShapeAddParams
 
-/** Обычный текст для проверки opacity общего выделения. */
+/** Plain text for testing active-selection opacity. */
 export const SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ADD_PARAMS = {
   id: SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ID,
   left: 430,
@@ -51,11 +51,11 @@ export const SHAPE_ACTIVE_SELECTION_OPACITY_TEXT_ADD_PARAMS = {
   text: 'TEXT'
 } satisfies TextAddParams
 
-/** Пресет фигуры для demo-сценария с opacity controls. */
+/** Shape preset for the demo scenario with opacity controls. */
 export const SHAPE_DEMO_OPACITY_PRESET: ShapePresetKey = 'square'
 
-/** Значение слайдера demo opacity controls в процентах. */
+/** Demo opacity-control slider value as a percentage. */
 export const SHAPE_DEMO_OPACITY_PERCENT = 40
 
-/** Ожидаемая прозрачность новой фигуры из demo controls. */
+/** Expected opacity of a new shape from the demo controls. */
 export const SHAPE_DEMO_OPACITY_VALUE = SHAPE_DEMO_OPACITY_PERCENT / 100

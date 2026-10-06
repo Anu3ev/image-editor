@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- экспортируемые функции объявлены перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- Exported functions are declared before internal calculations. */
 import {
   SNAP_THRESHOLD,
   SPACING_SNAP_HOLD_MARGIN
@@ -21,28 +21,28 @@ import {
 } from './scale-projection'
 import type { ObjectBounds } from '../../utils/geometry'
 
-/** Категория направляющей, участвующая в выборе между равными кандидатами. */
+/** Guide category used to choose between tied candidates. */
 export type ScaleSnapCandidateCategory = 'domain-boundary' | 'edge' | 'center' | 'spacing'
 
-/** Точка в координатах сцены, не зависящая от Fabric Point. */
+/** Point in scene coordinates independent of Fabric Point. */
 export type ScaleScenePoint = Readonly<{
   x: number
   y: number
 }>
 
-/** Именованный режим изменения размера до проверки исходных данных жеста. */
+/** Named resizing mode before gesture input validation. */
 export type ScaleProjectionModeInput = Readonly<{
   id: string
   projection: ScaleProjectionInput
 }>
 
-/** Проверенный режим изменения размера для одного жеста. */
+/** Validated resizing mode for one gesture. */
 export type ScaleProjectionMode = Readonly<{
   id: string
   projection: ScaleProjection
 }>
 
-/** Кандидат прилипания до сохранения исходного состояния жеста. */
+/** Snap candidate before capturing the initial gesture state. */
 export type ScaleSnapCandidateInput = Readonly<{
   id: string
   axis: ScaleSceneAxis
@@ -51,7 +51,7 @@ export type ScaleSnapCandidateInput = Readonly<{
   category: ScaleSnapCandidateCategory
 }>
 
-/** Кандидат для конкретной движущейся грани, зафиксированный на время жеста. */
+/** Candidate for a specific moving edge, fixed for the duration of the gesture. */
 export type ScaleSnapCandidate = Readonly<{
   id: string
   axis: ScaleSceneAxis
@@ -61,27 +61,27 @@ export type ScaleSnapCandidate = Readonly<{
   snapshotIndex: number
 }>
 
-/** Состояние оси без удерживаемой направляющей. */
+/** Axis state with no held guide. */
 export type FreeScaleAxisHold = Readonly<{
   kind: 'free'
 }>
 
-/** Удержание конкретной направляющей по одной оси. */
+/** A specific guide held on one axis. */
 export type HeldScaleAxisHold = Readonly<{
   kind: 'held'
   candidate: ScaleSnapCandidate
 }>
 
-/** Свободное или удерживаемое состояние одной оси. */
+/** Free or held state of one axis. */
 export type ScaleAxisHold = FreeScaleAxisHold | HeldScaleAxisHold
 
-/** Независимое временное состояние прилипания по двум осям. */
+/** Independent temporary snapping state for both axes. */
 export type ScaleHoldState = Readonly<{
   x: ScaleAxisHold
   y: ScaleAxisHold
 }>
 
-/** Пороги прилипания в координатах сцены с учётом zoom. */
+/** Snapping thresholds in scene coordinates, accounting for zoom. */
 export type ScaleSnapThresholds = Readonly<{
   acquire: number
   release: number
@@ -89,7 +89,7 @@ export type ScaleSnapThresholds = Readonly<{
   verification: number
 }>
 
-/** Исходная геометрия жеста и доступные режимы изменения размера. */
+/** Initial gesture geometry and available resizing modes. */
 export type ScaleGestureBaselineInput = Readonly<{
   bounds: ObjectBounds
   fixedAnchor: ScaleScenePoint
@@ -98,7 +98,7 @@ export type ScaleGestureBaselineInput = Readonly<{
   zoom: number
 }>
 
-/** Проверенный снимок состояния в начале жеста. */
+/** Validated snapshot of the gesture-start state. */
 export type ScaleGestureBaseline = Readonly<{
   bounds: ObjectBounds
   fixedAnchor: ScaleScenePoint
@@ -107,32 +107,32 @@ export type ScaleGestureBaseline = Readonly<{
   thresholds: ScaleSnapThresholds
 }>
 
-/** Состояние клавиш-модификаторов для одного события указателя. */
+/** Modifier key state for one pointer event. */
 export type ScaleSnapModifiers = Readonly<{
   ctrlKey: boolean
   shiftKey: boolean
 }>
 
-/** Исходные канонические значения и режим, выбранный менеджером объекта. */
+/** Initial canonical values and mode selected by the object's manager. */
 export type ScaleRawIntent = Readonly<{
   projectionMode: string
   values: readonly number[]
   modifiers: ScaleSnapModifiers
 }>
 
-/** Точные границы и зависимость граней от размеров на текущем шаге. */
+/** Exact bounds and edge dependence on dimensions in the current step. */
 export type ScaleStepProjectionInput = Readonly<{
   bounds: ObjectBounds
   projection: ScaleProjectionInput
 }>
 
-/** Ограничения по двум осям, выбранные для одного шага скейлинга. */
+/** Constraints on both axes selected for one scaling step. */
 export type ScaleSnapConstraints = Readonly<{
   x: PlannedScaleConstraint | null
   y: PlannedScaleConstraint | null
 }>
 
-/** Переводит выбранные направляющие в ограничения локальной проекции размера. */
+/** Converts selected guides into constraints for the local size projection. */
 export function createScaleProjectionConstraints({
   constraints
 }: {
@@ -149,17 +149,17 @@ export function createScaleProjectionConstraints({
   return Object.freeze(projectionConstraints)
 }
 
-/** Точная проекция, канонические значения и достигнутые ограничения после уточнения. */
+/** Exact projection, canonical values, and satisfied constraints after refinement. */
 export type ScaleSnapPlanRefinement = Readonly<{
   constraints: ScaleSnapConstraints
   effectiveValues: readonly number[]
   stepProjection: ScaleStepProjectionInput
 }>
 
-/** Способ выбора ограничения на текущем шаге указателя. */
+/** How the constraint was selected in the current pointer step. */
 export type ScaleSnapTransition = 'acquired' | 'held'
 
-/** Ограничение для конкретной грани, которое менеджер объекта должен применить один раз. */
+/** Constraint for a specific edge that the object's manager must apply once. */
 export type PlannedScaleConstraint = Readonly<{
   axis: ScaleSceneAxis
   candidate: ScaleSnapCandidate
@@ -167,7 +167,7 @@ export type PlannedScaleConstraint = Readonly<{
   expectedPosition: number
 }>
 
-/** Неизменяемый результат расчёта прилипания для одного изменения размера. */
+/** Immutable snapping calculation result for one resize step. */
 export type ScaleSnapPlan = Readonly<{
   projectionMode: string
   projection: ScaleProjection
@@ -183,17 +183,17 @@ export type ScaleSnapPlan = Readonly<{
   verificationEpsilon: number
 }>
 
-/** Результат применения ограничения по одной оси менеджером объекта. */
+/** Result of the object's manager applying a constraint on one axis. */
 export type ScaleDomainAxisVerdict = 'satisfied' | 'blocked'
 
-/** Результат применения ограничений и проверки неизменяемых свойств объекта. */
+/** Result of applying constraints and verifying immutable object properties. */
 export type FinalScaleDomainVerdict = Readonly<{
   x: ScaleDomainAxisVerdict
   y: ScaleDomainAxisVerdict
   protectedState: 'preserved' | 'changed'
 }>
 
-/** Фактическая геометрия после однократного применения плана. */
+/** Actual geometry after applying the plan exactly once. */
 export type FinalScaleGeometry = Readonly<{
   bounds: ObjectBounds
   fixedAnchor: ScaleScenePoint
@@ -201,7 +201,7 @@ export type FinalScaleGeometry = Readonly<{
   domainVerdict: FinalScaleDomainVerdict
 }>
 
-/** Направляющая, которой объект действительно достиг после применения плана. */
+/** Guide actually reached by the object after the plan was applied. */
 export type VerifiedScaleGuide = Readonly<{
   axis: ScaleSceneAxis
   edge: ScaleSceneEdge
@@ -211,37 +211,37 @@ export type VerifiedScaleGuide = Readonly<{
   snapshotIndex: number
 }>
 
-/** Результат проверки применённого плана без повторного изменения объекта. */
+/** Verification result for the applied plan without modifying the object again. */
 export type ScaleSnapVerification = Readonly<{
   guides: readonly VerifiedScaleGuide[]
   blockedAxes: readonly ScaleSceneAxis[]
   holdState: ScaleHoldState
 }>
 
-/** Кандидат по одной оси до проверки совместимости с другой осью. */
+/** Candidate on one axis before checking compatibility with the other axis. */
 type ScaleAxisProposal = Readonly<{
   axis: ScaleSceneAxis
   candidate: ScaleSnapCandidate
   transition: ScaleSnapTransition
 }>
 
-/** Совместимые ограничения и рассчитанные для них канонические значения. */
+/** Compatible constraints and their calculated canonical values. */
 type ResolvedScaleProposals = Readonly<{
   x: ScaleAxisProposal | null
   y: ScaleAxisProposal | null
   solution: ScaleProjectionSolution
 }>
 
-/** Общий допуск проверки направляющей и неподвижной точки в координатах сцены. */
+/** Shared tolerance for checking a guide and fixed point in scene coordinates. */
 export const SCALE_SNAP_VERIFICATION_EPSILON = 0.1
 
-/** Допуск проверки центров, рассчитанных из точных границ. */
+/** Tolerance for checking centers calculated from exact bounds. */
 const EXACT_BOUNDS_CENTER_EPSILON = 0.000000001
 
-/** Допуск, внутри которого два смещения считаются равными. */
+/** Tolerance within which two offsets are considered equal. */
 const SCALE_CORRECTION_COMPARISON_EPSILON = 0.000000001
 
-/** Порядок категорий, если кандидаты требуют одинакового смещения. */
+/** Category order when candidates require the same offset. */
 const SCALE_CANDIDATE_CATEGORY_PRIORITY: Readonly<Record<ScaleSnapCandidateCategory, number>> = Object.freeze({
   'domain-boundary': 0,
   edge: 1,
@@ -249,17 +249,17 @@ const SCALE_CANDIDATE_CATEGORY_PRIORITY: Readonly<Record<ScaleSnapCandidateCateg
   spacing: 3
 })
 
-/** Общее неизменяемое состояние оси без прилипания. */
+/** Shared immutable state of an axis without snapping. */
 const FREE_SCALE_AXIS_HOLD: FreeScaleAxisHold = Object.freeze({ kind: 'free' })
 
-/** Начальное состояние без удерживаемых направляющих. */
+/** Initial state with no held guides. */
 export const FREE_SCALE_HOLD_STATE: ScaleHoldState = Object.freeze({
   x: FREE_SCALE_AXIS_HOLD,
   y: FREE_SCALE_AXIS_HOLD
 })
 
 /**
- * Проверяет и сохраняет геометрию, режимы scale, кандидатов и пороги на начало жеста.
+ * Validates and captures geometry, scale modes, candidates, and thresholds at the start of the gesture.
  */
 export function createScaleGestureBaseline({
   bounds,
@@ -283,7 +283,7 @@ export function createScaleGestureBaseline({
 }
 
 /**
- * Рассчитывает новый план прилипания или продолжает удерживать выбранные направляющие.
+ * Calculates a new snapping plan or continues holding the selected guides.
  */
 export function resolveScaleSnapPlan({
   baseline,
@@ -336,8 +336,8 @@ export function resolveScaleSnapPlan({
 }
 
 /**
- * Уточняет значения и применимые ограничения по фактической геометрии объекта.
- * Исходное положение указателя и доступные для уточнения кандидаты не меняются.
+ * Refines values and applicable constraints using the object's actual geometry.
+ * The original pointer position and candidates available for refinement remain unchanged.
  */
 export function refineScaleSnapPlan({
   plan,
@@ -380,7 +380,7 @@ export function refineScaleSnapPlan({
 }
 
 /**
- * Использует исходную проекцию жеста либо точную локальную модель текущего шага.
+ * Uses the original gesture projection or an exact local model of the current step.
  */
 function resolveStepProjectionMode({
   baselineMode,
@@ -398,7 +398,7 @@ function resolveStepProjectionMode({
   return Object.freeze({ id: baselineMode.id, projection })
 }
 
-/** Проверяет, что локальная проекция сохраняет параметры и движущиеся грани жеста. */
+/** Checks that the local projection preserves the gesture's parameters and moving edges. */
 function assertStepProjectionContract({
   baseline,
   step
@@ -422,7 +422,7 @@ function assertStepProjectionContract({
 }
 
 /**
- * Проверяет план по фактической геометрии и результату применения менеджером объекта.
+ * Verifies the plan against actual geometry and the object's manager application result.
  */
 export function verifyScaleSnapPlan({
   plan,
@@ -456,7 +456,7 @@ export function verifyScaleSnapPlan({
 }
 
 /**
- * Переводит пороги из экранных пикселей в координаты сцены с учётом zoom.
+ * Converts thresholds from screen pixels to scene coordinates, accounting for zoom.
  */
 function createScaleSnapThresholds({ zoom }: { zoom: number }): ScaleSnapThresholds {
   if (!Number.isFinite(zoom) || zoom <= 0) {
@@ -472,7 +472,7 @@ function createScaleSnapThresholds({ zoom }: { zoom: number }): ScaleSnapThresho
 }
 
 /**
- * Проверяет и копирует точные границы без округления.
+ * Validates and copies exact bounds without rounding.
  */
 function createExactBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): ObjectBounds {
   const { left, right, top, bottom, centerX, centerY } = bounds
@@ -495,7 +495,7 @@ function createExactBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): Object
 }
 
 /**
- * Проверяет и копирует точку в координатах сцены.
+ * Validates and copies a point in scene coordinates.
  */
 function createScenePointSnapshot({
   point,
@@ -512,7 +512,7 @@ function createScenePointSnapshot({
 }
 
 /**
- * Проверяет и сохраняет все доступные режимы изменения размера.
+ * Validates and captures all available resizing modes.
  */
 function createProjectionModeSnapshot({
   bounds,
@@ -539,7 +539,7 @@ function createProjectionModeSnapshot({
 }
 
 /**
- * Возвращает режим, выбранный менеджером объекта для текущего события указателя.
+ * Returns the mode selected by the object's manager for the current pointer event.
  */
 function resolveProjectionMode({
   baseline,
@@ -557,7 +557,7 @@ function resolveProjectionMode({
 }
 
 /**
- * Проверяет кандидатов и сохраняет их исходный порядок на время жеста.
+ * Validates candidates and preserves their original order for the duration of the gesture.
  */
 function createCandidateSnapshot({
   candidates,
@@ -578,7 +578,7 @@ function createCandidateSnapshot({
 }
 
 /**
- * Проверяет идентификатор, ось и поддержку кандидата хотя бы одним режимом.
+ * Checks the candidate's identifier, axis, and support by at least one mode.
  */
 function assertScaleCandidate({
   candidate,
@@ -608,7 +608,7 @@ function assertScaleCandidate({
 }
 
 /**
- * Проверяет исходные канонические значения для выбранного режима.
+ * Validates initial canonical values for the selected mode.
  */
 function assertScaleRawIntent({
   projection,
@@ -628,7 +628,7 @@ function assertScaleRawIntent({
   }
 }
 
-/** Проверяет канонические значения уточнённой проекции. */
+/** Validates canonical values of the refined projection. */
 function assertScaleValues({
   projection,
   values
@@ -644,7 +644,7 @@ function assertScaleValues({
   }
 }
 
-/** Проверяет достижение исходных ограничений точной геометрией уточнённого плана. */
+/** Checks that the refined plan's exact geometry satisfies the original constraints. */
 function assertRefinedConstraintsReached({
   bounds,
   constraints,
@@ -670,7 +670,7 @@ function assertRefinedConstraintsReached({
   }
 }
 
-/** Проверяет выбранные ограничения и создаёт их неизменяемый снимок. */
+/** Validates selected constraints and creates an immutable snapshot of them. */
 function createRefinedScaleConstraints({
   candidates,
   constraints
@@ -684,7 +684,7 @@ function createRefinedScaleConstraints({
   })
 }
 
-/** Проверяет выбранное ограничение и возвращает снимок из исходного плана. */
+/** Validates a selected constraint and returns its snapshot from the original plan. */
 function resolveRefinedScaleConstraint({
   axis,
   candidate,
@@ -703,7 +703,7 @@ function resolveRefinedScaleConstraint({
 }
 
 /**
- * Проверяет, что удерживаемый кандидат относится к текущему жесту.
+ * Checks that the held candidate belongs to the current gesture.
  */
 function assertScaleHoldState({
   baseline,
@@ -727,7 +727,7 @@ function assertScaleHoldState({
 }
 
 /**
- * Сохраняет удерживаемую направляющую либо выбирает нового кандидата по одной оси.
+ * Preserves a held guide or selects a new candidate on one axis.
  */
 function resolveAxisProposal({
   axis,
@@ -769,7 +769,7 @@ function resolveAxisProposal({
 }
 
 /**
- * Выбирает ближайшего кандидата с учётом категории и исходного порядка.
+ * Selects the nearest candidate, accounting for category and original order.
  */
 function findBestScaleCandidate({
   axis,
@@ -805,7 +805,7 @@ function findBestScaleCandidate({
   return bestCandidate
 }
 
-/** Проверяет, можно ли выполнить ограничение кандидата в локальной проекции шага. */
+/** Checks whether the candidate's constraint can be satisfied in the step's local projection. */
 function canProjectScaleCandidate({
   baseline,
   candidate,
@@ -830,7 +830,7 @@ function canProjectScaleCandidate({
 }
 
 /**
- * Сравнивает кандидатов по расстоянию, категории и исходному порядку.
+ * Compares candidates by distance, category, and original order.
  */
 function isScaleCandidatePreferred({
   candidate,
@@ -857,7 +857,7 @@ function isScaleCandidatePreferred({
 }
 
 /**
- * Совмещает ограничения двух осей или оставляет одно приоритетное ограничение.
+ * Combines constraints on both axes or keeps one priority constraint.
  */
 function resolveCompatibleProposals({
   baseline,
@@ -905,7 +905,7 @@ function resolveCompatibleProposals({
 }
 
 /**
- * Сначала ставит удерживаемое ограничение, затем меньшее смещение и ось X.
+ * Prioritizes the held constraint, then the smaller offset, then the X axis.
  */
 function orderScaleProposals({
   projectionMode,
@@ -928,7 +928,7 @@ function orderScaleProposals({
 }
 
 /**
- * Выбирает единственное ограничение, если два ограничения нельзя применить вместе.
+ * Selects a single constraint if two constraints cannot be applied together.
  */
 function selectPrimaryScaleProposal({
   projectionMode,
@@ -953,7 +953,7 @@ function selectPrimaryScaleProposal({
 }
 
 /**
- * Возвращает величину изменения scale для одного ограничения.
+ * Returns the scale change required for one constraint.
  */
 function getProposalCorrectionMagnitude({
   projectionMode,
@@ -972,7 +972,7 @@ function getProposalCorrectionMagnitude({
 }
 
 /**
- * Преобразует выбранного кандидата в ограничение для конкретной грани.
+ * Converts the selected candidate to a constraint for a specific edge.
  */
 function createProjectionConstraint(proposal: ScaleAxisProposal): ScaleProjectionConstraint {
   return Object.freeze({
@@ -983,7 +983,7 @@ function createProjectionConstraint(proposal: ScaleAxisProposal): ScaleProjectio
 }
 
 /**
- * Собирает план с прилипанием или с исходными значениями без него.
+ * Builds a plan with snapping or with the original unsnapped values.
  */
 function createScaleSnapPlan({
   baseline,
@@ -1029,7 +1029,7 @@ function createScaleSnapPlan({
   })
 }
 
-/** Преобразует предложения по осям в неизменяемые ограничения плана. */
+/** Converts axis proposals to immutable plan constraints. */
 function createPlannedScaleConstraints({
   x,
   y
@@ -1043,7 +1043,7 @@ function createPlannedScaleConstraints({
   })
 }
 
-/** Проверяет, что применимые ограничения соответствуют рассчитанным граням. */
+/** Checks that applicable constraints match the calculated edges. */
 function assertEffectiveConstraintsReached({
   constraints,
   effectivePositions,
@@ -1064,7 +1064,7 @@ function assertEffectiveConstraintsReached({
 }
 
 /**
- * Сохраняет выбранное ограничение в плане.
+ * Stores the selected constraint in the plan.
  */
 function createPlannedConstraint(proposal: ScaleAxisProposal): PlannedScaleConstraint {
   return Object.freeze({
@@ -1076,7 +1076,7 @@ function createPlannedConstraint(proposal: ScaleAxisProposal): PlannedScaleConst
 }
 
 /**
- * Сохраняет для следующего шага только совместимые ограничения.
+ * Preserves only compatible constraints for the next step.
  */
 function createHoldStateFromConstraints({
   x,
@@ -1089,7 +1089,7 @@ function createHoldStateFromConstraints({
 }
 
 /**
- * Создаёт неизменяемое состояние одной оси.
+ * Creates an immutable state for one axis.
  */
 function createAxisHold({ constraint }: { constraint: PlannedScaleConstraint | null }): ScaleAxisHold {
   if (!constraint) return FREE_SCALE_AXIS_HOLD
@@ -1098,7 +1098,7 @@ function createAxisHold({ constraint }: { constraint: PlannedScaleConstraint | n
 }
 
 /**
- * Проверяет по итоговым точным границам, что объект достиг направляющей.
+ * Checks the final exact bounds to verify that the object reached the guide.
  */
 function isConstraintReached({
   constraint,
@@ -1116,7 +1116,7 @@ function isConstraintReached({
 }
 
 /**
- * Рассчитывает положения граней для фактически применённых значений scale.
+ * Calculates edge positions for the scale values actually applied.
  */
 function projectMeasuredScalePositions({
   plan,
@@ -1135,7 +1135,7 @@ function projectMeasuredScalePositions({
 }
 
 /**
- * Проверяет фактическое положение только той грани, от которой зависит ограничение.
+ * Checks the actual position only of the edge on which the constraint depends.
  */
 function isMeasuredConstraintEquivalent({
   constraint,
@@ -1157,7 +1157,7 @@ function isMeasuredConstraintEquivalent({
 }
 
 /**
- * Формирует подтверждённые направляющие, заблокированные оси и новое состояние удержания.
+ * Builds verified guides, blocked axes, and the new hold state.
  */
 function createScaleSnapVerification({
   plan,
@@ -1181,7 +1181,7 @@ function createScaleSnapVerification({
 }
 
 /**
- * Сохраняет удержание по оси только для выполненного ограничения.
+ * Preserves an axis hold only for a satisfied constraint.
  */
 function resolveVerifiedAxisHold({
   constraint,
@@ -1205,7 +1205,7 @@ function resolveVerifiedAxisHold({
 }
 
 /**
- * Создаёт подтверждённую направляющую с идентификатором исходного кандидата.
+ * Creates a verified guide with the original candidate's identifier.
  */
 function createVerifiedGuide(constraint: PlannedScaleConstraint): VerifiedScaleGuide {
   const { candidate } = constraint
@@ -1221,7 +1221,7 @@ function createVerifiedGuide(constraint: PlannedScaleConstraint): VerifiedScaleG
 }
 
 /**
- * Проверяет совпадение двух точек в пределах общего допуска.
+ * Checks whether two points coincide within the shared tolerance.
  */
 function areScenePointsNear({
   first,
@@ -1237,7 +1237,7 @@ function areScenePointsNear({
 }
 
 /**
- * Проверяет полное совпадение двух зафиксированных кандидатов.
+ * Checks whether two captured candidates match exactly.
  */
 function areScaleCandidatesEqual({
   first,
@@ -1254,7 +1254,7 @@ function areScaleCandidatesEqual({
     && first.snapshotIndex === second.snapshotIndex
 }
 
-/** Проверяет полное совпадение ограничений одного кандидата. */
+/** Checks whether constraints for the same candidate match exactly. */
 function arePlannedScaleConstraintsEqual({
   first,
   second

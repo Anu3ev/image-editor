@@ -26,31 +26,31 @@ import type {
   SnappingGuideState
 } from '../../types'
 
-/** Состояние history до и после изменения crop frame. */
+/** History state before and after changing the crop frame. */
 type CropResizeHistorySnapshot = {
   serializedState: string
   patchCount: number
 }
 
-/** Состояние одного live-шага с направляющими и индикатором. */
+/** State of one live step with guides and the indicator. */
 type CropResizeLiveStep = {
   state: CropStateInfo
   guides: SnappingGuideState
   indicator: ObjectSizeIndicatorInfo
 }
 
-/** Состояние после настоящего mouseup. */
+/** State after a real mouseup. */
 type CropResizeMouseupState = CropResizeLiveStep & {
   history: CropResizeHistorySnapshot
 }
 
-/** Результат apply до проверки undo/redo. */
+/** Apply result before checking undo/redo. */
 type AppliedCropResizeState = {
   source: CropImageSourceInfo
   history: CropResizeHistorySnapshot
 }
 
-/** Подготовленный crop изображения с активной записью событий. */
+/** Prepared image crop with active event recording. */
 type ActiveCropResizeScenario = {
   imageId: string
   initialSource: CropImageSourceInfo
@@ -60,7 +60,7 @@ type ActiveCropResizeScenario = {
   traceRecorder: CropResizeLifecycleTrace
 }
 
-/** Все наблюдаемые состояния контрольного изменения crop frame. */
+/** All observable states of the verification crop-frame change. */
 type CropResizeScenarioResult = Omit<ActiveCropResizeScenario, 'traceRecorder'> & {
   snapped: CropResizeLiveStep
   held: CropResizeLiveStep
@@ -71,7 +71,7 @@ type CropResizeScenarioResult = Omit<ActiveCropResizeScenario, 'traceRecorder'> 
   trace: CropResizeLifecycleTraceResult
 }
 
-/** Модели, необходимые для полного сценария изменения crop frame. */
+/** Models required for the complete crop-frame change scenario. */
 type CropResizeScenarioModels = {
   page: Page
   editorModel: EditorModel
@@ -81,7 +81,7 @@ type CropResizeScenarioModels = {
   history: HistoryModel
 }
 
-/** Читает history через публичную e2e-модель и проверяет форму ответа. */
+/** Reads history through the public e2e model and checks the response shape. */
 async function readHistorySnapshot(params: {
   history: HistoryModel
 }): Promise<CropResizeHistorySnapshot> {
@@ -107,7 +107,7 @@ async function readHistorySnapshot(params: {
   }
 }
 
-/** Создаёт изображение, запускает crop и начинает временную запись событий. */
+/** Creates an image, starts cropping, and begins temporary event recording. */
 async function startCropResizeScenario(
   params: Pick<CropResizeScenarioModels, 'page' | 'crop' | 'images' | 'history'>
 ): Promise<ActiveCropResizeScenario> {
@@ -139,7 +139,7 @@ async function startCropResizeScenario(
   }
 }
 
-/** Одним mousemove приводит правый верхний угол к гайду в центре изображения. */
+/** Brings the top-right corner to the image-center guide with one mousemove. */
 async function dragCropToMiddleGuide(
   params: Pick<CropResizeScenarioModels, 'editorModel' | 'crop' | 'snapping'>
 ): Promise<CropResizeLiveStep> {
@@ -159,7 +159,7 @@ async function dragCropToMiddleGuide(
   return { state, guides, indicator }
 }
 
-/** Делает один микрошаг внутри snap-порога, не завершая активный drag. */
+/** Performs one microstep within the snapping threshold without ending the active drag. */
 async function holdCropInsideSnapThreshold(
   params: Pick<CropResizeScenarioModels, 'editorModel' | 'crop' | 'snapping'>
 ): Promise<CropResizeLiveStep> {
@@ -178,7 +178,7 @@ async function holdCropInsideSnapThreshold(
   return { state, guides, indicator }
 }
 
-/** Завершает изменение размера настоящим mouseup и читает состояние до apply. */
+/** Finishes resizing with a real mouseup and reads state before apply. */
 async function releaseCropResize(
   params: Pick<CropResizeScenarioModels, 'page' | 'editorModel' | 'crop' | 'snapping' | 'history'>
 ): Promise<CropResizeMouseupState> {
@@ -203,7 +203,7 @@ async function releaseCropResize(
   }
 }
 
-/** Применяет crop и читает сохранённые данные изображения и history. */
+/** Applies the crop and reads saved image and history data. */
 async function applyCropResize(params: {
   crop: CropModel
   history: HistoryModel
@@ -225,7 +225,7 @@ async function applyCropResize(params: {
   }
 }
 
-/** Гарантированно отпускает мышь, завершает запись и закрывает crop. */
+/** Ensures the mouse is released, recording is finished, and cropping is closed. */
 async function finishCropResizeTrace(params: {
   page: Page
   crop: CropModel
@@ -255,7 +255,7 @@ async function finishCropResizeTrace(params: {
   return trace
 }
 
-/** Проверяет применённый crop через настоящие undo и redo. */
+/** Checks the applied crop through real undo and redo. */
 async function restoreCropThroughHistory(params: {
   crop: CropModel
   history: HistoryModel
@@ -277,7 +277,7 @@ async function restoreCropThroughHistory(params: {
   return { sourceAfterUndo, sourceAfterRedo }
 }
 
-/** Выполняет полный сценарий изменения crop frame с обязательной очисткой. */
+/** Runs the complete crop-frame change scenario with mandatory cleanup. */
 async function runCropResizeScenario(
   models: CropResizeScenarioModels
 ): Promise<CropResizeScenarioResult> {
@@ -331,7 +331,7 @@ async function runCropResizeScenario(
   }
 }
 
-/** Находит единственную запись этапа по ID исходного DOM-события. */
+/** Finds the single stage record by the original DOM event's ID. */
 function requireTraceEntry(params: {
   trace: CropResizeLifecycleTraceResult
   stage: CropResizeLifecycleTraceStage
@@ -349,7 +349,7 @@ function requireTraceEntry(params: {
   return matches[0]
 }
 
-/** Проверяет порядок обработки одного mousemove при изменении crop frame. */
+/** Checks the processing order of one mousemove during a crop-frame change. */
 function expectResizeStepOrder(params: {
   trace: CropResizeLifecycleTraceResult
   sourceEventId: number
@@ -369,7 +369,7 @@ function expectResizeStepOrder(params: {
   expect(canvasMove.cropRect).toEqual(targetScaling.cropRect)
 }
 
-/** Проверяет связь и порядок событий двух реальных mousemove. */
+/** Checks the relationship and order of events from two real mousemoves. */
 function expectResizeMoveLifecycle(trace: CropResizeLifecycleTraceResult): void {
   const scalingEntries = trace.entries.filter((entry) => entry.stage === 'canvas:object:scaling')
 
@@ -386,7 +386,7 @@ function expectResizeMoveLifecycle(trace: CropResizeLifecycleTraceResult): void 
   expectResizeStepOrder({ trace, sourceEventId: secondEventId })
 }
 
-/** Проверяет порядок modified → обновление crop → mouseup и очистку временного UI. */
+/** Checks the modified → crop update → mouseup order and temporary UI cleanup. */
 function expectMouseupLifecycle(params: {
   trace: CropResizeLifecycleTraceResult
   expectedRect: CropStateInfo['rect']
@@ -414,7 +414,7 @@ function expectMouseupLifecycle(params: {
   expect(canvasUp.indicator.visible).toBe(false)
 }
 
-/** Проверяет прилипание, удержание и точный размер в пикселях исходного изображения. */
+/** Checks snapping, holding, and exact dimensions in source-image pixels. */
 function expectSnapHoldGeometry(result: CropResizeScenarioResult): void {
   const expectedSize = EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE
 
@@ -435,7 +435,7 @@ function expectSnapHoldGeometry(result: CropResizeScenarioResult): void {
   expect(result.held.indicator).toEqual(expect.objectContaining(expectedSize))
 }
 
-/** Проверяет отсутствие скачка геометрии и индикатора после mouseup. */
+/** Checks that geometry and the indicator do not jump after mouseup. */
 function expectMouseupParity(result: CropResizeScenarioResult): void {
   expect(result.mouseup.state.rect).toEqual(result.held.state.rect)
   expect(result.mouseup.state.frame).toEqual(result.held.state.frame)
@@ -446,7 +446,7 @@ function expectMouseupParity(result: CropResizeScenarioResult): void {
   expect(result.trace.final.indicator.visible).toBe(false)
 }
 
-/** Проверяет отсутствие history во время drag и один шаг после apply. */
+/** Checks that no history is added during the drag and one step is added after apply. */
 function expectHistoryLifecycle(result: CropResizeScenarioResult): void {
   const appliedEvents = result.trace.entries.filter((entry) => {
     return entry.stage === 'canvas:editor:crop:applied'
@@ -462,7 +462,7 @@ function expectHistoryLifecycle(result: CropResizeScenarioResult): void {
   expect(result.trace.final.historyPatchCount).toBe(result.applied.history.patchCount)
 }
 
-/** Проверяет, что undo/redo восстанавливают обрезку исходного изображения. */
+/** Checks that undo/redo restore the source image's crop. */
 function expectCropSourceHistory(result: CropResizeScenarioResult): void {
   const expectedSize = EDGE_IMAGE_CROP_ASPECT_MIDDLE_GUIDE_SIZE
 

@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 
 /**
- * Ждёт два animation frame подряд, чтобы Fabric успел завершить отложенный render и пересчёт координат.
+ * Waits for two consecutive animation frames so Fabric can finish deferred rendering and coordinate recalculation.
  */
 export async function waitForCanvasRender({ page }: { page: Page }): Promise<void> {
   await page.evaluate(async() => {

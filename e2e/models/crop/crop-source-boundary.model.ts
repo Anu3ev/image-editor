@@ -1,41 +1,41 @@
-/* eslint-disable no-use-before-define -- Public source-boundary API держим выше private geometry helpers. */
+/* eslint-disable no-use-before-define -- Keep the public source-boundary API above private geometry helpers. */
 import type {
   CropControlKey,
   CropRectInfo,
   CropStateInfo
 } from '../../types'
 
-/** Изображение, размеры которого нужны для расчёта source-boundary resize. */
+/** Image whose dimensions are needed to calculate source-boundary resize. */
 export type CropSourceBoundaryImage = {
   width: number
   height: number
 }
 
-/** Смещение client pointer для visible drag resize control. */
+/** Client-pointer offset for a visible resize-control drag. */
 export type CropFramePointerDelta = {
   deltaX: number
   deltaY: number
 }
 
-/** Source anchor, который остаётся неподвижным во время resize по горизонтали. */
+/** Source anchor that stays fixed during horizontal resize. */
 type CropFrameHorizontalBoundaryAnchor = 'left' | 'center' | 'right'
 
-/** Source anchor, который остаётся неподвижным во время vertical resize. */
+/** Source anchor that stays fixed during vertical resize. */
 type CropFrameVerticalBoundaryAnchor = 'top' | 'center' | 'bottom'
 
-/** Source anchor для расчёта одной оси. */
+/** Source anchor for calculating one axis. */
 type CropFrameBoundaryAnchor = CropFrameHorizontalBoundaryAnchor | CropFrameVerticalBoundaryAnchor
 
-/** Стороны source, которые фиксирует текущий crop control. */
+/** Source sides fixed by the current crop control. */
 type CropFrameBoundaryAnchors = {
   fixedX: CropFrameHorizontalBoundaryAnchor
   fixedY: CropFrameVerticalBoundaryAnchor
 }
 
-/** Перелёт pointer за source-границу, чтобы реальные controls гарантированно попали в clamp. */
+/** Pointer overshoot beyond the source boundary to ensure real controls reach the clamp. */
 const SOURCE_BOUNDARY_OVERSHOOT_PIXELS = 48
 
-/** Возвращает ожидаемый source-rect после упора proportional resize в source. */
+/** Returns the expected source rect after proportional resize reaches the source limit. */
 export function resolveExpectedSourceBoundaryRect({
   control,
   image,
@@ -72,7 +72,7 @@ export function resolveExpectedSourceBoundaryRect({
   }
 }
 
-/** Возвращает ожидаемый source-rect после упора свободного resize в source. */
+/** Returns the expected source rect after free resize reaches the source limit. */
 export function resolveExpectedFreeSourceBoundaryRect({
   control,
   image,
@@ -110,7 +110,7 @@ export function resolveExpectedFreeSourceBoundaryRect({
   }
 }
 
-/** Возвращает visible drag-смещение до ожидаемой source-границы. */
+/** Returns the visible drag offset to the expected source boundary. */
 export function resolveSourceBoundaryDragDelta({
   control,
   state,
@@ -157,7 +157,7 @@ export function resolveSourceBoundaryDragDelta({
   }
 }
 
-/** Возвращает visible drag-смещение после первого упора в source-границу. */
+/** Returns the visible drag offset after first reaching the source boundary. */
 export function resolveExtraSourceBoundaryDragDelta({
   control,
   pixels
@@ -181,7 +181,7 @@ export function resolveExtraSourceBoundaryDragDelta({
   }
 }
 
-/** Возвращает старт свободной оси после упора moving-edge в source. */
+/** Returns the start of the free axis after the moving edge reaches the source limit. */
 function resolveFreeBoundaryStart({
   anchor,
   start
@@ -194,7 +194,7 @@ function resolveFreeBoundaryStart({
   return start
 }
 
-/** Возвращает длину свободной оси после упора moving-edge в source. */
+/** Returns the length of the free axis after the moving edge reaches the source limit. */
 function resolveFreeBoundaryLength({
   anchor,
   sourceLength,
@@ -212,7 +212,7 @@ function resolveFreeBoundaryLength({
   return end - start
 }
 
-/** Возвращает fixed anchors для resize control в source-координатах. */
+/** Returns fixed anchors for a resize control in source coordinates. */
 function resolveCropControlBoundaryAnchors({
   control
 }: {
@@ -224,7 +224,7 @@ function resolveCropControlBoundaryAnchors({
   }
 }
 
-/** Возвращает fixed horizontal anchor для resize control. */
+/** Returns the fixed horizontal anchor for a resize control. */
 function resolveCropControlBoundaryAnchorX({
   control
 }: {
@@ -236,7 +236,7 @@ function resolveCropControlBoundaryAnchorX({
   return 'center'
 }
 
-/** Возвращает fixed vertical anchor для resize control. */
+/** Returns the fixed vertical anchor for a resize control. */
 function resolveCropControlBoundaryAnchorY({
   control
 }: {
@@ -248,7 +248,7 @@ function resolveCropControlBoundaryAnchorY({
   return 'center'
 }
 
-/** Возвращает максимальный квадратный размер crop frame внутри source. */
+/** Returns the maximum square crop-frame size within the source. */
 function resolveSourceBoundarySize({
   anchors,
   image,
@@ -280,7 +280,7 @@ function resolveSourceBoundarySize({
   return Math.min(widthLimit, heightLimit)
 }
 
-/** Возвращает максимальный размер одной source-оси с учётом fixed anchor. */
+/** Returns the maximum size along one source axis, accounting for the fixed anchor. */
 function resolveSourceBoundaryAxisLimit({
   sourceLength,
   anchor,
@@ -300,7 +300,7 @@ function resolveSourceBoundaryAxisLimit({
   return Math.min(center, sourceLength - center) * 2
 }
 
-/** Возвращает left ожидаемого source-rect после proportional resize. */
+/** Returns the expected source rect's left value after proportional resize. */
 function resolveBoundaryLeft({
   anchors,
   rect,
@@ -318,7 +318,7 @@ function resolveBoundaryLeft({
   return centerX - (size / 2)
 }
 
-/** Возвращает top ожидаемого source-rect после proportional resize. */
+/** Returns the expected source rect's top value after proportional resize. */
 function resolveBoundaryTop({
   anchors,
   rect,
@@ -336,7 +336,7 @@ function resolveBoundaryTop({
   return centerY - (size / 2)
 }
 
-/** Возвращает visible drag-смещение вдоль одной оси до source-границы. */
+/** Returns the visible drag offset along one axis to the source boundary. */
 function resolveBoundaryAxisDragDelta({
   control,
   negativeControls,
@@ -368,7 +368,7 @@ function resolveBoundaryAxisDragDelta({
   return 0
 }
 
-/** Возвращает дополнительное visible drag-смещение вдоль одной оси. */
+/** Returns the additional visible drag offset along one axis. */
 function resolveExtraSourceBoundaryAxisDragDelta({
   control,
   negativeControls,

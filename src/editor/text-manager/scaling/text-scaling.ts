@@ -55,7 +55,7 @@ type TextScalingModifiedEvent = ModifiedEvent<TPointerEvent> & {
   target?: EditorTextbox | FabricObject | null
 }
 
-/** Фиксирует измеренную геометрию текста через внутренний механизм обновления TextManager. */
+/** Commits measured text geometry through TextManager's internal update mechanism. */
 type PersistScaledTextbox = ({
   target,
   style,
@@ -66,7 +66,7 @@ type PersistScaledTextbox = ({
   shouldRoundDimensions: boolean
 }) => void
 
-/** Текущие канонические значения текста до следующего шага скейлинга. */
+/** Current canonical text values before the next scaling step. */
 type TextScaleCurrentState = Readonly<{
   fontSize: number
   padding: PaddingValues
@@ -74,26 +74,26 @@ type TextScaleCurrentState = Readonly<{
   width: number
 }>
 
-/** Множители, фактически применённые после канонизации текста. */
+/** Multipliers actually applied after canonicalizing text. */
 type AppliedTextScaleState = Readonly<{
   widthScale: number
   heightScale: number
 }>
 
-/** Результат применения пропорционального множителя к отдельному тексту. */
+/** Result of applying a proportional multiplier to a standalone text object. */
 export type AppliedTextCornerScale = Readonly<{
   canonicalState: TextCornerScaleCanonicalState
   scale: number
 }>
 
-/** Результат применения одного шага углового скейлинга. */
+/** Result of applying one corner-scaling step. */
 type MaterializedTextCornerScale = Readonly<{
   appliedWidth: number
   dimensionsRounded: boolean
   scale: number
 }>
 
-/** Рассчитанный шаг прежнего пути скейлинга до изменения живого текста. */
+/** Calculated step of the previous scaling path before modifying live text. */
 type ResolvedTextScaleStep = Readonly<{
   anchorPlacement: ObjectPlacement
   heightScale: number
@@ -101,7 +101,7 @@ type ResolvedTextScaleStep = Readonly<{
   widthScale: number
 }>
 
-/** Параметры применения рассчитанного шага к живому тексту. */
+/** Parameters for applying the calculated step to live text. */
 type MaterializeTextScaleStepOptions = Readonly<{
   axisState: TextScalingAxisState
   state: ScalingState
@@ -111,14 +111,14 @@ type MaterializeTextScaleStepOptions = Readonly<{
 }>
 
 /**
- * Проверяет, является ли объект текстовым блоком редактора.
+ * Checks whether the object is an editor text block.
  */
 function isTextbox(object?: FabricObject | null): object is EditorTextbox {
   return Boolean(object) && object instanceof Textbox
 }
 
 /**
- * Возвращает true для текстового узла, чей layout и placement принадлежат shape-композиции.
+ * Returns true for a text node whose layout and placement are owned by a shape composition.
  */
 function isShapeOwnedTextbox(object?: FabricObject | null): boolean {
   if (!isTextbox(object)) return false
@@ -133,7 +133,7 @@ function isShapeOwnedTextbox(object?: FabricObject | null): boolean {
   return textbox.shapeNodeType === 'text' && group?.shapeComposite === true
 }
 
-/** Снимает канонические значения, по которым определяется реальное изменение текста. */
+/** Captures the canonical values used to determine actual text changes. */
 function captureCurrentTextScaleState({
   state,
   textbox
@@ -159,7 +159,7 @@ function captureCurrentTextScaleState({
   })
 }
 
-/** Возвращает множители, фактически применённые после канонизации текущего шага. */
+/** Returns the multipliers actually applied after canonicalizing the current step. */
 function resolveAppliedTextScaleState({
   appliedWidth,
   current,
@@ -192,7 +192,7 @@ function resolveAppliedTextScaleState({
   return Object.freeze({ widthScale, heightScale })
 }
 
-/** Проверяет, изменилась ли каноническая геометрия текста на текущем шаге. */
+/** Checks whether canonical text geometry changed in the current step. */
 function hasTextScaleStateChanged({
   appliedWidth,
   current,
@@ -218,7 +218,7 @@ function hasTextScaleStateChanged({
   return widthChanged || fontSizeChanged || paddingChanged || radiusChanged || dimensionsRounded
 }
 
-/** Рассчитывает новый множитель одной оси для запасного шага по указателю. */
+/** Calculates a new multiplier for one axis for a fallback pointer-based step. */
 function resolvePointerFallbackAxisScale({
   currentScale,
   minimumScale,
@@ -238,7 +238,7 @@ function resolvePointerFallbackAxisScale({
   return Math.max(minimumScale, currentScale * stepScale)
 }
 
-/** Рассчитывает запасной шаг скейлинга по указателю без изменения текста. */
+/** Calculates a fallback pointer-based scaling step without changing text. */
 function resolvePointerFallbackScaleStep({
   anchorPlacement,
   axisState,
@@ -291,7 +291,7 @@ function resolvePointerFallbackScaleStep({
   return Object.freeze({ anchorPlacement, heightScale, shouldStoreLastAllowedState: true, widthScale })
 }
 
-/** Рассчитывает шаг прежнего Fabric-события скейлинга без изменения текста. */
+/** Calculates a step for the previous Fabric scaling-event path without changing text. */
 function resolveObjectTextScaleStep({
   anchorPlacement,
   axisState,
@@ -346,7 +346,7 @@ function resolveObjectTextScaleStep({
   return Object.freeze({ anchorPlacement, heightScale: scale, shouldStoreLastAllowedState: true, widthScale: scale })
 }
 
-/** Возвращает положение неподвижной точки текущего углового скейлинга. */
+/** Returns the fixed point's position for the current corner-scaling gesture. */
 function createTextCornerScaleAnchorPlacement({
   fixedAnchor,
   transform
@@ -363,26 +363,26 @@ function createTextCornerScaleAnchorPlacement({
 }
 
 /**
- * Контроллер скейлинга отдельного текста.
+ * Standalone-text scaling controller.
  */
 export default class TextScalingController {
   /**
-   * Fabric canvas редактора.
+   * The editor's Fabric canvas.
    */
   private canvas: Canvas
 
   /**
-   * Менеджер placement-контракта объектов.
+   * Manager for the object-placement contract.
    */
   private canvasManager: CanvasManager
 
   /**
-   * Временное состояние активных жестов скейлинга текста.
+   * Temporary state of active text-scaling gestures.
    */
   private scalingState: WeakMap<EditorTextbox, ScalingState>
 
   /**
-   * Сохраняет итоговую геометрию через общий механизм обновления текста.
+   * Saves final geometry through the shared text-update mechanism.
    */
   private persistScaledTextbox: PersistScaledTextbox
 
@@ -404,7 +404,7 @@ export default class TextScalingController {
   }
 
   /**
-   * Переносит временный масштаб отдельного текста в его каноническую геометрию.
+   * Transfers a standalone text object's temporary scale into its canonical geometry.
    */
   public commitStandaloneTextScale(
     {
@@ -448,7 +448,7 @@ export default class TextScalingController {
     return true
   }
 
-  /** Фиксирует исходное состояние отдельного текста до первого шага углового скейлинга. */
+  /** Captures a standalone text object's original state before the first corner-scaling step. */
   public beginStandaloneCornerScale({
     target,
     transform
@@ -466,7 +466,7 @@ export default class TextScalingController {
     return true
   }
 
-  /** Один раз применяет рассчитанный пропорциональный множитель к каноническим свойствам текста. */
+  /** Applies the calculated proportional multiplier to canonical text properties once. */
   public applyStandaloneCornerScale({
     fixedAnchor,
     scale,
@@ -514,7 +514,7 @@ export default class TextScalingController {
     })
   }
 
-  /** Применяет один шаг углового скейлинга относительно неизменяемого начала жеста. */
+  /** Applies one corner-scaling step relative to the immutable gesture start. */
   private _materializeStandaloneCornerScale({
     fixedAnchor,
     scale,
@@ -550,13 +550,13 @@ export default class TextScalingController {
     return Object.freeze({ ...committed, scale: appliedScale })
   }
 
-  /** Удаляет временное состояние углового скейлинга конкретного текста. */
+  /** Removes temporary corner-scaling state for a specific text object. */
   public clearStandaloneCornerScale({ target }: { target: EditorTextbox }): void {
     this.scalingState.delete(target)
     target.isScaling = false
   }
 
-  /** Сохраняет текущее состояние жеста, но возвращает прежнее округление для его завершения. */
+  /** Preserves the current gesture state but restores the previous rounding behavior for finalization. */
   public prepareStandaloneCornerScaleForLegacyCommit({
     target
   }: {
@@ -569,7 +569,7 @@ export default class TextScalingController {
   }
 
   /**
-   * Продолжает скейлинг по положению указателя, если Fabric уже не отправляет `object:scaling`.
+   * Continues scaling from pointer position if Fabric has stopped emitting `object:scaling`.
    */
   public handleMouseMove = (event: TPointerEventInfo<TPointerEvent>): void => {
     const canvas = this.canvas as CanvasWithCurrentTransform
@@ -633,7 +633,7 @@ export default class TextScalingController {
   }
 
   /**
-   * Применяет рассчитанный шаг к ширине, шрифту, отступам и радиусам отдельного текста.
+   * Applies the calculated step to a standalone text object's width, font, padding, and corner radii.
    */
   public handleObjectScaling = (event: TextScalingTargetEvent): void => {
     const { target, transform } = event
@@ -696,7 +696,7 @@ export default class TextScalingController {
     })
   }
 
-  /** Применяет рассчитанный шаг прежнего пути и синхронизирует активный Fabric-transform. */
+  /** Applies the calculated step of the previous path and synchronizes the active Fabric transform. */
   private _materializeTextScaleStep({
     axisState,
     state,
@@ -730,7 +730,7 @@ export default class TextScalingController {
   }
 
   /**
-   * Завершает трансформацию текстового объекта и фиксирует обновлённые стили и размеры через общий update pipeline.
+   * Finalizes the text-object transform and commits updated styles and dimensions through the shared update pipeline.
    */
   public handleObjectModified = (event: TextScalingModifiedEvent): void => {
     const { target } = event
@@ -746,7 +746,7 @@ export default class TextScalingController {
     this._commitStandaloneTextboxScale({ textbox: target })
   }
 
-  /** Завершает прежний путь скейлинга общего выделения, содержащего текст. */
+  /** Finalizes the previous scaling path for a selection containing text. */
   private _commitActiveSelectionScale({ selection }: { selection: ActiveSelection }): void {
     const objects = selection.getObjects()
     const hasText = objects.some((object) => isTextbox(object))
@@ -767,7 +767,7 @@ export default class TextScalingController {
     this.canvas.requestRenderAll()
   }
 
-  /** Фиксирует канонические свойства отдельного текста после завершения скейлинга. */
+  /** Commits a standalone text object's canonical properties after scaling ends. */
   private _commitStandaloneTextboxScale({ textbox }: { textbox: EditorTextbox }): void {
     textbox.isScaling = false
 
@@ -820,7 +820,7 @@ export default class TextScalingController {
   }
 
   /**
-   * Создаёт или возвращает состояние текущего жеста скейлинга текста.
+   * Creates or returns the current text-scaling gesture's state.
    */
   private _ensureScalingState(
     {
@@ -871,7 +871,7 @@ export default class TextScalingController {
   }
 
   /**
-   * Обновляет состояние текущего скейлинга после применения шага.
+   * Updates the current scaling state after applying a step.
    */
   private _updateScalingStateAfterLiveCommit(
     {
@@ -926,7 +926,7 @@ export default class TextScalingController {
   }
 
   /**
-   * Сохраняет последнее допустимое состояние, к которому можно вернуться в текущем жесте.
+   * Saves the last valid state that can be restored within the current gesture.
    */
   private _storeLastAllowedScalingState(
     {

@@ -19,15 +19,15 @@ import {
   resolveShapeTransformOriginYValue
 } from './shape-scaling-transform'
 
-/** Допуск проверки канонической геометрии повёрнутого шейпа. */
+/** Tolerance for checking a rotated shape's canonical geometry. */
 const ROTATED_SHAPE_GEOMETRY_EPSILON = 0.000000001
 
-/** Проверяет, что число совпадает с нулём в пределах допуска геометрии. */
+/** Checks whether a number equals zero within the geometry tolerance. */
 function isApproximatelyZero(value: number): boolean {
   return Math.abs(value) <= ROTATED_SHAPE_GEOMETRY_EPSILON
 }
 
-/** Проверяет канонический масштаб, наклон и отражение дочернего шейпа. */
+/** Checks a child shape's canonical scale, skew, and flip. */
 function hasCanonicalShapeTransform({ group }: { group: ShapeGroup }): boolean {
   const affineOffsets = [
     (group.scaleX ?? 1) - 1,
@@ -39,7 +39,7 @@ function hasCanonicalShapeTransform({ group }: { group: ShapeGroup }): boolean {
   return affineOffsets.every(isApproximatelyZero) && !group.flipX && !group.flipY
 }
 
-/** Проверяет, что временная рамка не содержит наклона или отражения. */
+/** Checks that the temporary frame contains no skew or flip. */
 function hasSupportedSelectionTransform({
   selection
 }: {
@@ -50,13 +50,13 @@ function hasSupportedSelectionTransform({
   return skew.every(isApproximatelyZero) && !selection.flipX && !selection.flipY
 }
 
-/** Неизменяемая геометрия повёрнутого шейпа в локальной плоскости общего выделения. */
+/** Immutable geometry of a rotated shape in the selection's local plane. */
 export type RotatedActiveSelectionShapeGeometry = Readonly<{
   angle: number
   center: Point
 }>
 
-/** Границы дочернего объекта в неизменяемой локальной плоскости общего выделения. */
+/** Child-object bounds in the selection's immutable local plane. */
 export type ActiveSelectionLocalBounds = Readonly<{
   bottom: number
   left: number
@@ -64,10 +64,10 @@ export type ActiveSelectionLocalBounds = Readonly<{
   top: number
 }>
 
-/** Вертикальная привязка шейпа к исходной рамке общего выделения. */
+/** Vertical anchoring of a shape to the original selection frame. */
 export type ActiveSelectionVerticalAttachment = 'top' | 'bottom' | 'center'
 
-/** Преобразование, которое остаётся на восстановленной рамке общего выделения. */
+/** Transform remaining on the restored selection frame. */
 export type ActiveSelectionTransformState = Readonly<{
   angle: number
   flipX: boolean
@@ -78,7 +78,7 @@ export type ActiveSelectionTransformState = Readonly<{
   skewY: number
 }>
 
-/** Размер и положение рамки общего выделения после применения последнего кадра скейлинга. */
+/** Selection-frame dimensions and position after applying the latest scaling frame. */
 export type ActiveSelectionCommittedFrame = Readonly<{
   center: Point
   height: number
@@ -86,7 +86,7 @@ export type ActiveSelectionCommittedFrame = Readonly<{
   width: number
 }>
 
-/** Сохраняет последнее видимое состояние рамки до переноса масштаба в дочерние объекты. */
+/** Saves the frame's last visible state before transferring scale into child objects. */
 export function captureActiveSelectionCommittedFrame({
   selection
 }: {
@@ -120,8 +120,8 @@ export function captureActiveSelectionCommittedFrame({
 }
 
 /**
- * Возвращает геометрию канонического повёрнутого шейпа, которому нужна компенсация
- * неравномерного масштаба общего выделения.
+ * Returns the geometry of a canonical rotated shape that requires compensation
+ * for the selection's nonuniform scale.
  */
 export function captureRotatedActiveSelectionShapeGeometry({
   group,
@@ -145,8 +145,8 @@ export function captureRotatedActiveSelectionShapeGeometry({
 }
 
 /**
- * Компенсирует преобразование общего выделения так, чтобы шейп сохранял собственный угол
- * и получал уже рассчитанные канонические размеры без наклона в координатах сцены.
+ * Compensates for the selection transform so the shape retains its own angle
+ * and receives the already calculated canonical dimensions without skew in scene coordinates.
  */
 export function applyRotatedActiveSelectionShapeGeometry({
   geometry,
@@ -181,7 +181,7 @@ export function applyRotatedActiveSelectionShapeGeometry({
   group.setCoords()
 }
 
-/** Возвращает точные локальные границы прямого ребёнка общего выделения. */
+/** Returns the exact local bounds of a direct child of the selection. */
 export function resolveActiveSelectionObjectLocalBounds({
   target
 }: {
@@ -204,7 +204,7 @@ export function resolveActiveSelectionObjectLocalBounds({
   })
 }
 
-/** Объединяет локальные границы двух частей общего выделения. */
+/** Combines the local bounds of two parts of the selection. */
 export function mergeActiveSelectionLocalBounds({
   current,
   next
@@ -220,7 +220,7 @@ export function mergeActiveSelectionLocalBounds({
   })
 }
 
-/** Определяет ближайшую вертикальную привязку шейпа внутри исходной рамки. */
+/** Determines the nearest vertical anchor for the shape within the original frame. */
 export function resolveActiveSelectionVerticalAttachment({
   selectionBounds,
   shapeBounds
@@ -240,7 +240,7 @@ export function resolveActiveSelectionVerticalAttachment({
   return topGap < bottomGap ? 'top' : 'bottom'
 }
 
-/** Переводит точку привязки Fabric в числовое смещение относительно центра. */
+/** Converts a Fabric anchor point to a numeric offset from the center. */
 export function resolveActiveSelectionOriginOffset({
   origin
 }: {
@@ -253,7 +253,7 @@ export function resolveActiveSelectionOriginOffset({
   return origin - 0.5
 }
 
-/** Сохраняет исходную привязку неповёрнутого шейпа внутри временной рамки. */
+/** Preserves an unrotated shape's original anchor within the temporary frame. */
 export function positionActiveSelectionShape({
   bounds,
   group,
@@ -283,7 +283,7 @@ export function positionActiveSelectionShape({
   )
 }
 
-/** Применяет ограниченный масштаб к рамке и сохраняет неподвижную точку текущего жеста. */
+/** Applies the constrained scale to the frame and preserves the current gesture's fixed point. */
 export function applyActiveSelectionScale({
   scaleX,
   scaleY,

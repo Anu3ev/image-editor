@@ -10,7 +10,7 @@ import {
   getRequiredShapeWindowListener
 } from '../../../test-utils/shape/event-routing'
 
-/** Canvas-события, на которые ShapeEventController должен подписываться и от которых должен отписываться. */
+/** Canvas events that ShapeEventController must subscribe to and unsubscribe from. */
 const SHAPE_CANVAS_EVENT_NAMES = Object.freeze([
   'object:scaling',
   'object:modified',
@@ -28,7 +28,7 @@ const SHAPE_CANVAS_EVENT_NAMES = Object.freeze([
   'editor:text-updated'
 ] as const)
 
-/** Контроллеры, которые afterEach должен освободить после каждого теста. */
+/** Controllers that afterEach must dispose of after each test. */
 const routingControllers = new Set<ShapeEventController>()
 
 afterEach(() => {

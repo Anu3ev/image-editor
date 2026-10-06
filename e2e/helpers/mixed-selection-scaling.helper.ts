@@ -8,7 +8,7 @@ import type {
   TextResizeSnapshot
 } from '../types'
 
-/** Состояние объектов полного смешанного выделения на одном шаге истории. */
+/** Object state of the full mixed selection at one history step. */
 type MixedSelectionHistorySnapshot = Readonly<{
   image: SnappingObjectSnapshot
   shape: ShapeScaleSnapshot
@@ -16,7 +16,7 @@ type MixedSelectionHistorySnapshot = Readonly<{
   text: TextResizeSnapshot
 }>
 
-/** Проверяет отсутствие растяжения текста внутри шейпа во время скейлинга. */
+/** Checks that text inside a shape is not stretched during scaling. */
 export function expectMixedShapeTextNotDeformed({
   initial,
   live
@@ -35,7 +35,7 @@ export function expectMixedShapeTextNotDeformed({
   expect(live.geometry.orthogonality).toBeCloseTo(0, 5)
 }
 
-/** Проверяет размеры всех трёх типов объектов во время скейлинга без аффинной деформации. */
+/** Checks dimensions of all three object types during scaling without affine distortion. */
 export function expectMixedSelectionScalePreview({
   changesHeight,
   initial,
@@ -80,7 +80,7 @@ export function expectMixedSelectionScalePreview({
     .toBeCloseTo(initialText.geometry.leftEdgeLength / initialText.snapshot.height, 5)
 }
 
-/** Проверяет неизменность всего состава между двумя кадрами удержания направляющей. */
+/** Checks that the entire composition is unchanged between two guide-hold frames. */
 export function expectMixedSelectionScaleHold({
   acquired,
   held
@@ -103,7 +103,7 @@ export function expectMixedSelectionScaleHold({
   }
 }
 
-/** Проверяет сохранение шейпа при копировании или восстановлении из шаблона. */
+/** Checks shape preservation when copying or restoring from a template. */
 export function expectMixedShapeScaleRoundtrip({
   actual,
   expected,
@@ -132,7 +132,7 @@ export function expectMixedShapeScaleRoundtrip({
   })
 }
 
-/** Проверяет восстановление изображения, шейпа и текста в одной точке истории. */
+/** Checks restoration of an image, a shape, and text at one history point. */
 export function expectMixedSelectionHistoryRestore({
   actual,
   expected
@@ -163,7 +163,7 @@ export function expectMixedSelectionHistoryRestore({
   expect(actual.shapeText.lineCount).toBe(expected.shapeText.lineCount)
 }
 
-/** Проверяет, что mouseup сохраняет последнее видимое состояние и единичный масштаб дочерних объектов. */
+/** Checks that mouseup preserves the last visible state and unit scale of child objects. */
 export function expectMixedSelectionScaleCommit({
   final,
   live

@@ -17,7 +17,7 @@ import {
 import { prepareShapeTextNode } from '../domain/shape-runtime'
 
 /**
- * Fabric mouse down payload, который нужен для входа в редактирование текста фигуры.
+ * Fabric mouse-down payload required to enter shape-text editing.
  */
 type ShapeMouseDownEvent = {
   target?: FabricObject | null
@@ -26,14 +26,14 @@ type ShapeMouseDownEvent = {
 }
 
 /**
- * Fabric text editing payload для textbox внутри shape-группы.
+ * Fabric text-editing payload for a textbox inside a shape group.
  */
 type ShapeTextEditingEvent = {
   target?: FabricObject | null
 }
 
 /**
- * Снимок интерактивных флагов группы и текста на время редактирования.
+ * Snapshot of group and text interaction flags during editing.
  */
 type ShapeEditingInteractionState = {
   groupSelectable: boolean
@@ -47,24 +47,24 @@ type ShapeEditingInteractionState = {
 }
 
 /**
- * Pointer event тип из Fabric findTarget.
+ * Pointer-event type from Fabric's findTarget.
  */
 type ShapeCanvasPointerEvent = Parameters<Canvas['findTarget']>[0]
 
 /**
- * Результат Fabric findTarget для текущего canvas.
+ * Fabric findTarget result for the current canvas.
  */
 type ShapeCanvasTargetInfo = ReturnType<Canvas['findTarget']>
 
 /**
- * Сигнатура findTarget, которую временно подменяет editing controller.
+ * Signature of findTarget, temporarily replaced by the editing controller.
  */
 type ShapeCanvasFindTarget = (
   event: ShapeCanvasPointerEvent
 ) => ShapeCanvasTargetInfo
 
 /**
- * Состояние временной подмены target resolver во время редактирования текста.
+ * State of the temporary target-resolver override during text editing.
  */
 type ShapeEditingTargetResolverState = {
   group: ShapeGroup
@@ -73,26 +73,26 @@ type ShapeEditingTargetResolverState = {
 }
 
 /**
- * Контроллер редактирования текста внутри shape-группы.
+ * Controller for editing text inside a shape group.
  */
 export default class ShapeEditingController {
   /**
-   * Fabric canvas редактора.
+   * The editor's Fabric canvas.
    */
   private canvas: Canvas
 
   /**
-   * Снимки интерактивности группы и текста на время редактирования.
+   * Snapshots of group and text interactivity during editing.
    */
   private editingInteractionState: WeakMap<ShapeGroup, ShapeEditingInteractionState>
 
   /**
-   * Временный target resolver, который удерживает клики внутри активного shape на editing-textbox.
+   * Temporary target resolver that routes clicks inside the active shape to the editing textbox.
    */
   private editingTargetResolverState?: ShapeEditingTargetResolverState
 
   /**
-   * Инициализирует controller редактирования текста для переданного canvas.
+   * Initializes the text-editing controller for the given canvas.
    */
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
@@ -101,7 +101,7 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Обрабатывает клик по shape-группе и переводит текст в режим редактирования по повторному клику.
+   * Handles a shape-group click and enters text-editing mode on a subsequent click.
    */
   public handleMouseDown = (
     event: ShapeMouseDownEvent
@@ -143,7 +143,7 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Переводит shape-группу в безопасный режим, где доступно только редактирование текста.
+   * Puts the shape group in a safe mode where only text editing is available.
    */
   public handleTextEditingEntered = (event: ShapeTextEditingEvent): void => {
     const { target } = event
@@ -162,7 +162,7 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Возвращает текстовый узел в обычный режим после завершения ввода.
+   * Returns the text node to normal mode when input ends.
    */
   public handleTextEditingExited = (event: ShapeTextEditingEvent): void => {
     const { target } = event
@@ -186,7 +186,7 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Включает текстовый режим редактирования для выбранной незаблокированной shape-группы.
+   * Enables text-editing mode for the selected, unlocked shape group.
    */
   public enterTextEditing({ group }: { group: ShapeGroup }): void {
     const { text } = getShapeNodes({ group })
@@ -223,7 +223,7 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Фиксирует и временно отключает drag/selection у shape-группы на время редактирования текста.
+   * Saves and temporarily disables drag/selection on the shape group during text editing.
    */
   private _enterTextEditingInteractionMode({
     group,
@@ -270,7 +270,7 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Восстанавливает интерактивность shape-группы и текстового узла после завершения редактирования.
+   * Restores shape-group and text-node interactivity when editing ends.
    */
   private _restoreTextEditingInteractionMode({
     group,
@@ -305,8 +305,8 @@ export default class ShapeEditingController {
   }
 
   /**
-   * На время editing перенаправляет клики внутри текущей shape-группы в активный textbox.
-   * Это удерживает Fabric от deselect, когда курсор попадает в inset-область shape, а не в сам glyph-box текста.
+   * Routes clicks inside the current shape group to the active textbox during editing.
+   * This prevents Fabric from deselecting when the pointer is in the shape's inset area rather than the text's glyph box.
    */
   private _installEditingTargetResolver({
     group,
@@ -364,7 +364,7 @@ export default class ShapeEditingController {
   }
 
   /**
-   * Возвращает canvas.findTarget в исходное состояние после завершения editing.
+   * Restores canvas.findTarget to its original state when editing ends.
    */
   private _restoreEditingTargetResolver(): void {
     const currentState = this.editingTargetResolverState

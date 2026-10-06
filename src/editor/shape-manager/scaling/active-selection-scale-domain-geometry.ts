@@ -24,7 +24,7 @@ import {
 } from './shape-scaling-layout'
 import { applyShapeScalingPreviewLayout } from './shape-scaling-preview'
 
-/** Масштабирует координату в неизменяемой локальной плоскости относительно неподвижной точки. */
+/** Scales a coordinate in the immutable local plane relative to the fixed point. */
 function scaleCoordinate({
   anchor,
   scale,
@@ -37,7 +37,7 @@ function scaleCoordinate({
   return anchor + ((value - anchor) * scale)
 }
 
-/** Возвращает вертикальную точку и смещение привязки шейпа внутри исходной рамки. */
+/** Returns the shape's vertical anchor point and offset within the original frame. */
 function resolveVerticalAnchor({
   attachment,
   bounds
@@ -51,7 +51,7 @@ function resolveVerticalAnchor({
   return Object.freeze({ offset: 0, value: (bounds.top + bounds.bottom) / 2 })
 }
 
-/** Рассчитывает фактические границы шейпа после его компоновки и общего множителя содержимого. */
+/** Calculates the shape's actual bounds after layout and the shared content multiplier. */
 export function createActiveSelectionShapeDomainChildMeasurement({
   bounds,
   fixedAnchor,
@@ -102,7 +102,7 @@ export function createActiveSelectionShapeDomainChildMeasurement({
   })
 }
 
-/** Применяет внутреннюю компоновку и компенсирует производный масштаб общей рамки. */
+/** Applies internal layout and compensates for the shared frame's derived scale. */
 export function applyActiveSelectionShapeDomainChild({
   child,
   frame,

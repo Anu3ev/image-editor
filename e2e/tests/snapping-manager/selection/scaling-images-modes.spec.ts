@@ -3,7 +3,7 @@ import {
   expect
 } from '../../../fixtures/active-selection-scaling.fixture'
 
-/** Угол общего выделения в проверке скейлинга после поворота. */
+/** Active-selection angle in the scaling-after-rotation check. */
 const ACTIVE_SELECTION_ROTATION_DEGREES = 30
 
 test('с Shift свободно меняет ширину и высоту за угол', async({

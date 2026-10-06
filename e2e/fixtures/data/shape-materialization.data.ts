@@ -1,40 +1,40 @@
 import type { CanvasFullState } from '../../../src/editor/history-manager'
 import { SHAPE_TEMPLATE_WITH_LONG_TEXT_IN_FIGURE } from './shape-template-text-style.data'
 
-/** Идентификатор фигуры в общих materialization-сценариях. */
+/** Shape ID in shared materialization scenarios. */
 export const SHAPE_MATERIALIZATION_SOURCE_ID = 'shape-materialization-source'
 
-/** Идентификатор вспомогательной фигуры для group → ungroup. */
+/** Auxiliary shape ID for group → ungroup. */
 export const SHAPE_MATERIALIZATION_AUXILIARY_ID = 'shape-materialization-auxiliary'
 
-/** Идентификатор фигуры, восстановленной из initialState. */
+/** ID of the shape restored from initialState. */
 export const SHAPE_MATERIALIZATION_INITIAL_STATE_ID = 'shape-materialization-initial-state'
 
-/** Длинный текст, который остаётся перенесённым после добавления двух отступов. */
+/** Long text that remains wrapped after adding two padding values. */
 export const SHAPE_MATERIALIZATION_TEXT = 'AAAAAAAAAAAAAA'
 
-/** Размер текста в materialization-сценариях. */
+/** Text size in materialization scenarios. */
 export const SHAPE_MATERIALIZATION_FONT_SIZE = 48
 
-/** Значение левого и правого отступов в materialization-сценариях. */
+/** Left and right padding value in materialization scenarios. */
 export const SHAPE_MATERIALIZATION_HORIZONTAL_PADDING = 50
 
-/** Допустимое расхождение размеров после materialization. */
+/** Allowed dimension difference after materialization. */
 export const SHAPE_MATERIALIZATION_SIZE_TOLERANCE = 1.5
 
-/** Сохранённая ширина фигуры из initialState. */
+/** Saved shape width from initialState. */
 export const SHAPE_MATERIALIZATION_INITIAL_WIDTH = 449
 
-/** Сохранённая высота фигуры из initialState. */
+/** Saved shape height from initialState. */
 export const SHAPE_MATERIALIZATION_INITIAL_HEIGHT = 180
 
-/** Узкая монтажная область, в которой fitObject ограничивается по высоте. */
+/** Narrow artboard in which fitObject is constrained by height. */
 export const SHAPE_MATERIALIZATION_FIT_RESOLUTION = {
   width: 512,
   height: 120
 } as const
 
-/** Служебная монтажная область initialState. */
+/** Auxiliary initialState artboard. */
 const SHAPE_MATERIALIZATION_MONTAGE_OBJECT = {
   id: 'montage-area',
   type: 'Rect',
@@ -57,7 +57,7 @@ const SHAPE_MATERIALIZATION_MONTAGE_OBJECT = {
 } as const
 
 /**
- * Возвращает валидные source-узлы из существующей сериализованной shape fixture.
+ * Returns valid source nodes from an existing serialized shape fixture.
  */
 function resolveShapeMaterializationSource(): {
   group: Record<string, unknown>
@@ -85,7 +85,7 @@ function resolveShapeMaterializationSource(): {
 }
 
 /**
- * Приводит дочерние узлы fixture к тексту и размерам initialState-сценария.
+ * Adjusts fixture child nodes to the text and dimensions of the initialState scenario.
  */
 function createShapeMaterializationObjects({
   sourceObjects
@@ -118,7 +118,7 @@ function createShapeMaterializationObjects({
 }
 
 /**
- * Собирает shape-группу с уже выбранными внешними размерами.
+ * Builds a shape group with preselected outer dimensions.
  */
 function createShapeMaterializationGroup(): Record<string, unknown> {
   const {
@@ -152,7 +152,7 @@ function createShapeMaterializationGroup(): Record<string, unknown> {
 }
 
 /**
- * Собирает initialState с одной materialized shape-группой.
+ * Builds an initialState with one materialized shape group.
  */
 function createShapeMaterializationInitialState(): CanvasFullState {
   return {
@@ -167,5 +167,5 @@ function createShapeMaterializationInitialState(): CanvasFullState {
   }
 }
 
-/** InitialState для проверки сохранения внешних размеров shape-группы. */
+/** InitialState for testing preservation of a shape group's outer dimensions. */
 export const SHAPE_MATERIALIZATION_INITIAL_STATE = createShapeMaterializationInitialState()

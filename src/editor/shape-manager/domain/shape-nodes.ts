@@ -6,7 +6,7 @@ import type {
 } from '../types'
 
 /**
- * Возвращает внутренний shape-объект группы.
+ * Returns the group's inner shape object.
  */
 export const getShapeNode = ({ group }: { group: ShapeGroupLike }): ShapeNode | null => {
   const objects = group.getObjects() as ShapeNode[]
@@ -27,7 +27,7 @@ export const getShapeNode = ({ group }: { group: ShapeGroupLike }): ShapeNode | 
 }
 
 /**
- * Возвращает внутренний textbox-объект группы.
+ * Returns the group's inner textbox object.
  */
 export const getShapeTextNode = ({ group }: { group: ShapeGroupLike }): ShapeTextNode | null => {
   const objects = group.getObjects() as ShapeNode[]
@@ -50,7 +50,7 @@ export const getShapeTextNode = ({ group }: { group: ShapeGroupLike }): ShapeTex
 }
 
 /**
- * Возвращает оба внутренних объекта shape-композиции.
+ * Returns both inner objects of the shape composition.
  */
 export const getShapeNodes = ({ group }: { group: ShapeGroupLike }): {
   shape: ShapeNode | null

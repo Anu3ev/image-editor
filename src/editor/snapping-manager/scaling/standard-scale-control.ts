@@ -6,15 +6,15 @@ import {
   type Transform
 } from 'fabric'
 
-/** Эталонные ручки Fabric для обычного прямоугольного скейлинга. */
+/** Reference Fabric controls for regular rectangular scaling. */
 const STANDARD_RECTANGULAR_SCALE_CONTROLS: Readonly<Record<string, Control>> = Object.freeze(
   controlsUtils.createObjectDefaultControls()
 )
 
-/** Допуск сравнения геометрии стандартной ручки Fabric. */
+/** Tolerance for comparing standard Fabric control geometry. */
 const STANDARD_SCALE_CONTROL_EPSILON = 0.000000001
 
-/** Сравнивает два числовых свойства ручки с учётом отсутствующих значений. */
+/** Compares two numeric control properties, accounting for missing values. */
 function areControlNumbersEqual({
   first,
   second
@@ -29,7 +29,7 @@ function areControlNumbersEqual({
     && Math.abs(first - second) <= STANDARD_SCALE_CONTROL_EPSILON
 }
 
-/** Проверяет обработчики и положение активной ручки по стандартному Fabric-контракту. */
+/** Checks the active control's handlers and position against the standard Fabric contract. */
 export function isStandardRectangularScaleControl({
   target,
   transform
@@ -60,7 +60,7 @@ export function isStandardRectangularScaleControl({
   })
 }
 
-/** Проверяет, что модификатор переключил боковую ручку со скейлинга на наклон. */
+/** Checks whether a modifier switched the side control from scaling to skewing. */
 export function didSideScaleSwitchToSkew({
   controlKey,
   pointerEvent,

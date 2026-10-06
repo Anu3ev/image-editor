@@ -1,6 +1,6 @@
 import type { Bounds } from '../../../src/editor/snapping-manager/types'
 
-/** Минимальный snap-result stub для unit-тестов scaling snap. */
+/** Minimal snap-result stub for scaling-snap unit tests. */
 type AxisSnapResultStub = {
   delta: number
   guidePosition: number | null
@@ -10,7 +10,7 @@ type AxisSnapResultStub = {
   } | null
 }
 
-/** Возвращает bounds прямоугольника с уже посчитанным центром. */
+/** Returns rectangle bounds with the center already calculated. */
 export function createScalingBounds({
   left,
   top,
@@ -32,7 +32,7 @@ export function createScalingBounds({
   }
 }
 
-/** Возвращает snap-result с привязкой к конкретной границе. */
+/** Returns a snap result snapped to a specific edge. */
 export function createAxisSnapResult({
   edge,
   position,
@@ -54,7 +54,7 @@ export function createAxisSnapResult({
   }
 }
 
-/** Возвращает snap-result без найденной направляющей. */
+/** Returns a snap result with no guide found. */
 export function createEmptyAxisSnapResult(): AxisSnapResultStub {
   return {
     delta: 0,

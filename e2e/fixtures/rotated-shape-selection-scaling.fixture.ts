@@ -12,7 +12,7 @@ import type {
   SelectionCompositionSnapshot
 } from '../types'
 
-/** Повёрнутый шейп из сцены для проверки бага и его размещение в монтажной области. */
+/** Rotated shape from the bug-reproduction scene and its placement in the artboard. */
 type RotatedShapeFixtureData = Readonly<{
   angle: number
   id: string
@@ -22,13 +22,13 @@ type RotatedShapeFixtureData = Readonly<{
   top: number
 }>
 
-/** Сцена после сохранения и повторного применения смешанного шаблона. */
+/** Scene after saving and reapplying a mixed template. */
 type RotatedShapeScaleSetup = Readonly<{
   initial: SelectionCompositionSnapshot
   shapeIds: readonly [string, string]
 }>
 
-/** Модели, необходимые для подготовки сцены с повёрнутыми шейпами. */
+/** Models required to prepare a scene with rotated shapes. */
 type RotatedShapeScaleModels = Readonly<{
   editorModel: EditorModel
   history: HistoryModel
@@ -39,17 +39,17 @@ type RotatedShapeScaleModels = Readonly<{
   text: TextModel
 }>
 
-/** Дополнительная сцена для скейлинга повёрнутых шейпов. */
+/** Additional scene for scaling rotated shapes. */
 interface RotatedShapeSelectionScalingFixtures {
   rotatedMixedShapeScaleSetup: RotatedShapeScaleSetup
   rotatedShapeScaleSetup: RotatedShapeScaleSetup
 }
 
-/** Размеры двух нижних повёрнутых шейпов из приложенного шаблона. */
+/** Dimensions of the two lower rotated shapes from the attached template. */
 const ROTATED_SHAPE_WIDTH = 173
 const ROTATED_SHAPE_HEIGHT = 49
 
-/** Возвращает два повёрнутых шейпа из упрощённой сцены по мотивам приложенного шаблона. */
+/** Returns two rotated shapes from a simplified scene based on the attached template. */
 function createRotatedShapeFixtureData({
   montage
 }: {
@@ -78,7 +78,7 @@ function createRotatedShapeFixtureData({
   ])
 }
 
-/** Добавляет повёрнутые шейпы, которые воспроизводят проблемную геометрию шаблона. */
+/** Adds rotated shapes that reproduce the template's problematic geometry. */
 async function addRotatedShapes({
   montage,
   shapes
@@ -117,7 +117,7 @@ async function addRotatedShapes({
   }
 }
 
-/** Добавляет изображение и отдельный текст из смешанного состава шаблона. */
+/** Adds an image and standalone text from the template's mixed composition. */
 async function addMixedSelectionObjects({
   images,
   montage,
@@ -157,7 +157,7 @@ async function addMixedSelectionObjects({
   expect(textObject.id, 'отдельный текст должен сохранить заданный id').toBe('rotated-template-heading')
 }
 
-/** Создаёт смешанный шаблон и повторно применяет его перед началом скейлинга. */
+/** Creates a mixed template and reapplies it before scaling begins. */
 async function createRotatedMixedShapeScaleSetup({
   editorModel,
   history,
@@ -200,7 +200,7 @@ async function createRotatedMixedShapeScaleSetup({
   return { initial, shapeIds: [shapeIds[0], shapeIds[1]] }
 }
 
-/** Создаёт общее выделение только из двух заранее повёрнутых шейпов. */
+/** Creates an active selection containing only two prerotated shapes. */
 async function createRotatedShapeScaleSetup({
   editorModel,
   history,
@@ -226,7 +226,7 @@ async function createRotatedShapeScaleSetup({
   return { initial, shapeIds: [shapeIds[0], shapeIds[1]] }
 }
 
-/** Подготавливает сцены общего выделения с двумя заранее повёрнутыми шейпами. */
+/** Prepares active-selection scenes with two prerotated shapes. */
 export const test = activeSelectionScalingTest.extend<RotatedShapeSelectionScalingFixtures>({
   rotatedMixedShapeScaleSetup: async({
     editorModel,

@@ -2,12 +2,12 @@ import type { FabricImage, FabricObject, Rect } from 'fabric'
 import type { CropFrame } from './domain/crop-frame'
 
 /**
- * Режимы работы crop manager.
+ * Crop manager operating modes.
  */
 export type CropMode = 'canvas' | 'image'
 
 /**
- * Размер crop frame в локальных координатах источника кропа.
+ * Crop frame size in the local coordinate system of the crop source.
  */
 export type CropSize = {
   width: number
@@ -15,7 +15,7 @@ export type CropSize = {
 }
 
 /**
- * Пропорция crop frame. Значения трактуются как отношение width / height.
+ * Crop frame aspect ratio. Values are interpreted as the width / height ratio.
  */
 export type CropAspectRatio = {
   width: number
@@ -23,16 +23,16 @@ export type CropAspectRatio = {
 }
 
 /**
- * Способ масштабирования crop frame к монтажной области.
+ * Method for scaling the crop frame to the artboard.
  */
 export type CropFrameFitType = 'contain' | 'cover'
 
 /**
- * Опции старта кропа монтажной области.
+ * Options for starting an artboard crop.
  */
 export type StartCanvasCropOptions = {
   size?: CropSize
-  /** Видимая пропорция crop-области на холсте. */
+  /** Visible aspect ratio of the crop area on the canvas. */
   aspectRatio?: CropAspectRatio
   allowFrameOverflow?: boolean
   showGrid?: boolean
@@ -42,12 +42,12 @@ export type StartCanvasCropOptions = {
 }
 
 /**
- * Опции старта кропа изображения.
+ * Options for starting an image crop.
  */
 export type StartImageCropOptions = {
   target?: FabricImage
   size?: CropSize
-  /** Видимая пропорция crop-области на холсте. */
+  /** Visible aspect ratio of the crop area on the canvas. */
   aspectRatio?: CropAspectRatio
   allowFrameOverflow?: boolean
   showGrid?: boolean
@@ -57,7 +57,7 @@ export type StartImageCropOptions = {
 }
 
 /**
- * Runtime-настройки активной crop session.
+ * Runtime settings for the active crop session.
  */
 export type CropSessionOptions = {
   allowFrameOverflow: boolean
@@ -68,7 +68,7 @@ export type CropSessionOptions = {
 }
 
 /**
- * Параметры переключения сохранения пропорций у активной crop-области.
+ * Parameters for toggling aspect ratio preservation for the active crop area.
  */
 export type SetCropPreserveAspectRatioOptions = {
   preserveAspectRatio: boolean
@@ -76,8 +76,8 @@ export type SetCropPreserveAspectRatioOptions = {
 }
 
 /**
- * Crop rect в координатах результата: для canvas от top-left монтажной области,
- * для image от top-left текущей видимой области изображения.
+ * Crop rect in result coordinates: relative to the artboard top-left for canvas crops,
+ * relative to the top-left of the currently visible image area for image crops.
  */
 export type CropRect = {
   left: number
@@ -87,7 +87,7 @@ export type CropRect = {
 }
 
 /**
- * Сохранённое состояние интерактивности объекта на время crop mode.
+ * Saved object interactivity state while crop mode is active.
  */
 export type CropObjectInteractivity = {
   object: FabricObject
@@ -96,7 +96,7 @@ export type CropObjectInteractivity = {
 }
 
 /**
- * Geometry crop frame, которая восстанавливается только внутри live resize-сессии.
+ * Crop frame geometry restored only within a live resize session.
  */
 export type CropFrameTransformState = {
   left: number
@@ -106,7 +106,7 @@ export type CropFrameTransformState = {
 }
 
 /**
- * Общие runtime-поля crop session. Не сериализуются и не попадают в history.
+ * Shared runtime fields of a crop session. Not serialized or included in history.
  */
 type BaseCropSession = {
   source: FabricObject
@@ -119,7 +119,7 @@ type BaseCropSession = {
 }
 
 /**
- * Runtime-сессия crop mode для монтажной области.
+ * Runtime crop mode session for the artboard.
  */
 export type CanvasCropSession = BaseCropSession & {
   mode: 'canvas'
@@ -127,7 +127,7 @@ export type CanvasCropSession = BaseCropSession & {
 }
 
 /**
- * Runtime-сессия crop mode для изображения.
+ * Runtime crop mode session for an image.
  */
 export type ImageCropSession = BaseCropSession & {
   mode: 'image'
@@ -135,12 +135,12 @@ export type ImageCropSession = BaseCropSession & {
 }
 
 /**
- * Runtime-сессия crop mode. Не сериализуется и не попадает в history.
+ * Runtime crop mode session. Not serialized or included in history.
  */
 export type CropSession = CanvasCropSession | ImageCropSession
 
 /**
- * Публичное состояние активного crop mode.
+ * Public state of the active crop mode.
  */
 export type CropState = {
   mode: CropMode
@@ -152,7 +152,7 @@ export type CropState = {
 }
 
 /**
- * Результат применения crop mode.
+ * Result of applying crop mode.
  */
 export type CropApplyResult = {
   mode: CropMode

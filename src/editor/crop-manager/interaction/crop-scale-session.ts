@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Создание сессии расположено перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- Session creation precedes internal calculations. */
 import { Point, type FabricObject, type Transform } from 'fabric'
 
 import type SnappingManager from '../../snapping-manager'
@@ -30,7 +30,7 @@ import type { CropFrame } from '../domain/crop-frame'
 import type { CropFrameTransformState, CropRect } from '../types'
 import { getCropFrameTransformState } from '../domain/crop-frame-transform-state'
 
-/** Геометрия и ограничения одного resize, неизменяемые до завершения жеста. */
+/** Geometry and constraints for a single resize, immutable until the gesture ends. */
 export interface CropScaleSession {
   kind: 'scale'
   frame: CropFrame
@@ -45,7 +45,7 @@ export interface CropScaleSession {
   confirmed: CropFrameTransformState
 }
 
-/** Создаёт crop-сессию с точными углами без обводки и ограничениями в пикселях источника. */
+/** Creates a crop session with exact corners excluding the stroke and constraints in source pixels. */
 export function createCropScaleSession({
   frame,
   transform,
@@ -68,7 +68,7 @@ export function createCropScaleSession({
     new Point(-frame.width / 2, frame.height / 2)
   ].map((point) => point.transform(matrix))
   const projection = createRectangularScaleGestureProjection({
-    // В Fabric поле action необязательное, а проекция принимает его явно, в том числе как undefined.
+    // In Fabric, the action field is optional, while the projection accepts it explicitly, including as undefined.
     transform: { ...transform, action: transform.action },
     pointerStart: { x: transform.ex, y: transform.ey },
     corners
@@ -95,7 +95,7 @@ export function createCropScaleSession({
   }
 }
 
-/** Фиксирует кандидатов общего resolver, включая приоритетные границы crop-источника. */
+/** Captures candidates from the shared resolver, including the priority crop source bounds. */
 function startCropScaleSnapping({
   frame,
   source,
@@ -127,7 +127,7 @@ function startCropScaleSnapping({
   return runtime
 }
 
-/** Возвращает максимальные множители размера вокруг неподвижных сторон источника. */
+/** Returns the maximum size multipliers around the fixed source sides. */
 function resolveCropScaleMaximum({
   frame,
   startRect,
@@ -153,7 +153,7 @@ function resolveCropScaleMaximum({
   return maximum
 }
 
-/** Применяет ограничения и округление source-размера к плану без изменения живой crop-области. */
+/** Applies source size constraints and rounding to the plan without modifying the live crop area. */
 export function resolveCropScaleSize({
   session,
   plan
@@ -193,7 +193,7 @@ export function resolveCropScaleSize({
   return multipliers
 }
 
-/** Возвращает итоговый source-rect, сохраняя неподвижную сторону каждой оси. */
+/** Returns the final source rect, preserving the fixed side of each axis. */
 export function resolveCropScaledRect({
   session,
   multipliers

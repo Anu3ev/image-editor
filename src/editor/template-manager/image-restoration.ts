@@ -15,16 +15,16 @@ import type {
   TemplateObjectData
 } from './types'
 
-/** Допуск для сравнения размеров источника и коэффициентов масштаба. */
+/** Tolerance for comparing source dimensions and scale factors. */
 const IMAGE_GEOMETRY_EPSILON = 0.000001
 
-/** Точка в координатах базовой монтажной области шаблона. */
+/** Point in the template's base artboard coordinate system. */
 type PointInfo = {
   x: number
   y: number
 }
 
-/** План восстановления размеров и положения изображения. */
+/** Plan for restoring image dimensions and position. */
 type ImageRestorePlan = {
   nextProps: Record<string, number>
   targetWidth: number
@@ -34,10 +34,10 @@ type ImageRestorePlan = {
   hasIntrinsicSize: boolean
 }
 
-/** Действие с crop-областью при восстановлении изображения. */
+/** Action to take on the crop area when restoring an image. */
 type ImageCropRestoreMode = 'none' | 'preserve' | 'replace'
 
-/** Параметры расчёта геометрии восстановленного изображения. */
+/** Parameters for calculating restored image geometry. */
 type ImageRestorePropsParams = {
   imageFit: TemplateImageFit
   cropMode: ImageCropRestoreMode
@@ -49,7 +49,7 @@ type ImageRestorePropsParams = {
   baseScaleY: number
 }
 
-/** Возвращает фактический размер загруженного источника изображения. */
+/** Returns the actual dimensions of the loaded image source. */
 function getImageIntrinsicSize({ image }: { image: FabricImage }): Dimensions {
   const originalSize = image.getOriginalSize()
 
@@ -59,7 +59,7 @@ function getImageIntrinsicSize({ image }: { image: FabricImage }): Dimensions {
   }
 }
 
-/** Проверяет корректность сохранённого размера источника crop-области. */
+/** Validates the saved source dimensions for the crop area. */
 function isImageCropMetadata(value: unknown): value is TemplateImageCrop {
   if (!value || typeof value !== 'object') return false
 
@@ -75,7 +75,7 @@ function isImageCropMetadata(value: unknown): value is TemplateImageCrop {
     && sourceHeight > 0
 }
 
-/** Проверяет принадлежность crop-метаданных исходному src и его системе координат. */
+/** Checks that crop metadata belongs to the original src and its coordinate system. */
 function hasMatchingImageCropSource({
   imageCrop,
   originalSerialized,
@@ -91,7 +91,7 @@ function hasMatchingImageCropSource({
   return hasSameDimensions && imageCrop.source === originalSerialized.src
 }
 
-/** Проверяет, что сериализованная crop-область помещается в текущий источник. */
+/** Checks that the serialized crop area fits within the current source. */
 function isCropInsideSource({
   serialized,
   sourceSize
@@ -112,7 +112,7 @@ function isCropInsideSource({
     && cropY + height <= sourceSize.height + IMAGE_GEOMETRY_EPSILON
 }
 
-/** Определяет, нужно ли сохранить crop или заново заполнить сохранённую область. */
+/** Determines whether to preserve the crop or refill the saved area. */
 function resolveImageCropRestoreMode({
   serialized,
   originalSerialized,
@@ -139,12 +139,12 @@ function resolveImageCropRestoreMode({
   return isCropValid ? 'preserve' : 'replace'
 }
 
-/** Возвращает правило вписывания источника изображения. */
+/** Returns the image source fitting rule. */
 function resolveImageFit({ customData }: { customData?: TemplateCustomData }): TemplateImageFit {
   return customData?.imageFit === 'stretch' ? 'stretch' : 'contain'
 }
 
-/** Добавляет независимый масштаб по осям для stretch-режима. */
+/** Adds independent scaling per axis for stretch mode. */
 function applyStretchedImageScale({
   nextProps,
   intrinsicWidth,
@@ -165,7 +165,7 @@ function applyStretchedImageScale({
   if (nextScaleY && nextScaleY > 0) nextProps.scaleY = nextScaleY
 }
 
-/** Добавляет единый масштаб для contain-режима. */
+/** Adds uniform scaling for contain mode. */
 function applyContainedImageScale({
   nextProps,
   intrinsicWidth,
@@ -188,7 +188,7 @@ function applyContainedImageScale({
   nextProps.scaleY = containScale
 }
 
-/** Обрезает новый источник по центру так, чтобы он заполнил сохранённую область. */
+/** Center-crops the new source to fill the saved area. */
 function resolveCoveredImageProps({
   intrinsicWidth,
   intrinsicHeight,
@@ -227,7 +227,7 @@ function resolveCoveredImageProps({
   return nextProps
 }
 
-/** Возвращает размеры и масштаб для текущего источника изображения. */
+/** Returns dimensions and scale for the current image source. */
 function resolveImageRestoreProps({
   imageFit,
   cropMode,
@@ -273,7 +273,7 @@ function resolveImageRestoreProps({
   return nextProps
 }
 
-/** Собирает план восстановления изображения по сериализованной области. */
+/** Builds an image restoration plan from the serialized area. */
 function createImageRestorePlan({
   image,
   serialized,
@@ -309,7 +309,7 @@ function createImageRestorePlan({
   }
 }
 
-/** Удаляет служебные данные восстановления из живого Fabric-объекта. */
+/** Removes internal restoration data from the live Fabric object. */
 function clearImageRestorationMetadata({ image }: { image: FabricImage }): void {
   const { customData } = image
   if (!customData || typeof customData !== 'object') return
@@ -326,7 +326,7 @@ function clearImageRestorationMetadata({ image }: { image: FabricImage }): void 
   })
 }
 
-/** Возвращает положение изображения в координатах базового размера шаблона. */
+/** Returns the image position in the template's base-size coordinate system. */
 function resolveTemplatePlacement({
   image,
   serialized,
@@ -351,7 +351,7 @@ function resolveTemplatePlacement({
   }
 }
 
-/** Вычисляет центр сохранённой области изображения. */
+/** Calculates the center of the saved image area. */
 function resolveImageTemplateCenter({
   image,
   serialized,
@@ -398,7 +398,7 @@ function resolveImageTemplateCenter({
   return { x: center.x, y: center.y }
 }
 
-/** Возвращает изображение в систему координат общего преобразования шаблона. */
+/** Returns the image to the template's overall transform coordinate system. */
 function restoreImageTemplateCenter({
   image,
   center,
@@ -421,7 +421,7 @@ function restoreImageTemplateCenter({
   })
 }
 
-/** Восстанавливает crop, размеры и положение изображения из шаблона. */
+/** Restores image crop, dimensions, and position from the template. */
 export function restoreTemplateImageGeometry({
   revived,
   serialized,
@@ -469,7 +469,7 @@ export function restoreTemplateImageGeometry({
   clearImageRestorationMetadata({ image })
 }
 
-/** Записывает независимые режимы crop и вписывания изображения. */
+/** Writes independent crop and image fitting modes. */
 export function preserveSerializedImageGeometry({
   object,
   serialized

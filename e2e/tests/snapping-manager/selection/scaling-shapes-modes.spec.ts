@@ -11,7 +11,7 @@ import {
   requireSelectionShapeSnapshot
 } from '../../../helpers/rotated-shape-selection-scaling.helper'
 
-/** Угол общего выделения в проверке скейлинга после поворота. */
+/** Active-selection angle in the scaling-after-rotation check. */
 const ACTIVE_SELECTION_ROTATION_DEGREES = 30
 
 test('без Shift пропорционально меняет размеры за угол и сохраняет состояние текста', async({

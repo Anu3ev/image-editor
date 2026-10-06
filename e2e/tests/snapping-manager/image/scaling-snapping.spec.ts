@@ -11,7 +11,7 @@ import {
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Общая геометрия одного изолированного сценария Image scale snapping. */
+/** Shared geometry of one isolated Image scale-snapping scenario. */
 type ImageScaleSnappingSetup = {
   baseline: SnappingObjectSnapshot
   imageId: string

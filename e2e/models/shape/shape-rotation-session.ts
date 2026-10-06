@@ -3,25 +3,25 @@ import { type Page, expect } from '@playwright/test'
 import type { ObjectTargetParams } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
-/** Координаты ручки на странице. */
+/** Handle coordinates on the page. */
 type ShapeControlPoint = {
   x: number
   y: number
 }
 
-/** Имя Fabric-ручки поворота фигуры. */
+/** Name of the shape's Fabric rotation handle. */
 const SHAPE_ROTATE_CONTROL = 'mtr'
 
 /**
- * Управляет реальным mouse-взаимодействием с ручкой поворота.
- * ShapeModel остаётся внешней точкой входа для e2e-тестов.
+ * Manages real mouse interaction with the rotation handle.
+ * ShapeModel remains the external entry point for e2e tests.
  */
 export class ShapeRotationSession {
   private readonly page: Page
 
   private isPointerDown: boolean
 
-  /** Создаёт управление поворотом для страницы редактора. */
+  /** Creates rotation controls for the editor page. */
   constructor(page: Page) {
     expect(page, 'страница редактора должна существовать').toBeDefined()
     expect(page.mouse, 'у страницы редактора должен быть доступен mouse').toBeDefined()
@@ -30,7 +30,7 @@ export class ShapeRotationSession {
     this.isPointerDown = false
   }
 
-  /** Наводит курсор на ручку поворота фигуры. */
+  /** Hovers over the shape's rotation handle. */
   async hoverRotateHandle(params: ObjectTargetParams = {}): Promise<void> {
     const point = await this._resolveRotateControlPoint(params)
 
@@ -41,7 +41,7 @@ export class ShapeRotationSession {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Начинает поворот фигуры реальным mousedown на ручке. */
+  /** Starts shape rotation with a real mousedown on the handle. */
   async startRotateFromHandle(params: ObjectTargetParams = {}): Promise<void> {
     expect(this.isPointerDown, 'нельзя повторно начать поворот до mouseup').toBe(false)
 
@@ -57,7 +57,7 @@ export class ShapeRotationSession {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Завершает поворот фигуры реальным mouseup. */
+  /** Finishes shape rotation with a real mouseup. */
   async finishRotation(): Promise<void> {
     expect(this.isPointerDown, 'поворот можно завершить только после mousedown').toBe(true)
 
@@ -68,7 +68,7 @@ export class ShapeRotationSession {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Возвращает координаты ручки поворота выбранной фигуры. */
+  /** Returns rotation-handle coordinates of the selected shape. */
   private async _resolveRotateControlPoint(params: ObjectTargetParams): Promise<ShapeControlPoint> {
     const point = await this.page.evaluate(({ objectIndex, id, rotateControl }) => {
       const {

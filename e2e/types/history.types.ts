@@ -1,4 +1,4 @@
-/** Позиция в истории и количество сохранённых изменений. */
+/** History position and number of saved changes. */
 export interface HistoryPosition {
   currentIndex: number
   patchCount: number

@@ -38,7 +38,7 @@ export interface HistorySnapshotGroupObject extends SnapshotObject {
 type HistorySnapshotCanvasObject = HistorySnapshotGroupObject | HistorySnapshotTextObject
 
 /**
- * Создаёт базовое сериализованное состояние canvas для unit-тестов history.
+ * Creates a base serialized canvas state for history unit tests.
  */
 export function createHistoryCanvasState({
   overrides = {}
@@ -49,7 +49,7 @@ export function createHistoryCanvasState({
 }
 
 /**
- * Создаёт runtime-объект текста для snapshot/history-тестов.
+ * Creates a runtime text object for snapshot/history tests.
  */
 export function createSnapshotTextObject({
   id = 'text-1',
@@ -92,7 +92,7 @@ export function createSnapshotTextObject({
 }
 
 /**
- * Создаёт runtime shape-группу с дочерними объектами для snapshot/history-тестов.
+ * Creates a runtime shape group with child objects for snapshot/history tests.
  */
 export function createSnapshotShapeGroup({
   id = 'shape-1',
@@ -140,7 +140,7 @@ export function createSnapshotShapeGroup({
 }
 
 /**
- * Создаёт canvas-стаб для snapshot helper-тестов.
+ * Creates a canvas stub for snapshot helper tests.
  */
 export function createSnapshotCanvas({
   objects
@@ -153,7 +153,7 @@ export function createSnapshotCanvas({
 }
 
 /**
- * Сериализует runtime shape-группу в plain object без циклических ссылок.
+ * Serializes a runtime shape group into a plain object without circular references.
  */
 export function serializeSnapshotShapeGroupState({
   group,
@@ -183,7 +183,7 @@ export function serializeSnapshotShapeGroupState({
 }
 
 /**
- * Создаёт serialized canvas state с одной shape-группой.
+ * Creates a serialized canvas state with one shape group.
  */
 export function createSnapshotShapeGroupHistoryState({
   group,

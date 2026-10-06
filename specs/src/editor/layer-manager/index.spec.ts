@@ -16,13 +16,13 @@ describe('LayerManager', () => {
     mockCanvas = mocks.mockCanvas
     mockEditor = mocks.mockEditor
 
-    // Добавляем overlayMask для тестов sendToBack/sendBackwards
+    // Add overlayMask for sendToBack/sendBackwards tests
     mockOverlayMask = { id: 'overlay-mask', set: jest.fn() }
     mockEditor.interactionBlocker.overlayMask = mockOverlayMask
 
     layerManager = new LayerManager({ editor: mockEditor })
 
-    // Добавляем методы canvas для работы со слоями
+    // Add canvas methods for working with layers
     mockCanvas.bringObjectToFront = jest.fn()
     mockCanvas.bringObjectForward = jest.fn()
     mockCanvas.sendObjectToBack = jest.fn()
@@ -112,7 +112,7 @@ describe('LayerManager', () => {
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockObject)
 
-      // Проверяем что служебные элементы отправляются в самый низ
+      // Check that internal elements are sent to the very bottom
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockMontageArea)
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockOverlayMask)
 
@@ -134,7 +134,7 @@ describe('LayerManager', () => {
 
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockObject)
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockMontageArea)
-      // overlayMask не должен вызываться если его нет
+      // overlayMask should not be called if it is absent
       expect(mockCanvas.sendObjectToBack).not.toHaveBeenCalledWith(mockOverlayMask)
     })
   })
@@ -179,7 +179,7 @@ describe('LayerManager', () => {
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockCanvas.sendObjectBackwards).toHaveBeenCalledWith(mockObject)
 
-      // Проверяем что служебные элементы отправляются в самый низ
+      // Check that internal elements are sent to the very bottom
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockMontageArea)
       expect(mockCanvas.sendObjectToBack).toHaveBeenCalledWith(mockOverlayMask)
 
@@ -200,7 +200,7 @@ describe('LayerManager', () => {
       const activeSelection = new ActiveSelection([obj1, obj2], {}) as any
       mockCanvas.getActiveObject.mockReturnValue(activeSelection)
 
-      // Мокаем getObjects для canvas
+      // Mock getObjects for the canvas
       mockCanvas.getObjects.mockReturnValue([
         { id: 'other1' }, obj1, { id: 'other2' }, obj2, { id: 'other3' }
       ])
@@ -219,7 +219,7 @@ describe('LayerManager', () => {
       const activeSelection = new ActiveSelection([obj1, obj2], {}) as any
       mockCanvas.getActiveObject.mockReturnValue(activeSelection)
 
-      // Мокаем getObjects для canvas
+      // Mock getObjects for the canvas
       mockCanvas.getObjects.mockReturnValue([
         { id: 'other1' }, obj1, { id: 'other2' }, obj2, { id: 'other3' }
       ])
@@ -240,13 +240,13 @@ describe('LayerManager', () => {
 
       mockCanvas.getObjects.mockReturnValue(objects)
 
-      const selectedObjects = [objects[4], objects[5]] // obj5, obj6 - самые верхние
+      const selectedObjects = [objects[4], objects[5]] // obj5 and obj6 are at the very top
       const activeSelection = new ActiveSelection(selectedObjects, {}) as any
       mockCanvas.getActiveObject.mockReturnValue(activeSelection)
 
       layerManager.bringForward()
 
-      // Должен быть вызван fire с проверкой границ
+      // fire should be called with a bounds check
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-bring-forward', {
         object: activeSelection,
         withoutSave: undefined
@@ -261,13 +261,13 @@ describe('LayerManager', () => {
 
       mockCanvas.getObjects.mockReturnValue(objects)
 
-      const selectedObjects = [objects[0], objects[1]] // obj1, obj2 - самые нижние
+      const selectedObjects = [objects[0], objects[1]] // obj1 and obj2 are at the very bottom
       const activeSelection = new ActiveSelection(selectedObjects, {}) as any
       mockCanvas.getActiveObject.mockReturnValue(activeSelection)
 
       layerManager.sendBackwards()
 
-      // Должен быть вызван fire с проверкой границ
+      // fire should be called with a bounds check
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-send-backwards', {
         object: activeSelection,
         withoutSave: undefined
@@ -314,67 +314,67 @@ describe('LayerManager', () => {
     })
   })
 
-  // Тесты с детальной проверкой порядка слоёв
+  // Tests with detailed layer-order checks
   describe('Детальные тесты порядка слоёв', () => {
     let realisticMocks: any
     let realisticLayerManager: LayerManager
 
     beforeEach(() => {
-      // Используем общие хелперы с layer-aware canvas
+      // Use shared helpers with a layer-aware canvas
       realisticMocks = createManagerTestMocks(800, 600, { withLayerAwareCanvas: true })
       realisticLayerManager = new LayerManager({ editor: realisticMocks.mockEditor })
     })
 
-    // Данные для параметризованных тестов - упрощённые кейсы для одиночных объектов
+    // Data for parameterized tests: simplified cases for individual objects
     const layerTestCases = [
       {
         name: 'bringForward одиночного объекта из середины',
         initialOrder: [1, 2, 3, 4, 5, 6],
-        selection: [3], // только obj3
+        selection: [3], // obj3 only
         method: 'bringForward' as const,
-        expectedOrder: [1, 2, 4, 3, 5, 6] // obj3 поднялся на одну позицию
+        expectedOrder: [1, 2, 4, 3, 5, 6] // obj3 moved up one position
       },
       {
         name: 'sendBackwards одиночного объекта из середины',
         initialOrder: [1, 2, 3, 4, 5, 6],
-        selection: [4], // только obj4
+        selection: [4], // obj4 only
         method: 'sendBackwards' as const,
-        expectedOrder: [1, 2, 4, 3, 5, 6] // obj4 опустился на одну позицию
+        expectedOrder: [1, 2, 4, 3, 5, 6] // obj4 moved down one position
       },
       {
         name: 'bringForward объекта сверху (boundary case)',
         initialOrder: [1, 2, 3, 4, 5, 6],
-        selection: [6], // obj6 уже сверху
+        selection: [6], // obj6 is already at the top
         method: 'bringForward' as const,
-        expectedOrder: [1, 2, 3, 4, 5, 6] // Не должен двигаться
+        expectedOrder: [1, 2, 3, 4, 5, 6] // Should not move
       },
       {
         name: 'sendBackwards объекта снизу (boundary case)',
         initialOrder: [1, 2, 3, 4, 5, 6],
-        selection: [1], // obj1 уже снизу
+        selection: [1], // obj1 is already at the bottom
         method: 'sendBackwards' as const,
-        expectedOrder: [1, 2, 3, 4, 5, 6] // Не должен двигаться
+        expectedOrder: [1, 2, 3, 4, 5, 6] // Should not move
       }
     ]
 
     describe.each(layerTestCases)('Кейс: $name', ({ name, initialOrder, selection, method, expectedOrder }) => {
       it(`должен правильно изменить порядок слоёв: ${name}`, () => {
-        // Подготавливаем объекты в нужном порядке
+        // Prepare objects in the required order
         const objects = createTestObjects(initialOrder)
         realisticMocks.mockCanvas.setObjects(objects)
 
-        // Находим выбранный объект (только один для простоты)
+        // Find the selected object (just one, for simplicity)
         const selectedObject = objects.find((obj) => obj.id === `obj${selection[0]}`)
         realisticMocks.mockCanvas.getActiveObject.mockReturnValue(selectedObject)
 
-        // Выполняем операцию
+        // Perform the operation
         realisticLayerManager[method]()
 
-        // Проверяем результирующий порядок
+        // Check the resulting order
         const resultOrder = getObjectOrder(realisticMocks.mockCanvas.getObjects())
         expect(resultOrder).toEqual(expectedOrder)
 
-        // Проверяем что события правильно срабатывают
+        // Check that events fire correctly
         const expectedEventName = method === 'bringForward' ? 'editor:object-bring-forward' : 'editor:object-send-backwards'
         expect(realisticMocks.mockCanvas.fire).toHaveBeenCalledWith(expectedEventName, {
           object: selectedObject,
@@ -387,14 +387,14 @@ describe('LayerManager', () => {
       const objects = createTestObjects([1, 2, 3, 4, 5, 6])
       realisticMocks.mockCanvas.setObjects(objects)
 
-      // Выбираем obj2 и obj4
+      // Select obj2 and obj4
       const selectedObjects = [objects[1], objects[3]] as any[] // obj2, obj4
       const activeSelection = new ActiveSelection(selectedObjects, {}) as any
       realisticMocks.mockCanvas.getActiveObject.mockReturnValue(activeSelection)
 
       realisticLayerManager.bringToFront()
 
-      // obj2 и obj4 должны быть сверху: [1, 3, 5, 6, 2, 4]
+      // obj2 and obj4 should be at the top: [1, 3, 5, 6, 2, 4]
       const resultOrder = getObjectOrder(realisticMocks.mockCanvas.getObjects())
       expect(resultOrder).toEqual([1, 3, 5, 6, 2, 4])
     })
@@ -403,25 +403,25 @@ describe('LayerManager', () => {
       const objects = createTestObjects([1, 2, 3, 4, 5, 6])
       realisticMocks.mockCanvas.setObjects(objects)
 
-      // Выбираем obj3 и obj5
+      // Select obj3 and obj5
       const selectedObjects = [objects[2], objects[4]] as any[] // obj3, obj5
       const activeSelection = new ActiveSelection(selectedObjects, {}) as any
       realisticMocks.mockCanvas.getActiveObject.mockReturnValue(activeSelection)
 
       realisticLayerManager.sendToBack()
 
-      // Проверяем что метод был вызван правильно
+      // Check that the method was called correctly
       expect(realisticMocks.mockCanvas.fire).toHaveBeenCalledWith('editor:object-send-to-back', {
         object: activeSelection,
         withoutSave: undefined
       })
 
-      // Проверяем что sendObjectToBack был вызван для каждого выбранного объекта
-      expect(realisticMocks.mockCanvas.sendObjectToBack).toHaveBeenCalledWith(objects[4]) // obj5 сначала
-      expect(realisticMocks.mockCanvas.sendObjectToBack).toHaveBeenCalledWith(objects[2]) // obj3 потом
+      // Check that sendObjectToBack was called for each selected object
+      expect(realisticMocks.mockCanvas.sendObjectToBack).toHaveBeenCalledWith(objects[4]) // obj5 first
+      expect(realisticMocks.mockCanvas.sendObjectToBack).toHaveBeenCalledWith(objects[2]) // obj3 next
     })
 
-    // Отдельные тесты для ActiveSelection (множественное выделение)
+    // Separate tests for ActiveSelection (multi-object selection)
     describe('ActiveSelection (множественное выделение)', () => {
       it('bringForward должен использовать специальную логику для множественного выделения', () => {
         const objects = createTestObjects([1, 2, 3, 4, 5, 6])
@@ -433,7 +433,7 @@ describe('LayerManager', () => {
 
         realisticLayerManager.bringForward()
 
-        // Проверяем что событие срабатывает для ActiveSelection
+        // Check that the event fires for ActiveSelection
         expect(realisticMocks.mockCanvas.fire).toHaveBeenCalledWith('editor:object-bring-forward', {
           object: activeSelection,
           withoutSave: undefined
@@ -450,7 +450,7 @@ describe('LayerManager', () => {
 
         realisticLayerManager.sendBackwards()
 
-        // Проверяем что событие срабатывает для ActiveSelection
+        // Check that the event fires for ActiveSelection
         expect(realisticMocks.mockCanvas.fire).toHaveBeenCalledWith('editor:object-send-backwards', {
           object: activeSelection,
           withoutSave: undefined
