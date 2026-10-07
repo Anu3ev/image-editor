@@ -721,16 +721,16 @@ editor.historyManager.loadStateFromFullState(jsonState)
 ### Template Management
 
 ```javascript
-// Serialize current selection to JSON template
-const templateJson = editor.templateManager.serializeSelection({
-  includeBackground: false
+// Serialize the current selection into a template object
+const template = editor.templateManager.serializeSelection({
+  withBackground: false
 })
 
-// Apply template to canvas
-await editor.templateManager.applyTemplate({
-  templateJson,
-  clearCanvas: false
-})
+// Serialization returns null when there is nothing to save
+if (template) {
+  // Apply the template without clearing existing objects
+  await editor.templateManager.applyTemplate({ template })
+}
 ```
 
 `TemplateManager` keeps layout fidelity by storing positions, styles, and (optionally) background data so you can rehydrate saved compositions.
