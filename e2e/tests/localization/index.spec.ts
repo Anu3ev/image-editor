@@ -14,6 +14,7 @@ test.describe('Editor initialization language', () => {
 
       expect(await editorModel.localization.addText({ containerId })).toBe(example.newText)
       expect(await editorModel.localization.toolbarLabels(containerId)).toContain(example.duplicate)
+      expect(await editorModel.localization.optionActionLabels(containerId)).toContain(example.duplicate)
     })
 
     test(`interpolates ${example.language} initialization errors`, async({ editorModel }) => {
@@ -102,6 +103,22 @@ test.describe('Editor initialization language', () => {
     expect(await editorModel.localization.textContents(english)).toEqual([
       CUSTOM_LOCALIZATION_CONTENT.persistedText,
       LOCALIZATION_EXAMPLES[0].newText
+    ])
+  })
+
+  test('preserves custom HTML labels for toolbar actions without icons', async({ editorModel }) => {
+    const containerId = 'custom-html-label'
+    await editorModel.localization.create({
+      containerId,
+      language: 'ru',
+      toolbar: {
+        actions: [{ handle: 'custom', name: CUSTOM_LOCALIZATION_CONTENT.toolbarHtml }]
+      }
+    })
+    await editorModel.localization.addText({ containerId })
+
+    expect(await editorModel.localization.toolbarLabels(containerId)).toEqual([
+      CUSTOM_LOCALIZATION_CONTENT.toolbarHtmlText
     ])
   })
 })

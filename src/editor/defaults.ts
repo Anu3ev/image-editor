@@ -1,5 +1,6 @@
 import type { EditorOptions } from './types/options'
 import defaultFonts from './default-fonts'
+import { createDefaultActions } from './ui/toolbar-manager/default-config'
 
 export const defaults: Partial<EditorOptions> = {
   /**
@@ -34,7 +35,7 @@ export const defaults: Partial<EditorOptions> = {
     'image/webp'
   ],
   showToolbar: true,
-  toolbar: {},
+  toolbar: createDefaultActions(),
   initialState: null,
   initialImage: null,
   defaultScale: 0.5,

@@ -2,6 +2,7 @@ import type { EditorOptions } from './editor/types/options'
 import { ImageEditor } from './editor'
 import { defaults } from './editor/defaults'
 import { createTranslator } from './editor/i18n'
+import { createDefaultActions } from './editor/ui/toolbar-manager/default-config'
 
 /**
  * Initializes the editor by creating a canvas inside the container.
@@ -13,18 +14,21 @@ export default async function initEditor(
   containerId: string,
   options: Partial<EditorOptions> = {}
 ): Promise<ImageEditor> {
-  const adjustedOptions:EditorOptions = { ...defaults, ...options } as EditorOptions
+  const t = createTranslator(options.language)
+  const adjustedOptions: EditorOptions = {
+    ...defaults,
+    toolbar: createDefaultActions(t),
+    ...options
+  } as EditorOptions
 
   // Find the container by ID.
   const container = document.getElementById(containerId)
   if (!container) {
-    const t = createTranslator(options.language)
     return Promise.reject(new Error(t('editor.errors.containerNotFound', { containerId })))
   }
 
   const canvasId = `${containerId}-canvas`
   if (document.getElementById(canvasId)) {
-    const t = createTranslator(options.language)
     throw new Error(t('editor.errors.canvasAlreadyExists', { canvasId }))
   }
 

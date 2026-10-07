@@ -22,14 +22,13 @@ export class LocalizationModel {
     this.containerIds.push(options.containerId)
     await this.page.evaluate(async({ moduleUrl, options: initOptions, fonts }) => {
       const { default: initEditor } = await import(/* @vite-ignore */ moduleUrl)
+      const { containerId, ...editorOptions } = initOptions
       const container = document.createElement('div')
-      container.id = initOptions.containerId
+      container.id = containerId
       container.style.cssText = 'position:relative;width:640px;height:480px'
       document.body.appendChild(container)
-      await initEditor(initOptions.containerId, {
-        language: initOptions.language,
-        toolbar: initOptions.toolbar,
-        initialState: initOptions.initialState,
+      await initEditor(containerId, {
+        ...editorOptions,
         fonts,
         showToolbar: true
       })
@@ -67,9 +66,17 @@ export class LocalizationModel {
 
   /** Reads rendered toolbar labels belonging to one editor only. */
   async toolbarLabels(containerId: string): Promise<string[]> {
-    return this.page.locator(`[id="${containerId}"] button img[title]`).evaluateAll((icons) => {
-      return icons.map((icon) => icon.getAttribute('title') ?? '')
+    return this.page.locator(`[id="${containerId}"] button`).evaluateAll((buttons) => {
+      return buttons.map((button) => button.querySelector('img')?.getAttribute('title') ?? button.textContent ?? '')
     })
+  }
+
+  /** Reads the default action names exposed to integrations through editor options. */
+  async optionActionLabels(containerId: string): Promise<string[]> {
+    return this.page.evaluate((id) => {
+      const editor = window[id] as ImageEditor
+      return editor.options.toolbar?.actions?.map(({ name }) => name) ?? []
+    }, containerId)
   }
 
   /** Returns the localized initialization error before an editor can be created. */

@@ -19,6 +19,8 @@ export const LOCALIZATION_EXAMPLES: readonly LocalizationExample[] = [
 
 export const CUSTOM_LOCALIZATION_CONTENT = {
   toolbarLabel: 'My own copy label / Моя копия',
+  toolbarHtml: '<strong>Custom action / Моё действие</strong>',
+  toolbarHtmlText: 'Custom action / Моё действие',
   text: 'Keep this text / Сохранить этот текст',
   persistedText: 'Мой русский текст: привет, мир!',
   emptyText: ''

@@ -12,6 +12,45 @@ import {
   deleteIcon
 } from './icons'
 
+/** Materializes the built-in action arrays for editor options and the toolbar. */
+export const createDefaultActions = (t: Translate = english) => ({
+  lockedActions: [{
+    name: t('ui.toolbar.unlock'),
+    handle: 'unlock'
+  }],
+
+  actions: [
+    {
+      name: t('ui.toolbar.duplicate'),
+      handle: 'copyPaste'
+    },
+    {
+      name: t('ui.toolbar.lock'),
+      handle: 'lock'
+    },
+    {
+      name: t('ui.toolbar.bringToFront'),
+      handle: 'bringToFront'
+    },
+    {
+      name: t('ui.toolbar.sendToBack'),
+      handle: 'sendToBack'
+    },
+    {
+      name: t('ui.toolbar.bringForward'),
+      handle: 'bringForward'
+    },
+    {
+      name: t('ui.toolbar.sendBackward'),
+      handle: 'sendBackwards'
+    },
+    {
+      name: t('ui.toolbar.delete'),
+      handle: 'delete'
+    }
+  ]
+})
+
 /** Creates toolbar labels in the owning editor’s language. */
 export const createDefaultConfig = (t: Translate = english) => ({
   style: {
@@ -48,41 +87,7 @@ export const createDefaultConfig = (t: Translate = english) => ({
   toolbarClass: 'fabric-editor-toolbar',
   btnClass: 'fabric-editor-toolbar-btn',
 
-  lockedActions: [{
-    name: t('ui.toolbar.unlock'),
-    handle: 'unlock'
-  }],
-
-  actions: [
-    {
-      name: t('ui.toolbar.duplicate'),
-      handle: 'copyPaste'
-    },
-    {
-      name: t('ui.toolbar.lock'),
-      handle: 'lock'
-    },
-    {
-      name: t('ui.toolbar.bringToFront'),
-      handle: 'bringToFront'
-    },
-    {
-      name: t('ui.toolbar.sendToBack'),
-      handle: 'sendToBack'
-    },
-    {
-      name: t('ui.toolbar.bringForward'),
-      handle: 'bringForward'
-    },
-    {
-      name: t('ui.toolbar.sendBackward'),
-      handle: 'sendBackwards'
-    },
-    {
-      name: t('ui.toolbar.delete'),
-      handle: 'delete'
-    }
-  ],
+  ...createDefaultActions(t),
 
   offsetTop: 50,
 

@@ -2,8 +2,13 @@ import { createInstance } from 'i18next'
 import en from './en'
 import ru from './ru'
 
+/** Dotted paths to string leaves in a nested language catalog. */
+type CatalogKey<T> = {
+  [Key in keyof T & string]: T[Key] extends string ? Key : `${Key}.${CatalogKey<T[Key]>}`
+}[keyof T & string]
+
 /** Keys shared by the built-in language catalogs. */
-export type TranslationKey = keyof typeof en
+export type TranslationKey = CatalogKey<typeof en>
 
 /** A fixed-language translator owned by one editor or standalone helper. */
 export type Translate = (key: TranslationKey, params?: Record<string, unknown>) => string
@@ -20,7 +25,6 @@ export function createTranslator(language = 'en'): Translate {
     load: 'languageOnly',
     lowerCaseLng: true,
     initAsync: false,
-    keySeparator: false,
     interpolation: { escapeValue: false },
     resources: {
       en: { translation: en },
