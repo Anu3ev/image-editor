@@ -50,6 +50,14 @@ It demonstrates practical work with:
 - public APIs and events designed for host-application integration;
 - regression coverage for interaction-heavy scenarios such as crop, selection, scaling, snapping, and text editing.
 
+## Integration services
+
+I can integrate this editor into your application and adapt it to your workflow.
+
+This can include image loading and saving, custom tools, editor open/close lifecycle, and error handling in your application.
+
+[Contact me on LinkedIn](https://www.linkedin.com/in/alexander-s-anufriev/) to discuss your integration.
+
 ## ✨ Features
 
 ### Core Editing
