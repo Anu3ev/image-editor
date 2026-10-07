@@ -5,6 +5,7 @@ import {
   type TPointerEvent,
   type Transform
 } from 'fabric'
+import { english, type Translate } from '../../i18n'
 import type { ImageEditor } from '../..'
 import { getObjectExactBounds, type ObjectBounds } from '../../utils/geometry'
 import {
@@ -190,15 +191,17 @@ function isSameResizeGesture({ session }: { session: TextWidthResizeSession }): 
 
 /** Applies width, recalculates line wrapping, and restores the fixed point. */
 function applyTextWidth({
+  t = english,
   session,
   width
 }: {
+  t?: Translate
   session: TextWidthResizeSession
   width: number
 }): void {
   const { fixedAnchor } = session.projection
   const { target, transform } = session
-  applyCanonicalTextboxWidth({ textbox: target, width })
+  applyCanonicalTextboxWidth({ t, textbox: target, width })
 
   target.setPositionByOrigin(
     new Point(fixedAnchor.x, fixedAnchor.y),
@@ -269,14 +272,16 @@ function isProtectedTextStatePreserved({ session }: { session: TextWidthResizeSe
 
 /** Reads the final geometry after applying the width-resize plan. */
 function readFinalTextGeometry({
+  t = english,
   plan,
   session
 }: {
+  t?: Translate
   plan: ScaleSnapPlan
   session: TextWidthResizeSession
 }): FinalScaleGeometry | null {
   const { target, transform } = session
-  const bounds = getObjectExactBounds({ object: target })
+  const bounds = getObjectExactBounds({ t, object: target })
   const { width } = target
   if (!bounds || !Number.isFinite(width)) return null
 
@@ -323,7 +328,7 @@ export default class TextWidthResizeInteractionController {
     if (!target || !transform) return false
 
     target.setCoords()
-    const projection = createTextWidthResizeGestureProjection({ textbox: target, transform })
+    const projection = createTextWidthResizeGestureProjection({ t: this.editor.t, textbox: target, transform })
     if (!projection) return false
 
     const environment = this.editor.snappingManager.captureScaleSnapEnvironment({
@@ -331,16 +336,17 @@ export default class TextWidthResizeInteractionController {
       targetEdges: projection.movingEdges
     })
     const baseline = createScaleGestureBaseline({
+      t: this.editor.t,
       bounds: projection.baselineBounds,
       fixedAnchor: projection.fixedAnchor,
       projectionModes: projection.projectionModes,
       candidates: environment.candidates,
       zoom: environment.zoom
     })
-    const runtime = new ScaleSnappingRuntime()
+    const runtime = new ScaleSnappingRuntime(this.editor.t)
     runtime.startSession({ baseline })
     this.session = Object.freeze({
-      measurer: new TextWidthResizeMeasurer({ target, gesture: projection }),
+      measurer: new TextWidthResizeMeasurer({ t: this.editor.t, target, gesture: projection }),
       projection,
       protectedState: captureProtectedTextState({ target, transform }),
       runtime,
@@ -435,7 +441,7 @@ export default class TextWidthResizeInteractionController {
       })
     })
     if (step.kind === 'duplicate') {
-      throw new Error('Шаг изменения ширины не должен повторно становиться дубликатом после первой проверки')
+      throw new Error(this.editor.t('text.errors.widthStepBecameDuplicate'))
     }
 
     const resolvedStep = this._resolveTextWidthStep({
@@ -451,7 +457,7 @@ export default class TextWidthResizeInteractionController {
       width: resolvedStep.width
     })
     if (!guides) {
-      throw new Error('Не удалось применить и проверить план изменения ширины текста')
+      throw new Error(this.editor.t('text.errors.widthResizePlanVerificationFailed'))
     }
 
     this.editor.snappingManager.publishVerifiedScaleGuides({ guides })
@@ -504,8 +510,8 @@ export default class TextWidthResizeInteractionController {
     token: ScalePlanToken
     width: number
   }): readonly VerifiedScaleGuide[] | null {
-    applyTextWidth({ session, width })
-    const finalGeometry = readFinalTextGeometry({ plan, session })
+    applyTextWidth({ t: this.editor.t, session, width })
+    const finalGeometry = readFinalTextGeometry({ t: this.editor.t, plan, session })
     if (!finalGeometry) return null
 
     const verification = session.runtime.verifyScalePlan({ token, finalGeometry })
@@ -529,7 +535,7 @@ export default class TextWidthResizeInteractionController {
       return Object.freeze({ plan, width: pointerWidth })
     }
 
-    const measurement = resolveTextWidthSnapMeasurement({ plan, measurer: session.measurer })
+    const measurement = resolveTextWidthSnapMeasurement({ t: this.editor.t, plan, measurer: session.measurer })
     if (!measurement) return Object.freeze({ plan, width: pointerWidth })
 
     const refinedPlan = session.runtime.refineScalePlan({

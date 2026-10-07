@@ -138,6 +138,22 @@ const editor = await initEditor('editor', {
 
 See the [integration guide](./guides/integration.md) for configuration, image import/export, text, shapes, cropping, and other editing operations.
 
+### Library language
+
+Pass `language` when creating an editor. English (`en`) is the default and
+fallback; Russian (`ru`) is also bundled. Regional variants such as `ru-RU`
+resolve to their base language, and unsupported languages fall back to English.
+
+```ts
+const editor = await initEditor('editor', { language: 'ru' })
+```
+
+Each instance has its own i18next translator. The language is fixed at
+initialization; create a new instance to choose another language. Built-in
+toolbar labels, indicators, default inserted text, export names, and diagnostic
+messages use that language. Your text, custom toolbar labels, serialized
+content, event names, and error codes stay unchanged. The demo remains English-only.
+
 ## 🎮 Demo Application
 
 The repository includes a development demo for trying library operations. See [Run the demo from source](./CONTRIBUTING.md#run-the-demo-from-source) for local setup.

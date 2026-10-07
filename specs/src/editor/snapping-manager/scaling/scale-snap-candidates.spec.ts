@@ -59,7 +59,7 @@ describe('Кандидаты для прилипания при скейлинг
     expect(() => createScaleSnapCandidates({
       targetEdges: [],
       sources: []
-    })).toThrow('at least one edge')
+    })).toThrow('Scale snapping must have at least one target edge')
     expect(() => createScaleSnapCandidates({
       targetEdges: ['right', 'right'],
       sources: []
@@ -70,6 +70,6 @@ describe('Кандидаты для прилипания при скейлинг
         { id: 'duplicate', bounds },
         { id: 'duplicate', bounds }
       ]
-    })).toThrow('source id')
+    })).toThrow('Scale snap source ID "duplicate" must be non-empty and unique')
   })
 })

@@ -1,3 +1,4 @@
+import { english, type Translate } from '../../i18n'
 import {
   type RectangularScaleGestureProjection,
   type RectangularScaleGestureMode,
@@ -11,6 +12,7 @@ import {
 
 /** Data for rounding unconstrained Shape dimensions to whole pixels. */
 type ShapeScaleStabilizationOptions = Readonly<{
+  t?: Translate
   projection: RectangularScaleGestureProjection
   mode: RectangularScaleGestureMode
   multipliers: RectangularScaleMultipliers
@@ -25,43 +27,49 @@ const SHAPE_SCALE_DEPENDENCY_EPSILON = 0.000000001
 
 /** Checks whether a number is positive and finite. */
 function assertPositiveFiniteNumber({
+  t = english,
   value,
   name
 }: {
+  t?: Translate
   value: number
   name: string
 }): void {
   if (!Number.isFinite(value) || value <= 0) {
-    throw new RangeError(`${name} must be a positive finite number`)
+    throw new RangeError(t('shape.errors.positiveFiniteNumberRequired', { name }))
   }
 }
 
 /** Returns the length of the Shape's original axis. */
 function getInitialAxisLength({
+  t = english,
   vector,
   name
 }: {
+  t?: Translate
   vector: RectangularScalePoint
   name: string
 }): number {
   const length = Math.sqrt((vector.x ** 2) + (vector.y ** 2))
 
-  assertPositiveFiniteNumber({ value: length, name })
+  assertPositiveFiniteNumber({ t, value: length, name })
 
   return length
 }
 
 /** Returns a valid edge calculation for the selected scale mode. */
 function resolveScaleProjection({
+  t = english,
   projection,
   mode
 }: {
+  t?: Translate
   projection: RectangularScaleGestureProjection
   mode: RectangularScaleGestureMode
 }): RectangularScaleModeProjection {
   const modeProjection = resolveRectangularScaleModeProjection({ projection, mode })
   if (!modeProjection) {
-    throw new Error(`Shape scale mode "${mode}" is not supported by control "${projection.controlKey}"`)
+    throw new Error(t('shape.errors.unsupportedControlScaleMode', { mode, controlKey: projection.controlKey }))
   }
 
   const hasInvalidEdge = modeProjection.edges.some(({ coefficients }) => {
@@ -69,7 +77,7 @@ function resolveScaleProjection({
       || coefficients.some((coefficient) => !Number.isFinite(coefficient))
   })
   if (hasInvalidEdge) {
-    throw new Error('Shape scale mode projection contains invalid edge coefficients')
+    throw new Error(t('shape.errors.invalidProjectionEdgeCoefficients'))
   }
 
   return modeProjection
@@ -194,18 +202,20 @@ function stabilizeIndependentMultipliers({
 
 /** Rounds the single proportional-scale multiplier. */
 function stabilizeUniformMultipliers({
+  t = english,
   multipliers,
   width,
   height,
   snappedVariables
 }: {
+  t?: Translate
   multipliers: RectangularScaleMultipliers
   width: number
   height: number
   snappedVariables: ReadonlySet<RectangularScaleProjectionVariable>
 }): RectangularScaleMultipliers {
   if (multipliers.x !== multipliers.y) {
-    throw new Error('Uniform Shape scale requires equal x and y multipliers')
+    throw new Error(t('shape.errors.uniformScaleRequiresEqualMultipliers'))
   }
 
   const multiplier = snappedVariables.has('uniform-multiplier')
@@ -220,21 +230,23 @@ function stabilizeUniformMultipliers({
  * Dimensions locked by an active guide remain unchanged.
  */
 export function stabilizeShapeScaleMultipliers({
+  t = english,
   projection,
   mode,
   multipliers,
   protectedEdges
 }: ShapeScaleStabilizationOptions): RectangularScaleMultipliers {
-  const width = getInitialAxisLength({ vector: projection.u, name: 'Shape scale initial width' })
-  const height = getInitialAxisLength({ vector: projection.v, name: 'Shape scale initial height' })
-  assertPositiveFiniteNumber({ value: multipliers.x, name: 'Shape scale multiplier x' })
-  assertPositiveFiniteNumber({ value: multipliers.y, name: 'Shape scale multiplier y' })
+  const width = getInitialAxisLength({ t, vector: projection.u, name: t('shape.labels.initialScaleWidth') })
+  const height = getInitialAxisLength({ t, vector: projection.v, name: t('shape.labels.initialScaleHeight') })
+  assertPositiveFiniteNumber({ t, value: multipliers.x, name: t('shape.labels.scaleMultiplierX') })
+  assertPositiveFiniteNumber({ t, value: multipliers.y, name: t('shape.labels.scaleMultiplierY') })
 
-  const modeProjection = resolveScaleProjection({ projection, mode })
+  const modeProjection = resolveScaleProjection({ t, projection, mode })
   const snappedVariables = resolveSnappedVariables({ modeProjection, protectedEdges })
 
   if (mode === 'uniform') {
     return stabilizeUniformMultipliers({
+      t,
       multipliers,
       width,
       height,

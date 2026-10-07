@@ -1,5 +1,6 @@
-/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 import type { jsPDF } from 'jspdf'
+import { english, type Translate } from '../i18n'
+/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 
 import type {
   exportCanvasAsImageFileOptions,
@@ -54,12 +55,14 @@ interface JsPDFModule {
  * Normalizes canvas export input options.
  */
 export function createCanvasExportRequest({
-  options
+  options,
+  t = english
 }: {
+  t?: Translate
   options: exportCanvasAsImageFileOptions
 }): CanvasExportRequest {
   const {
-    fileName = 'image.png',
+    fileName = t('image.filenames.defaultPng'),
     contentType = 'image/png',
     exportAsBase64 = false,
     exportAsBlob = false
@@ -125,6 +128,7 @@ export async function createCanvasExportSnapshot({
     return {
       type: 'raster',
       blob: await createCanvasBlob({
+        t: editor.t,
         canvasElement: tmpCanvas.getElement(),
         contentType: request.exportContentType
       }),
@@ -222,9 +226,11 @@ function hideInteractionBlockerOverlay({
  */
 async function createCanvasBlob({
   canvasElement,
-  contentType
+  contentType,
+  t
 }: {
   canvasElement: HTMLCanvasElement
+  t: Translate
   contentType: string
 }): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -233,7 +239,7 @@ async function createCanvasBlob({
         if (canvasBlob) {
           resolve(canvasBlob)
         } else {
-          reject(new Error('Failed to create Blob from canvas'))
+          reject(new Error(t('image.errors.canvasBlobCreationFailed')))
         }
       },
       contentType,
@@ -354,7 +360,7 @@ async function exportCanvasPdf({
     const pdfBase64 = pdf.output('datauristring')
 
     if (typeof pdfBase64 !== 'string') {
-      throw new Error('jsPDF должен вернуть data URI строку')
+      throw new Error(editor.t('image.errors.pdfDataUriExpected'))
     }
 
     return emitCanvasExported({

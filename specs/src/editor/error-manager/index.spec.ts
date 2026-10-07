@@ -95,7 +95,7 @@ describe('ErrorManager', () => {
         const message = errorManager.buffer[0]
         expect(message.type).toBe('editor:error')
         expect(message.origin).toBe('ImageEditor')
-        expect(message.method).toBe('Unknown Method')
+        expect(message.method).toBe('Unknown method')
         expect(message.message).toBe('IMPORT_FAILED')
       })
 
@@ -130,8 +130,8 @@ describe('ErrorManager', () => {
         expect(errorManager.buffer).toHaveLength(0)
         expect(mockEditor.canvas.fire).not.toHaveBeenCalled()
         expect(console.warn).toHaveBeenCalledWith(
-          'Неизвестный код ошибки: ',
-          { code: 'INVALID_ERROR_CODE', origin: 'ImageEditor', method: 'Unknown Method' }
+          'Unknown error code: ',
+          { code: 'INVALID_ERROR_CODE', origin: 'ImageEditor', method: 'Unknown method' }
         )
       })
 
@@ -180,7 +180,7 @@ describe('ErrorManager', () => {
         const message = errorManager.buffer[0]
         expect(message.type).toBe('editor:warning')
         expect(message.origin).toBe('ImageEditor')
-        expect(message.method).toBe('Unknown Method')
+        expect(message.method).toBe('Unknown method')
         expect(message.message).toBe('IMPORT_FAILED')
       })
 
@@ -215,8 +215,8 @@ describe('ErrorManager', () => {
         expect(errorManager.buffer).toHaveLength(0)
         expect(mockEditor.canvas.fire).not.toHaveBeenCalled()
         expect(console.warn).toHaveBeenCalledWith(
-          'Неизвестный код предупреждения: ',
-          { code: 'INVALID_WARNING_CODE', origin: 'ImageEditor', method: 'Unknown Method' }
+          'Unknown warning code: ',
+          { code: 'INVALID_WARNING_CODE', origin: 'ImageEditor', method: 'Unknown method' }
         )
       })
 
@@ -283,14 +283,14 @@ describe('ErrorManager', () => {
       expect(mockEditor.canvas.fire).toHaveBeenNthCalledWith(1, 'editor:error', {
         code: 'IMPORT_FAILED',
         origin: 'ImageEditor',
-        method: 'Unknown Method',
+        method: 'Unknown method',
         message: 'Import error'
       })
 
       expect(mockEditor.canvas.fire).toHaveBeenNthCalledWith(2, 'editor:warning', {
         code: 'IMAGE_RESIZE_WARNING',
         origin: 'ImageEditor',
-        method: 'Unknown Method',
+        method: 'Unknown method',
         message: 'Resize warning'
       })
     })

@@ -1,4 +1,5 @@
 import { Group, Point } from 'fabric'
+import { english } from '../../../src/editor/i18n'
 import type { MockCanvas } from './factories'
 import { createMockCanvas, createMockShapeTextbox } from './factories'
 
@@ -173,6 +174,7 @@ export const createShapeManagerEditorStub = ({
   const montageArea = createShapeTestMontageArea({ width: resolvedMontageAreaWidth })
 
   return {
+    t: english,
     canvas: resolvedCanvas,
     canvasManager: createShapeCanvasManagerStub({ montageArea }),
     textManager: {

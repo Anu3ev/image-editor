@@ -1,3 +1,4 @@
+import { english, type Translate } from '../../i18n'
 import { BackgroundTextbox, type BackgroundTextboxProps } from '../background-textbox'
 import { cloneLineFontDefaults } from '../line-defaults'
 import type { EditorTextbox } from '../types'
@@ -77,9 +78,11 @@ function createMeasurementTextboxOptions({
 
 /** Creates a Textbox for calculations without adding it to the canvas or modifying the original object. */
 export function createTextScalingMeasurementTextbox({
+  t = english,
   target,
   options = {}
 }: {
+  t?: Translate
   target: EditorTextbox
   options?: TextScalingMeasurementOptions
 }): EditorTextbox {
@@ -91,7 +94,7 @@ export function createTextScalingMeasurementTextbox({
   const { width } = target
 
   if (typeof width === 'number' && Number.isFinite(width)) {
-    applyCanonicalTextboxWidth({ textbox, width })
+    applyCanonicalTextboxWidth({ t, textbox, width })
     textbox.autoExpand = autoExpand
   }
 

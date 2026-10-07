@@ -13,7 +13,7 @@ export class ToolbarModel {
   /** Returns true if the editor toolbar is currently visible. */
   async isVisible(): Promise<boolean> {
     return this.page.evaluate(() => {
-      const copyPasteIcon = document.querySelector('img[title="Создать копию"]')
+      const copyPasteIcon = document.querySelector('img[title="Duplicate"]')
       if (!(copyPasteIcon instanceof HTMLImageElement)) return false
 
       const toolbar = copyPasteIcon.closest('div')
@@ -32,7 +32,7 @@ export class ToolbarModel {
   /** Waits for the editor toolbar to become visible. */
   async waitUntilVisible(): Promise<void> {
     await this.page.waitForFunction(() => {
-      const copyPasteIcon = document.querySelector('img[title="Создать копию"]')
+      const copyPasteIcon = document.querySelector('img[title="Duplicate"]')
       if (!(copyPasteIcon instanceof HTMLImageElement)) return false
 
       const toolbar = copyPasteIcon.closest('div')
@@ -54,7 +54,7 @@ export class ToolbarModel {
 
     const bounds = await this.page.evaluate(() => {
       const { editor } = window as any
-      const copyPasteIcon = document.querySelector('img[title="Создать копию"]')
+      const copyPasteIcon = document.querySelector('img[title="Duplicate"]')
       if (!(copyPasteIcon instanceof HTMLImageElement)) return null
 
       const toolbar = copyPasteIcon.closest('div')

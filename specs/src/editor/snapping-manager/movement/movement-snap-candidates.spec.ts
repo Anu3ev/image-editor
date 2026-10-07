@@ -76,7 +76,7 @@ it('отклоняет неуникальные id, некорректные ц�
       }],
       zoom: 1
     })
-  }).toThrow('centers must be derived')
+  }).toThrow('Movement snap sources must derive their center coordinates from their edges')
   expect(() => {
     createMovementSnapEnvironment({
       sources: [],

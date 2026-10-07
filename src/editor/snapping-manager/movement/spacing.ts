@@ -1,3 +1,4 @@
+import { english, type Translate } from '../../i18n'
 import {
   MAX_DISPLAY_DISTANCE_DIFF,
   resolveDisplayDistance
@@ -241,6 +242,7 @@ type AxisSpacingGeometry = {
 
 /** Equal-spacing calculation parameters for one axis. */
 type CalculateAxisSpacingParams = {
+  t?: Translate
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
@@ -252,6 +254,7 @@ type CalculateAxisSpacingParams = {
 
 /** Public parameters for vertical or horizontal equal-spacing calculation. */
 type CalculateSpacingParams = {
+  t?: Translate
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
@@ -279,6 +282,7 @@ type ReferenceSpacingCandidate = {
 
 /** Parameters for checking one existing interval. */
 type ResolveReferenceSpacingOptionParams = {
+  t?: Translate
   activeBounds: Bounds
   neighbors: SpacingNeighbors
   pattern: SpacingPattern
@@ -964,12 +968,14 @@ export const isSpacingSelectionApplicable = ({
 
 /** Returns the exact position between two neighboring objects. */
 const resolveCenteredEqualSpacing = ({
+  t = english,
   activeStart,
   activeEnd,
   beforeEdge,
   afterEdge,
   threshold
 }: {
+  t?: Translate
   activeStart: number
   activeEnd: number
   beforeEdge: number
@@ -986,7 +992,7 @@ const resolveCenteredEqualSpacing = ({
 
   return {
     delta: rawDelta,
-    distance: resolveDisplayDistance({ distance: idealGap }),
+    distance: resolveDisplayDistance({ t, distance: idealGap }),
     diff: 0,
     activeStart: activeStart + rawDelta,
     activeEnd: activeEnd + rawDelta
@@ -995,11 +1001,13 @@ const resolveCenteredEqualSpacing = ({
 
 /** Builds an option for snapping to the center between two neighbors. */
 const resolveCenteredSpacingOption = ({
+  t = english,
   activeBounds,
   neighbors,
   axis,
   threshold
 }: {
+  t?: Translate
   activeBounds: Bounds
   neighbors: SpacingNeighbors
   axis: SpacingAxis
@@ -1022,6 +1030,7 @@ const resolveCenteredSpacingOption = ({
   if (currentDiff > threshold) return null
 
   const centered = resolveCenteredEqualSpacing({
+    t,
     activeStart: active.start,
     activeEnd: active.end,
     beforeEdge: beforeGeometry.end,
@@ -1056,6 +1065,7 @@ const resolveCenteredSpacingOption = ({
 
 /** Calculates the exact position needed to match an existing interval. */
 const resolveReferenceSpacingCandidate = ({
+  t = english,
   currentGap,
   referenceGap,
   gapDirection,
@@ -1063,6 +1073,7 @@ const resolveReferenceSpacingCandidate = ({
   activeEnd,
   threshold
 }: {
+  t?: Translate
   currentGap: number
   referenceGap: number
   gapDirection: 1 | -1
@@ -1081,7 +1092,7 @@ const resolveReferenceSpacingCandidate = ({
 
   return {
     delta,
-    distance: resolveDisplayDistance({ distance: referenceGap }),
+    distance: resolveDisplayDistance({ t, distance: referenceGap }),
     diff: Math.abs(adjustedGap - referenceGap),
     adjustedStart: activeStart + delta,
     adjustedEnd: activeEnd + delta
@@ -1131,6 +1142,7 @@ const createReferenceSpacingOption = ({
 
 /** Validates and builds a snap option for one existing interval. */
 const resolveReferenceSpacingOption = ({
+  t = english,
   activeBounds,
   neighbors,
   pattern,
@@ -1165,6 +1177,7 @@ const resolveReferenceSpacingOption = ({
     : neighbor.start - active.end
   const gapDirection = side === 'before' ? 1 : -1
   const candidate = resolveReferenceSpacingCandidate({
+    t,
     currentGap,
     referenceGap: pattern.distance,
     gapDirection,
@@ -1187,12 +1200,14 @@ const resolveReferenceSpacingOption = ({
 
 /** Collects all valid equal-spacing options on one axis. */
 const resolveAxisSpacingOptions = ({
+  t = english,
   activeBounds,
   neighbors,
   patterns,
   axis,
   threshold
 }: {
+  t?: Translate
   activeBounds: Bounds
   neighbors: SpacingNeighbors
   patterns: SpacingPattern[]
@@ -1200,11 +1215,12 @@ const resolveAxisSpacingOptions = ({
   threshold: number
 }): SpacingOption[] => {
   const options: SpacingOption[] = []
-  const centeredOption = resolveCenteredSpacingOption({ activeBounds, neighbors, axis, threshold })
+  const centeredOption = resolveCenteredSpacingOption({ t, activeBounds, neighbors, axis, threshold })
   if (centeredOption) options.push(centeredOption)
 
   for (const pattern of patterns) {
     const option = resolveReferenceSpacingOption({
+      t,
       activeBounds,
       neighbors,
       pattern,
@@ -1219,6 +1235,7 @@ const resolveAxisSpacingOptions = ({
 
 /** Calculates equal spacing on one axis. */
 const calculateAxisSpacing = ({
+  t = english,
   activeBounds,
   candidates,
   threshold,
@@ -1238,6 +1255,7 @@ const calculateAxisSpacing = ({
   }
 
   const options = resolveAxisSpacingOptions({
+    t,
     activeBounds,
     neighbors,
     patterns,
@@ -1262,6 +1280,7 @@ export const calculateHorizontalSpacing = (
  * Calculates the equal-spacing snap offset and a set of interval guides.
  */
 export const calculateSpacingSnap = ({
+  t = english,
   activeBounds,
   candidates,
   threshold,
@@ -1269,6 +1288,7 @@ export const calculateSpacingSnap = ({
   previousContexts,
   switchDistance = 0
 }: {
+  t?: Translate
   activeBounds: Bounds
   candidates: Bounds[]
   threshold: number
@@ -1287,6 +1307,7 @@ export const calculateSpacingSnap = ({
   } = previousContexts ?? {}
 
   const verticalResult = calculateVerticalSpacing({
+    t,
     activeBounds,
     candidates,
     threshold,
@@ -1295,6 +1316,7 @@ export const calculateSpacingSnap = ({
     switchDistance
   })
   const horizontalResult = calculateHorizontalSpacing({
+    t,
     activeBounds,
     candidates,
     threshold,

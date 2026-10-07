@@ -1,4 +1,5 @@
 /* eslint-disable no-use-before-define -- The public function appears before internal validation helpers. */
+import { english, type Translate } from '../../i18n'
 import type { ObjectBounds } from '../../utils/geometry'
 
 /** Movement axis in scene coordinates. */
@@ -55,13 +56,15 @@ const EXACT_BOUNDS_CENTER_EPSILON = 0.000000001
  * Creates an immutable snapshot of regular and equal-spacing targets for one movement gesture.
  */
 export function createMovementSnapEnvironment({
+  t = english,
   sources,
   zoom
 }: {
+  t?: Translate
   sources: readonly MovementSnapCandidateSource[]
   zoom: number
 }): MovementSnapEnvironment {
-  assertEnvironmentInputs({ sources, zoom })
+  assertEnvironmentInputs({ t, sources, zoom })
 
   const candidates: MovementSnapCandidate[] = []
   const spacingSources: MovementSnapSpacingSource[] = []
@@ -80,7 +83,7 @@ export function createMovementSnapEnvironment({
     if (source.useForSpacing) {
       spacingSources.push(Object.freeze({
         id: source.id,
-        bounds: createBoundsSnapshot({ bounds: source.bounds })
+        bounds: createBoundsSnapshot({ t, bounds: source.bounds })
       }))
     }
   }
@@ -94,40 +97,42 @@ export function createMovementSnapEnvironment({
 
 /** Validates zoom, unique identifiers, and exact source geometry. */
 function assertEnvironmentInputs({
+  t = english,
   sources,
   zoom
 }: {
+  t?: Translate
   sources: readonly MovementSnapCandidateSource[]
   zoom: number
 }): void {
   if (!Number.isFinite(zoom) || zoom <= 0) {
-    throw new Error('Movement snapping zoom must be a finite positive number')
+    throw new Error(t('snapping.movement.zoomMustBePositiveFinite'))
   }
 
   const sourceIds = new Set<string>()
   for (const source of sources) {
     if (!source.id.trim() || sourceIds.has(source.id)) {
-      throw new Error(`Movement snap source id "${source.id}" must be non-empty and unique`)
+      throw new Error(t('snapping.movement.source.idMustBeUniqueAndNonEmpty', { sourceId: source.id }))
     }
 
     sourceIds.add(source.id)
-    createBoundsSnapshot({ bounds: source.bounds })
+    createBoundsSnapshot({ t, bounds: source.bounds })
   }
 }
 
 /** Copies and validates the exact bounds of one source. */
-function createBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): ObjectBounds {
+function createBoundsSnapshot({ t = english, bounds }: { t?: Translate; bounds: ObjectBounds }): ObjectBounds {
   const { left, right, top, bottom, centerX, centerY } = bounds
   const values = [left, right, top, bottom, centerX, centerY]
   if (!values.every(Number.isFinite) || right < left || bottom < top) {
-    throw new Error('Movement snap source bounds must contain finite ordered values')
+    throw new Error(t('snapping.movement.source.boundsMustBeFiniteAndOrdered'))
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (Math.abs(centerX - expectedCenterX) > EXACT_BOUNDS_CENTER_EPSILON
     || Math.abs(centerY - expectedCenterY) > EXACT_BOUNDS_CENTER_EPSILON) {
-    throw new Error('Movement snap source centers must be derived from its edges')
+    throw new Error(t('snapping.movement.source.centersMustMatchEdges'))
   }
 
   return Object.freeze({ left, right, top, bottom, centerX, centerY })

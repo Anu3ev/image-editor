@@ -1,3 +1,4 @@
+import { WorkerOperationError } from './errors'
 /* eslint-disable no-restricted-globals */
 
 self.onmessage = async(e: MessageEvent): Promise<void> => {
@@ -36,7 +37,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
       const ctx = offscreen.getContext('2d')
 
       if (!ctx) {
-        throw new Error('Failed to get 2D context from OffscreenCanvas')
+        throw new WorkerOperationError('worker.errors.offscreenContextUnavailable')
       }
 
       ctx.drawImage(imgBitmap, 0, 0, width, height)
@@ -63,7 +64,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
       const ctx = off.getContext('2d')
 
       if (!ctx) {
-        throw new Error('Failed to get 2D context from OffscreenCanvas')
+        throw new WorkerOperationError('worker.errors.offscreenContextUnavailable')
       }
 
       ctx.drawImage(bitmap, 0, 0, width, height)
@@ -82,11 +83,11 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
           if (typeof reader.result === 'string') {
             resolve(reader.result)
           } else {
-            reject(new Error('Failed to read image as a data URL'))
+            reject(new WorkerOperationError('worker.errors.imageDataUrlReadFailed'))
           }
         }
-        reader.onerror = () => reject(reader.error || new Error('Failed to read image Blob'))
-        reader.onabort = () => reject(new Error('Image Blob reading was aborted'))
+        reader.onerror = () => reject(reader.error || new WorkerOperationError('worker.errors.imageBlobReadFailed'))
+        reader.onabort = () => reject(new WorkerOperationError('worker.errors.imageBlobReadAborted'))
         reader.readAsDataURL(blob)
       })
 
@@ -95,10 +96,27 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
     }
 
     default:
-      throw new Error(`Unknown action ${action}`)
+      throw new WorkerOperationError('worker.errors.unknownAction', { action })
     }
   } catch (err) {
-    self.postMessage({ requestId, action, success: false, error: (err as Error).message })
+    if (err instanceof WorkerOperationError) {
+      self.postMessage({
+        requestId,
+        action,
+        success: false,
+        error: err.message,
+        errorKey: err.key,
+        errorParams: err.params
+      })
+    } else {
+      self.postMessage({
+        requestId,
+        action,
+        success: false,
+        error: err instanceof Error ? err.message : String(err),
+        cause: err instanceof Error ? err : undefined
+      })
+    }
   } finally {
     bitmapToClose?.close()
   }

@@ -7,6 +7,7 @@ import {
   util
 } from 'fabric'
 import { nanoid } from 'nanoid'
+import { english, type Translate } from '../i18n'
 
 import type { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
@@ -122,7 +123,7 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'serializeSelection',
         code: errorCodes.TEMPLATE_MANAGER.NO_OBJECTS_SELECTED,
-        message: 'Нет объектов для сериализации шаблона'
+        message: this.editor.t('template.warnings.noObjectsToSerialize')
       })
       return null
     }
@@ -181,6 +182,7 @@ export default class TemplateManager {
       imageManager
     } = this.editor
     const context = TemplateManager._resolveApplyTemplateContext({
+      t: this.editor.t,
       template,
       montageArea,
       errorManager
@@ -202,6 +204,7 @@ export default class TemplateManager {
 
     try {
       const preparedTemplateObjects = await TemplateManager._prepareTemplateObjectsForApply({
+        t: this.editor.t,
         template,
         imageManager,
         baseWidth: meta.baseWidth,
@@ -234,7 +237,7 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'applyTemplate',
         code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
-        message: 'Ошибка применения шаблона',
+        message: this.editor.t('template.errors.applyFailed'),
         data: {
           templateId,
           error
@@ -278,6 +281,7 @@ export default class TemplateManager {
 
     if (preparedTemplateObjects.backgroundObject) {
       backgroundApplied = applyTemplateBackgroundObject({
+        t: this.editor.t,
         backgroundObject: preparedTemplateObjects.backgroundObject,
         backgroundManager,
         errorManager
@@ -316,10 +320,12 @@ export default class TemplateManager {
    * Validates the input template and calculates its application geometry.
    */
   private static _resolveApplyTemplateContext({
+    t = english,
     template,
     montageArea,
     errorManager
   }: {
+    t?: Translate
     template: TemplateDefinition
     montageArea?: FabricObject | null
     errorManager: ImageEditor['errorManager']
@@ -331,7 +337,7 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'applyTemplate',
         code: errorCodes.TEMPLATE_MANAGER.INVALID_TEMPLATE,
-        message: 'Шаблон не содержит объектов'
+        message: t('template.warnings.noObjects')
       })
       return null
     }
@@ -343,7 +349,7 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'applyTemplate',
         code: errorCodes.TEMPLATE_MANAGER.INVALID_TARGET,
-        message: 'Не удалось определить границы монтажной области'
+        message: t('template.warnings.montageBoundsUnavailable')
       })
       return null
     }
@@ -525,6 +531,7 @@ export default class TemplateManager {
    * Prepares serialized sources and returns the background separately from the content.
    */
   private static async _prepareTemplateObjectsForApply({
+    t = english,
     template,
     imageManager,
     baseWidth,
@@ -532,6 +539,7 @@ export default class TemplateManager {
     useRelativePositions,
     errorManager
   }: {
+    t?: Translate
     template: TemplateDefinition
     imageManager: ImageEditor['imageManager']
     baseWidth: number
@@ -554,7 +562,7 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'applyTemplate',
         code: errorCodes.TEMPLATE_MANAGER.INVALID_TEMPLATE,
-        message: 'Не удалось создать объекты шаблона'
+        message: t('template.warnings.objectCreationFailed')
       })
 
       return null

@@ -6,6 +6,7 @@ import {
   type TPointerEvent,
   type Transform
 } from 'fabric'
+import { english, type Translate } from '../../i18n'
 
 import { getObjectExactBounds, type ObjectBounds } from '../../utils/geometry'
 import {
@@ -72,22 +73,25 @@ export function resolveRectangularScaleStepInput({
 
 /** Applies the calculated plan to a Fabric object relative to the gesture's fixed point. */
 export function applyRectangularScalePlan({
+  t = english,
   plan,
   projection,
   target,
   transform
 }: {
+  t?: Translate
   plan: ScaleSnapPlan
   projection: RectangularScaleGestureProjection
   target: FabricObject
   transform: Transform
 }): void {
   const multipliers = resolveRectangularScaleMultipliers({
+    t,
     projectionMode: plan.projectionMode,
     effectiveValues: plan.effectiveValues
   })
   if (multipliers.x <= 0 || multipliers.y <= 0) {
-    throw new Error('План прямоугольного скейлинга должен содержать положительные множители')
+    throw new Error(t('snapping.rectangularScale.plan.multipliersMustBePositive'))
   }
 
   target.set({
@@ -106,15 +110,17 @@ export function applyRectangularScalePlan({
 
 /** Returns positive factors actually applied to the Fabric object. */
 export function readAppliedRectangularScaleMultipliers({
+  t = english,
   projection,
   target
 }: {
+  t?: Translate
   projection: RectangularScaleGestureProjection
   target: FabricObject
 }): RectangularScaleMultipliers {
   const multipliers = readRectangularScaleMultipliers({ projection, target })
   if (!multipliers || multipliers.x <= 0 || multipliers.y <= 0) {
-    throw new Error('Прямоугольный скейлинг должен содержать положительные применённые множители')
+    throw new Error(t('snapping.rectangularScale.appliedMultipliersMustBePositive'))
   }
 
   return multipliers
@@ -122,6 +128,7 @@ export function readAppliedRectangularScaleMultipliers({
 
 /** Reads final geometry after applying the plan exactly once. */
 export function readFinalRectangularScaleGeometry({
+  t = english,
   mode,
   multipliers,
   plan,
@@ -129,6 +136,7 @@ export function readFinalRectangularScaleGeometry({
   target,
   transform
 }: {
+  t?: Translate
   mode: RectangularScaleGestureMode
   multipliers: RectangularScaleMultipliers
   plan: ScaleSnapPlan
@@ -136,14 +144,14 @@ export function readFinalRectangularScaleGeometry({
   target: FabricObject
   transform: Transform
 }): FinalScaleGeometry {
-  const bounds = getObjectExactBounds({ object: target })
-  if (!bounds) throw new Error('Прямоугольному скейлингу нужны точные итоговые границы')
+  const bounds = getObjectExactBounds({ t, object: target })
+  if (!bounds) throw new Error(t('snapping.rectangularScale.exactFinalBoundsRequired'))
 
   const anchor = target.getPointByOrigin(transform.originX, transform.originY)
 
   return Object.freeze({
     bounds,
-    fixedAnchor: createScaleScenePoint({ point: anchor }),
+    fixedAnchor: createScaleScenePoint({ t, point: anchor }),
     measuredValues: createRectangularScaleValues({ mode, multipliers }),
     domainVerdict: Object.freeze({
       x: didReachScaleConstraint({
@@ -269,12 +277,14 @@ function didReachScaleConstraint({
 
 /** Copies a finite point into independent scaling geometry. */
 function createScaleScenePoint({
+  t = english,
   point
 }: {
+  t?: Translate
   point: RectangularScalePoint
 }): RectangularScalePoint {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-    throw new Error('Точка прямоугольного скейлинга должна содержать конечные координаты')
+    throw new Error(t('snapping.rectangularScale.point.coordinatesMustBeFinite'))
   }
 
   return Object.freeze({ x: point.x, y: point.y })

@@ -267,7 +267,7 @@ describe('ClipboardManager', () => {
         origin: 'ClipboardManager',
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
-        message: 'Ошибка клонирования объекта для внутреннего буфера',
+        message: 'Failed to clone the object for the internal clipboard',
         data: expect.any(Error)
       })
     })
@@ -1136,7 +1136,7 @@ describe('ClipboardManager', () => {
         origin: 'ClipboardManager',
         method: '_handleImageImport',
         code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
-        message: 'Вставка изображения из буфера обмена была отменена или завершилась ошибкой',
+        message: 'Pasting the image from the clipboard was canceled or failed',
         data: { error: expect.any(Error) }
       })
     })
@@ -1221,7 +1221,7 @@ describe('ClipboardManager', () => {
         origin: 'ClipboardManager',
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
-        message: 'Ошибка клонирования объекта для внутреннего буфера',
+        message: 'Failed to clone the object for the internal clipboard',
         data: expect.any(Error)
       })
     })
@@ -1237,7 +1237,7 @@ describe('ClipboardManager', () => {
         origin: 'ClipboardManager',
         method: 'paste',
         code: 'PASTE_FAILED',
-        message: 'Ошибка вставки объекта',
+        message: 'Failed to paste the object',
         data: expect.any(Error)
       })
     })
@@ -1253,7 +1253,7 @@ describe('ClipboardManager', () => {
         origin: 'ClipboardManager',
         method: 'copyPaste',
         code: 'COPY_PASTE_FAILED',
-        message: 'Ошибка создания копии объекта',
+        message: 'Failed to create a copy of the object',
         data: expect.any(Error)
       })
     })
@@ -1274,7 +1274,7 @@ describe('ClipboardManager', () => {
         origin: 'ClipboardManager',
         method: 'handlePasteEvent',
         code: 'PASTE_IMAGE_FAILED',
-        message: 'Ошибка вставки изображения из буфера обмена',
+        message: 'Failed to paste the image from the clipboard',
         data: expect.any(Error)
       })
     })
@@ -1302,7 +1302,7 @@ describe('ClipboardManager', () => {
         origin: 'ClipboardManager',
         method: 'handlePasteEvent',
         code: 'PASTE_HTML_IMAGE_FAILED',
-        message: 'Ошибка вставки изображения из HTML',
+        message: 'Failed to paste the image from HTML',
         data: expect.any(Error)
       })
     })

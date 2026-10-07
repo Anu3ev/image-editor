@@ -1,4 +1,5 @@
 import { Point, Textbox, type FabricObject } from 'fabric'
+import { english, type Translate } from '../i18n'
 
 /** Object dimensions in the coordinates defined by its current geometry contract. */
 export type Dimensions = {
@@ -231,11 +232,13 @@ function createObjectBounds({
  * Validates the object's exact bounds before use.
  */
 function assertExactObjectBounds({
+  t = english,
   bounds,
   source
 }: {
+  t?: Translate
   bounds: ObjectBounds
-  source: 'custom snapping bounds' | 'visual bounds'
+  source: string
 }): void {
   const { left, right, top, bottom } = bounds
   const hasFiniteEdges = Number.isFinite(left)
@@ -244,11 +247,11 @@ function assertExactObjectBounds({
     && Number.isFinite(bottom)
 
   if (!hasFiniteEdges) {
-    throw new Error(`Invalid ${source}: edges must be finite`)
+    throw new Error(t('geometry.errors.nonFiniteEdges', { source }))
   }
 
   if (right < left || bottom < top) {
-    throw new Error(`Invalid ${source}: edges must be ordered`)
+    throw new Error(t('geometry.errors.unorderedEdges', { source }))
   }
 }
 
@@ -286,8 +289,10 @@ function getObjectVisualBounds({
  * Invalid custom bounds cause an error instead of being replaced with different geometry.
  */
 export const getObjectExactBounds = ({
+  t = english,
   object
 }: {
+  t?: Translate
   object?: FabricObject | null
 }): ObjectBounds | null => {
   if (!object) return null
@@ -295,8 +300,9 @@ export const getObjectExactBounds = ({
   const customBounds = object.getObjectSnappingBounds?.()
   if (customBounds) {
     assertExactObjectBounds({
+      t,
       bounds: customBounds,
-      source: 'custom snapping bounds'
+      source: t('geometry.labels.customSnappingBounds')
     })
 
     return createObjectBounds(customBounds)
@@ -306,8 +312,9 @@ export const getObjectExactBounds = ({
   if (!visualBounds) return null
 
   assertExactObjectBounds({
+    t,
     bounds: visualBounds,
-    source: 'visual bounds'
+    source: t('geometry.labels.visualBounds')
   })
 
   return visualBounds

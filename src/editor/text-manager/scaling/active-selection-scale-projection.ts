@@ -1,3 +1,4 @@
+import { english, type Translate } from '../../i18n'
 import type { ObjectBounds } from '../../utils/geometry'
 import type { ScaleProjectionEdgeInput } from '../../snapping-manager/scaling/scale-projection'
 import type {
@@ -16,12 +17,14 @@ const ACTIVE_SELECTION_TEXT_SCALE_PROJECTION_EPSILON = 0.000000001
 
 /** Returns the local coefficient of one edge with respect to a specific scaling variable. */
 function resolveEdgeCoefficient({
+  t = english,
   bounds,
   edge,
   sample,
   value,
   variableIndex
 }: {
+  t?: Translate
   bounds: ObjectBounds
   edge: ScaleProjectionEdgeInput['edge']
   sample: ActiveSelectionTextScaleProjectionSample
@@ -30,7 +33,7 @@ function resolveEdgeCoefficient({
 }): number {
   const valueDelta = sample.values[variableIndex] - value
   if (Math.abs(valueDelta) <= ACTIVE_SELECTION_TEXT_SCALE_PROJECTION_EPSILON) {
-    throw new Error('Соседнее измерение текста должно менять выбранный множитель')
+    throw new Error(t('text.errors.neighborSampleMustChangeMultiplier'))
   }
 
   return (sample.bounds[edge] - bounds[edge]) / valueDelta
@@ -38,23 +41,25 @@ function resolveEdgeCoefficient({
 
 /** Checks the number of variables and neighboring measurements for the current mode. */
 function assertProjectionSamples({
+  t = english,
   projectionMode,
   samples,
   values
 }: {
+  t?: Translate
   projectionMode: ScaleProjectionModeInput
   samples: readonly ActiveSelectionTextScaleProjectionSample[]
   values: readonly number[]
 }): void {
   const variableCount = projectionMode.projection.variables.length
   if (variableCount < 1 || variableCount > 2) {
-    throw new Error('Скейлинг выделения с текстами должен иметь одну или две степени свободы')
+    throw new Error(t('text.errors.invalidSelectionScaleDegreesOfFreedom'))
   }
   if (values.length !== variableCount || samples.length !== variableCount) {
-    throw new Error('Каждой переменной скейлинга текста должно соответствовать соседнее измерение')
+    throw new Error(t('text.errors.missingNeighborMeasurement'))
   }
   if (samples.some((sample) => sample.values.length !== variableCount)) {
-    throw new Error('Соседние измерения текста должны использовать одинаковый набор множителей')
+    throw new Error(t('text.errors.neighborMultiplierSetMismatch'))
   }
 }
 
@@ -62,21 +67,24 @@ function assertProjectionSamples({
  * Creates a local linear model from exact measurements of canonical text state.
  */
 export function createActiveSelectionTextScaleStepProjection({
+  t = english,
   bounds,
   projectionMode,
   samples,
   values
 }: {
+  t?: Translate
   bounds: ObjectBounds
   projectionMode: ScaleProjectionModeInput
   samples: readonly ActiveSelectionTextScaleProjectionSample[]
   values: readonly number[]
 }): ScaleStepProjectionInput {
-  assertProjectionSamples({ projectionMode, samples, values })
+  assertProjectionSamples({ t, projectionMode, samples, values })
 
   const edges = projectionMode.projection.edges.map(({ edge }) => {
     const coefficients = samples.map((sample, variableIndex) => {
       return resolveEdgeCoefficient({
+        t,
         bounds,
         edge,
         sample,

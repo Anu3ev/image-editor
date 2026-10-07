@@ -103,7 +103,7 @@ function beginTextDrivenScaleSession({
         selection: gesture.target,
         transform: gesture.transform
       })
-      if (!domainSource) throw new Error('Полный смешанный состав должен начать сессию ShapeManager')
+      if (!domainSource) throw new Error(editor.t('selection.errors.mixedCompositionShapeSessionNotStarted'))
     }
 
     const started = editor.textManager.beginActiveSelectionScaling({
@@ -112,7 +112,7 @@ function beginTextDrivenScaleSession({
       selection: gesture.target,
       transform: gesture.transform
     })
-    if (!started) throw new Error('Поддерживаемое выделение с текстами должно начать сессию TextManager')
+    if (!started) throw new Error(editor.t('selection.errors.textSelectionSessionNotStarted'))
   } catch (error) {
     try {
       cancelTextDrivenScaleSessionStart({ domainSource, editor, runtime, selection: gesture.target })
@@ -148,6 +148,7 @@ export function createActiveSelectionScaleSession({
     phase: 'unified',
     projection,
     protectedState: captureActiveSelectionScaleProtectedState({
+      t: editor.t,
       compositionKind: gesture.compositionKind,
       target: gesture.target,
       transform: gesture.transform

@@ -1,4 +1,5 @@
 import type { Transform } from 'fabric'
+import { english, type Translate } from '../../i18n'
 import type { ObjectBounds } from '../../utils/geometry'
 import type {
   ScaleProjectionEdgeInput,
@@ -55,20 +56,24 @@ function resolveOriginalScales({
 
 /** Selects the single proportional mode from the shared rectangular projection. */
 function resolveUniformProjectionMode({
+  t = english,
   projection
 }: {
+  t?: Translate
   projection: RectangularScaleGestureProjection
 }): ScaleProjectionModeInput | null {
-  return createRectangularScaleProjectionModes({ projection })
+  return createRectangularScaleProjectionModes({ t, projection })
     .find(({ id }) => id === TEXT_CORNER_SCALE_PROJECTION_MODE) ?? null
 }
 
 /** Captures text corner-scaling geometry before the first object change. */
 export function createTextCornerScaleGestureProjection({
+  t = english,
   textbox,
   transform,
   pointerStart
 }: {
+  t?: Translate
   textbox: EditorTextbox
   transform: Transform
   pointerStart: RectangularScalePoint
@@ -92,13 +97,13 @@ export function createTextCornerScaleGestureProjection({
   })
   if (!rectangular) return null
 
-  const projectionMode = resolveUniformProjectionMode({ projection: rectangular })
+  const projectionMode = resolveUniformProjectionMode({ t, projection: rectangular })
   if (!projectionMode) return null
 
   return Object.freeze({
     baselineBounds: rectangular.baselineBounds,
     fixedAnchor: rectangular.fixedAnchor,
-    movingEdges: resolveRectangularScaleMovingEdges({ projectionModes: [projectionMode] }),
+    movingEdges: resolveRectangularScaleMovingEdges({ t, projectionModes: [projectionMode] }),
     projectionMode,
     rectangular
   })

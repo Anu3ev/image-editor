@@ -761,7 +761,7 @@ test.describe('Тулбар во время редактирования тек�
 
     await test.step('Нажать кнопку "Создать копию" в тулбаре', async() => {
       await toolbar.clickAction({
-        name: 'Создать копию'
+        name: 'Duplicate'
       })
 
       await editorModel.checkObjectCount({ count: 2 })

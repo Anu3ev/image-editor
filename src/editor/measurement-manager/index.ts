@@ -296,7 +296,7 @@ export default class MeasurementManager {
       return
     }
 
-    const activeBounds = getObjectExactBounds({ object: activeObject })
+    const activeBounds = getObjectExactBounds({ object: activeObject, t: this.editor.t })
 
     if (!activeBounds) {
       this._clearGuides()
@@ -349,7 +349,7 @@ export default class MeasurementManager {
     const targetObject = MeasurementManager._resolveTarget({ event, activeObject })
     const { montageArea } = this.editor
     const fallbackTarget = targetObject ?? montageArea
-    const targetBounds = getObjectExactBounds({ object: fallbackTarget })
+    const targetBounds = getObjectExactBounds({ object: fallbackTarget, t: this.editor.t })
     if (!targetBounds) return null
 
     return {
@@ -666,7 +666,7 @@ export default class MeasurementManager {
     const labelOffset = hasBothDirections ? 12 / zoom : 0
     const renderGuides: MeasurementRenderGuide[] = this.activeGuides.map((guide) => ({
       guide,
-      label: resolveDisplayDistance({ distance: guide.distance }).toString()
+      label: resolveDisplayDistance({ distance: guide.distance, t: this.editor.t }).toString()
     }))
 
     context.save()

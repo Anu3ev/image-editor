@@ -204,6 +204,7 @@ export default class ShapeManager {
     this.editor = editor
     registerShapeGroup()
     this.scalingController = new ShapeScalingController({
+      t: this.editor.t,
       canvas: editor.canvas
     })
     this.editingController = new ShapeEditingController({
@@ -217,6 +218,7 @@ export default class ShapeManager {
       editor: this.editor
     })
     this.textNodeController = new ShapeTextNodeController({
+      t: this.editor.t,
       resolveTextManager: () => this.editor.textManager
     })
     this.groupFactory = new ShapeGroupFactory({
@@ -637,7 +639,7 @@ export default class ShapeManager {
 
     const appliedScale = this.scalingController.resolveActiveSelectionCommittedScale({ selection })
     if (!isPositiveFiniteScale(appliedScale)) {
-      throw new Error('ShapeManager должен применить положительный конечный масштаб общего выделения')
+      throw new Error(this.editor.t('shape.errors.invalidSelectionScale'))
     }
 
     transform.scaleX = selection.scaleX
@@ -655,14 +657,14 @@ export default class ShapeManager {
     children: readonly FabricObject[]
   }): void {
     if (children.length < 1) {
-      throw new Error('Для очистки общего скейлинга нужен хотя бы один дочерний шейп')
+      throw new Error(this.editor.t('shape.errors.cleanupRequiresChild'))
     }
 
     const groups: ShapeGroup[] = []
 
     for (const child of children) {
       if (!isShapeGroup(child)) {
-        throw new Error('Доменную сессию шейпов можно очистить только для shape-групп')
+        throw new Error(this.editor.t('shape.errors.cleanupRequiresShapeGroups'))
       }
 
       groups.push(child)
@@ -689,13 +691,13 @@ export default class ShapeManager {
     transform?: Transform | null
   }): ActiveSelectionShapeScaleCommit {
     const groups = children.map((child) => {
-      if (!isShapeGroup(child)) throw new Error('Фиксация смешанного состава принимает только шейпы')
+      if (!isShapeGroup(child)) throw new Error(this.editor.t('shape.errors.mixedCommitRequiresShapes'))
 
       return child
     })
-    if (groups.length === 0) throw new Error('Фиксация смешанного состава требует хотя бы один шейп')
+    if (groups.length === 0) throw new Error(this.editor.t('shape.errors.mixedCommitRequiresShape'))
 
-    const beforeSnapshots = groups.map((group) => captureShapeScalingGeometry({ group }))
+    const beforeSnapshots = groups.map((group) => captureShapeScalingGeometry({ t: this.editor.t, group }))
     const { scaleX, scaleY } = this.scalingController.resolveActiveSelectionCommittedScale({ selection })
 
     try {
@@ -707,7 +709,7 @@ export default class ShapeManager {
       })
     } catch (error) {
       try {
-        restoreShapeScalingSnapshots({ snapshots: beforeSnapshots })
+        restoreShapeScalingSnapshots({ t: this.editor.t, snapshots: beforeSnapshots })
       } catch {
         // The commit error remains primary after attempting to restore each shape.
       }
@@ -767,7 +769,7 @@ export default class ShapeManager {
         scaleY,
         transform
       })
-      if (!committed) throw new Error('Каждый измеренный шейп должен зафиксировать рассчитанные размеры')
+      if (!committed) throw new Error(this.editor.t('shape.errors.measuredDimensionsNotCommitted'))
 
       this.editor.canvasManager.applyObjectPlacement({ object: group, placement })
       group.setCoords()

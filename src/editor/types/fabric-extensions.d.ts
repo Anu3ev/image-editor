@@ -6,6 +6,8 @@ import type { ImportImageOptions } from '../image-manager/types'
 import type { ToolbarConfig } from '../ui/toolbar-manager'
 
 export interface EditorCanvasOptions {
+  /** Library language for this instance: English by default, with Russian also bundled. */
+  language?: string
   /**
    * Width of the editor workspace.
    */

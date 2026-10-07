@@ -1,5 +1,6 @@
-/* eslint-disable no-use-before-define -- Intent calculation precedes final position constraints. */
 import { Point, util, type TMat2D, type Transform } from 'fabric'
+import { english, type Translate } from '../../i18n'
+/* eslint-disable no-use-before-define -- Intent calculation precedes final position constraints. */
 
 import type SnappingManager from '../../snapping-manager'
 import {
@@ -40,8 +41,12 @@ export interface CropMovementSession {
 
 /** Captures scene and source geometry before the first drag mutation. */
 export function createCropMovementSession({
-  frame, transform, snapping
+  t = english,
+  frame,
+  transform,
+  snapping
 }: {
+  t?: Translate
   frame: CropFrame
   transform: Transform
   snapping: SnappingManager
@@ -52,6 +57,7 @@ export function createCropMovementSession({
   if (frame.lockMovementX || frame.lockMovementY || frame.angle !== source.angle) return null
 
   const baseline = createMovementGestureBaseline({
+    t,
     bounds: frame.getObjectSnappingBounds(),
     position: { left: frame.left, top: frame.top },
     environment: snapping.captureMovementSnapEnvironment({
@@ -59,7 +65,7 @@ export function createCropMovementSession({
       domainBoundary: { object: source, bounds: getCropObjectSceneBounds({ object: source }) }
     })
   })
-  const runtime = new MovementSnappingRuntime()
+  const runtime = new MovementSnappingRuntime(t)
   runtime.startSession({ baseline })
   const sourceMatrix: TMat2D = [...source.calcTransformMatrix()]
 

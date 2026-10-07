@@ -1,5 +1,6 @@
-/* eslint-disable no-use-before-define -- Step application precedes internal calculations. */
 import { Point, type TPointerEvent } from 'fabric'
+import { english, type Translate } from '../../i18n'
+/* eslint-disable no-use-before-define -- Step application precedes internal calculations. */
 
 import { getObjectBounds } from '../../utils/geometry'
 import { applyCropScalingStep } from './crop-scale-pixel-grid'
@@ -20,6 +21,7 @@ import { resolveCropScaleUpdatePlan } from './crop-scale-plan'
 
 /** Legacy step for a frame whose geometry is not yet supported by the shared scale session. */
 interface CropFrameScaleSnapStep {
+  t?: Translate
   session: CropSession
   transform: CropSourceBoundTransform
   event?: TPointerEvent | null
@@ -29,6 +31,8 @@ interface CropFrameScaleSnapStep {
 
 /** Applies legacy crop snapping, preserving the fixed side even when no guide is found. */
 export function applyCropFrameScaleSnapping(params: CropFrameScaleSnapStep): GuideLine[] {
+  const t = params.t ?? english
+
   const { session, transform } = params
   const { frame } = session
   const { original } = transform
@@ -46,7 +50,7 @@ export function applyCropFrameScaleSnapping(params: CropFrameScaleSnapStep): Gui
       transform.scaleX = frame.scaleX
       transform.scaleY = frame.scaleY
     }
-    applyCropScalingStep({ target: frame, transform, preservePlacement, snapGuards: plan?.snapGuards })
+    applyCropScalingStep({ t, target: frame, transform, preservePlacement, snapGuards: plan?.snapGuards })
   }
 
   if (plan) restoreCropScaleAnchor({ session, transform })

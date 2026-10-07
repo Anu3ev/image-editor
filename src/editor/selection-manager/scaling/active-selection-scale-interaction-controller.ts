@@ -208,7 +208,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (!session || session.target !== selection) return null
     if (session.protectedState.composition.kind !== 'shapes') return null
     if (this.commitSession) {
-      throw new Error('Фиксация общего выделения из шейпов уже выполняется')
+      throw new Error(this.editor.t('selection.errors.shapeCommitAlreadyInProgress'))
     }
 
     this.commitSession = Object.freeze({ kind: 'shapes', session })
@@ -226,7 +226,7 @@ export default class ActiveSelectionScaleInteractionController {
     const { session } = this
     if (!session || session.target !== selection) return false
     if (!isTextDrivenComposition({ session })) return false
-    if (this.commitSession) throw new Error('Фиксация общего выделения уже выполняется другим доменом')
+    if (this.commitSession) throw new Error(this.editor.t('selection.errors.commitOwnedByAnotherDomain'))
 
     this.commitSession = Object.freeze({ kind: 'texts', session })
 
@@ -264,7 +264,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (!this.beginTextSelectionCommit({ selection })) return false
 
     const { commitSession } = this
-    if (!commitSession) throw new Error('Фиксация текстового состава должна иметь защищённую сессию')
+    if (!commitSession) throw new Error(this.editor.t('selection.errors.textCommitRequiresProtectedSession'))
     this.coordinatedTextDrivenSelections.add(selection)
 
     let shapeCommit: ActiveSelectionShapePreparedCommit | null
@@ -355,7 +355,7 @@ export default class ActiveSelectionScaleInteractionController {
     const duplicate = session.runtime.getDuplicateStep({ marker })
     if (duplicate) {
       if (!duplicate.verification) {
-        throw new Error('Повторный шаг ActiveSelection не может завершиться до проверки результата')
+        throw new Error(this.editor.t('selection.errors.duplicateStepRequiresVerification'))
       }
       this.editor.snappingManager.markStepHandled({ marker })
       return true
@@ -465,7 +465,7 @@ export default class ActiveSelectionScaleInteractionController {
         stepProjection: stepInput.textMeasurement?.projection
       })
       if (step.kind === 'duplicate') {
-        throw new Error('Шаг ActiveSelection стал повторным после начальной проверки сессии')
+        throw new Error(this.editor.t('selection.errors.stepBecameDuplicate'))
       }
       const verification = this._applyAndVerifyScaleStep({
         plan: step.plan,
@@ -480,7 +480,7 @@ export default class ActiveSelectionScaleInteractionController {
         const confirmed = this.editor.textManager.confirmActiveSelectionScalePreview({
           selection: session.target
         })
-        if (!confirmed) throw new Error('Проверенный текстовый шаг должен стать подтверждённым')
+        if (!confirmed) throw new Error(this.editor.t('selection.errors.verifiedTextStepNotConfirmed'))
       }
 
       session.hasVerifiedStep = true
@@ -572,6 +572,7 @@ export default class ActiveSelectionScaleInteractionController {
       transform: session.transform
     })
     const finalGeometry = readFinalRectangularScaleGeometry({
+      t: this.editor.t,
       mode,
       multipliers,
       plan: resolved.plan,
@@ -656,7 +657,7 @@ export default class ActiveSelectionScaleInteractionController {
   }): true {
     const { session } = this
     if (!session) {
-      throw new Error('Переход к наклону требует активной сессии общего выделения')
+      throw new Error(this.editor.t('selection.errors.skewTransitionRequiresSession'))
     }
 
     if (session.protectedState.composition.kind === 'shapes') {
@@ -686,11 +687,11 @@ export default class ActiveSelectionScaleInteractionController {
     const restored = this.editor.textManager.restoreActiveSelectionScalePreview({
       selection: session.target
     })
-    if (!restored) throw new Error('Досрочное завершение должно восстановить последний текстовый шаг')
+    if (!restored) throw new Error(this.editor.t('selection.errors.earlyFinishDidNotRestoreTextStep'))
 
     this.editor.canvas.endCurrentTransform(pointerEvent)
     if (this.session === session) {
-      throw new Error('Досрочное завершение текстового скейлинга должно зафиксировать активную сессию')
+      throw new Error(this.editor.t('selection.errors.earlyTextScaleFinishNotCommitted'))
     }
 
     return true
@@ -747,7 +748,7 @@ export default class ActiveSelectionScaleInteractionController {
       this._discardSelectionDuringCommit({ selection, transform })
 
       const committedText = this.editor.textManager.commitActiveSelectionScaling({ selection })
-      if (!committedText) throw new Error('TextManager должен зафиксировать измеренную геометрию текста')
+      if (!committedText) throw new Error(this.editor.t('selection.errors.measuredTextGeometryNotCommitted'))
 
       if (composition.kind === 'mixed') {
         shapeCommit = this.editor.shapeManager.prepareActiveSelectionScaleCommit({
@@ -786,7 +787,7 @@ export default class ActiveSelectionScaleInteractionController {
     }
     try {
       const restored = this.editor.textManager.restoreActiveSelectionScalePreview({ selection })
-      if (!restored) throw new Error('TextManager должен восстановить подтверждённое состояние')
+      if (!restored) throw new Error(this.editor.t('selection.errors.confirmedTextStateNotRestored'))
     } catch (error) {
       failures.push(error)
     }
@@ -824,7 +825,7 @@ export default class ActiveSelectionScaleInteractionController {
     const restoredChildren = selection.getObjects()
     const hasOriginalOrder = restoredChildren.length === children.length
       && restoredChildren.every((child, index) => child === children[index])
-    if (!hasOriginalOrder) throw new Error('Откат должен восстановить исходный порядок объектов')
+    if (!hasOriginalOrder) throw new Error(this.editor.t('selection.errors.rollbackOrderMismatch'))
   }
 
   /** Finishes domain sessions only after geometry and the new frame have been successfully prepared. */
@@ -873,7 +874,7 @@ export default class ActiveSelectionScaleInteractionController {
     }
     try {
       const didFinish = this.finishTextSelectionCommit({ selection })
-      if (!didFinish) failures.push(new Error('Общая текстовая сессия должна завершиться после фиксации'))
+      if (!didFinish) failures.push(new Error(this.editor.t('selection.errors.textSessionNotFinished')))
     } catch (error) {
       failures.push(error)
     }
@@ -881,7 +882,7 @@ export default class ActiveSelectionScaleInteractionController {
     if (failures.length > 0) this._forceFinishCommitSession({ selection, session })
 
     return failures.length > 0
-      ? failures[0] ?? new Error('Не удалось завершить фиксацию общего выделения')
+      ? failures[0] ?? new Error(this.editor.t('selection.errors.commitFinishFailed'))
       : null
   }
 
@@ -936,7 +937,7 @@ export default class ActiveSelectionScaleInteractionController {
       this.editor.errorManager.emitError({
         code: errorCodes.SELECTION_MANAGER.SCALE_COMMIT_FINALIZATION_FAILED,
         data: { error },
-        message: 'Не удалось полностью завершить фиксацию общего выделения',
+        message: this.editor.t('selection.errors.commitFinalizationFailed'),
         method: 'commitTextDrivenSelectionScale',
         origin: 'SelectionManager'
       })
@@ -1262,7 +1263,7 @@ function applyActiveSelectionScalePlan({
 }): RectangularScaleMultipliers {
   if (protectedState.composition.kind === 'texts' || protectedState.composition.kind === 'mixed') {
     if (!textMeasurement) {
-      throw new Error('План выделения с текстами должен содержать измеренное каноническое состояние')
+      throw new Error(editor.t('selection.errors.planMissingCanonicalState'))
     }
 
     return editor.textManager.applyActiveSelectionScalePreview({
@@ -1271,7 +1272,7 @@ function applyActiveSelectionScalePlan({
     })
   }
 
-  applyRectangularScalePlan({ plan, projection, target, transform })
+  applyRectangularScalePlan({ t: editor.t, plan, projection, target, transform })
 
   if (protectedState.composition.kind === 'shapes') {
     const appliedScale = editor.shapeManager.applyActiveSelectionScalePreview({
@@ -1280,17 +1281,17 @@ function applyActiveSelectionScalePlan({
       event: pointerEvent
     })
     if (!appliedScale) {
-      throw new Error('Поддерживаемое выделение из шейпов должно принять рассчитанный масштаб')
+      throw new Error(editor.t('selection.errors.shapeSelectionRejectedScale'))
     }
     if (
       !areActiveSelectionScaleValuesNear({ first: target.scaleX, second: appliedScale.scaleX })
       || !areActiveSelectionScaleValuesNear({ first: target.scaleY, second: appliedScale.scaleY })
     ) {
-      throw new Error('Масштаб выделения должен совпасть с результатом ShapeManager')
+      throw new Error(editor.t('selection.errors.shapeManagerScaleMismatch'))
     }
   }
 
-  return readAppliedRectangularScaleMultipliers({ projection, target })
+  return readAppliedRectangularScaleMultipliers({ t: editor.t, projection, target })
 }
 
 /** Checks whether the scale has changed along at least one axis since the gesture started. */

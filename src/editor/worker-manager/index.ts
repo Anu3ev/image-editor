@@ -1,5 +1,7 @@
 import { nanoid } from 'nanoid'
+import { english, type Translate, type TranslationKey } from '../i18n'
 import DefaultWorker from './worker?worker'
+import { workerErrorKeys } from './errors'
 
 export type handleMessageParams = {
   action: string
@@ -7,6 +9,9 @@ export type handleMessageParams = {
   success: boolean
   data: File | Blob | Base64URLString
   error?: string
+  errorKey?: TranslationKey
+  errorParams?: Record<string, unknown>
+  cause?: unknown
 }
 
 /** Result handlers for a pending request. */
@@ -26,32 +31,45 @@ export default class WorkerManager {
   /**
    * @param scriptUrl — Worker script URL; uses the built-in worker by default.
    */
-  constructor(scriptUrl?: URL) {
+  constructor(scriptUrl?: URL, private readonly t: Translate = english) {
     this.worker = scriptUrl ? new Worker(scriptUrl, { type: 'module' }) : new DefaultWorker()
     this.worker.onmessage = this._handleMessage.bind(this)
     this.worker.onerror = (event) => {
-      this._stop(event.error instanceof Error ? event.error : new Error(event.message || 'Worker failed'))
+      const error = event.error instanceof Error
+        ? event.error
+        : new Error(event.message || this.t('worker.errors.failed'))
+      this._stop(error)
     }
     this.worker.onmessageerror = () => {
-      this._stop(new Error('Failed to deserialize worker response'))
+      this._stop(new Error(this.t('worker.errors.responseDeserializationFailed')))
     }
   }
 
   /** Settles a request only for a valid worker response. */
   private _handleMessage({ data }: { data: handleMessageParams }): void {
     if (!data || typeof data.requestId !== 'string' || typeof data.success !== 'boolean') {
-      this._stop(new Error('Invalid worker response'))
+      this._stop(new Error(this.t('worker.errors.invalidResponse')))
       return
     }
 
-    const { requestId, success, data: payload, error } = data
+    const { requestId, success, data: payload, error, errorKey, errorParams, cause } = data
     const callback = this._callbacks.get(requestId)
     // A duplicate response for an already completed request does not need to be handled.
     if (!callback) return
 
     if (success && typeof payload !== 'string' && !(payload instanceof Blob)) {
-      this._stop(new Error('Invalid worker response'))
+      this._stop(new Error(this.t('worker.errors.invalidResponse')))
       return
+    }
+
+    if (!success && errorKey !== undefined) {
+      const knownKey = workerErrorKeys.some((key) => key === errorKey)
+      const validParams = errorParams === undefined
+        || (typeof errorParams === 'object' && errorParams !== null && !Array.isArray(errorParams))
+      if (!knownKey || !validParams) {
+        this._stop(new Error(this.t('worker.errors.invalidResponse')))
+        return
+      }
     }
 
     this._callbacks.delete(requestId)
@@ -59,7 +77,8 @@ export default class WorkerManager {
       callback.resolve(payload)
       return
     }
-    callback.reject(new Error(error || 'Worker request failed'))
+    const message = errorKey ? this.t(errorKey, errorParams) : error || this.t('worker.errors.requestFailed')
+    callback.reject(Object.assign(new Error(message), { cause }))
   }
 
   /** Sends a command and guarantees that the Promise settles if the worker fails or stops. */
@@ -97,6 +116,6 @@ export default class WorkerManager {
 
   /** Terminates the worker and rejects all pending requests. Safe to call repeatedly. */
   public terminate(): void {
-    this._stop(new Error('Worker has been terminated'))
+    this._stop(new Error(this.t('worker.errors.terminated')))
   }
 }

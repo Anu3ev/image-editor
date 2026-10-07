@@ -275,6 +275,7 @@ export default class TextCornerScaleInteractionController {
 
     resolved.target.setCoords()
     const gesture = createTextCornerScaleGestureProjection({
+      t: this.editor.t,
       textbox: resolved.target,
       transform: resolved.transform,
       pointerStart
@@ -361,18 +362,20 @@ export default class TextCornerScaleInteractionController {
       targetEdges: gesture.movingEdges
     })
     const baseline = createScaleGestureBaseline({
+      t: this.editor.t,
       bounds: gesture.baselineBounds,
       fixedAnchor: gesture.fixedAnchor,
       projectionModes: [gesture.projectionMode],
       candidates: environment.candidates,
       zoom: environment.zoom
     })
-    const runtime = new ScaleSnappingRuntime()
+    const runtime = new ScaleSnappingRuntime(this.editor.t)
     runtime.startSession({ baseline })
 
     return Object.freeze({
       gesture,
       measurer: new TextCornerScaleMeasurer({
+        t: this.editor.t,
         canvasManager: this.editor.canvasManager,
         gesture,
         target: resolved.target,
@@ -486,6 +489,7 @@ export default class TextCornerScaleInteractionController {
 
     const preferredScale = this._resolvePreferredHeldScale({ plan, session })
     const snappedMeasurement = resolveTextCornerScaleSnapMeasurement({
+      t: this.editor.t,
       measurer: session.measurer,
       plan,
       preferredScale
@@ -496,6 +500,7 @@ export default class TextCornerScaleInteractionController {
         measurement: snappedMeasurement
       })
       : resolveReachedTextCornerScaleFallback({
+        t: this.editor.t,
         measurer: session.measurer,
         plan,
         pointerMeasurement,
@@ -571,8 +576,8 @@ export default class TextCornerScaleInteractionController {
     scale: number
     session: TextCornerScaleSession
   }): FinalScaleGeometry {
-    const bounds = getObjectExactBounds({ object: session.target })
-    if (!bounds) throw new Error('Текст должен иметь точные границы после скейлинга')
+    const bounds = getObjectExactBounds({ t: this.editor.t, object: session.target })
+    if (!bounds) throw new Error(this.editor.t('text.errors.missingExactBoundsAfterScale'))
 
     const anchor = session.target.getPointByOrigin(
       session.transform.originX,

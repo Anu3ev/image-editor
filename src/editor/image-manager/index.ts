@@ -137,6 +137,7 @@ export default class ImageManager {
 
     const defaultScale = this.options.scaleType === 'cover' ? 'image-cover' : 'image-contain'
     const request = await createImportImageRequest({
+      t: this.editor.t,
       options,
       defaultScale,
       acceptContentTypes: this.acceptContentTypes
@@ -170,13 +171,14 @@ export default class ImageManager {
 
       const supportedRequest: SupportedImportImageRequest = { ...request, source }
       const dataUrl = await resolveImportImageUrl({
+        t: this.editor.t,
         request: supportedRequest,
         blobUrls: this._blobUrls
       })
-      if (this._destroyed) throw new Error('ImageManager has been destroyed')
+      if (this._destroyed) throw new Error(this.editor.t('image.errors.managerDestroyed'))
 
       loadedImage = await loadImportImage({ dataUrl, format: request.format })
-      if (this._destroyed) throw new Error('ImageManager has been destroyed')
+      if (this._destroyed) throw new Error(this.editor.t('image.errors.managerDestroyed'))
 
       image = await resizeImportImageIfNeeded({
         editor: this.editor,
@@ -185,7 +187,7 @@ export default class ImageManager {
         contentType: request.contentType
       })
 
-      if (this._destroyed) throw new Error('ImageManager has been destroyed')
+      if (this._destroyed) throw new Error(this.editor.t('image.errors.managerDestroyed'))
 
       applyImportedImageProperties({ image, request: supportedRequest })
       placeImportedImage({
@@ -264,6 +266,7 @@ export default class ImageManager {
     options: exportCanvasAsImageFileOptions = {}
   ): Promise<SuccessfulExportResult | null> {
     const request = createCanvasExportRequest({
+      t: this.editor.t,
       options
     })
 
@@ -283,7 +286,9 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportCanvasAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
-        message: `Ошибка экспорта изображения: ${(error as Error).message}`,
+        message: this.editor.t('image.errors.exportFailed', {
+          error: error instanceof Error ? error.message : String(error)
+        }),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,
@@ -317,6 +322,7 @@ export default class ImageManager {
     } = options
     const activeObject = object || this.editor.canvas.getActiveObject()
     const request = createObjectExportRequest({
+      t: this.editor.t,
       object: activeObject ?? undefined,
       options
     })
@@ -326,7 +332,7 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportObjectAsImageFile',
         code: 'NO_OBJECT_SELECTED',
-        message: 'Не выбран объект для экспорта',
+        message: this.editor.t('image.errors.noObjectSelected'),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,
@@ -348,7 +354,9 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportObjectAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
-        message: `Ошибка экспорта объекта: ${(error as Error).message}`,
+        message: this.editor.t('image.errors.objectExportFailed', {
+          error: error instanceof Error ? error.message : String(error)
+        }),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,
@@ -408,6 +416,7 @@ export default class ImageManager {
     }
 
     return resolveContentType({
+      t: this.editor.t,
       source,
       acceptContentTypes: this.acceptContentTypes
     })
@@ -421,6 +430,7 @@ export default class ImageManager {
    */
   public async getContentTypeFromUrl(src: string): Promise<string> {
     return resolveContentTypeFromUrl({
+      t: this.editor.t,
       src,
       acceptContentTypes: this.acceptContentTypes
     })
@@ -434,6 +444,7 @@ export default class ImageManager {
    */
   public getContentTypeFromExtension(url: string): string {
     return resolveContentTypeFromExtension({
+      t: this.editor.t,
       url,
       acceptContentTypes: this.acceptContentTypes
     })

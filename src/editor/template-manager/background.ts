@@ -1,4 +1,5 @@
 import { FabricObject } from 'fabric'
+import { english, type Translate } from '../i18n'
 
 import type { ImageEditor } from '../index'
 import { errorCodes } from '../error-manager/error-codes'
@@ -118,10 +119,12 @@ function applyImageTemplateBackground({
  * Applies the template background object through BackgroundManager.
  */
 export function applyTemplateBackgroundObject({
+  t = english,
   backgroundObject,
   backgroundManager,
   errorManager
 }: {
+  t?: Translate
   backgroundObject: FabricObject
   backgroundManager: ImageEditor['backgroundManager']
   errorManager: ImageEditor['errorManager']
@@ -159,7 +162,7 @@ export function applyTemplateBackgroundObject({
       origin: 'TemplateManager',
       method: 'applyTemplate',
       code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
-      message: 'Не удалось применить фон из шаблона',
+      message: t('template.warnings.backgroundApplyFailed'),
       data: error as object
     })
   }

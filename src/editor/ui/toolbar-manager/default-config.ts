@@ -1,5 +1,6 @@
 import { ActiveSelection, FabricObject } from 'fabric'
 import { ImageEditor } from '../..'
+import { english, type Translate } from '../../i18n'
 import {
   copyPasteIcon,
   lockIcon,
@@ -11,7 +12,8 @@ import {
   deleteIcon
 } from './icons'
 
-export default {
+/** Creates toolbar labels in the owning editor’s language. */
+export const createDefaultConfig = (t: Translate = english) => ({
   style: {
     position: 'absolute',
     display: 'none',
@@ -47,37 +49,37 @@ export default {
   btnClass: 'fabric-editor-toolbar-btn',
 
   lockedActions: [{
-    name: 'Разблокировать',
+    name: t('ui.toolbar.unlock'),
     handle: 'unlock'
   }],
 
   actions: [
     {
-      name: 'Создать копию',
+      name: t('ui.toolbar.duplicate'),
       handle: 'copyPaste'
     },
     {
-      name: 'Заблокировать',
+      name: t('ui.toolbar.lock'),
       handle: 'lock'
     },
     {
-      name: 'На передний план',
+      name: t('ui.toolbar.bringToFront'),
       handle: 'bringToFront'
     },
     {
-      name: 'На задний план',
+      name: t('ui.toolbar.sendToBack'),
       handle: 'sendToBack'
     },
     {
-      name: 'На один уровень вверх',
+      name: t('ui.toolbar.bringForward'),
       handle: 'bringForward'
     },
     {
-      name: 'На один уровень вниз',
+      name: t('ui.toolbar.sendBackward'),
       handle: 'sendBackwards'
     },
     {
-      name: 'Удалить',
+      name: t('ui.toolbar.delete'),
       handle: 'delete'
     }
   ],
@@ -146,4 +148,6 @@ export default {
       editor.layerManager.sendBackwards(target ?? undefined)
     }
   }
-}
+})
+
+export default createDefaultConfig()

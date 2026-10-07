@@ -1,4 +1,5 @@
 /* eslint-disable no-use-before-define -- The public function appears before internal calculations. */
+import { english, type Translate } from '../../i18n'
 import { MOVE_SNAP_STEP } from '../constants'
 import type { Bounds, SpacingGuide } from '../types'
 import type { MovementSceneAxis } from './movement-snap-candidates'
@@ -26,6 +27,7 @@ export type ResolvedMovementSpacingCorrection = Readonly<{
 
 /** Selects the exact correction for an existing chain or individual interval. */
 export function resolveMovementSpacingCorrection({
+  t = english,
   axis,
   baseline,
   bounds,
@@ -33,6 +35,7 @@ export function resolveMovementSpacingCorrection({
   selections,
   primarySelection
 }: {
+  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   bounds: Bounds
@@ -49,8 +52,9 @@ export function resolveMovementSpacingCorrection({
   })
   const delta = chain
     ? resolveBaselineSpacingDelta({ axis, baseline, bounds })
-    : resolveExactSpacingDelta({ axis, bounds, identity: primarySelection.identity })
+    : resolveExactSpacingDelta({ t, axis, bounds, identity: primarySelection.identity })
   const exactSelections = resolveExactSpacingSelections({
+    t,
     axis,
     bounds,
     selections,
@@ -58,7 +62,7 @@ export function resolveMovementSpacingCorrection({
     spacingChain: chain
   })
   if (!exactSelections.length) {
-    throw new Error('Movement spacing constraint must keep its primary interval')
+    throw new Error(t('snapping.movement.spacing.primaryIntervalMustBePreserved'))
   }
 
   return Object.freeze({ chain, delta, selections: exactSelections })
@@ -154,10 +158,12 @@ function resolveBaselineSpacingDelta({
 
 /** Calculates the exact offset from the selected neighbors or reference interval. */
 function resolveExactSpacingDelta({
+  t = english,
   axis,
   bounds,
   identity
 }: {
+  t?: Translate
   axis: MovementSceneAxis
   bounds: Bounds
   identity: SpacingSelectionIdentity
@@ -168,7 +174,7 @@ function resolveExactSpacingDelta({
 
   if (identity.kind === 'center') {
     if (!before || !after) {
-      throw new Error('Centered movement spacing requires both exact neighbours')
+      throw new Error(t('snapping.movement.spacing.centeringRequiresExactNeighbors'))
     }
 
     const targetSize = bounds[endEdge] - bounds[startEdge]
@@ -179,7 +185,7 @@ function resolveExactSpacingDelta({
   }
 
   if (!pattern) {
-    throw new Error('Reference movement spacing requires an exact pattern')
+    throw new Error(t('snapping.movement.spacing.referenceRequiresExactPattern'))
   }
   if (identity.side === 'before' && before) {
     return before[endEdge] + pattern.distance - bounds[startEdge]
@@ -188,17 +194,19 @@ function resolveExactSpacingDelta({
     return after[startEdge] - pattern.distance - bounds[endEdge]
   }
 
-  throw new Error('Reference movement spacing requires the selected exact neighbour')
+  throw new Error(t('snapping.movement.spacing.referenceRequiresSelectedExactNeighbor'))
 }
 
 /** Keeps options compatible with the exact position or original chain. */
 function resolveExactSpacingSelections({
+  t = english,
   axis,
   bounds,
   selections,
   exactDelta,
   spacingChain
 }: {
+  t?: Translate
   axis: MovementSceneAxis
   bounds: Bounds
   selections: readonly ResolvedSpacingSelection[]
@@ -209,6 +217,7 @@ function resolveExactSpacingSelections({
 
   for (const selection of selections) {
     const selectionDelta = resolveExactSpacingDelta({
+      t,
       axis,
       bounds,
       identity: selection.identity

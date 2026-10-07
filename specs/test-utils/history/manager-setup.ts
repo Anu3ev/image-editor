@@ -1,3 +1,4 @@
+import { english } from '../../../src/editor/i18n'
 import HistoryManager from '../../../src/editor/history-manager'
 import { createSimpleDiffPatcher } from '../shared/diff-patcher'
 
@@ -71,6 +72,7 @@ export const createHistoryManagerTestSetup = (
   })
 
   const mockEditor = {
+    t: english,
     canvas: mockCanvas,
     canvasManager: {
       updateCanvas: jest.fn(),

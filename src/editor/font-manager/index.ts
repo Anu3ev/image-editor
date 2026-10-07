@@ -1,3 +1,4 @@
+import { english, type Translate } from '../i18n'
 import type { EditorFontDefinition, EditorFontFaceDescriptors } from '../types/font'
 
 type MaybeDocument = typeof document | undefined
@@ -63,8 +64,8 @@ export default class FontManager {
 
   private fonts: EditorFontDefinition[]
 
-  constructor(fonts: EditorFontDefinition[] = []) {
-    this.fonts = fonts
+  constructor(fonts?: EditorFontDefinition[], private readonly t: Translate = english) {
+    this.fonts = fonts ?? []
   }
 
   public setFonts(fonts: EditorFontDefinition[]): void {
@@ -78,12 +79,16 @@ export default class FontManager {
     const doc: MaybeDocument = typeof document !== 'undefined' ? document : undefined
     if (!doc) return
 
-    const loadTasks = fonts.map((font) => FontManager.loadFont(font, doc))
+    const loadTasks = fonts.map((font) => FontManager.loadFont({ font, doc, t: this.t }))
 
     await Promise.allSettled(loadTasks)
   }
 
-  private static async loadFont(font: EditorFontDefinition, doc: Document): Promise<void> {
+  private static async loadFont({ font, doc, t }: {
+    font: EditorFontDefinition
+    doc: Document
+    t: Translate
+  }): Promise<void> {
     const supportsFontFace = typeof FontFace !== 'undefined'
     const family = font.family?.trim()
     const source = font.source?.trim()
@@ -95,7 +100,7 @@ export default class FontManager {
 
     if (FontManager.registeredFontKeys.has(registrationKey)) return
 
-    if (FontManager.isFontFaceAlreadyApplied(doc, family, descriptorSnapshot)) {
+    if (FontManager.isFontFaceAlreadyApplied({ doc, family, descriptors: descriptorSnapshot, t })) {
       FontManager.registeredFontKeys.add(registrationKey)
       return
     }
@@ -108,7 +113,7 @@ export default class FontManager {
         FontManager.registeredFontKeys.add(registrationKey)
         return
       } catch (error) {
-        console.warn(`Не удалось загрузить шрифт "${family}" через FontFace API`, error)
+        console.warn(t('fonts.warnings.fontFaceLoadFailed', { family }), error)
       }
     }
 
@@ -227,7 +232,12 @@ export default class FontManager {
     ].join('::')
   }
 
-  private static isFontFaceAlreadyApplied(doc: Document, family: string, descriptors: DescriptorSnapshot): boolean {
+  private static isFontFaceAlreadyApplied({ doc, family, descriptors, t }: {
+    doc: Document
+    family: string
+    descriptors: DescriptorSnapshot
+    t: Translate
+  }): boolean {
     const fontSet = doc.fonts
     if (!fontSet || typeof fontSet.forEach !== 'function') return false
 
@@ -257,7 +267,7 @@ export default class FontManager {
         }
       })
     } catch (error) {
-      console.warn('Не удалось проверить, загружен ли шрифт ранее через FontFaceSet', error)
+      console.warn(t('fonts.warnings.fontFaceSetCheckFailed'), error)
       return false
     }
 

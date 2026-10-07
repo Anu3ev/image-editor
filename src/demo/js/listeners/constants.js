@@ -59,7 +59,7 @@ export const ALIGN_SEQUENCE = ['left', 'center', 'right', 'justify']
 /** Number of indentation spaces when serializing the active object's JSON. */
 export const ACTIVE_OBJECT_JSON_SPACES = 2
 /** Default text for creating a new text object. */
-export const DEFAULT_TEXT_VALUE = 'Новый текст'
+export const DEFAULT_TEXT_VALUE = 'New text'
 
 /**
  * List of additional Fabric object properties to preserve

@@ -190,5 +190,5 @@ it('отклоняет вырожденную геометрию и недопу
     mode: 'uniform',
     multipliers: { x: 1.2, y: 1.3 },
     protectedEdges: []
-  })).toThrow('Uniform Shape scale requires equal x and y multipliers')
+  })).toThrow('Uniform shape scaling requires equal x and y multipliers')
 })

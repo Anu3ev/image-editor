@@ -1,3 +1,5 @@
+import { english, type Translate } from '../i18n'
+
 /** MIME type used when the source format cannot be determined. */
 const FALLBACK_CONTENT_TYPE = 'application/octet-stream'
 
@@ -62,9 +64,11 @@ function createMimeTypeMap({
 /** Determines the MIME type from the file extension in the URL. */
 export function getContentTypeFromExtension({
   url,
-  acceptContentTypes
+  acceptContentTypes,
+  t = english
 }: {
   url: string
+  t?: Translate
   acceptContentTypes: string[]
 }): string {
   try {
@@ -74,14 +78,14 @@ export function getContentTypeFromExtension({
 
     return extension ? mimeTypes[extension] || FALLBACK_CONTENT_TYPE : FALLBACK_CONTENT_TYPE
   } catch (error) {
-    console.warn('Не удалось определить расширение из URL:', url, error)
+    console.warn(t('image.warnings.urlExtensionDetectionFailed'), url, error)
 
     return FALLBACK_CONTENT_TYPE
   }
 }
 
 /** Gets an image's MIME type from a blob URL through the browser Blob API. */
-async function getContentTypeFromBlobUrl({ src }: { src: string }): Promise<string> {
+async function getContentTypeFromBlobUrl({ src, t }: { src: string; t: Translate }): Promise<string> {
   try {
     const response = await fetch(src)
     const blob = await response.blob()
@@ -90,7 +94,7 @@ async function getContentTypeFromBlobUrl({ src }: { src: string }): Promise<stri
       return blob.type.split(';')[0]
     }
   } catch (error) {
-    console.warn('Не удалось определить MIME-тип blob URL:', error)
+    console.warn(t('image.warnings.blobMimeTypeDetectionFailed'), error)
   }
 
   return FALLBACK_CONTENT_TYPE
@@ -99,13 +103,15 @@ async function getContentTypeFromBlobUrl({ src }: { src: string }): Promise<stri
 /** Gets an image's MIME type through a blob URL, data URL, HEAD request, or URL extension. */
 export async function getContentTypeFromUrl({
   src,
-  acceptContentTypes
+  acceptContentTypes,
+  t = english
 }: {
   src: string
+  t?: Translate
   acceptContentTypes: string[]
 }): Promise<string> {
   if (isBlobUrl({ src })) {
-    return getContentTypeFromBlobUrl({ src })
+    return getContentTypeFromBlobUrl({ src, t })
   }
 
   if (src.startsWith('data:')) {
@@ -122,22 +128,24 @@ export async function getContentTypeFromUrl({
       return contentType.split(';')[0]
     }
   } catch (error) {
-    console.warn('HEAD запрос неудачен, определяем тип по расширению:', error)
+    console.warn(t('image.warnings.headRequestFailed'), error)
   }
 
-  return getContentTypeFromExtension({ url: src, acceptContentTypes })
+  return getContentTypeFromExtension({ url: src, acceptContentTypes, t })
 }
 
 /** Gets an image's MIME type from a File or URL source. */
 export async function getContentType({
   source,
-  acceptContentTypes
+  acceptContentTypes,
+  t = english
 }: {
   source: File | string
+  t?: Translate
   acceptContentTypes: string[]
 }): Promise<string> {
   if (typeof source === 'string') {
-    return getContentTypeFromUrl({ src: source, acceptContentTypes })
+    return getContentTypeFromUrl({ src: source, acceptContentTypes, t })
   }
 
   return source.type || FALLBACK_CONTENT_TYPE

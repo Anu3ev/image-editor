@@ -5,6 +5,7 @@ import {
   type RectProps
 } from 'fabric'
 import { nanoid } from 'nanoid'
+import { english, type Translate } from '../../i18n'
 
 import { applyCropResizeControls } from '../interaction/crop-controls'
 import { getCropFrameSourceSize } from './crop-frame-size'
@@ -193,14 +194,16 @@ export function createCropFrame({
  * Synchronizes the transient live resize override on the crop frame.
  */
 export function setCropFrameActiveResizePreserveAspectRatio({
+  t = english,
   frame,
   preserveAspectRatio
 }: {
+  t?: Translate
   frame: Rect
   preserveAspectRatio: boolean | null
 }): void {
   if (!(frame instanceof CropFrame)) {
-    throw new Error('Crop session frame должен быть CropFrame')
+    throw new Error(t('crop.errors.sessionFrameType'))
   }
 
   frame.cropActiveResizePreserveAspectRatio = preserveAspectRatio

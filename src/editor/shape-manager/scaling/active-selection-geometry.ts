@@ -5,6 +5,7 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
+import { english, type Translate } from '../../i18n'
 import type {
   ShapeGroup,
   ShapeTransformOriginX,
@@ -88,8 +89,10 @@ export type ActiveSelectionCommittedFrame = Readonly<{
 
 /** Saves the frame's last visible state before transferring scale into child objects. */
 export function captureActiveSelectionCommittedFrame({
+  t = english,
   selection
 }: {
+  t?: Translate
   selection: ActiveSelection
 }): ActiveSelectionCommittedFrame {
   const center = selection.getCenterPoint()
@@ -97,10 +100,10 @@ export function captureActiveSelectionCommittedFrame({
   const height = selection.height * Math.abs(selection.scaleY ?? 1)
 
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    throw new Error('Размер восстановленной рамки общего выделения должен быть положительным и конечным')
+    throw new Error(t('shape.errors.invalidRestoredSelectionSize'))
   }
   if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    throw new Error('Центр восстановленной рамки общего выделения должен состоять из конечных координат')
+    throw new Error(t('shape.errors.invalidRestoredSelectionCenter'))
   }
 
   return {
@@ -124,9 +127,11 @@ export function captureActiveSelectionCommittedFrame({
  * for the selection's nonuniform scale.
  */
 export function captureRotatedActiveSelectionShapeGeometry({
+  t = english,
   group,
   selection
 }: {
+  t?: Translate
   group: ShapeGroup
   selection: ActiveSelection
 }): RotatedActiveSelectionShapeGeometry | null {
@@ -136,9 +141,9 @@ export function captureRotatedActiveSelectionShapeGeometry({
   if (!hasSupportedSelectionTransform({ selection })) return null
 
   const center = group.getRelativeCenterPoint()
-  if (!Number.isFinite(angle)) throw new Error('Угол повёрнутого шейпа должен быть конечным')
+  if (!Number.isFinite(angle)) throw new Error(t('shape.errors.invalidRotatedShapeAngle'))
   if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    throw new Error('Центр повёрнутого шейпа должен состоять из конечных координат')
+    throw new Error(t('shape.errors.invalidRotatedShapeCenter'))
   }
 
   return { angle, center }
@@ -149,10 +154,12 @@ export function captureRotatedActiveSelectionShapeGeometry({
  * and receives the already calculated canonical dimensions without skew in scene coordinates.
  */
 export function applyRotatedActiveSelectionShapeGeometry({
+  t = english,
   geometry,
   group,
   selection
 }: {
+  t?: Translate
   geometry: RotatedActiveSelectionShapeGeometry
   group: ShapeGroup
   selection: ActiveSelection
@@ -171,10 +178,10 @@ export function applyRotatedActiveSelectionShapeGeometry({
   )
 
   if (!Number.isFinite(sceneCenter.x) || !Number.isFinite(sceneCenter.y)) {
-    throw new Error('Итоговый центр повёрнутого шейпа должен состоять из конечных координат')
+    throw new Error(t('shape.errors.invalidFinalRotatedShapeCenter'))
   }
   if (!localMatrix.every(Number.isFinite)) {
-    throw new Error('Компенсирующая матрица повёрнутого шейпа должна состоять из конечных значений')
+    throw new Error(t('shape.errors.invalidRotatedShapeCompensationMatrix'))
   }
 
   util.applyTransformToObject(group, localMatrix)

@@ -8,6 +8,7 @@ import {
   type FabricObject,
   type TPointerEvent
 } from 'fabric'
+import { english, type Translate } from '../../i18n'
 
 import type { ImageEditor } from '../..'
 import {
@@ -66,7 +67,7 @@ const UNHANDLED_OBJECT_MOVEMENT_STEP: UnhandledObjectMovementStep = Object.freez
 export class MovementSnappingController {
   private readonly _editor: ImageEditor
 
-  private readonly _runtime = new MovementSnappingRuntime()
+  private readonly _runtime: MovementSnappingRuntime
 
   private _activeTarget: SupportedMovementTarget | null = null
 
@@ -77,6 +78,7 @@ export class MovementSnappingController {
     editor: ImageEditor
   }) {
     this._editor = editor
+    this._runtime = new MovementSnappingRuntime(editor.t)
   }
 
   /** Starts a shared session only for a top-level object that has already been migrated. */
@@ -88,14 +90,15 @@ export class MovementSnappingController {
     this.finishGesture()
     if (!this._isSupportedTarget(target)) return
 
-    const bounds = getObjectExactBounds({ object: target })
+    const bounds = getObjectExactBounds({ t: this._editor.t, object: target })
     if (!bounds) {
-      throw new Error('Object movement snapping requires exact target bounds')
+      throw new Error(this._editor.t('snapping.movement.exactTargetBoundsRequired'))
     }
 
     const position = this._readTargetPosition({ target })
     const environment = this._editor.snappingManager.captureMovementSnapEnvironment({ activeObject: target })
     const baseline = createMovementGestureBaseline({
+      t: this._editor.t,
       bounds,
       position,
       environment
@@ -117,11 +120,11 @@ export class MovementSnappingController {
 
     const marker = resolveMovementMarker({ event })
     const duplicate = this._runtime.getDuplicateStep({ marker })
-    if (duplicate) return createDuplicateStepResult({ duplicate })
+    if (duplicate) return createDuplicateStepResult({ t: this._editor.t, duplicate })
 
     const intent = this._createRawIntent({ target: activeTarget, event })
     const step = this._runtime.resolveMovementPlan({ marker, intent })
-    if (step.kind === 'duplicate') return createDuplicateStepResult({ duplicate: step })
+    if (step.kind === 'duplicate') return createDuplicateStepResult({ t: this._editor.t, duplicate: step })
 
     this._applyMovementPlan({ target: activeTarget, plan: step.plan })
     const verification = this._runtime.verifyMovementPlan({
@@ -195,9 +198,9 @@ export class MovementSnappingController {
     target: SupportedMovementTarget
     event: ObjectMovementTransformEvent
   }): MovementRawIntent {
-    const bounds = getObjectExactBounds({ object: target })
+    const bounds = getObjectExactBounds({ t: this._editor.t, object: target })
     if (!bounds) {
-      throw new Error('Object movement snapping requires exact raw bounds')
+      throw new Error(this._editor.t('snapping.movement.exactRawBoundsRequired'))
     }
 
     return {
@@ -234,9 +237,9 @@ export class MovementSnappingController {
   }: {
     target: SupportedMovementTarget
   }): FinalMovementGeometry {
-    const bounds = getObjectExactBounds({ object: target })
+    const bounds = getObjectExactBounds({ t: this._editor.t, object: target })
     if (!bounds) {
-      throw new Error('Object movement snapping requires exact final bounds')
+      throw new Error(this._editor.t('snapping.movement.exactFinalBoundsRequired'))
     }
 
     return {
@@ -252,7 +255,7 @@ export class MovementSnappingController {
     target: SupportedMovementTarget
   }): MovementTargetPosition {
     if (!Number.isFinite(target.left) || !Number.isFinite(target.top)) {
-      throw new Error('Object movement snapping requires finite target position')
+      throw new Error(this._editor.t('snapping.movement.targetPositionMustBeFinite'))
     }
 
     return {
@@ -276,12 +279,14 @@ function resolveMovementMarker({
 
 /** Returns the already verified result without rereading the modified object. */
 function createDuplicateStepResult({
+  t = english,
   duplicate
 }: {
+  t?: Translate
   duplicate: DuplicateMovementRuntimeStep
 }): HandledObjectMovementStep {
   if (!duplicate.verification) {
-    throw new Error('Duplicate movement step cannot be handled before verification')
+    throw new Error(t('snapping.movement.duplicateStepVerificationRequired'))
   }
 
   return createHandledStepResult({

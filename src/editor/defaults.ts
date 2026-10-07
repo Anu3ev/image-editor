@@ -34,42 +34,7 @@ export const defaults: Partial<EditorOptions> = {
     'image/webp'
   ],
   showToolbar: true,
-  toolbar: {
-    lockedActions: [{
-      name: 'Разблокировать',
-      handle: 'unlock'
-    }],
-    actions: [
-      {
-        name: 'Создать копию',
-        handle: 'copyPaste'
-      },
-      {
-        name: 'Заблокировать',
-        handle: 'lock'
-      },
-      {
-        name: 'На передний план',
-        handle: 'bringToFront'
-      },
-      {
-        name: 'На задний план',
-        handle: 'sendToBack'
-      },
-      {
-        name: 'На один уровень вверх',
-        handle: 'bringForward'
-      },
-      {
-        name: 'На один уровень вниз',
-        handle: 'sendBackwards'
-      },
-      {
-        name: 'Удалить',
-        handle: 'delete'
-      }
-    ]
-  },
+  toolbar: {},
   initialState: null,
   initialImage: null,
   defaultScale: 0.5,

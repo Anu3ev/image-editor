@@ -42,15 +42,21 @@ export default class ErrorManager {
    * Emits an error event through fabricjs
    * @param options
    * @param options.origin — Error source (defaults to 'ImageEditor')
-   * @param options.method — Method that caused the error (defaults to 'Unknown Method')
+   * @param options.method — Method that caused the error (defaults to the localized unknown-method label)
    * @param options.code — Error code (from errorCodes)
    * @param options.data — Additional data (optional)
    * @param options.message — Error message (optional; uses the error code if omitted)
    * @fires editor:error
    */
-  public emitError({ origin = 'ImageEditor', method = 'Unknown Method', code, data, message }: ErrorItem): void {
+  public emitError({
+    origin = 'ImageEditor',
+    method = this.editor.t('errors.unknownMethod'),
+    code,
+    data,
+    message
+  }: ErrorItem): void {
     if (!ErrorManager.isValidErrorCode(code)) {
-      console.warn('Неизвестный код ошибки: ', { code, origin, method })
+      console.warn(this.editor.t('errors.unknownErrorCode'), { code, origin, method })
       return
     }
 
@@ -59,7 +65,7 @@ export default class ErrorManager {
     const msg = message || code
 
     // write to the console
-    console.error(`${origin}. ${method}. ${code}. ${msg}`, data)
+    console.error(this.editor.t('errors.logFormat', { origin, method, code, message: msg }), data)
 
     const errorData = {
       code,
@@ -81,21 +87,27 @@ export default class ErrorManager {
    * Emits a warning through fabricjs
    * @param options
    * @param options.origin — Warning source (defaults to 'ImageEditor')
-   * @param options.method — Method that caused the warning (defaults to 'Unknown Method')
+   * @param options.method — Method that caused the warning (defaults to the localized unknown-method label)
    * @param ptions.code — Warning code (from errorCodes)
    * @param options.data — Additional data (optional)
    * @param options.message — Warning message (optional; uses the warning code if omitted)
    * @fires editor:warning
    */
-  public emitWarning({ origin = 'ImageEditor', method = 'Unknown Method', code, message, data }:ErrorItem): void {
+  public emitWarning({
+    origin = 'ImageEditor',
+    method = this.editor.t('errors.unknownMethod'),
+    code,
+    message,
+    data
+  }: ErrorItem): void {
     if (!ErrorManager.isValidErrorCode(code)) {
-      console.warn('Неизвестный код предупреждения: ', { code, origin, method })
+      console.warn(this.editor.t('errors.unknownWarningCode'), { code, origin, method })
       return
     }
 
     const msg = message || code
 
-    console.warn(`${origin}. ${method}. ${code}. ${msg}`, data)
+    console.warn(this.editor.t('errors.logFormat', { origin, method, code, message: msg }), data)
 
     const warningData = {
       code,

@@ -748,7 +748,7 @@ describe('Расчёт прилипания при скейлинге', () => {
           }
         }
       }
-    })).toThrow('does not belong to scale plan candidates')
+    })).toThrow('The refined x constraint does not belong to the scale plan candidates')
   })
 
   it('при одинаковой коррекции по X и Y стабильно выбирает X', () => {
@@ -1093,7 +1093,7 @@ describe('Расчёт прилипания при скейлинге', () => {
       }],
       candidates: [],
       zoom: 1
-    })).toThrow('finite ordered edges')
+    })).toThrow('Scale snapping bounds must contain finite, ordered edge coordinates')
 
     const baseline = createScaleBaseline()
     const plan = resolveScaleSnapPlan({
@@ -1104,6 +1104,7 @@ describe('Расчёт прилипания при скейлинге', () => {
     const invalidFinalGeometry = createFinalScaleGeometry({ right: 100, bottom: 100 })
     invalidFinalGeometry.bounds.centerX = 49
 
-    expect(() => verifyScaleSnapPlan({ plan, finalGeometry: invalidFinalGeometry })).toThrow('centers')
+    expect(() => verifyScaleSnapPlan({ plan, finalGeometry: invalidFinalGeometry }))
+      .toThrow('Scale snapping bounds must derive their center coordinates from their edges')
   })
 })

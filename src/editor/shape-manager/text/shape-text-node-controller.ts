@@ -1,3 +1,4 @@
+import { english, type Translate } from '../../i18n'
 import type TextManager from '../../text-manager'
 import type { TextStyleOptions } from '../../text-manager'
 import {
@@ -70,6 +71,9 @@ const cloneTextStyleState = <Value>(value?: Value): Value | undefined => {
  * Adapts TextManager for a text node owned by a shape group.
  */
 export default class ShapeTextNodeController {
+  /** Translator bound to the owning editor instance. */
+  private readonly t: Translate
+
   /**
    * Resolves TextManager after manager composition is complete.
    */
@@ -87,10 +91,14 @@ export default class ShapeTextNodeController {
    * the dependency cannot be read until the composition root is complete.
    */
   constructor({
+    t = english,
     resolveTextManager
   }: {
+  t?: Translate
     resolveTextManager: () => TextManager
   }) {
+    this.t = t
+
     this.resolveTextManager = resolveTextManager
     this.internalUpdates = new WeakSet()
   }
@@ -303,7 +311,7 @@ export default class ShapeTextNodeController {
     const textManager = this.resolveTextManager()
 
     if (!textManager) {
-      throw new Error('Shape text operation requires initialized TextManager')
+      throw new Error(this.t('shape.errors.textManagerNotInitialized'))
     }
 
     return textManager

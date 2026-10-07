@@ -24,7 +24,7 @@ async function fetchText(url) {
   const response = await fetch(url)
 
   if (!response.ok) {
-    throw new Error(`Не удалось загрузить ${url}: ${response.status}`)
+    throw new Error(`Failed to load ${url}: ${response.status}`)
   }
 
   return response.text()
@@ -40,7 +40,7 @@ function resolveEsmShBundleUrl(params) {
   const bundlePath = match?.[1]
 
   if (!bundlePath) {
-    throw new Error('Не найден bundled module URL в ответе esm.sh')
+    throw new Error('No bundled module URL found in the esm.sh response')
   }
 
   return new URL(bundlePath, moduleUrl).href
@@ -66,7 +66,7 @@ function resolvePublishedWorkerAssetUrl(params) {
   const workerFileName = workerAssetPath.split('/').pop()
 
   if (!workerFileName) {
-    throw new Error('Не найдено имя worker asset в esm.sh module')
+    throw new Error('No worker asset name found in the esm.sh module')
   }
 
   return `${JSDELIVR_NPM_ORIGIN}/${PACKAGE_NAME}@${version}/dist/assets/${workerFileName}`

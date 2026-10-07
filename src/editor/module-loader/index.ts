@@ -1,3 +1,5 @@
+import { english, type Translate } from '../i18n'
+
 export default class ModuleLoader {
   /**
    * Cache for loaded modules.
@@ -15,7 +17,7 @@ export default class ModuleLoader {
   /**
    * Class for dynamically loading external modules.
    */
-  constructor() {
+  constructor(private readonly t: Translate = english) {
     this.cache = new Map()
     this.loaders = {
       jspdf: () => import('jspdf')
@@ -29,7 +31,7 @@ export default class ModuleLoader {
    */
   public loadModule<T extends object = object>(name: string): Promise<T> {
     if (!this.loaders[name]) {
-      return Promise.reject(new Error(`Unknown module "${name}"`))
+      return Promise.reject(new Error(this.t('modules.errors.unknownModule', { name })))
     }
 
     if (!this.cache.has(name)) {

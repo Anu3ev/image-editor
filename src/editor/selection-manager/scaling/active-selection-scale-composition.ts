@@ -1,4 +1,3 @@
-/* eslint-disable no-use-before-define -- The public contract precedes the internal checks. */
 import {
   FabricImage,
   Textbox,
@@ -6,6 +5,8 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
+import { english, type Translate } from '../../i18n'
+/* eslint-disable no-use-before-define -- The public contract precedes the internal checks. */
 
 import type { ImageEditor } from '../..'
 import type {
@@ -159,10 +160,12 @@ export function isSupportedActiveSelectionScaleGeometry({
 
 /** Saves selection properties and the protected state of its child objects. */
 export function captureActiveSelectionScaleProtectedState({
+  t = english,
   compositionKind,
   target,
   transform
 }: {
+  t?: Translate
   compositionKind: ActiveSelectionScaleComposition['kind']
   target: ActiveSelection
   transform: Transform
@@ -170,7 +173,7 @@ export function captureActiveSelectionScaleProtectedState({
   return Object.freeze({
     action: transform.action,
     angle: target.angle ?? 0,
-    composition: captureProtectedSelectionComposition({ compositionKind, target }),
+    composition: captureProtectedSelectionComposition({ t, compositionKind, target }),
     controlKey: transform.corner,
     flipX: Boolean(target.flipX),
     flipY: Boolean(target.flipY),
@@ -273,9 +276,11 @@ function isSupportedMixedSelection({
 
 /** Saves protected child properties according to the selection composition. */
 function captureProtectedSelectionComposition({
+  t = english,
   compositionKind,
   target
 }: {
+  t?: Translate
   compositionKind: ActiveSelectionScaleComposition['kind']
   target: ActiveSelection
 }): ActiveSelectionScaleComposition {
@@ -295,7 +300,7 @@ function captureProtectedSelectionComposition({
           return captureProtectedSelectionImageState({ target: object })
         }
 
-        return captureProtectedSelectionTextState({ target: object })
+        return captureProtectedSelectionTextState({ t, target: object })
       })),
       kind: 'texts'
     })
@@ -305,7 +310,7 @@ function captureProtectedSelectionComposition({
     return Object.freeze({
       children: Object.freeze(target.getObjects().map((object) => {
         if (object instanceof FabricImage) return captureProtectedSelectionImageState({ target: object })
-        if (object instanceof Textbox) return captureProtectedSelectionTextState({ target: object })
+        if (object instanceof Textbox) return captureProtectedSelectionTextState({ t, target: object })
 
         return captureProtectedSelectionShapeState({ target: object })
       })),
@@ -371,12 +376,14 @@ function captureProtectedSelectionShapeState({
 
 /** Saves text properties that do not depend on canonical resizing. */
 function captureProtectedSelectionTextState({
+  t = english,
   target
 }: {
+  t?: Translate
   target: FabricObject
 }): ProtectedSelectionTextState {
   if (!(target instanceof Textbox)) {
-    throw new Error('Текстовый состав должен содержать только объекты Textbox')
+    throw new Error(t('selection.errors.textCompositionRequiresTextboxes'))
   }
 
   return Object.freeze({

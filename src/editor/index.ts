@@ -1,6 +1,7 @@
 import { Canvas, Pattern, Point, Rect } from 'fabric'
 import { nanoid } from 'nanoid'
 import type { EditorOptions } from './types/options'
+import { createTranslator, type Translate } from './i18n'
 
 import Listeners from './listeners'
 import ModuleLoader from './module-loader'
@@ -37,7 +38,6 @@ import { addRectangleToCanvas } from './utils/primitive-shapes'
 // TODO: Add comprehensive tests with jest
 // TODO: Make the demo more attractive
 // TODO: Drawing mode
-// TODO: Consider how to handle translations in the editor
 // TODO: Highlight an object when the mouse hovers over its area beneath another object, and allow it to be selected
 
 /**
@@ -45,6 +45,9 @@ import { addRectangleToCanvas } from './utils/primitive-shapes'
  * @class
  */
 export class ImageEditor {
+  /** Fixed-language translator; never changes other editors or persisted content. */
+  public readonly t: Translate
+
   /**
    * Editor options and settings
    */
@@ -235,6 +238,7 @@ export class ImageEditor {
    */
   constructor(canvasId: string, options: EditorOptions, cleanupHostResources?: () => void) {
     this.options = options
+    this.t = createTranslator(options.language)
     this._cleanupHostResources = cleanupHostResources
     this.containerId = canvasId
     this.editorId = `${canvasId}-${nanoid()}`
@@ -250,7 +254,7 @@ export class ImageEditor {
    * @fires editor:ready
    */
   public init(): Promise<void> {
-    if (this._destroyed) return Promise.reject(new Error('ImageEditor has been destroyed'))
+    if (this._destroyed) return Promise.reject(new Error(this.t('editor.errors.destroyed')))
     if (this._initialization) return this._initialization
 
     this._initialization = new Promise((resolve, reject) => {
@@ -272,7 +276,7 @@ export class ImageEditor {
     if (this._destroyed) {
       // Asynchronous loading may have created a blob URL after destroy().
       this.imageManager?.revokeBlobUrls()
-      throw new Error('ImageEditor has been destroyed')
+      throw new Error(this.t('editor.errors.destroyed'))
     }
   }
 
@@ -297,8 +301,8 @@ export class ImageEditor {
     CustomizedControls.apply()
 
     this.canvas = new Canvas(this.containerId, this.options)
-    this.moduleLoader = new ModuleLoader()
-    this.workerManager = new WorkerManager()
+    this.moduleLoader = new ModuleLoader(this.t)
+    this.workerManager = new WorkerManager(undefined, this.t)
     this.errorManager = new ErrorManager({ editor: this })
     this.historyManager = new HistoryManager({ editor: this })
     this.toolbar = new ToolbarManager({ editor: this })
@@ -318,7 +322,7 @@ export class ImageEditor {
     this.panConstraintManager = new PanConstraintManager({ editor: this })
     this.snappingManager = new SnappingManager({ editor: this })
     this.measurementManager = new MeasurementManager({ editor: this })
-    this.fontManager = new FontManager(this.options.fonts ?? [])
+    this.fontManager = new FontManager(this.options.fonts ?? [], this.t)
     this.textManager = new TextManager({ editor: this })
     this.templateManager = new TemplateManager({ editor: this })
     this.cropManager = new CropManager({ editor: this })
@@ -385,7 +389,7 @@ export class ImageEditor {
           origin: 'ImageEditor',
           method: 'init',
           code: 'INITIAL_STATE_LOAD_FAILED',
-          message: 'Не удалось загрузить состояние редактора. Попытка импортировать начальное изображение.',
+          message: this.t('editor.errors.initialStateLoadFailed'),
           data: error as Error
         })
       } finally {
@@ -405,7 +409,7 @@ export class ImageEditor {
     this._assertActive()
     this.historyManager.saveState()
 
-    console.log('editor:ready')
+    console.log(this.t('editor.logs.ready'))
     this.canvas.fire('editor:ready', this)
     this._assertActive()
 
@@ -488,7 +492,7 @@ export class ImageEditor {
   public destroy(): void {
     if (this._destroyed) return
     this._destroyed = true
-    this._rejectInitialization?.(new Error('ImageEditor has been destroyed'))
+    this._rejectInitialization?.(new Error(this.t('editor.errors.destroyed')))
     this._rejectInitialization = undefined
 
     const cleanupSteps = [
@@ -515,10 +519,10 @@ export class ImageEditor {
       try {
         // Fabric dispose() may finish asynchronously after a deferred render.
         Promise.resolve(cleanup()).catch((error: unknown) => {
-          console.error('Failed to clean up ImageEditor resource', error)
+          console.error(this.t('editor.errors.resourceCleanupFailed'), error)
         })
       } catch (error) {
-        console.error('Failed to clean up ImageEditor resource', error)
+        console.error(this.t('editor.errors.resourceCleanupFailed'), error)
       }
     })
   }

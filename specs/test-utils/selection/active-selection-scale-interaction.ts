@@ -10,6 +10,7 @@ import {
   type TOriginY,
   type Transform
 } from 'fabric'
+import { english } from '../../../src/editor/i18n'
 
 import { ImageEditor } from '../../../src/editor'
 import CanvasManager from '../../../src/editor/canvas-manager'
@@ -757,7 +758,7 @@ function createScaleTestEditor({
       montageArea: { height: 600, left: 400, top: 300, width: 800 }
     })
   )
-  const editor: ImageEditor = Object.create(ImageEditor.prototype)
+  const editor: ImageEditor = Object.assign(Object.create(ImageEditor.prototype), { t: english })
   const historyManager: HistoryManager = Object.create(HistoryManager.prototype)
 
   editor.canvas = canvas
@@ -767,6 +768,7 @@ function createScaleTestEditor({
   editor.historyManager = historyManager
   editor.shapeManager = shapeManager
   editor.snappingManager = snappingManager
+  snappingManager.editor = editor
   editor.textManager = textManager
   target.canvas = canvas
   canvas.setActiveObject(target)

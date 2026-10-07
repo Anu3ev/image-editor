@@ -1,6 +1,7 @@
 import type { EditorOptions } from './editor/types/options'
 import { ImageEditor } from './editor'
 import { defaults } from './editor/defaults'
+import { createTranslator } from './editor/i18n'
 
 /**
  * Initializes the editor by creating a canvas inside the container.
@@ -17,12 +18,14 @@ export default async function initEditor(
   // Find the container by ID.
   const container = document.getElementById(containerId)
   if (!container) {
-    return Promise.reject(new Error(`Контейнер с ID "${containerId}" не найден.`))
+    const t = createTranslator(options.language)
+    return Promise.reject(new Error(t('editor.errors.containerNotFound', { containerId })))
   }
 
   const canvasId = `${containerId}-canvas`
   if (document.getElementById(canvasId)) {
-    throw new Error(`Canvas "${canvasId}" already exists. Destroy the previous editor before initializing again.`)
+    const t = createTranslator(options.language)
+    throw new Error(t('editor.errors.canvasAlreadyExists', { canvasId }))
   }
 
   // Create the canvas

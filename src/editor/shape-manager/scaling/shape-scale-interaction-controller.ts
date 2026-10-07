@@ -424,10 +424,12 @@ export default class ShapeScaleInteractionController {
 
     try {
       const snappedMultipliers = resolveRectangularScaleMultipliers({
+        t: this.editor.t,
         projectionMode: snapStep.plan.projectionMode,
         effectiveValues: snapStep.plan.effectiveValues
       })
       const appliedMultipliers = stabilizeShapeScaleMultipliers({
+        t: this.editor.t,
         projection: session.projection,
         mode,
         multipliers: snappedMultipliers,
@@ -496,8 +498,8 @@ export default class ShapeScaleInteractionController {
     plan: ScaleSnapPlan
     mode: RectangularScaleGestureMode
   }): FinalScaleGeometry {
-    const bounds = getObjectExactBounds({ object: session.target })
-    if (!bounds) throw new Error('Shape must have exact bounds after scale')
+    const bounds = getObjectExactBounds({ t: this.editor.t, object: session.target })
+    if (!bounds) throw new Error(this.editor.t('shape.errors.missingExactBoundsAfterScale'))
 
     const multipliers = this._readAppliedMultipliers({ session })
     const anchor = session.target.getPointByOrigin(

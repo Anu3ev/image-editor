@@ -218,7 +218,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setColorBackground',
-        message: 'Не удалось установить цветовой фон',
+        message: this.editor.t('background.errors.setColorFailed'),
         data: { error, color, customData, fromTemplate, withoutSave }
       })
     }
@@ -282,7 +282,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setGradientBackground',
-        message: 'Не удалось установить градиентный фон',
+        message: this.editor.t('background.errors.setGradientFailed'),
         data: { error, gradient, customData, fromTemplate, withoutSave }
       })
     }
@@ -406,7 +406,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setImageBackground',
-        message: 'Не удалось установить изображение в качестве фона',
+        message: this.editor.t('background.errors.setImageFailed'),
         data: { error, imageSource, customData, fromTemplate, withoutSave }
       })
     }
@@ -454,7 +454,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setPreparedImageBackground',
-        message: 'Не удалось установить подготовленное изображение в качестве фона',
+        message: this.editor.t('background.errors.setPreparedImageFailed'),
         data: { error, image, customData, fromTemplate, withoutSave }
       })
     }
@@ -484,7 +484,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_REMOVAL_FAILED',
         origin: 'BackgroundManager',
         method: 'removeBackground',
-        message: 'Не удалось удалить фон',
+        message: this.editor.t('background.errors.removeFailed'),
         data: { error, withoutSave }
       })
     }
@@ -589,7 +589,7 @@ export default class BackgroundManager {
     }) ?? {}
 
     if (!image) {
-      throw new Error('Не удалось загрузить изображение')
+      throw new Error(this.editor.t('background.errors.imageLoadFailed'))
     }
 
     this._setImageBackgroundObject({ image, customData })

@@ -3,6 +3,7 @@ import {
   util,
   type FabricObject
 } from 'fabric'
+import { english, type Translate } from '../../i18n'
 
 import { getShapeNodes } from '../domain/shape-nodes'
 import type {
@@ -138,14 +139,16 @@ function captureShapeRounding({
 
 /** Restores rounding on a rectangular shape node. */
 function restoreShapeRounding({
+  t = english,
   shape,
   snapshot
 }: {
+  t?: Translate
   shape: ShapeNode
   snapshot: ShapeNodeRoundingSnapshot
 }): void {
   if (!snapshot) return
-  if (!(shape instanceof Rect)) throw new Error('Скругление можно восстановить только для прямоугольного шейпа')
+  if (!(shape instanceof Rect)) throw new Error(t('shape.errors.roundingRestoreRequiresRectangle'))
 
   shape.set(snapshot)
 }
@@ -185,12 +188,14 @@ function restoreTextGeometry({
 
 /** Saves mutable group, shape, and text geometry before an atomic scaling step. */
 export function captureShapeScalingGeometry({
+  t = english,
   group
 }: {
+  t?: Translate
   group: ShapeGroup
 }): ShapeScalingGeometrySnapshot {
   const { shape, text } = getShapeNodes({ group })
-  if (!shape || !text) throw new Error('Снимок скейлинга требует полноценную композицию шейпа')
+  if (!shape || !text) throw new Error(t('shape.errors.snapshotRequiresCompleteComposition'))
 
   return Object.freeze({
     group,
@@ -207,8 +212,10 @@ export function captureShapeScalingGeometry({
 
 /** Fully restores the shape composition after an incomplete atomic operation. */
 export function restoreShapeScalingGeometry({
+  t = english,
   snapshot
 }: {
+  t?: Translate
   snapshot: ShapeScalingGeometrySnapshot
 }): void {
   const failures: unknown[] = []
@@ -220,7 +227,7 @@ export function restoreShapeScalingGeometry({
   }
   try {
     restoreFabricGeometry({ object: snapshot.shape, snapshot: snapshot.shapeGeometry })
-    restoreShapeRounding({ shape: snapshot.shape, snapshot: snapshot.shapeRounding })
+    restoreShapeRounding({ t, shape: snapshot.shape, snapshot: snapshot.shapeRounding })
   } catch (error) {
     failures.push(error)
   }
@@ -245,8 +252,10 @@ export function restoreShapeScalingGeometry({
 
 /** Attempts to restore every shape and throws the first error only after a complete pass. */
 export function restoreShapeScalingSnapshots({
+  t = english,
   snapshots
 }: {
+  t?: Translate
   snapshots: readonly ShapeScalingGeometrySnapshot[]
 }): void {
   const failures: unknown[] = []
@@ -254,12 +263,12 @@ export function restoreShapeScalingSnapshots({
   for (let index = snapshots.length - 1; index >= 0; index -= 1) {
     const snapshot = snapshots[index]
     if (!snapshot) {
-      failures.push(new Error('Каждому шейпу должен соответствовать снимок геометрии'))
+      failures.push(new Error(t('shape.errors.missingGeometrySnapshot')))
       continue
     }
 
     try {
-      restoreShapeScalingGeometry({ snapshot })
+      restoreShapeScalingGeometry({ t, snapshot })
     } catch (error) {
       failures.push(error)
     }

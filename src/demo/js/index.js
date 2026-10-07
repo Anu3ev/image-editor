@@ -44,7 +44,7 @@ document.addEventListener('DOMContentLoaded', async() => {
     console.error('[image-editor demo] Initialization failed:', error)
     const status = document.createElement('p')
     status.setAttribute('role', 'alert')
-    status.textContent = 'Не удалось загрузить редактор. Перезагрузите страницу, чтобы повторить попытку.'
+    status.textContent = 'Failed to load the editor. Reload the page to try again.'
     document.getElementById('editor')?.appendChild(status)
   }
 })

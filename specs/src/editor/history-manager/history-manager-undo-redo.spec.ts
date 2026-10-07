@@ -571,7 +571,7 @@ describe('undo/redo', () => {
       origin: 'HistoryManager',
       method: 'undo',
       code: 'UNDO_ERROR',
-      message: 'Ошибка отмены действия',
+      message: 'Failed to undo the action',
       data: error
     })
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
@@ -602,7 +602,7 @@ describe('undo/redo', () => {
       origin: 'HistoryManager',
       method: 'redo',
       code: 'REDO_ERROR',
-      message: 'Ошибка повтора действия',
+      message: 'Failed to redo the action',
       data: error
     })
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
