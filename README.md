@@ -12,6 +12,16 @@ This project demonstrates the architecture behind complex browser-based visual t
 
 It keeps FabricJS rendering concerns separate from workflows such as canvas state management, history, layers, crop sessions, text editing, background composition, and export. The result is a TypeScript editor that host applications can integrate through a focused public API and editor events.
 
+## Built with this library
+
+![Production inSales Vue image editor with reusable templates and a product composition](./assets/insales-editor-integration.jpg)
+
+I built this TypeScript/FabricJS library and integrated it into the production Vue image editor at inSales. I owned the frontend architecture and implementation, working from prepared Figma designs and defining API contracts with the backend engineer.
+
+The library provides canvas editing, history, and serialization. The product-specific Vue interface, backend, and AI features shown in the case belong to the host application and are not included in the npm package.
+
+[More project details on LinkedIn](https://www.linkedin.com/in/alexander-s-anufriev/details/projects/)
+
 ## See it in action
 
 The live demo exercises the same workflows exposed through the public API.
